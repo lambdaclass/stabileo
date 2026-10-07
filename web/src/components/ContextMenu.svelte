@@ -4,6 +4,7 @@
   import { variableCutRefused } from '../lib/section/variable';
   import { mirrorSelectionInPlace, rotateSelectionInPlace } from '../lib/model/edit/transform-in-place';
   import { addSupportFromTool3D } from '../lib/store/support-tool-3d';
+  import { viewVisibility } from '../lib/store/view-state.svelte';
   import { drawState } from '../lib/store/draw-state.svelte';
 
   let subdivCount = $state(2);
@@ -80,6 +81,31 @@
     }
   }
 
+  /*
+   * Hide or isolate: what was right-clicked, or the selection when the click
+   * was on part of it or on empty space. PRO has these in its View panel.
+   */
+  const offersView = $derived(uiStore.analysisMode !== 'pro');
+  function viewTarget() {
+    const ctx = uiStore.contextMenu;
+    const sel = { nodes: [...uiStore.selectedNodes], elements: [...uiStore.selectedElements], shells: [...uiStore.selectedShells] };
+    if (ctx?.nodeId != null && !uiStore.selectedNodes.has(ctx.nodeId)) return { nodes: [ctx.nodeId], elements: [], shells: [] };
+    if (ctx?.elementId != null && !uiStore.selectedElements.has(ctx.elementId)) return { nodes: [], elements: [ctx.elementId], shells: [] };
+    return sel;
+  }
+  const viewTargetCount = $derived.by(() => {
+    if (!uiStore.contextMenu) return 0;
+    const v = viewTarget();
+    return v.nodes.length + v.elements.length + v.shells.length;
+  });
+  function viewAction(kind: 'hide' | 'isolate' | 'show-all') {
+    const target = viewTarget();
+    uiStore.contextMenu = null;
+    if (kind === 'show-all') viewVisibility.showAll();
+    else if (kind === 'hide') { viewVisibility.hide(target); uiStore.clearSelection(); }
+    else viewVisibility.isolate(target);
+  }
+
   function doSubdivide() {
     const ctx = uiStore.contextMenu;
     if (!ctx?.elementId) return;
@@ -143,6 +169,16 @@
         <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>{t('ctx.rotate90ccw')}</button>
       {:else}
         <button class="ctx-item" disabled>{t('ctx.noElements')}</button>
+      {/if}
+    {/if}
+    {#if offersView && (viewTargetCount > 0 || viewVisibility.active)}
+      <div class="ctx-divider"></div>
+      {#if viewTargetCount > 0}
+        <button class="ctx-item" onclick={() => viewAction('hide')} data-testid="ctx-view-hide">{t('view.hide')}</button>
+        <button class="ctx-item" onclick={() => viewAction('isolate')} data-testid="ctx-view-isolate">{t('view.isolate')}</button>
+      {/if}
+      {#if viewVisibility.active}
+        <button class="ctx-item" onclick={() => viewAction('show-all')} data-testid="ctx-view-show-all">{t('view.showAll')}</button>
       {/if}
     {/if}
   </div>

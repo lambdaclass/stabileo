@@ -7,6 +7,8 @@
  * are those of the member that gets made.
  */
 import type { CanvasTheme } from './theme';
+import { canvasUnitSystem } from './canvas-units';
+import { toDisplay, unitLabel, type UnitSystem } from '../utils/units';
 
 type Pt = { x: number; y: number };
 
@@ -24,13 +26,18 @@ export function formatDimension(v: number): string {
   return (r < 0 ? '−' : '') + Math.abs(r).toFixed(2);
 }
 
-/** The three labels: the length over the ghost, and the two legs. */
-export function memberDimensionLabels(a: Pt, b: Pt): { length: string; dx: string; dz: string } {
+/**
+ * The three labels: the length over the ghost, and the two legs, in the unit
+ * system the canvas is drawn in. The legs carry no unit of their own: they sit
+ * beside the length, which names it.
+ */
+export function memberDimensionLabels(a: Pt, b: Pt, us: UnitSystem = canvasUnitSystem()): { length: string; dx: string; dz: string } {
   const { dx, dz, length } = memberDimensions(a, b);
+  const len = (v: number) => formatDimension(toDisplay(v, 'length', us));
   return {
-    length: `${formatDimension(length)} m`,
-    dx: `ΔX ${formatDimension(dx)}`,
-    dz: `ΔZ ${formatDimension(dz)}`,
+    length: `${len(length)} ${unitLabel('length', us)}`,
+    dx: `ΔX ${len(dx)}`,
+    dz: `ΔZ ${len(dz)}`,
   };
 }
 

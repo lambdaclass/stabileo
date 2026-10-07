@@ -3,6 +3,8 @@
   import { t } from '../../lib/i18n';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
   import type { MaterialPreset } from '../../lib/data/material-presets';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import UnitInput from '../UnitInput.svelte';
 
   const materialsArr = $derived([...modelStore.materials.values()]);
 
@@ -25,6 +27,13 @@
       modelStore.updateMaterial(id, { [field]: num });
       resultsStore.clear();
     }
+  }
+
+  /** E, ρ and fy come from a UnitInput, already back in SI (MPa, kN/m³). */
+  function setMaterialNumber(id: number, field: 'e' | 'rho' | 'fy', v: number) {
+    if (!Number.isFinite(v)) return;
+    modelStore.updateMaterial(id, { [field]: v });
+    resultsStore.clear();
   }
 
   function deleteMaterial(id: number) {
@@ -90,10 +99,10 @@
         <tr class="detail-row">
           <td colspan="3">
             <div class="mat-detail">
-              <label class="prop"><span>E (MPa)</span><input type="number" step="1000" value={mat.e} onchange={(e) => updateMaterialField(mat.id, 'e', e.currentTarget.value)} /></label>
+              <label class="prop"><span>E ({unitQ('stress')})</span><UnitInput value={mat.e} qty="stress" unit={false} step="1000" onchange={(v) => setMaterialNumber(mat.id, 'e', v)} /></label>
               <label class="prop"><span>ν</span><input type="number" step="0.01" value={mat.nu} onchange={(e) => updateMaterialField(mat.id, 'nu', e.currentTarget.value)} /></label>
-              <label class="prop"><span>ρ (kN/m³)</span><input type="number" step="0.1" value={mat.rho} onchange={(e) => updateMaterialField(mat.id, 'rho', e.currentTarget.value)} /></label>
-              <label class="prop"><span>fy (MPa)</span><input type="number" step="10" value={mat.fy ?? ''} onchange={(e) => updateMaterialField(mat.id, 'fy', e.currentTarget.value)} /></label>
+              <label class="prop"><span>ρ ({unitQ('density')})</span><UnitInput value={mat.rho} qty="density" unit={false} step="0.1" onchange={(v) => setMaterialNumber(mat.id, 'rho', v)} /></label>
+              <label class="prop"><span>fy ({unitQ('stress')})</span><UnitInput value={mat.fy ?? NaN} qty="stress" unit={false} step="10" onchange={(v) => setMaterialNumber(mat.id, 'fy', v)} /></label>
             </div>
           </td>
         </tr>
@@ -134,7 +143,8 @@
     font-size: 0.74rem;
     color: var(--st-text-3);
   }
-  .prop input { width: 90px; text-align: right; }
+  /* :global because E, ρ and fy are inputs inside UnitInput. */
+  .prop :global(input) { width: 90px; text-align: right; }
 
   table {
     width: max-content;
@@ -169,7 +179,7 @@
     font-weight: 600;
   }
 
-  td input[type="number"],
+  td :global(input[type="number"]),
   td input[type="text"] {
     width: 55px;
     padding: 0.1rem 0.2rem;

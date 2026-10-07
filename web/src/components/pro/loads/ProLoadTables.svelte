@@ -260,12 +260,12 @@
 
   {#if thermal.length}
     <div class="pro-load-section-title">{t('loadTables.thermal')}</div>
-    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>ΔT ({unitQ('temperatureDiff')})</th><th>ΔTgz ({unitQ('temperatureDiff')})</th><th>ΔTgy ({unitQ('temperatureDiff')})</th><th>ε₀ (‰)</th><th></th></tr></thead><tbody>
+    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>ΔT ({unitQ('temperatureDelta')})</th><th>ΔTgz ({unitQ('temperatureDelta')})</th><th>ΔTgy ({unitQ('temperatureDelta')})</th><th>ε₀ (‰)</th><th></th></tr></thead><tbody>
       {#each thermal as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-thermal-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
-          {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDiff')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDiff')}
-          {@render cell(l.data.id, 'dtGradientY', l.data.dtGradientY, 'temperatureDiff')}{@render cell(l.data.id, 'strain', l.data.strain, 'permille')}
+          {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDelta')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDelta')}
+          {@render cell(l.data.id, 'dtGradientY', l.data.dtGradientY, 'temperatureDelta')}{@render cell(l.data.id, 'strain', l.data.strain, 'permille')}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -302,11 +302,11 @@
 
   {#if thermalQuad.length}
     <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
-    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>{t('pro.dtUniform')} ({unitQ('temperatureDiff')})</th><th>{t('pro.dtGradient')} ({unitQ('temperatureDiff')})</th><th></th></tr></thead><tbody>
+    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>{t('pro.dtUniform')} ({unitQ('temperatureDelta')})</th><th>{t('pro.dtGradient')} ({unitQ('temperatureDelta')})</th><th></th></tr></thead><tbody>
       {#each thermalQuad as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.quadId}</td>
-          {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDiff')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDiff')}{@render x(l.data.id)}
+          {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDelta')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDelta')}{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>

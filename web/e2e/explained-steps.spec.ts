@@ -176,7 +176,9 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.getByTestId('steps-doc')).toBeVisible();
     await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
     await page.getByTestId('rb-cmd-load').click();
-    const selfWeight = page.locator('.selfweight-row input');
+    // Self-weight sits at the top of the loads panel's Combinations fold.
+    await page.locator('.combos-fold > summary').click();
+    const selfWeight = page.getByTestId('selfweight-toggle');
     await selfWeight.setChecked(!(await selfWeight.isChecked()));
     await page.getByTestId('rb-cmd-advanced').click();
     await expect(page.getByTestId('steps-refresh')).toBeVisible();

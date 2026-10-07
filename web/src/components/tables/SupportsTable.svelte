@@ -1,17 +1,21 @@
 <script lang="ts">
-  import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
+  import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  // Values are typed in the unit system chosen under Settings and kept in SI.
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
   import { defaultDofs } from '../../lib/store/support-dofs';
+  import { pruneStaleSelection } from '../../lib/store/selection-prune';
 
-  const nodesArr = $derived([...modelStore.nodes.values()]);
   const supportsArr = $derived([...modelStore.supports.values()]);
 
-  let newSupportNodeId = $state(0);
-  let newSupportType = $state<string>('pinned');
 
   function deleteSupport(id: number) {
     modelStore.removeSupport(id);
+    // A deleted support leaves the selection too, or the bar keeps editing nothing.
+    pruneStaleSelection();
   }
 
   function changeSupportType(supId: number, val: string) {
@@ -44,41 +48,6 @@
     resultsStore.clear();
     resultsStore.clear3D();
   }
-
-  function addSupport() {
-    if (!modelStore.getNode(newSupportNodeId)) return;
-    historyStore.pushState();
-    if (uiStore.is3DWorkspace) {
-      // Create with per-DOF restraints from UI state
-      const dofRestraints = {
-        tx: uiStore.sup3dTx, ty: uiStore.sup3dTy, tz: uiStore.sup3dTz,
-        rx: uiStore.sup3dRx, ry: uiStore.sup3dRy, rz: uiStore.sup3dRz,
-      };
-      const type = deriveType(dofRestraints);
-      // Collect springs for unchecked DOFs
-      let springs: any = undefined;
-      const hasSpring = (!dofRestraints.tx && uiStore.sup3dKx > 0) ||
-                        (!dofRestraints.ty && uiStore.sup3dKy > 0) ||
-                        (!dofRestraints.tz && uiStore.sup3dKz > 0) ||
-                        (!dofRestraints.rx && uiStore.sup3dKrx > 0) ||
-                        (!dofRestraints.ry && uiStore.sup3dKry > 0) ||
-                        (!dofRestraints.rz && uiStore.sup3dKrz > 0);
-      if (hasSpring) {
-        springs = {};
-        if (!dofRestraints.tx && uiStore.sup3dKx > 0) springs.kx = uiStore.sup3dKx;
-        if (!dofRestraints.ty && uiStore.sup3dKy > 0) springs.ky = uiStore.sup3dKy;
-        if (!dofRestraints.tz && uiStore.sup3dKz > 0) springs.kz = uiStore.sup3dKz;
-        if (!dofRestraints.rx && uiStore.sup3dKrx > 0) springs.krx = uiStore.sup3dKrx;
-        if (!dofRestraints.ry && uiStore.sup3dKry > 0) springs.kry = uiStore.sup3dKry;
-        if (!dofRestraints.rz && uiStore.sup3dKrz > 0) springs.krz = uiStore.sup3dKrz;
-      }
-      modelStore.addSupport(newSupportNodeId, type, springs, { dofRestraints, dofFrame: 'global' });
-    } else {
-      modelStore.addSupport(newSupportNodeId, newSupportType as any);
-    }
-    resultsStore.clear();
-    resultsStore.clear3D();
-  }
 </script>
 
 <table>
@@ -91,7 +60,8 @@
   </thead>
   <tbody>
     {#each supportsArr as sup}
-      <tr>
+      <tr class:row-sel={rowSelected('support', sup.id)} onclick={(e) => selectRow(e, 'support', sup.id)}
+        ondblclick={(e) => frameRow(e, 'support', sup.id)} onfocusin={(e) => focusRow(e, 'support', sup.id)}>
         <td class="id-cell">{sup.id}</td>
         <td>{sup.nodeId}</td>
         {#if uiStore.is3DWorkspace}
@@ -107,22 +77,22 @@
           </td>
           <td class="load-values">
             {#if !dofs.tx}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /></span>
+              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.ty}
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /></span>
+              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.tz}
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /></span>
+              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
             {/if}
             {#if !dofs.rx}
-              <span class="load-field">krx<input type="number" step="100" value={sup.krx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krx', e.currentTarget.value)} /></span>
+              <span class="load-field">krx<UnitInput value={sup.krx ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
             {#if !dofs.ry}
-              <span class="load-field">kry<input type="number" step="100" value={sup.kry ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kry', e.currentTarget.value)} /></span>
+              <span class="load-field">kry<UnitInput value={sup.kry ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kry', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
             {#if !dofs.rz}
-              <span class="load-field">krz<input type="number" step="100" value={sup.krz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'krz', e.currentTarget.value)} /></span>
+              <span class="load-field">krz<UnitInput value={sup.krz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'krz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {/if}
           </td>
         {:else}
@@ -138,13 +108,13 @@
           </td>
           <td class="load-values">
             {#if sup.type === 'spring'}
-              <span class="load-field">kx<input type="number" step="100" value={sup.kx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kx', e.currentTarget.value)} /></span>
-              <span class="load-field">ky<input type="number" step="100" value={sup.ky ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'ky', e.currentTarget.value)} /></span>
-              <span class="load-field">kz<input type="number" step="100" value={sup.kz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'kz', e.currentTarget.value)} /></span>
+              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {:else}
-              <span class="load-field">dx<input type="number" step="0.001" value={sup.dx ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dx', e.currentTarget.value)} /></span>
-              <span class="load-field">dz<input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'dy', e.currentTarget.value)} /></span>
-              <span class="load-field">d&theta;y<input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} onchange={(e) => updateSupportSpring(sup.id, 'drz', e.currentTarget.value)} /></span>
+              <span class="load-field">dx<UnitInput value={sup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">dz<UnitInput value={sup.dz ?? sup.dy ?? 0} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dz', String(v))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
+              <span class="load-field">d&theta;y<UnitInput value={sup.dry ?? sup.drz ?? 0} qty="rotation" onchange={(v) => updateSupportSpring(sup.id, 'dry', String(v))} unit={false} /><span class="lf-unit">{unitQ('rotation')}</span></span>
             {/if}
           </td>
         {/if}
@@ -153,36 +123,14 @@
     {/each}
   </tbody>
 </table>
-<div class="table-footer">
-  <div class="add-row" style={uiStore.is3DWorkspace ? 'flex-wrap:nowrap;gap:0.15rem;' : ''}>
-    <span class="add-label">{t('table.nodeLabel')}:</span>
-    <select bind:value={newSupportNodeId} class="add-input" style={uiStore.is3DWorkspace ? 'width:40px;' : ''}>
-      {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
-    </select>
-    {#if uiStore.is3DWorkspace}
-      <!-- 3D: per-DOF checkboxes for new support -->
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTx} />Fx</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTy} />Fy</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dTz} />Fz</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRx} />Mx</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRy} />My</label>
-      <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRz} />Mz</label>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('table.fixed6dof')}>&#9635;</button>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('table.pinned3trans')}>&#9651;</button>
-    {:else}
-      <select bind:value={newSupportType} class="add-input add-input-wide">
-        <option value="fixed">{t('table.fixed')}</option>
-        <option value="pinned">{t('table.pinned')}</option>
-        <option value="rollerX">{t('table.rollerX')}</option>
-        <option value="rollerZ">{t('table.rollerY')}</option>
-        <option value="spring">{t('table.spring')}</option>
-      </select>
-    {/if}
-    <button class="add-btn" onclick={addSupport}>{t('table.addSupport')}</button>
-  </div>
-</div>
+<!-- Created with the tool above the drawing; the table lists and edits them. -->
+{#if supportsArr.length === 0}
+  <p class="empty-hint">{t('table.supportsEmpty')}</p>
+{/if}
 
 <style>
+  .empty-hint { margin: 0.5rem; font-size: 0.74rem; color: var(--st-text-3); }
+  tr.row-sel td { background: var(--st-selected-bg); }
   table {
     width: max-content;
     min-width: 100%;
@@ -216,7 +164,7 @@
     font-weight: 600;
   }
 
-  td input[type="number"] {
+  td :global(input[type="number"]) {
     width: 55px;
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
@@ -251,7 +199,14 @@
     color: var(--st-text-3);
   }
 
-  .load-field input {
+  /* The unit each value is typed in, legible at a glance rather than a faint hint. */
+  .lf-unit {
+    margin-left: 2px;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+    white-space: nowrap;
+  }
+  .load-field :global(input) {
     width: 50px;
   }
 
@@ -287,58 +242,11 @@
     background: rgba(127, 212, 204, 0.05);
   }
 
-  .table-footer {
-    padding: 0.5rem;
-    border-top: 1px solid var(--st-bg);
-  }
 
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
 
-  .add-row .add-btn {
-    width: auto;
-    flex-shrink: 0;
-  }
 
-  .add-label {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    flex-shrink: 0;
-  }
 
-  .add-input {
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    padding: 0.2rem 0.3rem;
-    font-size: 0.75rem;
-    width: 60px;
-  }
 
-  .add-input-wide {
-    width: auto;
-    min-width: 80px;
-  }
 
-  .add-btn {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    color: var(--st-value);
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-  }
 
-  .add-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
 </style>

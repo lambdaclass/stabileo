@@ -313,9 +313,9 @@
       {#each ['mx', 'my', 'mz'] as const as k (k)}<QuantityInput nullable showUnit={false} cls="fg-in" bind:value={p[k]} quantity="moment" testid="wl-p{k}" ariaLabel={k} />{/each}<span class="fg-u">{unitQ('moment')}</span></div>
     <p class="wl-hint fg-full">{t('writeLoad.pointHint')}</p>
   {:else if kind === 'thermal'}
-    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.dt} quantity="temperatureDiff" testid="wl-dt" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
-    <div class="fg-r"><span class="fg-l">ΔTgz</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gz} quantity="temperatureDiff" testid="wl-gz" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
-    <div class="fg-r"><span class="fg-l">ΔTgy</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gy} quantity="temperatureDiff" testid="wl-gy" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.dt} quantity="temperatureDelta" testid="wl-dt" /><span class="fg-u">{unitQ('temperatureDelta')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTgz</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gz} quantity="temperatureDelta" testid="wl-gz" /><span class="fg-u">{unitQ('temperatureDelta')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTgy</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={th.gy} quantity="temperatureDelta" testid="wl-gy" /><span class="fg-u">{unitQ('temperatureDelta')}</span></div>
     <p class="wl-hint fg-full">{t('writeLoad.thermalHint')}</p>
   {:else if kind === 'strain'}
     <div class="fg-r"><span class="fg-l">{t('writeLoad.as')}</span>
@@ -343,8 +343,8 @@
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} bind:sketch={shellSketch} />{/key}
   {:else}
-    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.dt} quantity="temperatureDiff" testid="wl-tq-dt" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
-    <div class="fg-r"><span class="fg-l">ΔTg</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.g} quantity="temperatureDiff" testid="wl-tq-g" /><span class="fg-u">{unitQ('temperatureDiff')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔT</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.dt} quantity="temperatureDelta" testid="wl-tq-dt" /><span class="fg-u">{unitQ('temperatureDelta')}</span></div>
+    <div class="fg-r"><span class="fg-l">ΔTg</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={tq.g} quantity="temperatureDelta" testid="wl-tq-g" /><span class="fg-u">{unitQ('temperatureDelta')}</span></div>
     <p class="wl-hint fg-full">{t('writeLoad.thermalQuadHint')}</p>
   {/if}
   </div>

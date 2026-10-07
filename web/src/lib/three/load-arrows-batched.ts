@@ -157,6 +157,8 @@ export class LoadArrowsBatched {
   }
 
   private label(text: string, colorHex: string, fontSize: number, at: THREE.Vector3): void {
+    // A click on the value means its load too: the label's anchor is part of the footprint.
+    this.mark(at, at);
     if (this.tint !== null) colorHex = '#' + new THREE.Color(this.tint).getHexString();
     this.labels.push({ text, colorHex, fontSize, x: at.x, y: at.y, z: at.z });
   }
@@ -425,6 +427,16 @@ export class LoadArrowsBatched {
     const p = new THREE.Vector3(pos.x, pos.y, pos.z);
     this.mark(p, p.clone().add(new THREE.Vector3(0, 0, 0.05)));
     this.label(text, '#' + new THREE.Color(caseColor).getHexString(), 22, p);
+  }
+
+  /**
+   * A "+" or "−" beside a member: a temperature, warmer or colder. Red for warmer, blue for
+   * colder, as the 2D drawing paints them; part of the load's footprint so it can be clicked.
+   */
+  addSign(pos: { x: number; y: number; z: number }, warmer: boolean): void {
+    const p = new THREE.Vector3(pos.x, pos.y, pos.z);
+    this.mark(p, p);
+    this.label(warmer ? '+' : '−', warmer ? '#e5482a' : '#4a8fd4', 60, p);
   }
 
   /** A line through points: a tendon's profile. */

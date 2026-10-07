@@ -16,6 +16,7 @@
   import type { Element, Load, Release } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
   import EditorCard from './EditorCard.svelte';
+  import { fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import EndConditionSelect from './EndConditionSelect.svelte';
 
   const elemId = $derived(uiStore.editingElementId);
@@ -183,7 +184,7 @@
 
     <div class="info">
       {t('editor.nodesLabel')}: {elem.nodeI} → {elem.nodeJ}
-      | L = {modelStore.getElementLength(elemId!).toFixed(3)} m
+      | L = {fmtCoord(modelStore.getElementLength(elemId!))} {unitQ('length')}
     </div>
 
     {#snippet footer()}

@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+  import { unitQ } from '../../lib/store/display-units.svelte';
+  import UnitInput from '../UnitInput.svelte';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
 
@@ -9,9 +12,9 @@
   let newNodeY = $state(0);
   let newNodeZ = $state(0);
 
-  function updateNodeX(id: number, val: string) {
-    const x = parseFloat(val);
-    if (isNaN(x)) return;
+  // The fields show the chosen unit system (UnitInput), so these take SI metres.
+  function updateNodeX(id: number, x: number) {
+    if (!Number.isFinite(x)) return;
     const node = modelStore.getNode(id);
     if (!node || node.x === x) return;
     historyStore.pushState();
@@ -19,9 +22,8 @@
     resultsStore.clear();
   }
 
-  function updateNodeY(id: number, val: string) {
-    const y = parseFloat(val);
-    if (isNaN(y)) return;
+  function updateNodeY(id: number, y: number) {
+    if (!Number.isFinite(y)) return;
     const node = modelStore.getNode(id);
     if (!node || node.y === y) return;
     historyStore.pushState();
@@ -29,9 +31,8 @@
     resultsStore.clear();
   }
 
-  function updateNodeZ(id: number, val: string) {
-    const z = parseFloat(val);
-    if (isNaN(z)) return;
+  function updateNodeZ(id: number, z: number) {
+    if (!Number.isFinite(z)) return;
     historyStore.pushState();
     modelStore.updateNodeZ(id, z);
     resultsStore.clear();
@@ -56,16 +57,17 @@
 {#if nodesArr.length > 0}
   <table>
     <thead>
-      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</th><th>{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>{#if uiStore.is3DWorkspace}<th>Z (m)</th>{/if}<th></th></tr>
+      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} ({unitQ('length')})</th><th>{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</th>{#if uiStore.is3DWorkspace}<th>Z ({unitQ('length')})</th>{/if}<th></th></tr>
     </thead>
     <tbody>
       {#each nodesArr as node}
-        <tr>
+        <tr class:row-sel={rowSelected('node', node.id)} onclick={(e) => selectRow(e, 'node', node.id)}
+          ondblclick={(e) => frameRow(e, 'node', node.id)} onfocusin={(e) => focusRow(e, 'node', node.id)}>
           <td class="id-cell">{node.id}</td>
-          <td><input type="number" step="0.001" value={node.x.toFixed(3)} onchange={(e) => updateNodeX(node.id, e.currentTarget.value)} /></td>
-          <td><input type="number" step="0.001" value={node.y.toFixed(3)} onchange={(e) => updateNodeY(node.id, e.currentTarget.value)} /></td>
+          <td><UnitInput value={node.x} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeX(node.id, v)} /></td>
+          <td><UnitInput value={node.y} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeY(node.id, v)} /></td>
           {#if uiStore.is3DWorkspace}
-            <td><input type="number" step="0.001" value={(node.z ?? 0).toFixed(3)} onchange={(e) => updateNodeZ(node.id, e.currentTarget.value)} /></td>
+            <td><UnitInput value={node.z ?? 0} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeZ(node.id, v)} /></td>
           {/if}
           <td><button class="del" onclick={() => deleteNode(node.id)}>&#10005;</button></td>
         </tr>
@@ -76,18 +78,19 @@
 <div class="table-footer">
   <div class="add-row">
     <span class="add-label">{TWO_D_HORIZONTAL_AXIS_LABEL}:</span>
-    <input type="number" step="0.5" bind:value={newNodeX} class="add-input" />
+    <UnitInput value={newNodeX} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeX = v)} />
     <span class="add-label">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
-    <input type="number" step="0.5" bind:value={newNodeY} class="add-input" />
+    <UnitInput value={newNodeY} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeY = v)} />
     {#if uiStore.is3DWorkspace}
       <span class="add-label">Z:</span>
-      <input type="number" step="0.5" bind:value={newNodeZ} class="add-input" />
+      <UnitInput value={newNodeZ} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeZ = v)} />
     {/if}
     <button class="add-btn" onclick={addNode}>{t('table.addNode')}</button>
   </div>
 </div>
 
 <style>
+  tr.row-sel td { background: var(--st-selected-bg); }
   table {
     width: max-content;
     min-width: 100%;
@@ -121,7 +124,8 @@
     font-weight: 600;
   }
 
-  td input[type="number"] {
+  /* The row fields live inside UnitInput, out of reach of a scoped selector. */
+  td :global(input[type="number"]) {
     width: 55px;
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
@@ -170,7 +174,7 @@
     flex-shrink: 0;
   }
 
-  .add-input {
+  .add-row :global(.add-input) {
     background: var(--st-surface-2);
     color: var(--st-text-2);
     border: 1px solid var(--st-surface-3);

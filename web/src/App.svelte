@@ -32,7 +32,7 @@
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, noteAxisConventionMigrationIfNeeded, noteBasicSelfWeightRuleIfNeeded,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -137,6 +137,23 @@
       if (phone && panel !== 'data' && (EDIT_TOOLS as readonly string[]).includes(uiStore.currentTool)) {
         uiStore.currentTool = 'select';
       }
+    });
+  });
+
+  /*
+   * On a phone a support or a load is edited in the modelling sheet, in the
+   * row where it is created (DataTable › ToolOptions). Selecting one, on the
+   * model or in its table, opens that sheet on its tab, so the edit and its
+   * delete are where the reader looks; there is no other place for them there.
+   */
+  $effect(() => {
+    const phone = uiStore.isMobile && uiStore.appMode === 'basico';
+    const loads = uiStore.selectedLoads.size, supports = uiStore.selectedSupports.size;
+    const others = uiStore.selectedNodes.size + uiStore.selectedElements.size + uiStore.selectedShells.size;
+    if (!phone || others > 0 || (loads === 0 && supports === 0)) return;
+    const tab = loads > 0 ? 'loads' : 'supports';
+    untrack(() => {
+      if (basicPanel !== 'data' || basicDataTab !== tab) openBasicPanel('data', { toggle: false, dataTab: tab });
     });
   });
 
@@ -712,6 +729,8 @@
       // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with
       // the self-weight it was computed with rather than the session's.
       if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
+      uiStore.selfWeightCaseId = autosaveData.selfWeightCaseId ?? null;
+      noteBasicSelfWeightRuleIfNeeded(autosaveData.selfWeightCaseId !== undefined, uiStore.analysisMode);
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;
@@ -1106,6 +1125,7 @@
   // Reactive auto-clear results + debounced live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
+  let prevSelfWeight = '';
   let liveCalcTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Cancel any pending debounced live calc (e.g. when manual solve supersedes it). */
@@ -1120,13 +1140,16 @@
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
     const _mode = uiStore.analysisMode;
+    // Self-weight on or off, and its case, change the answer as a model edit does.
+    const _sw = `${uiStore.includeSelfWeight}:${uiStore.selfWeightCaseId}`;
 
     untrack(() => {
       if (tabManager.isTabSwitching) return;
 
-      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode;
+      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode || _sw !== prevSelfWeight;
       prevModelVersion = _v;
       prevAnalysisMode = _mode;
+      prevSelfWeight = _sw;
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;

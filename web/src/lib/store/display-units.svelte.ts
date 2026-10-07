@@ -5,6 +5,7 @@
  */
 import { uiStore } from './ui.svelte';
 import { formatValue, formatCoordinate, unitLabel, toDisplay, setDisplayDecimals, type Quantity } from '../utils/units';
+import { significantNumber } from '../utils/unit-format';
 
 const KEY = 'stabileo-decimals';
 
@@ -43,6 +44,9 @@ export const unitQ = (q: Quantity) => unitLabel(q, uiStore.unitSystem);
 
 /** A value converted to the chosen units, full precision, for exports. */
 export const toQ = (v: number, q: Quantity) => toDisplay(v, q, uiStore.unitSystem);
+
+/** A section property in the chosen units, three significant figures (`significantNumber`). */
+export const sigQ = (v: number, q: Quantity) => significantNumber(v, q, uiStore.unitSystem);
 
 /** The quantities whose decimals a reader can set. */
 export const DECIMAL_QUANTITIES: readonly Quantity[] = ['force', 'moment', 'displacement', 'rotation', 'stress', 'length'];

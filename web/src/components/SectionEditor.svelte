@@ -4,6 +4,8 @@
   import ProfileSelector from './ProfileSelector.svelte';
   import type { SteelProfile } from '../lib/data/steel-profiles';
   import { profileToSectionFull } from '../lib/data/steel-profiles';
+  import { unitQ } from '../lib/store/display-units.svelte';
+  import { toDisplay, fromDisplay, type Quantity } from '../lib/utils/units';
 
   let inputName = $state<HTMLInputElement | null>(null);
   let showProfileSelector = $state(false);
@@ -23,13 +25,40 @@
   let pendingTf = $state<number | undefined>(undefined);
   let pendingT = $state<number | undefined>(undefined);
 
+  /*
+   * Typed in the section units of the chosen system, as the sections table
+   * shows them (cm², cm⁴ and cm in SI and MKS; in², in⁴ and in in Imperial):
+   * the model keeps m², m⁴ and m, and asking for 0.000083 m⁴ here while the
+   * table next to it said 8333 cm⁴ made the same section read as two. The
+   * three units agree with each other, so b·h stays an area in the unit shown.
+   */
+  type Field = 'a' | 'iz' | 'b' | 'h';
+  const QTY: Record<Field, Quantity> = { a: 'sectionArea', iz: 'sectionInertia', b: 'sectionDim', h: 'sectionDim' };
+  /*
+   * What each field showed and the exact model value behind it: a field left
+   * as shown keeps that value, so renaming a section does not round its A or
+   * Iz to the six figures the field displays.
+   */
+  let exact: Partial<Record<Field, { shown: string; value: number }>> = {};
+  function show(f: Field, value: number | undefined): string {
+    if (value == null) { delete exact[f]; return ''; }
+    const shown = String(+toDisplay(value, QTY[f], uiStore.unitSystem).toPrecision(6));
+    exact[f] = { shown, value };
+    return shown;
+  }
+  /** The model value of a field: the exact one if untouched, else what was typed. */
+  function valueOf(f: Field, text: string | number): number {
+    const e = exact[f];
+    return e && e.shown === String(text) ? e.value : fromDisplay(parseFloat(String(text)), QTY[f], uiStore.unitSystem);
+  }
+
   $effect(() => {
     if (sec) {
       localName = sec.name;
-      localA = String(sec.a);
-      localIz = String(sec.iz);
-      localB = sec.b != null ? String(sec.b) : '';
-      localH = sec.h != null ? String(sec.h) : '';
+      localA = show('a', sec.a);
+      localIz = show('iz', sec.iz);
+      localB = show('b', sec.b ?? undefined);
+      localH = show('h', sec.h ?? undefined);
       localRotation = String(sec.rotation ?? 0);
       pendingShape = sec.shape;
       pendingTw = sec.tw;
@@ -51,8 +80,8 @@
   function recalcFromBH() {
     const calc = autoCalc();
     if (calc) {
-      localA = calc.a.toPrecision(6);
-      localIz = calc.iz.toPrecision(6);
+      localA = String(+calc.a.toPrecision(6));
+      localIz = String(+calc.iz.toPrecision(6));
     }
   }
 
@@ -61,11 +90,11 @@
     const a = parseFloat(localA);
     const iz = parseFloat(localIz);
     if (isNaN(a) || isNaN(iz)) return;
-    const updates: Record<string, any> = { name: localName, a, iz };
+    const updates: Record<string, any> = { name: localName, a: valueOf('a', localA), iz: valueOf('iz', localIz) };
     const b = parseFloat(localB);
     const h = parseFloat(localH);
-    if (!isNaN(b)) updates.b = b;
-    if (!isNaN(h)) updates.h = h;
+    if (!isNaN(b)) updates.b = valueOf('b', localB);
+    if (!isNaN(h)) updates.h = valueOf('h', localH);
     if (pendingShape) updates.shape = pendingShape;
     if (pendingTw != null) updates.tw = pendingTw;
     if (pendingTf != null) updates.tf = pendingTf;
@@ -85,10 +114,10 @@
   function handleProfileSelect(profile: SteelProfile, _section: { a: number; iz: number; b: number; h: number }) {
     const full = profileToSectionFull(profile);
     localName = profile.name;
-    localA = full.a.toPrecision(6);
-    localIz = full.iz.toPrecision(6);
-    localB = full.b.toPrecision(4);
-    localH = full.h.toPrecision(4);
+    localA = show('a', full.a);
+    localIz = show('iz', full.iz);
+    localB = show('b', full.b);
+    localH = show('h', full.h);
     // Store extended section properties when confirming
     pendingShape = full.shape;
     pendingTw = full.tw;
@@ -128,39 +157,39 @@
       />
     </div>
     <div class="field">
-      <span>A (m²):</span>
+      <span>A ({unitQ('sectionArea')}):</span>
       <input
         type="number"
-        step="0.0001"
+        step="any"
         bind:value={localA}
         onkeydown={handleKeydown}
       />
     </div>
     <div class="field">
-      <span>{t('secEdit.iz')}</span>
+      <span>Iz ({unitQ('sectionInertia')}):</span>
       <input
         type="number"
-        step="0.000001"
+        step="any"
         bind:value={localIz}
         onkeydown={handleKeydown}
       />
     </div>
     <div class="separator">{t('secEdit.rectangular')}</div>
     <div class="field">
-      <span>b (m):</span>
+      <span>b ({unitQ('sectionDim')}):</span>
       <input
         type="number"
-        step="0.001"
+        step="0.1"
         bind:value={localB}
         onkeydown={handleKeydown}
         oninput={recalcFromBH}
       />
     </div>
     <div class="field">
-      <span>h (m):</span>
+      <span>h ({unitQ('sectionDim')}):</span>
       <input
         type="number"
-        step="0.001"
+        step="0.1"
         bind:value={localH}
         onkeydown={handleKeydown}
         oninput={recalcFromBH}

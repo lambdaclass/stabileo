@@ -105,7 +105,8 @@ function allShellKeys(model: LikeModel): string[] {
 
 // ── Per kind ──────────────────────────────────────────────────────────
 
-function likeMembers(model: LikeModel, seeds: number[], op: LikeOp): { ids: number[]; refusedKey?: string } {
+/** Members like `seeds` by one of the members' operations (`member-grouping.ts`), or why the model cannot say. */
+export function likeMembers(model: LikeModel, seeds: number[], op: LikeOp): { ids: number[]; refusedKey?: string } {
   const m = model as never;
   const seedSet = new Set(seeds);
   if (op === 'parallel') return { ids: groupByParallel(m, seeds) };

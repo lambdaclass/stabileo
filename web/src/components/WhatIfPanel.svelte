@@ -22,6 +22,8 @@
   import type { DiagramType } from '../lib/store/results.svelte';
   import type { SupportType } from '../lib/store/model.svelte';
   import { t } from '../lib/i18n';
+  import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import type { Quantity } from '../lib/utils/units';
   import {
     TWO_D_INTERNAL_FORCE_LABELS as F2D, get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical,
   } from '../lib/geometry/coordinate-system';
@@ -106,41 +108,46 @@
     { k: 'e', label: 'E' }, { k: 'a', label: 'A' }, { k: 'iy', label: 'Iy' },
   ];
 
+  /** A load value in the chosen unit system, with its unit: the model keeps kN, kN/m and kN·m. */
+  const q = (v: number, k: Quantity) => `${fmtQ(v, k)} ${unitQ(k)}`;
+  const F = (v: number) => q(v, 'force');
+  const M = (v: number) => q(v, 'moment');
+
   function loadLabel(i: number): string {
     const l = whatIf.baseline?.loads[i];
     if (!l) return t('whatif.loadFallback').replace('{n}', String(i + 1));
     if (l.type === 'nodal') {
       const d = l.data as { fx: number; fz?: number; fy?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      if (d.fx) parts.push(`Fx=${d.fx}`);
-      if (get2DDisplayNodalLoadVertical(d)) parts.push(`Fz=${get2DDisplayNodalLoadVertical(d)}`);
-      if (get2DDisplayNodalLoadMoment(d)) parts.push(`My=${get2DDisplayNodalLoadMoment(d)}`);
+      if (d.fx) parts.push(`Fx=${F(d.fx)}`);
+      if (get2DDisplayNodalLoadVertical(d)) parts.push(`Fz=${F(get2DDisplayNodalLoadVertical(d))}`);
+      if (get2DDisplayNodalLoadMoment(d)) parts.push(`My=${M(get2DDisplayNodalLoadMoment(d))}`);
       return parts.join(', ') || t('whatif.nodalFallback').replace('{n}', String(i + 1));
     }
     if (l.type === 'distributed') {
       const d = l.data as { qI: number; qJ: number; elementId: number };
-      return `${d.qI === d.qJ ? `q=${d.qI}` : `q=${d.qI}→${d.qJ}`} (B${d.elementId})`;
+      return `${d.qI === d.qJ ? `q=${q(d.qI, 'distributedLoad')}` : `q=${fmtQ(d.qI, 'distributedLoad')}→${q(d.qJ, 'distributedLoad')}`} (B${d.elementId})`;
     }
     if (l.type === 'pointOnElement') {
       // A point load on a member may be a force, an axial force, a moment, or any mix.
       const d = l.data as { p: number; px?: number; my?: number; mz?: number; elementId: number };
       const m = d.my ?? d.mz;
       const parts: string[] = [];
-      if (d.p) parts.push(`P=${d.p}`);
-      if (d.px) parts.push(`Px=${d.px}`);
-      if (m) parts.push(`My=${m}`);
+      if (d.p) parts.push(`P=${F(d.p)}`);
+      if (d.px) parts.push(`Px=${F(d.px)}`);
+      if (m) parts.push(`My=${M(m)}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
     if (l.type === 'thermal') return t('whatif.thermal');
     if (l.type === 'nodal3d') {
       const d = l.data as { nodeId: number; fx: number; fy: number; fz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      if (d.fx) parts.push(`Fx=${d.fx}`);
-      if (d.fy) parts.push(`Fy=${d.fy}`);
-      if (d.fz) parts.push(`Fz=${d.fz}`);
-      if (d.mx) parts.push(`Mx=${d.mx}`);
-      if (d.my) parts.push(`My=${d.my}`);
-      if (d.mz) parts.push(`Mz=${d.mz}`);
+      if (d.fx) parts.push(`Fx=${F(d.fx)}`);
+      if (d.fy) parts.push(`Fy=${F(d.fy)}`);
+      if (d.fz) parts.push(`Fz=${F(d.fz)}`);
+      if (d.mx) parts.push(`Mx=${M(d.mx)}`);
+      if (d.my) parts.push(`My=${M(d.my)}`);
+      if (d.mz) parts.push(`Mz=${M(d.mz)}`);
       return parts.join(', ') || `N${d.nodeId}`;
     }
     if (l.type === 'distributed3d') {
@@ -150,17 +157,17 @@
     if (l.type === 'pointOnElement3d') {
       const d = l.data as { elementId: number; px?: number; py: number; pz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      for (const k of ['px', 'py', 'pz', 'mx', 'my', 'mz'] as const) if (d[k]) parts.push(`${k[0]!.toUpperCase()}${k[1]}=${d[k]}`);
+      for (const k of ['px', 'py', 'pz', 'mx', 'my', 'mz'] as const) if (d[k]) parts.push(`${k[0]!.toUpperCase()}${k[1]}=${k[0] === 'm' ? M(d[k]!) : F(d[k]!)}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
-    if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${l.data.force} (B${l.data.elementId})`;
+    if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${F(l.data.force as number)} (B${l.data.elementId})`;
     if (l.type === 'displacement3d') return `${t('loads.imposedDisplacement')} (N${l.data.nodeId})`;
     // A triangle's load names it by quadId too, with `on: 'plate'`.
     const shell = (data: unknown) => {
       const d = data as { quadId: number; on?: 'plate' };
       return t(d.on === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(d.quadId));
     };
-    if (l.type === 'surface3d') return `q=${(l.data as { q: number }).q} (${shell(l.data)})`;
+    if (l.type === 'surface3d') return `q=${q((l.data as { q: number }).q, 'areaLoad')} (${shell(l.data)})`;
     if (l.type === 'thermalQuad3d') return `${t('whatif.thermal')} (${shell(l.data)})`;
     return t('whatif.loadFallback').replace('{n}', String(i + 1));
   }

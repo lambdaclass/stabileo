@@ -74,8 +74,8 @@ describe('SI with millimetres', () => {
     expect(toDisplay(1e-4, 'sectionInertia', 'SI')).toBeCloseTo(10000, 6);
     expect(toDisplay(1e-4, 'sectionModulus', 'SI')).toBeCloseTo(100, 9);
     expect(unitLabel('sectionModulus', 'SI')).toBe('cm³');
-    expect(toDisplay(10, 'temperatureDiff', 'Imperial')).toBeCloseTo(18, 12);
+    expect(toDisplay(10, 'temperatureDelta', 'Imperial')).toBeCloseTo(18, 12);
     expect(toDisplay(10, 'temperature', 'Imperial')).toBeCloseTo(50, 12);
-    expect(fromDisplay(18, 'temperatureDiff', 'Imperial')).toBeCloseTo(10, 12);
+    expect(fromDisplay(18, 'temperatureDelta', 'Imperial')).toBeCloseTo(10, 12);
   });
 });

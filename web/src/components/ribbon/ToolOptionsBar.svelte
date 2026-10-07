@@ -3,7 +3,6 @@
   import { uiStore } from '../../lib/store/ui.svelte';
   import { modelStore } from '../../lib/store/model.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
-  import SelectedEntityPanel from '../floating-tools/SelectedEntityPanel.svelte';
   import SelectionDeleteButton from './SelectionDeleteButton.svelte';
   import ToolOptions from './ToolOptions.svelte';
 
@@ -78,11 +77,9 @@
   {/if}
 
   <!--
-    What is selected, restored. It lived in the floating strip, which desktop no
-    longer renders, so selecting a member stopped showing its properties — the
-    single most-used read-out in the app, silently gone.
+    A selected support or load is edited at the left, in the options row's edit
+    mode (ToolOptions), which carries its own delete; it is no longer repeated here.
   -->
-  <div class="tb-selection"><SelectedEntityPanel /></div>
   <!-- Delete what is selected: present only while something is (a phone has no Delete key). -->
   <SelectionDeleteButton />
 
@@ -121,9 +118,7 @@
     min-width: 0;
   }
 
-  .tb-selection { display: flex; align-items: center; flex: none; }
   .tool-bar.phone { justify-content: space-between; }
-  .tool-bar.phone .tb-selection { flex: 1; min-width: 0; overflow-x: auto; }
 
   /* ── Model state ──────────────────────────────────────────────────── */
 

@@ -165,7 +165,8 @@ interface ComputeArgs {
   basis: DespieceBasis;
   showReactions: boolean;
   resultant?: boolean;
-  fmt: (v: number) => string;
+  /** A value for a label; told whether it is a force or a moment so it can carry its unit. */
+  fmt: (v: number, q?: 'force' | 'moment') => string;
 }
 
 interface ForceComp { label: string; value: number; dirx: number; diry: number; }
@@ -244,8 +245,8 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
       for (const c of comps) {
         if (Math.abs(c.value) <= 1e-6) continue;
         const color = c.label === 'V' ? COL.shear : COL.axial;
-        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value)}`, color, elementId: el.id, end, nodeId, component: c.label });
-        if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value)}` : '', color, elementId: el.id, end, nodeId, component: c.label });
+        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.label });
+        if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value, 'force')}` : '', color, elementId: el.id, end, nodeId, component: c.label });
       }
 
       if (Math.abs(m) > 1e-6) {
@@ -255,8 +256,8 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
         // balances); a member drawn against it flips both. Node-side is the
         // equal/opposite action on the joint.
         const memberCcw = endMomentCcw(ax, towardJ, m);
-        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: memberCcw, value: m, labelText: `M ${fmt(m)}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
-        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: m, labelText: labelNode ? `M ${fmt(m)}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        if (wantMember) out.push({ side: 'member', glyph: 'moment', origin: memberEnd, ccw: memberCcw, value: m, labelText: `M ${fmt(m, 'moment')}`, color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
+        if (wantNode) out.push({ side: 'node', glyph: 'moment', origin: nodeAnchor, ccw: !memberCcw, value: m, labelText: labelNode ? `M ${fmt(m, 'moment')}` : '', color: COL.moment, elementId: el.id, end, nodeId, component: 'M' });
       }
     }
   }
@@ -266,9 +267,9 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
     for (const [nodeId, r] of reactions) {
       const node = getNode(nodeId);
       if (!node) continue;
-      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `Rx ${fmt(r.rx)}`, color: COL.reaction, nodeId, component: 'Rx' });
-      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `Rz ${fmt(r.rz)}`, color: COL.reaction, nodeId, component: 'Rz' });
-      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `My ${fmt(r.my)}`, color: COL.reaction, nodeId, component: 'My' });
+      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `Rx ${fmt(r.rx, 'force')}`, color: COL.reaction, nodeId, component: 'Rx' });
+      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `Rz ${fmt(r.rz, 'force')}`, color: COL.reaction, nodeId, component: 'Rz' });
+      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `My ${fmt(r.my, 'moment')}`, color: COL.reaction, nodeId, component: 'My' });
     }
   }
   return out;
@@ -437,7 +438,8 @@ export interface DespieceCtx {
   getElementForces: (id: number) => DespieceElementForces | undefined;
   reactions: Map<number, DespieceReaction>;
   sep: number;
-  fmt: (v: number) => string;
+  /** A value for a label; told whether it is a force or a moment so it can carry its unit. */
+  fmt: (v: number, q?: 'force' | 'moment') => string;
   vectorMode?: DespieceVectorMode;
   basis?: DespieceBasis;
   showReactions?: boolean;

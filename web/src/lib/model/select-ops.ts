@@ -169,6 +169,55 @@ export function selectByIds(
   };
 }
 
+/** What `likeMembers` needs of the model: members by their nodes, supports and loads by what they sit on. */
+export interface LinkedModel {
+  elements: Map<number, { nodeI: number; nodeJ: number }>;
+  supports: Map<number, { nodeId: number }>;
+  loads: ReadonlyArray<{ data: { id: number; nodeId?: number; elementId?: number } }>;
+}
+
+/**
+ * The members a selection stands for, to find others like them: the selected members, the
+ * members the selected loads sit on, and the members meeting at the selected nodes and at the
+ * nodes of the selected supports and nodal loads.
+ */
+export function seedMembersOf(model: LinkedModel, sel: { nodes: Iterable<number>; elements: Iterable<number>; supports: Iterable<number>; loads: Iterable<number> }): number[] {
+  const seeds = new Set<number>([...sel.elements].filter((id) => model.elements.has(id)));
+  const atNodes = new Set<number>(sel.nodes);
+  for (const id of sel.supports) { const s = model.supports.get(id); if (s) atNodes.add(s.nodeId); }
+  const loadIds = new Set(sel.loads);
+  for (const l of model.loads) {
+    if (!loadIds.has(l.data.id)) continue;
+    if (l.data.elementId !== undefined) seeds.add(l.data.elementId);
+    else if (l.data.nodeId !== undefined) atNodes.add(l.data.nodeId);
+  }
+  if (atNodes.size) for (const [id, e] of model.elements) if (atNodes.has(e.nodeI) || atNodes.has(e.nodeJ)) seeds.add(id);
+  return [...seeds];
+}
+
+/**
+ * A set of members as the kinds being selected: the members themselves, their nodes, the
+ * supports on those nodes, and the loads on those members or nodes. So "parallel", "connected",
+ * "same section" and "same material" work whatever kind is armed above.
+ */
+export function membersAsKinds(model: LinkedModel, members: Iterable<number>, kinds: ReadonlySet<string>): Selection {
+  const ms = new Set(members);
+  const ns = new Set<number>();
+  for (const id of ms) { const e = model.elements.get(id); if (e) { ns.add(e.nodeI); ns.add(e.nodeJ); } }
+  const out: Selection = {
+    nodes: kinds.has('nodes') ? ns : new Set(),
+    elements: kinds.has('elements') ? ms : new Set(),
+    shells: new Set(),
+  };
+  if (kinds.has('supports')) out.supports = new Set([...model.supports].filter(([, s]) => ns.has(s.nodeId)).map(([id]) => id));
+  if (kinds.has('loads')) {
+    out.loads = new Set(model.loads.filter((l) =>
+      (l.data.elementId !== undefined && ms.has(l.data.elementId)) || (l.data.elementId === undefined && l.data.nodeId !== undefined && ns.has(l.data.nodeId)),
+    ).map((l) => l.data.id));
+  }
+  return out;
+}
+
 /**
  * What carries a load of one case: the nodes with nodal loads, the members with member loads,
  * the shells with surface loads. Loads with no case belong to case 1, as the solve reads them.

@@ -46,9 +46,9 @@
     {#if config.thermal.on}
       <div class="al-row">
         <label class="al-field al-field-narrow"><span class="al-label">ΔT</span>
-          <QuantityInput bind:value={config.thermal.dt} quantity="temperatureDiff" testid="al-thermal-dt" wrap="al-unit-field" /></label>
+          <QuantityInput bind:value={config.thermal.dt} quantity="temperatureDelta" testid="al-thermal-dt" wrap="al-unit-field" /></label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.special.gradient')}</span>
-          <QuantityInput bind:value={config.thermal.grad} quantity="temperatureDiff" wrap="al-unit-field" /></label>
+          <QuantityInput bind:value={config.thermal.grad} quantity="temperatureDelta" wrap="al-unit-field" /></label>
       </div>
     {/if}
   </div>

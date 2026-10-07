@@ -177,6 +177,8 @@ export interface StabileoTestHooks {
   armedKinds(): string[];
   /** What the viewport is drawing — the walkthrough audit reads this. */
   diagramType(): string;
+  /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
+  hasDrawnResults(): boolean;
   /**
    * What a click on the canvas would currently mean, and whether the viewport
    * has anything to answer it with.
@@ -597,6 +599,8 @@ export function installE2EHooks(): void {
     renderMode3D: () => String(uiStore.renderMode3D),
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
+    /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
+    hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
     cameraState: () => readCamera(),
 
     viewportPick: () => ({

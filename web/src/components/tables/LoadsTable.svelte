@@ -1,20 +1,30 @@
 <script lang="ts">
+  import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import CombosTable from './CombosTable.svelte';
   import { t } from '../../lib/i18n';
+  // Values are typed in the unit system chosen under Settings and kept in SI.
+  import UnitInput from '../UnitInput.svelte';
+  import { unitQ } from '../../lib/store/display-units.svelte';
   import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
+  import { pruneStaleSelection } from '../../lib/store/selection-prune';
 
-  const nodesArr = $derived([...modelStore.nodes.values()]);
-  const elementsArr = $derived([...modelStore.elements.values()]);
+  /** The case self-weight goes in: the one chosen, else the first dead-load case, else the first. */
+  const selfWeightCase = $derived.by(() => {
+    const cases = modelStore.loadCases;
+    const chosen = uiStore.selfWeightCaseId;
+    if (chosen !== null && cases.some((c) => c.id === chosen)) return chosen;
+    return (cases.find((c) => c.type === 'D') ?? cases[0])?.id ?? null;
+  });
 
-  let newLoadType = $state<'nodal' | 'distributed' | 'pointOnElement' | 'thermal' | 'nodal3d' | 'distributed3d' | 'pointOnElement3d'>('nodal');
-  let newLoadTargetId = $state(0);
-  let newLoadCaseId = $state(1);
+
 
   function deleteLoad(index: number) {
     historyStore.pushState();
     modelStore.loads.splice(index, 1);
+    // A deleted load leaves the selection too, or the bar keeps editing nothing.
+    pruneStaleSelection();
   }
 
   function updateLoadField(loadId: number, field: string, val: string) {
@@ -22,39 +32,7 @@
     if (isNaN(num)) return;
     modelStore.updateLoad(loadId, { [field]: num });
   }
-
-  function addLoad() {
-    historyStore.pushState();
-    if (newLoadType === 'nodal') {
-      if (!modelStore.getNode(newLoadTargetId)) return;
-      modelStore.addNodalLoad(newLoadTargetId, 0, -10, 0, newLoadCaseId);
-    } else if (newLoadType === 'nodal3d') {
-      if (!modelStore.getNode(newLoadTargetId)) return;
-      modelStore.addNodalLoad3D(newLoadTargetId, 0, 0, -10, 0, 0, 0, newLoadCaseId); // Z is vertical
-    } else if (newLoadType === 'distributed') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addDistributedLoad(newLoadTargetId, -10, -10, undefined, undefined, newLoadCaseId);
-    } else if (newLoadType === 'distributed3d') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addDistributedLoad3D(newLoadTargetId, 0, 0, -10, -10, undefined, undefined, newLoadCaseId); // qZ: gravity
-    } else if (newLoadType === 'pointOnElement3d') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addPointLoadOnElement3D(newLoadTargetId, modelStore.getElementLength(newLoadTargetId) / 2, 0, -10, newLoadCaseId);
-    } else if (newLoadType === 'pointOnElement') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addPointLoadOnElement(newLoadTargetId, 0, -10, { caseId: newLoadCaseId });
-    } else if (newLoadType === 'thermal') {
-      if (!modelStore.elements.get(newLoadTargetId)) return;
-      modelStore.addThermalLoad(newLoadTargetId, 10, 0, newLoadCaseId);
-    }
-    resultsStore.clear();
-  }
 </script>
-
-<label class="selfweight-row" title={t('table.selfWeightTooltip')}>
-  <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>{t('table.selfWeight')}</span>
-</label>
 
 <!--
   Combinations live here, folded, above the loads they combine.
@@ -67,6 +45,21 @@
 <details class="combos-fold">
   <summary>{t('data.combinations')}</summary>
   <div class="combos-body">
+    <!-- Self-weight first: whether it counts, and in which load case. -->
+    <div class="selfweight-row" title={t('table.selfWeightTooltip')}>
+      <label class="sw-check">
+        <input type="checkbox" bind:checked={uiStore.includeSelfWeight} data-testid="selfweight-toggle" />
+        <span>{t('table.selfWeight')}</span>
+      </label>
+      <span class="sw-in">{t('table.selfWeightIn')}</span>
+      <select class="sw-case" value={String(selfWeightCase ?? '')} disabled={!uiStore.includeSelfWeight}
+        onchange={(e) => { uiStore.selfWeightCaseId = parseInt(e.currentTarget.value); resultsStore.clear(); }}
+        data-testid="selfweight-case">
+        {#each modelStore.loadCases as lc}
+          <option value={String(lc.id)}>{lc.type ? `${lc.type} · ` : ''}{lc.name}</option>
+        {/each}
+      </select>
+    </div>
     <CombosTable />
   </div>
 </details>
@@ -77,8 +70,10 @@
   </thead>
   <tbody>
     {#each modelStore.loads as load, i}
-      <tr>
-        <td class="id-cell">{i + 1}</td>
+      <tr class:row-sel={rowSelected('load', load.data.id)} onclick={(e) => selectRow(e, 'load', load.data.id)}
+        ondblclick={(e) => frameRow(e, 'load', load.data.id)} onfocusin={(e) => focusRow(e, 'load', load.data.id)}>
+        <!-- The load's own number, the one selection by number and the drawing use. -->
+        <td class="id-cell">{load.data.id}</td>
         <td>
           <select value={String(load.data.caseId ?? 1)} onchange={(e) => { modelStore.updateLoadCaseId(load.data.id, parseInt(e.currentTarget.value)); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }}>
             {#each modelStore.loadCases as lc}
@@ -107,43 +102,52 @@
         <td class="load-values">
           {#if load.type === 'nodal'}
             {@const d = load.data as NodalLoad}
-            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fz<input type="number" step="1" value={get2DDisplayNodalLoadVertical(d)} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /></span>
-            <span class="load-field">My<input type="number" step="1" value={get2DDisplayNodalLoadMoment(d)} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /></span>
+            <span class="load-field">Fx<UnitInput value={d.fx} qty="force" onchange={(v) => updateLoadField(d.id, 'fx', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">Fz<UnitInput value={get2DDisplayNodalLoadVertical(d)} qty="force" onchange={(v) => updateLoadField(d.id, 'fz', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">My<UnitInput value={get2DDisplayNodalLoadMoment(d)} qty="moment" onchange={(v) => updateLoadField(d.id, 'my', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
           {:else if load.type === 'nodal3d'}
             {@const d = load.data as NodalLoad3D}
-            <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fy<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /></span>
-            <span class="load-field">Fz<input type="number" step="1" value={d.fz} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /></span>
-            <span class="load-field">Mx<input type="number" step="1" value={d.mx} onchange={(e) => updateLoadField(d.id, 'mx', e.currentTarget.value)} /></span>
-            <span class="load-field">My<input type="number" step="1" value={d.my} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /></span>
-            <span class="load-field">Mz<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /></span>
+            <span class="load-field">Fx<UnitInput value={d.fx} qty="force" onchange={(v) => updateLoadField(d.id, 'fx', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">Fy<UnitInput value={d.fy} qty="force" onchange={(v) => updateLoadField(d.id, 'fy', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">Fz<UnitInput value={d.fz} qty="force" onchange={(v) => updateLoadField(d.id, 'fz', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">Mx<UnitInput value={d.mx} qty="moment" onchange={(v) => updateLoadField(d.id, 'mx', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
+            <span class="load-field">My<UnitInput value={d.my} qty="moment" onchange={(v) => updateLoadField(d.id, 'my', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
+            <span class="load-field">Mz<UnitInput value={d.mz} qty="moment" onchange={(v) => updateLoadField(d.id, 'mz', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
           {:else if load.type === 'distributed'}
             {@const d = load.data as DistributedLoad}
-            <span class="load-field">qI<input type="number" step="1" value={d.qI} onchange={(e) => updateLoadField(d.id, 'qI', e.currentTarget.value)} /></span>
-            <span class="load-field">qJ<input type="number" step="1" value={d.qJ} onchange={(e) => updateLoadField(d.id, 'qJ', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.1" value={d.a ?? 0} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
-            <span class="load-field">b<input type="number" step="0.1" value={d.b ?? modelStore.getElementLength(d.elementId)} onchange={(e) => updateLoadField(d.id, 'b', e.currentTarget.value)} /></span>
+            <span class="load-field">qI<UnitInput value={d.qI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qJ<UnitInput value={d.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">a<UnitInput value={d.a ?? 0} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
+            <span class="load-field">b<UnitInput value={d.b ?? modelStore.getElementLength(d.elementId)} qty="length" onchange={(v) => updateLoadField(d.id, 'b', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else if load.type === 'distributed3d'}
             {@const d = load.data as DistributedLoad3D}
-            <span class="load-field">qYI<input type="number" step="1" value={d.qYI} onchange={(e) => updateLoadField(d.id, 'qYI', e.currentTarget.value)} /></span>
-            <span class="load-field">qYJ<input type="number" step="1" value={d.qYJ} onchange={(e) => updateLoadField(d.id, 'qYJ', e.currentTarget.value)} /></span>
-            <span class="load-field">qZI<input type="number" step="1" value={d.qZI} onchange={(e) => updateLoadField(d.id, 'qZI', e.currentTarget.value)} /></span>
-            <span class="load-field">qZJ<input type="number" step="1" value={d.qZJ} onchange={(e) => updateLoadField(d.id, 'qZJ', e.currentTarget.value)} /></span>
+            <span class="load-field">qYI<UnitInput value={d.qYI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qYI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qYJ<UnitInput value={d.qYJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qYJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qZI<UnitInput value={d.qZI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qZI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <span class="load-field">qZJ<UnitInput value={d.qZJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qZJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            <!-- qX loads the member in every frame (along X, or along the member): never hidden while
+                 it is not zero. The axes the components are read on, unless the member's own. -->
+            {#if d.frame === 'global' || d.qXI || d.qXJ}
+              <span class="load-field">qXI<UnitInput value={d.qXI ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qXI', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+              <span class="load-field">qXJ<UnitInput value={d.qXJ ?? 0} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qXJ', String(v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+            {/if}
+            {#if d.frame === 'global' || d.frame === 'projected'}
+              <span class="load-field" data-testid="load-frame">{d.frame === 'global' ? t('float.frameGlobal') : t('loads.frame.projected')}</span>
+            {/if}
           {:else if load.type === 'thermal'}
             {@const d = load.data as ThermalLoad}
-            <span class="load-field">&Delta;T<input type="number" step="5" value={d.dtUniform} onchange={(e) => updateLoadField(d.id, 'dtUniform', e.currentTarget.value)} /></span>
-            <span class="load-field">&Delta;Tg<input type="number" step="5" value={d.dtGradient} onchange={(e) => updateLoadField(d.id, 'dtGradient', e.currentTarget.value)} /></span>
+            <span class="load-field" title={t('float.thermalUniformTip')}>ΔTg<UnitInput value={d.dtUniform} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtUniform', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
+            <span class="load-field" title={t('float.thermalGradientTip')}>∇T<UnitInput value={d.dtGradient} qty="temperatureDelta" onchange={(v) => updateLoadField(d.id, 'dtGradient', String(v))} unit={false} /><span class="lf-unit">{unitQ('temperatureDelta')}</span></span>
           {:else if load.type === 'pointOnElement3d'}
             <!-- It fell into the plane branch below and showed an empty P. -->
             {@const d = load.data as PointLoadOnElement3D}
-            <span class="load-field">Py<input type="number" step="1" value={d.py} onchange={(e) => updateLoadField(d.id, 'py', e.currentTarget.value)} /></span>
-            <span class="load-field">Pz<input type="number" step="1" value={d.pz} onchange={(e) => updateLoadField(d.id, 'pz', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
+            <span class="load-field">Py<UnitInput value={d.py} qty="force" onchange={(v) => updateLoadField(d.id, 'py', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">Pz<UnitInput value={d.pz} qty="force" onchange={(v) => updateLoadField(d.id, 'pz', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else}
             {@const d = load.data as PointLoadOnElement}
-            <span class="load-field">P<input type="number" step="1" value={d.p} onchange={(e) => updateLoadField(d.id, 'p', e.currentTarget.value)} /></span>
-            <span class="load-field">a<input type="number" step="0.01" value={d.a} onchange={(e) => updateLoadField(d.id, 'a', e.currentTarget.value)} /></span>
+            <span class="load-field">P<UnitInput value={d.p} qty="force" onchange={(v) => updateLoadField(d.id, 'p', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {/if}
         </td>
         <td><button class="del" onclick={() => deleteLoad(i)}>&#10005;</button></td>
@@ -151,38 +155,14 @@
     {/each}
   </tbody>
 </table>
-<div class="table-footer">
-  <div class="add-row">
-    <select bind:value={newLoadType} class="add-input add-input-wide">
-      {#if uiStore.is3DWorkspace}
-        <option value="nodal3d">{t('table.pointLoad3d')}</option>
-        <option value="distributed3d">{t('table.distLoad3d')}</option>
-        <option value="pointOnElement3d">{t('table.pointBarLoad')}</option>
-        <option value="thermal">{t('table.thermalLoad')}</option>
-      {:else}
-        <option value="nodal">{t('table.pointLoad')}</option>
-        <option value="distributed">{t('table.distLoad')}</option>
-        <option value="pointOnElement">{t('table.pointBarLoad')}</option>
-        <option value="thermal">{t('table.thermalLoad')}</option>
-      {/if}
-    </select>
-    <span class="add-label">{t('table.loadCase')}:</span>
-    <select bind:value={newLoadCaseId} class="add-input">
-      {#each modelStore.loadCases as lc}<option value={lc.id}>{lc.type || lc.name}</option>{/each}
-    </select>
-    <span class="add-label">{newLoadType === 'nodal' || newLoadType === 'nodal3d' ? t('table.nodeLabel') : t('table.elemLabel')}:</span>
-    <select bind:value={newLoadTargetId} class="add-input">
-      {#if newLoadType === 'nodal' || newLoadType === 'nodal3d'}
-        {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
-      {:else}
-        {#each elementsArr as e}<option value={e.id}>{e.id}</option>{/each}
-      {/if}
-    </select>
-    <button class="add-btn" onclick={addLoad}>{t('table.addLoad')}</button>
-  </div>
-</div>
+<!-- Created with the tool above the drawing; the table lists and edits them. -->
+{#if modelStore.loads.length === 0}
+  <p class="empty-hint">{t('table.loadsEmpty')}</p>
+{/if}
 
 <style>
+  .empty-hint { margin: 0.5rem; font-size: 0.74rem; color: var(--st-text-3); }
+  tr.row-sel td { background: var(--st-selected-bg); }
   .combos-fold {
     margin: 0 0 6px;
     border: 1px solid var(--st-border);
@@ -236,7 +216,7 @@
     font-size: 0.7rem;
   }
 
-  td input[type="number"] {
+  td :global(input[type="number"]) {
     width: 55px;
     padding: 0.1rem 0.2rem;
     background: var(--st-surface-3);
@@ -271,7 +251,14 @@
     color: var(--st-text-3);
   }
 
-  .load-field input {
+  /* The unit each value is typed in, legible at a glance rather than a faint hint. */
+  .lf-unit {
+    margin-left: 2px;
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+    white-space: nowrap;
+  }
+  .load-field :global(input) {
     width: 50px;
   }
 
@@ -292,6 +279,20 @@
     accent-color: var(--st-accent);
     margin: 0;
   }
+  .sw-check { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+  .sw-in { margin-left: auto; color: var(--st-text-3); }
+  /* The table's own select, not the browser's white one. */
+  .sw-case {
+    padding: 0.1rem 0.25rem;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-surface-3);
+    border-radius: 3px;
+    color: var(--st-text);
+    font-size: 0.72rem;
+    cursor: pointer;
+    max-width: 55%;
+  }
+  .sw-case:disabled { opacity: 0.5; }
   .selfweight-row span {
     font-weight: 500;
   }
@@ -312,58 +313,11 @@
     background: rgba(127, 212, 204, 0.05);
   }
 
-  .table-footer {
-    padding: 0.5rem;
-    border-top: 1px solid var(--st-bg);
-  }
 
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
 
-  .add-row .add-btn {
-    width: auto;
-    flex-shrink: 0;
-  }
 
-  .add-label {
-    font-size: 0.7rem;
-    color: var(--st-text-3);
-    flex-shrink: 0;
-  }
 
-  .add-input {
-    background: var(--st-surface-2);
-    color: var(--st-text-2);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 3px;
-    padding: 0.2rem 0.3rem;
-    font-size: 0.75rem;
-    width: 60px;
-  }
 
-  .add-input-wide {
-    width: auto;
-    min-width: 80px;
-  }
 
-  .add-btn {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: var(--st-surface-3);
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    color: var(--st-value);
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-  }
 
-  .add-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
 </style>

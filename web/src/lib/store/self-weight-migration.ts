@@ -39,7 +39,7 @@ export function migrateSelfWeightIfNeeded(opts: { quiet?: boolean } = {}): boole
   // has nothing that changed under them.
   if (!opts.quiet && hadMembers && modelStore.loads.length > 0 && uiStore.includeSelfWeight && selfWeight.length) {
     const name = modelStore.model.loadCases.find((c) => c.id === selfWeight[0]!.caseId)?.name ?? '';
-    uiStore.toast(t(plan.deadCases > 1 ? 'selfWeight.migratedMany' : 'selfWeight.migrated').replace('{case}', name).replace('{n}', String(plan.deadCases)), 'info');
+    uiStore.toast(t(plan.deadCases > 1 ? 'selfWeight.migratedMany' : 'selfWeight.migrated').replaceAll('{case}', name).replaceAll('{n}', String(plan.deadCases)), 'info');
   }
   return true;
 }

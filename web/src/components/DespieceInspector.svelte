@@ -3,6 +3,8 @@
   import { t } from '../lib/i18n';
   import { inspectMember, inspectNode } from '../lib/canvas/draw-despiece';
   import { inspectMember3D, inspectNode3D } from '../lib/three/despiece-3d';
+  import { displayUnits, unitQ } from '../lib/store/display-units.svelte';
+  import { formatValue } from '../lib/utils/units';
 
   const inspect = $derived(uiStore.despieceInspect);
   const is3D = $derived(uiStore.is3DWorkspace);
@@ -44,10 +46,15 @@
   const nodeReaction = $derived.by(() => {
     if (!active || !inspect || inspect.type !== 'node' || !is3D || !resultsStore.showReactions) return null;
     const r = (resultsStore.results3D?.reactions ?? []).find(x => x.nodeId === inspect.id);
-    return r ? `Fx ${r.fx.toFixed(2)}  Fy ${r.fy.toFixed(2)}  Fz ${r.fz.toFixed(2)}` : null;
+    return r ? `Fx ${fmt(r.fx, 'force')}  Fy ${fmt(r.fy, 'force')}  Fz ${fmt(r.fz, 'force')} ${unitQ('force')}` : null;
   });
 
-  const fmt = (v: number) => v.toFixed(2);
+  /*
+   * In the chosen unit system, two decimals unless the reader set others for
+   * the quantity. M, My, Mz and T are moments; N, V and the F components forces.
+   */
+  const qtyOf = (label: string): 'force' | 'moment' => (label.startsWith('M') || label === 'T' ? 'moment' : 'force');
+  const fmt = (v: number, q: 'force' | 'moment') => formatValue(v, q, uiStore.unitSystem, displayUnits.decimals[q] ?? 2);
   function close() { uiStore.despieceInspect = null; }
 
   // Keep the panel clear of the app header + floating toolbar, both of which sit
@@ -86,13 +93,13 @@
     {:else}
       <table class="dsp-table">
         <thead>
-          <tr><th>{t('despiece.colMember')}</th>{#each actions[0].components as c}<th>{c.label}</th>{/each}</tr>
+          <tr><th>{t('despiece.colMember')}</th>{#each actions[0].components as c}<th>{c.label} ({unitQ(qtyOf(c.label))})</th>{/each}</tr>
         </thead>
         <tbody>
           {#each actions as a}
             <tr>
               <td>E{a.elementId}·{a.end} <span class="dsp-node">(n{a.nodeId})</span></td>
-              {#each a.components as c}<td>{fmt(c.value)}</td>{/each}
+              {#each a.components as c}<td>{fmt(c.value, qtyOf(c.label))}</td>{/each}
             </tr>
           {/each}
         </tbody>

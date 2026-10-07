@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { displayUnits, fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import { displayUnits, fmtQ, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
+  import { setCanvasUnitSystem } from '../lib/canvas/canvas-units';
+  import { displacementText, fixedQuantity } from '../lib/utils/unit-format';
+  import type { Quantity } from '../lib/utils/units';
+  import { nodesToLabel } from '../lib/store/deformed-view.svelte';
   import { firstGroupIndex } from '../lib/viewport/element-colour';
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -7,6 +11,9 @@
   import Icon from './ribbon/Icon.svelte';
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
+  import { viewVisibility, isLoadHidden } from '../lib/store/view-state.svelte';
+  import { scaleCanvasText } from '../lib/canvas/text-scale';
+  import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
   import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
   import { projectNode, to3D } from '../lib/geometry/plane-projection';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
@@ -44,14 +51,19 @@
     findNearestSupport as _findNearestSupport,
     findNearestMidpoint as _findNearestMidpoint,
     findAllLoadsNear as _findAllLoadsNear,
+    findElementsNear as _findElementsNear,
+    findNodesNear as _findNodesNear,
     snapWithMidpoint as _snapWithMidpoint,
   } from '../lib/viewport/spatial-queries';
+  import { createPickCycle, type PickTarget } from '../lib/viewport/pick-cycle';
+  import { pickable2D, loadsDrawn2D } from '../lib/viewport/pick-visibility';
+  import { PICK_PX, pickTolAt, nodeToolTolerances } from '../lib/viewport/pick-tolerance';
   import { boxSelect as boxSelectTargets, normaliseDrag, type BoxSelectMode } from '../lib/viewport/box-select';
   import { canvasTheme } from '../lib/canvas/theme';
   import { drawMemberDimensions } from '../lib/canvas/draw-member-dimensions';
   import { drawMemberSnap } from '../lib/canvas/draw-member-snap';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
-  import { askToConnectMember, askToConnectNode } from '../lib/model/edit/connection-questions';
+  import { askAboutNewMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
   import { NODE_PLACEMENT_TOL } from '../lib/viewport/node-placement';
 
@@ -245,6 +257,7 @@
   $effect(() => { uiStore.selectedLoads; uiStore.selectedSupports; invalidate(); });
   $effect(() => { uiStore.zoom; uiStore.panX; uiStore.panY; invalidate(); });
   $effect(() => { uiStore.showGrid; uiStore.showAxes; uiStore.showLoads; invalidate(); });
+  $effect(() => { uiStore.showSupports; uiStore.labelScale; viewVisibility.version; invalidate(); });
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
   // Each member's group, only while colouring by group.
@@ -271,9 +284,10 @@
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
       getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+      // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = modelStore.elements.get(id);
-        return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId } : undefined;
+        const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
+        return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
         const mat = modelStore.materials.get(id);
@@ -338,6 +352,8 @@
 
   onMount(() => {
     ctx = canvas.getContext('2d')!;
+    // Text on the drawing follows the reader's label size (Settings › Model).
+    scaleCanvasText(ctx, () => uiStore.labelScale);
     resizeCanvas();
 
     // Use ResizeObserver to detect any container size changes
@@ -380,6 +396,34 @@
     };
     const onZoomToFit = () => handleZoomToFitEvent();
     window.addEventListener('stabileo-zoom-to-fit', onZoomToFit);
+    /*
+     * Frame the selection (Alt+Z, a double click on a table row): its nodes,
+     * the ends of its members, and the nodes its supports and loads stand on.
+     * The 3D view had it; the 2D one ignored the event.
+     */
+    const onZoomToSelection = () => {
+      const ids = new Set<number>(uiStore.selectedNodes);
+      for (const id of uiStore.selectedElements) {
+        const e = modelStore.elements.get(id);
+        if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
+      }
+      for (const id of uiStore.selectedSupports) {
+        const sup = modelStore.supports.get(id);
+        if (sup) ids.add(sup.nodeId);
+      }
+      for (const load of modelStore.loads) {
+        if (!uiStore.selectedLoads.has(load.data.id)) continue;
+        const d = load.data as { nodeId?: number; elementId?: number };
+        if (d.nodeId !== undefined) ids.add(d.nodeId);
+        const e = d.elementId !== undefined ? modelStore.elements.get(d.elementId) : undefined;
+        if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
+      }
+      const pts = [...ids].map((id) => modelStore.getNode(id)).filter((n) => !!n).map((n) => project2DNode(n!));
+      if (!pts.length) return;
+      uiStore.zoomToFit(pts, canvas.width, canvas.height);
+      invalidate();
+    };
+    window.addEventListener('stabileo-zoom-to-selection', onZoomToSelection);
 
     // Initial draw — needsRedraw is already true, so schedule the first frame directly
     rafId = requestAnimationFrame(drawOnce);
@@ -390,6 +434,7 @@
       ro.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener('stabileo-zoom-to-fit', onZoomToFit);
+      window.removeEventListener('stabileo-zoom-to-selection', onZoomToSelection);
     };
   });
 
@@ -420,6 +465,9 @@
      * of the frame, which is the only level at which the guarantee can hold.
      */
     currentFrameLabels = createLabelCollector();
+    // The load, support and reaction labels are drawn by pure functions that
+    // cannot read the store; they take the unit system from here, once a frame.
+    setCanvasUnitSystem(uiStore.unitSystem);
 
     // Advance IL animation
     const now = performance.now();
@@ -452,6 +500,8 @@
 
     // Compute color map for elements if active
     const colorMapOverrides = new Map<number, string>();
+    // The value behind each member's colour, for its label when values are shown.
+    let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
     if (resultsStore.results && resultsStore.diagramType === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
       let globalMaxN = 0;
@@ -554,6 +604,7 @@
         ? { max: globalMax, unit: colourMapUnit(kind), source: colourScaleSource() }
         : null);
 
+      colorMapValues = { values: elemMaxes, kind };
       if (globalMax > 1e-10) {
         for (const [eid, val] of elemMaxes) {
           /*
@@ -578,6 +629,7 @@
     // otherwise show through under the dashed remnant).
     if (resultsStore.diagramType !== 'despiece') {
       for (const elem of modelStore.elements.values()) {
+        if (viewVisibility.isElementHidden(elem.id)) continue;
         drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
       }
     }
@@ -587,46 +639,37 @@
 
     // Draw axial value labels when axialColor mode is active
     if (resultsStore.results && resultsStore.diagramType === 'axialColor') {
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
       for (const ef of resultsStore.results.elementForces) {
-        const elem = modelStore.elements.get(ef.elementId);
-        if (!elem) continue;
-        const ni = getProjectedNode(elem.nodeI);
-        const nj = getProjectedNode(elem.nodeJ);
-        if (!ni || !nj) continue;
-        const si = uiStore.worldToScreen(ni.x, ni.y);
-        const sj = uiStore.worldToScreen(nj.x, nj.y);
-        const mx = (si.x + sj.x) / 2;
-        const my = (si.y + sj.y) / 2;
-        const dx = sj.x - si.x;
-        const dy = sj.y - si.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1) continue;
-        // Offset perpendicular to the element
-        const nx = -dy / len * 16;
-        const ny = dx / len * 16;
         const avgN = (ef.nStart + ef.nEnd) / 2;
         if (Math.abs(avgN) < 0.001) continue;
         const sign = avgN > 0 ? '+' : '';
-        const label = `${sign}${avgN.toFixed(1)}`;
-        // Background for readability
-        const tw = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(10, 10, 30, 0.85)';
-        ctx.fillRect(mx + nx - tw / 2 - 3, my + ny - 8, tw + 6, 14);
         // High-contrast text: bright red for tension, bright cyan for compression
-        if (avgN > 0) {
-          ctx.fillStyle = '#ff6b6b'; // bright red for tension
-        } else {
-          ctx.fillStyle = '#6bc5ff'; // bright cyan-blue for compression
-        }
-        ctx.fillText(label, mx + nx, my + ny + 3);
+        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
       }
-      ctx.textAlign = 'left';
     }
 
-    // Draw supports
-    for (const sup of modelStore.supports.values()) {
+    /*
+     * A colour map says "more" and "less"; with values shown, each member
+     * also says how much: the largest along it, the one its colour stands for.
+     */
+    if (colorMapValues && resultsStore.showDiagramValues) {
+      const k = colorMapValues.kind;
+      const qty: Quantity | null = k === 'stressRatio' ? null
+        : (k === 'vonMises' || k === 'sigmaMax' || k === 'tauMax') ? 'stress'
+        : (k === 'moment' || k === 'momentY' || k === 'momentZ') ? 'moment'
+        : 'force';
+      for (const [eid, val] of colorMapValues.values) {
+        if (!(Math.abs(val) > 1e-9)) continue;
+        const text = qty === null
+          ? `${(val * 100).toFixed(0)} %`
+          : `${fmtQ(val, qty)} ${unitQ(qty)}`;
+        drawMemberValueLabel(eid, text, '#e8eef4');
+      }
+    }
+
+    // Draw supports, unless the reader turned them off or hid their node
+    if (uiStore.showSupports) for (const sup of modelStore.supports.values()) {
+      if (viewVisibility.isNodeHidden(sup.nodeId)) continue;
       drawSupport(sup);
     }
 
@@ -636,11 +679,13 @@
 
     // Draw all loads (nodal, distributed, point, thermal) if visible
     if (loadsVisible) {
+    // A load is hidden with the node or member it stands on.
+    const shownLoads = viewVisibility.active ? modelStore.loads.filter((l) => !isLoadHidden(l.data as never)) : modelStore.loads;
 
     // Draw nodal loads (grouped by node for stacked labels)
     {
       const nodalByNode = new Map<number, Array<{ type: string; data: any }>>();
-      for (const load of modelStore.loads) {
+      for (const load of shownLoads) {
         if (load.type !== 'nodal') continue;
         const nid = (load.data as any).nodeId;
         if (!nodalByNode.has(nid)) nodalByNode.set(nid, []);
@@ -662,7 +707,7 @@
 
     // Draw distributed loads (with case colors and stacked labels)
     {
-      const distLoads = modelStore.loads
+      const distLoads = shownLoads
         .filter(l => l.type === 'distributed')
         .map(l => {
           const d = l.data as any;
@@ -692,7 +737,7 @@
 
     // Draw point loads on elements (with case colors and stacked labels)
     {
-      const ptLoads = modelStore.loads
+      const ptLoads = shownLoads
         .filter(l => l.type === 'pointOnElement')
         .map(l => {
           const d = l.data as any;
@@ -712,7 +757,7 @@
 
     // Draw thermal loads (with case name prefixes and stacked labels)
     {
-      const thermLoads = modelStore.loads
+      const thermLoads = shownLoads
         .filter(l => l.type === 'thermal')
         .map(l => {
           const d = l.data as any;
@@ -792,6 +837,7 @@
 
     // Draw nodes (projected to current 2D drawing plane)
     for (const node of modelStore.nodes.values()) {
+      if (viewVisibility.isNodeHidden(node.id)) continue;
       drawNode(project2DNode(node));
     }
 
@@ -799,7 +845,7 @@
     const tool = uiStore.currentTool;
     // The member tool draws its own snap markers (drawMemberSnap, below).
     if (tool === 'support' || tool === 'load') {
-      const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.5);
+      const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.loose));
       if (nearNode) {
         const s = uiStore.worldToScreen(nearNode.x, nearNode.y);
         ctx.beginPath();
@@ -809,7 +855,7 @@
         ctx.stroke();
       } else {
         // Check midpoint snap
-        const midSnap = findNearestMidpoint(uiStore.worldX, uiStore.worldY, 0.4);
+        const midSnap = findNearestMidpoint(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.mid));
         if (midSnap) {
           const s = uiStore.worldToScreen(midSnap.x, midSnap.y);
           const d = 8;
@@ -829,7 +875,7 @@
     // Draw node tool sliding-joint hover highlight: teal ring at the nearest
     // bar end where a click would place the slider.
     if (uiStore.currentTool === 'node' && uiStore.nodeMode === 'hinge' && uiStore.jointType !== 'hinge') {
-      const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.5);
+      const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.loose));
       if (nearElem) {
         const ni = getProjectedNode(nearElem.nodeI);
         const nj = getProjectedNode(nearElem.nodeJ);
@@ -861,7 +907,7 @@
 
     // Draw node tool hinge mode hover highlight
     if (uiStore.currentTool === 'node' && uiStore.nodeMode === 'hinge' && uiStore.jointType === 'hinge') {
-      const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.3);
+      const nearNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
       if (nearNode) {
         // Hovering over a node: teal circle
         const sp = uiStore.worldToScreen(nearNode.x, nearNode.y);
@@ -876,7 +922,7 @@
         ctx!.restore();
       } else {
         // Hovering over a bar: golden indicator at cut point
-        const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.5);
+        const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.loose));
         if (nearElem) {
           const ni = getProjectedNode(nearElem.nodeI);
           const nj = getProjectedNode(nearElem.nodeJ);
@@ -995,6 +1041,7 @@
           ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
           : scale;
         drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
+        drawDeformedValues(animScale);
       } else if (dt === 'despiece') {
         // Member free-body / "despiece": pull members off their joints (animated)
         // and draw the transmitted end forces + support reactions. Solver-free overlay.
@@ -1016,7 +1063,7 @@
           },
           reactions,
           sep,
-          fmt: (v) => v.toFixed(1),
+          fmt: (v, q = 'force') => fixedQuantity(v, q, 1, uiStore.unitSystem),
           vectorMode: uiStore.despieceVectorMode,
           basis: uiStore.despieceBasis,
           showReactions: resultsStore.showReactions,
@@ -1066,7 +1113,7 @@
               // resultant: one combined force arrow (fx, fz-up) + one moment glyph
               const s = uiStore.worldToScreen(node.x, node.y);
               const fx = d.fx ?? 0, fz = d.fz ?? d.fy ?? 0, fmag = Math.hypot(fx, fz);
-              if (fmag > 1e-9) { const dir = screenDir(node.x, node.y, fx, fz); loadArrow(s.x, s.y, dir.ux, dir.uy, `${fmag.toFixed(1)} kN`); }
+              if (fmag > 1e-9) { const dir = screenDir(node.x, node.y, fx, fz); loadArrow(s.x, s.y, dir.ux, dir.uy, fixedQuantity(fmag, 'force', 1, uiStore.unitSystem)); }
               const m = d.my ?? d.mz ?? 0;
               if (Math.abs(m) > 1e-9) drawMomentSymbol(ctx!, s.x, s.y, m, LOAD, 16 * vSize);
             } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
@@ -1086,7 +1133,7 @@
                   const cx = span.aI.x + f * (span.aJ.x - span.aI.x), cy = span.aI.y + f * (span.aJ.y - span.aI.y);
                   const dir = screenDir(cx, cy, r.wx, r.wy);
                   const s = uiStore.worldToScreen(cx, cy);
-                  loadArrow(s.x, s.y, dir.ux, dir.uy, `${Math.abs(r.magnitude).toFixed(1)} kN`);
+                  loadArrow(s.x, s.y, dir.ux, dir.uy, fixedQuantity(Math.abs(r.magnitude), 'force', 1, uiStore.unitSystem));
                 }
               } else if (load.type === 'distributed') {
                 const rem = remapLoadSpanToShrunk(d.a ?? 0, d.b ?? span.lenOrig, span.lenOrig, span.lenShrunk);
@@ -1330,30 +1377,30 @@
 
     // Draw hover tooltip (suppress when diagram hover or diagram query is active to avoid overlap)
     if (uiStore.currentTool === 'select' && !boxSelect && draggedNodeId === null && !diagramHover && !diagramQuery) {
-      const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.3);
+      const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
-        lines.push(`(${hoverNode.x.toFixed(2)}, ${get2DDisplayedVertical(hoverNode).toFixed(2)}) m [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
+        lines.push(`(${fmtCoord(hoverNode.x)}, ${fmtCoord(get2DDisplayedVertical(hoverNode))}) ${unitQ('length')} [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
         // Show displacement if results exist
         if (resultsStore.results) {
           const d = resultsStore.getDisplacement(hoverNode.id);
           if (d) {
-            lines.push(`δ: ${(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2) * 1000).toFixed(3)} mm`);
+            lines.push(`δ: ${displacementText(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2), 3, uiStore.unitSystem)}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
       } else {
-        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.3);
+        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
         if (hoverElem) {
           const lines: string[] = [t('viewport.elemTooltip').replace('{id}', String(hoverElem.id)).replace('{type}', hoverElem.type)];
           const L = modelStore.getElementLength(hoverElem.id);
-          lines.push(`L: ${L.toFixed(3)} m`);
+          lines.push(`L: ${fmtCoord(L)} ${unitQ('length')}`);
           if (resultsStore.results) {
             const f = resultsStore.getElementForces(hoverElem.id);
             if (f) {
-              lines.push(`M: ${f.mStart.toFixed(2)}/${f.mEnd.toFixed(2)} kN·m`);
-              lines.push(`V: ${f.vStart.toFixed(2)}/${f.vEnd.toFixed(2)} kN`);
-              lines.push(`N: ${f.nStart.toFixed(2)}/${f.nEnd.toFixed(2)} kN`);
+              lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
+              lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
+              lines.push(`N: ${fmtQ(f.nStart, 'force')}/${fmtQ(f.nEnd, 'force')} ${unitQ('force')}`);
             }
           }
           drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -1401,6 +1448,61 @@
 
   function drawAxes() {
     _drawAxes(ctx!, width, height, (wx, wy) => uiStore.worldToScreen(wx, wy));
+  }
+
+  /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
+  function drawMemberValueLabel(elementId: number, label: string, color: string) {
+    if (!ctx || viewVisibility.isElementHidden(elementId)) return;
+    const elem = modelStore.elements.get(elementId);
+    if (!elem) return;
+    const ni = getProjectedNode(elem.nodeI);
+    const nj = getProjectedNode(elem.nodeJ);
+    if (!ni || !nj) return;
+    const si = uiStore.worldToScreen(ni.x, ni.y);
+    const sj = uiStore.worldToScreen(nj.x, nj.y);
+    const dx = sj.x - si.x, dy = sj.y - si.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    // Offset perpendicular to the element
+    const x = (si.x + sj.x) / 2 - dy / len * 16;
+    const y = (si.y + sj.y) / 2 + dx / len * 16;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    const tw = ctx.measureText(label).width;
+    const th = 14 * uiStore.labelScale;
+    ctx.fillStyle = 'rgba(10, 10, 30, 0.85)';
+    ctx.fillRect(x - tw / 2 - 3, y - th * 0.6, tw + 6, th);
+    ctx.fillStyle = color;
+    ctx.fillText(label, x, y + th * 0.2);
+    ctx.textAlign = 'left';
+  }
+
+  /**
+   * With values shown, the deformed shape names how far its nodes moved: the
+   * ones that moved most (as the 3D view does), at where they moved to.
+   */
+  function drawDeformedValues(scale: number) {
+    const res = resultsStore.results;
+    if (!ctx || !res || !resultsStore.showDiagramValues) return;
+    const byId = new Map(res.displacements.map((d) => [d.nodeId, d]));
+    const picks = nodesToLabel(res.displacements.map((d) => ({ nodeId: d.nodeId, ux: d.ux, uy: 0, uz: d.uz })));
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    for (const { nodeId, magnitude } of picks) {
+      if (viewVisibility.isNodeHidden(nodeId)) continue;
+      const n = modelStore.getNode(nodeId), d = byId.get(nodeId);
+      if (!n || !d) continue;
+      const p = project2DNode(n);
+      const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
+      // Millimetres in SI, as the results table gives them; centimetres in MKS, inches in imperial.
+      const label = displacementText(magnitude, 2, uiStore.unitSystem);
+      const tw = ctx.measureText(label).width;
+      const th = 14 * uiStore.labelScale;
+      ctx.fillStyle = 'rgba(10, 10, 30, 0.85)';
+      ctx.fillRect(s.x + 6, s.y - th - 4, tw + 6, th);
+      ctx.fillStyle = '#7fd4cc';
+      ctx.fillText(label, s.x + 9, s.y - 8);
+    }
   }
 
   function drawNode(node: { id: number; x: number; y: number }) {
@@ -1532,7 +1634,8 @@
   function drawReactions() {
     if (!resultsStore.results) return;
     _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
-      const node = modelStore.getNode(nodeId);
+      // A reaction is drawn with its support: not at a node the view hides.
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -1597,7 +1700,7 @@
        */
       // Under the cursor, or under where it snaps. (This read `ms`, a name that
       // does not exist here: a press off every node threw a ReferenceError.)
-      const onNode = findNearestNode(world.x, world.y, 0.5) ?? findNearestNode(snapped.x, snapped.y, 0.5);
+      const onNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose)) ?? findNearestNode(snapped.x, snapped.y, pickTol(PICK_PX.loose));
       if (!onNode) return;
       if (!uiStore.selectedNodes.has(onNode.id)) uiStore.selectNode(onNode.id, e.shiftKey);
       historyStore.pushState();
@@ -1615,7 +1718,7 @@
         // between one member and its joint, not a whole-node property).
         const slideKind = uiStore.jointType === 'slideX' ? 'x' : 'z';
         const axis = uiStore.jointAxis;
-        const nearElem = findNearestElement(world.x, world.y, 0.5);
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
           const ni = modelStore.getNode(nearElem.nodeI);
           const nj = modelStore.getNode(nearElem.nodeJ);
@@ -1633,7 +1736,7 @@
         }
       } else if (uiStore.nodeMode === 'hinge') {
         // Hinge mode: click on node → select + show hinges; click on bar → split + hinge
-        const nearNode = findNearestNode(world.x, world.y, 0.3);
+        const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.tight));
         if (nearNode) {
           // Click on existing node → toggle all hinges at that node
           const hinges = modelStore.getHingesAtNode(nearNode.id);
@@ -1652,7 +1755,7 @@
           // Stay in hinge mode to continue articulating other nodes
         } else {
           // Click on bar → split and add hinges at the split point
-          const nearElem = findNearestElement(world.x, world.y, 0.5);
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
@@ -1713,7 +1816,7 @@
         // duplicate-coincident-node guard below answer the same question
         // ('is the cursor on an existing node?') with the same threshold —
         // two separate calls would silently diverge if one threshold is tuned.
-        const nodeAtCursor = findNearestNode(world.x, world.y, 0.5);
+        const nodeAtCursor = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
         if (uiStore.autoSplitOnNodePlace) {
           // Only auto-split when the cursor isn't already targeting an
           // existing node. snapWithMidpoint returns node coords if a node is
@@ -1727,16 +1830,19 @@
             // snap-to-grid is on. When it's off, `snapped` equals `world`.
             const projInputX = uiStore.snapToGrid ? snapped.x : world.x;
             const projInputY = uiStore.snapToGrid ? snapped.y : world.y;
-            didSplit = attemptSplit(world.x, world.y, 0.3, projInputX, projInputY);
+            // Reaches in screen pixels, as every other one (they were 0.3 and 0.4 m).
+            const reach = nodeToolTolerances(uiStore.zoom);
+            didSplit = attemptSplit(world.x, world.y, reach.split, projInputX, projInputY);
             // 2nd attempt — placement-point-based: snapWithMidpoint can
             // resolve `ms` ONTO a bar even when the cursor attempt missed
-            // (its midpoint snap reaches 0.4 > the 0.3 search above, and a
+            // (its midpoint snap reaches further than the search above, and a
             // grid intersection can lie on the bar). Without this, the node
             // would sit exactly on the element without subdividing it — the
             // coincident-unconnected trap auto-split exists to prevent.
-            // Tight tolerance: only when ms is effectively ON the element.
+            // Tight tolerance: only when ms is effectively ON the element
+            // (1 cm, or a pixel zoomed in on a small part).
             if (!didSplit) {
-              didSplit = attemptSplit(ms.x, ms.y, 0.01, ms.x, ms.y);
+              didSplit = attemptSplit(ms.x, ms.y, Math.min(0.01, pickTol(1)), ms.x, ms.y);
             }
           }
         }
@@ -1751,9 +1857,15 @@
           // placement point `ms`: with grid snap on, `ms` can land exactly
           // on an existing grid-aligned node that is >0.5m from the cursor —
           // creating an exact coincident duplicate.
+          // The coincidence check looks at hidden nodes too: a node is not
+          // placed on one (a twin that looks joined and is not), and a hidden
+          // one is not dragged either, so the click does nothing.
+          const coincident = _findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL, modelStore.nodes);
           const onExisting = nodeAtCursor
-            ?? findNearestNode(ms.x, ms.y, NODE_PLACEMENT_TOL);
-          if (onExisting) {
+            ?? (coincident && !viewVisibility.isNodeHidden(coincident.id) ? coincident : null);
+          if (!onExisting && coincident) {
+            // Nothing: the place is taken by a node the view hides.
+          } else if (onExisting) {
             if (!uiStore.selectedNodes.has(onExisting.id)) {
               uiStore.selectNode(onExisting.id, e.shiftKey);
             }
@@ -1789,12 +1901,6 @@
       if (!pendingNode) {
         pendingNode = { x: end.x, y: end.y };
         if (end.nodeId !== undefined) uiStore.selectNode(end.nodeId);
-      } else if (overlapsExistingMember(pendingNode, end)) {
-        // A member already runs there: a second one on top of it would be a
-        // duplicate. Nothing is made, so no empty undo step is left either;
-        // the chain goes on from this end.
-        uiStore.toast(t('float.memberOverlaps'), 'info');
-        pendingNode = uiStore.memberChains ? { x: end.x, y: end.y } : null;
       } else if (Math.hypot(end.x - pendingNode.x, end.y - pendingNode.y) <= 1e-6) {
         // The last point again: the chain is finished.
         pendingNode = null;
@@ -1810,7 +1916,9 @@
           const m = made as { i: number; j: number; id: number };
           resultsStore.clear();
           uiStore.selectNode(m.j);
-          askToConnectMember(m.id);
+          // Drawn over a member already there: ask whether to keep both or
+          // remove the new one. Otherwise, whether to connect where it crosses.
+          askAboutNewMember(m.id);
         }
         pendingNode = uiStore.memberChains ? { x: end.x, y: end.y } : null;
       }
@@ -1819,7 +1927,7 @@
     } else if (uiStore.currentTool === 'support') {
       // Support: find nearest existing node using raw world coords (not snapped,
       // to avoid grid-snapping moving the search point away from the actual node)
-      const nearNode = findNearestNode(world.x, world.y, 0.5);
+      const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
       if (nearNode) {
         if (uiStore.supportType === 'spring') {
           const springAngle = uiStore.supportAngle;
@@ -1876,7 +1984,7 @@
 
       if (uiStore.loadType === 'nodal') {
         // Nodal: click node → NodalLoad; click bar → PointLoadOnElement
-        const nearNode = findNearestNode(world.x, world.y, 0.5);
+        const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearNode) {
           const v = uiStore.loadValue;
           const dir = uiStore.nodalLoadDir;
@@ -1886,7 +1994,7 @@
           modelStore.addNodalLoad(nearNode.id, fx, fz, my, activeCaseId);
         } else {
           // No node nearby — try element for PointLoadOnElement
-          const nearElem = findNearestElement(world.x, world.y, 0.5);
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
@@ -1924,14 +2032,14 @@
           }
         }
       } else if (uiStore.loadType === 'distributed') {
-        const nearElem = findNearestElement(world.x, world.y, 0.5);
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
           const angle = uiStore.loadAngle !== 0 ? uiStore.loadAngle : undefined;
           const isGlobal = uiStore.loadIsGlobal ? true : undefined;
           modelStore.addDistributedLoad(nearElem.id, uiStore.loadValue, uiStore.loadValueJ, angle, isGlobal, activeCaseId);
         }
       } else if (uiStore.loadType === 'thermal') {
-        const nearElem = findNearestElement(world.x, world.y, 0.5);
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
           modelStore.addThermalLoad(nearElem.id, uiStore.thermalDT, uiStore.thermalDTg, activeCaseId);
         }
@@ -1939,8 +2047,8 @@
     } else if (uiStore.currentTool === 'influenceLine') {
       // Influence line: click node for Rz/Rx/My, click element for V/M
       const q = uiStore.ilQuantity;
-      const nearNode = findNearestNode(world.x, world.y, 0.5);
-      const nearElem = findNearestElement(world.x, world.y, 0.5);
+      const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
+      const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
 
       let result: any;
       if ((q === 'Rz' || q === 'Rx' || q === 'My') && nearNode) {
@@ -1972,9 +2080,9 @@
       // the converging actions (node) or both member ends (member) — without
       // disturbing the normal selection used when Despiece is off.
       if (resultsStore.diagramType === 'despiece') {
-        const insN = findNearestNode(world.x, world.y, 0.3);
+        const insN = findNearestNode(world.x, world.y, pickTol(PICK_PX.tight));
         if (insN) { uiStore.despieceInspect = { type: 'node', id: insN.id }; invalidate(); return; }
-        const insE = findNearestElement(world.x, world.y, 0.3);
+        const insE = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
         uiStore.despieceInspect = insE ? { type: 'member', id: insE.id } : null;
         invalidate();
         return;
@@ -1985,7 +2093,7 @@
         // ── Stress mode: click on element → stress query + diagram query ──
         const dt = resultsStore.diagramType;
         if (resultsStore.results) {
-          const nearElem = findNearestElement(world.x, world.y, 0.3);
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
@@ -2022,32 +2130,33 @@
          * multi-kind earns its keep; this ordering just keeps a single click
          * predictable rather than arbitrary.
          */
+        let hit = false;
+        // Nodes and members: tested where the cursor is (the snapped point
+        // only as a second chance for a node), and a click again on the same
+        // spot steps to the next one under it — asked before the selection is
+        // cleared, since stepping goes on only from what is still selected.
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, {
+          nodes: uiStore.selectsKind('nodes'), elements: uiStore.selectsKind('elements'),
+        }), mx, my, e.detail);
         if (!e.shiftKey) {
           uiStore.clearSelection();
           uiStore.clearSelectedSupports();
           uiStore.clearSelectedLoads();
         }
-        let hit = false;
-        if (uiStore.selectsKind('nodes')) {
-          const n = findNearestNode(snapped.x, snapped.y, 0.3);
-          if (n) { uiStore.selectNode(n.id, true); hit = true; }
-        }
-        if (!hit && uiStore.selectsKind('elements')) {
-          const el = findNearestElement(world.x, world.y, 0.3);
-          if (el) { uiStore.selectElement(el.id, true); hit = true; }
-        }
+        if (pick?.kind === 'node') { uiStore.selectNode(pick.id, true); hit = true; }
+        else if (pick?.kind === 'element') { uiStore.selectElement(pick.id, true); hit = true; }
         if (!hit && uiStore.selectsKind('supports')) {
-          const sup = findNearestSupport(world.x, world.y, 0.5);
+          const sup = findNearestSupport(world.x, world.y, pickTol(PICK_PX.loose));
           if (sup) { uiStore.selectSupport(sup.id, true); hit = true; }
         }
         if (!hit && uiStore.selectsKind('loads')) {
-          const ld = findAllLoadsNear(world.x, world.y, 0.5);
+          const ld = findAllLoadsNear(world.x, world.y, pickTol(PICK_PX.loose));
           if (ld.length > 0) { uiStore.selectLoad(ld[0], true); hit = true; }
         }
         if (!hit) boxSelect = { startX: mx, startY: my, endX: mx, endY: my };
       } else if (sm === 'supports') {
         // ── Supports mode: click to select a support, drag to box select ──
-        const nearSup = findNearestSupport(world.x, world.y, 0.5);
+        const nearSup = findNearestSupport(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearSup) {
           uiStore.selectSupport(nearSup.id, e.shiftKey);
         } else {
@@ -2056,7 +2165,7 @@
         }
       } else if (sm === 'loads') {
         // ── Loads mode: click to select a load with cycling for overlapping loads ──
-        const allNear = findAllLoadsNear(world.x, world.y, 0.5);
+        const allNear = findAllLoadsNear(world.x, world.y, pickTol(PICK_PX.loose));
         if (allNear.length > 0) {
           if (e.shiftKey) {
             // Shift: add next unselected to selection, or toggle first
@@ -2086,10 +2195,9 @@
          * The snapped point stays as a second chance, for a node that sits
          * on a grid intersection just outside the tolerance.
          */
-        const nearNode = findNearestNode(world.x, world.y, 0.3)
-          ?? findNearestNode(snapped.x, snapped.y, 0.3);
-        if (nearNode) {
-          uiStore.selectNode(nearNode.id, e.shiftKey);
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: true, elements: false }), mx, my, e.detail);
+        if (pick) {
+          uiStore.selectNode(pick.id, e.shiftKey);
         } else {
           if (!e.shiftKey) uiStore.clearSelection();
           boxSelect = { startX: mx, startY: my, endX: mx, endY: my };
@@ -2101,7 +2209,7 @@
         // Diagram query still works for reading values (but no stress query)
         const dt = resultsStore.diagramType;
         if (resultsStore.results && (dt === 'moment' || dt === 'shear' || dt === 'axial')) {
-          const nearElem = findNearestElement(world.x, world.y, 0.3);
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
           if (nearElem) {
             const ni = modelStore.getNode(nearElem.nodeI);
             const nj = modelStore.getNode(nearElem.nodeJ);
@@ -2141,17 +2249,14 @@
          * Move panel's "mover nodos".
          */
         const wantsOnlyElements = sm === 'elements';
-        const nearNode = wantsOnlyElements
-          ? null
-          : findNearestNode(snapped.x, snapped.y, 0.3);
-        if (nearNode) {
-          uiStore.selectNode(nearNode.id, e.shiftKey);
+        const pick = cyclePick(pickTargets(world.x, world.y, snapped.x, snapped.y, { nodes: !wantsOnlyElements, elements: true }), mx, my, e.detail);
+        if (pick?.kind === 'node') {
+          uiStore.selectNode(pick.id, e.shiftKey);
         } else {
-          const nearElem = findNearestElement(world.x, world.y, 0.3);
-          if (nearElem) {
-            uiStore.selectElement(nearElem.id, e.shiftKey);
+          if (pick) {
+            uiStore.selectElement(pick.id, e.shiftKey);
             // Sync with DSM Matrix Explorer if wizard is open
-            if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(nearElem.id);
+            if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
           } else {
             if (!e.shiftKey) uiStore.clearSelection();
             boxSelect = { startX: mx, startY: my, endX: mx, endY: my };
@@ -2235,7 +2340,7 @@
     if (resultsStore.results && !isPanning && draggedNodeId === null) {
       const dt = resultsStore.diagramType;
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
-        const nearElem = findNearestElement(world.x, world.y, 0.5);
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
         if (nearElem) {
           const ni = getProjectedNode(nearElem.nodeI);
           const nj = getProjectedNode(nearElem.nodeJ);
@@ -2272,14 +2377,17 @@
                   const sec = modelStore.sections.get(elem.sectionId);
                   if (mat && sec) EI = mat.e * 1000 * effectiveBendingInertia(sec); // kN·m²
                 }
+                // A truss member stays straight between its nodes (see draw-deformed.ts).
+                const truss = elem?.type === 'truss';
                 const disp = computeDisplacementAt(
                   t,
                   ni.x, ni.y, nj.x, nj.y,
                   di.ux, di.uz ?? di.uy, di.ry ?? di.rz,
                   dj.ux, dj.uz ?? dj.uy, dj.ry ?? dj.rz,
                   ef.length,
-                  ef.hingeStart, ef.hingeEnd,
-                  EI, ef.qI, ef.qJ, ef.pointLoads, ef.distributedLoads,
+                  truss || ef.hingeStart, truss || ef.hingeEnd,
+                  truss ? undefined : EI, truss ? 0 : ef.qI, truss ? 0 : ef.qJ,
+                  truss ? [] : ef.pointLoads, truss ? [] : ef.distributedLoads,
                 );
                 const ux = disp.ux * 1000; // mm
                 const uz = get2DDisplayDisplacementVertical(disp) * 1000; // mm
@@ -2289,8 +2397,8 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `ux: ${ux.toFixed(3)} mm`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${uz.toFixed(3)} mm`,
+                    `ux: ${displacementText(ux / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(uz / 1000, 3, uiStore.unitSystem)}`,
                     `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${ry.toFixed(4)} rad`,
                   ],
                 };
@@ -2400,20 +2508,21 @@
                 (k): k is BoxSelectMode => k !== 'shells' && k !== 'stress',
               ),
           toScreen: (p) => uiStore.worldToScreen(p.x, p.y),
-          model: {
-            nodes: [...modelStore.nodes.values()].map((n) => {
+          // Only what is drawn: nothing hidden, no support or load whose layer is off.
+          model: ((reach) => ({
+            nodes: [...reach.nodes.values()].map((n) => {
               const p = project2DNode(n);
               return { id: n.id, x: p.x, y: p.y };
             }),
-            elements: modelStore.elements.values(),
-            supports: modelStore.supports.values(),
-            loads: modelStore.model.loads as never,
-            getNode: (id) => {
+            elements: reach.elements.values(),
+            supports: reach.supports.values(),
+            loads: reach.loads as never,
+            getNode: (id: number) => {
               const n = modelStore.getNode(id);
               return n ? project2DNode(n) : undefined;
             },
-            getElement: (id) => modelStore.elements.get(id),
-          },
+            getElement: (id: number) => modelStore.elements.get(id),
+          }))(pickable()),
         });
 
         if (picked.nodes.size > 0 || picked.elements.size > 0) {
@@ -2443,6 +2552,16 @@
     const world = uiStore.screenToWorld(mx, my);
     const snapped = uiStore.snapWorld(world.x, world.y);
 
+    // A node or member the clicks on this spot stepped to (see pick-cycle) is
+    // what is lit, and what the editor opens; otherwise the most specific thing here.
+    const picked = pickCycle.steppedTo(mx, my);
+    if (picked?.kind === 'node' || picked?.kind === 'element') {
+      if (picked.kind === 'node') uiStore.editingNodeId = picked.id;
+      else uiStore.editingElementId = picked.id;
+      uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
     /*
      * At the cursor, not at the snapped point. Snapping exists to PLACE
      * things on round coordinates; asking it what is under the pointer moves
@@ -2450,15 +2569,15 @@
      * a double-click straight on a node found nothing and fell through to
      * the member underneath — so the bar editor opened for a node.
      */
-    const nearNode = findNearestNode(world.x, world.y, 0.3)
-      ?? findNearestNode(snapped.x, snapped.y, 0.3);
+    const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.tight))
+      ?? findNearestNode(snapped.x, snapped.y, pickTol(PICK_PX.tight));
     if (nearNode) {
       uiStore.editingNodeId = nearNode.id;
       uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
       return;
     }
 
-    const nearElem = findNearestElement(world.x, world.y, 0.3);
+    const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
     if (nearElem) {
       uiStore.editingElementId = nearElem.id;
       uiStore.editScreenPos = { x: e.clientX, y: e.clientY };
@@ -2489,8 +2608,8 @@
     const my = e.clientY - rect.top;
     const world = uiStore.screenToWorld(mx, my);
 
-    const nearNode = findNearestNode(world.x, world.y, 0.3);
-    const nearElem = nearNode ? null : findNearestElement(world.x, world.y, 0.3);
+    const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.tight));
+    const nearElem = nearNode ? null : findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
 
     uiStore.contextMenu = {
       x: e.clientX,
@@ -2577,8 +2696,8 @@
         // Long press → context menu
         if (touchState && !touchState.moved) {
           const world = uiStore.screenToWorld(touches[0].x, touches[0].y);
-          const nearNode = findNearestNode(world.x, world.y, 0.5);
-          const nearElem = nearNode ? null : findNearestElement(world.x, world.y, 0.5);
+          const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
+          const nearElem = nearNode ? null : findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
           uiStore.contextMenu = {
             x: touches[0].x + rect.left,
             y: touches[0].y + rect.top,
@@ -2720,10 +2839,70 @@
     _drawTooltip(ctx, sx, sy, lines, width, height);
   }
 
-  // ── Thin wrappers that delegate to spatial-queries.ts, passing store data ──
+  // Click tolerances, in screen pixels (lib/viewport/pick-tolerance), in metres at this zoom.
+  function pickTol(px: number): number { return pickTolAt(uiStore.zoom, px); }
+
+  /*
+   * What a pointer can reach: what is drawn (lib/viewport/pick-visibility).
+   * Every picking path below takes its nodes, members, supports and loads from
+   * here, so nothing hidden or turned off is clicked, hovered, dragged,
+   * loaded, edited or taken by a marquee.
+   */
+  function pickable() {
+    return pickable2D(
+      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.model.loads },
+      {
+        anyHidden: viewVisibility.active,
+        isNodeHidden: (id) => viewVisibility.isNodeHidden(id),
+        isElementHidden: (id) => viewVisibility.isElementHidden(id),
+        isLoadHidden: (d) => isLoadHidden(d),
+        showSupports: uiStore.showSupports,
+        loadsDrawn: loadsDrawn2D(uiStore.showLoads, uiStore.hideLoadsWithDiagram, !!(resultsStore.results && resultsStore.diagramType !== 'none')),
+      },
+    );
+  }
+
+  // A click again on the same spot steps to the next thing under the pointer,
+  // while what the last click took is still selected.
+  const pickCycle = createPickCycle({
+    isSelected: (p) => p.kind === 'node' ? uiStore.selectedNodes.has(p.id)
+      : p.kind === 'element' ? uiStore.selectedElements.has(p.id) : uiStore.selectedLoads.has(p.id),
+  });
+  function cyclePick(targets: PickTarget[], mx: number, my: number, clickCount = 1): PickTarget | null {
+    return pickCycle.pick(targets, mx, my, (at, of) => {
+      uiStore.toast(t('select.cycled').replace('{i}', String(at)).replace('{n}', String(of)), 'info');
+    }, clickCount);
+  }
+  /** What a click at this point could mean, the most specific first. */
+  function pickTargets(wx: number, wy: number, sx: number, sy: number, kinds: { nodes: boolean; elements: boolean }): PickTarget[] {
+    const out: PickTarget[] = [];
+    const reach = pickable();
+    if (kinds.nodes) {
+      const near = _findNodesNear(wx, wy, pickTol(PICK_PX.tight), reach.nodes);
+      // A node on a grid point just outside the tolerance still counts, as before.
+      const ids = near.length ? near : _findNodesNear(sx, sy, pickTol(PICK_PX.tight), reach.nodes).slice(0, 1);
+      for (const id of ids) out.push({ kind: 'node', id });
+    }
+    if (kinds.elements) {
+      for (const id of _findElementsNear(wx, wy, pickTol(PICK_PX.tight), reach.elements, getProjectedNodes())) {
+        out.push({ kind: 'element', id });
+      }
+    }
+    return out;
+  }
+
+  // ── Thin wrappers that delegate to spatial-queries.ts, passing what can be picked ──
 
   function findNearestNode(x: number, y: number, maxDist: number) {
-    return _findNearestNode(x, y, maxDist, modelStore.nodes);
+    return _findNearestNode(x, y, maxDist, pickable().nodes);
+  }
+
+  /** The projected nodes a snap can catch: those drawn. */
+  function getPickableProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+    const all = getProjectedNodes();
+    if (!viewVisibility.active) return all;
+    for (const id of all.keys()) if (viewVisibility.isNodeHidden(id)) all.delete(id);
+    return all;
   }
 
   /** Build a projected node map for hit testing / picking in the current 2D plane. */
@@ -2736,11 +2915,12 @@
   }
 
   function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, modelStore.elements, getProjectedNodes());
+    return _findNearestElement(x, y, maxDist, pickable().elements, getProjectedNodes());
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
-    return _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
+    // Supports turned off or hidden are not drawn, so they are not clicked either.
+    return _findNearestSupport(x, y, maxDist, pickable().supports, getProjectedNodes());
   }
 
   /**
@@ -2750,9 +2930,10 @@
    * horizontal or vertical, or the grid. Nothing in the model changes.
    */
   function memberEndAt(wx: number, wy: number, sx: number, sy: number): MemberSnap {
-    const nodes = getProjectedNodes();
+    // Only what is drawn is caught.
+    const nodes = getPickableProjectedNodes();
     const members: SnapMember[] = [];
-    for (const e of modelStore.elements.values()) {
+    for (const e of pickable().elements.values()) {
       const a = nodes.get(e.nodeI), b = nodes.get(e.nodeJ);
       if (a && b) members.push({ id: e.id, a, b });
     }
@@ -2773,9 +2954,9 @@
    * Null when it catches nothing, so it follows the grid.
    */
   function dragEndAt(nodeId: number, wx: number, wy: number, sx: number, sy: number): MemberSnap | null {
-    const all = getProjectedNodes();
+    const all = getPickableProjectedNodes();
     const members: SnapMember[] = [];
-    for (const e of modelStore.elements.values()) {
+    for (const e of pickable().elements.values()) {
       if (e.nodeI === nodeId || e.nodeJ === nodeId) continue;
       const a = all.get(e.nodeI), b = all.get(e.nodeJ);
       if (a && b) members.push({ id: e.id, a, b });
@@ -2794,30 +2975,6 @@
   }
 
   /**
-   * True when a member from `a` to `b` would lie along an existing one over a
-   * length: collinear with it and sharing more than a point. Joining two nodes
-   * that a member (or a run of split members) already joins is the common
-   * case; the result would be a second member on top of the first.
-   */
-  function overlapsExistingMember(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
-    const ux = b.x - a.x, uy = b.y - a.y, len = Math.hypot(ux, uy);
-    if (len < 1e-9) return false;
-    const tol = 1e-6 * Math.max(1, len);
-    for (const e of modelStore.elements.values()) {
-      const ni = getProjectedNode(e.nodeI), nj = getProjectedNode(e.nodeJ);
-      if (!ni || !nj) continue;
-      // Both member ends on the new member's line.
-      const off = (p: { x: number; y: number }) => Math.abs((p.x - a.x) * uy - (p.y - a.y) * ux) / len;
-      if (off(ni) > tol || off(nj) > tol) continue;
-      // Their positions along it, and the length the two share.
-      const s = (p: { x: number; y: number }) => ((p.x - a.x) * ux + (p.y - a.y) * uy) / len;
-      const lo = Math.max(0, Math.min(s(ni), s(nj))), hi = Math.min(len, Math.max(s(ni), s(nj)));
-      if (hi - lo > tol) return true;
-    }
-    return false;
-  }
-
-  /**
    * The node at a member end, made if missing: the node already there, else
    * the node that splitting each member through the point makes (one member,
    * or two at a crossing; auto-split, as the node tool does), else a new
@@ -2826,7 +2983,8 @@
    * exists.
    */
   function realizeMemberEnd(x: number, y: number): number {
-    const there = findNearestNode(x, y, 1e-6);
+    // A node exactly here, hidden or not: welding to it beats a coincident twin.
+    const there = _findNearestNode(x, y, 1e-6, modelStore.nodes);
     if (there) return there.id;
     if (uiStore.autoSplitOnNodePlace) {
       const through: Array<{ id: number; t: number }> = [];
@@ -2852,15 +3010,17 @@
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
-    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, getProjectedNodes());
+    return _findNearestMidpoint(x, y, maxDist, pickable().elements, getProjectedNodes());
   }
 
+  /** The node tool's snap: a drawn node, a drawn member's midpoint, the grid; reaches in pixels. */
   function snapWithMidpoint(worldX: number, worldY: number): { x: number; y: number } {
-    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getProjectedNodes(), modelStore.elements);
+    const tol = nodeToolTolerances(uiStore.zoom);
+    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getPickableProjectedNodes(), pickable().elements, tol.node, tol.midpoint);
   }
 
   function findAllLoadsNear(wx: number, wy: number, maxDist: number): number[] {
-    return _findAllLoadsNear(wx, wy, maxDist, modelStore.model.loads, modelStore.elements, modelStore.nodes);
+    return _findAllLoadsNear(wx, wy, maxDist, pickable().loads as never, modelStore.elements, modelStore.nodes);
   }
 
 
@@ -2868,6 +3028,7 @@
 
 <div class="viewport2d-wrapper">
   <ConnectionPrompt />
+  <HiddenItemsChip />
   {#if uiStore.isMobile && uiStore.appMode === 'basico'}
     <!-- The phone's delete button: over the model's lower right corner, level
          with the axes; the canvas shrinks for the sheet, so it rises with it. -->

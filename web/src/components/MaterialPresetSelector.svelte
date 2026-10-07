@@ -7,6 +7,7 @@
   import { codeLore } from '../lib/data/code-lore';
   import { uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
 
   interface Props {
     open: boolean;
@@ -15,6 +16,25 @@
   }
 
   let { open, onselect, onclose }: Props = $props();
+
+  /*
+   * The catalogue quotes MPa and kN/m³. In SI they are shown as written (E in
+   * GPa from 1000 MPa up, the way grades are quoted); the other systems get
+   * the converted value in their own unit.
+   */
+  const isSI = $derived(uiStore.unitSystem === 'SI');
+  function fmtE(mpa: number): string {
+    if (isSI) return mpa >= 1000 ? `${(mpa / 1000).toFixed(0)}GPa` : `${mpa}MPa`;
+    return `${fmtQ(mpa, 'stress')}${unitQ('stress')}`;
+  }
+  const fmtStress = (mpa: number) => isSI ? `${mpa}MPa` : `${fmtQ(mpa, 'stress')}${unitQ('stress')}`;
+  const fmtRho = (knm3: number) => isSI ? `${knm3}kN/m³` : `${fmtQ(knm3, 'density')}${unitQ('density')}`;
+  /** The thinnest band's limit and the yield beyond it; the fy is converted, the plate thickness stays in mm. */
+  function bandTail(p: MaterialPreset, tail: string): string {
+    const b = p.thicknessBands;
+    if (isSI || !b || b.length === 0) return tail;
+    return `(>${b[0].upToMm}mm: ${fmtQ(b[b.length - 1].fy, 'stress')})`;
+  }
 
   let activeCategory = $state<string>('acero');
   let searchQuery = $state('');
@@ -168,7 +188,7 @@
               {/if}
             </span>
             <span class="preset-props">
-              E={p.e >= 1000 ? `${(p.e/1000).toFixed(0)}GPa` : `${p.e}MPa`}
+              E={fmtE(p.e)}
               <!-- The quoted fy applies to the first thickness band only.
                    Hot-rolled yield falls with thickness — S355 is 355 MPa to
                    40 mm and 335 beyond it — so a picker that shows one number
@@ -182,11 +202,11 @@
                    the bands come from — which is the DESIGN code, not the
                    product standard shown beside the grade name. -->
               {#if p.fy}
-                fy={p.fy}MPa{#if bands}<span class="preset-band" title={bands.full}
-                >{bands.tail}</span>{/if}
+                fy={fmtStress(p.fy)}{#if bands}<span class="preset-band" title={bands.full}
+                >{bandTail(p, bands.tail)}</span>{/if}
               {/if}
-              {#if p.fu} fu={p.fu}MPa{/if}
-              ρ={p.rho}kN/m³
+              {#if p.fu} fu={fmtStress(p.fu)}{/if}
+              ρ={fmtRho(p.rho)}
             </span>
           </button>
         {/each}

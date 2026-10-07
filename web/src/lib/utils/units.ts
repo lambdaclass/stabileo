@@ -27,8 +27,8 @@ export type Quantity =
   | 'rotation'         // rad ↔ rad (same)
   | 'springK'          // kN/m ↔ kip/ft
   | 'springKr'         // kN·m/rad ↔ kip·ft/rad
-  | 'temperature'      // °C ↔ °F (a temperature)
-  | 'temperatureDiff'  // °C ↔ °F (a difference or a gradient: no offset)
+  | 'temperature'      // °C ↔ °F, a temperature (affine)
+  | 'temperatureDelta' // °C ↔ °F, a difference: ΔT and gradients (no 32° offset)
   | 'areaLoad'         // kN/m² ↔ psf
   | 'speed'            // m/s ↔ mph
   // A cross-section's properties: shown in cm in SI, as section tables give them.
@@ -53,7 +53,7 @@ const FACTORS: Record<Quantity, number> = {
   springK: 0.0685218,          // kN/m → kip/ft
   springKr: 0.737562,          // kN·m/rad → kip·ft/rad
   temperature: 1,              // special handling (affine)
-  temperatureDiff: 1.8,        // Δ°C → Δ°F
+  temperatureDelta: 1.8,        // Δ°C → Δ°F
   areaLoad: 20.8854,           // kN/m² → psf
   speed: 2.23694,              // m/s → mph
   sectionArea: 1550.003,       // m² → in²
@@ -89,7 +89,7 @@ const MKS_FACTORS: Record<Quantity, number> = {
   springK: TF,
   springKr: TF,
   temperature: 1,
-  temperatureDiff: 1,
+  temperatureDelta: 1,
   areaLoad: 1000 * TF,  // kN/m² → kgf/m²
   speed: 1,
   sectionArea: 1e4,
@@ -114,7 +114,7 @@ const MKS_LABELS: Record<Quantity, string> = {
   springK: 'tf/m',
   springKr: 'tf·m/rad',
   temperature: '°C',
-  temperatureDiff: '°C',
+  temperatureDelta: '°C',
   areaLoad: 'kgf/m²',
   speed: 'm/s',
   sectionArea: 'cm²',
@@ -139,7 +139,7 @@ const SI_LABELS: Record<Quantity, string> = {
   springK: 'kN/m',
   springKr: 'kN·m/rad',
   temperature: '°C',
-  temperatureDiff: '°C',
+  temperatureDelta: '°C',
   areaLoad: 'kN/m²',
   speed: 'm/s',
   sectionArea: 'cm²',
@@ -177,7 +177,7 @@ const IMPERIAL_LABELS: Record<Quantity, string> = {
   springK: 'kip/ft',
   springKr: 'kip·ft/rad',
   temperature: '°F',
-  temperatureDiff: '°F',
+  temperatureDelta: '°F',
   areaLoad: 'psf',
   speed: 'mph',
   sectionArea: 'in²',

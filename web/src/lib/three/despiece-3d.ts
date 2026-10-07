@@ -218,24 +218,39 @@ function memberForceArrows(
   return out;
 }
 
+/**
+ * How the labels write a force and a moment. The caller passes the project's units
+ * (`forceMomentFormat`, what the inspector beside the drawing writes); without one, the model's
+ * kN and kN·m to one decimal.
+ */
+export interface DespieceFormat { force: (v: number) => string; moment: (v: number) => string }
+const MODEL_NUMBERS: DespieceFormat = { force: (v) => v.toFixed(1), moment: (v) => v.toFixed(1) };
+
 /** Compact end label in the requested basis. */
-function endLabel(
+export function endLabel(
   force: THREE.Vector3, n: number, vy: number, vz: number, mx: number, my: number, mz: number, basis: DespieceBasis,
+  fmt: DespieceFormat = MODEL_NUMBERS,
 ): string {
   const parts: string[] = [];
   if (basis === 'global') {
     const f = force;
-    if (Math.abs(f.x) > FORCE_EPS) parts.push(`Fx ${f.x.toFixed(1)}`);
-    if (Math.abs(f.y) > FORCE_EPS) parts.push(`Fy ${f.y.toFixed(1)}`);
-    if (Math.abs(f.z) > FORCE_EPS) parts.push(`Fz ${f.z.toFixed(1)}`);
+    if (Math.abs(f.x) > FORCE_EPS) parts.push(`Fx ${fmt.force(f.x)}`);
+    if (Math.abs(f.y) > FORCE_EPS) parts.push(`Fy ${fmt.force(f.y)}`);
+    if (Math.abs(f.z) > FORCE_EPS) parts.push(`Fz ${fmt.force(f.z)}`);
   } else {
-    if (Math.abs(n) > FORCE_EPS) parts.push(`N ${n.toFixed(1)}`);
+    if (Math.abs(n) > FORCE_EPS) parts.push(`N ${fmt.force(n)}`);
     const sh = Math.hypot(vy, vz);
-    if (sh > FORCE_EPS) parts.push(`V ${sh.toFixed(1)}`);
+    if (sh > FORCE_EPS) parts.push(`V ${fmt.force(sh)}`);
   }
   const m = Math.hypot(my, mz);
-  if (m > FORCE_EPS || Math.abs(mx) > FORCE_EPS) parts.push(`M ${m.toFixed(1)}${Math.abs(mx) > FORCE_EPS ? ` T ${mx.toFixed(1)}` : ''}`);
+  if (m > FORCE_EPS || Math.abs(mx) > FORCE_EPS) parts.push(`M ${fmt.moment(m)}${Math.abs(mx) > FORCE_EPS ? ` T ${fmt.moment(mx)}` : ''}`);
   return parts.join('  ');
+}
+
+/** A support reaction's label: its force and moment magnitudes. */
+export function reactionLabel(fv: THREE.Vector3, mv: THREE.Vector3, fmt: DespieceFormat = MODEL_NUMBERS): string {
+  const hasF = fv.length() > FORCE_EPS, hasM = mv.length() > FORCE_EPS;
+  return [hasF ? `R ${fmt.force(fv.length())}` : '', hasM ? `M ${fmt.moment(mv.length())}` : ''].filter(Boolean).join('  ');
 }
 
 /**
@@ -258,6 +273,8 @@ export function createDespiece3DGroup(opts: {
   resultant?: boolean;
   loads?: Load[];
   loadMode?: DespieceLoadMode;
+  /** How the labels write forces and moments: the project's units (`forceMomentFormat`). */
+  format?: DespieceFormat;
 }): DespieceGroup {
   const { elements, nodes, forces, reactions, sep, sections, leftHand, project2D } = opts;
   const vectorMode = opts.vectorMode ?? 'all';
@@ -348,7 +365,7 @@ export function createDespiece3DGroup(opts: {
     // in 'nodes' mode (where node vectors are all that's shown).
     const showThis = side === 'member' ? !labelNode : labelNode;
     if (showLabels && showThis) {
-      const txt = endLabel(force, n, vy, vz, mx, my, mz, basis);
+      const txt = endLabel(force, n, vy, vz, mx, my, mz, basis, opts.format);
       if (txt) {
         const lbl = createTextSpriteCached(txt, basis === 'global' ? DESPIECE_COL.axial : DESPIECE_COL.moment, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
@@ -495,7 +512,7 @@ export function createDespiece3DGroup(opts: {
         group.add(mg);
       }
       if (showLabels) {
-        const txt = [hasF ? `R ${fv.length().toFixed(1)}` : '', hasM ? `M ${mv.length().toFixed(1)}` : ''].filter(Boolean).join('  ');
+        const txt = reactionLabel(fv, mv, opts.format);
         const lbl = createTextSpriteCached(txt, DESPIECE_COL.reaction, 20);
         lbl.scale.set(0.6 * lSize, 0.6 * lSize, 1);
         lbl.position.set(pos.x, pos.y - labelOffset, pos.z);

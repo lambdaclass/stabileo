@@ -239,7 +239,7 @@
       <polygon points="{x0},{y0} {tx(x0, 38, thermal.top)},{y0} {tx(x0, 38, thermal.bot)},{y1} {x0},{y1}" class="ls-diag" />
       <line x1={tx(x0, 38, thermal.top)} y1={y0} x2={tx(x0, 38, thermal.bot)} y2={y1} class="ls-load" />
       <line x1={tx(x0, 38, thermal.T)} y1={y0} x2={tx(x0, 38, thermal.T)} y2={y1} class="ls-guide" />
-      <text x={tx(x0, 38, thermal.T) + 2} y={(y0 + y1) / 2} class="ls-t">ΔT{thermal.dt === null ? '' : ` = ${val(thermal.dt, 'temperatureDiff')}`}</text>
+      <text x={tx(x0, 38, thermal.T) + 2} y={(y0 + y1) / 2} class="ls-t">ΔT{thermal.dt === null ? '' : ` = ${val(thermal.dt, 'temperatureDelta')}`}</text>
       <!-- Each face's temperature over and under the section, clear of the profile. -->
       <text x={lx} y={y0 - 5} class="ls-v">{topLabel}</text>
       <text x={lx} y={y1 + 12} class="ls-v">{botLabel}</text>
@@ -371,12 +371,12 @@
       {@render arrow([40, 59], [40, 43], 'ls-axis')}<text x="43" y="45" class="ls-ax">z</text>
       {@render arrow([40, 59], [50, 59], 'ls-axis')}<text x="49" y="67" class="ls-ax">y</text>
       <line x1="54" y1="34" x2="92" y2="34" class="ls-guide" /><line x1="54" y1="84" x2="92" y2="84" class="ls-guide" />
-      {@render profile(92, 34, 84, `+z: T${thermal.any ? ` = ${val(thermal.top, 'temperatureDiff')}` : ''}`, `−z: T${thermal.any ? ` = ${val(thermal.bot, 'temperatureDiff')}` : ''}`, lbl('ΔTgz', thermal.gz, 'temperatureDiff'), 10)}
+      {@render profile(92, 34, 84, `+z: T${thermal.any ? ` = ${val(thermal.top, 'temperatureDelta')}` : ''}`, `−z: T${thermal.any ? ` = ${val(thermal.bot, 'temperatureDelta')}` : ''}`, lbl('ΔTgz', thermal.gz, 'temperatureDelta'), 10)}
       {#if thermal.gy !== null && thermal.gy !== 0}
         <!-- Across the width: −y face to the left, +y to the right. -->
         <line x1="22" y1="128" x2="58" y2="128" class="ls-axis" />
         <polygon points="26,128 26,{128 - 12 * thermal.left / thermal.m} 54,{128 - 12 * thermal.right / thermal.m} 54,128" class="ls-diag" />
-        <text x="62" y="127" class="ls-t">{lbl('ΔTgy', thermal.gy, 'temperatureDiff')}: T(−y) {fmtQ(thermal.left, 'temperatureDiff')} · T(+y) {fmtQ(thermal.right, 'temperatureDiff')}</text>
+        <text x="62" y="127" class="ls-t">{lbl('ΔTgy', thermal.gy, 'temperatureDelta')}: T(−y) {fmtQ(thermal.left, 'temperatureDelta')} · T(+y) {fmtQ(thermal.right, 'temperatureDelta')}</text>
       {/if}
       <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.section')} · ΔTgz = T(−z) − T(+z)</text>
     {:else if v.kind === 'thermalQuad'}
@@ -385,7 +385,7 @@
       {@render arrow([24, 64], [24, 50], 'ls-axis')}<text x="27" y="53" class="ls-ax">z</text>
       {@render dim([90, 44], [90, 84], 't', [5, 3])}
       <line x1="84" y1="44" x2="122" y2="44" class="ls-guide" /><line x1="84" y1="84" x2="122" y2="84" class="ls-guide" />
-      {@render profile(122, 44, 84, `+z: T${thermal.any ? ` = ${val(thermal.top, 'temperatureDiff')}` : ''}`, `−z: T${thermal.any ? ` = ${val(thermal.bot, 'temperatureDiff')}` : ''}`, lbl('ΔTg', thermal.gz, 'temperatureDiff'), 14)}
+      {@render profile(122, 44, 84, `+z: T${thermal.any ? ` = ${val(thermal.top, 'temperatureDelta')}` : ''}`, `−z: T${thermal.any ? ` = ${val(thermal.bot, 'temperatureDelta')}` : ''}`, lbl('ΔTg', thermal.gz, 'temperatureDelta'), 14)}
       <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.slabSection')} · ΔTg = T(+z) − T(−z)</text>
     {:else if v.kind === 'strain'}
       {@const sg = sgn(v.strain) || 1}
