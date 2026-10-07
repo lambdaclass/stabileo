@@ -1462,9 +1462,18 @@ export function computeShearCapacity(
 export function computeColumnCapacity(
   AsProv_cm2: number, b: number, h: number,
   fc: number, fy: number, cover: number, stirrupDia: number,
+  Nu: number, Mu: number, bars?: BarInstance[], axis: 'z' | 'y' = 'z',
+): ReturnType<typeof columnCapacity> {
+  return columnCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Mu, bars, axis);
+}
+
+function columnCapacity(
+  AsProv_cm2: number, b: number, h: number,
+  fc: number, fy: number, cover: number, stirrupDia: number,
   Nu: number, Mu: number,
   bars?: BarInstance[],
   axis: 'z' | 'y' = 'z',
+  solveSection?: ColumnSectionSolve,
 ): {
   phiPn: number; phiMn: number; ratio: number;
   rhoPercent: number; rhoOk: boolean;
@@ -1475,16 +1484,12 @@ export function computeColumnCapacity(
 } {
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
-  const Es = 200000 * 1000; // kPa
   const Ag = b * h;
   const As_m2 = AsProv_cm2 * 1e-4;
-  const b1 = beta1(fc);
   const NuAbs = Math.abs(Nu);
   const MuAbs = Math.abs(Mu);
   /** Compression positive. Below this (a negative number) the section cannot carry the tension. */
   let phiPtMax = -Infinity;
-  const sectionDepth = axis === 'z' ? h : b;
-  const sectionWidth = axis === 'z' ? b : h;
 
   const rhoPercent = +(AsProv_cm2 / (Ag * 1e4) * 100).toFixed(2);
   const rhoOk = rhoPercent >= 0.99 && rhoPercent <= 8.01;
@@ -1501,74 +1506,9 @@ export function computeColumnCapacity(
     geometryAware = true;
     strainCompatible = true;
 
-    // Bar depths from compression face (top for axis='z', right for axis='y')
-    const barData: Array<{ d: number; area_m2: number }> = [];
-    for (const bar of bars) {
-      const pos = axis === 'z' ? bar.y : bar.x;
-      const dFromCompFace = sectionDepth - pos; // distance from compression face
-      const spec = REBAR_DB.find(r => r.diameter === bar.diameter);
-      const area = spec ? spec.area * 1e-4 : (Math.PI / 4) * (bar.diameter / 1000) ** 2;
-      barData.push({ d: dFromCompFace, area_m2: area });
-    }
-
-    // Function: given neutral axis c, compute (N, M) about centroid
-    function sectionForces(c: number): { N: number; M: number; epsTmax: number } {
-      const a = Math.min(b1 * c, sectionDepth);
-      // Concrete compression
-      const Cc = ALPHA1 * fc_kPa * a * sectionWidth;
-      let Nsteel = 0;
-      let Msteel = 0;
-      let epsTmax = 0;
-      for (const bd of barData) {
-        const eps = c > 0.001 ? 0.003 * (c - bd.d) / c : 0;
-        const fs = Math.sign(eps) * Math.min(Es * Math.abs(eps), fy_kPa);
-        // Net steel force (subtract displaced concrete for bars in compression zone)
-        const fsNet = bd.d <= a ? fs - ALPHA1 * fc_kPa : fs;
-        const Fs = bd.area_m2 * fsNet;
-        Nsteel += Fs;
-        // Moment about section centroid (h/2)
-        Msteel += Fs * (sectionDepth / 2 - bd.d);
-        // Track max tension strain
-        if (eps < epsTmax) epsTmax = eps;
-      }
-      const Mc = Cc * (sectionDepth / 2 - a / 2);
-      return { N: Cc + Nsteel, M: Mc + Msteel, epsTmax: Math.abs(epsTmax) };
-    }
-
-    /*
-     * The point of the design curve where φ(c)·Pn(c) = Pu, and φ·Mn there.
-     *
-     * This solved Pn(c) = Pu, the NOMINAL curve, then took φ·Mn at that c. The design curve is
-     * φPn, so the point sat at a smaller c than it should, where Mn is larger: on a 30×30 with
-     * 8Ø16 in H-25 it gave 71,7 kN·m at Pu = 1200 kN against a correct 47,7.
-     *
-     * Pu carries its sign (compression positive): a column in tension was checked as if the same
-     * force compressed it, and read the same capacity. In tension the bisection finds the c at
-     * which the section, cracked through most of its depth, carries that tension.
-     *
-     * φ follows CIRSOC 201-2025 Tabla 21.2.2: 0,65 up to εty, 0,90 from εty + 0,003.
-     */
-    const epsY = fy / 200000;
-    const epsTC = epsY + 0.003;
-    const phiOf = (epsT: number) => epsT >= epsTC ? 0.9 : epsT >= epsY ? 0.65 + 0.25 * (epsT - epsY) / (epsTC - epsY) : 0.65;
-    const phiN = (c: number) => { const f = sectionForces(c); return phiOf(f.epsTmax) * f.N; };
-    let cLow = 0.001;
-    let cHigh = sectionDepth * 5;
-    const targetN = Math.min(Nu, phiPn); // kN, compression positive; the axial cap is checked below
-    for (let iter = 0; iter < 60; iter++) {
-      const cMid = (cLow + cHigh) / 2;
-      if (phiN(cMid) < targetN) cLow = cMid;
-      else cHigh = cMid;
-      if (Math.abs(cHigh - cLow) < 1e-5) break;
-    }
-    const cSolved = (cLow + cHigh) / 2;
-    cNeutral = +cSolved.toFixed(4);
-    const result = sectionForces(cSolved);
-    const phi = phiOf(result.epsTmax);
-    // The tension the section can carry at all: every bar yielded, φ = 0,90 (compression positive).
-    phiPtMax = -0.9 * fy_kPa * barData.reduce((sum, bd) => sum + bd.area_m2, 0);
-
-    phiMn = phi * Math.abs(result.M);
+    ({ phiMn, phiPtMax, cNeutral } = solveSection
+      ? solveSection(Nu, axis)
+      : solveColumnSection(columnSectionData(AsProv_cm2, b, h, fc, fy, bars, axis), Nu));
   } else {
     // Simplified fallback
     const d = h - cover - (stirrupDia / 1000) - 0.008;
@@ -1618,6 +1558,92 @@ export function computeColumnCapacity(
   };
 }
 
+interface ColumnSectionData {
+  sectionDepth: number; sectionWidth: number; fc_kPa: number; fy_kPa: number;
+  fy: number; b1: number; phiPn: number;
+  barData: Array<{ d: number; area_m2: number }>;
+}
+interface ColumnSectionSolution { phiMn: number; phiPtMax: number; cNeutral: number }
+type ColumnSectionSolve = (Nu: number, axis: 'z' | 'y') => ColumnSectionSolution;
+
+function columnSectionData(As: number, b: number, h: number, fc: number, fy: number,
+  bars: readonly BarInstance[], axis: 'z' | 'y'): ColumnSectionData {
+  const sectionDepth = axis === 'z' ? h : b;
+  const fc_kPa = fc * 1000, fy_kPa = fy * 1000, As_m2 = As * 1e-4;
+  return { sectionDepth, sectionWidth: axis === 'z' ? b : h, fc_kPa, fy_kPa, fy, b1: beta1(fc),
+    phiPn: 0.65 * 0.80 * (0.85 * fc_kPa * (b * h - As_m2) + fy_kPa * As_m2),
+    barData: bars.map(bar => {
+      const spec = REBAR_DB.find(r => r.diameter === bar.diameter);
+      return { d: sectionDepth - (axis === 'z' ? bar.y : bar.x),
+        area_m2: spec ? spec.area * 1e-4 : (Math.PI / 4) * (bar.diameter / 1000) ** 2 };
+    }),
+  };
+}
+
+/** Uncached TS reference, retaining the station verifier's exact arithmetic and stopping rule. */
+function solveColumnSection(data: ColumnSectionData, Nu: number): ColumnSectionSolution {
+  const { sectionDepth, sectionWidth, fc_kPa, fy_kPa, fy, b1, phiPn, barData } = data;
+  const Es = 200000 * 1000;
+  // Function: given neutral axis c, compute (N, M) about centroid
+  function sectionForces(c: number): { N: number; M: number; epsTmax: number } {
+    const a = Math.min(b1 * c, sectionDepth);
+    // Concrete compression
+    const Cc = ALPHA1 * fc_kPa * a * sectionWidth;
+    let Nsteel = 0;
+    let Msteel = 0;
+    let epsTmax = 0;
+    for (const bd of barData) {
+      const eps = c > 0.001 ? 0.003 * (c - bd.d) / c : 0;
+      const fs = Math.sign(eps) * Math.min(Es * Math.abs(eps), fy_kPa);
+      // Net steel force (subtract displaced concrete for bars in compression zone)
+      const fsNet = bd.d <= a ? fs - ALPHA1 * fc_kPa : fs;
+      const Fs = bd.area_m2 * fsNet;
+      Nsteel += Fs;
+      // Moment about section centroid (h/2)
+      Msteel += Fs * (sectionDepth / 2 - bd.d);
+      // Track max tension strain
+      if (eps < epsTmax) epsTmax = eps;
+    }
+    const Mc = Cc * (sectionDepth / 2 - a / 2);
+    return { N: Cc + Nsteel, M: Mc + Msteel, epsTmax: Math.abs(epsTmax) };
+  }
+
+  /*
+   * The point of the design curve where φ(c)·Pn(c) = Pu, and φ·Mn there.
+   *
+   * This solved Pn(c) = Pu, the NOMINAL curve, then took φ·Mn at that c. The design curve is
+   * φPn, so the point sat at a smaller c than it should, where Mn is larger: on a 30×30 with
+   * 8Ø16 in H-25 it gave 71,7 kN·m at Pu = 1200 kN against a correct 47,7.
+   *
+   * Pu carries its sign (compression positive): a column in tension was checked as if the same
+   * force compressed it, and read the same capacity. In tension the bisection finds the c at
+   * which the section, cracked through most of its depth, carries that tension.
+   *
+   * φ follows CIRSOC 201-2025 Tabla 21.2.2: 0,65 up to εty, 0,90 from εty + 0,003.
+   */
+  const epsY = fy / 200000;
+  const epsTC = epsY + 0.003;
+  const phiOf = (epsT: number) => epsT >= epsTC ? 0.9 : epsT >= epsY ? 0.65 + 0.25 * (epsT - epsY) / (epsTC - epsY) : 0.65;
+  const phiN = (c: number) => { const f = sectionForces(c); return phiOf(f.epsTmax) * f.N; };
+  let cLow = 0.001;
+  let cHigh = sectionDepth * 5;
+  const targetN = Math.min(Nu, phiPn); // kN, compression positive; the axial cap is checked below
+  for (let iter = 0; iter < 60; iter++) {
+    const cMid = (cLow + cHigh) / 2;
+    if (phiN(cMid) < targetN) cLow = cMid;
+    else cHigh = cMid;
+    if (Math.abs(cHigh - cLow) < 1e-5) break;
+  }
+  const cSolved = (cLow + cHigh) / 2;
+  const cNeutral = +cSolved.toFixed(4);
+  const result = sectionForces(cSolved);
+  const phi = phiOf(result.epsTmax);
+  // The tension the section can carry at all: every bar yielded, φ = 0,90 (compression positive).
+  const phiPtMax = -0.9 * fy_kPa * barData.reduce((sum, bd) => sum + bd.area_m2, 0);
+
+  return { phiMn: phi * Math.abs(result.M), phiPtMax, cNeutral };
+}
+
 /**
  * Compute biaxial column capacity using Bresler reciprocal load method.
  * Uses the same approach as CIRSOC 201 checkBiaxial():
@@ -1650,8 +1676,17 @@ export function computeColumnCapacity(
 export function computeBiaxialCapacity(
   AsProv_cm2: number, b: number, h: number,
   fc: number, fy: number, cover: number, stirrupDia: number,
+  Nu: number, Muy: number, Muz: number, bars?: BarInstance[],
+): ReturnType<typeof biaxialCapacity> {
+  return biaxialCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, Muz, bars);
+}
+
+function biaxialCapacity(
+  AsProv_cm2: number, b: number, h: number,
+  fc: number, fy: number, cover: number, stirrupDia: number,
   Nu: number, Muy: number, Muz: number,
   bars?: BarInstance[],
+  solveSection?: ColumnSectionSolve,
 ): {
   phiPn: number; phiPn0: number; phiPnx: number; phiPny: number;
   ratio: number; rhoPercent: number; rhoOk: boolean;
@@ -1679,9 +1714,9 @@ export function computeBiaxialCapacity(
     strainCompatible = true;
 
     // Strain-compatible uniaxial capacity for Muz (about Z, using h as depth)
-    const capZ = computeColumnCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muz, bars, 'z');
+    const capZ = columnCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muz, bars, 'z', solveSection);
     // Strain-compatible uniaxial capacity for Muy (about Y, using b as depth)
-    const capY = computeColumnCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, bars, 'y');
+    const capY = columnCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, bars, 'y', solveSection);
 
     // Uniaxial eccentric capacity: φPn at eccentricity e = Mu/Nu
     // For strain-compatible: if Mn(c@Nu) ≥ Mu, section is adequate → φPnx = Nu
@@ -1733,6 +1768,47 @@ export function computeBiaxialCapacity(
     phiPnx: +phiPnx.toFixed(1), phiPny: +phiPny.toFixed(1),
     ratio: +ratio, rhoPercent, rhoOk,
     method: 'bresler', geometryAware, strainCompatible, status,
+  };
+}
+
+export interface ColumnCapacitySection {
+  AsProv_cm2: number; b: number; h: number; fc: number; fy: number;
+  cover: number; stirrupDia: number; bars?: BarInstance[];
+}
+
+let columnCapacityReuse = true;
+/** Benchmark escape hatch: production always uses the prepared capacity cache. */
+export function setColumnCapacityReuse(enabled: boolean): void { columnCapacityReuse = enabled; }
+
+/**
+ * One immutable section per verification. Cache unrounded capacity by exact signed Nu
+ * and axis; moments affect demand ratios but not the neutral-axis solve. The cache is
+ * discarded before another member, candidate or reinforcement edit can reuse it.
+ */
+export function prepareColumnCapacity(input: ColumnCapacitySection,
+  options: { reference?: boolean } = {}) {
+  const { AsProv_cm2: As, b, h, fc, fy, cover, stirrupDia } = input;
+  const bars = input.bars?.map(bar => ({ ...bar }));
+  const reference = options.reference ?? !columnCapacityReuse;
+  const data = !reference && bars && bars.length >= 4 ? {
+    z: columnSectionData(As, b, h, fc, fy, bars, 'z'),
+    y: columnSectionData(As, b, h, fc, fy, bars, 'y'),
+  } : null;
+  const cache = { z: new Map<number, ColumnSectionSolution>(), y: new Map<number, ColumnSectionSolution>() };
+  const solveSection: ColumnSectionSolve | undefined = data ? (Nu, axis) => {
+    const previous = cache[axis].get(Nu);
+    if (previous) return previous;
+    const result = solveColumnSection(data[axis], Nu);
+    cache[axis].set(Nu, result);
+    return result;
+  } : undefined;
+  return {
+    uniaxial(Nu: number, Mu: number, axis: 'z' | 'y' = 'z') {
+      return columnCapacity(As, b, h, fc, fy, cover, stirrupDia, Nu, Mu, bars, axis, solveSection);
+    },
+    biaxial(Nu: number, Muy: number, Muz: number) {
+      return biaxialCapacity(As, b, h, fc, fy, cover, stirrupDia, Nu, Muy, Muz, bars, solveSection);
+    },
   };
 }
 
@@ -2416,6 +2492,8 @@ export function verifyProvidedReinforcement(
         minMoment: boolean;
       } | null = null;
       let count = 0;
+      // Use the provided bars' area even if the section carries a cached steel area.
+      const capacity = prepareColumnCapacity({ ...section, AsProv_cm2: provArea, bars: colBars });
       for (const t of allTuples) {
         // Compression positive: the solver's n is positive in tension. The column check read
         // |n|, so a tension of 400 kN was checked as a compression of 400 kN.
@@ -2460,7 +2538,7 @@ export function verifyProvidedReinforcement(
             // both moments hit the wrong bending depth.
             const muz = Mprim;
             const muy = Msec;
-            const cap = computeBiaxialCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, muy, muz, colBars);
+            const cap = capacity.biaxial(Nu, muy, muz);
             util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
             phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
           } else {
@@ -2474,7 +2552,7 @@ export function verifyProvidedReinforcement(
             const primaryIsLarger = Mprim >= Msec;
             const momentAxis = primaryIsLarger ? axes.flexure : axes.secondaryFlexure;
             const capAxis: 'z' | 'y' = momentAxis === axes.flexure ? 'z' : 'y';
-            const cap = computeColumnCapacity(provArea, section.b, section.h, section.fc, section.fy, section.cover, section.stirrupDia, Nu, Mu, colBars, capAxis);
+            const cap = capacity.uniaxial(Nu, Mu, capAxis);
             util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
             phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
           }
