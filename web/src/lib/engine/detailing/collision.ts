@@ -426,6 +426,11 @@ export interface CollisionResult {
   bucketScans: number;
   /** True when nothing worse than `marginal` was found. */
   constructible: boolean;
+  /**
+   * Bars left out because a coordinate, a radius or the diameter is not a finite number, by id.
+   * Absent when every bar was measured.
+   */
+  unmeasurable?: string[];
 }
 
 /**
@@ -508,10 +513,28 @@ interface PreparedSweep {
   retained?: BarConflict[];
 }
 
+/** Every coordinate, radius and the diameter of a bar is a finite number. */
+function measurableBar(bar: BarPath): boolean {
+  const point = (p?: Point3) => !p || (Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
+  const size = (v?: number) => v === undefined || Number.isFinite(v);
+  return Number.isFinite(bar.diameterMm) && bar.diameterMm >= 0
+    && bar.segments.every((sg) => point(sg.start) && point(sg.end) && point(sg.centre)
+      && size(sg.radius) && size(sg.sweepDeg));
+}
+
 export function detectCollisions(
   bars: readonly BarPath[],
   opts: DetectCollisionsOptions = {},
 ): CollisionResult {
+  // A bar that is not numbers is left out and named, on both paths. The kernel refuses any
+  // non-finite value in its buffers, and nothing above it fell back, so one malformed bar from
+  // upstream aborted a whole detailing run; the TypeScript path measured NaN as no conflict and
+  // never finished sampling a segment that reaches infinity.
+  const unmeasurable = bars.filter((b) => !measurableBar(b)).map((b) => b.id);
+  if (unmeasurable.length > 0) {
+    const measured = detectCollisions(bars.filter(measurableBar), opts);
+    return { ...measured, barCount: bars.length, unmeasurable };
+  }
   return sweepCollisions(bars, opts);
 }
 
@@ -599,6 +622,9 @@ function sweepCollisions(
         const placement = placementFor
           ? placementFor(a.path, b.path)
           : tolerances.placement;
+        // A placement that is not a number places nothing: the pair is not measured, on either
+        // path (the kernel refuses the query; the reference compared NaN and reported nothing).
+        if (!Number.isFinite(placement)) continue;
 
         // ── Reject what cannot be reported, before measuring it ──
         //
@@ -727,6 +753,8 @@ function sweepCollisions(
  */
 export function prepareCollisionRepair(bars: readonly BarPath[], opts: DetectCollisionsOptions = {}) {
   if (!collisionRepairKernelAvailable() || opts.kernel === false || opts.broadPhase === false || opts.deduplicateBuckets === false) return null;
+  // A bar that is not numbers is left out by name, which only the full sweep does.
+  if (!bars.every(measurableBar)) return null;
   const ids = new Map(bars.map((bar, i) => [bar.id, i]));
   if (ids.size !== bars.length) return null;
   const raw = bars.map(bar => samplePath(bar, COLLISION_CHORD_TOLERANCE));

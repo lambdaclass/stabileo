@@ -111,8 +111,10 @@ export function workbookOptions(input: ReportExportInputs): { includeModel: bool
   if (checks.length > 0) {
     extraSheets.push({
       name: input.t('report.verificationTitle') || 'Verification',
-      rows: [['ID', input.t('report.type') || 'Type', input.t('report.sectionLabel') || 'Section', input.t('report.design.governing'), input.t('report.design.demand'), input.t('report.design.capacity'), 'u', input.t('report.status') || 'Status'],
-        ...checks.map((c) => [c.elementId, c.elementType, c.section, c.governing ?? '', c.demand ?? '', c.capacity ?? '', c.worstUtilization, c.status])],
+      // Demand and capacity mix kN, kN·m and MPa down one column: each row says its unit, as the
+      // HTML report does.
+      rows: [['ID', input.t('report.type') || 'Type', input.t('report.sectionLabel') || 'Section', input.t('report.design.governing'), input.t('report.design.demand'), input.t('report.design.capacity'), input.t('report.unit') || 'Unit', 'u', input.t('report.status') || 'Status'],
+        ...checks.map((c) => [c.elementId, c.elementType, c.section, c.governing ?? '', c.demand ?? '', c.capacity ?? '', c.unit ?? '', c.worstUtilization, c.status])],
     });
   }
   if (s.storyDrift) {

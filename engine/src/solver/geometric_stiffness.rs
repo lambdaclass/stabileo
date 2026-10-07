@@ -147,6 +147,18 @@ pub fn add_geometric_stiffness_2d(
     k_global: &mut [f64],
 ) {
     let n = dof_num.n_total;
+    emit_geometric_stiffness_2d(input, dof_num, u, &mut |gi, gj, v| k_global[gi * n + gj] += v);
+}
+
+/// The 2D geometric stiffness of every element, emitted entry by entry: the
+/// sparse P-Delta tangent collects it as triplets instead of a dense matrix.
+/// Mirrors `emit_geometric_stiffness_3d`.
+pub(crate) fn emit_geometric_stiffness_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
@@ -156,7 +168,7 @@ pub fn add_geometric_stiffness_2d(
         let dt = dt_by_elem.get(&elem.id).copied().unwrap_or(0.0);
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
-            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, dt, k_global, n);
+            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, dt, emit);
             continue;
         }
 
@@ -214,7 +226,7 @@ pub fn add_geometric_stiffness_2d(
         let ndof = elem_dofs.len();
         for i in 0..ndof {
             for j in 0..ndof {
-                k_global[elem_dofs[i] * n + elem_dofs[j]] += k_g_global[i * ndof + j];
+                emit(elem_dofs[i], elem_dofs[j], k_g_global[i * ndof + j]);
             }
         }
     }
@@ -228,8 +240,7 @@ fn add_truss_kg_2d(
     elem: &SolverElement,
     u: &[f64],
     dt: f64,
-    k_global: &mut [f64],
-    n: usize,
+    emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_i = node_by_id[&elem.node_i];
     let node_j = node_by_id[&elem.node_j];
@@ -278,7 +289,7 @@ fn add_truss_kg_2d(
 
     for i in 0..4 {
         for j in 0..4 {
-            k_global[truss_dofs[i] * n + truss_dofs[j]] += k_g[i * 4 + j];
+            emit(truss_dofs[i], truss_dofs[j], k_g[i * 4 + j]);
         }
     }
 }

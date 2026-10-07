@@ -7,7 +7,7 @@
    * accept step mutated every un-detailed member with no undo entry.
    */
   import { t, tp } from '../../../lib/i18n';
-  import { verificationStore } from '../../../lib/store';
+  import { verificationStore, modelStore } from '../../../lib/store';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { te } from '../../../lib/i18n/engine-text';
@@ -18,6 +18,7 @@
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
   import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
+  import { isVariableMember } from '../../../lib/section/variable';
 
   interface Props {
     selectedCount: number;
@@ -132,6 +133,8 @@
   const detailingBusy = $derived(detailingStore.generating);
 
 
+  /** Members of variable section: analysed, and left out of design (`isDesignedMember`). */
+  const variableCount = $derived([...modelStore.elements.values()].filter((e) => isVariableMember(modelStore.sections, e)).length);
 </script>
 
 <div class="toolbar" data-testid="design-toolbar">
@@ -288,6 +291,10 @@
 
 
   <!-- ─── Banner stack ─── -->
+  {#if variableCount > 0}
+    <!-- Analysed, not designed: their checks need the methods for non-prismatic members. -->
+    <div class="banner" role="status" data-testid="banner-variable-section">{tp('spec.variable.notDesigned', { n: variableCount })}</div>
+  {/if}
   {#if !hasCombinations}
     <div class="banner banner-block" role="alert" data-testid="banner-no-combinations">
       {t('design.banner.noCombinations')}

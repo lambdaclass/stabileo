@@ -9,7 +9,7 @@
    */
   import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { envelopeOver, type NamedEnvelope, type EnvelopePurpose, type ResultScopes } from '../../lib/engine/result-scopes';
+  import { envelopeOver, designComboIds, scopeEdits, type NamedEnvelope, type EnvelopePurpose, type ResultScopes } from '../../lib/engine/result-scopes';
 
   const PURPOSES: EnvelopePurpose[] = ['strength', 'service', 'other'];
 
@@ -18,7 +18,8 @@
   const scopes = $derived<ResultScopes>(modelStore.resultScopes ?? {});
   const active = $derived(scopes.active ? new Set(scopes.active) : null);
   const envelopes = $derived(scopes.envelopes ?? []);
-  const nActive = $derived(active ? combos.filter((c) => active.has(c.id)).length : combos.length);
+  // "All" is every combination for design: the service ones a code wrote are a service envelope's.
+  const nActive = $derived(active ? combos.filter((c) => active.has(c.id)).length : designComboIds(combos).length);
   /** The envelope whose combinations are being picked. */
   let editing = $state<number | null>(null);
   const solved = $derived(resultsStore.perCombo3D.size > 0);
@@ -32,25 +33,24 @@
   }
 
   function setAll(all: boolean) {
-    write({ ...scopes, active: all ? undefined : combos.map((c) => c.id) });
+    // "Chosen" starts from what design reads now, not from every combination (`scopeEdits`).
+    write({ ...scopes, active: all ? undefined : scopeEdits.current(undefined, combos) });
   }
 
   function toggleActive(id: number) {
-    const cur = active ? [...active] : combos.map((c) => c.id);
-    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-    // Keep the model's order, so the list reads like the combination table.
-    write({ ...scopes, active: combos.map((c) => c.id).filter((x) => next.includes(x)) });
+    // In the model's order, so the list reads like the combination table.
+    write({ ...scopes, active: scopeEdits.toggle(scopes, combos, id) });
   }
 
   function markActive(all: boolean) {
-    write({ ...scopes, active: all ? combos.map((c) => c.id) : [] });
+    write({ ...scopes, active: scopeEdits.mark(combos, all) });
   }
 
   function addEnvelope() {
     const id = envelopes.reduce((m, e) => Math.max(m, e.id), 0) + 1;
     const env: NamedEnvelope = {
       id, name: tp('scopes.newName', { n: id }), purpose: 'strength',
-      comboIds: active ? combos.map((c) => c.id).filter((x) => active.has(x)) : combos.map((c) => c.id),
+      comboIds: scopeEdits.current(scopes, combos),
     };
     write({ ...scopes, envelopes: [...envelopes, env] });
     editing = id;
@@ -93,7 +93,7 @@
   <details class="rs pk-card" data-testid="result-scopes">
     <summary>
       {t('scopes.title')}:
-      <strong>{active ? tp('scopes.summarySome', { n: nActive, total: combos.length }) : tp('scopes.summaryAll', { n: combos.length })}</strong>
+      <strong>{active ? tp('scopes.summarySome', { n: nActive, total: combos.length }) : tp('scopes.summaryAll', { n: nActive })}</strong>
       {#if envelopes.length > 0} · {tp('scopes.nEnvelopes', { n: envelopes.length })}{/if}
     </summary>
 

@@ -1,3 +1,5 @@
+import { parseDecimal } from './numeric-input';
+
 /**
  * A positive, finite number from a form field, or undefined.
  *
@@ -6,6 +8,7 @@
  * keystroke. A text field still hands over a string, with a decimal comma or point.
  */
 export function positiveInput(v: unknown): number | undefined {
-  const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v.replace(',', '.')) : NaN;
+  // `parseDecimal`: a comma or a point, thousands grouped by the other; parseFloat read "1,234.5" as 1.234.
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? parseDecimal(v) ?? NaN : NaN;
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }

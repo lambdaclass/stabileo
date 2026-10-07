@@ -23,12 +23,13 @@ import { prepareSharedSnapshot } from './share-snapshot';
 /**
  * The wire schema tag.
  *
- * 5 = the joint designs travel (`jd`). 4 = typed per-axis releases (`ri`/`rj`). 3 = legacy
+ * 6 = the groups travel (`gr`): floor-load definitions and load zones among them. 5 = the joint
+ * designs travel (`jd`). 4 = typed per-axis releases (`ri`/`rj`). 3 = legacy
  * `hs`/`he` booleans plus the iy/iz convention. Compatible in both directions: 4 → 5 added a new
  * TOP-LEVEL key and no position to any existing tuple, and the two migrations below key off
  * `sv >= 3` and `sv >= 4`, which 5 satisfies. A reader that predates `jd` ignores it.
  */
-const SHARE_VERSION = 5;
+const SHARE_VERSION = 6;
 
 /**
  * The modes a link is written from.
@@ -90,7 +91,10 @@ function unpackRelease(packed: unknown): Release {
  *
  * Servers never see it. The payload rides in the FRAGMENT — `#data=…` — which
  * a browser keeps to itself and never puts on the wire, so there is no request
- * line to overflow and no proxy to trim it.
+ * line to overflow and no proxy to trim it. (The one place that broke this was
+ * our own 404.html, which folded the fragment into `/?route=` on the way to the
+ * app: past about 8 000 characters the host answered 414 URI Too Long. It now
+ * leaves the fragment where it is.)
  *
  * And browsers are nowhere near 2000; that number is the old Internet Explorer
  * address-bar limit. Measured on the 3D industrial shed — 232 nodes, 633
@@ -409,6 +413,13 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   const jd = packJointDesigns(snapshot.jointDesigns);
   if (jd) c.jd = jd;
 
+  /*
+   * Groups: kept verbatim, like connectors. The floor-load definitions and load zones are groups,
+   * and their loads travel marked with them (`fromDef`): without the groups an embed arrived with
+   * the marks and no definitions, and the first rewrite took the floors' loads away.
+   */
+  if (snapshot.groups?.length) c.gr = snapshot.groups;
+
   // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?,
   //          connector?, footing?, soilProfile?]
   // Appended at the END so a link shared before footings existed still decodes: the
@@ -587,6 +598,9 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
      */
     jointDesigns: unpackJointDesigns(c.jd),
 
+    // Groups; their shape is checked by `prepareSharedSnapshot`, as a legacy link's are.
+    groups: c.gr as ModelSnapshot['groups'],
+
     // NextId
     nextId: (() => {
       const a = c.ni as number[];
@@ -743,7 +757,8 @@ export function generateShareURL(): { url: string; length: number } | null {
 
   const compressed = compressV2(snapshot, meta);
   const url = `${location.origin}${location.pathname}#data=${compressed}`;
-  return { url, length: compressed.length };
+  // The whole link, as PRO's is measured: the ceiling is about what a reader pastes.
+  return { url, length: url.length };
 }
 
 /**

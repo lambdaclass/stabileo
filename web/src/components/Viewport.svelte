@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { displayUnits, fmtQ, unitQ } from '../lib/store/display-units.svelte';
   import { firstGroupIndex } from '../lib/viewport/element-colour';
   import { onMount } from 'svelte';
   import PointerModeButton from './PointerModeButton.svelte';
@@ -83,7 +84,7 @@
   let diagramQuery: { elementId: number; t: number; value: number; worldX: number; worldY: number } | null = null;
 
   // Diagram hover state (real-time value as mouse moves)
-  let diagramHover: { elementId: number; t: number; value: number; worldX: number; worldY: number; label?: string; unit?: string; lines?: string[] } | null = null;
+  let diagramHover: { elementId: number; t: number; value: number; worldX: number; worldY: number; label?: string; unit?: string; qty?: 'force' | 'moment' | 'stress' | null; lines?: string[] } | null = null;
 
   // Clear pending node when tool changes away from element
   $effect(() => {
@@ -247,7 +248,7 @@
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
   // Each member's group, only while colouring by group.
-  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex(modelStore.model.groups.values()) : null);
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
   $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
@@ -255,7 +256,7 @@
   $effect(() => { uiStore.gridSize; uiStore.snapToGrid; invalidate(); });
   $effect(() => { uiStore.selectMode; invalidate(); });
   $effect(() => { uiStore.drawPlane2D; invalidate(); });
-  $effect(() => { uiStore.unitSystem; invalidate(); });
+  $effect(() => { uiStore.unitSystem; displayUnits.decimals; invalidate(); });
 
   // Continuous rendering toggle
   $effect(() => {
@@ -1228,16 +1229,15 @@
         ctx.moveTo(s.x + 6, s.y - 6); ctx.lineTo(s.x - 6, s.y + 6);
         ctx.stroke();
 
-        const unit = dt === 'moment' ? 'kN·m' : 'kN';
         const label = dt === 'moment' ? 'M' : dt === 'shear' ? 'V' : 'N';
+        // In the chosen units and decimals, as the hover reads the same point: the click printed
+        // kN·m beside a hover in tf·m.
+        const qty = dt === 'moment' ? 'moment' : 'force';
         // Negate moment for display (internal: hogging=+, display: sagging=+)
         const displayVal = dt === 'moment' ? -diagramQuery.value : diagramQuery.value;
-        const abs = Math.abs(displayVal);
-        const formatted = abs >= 100 ? abs.toFixed(1) : abs >= 1 ? abs.toFixed(2) : abs.toFixed(3);
-        const sign = displayVal < 0 ? '-' : '';
         const xPos = (diagramQuery.t * 100).toFixed(1);
         drawTooltip(s.x + 12, s.y - 25, [
-          `${label} = ${sign}${formatted} ${unit}`,
+          `${label} = ${fmtQ(displayVal, qty)} ${unitQ(qty)}`,
           `x/L = ${xPos}%`,
         ]);
       }
@@ -1314,15 +1314,14 @@
         } else {
           // Determine label/unit from type or from hover data
           const label = diagramHover.label ?? (dt === 'moment' ? 'M' : dt === 'shear' ? 'V' : 'N');
-          const unit = diagramHover.unit ?? (dt === 'moment' ? 'kN·m' : 'kN');
+          // In the chosen units and decimals, as the diagram's own labels.
+          const qty = diagramHover.qty !== undefined ? diagramHover.qty : (dt === 'moment' ? 'moment' : 'force');
           // Negate moment for display (internal: hogging=+, display: sagging=+)
-          const isMomentHover = (diagramHover.label === 'M' || diagramHover.label == null) && (dt === 'moment' || (dt === 'colorMap' && label === 'M'));
+          const isMomentHover = label === 'M' && (dt === 'moment' || dt === 'colorMap');
           const displayVal = isMomentHover ? -diagramHover.value : diagramHover.value;
-          const abs = Math.abs(displayVal);
-          const formatted = abs >= 100 ? abs.toFixed(1) : abs >= 1 ? abs.toFixed(2) : abs.toFixed(3);
-          const sign = displayVal < 0 ? '-' : '';
+          const text = qty === null ? (Number.isFinite(displayVal) ? `${(displayVal * 100).toFixed(0)} %` : '—') : `${fmtQ(displayVal, qty)} ${unitQ(qty)}`;
           drawTooltip(s.x + 12, s.y - 25, [
-            `${label} = ${sign}${formatted} ${unit}`,
+            `${label} = ${text}`,
             `x/L = ${xPos}%`,
           ]);
         }
@@ -2305,25 +2304,32 @@
                 const cmKind = resultsStore.colorMapKind;
                 let value: number;
                 let label: string;
-                let unit: string;
-                if (cmKind === 'moment') {
+                let qty: 'force' | 'moment' | 'stress' | null;
+                if (cmKind === 'moment' || cmKind === 'momentY' || cmKind === 'momentZ') {
                   value = computeDiagramValueAt('moment', t, ef);
-                  label = 'M'; unit = 'kN·m';
-                } else if (cmKind === 'shear') {
+                  label = 'M'; qty = 'moment';
+                } else if (cmKind === 'shear' || cmKind === 'shearY' || cmKind === 'shearZ') {
                   value = computeDiagramValueAt('shear', t, ef);
-                  label = 'V'; unit = 'kN';
+                  label = 'V'; qty = 'force';
                 } else if (cmKind === 'axial') {
                   value = computeDiagramValueAt('axial', t, ef);
-                  label = 'N'; unit = 'kN';
+                  label = 'N'; qty = 'force';
                 } else {
-                  // stressRatio — approximate with max of endpoint ratios interpolated
-                  const nAvg = (ef.nStart + ef.nEnd) / 2;
-                  const mMax = Math.max(Math.abs(ef.mStart), Math.abs(ef.mEnd));
-                  const vMax = Math.max(Math.abs(ef.vStart), Math.abs(ef.vEnd));
-                  value = Math.abs(nAvg) + mMax + vMax; // rough combined
-                  label = 'ratio'; unit = '';
+                  // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This
+                  // used to add |N|, |M| and |V| and call it a ratio, in no unit at all.
+                  const elem = modelStore.elements.get(nearElem.id);
+                  const sec = elem ? modelStore.sections.get(elem.sectionId) : undefined;
+                  const mat = elem ? modelStore.materials.get(elem.materialId) : undefined;
+                  const st = sec && mat ? computeElementStress(ef, sec, mat) : null;
+                  value = !st ? NaN
+                    : cmKind === 'stressRatio' ? (st.ratio ?? NaN)
+                    : cmKind === 'vonMises' ? Math.max(st.vonMisesStart ?? 0, st.vonMisesEnd ?? 0)
+                    : cmKind === 'sigmaMax' ? Math.max(Math.abs(st.sigmaStart ?? 0), Math.abs(st.sigmaEnd ?? 0))
+                    : Math.max(Math.abs(st.tauStart ?? 0), Math.abs(st.tauEnd ?? 0));
+                  label = cmKind === 'stressRatio' ? 'σ/fy' : cmKind === 'vonMises' ? 'σvM' : cmKind === 'sigmaMax' ? 'σ' : 'τ';
+                  qty = cmKind === 'stressRatio' ? null : 'stress';
                 }
-                diagramHover = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy, label, unit };
+                diagramHover = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy, label, qty };
               } else {
                 diagramHover = null;
               }

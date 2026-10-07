@@ -407,6 +407,16 @@ export function attachOffset(
   return [part.at[0] + (y0 - pb[0]), part.at[1] + (z0 - pb[1])];
 }
 
+/** The offset that puts `part` on top of all of `others`, centred over them; null when nothing to place on. */
+export function placeAbove(part: DrawnPart, others: DrawnPart[], profile: ProfileOutline): Pt | null {
+  const po = partOutline(part, profile);
+  const boxes = others.map((o) => partOutline(o, profile)).filter((x): x is NonNullable<typeof x> => !!x).map((x) => bboxOf(x));
+  if (!po || boxes.length === 0) return null;
+  const pb = bboxOf(po);
+  const y0 = Math.min(...boxes.map((b) => b[0])), y1 = Math.max(...boxes.map((b) => b[2])), z1 = Math.max(...boxes.map((b) => b[3]));
+  return [part.at[0] + ((y0 + y1) / 2 - (pb[0] + pb[2]) / 2), part.at[1] + (z1 - pb[1])];
+}
+
 /**
  * Snap a dragged offset so the part's box edges land on other parts' edges.
  *
@@ -419,19 +429,25 @@ export function snapOffset(
   const po = partOutline({ ...part, at }, profile);
   if (!po) return at;
   const pb = bboxOf(po);
-  const ys = [pb[0], (pb[0] + pb[2]) / 2, pb[2]], zs = [pb[1], (pb[1] + pb[3]) / 2, pb[3]];
   let best: [number, number] = [tol, tol];
   const shift: Pt = [0, 0];
+  /*
+   * Edge to edge and centre to centre, on each axis. Every edge and the centre used to be tried
+   * against every edge and the centre of the others, which made positions no edge rests at
+   * sticky, and the part fought the pointer between them.
+   */
+  const pairs = (b: [number, number, number, number], o: [number, number, number, number], lo: 0 | 1, hi: 2 | 3): Array<[number, number]> => [
+    [b[lo], o[lo]], [b[lo], o[hi]], [b[hi], o[lo]], [b[hi], o[hi]], [(b[lo] + b[hi]) / 2, (o[lo] + o[hi]) / 2],
+  ];
   for (const o of others) {
     const oo = partOutline(o, profile);
     if (!oo) continue;
     const ob = bboxOf(oo);
-    const oys = [ob[0], (ob[0] + ob[2]) / 2, ob[2]], ozs = [ob[1], (ob[1] + ob[3]) / 2, ob[3]];
-    for (const a of ys) for (const b of oys) {
+    for (const [a, b] of pairs(pb, ob, 0, 2)) {
       const d = b - a;
       if (Math.abs(d) < Math.abs(best[0])) { best[0] = Math.abs(d); shift[0] = d; }
     }
-    for (const a of zs) for (const b of ozs) {
+    for (const [a, b] of pairs(pb, ob, 1, 3)) {
       const d = b - a;
       if (Math.abs(d) < Math.abs(best[1])) { best[1] = Math.abs(d); shift[1] = d; }
     }
@@ -441,3 +457,27 @@ export function snapOffset(
 
 /** The next free part id. */
 export const nextPartId = (sec: DrawnSection) => sec.parts.reduce((m, p) => Math.max(m, p.id), 0) + 1;
+
+/**
+ * The parts' modular ratios re-read from the materials as they are now: E and G of each part's
+ * material over the reference's. Null when nothing changes. A section stores them when it is
+ * drawn, and a material edited afterwards has to reach them, or the section keeps the old ratios.
+ */
+export function refreshRatios(
+  drawn: DrawnSection, materials: ReadonlyMap<number, { e: number; nu: number }>,
+): DrawnSection | null {
+  const ref = drawn.refMaterialId != null ? materials.get(drawn.refMaterialId) : undefined;
+  if (!ref) return null;
+  const g = (m: { e: number; nu: number }) => m.e / (2 * (1 + m.nu));
+  let changed = false;
+  const parts = drawn.parts.map((p) => {
+    if (p.materialId == null || p.materialId === drawn.refMaterialId) return p;
+    const m = materials.get(p.materialId);
+    if (!m) return p;
+    const ratio = { e: m.e / ref.e, g: g(m) / g(ref) };
+    if (p.ratio && Math.abs(p.ratio.e - ratio.e) < 1e-12 && Math.abs(p.ratio.g - ratio.g) < 1e-12) return p;
+    changed = true;
+    return { ...p, ratio };
+  });
+  return changed ? { ...drawn, parts } : null;
+}

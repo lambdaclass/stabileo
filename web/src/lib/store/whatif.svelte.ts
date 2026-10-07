@@ -20,11 +20,12 @@
  * which skipped all of that and landed every slider move on the deformed
  * shape.
  */
+import { scaledLoad } from '../model/loads/load-magnitudes';
 import { tick } from 'svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
-import type { Load, Release, Section, SupportType } from './model.svelte';
+import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
 import { defaultDofs } from './support-dofs';
 
@@ -75,18 +76,7 @@ function restoreBaseline(snap: ModelSnapshot): void {
  * × k gives displacements, reactions and member forces × k. Self-weight,
  * likewise, is not an entry of `model.loads` and has no slider.
  */
-type MagnitudeFields = { [T in Load['type']]: ReadonlyArray<keyof Extract<Load, { type: T }>['data']> };
-const MAGNITUDE_FIELDS: MagnitudeFields = {
-  nodal: ['fx', 'fz', 'my', 'fy', 'mz'],
-  distributed: ['qI', 'qJ'],
-  pointOnElement: ['p', 'px', 'my', 'mz'],
-  thermal: ['dtUniform', 'dtGradient'],
-  nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
-  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
-  pointOnElement3d: ['py', 'pz'],
-  surface3d: ['q'],
-  thermalQuad3d: ['dtUniform', 'dtGradient'],
-};
+// The registry is shared with the load operations (`model/loads/load-magnitudes.ts`).
 
 /**
  * Each load of the model times its slider's factor. `apply` has just rebuilt
@@ -100,11 +90,9 @@ function scaleLoads(): void {
   for (let i = 0; i < loads.length; i++) {
     const f = loadFactors[i] ?? 1;
     if (f === 1) continue;
-    const d = loads[i].data as unknown as Record<string, unknown>;
-    for (const k of MAGNITUDE_FIELDS[loads[i].type] as readonly string[]) {
-      const v = d[k];
-      if (typeof v === 'number') d[k] = v * f;
-    }
+    // What every scaling of a load scales: a shell's values per corner and its variation too (a
+    // soil or a fluid on a wall is q = 0, all of it in the variation).
+    loads[i] = scaledLoad(loads[i], f);
   }
 }
 

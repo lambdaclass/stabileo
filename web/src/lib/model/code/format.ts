@@ -385,6 +385,8 @@ export function codeToModel(text: string): ParseResult {
     ref('node', e.nodeI, at('member', id), 'node'); ref('node', e.nodeJ, at('member', id), 'node');
     if (e.materialId !== undefined) ref('material', e.materialId, at('member', id), 'material');
     if (e.sectionId !== undefined) ref('section', e.sectionId, at('member', id), 'section');
+    const vs = (e as { variableSection?: { sectionJ?: number } }).variableSection;
+    if (vs?.sectionJ !== undefined) ref('section', vs.sectionJ, at('member', id), 'section');
   }
   for (const [fam, key] of [['quad', 'quads'], ['plate', 'plates']] as const) {
     for (const [id, q] of s[key]) {
@@ -397,7 +399,8 @@ export function codeToModel(text: string): ParseResult {
     const d = l.data, line = lineOf.get(`load:${d.id}`) ?? 0;
     if (d.nodeId !== undefined) ref('node', d.nodeId, line, 'node');
     if (d.elementId !== undefined) ref('member', d.elementId, line, 'member');
-    if (d.quadId !== undefined) ref('quad', d.quadId, line, 'quad');
+    // A triangle's load names it by quadId too, with `on: 'plate'`.
+    if (d.quadId !== undefined) { if (d.on === 'plate') ref('plate', d.quadId, line, 'plate'); else ref('quad', d.quadId, line, 'quad'); }
   }
   // A load or a combination naming an undefined CASE is not refused: the application keeps such
   // models (the case simply contributes nothing), and code that refused one it can open would not

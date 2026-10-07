@@ -359,9 +359,10 @@ function validateDedalFile(data: unknown): data is DedalFile {
   // Surface/thermal loads must target an existing quad (CAD drafts attach one
   // per slab quad); a dangling target is silently dropped at solve time.
   const quadIds = new Set(((s.quads as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
-  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number } }>) {
+  const plateIds = new Set(((s.plates as Array<[number, unknown]> | undefined) ?? []).map(([id]) => id));
+  for (const l of s.loads as Array<{ type: string; data?: { quadId?: number; on?: string } }>) {
     if ((l.type === 'surface3d' || l.type === 'thermalQuad3d')
-      && l.data?.quadId !== undefined && !quadIds.has(l.data.quadId)) {
+      && l.data?.quadId !== undefined && !(l.data.on === 'plate' ? plateIds : quadIds).has(l.data.quadId)) {
       return false;
     }
   }
@@ -490,7 +491,7 @@ export function exportResultsCSV(): string {
 
     // 3D Element forces
     lines.push(`# ${t('file.internalForces')}`);
-    lines.push(`${t('file.element')},L (m),Ni,Nj,Vyi,Vyj,Vzi,Vzj,Mxi,Mxj,Myi,Myj,Mzi,Mzj`);
+    lines.push(`${t('file.element')},L (m),Ni (kN),Nj (kN),Vyi (kN),Vyj (kN),Vzi (kN),Vzj (kN),Mxi (kN·m),Mxj (kN·m),Myi (kN·m),Myj (kN·m),Mzi (kN·m),Mzj (kN·m)`);
     for (const f of r3d.elementForces) {
       lines.push(`${f.elementId},${f.length},${f.nStart},${f.nEnd},${f.vyStart},${f.vyEnd},${f.vzStart},${f.vzEnd},${f.mxStart},${f.mxEnd},${f.myStart},${f.myEnd},${f.mzStart},${f.mzEnd}`);
     }

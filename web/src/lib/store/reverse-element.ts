@@ -4,7 +4,8 @@
  * The structure must not change, only how the member is described. So
  * everything recorded against an end or a local axis goes with it:
  *
- * - The end records swap: releases, 3D joints, member offsets.
+ * - The end records swap: releases, 3D joints, member offsets, and a variable
+ *   member's two sections (the deep end stays where it was).
  * - Positions measured from I are measured from the new I: a → L − a, and a
  *   partial load's [a, b] → [L − b, L − a] with its end values swapped.
  * - A plane member's local loads are given in its drawn axes, and its drawn
@@ -22,6 +23,7 @@
  * Checked by solving before and after: same reactions, same displacements.
  */
 import type { Element, Load } from './model.svelte';
+import { reversePointLoad, carryThermal, carryPrestress } from '../model/loads/member-load-carry';
 import { hasExplicitLocalY } from '../model/element-3d-metadata';
 
 interface ReversibleModel {
@@ -45,6 +47,7 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
     nodeJ: el.nodeI,
     releaseI: { ...el.releaseJ },
     releaseJ: { ...el.releaseI },
+    ...(el.variableSection ? { sectionId: el.variableSection.sectionJ, variableSection: { ...el.variableSection, sectionJ: el.sectionId } } : {}),
   };
   if (el.jointI || el.jointJ) {
     if (el.jointJ) next.jointI = { dof: [...el.jointJ.dof] as typeof el.jointJ.dof }; else delete next.jointI;
@@ -108,16 +111,16 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
         };
       }
       case 'pointOnElement3d': {
-        const p = l.data;
         const sy = explicitY ? 1 : -1, sz = explicitY ? -1 : 1;
-        return { type: 'pointOnElement3d', data: { ...p, a: L - p.a, py: sy * p.py, pz: sz * p.pz } };
+        return { type: 'pointOnElement3d', data: reversePointLoad(l.data, L, { sy, sz }) };
       }
       case 'thermal':
-        // An explicit Y reference keeps Y and reverses Z. The temperature
-        // difference must follow those faces, while uniform heating stays put.
-        return is3D && explicitY
-          ? { type: 'thermal', data: { ...l.data, dtGradient: -l.data.dtGradient } }
-          : l;
+        // An explicit Y reference keeps Y and reverses Z, an automatic one the other way round.
+        // Each temperature difference follows its faces; uniform heating stays put.
+        if (!is3D) return l;
+        return { type: 'thermal', data: carryThermal(l.data, explicitY ? { sy: 1, sz: -1 } : { sy: -1, sz: 1 }) };
+      case 'prestress3d':
+        return { type: 'prestress3d', data: carryPrestress(l.data, explicitY ? -1 : 1, true) };
       default:
         return l;
     }

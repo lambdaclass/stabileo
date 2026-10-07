@@ -39,6 +39,8 @@ export interface JSONModel {
      * element, since the `FixtureLoader` surface has no setter for it.
      */
     rollAngle?: number;
+    /** A member of variable section: the section at end J, by the same ids as `sectionId`. */
+    variableSection?: { sectionJ: number; segments?: number };
   }>;
   supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
@@ -162,13 +164,14 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
 
     // Analytical member offset (PR [7]) and profile roll — both set directly on the
     // created element, because `FixtureLoader` exposes no setter for either.
-    if (e.offset || e.rollAngle !== undefined) {
-      type Carried = { offset?: unknown; rollAngle?: number };
+    if (e.offset || e.rollAngle !== undefined || e.variableSection) {
+      type Carried = { offset?: unknown; rollAngle?: number; variableSection?: { sectionJ: number; segments?: number } };
       const created = (api.model as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId)
         ?? (api as unknown as { elements?: Map<number, Carried> }).elements?.get?.(newId);
       if (created) {
         if (e.offset) created.offset = JSON.parse(JSON.stringify(e.offset));
         if (e.rollAngle !== undefined) created.rollAngle = e.rollAngle;
+        if (e.variableSection) created.variableSection = { ...e.variableSection, sectionJ: secMap.get(e.variableSection.sectionJ) ?? e.variableSection.sectionJ };
       }
     }
 

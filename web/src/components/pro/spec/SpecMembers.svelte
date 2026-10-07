@@ -8,8 +8,9 @@
    *   axial behaviour   frame, truss, tension only, compression only, cable, inactive
    *   releases          My, Mz and T of each end, in the member's local axes
    *   local axes        β, the roll about the member's axis
-   *   the rest          global joints, semi-rigid ends, stiffness factors, end offsets and the
-   *                     design lengths, each in the one component that edits it
+   *   the rest          global joints, semi-rigid ends, stiffness factors, end offsets, the
+   *                     variable section and the design lengths, each in the one component that
+   *                     edits it
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
@@ -19,6 +20,7 @@
   import MemberOffsetEditor from '../../property/MemberOffsetEditor.svelte';
   import ProSteelLbEditor from '../ProSteelLbEditor.svelte';
   import SpecEmpty from './SpecEmpty.svelte';
+  import SpecVariableSection from './SpecVariableSection.svelte';
 
   const ids = $derived([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)));
   const allIds = $derived(new Set(modelStore.elements.keys()));
@@ -66,6 +68,7 @@
     { title: 'behaviour.stiffness', hint: 'spec.item.stiffness' },
     { title: 'spec.members.offsets', hint: 'spec.item.offsets' },
     { title: 'spec.members.designLengths', hint: 'spec.item.designLengths' },
+    { title: 'spec.members.variable', hint: 'spec.item.variable' },
   ]} />
 {:else}
   <!-- One card per group of properties, each in the PRO panel kit, so the part reads as one. -->
@@ -125,6 +128,11 @@
     <section class="pk-card">
       <h4 class="pk-heading">{t('spec.members.offsets')}</h4>
       <MemberOffsetEditor bare />
+    </section>
+
+    <section class="pk-card" data-testid="spec-variable-card">
+      <h4 class="pk-heading">{t('spec.members.variable')}</h4>
+      <SpecVariableSection {ids} />
     </section>
 
     <section class="pk-card">

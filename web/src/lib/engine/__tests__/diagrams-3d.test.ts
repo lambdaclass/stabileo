@@ -396,3 +396,20 @@ describe('computeDiagram3D', () => {
     });
   });
 });
+
+describe('formatDiagramValue3D: the sign a label shows', () => {
+  it('a bending moment flips to sagging-positive, as the 2D labels do', async () => {
+    const { formatDiagramValue3D } = await import('../diagrams-3d');
+    expect(formatDiagramValue3D(5, 'momentY')).toBe('-5.00 kN·m');
+    expect(formatDiagramValue3D(5, 'momentZ')).toBe('-5.00 kN·m');
+  });
+  it('a torque has no sagging side: it reads as the tables read Mx, unflipped', async () => {
+    const { formatDiagramValue3D } = await import('../diagrams-3d');
+    expect(formatDiagramValue3D(5, 'torsion')).toBe('5.00 kN·m');
+    expect(formatDiagramValue3D(-12.5, 'torsion')).toBe('-12.5 kN·m');
+  });
+  it('a force keeps its sign', async () => {
+    const { formatDiagramValue3D } = await import('../diagrams-3d');
+    expect(formatDiagramValue3D(-3, 'axial')).toBe('-3.00 kN');
+  });
+});

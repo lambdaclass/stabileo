@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { addGeneratedCombinations, SERVICE_ENVELOPE_NAME } from '../generated-combinations';
+import { addGeneratedCombinations, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
 import { generateCombinations } from '../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
@@ -136,5 +136,32 @@ describe('wind on the members, by the direction it acts in', () => {
     expect(windCaseReversible(model, facade)).toBe(true);
     expect(windCaseReversible(model, roof)).toBe(false);
     expect(windCaseReversible(model, side)).toBe(true);
+  });
+});
+
+/**
+ * The loads tab writes its templates as the generator does: each combination says which code and
+ * rule wrote it and what for. It wrote them without, so its service combinations were read by
+ * design under "all", and "replace generated loads" never took back what it wrote.
+ */
+describe("the loads tab's templates say who wrote them", () => {
+  it('strength and service from CIRSOC 101, the project rules as the project', () => {
+    const cases = model();
+    const present = presentSymbols(cases);
+    const strength = templateCombinationSpecs('lrfd', present, []);
+    const service = templateCombinationSpecs('service', present, []);
+    expect(strength.length).toBeGreaterThan(0);
+    expect(strength.every((c) => c.origin?.code === 'cirsoc101-2025-basis' && c.origin.purpose === 'strength')).toBe(true);
+    expect(service.every((c) => c.origin?.purpose === 'service')).toBe(true);
+    const project = templateCombinationSpecs('project', present, [{ id: 'r1', purpose: 'strength', terms: [{ symbol: 'D', factor: 1.4 }] }]);
+    expect(project[0]?.origin).toMatchObject({ code: 'project', rule: project[0]!.id });
+
+    // Added as the tab adds them, the service ones stay out of design's "all".
+    modelStore.setResultScopes(null);
+    const ids = addGeneratedCombinations(expandCombinations([...strength, ...service], cases));
+    modelStore.setResultScopes(null);
+    const serviceIds = ids.filter((id) => modelStore.combinations.find((c) => c.id === id)!.origin?.purpose === 'service');
+    expect(serviceIds.length).toBeGreaterThan(0);
+    expect(activeComboIds(undefined, modelStore.combinations).some((id) => serviceIds.includes(id))).toBe(false);
   });
 });

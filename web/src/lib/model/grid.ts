@@ -93,7 +93,8 @@ export function baysText(axes: GridAxis[]): string {
   return s.slice(1).map((a, i) => fmt(a.at - s[i]!.at)).join('; ');
 }
 
-export const fmt = (v: number) => String(Math.round(v * 1000) / 1000).replace('.', ',');
+/** A bay as text, with a point for the decimals as every other field of the app (a comma read back too). */
+export const fmt = (v: number) => String(Math.round(v * 1000) / 1000);
 
 /**
  * Snap a plan point to the grid: to an intersection within `tol`, else onto the nearest axis

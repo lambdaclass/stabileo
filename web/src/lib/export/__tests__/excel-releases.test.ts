@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { releaseLabel } from '../excel';
+import { releaseLabel, sectionPropertyHeaders } from '../excel';
 
 describe('Excel export - release labeling', () => {
   it('should return empty string for undefined release', () => {
@@ -36,5 +36,21 @@ describe('Excel export - release labeling', () => {
 
   it('should show Mz+T for mz+t release', () => {
     expect(releaseLabel({ my: false, mz: true, t: true })).toBe('Mz+T');
+  });
+});
+
+describe('Excel export - section properties of a variable member', () => {
+  /*
+   * A member of variable section names its section «IPE 300 → IPE 500», but A and I are the
+   * end-I section's: under a plain «A (m²)» they read as the member's.
+   */
+  it('plain headers when every member is prismatic', () => {
+    expect(sectionPropertyHeaders(false, false)).toEqual(['A (m²)', 'Iy (m⁴)']);
+    expect(sectionPropertyHeaders(true, false)).toEqual(['A (m²)', 'Iy (m⁴)', 'Iz (m⁴)', 'J (m⁴)']);
+  });
+
+  it('end-I headers, as Ni and Mi are, when a member is of variable section', () => {
+    expect(sectionPropertyHeaders(false, true)).toEqual(['Ai (m²)', 'Iyi (m⁴)']);
+    expect(sectionPropertyHeaders(true, true)).toEqual(['Ai (m²)', 'Iyi (m⁴)', 'Izi (m⁴)', 'Ji (m⁴)']);
   });
 });

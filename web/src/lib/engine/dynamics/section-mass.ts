@@ -1,6 +1,7 @@
 import type { SolverMaterial } from '../types';
 import type { ModelData } from '../solver-service';
 import { createSectionWeight } from '../../section/weight';
+import { solvableModel } from '../member-behaviour';
 import { G, massDensities } from './requests';
 
 interface MassInput {
@@ -14,7 +15,10 @@ interface MassInput {
  * transformed, so give each section/material pair an analysis-only material with an equivalent
  * mass density. E and G stay unchanged, and shells sharing the original material keep its density.
  */
-export function withSectionMass<T extends MassInput>(input: T, model: Pick<ModelData, 'materials' | 'sections' | 'elements'>): { input: T; densities: Map<number, number> } {
+export function withSectionMass<T extends MassInput>(input: T, model: ModelData): { input: T; densities: Map<number, number> } {
+  // The model as the input was built from it: a variable member's pieces and their sections
+  // (`variable-members.ts`), so a drawn composite of variable depth weighs piece by piece too.
+  model = solvableModel(model);
   const densities = massDensities(model.materials, input.materials.keys());
   const materials = new Map(input.materials);
   const elements = new Map(input.elements);

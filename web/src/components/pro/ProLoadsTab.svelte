@@ -1,16 +1,14 @@
 <script lang="ts">
-  import PickKind from './PickKind.svelte';
+  import ProWriteLoadCard from './loads/ProWriteLoadCard.svelte';
+  import ProLoadTables from './loads/ProLoadTables.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
   import ProCombinationsList from './ProCombinationsList.svelte';
   import { windCaseReversible } from '../../lib/store/wind-reversal';
-  import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
-  import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
-  import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations } from '../../lib/store/generated-combinations';
+  import { addGeneratedCombinations, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t, tp } from '../../lib/i18n';
+  import { t } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
@@ -20,178 +18,12 @@
 
   let showAutoLoadsDialog = $state(false);
 
-  type LoadKind = 'nodal' | 'distributed' | 'point' | 'surface' | 'thermalQuad';
-
-  let loadKind = $state<LoadKind>('nodal');
   /*
-   * The case new loads go to is the one "Draw load" uses too (`uiStore.activeLoadCaseId`). This
-   * table kept its own, so a load drawn in the viewport went to Basic's case, not the one chosen
-   * here.
+   * The case new loads go to is the one "Draw load" uses too (`uiStore.activeLoadCaseId`).
+   * Writing a load is `ProWriteLoadCard`; the tables and the operations on loads, `ProLoadTables`.
    */
-
-  // Nodal load fields
-  let nlNodeId = $state('');
-  let nlFx = $state('');
-  let nlFy = $state('');
-  let nlFz = $state('');
-  let nlMx = $state('');
-  let nlMy = $state('');
-  let nlMz = $state('');
-
-  // Distributed load fields
-  let dlElemId = $state('');
-  let dlQyI = $state('');
-  let dlQyJ = $state('');
-  let dlQzI = $state('');
-  let dlQzJ = $state('');
-  /** Axes of a new distributed load, and its x component (axial when local). */
-  let dlFrame = $state<'local' | 'global' | 'projected'>('local');
-  let dlQxI = $state('');
-  let dlQxJ = $state('');
-
-  // Point load on element fields
-  let plElemId = $state('');
-  let plA = $state('');
-  let plPy = $state('');
-  let plPz = $state('');
-
-  // Surface load fields
-  let slQuadId = $state('');
-  let slQ = $state('');
-
-  // Thermal quad load fields
-  let tqQuadId = $state('');
-  let tqDtUniform = $state('');
-  let tqDtGradient = $state('');
-
-  const loads = $derived(modelStore.loads);
   const loadCases = $derived(modelStore.model.loadCases);
   const combinations = $derived(modelStore.model.combinations);
-
-  // Filter loads by active case
-  const caseLoads = $derived(loads.filter(l => (l.data.caseId ?? 1) === uiStore.activeLoadCaseId));
-  const nodalLoads = $derived(caseLoads.filter(l => l.type === 'nodal3d'));
-  const distLoads = $derived(caseLoads.filter(l => l.type === 'distributed3d'));
-  const pointLoads = $derived(caseLoads.filter(l => l.type === 'pointOnElement3d'));
-  const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
-  const thermalQuadLoads = $derived(caseLoads.filter(l => l.type === 'thermalQuad3d'));
-
-  /** Select a load in the viewport by its data.id. */
-  function selectLoadById(dataId: number) {
-    // Guard against stale ids (e.g. a click event racing a deletion).
-    if (!modelStore.loads.some(l => l.data.id === dataId)) return;
-    uiStore.selectMode = 'loads';
-    uiStore.selectLoad(dataId, false);
-  }
-
-  /** Check if a load is currently selected by its data.id. */
-  function isLoadSelected(dataId: number): boolean {
-    return uiStore.selectedLoads.has(dataId);
-  }
-
-  function addNodalLoad() {
-    const nodeId = parseInt(nlNodeId);
-    if (isNaN(nodeId) || !modelStore.nodes.has(nodeId)) return;
-    const fx = parseFloat(nlFx) || 0;
-    const fy = parseFloat(nlFy) || 0;
-    const fz = parseFloat(nlFz) || 0;
-    const mx = parseFloat(nlMx) || 0;
-    const my = parseFloat(nlMy) || 0;
-    const mz = parseFloat(nlMz) || 0;
-    if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
-    modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
-    nlNodeId = ''; nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
-  }
-
-  /** The distributed load being typed, or null when all of it is zero. */
-  function distDraft() {
-    const qxI = parseFloat(dlQxI) || 0, qxJ = parseFloat(dlQxJ) || qxI;
-    const qyI = parseFloat(dlQyI) || 0, qyJ = parseFloat(dlQyJ) || qyI;
-    const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
-    if ([qxI, qxJ, qyI, qyJ, qzI, qzJ].every((v) => v === 0)) return null;
-    return { qyI, qyJ, qzI, qzJ, opts: { frame: dlFrame, qXI: qxI, qXJ: qxJ } };
-  }
-  function clearDist() { dlQxI = ''; dlQxJ = ''; dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = ''; }
-
-  function addDistLoad() {
-    const elemId = parseInt(dlElemId);
-    if (isNaN(elemId) || !modelStore.elements.has(elemId)) return;
-    const d = distDraft();
-    if (!d) return;
-    modelStore.addDistributedLoad3D(elemId, d.qyI, d.qyJ, d.qzI, d.qzJ, undefined, undefined, uiStore.activeLoadCaseId, d.opts);
-    dlElemId = ''; clearDist();
-  }
-
-  function addPointLoad() {
-    const elemId = parseInt(plElemId);
-    if (isNaN(elemId) || !modelStore.elements.has(elemId)) return;
-    const a = parseFloat(plA);
-    const py = parseFloat(plPy) || 0;
-    const pz = parseFloat(plPz) || 0;
-    if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
-    modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
-    plElemId = ''; plA = ''; plPy = ''; plPz = '';
-  }
-
-  function addSurfaceLoad() {
-    const quadId = parseInt(slQuadId);
-    if (isNaN(quadId)) return;
-    if (!modelStore.model.quads.has(quadId)) {
-      uiStore.toast(t('pro.noQuadFound'), 'error');
-      return;
-    }
-    const q = parseFloat(slQ) || 0;
-    if (q === 0) return;
-    modelStore.addSurfaceLoad3D(quadId, q, uiStore.activeLoadCaseId);
-    slQuadId = ''; slQ = '';
-  }
-
-  function addThermalQuadLoad() {
-    const quadId = parseInt(tqQuadId);
-    if (isNaN(quadId) || !modelStore.model.quads.has(quadId)) return;
-    const dtU = parseFloat(tqDtUniform) || 0;
-    const dtG = parseFloat(tqDtGradient) || 0;
-    if (dtU === 0 && dtG === 0) return;
-    modelStore.addThermalLoadQuad3D(quadId, dtU, dtG, uiStore.activeLoadCaseId);
-    tqQuadId = ''; tqDtUniform = ''; tqDtGradient = '';
-  }
-
-  function addNodalLoadToSelection() {
-    const fx = parseFloat(nlFx) || 0, fy = parseFloat(nlFy) || 0, fz = parseFloat(nlFz) || 0;
-    const mx = parseFloat(nlMx) || 0, my = parseFloat(nlMy) || 0, mz = parseFloat(nlMz) || 0;
-    if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
-    for (const nodeId of uiStore.selectedNodes) {
-      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
-    }
-    nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
-  }
-
-  function addDistLoadToSelection() {
-    const d = distDraft();
-    if (!d) return;
-    modelStore.batch(() => {
-      for (const elemId of uiStore.selectedElements) {
-        if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, d.qyI, d.qyJ, d.qzI, d.qzJ, undefined, undefined, uiStore.activeLoadCaseId, d.opts);
-      }
-    });
-    clearDist();
-  }
-
-  function addPointLoadToSelection() {
-    const a = parseFloat(plA), py = parseFloat(plPy) || 0, pz = parseFloat(plPz) || 0;
-    if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
-    for (const elemId of uiStore.selectedElements) {
-      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, a, py, pz, uiStore.activeLoadCaseId);
-    }
-    plA = ''; plPy = ''; plPz = '';
-  }
-
-  function removeLoad(loadId: number) {
-    modelStore.removeLoad(loadId);
-    // Drop the deleted load from the selection so a later Delete keypress
-    // doesn't act on a stale id.
-    uiStore.deleteSelectedLoad(loadId);
-  }
 
   // ─── Combination Generator with Review Modal ──────────
 
@@ -250,12 +82,9 @@
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const present = presentSymbols(cases);
-    // The project's rules carry their own factors: W is written as the engineer means it.
-    const specs = template === 'project'
-      ? modelStore.combinationRules.map(ruleToSpec)
-      : template === 'service'
-      ? generateServiceCombinations({ present })
-      : generateCombinations({ present });
+    // The project's rules carry their own factors: W is written as the engineer means it. Each
+    // says which code wrote it and what for, so service ones stay out of design.
+    const specs = templateCombinationSpecs(template, present, modelStore.combinationRules);
     const out = expandCombinations(specs, cases, {
       bothSenses: { W: windBySign, E: seismicBothSenses },
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
@@ -298,19 +127,6 @@
     uiStore.toast(`${toAdd.length} ${label}`, 'success');
   }
 
-  function fmtNum(n: number): string {
-    if (n === 0) return '0';
-    return n.toFixed(2);
-  }
-
-  /** Parse a user-entered numeric string, tolerating a comma decimal separator
-   *  (es/de/fr keyboards) so "1,5" becomes 1.5 instead of being truncated to 1
-   *  by parseFloat. Returns `fallback` for empty/invalid input. */
-  function parseNum(value: string, fallback = 0): number {
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) ? n : fallback;
-  }
-
   /*
    * Which part of the load definition is being edited. Cases first: a load
    * belongs to a case, so the case is chosen before the load exists.
@@ -339,124 +155,7 @@
         {#each loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
       </select>
     </label>
-  <div class="pro-section-content">
-
-  <!-- Load kind selector -->
-  <div class="pro-loads-form">
-    <div class="pro-kind-row">
-      <button class="pro-type-btn" class:active={loadKind === 'nodal'} onclick={() => loadKind = 'nodal'}>{t('pro.nodal')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'distributed'} onclick={() => loadKind = 'distributed'}>{t('pro.distributed')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'point'} onclick={() => loadKind = 'point'}>{t('pro.pointLoad')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'surface'} onclick={() => loadKind = 'surface'}>{t('pro.surfaceLoad')}</button>
-      <button class="pro-type-btn" class:active={loadKind === 'thermalQuad'} onclick={() => loadKind = 'thermalQuad'}>{t('pro.thermalQuadLoad')}</button>
-    </div>
-
-    {#if loadKind === 'nodal'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>Fx: <input type="text" bind:value={nlFx} placeholder="kN" class="inp-num" /></label>
-          <label>Fy: <input type="text" bind:value={nlFy} placeholder="kN" class="inp-num" /></label>
-          <label>Fz: <input type="text" bind:value={nlFz} placeholder="kN" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>Mx: <input type="text" bind:value={nlMx} placeholder="kN·m" class="inp-num" /></label>
-          <label>My: <input type="text" bind:value={nlMy} placeholder="kN·m" class="inp-num" /></label>
-          <label>Mz: <input type="text" bind:value={nlMz} placeholder="kN·m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thNode')}: <input type="text" bind:value={nlNodeId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addNodalLoad}>{t('pro.addNodalLoad')}</button>
-          </div>
-          {#if uiStore.selectedNodes.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} {t('pro.selectedNodes')}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="nodes" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'distributed'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('loads.frame')}
-            <select bind:value={dlFrame} data-testid="dl-frame" title={t('loads.frameHelp')}>
-              <option value="local">{t('loads.frame.local')}</option>
-              <option value="global">{t('loads.frame.global')}</option>
-              <option value="projected">{t('loads.frame.projected')}</option>
-            </select>
-          </label>
-        </div>
-        <div class="pro-load-row">
-          <label>{dlFrame === 'local' ? 'qx_i' : 'qX_i'}: <input type="text" bind:value={dlQxI} placeholder="kN/m" class="inp-num" data-testid="dl-qxi" /></label>
-          <label>{dlFrame === 'local' ? 'qx_j' : 'qX_j'}: <input type="text" bind:value={dlQxJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>qY_i: <input type="text" bind:value={dlQyI} placeholder="kN/m" class="inp-num" /></label>
-          <label>qY_j: <input type="text" bind:value={dlQyJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>qZ_i: <input type="text" bind:value={dlQzI} placeholder="kN/m" class="inp-num" /></label>
-          <label>qZ_j: <input type="text" bind:value={dlQzJ} placeholder="kN/m" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thElements')}: <input type="text" bind:value={dlElemId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
-          </div>
-          {#if uiStore.selectedElements.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="elements" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'point'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>a (m): <input type="text" bind:value={plA} placeholder="dist." class="inp-num" /></label>
-          <label>Py: <input type="text" bind:value={plPy} placeholder="kN" class="inp-num" /></label>
-          <label>Pz: <input type="text" bind:value={plPz} placeholder="kN" class="inp-num" /></label>
-        </div>
-        <div class="pro-load-target">
-          <div class="target-byid">
-            <label>{t('pro.thElements')}: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
-            <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
-          </div>
-          {#if uiStore.selectedElements.size > 0}
-            <div class="target-sel">
-              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{tp('loads.onSelectedMembers', { n: uiStore.selectedElements.size })}</button>
-            </div>
-          {:else}
-            <div class="target-sel"><PickKind kind="elements" /></div>
-          {/if}
-        </div>
-      </div>
-    {:else if loadKind === 'surface'}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('pro.slab')}: <input type="text" bind:value={slQuadId} placeholder="ID" class="inp-sm" /></label>
-          <label>q: <input type="text" bind:value={slQ} placeholder="kN/m²" class="inp-num" /></label>
-        </div>
-        <button class="pro-btn" onclick={addSurfaceLoad}>{t('pro.addSurfaceLoad')}</button>
-      </div>
-    {:else}
-      <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>{t('pro.slab')}: <input type="text" bind:value={tqQuadId} placeholder="ID" class="inp-sm" /></label>
-        </div>
-        <div class="pro-load-row">
-          <label>{t('pro.dtUniform')}: <input type="text" bind:value={tqDtUniform} placeholder="°C" class="inp-num" /></label>
-          <label>{t('pro.dtGradient')}: <input type="text" bind:value={tqDtGradient} placeholder="°C" class="inp-num" /></label>
-        </div>
-        <button class="pro-btn" onclick={addThermalQuadLoad}>{t('pro.addThermalQuadLoad')}</button>
-      </div>
-    {/if}
-  </div>
-  </div>
+  <ProWriteLoadCard />
   </WriteCard>
   </div>
   {/if}
@@ -516,118 +215,7 @@
   {/if}
 
 
-  <!-- Loads table for active case -->
-  <div class="pro-loads-table-wrap">
-    {#if nodalLoads.length > 0}
-      <div class="pro-load-section-title">{t('pro.nodalLoads')}</div>
-      <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>Nodo</th><th>Fx</th><th>Fy</th><th>Fz</th><th>Mx</th><th>My</th><th>Mz</th><th></th></tr></thead>
-        <tbody>
-          {#each nodalLoads as l}
-            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
-              <td class="col-id">{l.data.id}</td>
-              <td class="col-num">{l.data.nodeId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fx)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fx: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fy)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fy: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.fz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { fz: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mx ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mx: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.my ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { my: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.mz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { mz: parseNum(e.currentTarget.value) })} /></td>
-              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if distLoads.length > 0}
-      <div class="pro-load-section-title">{t('pro.distLoads')}</div>
-      <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th></th></tr></thead>
-        <tbody>
-          {#each distLoads as l}
-            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
-              <td class="col-id">{l.data.id}</td>
-              <td class="col-num">{l.data.elementId}</td>
-              <td>
-                <select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()}
-                  onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
-                  <option value="local">{t('loads.frame.local')}</option>
-                  <option value="global">{t('loads.frame.global')}</option>
-                  <option value="projected">{t('loads.frame.projected')}</option>
-                </select>
-              </td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qXJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qXJ: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qYJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qYJ: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZI ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZI: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.qZJ ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { qZJ: parseNum(e.currentTarget.value) })} /></td>
-              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if pointLoads.length > 0}
-      <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
-      <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('table.elemLabel')}</th><th>a (m)</th><th>Py</th><th>Pz</th><th></th></tr></thead>
-        <tbody>
-          {#each pointLoads as l}
-            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
-              <td class="col-id">{l.data.id}</td>
-              <td class="col-num">{l.data.elementId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.a)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { a: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.py ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { py: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.pz ?? 0)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { pz: parseNum(e.currentTarget.value) })} /></td>
-              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if surfaceLoads.length > 0}
-      <div class="pro-load-section-title">{t('pro.surfaceLoads')}</div>
-      <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>q (kN/m²)</th><th></th></tr></thead>
-        <tbody>
-          {#each surfaceLoads as l}
-            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
-              <td class="col-id">{l.data.id}</td>
-              <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.q)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { q: parseNum(e.currentTarget.value) })} /></td>
-              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if thermalQuadLoads.length > 0}
-      <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
-      <table class="pro-loads-table">
-        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>{t('pro.dtUniform')}</th><th>{t('pro.dtGradient')}</th><th></th></tr></thead>
-        <tbody>
-          {#each thermalQuadLoads as l}
-            <tr class:selected={isLoadSelected(l.data.id)} onclick={() => selectLoadById(l.data.id)}>
-              <td class="col-id">{l.data.id}</td>
-              <td class="col-num">{l.data.quadId}</td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtUniform)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtUniform: parseNum(e.currentTarget.value) })} /></td>
-              <td class="col-num"><input class="inp-cell" value={fmtNum(l.data.dtGradient)} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { dtGradient: parseNum(e.currentTarget.value) })} /></td>
-              <td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); removeLoad(l.data.id); }}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    {#if caseLoads.length === 0}
-      <div class="pro-empty">{t('pro.noLoads')}</div>
-    {/if}
-  </div>
+  <ProLoadTables />
 </div>
 
 <!-- LRFD Combination Generator Modal -->
@@ -771,67 +359,7 @@
   .combo-modal-footer { padding: 10px 18px; border-top: 1px solid var(--st-surface-3); display: flex; align-items: center; gap: 8px; }
   .combo-modal-count { flex: 1; font-size: 0.68rem; color: var(--st-text-3); }
 
-  .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid var(--st-surface-3); }
-  .pro-loads-count { font-size: 0.78rem; color: var(--st-value); font-weight: 600; }
-
   .pro-addload-section { border-bottom: 1px solid var(--st-surface-3); }
-  .pro-loads-form { padding: 6px 0 4px; }
-  .pro-kind-row { display: flex; gap: 5px; margin-bottom: 10px; }
-  .pro-type-btn {
-    padding: 5px 10px; font-size: 0.75rem; font-weight: 500; color: var(--st-text-3);
-    background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 4px; cursor: pointer;
-  }
-  .pro-type-btn:hover { color: var(--st-text-2); background: var(--st-hair-strong); }
-  .pro-type-btn.active { color: var(--st-text); background: var(--st-surface-3); border-color: var(--st-text-2); }
-
-  .pro-load-inputs { display: flex; flex-direction: column; gap: 8px; }
-  .pro-load-row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .pro-load-row label { font-size: 0.75rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
-  .inp-sm { width: 55px; padding: 4px 6px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.78rem; font-family: monospace; }
-  .inp-num { width: 65px; padding: 4px 6px; background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 3px; color: var(--st-text); font-size: 0.78rem; font-family: monospace; }
-  .inp-sm:focus, .inp-num:focus { border-color: var(--st-surface-3); outline: none; }
-  .pro-btn { align-self: flex-start; padding: 5px 14px; font-size: 0.75rem; color: var(--st-text-2); background: var(--st-surface-3); border: 1px solid var(--st-surface-3); border-radius: 4px; cursor: pointer; }
-  .pro-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .pro-load-target {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 4px;
-    border-top: 1px solid var(--st-surface-3);
-    margin-top: 4px;
-  }
-  .target-byid {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .target-byid label { font-size: 0.75rem; color: var(--st-text-3); display: flex; align-items: center; gap: 4px; }
-  .target-sel {  }
-  .pro-btn-sel { font-size: 0.72rem; color: var(--st-text-2); border-color: var(--st-hair-strong); background: var(--st-surface-3); padding: 5px 14px; border-radius: 4px; border: 1px solid var(--st-hair-strong); cursor: pointer; }
-  .pro-btn-sel:hover { background: var(--st-hair-strong); color: var(--st-text); }
-  .pro-btn-sel::before { content: '\2714\00a0'; }
-
-  .pro-loads-table-wrap { }
-  .pro-load-section-title { padding: 8px 12px 4px; font-size: 0.68rem; font-weight: 600; color: var(--st-text-2); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 6px; }
-  .pro-loads-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  .pro-loads-table thead { position: sticky; top: 0; z-index: 1; }
-  .pro-loads-table th { padding: 6px 6px; text-align: left; font-size: 0.68rem; font-weight: 600; color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); }
-  .pro-loads-table td { padding: 4px 6px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
-  .pro-loads-table tbody tr { cursor: pointer; transition: background 0.1s; }
-  .pro-loads-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }
-  .pro-loads-table tbody tr.selected { background: rgba(127, 212, 204, 0.18); box-shadow: inset 3px 0 0 var(--st-value); }
-  .inp-cell {
-    background: transparent; border: 1px solid transparent; border-radius: 3px;
-    color: var(--st-text-2); font-size: 0.72rem; font-family: monospace; padding: 2px 4px;
-    width: 60px; text-align: right;
-  }
-  .inp-cell:hover { border-color: var(--st-surface-3); }
-  .inp-cell:focus { background: var(--st-surface-3); border-color: var(--st-surface-3); outline: none; }
-  .col-id { width: 32px; color: var(--st-text-3); font-family: monospace; text-align: center; }
-  .col-num { font-family: monospace; text-align: right; font-size: 0.75rem; }
-  .pro-delete-btn { background: none; border:  none; color: var(--st-text-3); font-size: 1rem; cursor: pointer; padding: 0; }
-  .pro-delete-btn:hover { color: var(--st-danger); }
-  .pro-empty { text-align: center; color: var(--st-text-3); font-style: italic; padding: 30px 10px; font-size: 0.78rem; }
   .combo-senses-hint { margin: 0; padding: 0 12px 6px; font-size: 0.62rem; color: var(--st-text-3); }
   .combo-wind-basis { display: flex; gap: 6px; align-items: center; padding: 6px 12px; font-size: 0.68rem; color: var(--st-text-2); border-bottom: 1px solid var(--st-hair); }
 </style>

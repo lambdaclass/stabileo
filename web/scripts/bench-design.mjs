@@ -3,6 +3,10 @@
 // COLLISION_KERNEL=ts selects the reference implementation for full-design comparisons.
 // npm run bench:design -- --compare [example ids] checks complete design output parity.
 // npm run bench:design -- --compare-repair compares full Rust sweeps with incremental repair.
+// npm run bench:design -- --compare-column compares cached and uncached column verification.
+// npm run bench:design -- --columns isolates column capacity preparation and reuse.
+// npm run bench:design -- --compare-station compares compact station transfer with grouped JSON.
+// npm run bench:design -- --stations measures isolated station transfer and governing extraction.
 // npm run bench:design -- --compare-fused compares separate and fused Rust collision queries.
 // npm run bench:design -- --query-kernels alternates both query paths on identical cages.
 // Add --reverse to a full-design comparison to run the optimized path first.
@@ -18,18 +22,23 @@ import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
+const columns = process.argv.includes('--columns');
+const compareColumn = process.argv.includes('--compare-column');
+const numerical = process.argv.includes('--numerical');
+const stations = process.argv.includes('--stations');
+const compareStation = process.argv.includes('--compare-station');
 const queryKernels = process.argv.includes('--query-kernels');
 const kernels = process.argv.includes('--kernels') || queryKernels;
 const compareFused = process.argv.includes('--compare-fused');
-const compareRepair = process.argv.includes('--compare-repair');
-const compare = process.argv.includes('--compare') || compareRepair || compareFused;
 const reverse = process.argv.includes('--reverse');
+const compareRepair = process.argv.includes('--compare-repair');
+const compare = process.argv.includes('--compare') || compareColumn || compareRepair || compareStation || compareFused;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
 let server, browser, watchdog;
 try {
-  const module = queryKernels ? 'collision-query-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
+  const module = queryKernels ? 'collision-query-benchmark' : stations ? 'station-transfer-benchmark' : columns ? 'column-capacity-benchmark' : numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
   await writeFile(entry, `<!doctype html><title>Design benchmark</title><script type="module">import { benchmark } from "/scripts/${module}.ts"; window.runBenchmark = benchmark;</script>`);
   await build({
     configFile: false, root, plugins: [svelte()],
@@ -44,8 +53,8 @@ try {
   if (!address || typeof address === 'string') throw new Error('No benchmark server address');
   browser = await chromium.launch({ headless: true });
   watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-  const examples = process.argv.slice(2).filter(arg => !['--kernels', '--query-kernels', '--compare', '--compare-repair', '--compare-fused', '--reverse'].includes(arg));
-  const run = async (kernel, incremental = true, fused = true) => {
+  const examples = process.argv.slice(2).filter(arg => !['--columns', '--compare-column', '--compare-repair', '--numerical', '--kernels', '--compare', '--stations', '--compare-station', '--query-kernels', '--compare-fused', '--reverse'].includes(arg));
+  const run = async (kernel, columnCapacity = true, incremental = true, compactStations = true, fused = true) => {
     // Fresh pages give both backends the same store revision counters and JIT warmup.
     const page = await browser.newPage();
     page.on('crash', () => { console.error('Benchmark page crashed'); void browser.close(); });
@@ -53,23 +62,23 @@ try {
     try {
       await page.goto(`http://127.0.0.1:${address.port}/${basename(entry)}`);
       await page.waitForFunction(() => typeof window.runBenchmark === 'function');
-      return await page.evaluate(({ examples, capture, kernel, incremental, fused }) => window.runBenchmark(examples, capture, kernel, incremental, fused), {
+      return await page.evaluate(({ examples, capture, kernel, columnCapacity, incremental, compactStations, fused }) => window.runBenchmark(examples, capture, kernel, columnCapacity, incremental, compactStations, fused), {
         examples: examples.length ? examples : ['pro-edificio-7p', 'rc-design-qa-8', 'rc-design-qa-row2'],
-        capture: compare || !!process.env.BENCH_OUTPUT, kernel, incremental, fused,
+        capture: compare || !!process.env.BENCH_OUTPUT, kernel, columnCapacity, incremental, compactStations, fused,
       });
     } finally { await page.close(); }
   };
   let result;
-  if (compare && !kernels) {
-    const reference = () => run(compareRepair || compareFused, !compareRepair, !compareFused);
+  if (compare && !kernels && !numerical && !columns && !stations) {
+    const reference = () => run(compareColumn || compareRepair || compareStation || compareFused, !compareColumn, !compareRepair, !compareStation, !compareFused);
     const first = await (reverse ? run(true) : reference());
     const second = await (reverse ? reference() : run(true));
     const [ts, rust] = reverse ? [second, first] : [first, second];
     result = rust.map((row, i) => {
-      if (row.outputs !== ts[i].outputs) throw new Error(`${row.example}: full design differs between collision backends`);
+      if (row.outputs !== ts[i].outputs) throw new Error(`${row.example}: full design differs between reference and optimized paths`);
       return { example: row.example, bars: row.bars,
-        [compareFused ? 'separateMedianDesignMs' : compareRepair ? 'fullSweepMedianDesignMs' : 'tsMedianDesignMs']: ts[i].medianDesignMs,
-        [compareFused ? 'fusedMedianDesignMs' : compareRepair ? 'incrementalMedianDesignMs' : 'rustMedianDesignMs']: row.medianDesignMs,
+        [compareFused ? 'separateMedianDesignMs' : compareColumn || compareStation ? 'referenceMedianDesignMs' : compareRepair ? 'fullSweepMedianDesignMs' : 'tsMedianDesignMs']: ts[i].medianDesignMs,
+        [compareFused ? 'fusedMedianDesignMs' : compareStation ? 'compactStationMedianDesignMs' : compareColumn ? 'preparedColumnMedianDesignMs' : compareRepair ? 'incrementalMedianDesignMs' : 'rustMedianDesignMs']: row.medianDesignMs,
         speedup: ts[i].medianDesignMs / row.medianDesignMs,
         rows: { reference: ts[i].rows, optimized: row.rows }, equivalent: true,
         outputs: process.env.BENCH_OUTPUT ? row.outputs : undefined };

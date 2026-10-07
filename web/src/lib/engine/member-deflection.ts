@@ -150,6 +150,9 @@ export function memberLocalCurve(
   ef: ElementForces3D | undefined, ei: ElementEI | undefined,
   localY?: Pt, rollAngle?: number, leftHand?: boolean, segments: number | readonly number[] = 20,
 ): LocalCurve | null {
+  // A member of variable section: its pieces' own curves, each with its EI (`variable-members.ts`).
+  const pieces = ef?.pieces;
+  if (pieces?.length && pieces.every((p) => p.dI && p.dJ)) return piecewiseCurve(nodeI, nodeJ, ef!, ei, localY, rollAngle, leftHand, segments);
   let axes;
   try {
     axes = computeLocalAxes3D({ id: 0, ...nodeI }, { id: 1, ...nodeJ }, localY, rollAngle, leftHand);
@@ -208,6 +211,47 @@ export function memberLocalCurve(
     out.u.push(uI + xi * (uJ - uI));
     out.v.push(v);
     out.w.push(w);
+  }
+  return out;
+}
+
+/**
+ * The curve of a member solved as pieces: each sample read on the piece it falls in, from that
+ * piece's end displacements, forces and EI. The pieces share the member's axes, so their local
+ * components are the member's.
+ */
+function piecewiseCurve(
+  nodeI: Pt, nodeJ: Pt, ef: ElementForces3D, ei: ElementEI | undefined,
+  localY: Pt | undefined, rollAngle: number | undefined, leftHand: boolean | undefined, segments: number | readonly number[],
+): LocalCurve | null {
+  const pieces = ef.pieces!;
+  const L = ef.length;
+  const at = (x: number): Pt => {
+    const f = x / L;
+    return { x: nodeI.x + f * (nodeJ.x - nodeI.x), y: nodeI.y + f * (nodeJ.y - nodeI.y), z: nodeI.z + f * (nodeJ.z - nodeI.z) };
+  };
+  const xis = typeof segments === 'number'
+    ? [...new Set([...Array.from({ length: segments + 1 }, (_, i) => i / segments), ...pieces.map((p) => p.x1 / L)])].sort((a, b) => a - b)
+    : segments;
+  const groups = pieces.map(p => ({ p, samples: [] as number[], output: [] as number[] }));
+  for (let i = 0; i < xis.length; i++) {
+    const x = xis[i]! * L;
+    const k = Math.max(0, pieces.findIndex(p => x <= p.x1 + 1e-9));
+    const group = groups[k]!;
+    group.samples.push(Math.min(1, Math.max(0, (x - group.p.x0) / Math.max(group.p.x1 - group.p.x0, 1e-12))));
+    group.output.push(i);
+  }
+  let out: LocalCurve | null = null;
+  // Process the first requested piece first, preserving the old axes choice
+  // for an unsorted station list as well as ordinary increasing samples.
+  groups.sort((a, b) => (a.output[0] ?? Infinity) - (b.output[0] ?? Infinity));
+  for (const { p, samples, output } of groups) {
+    if (!samples.length) continue;
+    const c = memberLocalCurve(at(p.x0), at(p.x1), p.dI!, p.dJ!, p.forces, p.ei ?? ei,
+      localY, rollAngle, leftHand, samples);
+    if (!c) return null;
+    out ??= { L, ex: c.ex, ey: c.ey, ez: c.ez, xi: [...xis], u: [], v: [], w: [] };
+    output.forEach((j, i) => { out!.u[j] = c.u[i]!; out!.v[j] = c.v[i]!; out!.w[j] = c.w[i]!; });
   }
   return out;
 }

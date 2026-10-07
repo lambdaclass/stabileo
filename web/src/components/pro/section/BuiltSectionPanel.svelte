@@ -25,7 +25,11 @@
     type ShapeType, type MaterialCategory,
   } from '../../../lib/data/section-shapes';
   import { crossSectionPath } from '../../../lib/utils/section-drawing';
-  import type { SectionChoice } from '../../../lib/section/section-choice';
+  import { toSectionFields, type SectionChoice } from '../../../lib/section/section-choice';
+  import { resolveSectionState } from '../../../lib/section/state';
+  import { drawingGeometry } from '../../../lib/section/drawing';
+  import { canonicalOutlinePath } from '../../../lib/section/outline';
+  import type { Section } from '../../../lib/store/model.svelte';
 
   interface Props {
     /** Emitted on every change, so the shell's preview and Apply stay in step with the form. */
@@ -42,8 +46,10 @@
   const args: Props = $props();
   const onDraft = args.onDraft;
 
-  let category = $state<MaterialCategory>('thin');
   let shape = $state<ShapeType>((args.initial?.shapeType as ShapeType | undefined) ?? 'hollow-rect');
+  // The category of the template being reopened, or the effect below would swap a solid one for
+  // the first thin template before the reader saw it.
+  let category = $state<MaterialCategory>(SECTION_SHAPES.find((s) => s.id === shape)?.category ?? 'thin');
   let values = $state<Record<string, number>>({ ...(args.initial?.params ?? {}) });
   /** A length parameter shown in mm; stored in m. Rounded so 0.0254 m reads 25.4, not 25.400000000000002. */
   const toShown = (unit: string, v: number) => (unit === 'm' ? Number((v * 1000).toPrecision(10)) : v);
@@ -77,8 +83,19 @@
 
   const computed = $derived(computeSectionProperties(shape, values));
   const name = $derived(generateSectionName(shape, values));
+  /*
+   * The outline the solver will integrate, from the same resolver the model uses; the bare
+   * parametric sketch only while the engine is not up. The sketch reads `tw`/`tf`/`t` and has
+   * no lip, no offset web and no tee for the concrete templates, whose parameters are named
+   * otherwise.
+   */
   const path = $derived.by(() => {
     if (!computed || !computed.h || !computed.b) return null;
+    try {
+      const fields = toSectionFields({ kind: 'built', name, shapeType: shape, params: values, props: computed, rotationDeg: 0 }, 0);
+      const state = fields ? resolveSectionState({ id: 0, ...fields } as unknown as Section) : null;
+      if (state?.kind === 'geometry-backed') return canonicalOutlinePath(drawingGeometry(state));
+    } catch { /* the sketch below */ }
     return crossSectionPath({
       shape: (computed.shape ?? 'rect') as never,
       b: computed.b, h: computed.h,
@@ -142,7 +159,7 @@
 
   {#if path}
     <svg viewBox="-90 -90 180 180" class="fig" aria-hidden="true">
-      <path d={path} fill="none" stroke="var(--st-value)" stroke-width="1.5" fill-rule="evenodd" />
+      <path d={path} fill="var(--st-value)" fill-opacity="0.12" stroke="var(--st-value)" stroke-width="1.5" fill-rule="evenodd" data-testid="section-build-outline" />
     </svg>
   {/if}
 

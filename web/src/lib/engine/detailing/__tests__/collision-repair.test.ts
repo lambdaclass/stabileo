@@ -152,4 +152,11 @@ describe('incremental collision repair', () => {
     session.free();
     expect(() => session.update(bars, new Set())).toThrow('closed');
   });
+
+  it('leaves a repair with a bar that is not numbers to the full sweep, which names it instead of throwing', () => {
+    const bars = [bar('a', 0), bar('b', 0.03), bar('nan', 0, { segments: [straightSegment({ x: 0, y: 0, z: 0 }, { x: Number.NaN, y: 0, z: 0 })] })];
+    expect(prepareCollisionRepair(bars)).toBeNull();
+    const r = repairConflicts(bars, need25, undefined, undefined, { incremental: true });
+    expect(r.conflicts.every((c) => c.barA !== 'nan' && c.barB !== 'nan')).toBe(true);
+  });
 });

@@ -12,7 +12,7 @@
   import { ALL_PROFILES } from '../../../lib/data/steel-profiles';
   import { catalogueOutline } from '../../../lib/section/canonical';
   import {
-    attachOffset, nextPartId, type DrawnSection, type DrawnPart, type DrawnShape, type DrawnIssue, type Pt,
+    attachOffset, nextPartId, placeAbove, type DrawnSection, type DrawnPart, type DrawnShape, type DrawnIssue, type Pt,
   } from '../../../lib/section/drawn';
   import { analyzeDrawn, materialAreas, type DrawnAnalysis } from '../../../lib/section/drawn-properties';
   import { dxfSectionParts } from '../../../lib/section/drawn-dxf';
@@ -64,14 +64,27 @@
     const m = materials.find((x) => x.id === (id ?? refId));
     return m ? (m.rho * 1000) / 9.80665 : undefined;
   };
-  const analysis = $derived.by((): DrawnAnalysis | null => {
+  /** The analysis, or why it failed: an error used to read as "the engine is not ready yet". */
+  const run = $derived.by((): { analysis: DrawnAnalysis | null; error: string | null } => {
     try {
-      return analyzeDrawn(effective, catalogueOutline, { density, torsion: !dragging });
-    } catch {
-      return null;
+      return { analysis: analyzeDrawn(effective, catalogueOutline, { density, torsion: !dragging }), error: null };
+    } catch (e) {
+      return { analysis: null, error: e instanceof Error ? e.message : String(e) };
     }
   });
+  const analysis = $derived(run.analysis);
+  const analysisError = $derived(run.error);
   const sp = $derived(analysis?.properties ?? null);
+  /*
+   * The angle of the principal axes, when the drawing's own axes are not principal. A frame
+   * member bends about Iy and Iz as drawn, with no product of inertia, so an angle or a Z drawn
+   * square to the page is analysed about the wrong pair of axes unless it is rotated to them.
+   */
+  const skewDeg = $derived.by(() => {
+    if (!sp || !(sp.iy > 0 && sp.iz > 0)) return null;
+    if (Math.abs(sp.iyz) <= 1e-3 * Math.sqrt(sp.iy * sp.iz)) return null;
+    return (sp.thetaP * 180) / Math.PI;
+  });
   const issues = $derived(analysis?.assembled.issues ?? []);
   const materialOrder = $derived<Array<number | null>>([null, ...materials.filter((m) => m.id !== refId).map((m) => m.id)]);
 
@@ -90,23 +103,43 @@
     const withAreas: DrawnSection = areas ? { ...rest, areas } : rest;
     args.onDraft({
       kind: 'drawn', name: nm,
-      drawn: refId != null ? { ...withAreas, refMaterialId: refId } : withAreas,
+      // The reference is written only when the section is composite: drawn in one material, a part
+      // with no material of its own is the member's, as `drawn.ts` says, for weight and quantities
+      // alike. It used to be the first material of the model, whatever the member was made of.
+      drawn: refId != null && d.parts.some((p) => !p.void && p.materialId != null) ? { ...withAreas, refMaterialId: refId } : withAreas,
       props: { a: p.a, iy: p.iy, iz: p.iz, j: p.j, b: bb[2] - bb[0], h: bb[3] - bb[1] },
     });
   });
+
+  /*
+   * A new reference re-expresses the section; it does not change what any part is made of. The
+   * parts that were in the old reference (no material of their own) keep it explicitly, and the
+   * ones now in the new reference drop theirs. Changing the reference used to turn every
+   * reference part into the new material.
+   */
+  function setReference(next: number) {
+    const old = refId;
+    drawn = {
+      ...drawn, refMaterialId: next,
+      parts: drawn.parts.map((p) => {
+        const mat = p.materialId ?? old;
+        if (mat === next || mat == null) { const { materialId: _m, ratio: _r, ...rest } = p; return rest; }
+        return { ...p, materialId: mat };
+      }),
+    };
+  }
 
   // ── Editing ──
   const replace = (part: DrawnPart) => { drawn = { ...drawn, parts: drawn.parts.map((p) => (p.id === part.id ? part : p)) }; };
   function add(shape: DrawnShape, extra: Partial<DrawnPart> = {}) {
     const id = nextPartId(drawn);
-    // A new part goes above everything, so it never lands overlapping what is there.
-    const top = sp ? sp.bbox[3] : 0;
+    // A new part goes above everything, centred, so it never lands overlapping what is there. It
+    // used to sit on the LAST part, which on the welded-I starter is the bottom flange, across
+    // the web.
     const part: DrawnPart = { id, shape, at: [0, 0], rotationDeg: 0, ...extra };
-    const probe = { ...part };
-    const outline = catalogueOutline;
     const others = drawn.parts.filter((p) => !p.void);
-    const at = others.length > 0 && !extra.void ? attachOffset(probe, others[others.length - 1]!, 'top', 'centre', outline) : null;
-    drawn = { ...drawn, parts: [...drawn.parts, { ...part, at: at ?? [0, extra.void ? 0 : top] }] };
+    const at = !extra.void ? placeAbove(part, others, catalogueOutline) : null;
+    drawn = { ...drawn, parts: [...drawn.parts, { ...part, at: at ?? (extra.at ?? [0, 0]) }] };
     selected = id;
   }
   const NEW: Record<string, () => void> = {
@@ -130,31 +163,60 @@
     const part = drawn.parts.find((p) => p.id === selected);
     if (!part) return;
     const id = nextPartId(drawn);
-    drawn = { ...drawn, parts: [...drawn.parts, { ...structuredClone($state.snapshot(part)) as DrawnPart, id, mirror: !part.mirror || undefined }] };
+    const copy: DrawnPart = { ...structuredClone($state.snapshot(part)) as DrawnPart, id, mirror: !part.mirror || undefined };
+    // Mirrored about its own axis, the copy of a symmetric part would land on the original and
+    // merge into it; it goes beside it instead, back to back, the way a pair is built.
+    const at = attachOffset(copy, part, 'right', 'centre', catalogueOutline);
+    drawn = { ...drawn, parts: [...drawn.parts, at ? { ...copy, at } : copy] };
     selected = id;
   }
   function remove() {
     drawn = { ...drawn, parts: drawn.parts.filter((p) => p.id !== selected) };
     selected = null;
   }
+  /** The name a starter gave: a later starter replaces it, a name the reader typed stays. */
+  let starterName = $state<string>(untrack(() => (args.initial ? '' : t('drawn.defaultName'))));
   function start(id: StarterId) {
     drawn = { ...drawn, parts: starterParts(id, catalogueOutline) };
     selected = null;
-    name = t(`drawn.starter.${id}`);
+    if (name.trim() === '' || name === starterName) { name = t(`drawn.starter.${id}`); starterName = name; }
   }
 
   // ── Import ──
   let dxfUnit = $state<DxfUnit>('mm');
   let importNote = $state<string | null>(null);
+  /** The note says the import was refused: shown as a warning, not as a by-the-way. */
+  let importRefused = $state(false);
   async function importDxf(e: Event & { currentTarget: HTMLInputElement }) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = '';
     if (!file) return;
     const r = dxfSectionParts(await file.text(), dxfUnit, 1);
-    if (r.parts.length === 0) { importNote = t('drawn.dxfNothing').replace('{open}', String(r.open)); return; }
+    importRefused = r.problem === 'parseError' || r.problem === 'allMalformed' || r.problem === 'malformedPieces';
+    if (r.problem === 'parseError' || r.problem === 'allMalformed') { importNote = t('drawn.dxfUnreadable'); return; }
+    /*
+     * A piece that could not be read refuses the whole import, the drawing left as it was: it may
+     * have been the outline or a hole, and a plate imported solid because its hole read NaN has
+     * the wrong properties with nothing on screen to say so.
+     */
+    if (r.problem === 'malformedPieces') {
+      importNote = [
+        t('drawn.dxfMalformed').replace('{list}', Object.entries(r.malformed).map(([type, n]) => `${n} × ${type}`).join(', ')),
+        r.incompleteBlocks.length > 0 ? t('drawn.dxfMalformedBlocks').replace('{names}', r.incompleteBlocks.join(', ')) : '',
+      ].filter(Boolean).join(' ');
+      return;
+    }
+    const extra = [
+      r.skipped.length > 0 ? t('drawn.dxfSkipped').replace('{types}', r.skipped.join(', ')) : '',
+      r.paperSpace > 0 ? t('drawn.dxfPaperSpace').replace('{n}', String(r.paperSpace)) : '',
+      r.hidden > 0 ? t('drawn.dxfHidden').replace('{n}', String(r.hidden)) : '',
+      r.cyclicBlocks.length > 0 ? t('drawn.dxfCyclic').replace('{names}', r.cyclicBlocks.join(', ')) : '',
+      r.declaredUnit && r.declaredUnit !== dxfUnit ? t('drawn.dxfUnitDeclared').replace('{unit}', r.declaredUnit) : '',
+    ].filter(Boolean).join(' ');
+    if (r.parts.length === 0) { importNote = [t('drawn.dxfNothing').replace('{open}', String(r.open)), extra].filter(Boolean).join(' '); return; }
     drawn = { ...drawn, parts: r.parts };
     selected = null;
-    importNote = t('drawn.dxfRead').replace('{loops}', String(r.loops)).replace('{circles}', String(r.circles)).replace('{open}', String(r.open));
+    importNote = [t('drawn.dxfRead').replace('{loops}', String(r.loops)).replace('{circles}', String(r.circles)).replace('{open}', String(r.open)), extra].filter(Boolean).join(' ');
   }
   /** Sections of this project that can become parts: drawn ones by their parts, catalogue ones as a profile. */
   const projectSections = $derived([...modelStore.sections.values()].filter((s) => s.drawn || catalogueOutline(s.name)));
@@ -225,13 +287,13 @@
     {/if}
     {#if materials.length > 1}
       <label>{t('drawn.reference')}
-        <select value={String(refId)} data-testid="drawn-ref-material" onchange={(e) => (drawn = { ...drawn, refMaterialId: Number(e.currentTarget.value) })}>
+        <select value={String(refId)} data-testid="drawn-ref-material" onchange={(e) => setReference(Number(e.currentTarget.value))}>
           {#each materials as m (m.id)}<option value={String(m.id)}>{m.name}</option>{/each}
         </select>
       </label>
     {/if}
   </div>
-  {#if importNote}<p class="note" data-testid="drawn-import-note">{importNote}</p>{/if}
+  {#if importNote}<p class="note" class:refused={importRefused} role={importRefused ? 'alert' : undefined} data-testid="drawn-import-note">{importNote}</p>{/if}
 
   <div class="main">
     <div class="left">
@@ -251,18 +313,24 @@
         {/each}
       </div>
       {#if selectedPart}
+        <!-- Keyed by the part: its attach target and its fields belong to the part they were set on. -->
+        {#key selectedPart.id}
         <DrawnPartEditor
           part={selectedPart}
           others={drawn.parts.filter((p) => p.id !== selectedPart.id)}
           {materials} refMaterialId={refId} {profileNames}
           onChange={replace} onAttach={attach} onDuplicate={duplicate} onDelete={remove}
         />
+        {/key}
       {/if}
-      {#if issues.length > 0}
+      {#if issues.length > 0 || skewDeg != null}
         <ul class="issues" data-testid="drawn-issues">
           {#each issues as i, k (k)}
             <li class={i.severity}>{issueText(i.issue)}</li>
           {/each}
+          {#if skewDeg != null}
+            <li class="warning" data-testid="drawn-skew">{t('drawn.issue.skewAxes').replace('{deg}', skewDeg.toFixed(1))}</li>
+          {/if}
         </ul>
       {/if}
     </div>
@@ -270,7 +338,7 @@
       {#if sp}
         <DrawnSectionProps values={sp} />
       {:else}
-        <p class="note">{t(analysis ? 'drawn.fixErrors' : 'drawn.engineNotReady')}</p>
+        <p class="note" data-testid="drawn-no-props">{analysis ? t('drawn.fixErrors') : analysisError ? t('drawn.analysisFailed').replace('{error}', analysisError) : t('drawn.engineNotReady')}</p>
       {/if}
     </div>
   </div>
@@ -295,4 +363,5 @@
   .issues .error { color: var(--st-danger); }
   .issues .warning { color: var(--st-text-3); }
   .note { margin: 0; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
+  .note.refused { color: var(--st-danger); }
 </style>

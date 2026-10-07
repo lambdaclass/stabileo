@@ -27,7 +27,7 @@ type T = (k: string) => string;
  * specification that is not the default. The list below groups these; the Members table says
  * them per member.
  */
-export function memberSpecifications(e: Element, t: T): Array<{ what: string; value: string }> {
+export function memberSpecifications(e: Element, t: T, m?: Pick<StructureModel, 'sections'>): Array<{ what: string; value: string }> {
   const out: Array<{ what: string; value: string }> = [];
   const spec = (what: string, value: string) => { out.push({ what, value }); };
   if (e.behaviour) spec(t('spec.members.axial'), t(e.behaviour === 'cable' ? 'spec.axial.cable' : `behaviour.${e.behaviour}`));
@@ -41,6 +41,7 @@ export function memberSpecifications(e: Element, t: T): Array<{ what: string; va
   if (e.stiffness) spec(t('behaviour.stiffness'), e.stiffness.preset ? t(`behaviour.preset.${e.stiffness.preset}`).replace('{f}', '').trim() : `A ${e.stiffness.a ?? 1} · Iy ${e.stiffness.iy ?? 1} · Iz ${e.stiffness.iz ?? 1} · J ${e.stiffness.j ?? 1}`);
   if (e.offset) spec(t('spec.members.offsets'), t(e.offset.frame === 'local' ? 'pro.offsetLocal' : 'pro.offsetGlobal'));
   if (e.rollAngle) spec(t('spec.members.localAxes'), `β ${e.rollAngle}°`);
+  if (e.variableSection) spec(t('spec.members.variable'), `→ ${m?.sections.get(e.variableSection.sectionJ)?.name ?? e.variableSection.sectionJ}`);
   if (e.unbracedLength !== undefined || e.kStrong !== undefined || e.kWeak !== undefined) {
     spec(t('spec.members.designLengths'), [e.unbracedLength !== undefined ? `Lb ${e.unbracedLength} m` : '', e.kStrong !== undefined ? `K ${e.kStrong}` : '', e.kWeak !== undefined ? `K' ${e.kWeak}` : ''].filter(Boolean).join(' · '));
   }
@@ -69,7 +70,7 @@ export function specificationRows(m: StructureModel, t: T): SpecRow[] {
   };
 
   for (const e of m.elements.values()) {
-    for (const x of memberSpecifications(e, t)) add('member', x.what, x.value, e.id);
+    for (const x of memberSpecifications(e, t, m)) add('member', x.what, x.value, e.id);
   }
 
   for (const s of m.supports.values()) {

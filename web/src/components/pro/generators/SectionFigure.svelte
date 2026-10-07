@@ -16,6 +16,11 @@
     buildSectionOutline, outlineExtentMm, outlineUnavailableKey,
   } from '../../../lib/engine/generators/section-outline';
   import type { BuiltUpArrangement } from '../../../lib/engine/generators/built-up-section';
+  import { builtSectionFields } from '../../../lib/engine/generators/variable-pair';
+  import { resolveSectionState } from '../../../lib/section/state';
+  import { drawingGeometry } from '../../../lib/section/drawing';
+  import { canonicalOutlinePath } from '../../../lib/section/outline';
+  import type { Section } from '../../../lib/store/model.svelte';
 
   interface Props {
     profileName: string;
@@ -25,8 +30,18 @@
     /** Colour of the role this section belongs to, so the row reads with the preview. */
     colour: string;
     sizePx?: number;
+    /** A section built from a template: drawn from its own outline, not the catalogue's. */
+    built?: { shapeType: string; params: Record<string, number> };
   }
-  const { profileName, arrangement, gapMm, rotationDeg, colour, sizePx = 34 }: Props = $props();
+  const { profileName, arrangement, gapMm, rotationDeg, colour, sizePx = 34, built }: Props = $props();
+
+  /** A built section's outline, as the model will resolve it. */
+  const builtPath = $derived.by(() => {
+    if (!built) return null;
+    const fields = builtSectionFields({ profileName, arrangement: 'single', gapMm: 0, rotationDeg: 0, built });
+    const state = fields ? resolveSectionState({ id: 0, ...fields } as unknown as Section) : null;
+    return state?.kind === 'geometry-backed' ? canonicalOutlinePath(drawingGeometry(state)) : null;
+  });
 
   const outline = $derived(buildSectionOutline({ profileName, arrangement, gapMm, rotationDeg }));
   const vb = $derived(
@@ -47,8 +62,16 @@
   );
 </script>
 
-<div class="fig" style={`width:${sizePx}px;height:${sizePx}px`} title={label}>
-  {#if outline.unavailable}
+<div class="fig" style={`width:${sizePx}px;height:${sizePx}px`} title={built ? profileName : label}>
+  {#if built}
+    {#if builtPath}
+      <svg viewBox="-90 -90 180 180" role="img" aria-label={profileName}>
+        <path d={builtPath} style={`fill:${colour};fill-opacity:0.55`} stroke={colour} stroke-width="2" fill-rule="evenodd" />
+      </svg>
+    {:else}
+      <span class="none" aria-label={profileName} role="img">—</span>
+    {/if}
+  {:else if outline.unavailable}
     <span class="none" aria-label={label} role="img">—</span>
   {:else}
     <!--

@@ -73,4 +73,65 @@ test.describe('@smoke PRO drawn sections', () => {
     // 200 × 300 less 180 × 280 mm.
     await expect(page.getByTestId('drawn-prop-a').locator('td').first()).toHaveText('96');
   });
+
+  test('a dragged part follows the pointer one to one', async ({ page }) => {
+    await openDraw(page);
+    await page.getByTestId('drawn-add-rect').click();
+    const part = page.getByTestId('drawn-part-shape').last();
+    // The view refits to the new part once the analysis is back: measure after it settles.
+    await expect(page.getByTestId('drawn-part-shape')).toHaveCount(4);
+    await page.waitForTimeout(300);
+    const before = (await part.boundingBox())!;
+    const x = before.x + before.width / 2, y = before.y + before.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // Off any edge or centre of the I, so no snap pulls the part.
+    for (let i = 1; i <= 10; i++) await page.mouse.move(x + 4.7 * i, y - 2.3 * i);
+    const during = (await part.boundingBox())!;
+    await page.mouse.up();
+    expect(Math.abs(during.x - before.x - 47)).toBeLessThan(4);
+    expect(Math.abs(during.y - before.y + 23)).toBeLessThan(4);
+  });
+
+  test('keys typed in the modal do not reach the model, and closing a drawing asks first', async ({ page }) => {
+    await openDraw(page);
+    await page.getByTestId('drawn-name').fill('Kept');
+    await page.getByTestId('section-apply').click();
+    const n = (await sections(page)).length;
+    await page.getByTestId('pro-open-section-modal').click();
+    await page.getByTestId('section-division-build').click();
+    await page.getByTestId('build-mode-draw').click();
+    await page.getByTestId('drawn-canvas').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Delete');
+    expect((await sections(page)).length).toBe(n);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('section-confirm-close')).toBeVisible();
+    await expect(page.getByTestId('drawn-editor')).toBeVisible();
+    await page.getByTestId('section-discard').click();
+    await expect(page.getByTestId('drawn-editor')).toHaveCount(0);
+    expect((await sections(page)).length).toBe(n);
+  });
+
+  test('a template section reopens in its template with its numbers', async ({ page }) => {
+    await page.goto(PRO_URL);
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-sections').click();
+    await page.getByTestId('pro-open-section-modal').click();
+    await page.getByTestId('section-division-build').click();
+    await page.getByTestId('section-cat-solid').click();
+    await page.getByTestId('section-template').selectOption('concrete-invL');
+    await expect(page.getByTestId('section-build-outline')).toBeVisible();
+    await page.getByTestId('section-param-bf').fill('700');
+    await page.getByTestId('section-param-bf').blur();
+    await page.getByTestId('section-apply').click();
+    const sec = (await sections(page)).find((s: any) => s.built?.shapeType === 'concrete-invL');
+    expect(sec.shape).toBe('invL');
+    const stored = await page.evaluate((id) => window.__stabileo.entityData('section', id), sec.id) as any;
+    expect(stored.canonical.kind).toBe('geometry-backed');
+    await page.getByTestId(`pro-sec-edit-built-${sec.id}`).click();
+    await expect(page.getByTestId('section-template')).toHaveValue('concrete-invL');
+    await expect(page.getByTestId('section-param-bf')).toHaveValue('700');
+  });
 });
+

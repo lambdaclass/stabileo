@@ -1089,6 +1089,28 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         return Err("No free DOFs".into());
     }
 
+    let nf = dof_num.n_free;
+
+    // Large models take the sparse path: a single rigid diaphragm used to
+    // dominate memory and time with the dense n×n assembly and the dense
+    // reduction below. A failed sparse factorization is exactly the legacy
+    // contract — the dense path then reports the mechanism with its own LU.
+    if nf >= super::linear::SPARSE_THRESHOLD {
+        if let Some(result) = solve_constrained_2d_sparse(input, &dof_num)? {
+            return Ok(result);
+        }
+    }
+    solve_constrained_2d_dense(input, &dof_num)
+}
+
+/// The legacy dense constrained solve: full n×n assembly, dense reduction,
+/// Cholesky then dense LU. Kept for small models and as the fallback the
+/// sparse path defers to when its factorization fails.
+#[doc(hidden)]
+pub fn solve_constrained_2d_dense(
+    input: &ConstrainedInput,
+    dof_num: &DofNumbering,
+) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -1391,6 +1413,247 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         equilibrium: Some(equilibrium),
         result_summary: None, solver_run_meta: None,
     })
+}
+
+/// The 2D constrained solve over sparse matrices, for nf >= SPARSE_THRESHOLD.
+///
+/// Mirrors the 3D sparse path (`solve_constrained_3d`): triplet assembly of
+/// K_ff and the full K, sparse constraint reduction, sparse Cholesky with NO
+/// diagonal-shift regularization — the 2D legacy contract, shared with the
+/// linear sparse path (`prepare_static_2d`). `Ok(None)` on a failed
+/// factorization: the caller then runs the dense path, whose LU reports the
+/// mechanism exactly as before.
+fn solve_constrained_2d_sparse(
+    input: &ConstrainedInput,
+    dof_num: &DofNumbering,
+) -> Result<Option<AnalysisResults>, String> {
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let nr = n - nf;
+
+    let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num);
+    let k_full = &stiff.k_full;
+    let k_ff = &stiff.k_ff;
+    let f = assembly::assemble_load_vector_2d(&input.solver, &input.solver.loads, dof_num, &stiff.inclined_transforms_2d);
+
+    // Prescribed displacements (same construction as the dense path).
+    let mut u_r = vec![0.0; nr];
+    for sup in input.solver.supports.values() {
+        if sup.support_type == "spring" { continue; }
+        if sup.support_type == "inclinedRoller" {
+            if let Some(theta) = sup.angle {
+                let c = theta.cos();
+                let sn = theta.sin();
+                let u_normal = sup.dx.unwrap_or(0.0) * sn + sup.dz.unwrap_or(0.0) * c;
+                if u_normal.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                        if d >= nf { u_r[d - nf] = u_normal; }
+                    }
+                }
+            } else if let Some(v) = sup.dz {
+                if v.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                        if d >= nf { u_r[d - nf] = v; }
+                    }
+                }
+            }
+            if let Some(v) = sup.dry {
+                if v.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                        if d >= nf { u_r[d - nf] = v; }
+                    }
+                }
+            }
+            continue;
+        }
+        let prescribed: [(usize, Option<f64>); 3] = [(0, sup.dx), (1, sup.dz), (2, sup.dry)];
+        for &(local_dof, val) in &prescribed {
+            if let Some(v) = val {
+                if v.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                        if d >= nf { u_r[d - nf] = v; }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut constraint_diags = validate_constraints(
+        &input.constraints, dof_num,
+        Some(&input.solver.nodes), None,
+    );
+    if let Some(d) = constraint_diags.iter().find(|d| d.severity == Severity::Error) {
+        return Err(format!("Invalid constraints: {}", d.message));
+    }
+
+    let ct = build_constraint_transform(
+        &input.constraints, dof_num,
+        Some(&input.solver.nodes), None,
+    );
+
+    let mut f_f: Vec<f64> = f[..nf].to_vec();
+
+    // Modify for prescribed displacements: f_f -= K_fr * u_r (guarded on any).
+    let has_prescribed = u_r.iter().any(|&v| v != 0.0);
+    if has_prescribed {
+        let k_fr_ur = k_full.sparse_cross_block_matvec(&u_r, nf);
+        for i in 0..nf {
+            f_f[i] -= k_fr_ur[i];
+        }
+    }
+
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let n_free_indep = fcs.n_free_indep;
+
+    // Particular solution: free slaves of restrained (prescribed) masters.
+    let mut u_p = vec![0.0; nf];
+    for (j, &d) in ct.independent_dofs.iter().enumerate() {
+        if d >= nf {
+            let v = u_r[d - nf];
+            if v != 0.0 {
+                for p in ct.c.col_ptr[j]..ct.c.col_ptr[j + 1] {
+                    let i = ct.c.row_idx[p];
+                    if i < nf {
+                        u_p[i] += ct.c.csc_vals[p] * v;
+                    }
+                }
+            }
+        }
+    }
+    let has_up = u_p.iter().any(|&v| v != 0.0);
+    let mut k_ff_up_opt: Option<Vec<f64>> = None;
+    if has_up {
+        let k_ff_up = k_ff.sym_mat_vec(&u_p);
+        for i in 0..nf {
+            f_f[i] -= k_ff_up[i];
+        }
+        k_ff_up_opt = Some(k_ff_up);
+    }
+
+    // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
+    let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let f_reduced = fcs.reduce_vector(&f_f);
+
+    // NO diagonal-shift regularization (the 2D contract): a mechanism fails
+    // here and is reported by the dense path's LU, as the legacy solver did.
+    let Some(u_indep) = sparse_cholesky_solve_full(&k_reduced, &f_reduced) else {
+        return Ok(None);
+    };
+
+    let mut u_f = fcs.expand_solution(&u_indep);
+    if has_up {
+        for i in 0..nf {
+            u_f[i] += u_p[i];
+        }
+    }
+
+    super::linear::assert_finite_3d(&u_f)?;
+
+    // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
+    let rel_residual = {
+        let ku = k_ff.sym_mat_vec(&u_f);
+        let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
+        if let Some(k_ff_up) = &k_ff_up_opt {
+            for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
+        }
+        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+    };
+
+    // A factorization that "succeeds" on a mechanism is not a solve: the zero
+    // pivot survives sparse Cholesky as positive rounding (the kinematic proof
+    // guards the same failure with its pivot check), and the displacements it
+    // returns are garbage with a huge residual. Past the dense path's own
+    // ResidualHigh threshold, defer: `Ok(None)` hands the model to the dense
+    // path, which either solves it properly or reports the mechanism with its
+    // LU — exactly the legacy contract.
+    if rel_residual >= 1e-6 {
+        return Ok(None);
+    }
+
+    let mut u_full = vec![0.0; n];
+    for i in 0..nf { u_full[i] = u_f[i]; }
+    for i in 0..nr { u_full[nf + i] = u_r[i]; }
+
+    // Reactions: R = K·u_full − F on the restrained rows, via the full sparse K.
+    let f_r: Vec<f64> = f[nf..].to_vec();
+    let ku_full = k_full.sym_mat_vec(&u_full);
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        reactions_vec[i] = ku_full[nf + i] - f_r[i];
+    }
+
+    // Constraint forces, from f_f as it stood *before* the K_ff*u_p correction.
+    let raw_forces = match &k_ff_up_opt {
+        Some(k_ff_up) => {
+            let mut f_f_true = f_f.clone();
+            for i in 0..nf { f_f_true[i] += k_ff_up[i]; }
+            fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f_true)
+        }
+        None => fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f),
+    };
+    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, dof_num);
+
+    // A constraint force carried into a RESTRAINED master joins its reaction.
+    for &(i, g_i) in &raw_forces {
+        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+            let (j, coeff) = (ct.c.col_idx[p], ct.c.vals[p]);
+            let d = ct.independent_dofs[j];
+            if d >= nf {
+                reactions_vec[d - nf] += coeff * g_i;
+            }
+        }
+    }
+
+    // Displacements back to global axes; reactions_vec/f_r stay rotated.
+    for it in &stiff.inclined_transforms_2d {
+        assembly::reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+    }
+
+    let displacements = linear::build_displacements_2d(dof_num, &u_full);
+    let mut reactions = linear::build_reactions_2d_inclined(
+        &input.solver, dof_num, &reactions_vec, &f_r, nf, &u_full, &stiff.inclined_transforms_2d,
+    );
+    reactions.sort_by_key(|r| r.node_id);
+    let mut element_forces = linear::compute_internal_forces_2d(&input.solver, dof_num, &u_full);
+    element_forces.sort_by_key(|ef| ef.element_id);
+
+    let equilibrium = linear::compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &stiff.inclined_transforms_2d);
+
+    constraint_diags.push(StructuredDiagnostic::global(
+        DiagnosticCode::SparseCholesky,
+        Severity::Info,
+        format!("Constrained 2D sparse Cholesky ({} free DOFs, {} independent)", nf, n_free_indep),
+    ).with_phase("solve"));
+
+    // Residual diagnostic, the dense path's exact code and threshold. Only the
+    // success path reaches here: a residual past the threshold returned
+    // `Ok(None)` above, so the dense path's verdict stands instead.
+    constraint_diags.push(if rel_residual < 1e-6 {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Constrained 2D residual {:.2e}", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    } else {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualHigh,
+            Severity::Warning,
+            format!("Constrained 2D residual {:.2e} exceeds tolerance", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    });
+
+    Ok(Some(AnalysisResults {
+        displacements,
+        reactions,
+        element_forces,
+        constraint_forces,
+        diagnostics: vec![],
+        solver_diagnostics: vec![],
+        structured_diagnostics: constraint_diags,
+        equilibrium: Some(equilibrium),
+        result_summary: None,
+        solver_run_meta: None,
+    }))
 }
 
 /// Solve a 3D constrained analysis.

@@ -3,7 +3,8 @@
 // wireframe is rendered by the shared batched LineSegments2.
 import * as THREE from 'three';
 import { COLORS } from './selection-helpers';
-import { createSectionShapes } from './section-profiles';
+import { createSectionShapes, canonicalShapes } from './section-profiles';
+import { drawingGeometry } from '../section/drawing';
 import { GLOBAL_Z, THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 import type { Section } from '../store/model.svelte';
 
@@ -37,6 +38,12 @@ export interface CreateElementOpts {
   hovered?: boolean;
   /** Optional section for extruded profile visualization */
   section?: Section;
+  /**
+   * A member of variable section: its section at each point (0 at I, 1 at J), and how many pieces
+   * the solve cuts it into. Drawn as a loft between its stations (`addVariableSection`).
+   */
+  sectionAt?: (t: number) => Section;
+  variableSegments?: number;
   /** Section rotation in degrees (rotation around bar axis) */
   sectionRotation?: number;
   /** Element roll angle β in degrees (rotation around bar axis) */
@@ -96,7 +103,10 @@ export function createElementGroup(
     // A list, because a built-up member is several profiles at a spacing. See
     // `createSectionShapes`.
     const sectionShapes = (mode === 'sections' && opts.section) ? createSectionShapes(opts.section) : [];
-    if (sectionShapes.length > 0) {
+    const secRotV = opts.localAxes ? (opts.sectionRotation ?? 0) : (opts.elementRollAngle ?? 0) + (opts.sectionRotation ?? 0);
+    if (mode === 'sections' && opts.sectionAt && addVariableSection(group, opts.sectionAt, opts.variableSegments ?? 12, nI, dx, dy, dz, length, baseColor, secRotV, opts.localAxes)) {
+      // drawn as a loft
+    } else if (sectionShapes.length > 0) {
       // With local axes, rollAngle is already baked into ey/ez → only the section's
       // own rotation rolls further; without, fall back to combined roll about global Z.
       const secRot = opts.localAxes
@@ -202,6 +212,117 @@ function addExtrudedSection(
   }
 
   group.add(mesh);
+}
+
+/** The profile mesh's placement and orientation: shape X → local y, shape Y → local z, +Z along the member. */
+function orientProfile(
+  mesh: THREE.Object3D, nI: { x: number; y: number; z: number }, dx: number, dy: number, dz: number, secRot: number,
+  localAxes?: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] },
+): void {
+  mesh.position.set(nI.x, nI.y, nI.z);
+  if (localAxes) {
+    const ex = new THREE.Vector3(...localAxes.ex), ey = new THREE.Vector3(...localAxes.ey), ez = new THREE.Vector3(...localAxes.ez);
+    const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(ey, ez, ex));
+    if (Math.abs(secRot) > 1e-10) quat.premultiply(new THREE.Quaternion().setFromAxisAngle(ex, secRot * Math.PI / 180));
+    mesh.quaternion.copy(quat);
+  } else {
+    const quat = new THREE.Quaternion().setFromUnitVectors(GLOBAL_Z, new THREE.Vector3(dx, dy, dz).normalize());
+    if (Math.abs(secRot) > 1e-10) quat.multiply(new THREE.Quaternion().setFromAxisAngle(GLOBAL_Z, secRot * Math.PI / 180));
+    mesh.quaternion.copy(quat);
+  }
+}
+
+/**
+ * A member of variable section, drawn from its sections along it.
+ *
+ * When every station's outline has the same make-up (as many outlines, each with as many
+ * vertices: the blends `section/variable.ts` makes from one family or one drawing), the stations
+ * are joined vertex to vertex into one smooth loft with a cap at each end. Otherwise each piece is
+ * extruded with its own mid-piece section, the steps the solve itself sees. Returns false when no
+ * station has an outline, for the caller's fallback.
+ */
+function addVariableSection(
+  group: THREE.Group, sectionAt: (t: number) => Section, segments: number,
+  nI: { x: number; y: number; z: number }, dx: number, dy: number, dz: number, length: number,
+  baseColor: number, secRot: number,
+  localAxes?: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] },
+): boolean {
+  const n = Math.max(2, Math.min(50, Math.round(segments)));
+  const geos = Array.from({ length: n + 1 }, (_, k) => {
+    const st = sectionAt(k / n).canonical;
+    return st?.kind === 'geometry-backed' ? drawingGeometry(st) : null;
+  });
+  const mat = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.38, metalness: 0.4, side: THREE.DoubleSide });
+  const shape = (rings: Array<Array<[number, number]>>) => rings.map((r) => r.length);
+  const matches = geos.every((g) => g && JSON.stringify([shape(g.solids), shape(g.holes)]) === JSON.stringify([shape(geos[0]!.solids), shape(geos[0]!.holes)]));
+  let geo: THREE.BufferGeometry;
+  if (matches && geos[0]) {
+    const pos: number[] = [];
+    const idx: number[] = [];
+    const rings = (g: NonNullable<(typeof geos)[number]>) => [...g.solids, ...g.holes];
+    const ringCount = rings(geos[0]!).length;
+    // Side walls: each ring, station to station.
+    for (let r = 0; r < ringCount; r++) {
+      const m = rings(geos[0]!)[r]!.length;
+      const base = pos.length / 3;
+      for (let k = 0; k <= n; k++) for (const [y, z] of rings(geos[k]!)[r]!) pos.push(y, z, (k / n) * length);
+      for (let k = 0; k < n; k++) for (let i = 0; i < m; i++) {
+        const a = base + k * m + i, b = base + k * m + ((i + 1) % m), c = a + m, d = b + m;
+        idx.push(a, b, d, a, d, c);
+      }
+    }
+    // Caps: each solid with the holes inside it.
+    const inside = (pt: [number, number], poly: Array<[number, number]>) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [yi, zi] = poly[i]!, [yj, zj] = poly[j]!;
+        if ((zi > pt[1]) !== (zj > pt[1]) && pt[0] < ((yj - yi) * (pt[1] - zi)) / (zj - zi) + yi) c = !c;
+      }
+      return c;
+    };
+    for (const k of [0, n]) {
+      const g = geos[k]!;
+      for (const solid of g.solids) {
+        const holes = g.holes.filter((h) => h.length && inside(h[0]!, solid));
+        const v2 = (r: Array<[number, number]>) => r.map(([y, z]) => new THREE.Vector2(y, z));
+        const tris = THREE.ShapeUtils.triangulateShape(v2(solid), holes.map(v2));
+        const base = pos.length / 3;
+        for (const [y, z] of [...solid, ...holes.flat()]) pos.push(y, z, (k / n) * length);
+        for (const t of tris) idx.push(base + t[0]!, base + t[1]!, base + t[2]!);
+      }
+    }
+    geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+  } else {
+    // Steps: one extrusion per piece, its mid-piece section.
+    const parts: THREE.BufferGeometry[] = [];
+    for (let k = 0; k < n; k++) {
+      const shapes = canonicalShapes(sectionAt((k + 0.5) / n));
+      if (!shapes.length) continue;
+      const g = new THREE.ExtrudeGeometry(shapes, { depth: length / n, bevelEnabled: false, steps: 1 });
+      g.translate(0, 0, (k / n) * length);
+      parts.push(g.index ? g.toNonIndexed() : g);
+    }
+    if (parts.length === 0) return false;
+    const total = parts.reduce((t, g) => t + g.getAttribute('position').count, 0);
+    const pos = new Float32Array(total * 3);
+    let o = 0;
+    for (const g of parts) { pos.set(g.getAttribute('position').array as Float32Array, o); o += g.getAttribute('position').count * 3; g.dispose(); }
+    geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+  }
+  const mesh = new THREE.Mesh(geo, mat);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 15), new THREE.LineBasicMaterial({ color: 0x12202e, transparent: true, opacity: 0.55 }));
+  edges.userData.sectionEdge = true;
+  edges.raycast = () => {};
+  mesh.add(edges);
+  orientProfile(mesh, nI, dx, dy, dz, secRot, localAxes);
+  mesh.userData.variableSection = true;
+  group.add(mesh);
+  return true;
 }
 
 function addCylinder(

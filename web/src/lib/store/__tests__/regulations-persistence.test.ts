@@ -157,3 +157,32 @@ describe('the regulations store, called twice in a row from plain code', () => {
     expect(regulationsStore.binding('seismic').adapterId).toBeNull();
   });
 });
+
+/**
+ * Each code's settings, kept under the code when its role is bound to another
+ * (`StoredRegulations.settingsByCode`). `migrateRegulations` rebuilt the stack from its roles
+ * alone, and every restore goes through it: an undo, an autosave or reopening the file lost
+ * what had been stated for the code the role left.
+ */
+describe('the settings kept per code survive every restore', () => {
+  const kept = { 'cirsoc102-2025': { exposure: 'C', speed: 45 } };
+
+  it('migrateRegulations carries them, dropping only entries that are not settings', () => {
+    const out = migrateRegulations({ version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations(), settingsByCode: { ...kept, broken: 3, list: [1] } });
+    expect(out.stored.settingsByCode).toEqual(kept);
+    expect('settingsByCode' in migrateRegulations({ version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations(), settingsByCode: 'x' }).stored).toBe(false);
+  });
+
+  it('restore(snapshot()) and the .ded round trip keep them', async () => {
+    const { buildProjectFile, deserializeProject } = await import('../file');
+    modelStore.clear();
+    modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: defaultRegulations(), settingsByCode: kept };
+    modelStore.restore(modelStore.snapshot());
+    expect(modelStore.model.regulations?.settingsByCode).toEqual(kept);
+
+    const text = JSON.stringify(buildProjectFile());
+    modelStore.clear();
+    expect(deserializeProject(text)).toBe(true);
+    expect(modelStore.model.regulations?.settingsByCode).toEqual(kept);
+  });
+});

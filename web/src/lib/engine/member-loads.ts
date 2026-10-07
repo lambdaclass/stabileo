@@ -128,6 +128,19 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
   return out;
 }
 
+/** Members that work one way only: axial members to the active-set loop (`member-behaviour.ts`). */
+const ONE_WAY = new Set(['tensionOnly', 'compressionOnly', 'cable']);
+
+/**
+ * Whether a member takes no bending: a truss, or a one-way member, which the active-set loop
+ * solves as one. A concentrated load on it goes to its end nodes by the lever rule and is never a
+ * reason to cut it, a moment on it has nothing to resist it, and a tendon in it is an axial force.
+ * The one predicate for the solve's cuts (`variable-members.ts`) and for those loads.
+ */
+export function takesNoBending(e: { type?: string; behaviour?: string } | undefined): boolean {
+  return !!e && (e.type === 'truss' || (e.behaviour !== undefined && ONE_WAY.has(e.behaviour)));
+}
+
 /**
  * The engine's local member loads on members that take no bending, moved to their end nodes.
  * Loads on other members pass through untouched.

@@ -31,7 +31,7 @@
     if (m === 'byMaterial') for (const e of modelStore.elements.values()) used.add(e.materialId);
     if (m === 'bySection') return [...used].sort((a, b) => a - b).map((id) => ({ id, name: modelStore.sections.get(id)?.name ?? String(id) }));
     if (m === 'byMaterial') return [...used].sort((a, b) => a - b).map((id) => ({ id, name: modelStore.materials.get(id)?.name ?? String(id) }));
-    if (m === 'byGroup') return [...modelStore.model.groups.values()].filter((g) => (g.members.elements?.length ?? 0) > 0).map((g) => ({ id: g.id, name: g.name }));
+    if (m === 'byGroup') return [...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad' && (g.members.elements?.length ?? 0) > 0).map((g) => ({ id: g.id, name: g.name }));
     return [];
   });
 

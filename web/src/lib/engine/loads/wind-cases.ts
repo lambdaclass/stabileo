@@ -34,7 +34,7 @@
  * ── Roof members ─────────────────────────────────────────────────
  *
  * A roof member is a beam-like member (|Δz|/L ≤ 0,5, the same test the gravity loads use)
- * whose two nodes are above the ground and have no column rising from them. The pressure is
+ * whose two nodes are above the ground and that nothing higher covers in plan. The pressure is
  * normal to the member, so it goes on the member's local z, with the tributary width the
  * gravity loads use. Below 10°, or with wind parallel to the ridge, the coefficient is read by
  * distance from the windward edge (`flatRoofCp`); above, the windward and leeward slopes of
@@ -47,6 +47,8 @@ import {
   flatRoofCp, roofCp, G_RIGID, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { msg, type EngineMessage } from '../../codes/message';
+import { flexibleEccentricity, type GustResult } from '../../codes/cirsoc102/gust';
+import { gravityLayout } from './plan-gravity';
 
 export type WindCaseSet = 'case1' | 'cases13' | 'all';
 
@@ -82,6 +84,23 @@ export interface WindAxis {
   qhNm2: number;
   /** (GC_pi) magnitude for the building's enclosure. */
   gcpi: number;
+  /** The gust effect factor of this axis (§1.9). Absent: the rigid 0,85. */
+  G?: number;
+  /** Its derivation, when computed: a flexible axis's cases 2 and 4 take Eq. (2.4-5). */
+  gust?: GustResult;
+  /** Shear centre to mass centre for Eq. (2.4-5), m. */
+  eR?: number;
+}
+
+/**
+ * The torsional eccentricity of cases 2 and 4 on an axis (§2.4.6): ±0,15·B from the geometric
+ * centre (Fig. 2.4-8), or Eq. (2.4-5) for a flexible structure.
+ */
+export function caseEccentricity(a: WindAxis, sign: 1 | -1): number {
+  const eQ = 0.15 * a.across;
+  const g = a.gust;
+  if (g?.kind !== 'flexible' || !g.steps.resonant) return sign * eQ;
+  return sign * flexibleEccentricity({ eQ, eR: a.eR ?? 0, iz: g.steps.iz, q: g.steps.q, r: g.steps.resonant.r, gR: g.steps.resonant.gR }).value;
 }
 
 export interface WindModel {
@@ -123,25 +142,19 @@ export function levelLoads(
 
 interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number }
 
-/** The members the roof pressures go on (see the header). */
+/**
+ * The members the roof pressures go on (see the header): beam-like members above the ground
+ * that nothing higher covers in plan (`plan-gravity.ts`). A lower roof beside a step is a roof;
+ * it used to be left out, because a column of the higher part rises from its nodes.
+ */
 export function roofMembers(model: WindModel): RoofMember[] {
-  const rising = new Set<number>();
-  const beamLike = (dz: number, L: number) => L > 0.01 && Math.abs(dz) / L <= 0.5;
-  for (const e of model.elements.values()) {
-    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
-    if (!a || !b) continue;
-    const dz = Z(b) - Z(a), L = Math.hypot(b.x - a.x, b.y - a.y, dz);
-    if (beamLike(dz, L)) continue;
-    rising.add(dz > 0 ? a.id : b.id);
-  }
+  const roof = gravityLayout(model, { mode: 'width', tributaryWidth: 1 }).roof;
   const out: RoofMember[] = [];
   for (const e of model.elements.values()) {
-    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
-    if (!a || !b) continue;
+    if (!roof.has(e.id)) continue;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    if (Z(a) <= 0.05 || Z(b) <= 0.05) continue;
     const dx = b.x - a.x, dy = b.y - a.y, dz = Z(b) - Z(a);
-    const L = Math.hypot(dx, dy, dz);
-    if (!beamLike(dz, L) || Z(a) <= 0.05 || Z(b) <= 0.05) continue;
-    if (rising.has(a.id) || rising.has(b.id)) continue;
     out.push({ id: e.id, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dx, dy, dz, lh: Math.hypot(dx, dy) });
   }
   return out;
@@ -179,7 +192,7 @@ export function roofLoads(
     }
     if (cps.length === 0) continue;
     const cp = gcpiSign > 0 ? Math.min(...cps) : Math.max(...cps);
-    const p = qh * G_RIGID * cp - qi;            // N/m², positive toward the roof
+    const p = qh * (w.G ?? G_RIGID) * cp - qi;   // N/m², positive toward the roof
     out.set(m.id, (-p / 1000) * tributaryWidth); // kN/m, upward positive
   }
   return out;
@@ -251,7 +264,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
       for (const s of sensesOf(a.axis)) {
         for (const es of [1, -1] as const) {
           push('autoLoad.windCase2', { dir: dirTxt(a.axis, s), e: signTxt(es), v },
-            lateral(a, s, 0.75, es * 0.15 * a.across), scaled(roofFor(a, s, 1), 0.75));
+            lateral(a, s, 0.75, caseEccentricity(a, es)), scaled(roofFor(a, s, 1), 0.75));
         }
       }
     }
@@ -280,7 +293,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
     if (set !== 'all') continue;
     for (const es of [1, -1] as const) {
       push('autoLoad.windCase4', { dirX: dirTxt('x', sx), dirY: dirTxt('y', sy), e: signTxt(es), v },
-        merge(lateral(ax, sx, 0.563, es * 0.15 * ax.across), lateral(ay, sy, 0.563, es * 0.15 * ay.across)),
+        merge(lateral(ax, sx, 0.563, caseEccentricity(ax, es)), lateral(ay, sy, 0.563, caseEccentricity(ay, es))),
         scaled(roofQ, 0.75));
     }
   }

@@ -121,6 +121,11 @@ export interface SolverNodalLoad3D {
    * The engine ignores it; `axial-shares.ts` gives it back to the member's end forces.
    */
   axialOf?: { elementId: number; end: 'i' | 'j'; p: number };
+  /**
+   * A tendon's anchor in this member (`prestress.ts`): the member's own load, which leaves with it
+   * when the active-set loop takes a one-way member out. The engine ignores it.
+   */
+  tendonOf?: number;
 }
 
 export interface SolverDistributedLoad3D {
@@ -399,6 +404,12 @@ export interface ElementForces3D {
   distributedLoadsZ: Array<{ qI: number; qJ: number; a: number; b: number }>;
   distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
   pointLoadsZ: Array<{ a: number; p: number }>;
+  /**
+   * A member of variable section, solved as prismatic pieces (`variable-members.ts`): each piece's
+   * own forces, where it lies along the member and its end displacements. Diagrams are read piece
+   * by piece; the fields above are the member's ends.
+   */
+  pieces?: import('./variable-members').ResultPiece[];
 }
 
 /** Plate stress output (triangular) */

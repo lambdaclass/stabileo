@@ -24,3 +24,34 @@ describe('technical metric', () => {
     expect(formatValue(0, 'force', 'SI', 3)).toBe('0');
   });
 });
+
+describe('formatValue: what a reader must never see', () => {
+  it('no negative zero, no NaN, one zero', () => {
+    expect(formatValue(-0.0001, 'force', 'SI', 2)).toBe('0');
+    expect(formatValue(-0.4, 'force', 'SI', 0)).toBe('0');
+    expect(formatValue(1e-11, 'force', 'SI', 3)).toBe('0');
+    expect(formatValue(NaN, 'force', 'SI')).toBe('—');
+    expect(formatValue(Infinity, 'moment', 'MKS', 2)).toBe('—');
+  });
+  it('the precision follows the rounded value', () => {
+    expect(formatValue(99.996, 'force', 'SI')).toBe('100.0');
+    expect(formatValue(999.7, 'force', 'SI')).toBe('1000');
+    expect(formatValue(0.99996, 'force', 'SI')).toBe('1.00');
+  });
+  it('every quantity goes there and back in every system', () => {
+    const qs = ['length', 'force', 'moment', 'distributedLoad', 'stress', 'area', 'inertia', 'density', 'displacement', 'rotation', 'springK', 'springKr', 'temperature', 'areaLoad', 'speed'] as const;
+    for (const sys of ['SI', 'MKS', 'Imperial'] as const) for (const q of qs) {
+      expect(fromDisplay(toDisplay(12.345, q, sys), q, sys)).toBeCloseTo(12.345, 9);
+    }
+  });
+});
+
+describe('area loads and speeds', () => {
+  it('reads a load per area and a speed in each system', () => {
+    expect(toDisplay(1, 'areaLoad', 'MKS')).toBeCloseTo(101.97, 2);
+    expect(toDisplay(1, 'areaLoad', 'Imperial')).toBeCloseTo(20.885, 3);
+    expect(unitLabel('areaLoad', 'MKS')).toBe('kgf/m²');
+    expect(toDisplay(45, 'speed', 'Imperial')).toBeCloseTo(100.66, 2);
+    expect(unitLabel('speed', 'SI')).toBe('m/s');
+  });
+});

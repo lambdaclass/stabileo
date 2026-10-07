@@ -17,6 +17,7 @@ import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
 import { verifyElement, classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
 import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
+import { isDesignedMember } from './design/behaviour-demands';
 
 // ─── Input/Output types ─────────────────────────────────────
 
@@ -134,6 +135,9 @@ export function autoVerifyFromResults(
     if (!nodeI || !nodeJ) continue;
     // One predicate, shared with the command layer that has to explain the silence.
     if (rcCheckability(elem, model) !== 'checkable') continue;
+    // Design's own rule (`design/behaviour-demands.ts`): a member of variable section is left out,
+    // not checked at end I's b and h with its end forces, which design no longer gives it.
+    if (!isDesignedMember(elem as never, model.sections as never)) continue;
     /**
      * Re-read after the guard, with the guarantees it just established made local.
      *
