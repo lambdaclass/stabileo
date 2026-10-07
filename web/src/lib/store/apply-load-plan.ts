@@ -47,6 +47,14 @@ export interface ReplaceScope {
   unmarked: { loads: number[]; combinations: number[] };
   /** The cases the plan writes into that exist already, by id. */
   targets: number[];
+  /**
+   * What floor-load definitions wrote in cases of the actions the plan generates. Never removed
+   * here: the definition writes them again (`store/defined-loads.ts`), so they stay, as the
+   * definitions do, and the plan adds to them; the preview says so (a floor both load is loaded
+   * twice). They used to count among the unmarked: "also remove" deleted them and the next rewrite
+   * brought them back, and without it the preview called them the user's.
+   */
+  defined: { loads: number[] };
 }
 
 type ScopeCase = { id: number; type: string; name: string; alternatives?: string };
@@ -70,6 +78,7 @@ export function replaceScope(
     if (found) targets.add(found.id);
   }
   const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
+  const defined = (l: Load) => (l.data as { fromDef?: number }).fromDef !== undefined;
   const caseOf = (l: Load) => l.data.caseId ?? 1;
   return {
     generated: {
@@ -77,10 +86,11 @@ export function replaceScope(
       combinations: combinations.filter(codeWritten).map((c) => c.id),
     },
     unmarked: {
-      loads: loads.filter((l) => !marked(l) && targets.has(caseOf(l))).map((l) => l.data.id),
+      loads: loads.filter((l) => !marked(l) && !defined(l) && targets.has(caseOf(l))).map((l) => l.data.id),
       combinations: combinations.filter((c) => !codeWritten(c) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
     },
     targets: [...targets],
+    defined: { loads: loads.filter((l) => defined(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id) },
   };
 }
 
@@ -126,6 +136,7 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
     caseTypes: cases.map((c) => String(c.type)),
     generated: { byType: byType(s.generated.loads), combinations: s.generated.combinations.length },
     unmarked: { byType: byType(s.unmarked.loads), combinations: s.unmarked.combinations.length },
+    defined: { byType: byType(s.defined.loads) },
   };
 }
 
@@ -165,10 +176,13 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
         modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id);
       }
     }
+    // A floor's share at a re-entrant corner keeps the member it belongs to, which carries its mass.
+    const carrierOf = new Map<number, number>();
     for (const n of p.nodal) {
       const id = caseOf(n.caseType, n.caseIndex);
       if (id === undefined) continue;
-      modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
+      const loadId = modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
+      if (n.carrier !== undefined) carrierOf.set(loadId, n.carrier);
     }
     for (const th of p.thermal) {
       const id = caseOf('T', th.caseIndex);
@@ -179,7 +193,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     for (const s of p.surface) {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
-      modelStore.addSurfaceLoad3D(s.quadId, s.q, id);
+      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : undefined);
     }
 
     // The user's own cases of a type the plan generates into a group of its own (the live load
@@ -206,6 +220,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
 
     // What the generator wrote says so, for the next "replace".
     const by = p.generatedBy ?? 'generator';
-    modelStore.replaceLoads(modelStore.loads.map((l) => (l.data.id >= firstNewLoad ? ({ ...l, data: { ...l.data, generatedBy: by } } as Load) : l)));
+    modelStore.replaceLoads(modelStore.loads.map((l) => (l.data.id >= firstNewLoad
+      ? ({ ...l, data: { ...l.data, generatedBy: by, ...(carrierOf.has(l.data.id) ? { carrier: carrierOf.get(l.data.id) } : {}) } } as Load)
+      : l)));
   });
 }

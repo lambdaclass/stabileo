@@ -98,6 +98,11 @@ export interface CurrentLoadState {
    * before the marks. "Replace" keeps them unless asked (`alsoUnmarked`).
    */
   unmarked?: { byType: Record<string, { distributed: number; nodal: number; other?: number }>; combinations: number };
+  /**
+   * What floor-load definitions wrote, by case type (`apply-load-plan.ts`, `replaceScope`): kept
+   * whatever "replace" says, since the definition writes them again, and the plan adds to them.
+   */
+  defined?: { byType: Record<string, { distributed: number; nodal: number; other?: number }> };
 }
 
 /**
@@ -196,6 +201,14 @@ export function describePlanDelta(
   if (unmarked) {
     warnings.push(msg(alsoUnmarked ? 'loadPlan.warning.unmarkedRemoved' : 'loadPlan.warning.unmarkedKept', {
       loads: unmarked.loads, combinations: unmarked.combinations, cases: unmarked.cases.join(', ') || '—',
+    }));
+  }
+  // A floor a definition loads and the plan loads too is loaded twice: the definition stays.
+  const definedIn = (t: string) => { const r = current.defined?.byType[t]; return r ? r.distributed + r.nodal + (r.other ?? 0) : 0; };
+  const definedCases = afterTypes.filter((t) => definedIn(t) > 0);
+  if (definedCases.length > 0) {
+    warnings.push(msg('loadPlan.warning.definedKept', {
+      loads: definedCases.reduce((n, t) => n + definedIn(t), 0), cases: definedCases.join(', '),
     }));
   }
   if (!replace) {

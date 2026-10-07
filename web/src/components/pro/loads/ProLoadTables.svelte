@@ -14,7 +14,9 @@
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
-  import type { Load } from '../../../lib/store/model.svelte';
+  import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
+  import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
+  import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
 
   let scope = $state<'case' | 'all'>('case');
   const cases = $derived(modelStore.model.loadCases);
@@ -27,6 +29,11 @@
   const thermal = $derived(of('thermal'));
   const tendon = $derived(of('prestress3d'));
   const surface = $derived(of('surface3d'));
+  /** The floor-load definition a load comes from, if any. */
+  const fromDef = $derived(new Map(modelStore.loads.flatMap((l) => { const d = (l.data as { fromDef?: number }).fromDef; return d === undefined ? [] : [[l.data.id, d] as const]; })));
+  const defOf = (id: number) => fromDef.get(id);
+  /** A definition by the name the floor-load list shows it with. */
+  const defName = (def: number) => definitionName(modelStore.model as unknown as DefinitionModel, def);
   const thermalQuad = $derived(of('thermalQuad3d'));
   const caseName = (id: number | undefined) => cases.find((c) => c.id === (id ?? 1))?.name ?? '—';
 
@@ -85,7 +92,12 @@
   // A case chosen and then deleted is no destination: back to the default, never loads in no case.
   const destination = $derived((toCase !== null && cases.some((c) => c.id === toCase) ? toCase : null)
     ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
-  function del(ids: number[]) { removeLoads(ids); for (const id of ids) uiStore.deleteSelectedLoad(id); }
+  function del(ids: number[]) {
+    const own = ids.filter((id) => defOf(id) === undefined);
+    if (own.length < ids.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    removeLoads(own);
+    for (const id of own) uiStore.deleteSelectedLoad(id);
+  }
 </script>
 
 <div class="lt-bar">
@@ -103,17 +115,23 @@
     </select>
     <label>× <input type="text" class="lt-k" bind:value={factorText} data-testid="lt-ops-factor" /></label>
     <button type="button" class="pk-btn" disabled={factor === null} onclick={() => copyLoadsToCase(selected, destination, factor ?? 1)} data-testid="lt-ops-copy">{t('loadTables.copy')}</button>
-    <button type="button" class="pk-btn" onclick={() => moveLoadsToCase(selected, destination)} data-testid="lt-ops-move">{t('loadTables.move')}</button>
-    <button type="button" class="pk-btn" disabled={factor === null} onclick={() => scaleLoads(selected, factor ?? 1)} data-testid="lt-ops-scale">{t('loadTables.scale')}</button>
+    <button type="button" class="pk-btn" onclick={() => moveLoadsToCase(selected.filter((id) => defOf(id) === undefined), destination)} data-testid="lt-ops-move">{t('loadTables.move')}</button>
+    <button type="button" class="pk-btn" disabled={factor === null} onclick={() => scaleLoads(selected.filter((id) => defOf(id) === undefined), factor ?? 1)} data-testid="lt-ops-scale">{t('loadTables.scale')}</button>
     <button type="button" class="pk-btn lt-danger" onclick={() => del(selected)} data-testid="lt-ops-delete">{t('loadTables.delete')}</button>
   </div>
 {/if}
 
 {#snippet caseCell(id: number | undefined)}{#if scope === 'all'}<td class="col-case">{caseName(id)}</td>{/if}{/snippet}
 {#snippet caseHead()}{#if scope === 'all'}<th>{t('loadTables.case')}</th>{/if}{/snippet}
-{#snippet x(id: number)}<td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); del([id]); }} aria-label={t('loadTables.delete')}>×</button></td>{/snippet}
+<!-- A load written by a floor-load definition is edited through it: it is rewritten from it. -->
+{#snippet x(id: number)}
+  {@const def = defOf(id)}
+  {#if def !== undefined}<td class="col-def" title={tp('loads.surface.fromDef', { name: defName(def) })}>⟲ {defName(def)}</td>
+  {:else}<td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); del([id]); }} aria-label={t('loadTables.delete')}>×</button></td>{/if}
+{/snippet}
 {#snippet cell(id: number, key: string, v: number | undefined, k?: number)}
-  <td class="col-num"><input class="inp-cell" value={fmt(v, k ?? 1)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, id, key, v, k ?? 1)} /></td>
+  {#if defOf(id) !== undefined}<td class="col-num">{fmt(v, k ?? 1)}</td>
+  {:else}<td class="col-num"><input class="inp-cell" value={fmt(v, k ?? 1)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, id, key, v, k ?? 1)} /></td>{/if}
 {/snippet}
 
 <div class="pro-loads-table-wrap" data-testid="load-tables">
@@ -150,12 +168,20 @@
       {#each dist as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-dist-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
+          {#if defOf(l.data.id) !== undefined}
+            <!-- Read-only, as its values: a definition's load is changed through the definition. -->
+            <td>{t(`loads.frame.${l.data.frame ?? 'local'}`)}</td>
+            {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'])}{/each}
+            <td class="col-num">{l.data.a !== undefined ? fmt(l.data.a) : ''}</td>
+            <td class="col-num">{l.data.b !== undefined ? fmt(l.data.b) : ''}</td>
+          {:else}
           <td><select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
             <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option><option value="projected">{t('loads.frame.projected')}</option>
           </select></td>
           {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'])}{/each}
           <td class="col-num"><input class="inp-cell" value={l.data.a !== undefined ? fmt(l.data.a) : ''} placeholder="0" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'a', l.data.elementId, l.data.a)} data-testid="lt-dist-a" /></td>
           <td class="col-num"><input class="inp-cell" value={l.data.b !== undefined ? fmt(l.data.b) : ''} placeholder="L" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'b', l.data.elementId, l.data.b)} data-testid="lt-dist-b" /></td>
+          {/if}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -209,11 +235,13 @@
 
   {#if surface.length}
     <div class="pro-load-section-title">{t('pro.surfaceLoads')}</div>
-    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>q (kN/m²)</th><th></th></tr></thead><tbody>
+    <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>q (kN/m²)</th><th>{t('loads.surface.how')}</th><th></th></tr></thead><tbody>
       {#each surface as l (l.data.id)}
+        {@const d = l.data as SurfaceLoad3D}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
-          <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.quadId}</td>
-          {@render cell(l.data.id, 'q', l.data.q)}{@render x(l.data.id)}
+          <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
+          {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q)}{/if}
+          <td class="col-how">{surfaceHowText(d, defName)}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>
@@ -264,6 +292,8 @@
   .pro-loads-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .pro-loads-table thead { position: sticky; top: 0; z-index: 1; }
   .pro-loads-table th { padding: 6px 6px; text-align: left; font-size: 0.66rem; font-weight: 600; color: var(--st-text-3); text-transform: uppercase; background: var(--st-surface); border-bottom: 1px solid var(--st-surface-3); }
+  .col-how { font-size: 0.64rem; color: var(--st-text-3); }
+  .col-def { font-size: 0.64rem; color: var(--st-text-3); white-space: nowrap; }
   .pro-loads-table td { padding: 4px 6px; border-bottom: 1px solid var(--st-surface-2); color: var(--st-text-2); }
   .pro-loads-table tbody tr { cursor: pointer; transition: background 0.1s; }
   .pro-loads-table tbody tr:hover { background: rgba(127, 212, 204, 0.08); }

@@ -58,7 +58,7 @@
     return [...caseSources(), ...[...resultsStore.perCombo3D].map(([id, results]) => ({ id, name: comboName(id), results }))];
   });
 
-  const groups = $derived([...modelStore.model.groups.values()].sort((a, b) => a.id - b.id));
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad').sort((a, b) => a.id - b.id));
   /** The nodes or members the views are narrowed to, or null for all. */
   const entities = $derived.by<Set<number> | null>(() => {
     if (range === 'all') return null;

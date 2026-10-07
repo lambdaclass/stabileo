@@ -12,7 +12,7 @@
  */
 import type { ModelGroup } from '../../store/model.svelte';
 
-export type TargetEntity = 'nodes' | 'members' | 'quads';
+export type TargetEntity = 'nodes' | 'members' | 'quads' | 'plates';
 export type MemberKindFilter = 'column' | 'beam' | 'inclined' | 'truss';
 
 export type TargetSpec =
@@ -27,10 +27,11 @@ export interface TargetModel {
   nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>;
   elements: ReadonlyMap<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string }>;
   quads?: ReadonlyMap<number, { id: number; nodes: number[] }>;
+  plates?: ReadonlyMap<number, { id: number; nodes: number[] }>;
   groups?: ReadonlyMap<number, Pick<ModelGroup, 'members'>>;
 }
 
-export interface TargetSelection { nodes: Iterable<number>; elements: Iterable<number>; quads?: Iterable<number> }
+export interface TargetSelection { nodes: Iterable<number>; elements: Iterable<number>; quads?: Iterable<number>; plates?: Iterable<number> }
 
 /**
  * Ids in `1, 4, 7-12` form; the ones the model does not have are left out. A range's dash (or en
@@ -89,11 +90,12 @@ export function memberKindOf(m: TargetModel, id: number): MemberKindFilter | nul
 
 /** The entities of `kind` the spec names, in id order. */
 export function resolveTargets(entity: TargetEntity, spec: TargetSpec, m: TargetModel, sel: TargetSelection): number[] {
-  const has = (id: number) => (entity === 'nodes' ? m.nodes.has(id) : entity === 'members' ? m.elements.has(id) : !!m.quads?.has(id));
+  const shells = entity === 'plates' ? m.plates : m.quads;
+  const has = (id: number) => (entity === 'nodes' ? m.nodes.has(id) : entity === 'members' ? m.elements.has(id) : !!shells?.has(id));
   const sorted = (ids: Iterable<number>) => [...new Set(ids)].filter(has).sort((a, b) => a - b);
   switch (spec.by) {
     case 'selection':
-      return sorted(entity === 'nodes' ? sel.nodes : entity === 'members' ? sel.elements : (sel.quads ?? []));
+      return sorted(entity === 'nodes' ? sel.nodes : entity === 'members' ? sel.elements : entity === 'plates' ? (sel.plates ?? []) : (sel.quads ?? []));
     case 'ids':
       return sorted(parseIdList(spec.text));
     case 'group': {
@@ -101,14 +103,14 @@ export function resolveTargets(entity: TargetEntity, spec: TargetSpec, m: Target
       if (!g) return [];
       if (entity === 'nodes') return sorted(g.nodes ?? []);
       if (entity === 'members') return sorted(g.elements ?? []);
-      return sorted(g.quads ?? []);
+      return sorted((entity === 'plates' ? g.plates : g.quads) ?? []);
     }
     case 'range': {
       const lo = Math.min(spec.min, spec.max) - TOL, hi = Math.max(spec.min, spec.max) + TOL;
       const inside = (id: number) => { const p = m.nodes.get(id); return !!p && coord(p, spec.axis) >= lo && coord(p, spec.axis) <= hi; };
       if (entity === 'nodes') return sorted([...m.nodes.keys()].filter(inside));
       if (entity === 'members') return sorted([...m.elements.values()].filter((e) => inside(e.nodeI) && inside(e.nodeJ)).map((e) => e.id));
-      return sorted([...(m.quads?.values() ?? [])].filter((q) => q.nodes.every(inside)).map((q) => q.id));
+      return sorted([...(shells?.values() ?? [])].filter((q) => q.nodes.every(inside)).map((q) => q.id));
     }
     case 'section':
       return entity === 'members' ? sorted([...m.elements.values()].filter((e) => e.sectionId === spec.sectionId).map((e) => e.id)) : [];

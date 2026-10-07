@@ -12,8 +12,8 @@
  * One place for these, so a point load, a thermal load and a tendon are carried alike by every
  * edit (`transform-fields.ts`, `transform-in-place.ts`, `flip-members.ts`, `reverse-element.ts`).
  */
-import type { PointLoadOnElement3D, PrestressLoad3D, ThermalLoad } from '../../store/model.svelte';
-import { applyAxial, applyVector, det, type Affine } from '../edit/affine';
+import type { PointLoadOnElement3D, PrestressLoad3D, SurfaceLoad3D, ThermalLoad } from '../../store/model.svelte';
+import { applyAxial, applyPoint, applyVector, det, type Affine, type Vec3 } from '../edit/affine';
 import { reexpressPointLocal } from '../../engine/member-point-loads';
 
 export interface AxisSigns { sy: 1 | -1; sz: 1 | -1 }
@@ -47,4 +47,34 @@ export function carryPrestress<D extends PrestressLoad3D>(d: D, sz: 1 | -1, reve
   return reversed
     ? { ...d, eI: sz * d.eJ, eM: sz * d.eM, eJ: sz * d.eI }
     : { ...d, eI: sz * d.eI, eM: sz * d.eM, eJ: sz * d.eJ };
+}
+
+/**
+ * A surface load on the copy of its shell under `T` (`flipped`: a reflection reversed the corner
+ * order). Its global direction, the direction and ends of its variation, and its region turn with
+ * the structure; along the local z it follows the shell's normal, which the copy carries; a value
+ * per corner follows the corners.
+ */
+export function carrySurface<D extends SurfaceLoad3D>(d: D, T: Affine, flipped: boolean, shell: 'quad' | 'plate'): D {
+  const out = { ...d };
+  const dirOf = (v: Vec3) => { const w = applyVector(T, v); const n = Math.hypot(...w); return (n > 0 ? [w[0] / n, w[1] / n, w[2] / n] : w) as Vec3; };
+  if (d.dir) out.dir = dirOf(d.dir);
+  if (d.vary) {
+    // c is measured along the turned direction from the turned origin of the old one.
+    const dir = dirOf(d.vary.dir);
+    const shift = dir[0] * T.t[0] + dir[1] * T.t[1] + dir[2] * T.t[2];
+    out.vary = { ...d.vary, dir, c1: d.vary.c1 + shift, c2: d.vary.c2 + shift };
+  }
+  if (d.region) {
+    out.region = {
+      normal: applyVector(T, d.region.normal),
+      points: d.region.points.map((p) => applyPoint(T, p)),
+      ...(d.region.holes ? { holes: d.region.holes.map((h) => h.map((p) => applyPoint(T, p))) } : {}),
+    };
+  }
+  if (d.qNodes && flipped) {
+    const q = d.qNodes;
+    out.qNodes = shell === 'plate' ? [q[0]!, q[2]!, q[1]!] : [q[0]!, q[3]!, q[2]!, q[1]!];
+  }
+  return out;
 }

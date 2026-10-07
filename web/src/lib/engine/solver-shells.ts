@@ -9,6 +9,7 @@
 
 import type { SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { Node, Material, SurfaceLoad3D, ThermalLoadQuad3D } from '../store/model.svelte';
+import { shellLoadForces } from './shell-load-integration';
 // Shell stress recovery now handled by WASM solver — TS fallback removed
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -68,27 +69,46 @@ export function quadCornerShares(p: readonly [Node, Node, Node, Node]): [number,
 
 // ─── Surface loads (PRO-only load type) ──────────────────────────
 
-/** Convert a surface3d pressure load on a quad to equivalent nodal loads. */
+/**
+ * A surface load on a quad or a triangle as its consistent nodal forces
+ * (`shell-load-integration.ts`): the engine's own pressure load vector for a uniform normal
+ * pressure, and the same integral for every other direction, field and extent.
+ */
 export function convertSurfaceLoad(
   load: SurfaceLoad3D,
-  quads: Map<number, QuadData>,
+  quads: Map<number, QuadData> | undefined,
   nodes: Map<number, Node>,
+  plates?: Map<number, PlateData>,
 ): SolverLoad3D[] {
-  const out: SolverLoad3D[] = [];
-  const quad = quads.get(load.quadId);
-  if (!quad) return out;
+  const shell = load.on === 'plate' ? plates?.get(load.quadId) : quads?.get(load.quadId);
+  if (!shell) return [];
+  const ns = shell.nodes.map((nid) => nodes.get(nid));
+  if (ns.some((n) => !n)) return [];
+  const r = shellLoadForces(load.on === 'plate' ? 'plate' : 'quad', ns as Node[], load);
+  if (!r) return [];
+  return shell.nodes.map((nid, i) => ({
+    type: 'nodal' as const,
+    data: { nodeId: nid, fx: r.forces[i]![0], fy: r.forces[i]![1], fz: r.forces[i]![2], mx: 0, my: 0, mz: 0 },
+  }));
+}
 
-  const ns = quad.nodes.map(nid => nodes.get(nid));
-  if (ns.some(n => !n)) return out;
-  // Negative Z is downward (Z up); each corner takes its consistent share.
-  const shares = quadCornerShares(ns as [Node, Node, Node, Node]);
-  quad.nodes.forEach((nid, i) => {
-    out.push({
-      type: 'nodal',
-      data: { nodeId: nid, fx: 0, fy: 0, fz: -load.q * shares[i]!, mx: 0, my: 0, mz: 0 },
-    });
-  });
-  return out;
+/**
+ * A surface load's weight spread over its shell, kN/m², positive downward: its downward resultant
+ * over the shell's area. What a mass source or a slab design reads as "the load per m²"; a
+ * suction or a wall pressure gives nothing downward. Null when the shell is missing.
+ */
+export function surfaceDownwardPressure(
+  load: SurfaceLoad3D,
+  quads: Map<number, QuadData> | undefined,
+  nodes: Map<number, Node>,
+  plates?: Map<number, PlateData>,
+): number | null {
+  const shell = load.on === 'plate' ? plates?.get(load.quadId) : quads?.get(load.quadId);
+  const pts = shell?.nodes.map((id) => nodes.get(id));
+  if (!shell || !pts || pts.some((p) => !p)) return null;
+  const r = shellLoadForces(load.on === 'plate' ? 'plate' : 'quad', pts as Node[], load);
+  if (!r || !(r.area > 0)) return null;
+  return -r.forces.reduce((s, f) => s + f[2], 0) / r.area;
 }
 
 /**
@@ -102,7 +122,8 @@ export function convertSurfaceLoad(
  */
 export function convertThermalQuadLoad(load: ThermalLoadQuad3D, alpha?: number): SolverLoad3D[] {
   return [{
-    type: 'quadThermal',
+    // A triangle takes the engine's `plateThermal`, the same fields.
+    type: load.on === 'plate' ? 'plateThermal' : 'quadThermal',
     data: { elementId: load.quadId, dtUniform: load.dtUniform, dtGradient: load.dtGradient ?? 0, ...(alpha !== undefined ? { alpha } : {}) },
     // Not a member of `SolverLoad3D`'s union, which types the member loads the app reads back;
     // this one only travels to the engine, which knows the tag.

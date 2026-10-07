@@ -63,8 +63,13 @@ export interface AreaLoad {
 }
 export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
 
+/** A panel's share past a side's end, at its node: kN along Z (negative down). */
+/** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
+
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
+  nodal: AreaPoint[];
   surface: AreaSurface[];
   planned: Set<AreaCaseType>;
   /** The symbols that got arrangements, and the arrangements, by `AreaLoad.arrangement`. */
@@ -86,7 +91,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const floorMass = { dead: i.floor.dead, live: i.floor.lo };
   const roofMass = roof ? { dead: roof.dead, live: roof.use === 'occupancy' ? roof.lo ?? 0 : 0 } : floorMass;
   const out: AreaLoadsResult = {
-    distributed: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
+    distributed: [], nodal: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
     massOfQuad: (id) => (isRoofQuad(id) ? roofMass : floorMass),
   };
 
@@ -120,6 +125,12 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
       if (arrangement === undefined) out.planned.add(caseType);
+    }
+    for (const p of layout.points) {
+      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
+      const q = qOf(p.elementId, !!roof && p.roof);
+      if (Math.abs(q * p.w) <= 1e-3) continue;
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;

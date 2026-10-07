@@ -359,13 +359,21 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
   su signo. Algunos conservan las suyas: la plataforma offshore, cuyo oleaje no es un sismo de
   CIRSOC 103; el hangar, cuyas tres posiciones de grúa son alternativas, y los dos borradores
   desde CAD, que conservan las combinaciones con las que se armaron.
-- **Piso:** una carga por unidad de superficie sobre un nivel, un grupo de planta o las vigas
-  seleccionadas se reparte a las vigas por área tributaria. Los paños son las regiones cerradas
-  que forman las vigas en planta; en dos direcciones cada punto carga la viga más cercana (en un
-  paño rectangular son los triángulos y trapecios a 45°) y en una dirección las fajas cargan las
-  dos vigas a las que llegan. Cada viga recibe cargas lineales parciales cuya suma es la carga
-  por el área. Una planta muestra los paños antes de aplicar; los paños no convexos se informan
-  y no se cargan.
+- **Piso:** una carga por unidad de superficie sobre un nivel, un grupo de planta, las barras o
+  losas elegidas, una caja de coordenadas o una **zona** se reparte a las vigas por área tributaria,
+  o va a las losas como carga de superficie. Los paños son las regiones cerradas que forman las
+  vigas en su plano; en dos direcciones cada lado toma la región que barre su frente al avanzar
+  hacia adentro (en un paño convexo, el reparto a 45° al lado más cercano; junto a una esquina
+  entrante, la bisectriz de esa esquina) y en una dirección las fajas cargan las dos vigas a las que
+  llegan. Un anillo de vigas dentro de un paño es una abertura: sus vigas toman su parte, y su propio
+  paño se carga una vez. Cada viga recibe cargas lineales parciales cuya suma es la carga por el
+  área; junto a una esquina entrante, la parte de la región que pasa del extremo de su viga va a ese
+  nudo. Un piso en un plano inclinado recibe la carga vertical, por área real o por área en planta;
+  una carga negativa levanta. Una planta muestra los paños antes de agregar. La carga de piso **se
+  guarda como definición**: sus cargas se marcan ⟲ en las tablas y se rehacen antes de calcular si el
+  modelo cambió; la lista de abajo muestra cada una con su total, para quitarla. Las **zonas** se
+  dibujan eligiendo en orden los nudos del contorno; las barras elegidas con ellos quedan afuera, y
+  otras zonas pueden ser sus aberturas.
 - **Escribir carga:** se elige el tipo, los valores y a qué se aplica. Los números aceptan coma o
   punto decimal; un campo J vacío toma el valor de I, y un cero escrito en J es cero.
   - En **nudos**: una fuerza de seis componentes en ejes globales, o una fuerza inclinada hacia
@@ -385,7 +393,12 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
     resuelve como la temperatura que la produce. Un **pretensado**: la tracción del cable y su
     excentricidad en los extremos y en el centro (positiva hacia −z local), resuelto por sus cargas
     equivalentes sobre la estructura conectada.
-  - En **losas** (cuadriláteros): la carga de superficie, vertical, y la temperatura de losa.
+  - En **losas** (cuadriláteros y triángulos): una carga por superficie hacia abajo, según el eje
+    local z de la losa o según un eje global por área real o proyectada; uniforme, con un valor por
+    nudo o variable según un eje entre dos valores (fuera de ellos, nada); en toda la losa o sólo
+    dentro de un rectángulo. Un **fluido** hasta un nivel, que empuja cada losa por debajo hacia
+    afuera del fluido. Una fuerza **concentrada** en un punto de una losa, repartida a sus nudos con
+    sus funciones de forma. La temperatura de losa.
 
   **Aplicar a** es la misma elección para todos los tipos: la selección, una lista de números
   (`1, 4, 7-12`), un grupo, un rango de coordenadas en X, Y o Z, una sección o un tipo de barra
