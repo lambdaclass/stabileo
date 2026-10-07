@@ -1,7 +1,7 @@
 # CHOLMOD + NVIDIA GPU Research
 
 Read next:
-- [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- [SOLVER_ROADMAP.md](../roadmap/SOLVER_ROADMAP.md)
 - [numerical_methods_gap_analysis.md](numerical_methods_gap_analysis.md)
 - [webgpu_solver_renderer_analysis.md](webgpu_solver_renderer_analysis.md)
 
@@ -79,19 +79,19 @@ The current codebase already has a strong sparse CPU path:
 
 Relevant local evidence:
 
-- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
+- [`BENCHMARKS.md`](../BENCHMARKS.md)
   current measured sparse wins:
   - `4.5x` at ~700 DOFs
   - `22x` at ~2600 DOFs
   - `77-89x` factorization-only at ~5700 DOFs
   - `22x` end-to-end at `30x30 MITC4`
-- [`engine/src/linalg/sparse.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/linalg/sparse.rs)
+- [`engine/src/linalg/sparse.rs`](../../engine/src/linalg/sparse.rs)
   custom CSC storage
-- [`engine/src/linalg/sparse_chol.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/linalg/sparse_chol.rs)
+- [`engine/src/linalg/sparse_chol.rs`](../../engine/src/linalg/sparse_chol.rs)
   current sparse Cholesky implementation
-- [`engine/src/solver/linear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/linear.rs)
+- [`engine/src/solver/linear.rs`](../../engine/src/solver/linear.rs)
   current sparse 3D solve path, regularization, residual verification, and fallback behavior
-- [`engine/src/lib.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/lib.rs)
+- [`engine/src/lib.rs`](../../engine/src/lib.rs)
   WASM-exported solver API
 
 This changes the research conclusion:

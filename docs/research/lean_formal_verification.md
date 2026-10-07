@@ -9,12 +9,12 @@ It is a research plan for where Lean makes technical sense and how to sequence t
 
 Read with:
 
-- [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/docs/VERIFICATION.md)
-- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
-- [`engine/src/solver/dof.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/dof.rs)
-- [`engine/src/solver/constraints.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/constraints.rs)
-- [`engine/src/solver/assembly.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/assembly.rs)
-- [`engine/src/solver/linear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/linear.rs)
+- [`VERIFICATION.md`](../VERIFICATION.md)
+- [`SOLVER_ROADMAP.md`](../roadmap/SOLVER_ROADMAP.md)
+- [`engine/src/solver/dof.rs`](../../engine/src/solver/dof.rs)
+- [`engine/src/solver/constraints.rs`](../../engine/src/solver/constraints.rs)
+- [`engine/src/solver/assembly.rs`](../../engine/src/solver/assembly.rs)
+- [`engine/src/solver/linear.rs`](../../engine/src/solver/linear.rs)
 
 ## Short Answer
 
@@ -103,7 +103,7 @@ It is possible, but it is a much larger research program than the first three la
 
 Primary file:
 
-- [`engine/src/solver/dof.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/dof.rs)
+- [`engine/src/solver/dof.rs`](../../engine/src/solver/dof.rs)
 
 Why this is strong:
 
@@ -128,7 +128,7 @@ Value: very high
 
 Primary file:
 
-- [`engine/src/solver/constraints.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/constraints.rs)
+- [`engine/src/solver/constraints.rs`](../../engine/src/solver/constraints.rs)
 
 Why this is strong:
 
@@ -151,7 +151,7 @@ Value: extremely high
 
 Primary file:
 
-- [`engine/src/solver/linear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/linear.rs)
+- [`engine/src/solver/linear.rs`](../../engine/src/solver/linear.rs)
 
 Why this is strong:
 
@@ -176,7 +176,7 @@ Value: very high
 
 Primary file:
 
-- [`engine/src/solver/assembly.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/assembly.rs)
+- [`engine/src/solver/assembly.rs`](../../engine/src/solver/assembly.rs)
 
 Why this is strong:
 
@@ -198,8 +198,8 @@ Value: high
 
 Primary targets:
 
-- [`engine/src/element/frame.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/element/frame.rs)
-- [`engine/src/element/transform.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/element/transform.rs)
+- [`engine/src/element/frame.rs`](../../engine/src/element/frame.rs)
+- [`engine/src/element/transform.rs`](../../engine/src/element/transform.rs)
 
 Theorems to prove:
 
@@ -217,8 +217,8 @@ Value: high, but proof count scales with element-family breadth
 
 Primary targets:
 
-- [`engine/src/solver/sparse_assembly.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/sparse_assembly.rs)
-- [`engine/src/solver/linear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/linear.rs)
+- [`engine/src/solver/sparse_assembly.rs`](../../engine/src/solver/sparse_assembly.rs)
+- [`engine/src/solver/linear.rs`](../../engine/src/solver/linear.rs)
 
 Theorems to prove:
 
@@ -235,8 +235,8 @@ This matters more once the linear core is already verified.
 
 Primary targets:
 
-- [`engine/src/types/input.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/types/input.rs)
-- [`engine/src/types/output.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/types/output.rs)
+- [`engine/src/types/input.rs`](../../engine/src/types/input.rs)
+- [`engine/src/types/output.rs`](../../engine/src/types/output.rs)
 
 Theorems to prove:
 
@@ -264,12 +264,12 @@ Best delayed until the block linear core is finished.
 
 Primary targets:
 
-- [`engine/src/solver/pdelta.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/pdelta.rs)
-- [`engine/src/solver/corotational.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/corotational.rs)
-- [`engine/src/solver/material_nonlinear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/material_nonlinear.rs)
-- [`engine/src/solver/fiber_nonlinear.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/fiber_nonlinear.rs)
-- [`engine/src/solver/contact.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/contact.rs)
-- [`engine/src/solver/arc_length.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/arc_length.rs)
+- [`engine/src/solver/pdelta.rs`](../../engine/src/solver/pdelta.rs)
+- [`engine/src/solver/corotational.rs`](../../engine/src/solver/corotational.rs)
+- [`engine/src/solver/material_nonlinear.rs`](../../engine/src/solver/material_nonlinear.rs)
+- [`engine/src/solver/fiber_nonlinear.rs`](../../engine/src/solver/fiber_nonlinear.rs)
+- [`engine/src/solver/contact.rs`](../../engine/src/solver/contact.rs)
+- [`engine/src/solver/arc_length.rs`](../../engine/src/solver/arc_length.rs)
 
 Possible: yes
 

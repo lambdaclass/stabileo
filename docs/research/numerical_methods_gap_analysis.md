@@ -1,8 +1,8 @@
 # Numerical Methods Gap Analysis
 
 Read next:
-- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
-- benchmarks: [BENCHMARKS.md](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
+- solver priorities: [SOLVER_ROADMAP.md](../roadmap/SOLVER_ROADMAP.md)
+- benchmarks: [BENCHMARKS.md](../BENCHMARKS.md)
 
 This note captures the current numerical-methods gaps that matter for large models and harder nonlinear problems.
 

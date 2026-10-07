@@ -3,7 +3,7 @@ name = "dedaliano-engine"
 version = "0.1.0"
 edition = "2021"
 authors = ["Dedaliano Team"]
-description = "High-performance 2D structural analysis engine"
+description = "Structural analysis engine for 2D and 3D models, in Rust and WebAssembly"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -9,16 +9,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  backend-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
-      - name: Backend tests
-        run: cargo test --locked -p dedaliano-backend
-
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -207,23 +197,18 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-  # The web suite runs as two jobs in parallel. It used to be one job that built
-  # the app and then ran both Vitest passes back to back: 11–16 min, most of it
-  # the unit pass waiting on its longest files. The unit pass needs the WASM
-  # engine and nothing else, so it shards two ways here; the production-build
-  # tests need Chromium and the built app, so they stay with the build.
-  web-unit:
+  # The engine ships to the browser as WebAssembly. This builds it for that
+  # target exactly as a consumer does, so a change that compiles natively but
+  # not for wasm32 fails here rather than in the application that consumes it.
+  wasm:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
+      # engine/rust-toolchain.toml pins the toolchain and the wasm32 target;
+      # rustup installs both when wasm-pack first runs cargo there.
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
         run: bash .github/scripts/install-wasm-pack.sh
@@ -233,219 +218,5 @@ jobs:
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build WASM engine
-        working-directory: engine
-        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
-
-      - name: Install dependencies
-        working-directory: web
-        run: npm ci
-
-      - name: Unit + integration tests (shard ${{ matrix.shard }}/2)
-        working-directory: web
-        run: npx vitest run --project unit --shard=${{ matrix.shard }}/2
-
-  web-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
-        timeout-minutes: 5
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: engine
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build WASM engine
-        working-directory: engine
-        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
-
-      - name: Install dependencies
-        working-directory: web
-        run: npm ci
-
-      # Type errors and the svelte-check gate were local conventions: no job ran
-      # them, so the baseline (scripts/typecheck-baseline.json) held only for
-      # whoever ran it. A new error fails here; the baseline only ever shrinks.
-      - name: Type check (no new errors against the baseline)
-        working-directory: web
-        run: npm run typecheck
-
-      - name: svelte-check gate (guarded paths)
-        working-directory: web
-        run: npm run check:gate
-
-      # `npm run build` prerenders the public pages by driving the app in a
-      # browser (web/scripts/prerender.ts). Chromium is a build input now.
-      - name: Install Chromium for prerendering
-        working-directory: web
-        run: npx playwright install --with-deps chromium
-
-      - name: Build
-        working-directory: web
-        run: npm run build
-
-      - name: Production-build tests
-        working-directory: web
-        run: npx vitest run --project build
-
-      # The two gates every PR body names. They were run on the author's machine only: the type
-      # baseline and the svelte-check errors of the guarded paths now fail the job here too.
-      - name: Typecheck against its baseline
-        working-directory: web
-        run: npm run typecheck
-
-      - name: svelte-check on the guarded paths
-        working-directory: web
-        run: npm run check:gate
-
-  # Five shards, each running whole spec files chosen by measured duration
-  # (web/scripts/e2e-shard.mjs). One runner took 40 min for the smoke suite:
-  # 569 tests of ~3 s each, serially — `workers: 1` stays, for the WebGL
-  # determinism the config explains, so the parallelism is across runners.
-  # `playwright --shard` splits by test count in file order and put the three
-  # heaviest files in one shard (12.6 vs 7.8 min); by duration it is 7.5 each.
-  e2e:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
-        timeout-minutes: 5
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: engine
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      # The WASM glue is gitignored, so it must be built here. Without it Vite
-      # substitutes a stub solver and every design assertion would pass vacuously —
-      # the e2e readiness gate (`__stabileo.solverReady()`) fails loudly if that
-      # ever happens.
-      - name: Build WASM engine
-        working-directory: engine
-        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt
-
-      - name: Install dependencies
-        working-directory: web
-        run: npm ci
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
-
-      - name: Install Chromium
-        working-directory: web
-        run: npx playwright install --with-deps chromium
-
-      # BLOCKING: functional DOM + hook assertions.
-      #
-      # `@landing` was added to this grep on 2026-08-19 and taken out the same
-      # day. The whole landing suite failed here in a way it does not fail
-      # locally: the twelve blog cases passed, the first landing case passed,
-      # and from the second onwards EVERY test timed out at 60 s "while setting
-      # up context" — `browser.newContext` never returning, one wedged browser
-      # rather than any assertion about the page. With `workers: 1` the landing
-      # spec runs after ~190 heavier cases, and the leading suspicion is the
-      # hero's continuous rAF animation under software GL on a 2-core runner,
-      # not anything the spec asserts. Diagnosing that belongs to whoever owns
-      # this harness; guessing at it through 30-minute CI iterations does not.
-      #
-      # The blog spec is tagged `@smoke` directly, so the public pages are not
-      # entirely unguarded here. `npx playwright test --grep @landing` is the
-      # local command for the rest.
-      - name: E2E smoke suite (shard ${{ matrix.shard }}/5)
-        working-directory: web
-        run: npx playwright test --grep @smoke $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 5)
-
-      # Heavier suite (408-member model): main + opt-in label only.
-      # The slow and visual suites are small; they run once, in shard 1.
-      - name: E2E slow suite
-        if: matrix.shard == 1 && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
-        working-directory: web
-        run: npx playwright test --grep "@slow" --grep-invert "visual baselines"
-
-      # NON-BLOCKING on this first landing (approved decision O7): pixel gates that
-      # block on day one are how e2e suites end up disabled. Promote once the Linux
-      # baselines have proven stable across a few runs.
-      #
-      # LINUX BASELINES: now committed under web/e2e/__screenshots__/linux/, so this
-      # step COMPARES against them. It must not pass --update-snapshots: that would
-      # overwrite the baselines every run and leave the pixel gate permanently inert,
-      # silently accepting any visual regression.
-      #
-      # Still continue-on-error and the two assertions are still expect.soft, so a
-      # mismatch is informational for this first landing. Promote to blocking once the
-      # baselines have proven stable. To intentionally refresh them, run the job once
-      # with UPDATE_SNAPSHOTS=1.
-      - name: E2E visual baselines (non-blocking comparison)
-        if: matrix.shard == 1 && (github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
-        continue-on-error: true
-        working-directory: web
-        run: npx playwright test --grep "visual baselines" ${{ vars.UPDATE_SNAPSHOTS == '1' && '--update-snapshots' || '' }}
-
-      # Uploaded for diagnostics: on a mismatch this carries the actual/diff images.
-      - name: Upload Linux screenshot baselines / diffs
-        if: always() && matrix.shard == 1
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-screenshot-baselines
-          path: web/e2e/__screenshots__/linux
-          retention-days: 30
-          if-no-files-found: ignore
-
-      # Every e2e failure since this landed has been undiagnosable, and this step is
-      # why: both paths are DOT-directories, and `upload-artifact@v4` excludes hidden
-      # files unless told otherwise. The run log says so plainly —
-      #   include-hidden-files: false
-      #   No files were found with the provided path: web/e2e/.report
-      # — and `if-no-files-found: ignore` turned that into silence rather than a
-      # warning. So the traces, videos, failure screenshots and the HTML report were
-      # produced on every run and thrown away on every run, which is how one canvas
-      # test stayed red across three unrelated PRs with nobody able to see what it
-      # saw. `warn` restores the signal if the paths ever go stale again.
-      - name: Upload Playwright artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-artifacts-${{ matrix.shard }}
-          path: |
-            web/e2e/.report
-            web/e2e/.artifacts
-          include-hidden-files: true
-          retention-days: 14
-          if-no-files-found: warn
+      - name: Build the WebAssembly package
+        run: make wasm

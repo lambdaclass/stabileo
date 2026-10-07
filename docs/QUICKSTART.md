@@ -24,7 +24,7 @@ Important convention:
 - `Z` is up
 - the common 2D analysis plane is `XZ`
 
-That convention is not cosmetic. It is part of the solver contract. See [ADR 0001](adr/0001-z-up-coordinate-system.md).
+That convention is not cosmetic. It is part of the solver contract. See the [coordinate contract](SOLVER_REFERENCE.md#1-coordinate-contract).
 
 ## Build and Solve a 2D Beam in 5 Steps
 

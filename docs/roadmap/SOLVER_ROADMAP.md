@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
+This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap, which is kept with the Stabileo application, outside this repository. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
 
-For the cross-cutting AI track that depends on these solver outputs and contracts, see [`AI_ROADMAP.md`](AI_ROADMAP.md).
+The AI track that depends on these solver outputs and contracts is planned with the Stabileo application, outside this repository.
 For the deeper solver safety and validation hardening architecture behind the near-term trust work, see `../research/solver_safety_and_validation_hardening.md`.
 
 ## Where We Are
@@ -208,7 +208,7 @@ Remaining vigilance:
 
 ## The Automation Gap The Solver Must Close
 
-> Full analysis: [automation_gaps.md](../research/automation_gaps.md)
+> The full automation gap analysis is kept with the Stabileo application's product research.
 
 The most important remaining solver-adjacent gap is not "one more analysis method." It is enabling the product to automate the decisions engineers still make manually after the solve.
 
@@ -813,7 +813,7 @@ Solver-level result extraction and transformation for practical design workflows
 
 ---
 
-**Post-Core Solver Steps (20-23):** These steps provide the solver-level infrastructure needed by the post-core product vision (PRODUCT_ROADMAP Steps 8-14). The solver roadmap only carries the enabling work — downstream product definitions live in the product roadmap.
+**Post-Core Solver Steps (20-23):** These steps provide the solver-level infrastructure needed by the post-core product vision (steps 8-14 of the application's product roadmap). The solver roadmap only carries the enabling work — downstream product definitions live in the product roadmap.
 
 ### Step 20 — Incremental and Collaborative Solver
 
@@ -1201,7 +1201,6 @@ Phase 3c workflow measurements (20x20 MITC4, nf=2564):
 - `README.md` — repo entry point and document map
 - `BENCHMARKS.md` — capability and benchmark evidence
 - `VERIFICATION.md` — verification philosophy and testing stack
-- `PRODUCT_ROADMAP.md` — app, workflow, market, and product sequencing
 - `CHANGELOG.md` — historical progress
 - `../research/shell_family_selection.md` — shell-family selection notes
 - `../research/competitor_element_families.md` — competitor shell-family comparison
