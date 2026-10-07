@@ -21,11 +21,22 @@ test.describe('@smoke deleting on a phone', () => {
     await page.getByTestId('rb-cmd-select').tap();
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
     const before = await page.evaluate(() => window.__stabileo.elementIds().length);
-    // The beam of the portal, at the top of the framed model.
-    for (const fy of [0.405, 0.39, 0.42, 0.37, 0.44]) {
-      await page.touchscreen.tap(box.x + box.width * 0.5, box.y + box.height * fy);
-      if (await page.getByTestId('selection-delete').count()) break;
-    }
+    // The beam of the portal: the level member highest on screen, tapped at its middle. Read from
+    // the model's own transform rather than a fraction of the canvas, which moves with the framing.
+    const mid = await page.evaluate(() => {
+      const s = window.__stabileo;
+      let best: { x: number; y: number } | null = null;
+      for (const id of s.elementIds()) {
+        const e = s.entityData('element', id) as { nodeI: number; nodeJ: number };
+        const a = s.nodeScreenPos(e.nodeI), b = s.nodeScreenPos(e.nodeJ);
+        if (!a || !b || Math.abs(a.y - b.y) > 2) continue;
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (!best || m.y < best.y) best = m;
+      }
+      return best;
+    });
+    expect(mid, 'the beam is on screen').not.toBeNull();
+    await page.touchscreen.tap(mid!.x, mid!.y);
     await expect(page.getByTestId('selection-delete')).toBeVisible();
     // Over the model's lower right corner, and no row above the model: the
     // drawing does not move when something is selected.
