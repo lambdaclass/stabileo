@@ -137,8 +137,8 @@
     return best?.id ?? nodeIds[0] ?? null;
   }
 
-  /** The static input on the centerline (`store/dynamic-input.ts`). */
-  const buildInput = () => centerlineInput();
+  /** The static input on the centerline, with the options of `centerlineInput` (`store/dynamic-input.ts`). */
+  const buildInput = (opts: { uncut?: boolean; caseDisplacements?: boolean } = {}) => centerlineInput(opts);
 
 
 
@@ -183,7 +183,7 @@
     solving = true;
     pdeltaElapsed = null;
     try {
-      let input = buildInput();
+      let input = buildInput({ caseDisplacements: true });
       let res: any;
       const t0 = performance.now();
       res = wasmPDelta3D(input);
@@ -466,7 +466,8 @@
     solveError = null;
     solving = true;
     try {
-      let input = buildInput();
+      // The corotational solve takes the model's loads; the pushover a load factor on them.
+      let input = buildInput({ caseDisplacements: nlType !== 'pushover' });
 
       if (nlType === 'pushover') {
         /*
@@ -484,7 +485,7 @@
          * refused by name rather than pushed over on numbers that mean nothing.
          */
         // Hinges are placed and named by member, and Mp read from the member's section.
-        if (hasVariable()) { solveError = t('advanced.variableUnsupported'); solving = false; return; }
+        if (hasPieces()) { solveError = t('advanced.variableUnsupported'); solving = false; return; }
         const nonSteel = pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never);
         if (nonSteel.length > 0) {
           solveError = tp('adv.pushoverNonSteel', { materials: nonSteel.join(', ') });
@@ -543,7 +544,7 @@
        * only, so a frame loaded along its members took a fraction of its sway force or none
        * (78 % short on the seven-storey building). The input with them is solved as it stands.
        */
-      const { input: withN, totalH } = withNotionalLoads(buildInput(), imperfRatio, imperfDir);
+      const { input: withN, totalH } = withNotionalLoads(buildInput({ caseDisplacements: true }), imperfRatio, imperfDir);
       // Shown in this panel only; see `handleStaged` for why it is not published.
       imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
     } catch (e: any) {
@@ -575,7 +576,7 @@
     solveError = null;
     solving = true;
     try {
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const res = solveWinkler3D({
         solver: input,
         foundationSprings: winklerSprings.map(s => ({
@@ -650,7 +651,7 @@
     solveError = null;
     solving = true;
     try {
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const res = solveSSI3D({
         solver: input,
         soilSprings: ssiSprings,
@@ -717,10 +718,13 @@
   /** Analyses whose input names members (stages, an influence path) do not take one cut into pieces. */
   // Members the solve cuts into pieces (`section/variable.ts`): one whose section at J it does not use is solved prismatic.
   const hasVariable = () => [...modelStore.elements.values()].some((e) => isVariableMember(modelStore.sections, e));
+  // Or cut at a concentrated moment or axial force inside its span (`variable-members.ts`), in any
+  // case: stages and hinges, which name members and take the loads, lose such a member to its pieces.
+  const hasPieces = () => variableExpansionFor(modelStore.model as never) !== undefined;
 
   function handleStaged() {
     solveError = null;
-    if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
+    if (hasPieces()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
       const base = buildInput();
@@ -789,7 +793,7 @@
        * never reached a displacement; it gave every material, steel included, the panel's
        * parameters; and it read f'c as fcm. Only concrete creeps now, each with its own f'c.
        */
-      const input = buildInput();
+      const input = buildInput({ caseDisplacements: true });
       const settingsOf = new Map([...concreteMaterials(modelStore.materials as never)].map(([id, m]) => [id, {
         fck: (m as { fy?: number }).fy ?? creepFc, rh: creepRH, h0: creepH0, t0: creepAge, cement: creepCementClass,
       }]));
@@ -825,7 +829,8 @@
     if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
-      let input = buildInput();
+      // The unloaded structure: no member cut for a load, and no case's imposed displacement.
+      let input = buildInput({ uncut: true });
       ilResult = computeInfluenceLine3D({
         solver: input,
         quantity: IL_QUANTITY[ilResponse],

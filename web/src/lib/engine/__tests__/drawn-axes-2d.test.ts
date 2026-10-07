@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../../store';
 import { transverseSign } from '../transverse-sign-2d';
 import { computeDiagramValueAt } from '../diagrams';
+import { ENGINE_ALPHA } from '../thermal-alpha';
 
 beforeEach(() => { historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear(); });
 
@@ -89,6 +90,36 @@ describe('temperature gradient: ΔTg = ΔT(bottom) − ΔT(top), top the drawn z
     const r3 = modelStore.solve3D(false, false, false) as unknown as { displacements: Array<{ nodeId: number; uz: number }> };
     const w3 = r3.displacements.find((d) => d.nodeId === m)!.uz;
     expect(w2).toBeLessThan(0);
+    // Both over the section's real depth, α·ΔT·L²/(8h), not the engine's equivalent rectangle.
+    const h = [...modelStore.sections.values()][0]!.h!;
+    expect(w2).toBeCloseTo(-(ENGINE_ALPHA * 20 * 6 * 6) / (8 * h), 9);
     expect(w3).toBeCloseTo(w2, 9);
+  });
+});
+
+describe('a plane cantilever under a gradient, in the plane solve', () => {
+  /** Tip deflection of a 6 m cantilever under ΔTg = 20, on `sectionId` or the default I section. */
+  function tip(sectionId?: number) {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    const e = modelStore.addElement(a, b);
+    if (sectionId !== undefined) modelStore.updateElement(e, { sectionId });
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addThermalLoad(e, 0, 20);
+    const r = modelStore.solve(false) as unknown as { displacements: Array<{ nodeId: number; uz: number }> };
+    return { w: r.displacements.find((d) => d.nodeId === b)!.uz, e };
+  }
+
+  it('an I section bends over its real depth: α·ΔT·L²/(2h)', () => {
+    const { w, e } = tip();
+    const s = modelStore.sections.get(modelStore.elements.get(e)!.sectionId)!;
+    expect(s.shape).toBe('I');
+    expect(Math.abs(w)).toBeCloseTo((ENGINE_ALPHA * 20 * 36) / (2 * s.h!), 9);
+  });
+
+  it('a rectangle is its own equivalent rectangle: the same closed form, nothing scaled', () => {
+    const B = 0.2, H = 0.5;
+    const sid = modelStore.addSection({ name: '20x50', shape: 'rect', b: B, h: H, a: B * H, iy: B * H ** 3 / 12, iz: H * B ** 3 / 12 } as never);
+    const { w } = tip(sid);
+    expect(Math.abs(w)).toBeCloseTo((ENGINE_ALPHA * 20 * 36) / (2 * H), 9);
   });
 });

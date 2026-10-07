@@ -10,7 +10,7 @@ import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
 import { buildSolverInput3D } from '../solver-service';
-import { buildPath3D, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
+import { buildPath3D, sweepMovingLoad3D, trainLoads, movingLoadBase3D } from '../moving-loads-3d';
 
 const L = 6, P = 100;
 
@@ -87,5 +87,36 @@ describe('moving loads in 3D', () => {
   it('refuses a set of members that is not one chain', () => {
     const { input, els } = beam(3);
     expect(buildPath3D(input, [els[0]!, els[2]!])).toBeNull();
+  });
+});
+
+/*
+ * The structure the train runs on is the model's, unloaded (`movingLoadBase3D`): a load case's
+ * moment inside a span cuts the member for the static solves only, and a case's imposed
+ * displacement is that case's action, not the train's.
+ */
+describe('the structure under the train', () => {
+  it('a member cut for a point moment in a load case is still one member of the path', async () => {
+    const { els } = beam(1);
+    modelStore.addLoadEntry({ type: 'pointOnElement3d', data: { id: 0, elementId: els[0]!, a: L / 3, py: 0, pz: 0, my: 12 } });
+    const base = movingLoadBase3D(modelStore.model as never)!;
+    const path = buildPath3D(base, els);
+    expect(path).not.toBeNull();
+    const env = await sweepMovingLoad3D(base, path!, { name: 'P', axles: [{ offset: 0, weight: P }] }, { step: 0.5 });
+    const my = env.elements.get(els[0]!)!.my;
+    expect(Math.max(Math.abs(my.max.value), Math.abs(my.min.value))).toBeCloseTo((P * L) / 4, 6);
+  });
+
+  it("a load case's imposed displacement is not on the supports: a weightless train gives no moment", async () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(5, 0, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
+    modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: b, dz: -0.01 } });
+    const base = movingLoadBase3D(modelStore.model as never)!;
+    const env = await sweepMovingLoad3D(base, buildPath3D(base, [e])!, { name: 'µ', axles: [{ offset: 0, weight: 1e-9 }] }, { step: 0.5 });
+    const my = env.elements.get(e)!.my;
+    // A 1 µN axle on 5 m: at most P·L/8, about 6e-10 kN·m.
+    expect(Math.max(Math.abs(my.max.value), Math.abs(my.min.value))).toBeLessThan(1e-8);
   });
 });

@@ -64,7 +64,8 @@ export interface AreaLoad {
 export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
-export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; arrangement?: number }
+/** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
 
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
@@ -129,7 +130,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (Math.abs(q * p.w) <= 1e-3) continue;
-      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, ...arr });
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;

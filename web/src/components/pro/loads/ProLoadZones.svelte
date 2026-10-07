@@ -3,12 +3,14 @@
    * Load zones: a named outline of nodes, picked in order around it; the members picked with it are
    * left out of it; other zones can be its openings. A floor load can target a zone
    * (`floor-definitions.ts`), and the zone limits it to its outline less its openings. A zone is a
-   * group of the model, so it is saved, undone and renumbered with the rest.
+   * group of the model, so it is saved, undone and renumbered with the rest. An outline that
+   * crosses itself (nodes picked out of order) is refused; a zone whose corner node was deleted
+   * since is flagged, its shape no longer the one drawn.
    */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { addLoadZone, syncDefinedLoads } from '../../../lib/store/defined-loads';
-  import { zoneOutline, type DefinitionModel, type ZoneData } from '../../../lib/model/loads/floor-definitions';
+  import { addLoadZone, removeLoadZone } from '../../../lib/store/defined-loads';
+  import { zoneArea, zoneChanged, zoneOutlineProblem, type DefinitionModel, type ZoneData } from '../../../lib/model/loads/floor-definitions';
   import PickKind from '../PickKind.svelte';
 
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
@@ -18,32 +20,20 @@
 
   /** The nodes picked, in the order they were picked. */
   const outline = $derived([...uiStore.selectedNodes]);
-  const area = (id: number) => {
-    const z = zoneOutline(modelStore.model as unknown as DefinitionModel, id);
-    if (!z) return 0;
-    let s = 0;
-    for (let i = 0; i < z.outer.length; i++) { const a = z.outer[i]!, b = z.outer[(i + 1) % z.outer.length]!; s += a[0] * b[1] - b[0] * a[1]; }
-    return Math.abs(s / 2);
-  };
+  const dm = () => modelStore.model as unknown as DefinitionModel;
+  /** In plan, less its openings: the area a floor load on it covers. */
+  const area = (id: number) => zoneArea(dm(), id);
 
   function add() {
-    if (outline.length < 3) { note = t('loadZone.needNodes'); return; }
+    const problem = zoneOutlineProblem(dm(), outline);
+    if (problem) { note = t(problem === 'needNodes' ? 'loadZone.needNodes' : 'loadZone.selfIntersecting'); return; }
     const label = name.trim() || tp('loadZone.defaultName', { n: zones.length + 1 });
     addLoadZone(label, outline, [...uiStore.selectedElements], openings);
     note = tp('loadZone.added', { name: label, n: outline.length });
     name = ''; openings = [];
   }
-  function remove(id: number) {
-    modelStore.batch(() => {
-      // Openings that pointed at it lose it.
-      for (const g of zones) {
-        const d = g.data as ZoneData | undefined;
-        if (d?.openings?.includes(id)) modelStore.setGroupData(g.id, { ...d, openings: d.openings.filter((x) => x !== id) });
-      }
-      modelStore.removeGroup(id);
-      syncDefinedLoads();
-    });
-  }
+  /** The zones it was an opening of lose it, and the loads follow (`removeLoadZone`). */
+  const remove = (id: number) => removeLoadZone(id);
 </script>
 
 <div class="lz" data-testid="load-zones">
@@ -73,6 +63,7 @@
         <li>
           <span>{z.name}</span>
           <span class="lz-n">{area(z.id).toFixed(2)} m²</span>
+          {#if zoneChanged(dm(), z.id)}<span class="lz-warn" title={t('loadZone.changed')} data-testid="lz-changed">!</span>{/if}
           {#if d?.openings?.length}<span class="lz-n">{tp('loadZone.withOpenings', { n: d.openings.length })}</span>{/if}
           {#if z.members.elements?.length}<span class="lz-n">{tp('loadZone.excluded', { n: z.members.elements.length })}</span>{/if}
           <button class="pro-delete-btn" onclick={() => remove(z.id)} aria-label={t('loadTables.delete')}>×</button>
@@ -91,4 +82,5 @@
   .lz-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
   .lz-list li { display: flex; align-items: center; gap: 8px; }
   .lz-n { font-family: var(--st-mono); color: var(--st-text-3); }
+  .lz-warn { color: var(--st-warn); font-weight: 600; }
 </style>

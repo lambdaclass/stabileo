@@ -18,7 +18,13 @@
  *     (8·P·f/L² upward for a sag f below the chord).
  *
  * The set is in equilibrium on its own, so it moves no support of a free member and only the
- * restraint of an indeterminate one shows. That is the exact load of the tendon in a linear
+ * restraint of an indeterminate one shows.
+ *
+ * The anchors act on the member's ends, which is where the engine's loads at the member's end
+ * nodes act: a joined end (a hinge, a joint, a semi-rigid connection) is given a node of its own
+ * for it (`variable-members.ts`), so the anchor moment does not go through the hinge into what
+ * meets the member there. They are tagged with their member: a one-way member the active-set loop
+ * takes out takes its tendon with it (`member-behaviour.ts`). That is the exact load of the tendon in a linear
  * analysis: the member's forces are those of the concrete section (a restrained member's
  * shortening goes into its restraint), the secondary moments included.
  *
@@ -72,7 +78,7 @@ export function prestressToSolver(m: MemberRef, d: PrestressLike): SolverLoad3D[
   const mI = scale(ey, -P * d.eI), mJ = scale(ey, P * d.eJ);
   const at = (nodeId: number, f: Vec3, mm: Vec3, arm?: Vec3): SolverLoad3D => {
     const c = arm ? cross(arm, f) : [0, 0, 0];
-    return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0]!, my: mm[1] + c[1]!, mz: mm[2] + c[2]! } };
+    return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0]!, my: mm[1] + c[1]!, mz: mm[2] + c[2]!, tendonOf: m.elementId } };
   };
   const out: SolverLoad3D[] = [at(m.nodeI, fI, mI, m.armI), at(m.nodeJ, fJ, mJ, m.armJ)];
   const q = tendonLoad(d, L);

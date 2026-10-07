@@ -176,7 +176,7 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
   // Dropping a loaded free node would turn a mechanism into a false equilibrium.
   const orphanLoads = new Map<number, number[]>();
   for (const load of input.loads) {
-    if (load.type !== 'nodal' || used.has(load.data.nodeId)) continue;
+    if (load.type !== 'nodal' || used.has(load.data.nodeId) || (load.data.tendonOf !== undefined && off.has(load.data.tendonOf))) continue;
     const d = load.data;
     const sum = orphanLoads.get(d.nodeId) ?? [0, 0, 0, 0, 0, 0];
     [d.fx, d.fy, d.fz, d.mx, d.my, d.mz].forEach((v, i) => { sum[i] += v; });
@@ -186,8 +186,10 @@ function withoutMembers(input: SolverInput3D, off: ReadonlySet<number>): SolverI
     if (force.some(v => Math.abs(v) > 1e-12)) throw new Error(`Unstable active set: loaded node ${id} is held only by slack members`);
   }
   const loads = input.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
+    const d = l.data as { elementId?: number; nodeId?: number; tendonOf?: number };
     if (d.elementId !== undefined && off.has(d.elementId)) return false;
+    // A tendon is in its member: its anchors leave with it.
+    if (d.tendonOf !== undefined && off.has(d.tendonOf)) return false;
     return d.nodeId === undefined || used.has(d.nodeId);
   });
   return {

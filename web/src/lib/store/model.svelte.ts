@@ -47,6 +47,7 @@ import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight } from '../engine/analysis-settings';
 import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
+import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 import { type Element3DMetadata, type MemberOffset } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -685,6 +686,11 @@ export interface NodalLoad3D {
   caseId?: number;
   /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
   fromDef?: number;
+  /**
+   * The member whose end it sits at and whose load it is, which carries its mass
+   * (`mass-source.ts`): a floor's share past a side's end, at a re-entrant corner (`floor-loads.ts`).
+   */
+  carrier?: number;
 }
 
 export interface DistributedLoad3D {
@@ -1116,6 +1122,9 @@ export interface InfluenceLineResult {
  */
 const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'projectInfo', 'deflectionLimits'] as const;
 
+/** Whether a floor-load definition wrote the load (`model/loads/floor-definitions.ts` `isDefinedLoad`). */
+const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
+
 function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
@@ -1395,6 +1404,8 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  /** Run before an analysis reads the model's loads (`defined-loads.ts`: a pending rewrite). */
+  let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
   let _onReplaced: (() => void) | null = null;
   // Bulk mutation mode: during loadExample (and other wholesale mutations) we
@@ -1639,6 +1650,7 @@ function createModelStore() {
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
 
     /** Register a callback fired after a reinforcement transaction commits, with the
@@ -3375,9 +3387,16 @@ function createModelStore() {
       // ignore supersession.
     },
 
-    removeLoad(loadId: number): void {
+    /**
+     * Remove a load. Not one a floor-load definition wrote (`fromDef`): the next rewrite would
+     * bring it back, so it goes with its definition (`store/defined-loads.ts`, which rewrites them
+     * through `replaceLoads`). False, and nothing changed, for one.
+     */
+    removeLoad(loadId: number): boolean {
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return false;
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
+      return true;
     },
 
     removeSupport(id: number): void {
@@ -3432,10 +3451,24 @@ function createModelStore() {
       if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
-    updateLoad(loadId: number, data: Record<string, unknown>): void {
-      if (!_undoBatching) _pushUndo?.();
+    /**
+     * Edit a load's fields in place. False, and nothing changed (no undo step), when the load is not
+     * there or the edit would put a 3D member load's stretch or point off its member
+     * (`model/loads/load-stretch.ts`): a = 4 typed past b = 3 was stored, drawn down over 3–4 m and
+     * solved as an upward load.
+     */
+    updateLoad(loadId: number, data: Record<string, unknown>): boolean {
       const load = model.loads.find(l => l.data.id === loadId);
-      if (!load) return;
+      if (!load) return false;
+      // A floor-load definition's load is edited through the definition (`removeLoad`).
+      if (isDefinedLoadData(load)) return false;
+      if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
+        && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
+      if (!_undoBatching) _pushUndo?.();
+      // A value edited by hand makes the load the user's: it loses the generator's mark, so
+      // "replace generated loads" no longer deletes the edit. A move to another case keeps it.
+      const ld = load.data as unknown as Record<string, unknown>;
+      if (ld.generatedBy && Object.keys(data).some((k) => k !== 'caseId' && data[k] !== undefined && ld[k] !== data[k])) delete ld.generatedBy;
       // Handle caseId for all load types
       if (data.caseId !== undefined) {
         (load.data as any).caseId = data.caseId as number | undefined;
@@ -3495,18 +3528,17 @@ function createModelStore() {
         if (data.qYJ !== undefined) d.qYJ = data.qYJ as number;
         if (data.qZI !== undefined) d.qZI = data.qZI as number;
         if (data.qZJ !== undefined) d.qZJ = data.qZJ as number;
-        if (data.a !== undefined) {
-          const aVal = Math.max(0, data.a as number);
-          d.a = aVal > 0 ? aVal : undefined;
-        }
-        if (data.b !== undefined) {
-          const bVal = data.b as number;
-          const L = this.getElementLength(d.elementId);
-          d.b = (bVal < L - 1e-10) ? Math.max(d.a ?? 0, bVal) : undefined;
+        if (data.a !== undefined || data.b !== undefined) {
+          // Checked above (`editKeepsPlace`); an end at the member's own end is stored as absent.
+          const st = checkStretch((data.a as number | undefined) ?? d.a, (data.b as number | undefined) ?? d.b, loadedLength(model as never, d.elementId));
+          if (st.ok) {
+            if (st.a === undefined) delete d.a; else d.a = st.a;
+            if (st.b === undefined) delete d.b; else d.b = st.b;
+          }
         }
       } else if (load.type === 'pointOnElement3d') {
         const d = load.data as PointLoadOnElement3D;
-        if (data.a !== undefined) d.a = data.a as number;
+        if (data.a !== undefined) d.a = checkPosition(data.a as number, loadedLength(model as never, d.elementId)) ?? d.a;
         if (data.py !== undefined) d.py = data.py as number;
         if (data.pz !== undefined) d.pz = data.pz as number;
         for (const k of ['px', 'mx', 'my', 'mz'] as const) if (data[k] !== undefined) d[k] = (data[k] as number) || undefined;
@@ -3530,6 +3562,7 @@ function createModelStore() {
       }
       // Reassign array to trigger Svelte 5 reactivity after in-place mutation
       model.loads = [...model.loads];
+      return true;
     },
 
     clear(): void {
@@ -4032,11 +4065,7 @@ function createModelStore() {
      * gets a numbered one.
      */
     ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; category?: LoadCase['category'] } = {}): number {
-      const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-      const found = (opts.existingId != null ? model.loadCases.find((c) => c.id === opts.existingId) : undefined)
-        ?? (opts.own
-          ? model.loadCases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
-          : model.loadCases.find((c) => c.type === type && c.name === name));
+      const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
@@ -4091,7 +4120,15 @@ function createModelStore() {
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
       if (data.name !== undefined) combo.name = data.name;
-      if (data.factors !== undefined) combo.factors = [...data.factors];
+      if (data.factors !== undefined) {
+        // Factors edited by hand make the combination the user's: "replace generated loads" takes
+        // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
+        // service combination edited by hand still stays out of the design's "all". A rename is
+        // not an edit of what it is.
+        const sig = (fs: ReadonlyArray<{ caseId: number; factor: number }>) => fs.filter((f) => f.factor !== 0).map((f) => `${f.caseId}:${f.factor}`).sort().join('|');
+        if (combo.origin && !combo.origin.edited && sig(combo.factors) !== sig(data.factors)) combo.origin = { ...combo.origin, edited: true };
+        combo.factors = [...data.factors];
+      }
       if ('method' in data) { if (!data.method || data.method === 'linear') delete combo.method; else combo.method = data.method; }
     },
 
@@ -4113,6 +4150,8 @@ function createModelStore() {
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {
+      // A definition's load is in the definition's case (`removeLoad`).
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return;
       if (!_undoBatching) _pushUndo?.();
       const load = model.loads.find(l => l.data.id === loadId);
       if (load) (load.data as any).caseId = caseId;
@@ -4127,11 +4166,25 @@ function createModelStore() {
 
     // ─── 3D Analysis ──────────────────────────────────────────────
 
-    /** Build a SolverInput3D from the current model state. Returns null if model is empty. */
-    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean } = {}): SolverInput3D | null {
+    /**
+     * Build a SolverInput3D from the current model state. Returns null if model is empty.
+     *
+     * The input of the advanced analyses, the kinematic report and the instability's mechanism; the
+     * solves build their own. A case's imposed displacements (`engine/case-displacements.ts`) are
+     * left out unless `caseDisplacements`: on the supports they are every case's at once, which is
+     * what an analysis of the model's loads solves (P-Delta of every load, as the linear "All
+     * loads" solve takes them), and a settlement no case asked for in an eigen-analysis, a dynamic
+     * one or one that ignores the loads. `uncut`: no member cut for a load inside its span either
+     * (`engine/variable-members.ts`), for what names the model's nodes and members.
+     */
+    buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
+      // Loads that follow the model (floor-load definitions) brought up to date first, unless this is
+      // read inside a reactive computation, which must not write the model.
+      if (!$effect.tracking()) _beforeAnalysisInput?.();
+      const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
+          loads, materials: model.materials, sections: model.sections, analysis: analysisFor(!opts.basic), groups: model.groups,
           plates: model.plates, quads: model.quads,
           constraints: model.constraints, connectors: model.connectors },
         includeSelfWeight, leftHand, opts,
@@ -4600,6 +4653,22 @@ function createModelStore() {
       return count > 0 ? sumAngle / count : 0;
     },
   };
+}
+
+/**
+ * The existing case `ensureLoadCase` writes a planned case into, or none (it will be created): the
+ * one named by id, else, for a case of a group of the plan's own, one of its type and group under
+ * its name or a numbered one, else one of its type and name. Apart so the load plan's preview
+ * finds the same cases apply will write into (`apply-load-plan.ts`).
+ */
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives'>>(
+  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean } = {},
+): C | undefined {
+  const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
+  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId) : undefined)
+    ?? (opts.own
+      ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name))
+      : cases.find((c) => c.type === type && c.name === name));
 }
 
 export const modelStore = createModelStore();

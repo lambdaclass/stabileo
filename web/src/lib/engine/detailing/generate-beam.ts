@@ -47,7 +47,7 @@ import { minClearBetweenLayers, minClearSpacingInLayer } from '../../codes/cirso
 import { transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import {
   bendsWithoutLongitudinalBar, buildStirrupSet, seatedLongitudinalHalfExtents,
-  stirrupCentrelineHalfExtents, stirrupStations,
+  stirrupCentrelineHalfExtents, stirrupStations, StirrupClosureCache,
   type LongitudinalBarRef, type TransversePiece,
 } from '../../codes/cirsoc201/transverse-cage';
 import type { TopSteelPurpose } from './beam-top-steel';
@@ -70,6 +70,7 @@ export interface MomentStation {
 export type SupportKind = 'simple' | 'continuous' | 'free';
 
 export interface BeamGenerationInput {
+  closureCache?: StirrupClosureCache;
   elementId: number;
   /** Clear span, m. */
   L: number;
@@ -631,6 +632,7 @@ function shift(p: Point3, o: Point3): Point3 {
  * merged stirrup zones including any §9.7.3.5(c) cut-off zones.
  */
 export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
+  const closureCache = input.closureCache ?? new StirrupClosureCache();
   const trace: string[] = [];
   const unsupported: string[] = [];
   const cutoffs: Cutoff[] = [];
@@ -1206,6 +1208,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
       const barsHere = cageBars.filter(
         (cb) => cb.from <= station + 0.002 && cb.to >= station - 0.002);
       const set = buildStirrupSet({
+        closureCache,
         elementId: input.elementId, cageId, zoneId, station,
         b: input.b, h: input.h, cover: input.cover, stirrupDiaMm: z.diameterMm,
         legs: z.legs, longitudinalBars: barsHere,

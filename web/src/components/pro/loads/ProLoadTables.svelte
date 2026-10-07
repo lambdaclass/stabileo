@@ -9,15 +9,17 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { decimalOrKeep, parseDecimal } from '../../../lib/utils/numeric-input';
-  import { plainNumber, formatValue, type Quantity } from '../../../lib/utils/units';
+  import { plainNumber, type Quantity } from '../../../lib/utils/units';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from './QuantityInput.svelte';
   import { appliedResultant } from '../../../lib/engine/statics-check';
   import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
+  import { loadedLength } from '../../../lib/model/loads/load-stretch';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
   import type { GlobalAxis, SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
+  import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
 
   let scope = $state<'case' | 'all'>('case');
   const cases = $derived(modelStore.model.loadCases);
@@ -33,25 +35,45 @@
   /** The floor-load definition a load comes from, if any. */
   const fromDef = $derived(new Map(modelStore.loads.flatMap((l) => { const d = (l.data as { fromDef?: number }).fromDef; return d === undefined ? [] : [[l.data.id, d] as const]; })));
   const defOf = (id: number) => fromDef.get(id);
+  /** A definition by the name the floor-load list shows it with. */
+  const defName = (def: number) => definitionName(modelStore.model as unknown as DefinitionModel, def);
   const thermalQuad = $derived(of('thermalQuad3d'));
   const caseName = (id: number | undefined) => cases.find((c) => c.id === (id ?? 1))?.name ?? '—';
 
   /** The stored value, whole: two decimals showed 0,004 kN as 0,00 in a cell that edits it. */
   const fmt = (n: number | undefined, k = 1) => plainNumber((n ?? 0) * k, 6);
-  /** A cell typed: read by the app's one reader; unreadable text keeps the value, `k` the shown scale. */
+  /** Bumped when the store refuses an edit, so the refused cell reads the stored value again. */
+  let redraw = $state(0);
+  /** An edit the store refused (a load put off its member, `load-stretch.ts`): said, with the member's length. */
+  function refused(id: number) {
+    const elementId = (modelStore.loads.find((l) => l.data.id === id)?.data as { elementId?: number } | undefined)?.elementId;
+    if (elementId !== undefined) uiStore.toast(tp('loadTables.placeRefused', { L: plainNumber(loadedLength(modelStore.model as never, elementId), 3) }), 'error');
+  }
+  /**
+   * A cell typed: read by the app's one reader; unreadable text keeps the value, `k` the shown scale.
+   * An edit the store refuses (a point load's a off its member) keeps the value shown, too.
+   */
   function setNum(el: HTMLInputElement, id: number, key: string, previous: number | undefined, k = 1) {
     const prev = (previous ?? 0) * k;
     const v = decimalOrKeep(el.value, prev);
     el.value = plainNumber(v, 6);
-    if (v !== prev) modelStore.updateLoad(id, { [key]: v / k });
+    if (v !== prev && !modelStore.updateLoad(id, { [key]: v / k })) { el.value = plainNumber(prev, 6); refused(id); }
   }
-  /** A cell left with a value that reads (SI): written when it changed. */
+  /**
+   * A cell left with a value that reads (SI): written when it changed. An edit the store refuses (a
+   * point load's a off its member, `load-stretch.ts`) is said, and the cell shows the stored value again.
+   */
   function setSI(id: number, key: string, previous: number | undefined, si: number) {
-    if (si !== (previous ?? 0)) modelStore.updateLoad(id, { [key]: si });
+    if (si !== (previous ?? 0) && !modelStore.updateLoad(id, { [key]: si })) { refused(id); redraw++; }
   }
-  /** An a or b cell: empty is the member's end. */
+  /**
+   * An a or b cell: empty is the member's end. A stretch that would not go forward on the member
+   * (0 ≤ a < b ≤ L) changes nothing, is said, and the cell shows the stored value again: blanking
+   * it left the old stretch in place behind a cell that said the whole member.
+   */
   function setEnd(id: number, key: 'a' | 'b', elementId: number, si: number | null) {
-    modelStore.updateLoad(id, { [key]: si ?? (key === 'a' ? 0 : modelStore.getElementLength(elementId)) });
+    const v = si ?? (key === 'a' ? 0 : loadedLength(modelStore.model as never, elementId));
+    if (!modelStore.updateLoad(id, { [key]: v })) { refused(id); redraw++; }
   }
 
   function select(id: number, e: MouseEvent) {
@@ -85,16 +107,25 @@
     const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
     return ids.map((id) => ({ id, ...appliedResultant(m as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
   });
-  const F = (v: number) => formatValue(v, 'force', uiStore.unitSystem);
-  const M = (v: number) => formatValue(v, 'moment', uiStore.unitSystem);
+  // In the project's units and the reader's decimals, with the unit said: the cells are typed in SI
+  // and their headers say so, and a total in tf with no unit beside them read as kN.
+  const F = (v: number) => `${fmtQ(v, 'force')} ${unitQ('force')}`;
+  const M = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;
 
   // ── Operations on the selected loads ──
   const selected = $derived([...uiStore.selectedLoads].filter((id) => modelStore.loads.some((l) => l.data.id === id)));
   let toCase = $state<number | null>(null);
   let factorText = $state('1');
   const factor = $derived(parseDecimal(factorText));
-  const destination = $derived(toCase ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
-  function del(ids: number[]) { const own = ids.filter((id) => defOf(id) === undefined); removeLoads(own); for (const id of own) uiStore.deleteSelectedLoad(id); }
+  // A case chosen and then deleted is no destination: back to the default, never loads in no case.
+  const destination = $derived((toCase !== null && cases.some((c) => c.id === toCase) ? toCase : null)
+    ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
+  function del(ids: number[]) {
+    const own = ids.filter((id) => defOf(id) === undefined);
+    if (own.length < ids.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    removeLoads(own);
+    for (const id of own) uiStore.deleteSelectedLoad(id);
+  }
 </script>
 
 <div class="lt-bar">
@@ -123,7 +154,7 @@
 <!-- A load written by a floor-load definition is edited through it: it is rewritten from it. -->
 {#snippet x(id: number)}
   {@const def = defOf(id)}
-  {#if def !== undefined}<td class="col-def" title={tp('loads.surface.fromDef', { id: def })}>⟲ {def}</td>
+  {#if def !== undefined}<td class="col-def" title={tp('loads.surface.fromDef', { name: defName(def) })}>⟲ {defName(def)}</td>
   {:else}<td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); del([id]); }} aria-label={t('loadTables.delete')}>×</button></td>{/if}
 {/snippet}
 <!-- A cell in the display units of `q` (the column header says them); a strain in ‰. -->
@@ -132,7 +163,7 @@
     {#if defOf(id) !== undefined}<td class="col-num">{fmt(v, 1000)}</td>
     {:else}<td class="col-num"><input class="inp-cell" value={fmt(v, 1000)} onclick={(e) => e.stopPropagation()} onchange={(e) => setNum(e.currentTarget, id, key, v, 1000)} /></td>{/if}
   {:else if defOf(id) !== undefined}<td class="col-num">{fmtQ(v ?? 0, q)}</td>
-  {:else}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/if}
+  {:else}{#key redraw}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/key}{/if}
 {/snippet}
 
 <div class="pro-loads-table-wrap" data-testid="load-tables">
@@ -189,12 +220,20 @@
       {#each dist as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-dist-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
+          {#if defOf(l.data.id) !== undefined}
+            <!-- Read-only, as its values: a definition's load is changed through the definition. -->
+            <td>{t(`loads.frame.${l.data.frame ?? 'local'}`)}</td>
+            {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'], 'distributedLoad')}{/each}
+            <td class="col-num">{l.data.a !== undefined ? fmtQ(l.data.a, 'length') : ''}</td>
+            <td class="col-num">{l.data.b !== undefined ? fmtQ(l.data.b, 'length') : ''}</td>
+          {:else}
           <td><select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
             <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option><option value="projected">{t('loads.frame.projected')}</option>
           </select></td>
           {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'], 'distributedLoad')}{/each}
-          <td class="col-num"><QuantityInput value={l.data.a ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="0" onchange={(si) => setEnd(l.data.id, 'a', l.data.elementId, si)} testid="lt-dist-a" /></td>
-          <td class="col-num"><QuantityInput value={l.data.b ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="L" onchange={(si) => setEnd(l.data.id, 'b', l.data.elementId, si)} testid="lt-dist-b" /></td>
+          {#key redraw}<td class="col-num"><QuantityInput value={l.data.a ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="0" onchange={(si) => setEnd(l.data.id, 'a', l.data.elementId, si)} testid="lt-dist-a" /></td>
+          <td class="col-num"><QuantityInput value={l.data.b ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="L" onchange={(si) => setEnd(l.data.id, 'b', l.data.elementId, si)} testid="lt-dist-b" /></td>{/key}
+          {/if}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -255,7 +294,7 @@
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
           {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q, 'areaLoad')}{/if}
-          <td class="col-how">{surfaceHowText(d)}</td>{@render x(l.data.id)}
+          <td class="col-how">{surfaceHowText(d, defName)}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>

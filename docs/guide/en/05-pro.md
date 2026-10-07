@@ -518,7 +518,10 @@ speeds are typed in the project's display units.
 **Replace generated loads** acts per action: it removes the loads the generator wrote for the
 actions it regenerates and the combinations a code wrote. Loads and combinations typed by hand stay,
 and so do the cases of actions the plan does not touch. Every generated combination records the
-code, edition and rule it comes from; the design uses the strength ones.
+code, edition and rule it comes from; the design uses the strength ones. A load or combination you
+edit or copy becomes yours, and replace leaves it. In a project saved before loads were marked,
+the preview says how many unmarked loads and combinations sit in the cases the plan writes into,
+and offers to remove them as well; otherwise they stay and the plan is added beside them.
 
 ### Generators
 

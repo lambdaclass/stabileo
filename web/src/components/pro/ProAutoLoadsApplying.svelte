@@ -6,8 +6,7 @@
    */
   import { t } from '../../lib/i18n';
   import QuantityInput from './loads/QuantityInput.svelte';
-
-  export type GravityMode = 'panels' | 'width';
+  import type { GravityMode } from './auto-loads-sections';
   interface Props {
     mode: GravityMode;
     slab: 'twoWay' | 'oneWay';

@@ -41,7 +41,7 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
   for (const key of tupleFamilies) {
     if (!entries(value[key])) return null;
   }
-  // Groups travel only in the legacy format; restore() maps them the same way.
+  // Groups travel in the legacy format and, since schema 6, in the compact one (`gr`).
   for (const key of ['plates', 'quads', 'connectors', 'groups'] as const) {
     if (value[key] !== undefined && !entries(value[key])) return null;
   }

@@ -1,16 +1,6 @@
 <script lang="ts" module>
-  export interface SpecialLoadsConfig {
-    thermal: { on: boolean; dt: number; grad: number };
-    /** `side`: a plan point in the retained soil; off, the side is read off the plan (`special-loads.ts`). */
-    soil: { on: boolean; gradeZ: number; gamma: number; k: number; surcharge: number; permanent: boolean; sideOn: boolean; sideX: number; sideY: number };
-    /** `inside`: a plan point inside the fluid; off, the walls that close a region in. */
-    fluid: { on: boolean; levelZ: number; gamma: number; insideOn: boolean; insideX: number; insideY: number };
-  }
-  export const defaultSpecialLoads = (): SpecialLoadsConfig => ({
-    thermal: { on: false, dt: 20, grad: 0 },
-    soil: { on: false, gradeZ: 0, gamma: 17.3, k: 0.5, surcharge: 0, permanent: true, sideOn: false, sideX: 0, sideY: 0 },
-    fluid: { on: false, levelZ: 3, gamma: 10, insideOn: false, insideX: 0, insideY: 0 },
-  });
+  // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
+  import type { SpecialLoadsConfig } from './auto-loads-sections';
   /** CIRSOC 101-2025 Tabla 3.2, soil unit weights, kN/m³. */
   export const SOIL_WEIGHTS: ReadonlyArray<{ key: string; gamma: number }> = [
     { key: 'clayDry', gamma: 9.9 }, { key: 'clayWet', gamma: 17.3 }, { key: 'clayGravelDry', gamma: 15.7 },

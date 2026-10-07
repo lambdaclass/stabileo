@@ -27,15 +27,18 @@
  * A panel that is not convex, or that holds a closed ring of beams not connected to it (a framed
  * opening, an island), is shared by the straight skeleton (`floor-skeleton.ts`): on a convex
  * panel the same 45° pattern, around a re-entrant corner the corner's bisector. The ring's beams
- * take the ring panel's share, and the ring's own panel is loaded once, by itself. A zone limits
- * the load to its outline less its openings (`floor-tributary.ts`). Beams that cross in plan
- * without a shared node invalidate their connected components, which are reported and not loaded.
+ * take the ring panel's share, and the ring's own panel is loaded once, by itself. A ring tied to
+ * the panel by a single member is an opening all the same: the tie lies in the panel and takes
+ * none of its load, which spans past it to the sides around. A zone limits the load to its
+ * outline less its openings (`floor-tributary.ts`). Beams that cross in plan without a shared
+ * node invalidate their connected components, which are reported and not loaded.
  *
  * ── The plane ─────────────────────────────────────────────────────
  *
  * A level's beams lie in a horizontal plane. Beams that all lie in one inclined plane (a ramp, a
  * sloped roof) are a floor too: the panels are found in that plane and the load is vertical, per
- * true area, or per plan area when asked (q times the cosine of the slope).
+ * true area, or per plan area when asked (q times the cosine of the slope). Vertical on an
+ * inclined member too: part of it along the member's axis (qX), part across it.
  *
  * Pure: no store.
  */
@@ -82,16 +85,29 @@ export interface FloorMemberLoad {
   /** kN/m, downward, at a and b. */
   qI: number;
   qJ: number;
-  /** The same load in the member's local axes, as `distributed3d` stores it. */
-  qYI: number; qYJ: number; qZI: number; qZJ: number;
+  /**
+   * The same load in the member's local axes, as `distributed3d` stores it: along the member's
+   * axis too (qX) on an inclined member, so the load stays vertical.
+   */
+  qXI: number; qXJ: number; qYI: number; qYJ: number; qZI: number; qZJ: number;
 }
 
 export interface FloorPanel {
   polygon: P2[];
   area: number;
   loaded: boolean;
-  /** The members along its sides and its openings' sides. */
+  /**
+   * The members along its sides and its openings' sides, and the members that tie an opening to
+   * them: every one, a second member between the same two nodes and a stub lying along a side
+   * included, though the plane graph keeps one member per pair of nodes and loads only that one.
+   */
   members?: number[];
+  /**
+   * A loaded panel's own part of the result: what it alone puts on its members, for a caller that
+   * takes panels one by one (`plan-gravity.ts`). An opening's ring is a panel of its own, so the
+   * ring's area is in its own part, never in the part of the panel around it.
+   */
+  own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number };
   reason?: 'crossing' | 'zoneAcrossSpan' | 'unresolved';
 }
 
@@ -171,7 +187,10 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   const spanAxis: P3 = input.spanAxis === 'y' ? [0, 1, 0] : [1, 0, 0];
   const spanDir = ((): P2 => { const d = plane ? [dot3(spanAxis, plane.e1), dot3(spanAxis, plane.e2)] : [spanAxis[0], spanAxis[1]]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l]; })();
   const beamById = new Map(beams.map((b) => [b.id, b]));
-  const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number }>>();
+  /** Pieces of load per member, each with the panel it comes from. */
+  const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number; panel: number }>>();
+  /** The panel each nodal load comes from. */
+  const nodalPanel: number[] = [];
 
   // ── Crossings without a node ──
   const crossed = new Set<number>();
@@ -258,40 +277,51 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
     faces.push(cycle);
   }
 
-  // The outer boundary of each piece of the graph (its face of negative area), and the panel
-  // each lies in: the smallest panel of another piece around its first node.
-  const outerOf = new Map<number, number[]>();
-  const panelsFound: Array<{ cycle: number[]; poly: P2[]; area: number }> = [];
-  for (const cycle of faces) {
-    const poly = cycle.map(xy);
-    const area = signedArea(poly);
+  // The outer boundaries of each piece of the graph (its face of negative area), and the panel
+  // each lies in: the smallest panel of another piece around its first node. A face that runs
+  // along a member both ways has a bridge, a member that ties an opening (or an island) to the
+  // panel around it: without its bridges the face is the panel's outline and its openings, and it
+  // is loaded as such. It used to be skipped, and the panel's whole load with it.
+  const elementOf = (p: number, q: number) => adj.get(p)!.get(q)!;
+  const outerOf = new Map<number, number[][]>();
+  const panelsFound: Array<{ face: number[]; cycle: number[]; poly: P2[]; area: number; inner: number[][]; ties: number[] }> = [];
+  for (const face of faces) {
+    const area = signedArea(face.map(xy));
+    if (Math.abs(area) <= EPS) continue;
+    const { walks, ties } = splitAtBridges(face, elementOf);
+    const loops = walks.map((cycle) => ({ cycle, poly: cycle.map(xy) })).map((l) => ({ ...l, area: signedArea(l.poly) }))
+      .filter((l) => l.cycle.length >= 3 && Math.abs(l.area) > EPS);
     if (area > EPS) {
-      // A face that runs along an edge both ways is a bridge between two panels, not a panel.
-      const keys = cycle.map((n, i) => { const q = cycle[(i + 1) % cycle.length]!; return n < q ? `${n}-${q}` : `${q}-${n}`; });
-      if (new Set(keys).size < keys.length) continue;
-      panelsFound.push({ cycle, poly, area });
-    } else if (area < -EPS) outerOf.set(component.get(cycle[0]!)!, cycle);
+      const outer = loops.filter((l) => l.area > 0);
+      if (outer.length !== 1) continue;
+      panelsFound.push({ face, ...outer[0]!, inner: loops.filter((l) => l.area < 0).map((l) => l.cycle), ties });
+    } else {
+      const c = component.get(face[0]!)!;
+      outerOf.set(c, [...(outerOf.get(c) ?? []), ...loops.filter((l) => l.area < 0).map((l) => l.cycle)]);
+    }
   }
   const holesOf = new Map<number, number[][]>();
   for (const [c, n] of representative) {
     const outer = outerOf.get(c);
-    if (!outer) continue;
+    if (!outer?.length) continue;
     let best = -1;
     panelsFound.forEach((pf, k) => {
       if (component.get(pf.cycle[0]!) === c || !insidePolygon(xy(n), pf.poly)) return;
       if (best < 0 || pf.area < panelsFound[best]!.area) best = k;
     });
-    if (best >= 0) (holesOf.get(best) ?? holesOf.set(best, []).get(best)!).push(outer);
+    if (best >= 0) (holesOf.get(best) ?? holesOf.set(best, []).get(best)!).push(...outer);
   }
+  /** Every member of the plane, in plane coordinates, for the members along a panel's sides. */
+  const beamsXY = beams.map((b) => ({ id: b.id, p: xy(b.nodeI), q: xy(b.nodeJ) }));
 
-  panelsFound.forEach(({ cycle, poly, area }, k) => {
-    const sides = mergeSides(cycle, poly, (p, q) => adj.get(p)!.get(q)!, (e, p) => beamById.get(e)!.nodeI === p);
-    const holeCycles = holesOf.get(k) ?? [];
+  panelsFound.forEach(({ face, cycle, poly, area, inner, ties }, k) => {
+    const sides = mergeSides(cycle, poly, elementOf, (e, p) => beamById.get(e)!.nodeI === p);
+    const holeCycles = [...inner, ...(holesOf.get(k) ?? [])];
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
     res.panels.push(panel);
-    if (cycle.some((n) => invalid.has(n))) { panel.reason = 'crossing'; return; }
+    if (face.some((n) => invalid.has(n))) { panel.reason = 'crossing'; return; }
     if (holeCycles.some((h) => h.some((n) => invalid.has(n)))) { panel.reason = 'crossing'; return; }
-    const holes = holeCycles.map((h) => mergeSides(h, h.map(xy), (p, q) => adj.get(p)!.get(q)!, (e, p) => beamById.get(e)!.nodeI === p));
+    const holes = holeCycles.map((h) => mergeSides(h, h.map(xy), elementOf, (e, p) => beamById.get(e)!.nodeI === p));
     // Shares at unit load: the area each side takes, scaled by q when written.
     const shares: SideShare[] | null = input.distribution === 'oneWay'
       ? oneWayShares(sides, holes, spanDir, 1, zone)
@@ -302,24 +332,30 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       return;
     }
     const all = [...sides, ...holes.flat()];
-    panel.members = [...new Set(all.flatMap((sd) => sd.segments.map((g) => g.elementId)))];
+    // The members along its sides: those the graph kept, and any other lying on a side (a second
+    // member between two nodes, a stub along a side), which the panel loads through the first.
+    const onSides = (p: P2) => all.some((sd) => nearSegment(p, sd.a, sd.b, tol));
+    const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
+    panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
     let carried = 0;
     all.forEach((side, i) => {
       const sh = shares[i]!;
-      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
+      for (const pc of sh.pieces) { emit(side, { ...pc, q0: pc.q0 * qEff, q1: pc.q1 * qEff }, k); carried += (pc.q0 + pc.q1) / 2 * (pc.s1 - pc.s0); }
       for (const [node, a, seg] of [[side.nodeA, sh.atA, side.segments[0]!], [side.nodeB, sh.atB, side.segments[side.segments.length - 1]!]] as const) {
         if (Math.abs(a) < 1e-12) continue;
         res.nodal.push({ nodeId: node, fz: -qEff * a, elementId: seg.elementId });
+        nodalPanel.push(k);
         res.totalKN += qEff * a;
         carried += a;
       }
     });
     if (carried <= 1e-12) return;
     panel.loaded = true;
+    panel.own = { loads: [], nodal: res.nodal.filter((_, i) => nodalPanel[i] === k), perBeam: new Map(), area: carried };
     res.loadedArea += carried;
   });
 
-  function emit(side: Side, pc: Piece) {
+  function emit(side: Side, pc: Piece, panel: number) {
     for (const seg of side.segments) {
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
       if (s1 - s0 < 1e-6) continue;
@@ -329,15 +365,16 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       // Along the member, from node I.
       const [a, b, qa, qb] = seg.forward ? [s0 - seg.s0, s1 - seg.s0, q0, q1] : [seg.s1 - s1, seg.s1 - s0, q1, q0];
       if (Math.abs(qa) < 1e-12 && Math.abs(qb) < 1e-12) continue;
-      addLoad(seg.elementId, a, b, qa, qb, len);
+      addLoad(seg.elementId, a, b, qa, qb, len, panel);
     }
   }
 
-  function addLoad(elementId: number, a: number, b: number, qa: number, qb: number, len: number) {
-    (raw.get(elementId) ?? raw.set(elementId, []).get(elementId)!).push({ a, b, qa, qb, len });
+  function addLoad(elementId: number, a: number, b: number, qa: number, qb: number, len: number, panel: number) {
+    (raw.get(elementId) ?? raw.set(elementId, []).get(elementId)!).push({ a, b, qa, qb, len, panel });
   }
 
-  for (const [elementId, list] of raw) {
+  /** A member's pieces as loads in its local axes, and the kN they add up to. */
+  const asLoads = (elementId: number, list: Array<{ a: number; b: number; qa: number; qb: number; len: number }>): { loads: FloorMemberLoad[]; total: number } => {
     const beam = beamById.get(elementId)!;
     const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
     const axes = computeLocalAxes3D(
@@ -346,23 +383,73 @@ export function floorLoad(input: FloorLoadInput): FloorLoadResult {
       (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,
     );
     const ySign = input.leftHand ? -1 : 1;
-    // Downward load q along −Z, in local components.
-    const fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
+    // Downward load q along −Z, in local components: on an inclined member the part along its axis
+    // too, or the load the member receives would not be vertical, nor add up to q times the area.
+    const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
+    const loads: FloorMemberLoad[] = [];
     let total = 0;
     for (const p of mergePieces(list)) {
       const full = p.a < 1e-6 && p.b > p.len - 1e-6;
-      res.loads.push({
+      loads.push({
         elementId,
         ...(full ? {} : { a: round(p.a), b: round(p.b) }),
         qI: round(p.qa), qJ: round(p.qb),
+        qXI: round(fx * p.qa), qXJ: round(fx * p.qb),
         qYI: round(fy * p.qa), qYJ: round(fy * p.qb), qZI: round(fz * p.qa), qZJ: round(fz * p.qb),
       });
       total += ((p.qa + p.qb) / 2) * (p.b - p.a);
     }
+    return { loads, total };
+  };
+
+  for (const [elementId, list] of raw) {
+    const { loads, total } = asLoads(elementId, list);
+    res.loads.push(...loads);
     res.perBeam.set(elementId, total);
     res.totalKN += total;
   }
+  // Each loaded panel's own part, from its own pieces alone.
+  res.panels.forEach((panel, k) => {
+    if (!panel.own) return;
+    for (const [elementId, list] of raw) {
+      const mine = list.filter((p) => p.panel === k);
+      if (!mine.length) continue;
+      const { loads, total } = asLoads(elementId, mine);
+      panel.own.loads.push(...loads);
+      panel.own.perBeam.set(elementId, total);
+    }
+  });
   return res;
+}
+
+/**
+ * A face's closed walk without its bridges (members it runs along both ways): the walks they
+ * joined, and the bridges' members. A face's walk crosses each bridge out and back with what
+ * hangs on it in between, so the bridges nest like brackets, wherever the walk starts.
+ */
+function splitAtBridges(face: number[], elementOf: (p: number, q: number) => number): { walks: number[][]; ties: number[] } {
+  const m = face.length;
+  const key = (i: number) => { const p = face[i]!, q = face[(i + 1) % m]!; return p < q ? `${p}-${q}` : `${q}-${p}`; };
+  const count = new Map<string, number>();
+  for (let i = 0; i < m; i++) count.set(key(i), (count.get(key(i)) ?? 0) + 1);
+  if (count.size === m) return { walks: [face], ties: [] };
+  const walks: number[][] = [], stack: number[][] = [], open = new Set<string>(), ties = new Set<number>();
+  let cur: number[] = [];
+  for (let i = 0; i < m; i++) {
+    const k = key(i);
+    if (count.get(k)! < 2) { cur.push(face[i]!); continue; }
+    ties.add(elementOf(face[i]!, face[(i + 1) % m]!));
+    if (!open.has(k)) { open.add(k); stack.push(cur); cur = []; } else { walks.push(cur); cur = stack.pop() ?? []; }
+  }
+  walks.push(cur);
+  return { walks: walks.filter((w) => w.length > 0), ties: [...ties] };
+}
+
+function nearSegment(p: P2, a: P2, b: P2, tol: number): boolean {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L2 = dx * dx + dy * dy;
+  const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
 }
 
 // ─── Geometry ─────────────────────────────────────────────────────

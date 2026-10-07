@@ -12,7 +12,7 @@
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { sortedLevels } from '../../lib/model/grid';
-  import { expandDefinition, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
+  import { expandDefinition, zoneChanged, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
@@ -54,15 +54,27 @@
     if (caseId === null || !cases.some((c) => c.id === caseId)) caseId = (cases.find((c) => c.type === 'L') ?? cases[0])?.id ?? null;
   });
 
-  const pair = (x: number | null, y: number | null): [number, number] | undefined => (x !== null && y !== null ? [x, y] : undefined);
-  const target = $derived.by((): FloorTarget => {
+  /**
+   * The box, on the SI values its fields hold: an axis bounded on both sides, or on neither. Null
+   * for an axis bounded on one side only, which the panel says (`rangeTarget` reads the same rule
+   * from text).
+   */
+  function rangeOf(r: typeof range): FloorTarget | null {
+    const out: Extract<FloorTarget, { by: 'range' }> = { by: 'range' };
+    for (const a of ['x', 'y', 'z'] as const) {
+      const v0 = r[`${a}0`], v1 = r[`${a}1`];
+      if (v0 === null && v1 === null) continue;
+      if (v0 === null || v1 === null) return null;
+      out[a] = [v0, v1];
+    }
+    return out;
+  }
+  /** Null for a box with an axis bounded on one side only (`rangeOf`). */
+  const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
-    if (targetKey === 'range') {
-      const x = pair(range.x0, range.x1), y = pair(range.y0, range.y1), z = pair(range.z0, range.z1);
-      return { by: 'range', ...(x ? { x } : {}), ...(y ? { y } : {}), ...(z ? { z } : {}) };
-    }
+    if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
   });
   const own = $derived(targetKey === 'sel' ? {
@@ -70,7 +82,7 @@
     quads: [...uiStore.selectedShells].filter((k) => k[0] === 'q').map((k) => Number(k.slice(1))),
     plates: [...uiStore.selectedShells].filter((k) => k[0] === 'p').map((k) => Number(k.slice(1))),
   } : {});
-  const def = $derived<FloorLoadDef | null>(caseId === null ? null : {
+  const def = $derived<FloorLoadDef | null>(caseId === null || target === null ? null : {
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
   const preview = $derived(def && q !== 0
@@ -88,6 +100,7 @@
 
   // ── The definitions ──
   const defs = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad'));
+  // Shared with the rewrite after each edit (`expandDefinitions` keeps it until the model changes).
   const expanded = $derived.by(() => { void modelStore.modelVersion; return new Map(expandDefinitions().map((e) => [e.defId, e])); });
   const caseName = (id: number) => modelStore.model.loadCases.find((c) => c.id === id)?.name ?? '—';
   function targetText(d: FloorLoadDef): string {
@@ -154,6 +167,7 @@
   </div>
   <label class="fl-check"><input type="checkbox" bind:checked={perPlanArea} data-testid="fl-plan-area" /> {t('floorLoad.perPlanArea')}</label>
   {#if q < 0}<p class="fl-hint">{t('floorLoad.suction')}</p>{/if}
+  {#if target === null}<p class="fl-warn" data-testid="fl-range-invalid">{t('floorLoad.rangeInvalid')}</p>{/if}
 
   {#if result}
     {#if view}
@@ -199,7 +213,7 @@
           <tr data-testid="fl-def-row">
             <td>{g.name}</td><td>{caseName(d.caseId)}</td><td class="fl-n">{fmtQ(d.q, 'areaLoad')}</td><td>{targetText(d)}</td>
             <td>{t(d.distribution === 'slab' ? 'floorLoad.slab' : d.distribution === 'oneWay' ? 'floorLoad.oneWay' : 'floorLoad.twoWay')}</td>
-            <td class="fl-n">{e && Number.isFinite(e.totalKN) ? e.totalKN.toFixed(1) : '—'}{#if e?.problem} <span class="fl-warn-inline" title={t(`floorLoad.problem.${e.problem}`)}>!</span>{/if}</td>
+            <td class="fl-n">{e && Number.isFinite(e.totalKN) ? e.totalKN.toFixed(1) : '—'}{#if e?.problem} <span class="fl-warn-inline" title={t(`floorLoad.problem.${e.problem}`)}>!</span>{:else if d.target.by === 'zone' && zoneChanged(modelStore.model as unknown as DefinitionModel, d.target.zoneId)} <span class="fl-warn-inline" title={t('loadZone.changed')}>!</span>{/if}</td>
             <td><button class="pro-delete-btn" onclick={() => removeFloorLoadDef(g.id)} aria-label={t('loadTables.delete')} data-testid="fl-def-delete">×</button></td>
           </tr>
         {/each}

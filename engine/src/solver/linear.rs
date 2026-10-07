@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use crate::types::*;
 use crate::linalg::*;
 use crate::element;
@@ -440,7 +441,7 @@ enum FactorizedKff {
 /// the structure, not on the loads. Build once with `prepare_static_2d`, then
 /// solve any number of load sets with `solve_loads`.
 pub struct PreparedStatic2D<'a> {
-    input: &'a SolverInput,
+    input: Cow<'a, SolverInput>,
     dof_num: DofNumbering,
     n: usize,
     nf: usize,
@@ -724,7 +725,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         };
 
         return Ok(PreparedStatic2D {
-            input,
+            input: Cow::Borrowed(input),
             dof_num,
             n,
             nf,
@@ -759,7 +760,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 vec![0.0; nf]
             };
             return Ok(PreparedStatic2D {
-                input,
+                input: Cow::Borrowed(input),
                 dof_num,
                 n,
                 nf,
@@ -803,7 +804,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     vec![0.0; nf]
                 };
                 return Ok(PreparedStatic2D {
-                    input,
+                    input: Cow::Borrowed(input),
                     dof_num,
                     n,
                     nf,
@@ -840,7 +841,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 let piv = lu_factor(&mut lu, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
                 return Ok(PreparedStatic2D {
-                    input,
+                    input: Cow::Borrowed(input),
                     dof_num,
                     n,
                     nf,
@@ -908,7 +909,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     };
 
     Ok(PreparedStatic2D {
-        input,
+        input: Cow::Borrowed(input),
         dof_num,
         n,
         nf,
@@ -924,14 +925,30 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 }
 
 impl PreparedStatic2D<'_> {
+    /// Own the model for a session that outlives the constructor's input buffer.
+    pub fn into_owned(self) -> PreparedStatic2D<'static> {
+        PreparedStatic2D {
+            input: Cow::Owned(self.input.into_owned()),
+            dof_num: self.dof_num,
+            n: self.n,
+            nf: self.nf,
+            nr: self.nr,
+            u_r: self.u_r,
+            pre_solve_diags: self.pre_solve_diags,
+            artificial_dofs: self.artificial_dofs,
+            inclined_transforms_2d: self.inclined_transforms_2d,
+            path: self.path,
+        }
+    }
+
     /// Solve the prepared 2D structure for one load set. Rebuilds only the
     /// load vector (prescribed-displacement coupling included), reuses the
     /// stored factorization, then runs the same postprocessing as `solve_2d`.
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         // Per-case load validation (the structure was validated in prepare)
-        validate_loads_2d(self.input, loads)?;
+        validate_loads_2d(&self.input, loads)?;
 
-        let input = self.input;
+        let input = &*self.input;
         let dof_num = &self.dof_num;
         let (n, nf, nr) = (self.n, self.nf, self.nr);
         let f = assemble_load_vector_2d(input, loads, dof_num, &self.inclined_transforms_2d);

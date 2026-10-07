@@ -121,6 +121,11 @@ export interface SolverNodalLoad3D {
    * The engine ignores it; `axial-shares.ts` gives it back to the member's end forces.
    */
   axialOf?: { elementId: number; end: 'i' | 'j'; p: number };
+  /**
+   * A tendon's anchor in this member (`prestress.ts`): the member's own load, which leaves with it
+   * when the active-set loop takes a one-way member out. The engine ignores it.
+   */
+  tendonOf?: number;
 }
 
 export interface SolverDistributedLoad3D {

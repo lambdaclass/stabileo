@@ -18,7 +18,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { drawState } from '../../../lib/store/draw-state.svelte';
-  import { resolveTargets, type TargetEntity } from '../../../lib/model/loads/load-targets';
+  import { resolveTargets, targetModes, keepTargetMode, type TargetEntity } from '../../../lib/model/loads/load-targets';
   import { orderedChain } from '../../../lib/model/loads/member-load-tools';
   import QuantityInput from './QuantityInput.svelte';
 
@@ -35,12 +35,11 @@
   let { entity, allowChain = false, allowAll = false, spec = $bindable(), summary = $bindable() }: Props = $props();
 
   type By = PickedSpec['by'];
-  const modes = $derived<By[]>([
-    ...(allowAll ? ['all' as const] : []),
-    ...(entity === 'members' ? ['selection', 'ids', 'group', 'range', 'section', 'kind', ...(allowChain ? ['chain' as const] : [])] as By[]
-      : ['selection', 'ids', 'group', 'range'] as By[]),
-  ]);
+  const modes = $derived<By[]>([...(allowAll ? ['all' as const] : []), ...targetModes(entity, allowChain)]);
   let by = $state<By>(spec.by);
+  // A choice the new kind of load does not offer (a section for a nodal load) goes back to the
+  // selection, so the select shows what the loads go on.
+  $effect.pre(() => { const kept = keepTargetMode(by, modes); if (kept !== by) by = kept; });
   let idsText = $state('');
   let groupId = $state<number | null>(null);
   let axis = $state<'X' | 'Y' | 'Z'>('Z');
@@ -55,7 +54,7 @@
 
   /** The spec, from the fields alone: written out, never read back, so it cannot loop. */
   $effect(() => {
-    const mode: By = modes.includes(by) ? by : modes[0]!;
+    const mode: By = keepTargetMode(by, modes);
     switch (mode) {
       case 'all': case 'selection': case 'chain': spec = { by: mode }; break;
       case 'ids': spec = { by: 'ids', text: idsText }; break;

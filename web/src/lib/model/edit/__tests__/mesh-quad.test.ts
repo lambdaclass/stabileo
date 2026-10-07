@@ -10,6 +10,8 @@ import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
 import '../../../store/index';
 import { meshQuad } from '../mesh-region';
+import { addLoads } from '../../../store/load-ops';
+import { serializeProject, deserializeProject } from '../../../store/file';
 
 beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
@@ -74,5 +76,25 @@ describe('meshing a quad in its place', () => {
     expect(meshQuad(q, { density: { mode: 'targetSize', size: 1 }, splitBeams: true })).toEqual({ refused: 'occupied' });
     expect(modelStore.quads.has(q)).toBe(true);
     expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(1);
+  });
+});
+
+describe('a triangle numbered as the quad', () => {
+  // Quads and triangles number from 1 each: quad 1 and plate 1 are two shells.
+  it('keeps the triangle\'s loads on the triangle, and the project reopens', () => {
+    const q = slab();
+    const t = modelStore.addPlate([modelStore.addNode(10, 0, 3), modelStore.addNode(12, 0, 3), modelStore.addNode(10, 2, 3)], 1, 0.2);
+    expect(t).toBe(q);
+    modelStore.addSurfaceLoad3D(t, -3, 1, { on: 'plate' });
+    addLoads([{ type: 'thermalQuad3d', data: { id: 0, quadId: t, on: 'plate', dtUniform: 15, dtGradient: 0, caseId: 1 } }]);
+    modelStore.addSurfaceLoad3D(q, -5, 1);
+    const r = meshQuad(q, { density: { mode: 'fixedDivisions', nx: 2, ny: 2 }, splitBeams: true });
+    if (!r || 'refused' in r) throw new Error('refused');
+    expect(r.carriedLoads).toBe(1);
+    const shellLoads = modelStore.loads.flatMap((l) => (l.type === 'surface3d' || l.type === 'thermalQuad3d' ? [{ type: l.type, ...l.data }] : []));
+    expect(shellLoads.filter((l) => l.on === 'plate').map((l) => l.quadId)).toEqual([t, t]);
+    expect(shellLoads.filter((l) => l.type === 'thermalQuad3d' && !l.on)).toHaveLength(0);
+    expect(shellLoads.filter((l) => !l.on).map((l) => l.quadId).sort()).toEqual([...r.quads].sort());
+    expect(deserializeProject(serializeProject())).toBe(true);
   });
 });

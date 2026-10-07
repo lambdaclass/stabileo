@@ -112,3 +112,23 @@ describe('edits whose arguments were read before the rewrite', () => {
     expect(JSON.stringify(modelStore.model.loads)).toBe(loads);
   });
 });
+
+describe('a member temperature through the rewrite', () => {
+  it('stays the load it was: its gradient and its strain, under its own id', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed');
+    const id = modelStore.addLoadEntry({ type: 'thermal', data: { id: 0, elementId: e, dtUniform: 5, dtGradient: 20, strain: 1e-3 } });
+    uiStore.analysisMode = '3d';
+    const before = modelStore.solve3D(false, false, false) as unknown as { displacements: Array<{ nodeId: number; ux: number; uz: number }> };
+    expect(modelStore.ensureSpaceCoordinates()).toBe(true);
+    const thermal = modelStore.model.loads.filter((l) => l.type === 'thermal');
+    expect(thermal).toHaveLength(1);
+    expect(thermal[0]!.data).toMatchObject({ id, elementId: e, dtUniform: 5, dtGradient: 20, strain: 1e-3 });
+    // And the structure does what it did: the tip lengthens and bends the same.
+    const after = modelStore.solve3D(false, false, false) as unknown as typeof before;
+    const tip = (r: typeof before) => r.displacements.find((d) => d.nodeId === b)!;
+    expect(tip(after).ux).toBeCloseTo(tip(before).ux, 9);
+    expect(tip(after).uz).toBeCloseTo(tip(before).uz, 9);
+  });
+});

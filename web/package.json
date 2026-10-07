@@ -24,6 +24,10 @@
     "test:unit": "vitest run --project unit",
     "test:build": "vitest run --project build",
     "bench:wasm-boundary": "node scripts/bench-wasm-boundary.mjs",
+    "bench:kernels": "node scripts/bench-design.mjs --kernels",
+    "bench:numerical": "node scripts/bench-design.mjs --numerical",
+    "bench:design": "node scripts/bench-design.mjs",
+    "bench:collision-worker": "node scripts/bench-collision-worker.mjs",
     "build:only": "vite build",
     "prerender": "npx tsx scripts/prerender.ts"
   },

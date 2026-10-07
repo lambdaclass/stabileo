@@ -13,21 +13,23 @@
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
-  import ProDeadLoadBuilder, { type DeadRow } from './ProDeadLoadBuilder.svelte';
+  import ProDeadLoadBuilder from './ProDeadLoadBuilder.svelte';
+  import type { ComboSource, DeadRow, GravityMode } from './auto-loads-sections';
   import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
   import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
-  import { WIND_DIRECTIONS, type WindCaseSet, type WindDirection } from '../../lib/engine/loads/wind-cases';
+  import type { WindCaseSet, WindDirection } from '../../lib/engine/loads/wind-cases';
   import ProWindCasesPanel from './ProWindCasesPanel.svelte';
   import ProSnowSection from './ProSnowSection.svelte';
   import ProWindCladding from './ProWindCladding.svelte';
-  import ProAutoLoadsCombos, { type ComboSource } from './ProAutoLoadsCombos.svelte';
-  import ProAutoLoadsApplying, { type GravityMode } from './ProAutoLoadsApplying.svelte';
-  import ProRoofLoadSection, { defaultRoofConfig, roofLrRange } from './ProRoofLoadSection.svelte';
-  import ProSeismicMethod, { defaultSeismicMethod } from './ProSeismicMethod.svelte';
-  import ProWindStructure, { defaultWindStructure } from './ProWindStructure.svelte';
-  import ProSpecialLoadsSection, { defaultSpecialLoads } from './ProSpecialLoadsSection.svelte';
+  import ProAutoLoadsCombos from './ProAutoLoadsCombos.svelte';
+  import ProAutoLoadsApplying from './ProAutoLoadsApplying.svelte';
+  import ProRoofLoadSection, { roofLrRange } from './ProRoofLoadSection.svelte';
+  import ProSeismicMethod from './ProSeismicMethod.svelte';
+  import ProWindStructure from './ProWindStructure.svelte';
+  import ProSpecialLoadsSection from './ProSpecialLoadsSection.svelte';
   import { modesForPlan, windFrequenciesForPlan } from '../../lib/store/seismic-modes';
   import ProWindDynamics from './ProWindDynamics.svelte';
+  import { autoLoadsDefaults, autoLoadsMemory } from './auto-loads-memory';
   import QuantityInput from './loads/QuantityInput.svelte';
   import ProActionRegion from './loads/ProActionRegion.svelte';
   import ProfileChart from './loads/ProfileChart.svelte';
@@ -35,10 +37,10 @@
   import { regionNodes, regionMembers, type ActionRegion } from '../../lib/model/loads/region-nodes';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { loadCodeFor } from '../../lib/codes/families';
-  import { DEFAULT_WIND_DYNAMICS, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
-  import { applyLoadPlan } from '../../lib/store/apply-load-plan';
+  import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
+  import { applyLoadPlan, loadStateForPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
-  import { defaultSnowConfig, snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
+  import { snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { allOptionsForRole, bindingLabel, optionIsAvailable, optionLabel } from '../../lib/codes/roles';
@@ -87,18 +89,12 @@
    * 0,8, ceiling 0,3, services 0,3, partitions 1,0 — none of which came from anywhere.
    * The build-up is assembled from the table now; see `ProDeadLoadBuilder`.
    *
-   * The default is a real build-up rather than an empty list, because an empty one is a
-   * dialog that cannot produce a dead load until the reader has read a table they have
-   * not opened yet: 8 cm of cement screed, a ceramic tile, a suspended ceiling, and a
-   * plasterboard partition allowance. Every one of those four is a Tabla 3.1 row, and
-   * each can be removed.
+   * Every value below starts from `autoLoadsDefaults` (`auto-loads-memory.ts`), the one
+   * place the dialog's defaults are written, and each opening sets them all again from what the
+   * project saved (`restoreFromRoles`).
    */
-  let deadRows = $state<DeadRow[]>([
-    { entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false },
-    { entryKey: 'piso_baldosa_ceramica', thickness: 0, onBattens: false, q: 0, isPartition: false },
-    { entryKey: 'cielo_acustico', thickness: 0, onBattens: false, q: 0, isPartition: false },
-    { entryKey: 'tab_yeso_doble', thickness: 0, onBattens: false, q: 0, isPartition: true },
-  ]);
+  const start = autoLoadsDefaults();
+  let deadRows = $state<DeadRow[]>(start.deadRows);
 
   /** One row's contribution, resolved the same way the builder resolves it. */
   function rowLoad(row: DeadRow): { labelKey: string; q: number } {
@@ -112,21 +108,21 @@
   const totalDead = $derived(deadComponents.reduce((s, c) => s + c.q, 0));
 
   // ─── Live load config ──────────────────
-  let selectedOccupancy = $state('vivienda');
+  let selectedOccupancy = $state(start.selectedOccupancy);
   const occupancyEntry = $derived(OCCUPANCY_TABLE_2025.find(o => o.key === selectedOccupancy));
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
   // §4.7.2 reduction inputs — a real code feature the legacy path did not have at all.
-  let applyLiveReduction = $state(true);
-  let reductionElementKind = $state<ElementKind>('interiorBeam');
-  let floorsSupported = $state(1);
-  let tributaryWidth = $state(3.0);
-  let gravityMode = $state<GravityMode>('panels');
-  let roofCfg = $state(defaultRoofConfig());
+  let applyLiveReduction = $state(start.applyLiveReduction);
+  let reductionElementKind = $state<ElementKind>(start.reductionElementKind);
+  let floorsSupported = $state(start.floorsSupported);
+  let tributaryWidth = $state(start.tributaryWidth);
+  let gravityMode = $state<GravityMode>(start.gravityMode);
+  let roofCfg = $state(start.roofCfg);
   /** Partial live loading (§4.3.3): none, the checkerboards, or those and the spans each side of a line. */
-  let livePatterns = $state<'none' | 'checkerboard' | 'all'>('all');
-  let seismicMethod = $state(defaultSeismicMethod());
-  let windStructure = $state(defaultWindStructure());
-  let special = $state(defaultSpecialLoads());
+  let livePatterns = $state<'none' | 'checkerboard' | 'all'>(start.livePatterns);
+  let seismicMethod = $state(start.seismicMethod);
+  let windStructure = $state(start.windStructure);
+  let special = $state(start.special);
   /** The model's extent, for the cladding table. */
   const modelExtent = $derived.by(() => {
     const ns = [...modelStore.nodes.values()];
@@ -134,13 +130,13 @@
     const span = (k: 'x' | 'y') => Math.max(...ns.map((n) => n[k])) - Math.min(...ns.map((n) => n[k]));
     return { h: Math.max(...ns.map((n) => n.z ?? 0)), least: Math.min(span('x'), span('y')) || Math.max(span('x'), span('y')) };
   });
-  let gravitySlab = $state<'twoWay' | 'oneWay'>('twoWay');
-  let gravitySpan = $state<'x' | 'y'>('x');
+  let gravitySlab = $state<'twoWay' | 'oneWay'>(start.gravitySlab);
+  let gravitySpan = $state<'x' | 'y'>(start.gravitySpan);
 
   // ─── Seismic config ────────────────────
   // Off by default: seismic loads require a bound seismic regulation, and a dialog that
   // starts with them on would block every fresh project's preview.
-  let enableSeismic = $state(false);
+  let enableSeismic = $state(start.enableSeismic);
   // `bound`, not `usable`: this dialog supplies the settings, so gating on
   // configComplete would be circular.
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
@@ -148,24 +144,24 @@
   const snowAvailable = $derived(regulationsStore.bound('snow'));
   /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
   const windEditions = allOptionsForRole('wind').filter((o) => o.regulation === 'cirsoc-102');
-  let snowCfg = $state<SnowConfig>(defaultSnowConfig());
+  let snowCfg = $state<SnowConfig>(start.snowCfg);
   const snowRoof = $derived.by(() => {
     const g = roofGeometry({ nodes: modelStore.nodes, elements: modelStore.elements } as never);
     return g ? { slopeDeg: g.slopeDeg, W: g.W } : null;
   });
-  let seismicZone = $state<SeismicZone>(4);
-  let siteClass = $state<SiteClass>('SD');
-  let destinationGroup = $state<DestinationGroup>('B');
+  let seismicZone = $state<SeismicZone>(start.seismicZone);
+  let siteClass = $state<SiteClass>(start.siteClass);
+  let destinationGroup = $state<DestinationGroup>(start.destinationGroup);
   /** Tabla 5.1 row — the system that carries the shear. R divides the whole spectrum. */
-  let systemKey = $state('rc_frame_full_ductility');
+  let systemKey = $state(start.systemKey);
   /** Tabla 6.2 row — a different classification, for the period only. */
-  let periodSystem = $state<PeriodSystem>('concreteMomentFrame');
-  let regularity = $state<PlanRegularity>('regular');
+  let periodSystem = $state<PeriodSystem>(start.periodSystem);
+  let regularity = $state<PlanRegularity>(start.regularity);
   /** Tabla 3.3 — how much imposed load is present when the earthquake arrives. */
-  let seismicOccupancy = $state<OccupancyProbability>('reduced');
-  let elasticDesign = $state(false);
-  let seismicDirectionX = $state(true);
-  let seismicDirectionZ = $state(true);
+  let seismicOccupancy = $state<OccupancyProbability>(start.seismicOccupancy);
+  let elasticDesign = $state(start.elasticDesign);
+  let seismicDirectionX = $state(start.seismicDirectionX);
+  let seismicDirectionZ = $state(start.seismicDirectionZ);
 
   /** The spectrum, live, so the panel can show what the zone and site imply. */
   const spectrumPreview = $derived(designSpectrum({ zone: seismicZone, site: siteClass }));
@@ -173,16 +169,16 @@
   const effectiveR = $derived(elasticDesign ? R_ELASTIC : behaviourEntry?.r ?? null);
 
   // ─── Wind config ─────────────────────
-  let enableWind = $state(false);
-  let windV = $state(45);
-  let windExposure = $state<Exposure>('B');
-  let windEnclosure = $state<Enclosure>('enclosed');
-  let windAltitude = $state(0);
-  let windKzt = $state(1);
-  let windKztSurveyed = $state(false);
-  let windRoofSlope = $state(0);
+  let enableWind = $state(start.enableWind);
+  let windV = $state(start.windV);
+  let windExposure = $state<Exposure>(start.windExposure);
+  let windEnclosure = $state<Enclosure>(start.windEnclosure);
+  let windAltitude = $state(start.windAltitude);
+  let windKzt = $state(start.windKzt);
+  let windKztSurveyed = $state(start.windKztSurveyed);
+  let windRoofSlope = $state(start.windRoofSlope);
   /** The wind's dynamics (§1.9): the frequency's source, damping, the rigid G, e_R. */
-  let windDyn = $state<WindDynamics>({ ...DEFAULT_WIND_DYNAMICS });
+  let windDyn = $state<WindDynamics>(start.windDyn);
   /** The frequencies the modal analysis gave the last preview, per axis. */
   let windModal = $state<ReturnType<typeof fundamentalFrequencies> | null>(null);
   /** A low-rise building is rigid without a frequency (art. 1.2, §1.9.2). */
@@ -190,29 +186,51 @@
     const ns = [...modelStore.nodes.values()];
     if (ns.length === 0) return false;
     const ext = (k: 'x' | 'y') => Math.max(...ns.map((n) => n[k])) - Math.min(...ns.map((n) => n[k]));
-    return isLowRise(Math.max(...ns.map((n) => n.z ?? 0)), ext('x'), ext('y'), windEnclosure);
+    return isLowRise(Math.max(...ns.map((n) => n.z ?? 0)), ext('x'), ext('y'), windEnclosure, windStructure.kind);
   });
-  /** The dynamics the plan gets: the modal frequencies in place of typed ones when they are the source. */
+  /**
+   * The dynamics the plan gets: the modal frequencies in place of typed ones when they are the
+   * source, with the lowest mode's frequency (trigger III of C 1.1.2) and what the reading named.
+   */
   const planDynamics = (): WindDynamics => ({
     ...$state.snapshot(windDyn),
-    ...(windDyn.n1Source === 'modal' && windModal ? { n1: { x: windModal.x?.n1, y: windModal.y?.n1 } } : {}),
+    ...(windDyn.n1Source === 'modal' && windModal
+      ? { n1: { x: windModal.x?.n1, y: windModal.y?.n1 }, modal: { lowest: windModal.lowest, notes: windModal.notes } } : {}),
+  });
+  /*
+   * β follows the kind of structure while it is still the previous kind's default (`defaultBeta`,
+   * commentary C 1.9): 2 % a building, 0,5 % a chimney, tower or sign. One typed stays. A chimney,
+   * tower or sign cannot take the approximate frequency of §1.9.3 (§1.9.2.1): it goes to the modal.
+   */
+  let betaKind = start.windStructure.kind;
+  $effect(() => {
+    const k = windStructure.kind;
+    untrack(() => {
+      if (k === betaKind) return;
+      if (windDyn.beta === defaultBeta(betaKind)) windDyn = { ...windDyn, beta: defaultBeta(k) };
+      if (!isBuildingKind(k) && windDyn.n1Source === 'approximate') windDyn = { ...windDyn, n1Source: 'modal' };
+      betaKind = k;
+    });
   });
   /** The wind directions to generate: all four unless the reader narrows them (`wind-cases.ts`). */
-  let windDirs = $state<WindDirection[]>([...WIND_DIRECTIONS]);
-  let windCaseSet = $state<WindCaseSet>('all');
-  let windService = $state<{ enabled: boolean; v50: number; mri: ServiceRecurrence }>({ enabled: false, v50: 0, mri: 10 });
+  let windDirs = $state<WindDirection[]>(start.windDirs);
+  let windCaseSet = $state<WindCaseSet>(start.windCaseSet);
+  let windService = $state<{ enabled: boolean; v50: number; mri: ServiceRecurrence }>(start.windService);
 
   // ─── Options ───────────────────────────
-  let genCombos = $state(true);
+  let genCombos = $state(start.genCombos);
   /** Strength, service or both: strength by default, as the regulation's design needs. */
-  let comboSet = $state<'ultimate' | 'service' | 'both'>('ultimate');
+  let comboSet = $state<'ultimate' | 'service' | 'both'>(start.comboSet);
   /** Wind and earthquake in both senses along each direction (`combination-cases.ts`). */
-  let bothSenses = $state(true);
+  let bothSenses = $state(start.bothSenses);
   /** Where the combinations come from: the regulation, or the project's rules. */
-  let comboSource = $state<ComboSource>('regulation');
+  let comboSource = $state<ComboSource>(start.comboSource);
   /** Patterns of partial loading also where their action is a companion (`combination-cases.ts`). */
-  let patternsInCompanions = $state(false);
+  let patternsInCompanions = $state(start.patternsInCompanions);
+  /** What Apply does to the generated loads: chosen each time, never remembered (`restoreFromRoles`). */
   let clearExisting = $state(false);
+  /** With replace: also what the generator did not mark in the cases it rewrites (a project saved before the marks). */
+  let alsoUnmarked = $state(false);
 
   /*
    * ── One section at a time ─────────────────────────────────────────
@@ -223,6 +241,14 @@
    */
   type Section = 'regulations' | 'dead' | 'live' | 'roof' | 'wind' | 'snow' | 'seismic' | 'special' | 'applying' | 'combos';
   let section = $state<Section>('dead');
+
+  // Each opening starts from what the project saved (`restoreFromRoles`). Declared before the
+  // focus below, which runs after it: a section asked for is turned on over what was restored.
+  let wasOpen = false;
+  $effect(() => {
+    const now = open;
+    untrack(() => { if (now && !wasOpen) restoreFromRoles(); wasOpen = now; });
+  });
 
   $effect(() => {
     if (!open || !focus) return;
@@ -275,7 +301,8 @@
    */
   let planGust = $state<LoadPlan['factors']['windGust']>(undefined);
   $effect(() => {
-    void [JSON.stringify(windDyn), windV, windExposure, windEnclosure, enableWind];
+    // The structure's kind and size, and the directions asked, change the reading as much.
+    void [JSON.stringify(windDyn), windV, windExposure, windEnclosure, enableWind, JSON.stringify(windStructure), JSON.stringify(windDirs)];
     planGust = undefined;
   });
   /**
@@ -408,7 +435,10 @@
    * instead of reporting a blocked plan with no way to unblock it.
    */
   function recordRoleConfiguration() {
-    regulationsStore.configureRole('basis', { generateCombinations: genCombos }, true);
+    regulationsStore.configureRole('basis', {
+      generateCombinations: genCombos,
+      dialog: $state.snapshot({ comboSet, comboSource, bothSenses, patternsInCompanions }),
+    }, true);
     regulationsStore.configureRole('loads', {
       occupancyKey: selectedOccupancy,
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
@@ -439,108 +469,55 @@
   /**
    * Start from what the project stated last time, per role, rather than from the defaults: the
    * dialog writes its parameters to each role it generates (`recordRoleConfiguration`) and used to
-   * open on V = 45 m/s and zone 4 whatever the project said. A role never configured keeps the
-   * defaults. Each value is taken only when it is there, so an older project restores what it has.
+   * open on V = 45 m/s and zone 4 whatever the project said. EVERY value is set, from copies
+   * (`autoLoadsMemory`): a role with nothing saved starts from the bound code's defaults whole, not
+   * from what an earlier opening or another project left in memory, and an edit here never reaches
+   * the project's saved settings before Preview or Apply. Replacing generated loads is chosen each
+   * time, and the modal frequencies of a previous preview belong to the model as it was then.
    */
   function restoreFromRoles() {
-    type Rec = Record<string, any>;
-    const set = (role: Parameters<typeof regulationsStore.binding>[0]): Rec | null => {
-      const b = regulationsStore.binding(role);
-      return b?.adapterId && b.settings && Object.keys(b.settings).length ? (b.settings as Rec) : null;
-    };
-    const basis = set('basis');
-    if (basis && typeof basis.generateCombinations === 'boolean') genCombos = basis.generateCombinations;
-    const loads = set('loads');
-    if (loads) {
-      if (typeof loads.occupancyKey === 'string') selectedOccupancy = loads.occupancyKey;
-      if (typeof loads.tributaryWidth === 'number') tributaryWidth = loads.tributaryWidth;
-      if (typeof loads.applyLiveReduction === 'boolean') applyLiveReduction = loads.applyLiveReduction;
-      if (typeof loads.reductionElementKind === 'string') reductionElementKind = loads.reductionElementKind as ElementKind;
-      if (typeof loads.floorsSupported === 'number') floorsSupported = loads.floorsSupported;
-      const d = loads.dialog as Rec | undefined;
-      if (d?.deadRows) deadRows = d.deadRows;
-      if (d?.gravityMode) gravityMode = d.gravityMode;
-      if (d?.gravitySlab) gravitySlab = d.gravitySlab;
-      if (d?.gravitySpan) gravitySpan = d.gravitySpan;
-      if (d?.roofCfg) roofCfg = d.roofCfg;
-      if (d?.livePatterns) livePatterns = d.livePatterns;
-      if (d?.special) special = d.special;
-    }
-    // A code's own starting values first, then what the project saved over them.
-    const windCode = loadCodeFor(regulationsStore.binding('wind')?.adapterId);
-    if (windCode?.role === 'wind') {
-      windV = windCode.defaults.basicSpeed;
-      windExposure = windCode.defaults.exposure as Exposure;
-      windEnclosure = windCode.defaults.enclosure as Enclosure;
-    }
-    const seismicCode = loadCodeFor(regulationsStore.binding('seismic')?.adapterId);
-    if (seismicCode?.role === 'seismic') {
-      seismicZone = seismicCode.defaults.zone as SeismicZone;
-      siteClass = seismicCode.defaults.site as SiteClass;
-      destinationGroup = seismicCode.defaults.group as DestinationGroup;
-    }
-    const wind = set('wind');
-    if (wind && typeof wind.basicSpeed === 'number') {
-      windV = wind.basicSpeed;
-      if (wind.exposure) windExposure = wind.exposure;
-      if (wind.enclosure) windEnclosure = wind.enclosure;
-      if (typeof wind.siteAltitudeM === 'number') windAltitude = wind.siteAltitudeM;
-      if (typeof wind.kzt === 'number') windKzt = wind.kzt;
-      if (typeof wind.kztSurveyed === 'boolean') windKztSurveyed = wind.kztSurveyed;
-      if (typeof wind.roofSlopeDeg === 'number') windRoofSlope = wind.roofSlopeDeg;
-      // An older project said "rigid" with a checkbox: that is a declared-rigid frequency source.
-      if (wind.dynamics) windDyn = { ...DEFAULT_WIND_DYNAMICS, ...wind.dynamics };
-      else if (typeof wind.rigid === 'boolean') windDyn = { ...DEFAULT_WIND_DYNAMICS, n1Source: wind.rigid ? 'declaredRigid' : 'typed' };
-      const d = wind.dialog as Rec | undefined;
-      if (d?.windDirs) windDirs = d.windDirs;
-      if (d?.windCaseSet) windCaseSet = d.windCaseSet;
-      if (d?.windService) windService = d.windService;
-      if (d?.windStructure) windStructure = d.windStructure;
-      enableWind = windAvailable;
-    }
-    const snow = set('snow');
-    if (snow && typeof snow.enabled === 'boolean') snowCfg = { ...defaultSnowConfig(), ...snow } as SnowConfig;
-    const seismic = set('seismic');
-    if (seismic && seismic.zone !== undefined) {
-      seismicZone = seismic.zone;
-      if (seismic.site) siteClass = seismic.site;
-      if (seismic.destinationGroup) destinationGroup = seismic.destinationGroup;
-      if (seismic.systemKey) systemKey = seismic.systemKey;
-      if (seismic.periodSystem) periodSystem = seismic.periodSystem;
-      if (seismic.regularity) regularity = seismic.regularity;
-      if (seismic.occupancy) seismicOccupancy = seismic.occupancy;
-      if (typeof seismic.elastic === 'boolean') elasticDesign = seismic.elastic;
-      const d = seismic.dialog as Rec | undefined;
-      if (d?.seismicMethod) seismicMethod = d.seismicMethod;
-      if (typeof d?.seismicDirectionX === 'boolean') seismicDirectionX = d.seismicDirectionX;
-      if (typeof d?.seismicDirectionZ === 'boolean') seismicDirectionZ = d.seismicDirectionZ;
-      enableSeismic = seismicAvailable;
-    }
+    const m = autoLoadsMemory(regulationsStore.roles, { wind: windAvailable, seismic: seismicAvailable });
+    genCombos = m.genCombos; comboSet = m.comboSet; comboSource = m.comboSource;
+    bothSenses = m.bothSenses; patternsInCompanions = m.patternsInCompanions;
+    selectedOccupancy = m.selectedOccupancy; tributaryWidth = m.tributaryWidth;
+    applyLiveReduction = m.applyLiveReduction; reductionElementKind = m.reductionElementKind;
+    floorsSupported = m.floorsSupported;
+    deadRows = m.deadRows; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
+    roofCfg = m.roofCfg; livePatterns = m.livePatterns; special = m.special;
+    enableWind = m.enableWind; windV = m.windV; windExposure = m.windExposure; windEnclosure = m.windEnclosure;
+    windAltitude = m.windAltitude; windKzt = m.windKzt; windKztSurveyed = m.windKztSurveyed;
+    windRoofSlope = m.windRoofSlope; windDyn = m.windDyn;
+    windDirs = m.windDirs; windCaseSet = m.windCaseSet; windService = m.windService; windStructure = m.windStructure;
+    betaKind = m.windStructure.kind;   // the saved β is the reader's, not a default to follow the kind
+    snowCfg = m.snowCfg;
+    enableSeismic = m.enableSeismic; seismicZone = m.seismicZone; siteClass = m.siteClass;
+    destinationGroup = m.destinationGroup; systemKey = m.systemKey; periodSystem = m.periodSystem;
+    regularity = m.regularity; seismicOccupancy = m.seismicOccupancy; elasticDesign = m.elasticDesign;
+    seismicMethod = m.seismicMethod; seismicDirectionX = m.seismicDirectionX; seismicDirectionZ = m.seismicDirectionZ;
+    clearExisting = false;
+    alsoUnmarked = false;
+    windModal = null;
   }
-  let wasOpen = false;
-  $effect(() => {
-    const now = open;
-    untrack(() => { if (now && !wasOpen) restoreFromRoles(); wasOpen = now; });
-  });
 
   /** Step 1 — build the preview. Pure; the model is untouched. */
   function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
     let p = buildLoadPlan(planInput());
+    const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
+    const seismicModes = enableSeismic && seismicMethod.method === 'modal';
+    // A member's design live-load reduction does not reduce the mass that moves with the
+    // floor. Both modal methods must use Lo at the stated participation.
+    const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
+      ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
     // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
-    if (enableWind && windDyn.n1Source === 'modal' && !windLowRise && p.outcome === 'READY') {
-      const f = windFrequenciesForPlan(p, SIMULTANEITY_F1[seismicOccupancy]);
+    if (windModes && p.outcome === 'READY') {
+      const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
       if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
       windModal = f;
       p = buildLoadPlan(planInput());
     }
-    // The modal method needs the model's modes under the plan's own masses (`seismic-modes.ts`).
-    // Those are the level weights, whose live load is Lo as the table gives it: §4.7.2 reduces a
-    // member's design live load by the area it collects, not the weight that moves with the floor.
-    // The modes took the reduced loads, and so a lighter mass than the forces were spread over.
-    if (enableSeismic && seismicMethod.method === 'modal' && p.outcome === 'READY') {
-      const massPlan = applyLiveReduction ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
+    if (seismicModes && p.outcome === 'READY') {
       const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
       if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
       const base = planInput();
@@ -550,41 +527,16 @@
     planGust = p.factors.windGust;
     // The flag has to go in: the same plan produces a different model depending on it, and
     // reporting the plan's own counts as "after" was the defect the audit caught.
-    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions });
+    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
   }
 
   /**
-   * The model's current load counts, as the delta needs them.
-   *
-   * BOTH the 2D and 3D variants count. `addDistributedLoad3D` — which is what this dialog
-   * applies with — stores `type: 'distributed3d'`, so filtering on `'distributed'` alone
-   * reported zero existing loads in every PRO model. The "before" column then read 0 no
-   * matter how many times the user had already generated, and the double-count warning
-   * never fired on the quantity it was warning about.
+   * The model's current load counts, as the delta needs them, for the plan on screen: counted from
+   * the scope apply removes (`loadStateForPlan`, `replaceScope`), so the preview cannot disagree
+   * with what Apply does.
    */
-  const DISTRIBUTED_TYPES = ['distributed', 'distributed3d'] as const;
-  const NODAL_TYPES = ['nodal', 'nodal3d'] as const;
-
   function currentLoadState() {
-    const count = (types: readonly string[]) =>
-      modelStore.loads.filter(l => types.includes(l.type)).length;
-    // What the generator wrote, per case type: what a per-action "replace" removes.
-    const typeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
-    const byType: Record<string, { distributed: number; nodal: number }> = {};
-    for (const l of modelStore.loads) {
-      if (!(l.data as { generatedBy?: string }).generatedBy) continue;
-      const ty = typeOf.get(l.data.caseId ?? 1) ?? '';
-      const row = (byType[ty] ??= { distributed: 0, nodal: 0 });
-      if ((DISTRIBUTED_TYPES as readonly string[]).includes(l.type)) row.distributed++;
-      else if ((NODAL_TYPES as readonly string[]).includes(l.type)) row.nodal++;
-    }
-    return {
-      distributed: count(DISTRIBUTED_TYPES),
-      nodal: count(NODAL_TYPES),
-      combinations: modelStore.model.combinations.length,
-      caseTypes: modelStore.model.loadCases.map(c => c.type),
-      generated: { byType, combinations: modelStore.model.combinations.filter((c) => c.origin).length },
-    };
+    return loadStateForPlan(plan!, (key, params) => tp(key, params));
   }
 
   /**
@@ -595,7 +547,15 @@
   function onClearExistingChange(next: boolean) {
     clearExisting = next;
     if (plan && plan.outcome === 'READY') {
-      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses: { E: bothSenses }, patternsInCompanions });
+      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
+    }
+  }
+
+  /** "Also remove what the generator did not mark" changes what Apply removes: the preview follows. */
+  function onAlsoUnmarkedChange(next: boolean) {
+    alsoUnmarked = next;
+    if (plan && plan.outcome === 'READY') {
+      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked: next });
     }
   }
 
@@ -607,7 +567,7 @@
     const both = bothSenses, companions = patternsInCompanions;
     untrack(() => {
       if (plan && plan.outcome === 'READY') {
-        delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: both }, patternsInCompanions: companions });
+        delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: both }, patternsInCompanions: companions, alsoUnmarked });
       }
     });
   });
@@ -616,7 +576,7 @@
   function handleApply() {
     const p = plan;
     if (!p || p.outcome !== 'READY') return;
-    if (delta && delta.replaceExisting !== clearExisting) {
+    if (delta && (delta.replaceExisting !== clearExisting || delta.alsoUnmarked !== alsoUnmarked)) {
       // Cannot happen through the UI, but applying a plan whose preview described a
       // different outcome is the one thing this dialog must never do.
       applyError = t('autoLoad.previewStale');
@@ -624,7 +584,7 @@
     }
     applyError = null;
 
-    applyLoadPlan(p, { clearExisting, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
+    applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -752,6 +712,14 @@
                       {#each delta.warnings as w (messageIdentity(w))}<li>{te(w)}</li>{/each}
                     </ul>
                   </div>
+                {/if}
+                <!-- Shown only when replace would keep loads or combinations the generator did not
+                     mark in the cases it rewrites: a project saved before the marks, where keeping
+                     them doubles every load. Off by default, so what was typed by hand stays. -->
+                {#if delta.unmarked}
+                  <label class="al-check"><input type="checkbox" checked={alsoUnmarked} data-testid="al-also-unmarked"
+                    onchange={(e) => onAlsoUnmarkedChange(e.currentTarget.checked)} />
+                    {tp('autoLoad.alsoUnmarked', { loads: delta.unmarked.loads, combinations: delta.unmarked.combinations })}</label>
                 {/if}
                 <details data-testid="al-dispositions">
                   <summary>{tp('autoLoad.dispositions', { count: delta.dispositions.length })}</summary>
@@ -974,7 +942,10 @@
                         {/if}
                       </div>
                     </div>
-                    <ProWindDynamics bind:dynamics={windDyn} gust={planGust} modal={windModal} lowRise={windLowRise} />
+                    <!-- Keyed on the kind: its β default changes with it, and the field reads it anew. -->
+                    {#key windStructure.kind}
+                      <ProWindDynamics bind:dynamics={windDyn} gust={planGust} modal={windModal} lowRise={windLowRise} building={isBuildingKind(windStructure.kind)} />
+                    {/key}
                     <!-- Where it acts, and a profile of the user's in place of the code's pressures. -->
                     <ProActionRegion bind:region={windRegion} testid="al-wind-region" />
                     <label class="al-check"><input type="checkbox" bind:checked={windProfileOn} data-testid="al-wind-profile-on" /> {t('windProfile.use')}</label>

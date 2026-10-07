@@ -16,12 +16,10 @@
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
   import { toCsv } from '../../lib/engine/result-tables';
-  import { buildSolverInput3D } from '../../lib/engine/solver-service';
-  import { withoutSettlement } from '../../lib/engine/settlement-case';
   import { isVariableMember } from '../../lib/section/variable';
   import { getPredefinedTrains } from '../../lib/engine/moving-loads';
   import {
-    buildPath3D, sweepTrains3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
+    buildPath3D, sweepTrains3D, movingLoadBase3D, ENVELOPE_COMPONENTS, type MovingEnvelope3D, type EnvelopeComponent,
   } from '../../lib/engine/moving-loads-3d';
   import { AASHTO_VEHICLES, vehicleTrains, vehicleToJson, vehicleFromJson, type Vehicle } from '../../lib/engine/vehicles';
   import { addPositionCases, MAX_POSITION_CASES } from '../../lib/store/moving-cases';
@@ -88,12 +86,11 @@
     error = null; result = null;
     // The path names the model's members; one of variable section is cut into pieces for the solve.
     if ([...modelStore.elements.values()].some((e) => isVariableMember(modelStore.sections, e))) { error = t('advanced.variableUnsupported'); return; }
-    // The train alone: a support settlement is not part of a moving-load envelope, and solving
-    // every position on the settled supports mixed its forces into every peak. The project's
-    // axis convention, as the other solves use it.
-    let base: ReturnType<typeof buildSolverInput3D>;
+    // The train alone, on the unloaded structure (`movingLoadBase3D`): no settlement, no load case's
+    // cut or imposed displacement. The project's axis convention, as the other solves use it.
+    let base: ReturnType<typeof movingLoadBase3D>;
     try {
-      base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
+      base = movingLoadBase3D(modelStore.model as never, uiStore.axisConvention3D === 'leftHand');
     } catch (e) {
       // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
       error = errorText(e, 'Error'); return;

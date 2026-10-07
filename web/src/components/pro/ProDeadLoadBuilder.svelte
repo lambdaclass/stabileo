@@ -21,19 +21,8 @@
     DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
     type DeadGroup,
   } from '../../lib/codes/cirsoc101/dead-loads';
-
-  export interface DeadRow {
-    /** Tabla 3.1 key, or null for a typed value. */
-    entryKey: string | null;
-    /** Metres, for a row the table prints per m³. */
-    thickness: number;
-    /** Tabla 3.1 (*) — laid on battens rather than boarding. */
-    onBattens: boolean;
-    /** kN/m², for a typed row. */
-    q: number;
-    /** True when this row is the allowance for interior partitions (§3.1.4). */
-    isPartition: boolean;
-  }
+  // A row, as the dialog holds it (`auto-loads-sections.ts`).
+  import type { DeadRow } from './auto-loads-sections';
 
   interface Props {
     rows: DeadRow[];
@@ -100,7 +89,7 @@
     <div class="dl-row" data-testid="dead-row">
       <span class="dl-label">{t(r.labelKey)}</span>
       {#if row.entryKey === null}
-        <span class="dl-qty"><QuantityInput bind:value={rows[i].q} quantity="areaLoad" min={0} cls="dl-num" testid="dead-q" /></span>
+        <span class="dl-qty"><QuantityInput bind:value={rows[i].q} quantity="areaLoad" min={0} cls="dl-num" testid="dead-q" ariaLabel={t('loads.dead.custom')} /></span>
       {:else}
         <span class="dl-qty">
           {#if r.perVolume}
