@@ -15,6 +15,7 @@ import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
+import { scheduleDefinedLoadsSync } from './defined-loads';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -30,6 +31,8 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
 modelStore._setOnMutation(() => {
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
+  // Floor loads kept as definitions follow the edit, in its own undo step (`defined-loads.ts`).
+  scheduleDefinedLoadsSync();
 });
 
 // A reinforcement transaction is NOT a model mutation: forces are unaffected, so

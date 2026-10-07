@@ -703,7 +703,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
   if (!loadsLayerDrawn(drawView)) return;
 
   const loads = modelStore.loads;
-  if (loads.length === 0) return;
+  // A load zone is drawn before anything loads it: it is drawn to be loaded.
+  if (loads.length === 0 && ![...modelStore.model.groups.values()].some((g) => g.kind === 'loadZone')) return;
 
   // Compute max force magnitude for scaling
   let maxForce = 0;

@@ -48,10 +48,19 @@ application layer; the engine is untouched.
   `perPlanArea`) stored as a group of kind `floorLoad`; zones as groups of kind `loadZone` (outline
   = ordered nodes, members left out = elements, openings = other zones in `data.openings`).
   `expandDefinition` writes ordinary loads marked `fromDef`.
-- `store/defined-loads.ts`: `syncDefinedLoads` rewrites them when they no longer match (called
-  before `runSolve3D` and `runGlobalSolve`, and with every definition change), one undo step each.
+- `store/defined-loads.ts`: `syncDefinedLoads` rewrites them when they no longer match: after every
+  edit of the model (a microtask scheduled by the mutation hook, `store/index.ts`), before a solve
+  and live calc, and with every definition change. A rewrite takes no undo step of its own (it is
+  amended into the edit's), so undo and redo are untouched; not during Explore. A load marked with
+  a definition the model does not hold becomes a plain load.
+- Copies (transformed, mirrored, pasted, a duplicated case) carry a definition's loads as plain
+  loads; a definition copied with what it loads writes the copy itself. Moving everything a level
+  or box definition loads moves its level or box (`carriedTarget`).
+- Share links carry the groups (`gr`, schema 6). A load plan keeps definitions' loads apart from
+  the unmarked ones and warns that it adds to them.
 - UI: `ProFloorLoadSection.svelte` (definition, preview, list) and `loads/ProLoadZones.svelte`.
-  Loads from a definition are read-only in the load table and left out of the bulk edits.
+  Loads from a definition are read-only everywhere: the store refuses `updateLoad`, `removeLoad`
+  and the bulk edits on them, and the delete key, the floating panel and the table say why.
 
 ## Tests
 

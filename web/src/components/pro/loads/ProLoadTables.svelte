@@ -16,6 +16,7 @@
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
+  import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
 
   let scope = $state<'case' | 'all'>('case');
   const cases = $derived(modelStore.model.loadCases);
@@ -31,6 +32,8 @@
   /** The floor-load definition a load comes from, if any. */
   const fromDef = $derived(new Map(modelStore.loads.flatMap((l) => { const d = (l.data as { fromDef?: number }).fromDef; return d === undefined ? [] : [[l.data.id, d] as const]; })));
   const defOf = (id: number) => fromDef.get(id);
+  /** A definition by the name the floor-load list shows it with. */
+  const defName = (def: number) => definitionName(modelStore.model as unknown as DefinitionModel, def);
   const thermalQuad = $derived(of('thermalQuad3d'));
   const caseName = (id: number | undefined) => cases.find((c) => c.id === (id ?? 1))?.name ?? '—';
 
@@ -89,7 +92,12 @@
   // A case chosen and then deleted is no destination: back to the default, never loads in no case.
   const destination = $derived((toCase !== null && cases.some((c) => c.id === toCase) ? toCase : null)
     ?? cases.find((c) => c.id !== uiStore.activeLoadCaseId)?.id ?? cases[0]?.id ?? 1);
-  function del(ids: number[]) { const own = ids.filter((id) => defOf(id) === undefined); removeLoads(own); for (const id of own) uiStore.deleteSelectedLoad(id); }
+  function del(ids: number[]) {
+    const own = ids.filter((id) => defOf(id) === undefined);
+    if (own.length < ids.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    removeLoads(own);
+    for (const id of own) uiStore.deleteSelectedLoad(id);
+  }
 </script>
 
 <div class="lt-bar">
@@ -118,7 +126,7 @@
 <!-- A load written by a floor-load definition is edited through it: it is rewritten from it. -->
 {#snippet x(id: number)}
   {@const def = defOf(id)}
-  {#if def !== undefined}<td class="col-def" title={tp('loads.surface.fromDef', { id: def })}>⟲ {def}</td>
+  {#if def !== undefined}<td class="col-def" title={tp('loads.surface.fromDef', { name: defName(def) })}>⟲ {defName(def)}</td>
   {:else}<td><button class="pro-delete-btn" onclick={(e) => { e.stopPropagation(); del([id]); }} aria-label={t('loadTables.delete')}>×</button></td>{/if}
 {/snippet}
 {#snippet cell(id: number, key: string, v: number | undefined, k?: number)}
@@ -160,12 +168,20 @@
       {#each dist as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-dist-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
+          {#if defOf(l.data.id) !== undefined}
+            <!-- Read-only, as its values: a definition's load is changed through the definition. -->
+            <td>{t(`loads.frame.${l.data.frame ?? 'local'}`)}</td>
+            {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'])}{/each}
+            <td class="col-num">{l.data.a !== undefined ? fmt(l.data.a) : ''}</td>
+            <td class="col-num">{l.data.b !== undefined ? fmt(l.data.b) : ''}</td>
+          {:else}
           <td><select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
             <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option><option value="projected">{t('loads.frame.projected')}</option>
           </select></td>
           {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'])}{/each}
           <td class="col-num"><input class="inp-cell" value={l.data.a !== undefined ? fmt(l.data.a) : ''} placeholder="0" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'a', l.data.elementId, l.data.a)} data-testid="lt-dist-a" /></td>
           <td class="col-num"><input class="inp-cell" value={l.data.b !== undefined ? fmt(l.data.b) : ''} placeholder="L" onclick={(e) => e.stopPropagation()} onchange={(e) => setEnd(e.currentTarget, l.data.id, 'b', l.data.elementId, l.data.b)} data-testid="lt-dist-b" /></td>
+          {/if}
           {@render x(l.data.id)}
         </tr>
       {/each}
@@ -225,7 +241,7 @@
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
           {#if d.qNodes || d.vary}<td class="col-num">{surfaceValueText(d)}</td>{:else}{@render cell(l.data.id, 'q', l.data.q)}{/if}
-          <td class="col-how">{surfaceHowText(d)}</td>{@render x(l.data.id)}
+          <td class="col-how">{surfaceHowText(d, defName)}</td>{@render x(l.data.id)}
         </tr>
       {/each}
     </tbody></table>

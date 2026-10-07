@@ -10,7 +10,7 @@
  * stays thin.
  */
 
-import { syncDefinedLoads } from '../store/defined-loads';
+import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
@@ -72,6 +72,9 @@ function nextSolveGuard(): () => boolean {
 export async function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
+  // Floor loads kept as definitions, current before the guard is taken: the edit that started this
+  // solve may not have been rewritten yet (`store/defined-loads.ts`).
+  if (is3DWorkspace(analysisMode)) syncDefinedLoadsForAnalysis();
   const isStale = nextSolveGuard();
   try {
     if (is3DWorkspace(analysisMode)) {
@@ -185,7 +188,7 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
 export async function runGlobalSolve(): Promise<void> {
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
-  if (uiStore.is3DWorkspace) syncDefinedLoads();
+  if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
 

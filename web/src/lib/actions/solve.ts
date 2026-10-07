@@ -21,7 +21,7 @@ import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometr
 import { initSolver, isWasmReady } from '../engine/wasm-solver';
 import { reportModelDiagnostics } from '../engine/solve-diagnostics';
 import { requestAutosave } from '../store/autosave-service';
-import { syncDefinedLoads } from '../store/defined-loads';
+import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 
 export function runSolve() {
   /*
@@ -101,7 +101,7 @@ export async function runSolve3D() {
   }
   const isPro = uiStore.analysisMode === 'pro';
   // Floor loads kept as definitions, rewritten if the model moved under them (`defined-loads.ts`).
-  syncDefinedLoads();
+  syncDefinedLoadsForAnalysis();
   const versionAtStart = modelStore.modelVersion;
   const results = await modelStore.solve3DAsync(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
   if (modelStore.modelVersion !== versionAtStart) return; // stale — user edited mid-solve

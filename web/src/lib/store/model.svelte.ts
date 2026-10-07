@@ -682,6 +682,11 @@ export interface NodalLoad3D {
   caseId?: number;
   /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
   fromDef?: number;
+  /**
+   * The member whose end it sits at and whose load it is, which carries its mass
+   * (`mass-source.ts`): a floor's share past a side's end, at a re-entrant corner (`floor-loads.ts`).
+   */
+  carrier?: number;
 }
 
 export interface DistributedLoad3D {
@@ -1084,6 +1089,9 @@ export interface InfluenceLineResult {
  * adds its field here.
  */
 const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'projectInfo', 'deflectionLimits'] as const;
+
+/** Whether a floor-load definition wrote the load (`model/loads/floor-definitions.ts` `isDefinedLoad`). */
+const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
 function createModelStore() {
   /**
@@ -3305,9 +3313,16 @@ function createModelStore() {
       // ignore supersession.
     },
 
-    removeLoad(loadId: number): void {
+    /**
+     * Remove a load. Not one a floor-load definition wrote (`fromDef`): the next rewrite would
+     * bring it back, so it goes with its definition (`store/defined-loads.ts`, which rewrites them
+     * through `replaceLoads`). False, and nothing changed, for one.
+     */
+    removeLoad(loadId: number): boolean {
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return false;
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
+      return true;
     },
 
     removeSupport(id: number): void {
@@ -3371,6 +3386,8 @@ function createModelStore() {
     updateLoad(loadId: number, data: Record<string, unknown>): boolean {
       const load = model.loads.find(l => l.data.id === loadId);
       if (!load) return false;
+      // A floor-load definition's load is edited through the definition (`removeLoad`).
+      if (isDefinedLoadData(load)) return false;
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
@@ -4033,6 +4050,8 @@ function createModelStore() {
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {
+      // A definition's load is in the definition's case (`removeLoad`).
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return;
       if (!_undoBatching) _pushUndo?.();
       const load = model.loads.find(l => l.data.id === loadId);
       if (load) (load.data as any).caseId = caseId;

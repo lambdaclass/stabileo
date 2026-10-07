@@ -4,8 +4,21 @@
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
+  import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
+
+  /**
+   * A load a floor-load definition wrote is changed through the definition: the store refuses the
+   * edit (the next rewrite would undo it), and this says why.
+   */
+  function definedLoad(loadId: number): boolean {
+    const l = modelStore.loads.find((x) => x.data.id === loadId);
+    if (!l || !isDefinedLoad(l)) return false;
+    uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    return true;
+  }
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
+    if (definedLoad(loadId)) return;
     if (typeof val === 'boolean') {
       modelStore.updateLoad(loadId, { [field]: val });
     } else {
@@ -31,6 +44,7 @@
   }
 
   function updateDistLoadPosition(loadId: number, field: 'a' | 'b', val: string, elemLen: number, currentA: number, currentB: number) {
+    if (definedLoad(loadId)) return;
     const num = parseFloat(val);
     if (isNaN(num)) return;
     if (field === 'a') {
@@ -46,7 +60,9 @@
   }
 
   function deleteSelectedLoads() {
-    const ids = [...uiStore.selectedLoads];
+    const all = [...uiStore.selectedLoads];
+    const ids = all.filter((id) => !modelStore.loads.some((l) => l.data.id === id && isDefinedLoad(l)));
+    if (ids.length < all.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
     modelStore.batch(() => { for (const id of ids) modelStore.removeLoad(id); });
     uiStore.clearSelectedLoads();
     resultsStore.clear();

@@ -28,6 +28,7 @@
  */
 
 import { shellText, surfaceValueText, surfaceHowText } from '../model/loads/surface-load-text';
+import { definitionName, type DefinitionModel } from '../model/loads/floor-definitions';
 import { deflectionChecks } from '../store/serviceability';
 import { seismicDrifts } from './seismic-drift';
 import { regulationsStore } from '../store/regulations.svelte';
@@ -188,7 +189,7 @@ export function serializeLoads(t: Translate): NonNullable<ReportData['loads']> {
       case 'surface3d': {
         const d = load.data;
         tipo = t('report.loadSurface'); destino = shellText(d);
-        const how = surfaceHowText(d);
+        const how = surfaceHowText(d, (id) => definitionName(modelStore.model as unknown as DefinitionModel, id));
         valores = `q=${surfaceValueText(d)} kN/m²${how ? `, ${how}` : ''}`;
         break;
       }

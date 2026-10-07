@@ -93,8 +93,7 @@
   function build(): WriteOutcome | WriteRefusal {
     // Slab loads act on quads and triangles through one integral (`shell-load-integration.ts`).
     if (kind === 'surface' || kind === 'hydro' || kind === 'shellPoint') {
-      const r = shellForm ? shellForm.build(shellTargets(), caseId) : 'writeLoad.noTarget';
-      return typeof r === 'string' ? { error: r } : { loads: r };
+      return shellForm ? shellForm.build(shellTargets(), caseId) : { error: 'writeLoad.noTarget' };
     }
     if (kind === 'thermalQuad') {
       const shells = shellTargets();

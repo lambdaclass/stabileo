@@ -25,8 +25,12 @@ export function surfaceValueText(d: SurfaceLoad3D): string {
   return n(d.q);
 }
 
-/** Where it points, how it varies and where it acts; empty for a plain downward load. */
-export function surfaceHowText(d: SurfaceLoad3D): string {
+/**
+ * Where it points, how it varies and where it acts; empty for a plain downward load. `defName`
+ * names the floor-load definition that wrote it as the definitions list does
+ * (`floor-definitions.ts` `definitionName`); without it, by its number.
+ */
+export function surfaceHowText(d: SurfaceLoad3D, defName: (id: number) => string = (id) => `#${id}`): string {
   const parts: string[] = [];
   if (d.frame === 'local') parts.push(t('loads.surface.local'));
   else if (d.frame === 'global') parts.push(tp('loads.surface.global', { dir: directionText(d.dir ?? [0, 0, -1]) }));
@@ -34,6 +38,6 @@ export function surfaceHowText(d: SurfaceLoad3D): string {
   if (d.qNodes) parts.push(t('loads.surface.byCorner'));
   if (d.vary) parts.push(tp('loads.surface.vary', { dir: directionText(d.vary.dir), c1: n(d.vary.c1), c2: n(d.vary.c2) }));
   if (d.region) parts.push(d.region.holes?.length ? tp('loads.surface.regionHoles', { n: d.region.holes.length }) : t('loads.surface.region'));
-  if (d.fromDef !== undefined) parts.push(tp('loads.surface.fromDef', { id: d.fromDef }));
+  if (d.fromDef !== undefined) parts.push(tp('loads.surface.fromDef', { name: defName(d.fromDef) }));
   return parts.join(' · ');
 }

@@ -15,6 +15,9 @@
  * Pure: the model in, the loads and what was found out.
  */
 import { floorLoad, type FloorBeam, type FloorLoadResult } from '../../engine/loads/floor-loads';
+import { shellLoadForces } from '../../engine/shell-load-integration';
+import { applyPoint, axisPermutation, type Affine } from '../edit/affine';
+import { parseDecimal } from '../../utils/numeric-input';
 import type { GroupMembers, Load, ModelGroup } from '../../store/model.svelte';
 
 type P3 = [number, number, number];
@@ -37,7 +40,11 @@ export interface FloorLoadDef {
   perPlanArea?: boolean;
 }
 
-export interface ZoneData { openings?: number[] }
+export interface ZoneData {
+  openings?: number[];
+  /** How many corners it was drawn with: fewer now, and a node of its outline was deleted. */
+  corners?: number;
+}
 
 export interface DefinitionModel {
   nodes: ReadonlyMap<number, { x: number; y: number; z?: number }>;
@@ -72,7 +79,9 @@ export function zoneOutline(m: DefinitionModel, zoneId: number, seen = new Set<n
   const holes: P3[][] = [];
   for (const h of ((g.data as ZoneData | undefined)?.openings ?? [])) {
     if (seen.has(h)) continue;
-    const o = zoneOutline(m, h, seen);
+    // The zones above this one, each opening on its own: a set shared by the siblings marked an
+    // opening of B as seen, and A's own opening C, which B also lists, was left out.
+    const o = zoneOutline(m, h, new Set(seen));
     if (o) holes.push(o.outer);
   }
   return { outer, holes, excluded: new Set(g.members.elements ?? []) };
@@ -149,8 +158,17 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
       ...(def.perPlanArea ? { frame: 'projected' as const, dir: [0, 0, -1] as P3 } : {}),
       ...(zone ? { region: { normal: [0, 0, 1] as P3, points: zone.outer, ...(zone.holes.length ? { holes: zone.holes } : {}) } } : {}),
     };
-    for (const id of tg.quads) loads.push({ type: 'surface3d', data: { id: 0, quadId: id, q: def.q, ...extra, ...mark } });
-    for (const id of tg.plates) loads.push({ type: 'surface3d', data: { id: 0, quadId: id, on: 'plate', q: def.q, ...extra, ...mark } });
+    // In a zone, only the shells it reaches: every shell of its plane was given a load, those
+    // outside it a load of nothing.
+    const reached = (kind: 'quad' | 'plate', nodes: number[] | undefined) => {
+      if (!nodes) return false;
+      if (!extra.region) return true;
+      const pts = nodes.map((id) => m.nodes.get(id));
+      if (pts.some((p) => !p)) return false;
+      return (shellLoadForces(kind, pts as Array<{ x: number; y: number; z?: number }>, { q: 1, region: extra.region })?.loadedArea ?? 0) > 1e-9;
+    };
+    for (const id of tg.quads) if (reached('quad', m.quads.get(id)?.nodes)) loads.push({ type: 'surface3d', data: { id: 0, quadId: id, q: def.q, ...extra, ...mark } });
+    for (const id of tg.plates) if (reached('plate', m.plates.get(id)?.nodes)) loads.push({ type: 'surface3d', data: { id: 0, quadId: id, on: 'plate', q: def.q, ...extra, ...mark } });
     return loads.length ? { defId, loads, result: null, totalKN: NaN } : none('nothingTargeted');
   }
 
@@ -166,8 +184,10 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
     ...(def.perPlanArea ? { perPlanArea: true } : {}),
   });
   const loads: Load[] = [
-    ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),
-    ...res.nodal.map((n): Load => ({ type: 'nodal3d', data: { id: 0, nodeId: n.nodeId, fx: 0, fy: 0, fz: n.fz, mx: 0, my: 0, mz: 0, ...mark } })),
+    // The part along an inclined member's axis too (qX), or the load would not stay vertical.
+    ...res.loads.map((l): Load => ({ type: 'distributed3d', data: { id: 0, elementId: l.elementId, ...(l.qXI || l.qXJ ? { qXI: l.qXI, qXJ: l.qXJ } : {}), qYI: l.qYI, qYJ: l.qYJ, qZI: l.qZI, qZJ: l.qZJ, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), ...mark } })),
+    // A share at a re-entrant corner names the member it belongs to, which carries its mass.
+    ...res.nodal.map((n): Load => ({ type: 'nodal3d', data: { id: 0, nodeId: n.nodeId, fx: 0, fy: 0, fz: n.fz, mx: 0, my: 0, mz: 0, carrier: n.elementId, ...mark } })),
   ];
   return { defId, loads, result: res, totalKN: res.totalKN, ...(loads.length ? {} : { problem: 'nothingTargeted' as const }) };
 }
@@ -191,3 +211,127 @@ function stable(v: unknown): string {
   if (v && typeof v === 'object') return `{${Object.keys(v).sort().filter((k) => (v as Record<string, unknown>)[k] !== undefined).map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(',')}}`;
   return JSON.stringify(v);
 }
+
+/**
+ * Whether a definition wrote the load. It is read-only everywhere: an edit to it would be undone
+ * by the next rewrite, so the definition is what is changed.
+ */
+export const isDefinedLoad = (l: Load): boolean => (l.data as { fromDef?: number }).fromDef !== undefined;
+
+/** The name a definition is shown by, for a load it wrote; its number when it is gone. */
+export function definitionName(m: Pick<DefinitionModel, 'groups'>, defId: number): string {
+  const g = m.groups.get(defId);
+  return g?.kind === 'floorLoad' ? g.name : `#${defId}`;
+}
+
+/** The area of a polygon in plan, m². */
+function planArea(pts: readonly P3[]): number {
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) { const a = pts[i]!, b = pts[(i + 1) % pts.length]!; s += a[0] * b[1] - b[0] * a[1]; }
+  return Math.abs(s / 2);
+}
+
+/** A zone's area in plan less its openings', m². */
+export function zoneArea(m: DefinitionModel, zoneId: number): number {
+  const z = zoneOutline(m, zoneId);
+  return z ? planArea(z.outer) - z.holes.reduce((s, h) => s + planArea(h), 0) : 0;
+}
+
+/** Whether a node of the zone's outline has been deleted since it was drawn. */
+export function zoneChanged(m: DefinitionModel, zoneId: number): boolean {
+  const g = m.groups.get(zoneId);
+  const corners = (g?.data as ZoneData | undefined)?.corners;
+  return corners !== undefined && (g?.members.nodes?.length ?? 0) !== corners;
+}
+
+/**
+ * Why nodes in this order are no zone: fewer than three, or an outline that crosses itself in
+ * plan (the nodes picked out of order). Null when they are one.
+ */
+export function zoneOutlineProblem(m: DefinitionModel, outline: readonly number[]): 'needNodes' | 'selfIntersecting' | null {
+  const pts = outline.map((id) => m.nodes.get(id)).filter((n): n is NonNullable<typeof n> => !!n).map(pt);
+  if (pts.length < 3) return 'needNodes';
+  const n = pts.length;
+  const orient = (a: P3, b: P3, c: P3) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const eps = 1e-9;
+  const onSeg = (a: P3, b: P3, p: P3) => Math.min(a[0], b[0]) - eps <= p[0] && p[0] <= Math.max(a[0], b[0]) + eps
+    && Math.min(a[1], b[1]) - eps <= p[1] && p[1] <= Math.max(a[1], b[1]) + eps;
+  const cross = (a: P3, b: P3, c: P3, d: P3) => {
+    const o1 = orient(a, b, c), o2 = orient(a, b, d), o3 = orient(c, d, a), o4 = orient(c, d, b);
+    if (((o1 > eps && o2 < -eps) || (o1 < -eps && o2 > eps)) && ((o3 > eps && o4 < -eps) || (o3 < -eps && o4 > eps))) return true;
+    // Touching or overlapping in line counts too: a side doubling back over another.
+    return (Math.abs(o1) <= eps && onSeg(a, b, c)) || (Math.abs(o2) <= eps && onSeg(a, b, d))
+      || (Math.abs(o3) <= eps && onSeg(c, d, a)) || (Math.abs(o4) <= eps && onSeg(c, d, b));
+  };
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    // Sides that share a corner meet there and nowhere else, unless they double back.
+    const adjacent = j === i + 1 || (i === 0 && j === n - 1);
+    const a = pts[i]!, b = pts[(i + 1) % n]!, c = pts[j]!, d = pts[(j + 1) % n]!;
+    if (adjacent) {
+      const [p, q, r] = j === i + 1 ? [a, b, d] : [c, a, b];
+      if (Math.abs(orient(p, q, r)) <= eps && (r[0] - q[0]) * (p[0] - q[0]) + (r[1] - q[1]) * (p[1] - q[1]) > 0) return 'selfIntersecting';
+      continue;
+    }
+    if (cross(a, b, c, d)) return 'selfIntersecting';
+  }
+  return null;
+}
+
+/**
+ * A box of coordinates from the six texts typed: an axis with both bounds is limited, one with
+ * neither is not, and one with a single bound or an unreadable one is no box at all (null). It
+ * used to be dropped, and the box was wider than the one typed.
+ */
+export function rangeTarget(r: { x0: string; x1: string; y0: string; y1: string; z0: string; z1: string }): Extract<FloorTarget, { by: 'range' }> | null {
+  const out: Extract<FloorTarget, { by: 'range' }> = { by: 'range' };
+  for (const a of ['x', 'y', 'z'] as const) {
+    const s0 = r[`${a}0`].trim(), s1 = r[`${a}1`].trim();
+    if (s0 === '' && s1 === '') continue;
+    const v0 = parseDecimal(s0), v1 = parseDecimal(s1);
+    if (v0 === null || v1 === null) return null;
+    out[a] = [v0, v1];
+  }
+  return out;
+}
+
+/** The nodes of what a definition loads now. */
+export function targetNodes(m: DefinitionModel, def: FloorLoadDef, own: GroupMembers): Set<number> {
+  const tg = targetsOf(m, def, own);
+  const out = new Set<number>();
+  for (const id of tg.elements) { const e = m.elements.get(id); if (e) { out.add(e.nodeI); out.add(e.nodeJ); } }
+  for (const id of tg.quads) for (const n of m.quads.get(id)?.nodes ?? []) out.add(n);
+  for (const id of tg.plates) for (const n of m.plates.get(id)?.nodes ?? []) out.add(n);
+  return out;
+}
+
+/**
+ * A level or a box carried by a transform of everything it loads (`transform-in-place.ts`): a
+ * floor moved as a whole takes its loads with it. Null when the target names no coordinates (a
+ * group, the members held, a zone: those follow their nodes) or when the transform does not take
+ * it to one of its kind (a level tilted, a box turned off the axes).
+ */
+export function carriedTarget(t: FloorTarget, T: Affine): FloorTarget | null {
+  const r = (v: number) => Math.round(v * 1e9) / 1e9;
+  const A = T.A;
+  if (t.by === 'level') {
+    // z' = A₂₂·z + t_z for every point of the plane, when the third row has nothing in x and y.
+    if (Math.abs(A[6]) > 1e-12 || Math.abs(A[7]) > 1e-12 || Math.abs(Math.abs(A[8]) - 1) > 1e-12) return null;
+    return { by: 'level', z: r(applyPoint(T, [0, 0, t.z])[2]) };
+  }
+  if (t.by === 'range') {
+    const p = axisPermutation(A);
+    if (!p) return null;
+    const out: Extract<FloorTarget, { by: 'range' }> = { by: 'range' };
+    const axes = ['x', 'y', 'z'] as const;
+    for (let i = 0; i < 3; i++) {
+      const b = t[axes[i]!];
+      if (!b) continue;
+      const j = p.perm[i]!, s = p.sign[i]!;
+      const v = [r(s * b[0] + T.t[j]!), r(s * b[1] + T.t[j]!)].sort((x, y) => x - y) as [number, number];
+      out[axes[j]!] = v;
+    }
+    return out;
+  }
+  return null;
+}
+
