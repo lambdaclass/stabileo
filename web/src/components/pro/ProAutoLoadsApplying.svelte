@@ -5,8 +5,7 @@
    * one tributary width on every beam; and whether the loads already there are replaced.
    */
   import { t } from '../../lib/i18n';
-
-  export type GravityMode = 'panels' | 'width';
+  import type { GravityMode } from './auto-loads-sections';
   interface Props {
     mode: GravityMode;
     slab: 'twoWay' | 'oneWay';

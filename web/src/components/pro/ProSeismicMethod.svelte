@@ -1,15 +1,6 @@
 <script lang="ts" module>
-  export interface SeismicMethodConfig {
-    /** Cap. 6 static method, or Cap. 7 modal response spectrum. */
-    method: 'static' | 'modal';
-    /** §3.5.2: E = EH ± EV. */
-    vertical: boolean;
-    /** Tabla 6.3. */
-    torsion: 'low' | 'medium' | 'extreme';
-    /** §3.2: also at 45°. */
-    diagonal: boolean;
-  }
-  export const defaultSeismicMethod = (): SeismicMethodConfig => ({ method: 'static', vertical: true, torsion: 'low', diagonal: false });
+  // The config and its default live with the dialog's other sections (`auto-loads-sections.ts`).
+  import type { SeismicMethodConfig } from './auto-loads-sections';
 </script>
 
 <script lang="ts">

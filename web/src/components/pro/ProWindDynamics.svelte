@@ -9,6 +9,7 @@
   import { t, tp } from '../../lib/i18n';
   import type { WindDynamics } from '../../lib/engine/loads/wind-dynamics';
   import type { GustResult } from '../../lib/codes/cirsoc102/gust';
+  import { betaText, readBeta, readER, readN1 } from './wind-dynamics-fields';
 
   interface Props {
     dynamics: WindDynamics;
@@ -17,23 +18,37 @@
     /** The modal frequencies found for the preview, with the mode and its mass. */
     modal?: { x?: { n1: number; mode: number; mass: number }; y?: { n1: number; mode: number; mass: number } } | null;
     lowRise: boolean;
+    /** A building or a free roof: the approximate frequency of §1.9.3 is for buildings alone (§1.9.2.1). */
+    building?: boolean;
   }
-  let { dynamics = $bindable(), gust, modal = null, lowRise }: Props = $props();
+  let { dynamics = $bindable(), gust, modal = null, lowRise, building = true }: Props = $props();
 
-  const pct = (v: number) => Math.round(v * 1000) / 10;
-  let betaText = $state(String(pct(dynamics.beta)).replace('.', ','));
+  /*
+   * β shows the value the plan uses. It was a text held from the mount: the dialog sets the
+   * dynamics it restores after this block is built, so the field could read 5 % while the plan
+   * used 2 %. Only what is being typed is held, and a β that does not read stays on screen,
+   * marked, over the one still in use (`readBeta`).
+   */
+  let betaDraft = $state<string | null>(null);
+  const betaShown = $derived(betaDraft ?? betaText(dynamics.beta));
+  const betaInvalid = $derived(betaDraft !== null && readBeta(betaDraft) === null);
   function setBeta(s: string) {
-    const v = Number(s.replace(',', '.'));
-    if (Number.isFinite(v) && v > 0 && v < 20) dynamics = { ...dynamics, beta: v / 100 };
+    const v = readBeta(s);
+    if (v === null) return;
+    dynamics = { ...dynamics, beta: v };
+    betaDraft = null;
   }
   const n1Of = (axis: 'x' | 'y') => dynamics.n1?.[axis] ?? '';
-  function setN1(axis: 'x' | 'y', s: string) {
-    const v = Number(s.replace(',', '.'));
-    dynamics = { ...dynamics, n1: { ...(dynamics.n1 ?? {}), [axis]: Number.isFinite(v) && v > 0 ? v : undefined } };
+  // A value that does not read keeps the one there was, and the field shows it again.
+  function setN1(axis: 'x' | 'y', el: HTMLInputElement) {
+    const v = readN1(el.value, dynamics.n1?.[axis]);
+    dynamics = { ...dynamics, n1: { ...(dynamics.n1 ?? {}), [axis]: v } };
+    el.value = String(v ?? '');
   }
-  function setER(axis: 'x' | 'y', s: string) {
-    const v = Number(s.replace(',', '.'));
-    dynamics = { ...dynamics, eR: { ...(dynamics.eR ?? {}), [axis]: Number.isFinite(v) ? v : 0 } };
+  function setER(axis: 'x' | 'y', el: HTMLInputElement) {
+    const v = readER(el.value, dynamics.eR?.[axis]);
+    dynamics = { ...dynamics, eR: { ...(dynamics.eR ?? {}), [axis]: v } };
+    el.value = String(v ?? 0);
   }
   const anyFlexible = $derived(Object.values(gust ?? {}).some((g) => g?.kind === 'flexible'));
   const r3 = (v: number | undefined) => (v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(3));
@@ -46,7 +61,7 @@
   {:else}
     <fieldset class="wd-src">
       <legend>{t('autoLoad.windDyn.n1')}</legend>
-      {#each ['modal', 'typed', 'approximate', 'declaredRigid'] as s (s)}
+      {#each ['modal', 'typed', ...(building ? ['approximate'] : []), 'declaredRigid'] as s (s)}
         <label class="wd-opt"><input type="radio" name="wd-src" value={s} checked={dynamics.n1Source === s}
           onchange={() => (dynamics = { ...dynamics, n1Source: s as WindDynamics['n1Source'] })} data-testid="wind-n1-{s}" /> {t(`autoLoad.windDyn.src.${s}`)}</label>
       {/each}
@@ -54,7 +69,7 @@
     {#if dynamics.n1Source === 'typed'}
       <div class="wd-row">
         {#each ['x', 'y'] as a (a)}
-          <label>n₁ {a.toUpperCase()} <input type="text" class="wd-num" value={n1Of(a as 'x')} onchange={(e) => setN1(a as 'x', e.currentTarget.value)} data-testid="wind-n1-{a}" /> Hz</label>
+          <label>n₁ {a.toUpperCase()} <input type="text" class="wd-num" value={n1Of(a as 'x')} onchange={(e) => setN1(a as 'x', e.currentTarget)} data-testid="wind-n1-{a}" /> Hz</label>
         {/each}
       </div>
     {:else if dynamics.n1Source === 'approximate'}
@@ -66,7 +81,8 @@
     {/if}
     {#if dynamics.n1Source !== 'declaredRigid'}
       <label class="wd-row">{t('autoLoad.windDyn.beta')}
-        <input type="text" class="wd-num" bind:value={betaText} onchange={(e) => setBeta(e.currentTarget.value)} data-testid="wind-beta" /> %</label>
+        <input type="text" class="wd-num" class:wd-invalid={betaInvalid} aria-invalid={betaInvalid} value={betaShown}
+          oninput={(e) => (betaDraft = e.currentTarget.value)} onchange={(e) => setBeta(e.currentTarget.value)} data-testid="wind-beta" /> %</label>
       <p class="wd-hint">{t('autoLoad.windDyn.betaHint')}</p>
     {/if}
   {/if}
@@ -79,7 +95,7 @@
   {#if anyFlexible}
     <div class="wd-row">
       <span>{t('autoLoad.windDyn.eR')}</span>
-      {#each ['x', 'y'] as a (a)}<label>{a.toUpperCase()} <input type="text" class="wd-num" value={dynamics.eR?.[a as 'x'] ?? 0} onchange={(e) => setER(a as 'x', e.currentTarget.value)} data-testid="wind-er-{a}" /> m</label>{/each}
+      {#each ['x', 'y'] as a (a)}<label>{a.toUpperCase()} <input type="text" class="wd-num" value={dynamics.eR?.[a as 'x'] ?? 0} onchange={(e) => setER(a as 'x', e.currentTarget)} data-testid="wind-er-{a}" /> m</label>{/each}
     </div>
   {/if}
 
@@ -134,6 +150,7 @@
   .wd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 0.7rem; color: var(--st-text-2); }
   .wd-row label { display: inline-flex; align-items: center; gap: 4px; }
   .wd-num { width: 58px; font-family: var(--st-mono); }
+  .wd-num.wd-invalid { border-color: var(--st-danger); outline-color: var(--st-danger); }
   .wd-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); line-height: 1.35; }
   .wd-read { margin: 2px 0; padding-left: 16px; font-size: 0.68rem; color: var(--st-text); }
   .wd-read li { margin-bottom: 3px; }

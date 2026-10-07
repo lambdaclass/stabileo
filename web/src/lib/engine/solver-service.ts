@@ -17,7 +17,7 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, type MemberRef } from './member-loads';
+import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -75,19 +75,33 @@ function thermalScaleOfElement(model: { elements: Map<number, { materialId: numb
  * α·ΔT/h over the section's real depth h, which for an I section is a quarter less than that
  * rectangle's. The load is linear in ΔT, so the gradient is scaled by the ratio of the two depths,
  * for each axis (`y` across local y, the width; `z` across local z, the depth): exact, as α's is.
- * The same section and factors the engine gets (`solverProperties`, `solveStiffnessFactors`).
+ * The same section and factors the engine gets (`buildSolverInput3D`, `solveStiffnessFactors`):
+ * a plane model embedded in XZ bends in its plane with `effectiveBendingInertia`, a section turned
+ * in that plane over no single depth, and is left as the engine has it. The plane solve (`plane`)
+ * takes that same inertia and area with no stiffness factors (`solverFrame2D`), so a plane model
+ * bends alike in 2D and in 3D.
+ *
+ * A section with no depth or width (one stated by its properties only) has no real depth to scale
+ * to: the engine's rectangle stands, and the model's findings say so (`MODEL_THERMAL_DEPTH_UNKNOWN`).
  */
-function thermalDepthScale(model: ModelData, elementId: number): { y: number; z: number } {
+function thermalDepthScale(model: ModelData, elementId: number, embedded: boolean | 'plane' = false): { y: number; z: number } {
   const e = model.elements.get(elementId);
   const s = e ? model.sections.get(e.sectionId) : undefined;
   if (!e || !s) return { y: 1, z: 1 };
   const p = solverProperties(s);
-  const f = solveStiffnessFactors(model, elementId);
+  const f = embedded === 'plane' ? { a: 1, iy: 1, iz: 1 } : solveStiffnessFactors(model, elementId);
   const a = p.a * f.a;
   if (!(a > 0)) return { y: 1, z: 1 };
   const ratio = (inertia: number | undefined, depth: number | undefined) =>
     inertia && inertia > 0 && depth && depth > 0 ? Math.sqrt((12 * inertia) / a) / depth : 1;
-  return { y: ratio((p.iz ?? 0) * f.iz, s.b), z: ratio((p.iy ?? 0) * f.iy, s.h) };
+  const canonical = p.source === 'canonical';
+  const iz = (canonical ? p.iz : s.iz) ?? 0;
+  if (embedded) {
+    const turned = Math.abs(s.rotation ?? 0) > 1e-10;
+    return { y: ratio(iz * f.iz, s.b), z: turned ? 1 : ratio(effectiveBendingInertia(s, p) * f.iy, s.h) };
+  }
+  const iy = (canonical ? p.iy : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz))) ?? 0;
+  return { y: ratio(iz * f.iz, s.b), z: ratio(iy * f.iy, s.h) };
 }
 
 // ─── ModelData interface ──────────────────────────────────────────
@@ -271,7 +285,9 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       // The material's own α (thermal-alpha.ts), and the gradient in the drawn axes.
       const k = thermalScaleOfElement(model, d.elementId);
       // An initial strain is the temperature change that gives it, ε/α, in the engine's own α.
-      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k + (d.strain ?? 0) / ENGINE_ALPHA, dtGradient: sOf(d.elementId) * d.dtGradient * k } });
+      // The gradient over the section's real depth, as in the space solve (`thermalDepthScale`).
+      const depth = d.dtGradient ? thermalDepthScale(model, d.elementId, 'plane').z : 1;
+      solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform * k + (d.strain ?? 0) / ENGINE_ALPHA, dtGradient: sOf(d.elementId) * d.dtGradient * k * depth } });
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
       const angle = d.angle ?? 0;
@@ -1310,6 +1326,9 @@ export function buildSolverLoads3D(
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const refOf = (id: number) => memberRef3D(model, id, project2DToXZ);
   const takesNoBending = (id: number) => model.elements.get(id)?.type === 'truss';
+  // A concentrated load and a tendon go by the solve's cuts' own predicate, one-way members
+  // included: the cuts skip those, so their loads must not need one (`member-loads.ts`).
+  const axialMember = (id: number) => memberTakesNoBending(model.elements.get(id));
 
   for (const l of loads) {
     if (l.type === 'nodal') {
@@ -1471,7 +1490,7 @@ export function buildSolverLoads3D(
       const d = l.data as PointLoadOnElement3D;
       const m = refOf(d.elementId);
       if (!m) continue;
-      if (takesNoBending(d.elementId)) {
+      if (axialMember(d.elementId)) {
         if ([d.mx, d.my, d.mz].some((v) => v)) throw new PointLoadNeedsCut(d.elementId);
         solverLoads.push(...pointToEnds(m, d, userLeftHand));
       } else {
@@ -1483,15 +1502,15 @@ export function buildSolverLoads3D(
       const d = l.data as PrestressLoad3D;
       const m = refOf(d.elementId);
       if (!m) continue;
-      solverLoads.push(...(takesNoBending(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
+      solverLoads.push(...(axialMember(d.elementId) ? prestressToSolver(m, { ...d, eI: 0, eM: 0, eJ: 0 }) : prestressToSolver(m, d)));
     } else if (l.type === 'surface3d') {
       solverLoads.push(...convertSurfaceLoad(l.data as SurfaceLoad3D, model.quads, model.nodes, model.plates));
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       const k = thermalScaleOfElement(model, d.elementId);
-      // The member's real depth, not its equivalent rectangle's; on a plane model embedded in XZ
-      // the engine's in-plane inertia is another one, and the depth is left as the engine has it.
-      const depth = project2DToXZ ? { y: 1, z: 1 } : thermalDepthScale(model, d.elementId);
+      // The member's real depth, not its equivalent rectangle's, on a space model and an embedded
+      // plane one alike (each with the inertia the engine gets).
+      const depth = thermalDepthScale(model, d.elementId, project2DToXZ);
       solverLoads.push({
         type: 'thermal' as const,
         data: {
@@ -1827,12 +1846,12 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
 }
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
-function loadRefusal(err: unknown): string | null {
+export function loadRefusal(err: unknown): string | null {
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 
 /** Displacements imposed where nothing restrains them, said by node and direction. */
-function imposedRefusal(model: ModelData): string | null {
+export function imposedRefusal(model: ModelData): string | null {
   const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
   if (bad.length === 0) return null;
   return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
@@ -2224,7 +2243,9 @@ export function solveCombinations3D(
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
   try {
-    return withDeclaredInactiveBundle(solveCombinations3DActive(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand), model);
+    const plan = combinationsPlan3D(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand);
+    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, loadCases, combinations, includeSelfWeight, leftHand));
+    return withDeclaredInactiveBundle(solved, model);
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -2232,26 +2253,37 @@ export function solveCombinations3D(
   }
 }
 
-function solveCombinations3DActive(
+/**
+ * Everything a combination solve does around its linear core, for both entries: this one and the
+ * workers' (`solveCombinations3DParallel`), which PRO's Solve takes. They differ in the core only,
+ * so a rule one honours the other cannot skip; the workers' entry once skipped P-Delta per
+ * combination, and then the cases' imposed displacements.
+ *
+ * A model that is not linear, or P-Delta per combination, is solved here (`done`). Otherwise the
+ * core solves `forces`, the model without its settlement and without the cases' imposed
+ * displacements, and `finish` adds the settlement once and each case's displacements to its case
+ * (`case-displacements.ts`).
+ */
+function combinationsPlan3D(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): Bundle3D | string | null {
-  if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
-  if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
-  // A case's imposed displacements are solved apart and added to it (`case-displacements.ts`).
+): { done: Bundle3D | string | null } | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
+  if (hasNonlinearBehaviour(model)) return { done: solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand) };
+  if (model.analysis?.perCombination === 'pdelta') return { done: solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand) };
   const imposed = casesWithDisplacements(model.loads);
-  const forces = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
-  let solved: Bundle3D | string | null;
-  if (!hasSettlement(model.supports.values())) solved = solveCombinations3DCore(forces, loadCases, combinations, includeSelfWeight, leftHand);
-  else {
-    solved = solveCombinations3DCore({ ...forces, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
-    if (solved && typeof solved !== 'string') solved = withSettlementCase(solved, forces, combinations, leftHand);
-  }
-  if (!solved || typeof solved === 'string' || imposed.size === 0) return solved;
-  return withCaseDisplacements(solved, model, combinations, leftHand);
+  const loaded = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
+  const settled = hasSettlement(model.supports.values());
+  return {
+    forces: settled ? { ...loaded, supports: withoutSettlement(model.supports) } : loaded,
+    finish: (solved) => {
+      if (settled && solved && typeof solved !== 'string') solved = withSettlementCase(solved, loaded, combinations, leftHand);
+      if (!solved || typeof solved === 'string' || imposed.size === 0) return solved;
+      return withCaseDisplacements(solved, model, combinations, leftHand);
+    },
+  };
 }
 
 /**
@@ -2689,23 +2721,19 @@ export async function solveCombinations3DParallel(
   includeSelfWeight = false,
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
-  const original = model;
-  model = solvableModel(model);
-  /*
-   * The same dispatch as `solveCombinations3DActive`, in the same order: this is the entry PRO's
-   * Solve takes, so a rule the sync path honours and this one skipped (P-Delta per combination
-   * was) made the result depend on which button solved the model. Only the linear core runs on
-   * the workers.
-   */
-  const done = async (): Promise<Bundle3D | string | null> => {
-    if (hasNonlinearBehaviour(model)) return solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand);
-    if (model.analysis?.perCombination === 'pdelta') return solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand);
-    if (!hasSettlement(model.supports.values())) return solveCombinations3DParallelCore(model, loadCases, combinations, includeSelfWeight, leftHand);
-    const solved = await solveCombinations3DParallelCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight, leftHand);
-    if (!solved || typeof solved === 'string') return solved;
-    return withSettlementCase(solved, model, combinations, leftHand);
-  };
-  return withDeclaredInactiveBundle(await done(), original);
+  // The sequential entry's refusals and plan (`combinationsPlan3D`); only the linear core runs on
+  // the workers.
+  const imposed = imposedRefusal(model);
+  if (imposed) return imposed;
+  try {
+    const plan = combinationsPlan3D(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand);
+    const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, loadCases, combinations, includeSelfWeight, leftHand));
+    return withDeclaredInactiveBundle(solved, model);
+  } catch (err) {
+    const said = loadRefusal(err);
+    if (said) return said;
+    throw err;
+  }
 }
 
 async function solveCombinations3DParallelCore(

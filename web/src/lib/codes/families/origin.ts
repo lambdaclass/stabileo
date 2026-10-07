@@ -22,4 +22,9 @@ export interface CombinationOrigin {
   /** The rule within the code, as it prints it (`2.3.2-2`), or the project's rule's id. */
   rule: string;
   purpose: 'strength' | 'service';
+  /**
+   * Its factors were edited by hand: the user's now, which "replace generated loads" keeps
+   * (`store/apply-load-plan.ts`). The rest still says where it came from and what it is for.
+   */
+  edited?: true;
 }

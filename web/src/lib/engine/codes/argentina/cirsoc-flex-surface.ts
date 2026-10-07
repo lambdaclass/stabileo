@@ -25,7 +25,7 @@
  * and reading the moment off the result cannot make that mistake.
  */
 
-import { interactionCurve, sectionPoint, type Bar, type Outline, type Materials, type SectionPoint }
+import { interactionCurve, prepareSection, type PreparedSection, type Bar, type Outline, type Materials, type SectionPoint }
   from './cirsoc201-section';
 
 /*
@@ -75,14 +75,18 @@ function thetaFor(fi: number, sx: number, sy: number): number {
 export function stateAtAxial(
   outline: Outline, bars: readonly Bar[], mat: Materials, theta: number, Pu: number,
 ): SectionPoint | null {
-  const curve = interactionCurve(outline, bars, mat, theta, 60);
+  const section = prepareSection(outline, bars, mat);
+  try { return stateAtAxialPrepared(section, theta, Pu); } finally { section.free(); }
+}
+function stateAtAxialPrepared(section: PreparedSection, theta: number, Pu: number): SectionPoint | null {
+  const curve = section.curve(theta, 60);
   for (let k = 0; k < curve.length - 1; k++) {
     const A = curve[k];
     const B = curve[k + 1];
     const fA = A.phiPn - Pu;
     const fB = B.phiPn - Pu;
     if (fA === 0) return A;
-    if (fA * fB < 0) return refine(outline, bars, mat, theta, A.c, B.c, (p) => p.phiPn - Pu);
+    if (fA * fB < 0) return refinePrepared(section, theta, A.c, B.c, (p) => p.phiPn - Pu);
   }
   return null;
 }
@@ -98,17 +102,21 @@ export function refine(
   outline: Outline, bars: readonly Bar[], mat: Materials, theta: number,
   cA: number, cB: number, f: (p: SectionPoint) => number,
 ): SectionPoint {
+  const section = prepareSection(outline, bars, mat);
+  try { return refinePrepared(section, theta, cA, cB, f); } finally { section.free(); }
+}
+function refinePrepared(section: PreparedSection, theta: number, cA: number, cB: number, f: (p: SectionPoint) => number): SectionPoint {
   let a = cA;
   let b = cB;
-  let fa = f(sectionPoint(outline, bars, mat, theta, a));
+  let fa = f(section.point(theta, a));
   for (let i = 0; i < 50; i++) {
     const m = (a + b) / 2;
-    const pm = sectionPoint(outline, bars, mat, theta, m);
+    const pm = section.point(theta, m);
     const fm = f(pm);
     if (fm === 0) return pm;
     if (fa * fm < 0) { b = m; } else { a = m; fa = fm; }
   }
-  return sectionPoint(outline, bars, mat, theta, (a + b) / 2);
+  return section.point(theta, (a + b) / 2);
 }
 
 /**
@@ -122,17 +130,20 @@ export function surfaceCut(
   outline: Outline, bars: readonly Bar[], mat: Materials, Pu: number,
   opts: { sx?: number; sy?: number; steps?: number } = {},
 ): CutPoint[] {
-  const sx = (opts.sx ?? 1) < 0 ? -1 : 1;
-  const sy = (opts.sy ?? 1) < 0 ? -1 : 1;
-  const steps = opts.steps ?? 12;
-  const out: CutPoint[] = [];
-  for (let k = 0; k <= steps; k++) {
-    const fi = (k / steps) * (Math.PI / 2);
-    const st = stateAtAxial(outline, bars, mat, thetaFor(fi, sx, sy), Pu);
-    if (!st) continue;
-    out.push({ fi, phiMnx: sheetMx(st), phiMny: sheetMy(st), state: st });
-  }
-  return out;
+  const section = prepareSection(outline, bars, mat);
+  try {
+    const sx = (opts.sx ?? 1) < 0 ? -1 : 1;
+    const sy = (opts.sy ?? 1) < 0 ? -1 : 1;
+    const steps = opts.steps ?? 12;
+    const out: CutPoint[] = [];
+    for (let k = 0; k <= steps; k++) {
+      const fi = (k / steps) * (Math.PI / 2);
+      const st = stateAtAxialPrepared(section, thetaFor(fi, sx, sy), Pu);
+      if (!st) continue;
+      out.push({ fi, phiMnx: sheetMx(st), phiMny: sheetMy(st), state: st });
+    }
+    return out;
+  } finally { section.free(); }
 }
 
 export interface MomentCapacity {
@@ -157,39 +168,42 @@ export function momentCapacityAtAxial(
   outline: Outline, bars: readonly Bar[], mat: Materials,
   Pu: number, Mx: number, My: number,
 ): MomentCapacity | null {
-  const sx = Mx < 0 ? -1 : 1;
-  const sy = My < 0 ? -1 : 1;
-  const want = Math.atan2(Math.abs(My), Math.abs(Mx));
-  const at = (fi: number) => stateAtAxial(outline, bars, mat, thetaFor(fi, sx, sy), Pu);
-  const dirOf = (p: SectionPoint) => Math.atan2(Math.abs(sheetMy(p)), Math.abs(sheetMx(p)));
+  const section = prepareSection(outline, bars, mat);
+  try {
+    const sx = Mx < 0 ? -1 : 1;
+    const sy = My < 0 ? -1 : 1;
+    const want = Math.atan2(Math.abs(My), Math.abs(Mx));
+    const at = (fi: number) => stateAtAxialPrepared(section, thetaFor(fi, sx, sy), Pu);
+    const dirOf = (p: SectionPoint) => Math.atan2(Math.abs(sheetMy(p)), Math.abs(sheetMx(p)));
 
-  const pack = (fi: number, p: SectionPoint): MomentCapacity => ({
-    phiMn: Math.hypot(p.phiMnx, p.phiMny), phiMnx: sheetMx(p), phiMny: sheetMy(p), fi, state: p,
-  });
+    const pack = (fi: number, p: SectionPoint): MomentCapacity => ({
+      phiMn: Math.hypot(p.phiMnx, p.phiMny), phiMnx: sheetMx(p), phiMny: sheetMy(p), fi, state: p,
+    });
 
-  /* On an axis the answer is the end of the contour; no search needed. */
-  if (Math.abs(My) < 1e-9 || Math.abs(Mx) < 1e-9) {
-    const fi = Math.abs(My) < 1e-9 ? 0 : Math.PI / 2;
-    const p = at(fi);
-    return p ? pack(fi, p) : null;
-  }
+    /* On an axis the answer is the end of the contour; no search needed. */
+    if (Math.abs(My) < 1e-9 || Math.abs(Mx) < 1e-9) {
+      const fi = Math.abs(My) < 1e-9 ? 0 : Math.PI / 2;
+      const p = at(fi);
+      return p ? pack(fi, p) : null;
+    }
 
-  let lo = 0;
-  let hi = Math.PI / 2;
-  const pLo = at(lo);
-  const pHi = at(hi);
-  if (!pLo || !pHi) return null;
-  let best = pack(lo, pLo);
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    const p = at(mid);
-    if (!p) return null;
-    best = pack(mid, p);
-    const d = dirOf(p) - want;
-    if (Math.abs(d) < 1e-7) break;
-    if (d < 0) lo = mid; else hi = mid;
-  }
-  return best;
+    let lo = 0;
+    let hi = Math.PI / 2;
+    const pLo = at(lo);
+    const pHi = at(hi);
+    if (!pLo || !pHi) return null;
+    let best = pack(lo, pLo);
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      const p = at(mid);
+      if (!p) return null;
+      best = pack(mid, p);
+      const d = dirOf(p) - want;
+      if (Math.abs(d) < 1e-7) break;
+      if (d < 0) lo = mid; else hi = mid;
+    }
+    return best;
+  } finally { section.free(); }
 }
 
 /** The greatest and least φPn the section reaches, kN — the ends of any cut. */

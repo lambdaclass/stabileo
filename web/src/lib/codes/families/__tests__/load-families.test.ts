@@ -132,7 +132,7 @@ describe('the roles', () => {
 
 describe('replace acts per action', () => {
   const plan = buildLoadPlan(input({ generateCombinations: false }));
-  const cases = [{ id: 1, type: 'D' }, { id: 2, type: 'L' }, { id: 3, type: 'W' }];
+  const cases = [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }, { id: 3, type: 'W', name: 'W' }];
   const load = (id: number, caseId: number, generatedBy?: string): Load =>
     ({ type: 'distributed3d', data: { id, elementId: 4, qYI: 0, qYJ: 0, qZI: -1, qZJ: -1, caseId, ...(generatedBy ? { generatedBy } : {}) } }) as unknown as Load;
 

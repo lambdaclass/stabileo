@@ -1,3 +1,4 @@
+import { getRcSectionKernel } from './rc-section-kernel';
 /**
  * One section engine, for every case the workbook solves.
  *
@@ -229,21 +230,59 @@ export function interactionCurve(
   theta: number,
   nPoints = 60,
 ): SectionPoint[] {
-  const { max, min } = extentAlong(outline, theta === 0 ? 1 : Math.cos(theta), Math.sin(theta));
-  const depth = max - min;
-
-  const cs: number[] = [10 * depth];
-  for (let i = 0; i <= nPoints; i++) {
-    const c = 2 * depth * (1 - i / nPoints);
-    if (c > 1e-5) cs.push(c);
-  }
-  cs.push(1e-5);
-  cs.sort((p, q) => q - p);
-  return cs.map((c) => sectionPoint(outline, bars, mat, theta, c));
+  const section = prepareSection(outline, bars, mat);
+  try { return section.curve(theta, nPoints); } finally { section.free(); }
 }
 
 /** The squash load this section reaches with its bars, kN. */
 export function sectionSquashLoad(outline: Outline, bars: readonly Bar[], mat: Materials): number {
   const Ast = bars.reduce((s, b) => s + b.area, 0);
   return squashLoad(mat.fc, mat.fy, grossArea(outline), Ast);
+}
+
+
+/** Run-scoped geometry, shared by every angle/depth in a diagram or surface search.
+ * No identity cache: edited outlines, materials and reinforcement are read afresh. */
+export interface PreparedSection {
+  point(theta: number, c: number): SectionPoint;
+  curve(theta: number, nPoints?: number): SectionPoint[];
+  free(): void;
+}
+export function prepareSection(outline: Outline, bars: readonly Bar[], mat: Materials): PreparedSection {
+  const { outer, holes } = outlineRings(outline);
+  const Constructor = getRcSectionKernel();
+  const rings = [outer, ...holes];
+  const offsets = new Uint32Array(rings.length + 1);
+  for (let i = 0; i < rings.length; i++) offsets[i + 1] = offsets[i] + rings[i].length;
+  const geometry = Constructor ? new Constructor(
+    Float64Array.from(rings.flatMap(ring => ring.flatMap(p => [p.x, p.y]))), offsets,
+    Float64Array.from(bars.flatMap(b => [b.x, b.y, b.area])),
+    Float64Array.of(mat.fc * 1000, mat.fy, ES_MPA, EPSILON_CU, beta1(mat.fc)),
+    mat.deductDisplacedConcrete ?? true,
+  ) : null;
+  const Ag = Math.abs(polygonArea(outer)) - holes.reduce((s, h) => s + Math.abs(polygonArea(h)), 0);
+  const cap = axialCap(mat.fc, mat.fy, Ag, bars.reduce((s, b) => s + b.area, 0), mat.confinement ?? 'ties');
+  const evaluate = (theta: number, depths: number[]): SectionPoint[] => {
+    if (!geometry) return depths.map(c => sectionPoint(outline, bars, mat, theta, c));
+    const values = geometry.evaluate(Math.cos(theta), Math.sin(theta), Float64Array.from(depths));
+    return depths.map((c, i) => {
+      const k = i * 5, Pn = values[k], Mnx = values[k + 1], Mny = values[k + 2], epsilonT = values[k + 3];
+      const phi = phiFromStrain(epsilonT, mat.fy, mat.confinement ?? 'ties');
+      return { Pn, Mnx, Mny, phiPn: Math.min(phi * Pn, cap), phiMnx: phi * Mnx, phiMny: phi * Mny, phi, epsilonT, c };
+    });
+  };
+  return {
+    point: (theta, c) => evaluate(theta, [c])[0],
+    curve(theta, nPoints = 60) {
+      const nx = Math.cos(theta), ny = Math.sin(theta);
+      let max = -Infinity, min = Infinity;
+      for (const p of outer) { const s = nx * p.x + ny * p.y; max = Math.max(max, s); min = Math.min(min, s); }
+      const depth = max - min;
+      const cs = [10 * depth];
+      for (let i = 0; i <= nPoints; i++) { const c = 2 * depth * (1 - i / nPoints); if (c > 1e-5) cs.push(c); }
+      cs.push(1e-5); cs.sort((p, q) => q - p);
+      return evaluate(theta, cs);
+    },
+    free: () => geometry?.free(),
+  };
 }

@@ -72,5 +72,8 @@ application layer; the engine is untouched.
 ## Not done here
 
 - Across-wind and torsional dynamic response (outside §1.9's G_f); the dialog says so.
-- Loads and combinations written by an older version carry no marker, so "replace" keeps them.
+- Loads and combinations written by an older version carry no marker. "Replace" keeps them unless
+  the user ticks "also remove unmarked" (`replaceScope`, `alsoUnmarked`), which the preview offers
+  when there are some in the cases the plan writes into; a hand edit or a copy makes an item the
+  user's (`generatedBy` dropped, combination `origin.edited`).
 - No second family is implemented; the interfaces and the test family are the contract.

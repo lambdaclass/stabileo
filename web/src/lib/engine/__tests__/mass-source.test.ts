@@ -166,6 +166,20 @@ describe('the mass reaches the engine', () => {
     expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
   });
 
+  it('weighs a tendon, a temperature and a strain as nothing: they are not weight', () => {
+    frame();
+    modelStore.setMassSource(CIRSOC);
+    modelStore.addDistributedLoad3D(2, 0, 0, -10, -10, undefined, undefined, 1);   // D: 40 kN
+    // In the same case: the tendon pushes the girder up with 8·P·f/L² = 50 kN/m, more than D.
+    modelStore.addLoadEntry({ type: 'prestress3d', data: { id: 0, elementId: 2, force: 500, eI: 0, eM: 0.2, eJ: 0, caseId: 1 } });
+    modelStore.addLoadEntry({ type: 'thermal', data: { id: 0, elementId: 2, dtUniform: 30, dtGradient: 40, dtGradientY: 10, strain: 1e-3, caseId: 1 } });
+    const { report, modal } = run();
+    expect(report.addedT.get(1)).toBeCloseTo(40 / G, 6);
+    expect(report.excludedNodalKN).toBeCloseTo(0, 9);
+    expect(report.excludedUpwardKN).toBeCloseTo(0, 9);
+    expect(modal.totalMass).toBeCloseTo(report.totalT, 6);
+  });
+
   it('reports the nodal loads it cannot carry instead of dropping them silently', () => {
     frame();
     modelStore.setMassSource(CIRSOC);

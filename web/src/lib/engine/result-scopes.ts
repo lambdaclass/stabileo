@@ -44,17 +44,53 @@ export interface ResultScopes {
   envelopes?: NamedEnvelope[];
 }
 
+/** A combination a code wrote for service: a service envelope's, never a design's (`codes/families/origin.ts`). */
+export const isServiceCombination = (c: { origin?: { purpose: string } }): boolean => c.origin?.purpose === 'service';
+
 /**
- * The active combination ids: the stated list, pruned to combinations that exist, or all. "All" is
- * every combination but the ones a code wrote for service, which are a service envelope's and
- * never a design's (their origin says so, `codes/families/origin.ts`).
+ * What "all combinations" means for design: every combination but the ones a code wrote for
+ * service. The one rule every path with no stated list reads — the active ids, the solved
+ * combinations design reads (`store/active-results.ts`), the envelope (`scopeBundle3D`) and the
+ * result-scopes panel — so none of them hands the service combinations back to design.
+ */
+export function designComboIds(combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
+  return combinations.filter((c) => !isServiceCombination(c)).map((c) => c.id);
+}
+
+/**
+ * The active combination ids: the stated list, pruned to combinations that exist, or all for
+ * design (`designComboIds`).
  */
 export function activeComboIds(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
-  const all = combinations.filter((c) => c.origin?.purpose !== 'service').map((c) => c.id);
+  const all = designComboIds(combinations);
   if (!scopes?.active) return all;
   const exist = new Set(combinations.map((c) => c.id));
   return scopes.active.filter((id) => exist.has(id));
 }
+
+/**
+ * The result-scopes panel's edits of the active list (`ProResultScopes.svelte`), on the same rule:
+ * a list it states starts from what design reads now, in the model's order. It started from every
+ * combination, so unticking one strength combination, "Chosen" or "Mark all" handed the service
+ * combinations back to design. A service combination still goes in when the user ticks it.
+ */
+export const scopeEdits = {
+  /** What design reads now, in the model's order. */
+  current(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
+    const on = new Set(activeComboIds(scopes, combinations));
+    return combinations.filter((c) => on.has(c.id)).map((c) => c.id);
+  },
+  /** `id` ticked or unticked on what design reads now. */
+  toggle(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>, id: number): number[] {
+    const cur = new Set(scopeEdits.current(scopes, combinations));
+    if (cur.has(id)) cur.delete(id); else cur.add(id);
+    return combinations.map((c) => c.id).filter((x) => cur.has(x));
+  },
+  /** "Mark all" (every combination for design) or "mark none". */
+  mark(combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>, all: boolean): number[] {
+    return all ? designComboIds(combinations) : [];
+  },
+};
 
 /** `perCombo` narrowed to the given ids, in their order. */
 export function narrowPerCombo<T>(perCombo: ReadonlyMap<number, T>, ids: readonly number[]): Map<number, T> {
@@ -122,15 +158,17 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
  *
  * Every combination stays in `perCombo` — each can still be shown on its own — but the envelope
  * the viewport and the tables call "Envelope" is the one the project stated. With no active list
- * the bundle is returned as solved. An active list that names no solved combination is an error,
+ * it is the envelope of every combination but the service ones a code wrote (`designComboIds`):
+ * the bundle as solved when there are none. A list that names no solved combination is an error,
  * not an empty envelope: a design reading it would find no demand and pass everything.
  */
 export function scopeBundle3D<B extends Bundle3D>(
   bundle: B | string | null,
   scopes: ResultScopes | undefined,
-  combinations: ReadonlyArray<{ id: number }>,
+  combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>,
 ): B | string | null {
-  if (!bundle || typeof bundle === 'string' || !scopes?.active) return bundle;
+  if (!bundle || typeof bundle === 'string') return bundle;
+  if (!scopes?.active && !combinations.some(isServiceCombination)) return bundle;
   const ids = activeComboIds(scopes, combinations).filter((id) => bundle.perCombo.has(id));
   if (ids.length === bundle.perCombo.size) return bundle;
   const envelope = envelopeOver(bundle.perCombo, ids);
