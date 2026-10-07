@@ -192,6 +192,33 @@ From issues #251, #181, #96, #205 and #206.
 - Loaded in case: each armed kind takes its part (disabled with only supports armed). Parallel to: members and plates (disabled otherwise). Walk: through the armed kind. Previous: `selectionHistory.back(kinds)` gives back the last selection of the armed kinds and skips the others.
 - By id: nodes, members, plates (one kind: `selectByIds(..., 'shells')` looks in triangles and quadrilaterals and reports an id found in both), supports, loads. The list follows the armed kind, and naming another kind arms it.
 
+## Merged with main and with #264
+
+- `main` went into PRO 24 first (signed merge), then PRO 24 into PRO 25, then `basic/interaction-view` (#264) into PRO 25, so this PR carries #264 until it is merged: merge #264 first.
+- Where they met:
+  - `solver-service.ts`: main's plan (`combinationsPlan3D`, refusals, imposed displacements) with PRO 24's case effects and cases to solve, and PRO 25's spectral cases (`finishBundle(…, spectral)`), in both the sequential and the workers' entry.
+  - `write-load.ts` and `shell-load-form.ts` (main's pure builders of the Add load card) take the card's SI values (`null` for a blank field); the inclined force goes from an origin (a node or a point) toward each loaded node (`writeLoad.fromNodeMissing`, `writeLoad.fromSelf`). Their tests were moved to numbers.
+  - `centerlineInput(opts)` (`store/dynamic-input.ts`) takes main's `caseDisplacements` and `uncut`.
+  - One temperature-difference quantity, `temperatureDelta` (#264's name; PRO 25 had `temperatureDiff`), and one set of section quantities.
+  - `SelectionPanel`: Basic as #264 left it; PRO by armed kind. One walk for both (`selectWalkItem` takes plates); Basic's "like the selection" uses `likeMembers` from `select-like.ts`.
+- The WASM engine must be rebuilt after the merge (`npm run wasm`): main changed the Rust side.
+
+## Nodes, scrollbars, selection and temperature in PRO
+
+- Nodes are drawn a fixed size on screen in PRO too (`NodesInstanced.setStyle`, `uiStore.nodeStyle3D`, default `auto`); the mesh stays as the click target. `resolveNodeStyle(pref, tool, aiming)`: in PRO, aiming is also `shellNodePick.active`, `placementStore.active` and the connections tab. Settings › node style and panel scrollbars are shown in PRO.
+- Scrollbars: `styles/panel-scrollbars.css`, class `st-panel-scrollbars`, on Basic's panel and PRO's (`data-testid="pro-panel"`), never on the phone.
+- Zoom to selection frames one node with a third of the model around it, in both modes.
+- Temperature: the signs along the member (#264's `drawThermalSigns`) show in PRO; PRO keeps its names (ΔT, ΔTgz, ΔTgy; ΔTg on plates), because it has two gradients and "ΔTg" is already the plate gradient.
+- A load on a plate is picked on its fill (`LoadArrowsBatched.markArea`, `pickLoadsWithDistance(…, areas)`); the load tables move to the case of a load selected in the model; a model from Basic keeps its self-weight case (`migrateSelfWeightIfNeeded`).
+
+## Large models
+
+- Measured with a real GPU (Metal) on a generated building (`e2e/large-model.ts`: 1,638 nodes, 4,245 members, 1,200 slab faces, 5,130 loads): members 860 → ~40 ms to open, loads 942 → ~80 ms, plates 203 → ~30 ms, nodes 144 → ~40 ms. On the industrial shed example: members ~25 ms, loads ~38 ms, no long frame.
+- `lib/utils/progressive-rows.svelte.ts` (`progressiveRows`, `progressiveLimit`): first 30 rows, then a batch a frame; `reach(i)` draws up to a row the model asks for. Used by Basic's members table, PRO's members (40 a frame), nodes, plates (60) and load tables (one budget of 30 a frame over the eight tables).
+- `components/tables/LazySelect.svelte`: a select holding its list only while open; `LazyIdSelect` is built on it. Used for material and section per member row, material per plate row, frame per distributed and point load row.
+- The rest of the drawing time is the browser's style and layout of the large tables (a CPU profile shows it native), spread over frames; keyed rows keep each batch from re-reading the rows before it. Virtualizing would be the next step if a table must stay smaller.
+- `e2e/pro-large-model-tables.spec.ts` counts rows and options on the first frame (not times: CI draws WebGL on the CPU).
+
 ## Tests
 
 - `engine/__tests__/spectral-case.test.ts`: the engine's spectral displacements for the same modes,

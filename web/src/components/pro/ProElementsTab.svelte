@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import LazySelect from '../tables/LazySelect.svelte';
+  import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
@@ -133,12 +136,20 @@
    * every selected member's row is lit, and the first is scrolled into view.
    */
   let tableWrap = $state<HTMLElement | null>(null);
+  /*
+   * Rows drawn in batches (`progressive-rows.svelte.ts`): a building of 4,000 members held the main
+   * thread for most of a second when this tab opened. A row the selection asks for is drawn first.
+   */
+  // Forty a frame: a member's row is a dozen controls, and a hundred took 60–90 ms a frame.
+  const batches = progressiveRows(() => rows, 30, 40);
   $effect(() => {
     const sel = uiStore.selectedElements;
     if (sel.size === 0 || !tableWrap) return;
     const first = [...sel].find((id) => modelStore.elements.has(id));
     if (first === undefined) return;
-    queueMicrotask(() => tableWrap?.querySelector(`tr[data-elem="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
+    const at = rows.findIndex((r) => r.id === first);
+    if (at >= 0) batches.reach(at);
+    void tick().then(() => tableWrap?.querySelector(`tr[data-elem="${first}"]`)?.scrollIntoView({ block: 'nearest' }));
   });
 
   // ── Group editing over a selection of more than one member ──
@@ -418,7 +429,8 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row, idx}
+        <!-- Keyed by the row itself: unkeyed, every batch re-read every row drawn before it. -->
+        {#each batches.rows as row, idx (row)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <tr
             class:selected={row.id !== null && uiStore.selectedElements.has(row.id)}
@@ -449,24 +461,15 @@
                 onblur={() => commitRow(idx)} placeholder="—" />
             </td>
             <td class="col-mat">
-              <select value={String(row.materialId)} onchange={(e) => {
-                row.materialId = parseInt(e.currentTarget.value);
-                if (row.id !== null) commitRow(idx);
-              }}>
-                {#each materials as m}
-                  <option value={String(m.id)}>{m.name}</option>
-                {/each}
-              </select>
+              <!-- The list is built when the select is used: a select per row repeated it thousands of times. -->
+              <LazySelect value={row.materialId} label={materials.find((m) => m.id === row.materialId)?.name ?? String(row.materialId)}
+                options={() => materials.map((m) => ({ value: m.id, label: m.name }))}
+                onchange={(v) => { row.materialId = parseInt(v); if (row.id !== null) commitRow(idx); }} />
             </td>
             <td class="col-sec">
-              <select value={String(row.sectionId)} onchange={(e) => {
-                row.sectionId = parseInt(e.currentTarget.value);
-                if (row.id !== null) commitRow(idx);
-              }}>
-                {#each sections as s}
-                  <option value={String(s.id)}>{s.name}</option>
-                {/each}
-              </select>
+              <LazySelect value={row.sectionId} label={sections.find((x) => x.id === row.sectionId)?.name ?? String(row.sectionId)}
+                options={() => sections.map((x) => ({ value: x.id, label: x.name }))}
+                onchange={(v) => { row.sectionId = parseInt(v); if (row.id !== null) commitRow(idx); }} />
             </td>
             <td class="col-spec">
               {#if row.id !== null}
@@ -653,7 +656,7 @@
   }
 
   .col-mat, .col-sec { width: auto; }
-  .col-mat select, .col-sec select {
+  .col-mat :global(select), .col-sec :global(select) {
     width: 100%;
     padding: 3px 3px;
     background: var(--st-surface-3);
@@ -663,7 +666,7 @@
     font-size: 0.72rem;
     cursor: pointer;
   }
-  .col-mat select:focus, .col-sec select:focus {
+  .col-mat :global(select:focus), .col-sec :global(select:focus) {
     border-color: var(--st-surface-3);
     outline: none;
   }

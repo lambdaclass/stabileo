@@ -55,6 +55,7 @@ import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
 import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
+import { loadFixture } from '../templates/load-fixture';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -417,6 +418,13 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /**
+   * Load a model given as an example's JSON (`templates/load-fixture.ts`), as an example loads:
+   * for a spec that builds its own model, a large one to time the tables, say.
+   */
+  loadModelData(json: Record<string, unknown>): void;
+  /** Open a tab of PRO's panel by its id, as its command does. */
+  openProTab(tab: string): void;
   /**
    * Open a project from its `.ded` JSON, exactly as File → Open does (`deserializeProject`):
    * validated, migrated, results cleared. Lets a spec load a model that is not one of the
@@ -824,6 +832,13 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    loadModelData: (json: Record<string, unknown>) => {
+      modelStore.clear();
+      modelStore.bulkMutate(() => loadFixture(json as never, modelStore.fixtureApi() as never));
+      modelStore.refreshCanonicalSections();
+      uiStore.useNative3DPresentation();
+    },
+    openProTab: (tab: string) => { uiStore.proActiveTab = tab; },
     loadProject: (file: DedalFile | Record<string, unknown>) => deserializeProject(JSON.stringify(file)),
     turnElements: (ids: number[], degrees: number) => {
       modelStore.batch(() => {

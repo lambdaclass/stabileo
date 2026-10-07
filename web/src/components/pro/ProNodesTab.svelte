@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -184,12 +185,14 @@
     if (rows[idx]?.id !== null) window.dispatchEvent(new CustomEvent('stabileo-zoom-to-selection'));
   }
 
+  /* Rows drawn in batches (`progressive-rows.svelte.ts`); a node selected in the model is drawn first. */
+  const batches = progressiveRows(() => rows);
   // Listen for node selection from viewport → highlight row
   $effect(() => {
     if (uiStore.selectedNodes.size === 1) {
       const nodeId = [...uiStore.selectedNodes][0];
       const idx = rows.findIndex(r => r.id === nodeId);
-      if (idx >= 0) selectedRowIdx = idx;
+      if (idx >= 0) { selectedRowIdx = idx; batches.reach(idx); }
     }
   });
 
@@ -270,7 +273,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row, idx}
+        {#each batches.rows as row, idx (row)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <tr
             class:selected={selectedRowIdx === idx}

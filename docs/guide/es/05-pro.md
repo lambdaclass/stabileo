@@ -194,6 +194,12 @@ se suelta lo seleccionado del anterior, así Suprimir borra sólo lo que el pane
 - **Por id:** nodos, barras, placas, apoyos o cargas, con los números de sus tablas. Las placas son
   un solo tipo: si un triángulo y un cuadrilátero comparten número, se toman los dos y se avisa.
 
+**Nodos y paneles.** En 3D los nodos se dibujan de un tamaño fijo en pantalla: puntos para mirar y esferas mientras algo apunta a un nodo (dibujar, elegir las esquinas de una placa, colocar una estructura generada o un pegado, la pestaña de uniones). En Configuración se elige siempre puntos, siempre esferas o automático, y si el panel derecho muestra sus barras de desplazamiento todo el tiempo.
+
+**Cargas sobre placas.** Una carga de superficie o una temperatura de losa se elige con un clic en cualquier parte de su relleno. Al elegir una carga en el modelo, las tablas de cargas pasan a su caso y muestran su fila.
+
+**Modelos grandes.** Las tablas de nodos, barras, placas y cargas dibujan sus primeras filas al abrir y el resto en tandas, y sus listas desplegables se arman al usarlas; una fila elegida en el modelo se dibuja y se muestra enseguida.
+
 **Vista.** Las vistas guardadas conservan la proyección, el zoom ortográfico, lo oculto, las
 etiquetas y los colores. Además:
 

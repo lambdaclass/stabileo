@@ -187,6 +187,12 @@ selected of the previous one, so Delete removes only what the panel says.
   one kind: when a triangle and a quadrilateral share a number, both are taken and the panel says
   so.
 
+**Nodes and panels.** In 3D nodes are drawn a fixed size on screen: dots to look, and balls while something aims at a node (drawing, picking a plate's corners, placing a generated structure or a paste, the joints tab). Settings chooses always dots, always balls or automatic, and whether the right panel keeps its scrollbars on screen.
+
+**Loads on plates.** A surface load or a slab temperature is picked with a click anywhere on its fill. Picking a load in the model moves the load tables to its case and shows its row.
+
+**Large models.** The nodes, members, plates and loads tables draw their first rows on opening and the rest in batches, and their drop-down lists are built when used; a row picked in the model is drawn and shown at once.
+
 **View.** Saved views keep the projection, the orthographic zoom, what is hidden, the labels and
 the colours. Also:
 

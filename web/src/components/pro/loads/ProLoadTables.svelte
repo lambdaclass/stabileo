@@ -13,6 +13,8 @@
   import { plainNumber, type Quantity } from '../../../lib/utils/units';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from './QuantityInput.svelte';
+  import LazySelect from '../../tables/LazySelect.svelte';
+  import { progressiveLimit } from '../../../lib/utils/progressive-rows.svelte';
   import { appliedResultant } from '../../../lib/engine/statics-check';
   import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
@@ -38,6 +40,7 @@
         const c = [...cs][0]!;
         if (c !== uiStore.activeLoadCaseId && modelStore.model.loadCases.some((lc) => lc.id === c)) uiStore.activeLoadCaseId = c;
       }
+      reachLoad(ids[0]!);
       void tick().then(() => wrap?.querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' }));
     });
   });
@@ -57,6 +60,24 @@
   /** A definition by the name the floor-load list shows it with. */
   const defName = (def: number) => definitionName(modelStore.model as unknown as DefinitionModel, def);
   const thermalQuad = $derived(of('thermalQuad3d'));
+  /*
+   * The tables' rows drawn in batches, one budget taken in the tables' order
+   * (`progressive-rows.svelte.ts`): a building's 5,000 loads, every cell an input, held the main
+   * thread for most of a second when this tab opened.
+   */
+  const lists = $derived([nodal, disp, dist, point, thermal, tendon, surface, thermalQuad] as ReadonlyArray<ReadonlyArray<{ data: { id: number } }>>);
+  // Thirty a frame: a distributed load's row is ten inputs, and a hundred took 50–80 ms a frame.
+  const budget = progressiveLimit(() => lists.reduce((s, l) => s + l.length, 0), 30, 30);
+  const before = (k: number) => lists.slice(0, k).reduce((s, l) => s + l.length, 0);
+  /** Draw the row of load `id` now, for a load the model asks to bring into view. */
+  function reachLoad(id: number) {
+    let off = 0;
+    for (const l of lists) {
+      const i = l.findIndex((x) => x.data.id === id);
+      if (i >= 0) { budget.reach(off + i); return; }
+      off += l.length;
+    }
+  }
   const caseName = (id: number | undefined) => cases.find((c) => c.id === (id ?? 1))?.name ?? '—';
 
   /** The stored value, whole: two decimals showed 0,004 kN as 0,00 in a cell that edits it. */
@@ -208,7 +229,7 @@
   {#if nodal.length}
     <div class="pro-load-section-title">{t('pro.nodalLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.thNode')}</th><th>Fx ({unitQ('force')})</th><th>Fy ({unitQ('force')})</th><th>Fz ({unitQ('force')})</th><th>Mx ({unitQ('moment')})</th><th>My ({unitQ('moment')})</th><th>Mz ({unitQ('moment')})</th><th></th></tr></thead><tbody>
-      {#each nodal as l (l.data.id)}
+      {#each budget.slice(nodal, 0) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.nodeId}</td>
           {#each ['fx', 'fy', 'fz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'fx'], 'force')}{/each}
@@ -222,7 +243,7 @@
   {#if disp.length}
     <div class="pro-load-section-title">{t('loadTables.imposed')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.thNode')}</th><th>dx ({unitQ('displacement')})</th><th>dy ({unitQ('displacement')})</th><th>dz ({unitQ('displacement')})</th><th>drx ({unitQ('rotation')})</th><th>dry ({unitQ('rotation')})</th><th>drz ({unitQ('rotation')})</th><th></th></tr></thead><tbody>
-      {#each disp as l (l.data.id)}
+      {#each budget.slice(disp, before(1)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.nodeId}</td>
           {#each ['dx', 'dy', 'dz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'dx'], 'displacement')}{/each}
@@ -236,7 +257,7 @@
   {#if dist.length}
     <div class="pro-load-section-title">{t('pro.distLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>qx_i ({unitQ('distributedLoad')})</th><th>qx_j</th><th>qY_i</th><th>qY_j</th><th>qZ_i</th><th>qZ_j</th><th>a ({unitQ('length')})</th><th>b ({unitQ('length')})</th><th></th></tr></thead><tbody>
-      {#each dist as l (l.data.id)}
+      {#each budget.slice(dist, before(2)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-dist-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
           {#if defOf(l.data.id) !== undefined}
@@ -246,9 +267,9 @@
             <td class="col-num">{l.data.a !== undefined ? fmtQ(l.data.a, 'length') : ''}</td>
             <td class="col-num">{l.data.b !== undefined ? fmtQ(l.data.b, 'length') : ''}</td>
           {:else}
-          <td><select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
-            <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option><option value="projected">{t('loads.frame.projected')}</option>
-          </select></td>
+          <td><LazySelect class="inp-cell" stopClick value={l.data.frame ?? 'local'} label={t(`loads.frame.${l.data.frame ?? 'local'}`)}
+            options={() => (['local', 'global', 'projected'] as const).map((v) => ({ value: v, label: t(`loads.frame.${v}`) }))}
+            onchange={(v) => modelStore.updateLoad(l.data.id, { frame: v })} /></td>
           {#each ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'qYI'], 'distributedLoad')}{/each}
           {#key redraw}<td class="col-num"><QuantityInput value={l.data.a ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="0" onchange={(si) => setEnd(l.data.id, 'a', l.data.elementId, si)} testid="lt-dist-a" /></td>
           <td class="col-num"><QuantityInput value={l.data.b ?? null} nullable quantity="length" cls="inp-cell" showUnit={false} placeholder="L" onchange={(si) => setEnd(l.data.id, 'b', l.data.elementId, si)} testid="lt-dist-b" /></td>{/key}
@@ -262,12 +283,12 @@
   {#if point.length}
     <div class="pro-load-section-title">{t('pro.pointLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>{t('loads.frame')}</th><th>a ({unitQ('length')})</th><th>Px ({unitQ('force')})</th><th>Py</th><th>Pz</th><th>Mx ({unitQ('moment')})</th><th>My</th><th>Mz</th><th></th></tr></thead><tbody>
-      {#each point as l (l.data.id)}
+      {#each budget.slice(point, before(3)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-point-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
-          <td><select class="inp-cell" value={l.data.frame ?? 'local'} onclick={(e) => e.stopPropagation()} onchange={(e) => modelStore.updateLoad(l.data.id, { frame: e.currentTarget.value })}>
-            <option value="local">{t('loads.frame.local')}</option><option value="global">{t('loads.frame.global')}</option>
-          </select></td>
+          <td><LazySelect class="inp-cell" stopClick value={l.data.frame ?? 'local'} label={t(`loads.frame.${l.data.frame ?? 'local'}`)}
+            options={() => (['local', 'global'] as const).map((v) => ({ value: v, label: t(`loads.frame.${v}`) }))}
+            onchange={(v) => modelStore.updateLoad(l.data.id, { frame: v })} /></td>
           {@render cell(l.data.id, 'a', l.data.a, 'length')}
           {#each ['px', 'py', 'pz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'py'], 'force')}{/each}
           {#each ['mx', 'my', 'mz'] as k (k)}{@render cell(l.data.id, k, l.data[k as 'my'], 'moment')}{/each}
@@ -280,7 +301,7 @@
   {#if thermal.length}
     <div class="pro-load-section-title">{t('loadTables.thermal')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>ΔT ({unitQ('temperatureDelta')})</th><th>ΔTgz ({unitQ('temperatureDelta')})</th><th>ΔTgy ({unitQ('temperatureDelta')})</th><th>ε₀ (‰)</th><th></th></tr></thead><tbody>
-      {#each thermal as l (l.data.id)}
+      {#each budget.slice(thermal, before(4)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)} data-testid="lt-thermal-row">
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
           {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDelta')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDelta')}
@@ -294,7 +315,7 @@
   {#if tendon.length}
     <div class="pro-load-section-title">{t('loads.prestress')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('table.elemLabel')}</th><th>P ({unitQ('force')})</th><th>e I ({unitQ('length')})</th><th>e {t('writeLoad.middle')}</th><th>e J</th><th></th></tr></thead><tbody>
-      {#each tendon as l (l.data.id)}
+      {#each budget.slice(tendon, before(5)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.elementId}</td>
           {@render cell(l.data.id, 'force', l.data.force, 'force')}
@@ -308,7 +329,7 @@
   {#if surface.length}
     <div class="pro-load-section-title">{t('pro.surfaceLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>q ({unitQ('areaLoad')})</th><th>{t('loads.surface.how')}</th><th></th></tr></thead><tbody>
-      {#each surface as l (l.data.id)}
+      {#each budget.slice(surface, before(6)) as l (l.data.id)}
         {@const d = l.data as SurfaceLoad3D}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{shellText(d)}</td>
@@ -322,7 +343,7 @@
   {#if thermalQuad.length}
     <div class="pro-load-section-title">{t('pro.thermalQuadLoads')}</div>
     <table class="pro-loads-table"><thead><tr><th>ID</th>{@render caseHead()}<th>{t('pro.slab')}</th><th>{t('pro.dtUniform')} ({unitQ('temperatureDelta')})</th><th>{t('pro.dtGradient')} ({unitQ('temperatureDelta')})</th><th></th></tr></thead><tbody>
-      {#each thermalQuad as l (l.data.id)}
+      {#each budget.slice(thermalQuad, before(7)) as l (l.data.id)}
         <tr class:selected={isSel(l.data.id)} onclick={(e) => select(l.data.id, e)}>
           <td class="col-id">{l.data.id}</td>{@render caseCell(l.data.caseId)}<td class="col-num">{l.data.quadId}</td>
           {@render cell(l.data.id, 'dtUniform', l.data.dtUniform, 'temperatureDelta')}{@render cell(l.data.id, 'dtGradient', l.data.dtGradient, 'temperatureDelta')}{@render x(l.data.id)}

@@ -7,6 +7,7 @@
   import { t } from '../../lib/i18n';
   import EndConditionSelect from '../EndConditionSelect.svelte';
   import LazyIdSelect from './LazyIdSelect.svelte';
+  import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import type { Release } from '../../lib/store/model.svelte';
   import { fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
 
@@ -51,19 +52,12 @@
   const elementsArr = $derived([...modelStore.elements.values()]);
 
   /*
-   * Rows drawn in batches. Each row is a dozen controls, and the shed's 709 at once held the
-   * main thread for half a second every time the member tool opened this table. The first
-   * batch fills the panel at once; the rest follow a frame at a time.
+   * Rows drawn in batches (`progressive-rows.svelte.ts`). Each row is a dozen controls, and the
+   * shed's 709 at once held the main thread for half a second every time the member tool opened
+   * this table.
    */
-  const FIRST_ROWS = 30, MORE_ROWS = 100;
-  let rowLimit = $state(FIRST_ROWS);
-  $effect(() => {
-    const total = elementsArr.length;
-    if (rowLimit >= total) return;
-    const id = requestAnimationFrame(() => { rowLimit = Math.min(total, rowLimit + MORE_ROWS); });
-    return () => cancelAnimationFrame(id);
-  });
-  const shownRows = $derived(rowLimit >= elementsArr.length ? elementsArr : elementsArr.slice(0, rowLimit));
+  const batches = progressiveRows(() => elementsArr);
+  const shownRows = $derived(batches.rows);
   const materialsArr = $derived([...modelStore.materials.values()]);
   const sectionsArr = $derived([...modelStore.sections.values()]);
 
