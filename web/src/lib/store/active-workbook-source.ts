@@ -3,7 +3,7 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { t } from '../i18n';
 import { resultCaseName } from '../engine/settlement-case';
-import type { WorkbookSource } from '../export/workbook-results';
+import { combinationKind, type WorkbookSource } from '../export/workbook-results';
 
 export function activeWorkbookSource(): WorkbookSource | null {
   const results = resultsStore.results3D;
@@ -21,7 +21,7 @@ export function activeWorkbookSource(): WorkbookSource | null {
   }
   if (resultsStore.activeView === 'combo' && resultsStore.activeComboId !== null) {
     const id = resultsStore.activeComboId;
-    return { kind: 'combination', id, name: modelStore.combinations.find((c) => c.id === id)?.name ?? String(id), results };
+    return { kind: combinationKind(results), id, name: modelStore.combinations.find((c) => c.id === id)?.name ?? String(id), results };
   }
   if (resultsStore.activeView === 'single' && resultsStore.activeCaseId !== null) {
     const id = resultsStore.activeCaseId;

@@ -288,6 +288,10 @@ export interface StabileoTestHooks {
   entityData(kind: 'element' | 'support' | 'section' | 'setting', key: number | string): unknown;
   /** The names of the load cases, in model order. */
   loadCaseNames(): string[];
+  /** The model's load cases, every field. */
+  loadCases(): Array<Record<string, unknown>>;
+  /** The ids of the cases and the combinations with results, as published. */
+  resultIds(): { cases: number[]; combos: number[] };
   orientationSuspectCount(): number;
   undoCount(): number;
   /** Non-background pixel count of the main canvas — a blank-render sanity check. */
@@ -709,6 +713,8 @@ export function installE2EHooks(): void {
     },
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     loadCaseNames: () => modelStore.model.loadCases.map((c) => c.name),
+    loadCases: () => JSON.parse(JSON.stringify(modelStore.model.loadCases)),
+    resultIds: () => ({ cases: [...resultsStore.perCase3D.keys()], combos: [...resultsStore.perCombo3D.keys()] }),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
     canvasInkRatio,

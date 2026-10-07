@@ -16,19 +16,21 @@ import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
+import { isCompositeCase } from './loads/combination-cases';
 import { globalDistributedToSolver, type MemberRef, type Vec3 } from './member-loads';
 import { plateSelfWeightLoads, quadSelfWeightLoads } from './solver-shells';
 
 /** The self-weight loads of one case, or of a single solve of every load when `caseRef` is null. */
 export function selfWeightFor(
   model: Pick<ModelData, 'analysis'>,
-  caseRef: { id: number; type?: string } | null,
+  caseRef: { id: number; type?: string; includes?: ReadonlyArray<unknown> } | null,
   includeSelfWeight: boolean,
 ): SelfWeightLoad[] {
   const stated = model.analysis?.selfWeight;
   if (stated) return caseRef ? stated.filter((s) => s.caseId === caseRef.id) : stated;
   if (!includeSelfWeight) return [];
-  if (caseRef && caseRef.type !== 'D') return [];
+  // A composite case typed D has it through the cases it takes in (`case-effects.ts`).
+  if (caseRef && (caseRef.type !== 'D' || isCompositeCase(caseRef))) return [];
   return [{ caseId: caseRef?.id ?? 0, ...GRAVITY_SELF_WEIGHT }];
 }
 

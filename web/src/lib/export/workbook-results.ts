@@ -20,7 +20,15 @@ import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, t
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */
-export interface WorkbookSource { kind: 'case' | 'combination' | 'single' | 'envelope'; id: number; name: string; results: AnalysisResults3D }
+/**
+ * `magnitude`: an SRSS or ABS combination (`AnalysisResults3D.magnitude`), its rows magnitudes without
+ * a sign. Listed with its own rows under that kind, and left out of the maxima and the envelope,
+ * as every envelope leaves it out (`result-scopes.ts`).
+ */
+export interface WorkbookSource { kind: 'case' | 'combination' | 'magnitude' | 'single' | 'envelope'; id: number; name: string; results: AnalysisResults3D }
+
+/** The kind a solved combination is listed under. */
+export const combinationKind = (r: AnalysisResults3D): 'combination' | 'magnitude' => (r.magnitude ? 'magnitude' : 'combination');
 
 export interface ResultSheetsInput {
   sources: readonly WorkbookSource[];
@@ -182,10 +190,13 @@ function shellMaximaRows(input: ResultSheetsInput): WorkbookSheet['rows'] {
   return out;
 }
 
-/** The sources an envelope or a maximum is taken over: the combinations, or the cases when there are none. */
+/**
+ * The sources an envelope or a maximum is taken over: the linear combinations, or the cases when
+ * there are none; never an SRSS or ABS one.
+ */
 function governing(sources: readonly WorkbookSource[]): WorkbookSource[] {
   const combos = sources.filter((s) => s.kind === 'combination');
-  return combos.length > 0 ? combos : [...sources];
+  return combos.length > 0 ? combos : sources.filter((s) => s.kind !== 'magnitude');
 }
 const asSource = (s: WorkbookSource): Source & { kind: string } => ({ id: s.id, name: s.name, results: s.results, kind: s.kind });
 

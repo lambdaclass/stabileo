@@ -69,3 +69,27 @@ export function addGeneratedCombinations(list: readonly CaseCombination[], prefi
   modelStore.setResultScopes({ ...scopes, active, envelopes });
   return ids;
 }
+
+/**
+ * Combinations written as composite cases instead (`LoadCase.includes`): one case each, taking in
+ * the combination's cases with its factors, solved as one case, and a combination taking that case
+ * with factor 1, filed as the combination it replaces would be (`addGeneratedCombinations`: its
+ * origin, a service one in the service envelope and out of design). The cases alone solved nothing
+ * with no other combination, and design, which reads combinations, never saw them. Returns the new
+ * cases' ids.
+ */
+export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: CaseCombination) => string = () => ''): number[] {
+  const ids: number[] = [];
+  modelStore.batch(() => {
+    const combos: CaseCombination[] = [];
+    for (const c of list) {
+      const name = `${prefix(c)}${c.name}`;
+      const id = modelStore.addLoadCase(name, '');
+      modelStore.updateLoadCaseFields(id, { includes: c.factors.filter((f) => f.factor !== 0) });
+      ids.push(id);
+      combos.push({ ...c, name, factors: [{ caseId: id, factor: 1 }] });
+    }
+    addGeneratedCombinations(combos);
+  });
+  return ids;
+}

@@ -24,7 +24,7 @@ import type { StationSpec } from '../engine/station-forces';
 import { exportToExcel } from '../export/excel';
 import { projectWorkbookSheets, type ProjectWorkbookInput } from '../export/project-workbook';
 import type { WorkbookModel } from '../export/workbook-model';
-import type { WorkbookSource } from '../export/workbook-results';
+import { combinationKind, type WorkbookSource } from '../export/workbook-results';
 import { fitsInXlsx, safeText, type WorkbookSheet } from '../export/workbook-cells';
 import { specificationRows } from '../pro/specification-list';
 import { BUILD_COMMIT } from '../build-info';
@@ -48,7 +48,8 @@ function workbookSources(): WorkbookSource[] {
   const comboName = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
   const out: WorkbookSource[] = [
     ...[...resultsStore.perCase3D].map(([id, results]) => ({ kind: 'case' as const, id, name: caseName.get(id) ?? String(id), results })),
-    ...[...resultsStore.perCombo3D].map(([id, results]) => ({ kind: 'combination' as const, id, name: comboName.get(id) ?? String(id), results })),
+    // An SRSS or ABS combination under its own kind: magnitudes, not signed forces (`combinationKind`).
+    ...[...resultsStore.perCombo3D].map(([id, results]) => ({ kind: combinationKind(results), id, name: comboName.get(id) ?? String(id), results })),
   ];
   if (out.length === 0 && resultsStore.results3D) {
     out.push({ kind: 'single', id: 0, name: t('pro.statics.singleSolve'), results: resultsStore.results3D });

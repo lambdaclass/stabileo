@@ -19,6 +19,7 @@ import type { ActionCategory, CombinationCode, ImposedLoadCode, SeismicCode, Sno
 export const CIRSOC_CATEGORY: Readonly<Record<string, ActionCategory>> = Object.freeze({
   D: 'permanent', L: 'imposed', Lr: 'roofImposed', S: 'snow', R: 'rain', W: 'wind', Wa: 'serviceWind',
   E: 'seismic', T: 'thermal', H: 'earthPressure', F: 'fluid',
+  N: 'notional', Cr: 'crane', Tr: 'traffic', M: 'mass', A: 'accidental', I: 'ice',
 });
 
 export const CIRSOC101_BASIS: CombinationCode = {

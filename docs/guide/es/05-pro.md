@@ -338,7 +338,27 @@ levantamiento y la terna inclinada se definen en **Especificaciones › Apoyos**
 combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas de cargas:
 
 - **Casos de carga:** cada caso con su tipo (D permanente, L sobrecarga de uso, Wa viento de servicio, Lr sobrecarga de
-  cubierta, W viento, E sismo, S nieve) y un botón para mostrarlo u ocultarlo en el visor.
+  cubierta, W viento, E sismo, S nieve, R lluvia, T temperatura, F fluidos, H empuje del suelo; y, para
+  sumar cuando hagan falta, N nocional e imperfección, Cr puente grúa, Tr tránsito, M masa,
+  A accidental, I hielo) y un botón para mostrarlo u ocultarlo en el visor. Puente grúa y tránsito
+  se combinan como sobrecarga en las combinaciones automáticas; los nocionales entran a pedido, y
+  masa, accidental y hielo por las reglas del proyecto. El **⚙** de cada fila abre la composición
+  del caso:
+  - **incluye otros casos**, cada uno por un factor, además de sus cargas propias: un caso
+    compuesto, que se resuelve como un solo caso, así un cálculo de segundo orden ve la suma entera;
+  - **de referencia**: un caso sólo para incluirlo desde otros, que no se resuelve ni se lista solo;
+    y **resolver**: un caso sin tildar se resuelve sólo si una combinación lo necesita, y no se lista;
+  - un **grupo de alternativas** (las combinaciones toman un caso del grupo por vez) y **patrón**
+    (varía sólo donde su acción es la principal), marcados en la tabla;
+  - en un caso N, sus **cargas nocionales**: una fracción (0,002 por defecto) de la carga vertical
+    que un caso de origen pone en cada nudo, horizontal según ±X o ±Y;
+  - en una sobrecarga (L) escrita a mano, su **reducción** por destino, área tributaria, tipo de
+    elemento y pisos, con la fórmula de la norma asignada: Lo y las exclusiones (sobrecargas
+    pesadas, garajes de autos, lugares de reunión, filas que la tabla marca no reducibles) salen del
+    destino, y las cargas del caso se multiplican por el factor. Un caso con cargas que el generador
+    ya redujo no se reduce otra vez.
+
+  **Casos nocionales**, debajo de la tabla, crea un caso N por cada caso de origen y dirección.
 - **Peso propio:** es una carga de un caso. Cada fila dice en qué caso entra, en qué dirección
   global, con qué factor (−1 en Z es la gravedad) y sobre qué: todo el modelo, una lista de barras
   o un grupo. En las barras es ρ·A a lo largo de la barra, así que una viga toma su propio wL²/8;
@@ -351,7 +371,20 @@ combinaciones; cargas de piso), la tarjeta para escribir una carga y las tablas 
   101-2025 (§2.3.2), con el viento a 1,0 W o 0,5 W. Las de servicio son una alternativa que se
   genera aparte: las gravitatorias a factor 1,0 y, con viento, las de CIRSOC 102-2025 B.4.2
   (0,6 D + 0,6 W y D + 0,75 L + 0,45 W + 0,75 (Lr ó S ó R)). Al generarlas se puede pedir el viento y el sismo en los dos sentidos: cada caso
-  entra también con el signo opuesto. En **Reglas del proyecto** se escriben combinaciones propias
+  entra también con el signo opuesto. Se pueden crear **como casos compuestos** (cada una se resuelve como un caso, con una
+  combinación que lo toma a factor 1, archivada como lo sería la combinación que reemplaza, así los
+  resultados y el diseño la leen) y **con cargas nocionales**: cada combinación de resistencia sin
+  viento ni sismo recibe una variante por dirección, con cada caso nocional al factor de su origen.
+  Cada combinación suma sus casos en forma **lineal**, por **SRSS** o por **ABS**: las dos últimas
+  combinan cada valor por separado, también a lo largo de las barras, cada caso una vez con sus
+  factores sumados y un asentamiento una vez, como lo hace una lineal. Son magnitudes sin signo y
+  sin equilibrio: se listan con sus resultados y diagramas, y quedan fuera del diseño, de la
+  combinación determinante, de las envolventes, del control de estática y de los informes de
+  diseño (el libro del proyecto las lista con la fuente `magnitude`). σ1, σ2 y Von Mises de una
+  lámina se calculan con las componentes combinadas: un valor de las magnitudes, no un estado de
+  tensiones. Con P-Delta por combinación son la magnitud de los casos de primer orden, y una sin
+  equilibrio de segundo orden con su carga sumada no tiene resultados; un modelo con barras de un
+  solo sentido, apoyos que se levantan o curvas de apoyo las rechaza. En **Reglas del proyecto** se escriben combinaciones propias
   en acciones (por ejemplo 1,2 D + 1,0 E + 0,5 L), para resistencia o servicio; se guardan con el
   proyecto, pueden partir de las de CIRSOC 101 y se guardan como plantilla para otro proyecto.
   Los ejemplos de PRO se cargan con las combinaciones últimas de CIRSOC 101-2025 armadas desde
@@ -717,7 +750,9 @@ cada combinación, sobre la rigidez reducida (0,8 en todo y τb en la flexión d
 iterado o con τb = 1 y la carga nocional adicional), con cargas nocionales de 0,002 de la carga
 gravitatoria de cada nudo. En las combinaciones sólo gravitatorias se prueban las cuatro
 direcciones y queda la de mayor desplazamiento; en las que tienen carga lateral, las nocionales se
-suman si la amplificación supera 1,7. Con esos esfuerzos cada barra se verifica con K = 1. Una
+suman si la amplificación supera 1,7. Una combinación que toma casos nocionales (N) tiene en ellos
+sus cargas nocionales: no se suman otras, sea cual sea la amplificación, y las suyas no cuentan como
+su carga lateral. Con esos esfuerzos cada barra se verifica con K = 1. Una
 combinación sin equilibrio de segundo orden se informa y no se verifica.
 
 Una **sección dibujada** entra en las verificaciones cuando es exactamente una de las formas que

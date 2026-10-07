@@ -39,7 +39,11 @@ import { msg, type EngineMessage } from '../message';
 
 /** The load symbols of §2.2, as used by the combinations. */
 /** `Wa`: wind for a recurrence shorter than the risk category's (CIRSOC 102-2025 B.4), service only. */
-export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' | 'H' | 'T';
+/**
+ * The symbols a combination names. M (mass), A (accidental) and I (ice) are in no rule of this
+ * code: only a project's own rules name them (`engine/loads/combination-rules.ts`).
+ */
+export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' | 'H' | 'T' | 'M' | 'A' | 'I';
 
 export interface CombinationTerm {
   symbol: LoadSymbol;

@@ -34,6 +34,8 @@ import { resultsStore } from './results.svelte';
 // must not depend on the design run having populated `verificationStore.contexts`.
 import { classifyElement } from '../engine/codes/argentina/cirsoc201';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { withCaseEffects } from '../engine/case-effects';
+import type { ModelData } from '../engine/solver-service';
 // A store is a locale boundary, and these readings cross it where the store did.
 import { t } from '../i18n';
 import type { ElementForces3D } from '../engine/types-3d';
@@ -309,26 +311,11 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
   // These inputs stay fixed during collection. Keep loads in their original order so
   // indexing changes neither summation order nor the per-load combination factors.
   // Rebuild on every call: load edits and combination edits must take effect immediately.
-  type JointLoad = { nodeId: number; fz?: number; caseId?: number };
-  const nodalLoads = new Map<number, JointLoad[]>();
-  for (const load of modelStore.model.loads) {
-    if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
-    const data = load.data as JointLoad;
-    if (!legs.has(data.nodeId)) continue;
-    const list = nodalLoads.get(data.nodeId);
-    if (list) list.push(data); else nodalLoads.set(data.nodeId, [data]);
-  }
+  const atLeg = (id: number) => legs.has(id);
+  const rawLoads = nodalLoadsAt(atLeg, false);
+  const solvedLoads = sets.some((set) => set.id !== 0) ? nodalLoadsAt(atLeg, true) : rawLoads;
   const factorsBySet = new Map<number, Map<number, number>>();
-  for (const set of sets) {
-    if (set.id === 0) continue;
-    const factors = new Map<number, number>();
-    const combo = modelStore.model.combinations.find(c => c.id === set.id);
-    for (const entry of combo?.factors ?? []) {
-      // Match the first factor returned by the previous Array.find lookup.
-      if (!factors.has(entry.caseId)) factors.set(entry.caseId, entry.factor);
-    }
-    factorsBySet.set(set.id, factors);
-  }
+  for (const set of sets) if (set.id !== 0) factorsBySet.set(set.id, comboFactors(set.id));
 
   /** Axial force at the joint end of a column leg, COMPRESSION POSITIVE, kN. */
   const axialAt = (leg: Leg, forces: ReadonlyMap<number, ElementForces3D>): number | null => {
@@ -389,21 +376,7 @@ export function collectSlabColumns(): Map<number, SlabColumnJoint> {
       // Downward positive: a member pushing the node down delivers load into the column.
       sum += -globalZ;
     }
-    // A load applied at the joint node itself also arrives inside the perimeter. Downward is
-    // negative global Z, so it is negated to become a downward-positive delivery. The delivery
-    // must carry the COMBINATION's factors: the set's element forces are factored per case,
-    // so an unfactored raw load would mix magnitudes from two different worlds. The single
-    // active result set (setId 0) is unfactored by construction — the raw value IS right there.
-    const factors = factorsBySet.get(setId);
-    for (const d of nodalLoads.get(nodeId) ?? []) {
-      if (setId === 0) {
-        sum += -(d.fz ?? 0);
-        continue;
-      }
-      const factor = factors?.get(d.caseId ?? 1) ?? 0;
-      sum += factor * -(d.fz ?? 0);
-    }
-    return sum;
+    return sum + deliveredAt((setId === 0 ? rawLoads : solvedLoads).get(nodeId) ?? [], factorsBySet.get(setId), setId);
   };
 
   /** Step in the column end moments across the joint, kN·m, about global x and y. */
@@ -538,4 +511,47 @@ export function footingRunFingerprint(): string {
     .sort((a, b) => a.id - b.id)
     .map((f) => `${f.id}:${f.revision}`);
   return JSON.stringify({ prefs, footings });
+}
+
+/**
+ * A load applied at the joint node itself, kN, downward positive (negated global Z): it arrives
+ * inside the perimeter too. It carries the COMBINATION's factors, as the set's element forces do,
+ * and each case as solved (`case-effects.ts`): a composite case its parts' loads, a reduced case
+ * its reduced ones. Notional loads are horizontal and left out. The single active result set
+ * (setId 0) is the solve of every load unfactored, its raw loads by construction.
+ */
+export function nodalLoadAtJoint(nodeId: number, setId: number): number {
+  const loads = nodalLoadsAt((id) => id === nodeId, setId !== 0).get(nodeId) ?? [];
+  return deliveredAt(loads, setId === 0 ? undefined : comboFactors(setId), setId);
+}
+
+type JointLoad = { nodeId: number; fz?: number; caseId?: number };
+/** The nodal loads on the nodes `at` takes, by node, in the model's order: raw, or as solved. */
+function nodalLoadsAt(at: (nodeId: number) => boolean, solved: boolean): Map<number, JointLoad[]> {
+  const cases = modelStore.model.loadCases.map(({ notional: _n, ...c }) => c);
+  const loads = !solved ? modelStore.model.loads
+    : withCaseEffects(modelStore.model as unknown as ModelData, cases, { includeSelfWeight: false, leftHand: false }).loads;
+  const out = new Map<number, JointLoad[]>();
+  for (const load of loads) {
+    if (load.type !== 'nodal' && load.type !== 'nodal3d') continue;
+    const d = load.data as JointLoad;
+    if (!at(d.nodeId)) continue;
+    const list = out.get(d.nodeId);
+    if (list) list.push(d); else out.set(d.nodeId, [d]);
+  }
+  return out;
+}
+
+/** A combination's factor per case: the first one it names, as `Array.find` read it. */
+function comboFactors(comboId: number): Map<number, number> {
+  const factors = new Map<number, number>();
+  const combo = modelStore.model.combinations.find((c) => c.id === comboId);
+  for (const e of combo?.factors ?? []) if (!factors.has(e.caseId)) factors.set(e.caseId, e.factor);
+  return factors;
+}
+
+function deliveredAt(loads: readonly JointLoad[], factors: ReadonlyMap<number, number> | undefined, setId: number): number {
+  let sum = 0;
+  for (const d of loads) sum += (setId === 0 ? 1 : factors?.get(d.caseId ?? 1) ?? 0) * -(d.fz ?? 0);
+  return sum;
 }

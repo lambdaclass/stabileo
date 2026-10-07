@@ -16,7 +16,7 @@ import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { is3DWorkspace } from '../utils/workspace';
 import { requestAutosave } from '../store/autosave-service';
-import { publishCombinations3D } from '../store/active-results';
+import { publishCombinations3D, activePerCombo3D } from '../store/active-results';
 import { t } from '../i18n';
 import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
@@ -145,7 +145,8 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
       resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
       const comboNames = new Map<number, string>();
       for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
-      resultsStore.setGoverning3D(computeGoverning3D(combo.perCombo, comboNames));
+      // Over what design reads (`activePerCombo3D`): never a service or an SRSS or ABS combination.
+      resultsStore.setGoverning3D(computeGoverning3D(activePerCombo3D(), comboNames));
     }
   }
 }

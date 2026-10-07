@@ -5,23 +5,23 @@
  * its name, so a factor edited by hand shows at once. Cases of a symbol that all enter with the
  * same factor are that symbol (two dead-load cases at 1,2 are `1.2 D`); a case entering on its
  * own, as one wind direction among several does, is named beside its symbol (`1.0 W (Viento +X)`).
- * A case with no type is named alone.
+ * A case with no type, or made of others, is named alone.
  *
  * Pure: no store.
  */
-import { symbolOfType } from './combination-cases';
+import { symbolOfCase } from './combination-cases';
 import { RULE_SYMBOLS, termsLabel } from './combination-rules';
 
 const ORDER: readonly string[] = RULE_SYMBOLS;
 
 export function combinationDefinition(
   factors: ReadonlyArray<{ caseId: number; factor: number }>,
-  cases: ReadonlyArray<{ id: number; type?: string; name: string }>,
+  cases: ReadonlyArray<{ id: number; type?: string; name: string; includes?: ReadonlyArray<unknown> }>,
 ): string {
   const caseById = new Map(cases.map((c) => [c.id, c]));
   const casesOf = new Map<string, number>();
   for (const c of cases) {
-    const s = symbolOfType(c.type);
+    const s = symbolOfCase(c);
     if (s) casesOf.set(s, (casesOf.get(s) ?? 0) + 1);
   }
 
@@ -31,7 +31,7 @@ export function combinationDefinition(
     if (Math.abs(f.factor) < 1e-12) continue;
     const c = caseById.get(f.caseId);
     if (!c) continue;
-    const symbol = symbolOfType(c.type);
+    const symbol = symbolOfCase(c);
     const key = symbol ? `${symbol}|${f.factor}` : `#${c.id}`;
     const g = groups.get(key) ?? { symbol, factor: f.factor, names: [] };
     g.names.push(c.name);

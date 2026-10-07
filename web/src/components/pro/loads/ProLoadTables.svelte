@@ -11,6 +11,7 @@
   import { decimalOrKeep, parseDecimal } from '../../../lib/utils/numeric-input';
   import { plainNumber } from '../../../lib/utils/units';
   import { appliedResultant } from '../../../lib/engine/statics-check';
+  import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
@@ -77,7 +78,9 @@
   const totals = $derived.by(() => {
     const ids = scope === 'all' ? cases.map((c) => c.id) : [uiStore.activeLoadCaseId];
     const types = new Map(cases.map((c) => [c.id, c.type]));
-    return ids.map((id) => ({ id, ...appliedResultant(modelStore.model as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
+    // A composite case's totals are those of what it takes in (`case-effects.ts`).
+    const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
+    return ids.map((id) => ({ id, ...appliedResultant(m as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
   });
   // In the project's units and the reader's decimals, with the unit said: the cells are typed in SI
   // and their headers say so, and a total in tf with no unit beside them read as kN.

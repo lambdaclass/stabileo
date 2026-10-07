@@ -326,7 +326,26 @@ are set in **Specifications › Supports**.
 floor loads), the card to write a load, and the load tables:
 
 - **Load cases:** each case with its type (D dead, L live, Lr roof live, W wind, Wa service wind, E earthquake,
-  S snow) and a button to show or hide it in the viewer.
+  S snow, R rain, T temperature, F fluids, H soil; and, to add when needed, N notional and
+  imperfection, Cr crane, Tr traffic, M mass, A accidental, I ice) and a button to show or hide it
+  in the viewer. Crane and traffic cases combine as imposed loads in the automatic combinations;
+  notional cases enter them on request, and mass, accidental and ice cases through the project's
+  rules. The **⚙** of a row opens the case's composition:
+  - **takes in other cases**, each times a factor, besides its own loads: a composite case, solved
+    as one case, so a second-order solve sees the whole sum;
+  - **reference**: a case only to be taken in by others, not solved nor listed on its own; and
+    **solve**: a case unticked is solved only if a combination needs it, and is not listed;
+  - an **alternatives group** (the combinations take one case of the group at a time) and
+    **pattern** (it varies only where its action is the principal one), marked in the table;
+  - for an N case, its **notional loads**: a fraction (0.002 by default) of the vertical load a
+    source case puts at each node, horizontal along ±X or ±Y;
+  - for an imposed load (L) typed by hand, its **reduction** by occupancy, tributary area, member
+    kind and storeys, with the bound code's formula: Lo and the exclusions (heavy loads, passenger
+    garages, public assembly, rows the table marks not reducible) come from the occupancy, and the
+    case's loads are multiplied by the factor shown. A case holding loads the generator already
+    reduced is not reduced again.
+
+  **Notional cases** below the table creates one N case per source case and direction.
 - **Self-weight:** a load of a case. Each row says which case it goes into, along which global
   direction, with which factor (−1 along Z is gravity) and on what: the whole model, a list of
   members or a group. On members it is ρ·A along the member, so a beam takes its own wL²/8; on
@@ -340,7 +359,20 @@ floor loads), the card to write a load, and the load tables:
   gravity at factor 1.0 and, with wind, CIRSOC 102-2025 B.4.2's (0.6 D + 0.6 W and
   D + 0.75 L + 0.45 W + 0.75 (Lr or S or R)). When
   generating them, wind and earthquake can be taken in both senses: each case also enters with the
-  opposite sign. **Project rules** are your own combinations written in actions (for example
+  opposite sign. They can be created **as composite cases** (each solved as one case, with a
+  combination taking it at factor 1, filed as the combination it replaces would be, so the results
+  and design read it), and **with notional loads**: each strength combination without wind or
+  earthquake gets one variant per direction, with each notional case at its source's factor. Each
+  combination adds its cases **linearly**, by **SRSS** or by **ABS**: the last two combine every
+  quantity on its own, along the members too, each case once with its factors added and a
+  settlement once, as a linear combination does. They are magnitudes without a sign and in no
+  equilibrium: listed with their results and diagrams, and left out of design, the governing
+  combination, the envelopes, the statics check and the design reports (the project workbook lists
+  them under the source `magnitude`). A shell's σ1, σ2 and Von Mises are computed from the combined
+  components: a value of the magnitudes, not a stress state. With P-Delta per combination they are
+  the magnitude of the first-order cases, and one with no second-order equilibrium at its summed
+  load has no results; a model with one-way members, lifting supports or support curves refuses
+  them. **Project rules** are your own combinations written in actions (for example
   1.2 D + 1.0 E + 0.5 L), for strength or service; they are saved with the project, can start from
   CIRSOC 101's, and can be saved as a template for another project.
   PRO examples load with CIRSOC 101-2025's strength combinations built from the cases that carry
@@ -690,7 +722,9 @@ With **AISC 360** the forces can come from the **direct analysis** (Chapter C): 
 combination, on reduced stiffness (0.8 throughout and τb on the flexure of steel members, iterated
 or with τb = 1 and the added notional load), with notional loads of 0.002 of each node's gravity
 load. Gravity-only combinations try the four directions and keep the largest sway; in those with
-lateral load the notional loads are added when the amplification exceeds 1.7. With those forces
+lateral load the notional loads are added when the amplification exceeds 1.7. A combination that
+takes notional cases (N) has its notional loads in them: none are added, whatever the amplification,
+and theirs do not count as its lateral load. With those forces
 every member is checked at K = 1. A combination with no second-order equilibrium is reported and
 not checked.
 

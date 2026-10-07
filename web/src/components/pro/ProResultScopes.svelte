@@ -9,7 +9,7 @@
    */
   import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { envelopeOver, designComboIds, scopeEdits, type NamedEnvelope, type EnvelopePurpose, type ResultScopes } from '../../lib/engine/result-scopes';
+  import { envelopeOver, designComboIds, isMagnitudeCombination, scopeEdits, type NamedEnvelope, type EnvelopePurpose, type ResultScopes } from '../../lib/engine/result-scopes';
 
   const PURPOSES: EnvelopePurpose[] = ['strength', 'service', 'other'];
 
@@ -19,7 +19,8 @@
   const active = $derived(scopes.active ? new Set(scopes.active) : null);
   const envelopes = $derived(scopes.envelopes ?? []);
   // "All" is every combination for design: the service ones a code wrote are a service envelope's.
-  const nActive = $derived(active ? combos.filter((c) => active.has(c.id)).length : designComboIds(combos).length);
+  // An SRSS or ABS combination is never read by design, ticked or not (`isMagnitudeCombination`).
+  const nActive = $derived(active ? combos.filter((c) => active.has(c.id) && !isMagnitudeCombination(c)).length : designComboIds(combos).length);
   /** The envelope whose combinations are being picked. */
   let editing = $state<number | null>(null);
   const solved = $derived(resultsStore.perCombo3D.size > 0);
@@ -108,7 +109,7 @@
     {#if active}
       <ul class="rs-list" data-testid="rs-active-list">
         {#each combos as c (c.id)}
-          <li><label><input type="checkbox" checked={active.has(c.id)} onchange={() => toggleActive(c.id)} /> {c.name}</label></li>
+          <li><label title={isMagnitudeCombination(c) ? t('combos.method.hint') : undefined}><input type="checkbox" checked={active.has(c.id) && !isMagnitudeCombination(c)} disabled={isMagnitudeCombination(c)} onchange={() => toggleActive(c.id)} /> {c.name}</label></li>
         {/each}
       </ul>
       {#if nActive === 0}<p class="pk-warn" role="alert">{t('scopes.noneActive')}</p>{/if}

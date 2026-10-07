@@ -129,6 +129,11 @@ export function evaluateDiagramAt(
   kind: Diagram3DKind,
   t: number,
 ): number {
+  // A combination by SRSS or ABS: its cases' values here, combined (`combination-methods.ts`).
+  if (ef.combined) {
+    const vs = ef.combined.parts.map((p) => evaluateDiagramAt(p, kind, t));
+    return ef.combined.method === 'srss' ? Math.sqrt(vs.reduce((s, v) => s + v * v, 0)) : vs.reduce((s, v) => s + Math.abs(v), 0);
+  }
   const L = ef.length;
   const x = t * L;
   // A member of variable section is read on the piece the point falls in (`variable-members.ts`).

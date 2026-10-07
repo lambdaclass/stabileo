@@ -25,6 +25,7 @@ import { deflectionSpans, type Span, type SpanModel } from '../engine/deflection
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { envelopeMembers } from '../engine/result-scopes';
+import { isCompositeCase } from '../engine/loads/combination-cases';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
 
@@ -67,7 +68,8 @@ export function serviceSets(): ServiceSets {
       ...modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1),
       ...(modelStore.analysis?.selfWeight ?? []).map((w) => w.caseId),
     ]);
-    const gravity = modelStore.loadCases.filter((c) => GRAVITY.has((c.type || '').toUpperCase()) && perCase.has(c.id) && loaded.has(c.id));
+    // A composite case is the sum of cases already here, whatever its type (`isCompositeCase`).
+    const gravity = modelStore.loadCases.filter((c) => GRAVITY.has((c.type || '').toUpperCase()) && !isCompositeCase(c) && perCase.has(c.id) && loaded.has(c.id));
     const sets: ServiceSets['sets'] = [];
     if (gravity.length > 1) {
       const sum = combineResults3D(gravity.map((c) => ({ caseId: c.id, factor: 1 })), perCase);

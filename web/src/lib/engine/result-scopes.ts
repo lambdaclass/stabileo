@@ -48,23 +48,37 @@ export interface ResultScopes {
 export const isServiceCombination = (c: { origin?: { purpose: string } }): boolean => c.origin?.purpose === 'service';
 
 /**
+ * A combination by SRSS or ABS (`combination-methods.ts`): each quantity a magnitude, without a
+ * sign, and not a state of the structure. It is listed with its own results and diagrams, and
+ * read by nothing that needs a sign or an equilibrium: design, the station demands, the governing
+ * search, joints, footings, floors, the design reports, the envelopes and the statics check. Out
+ * of the active list whatever the list states (`activeComboIds`), so every one of those, reading
+ * the active list, leaves it out in one place.
+ */
+export const isMagnitudeCombination = (c: { method?: string }): boolean => c.method === 'srss' || c.method === 'abs';
+
+/** A result that is such a magnitude (`AnalysisResults3D.magnitude`): what an envelope over results reads. */
+const isMagnitudeResult = (r: AnalysisResults3D | undefined): boolean => !!r?.magnitude;
+
+/**
  * What "all combinations" means for design: every combination but the ones a code wrote for
  * service. The one rule every path with no stated list reads — the active ids, the solved
  * combinations design reads (`store/active-results.ts`), the envelope (`scopeBundle3D`) and the
  * result-scopes panel — so none of them hands the service combinations back to design.
  */
-export function designComboIds(combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
-  return combinations.filter((c) => !isServiceCombination(c)).map((c) => c.id);
+export function designComboIds(combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>): number[] {
+  return combinations.filter((c) => !isServiceCombination(c) && !isMagnitudeCombination(c)).map((c) => c.id);
 }
 
 /**
  * The active combination ids: the stated list, pruned to combinations that exist, or all for
  * design (`designComboIds`).
  */
-export function activeComboIds(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
+export function activeComboIds(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>): number[] {
   const all = designComboIds(combinations);
   if (!scopes?.active) return all;
-  const exist = new Set(combinations.map((c) => c.id));
+  // An SRSS or ABS combination ticked in the list is still a magnitude: design never reads it.
+  const exist = new Set(combinations.filter((c) => !isMagnitudeCombination(c)).map((c) => c.id));
   return scopes.active.filter((id) => exist.has(id));
 }
 
@@ -76,18 +90,18 @@ export function activeComboIds(scopes: ResultScopes | undefined, combinations: R
  */
 export const scopeEdits = {
   /** What design reads now, in the model's order. */
-  current(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>): number[] {
+  current(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>): number[] {
     const on = new Set(activeComboIds(scopes, combinations));
     return combinations.filter((c) => on.has(c.id)).map((c) => c.id);
   },
   /** `id` ticked or unticked on what design reads now. */
-  toggle(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>, id: number): number[] {
+  toggle(scopes: ResultScopes | undefined, combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>, id: number): number[] {
     const cur = new Set(scopeEdits.current(scopes, combinations));
     if (cur.has(id)) cur.delete(id); else cur.add(id);
     return combinations.map((c) => c.id).filter((x) => cur.has(x));
   },
   /** "Mark all" (every combination for design) or "mark none". */
-  mark(combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>, all: boolean): number[] {
+  mark(combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>, all: boolean): number[] {
     return all ? designComboIds(combinations) : [];
   },
 };
@@ -106,12 +120,16 @@ export function envelopeMembers(
   perCase: ReadonlyMap<number, AnalysisResults3D>,
 ): Array<{ kind: 'combo' | 'case'; id: number; results: AnalysisResults3D }> {
   return [
-    ...env.comboIds.flatMap((id) => { const r = perCombo.get(id); return r ? [{ kind: 'combo' as const, id, results: r }] : []; }),
+    // An SRSS or ABS combination is no state to envelope or to measure a deflection on.
+    ...env.comboIds.flatMap((id) => { const r = perCombo.get(id); return r && !isMagnitudeResult(r) ? [{ kind: 'combo' as const, id, results: r }] : []; }),
     ...(env.caseIds ?? []).flatMap((id) => { const r = perCase.get(id); return r ? [{ kind: 'case' as const, id, results: r }] : []; }),
   ];
 }
 
-/** The envelope of a set of combinations (and, with `perCase`, load cases), or null when none of them solved. */
+/**
+ * The envelope of a set of combinations (and, with `perCase`, load cases), or null when none of them
+ * solved. An SRSS or ABS combination named among them is left out (`isMagnitudeCombination`).
+ */
 export function envelopeOver(
   perCombo: ReadonlyMap<number, AnalysisResults3D>, ids: readonly number[],
   perCase?: ReadonlyMap<number, AnalysisResults3D>, caseIds: readonly number[] = [],
@@ -119,7 +137,7 @@ export function envelopeOver(
   const results = [
     ...ids.map((id) => perCombo.get(id)),
     ...(perCase ? caseIds.map((id) => perCase.get(id)) : []),
-  ].filter((r): r is AnalysisResults3D => !!r);
+  ].filter((r): r is AnalysisResults3D => !!r && !isMagnitudeResult(r));
   if (results.length === 0) return null;
   // Members of variable section piece by piece, as the solve took its own envelope
   // (`variable-members.ts`): the engine's envelope of the members alone drops their pieces.
@@ -165,12 +183,22 @@ type Bundle3D = { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number,
 export function scopeBundle3D<B extends Bundle3D>(
   bundle: B | string | null,
   scopes: ResultScopes | undefined,
-  combinations: ReadonlyArray<{ id: number; origin?: { purpose: string } }>,
+  combinations: ReadonlyArray<{ id: number; method?: string; origin?: { purpose: string } }>,
 ): B | string | null {
   if (!bundle || typeof bundle === 'string') return bundle;
   if (!scopes?.active && !combinations.some(isServiceCombination)) return bundle;
+  // An SRSS or ABS combination is a magnitude: it is listed, not enveloped (`activeComboIds`). The
+  // bundle's envelope is already the linear combinations' (`combination-methods.ts` `finishBundle`).
+  const magnitude = new Set(combinations.filter(isMagnitudeCombination).map((c) => c.id));
+  const linear = [...bundle.perCombo.keys()].filter((id) => !magnitude.has(id));
   const ids = activeComboIds(scopes, combinations).filter((id) => bundle.perCombo.has(id));
-  if (ids.length === bundle.perCombo.size) return bundle;
+  if (ids.length === linear.length) return bundle;
+  // A list naming only SRSS or ABS combinations reads as no linear combination at all: the listed
+  // cases' envelope, as `finishBundle` takes it then, rather than an error the unscoped solve does not give.
+  if (ids.length === 0 && scopes?.active?.some((id) => magnitude.has(id) && bundle.perCombo.has(id))) {
+    const cases = envelopeOver(new Map(), [], bundle.perCase, [...bundle.perCase.keys()]);
+    return cases ? { ...bundle, envelope: cases } : t('scopes.noneActive');
+  }
   const envelope = envelopeOver(bundle.perCombo, ids);
   if (!envelope) return t('scopes.noneActive');
   return { ...bundle, envelope };

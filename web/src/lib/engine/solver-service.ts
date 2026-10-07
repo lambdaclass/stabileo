@@ -1,6 +1,9 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
+import { withCaseEffects } from './case-effects';
+import { casesToSolve, finishBundle, magnitudeRefusal } from './combination-methods';
+import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -2233,6 +2236,18 @@ function withDeclaredInactiveBundle<B extends { perCase: Map<number, AnalysisRes
   return { ...b, perCase: map(b.perCase), perCombo: map(b.perCombo), ...(exp && b.envelope ? { envelope: collapseVariableEnvelope(b.envelope, exp) } : {}) };
 }
 
+/**
+ * SRSS and ABS combinations on a nonlinear model, refused by name: its cases do not superpose
+ * (`combination-methods.ts` `magnitudeRefusal`). They were the magnitude of the nonlinear cases.
+ */
+function magnitudeRefusal3D(model: ModelData, combinations: LoadCombination[]): string | null {
+  const named = magnitudeRefusal(hasNonlinearBehaviour(solvableModel(model)), combinations);
+  return named ? t('svc.magnitudeNonlinear').replace('{names}', named.join(', ')) : null;
+}
+
+/** What `finishBundle` needs of the model: the plates' thicknesses, and whether P-Delta solved the combinations. */
+const magnitudeOptions = (model: ModelData) => ({ plates: model.plates, firstOrder: model.analysis?.perCombination === 'pdelta' });
+
 export function solveCombinations3D(
   model: ModelData,
   loadCases: LoadCase[],
@@ -2242,10 +2257,16 @@ export function solveCombinations3D(
 ): Bundle3D | string | null {
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
+  // Each case with its composition, notional loads and reduction written out (`case-effects.ts`);
+  // only the cases listed or taken by a combination solved (`combination-methods.ts`).
+  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
+  const solving = casesToSolve(loadCases, combinations);
+  const magnitude = magnitudeRefusal3D(model, combinations);
+  if (magnitude) return magnitude;
   try {
-    const plan = combinationsPlan3D(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, loadCases, combinations, includeSelfWeight, leftHand));
-    return withDeclaredInactiveBundle(solved, model);
+    const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
+    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model));
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
@@ -2603,6 +2624,13 @@ function solveCombinations3DPDelta(
     if (typeof withThem === 'string') return withThem;
     linear = withThem;
   }
+  // The settlement as a case of its own, for the SRSS and ABS combinations, which are combined from
+  // the linear cases and take it once as a linear combination does (`combination-methods.ts`).
+  if (settled && combinations.some(isMagnitudeCombination)) {
+    const withIt = withSettlementCase(linear, model, combinations, leftHand);
+    if (typeof withIt === 'string') return withIt;
+    linear = withIt;
+  }
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
   const caseLoads = caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand);
   const perCombo = new Map<number, AnalysisResults3D>();
@@ -2721,14 +2749,18 @@ export async function solveCombinations3DParallel(
   includeSelfWeight = false,
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
-  // The sequential entry's refusals and plan (`combinationsPlan3D`); only the linear core runs on
-  // the workers.
+  // The sequential entry's refusals, case effects and plan (`combinationsPlan3D`); only the linear
+  // core runs on the workers.
   const imposed = imposedRefusal(model);
   if (imposed) return imposed;
+  model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
+  const solving = casesToSolve(loadCases, combinations);
+  const magnitude = magnitudeRefusal3D(model, combinations);
+  if (magnitude) return magnitude;
   try {
-    const plan = combinationsPlan3D(solvableModel(model), loadCases, combinations, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, loadCases, combinations, includeSelfWeight, leftHand));
-    return withDeclaredInactiveBundle(solved, model);
+    const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
+    const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model));
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;

@@ -12,14 +12,17 @@ import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
-import { activeComboIds, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
+import { activeComboIds, isMagnitudeCombination, isServiceCombination, narrowPerCombo } from '../engine/result-scopes';
 import { computeGoverning3D } from '../engine/governing-case';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
 
-/** The ids design reads: the stated active list in PRO, every combination otherwise. */
+/**
+ * The ids design reads: the stated active list in PRO, every combination otherwise; never an SRSS
+ * or ABS one, a magnitude without a sign (`isMagnitudeCombination`), in either.
+ */
 export function activeCombinationIds(): number[] {
   const combos = modelStore.model.combinations;
-  return uiStore.analysisMode === 'pro' ? activeComboIds(modelStore.resultScopes, combos) : combos.map((c) => c.id);
+  return uiStore.analysisMode === 'pro' ? activeComboIds(modelStore.resultScopes, combos) : combos.filter((c) => !isMagnitudeCombination(c)).map((c) => c.id);
 }
 
 /**
@@ -29,8 +32,11 @@ export function activeCombinationIds(): number[] {
  */
 export function activePerCombo3D(): Map<number, AnalysisResults3D> {
   const all = resultsStore.perCombo3D;
-  if (uiStore.analysisMode !== 'pro') return all;
-  if (!modelStore.resultScopes?.active && !modelStore.model.combinations.some(isServiceCombination)) return all;
+  const combos = modelStore.model.combinations;
+  // An SRSS or ABS combination read as signed demands: a column in compression designed in tension.
+  const magnitude = combos.some(isMagnitudeCombination);
+  if (uiStore.analysisMode !== 'pro' && !magnitude) return all;
+  if (!modelStore.resultScopes?.active && !combos.some(isServiceCombination) && !magnitude) return all;
   return narrowPerCombo(all, activeCombinationIds());
 }
 
