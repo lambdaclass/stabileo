@@ -1,3 +1,4 @@
+import { getShellCombinationKernel, registerShellCombinationKernel } from '../shell-combination-kernel';
 /**
  * FIX2 root cause — shell stresses are dropped by the WASM combination solver;
  * they are recombined in JS from per-case results (linear in displacement).
@@ -96,4 +97,52 @@ describe('a combination means what a case means', () => {
     expect(q7.qy).toBeCloseTo(1.2 * -2 + 1.6 * 1, 12);
     expect(q8.qx).toBeUndefined();
   });
+});
+
+it('matches the TS batch for sparse cases, negative/duplicate factors, missing shear and retained combos', () => {
+  const kernel = getShellCombinationKernel(); expect(kernel).not.toBeNull();
+  const pc = new Map([[1, emptyResult([q(9, 100), q(7, 30)])], [2, emptyResult([q(7, 40), q(8, -20)])]]);
+  pc.get(1)!.quadStresses![0] = { ...q(9, 100), qx: 2, qy: 3 };
+  pc.get(1)!.plateStresses = [{ elementId: 3, sigmaXx: 10, sigmaYy: 20, tauXy: -3, mx: 2, my: -1, mxy: 0.3, sigma1: 0, sigma2: 0, vonMises: 0 }];
+  const combinations = [
+    { id: 10, factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: -0.5 }, { caseId: 1, factor: 0.3 }] },
+    { id: 20, factors: [{ caseId: 2, factor: 0 }, { caseId: 99, factor: 2 }] },
+    { id: 30, factors: [] },
+  ];
+  const run = () => {
+    const results = new Map([[40, emptyResult([q(8, 900)])], [20, emptyResult([])], [10, emptyResult([])], [30, emptyResult([])]]);
+    const envelope = emptyResult([]);
+    enrichComboShellStresses(pc, results, envelope, combinations, new Map([[3, { thickness: 0.2 }]]));
+    return { results, envelope };
+  };
+  const actual = run();
+  registerShellCombinationKernel(null);
+  try { expect(actual).toEqual(run()); } finally { registerShellCombinationKernel(kernel); }
+});
+
+it('keeps first-wins ties, retained nodal fields, and rejects nonfinite shell inputs', () => {
+  const kernel = getShellCombinationKernel()!;
+  const retained = { ...q(7, 100), nodalVonMises: [99, 100, 101, 102], qx: 1, qy: 2 };
+  const input = {
+    cases: [{ id: 1, plateStresses: [], quadStresses: [q(7, 100)] }],
+    combinations: [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }],
+    thicknesses: [],
+    envelopeOrder: [
+      { id: 20, plateStresses: [], quadStresses: [retained] },
+      { id: 10, plateStresses: [], quadStresses: [] },
+    ],
+  };
+  expect(kernel(input).envelope.quadStresses[0]).toBe(retained);
+  for (const field of ['sigmaXx', 'mx', 'qx'] as const) {
+    const invalid = structuredClone(input);
+    invalid.cases[0].quadStresses[0][field] = NaN;
+    expect(() => kernel(invalid)).toThrow();
+  }
+});
+
+it('does not turn overflowing Von Mises arithmetic into a zero stress', () => {
+  expect(() => getShellCombinationKernel()!({
+    cases: [{ id: 1, plateStresses: [], quadStresses: [{ ...q(7, 1e200), sigmaYy: 1e200 }] }],
+    combinations: [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }], thicknesses: [], envelopeOrder: [],
+  })).toThrow();
 });

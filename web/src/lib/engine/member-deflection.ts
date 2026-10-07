@@ -233,18 +233,25 @@ function piecewiseCurve(
   const xis = typeof segments === 'number'
     ? [...new Set([...Array.from({ length: segments + 1 }, (_, i) => i / segments), ...pieces.map((p) => p.x1 / L)])].sort((a, b) => a - b)
     : segments;
-  const curves = pieces.map((p) => ({ p, c: null as LocalCurve | null }));
+  const groups = pieces.map(p => ({ p, samples: [] as number[], output: [] as number[] }));
+  for (let i = 0; i < xis.length; i++) {
+    const x = xis[i]! * L;
+    const k = Math.max(0, pieces.findIndex(p => x <= p.x1 + 1e-9));
+    const group = groups[k]!;
+    group.samples.push(Math.min(1, Math.max(0, (x - group.p.x0) / Math.max(group.p.x1 - group.p.x0, 1e-12))));
+    group.output.push(i);
+  }
   let out: LocalCurve | null = null;
-  for (const xi of xis) {
-    const x = xi * L;
-    const k = Math.max(0, curves.findIndex(({ p }) => x <= p.x1 + 1e-9));
-    const entry = curves[k] ?? curves[curves.length - 1]!;
-    const { p } = entry;
-    const local = Math.min(1, Math.max(0, (x - p.x0) / Math.max(p.x1 - p.x0, 1e-12)));
-    const c = memberLocalCurve(at(p.x0), at(p.x1), p.dI!, p.dJ!, p.forces, p.ei ?? ei, localY, rollAngle, leftHand, [local]);
+  // Process the first requested piece first, preserving the old axes choice
+  // for an unsorted station list as well as ordinary increasing samples.
+  groups.sort((a, b) => (a.output[0] ?? Infinity) - (b.output[0] ?? Infinity));
+  for (const { p, samples, output } of groups) {
+    if (!samples.length) continue;
+    const c = memberLocalCurve(at(p.x0), at(p.x1), p.dI!, p.dJ!, p.forces, p.ei ?? ei,
+      localY, rollAngle, leftHand, samples);
     if (!c) return null;
-    out ??= { L, ex: c.ex, ey: c.ey, ez: c.ez, xi: [], u: [], v: [], w: [] };
-    out.xi.push(xi); out.u.push(c.u[0]!); out.v.push(c.v[0]!); out.w.push(c.w[0]!);
+    out ??= { L, ex: c.ex, ey: c.ey, ez: c.ez, xi: [...xis], u: [], v: [], w: [] };
+    output.forEach((j, i) => { out!.u[j] = c.u[i]!; out!.v[j] = c.v[i]!; out!.w[j] = c.w[i]!; });
   }
   return out;
 }
