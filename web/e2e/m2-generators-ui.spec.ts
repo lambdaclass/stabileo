@@ -257,6 +257,19 @@ test.describe('@smoke the sectioned generator form', () => {
     await expect(page.getByTestId('gen-sec-sum-frames')).toContainText('6');
   });
 
+  test('the Place button stays at the foot, pinned preview or not, every section open', async ({ pro: page }) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await pickGenerator(page, 'shed');
+    for (const pinned of [true, false]) {
+      expect(await fullyVisible(page, 'gen-place-mouse'), `pinned: ${pinned}`).toBe(true);
+      await page.getByTestId('gen-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight / 2; });
+      expect(await fullyVisible(page, 'gen-place-mouse'), `scrolled, pinned: ${pinned}`).toBe(true);
+      await page.getByTestId('gen-dock-toggle').click();
+    }
+  });
+
   test('hovering a field at the bottom of the list moves nothing', async ({ pro: page }) => {
     await page.setViewportSize({ width: 1440, height: 700 });
     await page.getByTestId('pr-stage-model').click();

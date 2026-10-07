@@ -538,7 +538,8 @@ The form is laid out in foldable sections, which start folded so everything that
 reads at a glance; folded, each one shows in its heading what it holds (for instance, "10 m × 6 m ·
 6 frames at 5 m"). A shed splits into Frames, Columns, Roof and Bracing; a truss into Shape and Web
 members; then come **Sections and material** and **Where**. Hovering a parameter, or typing in it,
-the line above the preview says what it controls.
+the line beside the preview's pin says what it controls. The button that places the structure stays
+at the foot of the panel; on a phone the preview starts unpinned and follows the form.
 
 It assigns a profile to each kind of member, a steel grade and the supports (the generator's,
 none, pinned or fixed). The structure can go:

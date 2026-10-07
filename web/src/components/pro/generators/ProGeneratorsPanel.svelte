@@ -109,9 +109,12 @@
   let kind = $state<Kind>('truss');
   /** The list of generators, or the parameters of the one picked. */
   let view = $state<'gallery' | 'form'>('gallery');
+  /** The scroller: a form opens at its top, not where the gallery was left scrolled. */
+  let scrollEl = $state<HTMLDivElement | null>(null);
   function pick(e: GeneratorEntry) {
     clearGenHelp();
     foldAllSections();
+    if (scrollEl) scrollEl.scrollTop = 0;
     kind = e.kind;
     if (e.structureKind) structureKind = e.structureKind;
     editingGroupId = null;
@@ -273,8 +276,13 @@
    * column and left the viewport as soon as the parameters were scrolled. Unlockable, because
    * on a short viewport a docked preview costs the parameters the room they need — and that is
    * the user's call, not a rule.
+   *
+   * On a phone it starts unpinned: the sheet is short, and a pinned drawing left room for one row
+   * of parameters. The drawing then follows the form, and only the help line and the Place button
+   * stay at the foot.
    */
-  let previewDocked = $state(true);
+  const narrow = typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 767px)').matches;
+  let previewDocked = $state(!narrow);
 
   const grade = $derived(gradeId ? structuralGradeSource.byId(gradeId) : null);
 
@@ -411,7 +419,7 @@
 </script>
 
 
-{#snippet previewAndActions()}
+{#snippet preview()}
   {#if topology}
     <div class="previews" data-testid="gen-previews">
       {#if frameElevation}
@@ -473,10 +481,6 @@
     </div>
   {/if}
 
-  <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta}
-    {editingGroupId}
-    describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
-
 {/snippet}
 
 <div class="gen" data-testid="pro-generators-panel">
@@ -500,7 +504,7 @@
     a short viewport. A flex column with one `min-height: 0` scroller and a fixed footer is what
     actually pins it.
   -->
-  <div class="gen-scroll" data-testid="gen-scroll">
+  <div class="gen-scroll" bind:this={scrollEl} data-testid="gen-scroll">
   {#if view === 'gallery'}
     <GeneratorGallery onPick={pick} />
     {#if groups.length > 0}
@@ -776,7 +780,7 @@
     </GenSection>
   </div><!-- /gen-form -->
 
-    {#if !previewDocked}{@render previewAndActions()}{/if}
+    {#if !previewDocked}{@render preview()}{/if}
   {/if}
   </div><!-- /gen-scroll -->
 
@@ -788,19 +792,31 @@
   <div class="gen-dock" class:docked={previewDocked} data-testid="gen-dock">
     <div class="gen-dock-head">
       <!--
-        What the parameter under the pointer (or in focus) controls. Read aloud through each
-        field's own `aria-describedby`, so this line is for the eye only.
+        What the parameter under the pointer (or in focus) controls, on the same line as the
+        preview's pin. One line tall: a longer explanation opens over the drawing below it, never
+        pushing anything (a line that grew shrank the list above, moved the hovered row out from
+        under the pointer, and the form shook). Read aloud through each field's own
+        `aria-describedby`, so it is for the eye only.
       -->
-      <p class="gen-help" aria-hidden="true" data-testid="gen-help">
-        {#if activeHelp}<span class="gen-help-name">{activeHelp.name}</span> {activeHelp.text}{:else}{t('generator.help.idle')}{/if}
-      </p>
+      <div class="gen-help" class:on={!!activeHelp} aria-hidden="true" data-testid="gen-help">
+        <p class="gen-help-text">{#if activeHelp}<span class="gen-help-name">{activeHelp.name}</span> {activeHelp.text}{:else}{t('generator.help.idle')}{/if}</p>
+      </div>
       <button
         type="button" class="dock-toggle" data-testid="gen-dock-toggle"
         aria-pressed={previewDocked}
         onclick={() => (previewDocked = !previewDocked)}
       >{previewDocked ? t('generator.ui.previewUnlock') : t('generator.ui.previewLock')}</button>
     </div>
-    {#if previewDocked}{@render previewAndActions()}{/if}
+    {#if previewDocked}<div class="gen-dock-body">{@render preview()}</div>{/if}
+  </div>
+  <!--
+    The action that places what the form describes, always at the foot of the panel: with the
+    preview pinned or not, and however long the form, it is never scrolled away.
+  -->
+  <div class="gen-actions">
+    <GeneratorOutput part="actions" st={outputState} {topology} {canGenerate} {build} {meta}
+      {editingGroupId}
+      describedBy={paramProblems.length > 0 ? 'gen-param-problems' : profileProblems.length > 0 ? 'gen-profile-problems' : undefined} />
   </div>
   {/if}
 
@@ -829,14 +845,14 @@
   .gen-back:hover { color: var(--st-text); border-color: var(--st-accent); }
   .gen-current { font-size: 0.8rem; font-weight: 600; color: var(--st-text); }
   .gen-scroll { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; }
-  .gen-dock { display: flex; flex-direction: column; gap: 8px; }
-  .gen-dock.docked {
-    flex-shrink: 0;
-    border-top: 1px solid var(--st-hair);
-    margin-top: 8px; padding-top: 8px;
-    /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
-    max-height: 55%; overflow-y: auto;
+  .gen-dock {
+    display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+    border-top: 1px solid var(--st-hair); margin-top: 6px; padding-top: 5px;
   }
+  /* Bounded, so a tall drawing cannot take the whole panel and leave no parameters. */
+  .gen-dock.docked { max-height: 50%; min-height: 0; }
+  .gen-dock-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+  .gen-actions { flex-shrink: 0; padding-top: 8px; }
   .dock-toggle {
     align-self: flex-end; padding: 2px 8px; font-size: 0.64rem; cursor: pointer;
     background: transparent; color: var(--st-text-3);
@@ -948,17 +964,25 @@
     outline-offset: 1px;
   }
 
-  /* The help line: what the parameter under the pointer controls, above the drawing. */
-  .gen-dock-head { display: flex; align-items: flex-start; gap: 8px; }
-  /*
-    A fixed height, whatever it says. It changes on hover, and a line that grew with a longer
-    explanation shrank the scroller above it: at the bottom of the list the rows moved out from
-    under the pointer, the explanation went away, the rows came back, and the form shook. Four
-    lines hold the longest one at the panel's usual width; a narrower panel scrolls inside it.
-  */
-  .gen-help {
-    flex: 1; min-width: 0; margin: 0; height: calc(4 * 1.35em); overflow-y: auto;
-    font-size: 0.64rem; line-height: 1.35; color: var(--st-text-3);
+  /* The help line, beside the preview's pin. Above the drawing, so it can open over it. */
+  .gen-dock-head { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px; }
+  .gen-dock-head .dock-toggle { flex-shrink: 0; }
+  .gen-help { position: relative; flex: 1; min-width: 0; height: 1.35em; font-size: 0.64rem; line-height: 1.35; }
+  .gen-help-text {
+    position: absolute; top: 0; left: 0; right: 0; margin: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--st-text-3); pointer-events: none;
+  }
+  /* An explanation longer than the line opens downward over the drawing, on its own card. */
+  .gen-help.on .gen-help-text {
+    white-space: normal; overflow: visible;
+    top: -4px; left: -6px; right: -6px; padding: 3px 6px;
+    background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius, 3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+  /* Without a pointer to hover with (a phone), the invitation to hover is only in the way. */
+  @media (hover: none) {
+    .gen-help:not(.on) .gen-help-text { visibility: hidden; }
   }
   .gen-help-name { color: var(--st-text); font-weight: 600; margin-right: 2px; }
   .gen-help-name::after { content: ' ·'; font-weight: 400; color: var(--st-text-3); }

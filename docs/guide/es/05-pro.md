@@ -562,8 +562,9 @@ El formulario se ordena en secciones desplegables, que arrancan cerradas para ve
 todo lo que se puede editar; cerrada, cada una muestra en su título lo que tiene definido (por
 ejemplo, "10 m × 6 m · 6 pórticos cada 5 m"). Una nave se divide en Pórticos, Columnas, Cubierta y
 Arriostramientos; una cercha, en Forma y Barras del alma; después vienen **Perfiles y material** y
-**Dónde**. Al pasar el mouse por un parámetro, o al escribir en él, la línea sobre la vista previa
-dice qué controla.
+**Dónde**. Al pasar el mouse por un parámetro, o al escribir en él, la línea junto al botón que fija
+la vista previa dice qué controla. El botón que coloca la estructura queda siempre al pie del panel; en el
+teléfono la vista previa arranca sin fijar y va al final del formulario.
 
 Asigna un perfil a cada tipo de barra, un acero y los apoyos (los del generador, ninguno,
 articulados o empotrados). La estructura puede ir:
