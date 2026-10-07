@@ -20,7 +20,7 @@
  * which skipped all of that and landed every slider move on the deformed
  * shape.
  */
-import { MAGNITUDE_FIELDS } from '../model/loads/load-magnitudes';
+import { scaledLoad } from '../model/loads/load-magnitudes';
 import { tick } from 'svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
@@ -90,11 +90,9 @@ function scaleLoads(): void {
   for (let i = 0; i < loads.length; i++) {
     const f = loadFactors[i] ?? 1;
     if (f === 1) continue;
-    const d = loads[i].data as unknown as Record<string, unknown>;
-    for (const k of MAGNITUDE_FIELDS[loads[i].type] as readonly string[]) {
-      const v = d[k];
-      if (typeof v === 'number') d[k] = v * f;
-    }
+    // What every scaling of a load scales: a shell's values per corner and its variation too (a
+    // soil or a fluid on a wall is q = 0, all of it in the variation).
+    loads[i] = scaledLoad(loads[i], f);
   }
 }
 

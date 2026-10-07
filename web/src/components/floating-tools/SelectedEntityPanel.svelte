@@ -9,6 +9,18 @@
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import { editLoad, setMemberLoadFrame } from '../../lib/store/load-ops';
+  import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
+
+  /**
+   * A load a floor-load definition wrote is changed through the definition: the store refuses the
+   * edit (the next rewrite would undo it), and this says why.
+   */
+  function definedLoad(loadId: number): boolean {
+    const l = modelStore.loads.find((x) => x.data.id === loadId);
+    if (!l || !isDefinedLoad(l)) return false;
+    uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
+    return true;
+  }
 
   /**
    * `inBar`: shown in the options bar's edit mode (ToolOptions), whose own
@@ -21,6 +33,7 @@
    * its member, is refused and said (`editLoad`); the results stay, since nothing changed.
    */
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
+    if (definedLoad(loadId)) return;
     let value: number | boolean = val as boolean;
     if (typeof val !== 'boolean') {
       value = parseFloat(val);
@@ -48,6 +61,7 @@
   }
 
   function updateDistLoadPosition(loadId: number, field: 'a' | 'b', val: string, elemLen: number, currentA: number, currentB: number) {
+    if (definedLoad(loadId)) return;
     const num = parseFloat(val);
     if (isNaN(num)) return;
     if (field === 'a') {
@@ -68,7 +82,9 @@
   }
 
   function deleteSelectedLoads() {
-    const ids = [...uiStore.selectedLoads];
+    const all = [...uiStore.selectedLoads];
+    const ids = all.filter((id) => !modelStore.loads.some((l) => l.data.id === id && isDefinedLoad(l)));
+    if (ids.length < all.length) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
     modelStore.batch(() => { for (const id of ids) modelStore.removeLoad(id); });
     uiStore.clearSelectedLoads();
     resultsStore.clear();

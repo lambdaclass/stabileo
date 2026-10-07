@@ -57,7 +57,9 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 /** The entities a load points at, whichever of them it has. */
 export function loadTargets(l: Load): { nodeId?: number; elementId?: number; quadId?: number; plateId?: number } {
-  const d = l.data as { nodeId?: number; elementId?: number; quadId?: number; plateId?: number };
+  const d = l.data as { nodeId?: number; elementId?: number; quadId?: number; plateId?: number; on?: 'plate' };
+  // A shell load on a triangle names it by `quadId` and says so with `on`.
+  if (d.on === 'plate') return { nodeId: d.nodeId, elementId: d.elementId, plateId: d.quadId };
   return { nodeId: d.nodeId, elementId: d.elementId, quadId: d.quadId, plateId: d.plateId };
 }
 

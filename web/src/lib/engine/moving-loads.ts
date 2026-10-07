@@ -2,7 +2,7 @@
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
-import { solve, isWasmReady } from './wasm-solver';
+import { prepareLoadSession2D, isWasmReady } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
@@ -370,12 +370,12 @@ function solvePosition(
   totalLength: number,
   envelope: Map<number, ElementEnvelope>,
   positions: MovingLoadEnvelope['positions'],
+  session: ReturnType<typeof prepareLoadSession2D>,
 ): string | null {
   const loads = buildTrainLoads(baseInput, train, refPos, totalLength, path);
-  const input: SolverInput = { ...baseInput, loads };
 
   try {
-    const results = solve(input);
+    const results = session.solve(loads);
     positions.push({ refPosition: refPos, results });
     accumulate(envelope, results);
     return null;
@@ -493,34 +493,37 @@ export function solveMovingLoads(
   const refused = mechanismRefusal(baseInput);
   if (refused) return refused;
 
-  const positions: MovingLoadEnvelope['positions'] = [];
-  const forwardTrain = config.train;
-  const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
-  const forwardRefPositions = computeRefPositions(forwardTrain, totalLength, step);
+  const session = prepareLoadSession2D(baseInput);
+  try {
+    const positions: MovingLoadEnvelope['positions'] = [];
+    const forwardTrain = config.train;
+    const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
+    const forwardRefPositions = computeRefPositions(forwardTrain, totalLength, step);
 
-  // Forward pass
-  for (const refPos of forwardRefPositions) {
-    const err = solvePosition(baseInput, forwardTrain, refPos, path, totalLength, envelope, positions);
-    if (err) return err;
-  }
-
-  // Reverse pass for asymmetric trains — use mirror positions for exact symmetry
-  if (!isTrainSymmetric(forwardTrain)) {
-    const revTrain = reverseTrain(forwardTrain);
-    const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
-    for (const refPos of reverseRefPositions) {
-      const err = solvePosition(baseInput, revTrain, refPos, path, totalLength, envelope, positions);
+    // Forward pass
+    for (const refPos of forwardRefPositions) {
+      const err = solvePosition(baseInput, forwardTrain, refPos, path, totalLength, envelope, positions, session);
       if (err) return err;
     }
-  }
 
-  if (positions.length === 0) return t('train.noPositionSolved');
+    // Reverse pass for asymmetric trains — use mirror positions for exact symmetry
+    if (!isTrainSymmetric(forwardTrain)) {
+      const revTrain = reverseTrain(forwardTrain);
+      const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
+      for (const refPos of reverseRefPositions) {
+        const err = solvePosition(baseInput, revTrain, refPos, path, totalLength, envelope, positions, session);
+        if (err) return err;
+      }
+    }
 
-  const allResults = positions.map(p => p.results);
-  const fullEnvelope = computePointwiseEnvelope(allResults);
-  elementExtremesFromPointwise(envelope, fullEnvelope);
+    if (positions.length === 0) return t('train.noPositionSolved');
 
-  return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+    const allResults = positions.map(p => p.results);
+    const fullEnvelope = computePointwiseEnvelope(allResults);
+    elementExtremesFromPointwise(envelope, fullEnvelope);
+
+    return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+  } finally { session.free(); }
 }
 
 // ─── Async Moving Load Analysis with Progress ────────────────────
@@ -580,27 +583,30 @@ export async function solveMovingLoadsAsync(
   }
   const total = allRefPositions.length;
 
-  const positions: MovingLoadEnvelope['positions'] = [];
+  const session = prepareLoadSession2D(baseInput);
+  try {
+    const positions: MovingLoadEnvelope['positions'] = [];
 
-  for (let idx = 0; idx < total; idx++) {
+    for (let idx = 0; idx < total; idx++) {
+      if (signal?.aborted) return t('train.analysisCancelled');
+
+      const { train, refPos } = allRefPositions[idx];
+      const err = solvePosition(baseInput, train, refPos, path, totalLength, envelope, positions, session);
+      if (err) return err;
+
+      onProgress?.({ current: idx + 1, total, refPosition: refPos });
+      await new Promise(r => setTimeout(r, 0));
+    }
+
     if (signal?.aborted) return t('train.analysisCancelled');
+    if (positions.length === 0) return t('train.noPositionSolved');
 
-    const { train, refPos } = allRefPositions[idx];
-    const err = solvePosition(baseInput, train, refPos, path, totalLength, envelope, positions);
-    if (err) return err;
+    const allResults = positions.map(p => p.results);
+    const fullEnvelope = computePointwiseEnvelope(allResults);
+    elementExtremesFromPointwise(envelope, fullEnvelope);
 
-    onProgress?.({ current: idx + 1, total, refPosition: refPos });
-    await new Promise(r => setTimeout(r, 0));
-  }
-
-  if (signal?.aborted) return t('train.analysisCancelled');
-  if (positions.length === 0) return t('train.noPositionSolved');
-
-  const allResults = positions.map(p => p.results);
-  const fullEnvelope = computePointwiseEnvelope(allResults);
-  elementExtremesFromPointwise(envelope, fullEnvelope);
-
-  return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+    return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+  } finally { session.free(); }
 }
 
 /**

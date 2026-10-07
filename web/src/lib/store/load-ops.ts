@@ -5,11 +5,16 @@
  * The magnitude of a load is the fields `model/loads/load-magnitudes.ts` names for its type, so a
  * scaled tendon is its force, a scaled imposed displacement its six components, and a position, a
  * frame or a case never scales.
+ *
+ * A load a floor-load definition wrote is moved, scaled and removed through its definition, never
+ * here: the next rewrite would undo the edit (`store/defined-loads.ts`). A copy of one is the
+ * user's (`userCopy`).
  */
 import { modelStore, type Load } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { editLeavesNothing, scaledLoad } from '../model/loads/load-magnitudes';
 import { reframedMemberLoad, type LoadFrame } from '../model/loads/load-frame';
+import { isDefinedLoad } from '../model/loads/floor-definitions';
 
 /** The loads with these ids, in model order. */
 function picked(ids: Iterable<number>): Load[] {
@@ -71,6 +76,8 @@ function userCopy(l: Load, factor: number, caseId: number): Load {
   const c = scaledLoad(l, factor);
   const data = { ...c.data, caseId } as Record<string, unknown>;
   delete data.generatedBy;
+  // Nor to a floor-load definition (`fromDef`): a rewrite of the definition would replace it.
+  delete data.fromDef;
   return { ...c, data } as unknown as Load;
 }
 
@@ -80,10 +87,13 @@ export function copyLoadsToCase(ids: Iterable<number>, caseId: number, factor = 
   return addLoads(picked(ids).map((l) => userCopy(l, factor, caseId)));
 }
 
+/** The user's own of these ids: a definition's are left out (see above). */
+const own = (ids: Iterable<number>) => new Set(picked(ids).filter((l) => !isDefinedLoad(l)).map((l) => l.data.id));
+
 /** The loads moved to `caseId`, unchanged otherwise; false, and nothing moved, for a case not there. */
 export function moveLoadsToCase(ids: Iterable<number>, caseId: number): boolean {
   if (!caseExists(caseId)) return false;
-  const want = new Set(ids);
+  const want = own(ids);
   modelStore.batch(() => {
     modelStore.replaceLoads(modelStore.loads.map((l) => (want.has(l.data.id) ? ({ ...l, data: { ...l.data, caseId } } as Load) : l)));
   });
@@ -92,7 +102,8 @@ export function moveLoadsToCase(ids: Iterable<number>, caseId: number): boolean 
 
 /** The loads times `k`, in place. */
 export function scaleLoads(ids: Iterable<number>, k: number): void {
-  const want = new Set(ids);
+  const want = own(ids);
+  if (want.size === 0) return;
   modelStore.batch(() => {
     modelStore.replaceLoads(modelStore.loads.map((l) => (want.has(l.data.id) ? scaledLoad(l, k) : l)));
   });
@@ -100,7 +111,8 @@ export function scaleLoads(ids: Iterable<number>, k: number): void {
 
 /** The loads, removed. */
 export function removeLoads(ids: Iterable<number>): void {
-  const want = new Set(ids);
+  const want = own(ids);
+  if (want.size === 0) return;
   modelStore.batch(() => { modelStore.replaceLoads(modelStore.loads.filter((l) => !want.has(l.data.id))); });
 }
 

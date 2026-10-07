@@ -686,6 +686,13 @@ export interface NodalLoad3D {
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
+  /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
+  fromDef?: number;
+  /**
+   * The member whose end it sits at and whose load it is, which carries its mass
+   * (`mass-source.ts`): a floor's share past a side's end, at a re-entrant corner (`floor-loads.ts`).
+   */
+  carrier?: number;
 }
 
 export interface DistributedLoad3D {
@@ -703,6 +710,8 @@ export interface DistributedLoad3D {
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
+  /** Written by a stored definition (a floor load, `floor-definitions.ts`), regenerated from it. */
+  fromDef?: number;
 }
 
 export interface PointLoadOnElement3D {
@@ -750,8 +759,25 @@ export interface NodeDisplacement3D {
 
 export interface SurfaceLoad3D {
   id: number;
+  /** The shell it acts on: a quad, or a triangular plate when `on` says so. */
   quadId: number;
-  q: number;    // kN/m² (positive = downward, applied as -Z global)
+  on?: 'plate';
+  /**
+   * kN/m². Without `frame`, downward (−Z) per true area, q positive down. With it, along the
+   * shell's local z (`local`), or along `dir` per true (`global`) or projected (`projected`) area.
+   * The field and the extent are `engine/shell-load-integration.ts`'s.
+   */
+  q: number;
+  frame?: import('../engine/shell-load-integration').ShellLoadFrame;
+  dir?: [number, number, number];
+  /** q at each corner, in node order (replaces q). */
+  qNodes?: number[];
+  /** q linear in a global coordinate between two values, nothing outside them. */
+  vary?: import('../engine/shell-load-integration').ShellLoadSpec['vary'];
+  /** Only inside a polygon projected onto the shell, openings taken out. */
+  region?: import('../engine/shell-load-integration').ShellLoadSpec['region'];
+  /** Written by a stored definition (a floor load), regenerated from it: not edited by hand. */
+  fromDef?: number;
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
   generatedBy?: string;
   caseId?: number;
@@ -759,7 +785,9 @@ export interface SurfaceLoad3D {
 
 export interface ThermalLoadQuad3D {
   id: number;
+  /** The shell: a quad, or a triangular plate when `on` says so. */
   quadId: number;
+  on?: 'plate';
   dtUniform: number;  // °C uniform temperature change
   dtGradient: number; // °C gradient through thickness
   /** The code that generated it (`apply-load-plan.ts`): what "replace" removes, and nothing typed by hand. */
@@ -847,7 +875,14 @@ export type KnownGroupKind =
   /** Collinear, contiguous bars that are one member to the engineer. Rules pending. */
   | 'physicalMember'
   /** A level, for floor loads and for reporting. */
-  | 'floor';
+  | 'floor'
+  /**
+   * A region a load acts in: its outline the group's nodes, in order; members it leaves out its
+   * elements; its openings other zones (`data.openings`). `model/loads/floor-definitions.ts`.
+   */
+  | 'loadZone'
+  /** A floor load kept as its definition and expanded when solved (`data`: `FloorLoadDef`). */
+  | 'floorLoad';
 
 /** Entities by family. A group may hold more than one, as a floor must. */
 export interface GroupMembers {
@@ -1060,6 +1095,9 @@ export interface InfluenceLineResult {
  * adds its field here.
  */
 const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'projectInfo', 'deflectionLimits'] as const;
+
+/** Whether a floor-load definition wrote the load (`model/loads/floor-definitions.ts` `isDefinedLoad`). */
+const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
 function createModelStore() {
   /**
@@ -1343,6 +1381,8 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  /** Run before an analysis reads the model's loads (`defined-loads.ts`: a pending rewrite). */
+  let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
   let _onReplaced: (() => void) | null = null;
   /** A different project now (cleared, an example): view and project settings start over. */
@@ -1607,6 +1647,7 @@ function createModelStore() {
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
     _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
     _setOnNewProject(fn: () => void) { _onNewProject = fn; },
 
@@ -2716,10 +2757,10 @@ function createModelStore() {
       return id;
     },
 
-    addSurfaceLoad3D(quadId: number, q: number, caseId?: number): number {
+    addSurfaceLoad3D(quadId: number, q: number, caseId?: number, extra?: Partial<Omit<SurfaceLoad3D, 'id' | 'quadId' | 'q' | 'caseId'>>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
-      const data: SurfaceLoad3D = { id, quadId, q };
+      const data: SurfaceLoad3D = { id, quadId, q, ...(extra ?? {}) };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'surface3d' as const, data };
       if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
@@ -2978,6 +3019,11 @@ function createModelStore() {
       model.plates.delete(id);
       replaceInGroups('plates', id);
       model.plates = new Map(model.plates);
+      // The loads on it go with it, as a quad's do.
+      const keepLoad = (l: Load) =>
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
+      model.loads = model.loads.filter(keepLoad);
+      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
 
     updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -3006,7 +3052,7 @@ function createModelStore() {
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
       const keepLoad = (l: Load) =>
-        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id);
+        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);
       model.loads = model.loads.filter(keepLoad);
       if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
     },
@@ -3300,9 +3346,16 @@ function createModelStore() {
       // ignore supersession.
     },
 
-    removeLoad(loadId: number): void {
+    /**
+     * Remove a load. Not one a floor-load definition wrote (`fromDef`): the next rewrite would
+     * bring it back, so it goes with its definition (`store/defined-loads.ts`, which rewrites them
+     * through `replaceLoads`). False, and nothing changed, for one.
+     */
+    removeLoad(loadId: number): boolean {
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return false;
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
+      return true;
     },
 
     removeSupport(id: number): void {
@@ -3363,9 +3416,11 @@ function createModelStore() {
      * (`model/loads/load-stretch.ts`): a = 4 typed past b = 3 was stored, drawn down over 3–4 m and
      * solved as an upward load.
      */
-    updateLoad(loadId: number, data: Record<string, number | boolean | string | undefined>): boolean {
+    updateLoad(loadId: number, data: Record<string, unknown>): boolean {
       const load = model.loads.find(l => l.data.id === loadId);
       if (!load) return false;
+      // A floor-load definition's load is edited through the definition (`removeLoad`).
+      if (isDefinedLoadData(load)) return false;
       if ((load.type === 'distributed3d' || load.type === 'pointOnElement3d')
         && !editKeepsPlace(load, data, loadedLength(model as never, load.data.elementId))) return false;
       if (!_undoBatching) _pushUndo?.();
@@ -3456,6 +3511,9 @@ function createModelStore() {
       } else if (load.type === 'surface3d') {
         const d = load.data as SurfaceLoad3D;
         if (data.q !== undefined) d.q = data.q as number;
+        for (const k of ['frame', 'dir', 'qNodes', 'vary', 'region'] as const) {
+          if (k in data) { if (data[k] === undefined || data[k] === null) delete d[k]; else (d as unknown as Record<string, unknown>)[k] = data[k]; }
+        }
       } else if (load.type === 'thermalQuad3d') {
         const d = load.data as ThermalLoadQuad3D;
         if (data.dtUniform !== undefined) d.dtUniform = data.dtUniform as number;
@@ -4026,6 +4084,8 @@ function createModelStore() {
     },
 
     updateLoadCaseId(loadId: number, caseId: number): void {
+      // A definition's load is in the definition's case (`removeLoad`).
+      if (isDefinedLoadData(model.loads.find(l => l.data.id === loadId))) return;
       if (!_undoBatching) _pushUndo?.();
       const load = model.loads.find(l => l.data.id === loadId);
       if (load) (load.data as any).caseId = caseId;
@@ -4052,6 +4112,9 @@ function createModelStore() {
      * (`engine/variable-members.ts`), for what names the model's nodes and members.
      */
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
+      // Loads that follow the model (floor-load definitions) brought up to date first, unless this is
+      // read inside a reactive computation, which must not write the model.
+      if (!$effect.tracking()) _beforeAnalysisInput?.();
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,

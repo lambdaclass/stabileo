@@ -162,15 +162,13 @@
     }
     if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${F(l.data.force as number)} (B${l.data.elementId})`;
     if (l.type === 'displacement3d') return `${t('loads.imposedDisplacement')} (N${l.data.nodeId})`;
-    const quad = (id: number) => t('results.quadLabel').replace('{id}', String(id));
-    if (l.type === 'surface3d') {
-      const d = l.data as { quadId: number; q: number };
-      return `q=${q(d.q, 'areaLoad')} (${quad(d.quadId)})`;
-    }
-    if (l.type === 'thermalQuad3d') {
-      const d = l.data as { quadId: number };
-      return `${t('whatif.thermal')} (${quad(d.quadId)})`;
-    }
+    // A triangle's load names it by quadId too, with `on: 'plate'`.
+    const shell = (data: unknown) => {
+      const d = data as { quadId: number; on?: 'plate' };
+      return t(d.on === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(d.quadId));
+    };
+    if (l.type === 'surface3d') return `q=${q((l.data as { q: number }).q, 'areaLoad')} (${shell(l.data)})`;
+    if (l.type === 'thermalQuad3d') return `${t('whatif.thermal')} (${shell(l.data)})`;
     return t('whatif.loadFallback').replace('{n}', String(i + 1));
   }
 </script>

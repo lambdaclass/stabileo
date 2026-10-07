@@ -2587,6 +2587,7 @@
               getNode: (id) => modelStore.getNode(id) as never,
               getElement: (id) => modelStore.elements.get(id),
               getQuad: (id) => modelStore.quads.get(id),
+              getPlate: (id) => modelStore.plates.get(id),
             },
           });
           /*

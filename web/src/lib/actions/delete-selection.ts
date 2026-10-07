@@ -12,6 +12,8 @@
  */
 import { modelStore, uiStore, resultsStore } from '../store';
 import { resolveDeleteTargets } from '../store/delete-selection';
+import { isDefinedLoad } from '../model/loads/floor-definitions';
+import { t } from '../i18n';
 
 export type SelectionKind = 'elements' | 'nodes' | 'supports' | 'loads' | 'shells';
 
@@ -32,15 +34,24 @@ export function hasDeletableSelection(): boolean {
   return selectionSummary().length > 0;
 }
 
-/** Delete every selected entity as one undo step. Returns whether anything went. */
+/**
+ * Delete every selected entity as one undo step. Returns whether anything went.
+ *
+ * A load a floor-load definition wrote stays, and the user is told why: the definition writes it
+ * again, so it is the definition that is removed (`store/defined-loads.ts`).
+ */
 export function deleteSelection(): boolean {
   if (!hasDeletableSelection()) return false;
   const supports = [...uiStore.selectedSupports];
-  const loads = [...uiStore.selectedLoads];
+  const defined = new Set(modelStore.loads.filter((l) => uiStore.selectedLoads.has(l.data.id) && isDefinedLoad(l)).map((l) => l.data.id));
+  const loads = [...uiStore.selectedLoads].filter((id) => !defined.has(id));
+  if (defined.size > 0) uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
   const targets = resolveDeleteTargets(
     { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, shells: uiStore.selectedShells },
     (id) => modelStore.elements.has(id),
   );
+  const nothingElse = loads.length === 0 && supports.length === 0 && Object.values(targets).every((v) => !Array.isArray(v) || v.length === 0);
+  if (defined.size > 0 && nothingElse) return false;
   modelStore.batch(() => {
     /* Loads and supports first: a node going with them would take them anyway. */
     for (const id of loads) modelStore.removeLoad(id);

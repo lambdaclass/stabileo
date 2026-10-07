@@ -392,6 +392,36 @@ export class LoadArrowsBatched {
       center.addScaledVector(loadDir, -(offset + 0.2)));
   }
 
+  /**
+   * An area load that is not a plain downward one: an arrow at each sample, along `dir` for a
+   * positive value, its length by the value there (`shellLoadSamples`), and the label of the
+   * largest value at the shell's middle.
+   */
+  addShellLoad(
+    samples: ReadonlyArray<{ X: [number, number, number]; q: number }>,
+    dir: [number, number, number],
+    maxQ: number,
+    label: string,
+    caseColor?: number,
+  ): void {
+    const arrowColor = caseColor ?? COLORS.load;
+    const d = new THREE.Vector3(...dir).normalize();
+    let peak = 0;
+    const mid = new THREE.Vector3();
+    for (const s of samples) {
+      mid.add(new THREE.Vector3(...s.X).multiplyScalar(1 / samples.length));
+      if (Math.abs(s.q) > Math.abs(peak)) peak = s.q;
+      if (Math.abs(s.q) < 1e-10) continue;
+      const along = s.q > 0 ? d.clone() : d.clone().negate();
+      const len = this.len(s.q, maxQ) * 0.5;
+      const pos = new THREE.Vector3(...s.X);
+      this.arrow(along, pos.clone().addScaledVector(along, -len), len, arrowColor, ARROW_HEAD_LENGTH * 0.7, ARROW_HEAD_WIDTH * 0.7);
+    }
+    if (Math.abs(peak) < 1e-10) return;
+    const along = peak > 0 ? d.clone() : d.clone().negate();
+    this.label(label, '#' + new THREE.Color(arrowColor).getHexString(), 24, mid.addScaledVector(along, -(this.len(peak, maxQ) * 0.5 + 0.2)));
+  }
+
   /** A text at a point: a temperature, a strain, an imposed displacement. */
   addTag(pos: { x: number; y: number; z: number }, text: string, caseColor: number): void {
     const p = new THREE.Vector3(pos.x, pos.y, pos.z);

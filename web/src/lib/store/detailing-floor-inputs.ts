@@ -25,6 +25,7 @@
 import { activePerCombo3D } from './active-results';
 import { activeCombinations } from './active-results';
 import { modelStore } from './model.svelte';
+import { surfaceDownwardPressure } from '../engine/solver-shells';
 import { resultsStore } from './results.svelte';
 import {
   classifyShell, type FloorShell, type FloorShellStress,
@@ -141,8 +142,10 @@ export function analysisStaleForFloor(): boolean {
 export function factoredAreaLoads(): Map<number, number> {
   const byCase = new Map<number, Map<number, number>>();
   for (const load of modelStore.model.loads) {
-    if (load.type !== 'surface3d') continue;
-    const { quadId, q, caseId } = load.data;
+    if (load.type !== 'surface3d' || load.data.on) continue;
+    // The load per m² downward, whatever its direction and field (`surfaceDownwardPressure`).
+    const { quadId, caseId } = load.data;
+    const q = surfaceDownwardPressure(load.data, modelStore.model.quads, modelStore.model.nodes) ?? 0;
     const key = caseId ?? 0;
     const per = byCase.get(quadId) ?? new Map<number, number>();
     per.set(key, (per.get(key) ?? 0) + q);

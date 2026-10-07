@@ -41,8 +41,8 @@
   let sectionId = $state<number | null>(null);
   let kind = $state<'column' | 'beam' | 'inclined' | 'truss'>('beam');
 
-  const groups = $derived([...modelStore.model.groups.values()].filter((g) =>
-    entity === 'nodes' ? (g.members.nodes?.length ?? 0) > 0 : entity === 'members' ? (g.members.elements?.length ?? 0) > 0 : (g.members.quads?.length ?? 0) > 0));
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad' &&
+    entity === 'nodes' ? (g.members.nodes?.length ?? 0) > 0 : entity === 'members' ? (g.members.elements?.length ?? 0) > 0 : (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
   const sections = $derived([...modelStore.sections.values()]);
 
   /** The spec, from the fields alone: written out, never read back, so it cannot loop. */
@@ -59,9 +59,13 @@
   });
 
   const quadSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'q').map((k) => Number(k.slice(1))));
+  const plateSelection = $derived([...uiStore.selectedShells].filter((k) => k[0] === 'p').map((k) => Number(k.slice(1))));
   const count = $derived.by(() => {
     if (spec.by === 'chain') return null;
-    return resolveTargets(entity, spec, modelStore.model as never, { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection }).length;
+    const sel = { nodes: uiStore.selectedNodes, elements: uiStore.selectedElements, quads: quadSelection, plates: plateSelection };
+    const n = resolveTargets(entity, spec, modelStore.model as never, sel).length;
+    // Shells are quads and triangles; typed ids name quads.
+    return entity === 'quads' && spec.by !== 'ids' ? n + resolveTargets('plates', spec, modelStore.model as never, sel).length : n;
   });
   const chain = $derived(spec.by === 'chain'
     ? orderedChain([...uiStore.selectedElements], (id) => modelStore.elements.get(id), (id) => modelStore.nodes.get(id))

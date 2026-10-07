@@ -261,7 +261,7 @@
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
   // Each member's group, only while colouring by group.
-  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex(modelStore.model.groups.values()) : null);
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
   $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });

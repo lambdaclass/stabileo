@@ -214,7 +214,8 @@ export function loadedInCase(loads: ReadonlyArray<{ type: string; data: Record<s
     if (typeof d.id === 'number') out.loads!.add(d.id);
     if (typeof d.nodeId === 'number') out.nodes.add(d.nodeId);
     if (typeof d.elementId === 'number') out.elements.add(d.elementId);
-    if (typeof d.quadId === 'number') out.shells.add(`q${d.quadId}`);
+    // A triangle's load names it by quadId too, with `on: 'plate'`.
+    if (typeof d.quadId === 'number') out.shells.add(`${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`);
     if (typeof d.plateId === 'number') out.shells.add(`p${d.plateId}`);
   }
   return out;

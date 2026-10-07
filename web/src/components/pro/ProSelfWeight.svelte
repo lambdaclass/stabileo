@@ -18,7 +18,7 @@
   const written = $derived(modelStore.analysis?.selfWeight !== undefined);
   const weights = $derived(modelStore.analysis?.selfWeight ?? []);
   const cases = $derived(modelStore.model.loadCases);
-  const groups = $derived([...modelStore.model.groups.values()]);
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad'));
 
   const summary = $derived.by(() => {
     if (!written) return uiStore.includeSelfWeight ? t('selfWeight.summaryLegacy') : t('selfWeight.summaryNone');

@@ -1,4 +1,4 @@
-import { prepareCollisionKernel } from './collision-kernel';
+import { prepareCollisionKernel, collisionRepairKernelAvailable, type CollisionGeometry } from './collision-kernel';
 /**
  * Bar-to-bar collision detection with a broad-phase spatial index.
  *
@@ -506,6 +506,13 @@ export interface DetectCollisionsOptions {
   kernel?: boolean;
 }
 
+interface PreparedSweep {
+  raw: Point3[][];
+  kernel: CollisionGeometry;
+  candidates?: Map<number, Uint32Array>;
+  retained?: BarConflict[];
+}
+
 /** Every coordinate, radius and the diameter of a bar is a finite number. */
 function measurableBar(bar: BarPath): boolean {
   const point = (p?: Point3) => !p || (Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
@@ -528,19 +535,27 @@ export function detectCollisions(
     const measured = detectCollisions(bars.filter(measurableBar), opts);
     return { ...measured, barCount: bars.length, unmeasurable };
   }
+  return sweepCollisions(bars, opts);
+}
+
+function sweepCollisions(
+  bars: readonly BarPath[],
+  opts: DetectCollisionsOptions,
+  prepared?: PreparedSweep,
+): CollisionResult {
   const tolerances = opts.tolerances ?? DEFAULT_TOLERANCES;
   const { requiredClearFor, classifyFor, placementFor } = opts;
-  const raw = bars.map((path) => samplePath(path, COLLISION_CHORD_TOLERANCE));
+  const raw = prepared?.raw ?? bars.map((path) => samplePath(path, COLLISION_CHORD_TOLERANCE));
   const maxRadius = bars.reduce((m, b) => Math.max(m, b.diameterMm / 2000), 0);
 
   // Larger cells reduce hash lookups and allocations along long bars. Exact distances
   // still use the original chord-accurate samples, never these broad-phase samples.
   const cell = 4 * Math.max(0.05, 2 * maxRadius + tolerances.requiredClear + tolerances.placement + 0.02);
 
-  const kernel = opts.kernel === false ? null
-    : prepareCollisionKernel(raw, Float64Array.from(bars, b => b.diameterMm / 2000));
+  const kernel = prepared?.kernel ?? (opts.kernel === false ? null
+    : prepareCollisionKernel(raw, Float64Array.from(bars, b => b.diameterMm / 2000)));
   try {
-    if (kernel && opts.broadPhase !== false) kernel.build_hash(cell, opts.deduplicateBuckets !== false);
+    if (!prepared && kernel && opts.broadPhase !== false) kernel.build_hash(cell, opts.deduplicateBuckets !== false);
     const sampled: SampledBar[] = bars.map((path, i) => {
       const pts = raw[i];
       const segBoxes: Box[] = [];
@@ -567,16 +582,18 @@ export function detectCollisions(
     /** Everything except the two radii, which vary per pair. */
     const maxClear = maxReportableClear(bars, tolerances);
 
-    const conflicts = new Map<string, BarConflict>();
+    const conflicts = new Map<string, BarConflict>(prepared?.retained?.map(c => [`${c.barA}|${c.barB}`, c]));
     let narrowPhaseTests = 0;
     let barPairsTested = 0;
 
     const seen = new Uint32Array(sampled.length);
     const tsCandidates: number[] = [];
     for (let i = 0; i < sampled.length; i++) {
+      if (prepared?.candidates && !prepared.candidates.has(i)) continue;
       const a = sampled[i];
       tsCandidates.length = 0;
-      const candidates = kernel && opts.broadPhase !== false ? kernel.candidates(i) : tsCandidates;
+      const candidates = prepared?.candidates?.get(i)
+        ?? (kernel && opts.broadPhase !== false ? kernel.candidates(i) : tsCandidates);
       if (candidates === tsCandidates) {
         if (opts.broadPhase === false) {
           for (let j = i + 1; j < sampled.length; j++) tsCandidates.push(j);
@@ -718,7 +735,72 @@ export function detectCollisions(
       bucketScans: kernel && opts.broadPhase !== false ? kernel.bucket_scans() : hash.bucketScans,
       constructible: list.every((c) => c.severity === 'marginal'),
     };
-  } finally { kernel?.free(); }
+  } finally { if (!prepared) kernel?.free(); }
+}
+
+/**
+ * A bounded repair session with a fixed bar order, radii and metadata. Only segment
+ * geometry may change, and every changed id must be supplied to update. Pair policies
+ * must be pure and their context fixed; arbitrary callbacks should use full sweeps.
+ * Without WASM (or with reference options), callers fall back to detectCollisions.
+ */
+export function prepareCollisionRepair(bars: readonly BarPath[], opts: DetectCollisionsOptions = {}) {
+  if (!collisionRepairKernelAvailable() || opts.kernel === false || opts.broadPhase === false || opts.deduplicateBuckets === false) return null;
+  // A bar that is not numbers is left out by name, which only the full sweep does.
+  if (!bars.every(measurableBar)) return null;
+  const ids = new Map(bars.map((bar, i) => [bar.id, i]));
+  if (ids.size !== bars.length) return null;
+  const raw = bars.map(bar => samplePath(bar, COLLISION_CHORD_TOLERANCE));
+  const radii = Float64Array.from(bars, b => b.diameterMm / 2000);
+  const kernel = prepareCollisionKernel(raw, radii, true);
+  if (!kernel) return null;
+  const tolerances = opts.tolerances ?? DEFAULT_TOLERANCES;
+  const maxRadius = bars.reduce((m, b) => Math.max(m, b.diameterMm / 2000), 0);
+  const cell = 4 * Math.max(0.05, 2 * maxRadius + tolerances.requiredClear + tolerances.placement + 0.02);
+  let result: CollisionResult;
+  try {
+    kernel.build_hash(cell, true);
+    result = sweepCollisions(bars, opts, { raw, kernel });
+  } catch (error) { kernel.free(); throw error; }
+  let freed = false;
+  return {
+    initial: result,
+    update(current: readonly BarPath[], changedIds: ReadonlySet<string>): CollisionResult {
+      if (freed) throw new Error('Collision repair session is closed');
+      if (current.length !== bars.length || current.some((bar, i) => ids.get(bar.id) !== i || bar.diameterMm / 2000 !== radii[i])) {
+        throw new Error('Collision repair requires fixed bar identities, order and diameters');
+      }
+      const changed: number[] = [];
+      for (const id of changedIds) {
+        const index = ids.get(id);
+        if (index === undefined) throw new Error(`Unknown collision repair bar: ${id}`);
+        changed.push(index);
+      }
+      for (const index of changed) {
+        const points = samplePath(current[index], COLLISION_CHORD_TOLERANCE);
+        const packed = new Float64Array(points.length * 3);
+        for (let j = 0; j < points.length; j++) {
+          const p = points[j]; packed[j * 3] = p.x; packed[j * 3 + 1] = p.y; packed[j * 3 + 2] = p.z;
+        }
+        kernel.update_bar(index, packed);
+        raw[index] = points;
+      }
+      const pairs = kernel.changed_pairs(Uint32Array.from(changed));
+      const groups = new Map<number, number[]>();
+      for (let k = 0; k < pairs.length; k += 2) {
+        const i = pairs[k];
+        const group = groups.get(i);
+        if (group) group.push(pairs[k + 1]); else groups.set(i, [pairs[k + 1]]);
+      }
+      // Drop ALL old conflicts touching moved bars, even when their former neighbors
+      // are no longer candidates. Otherwise a separated pair leaves a ghost conflict.
+      const retained = result.conflicts.filter(c => !changedIds.has(c.barA) && !changedIds.has(c.barB));
+      result = sweepCollisions(current, opts, { raw, kernel, retained,
+        candidates: new Map([...groups].map(([i, group]) => [i, Uint32Array.from(group)])) });
+      return result; // Diagnostics count only the work performed by this update.
+    },
+    free() { if (!freed) { freed = true; kernel.free(); } },
+  };
 }
 
 /**

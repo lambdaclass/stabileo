@@ -66,8 +66,12 @@ export interface GravityOptions {
  */
 export interface GravityPiece { elementId: number; a?: number; b?: number; wI: number; wJ: number; roof: boolean; panel: number }
 
+/** Area a panel brings to a node past the end of one of its sides (a re-entrant corner), m². */
+export interface GravityPoint { nodeId: number; w: number; elementId: number; roof: boolean; panel: number }
+
 export interface GravityLayout {
   pieces: GravityPiece[];
+  points: GravityPoint[];
   /** Area each member collects from floors, m². */
   areaOf: Map<number, number>;
   /** Area each member collects from roofs, m². A beam at a step has both. */
@@ -123,7 +127,7 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
-    pieces: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
+    pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
     roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], notes: [],
   };
   const width = (id: number, length: number, horizontalLength: number) => {
@@ -259,25 +263,30 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
-  let byWidth = 0, nonConvex = 0, partly = 0;
+  let byWidth = 0, unresolved = 0, partly = 0;
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const [z, { beams, res }] of levels) {
-    nonConvex += res.skipped.nonConvex;
+    unresolved += res.skipped.unresolved;
     /** Beams a loaded panel or a shell accounts for: never loaded by width as well. */
     const loaded = new Set<number>();
     for (const panel of res.panels) {
-      if (!panel.loaded) continue;
-      const own = beams.filter((b) => onBoundary(model, b, panel.polygon));
-      for (const b of own) loaded.add(b.id);
+      if (!panel.loaded || !panel.own) continue;
+      // Its members are every one along its sides, a second member between two nodes or a stub
+      // along a side included: by the graph's one member per pair of nodes, those went by width
+      // as well, the panel's area loaded twice.
+      const members = panel.members ? new Set(panel.members) : null;
+      for (const b of beams) if (members ? members.has(b.id) : onBoundary(model, b, panel.polygon)) loaded.add(b.id);
       // Under shells the panel's load is theirs; partly under, its beams take the rest, spread as
       // the whole panel spreads it (the share is right, the shape over the beams approximate).
       const cover = shellCover(panel.polygon, z);
       if (cover >= 0.98) continue;
       const share = cover > 0.02 ? 1 - cover : 1;
       if (share < 1) partly++;
-      const one = floorLoad({ nodes: model.nodes, beams: own, q: share, ...slab });
+      // The panel's own part of the level's result. Loading its members again on their own found
+      // an opening's ring as a panel too, and the ring, loaded on its own as well, counted twice.
+      const one = panel.own;
       const c = centroid(panel.polygon);
       const roof = !covered(c, z);
       const index = panelBeams.length;
@@ -285,10 +294,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
       for (const l of one.loads) {
-        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
+        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
       }
-      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
-      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.loadedArea * share);
+      for (const n of one.nodal) {
+        out.points.push({ nodeId: n.nodeId, w: -n.fz * share, elementId: n.elementId, roof, panel: index });
+        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz * share);
+      }
+      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a * share); if (roof) out.roof.add(id); }
+      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area * share);
     }
     for (const b of beams) {
       if (loaded.has(b.id) || inShell(midpoint(b))) continue;
@@ -321,7 +334,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const sloped = out.widthMembers.length - byWidth;
     if (out.pieces.length > 0) out.notes.push(msg('loadPlan.gravity.panels', { members: new Set(out.pieces.map((p) => p.elementId)).size }));
     if (out.widthMembers.length > 0) out.notes.push(msg('loadPlan.gravity.width', { n: out.widthMembers.length, sloped, width: round(opts.tributaryWidth, 2) }));
-    if (nonConvex > 0) out.notes.push(msg('loadPlan.gravity.nonConvex', { n: nonConvex }));
+    if (unresolved > 0) out.notes.push(msg('loadPlan.gravity.unresolved', { n: unresolved }));
     if (partly > 0) out.notes.push(msg('loadPlan.gravity.partlyUnderShells', { n: partly }));
   }
   return out;

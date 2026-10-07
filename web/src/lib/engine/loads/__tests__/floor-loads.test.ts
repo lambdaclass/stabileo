@@ -8,6 +8,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { floorLoad, type FloorBeam } from '../floor-loads';
+import { computeLocalAxes3D } from '../../local-axes-3d';
+import { distributedGlobalEnds } from '../../member-loads';
 
 function panelModel(pts: Array<[number, number]>, z = 3, reverse: number[] = []) {
   const nodes = new Map(pts.map(([x, y], i) => [i + 1, { x, y, z }]));
@@ -150,11 +152,17 @@ describe('what is not loaded', () => {
     expect(r.totalKN).toBeCloseTo(80);
   });
 
-  it('an L-shaped panel is reported, not loaded', () => {
+  it('an L-shaped panel is loaded by its skeleton: all of its area, the corner bisector between the arms', () => {
     const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]]), q: 5, distribution: 'twoWay' });
-    expect(r.panels[0]!.loaded).toBe(false);
-    expect(r.skipped.nonConvex).toBe(1);
-    expect(r.loads).toHaveLength(0);
+    expect(r.panels[0]!.loaded).toBe(true);
+    expect(r.loadedArea).toBeCloseTo(27, 6);
+    expect(r.totalKN).toBeCloseTo(5 * 27, 6);
+    // Symmetric about y = x: the two long outer sides alike, and the two sides at the re-entrant corner.
+    const t = totals(r);
+    expect(t[1]).toBeCloseTo(t[6]!, 6);
+    expect(t[3]! + (r.nodal.filter((n) => n.elementId === 3).reduce((s, n) => s - n.fz, 0))).toBeCloseTo(t[4]! + r.nodal.filter((n) => n.elementId === 4).reduce((s, n) => s - n.fz, 0), 6);
+    // The share past the sides' ends at the re-entrant corner goes to its node.
+    expect(r.nodal.every((n) => n.nodeId === 4)).toBe(true);
   });
 
   it('a cantilever beam bounds nothing', () => {
@@ -200,7 +208,7 @@ describe('local axes', () => {
 });
 
 describe('a ring of beams inside a panel, not connected to it', () => {
-  it('leaves the panel with the hole unloaded and reported, and loads the ring once', () => {
+  it('is an opening of the panel: the ring takes its share of the panel around it, and its own panel once', () => {
     const nodes = new Map<number, { x: number; y: number; z: number }>();
     const beams: FloorBeam[] = [];
     const ring = (first: number, pts: Array<[number, number]>) => {
@@ -210,9 +218,136 @@ describe('a ring of beams inside a panel, not connected to it', () => {
     ring(1, [[0, 0], [10, 0], [10, 10], [0, 10]]);
     ring(11, [[4, 4], [6, 4], [6, 6], [4, 6]]);
     const r = floorLoad({ nodes, beams, q: 2, distribution: 'twoWay' });
-    // The 100 m² face with the island is not loaded as if it had none: 200 kN plus the ring's 8.
-    expect(r.skipped.islands).toBe(1);
-    expect(r.totalKN).toBeCloseTo(2 * 4, 6);
-    expect(r.panels.find((p) => p.reason === 'island')?.area).toBeCloseTo(100, 6);
+    // 96 m² of the panel around the ring, 4 m² of the ring's own: 200 kN, the ring's area once.
+    expect(r.totalKN).toBeCloseTo(200, 6);
+    expect(r.panels.every((p) => p.loaded)).toBe(true);
+    for (const id of [11, 12, 13, 14]) expect(r.perBeam.get(id)!).toBeGreaterThan(2 * 4 / 4 + 1e-6);
+  });
+
+  it('one way, a strip crossing the opening rests on the ring', () => {
+    const nodes = new Map<number, { x: number; y: number; z: number }>();
+    const beams: FloorBeam[] = [];
+    const ring = (first: number, pts: Array<[number, number]>) => {
+      pts.forEach(([x, y], k) => nodes.set(first + k, { x, y, z: 3 }));
+      pts.forEach((_p, k) => beams.push({ id: first + k, nodeI: first + k, nodeJ: first + ((k + 1) % pts.length), type: 'frame', sectionId: 1 }));
+    };
+    ring(1, [[0, 0], [10, 0], [10, 6], [0, 6]]);
+    ring(11, [[4, 2], [6, 2], [6, 4], [4, 4]]);
+    const r = floorLoad({ nodes, beams, q: 1, distribution: 'oneWay', spanAxis: 'x' });
+    expect(r.totalKN).toBeCloseTo(60, 6);
+    // The ring's sides across the span (x = 4 and x = 6) take half of each 4 m strip beside them,
+    // and half of the ring's own 2 m strips: 4 + 2 kN each. 56 m² around the ring and its own 4.
+    expect(r.perBeam.get(14)).toBeCloseTo(2 * 4 / 2 + 2 * 2 / 2, 6);
+    expect(r.perBeam.get(12)).toBeCloseTo(2 * 4 / 2 + 2 * 2 / 2, 6);
+  });
+});
+
+describe('zones, suction and inclined floors', () => {
+  it('a zone: only its outline less its opening is loaded', () => {
+    const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
+    const zone = { outer: [[0, 0, 3], [4, 0, 3], [4, 6, 3], [0, 6, 3]] as Array<[number, number, number]>, holes: [[[1, 2, 3], [3, 2, 3], [3, 4, 3], [1, 4, 3]] as Array<[number, number, number]>] };
+    const r = floorLoad({ ...m, q: 3, distribution: 'twoWay', zone });
+    expect(r.loadedArea).toBeCloseTo(24 - 4, 6);
+    expect(r.totalKN).toBeCloseTo(3 * 20, 6);
+    // The right side (x = 8) is outside the zone: nothing reaches it.
+    expect(r.perBeam.get(2) ?? 0).toBeCloseTo(0, 9);
+  });
+
+  it('one way, a zone edge along the span is exact; across it the panel is reported', () => {
+    const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
+    const along = { outer: [[0, 0, 3], [8, 0, 3], [8, 2, 3], [0, 2, 3]] as Array<[number, number, number]> };
+    const r = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: along });
+    expect(r.totalKN).toBeCloseTo(16, 6);
+    const across = { outer: [[0, 0, 3], [3, 0, 3], [3, 6, 3], [0, 6, 3]] as Array<[number, number, number]> };
+    const r2 = floorLoad({ ...m, q: 1, distribution: 'oneWay', spanAxis: 'x', zone: across });
+    expect(r2.skipped.zoneAcrossSpan).toBe(1);
+    expect(r2.totalKN).toBe(0);
+  });
+
+  it('a suction lifts: the same pattern upward', () => {
+    const r = floorLoad({ ...panelModel([[0, 0], [6, 0], [6, 4], [0, 4]]), q: -2, distribution: 'twoWay' });
+    expect(r.totalKN).toBeCloseTo(-48, 6);
+    expect(r.loads.every((l) => l.qZI >= 0 && l.qZJ >= 0)).toBe(true);
+  });
+
+  it('an inclined floor: per true area, or per plan area', () => {
+    // A 6 × 4 m plan rising 3 m along y: the slope's true length is 5 m.
+    const nodes = new Map<number, { x: number; y: number; z: number }>([[1, { x: 0, y: 0, z: 0 }], [2, { x: 6, y: 0, z: 0 }], [3, { x: 6, y: 4, z: 3 }], [4, { x: 0, y: 4, z: 3 }]]);
+    const beams: FloorBeam[] = [1, 2, 3, 4].map((i) => ({ id: i, nodeI: i, nodeJ: (i % 4) + 1, type: 'frame', sectionId: 1 }));
+    const t = floorLoad({ nodes, beams, q: 1, distribution: 'twoWay' });
+    expect(t.loadedArea).toBeCloseTo(30, 6);
+    expect(t.totalKN).toBeCloseTo(30, 6);
+    expect(t.normal[2]).toBeCloseTo(0.8, 9);
+    const p = floorLoad({ nodes, beams, q: 1, distribution: 'twoWay', perPlanArea: true });
+    expect(p.totalKN).toBeCloseTo(24, 6);
+  });
+
+  // The loads as stored (local qX, qY, qZ), summed in global axes. The inclined members (2 and 4,
+  // up the slope) take part of the load along their axis: with qY and qZ alone a two-way 6 × 4
+  // plan rising 3 m resolved to 25.5 kN down and 6.0 kN sideways where the total said 30, one
+  // way to 19.2 and 14.4.
+  it.each([
+    ['two way', { distribution: 'twoWay' as const }, 30],
+    ['one way', { distribution: 'oneWay' as const, spanAxis: 'x' as const }, 30],
+    ['two way, per plan area', { distribution: 'twoWay' as const, perPlanArea: true }, 24],
+    ['one way, per plan area', { distribution: 'oneWay' as const, spanAxis: 'x' as const, perPlanArea: true }, 24],
+  ])('an inclined floor, %s: what the members receive is vertical and adds up to the total', (_, how, want) => {
+    const nodes = new Map<number, { x: number; y: number; z: number }>([[1, { x: 0, y: 0, z: 0 }], [2, { x: 6, y: 0, z: 0 }], [3, { x: 6, y: 4, z: 3 }], [4, { x: 0, y: 4, z: 3 }]]);
+    const beams: FloorBeam[] = [1, 2, 3, 4].map((i) => ({ id: i, nodeI: i, nodeJ: (i % 4) + 1, type: 'frame', sectionId: 1 }));
+    const r = floorLoad({ nodes, beams, q: 1, ...how });
+    expect(r.totalKN).toBeCloseTo(want, 6);
+    const g = [0, 0, 0];
+    for (const l of r.loads) {
+      const b = beams.find((x) => x.id === l.elementId)!;
+      const ni = nodes.get(b.nodeI)!, nj = nodes.get(b.nodeJ)!;
+      const ax = computeLocalAxes3D({ id: 0, ...ni }, { id: 0, ...nj });
+      const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+      const { gI, gJ, a, b: e } = distributedGlobalEnds(l, { ex: [ax.ex[0], ax.ex[1], ax.ex[2]], ey: [ax.ey[0], ax.ey[1], ax.ey[2]], ez: [ax.ez[0], ax.ez[1], ax.ez[2]], L });
+      for (let k = 0; k < 3; k++) g[k]! += ((gI[k]! + gJ[k]!) / 2) * (e - a);
+    }
+    expect(g[0]).toBeCloseTo(0, 6);
+    expect(g[1]).toBeCloseTo(0, 6);
+    expect(g[2]).toBeCloseTo(-want, 6);
+  });
+});
+
+/** Nodes in order and members between them by node number (1-based), at z = 3. */
+function drawn(pts: Array<[number, number]>, members: Array<[number, number]>) {
+  const nodes = new Map(pts.map(([x, y], i) => [i + 1, { x, y, z: 3 }]));
+  const beams: FloorBeam[] = members.map(([nodeI, nodeJ], i) => ({ id: i + 1, nodeI, nodeJ, type: 'frame', sectionId: 1 }));
+  return { nodes, beams };
+}
+const ring = (first: number, n: number): Array<[number, number]> => Array.from({ length: n }, (_, i) => [first + i, first + ((i + 1) % n)]);
+
+describe('panels with decimal dimensions are loaded whole', () => {
+  // The skeleton did not close on these, the panel was "unresolved" and its load dropped: the L
+  // took 0 kN, the bay 4.95 (its opening's ring alone), the bay with the opening near its edge 91.2.
+  it.each([
+    ['an L of 7.9 × 7.6', drawn([[0, 0], [7.9, 0], [7.9, 1.6], [5.8, 1.6], [5.8, 7.6], [0, 7.6]], ring(1, 6)), 47.44],
+    ['a 6 × 5 bay with an opening of 0.9 × 1.1', drawn([[0, 0], [6, 0], [6, 5], [0, 5], [1.1, 1.7], [2, 1.7], [2, 2.8], [1.1, 2.8]], [...ring(1, 4), ...ring(5, 4)]), 30],
+    ['a 10 × 6 bay with an opening 0.1 m from its edge beam', drawn([[0, 0], [10, 0], [10, 6], [0, 6], [1.2, 0.1], [8.8, 0.1], [8.8, 2.5], [1.2, 2.5]], [...ring(1, 4), ...ring(5, 4)]), 60],
+  ])('%s', (_, m, area) => {
+    const r = floorLoad({ ...m, q: 5, distribution: 'twoWay' });
+    expect(r.skipped.unresolved).toBe(0);
+    expect(r.loadedArea).toBeCloseTo(area, 6);
+    expect(r.totalKN).toBeCloseTo(5 * area, 6);
+  });
+});
+
+describe('an opening tied to the bay by a single member', () => {
+  // The bay's face runs out along the tie and back: it was taken for a bridge between two panels
+  // and skipped, 56 m² of 60 lost without a word.
+  const tied = () => drawn(
+    [[0, 0], [10, 0], [10, 2], [10, 6], [0, 6], [4, 2], [6, 2], [6, 4], [4, 4]],
+    [...ring(1, 5), ...ring(6, 4), [7, 3]],
+  );
+  it.each(['twoWay', 'oneWay'] as const)('is an opening of the bay, %s: the bay less the opening, and the opening by itself', (distribution) => {
+    const r = floorLoad({ ...tied(), q: 1, distribution });
+    expect(r.panels.map((p) => [p.area, p.loaded])).toEqual([[60, true], [4, true]]);
+    expect(r.loadedArea).toBeCloseTo(60, 6);
+    expect(r.totalKN).toBeCloseTo(60, 6);
+    // The tie lies in the bay: it is the bay's, though it takes none of it.
+    expect(r.panels[0]!.members).toContain(10);
+    expect(r.perBeam.has(10)).toBe(false);
   });
 });

@@ -150,11 +150,12 @@ export const viewVisibility = {
  * A load is hidden with what it stands on — its node, its member or its shell — which is the rule
  * the 3D scene draws loads with, so it is also the rule a marquee takes them with.
  */
-export function isLoadHidden(d: { nodeId?: number; elementId?: number; quadId?: number }): boolean {
+export function isLoadHidden(d: { nodeId?: number; elementId?: number; quadId?: number; on?: 'plate' }): boolean {
   if (!hidden) return false;
   if (d.nodeId !== undefined && hidden.nodes.has(d.nodeId)) return true;
   if (d.elementId !== undefined && hidden.elements.has(d.elementId)) return true;
-  if (d.quadId !== undefined && hidden.shells.has(`q${d.quadId}`)) return true;
+  // A triangle's load names it by quadId too, with `on: 'plate'`.
+  if (d.quadId !== undefined && hidden.shells.has(`${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`)) return true;
   return false;
 }
 
