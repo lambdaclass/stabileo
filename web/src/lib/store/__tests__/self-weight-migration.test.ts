@@ -14,7 +14,7 @@ import { initSolver } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
-beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; modelStore.clear(); historyStore.clear(); });
+beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; uiStore.selfWeightCaseId = null; modelStore.clear(); historyStore.clear(); });
 
 /** A column with a load, and the cases asked for (the default model's cases removed). */
 function project(types: string[]) {
@@ -66,6 +66,18 @@ describe('the migration', () => {
     expect(made.type).toBe('D');
     expect(modelStore.analysis!.selfWeight![0]!.caseId).toBe(made.id);
     expect(historyStore.canUndo).toBe(false);
+  });
+
+  it('from Basic, the case its reader chose for self-weight, not the first dead-load one', () => {
+    const { ids } = project(['D', 'D', 'L']);
+    uiStore.selfWeightCaseId = ids[1]!;
+    migrateSelfWeightIfNeeded();
+    expect(modelStore.analysis!.selfWeight).toEqual([{ caseId: ids[1], direction: 'Z', factor: -1 }]);
+    // Chosen, but a case the model no longer has: the plan's first dead-load case.
+    modelStore.withoutUndo(() => modelStore.setAnalysis({ selfWeight: undefined }));
+    uiStore.selfWeightCaseId = 999;
+    migrateSelfWeightIfNeeded();
+    expect(modelStore.analysis!.selfWeight![0]!.caseId).toBe(ids[0]);
   });
 
   it('self-weight off: a stated empty rule, and it runs once', () => {

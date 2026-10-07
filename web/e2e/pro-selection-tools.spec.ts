@@ -189,3 +189,38 @@ test.describe('@smoke the selection panel works on the kind armed above it', () 
     await expect.poll(() => sel(page)).toEqual({ nodes: [5], elements: [], supports: [], loads: [] });
   });
 });
+
+/*
+ * A load picked in the model is found in the table: the table moves to its case. And a load on a
+ * plate is picked anywhere on its fill, not only on its arrows (a slab temperature has none).
+ */
+test.describe('@smoke loads on plates, picked and found', () => {
+  test('a slab temperature in another case: clicked on its fill, and the table moves to its case', async ({ pro: page }) => {
+    await loadModel(page, 'mat-foundation');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    await page.getByTestId('write-load').click();
+    const cases = await page.evaluate(() => window.__stabileo.loadCases() as Array<{ id: number }>);
+    expect(cases.length).toBeGreaterThan(1);
+    await page.getByTestId('write-load-case').selectOption(String(cases[1]!.id));
+    await page.evaluate(() => window.__stabileoActions.selectShells(['q1']));
+    await page.getByTestId('wl-kind').selectOption('thermalQuad');
+    await page.getByTestId('write-load-form').locator('input[inputmode="decimal"]').first().fill('20');
+    await page.getByTestId('wl-add').click();
+    await expect(page.getByTestId('wl-done')).toBeVisible();
+    const id = await page.evaluate(() => (window.__stabileo.allLoads() as Array<{ type: string; data: { id: number } }>).filter((l) => l.type === 'thermalQuad3d').at(-1)!.data.id);
+
+    // Back to the first case, then a click on the slab, in loads mode.
+    await page.getByTestId('write-load-case').selectOption(String(cases[0]!.id));
+    await page.evaluate(() => { window.__stabileoActions.clearSelection(); });
+    await page.getByTestId('pr-select').click();
+    await page.getByTestId('select-mode-loads').click();
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-loads').click();
+    const at = await page.evaluate((i) => window.__stabileo.loadFaceScreenPos(i), id);
+    expect(at).not.toBeNull();
+    await page.mouse.click(at!.x, at!.y);
+    await expect.poll(async () => (await sel(page)).loads).toEqual([id]);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.activeLoadCaseId())).toBe(cases[1]!.id);
+  });
+});

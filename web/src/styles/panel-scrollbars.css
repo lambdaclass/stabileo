@@ -1,0 +1,21 @@
+/*
+ * Scrollbars drawn whenever something in a side panel overflows, on desktop (Settings › Model,
+ * `uiStore.panelScrollbars`): Basic's panel and PRO's take the class `st-panel-scrollbars`.
+ *
+ * macOS and some touchpads draw scrollbars only while scrolling, and a mouse without a sideways
+ * wheel then has no way across a wide table. Styling the WebKit scrollbar is what makes Chrome and
+ * Safari keep it on screen; Firefox takes the standard properties. Every scrolling box in the
+ * panel takes it: the panel itself, which scrolls down, and the tables, which scroll both ways.
+ */
+.st-panel-scrollbars *::-webkit-scrollbar { width: 10px; height: 10px; }
+.st-panel-scrollbars *::-webkit-scrollbar-track,
+.st-panel-scrollbars *::-webkit-scrollbar-corner { background: var(--st-surface-2); }
+.st-panel-scrollbars *::-webkit-scrollbar-thumb {
+  background: var(--st-hair-strong);
+  border: 2px solid var(--st-surface-2);
+  border-radius: 6px;
+}
+.st-panel-scrollbars *::-webkit-scrollbar-thumb:hover { background: var(--st-text-3); }
+@supports not selector(::-webkit-scrollbar) {
+  .st-panel-scrollbars * { scrollbar-color: var(--st-hair-strong) var(--st-surface-2); }
+}

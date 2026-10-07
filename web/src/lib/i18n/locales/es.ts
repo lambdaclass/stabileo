@@ -9752,7 +9752,7 @@ const es: Record<string, string> = {
   'config.nodeStyleAuto': 'Puntos; esferas al modelar',
   'config.nodeStylePoints': 'Puntos',
   'config.nodeStyleSpheres': 'Esferas pequeñas',
-  'config.tip.nodeStyle': 'Cómo se dibujan los nodos en 3D. Los puntos ocupan unos pocos píxeles y dejan ver la estructura y los resultados. Las esferas son más fáciles de apuntar. Con la primera opción, los nodos se ven como esferas mientras dibujás nodos, barras, apoyos o cargas, y como puntos el resto del tiempo. El tamaño en pantalla no cambia con el zoom.',
+  'config.tip.nodeStyle': 'Cómo se dibujan los nodos en 3D. Los puntos ocupan unos pocos píxeles y dejan ver la estructura y los resultados. Las esferas son más fáciles de apuntar. Con la primera opción, los nodos se ven como esferas mientras hacés algo que se apunta a un nodo (dibujar nodos, barras, apoyos, cargas o placas, o colocar una estructura generada) y como puntos el resto del tiempo. El tamaño en pantalla no cambia con el zoom.',
   'config.panelScrollbars': 'Barras de desplazamiento siempre visibles en el panel',
   'config.tip.panelScrollbars': 'Cuando una tabla o un panel no entra a lo ancho o a lo alto, muestra sus barras de desplazamiento todo el tiempo, para recorrerlo con el mouse aunque no tenga desplazamiento lateral.',
 };

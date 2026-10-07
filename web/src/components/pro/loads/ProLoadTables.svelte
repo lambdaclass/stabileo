@@ -6,6 +6,7 @@
    *
    * Values in the display units (`QuantityInput`, kept in SI in the model); strains in ‰.
    */
+  import { tick, untrack } from 'svelte';
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { decimalOrKeep, parseDecimal } from '../../../lib/utils/numeric-input';
@@ -22,6 +23,24 @@
   import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
 
   let scope = $state<'case' | 'all'>('case');
+  let wrap = $state<HTMLDivElement | null>(null);
+  /*
+   * A load selected in the model, of a case the table is not showing: the table moves to that case
+   * and brings its row into view. Only when every selected load is of one case, and only on a new
+   * selection, so choosing another case afterwards is the reader's.
+   */
+  $effect(() => {
+    const ids = [...uiStore.selectedLoads];
+    if (ids.length === 0) return;
+    untrack(() => {
+      const cs = new Set(ids.map((id) => modelStore.loads.find((l) => l.data.id === id)?.data.caseId ?? 1));
+      if (scope === 'case' && cs.size === 1) {
+        const c = [...cs][0]!;
+        if (c !== uiStore.activeLoadCaseId && modelStore.model.loadCases.some((lc) => lc.id === c)) uiStore.activeLoadCaseId = c;
+      }
+      void tick().then(() => wrap?.querySelector('tr.selected')?.scrollIntoView({ block: 'nearest' }));
+    });
+  });
   const cases = $derived(modelStore.model.loadCases);
   const shown = $derived(modelStore.loads.filter((l) => scope === 'all' || (l.data.caseId ?? 1) === uiStore.activeLoadCaseId));
   const of = <T extends Load['type']>(type: T) => shown.filter((l) => l.type === type) as Array<Extract<Load, { type: T }>>;
@@ -166,7 +185,7 @@
   {:else}{#key redraw}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/key}{/if}
 {/snippet}
 
-<div class="pro-loads-table-wrap" data-testid="load-tables">
+<div class="pro-loads-table-wrap" bind:this={wrap} data-testid="load-tables">
   {#if swShown.length}
     <div class="pro-load-section-title">{t('selfWeight.title')}</div>
     <table class="pro-loads-table" data-testid="lt-sw"><thead><tr><th>{t('loadTables.case')}</th><th>{t('selfWeight.direction')}</th><th>{t('selfWeight.factor')}</th><th>{t('selfWeight.scope')}</th><th></th></tr></thead><tbody>

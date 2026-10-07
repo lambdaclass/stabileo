@@ -514,8 +514,13 @@ export type NodeStylePref = 'points' | 'spheres' | 'auto';
 /** Tools whose click lands on a node: while one is armed, `auto` draws balls to aim at. */
 const MODELLING_TOOLS = new Set(['node', 'element', 'support', 'load', 'moveNodes']);
 
-/** The marker style to draw for a preference and the armed tool. */
-export function resolveNodeStyle(pref: NodeStylePref, tool: string): 'points' | 'spheres' {
-  if (pref === 'auto') return MODELLING_TOOLS.has(tool) ? 'spheres' : 'points';
+/**
+ * The marker style to draw for a preference and the armed tool. `aiming`: something else that
+ * clicks on nodes is under way (in PRO: a plate's corners or a mesh outline being picked, a
+ * generated structure or a paste placed with its ghost, the joints tab), which `auto` treats as a
+ * modelling tool.
+ */
+export function resolveNodeStyle(pref: NodeStylePref, tool: string, aiming = false): 'points' | 'spheres' {
+  if (pref === 'auto') return aiming || MODELLING_TOOLS.has(tool) ? 'spheres' : 'points';
   return pref;
 }

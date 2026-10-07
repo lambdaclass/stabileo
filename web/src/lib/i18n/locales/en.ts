@@ -9763,7 +9763,7 @@ const en: Record<string, string> = {
   'config.nodeStyleAuto': 'Dots; balls while modeling',
   'config.nodeStylePoints': 'Dots',
   'config.nodeStyleSpheres': 'Small balls',
-  'config.tip.nodeStyle': 'How nodes are drawn in 3D. Dots take a few pixels and leave the structure and the results in view. Balls are easier to aim at. With the first option, nodes are drawn as balls while you place nodes, members, supports or loads, and as dots the rest of the time. Their size on screen does not change with zoom.',
+  'config.tip.nodeStyle': 'How nodes are drawn in 3D. Dots take a few pixels and leave the structure and the results in view. Balls are easier to aim at. With the first option, nodes are drawn as balls while you do something aimed at a node (drawing nodes, members, supports, loads or plates, or placing a generated structure) and as dots the rest of the time. Their size on screen does not change with zoom.',
   'config.panelScrollbars': 'Always show the panel\'s scrollbars',
   'config.tip.panelScrollbars': 'When a table or panel does not fit across or down, its scrollbars stay on screen, so it can be moved with any mouse, including one that cannot scroll sideways.',
 };

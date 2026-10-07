@@ -252,7 +252,7 @@
   };
 </script>
 
-<div class="pro-panel">
+<div class="pro-panel" data-testid="pro-panel" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}>
   {#if uiStore.isMobile}
     <ProPhoneNav {shell} />
   {/if}

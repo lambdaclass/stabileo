@@ -96,9 +96,9 @@ test.describe('@smoke Basic interaction and view', () => {
     await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
     await page.getByTestId('rb-settings').click();
     const panel = page.getByTestId('basic-panel');
-    await expect(panel).toHaveClass(/bp-scrollbars/);
+    await expect(panel).toHaveClass(/st-panel-scrollbars/);
     await page.getByTestId('cfg-panel-scrollbars').uncheck();
-    await expect(panel).not.toHaveClass(/bp-scrollbars/);
+    await expect(panel).not.toHaveClass(/st-panel-scrollbars/);
     await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-panel-scrollbars'))).toBe('0');
     const style = page.getByTestId('cfg-node-style');
     await expect(style).toHaveValue('auto');

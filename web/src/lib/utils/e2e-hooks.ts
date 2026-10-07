@@ -161,6 +161,8 @@ export interface StabileoTestHooks {
    * joint?». This pair can.
    */
   nodeMarkersDrawn(): boolean;
+  /** How the node markers are drawn now: 'points', 'spheres' or 'mesh' (`NodeMarkerStyle`). */
+  nodeMarkerStyle(): string | null;
   /** Member diagrams the 3D scene holds right now (0 when none is drawn). */
   diagramMembers(): number;
   renderMode3D(): string;
@@ -240,6 +242,10 @@ export interface StabileoTestHooks {
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
   loadScreenPos(id: number): { x: number; y: number } | null;
+  /** A point on a plate load's fill, halfway from its first corner to its centre, on screen. */
+  loadFaceScreenPos(id: number): { x: number; y: number } | null;
+  /** The case new loads go to, and the load tables show. */
+  activeLoadCaseId(): number;
   /** The nodes the model rings while drawing: a member's first node, a plate's corners. */
   drawPicked(): number[];
   nodeCount(): number;
@@ -596,6 +602,7 @@ export function installE2EHooks(): void {
     diagramMembers: () => (window as unknown as { __diagramMembers?: number }).__diagramMembers ?? 0,
     nodeMarkersDrawn: () =>
       (window as unknown as { __nodeMarkersDrawn?: boolean }).__nodeMarkersDrawn ?? true,
+    nodeMarkerStyle: () => (window as unknown as { __nodeMarkerStyle?: string }).__nodeMarkerStyle ?? null,
     renderMode3D: () => String(uiStore.renderMode3D),
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
@@ -672,6 +679,14 @@ export function installE2EHooks(): void {
       if (!f || f.length < 6) return null;
       const k = 6 * Math.floor(f.length / 12);
       return projectWorld((f[k]! + f[k + 3]!) / 2, (f[k + 1]! + f[k + 4]!) / 2, (f[k + 2]! + f[k + 5]!) / 2);
+    },
+    activeLoadCaseId: () => uiStore.activeLoadCaseId,
+    loadFaceScreenPos: (id: number) => {
+      const f = (window as unknown as { __loadAreas?: Map<number, number[][]> }).__loadAreas?.get(id)?.[0];
+      if (!f || f.length < 9) return null;
+      const n = f.length / 3;
+      const c = [0, 1, 2].map((k) => f.filter((_, i) => i % 3 === k).reduce((s, v) => s + v, 0) / n);
+      return projectWorld((f[0]! + c[0]!) / 2, (f[1]! + c[1]!) / 2, (f[2]! + c[2]!) / 2);
     },
     drawPicked: () => (drawState.memberStart !== null && uiStore.currentTool === 'element'
       ? [drawState.memberStart] : [...uiStore.shellNodePick.picked]),

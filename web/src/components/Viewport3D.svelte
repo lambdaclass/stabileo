@@ -404,13 +404,19 @@
   });
 
   /*
-   * Basic draws its node markers a fixed size on screen (`NodeMarkerStyle`), as the reader
-   * chose under Settings › Model: dots, small balls, or dots that turn into balls while a tool
-   * that clicks on nodes is armed. PRO keeps the sphere sized in metres.
+   * The node markers are a fixed size on screen (`NodeMarkerStyle`), as the reader chose under
+   * Settings › Model: dots, small balls, or dots that turn into balls while something that clicks
+   * on nodes is under way. A sphere sized in metres, which PRO drew until now, grew with every
+   * node nearer the camera than the orbit's target and covered the members. In PRO, aiming at
+   * nodes is also picking a plate's corners or a mesh outline, placing a generated structure or a
+   * paste with its ghost, and the joints tab, where a click on a node picks the joint.
    */
   $effect(() => {
-    const style = uiStore.appMode === 'pro' ? 'mesh' : resolveNodeStyle(uiStore.nodeStyle3D, uiStore.currentTool);
+    const aiming = uiStore.appMode === 'pro'
+      && (uiStore.shellNodePick.active || placementStore.active || uiStore.proActiveTab === 'connections');
+    const style = resolveNodeStyle(uiStore.nodeStyle3D, uiStore.currentTool, aiming);
     nodesInstanced.setStyle(style);
+    (window as unknown as { __nodeMarkerStyle?: string }).__nodeMarkerStyle = style;
     invalidate();
   });
 
@@ -2645,7 +2651,7 @@
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
-    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads);
+    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads, sceneCtx?.loadAreas);
   }
   /**
    * The load a click selects. Loads drawn on top of each other (the same load twice on a member,

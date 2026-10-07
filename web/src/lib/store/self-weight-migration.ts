@@ -27,8 +27,14 @@ export function migrateSelfWeightIfNeeded(opts: { quiet?: boolean } = {}): boole
   const hadMembers = modelStore.elements.size > 0;
   const plan = planSelfWeight(modelStore.model.loadCases, uiStore.includeSelfWeight);
   let selfWeight = plan.selfWeight;
+  // A model coming from Basic, where the reader chose the case self-weight goes to (Loads ›
+  // Combinations, `uiStore.selfWeightCaseId`): that case, not the first dead-load one.
+  const chosen = uiStore.selfWeightCaseId;
+  if (uiStore.includeSelfWeight && chosen !== null && modelStore.model.loadCases.some((c) => c.id === chosen)) {
+    selfWeight = [{ caseId: chosen, ...GRAVITY_SELF_WEIGHT }];
+  }
   modelStore.withoutUndo(() => {
-    if (uiStore.includeSelfWeight && plan.caseId === null && hadMembers) {
+    if (uiStore.includeSelfWeight && selfWeight.length === 0 && hadMembers) {
       // Self-weight on and no dead-load case to hold it: one is made for it.
       const id = modelStore.addLoadCase(t('selfWeight.caseName'), 'D');
       selfWeight = [{ caseId: id, ...GRAVITY_SELF_WEIGHT }];
@@ -39,7 +45,7 @@ export function migrateSelfWeightIfNeeded(opts: { quiet?: boolean } = {}): boole
   // has nothing that changed under them.
   if (!opts.quiet && hadMembers && modelStore.loads.length > 0 && uiStore.includeSelfWeight && selfWeight.length) {
     const name = modelStore.model.loadCases.find((c) => c.id === selfWeight[0]!.caseId)?.name ?? '';
-    uiStore.toast(t(plan.deadCases > 1 ? 'selfWeight.migratedMany' : 'selfWeight.migrated').replaceAll('{case}', name).replaceAll('{n}', String(plan.deadCases)), 'info');
+    uiStore.toast(t(plan.deadCases > 1 && selfWeight[0]!.caseId === plan.caseId ? 'selfWeight.migratedMany' : 'selfWeight.migrated').replaceAll('{case}', name).replaceAll('{n}', String(plan.deadCases)), 'info');
   }
   return true;
 }

@@ -9396,7 +9396,7 @@ const pt: Translations = {
   'config.nodeStyleAuto': 'Pontos; esferas ao modelar',
   'config.nodeStylePoints': 'Pontos',
   'config.nodeStyleSpheres': 'Esferas pequenas',
-  'config.tip.nodeStyle': 'Como os nós são desenhados em 3D. Os pontos ocupam poucos pixels e deixam a estrutura e os resultados à vista. As esferas são mais fáceis de acertar. Com a primeira opção, os nós aparecem como esferas enquanto você desenha nós, barras, apoios ou cargas, e como pontos no resto do tempo. O tamanho na tela não muda com o zoom.',
+  'config.tip.nodeStyle': 'Como os nós são desenhados em 3D. Os pontos ocupam poucos pixels e deixam a estrutura e os resultados à vista. As esferas são mais fáceis de acertar. Com a primeira opção, os nós aparecem como esferas enquanto você faz algo que mira um nó (desenhar nós, barras, apoios, cargas ou placas, ou posicionar uma estrutura gerada) e como pontos no resto do tempo. O tamanho na tela não muda com o zoom.',
   'config.panelScrollbars': 'Barras de rolagem sempre visíveis no painel',
   'config.tip.panelScrollbars': 'Quando uma tabela ou um painel não cabe na largura ou na altura, mostra as barras de rolagem o tempo todo, para percorrê-lo com o mouse mesmo sem rolagem lateral.',
 };

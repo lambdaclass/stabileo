@@ -98,6 +98,19 @@ export class LoadArrowsBatched {
   private tint: number | null = null;
   /** The world segments each load drew, by load id, six numbers per segment. */
   readonly footprints = new Map<number, number[]>();
+  /**
+   * The faces a load covers, by load id, three numbers per corner: a load on a plate is clicked
+   * anywhere on its fill, not only on its arrows (`viewport/load-pick.ts`).
+   */
+  readonly areas = new Map<number, number[][]>();
+
+  /** The face the current owner's load covers, in world coordinates. */
+  markArea(corners: ReadonlyArray<{ x: number; y: number; z: number }>): void {
+    if (this.owner === null || corners.length < 3) return;
+    let list = this.areas.get(this.owner);
+    if (!list) this.areas.set(this.owner, (list = []));
+    list.push(corners.flatMap((p) => [p.x, p.y, p.z]));
+  }
 
   /**
    * What is drawn next belongs to load `id`, painted in `tint` when one is given (a selected
