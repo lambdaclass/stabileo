@@ -134,6 +134,7 @@ describe('reinforcement edits preserve analysis state', () => {
   it('4. NO structural solve and NO modelVersion bump on a reinforcement-only edit', () => {
     const spy3d = vi.spyOn(wasmSolver, 'solve3D');
     const spyStations = vi.spyOn(wasmSolver, 'extractBeamStationsGrouped3D');
+    const spyBuffer = vi.spyOn(wasmSolver, 'extractBeamStationBuffer3D');
     const versionBefore = modelStore.modelVersion;
     const analysisBefore = verificationStore.analysisRevision;
     const demandBefore = verificationStore.demandRevision;
@@ -144,12 +145,14 @@ describe('reinforcement edits preserve analysis state', () => {
 
     expect(spy3d).not.toHaveBeenCalled();
     expect(spyStations).not.toHaveBeenCalled();
+    expect(spyBuffer).not.toHaveBeenCalled();
     expect(modelStore.modelVersion).toBe(versionBefore);
     expect(verificationStore.analysisRevision).toBe(analysisBefore);
     expect(verificationStore.demandRevision).toBe(demandBefore);
     expect(resultsStore.perCombo3D.size).toBe(comboBefore);
     spy3d.mockRestore();
     spyStations.mockRestore();
+    spyBuffer.mockRestore();
   });
 
   it('5. several edits can be made before any re-verification command runs', () => {
