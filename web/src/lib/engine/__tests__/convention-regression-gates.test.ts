@@ -105,7 +105,7 @@ describe('SEAM 1: Allowed field names by mode', () => {
   });
 
   it('backend AddNodalLoad uses fz/my as primary serde fields (not fy/mz)', () => {
-    const actionsRs = readFileSync(resolve(__dirname, '../../../../../backend/src/capabilities/actions.rs'), 'utf8');
+    const actionsRs = readFileSync(resolve(__dirname, '../../../../../ai-backend/src/capabilities/actions.rs'), 'utf8');
     // fz is the primary field with fy as alias
     expect(actionsRs).toMatch(/#\[serde\(alias = "fy"\)\]\s*\n\s*fz:/);
     // my is the primary field with mz as alias
@@ -113,7 +113,7 @@ describe('SEAM 1: Allowed field names by mode', () => {
   });
 
   it('backend add_nodal_load_2d emits fz and my', () => {
-    const generatorsRs = readFileSync(resolve(__dirname, '../../../../../backend/src/capabilities/generators.rs'), 'utf8');
+    const generatorsRs = readFileSync(resolve(__dirname, '../../../../../ai-backend/src/capabilities/generators.rs'), 'utf8');
     // The function signature
     expect(generatorsRs).toContain('fn add_nodal_load_2d');
     // The emitted JSON must use "fz" and "my"

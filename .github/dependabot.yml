@@ -1,0 +1,104 @@
+version: 2
+
+# Security updates only.
+#
+# Every `updates` block is a version-update declaration by nature, so
+# `open-pull-requests-limit: 0` is what switches routine bumps off. Security PRs
+# are explicitly exempt from that limit and keep flowing.
+#
+# The blocks still have to exist even with the limit at zero: without one for an
+# ecosystem, the groups below have nothing to attach to and advisories arrive one
+# PR per package. Branch protection's review rule applies to Dependabot PRs too,
+# so that is unreviewable.
+#
+# `schedule` is required by the schema but inert here — a security PR opens when
+# the advisory lands, not on a cadence. `cooldown` is deliberately absent: it
+# applies to version updates only, and delaying an advisory fix is the opposite of
+# what we want.
+#
+# Production and development dependencies are split so a prod PR is small and
+# worth real attention while dev-tooling churn stays mergeable at a glance. Only
+# npm and mix support `dependency-type` in a group; cargo and github-actions get a
+# single group each because that option is not available to them.
+#
+# `labels` cannot be set per group, so the shared ones live here and
+# label-dependabot.yml adds security/dev-deps from the group name in the branch.
+# Renaming a group means updating that workflow too.
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - DevOps
+    commit-message:
+      # `include: scope` appends (deps)/(deps-dev) on its own, so a prefix of
+      # "chore(deps)" renders as chore(deps)(deps).
+      prefix: chore
+      include: scope
+    groups:
+      npm-security-prod:
+        applies-to: security-updates
+        dependency-type: production
+        patterns: ["*"]
+      npm-security-dev:
+        applies-to: security-updates
+        dependency-type: development
+        patterns: ["*"]
+
+  - package-ecosystem: mix
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - DevOps
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      mix-security-prod:
+        applies-to: security-updates
+        dependency-type: production
+        patterns: ["*"]
+      mix-security-dev:
+        applies-to: security-updates
+        dependency-type: development
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - DevOps
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - DevOps
+    commit-message:
+      # No `include: scope` here: a workflow bump reads better as chore(ci) than
+      # chore(deps), and keeping both would render as chore(ci)(deps).
+      prefix: chore(ci)
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

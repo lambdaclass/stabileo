@@ -4,7 +4,7 @@ FROM rust:1.84-bookworm AS backend-builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY engine/ engine/
-COPY backend/ backend/
+COPY ai-backend/ ai-backend/
 
 RUN cargo build -p dedaliano-backend --release
 

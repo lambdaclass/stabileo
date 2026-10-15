@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { existsSync } from 'fs';
+import { copyFileSync, cpSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
 
@@ -63,6 +63,47 @@ const PRODUCTION_BUILD_TESTS = [
 ];
 
 
+const ADMIN = process.env.VITE_APP_TYPE === 'admin';
+
+const ADMIN_PUBLIC_ASSETS = ['fonts', 'favicon.svg'];
+
+function adminPublicAssetsPlugin(): Plugin {
+  return {
+    name: 'admin-public-assets',
+    apply: 'build',
+    config: () => ({ publicDir: false }),
+    closeBundle() {
+      for (const asset of ADMIN_PUBLIC_ASSETS) {
+        const from = resolve(__dirname, 'public', asset);
+        const to = resolve(__dirname, 'dist-admin', asset);
+        if (asset.includes('.')) copyFileSync(from, to);
+        else cpSync(from, to, { recursive: true });
+      }
+    },
+  };
+}
+
+function adminRootPlugin(): Plugin {
+  const rewrite = (req: { url?: string }) => {
+    if (req.url === '/' || req.url?.startsWith('/?')) req.url = `/admin.html${req.url.slice(1)}`;
+  };
+  return {
+    name: 'admin-root',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+  };
+}
+
 /** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
@@ -74,19 +115,25 @@ function buildCommit(): string {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), svelte()],
+  plugins: [wasmStubPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: { __STABILEO_COMMIT__: JSON.stringify(buildCommit()) },
   base: process.env.BASE_PATH || '/',
   server: {
-    port: 4000,
+    port: ADMIN ? 4001 : 4000,
   },
   worker: {
     format: 'es',
     plugins: () => [wasmStubPlugin()],
   },
-  build: {
-    target: 'esnext',
-  },
+  build: ADMIN
+    ? {
+        target: 'esnext',
+        outDir: 'dist-admin',
+        rollupOptions: { input: { admin: resolve(__dirname, 'admin.html') } },
+      }
+    : {
+        target: 'esnext',
+      },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],
   },

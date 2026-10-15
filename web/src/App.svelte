@@ -6,6 +6,9 @@
   import { viewportCanvas } from './lib/utils/viewport-canvas';
   import { onMount, untrack, tick } from 'svelte';
   import LocaleSelect from './components/LocaleSelect.svelte';
+  import AccountButton from './components/account/AccountButton.svelte';
+  import { authStore } from './lib/store/auth.svelte';
+  import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
@@ -686,6 +689,7 @@
   let dxfFileInput: HTMLInputElement;
 
   let showImportDialog = $state(false);
+  const accountsEnabled = accounts();
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
   /** When the offered save was written, and whether it is the newest one that exists. */
@@ -864,6 +868,7 @@
   }
 
   onMount(() => {
+    if (accountsEnabled) void authStore.init();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1430,6 +1435,10 @@
           testid="lang-select"
         />
       </div>
+
+      {#if accountsEnabled}
+        <AccountButton />
+      {/if}
 
       <!--
         Settings sits with the other application-level controls — help and

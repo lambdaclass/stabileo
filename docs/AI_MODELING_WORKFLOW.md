@@ -14,7 +14,7 @@ The repo already contains:
 
 - an in-product AI drawer in [`web/src/components/AiDrawer.svelte`](../web/src/components/AiDrawer.svelte)
 - frontend AI client calls in [`web/src/lib/ai/client.ts`](../web/src/lib/ai/client.ts)
-- backend AI routes in [`backend/src/main.rs`](../backend/src/main.rs)
+- backend AI routes in [`ai-backend/src/main.rs`](../ai-backend/src/main.rs)
 - build/edit loop tests in [`web/src/lib/ai/__tests__/build-model.test.ts`](../web/src/lib/ai/__tests__/build-model.test.ts)
 
 Current backend routes:

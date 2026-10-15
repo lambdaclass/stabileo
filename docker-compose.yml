@@ -7,7 +7,7 @@ services:
     ports:
       - "3001:3001"
     env_file:
-      - backend/.env
+      - ai-backend/.env
     environment:
       - HOST=0.0.0.0
       - PORT=3001

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:admin": "VITE_APP_TYPE=admin vite",
     "build": "vite build && npx tsx scripts/prerender.ts",
+    "build:admin": "VITE_APP_TYPE=admin vite build",
     "preview": "vite preview",
     "wasm": "cd ../engine && wasm-pack build --target web --out-dir ../web/src/lib/wasm --no-opt",
     "test": "node scripts/test-all.mjs",

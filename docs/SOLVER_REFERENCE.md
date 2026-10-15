@@ -173,7 +173,7 @@ If you need implementation-level detail, start with:
 - [`engine/README.md`](../engine/README.md)
 - [`web/src/lib/engine/`](../web/src/lib/engine)
 - [`web/src/lib/ai/client.ts`](../web/src/lib/ai/client.ts)
-- [`backend/src/main.rs`](../backend/src/main.rs)
+- [`ai-backend/src/main.rs`](../ai-backend/src/main.rs)
 
 ## 7. Recommended Reading Order
 

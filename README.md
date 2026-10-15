@@ -155,6 +155,20 @@ Requires Node.js 18 or later. `npm run build` also prerenders every public route
 page in headless Chromium, so it needs `npx playwright install chromium` first; `dev`, `test` and
 `build:only` do not.
 
+### With accounts (backend)
+
+The app runs fully in the browser; accounts come from an Elixir/Phoenix backend in `backend/`.
+Its toolchain and PostgreSQL come from the Nix flake:
+
+```bash
+make setup         # claim an instance, start PostgreSQL, fetch deps, create and seed the DB
+make backend.run   # http://localhost:4100
+make web.run       # http://localhost:4000, pointed at that backend
+make test.backend  # backend tests
+```
+
+See [CLAUDE.md](CLAUDE.md) for the conventions and [specs/](specs/) for the backend design.
+
 ## Contributing
 
 Stabileo is built in the open, with the people who use it. Reports, ideas, discussions and code

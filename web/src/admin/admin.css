@@ -1,0 +1,54 @@
+:root {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --st-bg: var(--st-paper);
+    --st-surface: #ffffff;
+    --st-surface-2: var(--st-paper-2);
+    --st-surface-3: var(--st-paper);
+    --st-hair: rgba(67, 82, 94, 0.18);
+    --st-hair-strong: rgba(67, 82, 94, 0.34);
+    --st-text: var(--st-ink);
+    --st-text-2: var(--st-slate);
+    --st-ok: #17703f;
+    --st-danger: #b3341c;
+    --st-warn: #8a6100;
+    --st-info: #255d9e;
+    --st-danger-bg: rgba(192, 57, 43, 0.1);
+    --st-focus: #255d9e;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--st-bg);
+  color: var(--st-text);
+  font-family: var(--st-sans);
+  font-size: 15px;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--st-focus);
+  outline-offset: 1px;
+}

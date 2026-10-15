@@ -5,6 +5,7 @@ node_modules
 
 # Build output
 web/dist/
+web/dist-admin/
 
 # IDE / OS
 .DS_Store
@@ -68,3 +69,9 @@ web/.dist-hookgate-on/
 # repository stays clonable. docs/codes/CIRSOC/SOURCES.md records the SHA-256 of every
 # source file so any conversion can be re-verified against the exact document used.
 docs/codes/CIRSOC/*.pdf
+
+# Elixir backend (deps and build live under backend/, see backend/.gitignore)
+.mix/
+.hex/
+.stabileo-inst
+.env.prod
