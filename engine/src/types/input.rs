@@ -106,6 +106,26 @@ pub struct SolverPointLoadOnElement {
     pub my: Option<f64>,
 }
 
+/// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
+/// positive toward J). The part of a load in global axes, or at an angle, that runs along an
+/// inclined member: as equivalent loads at the end nodes the displacements come out right but
+/// the member sees no span load, so N is constant, the average of its true end values. The
+/// space solve carries it in `SolverDistributedLoad3D::q_xi`/`q_xj`; the plane load is its own
+/// variant so the many transverse-only literals stay as they are.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverAxialDistributedLoad {
+    pub element_id: usize,
+    #[serde(rename = "qI")]
+    pub q_i: f64,
+    #[serde(rename = "qJ")]
+    pub q_j: f64,
+    #[serde(default)]
+    pub a: Option<f64>,
+    #[serde(default)]
+    pub b: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverThermalLoad {
@@ -125,6 +145,8 @@ pub enum SolverLoad {
     PointOnElement(SolverPointLoadOnElement),
     #[serde(rename = "thermal")]
     Thermal(SolverThermalLoad),
+    #[serde(rename = "axialDistributed")]
+    AxialDistributed(SolverAxialDistributedLoad),
 }
 
 /// Optional linear-solver configuration.

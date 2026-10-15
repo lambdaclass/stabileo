@@ -68,7 +68,7 @@ fn ef(element_id: usize, m_start: f64) -> ElementForces {
         length: 1.0,
         q_i: 0.0, q_j: 0.0,
         point_loads: Vec::new(),
-        distributed_loads: Vec::new(),
+        distributed_loads: Vec::new(), distributed_loads_x: Vec::new(),
         hinge_start: false, hinge_end: false,
     }
 }

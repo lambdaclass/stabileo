@@ -4,6 +4,8 @@ import { initSolver, solveModal3D, solveModal } from '../../engine/wasm-solver';
 import { buildSolverInput2D, buildSolverInput3D, validateAndSolve3D } from '../../engine/solver-service';
 import { nodeGravity } from '../../engine/direct-analysis';
 import type { SolverInput3D } from '../../engine/types-3d';
+import type { SolverInput } from '../../engine/types';
+import { axialSpanToNodal2D } from '../../engine/axial-span-2d';
 import { staticsCheck } from '../../engine/statics-check';
 import { analyzeDrawn } from '../drawn-properties';
 import { catalogueOutline } from '../canonical';
@@ -74,7 +76,10 @@ it.each(['2d', '3d'] as const)('uses physical constituent weights in %s while re
   const input = mode === '2d' ? buildSolverInput2D(m, true)! : buildSolverInput3D(m, true)!;
   const weight = mode === '3d'
     ? [...nodeGravity(input as SolverInput3D, (input as SolverInput3D).loads).gravity.values()].reduce((a, b) => a + b, 0)
-    : input.loads.reduce((sum, l) => sum + (l.type === 'nodal' ? -l.data.fz : 0), 0);
+    // The plane solve takes a column's own weight as a load along it (`axialDistributed`).
+    : (input as SolverInput).loads
+      .flatMap((l) => (l.type === 'axialDistributed' ? axialSpanToNodal2D(input as SolverInput, l.data) : [l]))
+      .reduce((sum, l) => sum + (l.type === 'nodal' ? -l.data.fz : 0), 0);
   // Circular parts have 64 sides; the polygon area is within 0.2% of the exact circle.
   expect(Math.abs(weight / expected - 1)).toBeLessThan(.002);
   expect(input.sections.get(section)!.a).toBeCloseTo(p.a, 12);

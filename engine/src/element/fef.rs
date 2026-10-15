@@ -567,3 +567,11 @@ pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64
     let at_j = (f_i * (a + span / 3.0) + f_j * (a + 2.0 * span / 3.0)) / l;
     [f_i + f_j - at_j, at_j]
 }
+
+/// A plane frame's fixed-end forces for an axial span load (`SolverAxialDistributedLoad`):
+/// the two consistent end loads along local x, nothing transverse — so an end release, which
+/// only redistributes shear and moment, leaves them as they are.
+pub fn fef_axial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 6] {
+    let [f_i, f_j] = axial_distributed_fef(q_i, q_j, a, b, l);
+    [f_i, 0.0, 0.0, f_j, 0.0, 0.0]
+}

@@ -378,7 +378,9 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     expect(load.data.fx).toBe(4);
     expect(load.data.fy).toBe(0);
     expect(load.data.fz).toBe(-10);
-    expect(load.data.my).toBe(6);
+    // Standing in X–Z the plane is reflected, (x, y) → (x, 0, y): a counter-clockwise couple as
+    // drawn is about −Y (embedded-plane-point-loads.test.ts; the reactions' My turns sign too).
+    expect(load.data.my).toBe(-6);
     expect(load.data.mz).toBe(0);
 
     const support = input!.supports.get(1)!;

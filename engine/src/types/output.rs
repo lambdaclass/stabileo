@@ -63,6 +63,10 @@ pub struct ElementForces {
     pub q_j: f64,
     pub point_loads: Vec<PointLoadInfo>,
     pub distributed_loads: Vec<DistributedLoadInfo>,
+    /// The axial span loads (positive toward J), as in `ElementForces3D`: N between the ends
+    /// is not linear under a trapezoidal or partial one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub distributed_loads_x: Vec<DistributedLoadInfo>,
     #[serde(default)]
     pub hinge_start: bool,
     #[serde(default)]

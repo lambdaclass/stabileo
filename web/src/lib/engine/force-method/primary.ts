@@ -33,6 +33,7 @@
  */
 import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 import type { DetailedSupport } from '../solver-detailed';
+import { axialEquivalentLoads, axialSpanToNodal2D } from '../axial-span-2d';
 
 /*
  * Cut components: 2D uses N, V, M; 3D uses N, Vy, Vz, T, My, Mz. One union,
@@ -232,15 +233,71 @@ export function buildPrimary(
     elements.set(eid, end === 'J' ? { ...e, nodeJ: id } : { ...e, nodeI: id });
   }
 
-  const kept = loads.filter((l) => {
-    if (!opts.keepThermal && l.type === 'thermal') return false;
-    /* A removed bar's own loads leave with it; its temperature is handled apart. */
-    if ('elementId' in l.data && !elements.has((l.data as { elementId: number }).elementId)) return false;
-    return true;
+  /*
+   * A removed bar's temperature is handled apart. Its loads stay on the structure, at its two
+   * nodes: a truss bar takes nothing across it (the lever rule is exact), and along it the
+   * consistent end loads leave the redundant X as the bar's mean force (`removedBarEnds`).
+   */
+  const kept = loads.flatMap((l): SolverLoad[] => {
+    if (!opts.keepThermal && l.type === 'thermal') return [];
+    if ('elementId' in l.data && !elements.has((l.data as { elementId: number }).elementId)) {
+      return l.type === 'thermal' ? [] : removedBarLoadToNodes(input, l);
+    }
+    return [l];
   });
 
   return {
     input: { ...input, nodes, elements, supports, loads: kept },
     cutNode,
   };
+}
+
+/** A member load on a truss bar, as loads at its two nodes (global axes). */
+function removedBarLoadToNodes(input: SolverInput, l: SolverLoad): SolverLoad[] {
+  if (l.type === 'axialDistributed') return axialSpanToNodal2D(input, l.data);
+  if (l.type !== 'distributed' && l.type !== 'pointOnElement') return [];
+  const e = input.elements.get(l.data.elementId);
+  const ni = e && input.nodes.get(e.nodeI), nj = e && input.nodes.get(e.nodeJ);
+  if (!e || !ni || !nj) return [];
+  const L = Math.hypot(nj.x - ni.x, nj.z - ni.z);
+  if (!(L > 1e-12)) return [];
+  const c = (nj.x - ni.x) / L, s = (nj.z - ni.z) / L;
+  /* Across (local y = (−s, c)) by the lever rule, along by the axial shape functions. */
+  let yI = 0, yJ = 0, xI = 0, xJ = 0;
+  if (l.type === 'pointOnElement') {
+    const t = l.data.a / L;
+    yI = l.data.p * (1 - t); yJ = l.data.p * t;
+    xI = (l.data.px ?? 0) * (1 - t); xJ = (l.data.px ?? 0) * t;
+  } else {
+    const a = l.data.a ?? 0, b = l.data.b ?? L, span = b - a;
+    if (!(span > 0)) return [];
+    const W = (l.data.qI + l.data.qJ) * span / 2;
+    const yjByMoment = (l.data.qI * span * (a + span / 2) + (l.data.qJ - l.data.qI) * span / 2 * (a + 2 * span / 3)) / L;
+    yI = W - yjByMoment; yJ = yjByMoment;
+  }
+  return [
+    { type: 'nodal', data: { nodeId: e.nodeI, fx: xI * c - yI * s, fz: xI * s + yI * c, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeJ, fx: xJ * c - yJ * s, fz: xJ * s + yJ * c, my: 0 } },
+  ];
+}
+
+/**
+ * The end forces of a removed bar whose redundant is X, with the loads along it: its consistent
+ * end loads (fI, fJ) went to its nodes, so N = X + fI at I and X − fJ at J.
+ */
+export function removedBarEnds(input: SolverInput, elementId: number, X: number): number[] {
+  const e = input.elements.get(elementId);
+  const ni = e && input.nodes.get(e.nodeI), nj = e && input.nodes.get(e.nodeJ);
+  if (!e || !ni || !nj) return [-X, 0, 0, X, 0, 0];
+  const L = Math.hypot(nj.x - ni.x, nj.z - ni.z);
+  let fI = 0, fJ = 0;
+  for (const l of input.loads) {
+    if (l.type === 'axialDistributed' && l.data.elementId === elementId) {
+      const [i, j] = axialEquivalentLoads(l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? L, L);
+      fI += i; fJ += j;
+    } else if (l.type === 'pointOnElement' && l.data.elementId === elementId && l.data.px) {
+      fI += l.data.px * (1 - l.data.a / L); fJ += l.data.px * (l.data.a / L);
+    }
+  }
+  return [-(X + fI), 0, 0, X - fJ, 0, 0];
 }

@@ -60,7 +60,7 @@ import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength }
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
-import { pointNeedsCut, POINT_END_TOL } from './member-point-loads';
+import { pointNeedsCut, planePointLoad3D, POINT_END_TOL } from './member-point-loads';
 import { hasMemberOffset } from './member-offsets';
 import { globalAxis, CONNECTOR_ROT } from './expand-semi-rigid-3d';
 
@@ -128,20 +128,34 @@ interface Planned {
  */
 function loadCuts(model: ModelData): Map<number, number[]> {
   const out = new Map<number, number[]>();
+  const cutAt = (e: El, t: number, L: number) => {
+    const list = out.get(e.id) ?? [];
+    if (!list.some((x) => Math.abs(x - t) * L < POINT_END_TOL)) list.push(t);
+    out.set(e.id, list);
+  };
   for (const l of model.loads) {
-    if (l.type !== 'pointOnElement3d') continue;
+    if (l.type !== 'pointOnElement3d' && l.type !== 'pointOnElement') continue;
     const d = l.data;
     const e = model.elements.get(d.elementId) as (El & { behaviour?: string }) | undefined;
     // A member that takes no bending carries its loads to its nodes (`member-loads.ts`); one out
     // of the analysis carries none.
     if (!e || takesNoBending(e) || e.behaviour === 'inactive') continue;
+    if (l.type === 'pointOnElement') {
+      // A plane model's point load (an embedded plane model): its couple and its axial part, in
+      // the plane, as the solve reads them (`planePointLoad3D`).
+      const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
+      if (!ni || !nj) continue;
+      const dx = nj.x - ni.x, dy = nj.y - ni.y, L = Math.hypot(dx, dy);
+      if (!(L > 1e-10)) continue;
+      const ex: Vec3 = [dx / L, 0, dy / L];
+      if (!pointNeedsCut(planePointLoad3D(l.data, dx, dy, true), { ex, ey: [0, 1, 0], ez: [-ex[2], 0, ex[0]], L })) continue;
+      cutAt(e, l.data.a / L, L);
+      continue;
+    }
     const f = memberFrame3D(model, e);
     if (!f || !(f.ax.L > 1e-10)) continue;
-    if (!pointNeedsCut(d, { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L })) continue;
-    const list = out.get(e.id) ?? [];
-    const t = d.a / f.ax.L;
-    if (!list.some((x) => Math.abs(x - t) * f.ax.L < POINT_END_TOL)) list.push(t);
-    out.set(e.id, list);
+    if (!pointNeedsCut(l.data, { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L })) continue;
+    cutAt(e, l.data.a / f.ax.L, f.ax.L);
   }
   for (const list of out.values()) list.sort((a, b) => a - b);
   return out;

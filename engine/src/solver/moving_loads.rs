@@ -261,7 +261,7 @@ fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a Pat
 fn base_loads(input: &SolverInput) -> Vec<SolverLoad> {
     // Keep existing permanent loads (nodal and distributed, but not moving point loads)
     input.loads.iter().filter(|l| {
-        matches!(l, SolverLoad::Nodal(_) | SolverLoad::Distributed(_) | SolverLoad::Thermal(_))
+        matches!(l, SolverLoad::Nodal(_) | SolverLoad::Distributed(_) | SolverLoad::Thermal(_) | SolverLoad::AxialDistributed(_))
     }).cloned().collect()
 }
 

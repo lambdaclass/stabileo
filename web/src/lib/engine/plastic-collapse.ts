@@ -48,6 +48,7 @@ import { solve } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
+import { axialSpanToNodal2D } from './axial-span-2d';
 
 export interface PlasticCollapseOptions {
   /** Plastic moment of an original frame member, kN·m. */
@@ -120,17 +121,18 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
 
   const out: SolverLoad[] = [];
   for (const l of input.loads) {
-    if (l.type === 'distributed' && l.data.elementId === id) {
-      const d = l.data;
+    if ((l.type === 'distributed' || l.type === 'axialDistributed') && l.data.elementId === id) {
+      // Across the member or along it, a span load is cut the same way.
+      const d = l.data, type = l.type;
       const la = d.a ?? 0, lb = d.b ?? L;
       const qAt = (x: number) => (lb - la < 1e-12 ? d.qI : d.qI + ((d.qJ - d.qI) * (x - la)) / (lb - la));
       if (la < s - 1e-12) {
         const e1 = Math.min(lb, s);
-        out.push({ type: 'distributed', data: { elementId: id, qI: d.qI, qJ: qAt(e1), a: la, b: e1 } });
+        out.push({ type, data: { elementId: id, qI: d.qI, qJ: qAt(e1), a: la, b: e1 } });
       }
       if (lb > s + 1e-12) {
         const s1 = Math.max(la, s);
-        out.push({ type: 'distributed', data: { elementId: rightId, qI: qAt(s1), qJ: d.qJ, a: s1 - s, b: lb - s } });
+        out.push({ type, data: { elementId: rightId, qI: qAt(s1), qJ: d.qJ, a: s1 - s, b: lb - s } });
       }
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       out.push(l.data.a <= s + 1e-12
@@ -207,6 +209,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       qI: ef.qI * lambda, qJ: ef.qJ * lambda,
       pointLoads: ef.pointLoads.map((p) => ({ ...p, p: p.p * lambda, px: (p.px ?? 0) * lambda, my: (p.my ?? 0) * lambda })),
       distributedLoads: ef.distributedLoads.map((d) => ({ ...d, qI: d.qI * lambda, qJ: d.qJ * lambda })),
+      ...(ef.distributedLoadsX ? { distributedLoadsX: ef.distributedLoadsX.map((d) => ({ ...d, qI: d.qI * lambda, qJ: d.qJ * lambda })) } : {}),
     })),
   });
 
@@ -245,7 +248,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       if (mb.yielded) continue;
       if (mb.truss) {
         const ef = efOf.get(mb.pieces[0].id);
-        un[0] = ef ? ef.nStart : 0;
+        // A load along the bar makes N differ at its ends: the larger one yields first.
+        un[0] = ef ? (Math.abs(ef.nEnd) > Math.abs(ef.nStart) ? ef.nEnd : ef.nStart) : 0;
         axialCandidate(mb, 0, un[0]);
         continue;
       }
@@ -309,10 +313,20 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         const pieceIds = new Set(ev.m.pieces.map((p) => p.id));
         const onIt = (l: SolverLoad) => 'elementId' in l.data && pieceIds.has((l.data as { elementId: number }).elementId);
         /* A yielded frame member that still carries a transverse load cannot hold it. */
-        if (!ev.m.truss && work.loads.some((l) => l.type !== 'thermal' && onIt(l))) crushed = true;
+        if (!ev.m.truss && work.loads.some((l) => l.type !== 'thermal' && l.type !== 'axialDistributed' && onIt(l))) crushed = true;
+        /*
+         * A load along it stays on the structure, at the ends of the member as drawn (its pieces'
+         * own nodes go with it): the end loads it would have reached the solve as.
+         */
+        const alongIt = work.loads.flatMap((l) => {
+          if (l.type !== 'axialDistributed' || !onIt(l)) return [];
+          const piece = ev.m.pieces.find((pc) => pc.id === l.data.elementId)!;
+          const off = piece.t0 * ev.m.L, len = (piece.t1 - piece.t0) * ev.m.L;
+          return axialSpanToNodal2D(original, { ...l.data, elementId: ev.m.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
+        });
         for (const id of pieceIds) work.elements.delete(id);
         for (const n of ev.m.splitNodes) work.nodes.delete(n);
-        work.loads = work.loads.filter((l) => !onIt(l));
+        work.loads = [...work.loads.filter((l) => !onIt(l)), ...alongIt];
         formed.push({
           elementId: ev.m.id, end: 'start', position: ev.m.truss ? 0.5 : ev.m.t[ev.k], x: (ev.m.truss ? 0.5 : ev.m.t[ev.k]) * ev.m.L, kind: 'axial',
           moment: Math.sign(ev.m.accN[ev.k]) * ev.m.np, loadFactor: lambda, step,

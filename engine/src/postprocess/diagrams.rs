@@ -190,6 +190,14 @@ pub fn compute_diagram_value_at_sorted(
                     }
                 }
             }
+            // An axial span load lowers it continuously, by what of it lies left of x
+            // (as the space diagram reads `distributed_loads_x`).
+            for dl in &ef.distributed_loads_x {
+                let span = dl.b - dl.a;
+                if span <= 0.0 { continue; }
+                let s = (xi - dl.a).clamp(0.0, span);
+                value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
+            }
             value
         }
         _ => 0.0,

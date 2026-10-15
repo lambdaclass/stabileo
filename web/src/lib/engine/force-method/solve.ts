@@ -30,11 +30,11 @@
 import type { SolverInput, SolverLoad } from '../types';
 import { solveDetailed, type DSMStepData } from '../solver-detailed';
 import {
-  countIndeterminacy, candidates, buildPrimary, restrainedComponents,
+  countIndeterminacy, candidates, buildPrimary, restrainedComponents, removedBarEnds,
   type Redundant,
 } from './primary';
 import {
-  barLoadsOf, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, solveSystem, type BarLoads,
+  barLoadsOf, axialLoadsOnly, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, solveSystem, type BarLoads,
 } from './internal';
 import type { BarState, StateResult, TermRow, Geometry, ForceMethodResult } from './result-types';
 import { chooseRedundants, restraintCarries, fallbackBudget, FM_MAX_GH } from './redundants';
@@ -266,7 +266,7 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
     const L = lenOf(p0.input, e.nodeI, e.nodeJ);
     return {
       e, L, EI: mat.e * 1000 * sec.iz, EA: mat.e * 1000 * sec.a, sec, mat,
-      loads: e.type === 'frame' ? barLoadsOf(p0.input, e.id, L) : NO_LOADS,
+      loads: e.type === 'frame' ? barLoadsOf(p0.input, e.id, L) : axialLoadsOnly(barLoadsOf(p0.input, e.id, L)),
     };
   });
   const endAt = (f: number[]) => ({ N: f[0], V: f[1], M: f[2] });
@@ -278,15 +278,16 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
       const fa = a.forces(bar.e.id);
       const fb = b.forces(bar.e.id);
       if (!fa || !fb) continue;
-      if (bar.e.type === 'truss') {
-        rows.push({ elementId: bar.e.id, source: 'axial', value: ((-fa[0]) * (-fb[0]) * bar.L) / bar.EA });
-        continue;
-      }
       const A = la(bar.e.id);
       const B = lb(bar.e.id);
       const pts = breakpoints(bar.L, A, B);
       const ia = (x: number) => internalAt(endAt(fa), A, x);
       const ib = (x: number) => internalAt(endAt(fb), B, x);
+      if (bar.e.type === 'truss') {
+        /* Constant along the bar unless a load acts along it. */
+        rows.push({ elementId: bar.e.id, source: 'axial', value: integrate(pts, (x) => ia(x).n * ib(x).n) / bar.EA });
+        continue;
+      }
       rows.push({ elementId: bar.e.id, source: 'bending', value: integrate(pts, (x) => ia(x).m * ib(x).m) / bar.EI });
       rows.push({ elementId: bar.e.id, source: 'axial', value: integrate(pts, (x) => ia(x).n * ib(x).n) / bar.EA });
     }
@@ -403,12 +404,13 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
   for (const bar of bars) {
     const f = [...s0.forces(bar.e.id)!];
     unit.forEach((u, j) => { const fj = u.forces(bar.e.id)!; for (let k = 0; k < 6; k++) f[k] += X[j] * fj[k]; });
-    finalBars.push(barState(bar.e.id, bar.L, f, bar.e.type === 'frame' ? bar.loads : NO_LOADS));
+    finalBars.push(barState(bar.e.id, bar.L, f, bar.loads));
   }
   redundants.forEach((r, i) => {
     if (r.kind !== 'barForce') return;
     const e = input.elements.get(r.elementId!)!;
-    finalBars.push(barState(e.id, lenOf(input, e.nodeI, e.nodeJ), [-X[i], 0, 0, X[i], 0, 0], NO_LOADS));
+    const L = lenOf(input, e.nodeI, e.nodeJ);
+    finalBars.push(barState(e.id, L, removedBarEnds(input, e.id, X[i]), axialLoadsOnly(barLoadsOf(input, e.id, L))));
   });
   const finalReactions = s0.reactions.map((r) => {
     let v = r.value;
@@ -480,7 +482,8 @@ function stateOf(s: Solved, loads: SolverLoad[]): StateResult {
   return {
     bars: [...s.input.elements.values()].map((e) => {
       const L = lenOf(s.input, e.nodeI, e.nodeJ);
-      return barState(e.id, L, s.forces(e.id)!, e.type === 'frame' ? barLoadsOf(withLoads, e.id, L) : NO_LOADS);
+      const loads = barLoadsOf(withLoads, e.id, L);
+      return barState(e.id, L, s.forces(e.id)!, e.type === 'frame' ? loads : axialLoadsOnly(loads));
     }),
     reactions: s.reactions,
   };

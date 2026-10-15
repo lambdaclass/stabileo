@@ -778,6 +778,13 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                             local_forces.push((dof, fef_global[i]));
                         }
                     }
+                    SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
+                        let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
+                        let fef_global = transform_force(&fef, &t, 6);
+                        for (i, &dof) in elem_dofs.iter().enumerate() {
+                            local_forces.push((dof, fef_global[i]));
+                        }
+                    }
                     _ => {}
                 }
             }

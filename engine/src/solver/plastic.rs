@@ -333,7 +333,7 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
             q_i: ef.q_i * factor,
             q_j: ef.q_j * factor,
             point_loads: ef.point_loads.clone(),
-            distributed_loads: ef.distributed_loads.clone(),
+            distributed_loads: ef.distributed_loads.clone(), distributed_loads_x: Vec::new(),
             hinge_start: ef.hinge_start,
             hinge_end: ef.hinge_end,
         }).collect(),

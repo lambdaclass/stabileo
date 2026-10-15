@@ -15,6 +15,7 @@
  */
 import type { SolverInput, SupportType } from '../types';
 import { letterName } from './format';
+import { axialSpanToNodal2D } from '../axial-span-2d';
 
 export interface PNode { id: number; x: number; z: number; name: string }
 
@@ -142,7 +143,15 @@ export function planeModel(input: SolverInput): PlaneModel {
     } else if (l.type === 'pointOnElement') {
       memberLoads.push({ kind: 'point', member: l.data.elementId, a: l.data.a, p: l.data.p, px: l.data.px ?? 0, m: l.data.my ?? 0 });
     } else if (l.type === 'thermal') {
-      memberLoads.push({ kind: 'thermal', member: l.data.elementId, dtUniform: l.data.dtUniform, dtGradient: l.data.dtGradient });
+      memberLoads.push({ kind: 'thermal', member: l.data.elementId, dtUniform: l.data.dtUniform, dtGradient: l.data.dtGradient });    } else if (l.type === 'axialDistributed') {
+      /*
+       * A load along an inclined member (the axial part of one in global axes). The methods
+       * here take member loads across the member; this one reaches them as its consistent end
+       * loads — the same reactions and displacements, N constant along that member.
+       */
+      for (const n of axialSpanToNodal2D(input, l.data)) {
+        if (n.type === 'nodal') nodalLoads.push({ node: n.data.nodeId, fx: n.data.fx, fz: n.data.fz, my: n.data.my });
+      }
     }
   }
 

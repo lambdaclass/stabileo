@@ -549,6 +549,13 @@ fn truss_member_load_2d(
             f_global[truss_dofs[2]] += cos * nj;
             f_global[truss_dofs[3]] += sin * nj;
         }
+        SolverLoad::AxialDistributed(al) if al.element_id == elem_id => {
+            let [ni, nj] = crate::element::axial_distributed_fef(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
+            f_global[truss_dofs[0]] += cos * ni;
+            f_global[truss_dofs[1]] += sin * ni;
+            f_global[truss_dofs[2]] += cos * nj;
+            f_global[truss_dofs[3]] += sin * nj;
+        }
         _ => {}
     }
 }
@@ -581,6 +588,7 @@ pub fn assemble_load_vector_2d(
             SolverLoad::Distributed(dl) => { loads_by_elem.entry(dl.element_id).or_default().push(load); }
             SolverLoad::PointOnElement(pl) => { loads_by_elem.entry(pl.element_id).or_default().push(load); }
             SolverLoad::Thermal(tl) => { loads_by_elem.entry(tl.element_id).or_default().push(load); }
+            SolverLoad::AxialDistributed(al) => { loads_by_elem.entry(al.element_id).or_default().push(load); }
             _ => {}
         }
     }
@@ -741,6 +749,13 @@ pub fn assemble_element_loads_2d(
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
+                let fef_global = transform_force(&fef, t, 6);
+                for (i, &dof) in elem_dofs.iter().enumerate() {
+                    f_global[dof] += fef_global[i];
+                }
+            }
+            SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
+                let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
                 let fef_global = transform_force(&fef, t, 6);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
                     f_global[dof] += fef_global[i];

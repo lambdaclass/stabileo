@@ -132,7 +132,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
             n_start: 0.0, n_end: 0.0, v_start: 0.0, v_end: 0.0, m_start: 0.0, m_end: 0.0,
             length: f.length, q_i: 0.0, q_j: 0.0,
             point_loads: Vec::new(),
-            distributed_loads: Vec::new(),
+            distributed_loads: Vec::new(), distributed_loads_x: Vec::new(),
             hinge_start: f.hinge_start, hinge_end: f.hinge_end,
         })
         .collect();
@@ -177,6 +177,11 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
             out.q_j += f * ef.q_j;
             for dl in &ef.distributed_loads {
                 out.distributed_loads.push(DistributedLoadInfo {
+                    q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b,
+                });
+            }
+            for dl in &ef.distributed_loads_x {
+                out.distributed_loads_x.push(DistributedLoadInfo {
                     q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b,
                 });
             }

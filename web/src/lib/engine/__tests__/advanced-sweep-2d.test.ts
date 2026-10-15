@@ -238,6 +238,10 @@ function memberLoads(input: SolverInput, id: number): MemberLoads {
       const p = l.data.p ?? 0, px = l.data.px ?? 0, my = l.data.my ?? 0;
       fx += -s * p + c * px; fz += c * p + s * px; m += p * l.data.a + my;
       scale = Math.max(scale, Math.abs(p), Math.abs(px), Math.abs(my) / Math.max(L, 1e-9));
+    } else if (l.type === 'axialDistributed' && l.data.elementId === id) {
+      // Along the member: no moment about I, which lies on its line.
+      const total = ((l.data.qI + l.data.qJ) / 2) * ((l.data.b ?? L) - (l.data.a ?? 0));
+      fx += c * total; fz += s * total; scale = Math.max(scale, Math.abs(total));
     }
   }
   return { fx, fz, m, scale };
@@ -414,6 +418,11 @@ function checkBuckling(label: string, input: SolverInput, res: AnalysisResults):
       if (compressed.length) fail('buckling', `${label}: "no compressed elements" but e${compressed[0].elementId} has N=${compressed[0].nStart.toFixed(3)} → ${compressed[0].nEnd.toFixed(3)} kN`);
       return { none: 'noCompression' };
     }
+    /*
+     * A compressed member whose every degree of freedom is held (one fixed-fixed member under a
+     * load along it) has nothing free to buckle: the analysis says so, which is the answer.
+     */
+    if (/Every degree of freedom is restrained/.test(m) && compressed.length) return { none: 'failed' };
     fail('buckling', `${label}: threw "${m.slice(0, 120)}"${trussOnlyNodes(input) ? ' [truss-only nodes]' : ''}`);
     return { none: 'failed' };
   }

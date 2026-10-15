@@ -9,6 +9,7 @@ import type {
 } from './types';
 import { t } from '../i18n';
 import { solveAllowingNullModes } from './dense-solve';
+import { axialEquivalentLoads } from './axial-span-2d';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -331,6 +332,12 @@ export function elementEquivalentLoads(
         f[0] += pl.px * (1 - xi);
         f[3] += pl.px * xi;
       }
+    } else if (load.type === 'axialDistributed' && load.data.elementId === elemId) {
+      /* Along the axis: its consistent end loads, by the linear shape functions. */
+      const d = load.data;
+      const [fI, fJ] = axialEquivalentLoads(d.qI, d.qJ, Math.max(0, d.a ?? 0), Math.min(l, d.b ?? l), l);
+      f[0] += fI;
+      f[3] += fJ;
     } else if (load.type === 'thermal' && (load.data as SolverThermalLoad).elementId === elemId) {
       const tl = load.data as SolverThermalLoad;
       const alpha = 1.2e-5;

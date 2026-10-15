@@ -220,7 +220,7 @@
 		{
 			"file": "src/lib/engine/__tests__/deformed-shape.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 9
 		},
 		{
@@ -238,7 +238,7 @@
 		{
 			"file": "src/lib/engine/__tests__/diff-fuzz-helpers.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 1
 		},
 		{
@@ -424,7 +424,7 @@
 		{
 			"file": "src/lib/engine/__tests__/e2e-comprehensive.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 36
 		},
 		{
@@ -484,7 +484,7 @@
 		{
 			"file": "src/lib/engine/__tests__/inclined-supports.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 1
 		},
 		{
@@ -514,7 +514,7 @@
 		{
 			"file": "src/lib/engine/__tests__/kinematic-analysis.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 5
 		},
 		{
@@ -532,7 +532,7 @@
 		{
 			"file": "src/lib/engine/__tests__/load-cases.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 1
 		},
 		{
@@ -544,7 +544,7 @@
 		{
 			"file": "src/lib/engine/__tests__/load-decomposition.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 3
 		},
 		{
@@ -586,7 +586,7 @@
 		{
 			"file": "src/lib/engine/__tests__/node-equilibrium.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 3
 		},
 		{
@@ -658,7 +658,7 @@
 		{
 			"file": "src/lib/engine/__tests__/solver-mechanism.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 21
 		},
 		{
@@ -694,7 +694,7 @@
 		{
 			"file": "src/lib/engine/__tests__/solver-phase1.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 70
 		},
 		{
@@ -718,7 +718,7 @@
 		{
 			"file": "src/lib/engine/__tests__/solver.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 11
 		},
 		{
@@ -730,7 +730,7 @@
 		{
 			"file": "src/lib/engine/__tests__/split-element.test.ts",
 			"code": "TS2353",
-			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad'.",
+			"message": "Object literal may only specify known properties, and 'fy' does not exist in type 'SolverNodalLoad | SolverDistributedLoad | SolverPointLoadOnElement | SolverThermalLoad | SolverAxialDistributedLoad'.",
 			"count": 1
 		},
 		{

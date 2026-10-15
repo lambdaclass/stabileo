@@ -27,6 +27,8 @@
 import type { Element, Load, Support } from './model.svelte';
 import { EMBED_XZ_DOF_PERMUTATION } from '../engine/expand-joints-3d';
 import { buildSolverLoads3D, shouldEmbedFlat2DModelIn3D, type ModelData } from '../engine/solver-service';
+import { planePointLoad3D } from '../engine/member-point-loads';
+import { takesNoBending } from '../engine/member-loads';
 
 type Dofs = { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
 
@@ -53,7 +55,7 @@ export function isStandingPlaneModel(model: ModelData): boolean {
 /**
  * Rewrite a standing plane model in space coordinates, in place. Returns
  * whether anything was rewritten. `nextLoadId` hands out ids for loads that
- * split (an inclined load's axial part becomes nodal forces, as in the solve).
+ * split (a load on a member that takes no bending goes to its end nodes, as in the solve).
  */
 export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () => number): boolean {
   if (!isStandingPlaneModel(model)) return false;
@@ -67,6 +69,18 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
     if (l.type === 'thermal') { loads.push(l); continue; }
     const caseId = (l.data as { caseId?: number }).caseId;
     const origId = (l.data as { id?: number }).id;
+    // A point load on a member that bends stays one: its force, its axial part and its couple, in
+    // the global axes it is solved in. The space solve cuts the member where it acts; through the
+    // wire its couple was lost, and its axial part became forces at the member's ends.
+    if (l.type === 'pointOnElement') {
+      const e = model.elements.get(l.data.elementId);
+      const ni = e && model.nodes.get(e.nodeI), nj = e && model.nodes.get(e.nodeJ);
+      if (e && ni && nj && !takesNoBending(e) && Math.hypot(nj.x - ni.x, nj.y - ni.y) > 1e-10) {
+        const p = planePointLoad3D(l.data, nj.x - ni.x, nj.y - ni.y, true);
+        loads.push({ type: 'pointOnElement3d', data: { ...p, id: origId ?? nextLoadId(), ...(caseId !== undefined ? { caseId } : {}) } } as Load);
+        continue;
+      }
+    }
     const wire = buildSolverLoads3D(model, [l], false, false);
     wire.forEach((w, k) => {
       const id = k === 0 && origId !== undefined ? origId : nextLoadId();
@@ -77,7 +91,7 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
           loads.push({ type: 'nodal3d', data: { id, nodeId: d.nodeId, fx: d.fx, fy: d.fy, fz: d.fz, mx: d.mx, my: d.my, mz: d.mz, ...c } } as Load);
           break;
         case 'distributed':
-          loads.push({ type: 'distributed3d', data: { id, elementId: d.elementId, qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, ...(d.a !== undefined ? { a: d.a } : {}), ...(d.b !== undefined ? { b: d.b } : {}), ...c } } as Load);
+          loads.push({ type: 'distributed3d', data: { id, elementId: d.elementId, ...(d.qXI || d.qXJ ? { qXI: d.qXI ?? 0, qXJ: d.qXJ ?? 0 } : {}), qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ, ...(d.a !== undefined ? { a: d.a } : {}), ...(d.b !== undefined ? { b: d.b } : {}), ...c } } as Load);
           break;
         case 'pointOnElement':
           loads.push({ type: 'pointOnElement3d', data: { id, elementId: d.elementId, a: d.a, py: d.py, pz: d.pz, ...c } } as Load);
