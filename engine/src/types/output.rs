@@ -817,6 +817,10 @@ pub struct CorotationalResult {
     pub iterations: usize,
     pub converged: bool,
     pub load_increments: usize,
+    /// Fraction of the load carried by the reported state: 1 when converged,
+    /// else that of the last converged increment (0 if none converged).
+    #[serde(default)]
+    pub load_factor: f64,
     pub max_displacement: f64,
 }
 
@@ -828,6 +832,10 @@ pub struct CorotationalResult3D {
     pub iterations: usize,
     pub converged: bool,
     pub load_increments: usize,
+    /// Fraction of the load carried by the reported state: 1 when converged,
+    /// else that of the last converged increment (0 if none converged).
+    #[serde(default)]
+    pub load_factor: f64,
     pub max_displacement: f64,
 }
 

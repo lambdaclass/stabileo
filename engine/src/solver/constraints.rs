@@ -2233,6 +2233,12 @@ impl FreeConstraintSystem {
         self.collect_dependent_forces(&residual)
     }
 
+    /// Same, from a residual K_ff·u_f − F_f the caller has already formed
+    /// (a solver whose system is K plus its own terms).
+    pub fn constraint_forces_from_residual(&self, residual: &[f64]) -> Vec<(usize, f64)> {
+        self.collect_dependent_forces(residual)
+    }
+
     fn collect_dependent_forces(&self, residual: &[f64]) -> Vec<(usize, f64)> {
         let mut forces = Vec::new();
         for i in 0..self.nf {

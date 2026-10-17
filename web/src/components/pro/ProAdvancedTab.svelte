@@ -2,6 +2,7 @@
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
   import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
+  import { incrementalOutcome, convergedPercent } from '../../lib/engine/incremental-outcome';
   import ProUserSpectra from './dynamics/ProUserSpectra.svelte';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
@@ -474,9 +475,13 @@
   // Displacements never sit at the top level: the incremental solvers (corotational, fiber) nest
   // them under `.results`. Pushover gives each step's increment, so the state at collapse is
   // their sum; the last step's alone is only the last increment.
+  // The incremental solve's outcome: an unconverged one shows how far it got, never displacements.
+  const nlOutcome = $derived(nlResult && nlResult.converged != null ? incrementalOutcome(nlResult) : null);
   const nlDisplacements = $derived(
-    nlResult?.results?.displacements
-      ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : [])
+    nlOutcome
+      ? (nlOutcome.kind === 'converged' ? nlOutcome.displacements : [])
+      : (nlResult?.results?.displacements
+        ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : []))
   );
 
   function handleNonlinear() {
@@ -1321,13 +1326,16 @@
           {#if nlResult.collapseFactor != null}λ_c={fmtNum(nlResult.collapseFactor)}{/if}
           {#if nlResult.hinges != null} — {nlResult.hinges.length} {t('pro.hinges')}{/if}
           {#if nlResult.isMechanism != null} — {nlResult.isMechanism ? t('pro.mechanism') : t('pro.stable')}{/if}
-          {#if nlResult.converged != null} — {nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
+          {#if nlOutcome?.kind === 'converged'} — {t('pro.converged')}{/if}
           {#if nlResult.steps != null} — {nlResult.steps.length} {t('pro.steps')}{/if}
           {#if nlType === 'pushover' && nlAssumed.length > 0}<div class="adv-hint" data-testid="pushover-assumed">{tp('pro.pushoverAssumed', { names: nlAssumed.join(', ') })}</div>{/if}
           {#if nlDisplacements.length}
             — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
         </div>
+        {#if nlOutcome?.kind === 'notConverged'}
+          <p class="adv-refused" role="alert" data-testid="nl-not-converged">{tp('pro.corotNotConverged', { pct: convergedPercent(nlOutcome.loadFactor) })}</p>
+        {/if}
         {#if nlType === 'pushover' && nlResult.steps?.length}
           <PushoverView result={nlResult} modelVersion={nlVersion} target={pushTargetKind === 'none' ? null : { kind: pushTargetKind, value: pushTarget }} />
         {/if}

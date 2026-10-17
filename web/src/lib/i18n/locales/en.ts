@@ -9722,6 +9722,7 @@ const en: Record<string, string> = {
   'writeLoad.eMidDefault': 'mean',
   'pro.pdeltaUnstable': 'No second-order equilibrium under these loads: the structure buckles before reaching them. So it is not published as a P-Δ result.',
   'pro.pdeltaNotConverged': 'It did not converge in {n} iterations. So it is not published as a P-Δ result.',
+  'pro.corotNotConverged': "No equilibrium at the full load: the last converged increment carries {pct}% of it. Its results are not shown; use more increments, or check the structure's stability.",
   'report.modelFigureCaption': 'The model, with the node and member numbers the tables use.',
   'edit.found.overlaps': '{n} pairs of overlapping collinear members',
   'edit.overlapPair': '{a} and {b}: {l} {u}',

@@ -9711,6 +9711,7 @@ const es: Record<string, string> = {
   'writeLoad.eMidDefault': 'media',
   'pro.pdeltaUnstable': 'Sin equilibrio de segundo orden con estas cargas: la estructura pandea antes de llegar a ellas. Por eso no se publica como resultado P-Δ.',
   'pro.pdeltaNotConverged': 'No convergió en {n} iteraciones. Por eso no se publica como resultado P-Δ.',
+  'pro.corotNotConverged': 'Sin equilibrio con la carga completa: el último incremento convergido lleva el {pct}% de ella. Sus resultados no se muestran; use más incrementos o revise la estabilidad de la estructura.',
   'report.modelFigureCaption': 'El modelo, con los números de nodos y barras que usan las tablas.',
   'edit.found.overlaps': '{n} pares de barras colineales superpuestas',
   'edit.overlapPair': '{a} y {b}: {l} {u}',

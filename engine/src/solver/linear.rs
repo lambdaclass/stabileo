@@ -626,20 +626,12 @@ pub fn prepare_static_2d_dense_reference(input: &SolverInput) -> Result<Prepared
     prepare_static_2d_impl(input, true)
 }
 
-fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
-    let dof_num = DofNumbering::build_2d(input);
-    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
-    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_2d(input)?;
-
-    let n = dof_num.n_total;
+/// Prescribed displacements of the restrained DOFs (`u_r`, length
+/// `n_total − n_free`), in the inclined-support frames the restrained DOFs
+/// are numbered in.
+pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<f64> {
     let nf = dof_num.n_free;
-
-    // Build prescribed displacement vector u_r for restrained DOFs
-    let nr = n - nf;
-    let mut u_r = vec![0.0; nr];
+    let mut u_r = vec![0.0; dof_num.n_total - nf];
     for sup in input.supports.values() {
         if sup.support_type == "spring" { continue; } // spring DOFs are free
 
@@ -706,6 +698,23 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
             }
         }
     }
+    u_r
+}
+
+fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
+    let dof_num = DofNumbering::build_2d(input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
+
+    // ── Input validation (before assembly) ──
+    validate_input_2d(input)?;
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let nr = n - nf;
+    let u_r = prescribed_displacements_2d(input, &dof_num);
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
@@ -2053,35 +2062,12 @@ struct PcgDirectFallback3D {
 /// Prepare a 3D structure for one or more static solves: curved-beam expansion,
 /// numbering, assembly, and factorization of the free-free stiffness block
 /// happen exactly once here. This is exactly the load-independent part of `solve_3d`.
-pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
-    // Expand curved beams into frame elements before solving
-    let input = expand_curved_beams_3d(input);
-    let n_nodes = input.nodes.len();
-    let n_elements = input.elements.len()
-        + input.plates.len()
-        + input.quads.len()
-        + input.quad9s.len()
-        + input.solid_shells.len()
-        + input.curved_shells.len();
-    let dof_num = DofNumbering::build_3d(&input);
-    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
-    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_3d(&input)?;
-
-    // An element that cannot be integrated over — collapsed, or folded onto
-    // itself — is refused by name, before it fails downstream as "Singular
-    // stiffness matrix — structure is a mechanism". Only those: see
-    // `refuse_broken_elements` for why not every gate `Error`.
-    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
-
-    let n = dof_num.n_total;
+/// Prescribed displacements of the restrained DOFs (`u_r`, length
+/// `n_total − n_free`), in the inclined-support frames the restrained DOFs
+/// are numbered in.
+pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<f64> {
     let nf = dof_num.n_free;
-    let nr = n - nf;
-
-    // Build prescribed displacement vector u_r for restrained DOFs
-    let mut u_r = vec![0.0; nr];
+    let mut u_r = vec![0.0; dof_num.n_total - nf];
     for sup in input.supports.values() {
         // Inclined supports: prescribed translations are given in GLOBAL
         // coords, but the restrained inclined DOF (local_dof 0) lives in the
@@ -2131,6 +2117,38 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             }
         }
     }
+    u_r
+}
+
+pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
+    // Expand curved beams into frame elements before solving
+    let input = expand_curved_beams_3d(input);
+    let n_nodes = input.nodes.len();
+    let n_elements = input.elements.len()
+        + input.plates.len()
+        + input.quads.len()
+        + input.quad9s.len()
+        + input.solid_shells.len()
+        + input.curved_shells.len();
+    let dof_num = DofNumbering::build_3d(&input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
+
+    // ── Input validation (before assembly) ──
+    validate_input_3d(&input)?;
+
+    // An element that cannot be integrated over — collapsed, or folded onto
+    // itself — is refused by name, before it fails downstream as "Singular
+    // stiffness matrix — structure is a mechanism". Only those: see
+    // `refuse_broken_elements` for why not every gate `Error`.
+    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let nr = n - nf;
+
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let u_r = prescribed_displacements_3d(&input, &dof_num);
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {

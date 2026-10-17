@@ -9355,6 +9355,7 @@ const pt: Translations = {
   'writeLoad.eMidDefault': 'média',
   'pro.pdeltaUnstable': 'Sem equilíbrio de segunda ordem com estas cargas: a estrutura flamba antes de chegar a elas. Por isso não é publicado como resultado P-Δ.',
   'pro.pdeltaNotConverged': 'Não convergiu em {n} iterações. Por isso não é publicado como resultado P-Δ.',
+  'pro.corotNotConverged': 'Sem equilíbrio com a carga completa: o último incremento convergido leva {pct}% dela. Os resultados não são mostrados; use mais incrementos ou verifique a estabilidade da estrutura.',
   'report.modelFigureCaption': 'O modelo, com os números de nós e barras que as tabelas usam.',
   'edit.found.overlaps': '{n} pares de barras colineares sobrepostas',
   'edit.overlapPair': '{a} e {b}: {l} {u}',

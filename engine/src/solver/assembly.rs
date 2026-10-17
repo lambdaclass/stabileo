@@ -18,6 +18,19 @@ pub struct AssemblyResult {
     pub diagnostics: Vec<crate::types::AssemblyDiagnostic>, // Element quality warnings
 }
 
+/// The artificial stiffness the linear assembler put on DOFs nothing else
+/// holds (the rotation of a node that only trusses, or only members hinged
+/// there, reach), as (DOF, stiffness) pairs for the nonlinear solvers.
+///
+/// Their tangents are assembled from the members alone and had none: the
+/// rotation of a truss-only node in a frame left the tangent singular, so
+/// co-rotational, arc-length, displacement-control, material- and
+/// fiber-nonlinear analyses refused a model the linear solver answers.
+pub fn artificial_stiffness_entries(asm: &AssemblyResult) -> Vec<(usize, f64)> {
+    let k = if asm.max_diag_k > 0.0 { asm.max_diag_k * 1e-10 } else { 1e-6 };
+    asm.artificial_dofs.iter().map(|&d| (d, k)).collect()
+}
+
 /// Data needed to reverse the inclined support rotation after solving (3D).
 pub struct InclinedTransformData {
     pub node_id: usize,
@@ -301,9 +314,7 @@ pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sti
 
     // Assemble connector elements
     if !input.connectors.is_empty() {
-        crate::element::connector::assemble_connectors_2d(
-            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
-        );
+        crate::element::connector::assemble_connectors_2d(input, dof_num, &mut k_global, n);
     }
 
     // Add spring stiffness (with rotation support for springs with angle)
@@ -995,9 +1006,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
 
     // Assemble 3D connector elements
     if !input.connectors.is_empty() {
-        crate::element::connector::assemble_connectors_3d(
-            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
-        );
+        crate::element::connector::assemble_connectors_3d(input, dof_num, &mut k_global, n);
     }
 
     // Add 3D spring stiffness
@@ -2065,32 +2074,13 @@ pub fn assemble_sparse_2d_ex(input: &SolverInput, dof_num: &DofNumbering, build_
     }
 
     // Connector elements (sparse path)
-    for conn in input.connectors.values() {
-        let node_map_2d: std::collections::HashMap<usize, &SolverNode> =
-            input.nodes.values().map(|nd| (nd.id, nd)).collect();
-        let ni = match node_map_2d.get(&conn.node_i) { Some(n) => n, None => continue };
-        let nj = match node_map_2d.get(&conn.node_j) { Some(n) => n, None => continue };
-        let dx = nj.x - ni.x;
-        let dy = nj.z - ni.z;
-        let l = (dx * dx + dy * dy).sqrt();
-        let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
-        let ke = crate::element::connector::connector_stiffness_2d(
-            conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
-        );
-        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
-        let ndof = dofs.len();
-        for i in 0..ndof {
-            for j in 0..ndof {
-                let gi = dofs[i];
-                let gj = dofs[j];
-                if gi >= gj {
-                    trip_rows.push(gi);
-                    trip_cols.push(gj);
-                    trip_vals.push(ke[i * 6 + j]);
-                }
-            }
-            if dofs[i] < nf { diag_vals[dofs[i]] += ke[i * 6 + i]; }
+    for (gi, gj, v) in crate::element::connector::connector_entries_2d(input, dof_num) {
+        if gi >= gj {
+            trip_rows.push(gi);
+            trip_cols.push(gj);
+            trip_vals.push(v);
         }
+        if gi == gj && gi < nf { diag_vals[gi] += v; }
     }
 
     // Nodal loads
@@ -2476,33 +2466,12 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
         }
     }
 
-    // Connector elements (sorted by ID for deterministic assembly)
-    let mut sorted_conns: Vec<&crate::types::ConnectorElement> = input.connectors.values().collect();
-    sorted_conns.sort_by_key(|c| c.id);
-    for conn in sorted_conns {
-        let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => continue };
-        let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => continue };
-        let dx = nj_node.x - ni.x;
-        let dy = nj_node.y - ni.y;
-        let dz = nj_node.z - ni.z;
-        let l = (dx * dx + dy * dy + dz * dz).sqrt();
-        let dir = if l > 1e-15 { [dx / l, dy / l, dz / l] } else { [1.0, 0.0, 0.0] };
-        let ke = crate::element::connector::connector_stiffness_3d(
-            conn.k_axial, conn.k_shear, conn.k_shear_z,
-            conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir,
-        );
-        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
-        let ndof = dofs.len();
-        for i in 0..ndof {
-            let gi = dofs[i];
-            for j in 0..ndof {
-                let gj = dofs[j];
-                if gi >= gj {
-                    trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]);
-                }
-            }
-            if gi < nf { diag_vals[gi] += ke[i * 12 + i]; }
+    // Connector elements (in id order, for deterministic assembly)
+    for (gi, gj, v) in crate::element::connector::connector_entries_3d(input, dof_num) {
+        if gi >= gj {
+            trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
         }
+        if gi == gj && gi < nf { diag_vals[gi] += v; }
     }
 
     // Plate elements (DKT+CST, 18 DOFs per element, sorted for determinism)

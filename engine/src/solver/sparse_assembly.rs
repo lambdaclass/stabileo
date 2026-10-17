@@ -361,35 +361,11 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
     }
 
     // Assemble connector elements
-    if !input.connectors.is_empty() {
-        let node_by_id: std::collections::HashMap<usize, &SolverNode> =
-            input.nodes.values().map(|nd| (nd.id, nd)).collect();
-        for conn in input.connectors.values() {
-            let ni = match node_by_id.get(&conn.node_i) { Some(n) => n, None => continue };
-            let nj = match node_by_id.get(&conn.node_j) { Some(n) => n, None => continue };
-
-            let dx = nj.x - ni.x;
-            let dy = nj.z - ni.z;
-            let l = (dx * dx + dy * dy).sqrt();
-            let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
-
-            let ke = crate::element::connector::connector_stiffness_2d(
-                conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
-            );
-            let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
-            let ndof = dofs.len();
-            for i in 0..ndof {
-                for j in 0..ndof {
-                    let gi = dofs[i];
-                    let gj = dofs[j];
-                    let v = ke[i * 6 + j];
-                    if gi >= gj {
-                        trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
-                    }
-                }
-                diag_vals[dofs[i]] += ke[i * 6 + i];
-            }
+    for (gi, gj, v) in crate::element::connector::connector_entries_2d(input, dof_num) {
+        if gi >= gj {
+            trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
         }
+        if gi == gj { diag_vals[gi] += v; }
     }
 
     // Add spring stiffness (with rotation support for springs with angle)
@@ -1134,25 +1110,10 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
 
             AnyElement3D::Connector(conn) => {
                 let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
-                let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
-                let dx = nj_node.x - ni.x;
-                let dy = nj_node.y - ni.y;
-                let dz = nj_node.z - ni.z;
-                let l = (dx * dx + dy * dy + dz * dz).sqrt();
-                let dir = if l > 1e-15 { [dx / l, dy / l, dz / l] } else { [1.0, 0.0, 0.0] };
-                let ke = crate::element::connector::connector_stiffness_3d(
-                    conn.k_axial, conn.k_shear, conn.k_shear_z,
-                    conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir,
-                );
-                let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
-                let ndof = dofs.len();
-                for i in 0..ndof {
-                    let gi = dofs[i];
-                    for j in 0..ndof {
-                        let gj = dofs[j];
-                        if gi >= gj { trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]); }
-                    }
-                    if gi < nf { diag.push((gi, ke[i * 12 + i])); }
+                let nj = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
+                for (gi, gj, v) in crate::element::connector::one_connector_entries_3d(conn, ni, nj, dof_num) {
+                    if gi >= gj { trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v); }
+                    if gi == gj && gi < nf { diag.push((gi, v)); }
                 }
             }
 

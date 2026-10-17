@@ -11,6 +11,78 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Nonlinear and special solvers answer for the model as given (2026-10-17)
+
+**BREAKING (results).** Tests: `engine/tests/nonlinear_solver_findings.rs`, each against the same
+structure expressed without the feature or an analytical value.
+
+- **2D contact returned the linear solution of the unmodified model.** Slack tension-only braces,
+  closed gaps and node-to-surface contacts changed the status report but not the displacements,
+  reactions or member forces (`linear::solve_2d` of the model as drawn). 2D and 3D contact now
+  solve every iteration on the model in its contact state and report that state: a slack member
+  is removed (the model is reassembled without it; 3D used to keep tension-only *frames* and
+  subtract only trusses) and carries only its own fixed-end forces; reactions and constraint
+  forces are those of the contact state (3D returned none).
+- **Gaps and node-to-surface contacts acted from zero displacement.** The penalty spring of a
+  closed gap now acts from the moment it closes (the opening g0 enters the load as ±k·g0):
+  u = (F + k·g0)/(EA/L + k) on a bar pushed into a gap, where it used to be F/(EA/L + k).
+- **Friction** was a stick spring μ·k at any load, with only the *reported* force clamped to μ·N;
+  a contact now slides (Coulomb force μ·N against the slip) once the stick force exceeds μ·N.
+- **Contact damping** added a spring of stiffness c to ground at the gap nodes (its "velocity"
+  force was always zero); it is now a proximal term that vanishes at a fixed point, and the final
+  state is solved without it.
+- **Inclined supports and prescribed displacements in contact:** the gap corrections are built in
+  global axes and rotated into the support frames, statuses are read in global axes, and support
+  settlements enter the solve (3D refused both; 2D read rotated displacements).
+- **Uplift supports were ignored** (kept as two-way restraints). 2D: a support whose vertical
+  reaction comes out tensile lifts off (pinned → rollerZ, fixed → guidedZ, rollerX → free) and
+  bears again if its node comes back below its seat. 3D uplift supports are refused by name, as
+  are unknown element behaviours, behaviours on missing elements and thermal loads on
+  tension/compression-only members.
+- **3D co-rotational: large rotations, releases, frames out of the XZ/YZ planes.** The member's
+  rigid rotation was the skew part of R (sin θ, not θ: 1% short at 0.25 rad, 36% at 90°), its
+  corotated frame was rebuilt from the chord and a fixed reference vector (a spurious twist, read
+  as torsion, whenever a member bent in a plane neither containing nor normal to that reference),
+  and its end shears balanced the end moments on the undeformed length. A portal whose beam is
+  pinned at both ends settled 1.5% further than the same frame in the 2D solver and, at twice the
+  load, did not converge; the same portal in a vertical plane at 53° to X moved out of its plane.
+  Now: exact rotation vector, frame carried by the mean end rotation, shears on the current chord;
+  planar frames in any vertical plane, with and without releases, match the 2D solver to 1e-6.
+  The tangent's geometric stiffness is condensed for the end releases, as in P-Delta.
+- **3D co-rotational member forces left out the member loads.** End forces were K·d only: a
+  fixed-ended beam under a uniform load reported end moments qL²/12 short and end shears qL/2
+  short, and the diagrams showed no load, although the displacements were right. The fixed-end
+  forces and the load data are now the linear solver's; member forces match it in the
+  small-load limit (uniform, partial, axial and point member loads, with a release).
+- **Unconverged co-rotational solves** returned the iterate they gave up on (no equilibrium state)
+  with reactions taken against the full load, and the Pro panel printed "Not converged" next to
+  its peak displacement. The engine now returns the last converged increment, with reactions
+  and member forces under the load it carries, and a new `loadFactor` (1 when converged); the
+  panel shows only how much of the load reached equilibrium, and no displacements.
+- **Co-rotational solves under small loads did not converge.** The elongation was a difference
+  of two lengths, with a rounding error of order ε·L and so an axial-force residual of order
+  ε·EA (2e-7 kN against a 0.001 kN load): Newton never reached the tolerance and the "answer"
+  was the last iterate, flagged unconverged. The elongation is now computed without
+  cancellation, (2·d0·du + du·du)/(L + L0), in every co-rotational member and connector.
+- **Connectors in the nonlinear solvers** (co-rotational, arc length, displacement control,
+  material- and fiber-nonlinear; 2D and 3D) were refused; they are now part of the tangent and
+  the internal forces. Small-displacement solvers use the linear connector. Co-rotational ones:
+  a zero-length connector is its springs in global axes; a connector with length has its axial
+  spring along the current chord (N = k·(L − L0), with the string stiffness N/L) and, in 2D, its
+  rotational spring on the relative rotation. Shear stiffness on a connector with length (and,
+  in 3D, its torsional and bending stiffness) has no large-displacement definition and is
+  refused by name. Checked at large displacement against a truss bar, a spring support and a
+  rotational spring support.
+- **Connectors in all-truss models (linear and every other path).** The connector matrix was
+  scattered through the node's own DOF list, so with two DOFs per node (three in 3D, or seven
+  with warping) its rows did not line up: a horizontal connector between two free truss nodes
+  pushed the far node vertically. Each local DOF is now mapped to its global DOF by name.
+- **Truss-only nodes in the nonlinear solvers.** A node reached only by trusses (or by members
+  hinged there) in a frame left the 2D co-rotational, arc-length, displacement-control,
+  material- and fiber-nonlinear tangents singular, so they refused a model the linear solver
+  answers; they now carry the linear assembler's artificial stiffness on that rotation (material
+  nonlinear recomputed it for all-hinged nodes only).
+
 #### Every analysis supports a model feature or refuses it by name (2026-10-17)
 
 **BREAKING (results and refusals): several analyses solved a simplified model without a word;
@@ -51,8 +123,8 @@ Now supported (results change):
 - **Influence lines** keep the model's constraints and connectors.
 
 Now refused by name (previously solved without the feature):
-- connectors: co-rotational, arc length, displacement control, material- and fiber-nonlinear
-  (2D and 3D), staged construction, 3D plastic;
+- connectors: staged construction, 3D plastic (the nonlinear solvers that refused them now
+  support them, see "Nonlinear and special solvers" above);
 - prescribed support displacements: co-rotational, arc length, displacement control,
   fiber-nonlinear, SSI, harmonic (2D and 3D), 3D contact;
 - inclined supports: arc length, displacement control, fiber-nonlinear, SSI (2D and 3D), 3D

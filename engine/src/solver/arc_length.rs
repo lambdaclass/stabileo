@@ -12,7 +12,7 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly;
-use super::corotational::{assemble_corotational_public, assemble_corotational_triplets_2d};
+use super::corotational::{add_spring_contributions, assemble_corotational_public, assemble_corotational_triplets_2d};
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
@@ -119,13 +119,14 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
-    // The co-rotational tangent here carries no connectors, no prescribed
+    // The co-rotational tangent here carries no prescribed
     // displacements and no inclined-support rotation, and it treats
     // temperature as fixed global forces (see `solve_corotational_2d`).
     super::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
-        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::PrescribedDisplacements,
         super::feature_gates::Feature::InclinedSupports, super::feature_gates::Feature::ThermalLoads,
     ])?;
+    crate::element::connector::refuse_for_corotational_2d(&input.solver, "Arc-length analysis")?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -152,6 +153,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
     // Reference load vector
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let art = assembly::artificial_stiffness_entries(&asm);
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s = if let Some(ref cs) = cs {
         cs.reduce_vector(&f_ref)
@@ -177,7 +179,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut step = 0;
     while step < input.max_steps {
         // Predictor: solve K_T * δu_hat = f_ref
-        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse);
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
@@ -216,7 +218,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             total_iters += 1;
 
             // Compute residual
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse);
             let f_int_new = &asm_t.f_int;
 
             let mut residual = vec![0.0; nf];
@@ -332,7 +334,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -374,9 +376,10 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
     super::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
-        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::PrescribedDisplacements,
         super::feature_gates::Feature::InclinedSupports, super::feature_gates::Feature::ThermalLoads,
     ])?;
+    crate::element::connector::refuse_for_corotational_2d(&input.solver, "Displacement-control analysis")?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -430,6 +433,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
 
     // Reference load
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let art = assembly::artificial_stiffness_entries(&asm);
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
         cs.reduce_vector(&f_ref)
@@ -474,7 +478,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             total_iters += 1;
 
             // Compute tangent stiffness and internal forces
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse);
             let f_int = &asm_t.f_int;
 
             // Residual
@@ -570,7 +574,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -762,24 +766,6 @@ fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Res
 // Sparse symbolic factorization cache and tangent conversion helpers now
 // live in `super::sparse_tangent` (shared with corotational and contact).
 
-/// Add spring stiffness from supports to tangent stiffness and internal forces.
-/// `scatter` receives the diagonal stiffness entries: dense `k_t[gi*n+gj]` for
-/// the small-model path, lower-triangle triplets for the sparse path (mirrors
-/// corotational's `add_spring_contributions`).
-fn add_spring_stiffness(
-    input: &SolverInput,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
-) {
-    // Shared with the linear assembler (angle, rotational springs on any support).
-    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
-        scatter(i, j, k);
-        f_int[i] += k * u_full[j];
-    }
-}
-
 /// Co-rotational tangent + internal forces for one Newton iteration: dense n×n
 /// tangent below `SPARSE_THRESHOLD`, lower-triangle (gi >= gj) COO triplets at
 /// or above it — the sparse path never materializes the O(n²) dense tangent.
@@ -798,6 +784,7 @@ fn assemble_tangent(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
+    art: &[(usize, f64)],
     sparse: bool,
 ) -> TangentAssembly {
     let n = dof_num.n_total;
@@ -812,16 +799,19 @@ fn assemble_tangent(
             input, dof_num, u_full, &mut f_int,
             &mut trip_rows, &mut trip_cols, &mut trip_vals,
         );
-        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
-            debug_assert!(gi >= gj, "spring stiffness is diagonal");
-            trip_rows.push(gi);
-            trip_cols.push(gj);
-            trip_vals.push(v);
+        // Springs, connectors and artificial stiffness, shared with the
+        // co-rotational solver (off-diagonal entries included).
+        add_spring_contributions(input, dof_num, u_full, &mut f_int, art, &mut |gi, gj, v| {
+            if gi >= gj {
+                trip_rows.push(gi);
+                trip_cols.push(gj);
+                trip_vals.push(v);
+            }
         });
     } else {
         k_t = vec![0.0; n * n];
         assemble_corotational_public(input, dof_num, u_full, &mut f_int, &mut k_t);
-        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
+        add_spring_contributions(input, dof_num, u_full, &mut f_int, art, &mut |gi, gj, v| {
             k_t[gi * n + gj] += v;
         });
     }

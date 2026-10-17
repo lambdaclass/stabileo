@@ -39,8 +39,6 @@ pub fn solve_nonlinear_material_2d(
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
-    // The tangent is assembled from members and support springs only.
-    super::feature_gates::refuse_2d(&input.solver, "Material-nonlinear analysis", &[super::feature_gates::Feature::Connectors])?;
 
     let solver = &input.solver;
     let dof_num = DofNumbering::build_2d(solver);
@@ -62,6 +60,7 @@ pub fn solve_nonlinear_material_2d(
     // Full elastic assembly to obtain the total external load vector.
     let asm = assembly::assemble_2d(solver, &dof_num);
     let f_total = asm.f.clone();
+    let art = assembly::artificial_stiffness_entries(&asm);
 
     // Build prescribed displacement vector u_r for restrained DOFs.
     let mut u_r = vec![0.0; nr];
@@ -174,7 +173,7 @@ pub fn solve_nonlinear_material_2d(
             for it in &asm.inclined_transforms_2d {
                 assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
             }
-            let mut f_int = compute_global_internal_forces(solver, &dof_num, &u_geom, &states);
+            let mut f_int = compute_global_internal_forces(solver, &dof_num, &u_geom, &states, &art);
 
             // Rotate K_T and f_int into the same rotated frame as f_ext
             // (already rotated by assemble_2d above) so the residual/solve
@@ -185,7 +184,7 @@ pub fn solve_nonlinear_material_2d(
             // + f rotation == dense apply_inclined_transform_2d).
             if sparse_tangent {
                 assemble_tangent_stiffness_triplets(
-                    solver, &dof_num, &states,
+                    solver, &dof_num, &states, &art,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
                 for it in &asm.inclined_transforms_2d {
@@ -195,7 +194,7 @@ pub fn solve_nonlinear_material_2d(
                     assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
                 }
             } else {
-                k_t = assemble_tangent_stiffness(solver, &dof_num, &states);
+                k_t = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
                 for it in &asm.inclined_transforms_2d {
                     assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
                 }
@@ -293,7 +292,7 @@ pub fn solve_nonlinear_material_2d(
     // k_final has no u-dependence, so rotate it directly to match f_final's
     // (already-rotated, from f_total = asm.f.clone()) convention; the dummy
     // F output of apply_inclined_transform_2d is discarded.
-    let mut k_final = assemble_tangent_stiffness(solver, &dof_num, &states);
+    let mut k_final = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
     let mut k_final_f_dummy = vec![0.0; n];
     for it in &asm.inclined_transforms_2d {
         assembly::apply_inclined_transform_2d(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
@@ -405,10 +404,11 @@ fn assemble_tangent_stiffness(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
+    art: &[(usize, f64)],
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
-    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
         k_global[gi * n + gj] += v;
     });
     k_global
@@ -420,11 +420,12 @@ fn assemble_tangent_stiffness_triplets(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
+    art: &[(usize, f64)],
     trip_rows: &mut Vec<usize>,
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
@@ -439,9 +440,9 @@ fn assemble_tangent_stiffness_scatter(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
+    art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    let n = dof_num.n_total;
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
         solver.nodes.values().map(|n| (n.id, n)).collect();
@@ -450,16 +451,7 @@ fn assemble_tangent_stiffness_scatter(
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
         solver.sections.values().map(|s| (s.id, s)).collect();
 
-    // Diagonal accumulator for the artificial-stiffness scale below: the
-    // scatter target (dense matrix or triplet list) is opaque to this
-    // function, so the assembled diagonal is tracked alongside.
-    let mut diag = vec![0.0f64; n];
-    let mut scatter_diag = |gi: usize, gj: usize, v: f64| {
-        if gi == gj {
-            diag[gi] += v;
-        }
-        scatter(gi, gj, v);
-    };
+    let mut scatter_diag = |gi: usize, gj: usize, v: f64| scatter(gi, gj, v);
 
     for elem in solver.elements.values() {
         let node_i = node_by_id[&elem.node_i];
@@ -524,56 +516,17 @@ fn assemble_tangent_stiffness_scatter(
         scatter_diag(i, j, k);
     }
 
-    // Artificial rotational stiffness for all-hinged nodes.
-    if dof_num.dofs_per_node >= 3 {
-        let mut max_diag = 0.0f64;
-        for &d in &diag {
-            max_diag = max_diag.max(d.abs());
-        }
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+    // Connectors (small displacements, as in the linear assembler).
+    for (i, j, k) in crate::element::connector::connector_entries_2d(solver, dof_num) {
+        scatter_diag(i, j, k);
+    }
 
-        let mut node_hinge_count: std::collections::HashMap<usize, usize> =
-            std::collections::HashMap::new();
-        let mut node_frame_count: std::collections::HashMap<usize, usize> =
-            std::collections::HashMap::new();
-        for elem in solver.elements.values() {
-            if elem.elem_type != "frame" {
-                continue;
-            }
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start {
-                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-            }
-            if elem.hinge_end {
-                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-            }
-        }
-        let mut rot_restrained: std::collections::HashSet<usize> =
-            std::collections::HashSet::new();
-        for sup in solver.supports.values() {
-            // guidedY/guidedZ restrain ux+ry (dof.rs), so they belong here
-            // like guidedX. (The `idx < n_free` guard below already makes
-            // this set redundant for any rotation-restraining support — a
-            // restrained ry is numbered at index >= n_free — but keep the
-            // enumeration complete for clarity.)
-            if sup.support_type == "fixed" || sup.support_type == "guidedX" || sup.support_type == "guidedY" || sup.support_type == "guidedZ" {
-                rot_restrained.insert(sup.node_id);
-            }
-            if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 {
-                rot_restrained.insert(sup.node_id);
-            }
-        }
-        for (&node_id, &hinges) in &node_hinge_count {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < dof_num.n_free {
-                        scatter(idx, idx, artificial_k);
-                    }
-                }
-            }
-        }
+    // The linear assembler's artificial stiffness on DOFs nothing else holds
+    // (the rotation of a node reached only by trusses or by members hinged
+    // there). It used to be recomputed here for all-hinged nodes only, so a
+    // truss-only node in a frame left the tangent singular.
+    for &(d, k) in art {
+        scatter_diag(d, d, k);
     }
 }
 
@@ -599,6 +552,7 @@ fn compute_global_internal_forces(
     dof_num: &DofNumbering,
     u: &[f64],
     states: &[(usize, ElementState)],
+    art: &[(usize, f64)],
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut f_int = vec![0.0; n];
@@ -684,6 +638,12 @@ fn compute_global_internal_forces(
     // Add spring force contributions: f_spring = k_spring * u
     for (i, j, k) in super::assembly::support_spring_entries_2d(solver, dof_num) {
         f_int[i] += k * u[j];
+    }
+    for (i, j, k) in crate::element::connector::connector_entries_2d(solver, dof_num) {
+        f_int[i] += k * u[j];
+    }
+    for &(d, k) in art {
+        f_int[d] += k * u[d];
     }
 
     f_int
@@ -901,8 +861,8 @@ pub fn solve_nonlinear_material_3d(
     input: &NonlinearMaterialInput3D,
 ) -> Result<NonlinearMaterialResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
-    // The tangent is assembled from members and support springs only.
-    super::feature_gates::refuse_3d(&input.solver, "Material-nonlinear analysis", &[super::feature_gates::Feature::Connectors, super::feature_gates::Feature::Shells])?;
+    // The tangent is assembled from members, support springs and connectors.
+    super::feature_gates::refuse_3d(&input.solver, "Material-nonlinear analysis", &[super::feature_gates::Feature::Shells])?;
     // Curved beams are expanded into straight members, as every static path
     // does; left in place they were not part of the model at all.
     let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
@@ -1405,6 +1365,10 @@ fn assemble_tangent_stiffness_3d_scatter(
             }
         }
     }
+    // Connectors (small displacements, as in the linear assembler).
+    for (i, j, k) in crate::element::connector::connector_entries_3d(solver, dof_num) {
+        scatter(i, j, k);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1550,6 +1514,10 @@ fn compute_global_internal_forces_3d(
                 }
             }
         }
+    }
+
+    for (i, j, k) in crate::element::connector::connector_entries_3d(solver, dof_num) {
+        f_int[i] += k * u[j];
     }
 
     f_int

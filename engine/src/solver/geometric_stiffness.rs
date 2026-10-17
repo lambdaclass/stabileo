@@ -93,7 +93,7 @@ impl KgTriplets {
 /// of the load. The condensation uses the elastic map of the released rotation, from the
 /// Euler–Bernoulli block: with one end released, θ_r = s·(3/2L)·(v_far − v_near)·(±1) − θ_other/2;
 /// with both, both rotations follow the chord, which leaves the string stiffness P/L.
-fn frame_kg_local_3d(p: f64, l: f64, hinge: &crate::element::Hinge3D) -> Vec<f64> {
+pub(crate) fn frame_kg_local_3d(p: f64, l: f64, hinge: &crate::element::Hinge3D) -> Vec<f64> {
     let coeff = p / (30.0 * l);
     let mut kg_local = vec![0.0; 144];
     // Y-Z bending plane (v, θz at each node): DOFs 1,5,7,11

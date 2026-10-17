@@ -160,3 +160,64 @@ fn refusals_name_the_feature() {
     assert!(e.contains("prescribed support displacements") && e.contains("support 2"), "{e}");
     let _ = HashMap::<String, f64>::new();
 }
+
+/// A connector in an all-truss model (two DOFs per node in 2D, three in 3D)
+/// must act as the bar of the same axial stiffness. Its 6×6 (12×12) matrix
+/// was scattered through the node's actual DOF list, so its rows no longer
+/// lined up: a horizontal connector between two free truss nodes pushed the
+/// far node vertically (u_z = u/2, u_x = 0).
+#[test]
+fn connector_in_all_truss_model_acts_as_bar() {
+    let k = 200_000.0;
+    // 2D: 1(pin) — bar — 2 — connector — 3 — bar — 4(pin), both free nodes
+    // held vertically by bars to pins below.
+    let mk2 = |conn: bool| {
+        let mut elems = vec![
+            (1, "truss", 1, 2, 1, 1, false, false), (2, "truss", 3, 4, 1, 1, false, false),
+            (3, "truss", 2, 5, 1, 1, false, false), (4, "truss", 3, 6, 1, 1, false, false),
+        ];
+        if !conn {
+            elems.push((5, "truss", 2, 3, 1, 1, false, false)); // EA/L = 2e5 = k
+        }
+        let mut s = make_input(
+            vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0), (4, 3.0, 0.0), (5, 1.0, -1.0), (6, 2.0, -1.0)],
+            vec![(1, 200_000.0, 0.3)], vec![(1, 0.001, 1e-8)], elems,
+            vec![(1, 1, "pinned"), (2, 4, "pinned"), (3, 5, "pinned"), (4, 6, "pinned")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 3.0, my: 0.0 })],
+        );
+        if conn {
+            s.connectors.insert("1".into(), ConnectorElement { id: 1, node_i: 2, node_j: 3, k_axial: k, k_shear: 0.0, k_moment: 0.0, k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0 });
+        }
+        s
+    };
+    let (a, b) = (linear::solve_2d(&mk2(true)).unwrap(), linear::solve_2d(&mk2(false)).unwrap());
+    for d in &b.displacements {
+        let g = a.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!((g.ux - d.ux).abs() < 1e-12 && (g.uz - d.uz).abs() < 1e-12, "2D node {}: {:?} vs {:?}", d.node_id, (g.ux, g.uz), (d.ux, d.uz));
+    }
+    // 3D: the same, with the free nodes also held in y.
+    let mk3 = |conn: bool| {
+        let mut elems = vec![(1, "truss", 1, 2, 1, 1), (2, "truss", 3, 4, 1, 1), (3, "truss", 2, 5, 1, 1), (4, "truss", 3, 6, 1, 1), (6, "truss", 2, 7, 1, 1), (7, "truss", 3, 8, 1, 1)];
+        if !conn {
+            elems.push((5, "truss", 2, 3, 1, 1));
+        }
+        let pin = vec![true, true, true, false, false, false];
+        let mut s = make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0), (4, 3.0, 0.0, 0.0), (5, 1.0, 0.0, -1.0), (6, 2.0, 0.0, -1.0), (7, 1.0, 1.0, 0.0), (8, 2.0, 1.0, 0.0)],
+            vec![(1, 200_000.0, 0.3)], vec![(1, 0.001, 1e-8, 1e-8, 1e-8)], elems,
+            [1, 4, 5, 6, 7, 8].iter().map(|&n| (n, pin.clone())).collect(),
+            vec![nodal3(2, [10.0, 2.0, 3.0, 0.0, 0.0, 0.0])],
+        );
+        if conn {
+            s.connectors.insert("1".into(), ConnectorElement { id: 1, node_i: 2, node_j: 3, k_axial: k, k_shear: 0.0, k_moment: 0.0, k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0 });
+        }
+        s
+    };
+    let (a, b) = (linear::solve_3d(&mk3(true)).unwrap(), linear::solve_3d(&mk3(false)).unwrap());
+    for d in &b.displacements {
+        let g = a.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        for (x, y) in [(g.ux, d.ux), (g.uy, d.uy), (g.uz, d.uz)] {
+            assert!((x - y).abs() < 1e-12, "3D node {}: {:?} vs {:?}", d.node_id, (g.ux, g.uy, g.uz), (d.ux, d.uy, d.uz));
+        }
+    }
+}
