@@ -446,7 +446,7 @@ fn connector_zero_length_rigid_modes_and_kernel() {
     for s in 0..SAMPLES {
         let p = [g.f(-5.0, 5.0), g.f(-5.0, 5.0), g.f(-5.0, 5.0)];
         let t = g.f(0.0, std::f64::consts::TAU);
-        let k2 = connector_stiffness_2d(g.logf(1.0, 1e6), g.logf(1.0, 1e6), g.logf(1.0, 1e6), t.cos(), t.sin());
+        let k2 = connector_stiffness_2d(g.logf(1.0, 1e6), g.logf(1.0, 1e6), g.logf(1.0, 1e6), t.cos(), t.sin(), 0.0);
         let p2 = [p[0], p[1], 0.0];
         check("connector 2D zero-length", &k2, &[p2, p2], Layout::Planar { rot: true }, 1e-14);
         assert_kernel(&format!("connector 2D #{s}"), &k2, 6, 3, 1e-12, 1e-9);
@@ -454,29 +454,49 @@ fn connector_zero_length_rigid_modes_and_kernel() {
         let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
         let dir = v.map(|x| x / n);
         let ks: Vec<f64> = (0..6).map(|_| g.logf(1.0, 1e6)).collect();
-        let k3 = connector_stiffness_3d(ks[0], ks[1], ks[2], ks[3], ks[4], ks[5], dir);
+        let k3 = connector_stiffness_3d(ks[0], ks[1], ks[2], ks[3], ks[4], ks[5], dir, 0.0);
         check("connector 3D zero-length", &k3, &[p, p], Layout::Spatial { rot: true, warp: false }, 1e-14);
         assert_kernel(&format!("connector 3D #{s}"), &k3, 12, 6, 1e-12, 1e-9);
     }
 }
 
-/// FINDING: a connector of FINITE length with a non-zero shear spring does not
-/// annihilate the rigid rotation. K = [K_ii, −K_ii; −K_ii, K_ii] with K_ii =
-/// diag(k_axial, k_shear, k_moment) has no shear–moment coupling, so rotating the
-/// whole connector by θ about node i moves node j sideways by θ·L and the shear
-/// spring pushes back with k_shear·θ·L: a spring to ground. The documentation
-/// (connector.rs) allows finite-length connectors. Consequence: reactions do not
-/// balance the loads in moment (see `connector_finite_length_moment_equilibrium`
-/// in connector_k_findings.rs). Pinned here so a fix is noticed.
+/// A FINITE-length connector annihilates every rigid motion too: its shear springs
+/// act at the midpoint through rigid arms, so a rigid rotation (which moves node j
+/// sideways by θ·L) also turns both ends by θ and the shear deformation is zero.
+/// Rank 3 (2D) / 6 (3D) with all springs positive: no spurious zero-energy mode.
+/// Before the shear–moment coupling, rotating the connector stretched its shear
+/// spring by θ·L (a spring to ground; see connector_k_findings.rs).
 #[test]
-fn connector_finite_length_violates_rigid_rotation() {
-    let k2 = connector_stiffness_2d(1e3, 1e3, 1e3, 1.0, 0.0);
-    let nodes = [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]];
-    let res = worst_rigid_residual(&k2, &nodes, Layout::Planar { rot: true });
-    assert!(res > 0.1, "finite-length connector now annihilates rigid rotation ({res:e}); update the finding");
-    // With k_shear = 0 (axial + moment only) a finite connector is rigid-invariant.
-    let k2 = connector_stiffness_2d(1e3, 0.0, 1e3, 0.6, 0.8);
-    check("connector 2D axial+moment finite", &k2, &[[0.0, 0.0, 0.0], [1.2, 1.6, 0.0]], Layout::Planar { rot: true }, 1e-14);
+fn connector_finite_length_rigid_modes_and_kernel() {
+    let mut g = Lcg(7);
+    for s in 0..SAMPLES {
+        let p = [g.f(-5.0, 5.0), g.f(-5.0, 5.0), g.f(-5.0, 5.0)];
+        let q = [g.f(-5.0, 5.0), g.f(-5.0, 5.0), g.f(-5.0, 5.0)];
+        let (dx, dy) = (q[0] - p[0], q[1] - p[1]);
+        let l2 = (dx * dx + dy * dy).sqrt();
+        let k2 = connector_stiffness_2d(g.logf(1.0, 1e6), g.logf(1.0, 1e6), g.logf(1.0, 1e6), dx / l2, dy / l2, l2);
+        let nodes2 = [[p[0], p[1], 0.0], [q[0], q[1], 0.0]];
+        check("connector 2D finite", &k2, &nodes2, Layout::Planar { rot: true }, 1e-13);
+        assert_kernel(&format!("connector 2D finite #{s}"), &k2, 6, 3, 1e-12, 1e-9);
+
+        let d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+        let l3 = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        let dir = d.map(|x| x / l3);
+        let ks: Vec<f64> = (0..6).map(|_| g.logf(1.0, 1e6)).collect();
+        let k3 = connector_stiffness_3d(ks[0], ks[1], ks[2], ks[3], ks[4], ks[5], dir, l3);
+        check("connector 3D finite", &k3, &[p, q], Layout::Spatial { rot: true, warp: false }, 1e-13);
+        assert_kernel(&format!("connector 3D finite #{s}"), &k3, 12, 6, 1e-12, 1e-9);
+
+        // Midpoint shear position: swapping i and j gives the same element.
+        let k2s = connector_stiffness_2d(1e3, 2e3, 3e3, -dx / l2, -dy / l2, l2);
+        let k2 = connector_stiffness_2d(1e3, 2e3, 3e3, dx / l2, dy / l2, l2);
+        for i in 0..6 {
+            for j in 0..6 {
+                let v = k2s[((i + 3) % 6) * 6 + (j + 3) % 6];
+                assert!((k2[i * 6 + j] - v).abs() <= 1e-9 * (1.0 + v.abs()), "2D connector depends on node order at ({i},{j})");
+            }
+        }
+    }
 }
 
 // ─── plates and shells ──────────────────────────────────────────────────────

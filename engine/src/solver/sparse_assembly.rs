@@ -95,6 +95,30 @@ pub struct TripletAssemblyResult {
     pub artificial_dofs: Vec<usize>,
 }
 
+/// Connector elements into a free-DOF triplet assembly (2D).
+fn add_connector_triplets_2d(
+    input: &SolverInput, dof_num: &DofNumbering, nf: usize,
+    triplets: &mut TripletAssembly, diag_vals: &mut [f64],
+) {
+    if input.connectors.is_empty() { return; }
+    let node_by_id: std::collections::HashMap<usize, &SolverNode> =
+        input.nodes.values().map(|nd| (nd.id, nd)).collect();
+    for conn in crate::element::connector::sorted_by_id(&input.connectors) {
+        let ni = match node_by_id.get(&conn.node_i) { Some(n) => n, None => continue };
+        let nj = match node_by_id.get(&conn.node_j) { Some(n) => n, None => continue };
+        let (dofs, ke) = crate::element::connector::connector_scatter_2d(conn, ni, nj, dof_num);
+        let ndof = dofs.len();
+        for i in 0..ndof {
+            if dofs[i] >= nf { continue; }
+            for j in 0..ndof {
+                if dofs[j] >= nf { continue; }
+                if dofs[i] >= dofs[j] { triplets.add(dofs[i], dofs[j], ke[i * ndof + j]); }
+            }
+            diag_vals[dofs[i]] += ke[i * ndof + i];
+        }
+    }
+}
+
 /// Assemble 2D stiffness using triplet format, mirroring `assemble_sparse_2d`
 /// but returning a `TripletAssembly` instead of a finished `CscMatrix`.
 ///
@@ -183,6 +207,8 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
             assemble_element_loads_2d(&load_refs, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global);
         }
     }
+
+    add_connector_triplets_2d(input, dof_num, nf, &mut triplets, &mut diag_vals);
 
     // Nodal loads
     for load in &input.loads {
@@ -364,30 +390,21 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
     if !input.connectors.is_empty() {
         let node_by_id: std::collections::HashMap<usize, &SolverNode> =
             input.nodes.values().map(|nd| (nd.id, nd)).collect();
-        for conn in input.connectors.values() {
+        for conn in crate::element::connector::sorted_by_id(&input.connectors) {
             let ni = match node_by_id.get(&conn.node_i) { Some(n) => n, None => continue };
             let nj = match node_by_id.get(&conn.node_j) { Some(n) => n, None => continue };
-
-            let dx = nj.x - ni.x;
-            let dy = nj.z - ni.z;
-            let l = (dx * dx + dy * dy).sqrt();
-            let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
-
-            let ke = crate::element::connector::connector_stiffness_2d(
-                conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
-            );
-            let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+            let (dofs, ke) = crate::element::connector::connector_scatter_2d(conn, ni, nj, dof_num);
             let ndof = dofs.len();
             for i in 0..ndof {
                 for j in 0..ndof {
                     let gi = dofs[i];
                     let gj = dofs[j];
-                    let v = ke[i * 6 + j];
+                    let v = ke[i * ndof + j];
                     if gi >= gj {
                         trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(v);
                     }
                 }
-                diag_vals[dofs[i]] += ke[i * 6 + i];
+                diag_vals[dofs[i]] += ke[i * ndof + i];
             }
         }
     }
@@ -808,6 +825,8 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
         }
     }
 
+    add_connector_triplets_2d(input, dof_num, nf, &mut triplets, &mut diag_vals);
+
     // Nodal loads (sequential)
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
@@ -1135,25 +1154,8 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
             AnyElement3D::Connector(conn) => {
                 let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
                 let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, diagnostics } };
-                let dx = nj_node.x - ni.x;
-                let dy = nj_node.y - ni.y;
-                let dz = nj_node.z - ni.z;
-                let l = (dx * dx + dy * dy + dz * dz).sqrt();
-                let dir = if l > 1e-15 { [dx / l, dy / l, dz / l] } else { [1.0, 0.0, 0.0] };
-                let ke = crate::element::connector::connector_stiffness_3d(
-                    conn.k_axial, conn.k_shear, conn.k_shear_z,
-                    conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir,
-                );
-                let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
-                let ndof = dofs.len();
-                for i in 0..ndof {
-                    let gi = dofs[i];
-                    for j in 0..ndof {
-                        let gj = dofs[j];
-                        if gi >= gj { trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]); }
-                    }
-                    if gi < nf { diag.push((gi, ke[i * 12 + i])); }
-                }
+                let (dofs, ke) = crate::element::connector::connector_scatter_3d(conn, ni, nj_node, dof_num);
+                scatter_triplets(&ke, &dofs, dofs.len(), nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
             }
 
             AnyElement3D::Plate(plate) => {

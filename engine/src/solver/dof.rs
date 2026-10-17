@@ -12,11 +12,24 @@ pub struct DofNumbering {
 }
 
 impl DofNumbering {
+    /// DOFs per node of a 2D model: 3 (ux, uz, θ) with frames, 2 for all-truss.
+    pub fn dofs_per_node_2d(input: &SolverInput) -> usize {
+        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        if has_frame { 3 } else { 2 }
+    }
+
+    /// DOFs per node of a 3D model: 7 with warping, 6 with frames or shells,
+    /// 3 (translations only) otherwise.
+    pub fn dofs_per_node_3d(input: &SolverInput3D) -> usize {
+        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
+        let has_plate = !input.plates.is_empty() || !input.quads.is_empty() || !input.quad9s.is_empty() || !input.curved_shells.is_empty();
+        let has_warping = input.sections.values().any(|s| s.cw.is_some());
+        if has_warping { 7 } else if has_frame || has_plate { 6 } else { 3 }
+    }
+
     /// Build DOF numbering for a 2D structure.
     pub fn build_2d(input: &SolverInput) -> Self {
-        // Determine DOFs per node: 3 for frames, 2 for all-truss
-        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
-        let dofs_per_node = if has_frame { 3 } else { 2 };
+        let dofs_per_node = Self::dofs_per_node_2d(input);
 
         // Sort nodes by ID for deterministic ordering
         let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
@@ -73,10 +86,7 @@ impl DofNumbering {
 
     /// Build DOF numbering for a 3D structure.
     pub fn build_3d(input: &SolverInput3D) -> Self {
-        let has_frame = input.elements.values().any(|e| e.elem_type == "frame");
-        let has_plate = !input.plates.is_empty() || !input.quads.is_empty() || !input.quad9s.is_empty() || !input.curved_shells.is_empty();
-        let has_warping = input.sections.values().any(|s| s.cw.is_some());
-        let dofs_per_node = if has_warping { 7 } else if has_frame || has_plate { 6 } else { 3 };
+        let dofs_per_node = Self::dofs_per_node_3d(input);
 
         let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
         node_ids.sort();

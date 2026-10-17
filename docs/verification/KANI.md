@@ -215,7 +215,9 @@ These tests are not Kani harnesses, but they are the main evidence that K is rig
 - **`tests/determinate_exact.rs`.** Random statically determinate 2D trusses and
   frames with integer data. Member forces and reactions are computed by equilibrium
   alone in exact rational arithmetic and compared with the solver's results.
-- **`tests/connector_k_findings.rs`.** Reproductions of the connector findings.
+- **`tests/connector_k_findings.rs`.** The connector findings (finite-length shear
+  without shear–moment coupling, hard-coded DOFs per node), now fixed, with analytic,
+  rotation-invariance and dense/sparse assembly checks of models with connectors.
 
 ## Harness table
 

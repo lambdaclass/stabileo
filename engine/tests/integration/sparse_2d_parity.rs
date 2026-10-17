@@ -395,11 +395,13 @@ fn make_truss_connector_model() -> SolverInput {
     supports.insert("1".to_string(), sup_2d(1, 1, "pinned"));
     supports.insert("2".to_string(), sup_2d(2, 2, "rollerX"));
 
-    // Semi-rigid connector across the chords at mid height.
+    // Axial connector across the chords at mid height. A truss model has no
+    // rotation DOFs, so a shear spring on this 4 m connector is refused and
+    // k_moment has nothing to act on (dropped).
     let mut connectors = HashMap::new();
     connectors.insert("1".to_string(), ConnectorElement {
         id: 1, node_i: 17, node_j: 18,
-        k_axial: 5.0e4, k_shear: 2.0e4, k_moment: 1.0e3,
+        k_axial: 5.0e4, k_shear: 0.0, k_moment: 1.0e3,
         k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
     });
 

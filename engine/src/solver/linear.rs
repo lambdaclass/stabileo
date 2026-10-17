@@ -4021,6 +4021,14 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
+    // 8. Connectors: end nodes, finite stiffness, and the DOFs they need.
+    let node_xz: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    crate::element::connector::validate_connectors(
+        &input.connectors,
+        |id| node_xz.get(&id).map(|n| [n.x, n.z, 0.0]),
+        DofNumbering::dofs_per_node_2d(input) >= 3,
+    )?;
+
     Ok(())
 }
 
@@ -4322,6 +4330,14 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
             return Err(format!("Section {}: inertia must be > 0", sec.id));
         }
     }
+
+    // 8. Connectors: end nodes, finite stiffness, and the DOFs they need.
+    let node_xyz: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    crate::element::connector::validate_connectors(
+        &input.connectors,
+        |id| node_xyz.get(&id).map(|n| [n.x, n.y, n.z]),
+        DofNumbering::dofs_per_node_3d(input) >= 6,
+    )?;
 
     Ok(())
 }

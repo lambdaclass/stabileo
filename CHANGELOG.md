@@ -11,6 +11,33 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Connectors: shear–moment coupling and the model's own DOFs (2026-10-17)
+
+**BREAKING (results): models with a finite-length connector that has shear stiffness, and
+connectors in all-truss 2D models, solve differently.** Zero-length connectors (bearings,
+the web's semi-rigid ends) are unchanged to the bit. Found by the element rigid-body checks
+(`tests/element_rigid_body_modes.rs`); reproductions and analytic checks in
+`tests/connector_k_findings.rs`.
+
+- **A finite-length shear spring did not carry its moment.** The element was
+  [K_ii, −K_ii; −K_ii, K_ii] with K_ii = diag(k_axial, k_shear, k_moment), so rotating the
+  connector rigidly stretched its shear spring by θ·L (a spring to ground), and the shear
+  force it transmitted had no moment arm: a cantilever through a 2 m connector reacted
+  M = 0 instead of −20 under a 10 kN tip load. The shear springs now act at the connector's
+  midpoint through rigid arms, so V·L is split equally between the ends, the element does
+  not depend on which node is i, and its stiffness annihilates every rigid motion in 2D and
+  3D (rank 3 / 6). Each spring is assembled as k·b·bᵀ from its deformation, so K is
+  symmetric positive semidefinite by construction.
+- **Connector assembly assumed 3 (2D) / 6 (3D) DOFs per node.** In an all-truss 2D model
+  (2 per node) the entries landed on the wrong DOFs (k_moment on ux), and with a warping
+  section (7 per node) 3D assembly panicked with an index out of bounds. Every assembly path
+  (dense, sparse, triplet and parallel, 2D and 3D, used by the linear, modal, buckling, P-Δ
+  and time-history solvers) now scatters through the model's DOF numbering. Without rotation
+  DOFs the rotational springs have nothing to act on and are dropped, as rotational support
+  springs are. A finite-length shear spring there is refused with an error naming the
+  connector, since it needs end rotations to carry V·L. So is a connector whose node does
+  not exist (it used to be skipped silently) or whose stiffness is not finite.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,
