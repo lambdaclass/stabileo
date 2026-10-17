@@ -4,6 +4,7 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { mergeFindings, selectionOf, shellRef } from '../../lib/engine/model-findings';
+  import { reviewModelSanity, sanityDiagnostics } from '../../lib/engine/model-sanity';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
@@ -48,6 +49,24 @@
     });
   });
 
+  // The engine's model sanity review (`engine/model-sanity.ts`): the modelling errors the solve
+  // cannot see — units, load directions, self-weight, weight per floor area, period, tributary
+  // loads, supports and springs — and which of its checks could not run on this model, and why.
+  const sanityDiags = $derived.by(() => {
+    if (!is3D) return [];
+    const perCase = resultsStore.perCase3D;
+    const reviewed = reviewModelSanity({
+      model: { ...(modelStore.model as any), nodes: modelStore.nodes, elements: modelStore.elements, materials: modelStore.materials,
+        sections: modelStore.sections, supports: modelStore.supports, loads: modelStore.loads as any, loadCases: modelStore.model.loadCases },
+      perCase,
+      single: perCase.size === 0 ? resultsStore.results3D : null,
+      modal: resultsStore.modalResult3D,
+      includeSelfWeight: uiStore.includeSelfWeight,
+      leftHand: uiStore.axisConvention3D === 'leftHand',
+    });
+    return reviewed ? sanityDiagnostics(reviewed.report, reviewed.shellKeys, t, i18n.locale) : [];
+  });
+
   // Merge: model checks + general diagnostics + solver diagnostics
   const allDiagnostics = $derived.by(() => {
     const general = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
@@ -56,7 +75,7 @@
     // Where `checkModel` found the same thing under its own code (coincident
     // nodes), `sameFinding` recognises it and it is reported once.
     const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
-    return mergeFindings(autoModelDiags, general, solver, fromGates);
+    return mergeFindings([...autoModelDiags, ...sanityDiags], general, solver, fromGates);
   });
 
   // Apply severity filter

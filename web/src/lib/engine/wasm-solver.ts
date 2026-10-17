@@ -54,6 +54,8 @@ let wasmSolveSpectral3d: ((json: string) => string) | null = null;
 // Kinematics
 let wasmAnalyzeKinematics2d: ((json: string) => string) | null = null;
 let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
+// Model sanity review (engine `sanity`)
+let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
 let wasmCombineResults2d: ((input: any) => any) | null = null;
@@ -356,6 +358,8 @@ export async function initSolver(): Promise<void> {
       const fn = (wasm as Record<string, unknown>)[name];
       if (typeof fn === 'function') certifyExports.set(name, fn as (...args: any[]) => any);
     }
+
+    wasmReviewModelSanity = wasm.review_model_sanity ?? null;
 
     wasmReady = true;
   })();
@@ -1252,6 +1256,15 @@ export function analyzeKinematics(input: SolverInput) {
   if (!wasmReady || !wasmAnalyzeKinematics2d) throw new Error('WASM solver not initialized.');
   const json = serializeInput2D(input);
   return JSON.parse(wasmAnalyzeKinematics2d(json));
+}
+
+/**
+ * The engine's model sanity review (`engine/src/sanity`): JSON `SanityInput` in, `SanityReport`
+ * out. Null when the WASM build has no such export, so a caller can say the review did not run.
+ */
+export function reviewModelSanityWasm(json: string): string | null {
+  if (!wasmReady || !wasmReviewModelSanity) return null;
+  return wasmReviewModelSanity(json);
 }
 
 /** Analyze 3D kinematic stability via WASM. */

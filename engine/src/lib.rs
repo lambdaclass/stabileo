@@ -10,6 +10,7 @@ pub mod solver;
 pub mod postprocess;
 pub mod section;
 pub mod certify;
+pub mod sanity;
 #[cfg(kani)]
 mod kani_proofs;
 
@@ -38,6 +39,15 @@ fn to_js_value<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
 fn from_js_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
     serde_wasm_bindgen::from_value(value)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))
+}
+
+/// Model sanity review (`sanity`): the modelling errors a solver cannot see — equilibrium per
+/// case against an independent applied sum, weight per floor area, period against the code's
+/// formula, tributary column loads, material/section/support/spring plausibility, absurd
+/// displacements. JSON `SanityInput` in → JSON `SanityReport` out.
+#[wasm_bindgen]
+pub fn review_model_sanity(json: &str) -> Result<String, JsValue> {
+    sanity::review_json(json).map_err(|e| JsValue::from_str(&e))
 }
 
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).

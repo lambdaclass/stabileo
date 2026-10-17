@@ -159,14 +159,19 @@ export function staticsCheck(input: StaticsCheckInput): StaticsCheckRow[] {
  */
 export function appliedResultant(
   model: StaticsCheckInput['model'], caseId: number | null,
-  opts: { includeSelfWeight: StaticsCheckInput['includeSelfWeight']; caseTypes?: Map<number, string>; leftHand?: boolean },
+  opts: {
+    includeSelfWeight: StaticsCheckInput['includeSelfWeight']; caseTypes?: Map<number, string>; leftHand?: boolean;
+    /** Each force as it is summed, with its point: the model sanity review's tributary areas read them. */
+    onForce?: (F: [number, number, number], p: [number, number, number]) => void;
+  },
 ): { applied: Resultant6; uncovered: string[]; selfWeightIncluded: boolean } {
-  const { includeSelfWeight, caseTypes, leftHand = false } = opts;
+  const { includeSelfWeight, caseTypes, leftHand = false, onForce } = opts;
   // The structure the solve has, whoever asks: the loads panel's totals read the model as it is, and
   // counted the loads and weight of inactive members the statics check leaves out.
   model = activeModel(model);
   const applied: Resultant6 = { ...ZERO };
   const uncovered = new Set<string>();
+  const addForce = (F: [number, number, number], p: [number, number, number]) => { addForceAt(applied, F, p); onForce?.(F, p); };
 
   const inCase = (l: Load): boolean => {
     const c = (l.data as { caseId?: number }).caseId;
@@ -181,7 +186,7 @@ export function appliedResultant(
       const d = l.data as NodalLoad3D;
       const n = model.nodes.get(d.nodeId);
       if (!n) continue;
-      addForceAt(applied, [d.fx, d.fy, d.fz], [n.x, n.y, n.z ?? 0]);
+      addForce([d.fx, d.fy, d.fz], [n.x, n.y, n.z ?? 0]);
       addMoment(applied, [d.mx, d.my, d.mz]);
     } else if (l.type === 'distributed3d' || l.type === 'pointOnElement3d') {
       const d = l.data as DistributedLoad3D | PointLoadOnElement3D;
@@ -197,13 +202,13 @@ export function appliedResultant(
         // Its force and moment, local or global, as the solve reads them (`member-point-loads.ts`).
         const p = d as PointLoadOnElement3D;
         const g = pointGlobal(p, ax as never, leftHand);
-        addForceAt(applied, g.F, at(p.a));
+        addForce(g.F, at(p.a));
         addMoment(applied, g.M);
       } else {
         // The solve's own reading of the load, whatever its frame (`member-loads.ts`).
         const q = d as DistributedLoad3D;
         const g = distributedGlobalEnds(q, ax as never, leftHand);
-        for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForceAt(applied, p.force, at(p.s));
+        for (const p of trapezoidPieces(g.gI, g.gJ, g.a, g.b)) addForce(p.force, at(p.s));
       }
     } else if (l.type === 'surface3d') {
       // The solve's own corner forces, whatever the load's direction, field and extent.
@@ -213,7 +218,7 @@ export function appliedResultant(
       for (const f of nodal) {
         if (f.type !== 'nodal') continue;
         const n = model.nodes.get(f.data.nodeId)!;
-        addForceAt(applied, [f.data.fx, f.data.fy, f.data.fz], [n.x, n.y, n.z ?? 0]);
+        addForce([f.data.fx, f.data.fy, f.data.fz], [n.x, n.y, n.z ?? 0]);
       }
     } else if (l.type === 'thermal' || l.type === 'thermalQuad3d' || l.type === 'prestress3d' || l.type === 'displacement3d') {
       // No net external force by definition: a temperature, a strain, a tendon (its equivalent
@@ -241,7 +246,7 @@ export function appliedResultant(
       // ρ·A·L at midspan: the resultant of the uniform member load the solve applies.
       const W = sectionWeight(sec, el.materialId) * line.ax.L * sw.factor;
       const mid: [number, number, number] = [line.ni[0] + line.ax.ex[0] * line.ax.L / 2, line.ni[1] + line.ax.ex[1] * line.ax.L / 2, line.ni[2] + line.ax.ex[2] * line.ax.L / 2];
-      addForceAt(applied, [dir[0] * W, dir[1] * W, dir[2] * W], mid);
+      addForce([dir[0] * W, dir[1] * W, dir[2] * W], mid);
     }
     for (const q of model.quads?.values() ?? []) {
       if (scope.quads && !scope.quads.has(q.id)) continue;
@@ -251,7 +256,7 @@ export function appliedResultant(
       const shares = quadCornerShares(ps as never);
       (ps as P3[]).forEach((n, i) => {
         const w = mat.rho * q.thickness * shares[i]! * sw.factor;
-        addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+        addForce([dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
       });
     }
     for (const pl of model.plates?.values() ?? []) {
@@ -261,7 +266,7 @@ export function appliedResultant(
       if (!mat || ps.some((n) => !n)) continue;
       const [a, b, c] = ps as P3[];
       const w = mat.rho * pl.thickness * triArea(a!, b!, c!) / 3 * sw.factor;
-      for (const n of ps as P3[]) addForceAt(applied, [dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
+      for (const n of ps as P3[]) addForce([dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
     }
   }
   return { applied, uncovered: [...uncovered].sort(), selfWeightIncluded: selfWeightHere };
