@@ -11,13 +11,26 @@
 //! eliminating the previous DOFs. When `d_j ≤ SINGULAR_PIVOT_RATIO · K_jj`
 //! the DOF's remaining stiffness is at the level of the rounding errors of
 //! the elimination, so `K` is numerically singular.
+//!
+//! Those rounding errors are not a few ε of `K_jj`: the entries eliminated
+//! into `d_j` carry the errors of every earlier step, scaled by the stiffer
+//! terms they were coupled to. On 993 random space frames (differential
+//! testing against PyNite and OpenSees, tools/differential/) the pivots of
+//! the singular models (Jacobi-scaled condition number > 1e14) reached
+//! 5e-12 of their diagonal, while no regular model (condition number < 1e10)
+//! had a pivot below 2.4e-5 of its diagonal. The threshold sits between the
+//! two, with two orders of margin above the largest round-off pivot seen; a
+//! regular model only trips it with stiffness contrasts that cost it ten
+//! digits, which deserve the warning anyway.
 
 use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::NumericCholesky;
 use crate::types::{DiagnosticCode, Severity, StructuredDiagnostic};
 
-/// Pivot-to-diagonal ratio below which a Cholesky pivot is round-off (64 ε).
-pub const SINGULAR_PIVOT_RATIO: f64 = 64.0 * f64::EPSILON;
+/// Pivot-to-diagonal ratio below which a Cholesky pivot is round-off (see
+/// the module notes: singular models reach 5e-12, regular ones stay above
+/// 2.4e-5).
+pub const SINGULAR_PIVOT_RATIO: f64 = 1e-10;
 
 /// The warning, with `detail` saying how non-definiteness was detected.
 pub fn not_positive_definite(detail: &str) -> StructuredDiagnostic {
@@ -70,7 +83,7 @@ fn pivot_warning(ratio: f64, dof: usize) -> Option<StructuredDiagnostic> {
     }
     Some(
         not_positive_definite(&format!(
-            "Cholesky pivot of DOF {dof} is {ratio:.1e} of its diagonal, at round-off level"
+            "Cholesky pivot of DOF {dof} is {ratio:.1e} of its diagonal, at the round-off level of the elimination"
         ))
         .with_value(ratio, SINGULAR_PIVOT_RATIO)
         .with_dofs(vec![dof]),

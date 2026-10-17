@@ -137,3 +137,46 @@ jobs:
             opensees-report.json
             opensees-mismatches/
           if-no-files-found: ignore
+
+  # Differential test against Code_Aster 18.1 (EDF's FE code): the 3D linear
+  # solver including releases, connectors, constraints, thermal loads and
+  # inclined supports, which the OpenSees job does not translate. conda-forge
+  # code-aster, native on Linux. See tools/differential/codeaster/README.md;
+  # the seed is printed so a failure reproduces locally.
+  codeaster-diff:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Code_Aster (pins as in tools/differential/codeaster/setup.sh)
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: aster
+          create-args: -c conda-forge code-aster=18.1.10 python=3.12
+          cache-environment: true
+          init-shell: bash
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Compare with Code_Aster
+        working-directory: tools/differential/codeaster
+        run: |
+          seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
+          echo "seed-start $seed"
+          ASTER_PYTHON="$(which python)" python run.py --fixtures \
+            --random3d 100 --rich3d 400 --aster3d 400 \
+            --seed-start "$seed" -j 4 --report codeaster-report.json \
+            --dump-dir codeaster-mismatches
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeaster-report
+          path: |
+            tools/differential/codeaster/codeaster-report.json
+            tools/differential/codeaster/codeaster-mismatches/
+          if-no-files-found: ignore

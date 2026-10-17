@@ -538,6 +538,25 @@ pub fn validate_constraints(
     diags
 }
 
+/// The term of a linear MPC eliminated as the dependent DOF: the largest
+/// |coefficient| among the terms on *free* DOFs. A restrained DOF must not
+/// be the dependent one: the support keeps it at its prescribed value and the
+/// equation would be dropped, so the results silently violated it (found by
+/// tools/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
+/// restrained gave u_3y != 0). Only when every term is restrained (the
+/// equation then constrains prescribed values, flagged over-constrained)
+/// does it fall back to the largest coefficient overall.
+fn mpc_dependent_term(mpc: &LinearMPCConstraint, dof_num: &DofNumbering) -> Option<usize> {
+    let largest = |free_only: bool| {
+        mpc.terms.iter().enumerate()
+            .filter(|(_, t)| !free_only || (t.coefficient != 0.0
+                && dof_num.map.get(&(t.node_id, t.dof)).is_some_and(|&g| g < dof_num.n_free)))
+            .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
+            .map(|(i, _)| i)
+    };
+    largest(true).or_else(|| largest(false))
+}
+
 /// Collect dependent DOFs from a single constraint, returning (slave_global, [master_globals]).
 fn collect_dependent_dofs(
     constraint: &Constraint,
@@ -638,10 +657,7 @@ fn collect_dependent_dofs(
             }
         }
         Constraint::LinearMPC(mpc) => {
-            if mpc.terms.is_empty() { return result; }
-            let (dep_idx, _) = mpc.terms.iter().enumerate()
-                .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
-                .unwrap();
+            let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { return result; };
             let dep_term = &mpc.terms[dep_idx];
             if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
                 let masters: Vec<usize> = mpc.terms.iter().enumerate()
@@ -921,12 +937,7 @@ pub fn build_constraint_transform(
             Constraint::LinearMPC(mpc) => {
                 // General MPC: Σ(coeff_i × u_i) = 0
                 // First term with largest coefficient becomes dependent
-                if mpc.terms.is_empty() { continue; }
-
-                // Find term with largest |coefficient|
-                let (dep_idx, _) = mpc.terms.iter().enumerate()
-                    .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
-                    .unwrap();
+                let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
 
                 let dep_term = &mpc.terms[dep_idx];
                 if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
@@ -1072,6 +1083,42 @@ pub(super) fn map_dof_forces_to_constraint_forces(
     }).collect()
 }
 
+/// Refuse a constraint on the translations of a node with an inclined
+/// support. Assembly rotates such a node's translations into the support's
+/// frame, while the constraint equations are written in global components:
+/// the solve enforced the wrong equations and returned results that
+/// violated the constraint with no warning (found by
+/// tools/differential/codeaster, aster3d-16: a rigid link whose master sat
+/// on an inclined support). Rotations are not rotated, so constraints on
+/// them stay allowed.
+fn refuse_constraints_on_inclined(
+    constraints: &[Constraint],
+    dof_num: &DofNumbering,
+    inclined: &HashSet<usize>,
+    n_trans: usize,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+) -> Result<(), String> {
+    let rotated: HashMap<usize, usize> = inclined.iter()
+        .flat_map(|&n| (0..n_trans).filter_map(move |k| dof_num.map.get(&(n, k)).map(|&d| (d, n))))
+        .collect();
+    if rotated.is_empty() {
+        return Ok(());
+    }
+    for (i, c) in constraints.iter().enumerate() {
+        for (slave, masters) in collect_dependent_dofs(c, dof_num, nodes_2d, nodes_3d) {
+            if let Some(n) = std::iter::once(slave).chain(masters).find_map(|d| rotated.get(&d)) {
+                return Err(format!(
+                    "Constraint {i} involves the translations of node {n}, which has an inclined \
+                     support: not supported (model the inclined restraint with a linearMPC on \
+                     the global translations instead)"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Solve a 2D constrained analysis.
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
     if input.constraints.is_empty() {
@@ -1085,6 +1132,12 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     validate_constraint_refs(&input.constraints, &node_ids, 3)?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
+    let inclined: HashSet<usize> = input.solver.supports.values()
+        .filter(|s| s.support_type == "inclinedRoller" && s.angle.is_some())
+        .map(|s| s.node_id)
+        .collect();
+    refuse_constraints_on_inclined(&input.constraints, &dof_num, &inclined, 2,
+        Some(&input.solver.nodes), None)?;
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
@@ -1690,6 +1743,16 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     validate_constraint_refs(&input.constraints, &node_ids, 6)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
+    let inclined: HashSet<usize> = input.solver.supports.values()
+        .filter(|s| s.is_inclined.unwrap_or(false))
+        .filter(|s| match (s.normal_x, s.normal_y, s.normal_z) {
+            (Some(x), Some(y), Some(z)) => (x * x + y * y + z * z).sqrt() > 1e-12,
+            _ => false,
+        })
+        .map(|s| s.node_id)
+        .collect();
+    refuse_constraints_on_inclined(&input.constraints, &dof_num, &inclined, 3,
+        None, Some(&input.solver.nodes))?;
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
