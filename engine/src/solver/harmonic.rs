@@ -255,6 +255,15 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 /// `solve_harmonic_3d` plus the Rayleigh coefficients `(a₀, a₁)` it used
 /// (`C = a₀M + a₁K`): the damping model the certificate refers to.
 pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let expanded;
+    let input = if input.solver.curved_beams.is_empty() {
+        input
+    } else {
+        expanded = HarmonicInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
+        &expanded
+    };
     super::linear::validate_input_3d(&input.solver)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(&input.solver);
     super::dynamic_validation::validate_densities(&input.densities, &referenced_material_ids)?;

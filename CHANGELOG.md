@@ -11,6 +11,39 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Assembly-path fixes found by the cross-path oracle (2026-10-17)
+
+**BREAKING (results): 2D buckling and P-Delta of models with hinges, 3D buckling with inclined
+supports, 3D modal, buckling, harmonic and reduction analyses of models with curved beams, and
+regularized sparse 3D solves solve differently.** Each was found by
+`engine/tests/assembly_paths.rs`, which compares every path that assembles the same K, load
+vector, M or K_G entry by entry (`docs/verification/ASSEMBLY.md`), and each has a regression
+test there.
+
+- **The sparse 3D assemblers took the largest diagonal over the free DOFs only.** The dense
+  assembler takes it over all DOFs, and it scales both the artificial stiffness of warping DOFs
+  no element stiffens and the diagonal shift that regularizes a failed sparse Cholesky, so the
+  two paths disagreed whenever a restrained DOF held the largest diagonal (the usual case: a
+  stiff member into a support). Serial and parallel sparse assembly now track all DOFs.
+- **The 2D geometric stiffness ignored hinges.** All three 2D builders (P-Delta from
+  displacements, buckling from element forces, the P-Delta certificate's affine terms) used the
+  fixed-fixed K_G whatever the hinges, while 3D condenses it for releases: 1.2·P/L instead of
+  P/L in sway and −4·P·L/30 on a hinged rotation nothing else holds. A cantilever bracing a
+  leaning column (hinged at both ends) now buckles at k·h = 3EI/h², as in 3D. The 2D and 3D
+  members share one condensation (`condense_kg_plane`).
+- **3D buckling added K_G in global axes to a K rotated at inclined supports.** The critical
+  factor depended on how the model was oriented: a column guided by an inclined support gave
+  101.5 rotated against 62.1 unrotated. K_G is now rotated into each inclined support's frame
+  with K, and the mode shapes are reported back in global axes (they were left in the
+  support's frame). The buckling certificate rotates the mode before checking it.
+- **3D modal, buckling, harmonic, Guyan and Craig–Bampton analyses ignored curved beams.** They
+  assembled the model without expanding its curved beams into segments (every other 3D solver
+  does, `expand_curved_beams_3d`), so an arch made of a curved beam had no stiffness or mass,
+  and 3D buckling panicked on the segments' element forces. They now expand first, and the
+  modal and harmonic certificates check the expanded model.
+- **The parallel sparse 3D load vector left quad and MITC9 self-weight in local axes.** Only
+  builds with the `parallel` feature were affected (the sequential and dense paths transform it).
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

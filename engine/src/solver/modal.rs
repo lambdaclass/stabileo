@@ -317,6 +317,9 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let input = &super::linear::expand_curved_beams_3d(input);
     super::linear::validate_input_3d(input)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(input);
     super::dynamic_validation::validate_densities(densities, &referenced_material_ids)?;

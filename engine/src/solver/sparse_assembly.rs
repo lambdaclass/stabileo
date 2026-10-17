@@ -961,7 +961,7 @@ fn build_load_index_3d<'a>(loads: &'a [SolverLoad3D]) -> std::collections::HashM
 /// Helper: scatter lower-triangle triplets + diag from element stiffness (SoA layout).
 #[cfg(feature = "parallel")]
 fn scatter_triplets(
-    k: &[f64], dofs: &[usize], ndof: usize, nf: usize,
+    k: &[f64], dofs: &[usize], ndof: usize,
     rows: &mut Vec<usize>,
     cols: &mut Vec<usize>,
     vals: &mut Vec<f64>,
@@ -977,7 +977,7 @@ fn scatter_triplets(
                 vals.push(k[i * ndof + j]);
             }
         }
-        if gi < nf { diag.push((gi, k[i * ndof + i])); }
+        diag.push((gi, k[i * ndof + i]));
     }
 }
 
@@ -1066,7 +1066,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                                             let val = sign * ea_l * dir[i] * dir[j];
                                             trip_rows.push(da); trip_cols.push(db); trip_vals.push(val);
                                         }
-                                        if da == db && da < nf { diag.push((da, sign * ea_l * dir[i] * dir[j])); }
+                                        if da == db { diag.push((da, sign * ea_l * dir[i] * dir[j])); }
                                     }
                                 }
                             }
@@ -1098,7 +1098,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 14);
                         let ndof = elem_dofs.len();
-                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                        scatter_triplets(&k_glob, &elem_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                     } else if dof_num.dofs_per_node >= 7 {
                         let k_local = element::frame_local_stiffness_3d(
                             e, sec.a, sec.iy, sec.iz, sec.j, l, g,
@@ -1116,7 +1116,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                                     trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * 12 + j]);
                                 }
                             }
-                            if gi < nf { diag.push((gi, k_glob[i * 12 + i])); }
+                            diag.push((gi, k_glob[i * 12 + i]));
                         }
                     } else {
                         let k_local = element::frame_local_stiffness_3d(
@@ -1127,7 +1127,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         let t = element::frame_transform_3d(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 12);
                         let ndof = elem_dofs.len();
-                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                        scatter_triplets(&k_glob, &elem_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                     }
                 }
             }
@@ -1152,7 +1152,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         let gj = dofs[j];
                         if gi >= gj { trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]); }
                     }
-                    if gi < nf { diag.push((gi, ke[i * 12 + i])); }
+                    diag.push((gi, ke[i * 12 + i]));
                 }
             }
 
@@ -1169,7 +1169,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let k_glob = transform_stiffness(&k_local, &t_plate, 18);
                 let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
                 let ndof = plate_dofs.len();
-                scatter_triplets(&k_glob, &plate_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                scatter_triplets(&k_glob, &plate_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Plate diagnostics
                 let (aspect_ratio, _skew, min_angle) = element::plate_element_quality(&coords);
                 if aspect_ratio > 10.0 {
@@ -1202,7 +1202,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let k_glob = transform_stiffness(&k_local, &t_quad, 24);
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 let ndof = quad_dofs.len();
-                scatter_triplets(&k_glob, &quad_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                scatter_triplets(&k_glob, &quad_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Quad diagnostics
                 let qm = element::quad::quad_quality_metrics(&coords);
                 let (_, _, has_neg_j) = element::quad::quad_check_jacobian(&coords);
@@ -1253,7 +1253,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let k_glob = transform_stiffness(&k_local, &t_q9, 54);
                 let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 let ndof = q9_dofs.len();
-                scatter_triplets(&k_glob, &q9_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                scatter_triplets(&k_glob, &q9_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Quad9 diagnostics
                 let (_, _, has_neg_j) = element::quad9::quad9_check_jacobian(&coords);
                 if has_neg_j {
@@ -1273,7 +1273,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let k_elem = element::solid_shell::solid_shell_stiffness(&coords, e, nu);
                 let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
                 let ndof = ss_dofs.len();
-                scatter_triplets(&k_elem, &ss_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                scatter_triplets(&k_elem, &ss_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
             }
 
             AnyElement3D::CurvedShell(cs) => {
@@ -1285,7 +1285,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 let k_elem = element::curved_shell::curved_shell_stiffness(&coords, &dirs, e, nu, cs.thickness);
                 let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
                 let ndof = cs_dofs.len();
-                scatter_triplets(&k_elem, &cs_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
+                scatter_triplets(&k_elem, &cs_dofs, ndof, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
             }
         }
 
@@ -1304,7 +1304,8 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     let mut trip_rows = Vec::with_capacity(total_triplets + 256);
     let mut trip_cols = Vec::with_capacity(total_triplets + 256);
     let mut trip_vals = Vec::with_capacity(total_triplets + 256);
-    let mut diag_vals = vec![0.0f64; nf];
+    // Over ALL DOFs, like the dense assembler (see assemble_stiffness_sparse_3d).
+    let mut diag_vals = vec![0.0f64; n];
     let mut max_diag = 0.0f64;
     let mut diagnostics = Vec::new();
 
@@ -1326,7 +1327,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 if *k > 0.0 && i < dof_num.dofs_per_node {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(*k);
-                        if d < nf { diag_vals[d] += *k; }
+                        diag_vals[d] += *k;
                     }
                 }
             }
@@ -1336,14 +1337,14 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);
-                        if d < nf { diag_vals[d] += kw; }
+                        diag_vals[d] += kw;
                     }
                 }
             }
         }
     }
 
-    for d in &diag_vals[..nf] { max_diag = max_diag.max(d.abs()); }
+    for d in &diag_vals { max_diag = max_diag.max(d.abs()); }
 
     // Artificial stiffness at floating warping DOFs
     let mut artificial_dofs_3d = Vec::new();
@@ -1725,7 +1726,9 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                 }
                             }
                             SolverLoad3D::QuadSelfWeight(sw) => {
-                                let f_sw = element::quad::quad_self_weight_load(&coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz);
+                                // Local axes out, like the sequential path transforms it.
+                                let f_sw_local = element::quad::quad_self_weight_load(&coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz);
+                                let f_sw = transform_force(&f_sw_local, &element::quad::quad_transform_3d(&coords), 24);
                                 for (i, &dof) in quad_dofs.iter().enumerate() {
                                     if i < f_sw.len() { f_global[dof] += f_sw[i]; }
                                 }
@@ -1767,7 +1770,8 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                 }
                             }
                             SolverLoad3D::Quad9SelfWeight(sw) => {
-                                let f_sw = element::quad9::quad9_self_weight_load(&coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz);
+                                let f_sw_local = element::quad9::quad9_self_weight_load(&coords, sw.density, q9.thickness, sw.gx, sw.gy, sw.gz);
+                                let f_sw = transform_force(&f_sw_local, &element::quad9::quad9_transform_3d(&coords), 54);
                                 for (i, &dof) in q9_dofs.iter().enumerate() {
                                     if i < f_sw.len() { f_global[dof] += f_sw[i]; }
                                 }

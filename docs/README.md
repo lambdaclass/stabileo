@@ -43,6 +43,7 @@ For contributors and for anyone who wants to look inside the engine. In English.
 - [VERIFICATION.md](VERIFICATION.md): testing philosophy, fuzzing and invariants
 - [BENCHMARKS.md](BENCHMARKS.md): validation coverage against analytical and reference solutions
 - [verification/CERTIFY.md](verification/CERTIFY.md): result certificates: rigorous error bounds on solver output, proved sound in Lean
+- [verification/ASSEMBLY.md](verification/ASSEMBLY.md): cross-path assembly oracle: every path that builds the same K, loads, M or K_G compared entry by entry on random models
 - [verification/KANI.md](verification/KANI.md): Kani proofs of the element kernels, interval rounding and sparse index code, and how to run them safely
 
 ### Roadmaps and project state

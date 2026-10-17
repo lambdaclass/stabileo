@@ -2354,7 +2354,9 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
     let mut trip_cols = Vec::new();
     let mut trip_vals = Vec::new();
     let mut max_diag = 0.0f64;
-    let mut diag_vals = vec![0.0f64; nf];
+    // Diagonal over ALL DOFs, as the dense assembler takes its maximum: the
+    // artificial warping stiffness and `max_diag_k` must not depend on the path.
+    let mut diag_vals = vec![0.0f64; n];
 
     // Pre-build O(1) lookup maps
     let node_map: std::collections::HashMap<usize, &SolverNode3D> =
@@ -2375,7 +2377,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                         trip_rows.push(gi); trip_cols.push(gj); trip_vals.push($k_glob[i * $ndof + j]);
                     }
                 }
-                if gi < nf { diag_vals[gi] += $k_glob[i * $ndof + i]; }
+                diag_vals[gi] += $k_glob[i * $ndof + i];
             }
         };
     }
@@ -2414,7 +2416,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                                     let val = sign * ea_l * dir[i] * dir[j];
                                     trip_rows.push(da); trip_cols.push(db); trip_vals.push(val);
                                 }
-                                if da == db && da < nf { diag_vals[da] += sign * ea_l * dir[i] * dir[j]; }
+                                if da == db { diag_vals[da] += sign * ea_l * dir[i] * dir[j]; }
                             }
                         }
                     }
@@ -2462,7 +2464,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                             trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * 12 + j]);
                         }
                     }
-                    if gi < nf { diag_vals[gi] += k_glob[i * 12 + i]; }
+                    diag_vals[gi] += k_glob[i * 12 + i];
                 }
             } else {
                 let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g,
@@ -2501,7 +2503,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                     trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]);
                 }
             }
-            if gi < nf { diag_vals[gi] += ke[i * 12 + i]; }
+            diag_vals[gi] += ke[i * 12 + i];
         }
     }
 
@@ -2597,7 +2599,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                 if *k > 0.0 && i < dof_num.dofs_per_node {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(*k);
-                        if d < nf { diag_vals[d] += *k; }
+                        diag_vals[d] += *k;
                     }
                 }
             }
@@ -2607,14 +2609,14 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);
-                        if d < nf { diag_vals[d] += kw; }
+                        diag_vals[d] += kw;
                     }
                 }
             }
         }
     }
 
-    for d in &diag_vals[..nf] { max_diag = max_diag.max(d.abs()); }
+    for d in &diag_vals { max_diag = max_diag.max(d.abs()); }
 
     // Artificial stiffness at floating warping DOFs
     let mut artificial_dofs_3d = Vec::new();

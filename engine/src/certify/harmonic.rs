@@ -161,7 +161,8 @@ pub fn certify_harmonic_results_3d(
     damping: (f64, f64),
 ) -> HarmonicCertificate {
     let run = || -> Result<HarmonicCertificate, String> {
-        let s = &input.solver;
+        // The model the solver analyzed, curved beams expanded.
+        let s = &crate::solver::linear::expand_curved_beams_3d(&input.solver);
         if !s.constraints.is_empty() {
             return Err("unsupported: constraints".into());
         }

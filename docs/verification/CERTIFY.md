@@ -900,6 +900,14 @@ reports `method` (`modal`, `modal+static`, `direct`), `modesUsed`, `nDof`,
 `warnings` (frequencies where the correction could not be applied,
 `harmonic_truncation_is_reported`).
 
+## Which K is certified
+
+A certificate is about the K, f (and M, K_G) the solver assembled, right or wrong. That
+the dense, sparse, `_ex`, parallel and constrained paths assemble the same matrices, and
+that the certificates' own reduced systems (`reduced_sparse_2d/3d`, `buckling_system_2d/3d`)
+equal them, is checked separately by the cross-path assembly oracle,
+[ASSEMBLY.md](ASSEMBLY.md).
+
 ## Rounding model
 
 f64 ops round to nearest, so the exact result is within 0.5 ulp of the computed one.

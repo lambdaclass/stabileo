@@ -1068,6 +1068,15 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let expanded;
+    let input = if input.solver.curved_beams.is_empty() {
+        input
+    } else {
+        expanded = GuyanInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
+        &expanded
+    };
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_3d(&input.solver)?;
 
@@ -1264,6 +1273,15 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
 
 /// Perform Craig-Bampton reduction on a 3D model.
 pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let expanded;
+    let input = if input.solver.curved_beams.is_empty() {
+        input
+    } else {
+        expanded = CraigBamptonInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
+        &expanded
+    };
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_3d(&input.solver)?;
 

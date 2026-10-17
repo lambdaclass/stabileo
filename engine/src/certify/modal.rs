@@ -153,6 +153,8 @@ pub fn certify_modal_3d(
     num_modes: usize,
 ) -> Result<CertifiedModal3D, String> {
     let results = solve_modal_3d(input, densities, num_modes)?;
+    // The model the solver analyzed, curved beams expanded.
+    let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let k = assemble_stiffness_sparse_3d(input, &dof_num, false).k_ff;

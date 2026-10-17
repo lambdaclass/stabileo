@@ -78,7 +78,9 @@ jobs:
         run: column -t target/kani-report.tsv || true
 
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
-  # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs.
+  # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs,
+  # and runs the large sweep of the cross-path assembly oracle
+  # (docs/verification/ASSEMBLY.md).
   certify-large:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -99,7 +101,11 @@ jobs:
           workspaces: engine
       - name: Large certificate tests
         working-directory: engine
-        run: cargo test --release --test certify --test certify_plastic_3d -- --ignored --nocapture
+        # The assembly oracle's other ignored tests are minimal reproductions
+        # of open bugs, so only its sweep runs here.
+        run: |
+          cargo test --release --test certify --test certify_plastic_3d -- --ignored --nocapture
+          cargo test --release --test assembly_paths assembly_paths_agree_large -- --ignored --nocapture
 
   # Differential test against OpenSees (an independent FE code): catches
   # element-matrix, fixed-end-force, axis-convention and reaction bugs that the
