@@ -11,6 +11,40 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Solid shell: assumed strains in the thickness direction; MITC4 warping correction (2026-10-17)
+
+**BREAKING (results): every model with solid-shell (SHB8-ANS) elements whose thickness
+is not along global z, or whose plan is not a parallelogram, and every model with warped
+(non-planar) MITC4 quads, solves differently.** Planar MITC4 quads are unchanged, and so
+are the web's validation and example baselines.
+
+- **The solid shell's assumed strains were global Cartesian components.** Its ANS replaced
+  ε_zz, γ_xz and γ_yz, tied at natural-coordinate points, instead of the covariant
+  components along the element's thickness direction. The stiffness changed by ≈8% under
+  a rigid rotation, a wall or a curved shell got the anti-locking treatment on the wrong
+  strains, and the element failed the patch test on a distorted plan (residual ≈2e-2) and
+  on any tilted mesh. It now ties the covariant E_ζζ (Betsch & Stein 1995; Bischoff & Ramm
+  1997) and transverse shears E_ξζ, E_ηζ (Dvorkin & Bathe 1984) and maps them to Cartesian
+  strains with the contravariant basis. The stiffness is frame invariant to round-off, the
+  MacNeal–Harder patch passes flat and tilted, and a thin cantilever matches beam theory to
+  0.4% from t/L = 1/10 to 1/1000 in any orientation (the old element read 0.03 at
+  t/L = 1/100 once tilted). Benchmarks with thickness off global z moved: Scordelis-Lo
+  0.39/0.51 → 0.95/0.96 (6×6/8×8), twisted beam 0.08/0.25 → 0.67/0.82 (4×1/8×1),
+  hemisphere 1e-4 → 4e-4 (still membrane-locked). The flat Navier plate is unchanged
+  (0.84; Poisson thickness locking, no EAS).
+- **Two solid-shell benchmarks were mis-posed.** The twisted beam applied load case B
+  (tip F_y) but compared against case A's 5.424e-3; it now uses 1.754e-3. The Scordelis-Lo
+  quarter vault had no symmetry condition at midspan and could rotate rigidly (it reported
+  uz ≈ 1e9, with no assertion); it now has ux = 0 there and is held to [0.9, 1.05].
+- **MITC4 on a warped quad did not annihilate rigid rotations.** The flat element is
+  formulated on the quad's mean plane, and the nodes' offsets from it (±h) were ignored, so
+  the rigid-rotation residual grew linearly with the warp. Each node is now tied to its
+  projection by a rigid link (MacNeal; Taylor 1987): K ← WᵀKW, with the same W in the
+  stress recovery and the thermal load. Six zero eigenvalues on any warped quad, and a
+  rigidly rotated warped quad is stress free at its corners. The warped cantilever
+  benchmark moved from 0.38/0.14/0.04 to 0.97/0.96/0.94 of beam theory at 5/10/20% warp;
+  the MITC4 twisted beam moved from 0.0012/0.0011 to 0.0013/0.0013 (24×8, loads A/B).
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

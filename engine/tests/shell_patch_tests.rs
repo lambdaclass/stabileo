@@ -340,16 +340,12 @@ fn solid_shell_patch_test_parallelograms_z_aligned() {
     }
 }
 
-/// FINDING: the solid shell fails the patch test on a distorted (MacNeal–Harder)
-/// plan even when flat with thickness along global z (residual ~2e-2 for the
-/// transverse-shear states du_x/dz, du_y/dz, du_z/dx, du_z/dy), and fails even
-/// in-plane states once the patch is tilted. Cause: the ANS rows replace the
-/// GLOBAL Cartesian ε_zz, γ_xz, γ_yz (tied at natural-coordinate points) rather
-/// than covariant / thickness-direction components, so (a) the assumed field is
-/// not a projection consistent on non-parallelogram elements and (b) the element
-/// is not frame invariant (next test).
+/// The solid shell on a distorted (MacNeal–Harder) plan, flat with thickness
+/// along global z and tilted out of every global plane. Regression for the old
+/// ANS, which tied GLOBAL Cartesian ε_zz, γ_xz, γ_yz instead of covariant
+/// components and left a ~2e-2 residual (transverse-shear states flat, in-plane
+/// states too once tilted).
 #[test]
-#[ignore = "FINDING: solid shell ANS uses global Cartesian components; fails distorted/tilted patch test"]
 fn solid_shell_patch_test_distorted() {
     for (name, r) in [("flat z-aligned", IDENTITY), ("tilted", tilt())] {
         let (patch, g) = solid_patch(&MH_NODES, &MH_QUADS, |_, l| 0.02 * l as f64, &r);
@@ -359,13 +355,10 @@ fn solid_shell_patch_test_distorted() {
     }
 }
 
-/// FINDING: solid_shell_stiffness is not invariant under a rigid rotation of the
-/// element: K(R·X) ≠ R·K(X)·Rᵀ (≈8% relative difference for a 2×1×0.2 box tilted
-/// out of every global plane). A solid-shell model's answer depends on how it is
-/// oriented in global space; a wall (thickness along x or y) gets the ANS
-/// treatment on in-plane strains and none on its thickness strain.
+/// solid_shell_stiffness is invariant under a rigid rotation of the element:
+/// K(R·X) = R·K(X)·Rᵀ to round-off, for a 2×1×0.2 box tilted out of every
+/// global plane (the old global-z ANS was off by ≈8%).
 #[test]
-#[ignore = "FINDING: solid shell stiffness is not frame invariant (ANS on global z components)"]
 fn solid_shell_stiffness_is_frame_invariant() {
     let c0: [[f64; 3]; 8] = [
         [0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 1.0, 0.0], [0.0, 1.0, 0.0],
@@ -421,4 +414,74 @@ fn mitc4_and_curved_shell_stiffness_are_frame_invariant() {
     let kmax = k0.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
     let diff = k0.iter().zip(&back).fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()));
     assert!(diff <= 1e-10 * kmax, "curved shell not frame invariant: {:.3e}", diff / kmax);
+}
+
+/// Locking check for the solid shell: a thin cantilever strip (L = 1, b = 0.1,
+/// 8 × 1 × 1 elements, ν = 0, clamped at x = 0, unit tip load along the
+/// thickness) must match Euler–Bernoulli δ = PL³/(3EI) as t/L goes from 1/10
+/// to 1/1000, flat and tilted. A shear- or thickness-locking element stiffens
+/// like (L/t)²; the old global-z ANS did so as soon as the strip was tilted.
+#[test]
+fn solid_shell_thin_cantilever_does_not_lock() {
+    let (l, b, n) = (1.0, 0.1, 8);
+    for (name, r) in [("flat", IDENTITY), ("tilted", tilt())] {
+        for t in [1e-1, 1e-2, 1e-3] {
+            // Node (i, j, k): i along x, j across width, k through thickness.
+            let id = |i: usize, j: usize, k: usize| (i * 2 + j) * 2 + k;
+            let nn = (n + 1) * 4;
+            let mut g = vec![[0.0; 3]; nn];
+            for i in 0..=n {
+                for j in 0..2 {
+                    for k in 0..2 {
+                        g[id(i, j, k)] = to_global_pt(&r, [l * i as f64 / n as f64, b * j as f64, t * k as f64]);
+                    }
+                }
+            }
+            let mut patch = Patch::new(nn, 3);
+            for i in 0..n {
+                let conn = [
+                    id(i, 0, 0), id(i + 1, 0, 0), id(i + 1, 1, 0), id(i, 1, 0),
+                    id(i, 0, 1), id(i + 1, 0, 1), id(i + 1, 1, 1), id(i, 1, 1),
+                ];
+                let c: [[f64; 3]; 8] = std::array::from_fn(|a| g[conn[a]]);
+                patch.add(&conn, &solid_shell_stiffness(&c, E, 0.0));
+            }
+            // Free DOFs: every node with i > 0. Load: P/4 along the thickness at the tip.
+            let free: Vec<usize> = (12..nn * 3).collect();
+            let m = free.len();
+            let mut a: Vec<f64> = free.iter().flat_map(|&p| free.iter().map(move |&q| (p, q))).map(|(p, q)| patch.k[p * nn * 3 + q]).collect();
+            let mut f = vec![0.0; m];
+            for j in 0..2 {
+                for k in 0..2 {
+                    for d in 0..3 {
+                        f[id(n, j, k) * 3 + d - 12] = 0.25 * r[2][d];
+                    }
+                }
+            }
+            // Dense Gaussian elimination (SPD, no pivoting needed).
+            for p in 0..m {
+                for q in (p + 1)..m {
+                    let s = a[q * m + p] / a[p * m + p];
+                    if s != 0.0 {
+                        for c in p..m {
+                            a[q * m + c] -= s * a[p * m + c];
+                        }
+                        f[q] -= s * f[p];
+                    }
+                }
+            }
+            let mut u = vec![0.0; m];
+            for p in (0..m).rev() {
+                let s: f64 = ((p + 1)..m).map(|c| a[p * m + c] * u[c]).sum();
+                u[p] = (f[p] - s) / a[p * m + p];
+            }
+            let tip: f64 = (0..2)
+                .flat_map(|j| (0..2).map(move |k| (j, k)))
+                .map(|(j, k)| (0..3).map(|d| u[id(n, j, k) * 3 + d - 12] * r[2][d]).sum::<f64>())
+                .sum::<f64>()
+                / 4.0;
+            let ratio = tip / (l.powi(3) / (3.0 * E * b * t.powi(3) / 12.0));
+            assert!((0.97..1.03).contains(&ratio), "solid shell {name} cantilever t/L = {t}: δ/δ_EB = {ratio:.4}");
+        }
+    }
 }

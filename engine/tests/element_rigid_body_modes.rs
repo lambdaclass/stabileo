@@ -597,9 +597,8 @@ fn solid_shell_rigid_modes_and_kernel() {
 /// beam expanded into frame segments, straight frames with releases and an
 /// orientation vector, a truss, MITC4 quads and DKT triangles sharing nodes —
 /// annihilates the six global rigid motions and has no zero eigenvalue beyond
-/// them and the truss-only node's rotations. The shell part is planar: on a
-/// warped quad the flat MITC4 is not rigid-invariant (see
-/// `mitc4_warped_rigid_residual_grows_with_warp`). This checks the DOF numbering and scatter of every element
+/// them and the truss-only node's rotations. The shell part is planar (warped
+/// MITC4: `mitc4_warped_rigid_modes_and_kernel`). This checks the DOF numbering and scatter of every element
 /// family together, and the curved-beam expansion (whose K is the frames').
 #[test]
 fn assembled_free_model_rigid_modes_and_kernel() {
@@ -687,23 +686,23 @@ fn assembled_free_model_rigid_modes_and_kernel() {
     assert_kernel("assembled free model", &k, m, 9, 1e-11, 1e-12);
 }
 
-/// FINDING (known limitation of flat shell elements, quantified): MITC4 on a
-/// WARPED quad (nodes not coplanar) projects onto a mean plane and does not
-/// annihilate rigid rotations; the relative residual grows ~linearly with the
-/// warp ratio h/L. Pinned so a warping correction (e.g. rigid offsets to the
-/// mean plane) shows up; the curved shell is the element for warped geometry and
-/// passes (`curved_shell_rigid_modes_and_kernel`, warped inputs).
+/// MITC4 on a WARPED quad (nodes off the mean plane by ±w) annihilates the rigid
+/// motions and has exactly six zero eigenvalues, through the rigid-link warping
+/// correction (MacNeal; Taylor). Without it the residual grew ~linearly with the
+/// warp ratio (≈1e-2 relative at w/L = 0.025).
 #[test]
-fn mitc4_warped_rigid_residual_grows_with_warp() {
-    let mut last = 0.0;
-    for w in [1e-4, 1e-3, 1e-2, 5e-2] {
-        // 2 × 2 square with corners alternately ±w out of plane (warp ratio w/2).
-        let c = [[0.0, 0.0, w], [2.0, 0.0, -w], [2.0, 2.0, w], [0.0, 2.0, -w]];
-        let k = to_global(&mitc4_local_stiffness(&c, E, 0.3, 0.1), &quad_transform_3d(&c), 24);
-        let res = worst_rigid_residual(&k, &c, Layout::Spatial { rot: true, warp: false });
-        eprintln!("MITC4 warp {w:e}: rigid residual {res:.3e}");
-        assert!(res > last, "residual should grow with warp");
-        last = res;
+fn mitc4_warped_rigid_modes_and_kernel() {
+    let mut g = Lcg(12);
+    for s in 0..SAMPLES {
+        let q = random_quad_2d(&mut g);
+        let w = g.f(0.0, 0.2);
+        let local = [[q[0][0], q[0][1], w], [q[1][0], q[1][1], -w], [q[2][0], q[2][1], w], [q[3][0], q[3][1], -w]];
+        let c = place(&mut g, &local);
+        let coords = [c[0], c[1], c[2], c[3]];
+        let (nu, t) = (g.f(0.0, 0.45), g.f(0.01, 0.4));
+        let k = to_global(&mitc4_local_stiffness(&coords, E, nu, t), &quad_transform_3d(&coords), 24);
+        let name = format!("MITC4 #{s} warp {w:.3}");
+        check(&name, &k, &c, Layout::Spatial { rot: true, warp: false }, 1e-10);
+        assert_kernel(&name, &k, 24, 6, 1e-10, 1e-9);
     }
-    assert!(last > 1e-3, "warped MITC4 now rigid-invariant ({last:e}): update the finding");
 }

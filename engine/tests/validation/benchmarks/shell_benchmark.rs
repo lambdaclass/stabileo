@@ -6429,7 +6429,7 @@ fn benchmark_ss_scordelis_lo() {
 
         // Boundary conditions:
         // x=0 (rigid diaphragm): uy=0, uz=0
-        // x=half_l (free end): all free
+        // x=half_l (midspan symmetry): ux=0
         // θ=0 (crown symmetry): uy=0
         // θ=θ_max (free edge): all free
         let mut supports = HashMap::new();
@@ -6449,9 +6449,13 @@ fn benchmark_ss_scordelis_lo() {
             }
         }
 
-        // Pin one corner to prevent ux rigid body
-        let corner_nid = grid[0][0][0];
-        supports.insert(corner_nid.to_string(), sup3d(corner_nid, true, true, true, false, false, false));
+        // x=half_l (midspan symmetry): ux=0. Without it the quarter vault can
+        // rotate rigidly about the y axis through the pinned corner.
+        for j in 0..=n {
+            for &nid in &grid[n][j] {
+                supports.insert(nid.to_string(), sup3d(nid, true, j == 0, false, false, false, false));
+            }
+        }
 
         // Use pressure loads for gravity (simpler and more controlled)
         // Total gravity on quarter = 90 kN/m² acting in -z direction
@@ -6497,6 +6501,9 @@ fn benchmark_ss_scordelis_lo() {
             "SS Scordelis-Lo {}×{}: uz={:.6e}, ref={:.4}, ratio={:.4}",
             n, n, uz, ref_val, ratio
         );
+        // Current: 6×6 ≈ 0.952, 8×8 ≈ 0.965.
+        assert!(ratio > 0.9 && ratio < 1.05,
+            "SS Scordelis-Lo {}×{}: ratio {:.4} out of range [0.9, 1.05]", n, n, ratio);
     }
 }
 
@@ -6617,7 +6624,7 @@ fn benchmark_ss_pinched_hemisphere() {
         );
 
         // SHB8-ANS is membrane-locked on hemisphere (translations-only DOFs, no drilling).
-        // With correct E=68.25 GPa: ratios ~1e-4 (8×8) and ~3e-4 (16×16).
+        // With correct E=68.25 GPa: ratios ~4e-4 (8×8) and ~9e-4 (16×16).
         // Just verify nonzero deflection; curved_shell element handles hemisphere properly.
         assert!(ux > 1e-15, "SS Hemisphere {}×{}: should deflect", n, n);
         if n == 8 {
@@ -6636,13 +6643,14 @@ fn benchmark_ss_pinched_hemisphere() {
 #[test]
 fn benchmark_ss_twisted_beam() {
     // MacNeal-Harder twisted beam: 12×1×0.32, 90° twist
-    // Tip load Fy=1 → ref tip uy = 0.005424
+    // Tip load Fy=1 (load case B: out-of-plane at the tip, where the width
+    // lies along z) → ref tip uy = 0.001754. 0.005424 is load case A (Pz).
     let e_mpa = 29000.0; // psi → treat as MPa for consistency
     let nu = 0.22;
     let t = 0.32;
     let l = 12.0;
     let w = 1.1;
-    let ref_uy = 0.005424;
+    let ref_uy = 0.001754;
     let pi = std::f64::consts::PI;
 
     let meshes = [4, 8];
@@ -6726,14 +6734,15 @@ fn benchmark_ss_twisted_beam() {
         );
 
         // Permanent gate: SHB8-ANS must capture twist geometry.
-        // Current: 4×1 ratio≈0.027, 8×1 ratio≈0.082 (vs MITC4 ~0.002).
+        // Current: 4×1 ratio≈0.67, 8×1 ratio≈0.82 (covariant ANS; the old
+        // global-z ANS locked at ≈0.08 / 0.25 against this reference).
         // Floor at 50% of current to catch regressions.
         assert!(uy > 1e-15, "SS Twisted beam {}×{}: should deflect", nx, ny);
         if nx == 4 {
-            assert!(ratio > 0.01, "SS Twisted beam 4×1: ratio {:.4} regressed below floor 0.01", ratio);
+            assert!(ratio > 0.33, "SS Twisted beam 4×1: ratio {:.4} regressed below floor 0.33", ratio);
         }
         if nx == 8 {
-            assert!(ratio > 0.03, "SS Twisted beam 8×1: ratio {:.4} regressed below floor 0.03", ratio);
+            assert!(ratio > 0.41, "SS Twisted beam 8×1: ratio {:.4} regressed below floor 0.41", ratio);
         }
     }
 }
@@ -6838,7 +6847,7 @@ fn benchmark_ss_spherical_cap() {
 
     println!("SS Spherical cap R/t={}: ux={:.6e}, ref={:.4}, ratio={:.4}", r_over_t, ux, ref_val, ratio);
     // SHB8-ANS is membrane-locked on spherical cap (same as hemisphere).
-    // With correct E=68.25 GPa: ratio ~1e-5. Just verify nonzero deflection.
+    // With correct E=68.25 GPa: ratio ~1e-4. Just verify nonzero deflection.
     assert!(ux > 1e-15, "SS Spherical cap: should deflect");
     assert!(ratio > 1e-7, "SS Spherical cap: ratio {:.6} regressed below floor 1e-7", ratio);
 }
@@ -6851,9 +6860,9 @@ fn benchmark_ss_spherical_cap() {
 //
 // | Benchmark            | MITC4       | MITC9       | SHB8-ANS    | Curved Shell |
 // |----------------------|-------------|-------------|-------------|--------------|
-// | Hemisphere (pinched) | ratio 0.03  | ratio 0.04  | ratio 1e-4  | ratio 0.94   |
-// | Twisted beam A       | ratio 0.002 | ratio 0.001 | ratio 0.08  | ratio 0.01+  |
-// | Twisted beam B       | ratio 0.002 | ratio 0.002 | ratio 0.03  | TBD          |
+// | Hemisphere (pinched) | ratio 0.03  | ratio 0.04  | ratio 4e-4  | ratio 0.94   |
+// | Twisted beam A       | ratio 0.002 | ratio 0.001 | (not run)   | ratio 0.01+  |
+// | Twisted beam B       | ratio 0.002 | ratio 0.002 | ratio 0.82  | TBD          |
 // | Raasch hook          | ratio 1e-4  | ratio 1e-4  | (not impl)  | TBD          |
 //
 // The curved shell (degenerated continuum) breaks through the flat-faceted wall
@@ -6952,7 +6961,7 @@ fn benchmark_shell_family_frontier_gates() {
     // --- Twisted beam B: SHB8-ANS 8×1 ---
     let ss_twist = {
         let e_mpa = 29000.0; let nu = 0.22; let t = 0.32;
-        let l = 12.0; let w = 1.1; let ref_uy = 0.005424;
+        let l = 12.0; let w = 1.1; let ref_uy = 0.001754; // load case B (Fy)
         let pi = std::f64::consts::PI;
         let nx = 8; let ny = 1;
 
@@ -7001,7 +7010,7 @@ fn benchmark_shell_family_frontier_gates() {
 
     eprintln!("=== Shell Family Frontier Gates ===");
     eprintln!("SHB8-ANS hemisphere 8×8:   ratio = {:.4}", ss_hemi);
-    eprintln!("SHB8-ANS twisted beam 8×1: ratio = {:.4}", ss_twist);
+    eprintln!("SHB8-ANS twisted beam B 8×1: ratio = {:.4}", ss_twist);
     eprintln!("");
     eprintln!("Known MITC4 bests:  hemisphere ~0.03, twisted ~0.002");
     eprintln!("Known MITC9 bests:  hemisphere ~0.04, twisted ~0.002");
@@ -7012,7 +7021,7 @@ fn benchmark_shell_family_frontier_gates() {
     // Gate: SHB8-ANS is membrane-locked on hemisphere with correct E=68.25 GPa.
     // Twisted beam uses different material (E=29 GPa), unaffected.
     assert!(ss_hemi > 1e-6, "SHB8-ANS hemisphere regressed: ratio {:.6}", ss_hemi);
-    assert!(ss_twist > 0.01, "SHB8-ANS twisted beam regressed: ratio {:.4}", ss_twist);
+    assert!(ss_twist > 0.41, "SHB8-ANS twisted beam regressed: ratio {:.4}", ss_twist);
 }
 
 // ================================================================
