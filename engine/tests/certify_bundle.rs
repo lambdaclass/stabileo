@@ -166,3 +166,49 @@ fn export_large_bundles() {
         std::fs::write(dir.join(format!("{name}.json")), json).unwrap();
     }
 }
+
+/// 2D beam of `n` elements, pinned with a settlement at node 1, a settled
+/// roller mid-length, a plain roller at the end.
+fn settled_beam_2d(n: usize) -> SolverInput {
+    let mut nodes = serde_json::Map::new();
+    let mut elements = serde_json::Map::new();
+    for i in 0..=n {
+        nodes.insert((i + 1).to_string(), serde_json::json!({ "id": i + 1, "x": 12.0 * i as f64 / n as f64, "z": 0.0 }));
+        if i < n {
+            elements.insert((i + 1).to_string(), serde_json::json!({
+                "id": i + 1, "type": "frame", "nodeI": i + 1, "nodeJ": i + 2, "materialId": 1, "sectionId": 1
+            }));
+        }
+    }
+    serde_json::from_value(serde_json::json!({
+        "nodes": nodes, "elements": elements,
+        "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+        "sections": { "1": { "id": 1, "a": 0.01, "iz": 1e-4 } },
+        "supports": {
+            "1": { "id": 1, "nodeId": 1, "type": "pinned", "dx": 0.002, "dz": -0.01 },
+            "2": { "id": 2, "nodeId": n / 2 + 1, "type": "rollerX", "dz": -0.005 },
+            "3": { "id": 3, "nodeId": n + 1, "type": "rollerX" }
+        },
+        "loads": [{ "type": "nodal", "data": { "nodeId": n / 4 + 1, "fx": 0.0, "fz": -20.0, "my": 0.0 } }]
+    }))
+    .unwrap()
+}
+
+/// 2D bundles export for small and large models with settlements, and the
+/// bound is tight (the restrained columns enter fLo/fHi). Inclined supports
+/// and constraints are refused. (Mutants in reduced_sparse_2d and
+/// reduce_rhs_sparse survived without a 2D bundle test.)
+#[test]
+fn export_bundles_2d_with_settlements() {
+    use dedaliano_engine::certify::bundle::export_linear_bundle_2d;
+    for n in [6, 40] {
+        let b = export_linear_bundle_2d(&settled_beam_2d(n)).unwrap_or_else(|e| panic!("{n} elements: {e}"));
+        assert_eq!(b.n, 3 * (n + 1) - 4, "{n} elements: free DOFs");
+        assert!(b.info.rel_bound < 1e-8, "{n} elements: relative bound {} is not tight", b.info.rel_bound);
+        assert!(b.f_lo.iter().zip(&b.f_hi).any(|(lo, hi)| from_dyadic(*lo).unwrap() != 0.0 || from_dyadic(*hi).unwrap() != 0.0));
+    }
+    let mut inclined = settled_beam_2d(6);
+    let s = inclined.supports.get_mut("3").unwrap();
+    (s.support_type, s.angle) = ("inclinedRoller".into(), Some(0.3));
+    assert!(export_linear_bundle_2d(&inclined).unwrap_err().contains("inclined"));
+}

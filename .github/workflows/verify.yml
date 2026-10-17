@@ -137,3 +137,98 @@ jobs:
             opensees-report.json
             opensees-mismatches/
           if-no-files-found: ignore
+
+  # Coverage-guided fuzzing of the JSON entry points the WASM layer exposes
+  # (engine/fuzz, docs/verification/FUZZ_MUTANTS.md): no panic, no runaway
+  # work, finite results, consistent certificates. One target per runner,
+  # seeded from the template fixtures; crashing inputs are uploaded.
+  fuzz:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [json_static, json_dynamics, json_plastic, model_certify]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            engine
+            engine/fuzz
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Seed corpus
+        working-directory: engine
+        run: cargo run --release --example fuzz_seeds
+      - name: Build target
+        working-directory: engine
+        run: cargo fuzz build ${{ matrix.target }}
+      - name: Fuzz (30 min)
+        working-directory: engine
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cargo fuzz run ${{ matrix.target }} -- \
+            -max_total_time=1800 -rss_limit_mb=2048 -timeout=60 \
+            -print_final_stats=1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: engine/fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: ignore
+
+  # Mutation testing (cargo-mutants, scripts/mutants.sh, .cargo/mutants.toml,
+  # docs/verification/FUZZ_MUTANTS.md) of the certificate code, the solver core
+  # (DOF numbering, assembly, reactions, validation) and the element kernels.
+  # About 22k mutants is days of CPU, so the mutants are split into 64 shards
+  # and each night (or manual run) 4 runners take the next 4, all of them every
+  # 16 days. A missed mutant fails the job: add a test,
+  # or exclude it in .cargo/mutants.toml with the reason it is equivalent.
+  mutants:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        slot: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants
+      - name: Pick shard
+        id: shard
+        run: |
+          day=$(( $(date -u +%s) / 86400 ))
+          echo "k=$(( (day * 4 + ${{ matrix.slot }}) % 64 ))" >> "$GITHUB_OUTPUT"
+      - name: Mutants (shard ${{ steps.shard.outputs.k }}/64)
+        run: ./scripts/mutants.sh --shard ${{ steps.shard.outputs.k }}/64 --jobs 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutants-report-${{ steps.shard.outputs.k }}
+          path: mutants.out/
+          if-no-files-found: ignore

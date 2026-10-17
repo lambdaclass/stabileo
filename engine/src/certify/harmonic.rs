@@ -210,12 +210,11 @@ pub fn certify_sweep(
         let b = pt.abs_bound;
         let real = Enclosure { lo: down(ur - b), hi: up(ur + b) };
         let imag = Enclosure { lo: down(ui - b), hi: up(ui + b) };
-        let amp = (Interval::point(ur).square() + Interval::point(ui).square()).sqrt();
+        let amp = modulus(Interval::point(ur), Interval::point(ui));
         let amplitude = Enclosure { lo: down(amp.lo - b).max(0.0), hi: up(amp.hi + b) };
         // |u*_t − rep| ≤ b + |ũ_t − rep|
-        let d = (Interval::point(ur) - Interval::point(p.real)).square()
-            + (Interval::point(ui) - Interval::point(p.imag)).square();
-        let reported_error = up(b + d.sqrt().hi);
+        let d = modulus(Interval::point(ur) - Interval::point(p.real), Interval::point(ui) - Interval::point(p.imag));
+        let reported_error = up(b + d.hi);
         within &= real.contains(p.real) && imag.contains(p.imag) && amplitude.contains(p.amplitude);
         max_err = max_err.max(reported_error);
         peak_lo = peak_lo.max(amplitude.lo);
@@ -235,6 +234,16 @@ pub fn certify_sweep(
     let peak_amplitude = Enclosure { lo: peak_lo, hi: peak_hi };
     within &= peak_amplitude.contains(results.peak_amplitude);
     HarmonicCertificate::Certified { a0, a1, points, peak_amplitude, max_reported_error: max_err, reported_within: within }
+}
+
+/// Enclosure of `|re + i·im|`. The sum of squares is ≥ 0 exactly, but its
+/// outward rounding takes a zero lower end below 0 (`[0, 0] + [0, 0]` →
+/// `[−5e−324, …]`), which `sqrt` rejects as NaN: a zero response, or a
+/// reported value equal to the candidate, gave a NaN amplitude enclosure and
+/// error bound under a "certified" status. Clamping the lower end at 0 is sound.
+fn modulus(re: Interval, im: Interval) -> Interval {
+    let s = re.square() + im.square();
+    Interval { lo: s.lo.max(0.0), hi: s.hi }.sqrt()
 }
 
 /// One certified frequency point.
@@ -493,6 +502,16 @@ mod tests {
                 assert!(pc.shift > 0.0, "above resonance damping must supply coercivity");
             }
         }
+    }
+
+    #[test]
+    fn zero_response_has_finite_enclosures() {
+        // Found by the json_dynamics fuzz target: a DOF the load does not
+        // excite (ũ_t = 0) and a reported value equal to the candidate.
+        let m0 = modulus(Interval::point(0.0), Interval::point(0.0));
+        assert!(m0.lo == 0.0 && m0.hi >= 0.0 && m0.hi.is_finite(), "{m0:?}");
+        let m = modulus(Interval::point(3.0), Interval::point(-4.0));
+        assert!(m.lo <= 5.0 && 5.0 <= m.hi && m.hi - m.lo < 1e-14, "{m:?}");
     }
 
     #[test]

@@ -85,8 +85,8 @@ pub fn certify_linear_system_interval_rhs(
     if n == 0 {
         return Certificate::Certified { abs_bound: 0.0, rel_bound: 0.0, sigma: 0.0, residual_norm: 0.0 };
     }
-    if !(sigma > 0.0 && sigma.is_finite()) {
-        return Certificate::uncertified(format!("sigma must be positive and finite, got {sigma}"));
+    if let Err(reason) = check_sigma(sigma) {
+        return Certificate::uncertified(reason);
     }
     if let Err(reason) = certify_shifted_spd(k, n, sigma) {
         return Certificate::uncertified(reason);
@@ -123,7 +123,7 @@ pub fn certify_sigma_auto(k: &[f64], n: usize) -> Result<f64, String> {
     let mut last_err = String::new();
     for factor in [0.9, 0.5, 0.1, 0.01] {
         let sigma = factor * lambda;
-        if !(sigma > 0.0 && sigma.is_finite()) {
+        if check_sigma(sigma).is_err() {
             break;
         }
         match shifted_cholesky(k, n, sigma) {
@@ -152,10 +152,17 @@ pub(crate) fn certify_with_certified_sigma(k: &[f64], n: usize, f: &[Interval], 
     if n == 0 {
         return Certificate::Certified { abs_bound: 0.0, rel_bound: 0.0, sigma: 0.0, residual_norm: 0.0 };
     }
-    if !(sigma > 0.0 && sigma.is_finite()) {
-        return Certificate::uncertified(format!("sigma must be positive and finite, got {sigma}"));
-    }
     finish(k, n, f, u, sigma)
+}
+
+/// The bound ρ/σ needs σ > 0 and finite: a negative σ would give a negative
+/// "bound", and `S − σI ≻ 0` holds for it whenever λ_min(S) > σ.
+fn check_sigma(sigma: f64) -> Result<(), String> {
+    if sigma > 0.0 && sigma.is_finite() {
+        Ok(())
+    } else {
+        Err(format!("sigma must be positive and finite, got {sigma}"))
+    }
 }
 
 fn check_inputs(k: &[f64], n: usize, f: &[Interval], u: &[f64]) -> Result<(), String> {
@@ -182,6 +189,11 @@ fn check_inputs(k: &[f64], n: usize, f: &[Interval], u: &[f64]) -> Result<(), St
 
 /// Residual, bound and relative bound once S − σI ≻ 0 is certified.
 fn finish(k: &[f64], n: usize, f: &[Interval], u: &[f64], sigma: f64) -> Certificate {
+    // Every path checks σ before here; repeated so no caller can get a
+    // certificate with a negative or infinite σ.
+    if let Err(reason) = check_sigma(sigma) {
+        return Certificate::uncertified(reason);
+    }
     // r = f − K ũ in interval arithmetic
     let mut rho2 = 0.0f64;
     for i in 0..n {

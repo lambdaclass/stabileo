@@ -1320,3 +1320,156 @@ fn full_results_bounds_only_when_certified() {
     assert!(!full.certificate.is_certified());
     assert!(full.force_bounds.is_empty() && full.shell_bounds.is_empty());
 }
+
+/// σ must be positive and finite. A negative σ makes `S − σI` positive
+/// definite for any symmetric K with λ_min > σ, and the bound ρ/σ would be
+/// negative; σ = 0 or +∞ give no bound. (Mutants on the σ guard in
+/// certify_linear_system_interval_rhs survived without this test.)
+#[test]
+fn linear_certificate_rejects_nonpositive_or_infinite_sigma() {
+    // K = diag(2, 3), f = (2, 3), ũ = (1, 1) slightly perturbed so ρ > 0.
+    let k = [2.0, 0.0, 0.0, 3.0];
+    let f = [2.0, 3.0];
+    let u = [1.0 + 1e-9, 1.0];
+    assert!(certify_linear_system(&k, 2, &f, &u, 1.0).is_certified(), "σ = 1 ≤ λ_min = 2 certifies");
+    for sigma in [-1.0, -0.5, 0.0, f64::INFINITY, f64::NAN] {
+        let c = certify_linear_system(&k, 2, &f, &u, sigma);
+        assert!(!c.is_certified(), "σ = {sigma} must not certify: {c:?}");
+    }
+}
+
+/// Mismatched dimensions are uncertified, never a panic or a certificate of
+/// a different system. (Mutants `||` → `&&` in check_inputs survived.)
+#[test]
+fn linear_certificate_rejects_mismatched_dimensions() {
+    let k = [2.0, 0.0, 0.0, 3.0];
+    let ok = |c: Certificate| !c.is_certified();
+    assert!(ok(certify_linear_system(&k[..3], 2, &[2.0, 3.0], &[1.0, 1.0], 1.0)), "short K");
+    assert!(ok(certify_linear_system(&k, 2, &[2.0], &[1.0, 1.0], 1.0)), "short f");
+    assert!(ok(certify_linear_system(&k, 2, &[2.0, 3.0], &[1.0], 1.0)), "short ũ");
+    assert!(ok(certify_linear_system(&k, 2, &[2.0, 3.0, 4.0], &[1.0, 1.0, 1.0], 1.0)), "long f and ũ");
+}
+
+/// A σ above λ_min(S) must fail even when it is below every diagonal entry:
+/// only the Schur-complement pivots reveal it. K = [[2, 1.9], [1.9, 2]] has
+/// λ_min = 0.1; σ = 1 leaves the second pivot 1 − 1.9² < 0. (Mutants that
+/// added, instead of subtracting, Σ L_ip² in the interval Cholesky survived
+/// and would certify a too-small bound.)
+#[test]
+fn linear_certificate_needs_every_pivot_positive() {
+    let k = [2.0, 1.9, 1.9, 2.0];
+    let f = [3.9, 3.9];
+    let u = [1.0 + 1e-6, 1.0 - 1e-6]; // exact solution (1, 1)
+    for sigma in [1.0, 0.5, 0.2] {
+        let c = certify_linear_system(&k, 2, &f, &u, sigma);
+        assert!(!c.is_certified(), "σ = {sigma} > λ_min = 0.1 must not certify: {c:?}");
+    }
+    let c = certify_linear_system(&k, 2, &f, &u, 0.09);
+    let Certificate::Certified { abs_bound, .. } = c else { panic!("σ = 0.09 < λ_min certifies: {c:?}") };
+    let err = (2.0f64 * 1e-12).sqrt();
+    assert!(abs_bound >= err, "bound {abs_bound} below the true error {err}");
+}
+
+/// A beam of `n` frame elements: pinned at node 1 with a settlement, a roller
+/// with a settlement at mid-length, a plain roller at the end, a load at mid-span.
+fn settled_beam(n: usize) -> SolverInput {
+    let mut input = make_beam(n, 12.0, 200000.0, 0.01, 1e-4, "pinned", Some("rollerX"), vec![
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n / 4 + 1, fx: 0.0, fz: -20.0, my: 0.0 }),
+    ]);
+    let s1 = input.supports.values_mut().find(|s| s.node_id == 1).unwrap();
+    s1.dz = Some(-0.01);
+    s1.dx = Some(0.002);
+    let mid = n / 2 + 1;
+    let mut s = input.supports.values().next().unwrap().clone();
+    (s.id, s.node_id, s.support_type, s.dx, s.dz) = (99, mid, "rollerX".into(), None, Some(-0.005));
+    input.supports.insert("99".into(), s);
+    input
+}
+
+/// Certified results with prescribed support displacements: the restrained
+/// columns K_FR·u_R enter the right-hand side, so the bound is tight (a
+/// certificate that dropped them would be honest but loose). Both the dense
+/// (n_free < 64) and the sparse path. (Mutants of the settlement terms in
+/// PreparedK::certify survived without this test.)
+#[test]
+fn certified_settlements_are_tight() {
+    for n in [6, 40] {
+        let input = settled_beam(n);
+        let (res, cert) = certify_linear_2d(&input).unwrap();
+        let r = reduced_2d(&input, &res);
+        let label = format!("settled beam, {n} elements");
+        let (_, rel, _) = assert_honest(&label, &cert, &r);
+        assert!(rel < 1e-8, "{label}: relative bound {rel} is not tight");
+        let mid = res.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
+        assert!((mid.uz + 0.005).abs() < 1e-12, "{label}: settlement not applied: {mid:?}");
+    }
+}
+
+/// 3D beam of `n` frame elements along x, fixed at node 1, on an inclined
+/// roller at the tip with a skew normal and a prescribed displacement.
+fn inclined_settled_beam_3d(n: usize) -> SolverInput3D {
+    let mut nodes = serde_json::Map::new();
+    let mut elements = serde_json::Map::new();
+    for i in 0..=n {
+        nodes.insert((i + 1).to_string(), serde_json::json!({ "id": i + 1, "x": 6.0 * i as f64 / n as f64, "y": 0.0, "z": 0.0 }));
+        if i < n {
+            elements.insert((i + 1).to_string(), serde_json::json!({
+                "id": i + 1, "type": "frame", "nodeI": i + 1, "nodeJ": i + 2, "materialId": 1, "sectionId": 1
+            }));
+        }
+    }
+    serde_json::from_value(serde_json::json!({
+        "nodes": nodes, "elements": elements,
+        "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+        "sections": { "1": { "id": 1, "a": 0.01, "iy": 1e-4, "iz": 5e-5, "j": 3e-5 } },
+        "supports": {
+            "1": { "nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true },
+            "2": { "nodeId": n + 1, "rx": false, "ry": false, "rz": false, "rrx": false, "rry": false, "rrz": false,
+                   "isInclined": true, "normalX": 0.3, "normalY": 0.4, "normalZ": 0.866,
+                   "dx": 0.001, "dy": -0.002, "dz": -0.004 }
+        },
+        "loads": [{ "type": "nodal", "data": { "nodeId": n / 2 + 1, "fx": 1.0, "fy": 2.0, "fz": -10.0, "mx": 0.0, "my": 0.0, "mz": 0.0 } }]
+    }))
+    .unwrap()
+}
+
+/// Inclined supports with a prescribed displacement along the normal: the
+/// certificate is tight and the solution meets u·n̂ = d·n̂ (dense and sparse
+/// paths). (Mutants of the prescribed normal value in rotated_candidate_3d
+/// survived without this test.)
+#[test]
+fn certified_inclined_settlement_3d_is_tight() {
+    for n in [3, 15] {
+        let input = inclined_settled_beam_3d(n);
+        let (res, cert) = certify_linear_3d(&input).unwrap();
+        let Certificate::Certified { rel_bound, .. } = cert else { panic!("{n} elements: not certified: {cert:?}") };
+        assert!(rel_bound < 1e-8, "{n} elements: relative bound {rel_bound} is not tight");
+        let (nx, ny, nz) = (0.3, 0.4, 0.866);
+        let len = (nx * nx + ny * ny + nz * nz as f64).sqrt();
+        let tip = res.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+        let un = (tip.ux * nx + tip.uy * ny + tip.uz * nz) / len;
+        let dn = (0.001 * nx - 0.002 * ny - 0.004 * nz) / len;
+        assert!((un - dn).abs() < 1e-9, "{n} elements: u·n̂ = {un}, prescribed {dn}");
+    }
+}
+
+/// 2D version: an inclined roller with a prescribed displacement.
+#[test]
+fn certified_inclined_settlement_2d_is_tight() {
+    for n in [6, 40] {
+        let mut input = make_beam(n, 12.0, 200000.0, 0.01, 1e-4, "fixed", None, vec![
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 3.0, fz: -20.0, my: 0.0 }),
+        ]);
+        let mut s = input.supports.values().next().unwrap().clone();
+        (s.id, s.node_id, s.support_type) = (2, n + 1, "inclinedRoller".into());
+        (s.angle, s.dx, s.dz) = (Some(0.35), Some(0.002), Some(-0.003));
+        input.supports.insert("2".into(), s);
+        let (res, cert) = certify_linear_2d(&input).unwrap();
+        let Certificate::Certified { rel_bound, .. } = cert else { panic!("{n} elements: not certified: {cert:?}") };
+        assert!(rel_bound < 1e-8, "{n} elements: relative bound {rel_bound} is not tight");
+        let tip = res.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+        let (c, s) = (0.35f64.cos(), 0.35f64.sin());
+        let (un, dn) = (tip.ux * s + tip.uz * c, 0.002 * s - 0.003 * c);
+        assert!((un - dn).abs() < 1e-9, "{n} elements: normal displacement {un}, prescribed {dn}");
+    }
+}

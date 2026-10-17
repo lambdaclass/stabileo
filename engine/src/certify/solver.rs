@@ -581,18 +581,23 @@ fn reduce_rhs_sparse(
     if !u.iter().all(|x| x.is_finite()) {
         return Err(Certificate::uncertified("non-finite displacement in solver output"));
     }
+    Ok((sparse_rhs(k_full, nf, f, u), u[..nf].to_vec()))
+}
+
+/// Enclosure of f_F − K_FR u_R from the full sparse K (lower-triangle CSC,
+/// free DOFs first): the free×restrained block is the rows i ≥ nf of the
+/// columns j < nf.
+fn sparse_rhs(k_full: &CscMatrix, nf: usize, f: &[f64], u: &[f64]) -> Vec<Interval> {
     let mut f_eff: Vec<Interval> = f[..nf].iter().map(|&x| Interval::point(x)).collect();
-    for j in 0..k_full.n {
+    for (j, fj) in f_eff.iter_mut().enumerate() {
         for p in k_full.col_ptr[j]..k_full.col_ptr[j + 1] {
             let i = k_full.row_idx[p];
-            let v = k_full.values[p];
-            // Stored (i, j) with i ≥ j: the free×restrained block has i ≥ nf > j.
-            if i >= nf && j < nf && u[i] != 0.0 && v != 0.0 {
-                f_eff[j] = f_eff[j] - Interval::point(v) * Interval::point(u[i]);
+            if i >= nf {
+                *fj = sub_prod(*fj, k_full.values[p], u[i]);
             }
         }
     }
-    Ok((f_eff, u[..nf].to_vec()))
+    f_eff
 }
 
 /// Reduced system from the full dense K (n×n, free DOFs first) and full u:
@@ -602,19 +607,33 @@ fn certify_reduced(k: &[f64], n: usize, nf: usize, f: &[f64], u: &[f64]) -> Cert
         return Certificate::uncertified("non-finite displacement in solver output");
     }
     let mut k_ff = vec![0.0; nf * nf];
-    let mut f_eff = Vec::with_capacity(nf);
     for i in 0..nf {
-        let row = &k[i * n..(i + 1) * n];
-        k_ff[i * nf..(i + 1) * nf].copy_from_slice(&row[..nf]);
-        let mut acc = Interval::point(f[i]);
-        for j in nf..n {
-            if u[j] != 0.0 && row[j] != 0.0 {
-                acc = acc - Interval::point(row[j]) * Interval::point(u[j]);
-            }
-        }
-        f_eff.push(acc);
+        k_ff[i * nf..(i + 1) * nf].copy_from_slice(&k[i * n..i * n + nf]);
     }
+    let f_eff = reduce_rhs_dense(k, n, nf, f, u);
     certify_linear_system_auto_interval_rhs(&k_ff, nf, &f_eff, &u[..nf])
+}
+
+/// `acc − v·x` in interval arithmetic, skipping exact zeros: an interval
+/// product with a zero factor is widened outward to ±5e−324, which only
+/// loosens the enclosure (that skip is why `v == 0 || x == 0` is equivalent
+/// to `&&`; see .cargo/mutants.toml).
+fn sub_prod(acc: Interval, v: f64, x: f64) -> Interval {
+    if v == 0.0 || x == 0.0 {
+        acc
+    } else {
+        acc - Interval::point(v) * Interval::point(x)
+    }
+}
+
+/// Enclosure of f_F − K_FR u_R from the full dense K (n×n, free DOFs first).
+fn reduce_rhs_dense(k: &[f64], n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<Interval> {
+    (0..nf)
+        .map(|i| {
+            let row = &k[i * n..(i + 1) * n];
+            (nf..n).fold(Interval::point(f[i]), |acc, j| sub_prod(acc, row[j], u[j]))
+        })
+        .collect()
 }
 
 /// A stiffness whose coercivity has been certified once, ready to certify any
@@ -669,17 +688,7 @@ impl PreparedK {
                 if f.len() != n || u.len() != n {
                     return Certificate::uncertified("dimension mismatch in load or displacement vector");
                 }
-                let mut f_eff = Vec::with_capacity(nf);
-                for i in 0..nf {
-                    let row = &k[i * n..(i + 1) * n];
-                    let mut acc = Interval::point(f[i]);
-                    for j in nf..n {
-                        if u[j] != 0.0 && row[j] != 0.0 {
-                            acc = acc - Interval::point(row[j]) * Interval::point(u[j]);
-                        }
-                    }
-                    f_eff.push(acc);
-                }
+                let f_eff = reduce_rhs_dense(k, n, nf, f, u);
                 certify_with_certified_sigma(k_ff, nf, &f_eff, &u[..nf], *sigma)
             }
             PreparedK::Sparse { k_ff, k_full, nf, mu } => {
@@ -687,17 +696,7 @@ impl PreparedK {
                 if f.len() < nf || u.len() < k_full.n {
                     return Certificate::uncertified("dimension mismatch in load or displacement vector");
                 }
-                let mut f_eff: Vec<Interval> = f[..nf].iter().map(|&x| Interval::point(x)).collect();
-                for j in 0..k_full.n {
-                    for p in k_full.col_ptr[j]..k_full.col_ptr[j + 1] {
-                        let i = k_full.row_idx[p];
-                        let v = k_full.values[p];
-                        // Stored (i, j) with i ≥ j: the free×restrained block has i ≥ nf > j.
-                        if i >= nf && j < nf && u[i] != 0.0 && v != 0.0 {
-                            f_eff[j] = f_eff[j] - Interval::point(v) * Interval::point(u[i]);
-                        }
-                    }
-                }
+                let f_eff = sparse_rhs(k_full, nf, f, u);
                 certify_with_certified_mu(k_ff, &f_eff, &u[..nf], *mu)
             }
         }
@@ -707,19 +706,8 @@ impl PreparedK {
 /// Reduced system from the full sparse K (lower-triangle CSC, free DOFs first):
 /// K_FF ũ_F = f_F − K_FR u_R, the right-hand side enclosed in intervals.
 fn certify_reduced_sparse(k_ff: &CscMatrix, k_full: &CscMatrix, nf: usize, f: &[f64], u: &[f64]) -> Certificate {
-    if !u.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite displacement in solver output");
+    match reduce_rhs_sparse(k_full, nf, f, u) {
+        Ok((f_eff, u_f)) => certify_sparse_spd_system(k_ff, &f_eff, &u_f),
+        Err(c) => c,
     }
-    let mut f_eff: Vec<Interval> = f[..nf].iter().map(|&x| Interval::point(x)).collect();
-    for j in 0..k_full.n {
-        for p in k_full.col_ptr[j]..k_full.col_ptr[j + 1] {
-            let i = k_full.row_idx[p];
-            let v = k_full.values[p];
-            // Stored (i, j) with i ≥ j: the free×restrained block has i ≥ nf > j.
-            if i >= nf && j < nf && u[i] != 0.0 && v != 0.0 {
-                f_eff[j] = f_eff[j] - Interval::point(v) * Interval::point(u[i]);
-            }
-        }
-    }
-    certify_sparse_spd_system(k_ff, &f_eff, &u[..nf])
 }

@@ -22,13 +22,12 @@ impl DofNumbering {
         let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
         node_ids.sort();
 
-        // Build support lookup: node_id → support, sorted by ID for determinism.
-        // When multiple supports target the same node, the last (highest ID) wins.
-        let mut sorted_supports_2d: Vec<&SolverSupport> = input.supports.values().collect();
-        sorted_supports_2d.sort_by_key(|s| s.id);
-        let mut support_map: HashMap<usize, &SolverSupport> = HashMap::new();
-        for s in &sorted_supports_2d {
-            support_map.insert(s.node_id, s);
+        // Supports per node. Several on one node merge by OR (any of them
+        // restraining a DOF restrains it); validate_input_2d only lets plain
+        // rigid restraints share a node, so the merge is unambiguous.
+        let mut supports_at: HashMap<usize, Vec<&SolverSupport>> = HashMap::new();
+        for s in input.supports.values() {
+            supports_at.entry(s.node_id).or_default().push(s);
         }
 
         // Classify DOFs as free or restrained
@@ -37,11 +36,9 @@ impl DofNumbering {
 
         for &node_id in &node_ids {
             for local_dof in 0..dofs_per_node {
-                let is_fixed = if let Some(sup) = support_map.get(&node_id) {
-                    is_dof_restrained_2d(sup, local_dof)
-                } else {
-                    false
-                };
+                let is_fixed = supports_at
+                    .get(&node_id)
+                    .is_some_and(|sups| sups.iter().any(|sup| is_dof_restrained_2d(sup, local_dof)));
 
                 if is_fixed {
                     fixed_dofs.push((node_id, local_dof));
@@ -112,30 +109,15 @@ impl DofNumbering {
 
         for &node_id in &node_ids {
             for local_dof in 0..dofs_per_node {
-                let is_fixed = if let Some(sup) = support_map.get(&node_id) {
-                    if sup.is_inclined.unwrap_or(false) {
-                        // Inclined supports use the existing function
-                        is_dof_restrained_3d(sup, local_dof)
-                    } else if let Some(flags) = node_restrained.get(&node_id) {
-                        // Check spring stiffness first (springs make DOF free)
-                        let has_spring = match local_dof {
-                            0 => sup.kx.unwrap_or(0.0) > 0.0,
-                            1 => sup.ky.unwrap_or(0.0) > 0.0,
-                            2 => sup.kz.unwrap_or(0.0) > 0.0,
-                            3 => sup.krx.unwrap_or(0.0) > 0.0,
-                            4 => sup.kry.unwrap_or(0.0) > 0.0,
-                            5 => sup.krz.unwrap_or(0.0) > 0.0,
-                            6 => sup.kw.unwrap_or(0.0) > 0.0,
-                            _ => false,
-                        };
-                        if has_spring { false }
-                        else if local_dof < 7 { flags[local_dof] }
-                        else { false }
-                    } else {
-                        false
-                    }
-                } else {
-                    false
+                let is_fixed = match (support_map.get(&node_id), node_restrained.get(&node_id)) {
+                    (Some(sup), Some(flags)) => inclined_restrained_3d(sup, local_dof).unwrap_or_else(|| {
+                        // Springs make a DOF free (their stiffness is added to K).
+                        let k = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw];
+                        // local_dof < dofs_per_node ≤ 7 = flags.len() = k.len().
+                        let has_spring = k[local_dof].unwrap_or(0.0) > 0.0;
+                        !has_spring && flags[local_dof]
+                    }),
+                    _ => false,
                 };
 
                 if is_fixed {
@@ -238,19 +220,8 @@ impl DofNumbering {
 }
 
 fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
-    // Check if this DOF has a spring (springs are free DOFs with stiffness added)
-    let has_spring = match local_dof {
-        0 => sup.kx.unwrap_or(0.0) > 0.0,
-        1 => sup.ky.unwrap_or(0.0) > 0.0,
-        2 => sup.kz.unwrap_or(0.0) > 0.0,
-        _ => false,
-    };
-
-    // Springs are NOT restrained — they're free DOFs with added stiffness
-    if has_spring && sup.support_type == "spring" {
-        return false;
-    }
-
+    // A "spring" support leaves every DOF free (its stiffness is added to K);
+    // the rigid types restrain theirs whatever spring values they carry.
     match sup.support_type.as_str() {
         "fixed" => true,
         "pinned" => local_dof == 0 || local_dof == 1, // ux, uz fixed; ry free
@@ -264,50 +235,25 @@ fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
     }
 }
 
-fn is_dof_restrained_3d(sup: &SolverSupport3D, local_dof: usize) -> bool {
-    // Inclined supports: in rotated frame, DOF 0 = normal direction (restrained),
-    // DOFs 1,2 = tangential (free). Rotational DOFs use standard flags.
-    if sup.is_inclined.unwrap_or(false) {
-        if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
-            let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
-            if n_len > 1e-12 {
-                return match local_dof {
-                    0 => true,          // Normal direction — restrained
-                    1 | 2 => false,     // Tangential — free
-                    3 => sup.rrx,
-                    4 => sup.rry,
-                    5 => sup.rrz,
-                    6 => sup.rw.unwrap_or(false),
-                    _ => false,
-                };
-            }
-        }
+/// Restraint of `local_dof` at an inclined support (validate_input_3d rejects
+/// `isInclined` without a non-zero normal; assembly rotates only those with
+/// one): in the rotated frame DOF 0 is the normal (restrained), 1 and 2 are
+/// tangential (free), rotations and warping follow the flags. `None` when the
+/// support is not inclined.
+fn inclined_restrained_3d(sup: &SolverSupport3D, local_dof: usize) -> Option<bool> {
+    if !sup.is_inclined.unwrap_or(false) {
+        return None;
     }
-
-    // Check for spring stiffness
-    let has_spring = match local_dof {
-        0 => sup.kx.unwrap_or(0.0) > 0.0,
-        1 => sup.ky.unwrap_or(0.0) > 0.0,
-        2 => sup.kz.unwrap_or(0.0) > 0.0,
-        3 => sup.krx.unwrap_or(0.0) > 0.0,
-        4 => sup.kry.unwrap_or(0.0) > 0.0,
-        5 => sup.krz.unwrap_or(0.0) > 0.0,
-        6 => sup.kw.unwrap_or(0.0) > 0.0,
-        _ => false,
-    };
-
-    if has_spring {
-        return false;
+    let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) else { return None };
+    if (nx * nx + ny * ny + nz * nz).sqrt() <= 1e-12 {
+        return None;
     }
-
-    match local_dof {
-        0 => sup.rx,
-        1 => sup.ry,
-        2 => sup.rz,
+    Some(match local_dof {
+        0 => true,
         3 => sup.rrx,
         4 => sup.rry,
         5 => sup.rrz,
         6 => sup.rw.unwrap_or(false),
         _ => false,
-    }
+    })
 }

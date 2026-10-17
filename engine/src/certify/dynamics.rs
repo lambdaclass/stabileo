@@ -183,14 +183,16 @@ fn pts(x: &[f64]) -> Vec<Interval> {
     x.iter().map(|&v| ip(v)).collect()
 }
 
+/// `a / max(b, MIN_POSITIVE)` rounded up: a relative measure that stays finite
+/// (and tiny) for an identically zero solution, where the interval residual
+/// of exact zeros is a subnormal and `a / 0` would be +∞ — serialized as
+/// `null` in a field the web reads as a number (found by fuzzing,
+/// docs/verification/FUZZ_MUTANTS.md).
 fn up_div(a: f64, b: f64) -> f64 {
-    if b > 0.0 {
-        ip(a).div(ip(b)).hi
-    } else if a == 0.0 {
-        0.0
-    } else {
-        f64::INFINITY
+    if a == 0.0 {
+        return 0.0;
     }
+    ip(a).div(ip(b.max(f64::MIN_POSITIVE))).hi
 }
 
 // ───────────────────────────── stability ─────────────────────────────

@@ -3702,8 +3702,12 @@ pub(crate) fn build_reactions_2d(
     nf: usize,
     u_full: &[f64],
 ) -> Vec<Reaction> {
-    let mut reactions = Vec::new();
-    for sup in input.supports.values() {
+    let mut reactions: Vec<Reaction> = Vec::new();
+    // Several supports may target one node: its restrained-DOF reactions are
+    // reported once, and the node gets a single entry (spring forces of all
+    // its supports summed, as assembly adds all their stiffnesses).
+    let mut reported = std::collections::HashSet::new();
+    for sup in sorted_supports_2d(input) {
         let mut rx = 0.0;
         let mut rz = 0.0;
         let mut my = 0.0;
@@ -3750,7 +3754,9 @@ pub(crate) fn build_reactions_2d(
             for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                     if d >= nf {
-                        *val = reactions_vec[d - nf];
+                        if reported.insert(d) {
+                            *val = reactions_vec[d - nf];
+                        }
                     } else if sup.support_type != "inclinedRoller" {
                         let k = springs[i].unwrap_or(0.0);
                         if k > 0.0 {
@@ -3764,12 +3770,25 @@ pub(crate) fn build_reactions_2d(
             my = vals[2];
         }
 
-        reactions.push(Reaction {
-            node_id: sup.node_id,
-            rx, rz, my,
-        });
+        if let Some(r) = reactions.iter_mut().find(|r| r.node_id == sup.node_id) {
+            r.rx += rx;
+            r.rz += rz;
+            r.my += my;
+        } else {
+            reactions.push(Reaction {
+                node_id: sup.node_id,
+                rx, rz, my,
+            });
+        }
     }
     reactions
+}
+
+/// Supports in id order, so reactions are built deterministically.
+fn sorted_supports_2d(input: &SolverInput) -> Vec<&SolverSupport> {
+    let mut sups: Vec<&SolverSupport> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.id);
+    sups
 }
 
 pub(crate) fn build_reactions_2d_inclined(
@@ -3804,8 +3823,13 @@ pub(crate) fn build_reactions_3d(
     nf: usize,
     u_full: &[f64],
 ) -> Vec<Reaction3D> {
-    let mut reactions = Vec::new();
-    for sup in input.supports.values() {
+    let mut reactions: Vec<Reaction3D> = Vec::new();
+    // As in build_reactions_2d: restrained-DOF reactions once per node, one
+    // entry per node.
+    let mut reported = std::collections::HashSet::new();
+    let mut sups: Vec<&SolverSupport3D> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.node_id);
+    for sup in sups {
         let mut vals = [0.0f64; 6];
 
         // Handle each DOF individually: restrained DOFs from reactions_vec,
@@ -3819,7 +3843,9 @@ pub(crate) fn build_reactions_3d(
             if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                 if d >= nf {
                     // Restrained DOF: reaction from solve
-                    vals[i] = reactions_vec[d - nf];
+                    if reported.insert(d) {
+                        vals[i] = reactions_vec[d - nf];
+                    }
                 } else {
                     // Free DOF: check for spring stiffness
                     let k = spring_stiffs[i].unwrap_or(0.0);
@@ -3834,7 +3860,7 @@ pub(crate) fn build_reactions_3d(
         let bimoment = if dof_num.dofs_per_node >= 7 {
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                 if d >= nf {
-                    Some(reactions_vec[d - nf])
+                    reported.insert(d).then(|| reactions_vec[d - nf])
                 } else {
                     let kw = sup.kw.unwrap_or(0.0);
                     if kw > 0.0 {
@@ -3850,12 +3876,21 @@ pub(crate) fn build_reactions_3d(
             None
         };
 
-        reactions.push(Reaction3D {
-            node_id: sup.node_id,
-            fx: vals[0], fy: vals[1], fz: vals[2],
-            mx: vals[3], my: vals[4], mz: vals[5],
-            bimoment,
-        });
+        if let Some(r) = reactions.iter_mut().find(|r| r.node_id == sup.node_id) {
+            for (x, v) in [&mut r.fx, &mut r.fy, &mut r.fz, &mut r.mx, &mut r.my, &mut r.mz].into_iter().zip(vals) {
+                *x += v;
+            }
+            if let Some(b) = bimoment {
+                r.bimoment = Some(r.bimoment.unwrap_or(0.0) + b);
+            }
+        } else {
+            reactions.push(Reaction3D {
+                node_id: sup.node_id,
+                fx: vals[0], fy: vals[1], fz: vals[2],
+                mx: vals[3], my: vals[4], mz: vals[5],
+                bimoment,
+            });
+        }
     }
     reactions
 }
@@ -3888,6 +3923,59 @@ pub(crate) fn build_reactions_3d_inclined(
 
 // ── Input validation helpers ──
 
+/// Several supports on one node. Plain rigid restraints merge: a DOF is
+/// restrained if any of them restrains it (DofNumbering ORs them in 2D and 3D,
+/// and the node gets one reaction entry). Anything else is ambiguous (which
+/// spring, which settlement, which inclined direction?) and the solver used to
+/// read it differently per path: 2D kept only the highest-id support, so a
+/// `fixed` support followed by a `spring` left the node on the spring alone; 3D
+/// took springs and the inclined flag from one support picked in hash order.
+/// Such a model is rejected with an error naming the node. The web app keeps
+/// one support per node.
+///
+/// `sups` are (node id, support key in the input map, plain rigid restraint?).
+fn reject_ambiguous_shared_supports<'a>(sups: impl Iterator<Item = (usize, &'a str, bool)>) -> Result<(), String> {
+    let mut by_node: std::collections::BTreeMap<usize, Vec<(&str, bool)>> = std::collections::BTreeMap::new();
+    for (node, key, plain) in sups {
+        by_node.entry(node).or_default().push((key, plain));
+    }
+    for (node, mut sups) in by_node {
+        if sups.len() < 2 || sups.iter().all(|&(_, plain)| plain) {
+            continue;
+        }
+        sups.sort();
+        let keys: Vec<&str> = sups.iter().map(|&(k, _)| k).collect();
+        return Err(format!(
+            "Node {node} has several supports ({}) and not all are plain rigid restraints \
+             (springs, prescribed displacements or inclined directions); merge them into a single support",
+            keys.join(", ")
+        ));
+    }
+    Ok(())
+}
+
+fn zero_or_none(v: Option<f64>) -> bool {
+    v.is_none_or(|x| x == 0.0)
+}
+
+/// A 2D support that only restrains DOFs rigidly (no spring, settlement or angle).
+fn plain_rigid_2d(s: &SolverSupport) -> bool {
+    matches!(
+        s.support_type.as_str(),
+        "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ"
+    ) && [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].into_iter().all(zero_or_none)
+}
+
+/// A 3D support that only restrains DOFs rigidly (no spring, settlement or
+/// inclined direction).
+fn plain_rigid_3d(s: &SolverSupport3D) -> bool {
+    !s.is_inclined.unwrap_or(false)
+        && [s.normal_x, s.normal_y, s.normal_z].iter().all(Option::is_none)
+        && [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
+            .into_iter()
+            .all(zero_or_none)
+}
+
 pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
     // 0. Non-finite input rejection (NaN/Inf). Note: JSON cannot carry NaN, so
     // this primarily protects native/Rust API callers and internally-built inputs.
@@ -3913,6 +4001,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
             }
         }
     }
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_2d(s))))?;
     for load in &input.loads {
         let finite = match load {
             SolverLoad::Nodal(l) => l.fx.is_finite() && l.fz.is_finite() && l.my.is_finite(),
@@ -4107,6 +4196,18 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
                     sup.kw, sup.normal_x, sup.normal_y, sup.normal_z];
         if vals.into_iter().flatten().any(|v| !v.is_finite()) {
             return Err(format!("Support on node {}: numeric fields must be finite", sup.node_id));
+        }
+    }
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_3d(s))))?;
+    // An inclined support needs its direction: without a non-zero normal it
+    // used to solve silently as an ordinary support with its flags.
+    for s in input.supports.values() {
+        if s.is_inclined.unwrap_or(false) {
+            let n = [s.normal_x, s.normal_y, s.normal_z];
+            let len2: f64 = n.iter().map(|c| c.unwrap_or(0.0).powi(2)).sum();
+            if n.iter().any(Option::is_none) || len2.sqrt() <= 1e-12 {
+                return Err(format!("Support on node {}: an inclined support needs a non-zero normal (normalX, normalY, normalZ)", s.node_id));
+            }
         }
     }
     for load in &input.loads {

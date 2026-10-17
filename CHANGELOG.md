@@ -11,6 +11,37 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Fixes found by fuzzing the WASM entry points (2026-10-17)
+
+Found by the cargo-fuzz targets in `engine/fuzz` (`docs/verification/FUZZ_MUTANTS.md`),
+each with a regression test.
+
+- **Several supports on one node double-counted its reaction.** Linear 2D/3D results listed
+  one reaction per support, each with the node's full restrained-DOF reaction, so ΣR was
+  off by the applied load and a *certified* result failed global equilibrium. Each node now
+  has a single reaction entry with its restrained reactions counted once (spring forces of
+  all its supports still add). `tests/duplicate_support_reactions.rs`.
+- **Several supports on one node could silently drop a restraint.** 2D DOF numbering kept
+  only the highest-id support of a node, so `fixed` (id 1) plus `pinned` (id 2) solved as a
+  pinned end; 3D ORed the restraint flags but took springs and the inclined flag from one
+  support picked in hash order. Plain rigid restraints on one node now merge by OR in 2D and
+  3D; any other combination (springs, prescribed displacements, inclined directions) is
+  rejected with an error naming the node. The web app already keeps one support per node.
+  `tests/duplicate_support_reactions.rs`.
+- **A 3D inclined support without a usable normal solved as an ordinary support.**
+  `isInclined: true` with a missing or zero normal fell back to the support's restraint
+  flags. It is now rejected; the web app always sends the normal. Found while triaging
+  surviving mutants of the DOF numbering. `tests/solver_mutation_kills.rs`.
+- **Harmonic certificates reported NaN enclosures for a zero response.** When the target DOF
+  was not excited (or the reported value equalled the candidate), the outward-rounded sum of
+  squares had a lower end of −5e−324 and its interval square root was NaN, so a *certified*
+  result carried NaN amplitude enclosures and error bounds. The modulus now clamps that lower
+  end at 0 (sound: the sum is ≥ 0 exactly). `tests/fuzz_regressions.rs`.
+- **Time-history certificates reported +∞ relative update residuals for a structure at
+  rest.** The subnormal interval residual of exact zeros was divided by max‖u‖ = 0, giving
+  `null` in fields the web reads as numbers. Relative residuals now divide by
+  max(scale, `f64::MIN_POSITIVE`). `tests/fuzz_regressions.rs`.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

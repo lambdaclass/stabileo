@@ -50,24 +50,10 @@ pub(crate) fn prod(a: f64, b: f64) -> Interval {
 /// Certify `ũ = u` for `K u = f`, `K` symmetric given by its lower triangle,
 /// `f` known as an interval vector.
 pub fn certify_sparse_spd_system(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Certificate {
-    let n = k.n;
-    if f.len() != n || u.len() != n || k.col_ptr.len() != n + 1 {
-        return Certificate::uncertified(format!(
-            "dimension mismatch: n={n}, f.len()={}, u.len()={}",
-            f.len(),
-            u.len()
-        ));
+    if let Err(reason) = check_system(k, f, u) {
+        return Certificate::uncertified(reason);
     }
-    if !k.values.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite entry in K");
-    }
-    if !f.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite entry in f");
-    }
-    if !u.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite entry in ũ");
-    }
-    if n == 0 {
+    if k.n == 0 {
         return Certificate::Certified { abs_bound: 0.0, rel_bound: 0.0, sigma: 0.0, residual_norm: 0.0 };
     }
     let vals: Vec<Interval> = k.values.iter().map(|&x| Interval::point(x)).collect();
@@ -81,23 +67,41 @@ pub fn certify_sparse_spd_system(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Ce
 /// certified as a lower bound on λ_min(K) (e.g. by `certify_lambda_min_lower`
 /// on this same `k`). Used to certify several right-hand sides against one K.
 pub(crate) fn certify_with_certified_mu(k: &CscMatrix, f: &[Interval], u: &[f64], mu: f64) -> Certificate {
-    let n = k.n;
-    if f.len() != n || u.len() != n || k.col_ptr.len() != n + 1 {
-        return Certificate::uncertified("dimension mismatch");
+    if let Err(reason) = check_system(k, f, u) {
+        return Certificate::uncertified(reason);
     }
-    if !f.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite entry in f");
-    }
-    if !u.iter().all(|x| x.is_finite()) {
-        return Certificate::uncertified("non-finite entry in ũ");
-    }
-    if n == 0 {
+    if k.n == 0 {
         return Certificate::Certified { abs_bound: 0.0, rel_bound: 0.0, sigma: 0.0, residual_norm: 0.0 };
     }
-    if !(mu > 0.0 && mu.is_finite()) {
-        return Certificate::uncertified(format!("μ must be positive and finite, got {mu}"));
-    }
     finish(k, f, u, mu)
+}
+
+/// Dimensions agree and every entry of K, f and ũ is finite.
+fn check_system(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Result<(), String> {
+    let n = k.n;
+    if f.len() != n || u.len() != n || k.col_ptr.len() != n + 1 {
+        return Err(format!("dimension mismatch: n={n}, f.len()={}, u.len()={}", f.len(), u.len()));
+    }
+    if !k.values.iter().all(|x| x.is_finite()) {
+        return Err("non-finite entry in K".into());
+    }
+    if !f.iter().all(|x| x.is_finite()) {
+        return Err("non-finite entry in f".into());
+    }
+    if !u.iter().all(|x| x.is_finite()) {
+        return Err("non-finite entry in ũ".into());
+    }
+    Ok(())
+}
+
+/// The bound ρ/μ needs μ > 0 and finite: a negative μ would give a negative
+/// "bound".
+fn check_mu(mu: f64) -> Result<(), String> {
+    if mu > 0.0 && mu.is_finite() {
+        Ok(())
+    } else {
+        Err(format!("μ must be positive and finite, got {mu}"))
+    }
 }
 
 /// Certified μ > 0 with λ_min(A) ≥ μ for the exact symmetric matrix `A` whose
@@ -263,6 +267,9 @@ fn estimate_lambda_min(k: &CscMatrix, factor: &NumericCholesky) -> Result<f64, S
 
 /// Residual, bound and relative bound once λ_min(K) ≥ σ > 0 is certified.
 pub(crate) fn finish(k: &CscMatrix, f: &[Interval], u: &[f64], sigma: f64) -> Certificate {
+    if let Err(reason) = check_mu(sigma) {
+        return Certificate::uncertified(reason);
+    }
     let n = k.n;
     let mut r: Vec<Interval> = f.to_vec();
     for j in 0..n {
@@ -490,5 +497,18 @@ mod tests {
         let vals: Vec<Interval> = k.values.iter().map(|&x| Interval::point(x)).collect();
         let mu = gram_gershgorin(&vals, &l).unwrap();
         assert!(mu < 0.0, "μ = {mu}");
+    }
+
+    #[test]
+    fn finish_rejects_nonpositive_or_infinite_mu() {
+        // Every caller passes a certified μ > 0; finish() still refuses any
+        // other, since ρ/μ with μ < 0 would be a negative "bound".
+        let k = CscMatrix { n: 1, col_ptr: vec![0, 1], row_idx: vec![0], values: vec![2.0] };
+        let f = [Interval::point(2.0)];
+        assert!(finish(&k, &f, &[1.0 + 1e-9], 1.0).is_certified());
+        for mu in [-1.0, 0.0, f64::INFINITY, f64::NAN] {
+            assert!(!finish(&k, &f, &[1.0 + 1e-9], mu).is_certified(), "μ = {mu}");
+            assert!(!certify_with_certified_mu(&k, &f, &[1.0 + 1e-9], mu).is_certified(), "μ = {mu}");
+        }
     }
 }
