@@ -1207,6 +1207,9 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
 /// Solve a 3D structure with contact/gap elements.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    // The 3D iteration imposes no prescribed displacements and reads its
+    // states without rotating them back from inclined-support frames.
+    super::feature_gates::refuse_3d(&input.solver, "Contact analysis", &[super::feature_gates::Feature::PrescribedDisplacements, super::feature_gates::Feature::InclinedSupports])?;
 
     let max_iter = input.max_iter.unwrap_or(30);
     let max_flips = input.max_flips.unwrap_or(4);

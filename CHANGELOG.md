@@ -11,6 +11,62 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Every analysis supports a model feature or refuses it by name (2026-10-17)
+
+**BREAKING (results and refusals): several analyses solved a simplified model without a word;
+they now solve the model as given or refuse it with an error that names the feature and where
+it is.** `engine/tests/feature_matrix.rs` runs every (feature, analysis) pair on a small model
+where the feature matters and compares it with the same structure expressed without the
+feature, an analytical value or the linear solution; the result is in
+[`docs/verification/FEATURE_MATRIX.md`](docs/verification/FEATURE_MATRIX.md), and the test fails
+when the file drifts or when a cell is silently ignored or wrong without a branch fixing it.
+
+Now supported (results change):
+- **3D co-rotational: columns and members not along +X.** The rigid-body rotation was subtracted
+  in global axes from rotations in local axes. A vertical cantilever under a lateral load
+  converged to itself folded in half (u_z = −2L) and reported convergence; members along Y and
+  any member with a local-y vector other than +Y were equally wrong. An explicit local y nearly
+  parallel to the member is anchored to the initial frame.
+- **2D buckling and P-Delta with member end releases:** the geometric stiffness is condensed for
+  the release, as in 3D (a beam released into its support buckled 3.2% low).
+- **2D plastic collapse** forms hinges where a rotational spring (on any support type), a
+  constraint or a connector holds the rotation. Dropped there, the member carried more than Mp:
+  a beam on a rotational spring collapsed at 150 instead of 83.3 (unsafe).
+- **Curved-shell buckling:** the geometric stiffness was integrated with dA·h²/2 instead of dA,
+  1/200 at h = 0.1 (a strip buckled at 200 times its Euler load).
+- **3D P-Delta includes shell geometric stiffness** (plates, quads, quad9, solid and curved
+  shells); a compressed wall strip came back as its linear solution. Quad membrane forces for
+  geometric stiffness subtract the free thermal strain.
+- **3D material-nonlinear solves the constraint-reduced system**: rigid links, diaphragms and
+  EqualDOF were not part of the structure it iterated on. In 2D, convergence is measured on the
+  independent DOFs (a model with one constraint never converged).
+- **Timoshenko shear areas** in 2D co-rotational, arc-length/displacement-control and
+  material-nonlinear analyses (solved as Euler–Bernoulli, 22% stiff on a deep cantilever).
+- **Support springs:** the co-rotational, arc-length, material- and fiber-nonlinear and staged
+  2D analyses share the linear assembler's definition (the spring angle was dropped, and a
+  rotational spring on a pinned support in some of them); the 3D fiber analysis had no support
+  springs at all, and assembled truss members as full frames.
+- **Curved beams** are expanded in modal, buckling (which panicked), harmonic, Guyan,
+  Craig–Bampton, material- and fiber-nonlinear 3D analyses.
+- **Influence lines** keep the model's constraints and connectors.
+
+Now refused by name (previously solved without the feature):
+- connectors: co-rotational, arc length, displacement control, material- and fiber-nonlinear
+  (2D and 3D), staged construction, 3D plastic;
+- prescribed support displacements: co-rotational, arc length, displacement control,
+  fiber-nonlinear, SSI, harmonic (2D and 3D), 3D contact;
+- inclined supports: arc length, displacement control, fiber-nonlinear, SSI (2D and 3D), 3D
+  contact;
+- thermal loads: co-rotational, arc length, displacement control (temperature entered as
+  fixed global forces, 12–24% off on a heated, bent member); thermal loads on plates, quad9 and
+  curved shells in 3D buckling and P-Delta;
+- shear areas, member end releases, warping and shells: fiber-nonlinear; warping: 3D
+  co-rotational; shells: 3D material-nonlinear;
+- constraints and support springs: 3D plastic (its mechanism test accepted every state with
+  constraints and stopped at the first hinge with springs);
+- staged payloads carrying connectors (2D, 3D), solid or curved shells or curved beams (3D),
+  which the staged input has no field for and used to drop.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

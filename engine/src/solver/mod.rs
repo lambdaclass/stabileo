@@ -37,6 +37,7 @@ pub mod definiteness;
 pub mod sparse_assembly;
 pub(crate) mod sparse_tangent;
 pub mod pre_solve_gates;
+pub mod feature_gates;
 
 pub use dof::*;
 pub use assembly::*;

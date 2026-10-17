@@ -23,16 +23,21 @@ fn corot_local_y_ref(
     xi: f64, yi: f64, zi: f64, xj: f64, yj: f64, zj: f64,
     lyx: Option<f64>, lyy: Option<f64>, lyz: Option<f64>,
 ) -> (Option<f64>, Option<f64>, Option<f64>) {
-    if lyx.is_some() {
-        return (lyx, lyy, lyz);
-    }
     let (dx, dy, dz) = (xj - xi, yj - yi, zj - zi);
     let l = (dx * dx + dy * dy + dz * dz).sqrt();
     if l < 1e-15 {
-        return (None, None, None);
+        return (lyx, lyy, lyz);
     }
-    let r = default_ey_ref(&[dx / l, dy / l, dz / l]);
-    (Some(r[0]), Some(r[1]), Some(r[2]))
+    /*
+     * Anchor to the initial frame's own local y (before roll and handedness,
+     * which `compute_local_axes_3d` applies again). An explicit local y nearly
+     * parallel to the member was passed through as is, and the parallel-vector
+     * fallback then picked its reference from each configuration separately:
+     * the deformed frame turned against the initial one and the iteration
+     * "converged" to 3.5 times the lateral deflection.
+     */
+    let (_, ey, _) = compute_local_axes_3d(xi, yi, zi, xj, yj, zj, lyx, lyy, lyz, None, false);
+    (Some(ey[0]), Some(ey[1]), Some(ey[2]))
 }
 
 /// Solve a 2D frame using co-rotational large displacement analysis.
@@ -70,6 +75,14 @@ pub fn solve_corotational_2d(
     // naming a node that does not exist panicked instead of returning an
     // error. In WASM that ends the module, not the call.
     super::linear::validate_input_2d(input)?;
+    // The tangent has no prescribed-displacement term and no connectors.
+    // Temperature enters as fixed-end forces held in the global frame, so a
+    // heated member that rotates is pushed by its own (fictitious) thermal
+    // axial force: 12% on the tip rotation of a heated, bent cantilever.
+    super::feature_gates::refuse_2d(input, "Corotational analysis", &[
+        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::ThermalLoads,
+    ])?;
 
     let dof_num = DofNumbering::build_2d(input);
 
@@ -320,6 +333,22 @@ pub fn assemble_corotational_public(
     assemble_corotational(input, dof_num, u_full, f_int, k_t);
 }
 
+/// G·As of a section with a shear area (kN), `None` for an Euler–Bernoulli one.
+fn shear_rigidity_2d(mat: &SolverMaterial, sec: &SolverSection) -> Option<f64> {
+    let e = mat.e * 1000.0;
+    sec.as_y.filter(|&s| s > 0.0).map(|s| e / (2.0 * (1.0 + mat.nu)) * s)
+}
+
+/// Timoshenko shear parameter φ = 12EI/(G·As·L²), 0 without a shear area.
+///
+/// The co-rotational element is the linear element in a frame that follows
+/// the chord, so it takes the same φ the linear solver does; it used to pass
+/// 0, which solved a member with a shear area as Euler–Bernoulli (22% stiff
+/// on a deep cantilever) while the linear solve of the same model did not.
+fn timoshenko_phi(e: f64, iz: f64, g_as: Option<f64>, l: f64) -> f64 {
+    g_as.map_or(0.0, |g_as| 12.0 * e * iz / (g_as * l * l))
+}
+
 /// Assemble co-rotational internal forces and tangent stiffness for all elements.
 fn assemble_corotational(
     input: &SolverInput,
@@ -353,7 +382,7 @@ fn assemble_corotational(
             );
         } else {
             assemble_frame_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a, sec.iz,
+                dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
                 u_full, f_int, &mut scatter,
             );
         }
@@ -404,7 +433,7 @@ pub(crate) fn assemble_corotational_triplets_2d(
             );
         } else {
             assemble_frame_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a, sec.iz,
+                dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
                 u_full, f_int, &mut scatter,
             );
         }
@@ -496,6 +525,7 @@ fn assemble_frame_corotational(
     e: f64,
     a: f64,
     iz: f64,
+    g_as: Option<f64>,
     u_full: &[f64],
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
@@ -547,7 +577,7 @@ fn assemble_frame_corotational(
     // d_local = [0, 0, theta_i, d_axial, 0, theta_j]. (Mapping d_axial as
     // [+d_axial at i, -d_axial at j] instead would make the local elongation
     // u_j - u_i = -2*d_axial and quadruple the effective axial stiffness.)
-    let k_local = frame_local_stiffness_2d(e, a, iz, l0, elem.hinge_start, elem.hinge_end, 0.0);
+    let k_local = frame_local_stiffness_2d(e, a, iz, l0, elem.hinge_start, elem.hinge_end, timoshenko_phi(e, iz, g_as, l0));
 
     let p_mat: [[f64; 3]; 6] = [
         [0.0, 0.0, 0.0],
@@ -727,35 +757,10 @@ fn add_spring_contributions(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    for sup in input.supports.values() {
-        if sup.support_type != "spring" {
-            continue;
-        }
-
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    scatter(d, d, kx);
-                    f_int[d] += kx * u_full[d];
-                }
-            }
-        }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    scatter(d, d, ky);
-                    f_int[d] += ky * u_full[d];
-                }
-            }
-        }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    scatter(d, d, kz);
-                    f_int[d] += kz * u_full[d];
-                }
-            }
-        }
+    // Shared with the linear assembler (angle, rotational springs on any support).
+    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
     }
 }
 
@@ -1020,7 +1025,8 @@ pub fn compute_corotational_forces(
             let d_local = [0.0, 0.0, theta_i_local, d_axial, 0.0, theta_j_local];
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l0, elem.hinge_start, elem.hinge_end, 0.0,
+                e, sec.a, sec.iz, l0, elem.hinge_start, elem.hinge_end,
+                timoshenko_phi(e, sec.iz, shear_rigidity_2d(mat, sec), l0),
             );
 
             // f_local = K_local * d_local
@@ -1142,6 +1148,13 @@ pub fn solve_corotational_3d(
     }
 
     // Expand curved beams before DOF numbering and assembly.
+    // As in 2D: no prescribed-displacement term, no connectors, and
+    // temperature as fixed global forces.
+    super::feature_gates::refuse_3d(input, "Corotational analysis", &[
+        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements, super::feature_gates::Feature::ThermalLoads,
+        // The 3D co-rotational element has no warping DOF.
+        super::feature_gates::Feature::Warping,
+    ])?;
     let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
 
@@ -1631,6 +1644,13 @@ fn assemble_frame_corotational_3d(
 
     let theta_i_local = project(&theta_i_global);
     let theta_j_local = project(&theta_j_global);
+    // β is the axial vector of R_n·R_0ᵀ, a rotation in GLOBAL axes: it has to
+    // be taken to the corotated frame before it is subtracted from the
+    // (projected) nodal rotations. Subtracted as it was, it was right only
+    // where the member's local axes happen to coincide with the global ones
+    // (a member along +X); a column (local y = −Y) converged to itself folded
+    // in half, u_z = −2L, and reported convergence.
+    let [beta_x, beta_y, beta_z] = project(&[beta_x, beta_y, beta_z]);
 
     // Natural deformations (rigid body removed)
     let d_axial = l_n - l0;
@@ -2035,6 +2055,8 @@ fn compute_corotational_forces_3d(
         let theta_j = [u_elem_12[9], u_elem_12[10], u_elem_12[11]];
         let ti = project(&theta_i);
         let tj = project(&theta_j);
+        // β to the corotated frame, as in `assemble_frame_corotational_3d`.
+        let [beta_x, beta_y, beta_z] = project(&[beta_x, beta_y, beta_z]);
 
         let d_axial = l_n - l0;
         let d_nat = [

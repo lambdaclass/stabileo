@@ -3184,3 +3184,76 @@ mod tests {
         }
     }
 }
+
+/// The support springs of a 2D model as global stiffness entries `(i, j, k)`
+/// over all DOFs — exactly what `assemble_2d` adds to K: `kx`/`ky` rotated by
+/// the support's `angle` on a `"spring"` support (Kxx = kx·c² + ky·s²,
+/// Kxz = (kx − ky)·s·c), axis-aligned otherwise, and the rotational `kz` on any
+/// support type.
+///
+/// The nonlinear solvers build their own tangents, and each carried a copy of
+/// the spring loop that had drifted from this one: the angle was dropped
+/// (corotational, material- and fiber-nonlinear, arc length), and a
+/// rotational spring on a pinned support was dropped wherever the copy
+/// skipped non-`"spring"` supports. One definition keeps them with the linear
+/// solver.
+pub fn support_spring_entries_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<(usize, usize, f64)> {
+    let mut out = Vec::new();
+    let mut sups: Vec<&SolverSupport> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.id);
+    for sup in sups {
+        let kx = sup.kx.unwrap_or(0.0);
+        let ky = sup.ky.unwrap_or(0.0);
+        let kz = sup.kz.unwrap_or(0.0);
+        let dx = dof_num.map.get(&(sup.node_id, 0)).copied();
+        let dz = dof_num.map.get(&(sup.node_id, 1)).copied();
+        let angle = sup.angle.filter(|a| sup.support_type == "spring" && a.abs() > 1e-15 && (kx > 0.0 || ky > 0.0));
+        match (angle, dx, dz) {
+            (Some(angle), Some(dx), Some(dz)) => {
+                let (s, c) = angle.sin_cos();
+                let k_xz = (kx - ky) * s * c;
+                out.push((dx, dx, kx * c * c + ky * s * s));
+                out.push((dz, dz, kx * s * s + ky * c * c));
+                out.push((dx, dz, k_xz));
+                out.push((dz, dx, k_xz));
+            }
+            (Some(_), _, _) => {}
+            (None, _, _) => {
+                if kx > 0.0 {
+                    if let Some(d) = dx { out.push((d, d, kx)); }
+                }
+                if ky > 0.0 {
+                    if let Some(d) = dz { out.push((d, d, ky)); }
+                }
+            }
+        }
+        if kz > 0.0 && dof_num.dofs_per_node >= 3 {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                out.push((d, d, kz));
+            }
+        }
+    }
+    out
+}
+
+/// The support springs of a 3D model as diagonal stiffness entries `(i, i, k)`
+/// over all DOFs — what `assemble_3d` adds: `kx..krz` on their DOFs and `kw`
+/// on the warping DOF. For the nonlinear solvers that build their own
+/// tangents (see `support_spring_entries_2d`).
+pub fn support_spring_entries_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<(usize, usize, f64)> {
+    let mut out = Vec::new();
+    let mut sups: Vec<&SolverSupport3D> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.node_id);
+    for sup in sups {
+        let ks = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw];
+        for (local, k) in ks.into_iter().enumerate() {
+            let k = k.unwrap_or(0.0);
+            if k > 0.0 && local < dof_num.dofs_per_node {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, local)) {
+                    out.push((d, d, k));
+                }
+            }
+        }
+    }
+    out
+}

@@ -619,15 +619,31 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     let original_nodes: std::collections::HashSet<usize> = node_xy.keys().copied().collect();
     let mut next_node = node_xy.keys().max().copied().unwrap_or(0) + 1;
     let mut next_elem = members.iter().map(|m| m.id).max().unwrap_or(0) + 1;
-    let rot_restrained: std::collections::HashSet<usize> = current_input
+    /*
+     * Nodes whose rotation something other than the frame ends restrains. At
+     * any other node, a hinge in a lone frame end is dropped as "the same
+     * physical hinge" as the free node — which is only true when nothing else
+     * holds that rotation. A rotational spring on any support type (the
+     * assembler adds `kz` whatever the type), a constraint or a connector
+     * does, and dropping the hinge there let the member carry more than Mp:
+     * a beam on a rotational spring collapsed at 150 instead of 83.3.
+     */
+    let mut rot_restrained: std::collections::HashSet<usize> = current_input
         .supports
         .values()
-        .filter(|s| {
-            matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY")
-                || (s.support_type == "spring" && s.kz.unwrap_or(0.0) > 0.0)
-        })
+        .filter(|s| matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY") || s.kz.unwrap_or(0.0) > 0.0)
         .map(|s| s.node_id)
         .collect();
+    for c in &current_input.constraints {
+        match c {
+            Constraint::RigidLink(rl) => rot_restrained.extend([rl.master_node, rl.slave_node]),
+            Constraint::EqualDOF(eq) => rot_restrained.extend([eq.master_node, eq.slave_node]),
+            Constraint::EccentricConnection(ec) => rot_restrained.extend([ec.master_node, ec.slave_node]),
+            Constraint::Diaphragm(d) => rot_restrained.extend(d.slave_nodes.iter().copied().chain([d.master_node])),
+            Constraint::LinearMPC(m) => rot_restrained.extend(m.terms.iter().map(|t| t.node_id)),
+        }
+    }
+    rot_restrained.extend(current_input.connectors.values().flat_map(|c| [c.node_i, c.node_j]));
 
     let mut cumulative_factor = 0.0;
     let mut all_hinges: Vec<PlasticHinge> = Vec::new();

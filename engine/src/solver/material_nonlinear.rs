@@ -39,6 +39,8 @@ pub fn solve_nonlinear_material_2d(
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
+    // The tangent is assembled from members and support springs only.
+    super::feature_gates::refuse_2d(&input.solver, "Material-nonlinear analysis", &[super::feature_gates::Feature::Connectors])?;
 
     let solver = &input.solver;
     let dof_num = DofNumbering::build_2d(solver);
@@ -207,7 +209,14 @@ pub fn solve_nonlinear_material_2d(
             let r_free = extract_subvec(&residual, &free_idx);
 
             // Check convergence: ||R_free|| < tolerance * ||F_ext_free||.
-            let r_norm = vec_norm_l2(&r_free);
+            // Measured on the independent DOFs: with constraints, the raw
+            // free-DOF residual carries the constraint forces, which never
+            // vanish, and the iteration never converged (a model with a
+            // single rigid link or EqualDOF always came back unconverged).
+            let r_norm = match &cs {
+                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
+                None => vec_norm_l2(&r_free),
+            };
             let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
             if r_norm < tolerance * ref_norm {
                 converged_increment = true;
@@ -495,7 +504,8 @@ fn assemble_tangent_stiffness_scatter(
             };
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end, 0.0,
+                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end,
+                timoshenko_phi_2d(e, mat.nu, iz_eff, sec.as_y, l),
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -509,29 +519,9 @@ fn assemble_tangent_stiffness_scatter(
         }
     }
 
-    // Add spring stiffness contributions.
-    for sup in solver.supports.values() {
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    scatter_diag(d, d, kx);
-                }
-            }
-        }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    scatter_diag(d, d, ky);
-                }
-            }
-        }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    scatter_diag(d, d, kz);
-                }
-            }
-        }
+    // Add spring stiffness contributions (shared with the linear assembler).
+    for (i, j, k) in super::assembly::support_spring_entries_2d(solver, dof_num) {
+        scatter_diag(i, j, k);
     }
 
     // Artificial rotational stiffness for all-hinged nodes.
@@ -584,6 +574,17 @@ fn assemble_tangent_stiffness_scatter(
                 }
             }
         }
+    }
+}
+
+/// Timoshenko shear parameter φ = 12·E·I/(G·As·L²) of a member, 0 without a
+/// shear area. The member's elastic stiffness has to be the linear solver's:
+/// with φ = 0 a member with a shear area was solved as Euler–Bernoulli, 22%
+/// stiff on a deep cantilever, while still elastic.
+fn timoshenko_phi_2d(e: f64, nu: f64, iz: f64, as_y: Option<f64>, l: f64) -> f64 {
+    match as_y {
+        Some(as_y) if as_y > 0.0 => 12.0 * e * iz / (e / (2.0 * (1.0 + nu)) * as_y * l * l),
+        _ => 0.0,
     }
 }
 
@@ -658,7 +659,8 @@ fn compute_global_internal_forces(
             let u_local = transform_displacement(&u_global, &t, 6);
 
             let k_local = frame_local_stiffness_2d(
-                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end, 0.0,
+                e, sec.a, iz_eff, l, elem.hinge_start, elem.hinge_end,
+                timoshenko_phi_2d(e, mat.nu, iz_eff, sec.as_y, l),
             );
 
             // f_local = k_local * u_local
@@ -680,28 +682,8 @@ fn compute_global_internal_forces(
     }
 
     // Add spring force contributions: f_spring = k_spring * u
-    for sup in solver.supports.values() {
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    f_int[d] += kx * u[d];
-                }
-            }
-        }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    f_int[d] += ky * u[d];
-                }
-            }
-        }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    f_int[d] += kz * u[d];
-                }
-            }
-        }
+    for (i, j, k) in super::assembly::support_spring_entries_2d(solver, dof_num) {
+        f_int[i] += k * u[j];
     }
 
     f_int
@@ -919,6 +901,16 @@ pub fn solve_nonlinear_material_3d(
     input: &NonlinearMaterialInput3D,
 ) -> Result<NonlinearMaterialResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    // The tangent is assembled from members and support springs only.
+    super::feature_gates::refuse_3d(&input.solver, "Material-nonlinear analysis", &[super::feature_gates::Feature::Connectors, super::feature_gates::Feature::Shells])?;
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
+        let mut e = input.clone();
+        e.solver = super::linear::expand_curved_beams_3d(&input.solver);
+        e
+    });
+    let input = expanded.as_ref().unwrap_or(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
     super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
     let solver = &input.solver;
@@ -1062,7 +1054,14 @@ pub fn solve_nonlinear_material_3d(
             }
             let r_free = extract_subvec(&residual, &free_idx);
 
-            let r_norm = vec_norm_l2(&r_free);
+            // Measured on the independent DOFs: with constraints, the raw
+            // free-DOF residual carries the constraint forces, which never
+            // vanish, and the iteration never converged (a model with a
+            // single rigid link or EqualDOF always came back unconverged).
+            let r_norm = match &cs {
+                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
+                None => vec_norm_l2(&r_free),
+            };
             let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
             if r_norm < tolerance * ref_norm {
                 converged_increment = true;
@@ -1072,18 +1071,33 @@ pub fn solve_nonlinear_material_3d(
             // The prescribed-displacement coupling K_fr * u_r is already in
             // the residual via f_int (u_full carries the restrained values),
             // so the RHS is the residual itself.
-            let delta_u_f = if sparse_tangent {
-                // The 3D Newton loop does not constraint-reduce (unlike 2D —
-                // cs is only used for the final constraint-forces report), so
-                // the sparse CSC is built without a constraint system to
-                // match the dense path exactly.
+            // Constraint-reduced, as in 2D. The 3D loop used to solve the
+            // unreduced system and keep `cs` only for the constraint-force
+            // report, so rigid links, diaphragms and EqualDOF were not part of
+            // the structure it iterated on: a diaphragm-tied pair of columns
+            // was solved as two independent columns, and a node tied only by
+            // a constraint left the tangent singular.
+            let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+            let rhs_s = match &cs {
+                Some(cs) => cs.reduce_vector(&r_free),
+                None => r_free,
+            };
+            let delta_u_indep = if sparse_tangent {
                 let k_s_csc = tangent_free_sparse_triplets(
-                    &trip_rows, &trip_cols, &trip_vals, nf, &None,
+                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_free, &mut sparse_sym_cache)?
+                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
             } else {
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                solve_system(k_ff, r_free, nf)?
+                let k_s = match &cs {
+                    Some(cs) => cs.reduce_matrix(&k_ff),
+                    None => k_ff,
+                };
+                solve_system(k_s, rhs_s, ns)?
+            };
+            let delta_u_f = match &cs {
+                Some(cs) => cs.expand_solution(&delta_u_indep),
+                None => delta_u_indep,
             };
 
             // Update displacements (free DOFs; restrained stay at this

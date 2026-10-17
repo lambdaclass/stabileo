@@ -24,6 +24,44 @@ use super::sparse_tangent::{
 };
 use crate::element::cable::cable_self_weight;
 
+/// Model parts a staged payload can carry that the staged input has no field
+/// for: serde drops unknown fields, so these used to vanish from the analysis
+/// without a word (a staged model with connectors was solved without them).
+fn refuse_unrepresented(json: &str, keys: &[(&str, &str)]) -> Result<(), String> {
+    let v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))?;
+    for (key, what) in keys {
+        let present = match v.get(key) {
+            Some(serde_json::Value::Object(m)) => !m.is_empty(),
+            Some(serde_json::Value::Array(a)) => !a.is_empty(),
+            _ => false,
+        };
+        if present {
+            return Err(format!(
+                "Staged construction analysis does not support {what}; it would solve the model without them. \
+                 Remove them or use an analysis that supports them."
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Parse a 2D staged payload, refusing the model parts it cannot represent.
+pub fn parse_staged_2d(json: &str) -> Result<StagedInput, String> {
+    refuse_unrepresented(json, &[("connectors", "connector elements")])?;
+    serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
+}
+
+/// Parse a 3D staged payload, refusing the model parts it cannot represent.
+pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
+    refuse_unrepresented(json, &[
+        ("connectors", "connector elements"),
+        ("solidShells", "solid shell elements"),
+        ("curvedShells", "curved shell elements"),
+        ("curvedBeams", "curved beams"),
+    ])?;
+    serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
+}
+
 /// Solve a 2D staged construction analysis.
 ///
 /// For each stage in order:
@@ -504,29 +542,10 @@ fn assemble_staged_2d(
         }
     }
 
-    // Add spring stiffness
-    for sup in stage_input.supports.values() {
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    k_global[d * n + d] += kx;
-                }
-            }
-        }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    k_global[d * n + d] += ky;
-                }
-            }
-        }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    k_global[d * n + d] += kz;
-                }
-            }
-        }
+    // Add spring stiffness (shared with the linear assembler: angle, and
+    // rotational springs on any support type).
+    for (i, j, k) in super::assembly::support_spring_entries_2d(stage_input, dof_num) {
+        k_global[i * n + j] += k;
     }
 
     let mut max_diag = 0.0f64;
@@ -762,37 +781,15 @@ fn assemble_staged_2d_triplets(
         }
     }
 
-    // Add spring stiffness
-    for sup in stage_input.supports.values() {
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    rows.push(d);
-                    cols.push(d);
-                    vals.push(kx);
-                    diag[d] += kx;
-                }
-            }
+    // Add spring stiffness (shared with the linear assembler), lower triangle.
+    for (i, j, k) in super::assembly::support_spring_entries_2d(stage_input, dof_num) {
+        if i >= j {
+            rows.push(i);
+            cols.push(j);
+            vals.push(k);
         }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    rows.push(d);
-                    cols.push(d);
-                    vals.push(ky);
-                    diag[d] += ky;
-                }
-            }
-        }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    rows.push(d);
-                    cols.push(d);
-                    vals.push(kz);
-                    diag[d] += kz;
-                }
-            }
+        if i == j {
+            diag[i] += k;
         }
     }
 

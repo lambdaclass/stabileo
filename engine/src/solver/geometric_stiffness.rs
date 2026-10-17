@@ -193,7 +193,7 @@ pub(crate) fn emit_geometric_stiffness_2d(
         // Axial deformation, less the free thermal strain → axial force
         let axial_force = e * sec.a * ((u_local[3] - u_local[0]) / l - THERMAL_ALPHA * dt);
 
-        let k_g_global = frame_kg_global_2d(axial_force, l, &t);
+        let k_g_global = frame_kg_global_2d(axial_force, l, &t, elem.hinge_start, elem.hinge_end);
 
         // Add to global matrix
         let ndof = elem_dofs.len();
@@ -205,10 +205,15 @@ pub(crate) fn emit_geometric_stiffness_2d(
     }
 }
 
-/// Global 6×6 geometric stiffness of a plane frame member under axial force
-/// `p` (tension positive), Przemieniecki, with `t` its 6×6 transformation.
+/// Local 6×6 geometric stiffness of a plane frame member under axial force
+/// `p` (tension positive), Przemieniecki, condensed for its end releases.
+///
+/// A released end rotation belongs to no one: the elastic stiffness condenses
+/// it out, and the geometric one has to follow (see `frame_kg_local_3d`). Left
+/// uncondensed it added −4·P·L/30 on a rotation nothing holds: a beam released
+/// into its support buckled 3.2% below the same beam on a pinned support.
 #[allow(clippy::identity_op, clippy::erasing_op)]
-fn frame_kg_global_2d(p: f64, l: f64, t: &[f64]) -> Vec<f64> {
+pub(crate) fn frame_kg_local_2d(p: f64, l: f64, hinge_start: bool, hinge_end: bool) -> Vec<f64> {
     let coeff = p / (30.0 * l);
 
     // Local geometric stiffness (transverse DOFs: v1, θ1, v2, θ2 → indices 1,2,4,5)
@@ -233,7 +238,31 @@ fn frame_kg_global_2d(p: f64, l: f64, t: &[f64]) -> Vec<f64> {
     k_g_local[5 * 6 + 4] = -3.0 * l * coeff;
     k_g_local[5 * 6 + 5] = 4.0 * l * l * coeff;
 
-    transform_stiffness(&k_g_local, t, 6)
+    if hinge_start || hinge_end {
+        // θ = T·(v1, θ1, v2, θ2): a released rotation follows the elastic map
+        // of the Euler–Bernoulli block, as in `frame_kg_local_3d` (θz = v').
+        let d = [1usize, 2, 4, 5];
+        let mut t = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
+        let (chord, half) = (1.0 / l, 1.5 / l);
+        match (hinge_start, hinge_end) {
+            (true, true) => { t[1] = [-chord, 0.0, chord, 0.0]; t[3] = [-chord, 0.0, chord, 0.0]; }
+            (true, false) => { t[1] = [-half, 0.0, half, -0.5]; }
+            (false, true) => { t[3] = [-half, -0.5, half, 0.0]; }
+            (false, false) => unreachable!(),
+        }
+        let mut kb = [[0.0; 4]; 4];
+        for a in 0..4 { for b in 0..4 { kb[a][b] = k_g_local[d[a] * 6 + d[b]]; } }
+        let mut kt = [[0.0; 4]; 4];
+        for a in 0..4 { for b in 0..4 { kt[a][b] = (0..4).map(|k| kb[a][k] * t[k][b]).sum(); } }
+        for a in 0..4 { for b in 0..4 { k_g_local[d[a] * 6 + d[b]] = (0..4).map(|k| t[k][a] * kt[k][b]).sum(); } }
+    }
+    k_g_local
+}
+
+/// Global 6×6 geometric stiffness of a plane frame member under axial force
+/// `p` (tension positive), with `t` its 6×6 transformation.
+fn frame_kg_global_2d(p: f64, l: f64, t: &[f64], hinge_start: bool, hinge_end: bool) -> Vec<f64> {
+    transform_stiffness(&frame_kg_local_2d(p, l, hinge_start, hinge_end), t, 6)
 }
 
 /// Global 4×4 geometric stiffness of a plane truss member, `p_over_l` = P/L.
@@ -351,26 +380,7 @@ pub fn build_kg_from_forces_2d(
             }
         } else {
             let t = crate::element::frame_transform_2d(cos, sin);
-            let p = axial_force;
-            let coeff = p / (30.0 * l);
-
-            let mut kg_local = vec![0.0; 36];
-            kg_local[1 * 6 + 1] = 36.0 * coeff;
-            kg_local[1 * 6 + 2] = 3.0 * l * coeff;
-            kg_local[1 * 6 + 4] = -36.0 * coeff;
-            kg_local[1 * 6 + 5] = 3.0 * l * coeff;
-            kg_local[2 * 6 + 1] = 3.0 * l * coeff;
-            kg_local[2 * 6 + 2] = 4.0 * l * l * coeff;
-            kg_local[2 * 6 + 4] = -3.0 * l * coeff;
-            kg_local[2 * 6 + 5] = -l * l * coeff;
-            kg_local[4 * 6 + 1] = -36.0 * coeff;
-            kg_local[4 * 6 + 2] = -3.0 * l * coeff;
-            kg_local[4 * 6 + 4] = 36.0 * coeff;
-            kg_local[4 * 6 + 5] = -3.0 * l * coeff;
-            kg_local[5 * 6 + 1] = 3.0 * l * coeff;
-            kg_local[5 * 6 + 2] = -l * l * coeff;
-            kg_local[5 * 6 + 4] = -3.0 * l * coeff;
-            kg_local[5 * 6 + 5] = 4.0 * l * l * coeff;
+            let kg_local = frame_kg_local_2d(axial_force, l, elem.hinge_start, elem.hinge_end);
 
             let kg_global = transform_stiffness(&kg_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -474,6 +484,21 @@ pub fn build_kg_from_forces_3d(
     kg
 }
 
+/// (α, ΔT_uniform, ΔT_gradient) of the thermal loads on a quad, summed.
+fn quad_thermal(input: &SolverInput3D, quad_id: usize) -> (f64, f64, f64) {
+    let (mut alpha, mut dtu, mut dtg) = (12e-6, 0.0, 0.0);
+    for l in &input.loads {
+        if let SolverLoad3D::QuadThermal(t) = l {
+            if t.element_id == quad_id {
+                alpha = t.alpha.unwrap_or(12e-6);
+                dtu += t.dt_uniform;
+                dtg += t.dt_gradient;
+            }
+        }
+    }
+    (alpha, dtu, dtg)
+}
+
 /// Add quad geometric stiffness to a pre-built Kg matrix, given displacements.
 /// Used by P-delta and other displacement-based geometric stiffness computations.
 pub fn add_quad_geometric_stiffness_3d(
@@ -509,9 +534,12 @@ pub fn add_quad_geometric_stiffness_3d(
         let mut u_local = [0.0; 24];
         u_local.copy_from_slice(&u_local_vec);
 
-        // Compute membrane stress resultants (force/length = stress × thickness)
-        // No thermal correction here: geometric stiffness uses the total stress state.
-        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness, 0.0, 0.0, 0.0);
+        // Membrane stress resultants (force/length = stress × thickness), from
+        // the mechanical strain: a free thermal expansion is stress-free and
+        // carries no geometric stiffness. Taken as total strain, a heated,
+        // unrestrained slab was stiffened in P-Delta by its own expansion.
+        let (alpha, dtu, dtg) = quad_thermal(input, quad.id);
+        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness, alpha, dtu, dtg);
         let nxx = s.sigma_xx * quad.thickness;
         let nyy = s.sigma_yy * quad.thickness;
         let nxy = s.tau_xy * quad.thickness;
@@ -825,6 +853,12 @@ pub(crate) fn emit_geometric_stiffness_3d(
             }
         }
     }
+
+    // Shells. Their geometric stiffness was assembled for buckling only:
+    // P-Delta on a model with slabs or walls left their membrane forces out
+    // of the tangent, so a compressed wall strip came back as its linear
+    // solution (13% short of the amplified one at P = 0.13·P_cr).
+    emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
 }
 
 /// One element's share of the P-Delta geometric stiffness in the affine form the
@@ -900,11 +934,40 @@ pub fn geometric_stiffness_terms_2d(input: &SolverInput, dof_num: &DofNumbering)
             let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
             let t = crate::element::frame_transform_2d(cos, sin);
             let elongation = elongation_from_rows(&t, 6, 0, 3, &dofs);
-            (dofs, frame_kg_global_2d(1.0, l, &t), elongation)
+            (dofs, frame_kg_global_2d(1.0, l, &t, elem.hinge_start, elem.hinge_end), elongation)
         };
         terms.push(KgAffineTerm { element_id: elem.id, dofs, g, elongation, e, a: sec.a, l, alpha: THERMAL_ALPHA, dt });
     }
     terms
+}
+
+/// The geometric stiffness of every shell family under the membrane forces of
+/// `u` (global axes), emitted as full symmetric entries over all DOFs.
+fn emit_shell_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
+    if input.plates.is_empty() && input.quads.is_empty() && input.quad9s.is_empty()
+        && input.solid_shells.is_empty() && input.curved_shells.is_empty()
+    {
+        return;
+    }
+    // Every DOF is kept (the P-Delta reactions read the restrained rows).
+    let mut kg = KgTriplets::new(dof_num.n_total);
+    add_plate_geometric_stiffness_3d(input, dof_num, u, &mut kg);
+    add_quad_geometric_stiffness_3d(input, dof_num, u, &mut kg);
+    add_quad9_geometric_stiffness_3d(input, dof_num, u, &mut kg);
+    add_solid_shell_geometric_stiffness_3d(input, dof_num, u, &mut kg);
+    add_curved_shell_geometric_stiffness_3d(input, dof_num, u, &mut kg);
+    // The adders emit each unordered pair once, lower triangle.
+    for ((&i, &j), &v) in kg.rows.iter().zip(&kg.cols).zip(&kg.vals) {
+        emit(i, j, v);
+        if i != j {
+            emit(j, i, v);
+        }
+    }
 }
 
 /// The affine terms of `emit_geometric_stiffness_3d` (frames, trusses, cables).

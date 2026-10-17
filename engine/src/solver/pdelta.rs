@@ -519,6 +519,9 @@ impl PDeltaSystem3D {
 /// Solve 3D P-Delta with sparse assembly for large models, including constrained models
 /// whose reduced system is small. The storage decision follows the full assembly size.
 pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
+    // Shell geometric stiffness reads the membrane force from the strain;
+    // only the quad subtracts the free thermal strain from it.
+    super::feature_gates::refuse_3d(input, "P-Delta analysis", &[super::feature_gates::Feature::ShellThermalNonQuad])?;
     let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
     if dof_num.n_free == 0 { return Err("No free DOFs".into()); }

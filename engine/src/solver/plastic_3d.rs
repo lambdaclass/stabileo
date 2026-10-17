@@ -659,6 +659,24 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
     })
 }
 
+/// Nodes whose rotation a shell element can hold.
+fn rotation_coupled_nodes(input: &SolverInput3D) -> HashSet<usize> {
+    let mut out: HashSet<usize> = HashSet::new();
+    for p in input.plates.values() {
+        out.extend(p.nodes);
+    }
+    for p in input.quads.values() {
+        out.extend(p.nodes);
+    }
+    for p in input.quad9s.values() {
+        out.extend(p.nodes);
+    }
+    for p in input.curved_shells.values() {
+        out.extend(p.nodes);
+    }
+    out
+}
+
 fn mechanism(input: &SolverInput3D) -> bool {
     carry(input).is_none()
 }
@@ -693,6 +711,14 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     super::super::pre_solve_gates::refuse_broken_elements(&super::super::pre_solve_gates::check_shell_distortion_3d(
         &input.solver,
     ))?;
+    // The mechanism test (`carry`/`balanced`) cannot tell a collapse from a
+    // free mode when constraints or connectors tie the nodes (it accepted
+    // every state, and a beam on a rigid link "collapsed" at 12 times its
+    // load), and with support springs it stopped at the first hinge (a
+    // propped beam at 40% of its collapse load).
+    super::super::feature_gates::refuse_3d(&input.solver, "Plastic (pushover) analysis", &[
+        super::super::feature_gates::Feature::Constraints, super::super::feature_gates::Feature::Connectors, super::super::feature_gates::Feature::SupportSprings,
+    ])?;
     let max_hinges = input.max_hinges.unwrap_or(30);
 
     let mut mp_map: HashMap<usize, (f64, f64)> = HashMap::new();
@@ -980,6 +1006,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
         // spins freely: the last hinge there adds nothing but that spin (the
         // corner of a planar frame needs one hinge, not two).
         let mut pending: HashMap<usize, usize> = HashMap::new();
+        let coupled = rotation_coupled_nodes(&current_input);
         chosen.retain(|&(mi, t)| {
             let m = &members[mi];
             let Some(n) = m.slot(t).map(|(key, end)| {
@@ -991,6 +1018,12 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
             let couple = current_input.loads.iter().any(|l| {
                 matches!(l, SolverLoad3D::Nodal(nl) if nl.node_id == n && (nl.mx != 0.0 || nl.my != 0.0 || nl.mz != 0.0))
             });
+            // A slab or wall can hold the node's rotation too; dropping the
+            // hinge there would let the member carry more than its plastic
+            // moment.
+            if coupled.contains(&n) {
+                return true;
+            }
             if couple {
                 return true;
             }

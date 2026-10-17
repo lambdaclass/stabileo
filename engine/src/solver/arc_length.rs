@@ -119,6 +119,13 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
+    // The co-rotational tangent here carries no connectors, no prescribed
+    // displacements and no inclined-support rotation, and it treats
+    // temperature as fixed global forces (see `solve_corotational_2d`).
+    super::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
+        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::InclinedSupports, super::feature_gates::Feature::ThermalLoads,
+    ])?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -366,6 +373,10 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
+    super::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
+        super::feature_gates::Feature::Connectors, super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::InclinedSupports, super::feature_gates::Feature::ThermalLoads,
+    ])?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -762,19 +773,10 @@ fn add_spring_stiffness(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    for sup in input.supports.values() {
-        if sup.support_type != "spring" { continue; }
-        let springs = [(0, sup.kx), (1, sup.ky), (2, sup.kz)];
-        for &(local_dof, k_opt) in &springs {
-            if let Some(k) = k_opt {
-                if k > 0.0 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        scatter(d, d, k);
-                        f_int[d] += k * u_full[d];
-                    }
-                }
-            }
-        }
+    // Shared with the linear assembler (angle, rotational springs on any support).
+    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
     }
 }
 

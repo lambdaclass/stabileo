@@ -97,6 +97,9 @@ pub struct SpringResult {
 /// Solve a 2D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
+    // The secant solve neither imposes prescribed displacements nor rotates
+    // results back from inclined-support frames.
+    super::feature_gates::refuse_2d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements, super::feature_gates::Feature::InclinedSupports])?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -320,6 +323,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
 /// Solve a 3D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    super::feature_gates::refuse_3d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements, super::feature_gates::Feature::InclinedSupports])?;
 
     // Expand curved beams before DOF numbering and assembly.
     let expanded_solver = super::linear::expand_curved_beams_3d(&input.solver);
