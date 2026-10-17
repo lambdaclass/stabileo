@@ -78,6 +78,9 @@ pub trait Real:
     /// enclosures): by continuity the exact root is inside, by monotonicity
     /// it is the only one. NaN if no bracket up to `δ = 1e-3·|r|` certifies.
     fn increasing_root(g64: impl Fn(f64) -> f64, g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self;
+    /// A representative f64 (the value itself; an interval's midpoint, NaN if
+    /// not finite). For reporting only — never for a decision a result rests on.
+    fn mid(self) -> f64;
 }
 
 /// Bisection for an increasing `g`: NaN unless `g(lo) < 0 < g(hi)`.
@@ -174,6 +177,10 @@ impl Real for f64 {
     }
     fn increasing_root(g64: impl Fn(f64) -> f64, _g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
         bisect_increasing(g64, lo, hi)
+    }
+    #[inline]
+    fn mid(self) -> f64 {
+        self
     }
 }
 
@@ -306,6 +313,9 @@ impl Real for Interval {
             delta *= 4.0;
         }
         Interval::NAN
+    }
+    fn mid(self) -> f64 {
+        if self.is_finite() { 0.5 * self.lo + 0.5 * self.hi } else { f64::NAN }
     }
 }
 

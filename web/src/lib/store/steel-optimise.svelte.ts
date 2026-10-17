@@ -126,6 +126,8 @@ export function membersFor(ids: readonly number[]): { members: OptimiseMember[];
         ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k,
         // The member's end connections, resolved per candidate section for tension rupture (D.3).
         tensionEnds: memberEndsFor(id, modelStore.model as never, len?.chain),
+        // How an angle is loaded and connected (E.5, E.6), stated on the member.
+        ...(e.angleCompression ? { angle: e.angleCompression } : {}),
       },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),

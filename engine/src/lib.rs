@@ -887,6 +887,17 @@ pub fn certify_cirsoc201_members(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Certified CIRSOC 301 steel checks from bounded demands.
+/// JSON `CertifiedCirsoc301CheckInput` in → JSON results.
+#[wasm_bindgen]
+pub fn certify_cirsoc301_members(json: &str) -> Result<String, JsValue> {
+    let input: certify::design::CertifiedCirsoc301CheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = certify::design::certify_cirsoc301_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 /// Certified ACI 318 RC checks (flexure incl. P-M interaction, shear, axial)
 /// from bounded demands. JSON `CertifiedRcCheckInput` in → JSON results.
 #[wasm_bindgen]
@@ -1517,6 +1528,16 @@ pub fn check_cirsoc201_members(json: &str) -> Result<String, JsValue> {
         serde_json::from_str(json)
             .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let results = postprocess::cirsoc201_check::check_cirsoc201_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// CIRSOC 301-2018 steel member checks. JSON `Cirsoc301CheckInput` in → JSON results.
+#[wasm_bindgen]
+pub fn check_cirsoc301_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::cirsoc301_check::Cirsoc301CheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::cirsoc301_check::check_cirsoc301_members(&input);
     serde_json::to_string(&results)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }

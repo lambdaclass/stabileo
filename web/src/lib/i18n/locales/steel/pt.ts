@@ -1,3 +1,4 @@
+import c301Pt from './c301-pt';
 /**
  * Contrapartida em português de `steel/es.ts`. As mesmas chaves, na mesma ordem — um teste
  * verifica isso.
@@ -1296,5 +1297,7 @@ const steelPt: Record<string, string> = {
   'steel.tc.calc.ruptureTitle': '§D.2(b) — Ruptura na seção líquida',
   'steel.tc.calc.rupture': 'φPn = 0,75·Fu·Ae = 0,75·{Fu}·{Ae} = {phiPn} kN  (D.2.2)',
   'steel.tc.calc.governs': 'Governa: {which}, φPn = {phiPn} kN; Pu = {Pu} kN; razão = {ratio}',
+  // The CIRSOC 301 calculation the engine emits (c301-pt.ts).
+  ...c301Pt,
 };
 export default steelPt;

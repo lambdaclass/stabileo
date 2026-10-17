@@ -15,6 +15,7 @@ pub mod foundation_check;
 pub mod cfs_check;
 pub mod ec2_check;
 pub mod cirsoc201_check;
+pub mod cirsoc301_check;
 pub mod ec3_check;
 pub mod masonry_check;
 pub mod beam_stations;

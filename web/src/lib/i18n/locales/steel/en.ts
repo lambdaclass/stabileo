@@ -1,3 +1,4 @@
+import c301En from './c301-en';
 /**
  * English counterpart of `steel/es.ts`. Same keys, same order — a test asserts it.
  *
@@ -1292,5 +1293,7 @@ const steelEn: Record<string, string> = {
   'steel.tc.calc.ruptureTitle': '§D.2(b) — Rupture on the net section',
   'steel.tc.calc.rupture': 'φPn = 0.75·Fu·Ae = 0.75·{Fu}·{Ae} = {phiPn} kN  (D.2.2)',
   'steel.tc.calc.governs': 'Governs: {which}, φPn = {phiPn} kN; Pu = {Pu} kN; ratio = {ratio}',
+  // The CIRSOC 301 calculation the engine emits (c301-en.ts).
+  ...c301En,
 };
 export default steelEn;

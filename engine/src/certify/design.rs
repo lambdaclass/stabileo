@@ -13,7 +13,8 @@
 //! (`ec3_check`) member checks; EC2 (`ec2_check`) RC flexure and shear;
 //! CIRSOC 201 (`cirsoc201_check`) RC flexure and shear; ACI 318 (`rc_check`)
 //! RC flexure (incl. P-M interaction), shear and axial capacity; NDS timber
-//! (`timber_check`); AISI S100 cold-formed steel (`cfs_check`).
+//! (`timber_check`); AISI S100 cold-formed steel (`cfs_check`); CIRSOC 301
+//! (`cirsoc301_check`) steel member checks D, E (incl. E.4, E.5, E.6, E.7), F.2–F.6, G, H.1.
 
 use std::collections::HashMap;
 
@@ -36,6 +37,7 @@ use crate::postprocess::cirsoc201_check::{
     shear_strength_r as cirsoc201_shear_strength, Cirsoc201DesignForces, Cirsoc201MemberData, CIRSOC201_DUCTILITY,
     CIRSOC201_FLEXURE, CIRSOC201_MIN_SHEAR, CIRSOC201_SHEAR,
 };
+use crate::postprocess::cirsoc301_check::{Cirsoc301DesignForces, Cirsoc301MemberData};
 use crate::postprocess::rc_check::{
     axial_capacity as rc_axial_capacity, flexural_capacity as rc_flexural_capacity,
     flexure_section as rc_flexure_section, interaction_c_range, interaction_point,
@@ -621,6 +623,155 @@ pub fn cirsoc201_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCirsoc201
                 mu: Some(d.forces.my),
                 vu: d.forces.vy,
                 axial_compression: Some(-d.forces.n),
+            },
+            bound: d.bound,
+        })
+        .collect()
+}
+
+// ───────────────────────────── CIRSOC 301 (steel) ─────────────────────────────
+
+/// CIRSOC 301 design forces with their certified error bounds: `n`→Nu
+/// (compression-positive, as the forces), `my`→Mu strong axis, `mz`→Mu weak
+/// axis, `vy`→Vu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundedCirsoc301Demand {
+    pub forces: Cirsoc301DesignForces,
+    pub bound: DemandBound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CertifiedCirsoc301CheckInput {
+    pub members: Vec<Cirsoc301MemberData>,
+    pub demands: Vec<BoundedCirsoc301Demand>,
+}
+
+pub const CIRSOC301_CHECK_NAMES: [&str; 6] =
+    ["Tension D.2", "Compression E", "Flexure-x F", "Flexure-y F.6", "Shear G", "Interaction H.1"];
+
+fn tri_or(a: Tri, b: Tri) -> Tri {
+    match (a, b) {
+        (Tri::True, _) | (_, Tri::True) => Tri::True,
+        (Tri::False, Tri::False) => Tri::False,
+        _ => Tri::Unknown,
+    }
+}
+
+/// A check that runs only for some demands: its enclosure where it certainly
+/// runs, `[0, hi]` where that is undecided (it can only raise the maximum, so
+/// the lower bound must not count it), 0 where it certainly does not.
+fn present(t: Tri, r: impl FnOnce() -> Result<Interval, String>) -> Result<Interval, String> {
+    match t {
+        Tri::False => Ok(Interval::ZERO),
+        Tri::True => r(),
+        Tri::Unknown => r().map(|r| Interval::new(0.0, r.hi.max(0.0))),
+    }
+}
+
+fn refused_cap<T>(name: &str, r: Result<T, String>) -> impl FnOnce() -> Result<T, String> {
+    let name = name.to_string();
+    move || r.map_err(|m| format!("{name}: not evaluated ({m})"))
+}
+
+/// Interval enclosures of the six CIRSOC 301 ratios for one demand box,
+/// through the same generic capacity functions as `cirsoc301_check::check_member`.
+/// A check refused (not evaluated) while its demand may be non-zero refuses
+/// the box: the f64 check fails it, it is never certified.
+pub fn cirsoc301_ratio_enclosures(
+    m: &Cirsoc301MemberData,
+    f: &Cirsoc301DesignForces,
+    b: &DemandBound,
+) -> Result<[Interval; 6], String> {
+    use crate::postprocess::cirsoc301_check as c3;
+    let n = around(f.nu, b.n, "Nu")?;
+    let mx = around(f.mu_strong, b.my, "Mux")?.abs();
+    let my = around(f.mu_weak, b.mz, "Muy")?.abs();
+    let v = around(f.vu, b.vy, "Vu")?.abs();
+    let zero = Interval::ZERO;
+    let tiny = Interval::point(1e-6);
+    let mut off = c3::Steps::new(false);
+    let fmt = |m: c3::Msg| m.key;
+
+    let (phi_y, rup) = c3::tension_capacity::<Interval>(m, &mut off);
+    let cap_t = rup.map(|r| phi_y.min(r)).map_err(fmt);
+    let cap_c = c3::compression_capacity::<Interval>(m, &mut off).map(|c| c.phi_pn).map_err(fmt);
+    let cap_x = c3::flexure_capacity::<Interval>(m, true, &mut off).map(|c| c.phi_mn).map_err(|(r, _)| r.key);
+    let cap_y = c3::flexure_capacity::<Interval>(m, false, &mut off).map(|c| c.phi_mn).map_err(|(r, _)| r.key);
+    let cap_v = c3::shear_capacity::<Interval>(m, &mut off).phi_vn;
+
+    // A demand identically zero needs no capacity (ratio 0, as the f64 check).
+    let ratio = |name: &str, d: Interval, cap: &Result<Interval, String>| -> Result<Interval, String> {
+        if d.lo == 0.0 && d.hi == 0.0 {
+            return Ok(zero);
+        }
+        let cap = refused_cap(name, cap.clone())()?;
+        loaded_ratio(name, d, cap)
+    };
+    let t_dem = (-n).max(zero);
+    let c_dem = n.max(zero);
+    let tension = present(n.lt(zero), || ratio(CIRSOC301_CHECK_NAMES[0], t_dem, &cap_t))?;
+    let compression = present(zero.lt(n), || ratio(CIRSOC301_CHECK_NAMES[1], c_dem, &cap_c))?;
+    let flex_x = ratio(CIRSOC301_CHECK_NAMES[2], mx, &cap_x)?;
+    let has_my = tiny.lt(my);
+    let flex_y_full = ratio(CIRSOC301_CHECK_NAMES[3], my, &cap_y);
+    let flex_y = present(has_my, || flex_y_full.clone())?;
+    let shear = loaded_ratio(CIRSOC301_CHECK_NAMES[4], v, cap_v)?;
+
+    let has_axial = tiny.lt(n.abs());
+    let has_mx = tiny.lt(mx);
+    let inter_runs = tri_or(has_axial.and(tri_or(has_mx, has_my)), has_mx.and(has_my));
+    let interaction = present(inter_runs, || {
+        // H.1: the axial ratio of the demand's sign (compression at Nu = 0), the
+        // flexural ratios of both axes.
+        let ar_t = ratio(CIRSOC301_CHECK_NAMES[0], t_dem, &cap_t);
+        let ar_c = ratio(CIRSOC301_CHECK_NAMES[1], c_dem, &cap_c);
+        let ar = match n.lt(zero) {
+            Tri::True => ar_t?,
+            Tri::False => ar_c?,
+            Tri::Unknown => ar_t?.hull(ar_c?),
+        };
+        let ry = flex_y_full.clone()?;
+        Ok(cirsoc301_interaction(ar, flex_x, ry))
+    })?;
+    let out = [tension, compression, flex_x, flex_y, shear, interaction];
+    for (r, name) in out.iter().zip(CIRSOC301_CHECK_NAMES) {
+        if !r.is_finite() {
+            return Err(format!("{name}: enclosure not finite"));
+        }
+    }
+    Ok(out)
+}
+
+fn cirsoc301_interaction(ar: Interval, rx: Interval, ry: Interval) -> Interval {
+    crate::postprocess::cirsoc301_check::interaction_h1(ar, rx, ry)
+}
+
+/// Certified CIRSOC 301 member checks (see `certify_steel_members`).
+pub fn certify_cirsoc301_members(input: &CertifiedCirsoc301CheckInput) -> Vec<CertifiedMemberResult> {
+    certify_members(
+        &input.members,
+        |m| m.element_id,
+        &input.demands,
+        |d| d.forces.element_id,
+        &CIRSOC301_CHECK_NAMES,
+        |m, d| cirsoc301_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
+    )
+}
+
+/// The same demand sets in CIRSOC 301 form (`n` tension-positive there,
+/// compression-positive here).
+pub fn cirsoc301_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCirsoc301Demand> {
+    demands
+        .iter()
+        .map(|d| BoundedCirsoc301Demand {
+            forces: Cirsoc301DesignForces {
+                element_id: d.forces.element_id,
+                nu: -d.forces.n,
+                mu_strong: d.forces.my,
+                mu_weak: d.forces.mz.unwrap_or(0.0),
+                vu: d.forces.vy.unwrap_or(0.0),
             },
             bound: d.bound,
         })

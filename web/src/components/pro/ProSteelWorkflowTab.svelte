@@ -53,6 +53,8 @@
   import ProSteelLbEditor from './ProSteelLbEditor.svelte';
   import TensionConnectionEditor from './steel/TensionConnectionEditor.svelte';
   import TensionRuptureTable from './steel/TensionRuptureTable.svelte';
+  import SteelResultsTable from './steel/SteelResultsTable.svelte';
+  import AngleCompressionEditor from './steel/AngleCompressionEditor.svelte';
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
   import { f62Report, f62BranchKey } from '../../lib/engine/steel/flange-local-buckling';
@@ -601,6 +603,7 @@
       <p class="line" data-testid="steel-stage-geometry-chain">{t('steel.workflow.geometry.chain')}</p>
       <ProSteelLbEditor {steelIds} />
       <TensionConnectionEditor ids={[...uiStore.selectedElements]} />
+      <AngleCompressionEditor ids={[...uiStore.selectedElements]} />
     </section>
     <section class="sub" data-testid="steel-sub-assumptions" data-state={assumptionState}>
       <h4>
@@ -686,6 +689,7 @@
         {/each}
       </ul>
       <p class="line" data-testid="steel-stage-verification-note">{t('steel.workflow.verification.note')}</p>
+      <SteelResultsTable {steelIds} />
       <TensionRuptureTable {steelIds} />
 
       <!--

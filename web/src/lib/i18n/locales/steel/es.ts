@@ -1,3 +1,4 @@
+import c301Es from './c301-es';
 /**
  * Claves de la superficie metálica y de los generadores, en un diccionario aparte.
  *
@@ -1298,5 +1299,7 @@ const steelEs: Record<string, string> = {
   'steel.tc.calc.ruptureTitle': '§D.2(b) — Rotura en la sección neta',
   'steel.tc.calc.rupture': 'φPn = 0,75·Fu·Ae = 0,75·{Fu}·{Ae} = {phiPn} kN  (D.2.2)',
   'steel.tc.calc.governs': 'Gobierna: {which}, φPn = {phiPn} kN; Pu = {Pu} kN; relación = {ratio}',
+  // The CIRSOC 301 calculation the engine emits (c301-es.ts).
+  ...c301Es,
 };
 export default steelEs;
