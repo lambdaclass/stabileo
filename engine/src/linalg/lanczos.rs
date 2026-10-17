@@ -1,5 +1,5 @@
 use super::cholesky::{cholesky_decompose, forward_solve, back_solve};
-use super::jacobi::{jacobi_eigen, solve_generalized_eigen, EigenResult};
+use super::jacobi::{jacobi_eigen, solve_generalized_eigen, solve_generalized_eigen_mass, EigenResult};
 use super::sparse::CscMatrix;
 use super::sparse_chol::{symbolic_cholesky, numeric_cholesky, sparse_cholesky_solve};
 use std::rc::Rc;
@@ -567,7 +567,7 @@ pub fn lanczos_generalized_eigen(
 
     // For small problems, use dense path directly
     if n <= 80 || k >= n / 2 {
-        let full = solve_generalized_eigen(a, b, n, 200)?;
+        let full = solve_generalized_eigen_mass(a, b, n, 200)?;
         let nk = k.min(full.values.len());
         let values = full.values[..nk].to_vec();
         let mut vectors = vec![0.0; n * nk];
@@ -616,7 +616,7 @@ pub fn lanczos_generalized_eigen(
     }
 
     // Fallback to dense
-    let full = solve_generalized_eigen(a, b, n, 200)?;
+    let full = solve_generalized_eigen_mass(a, b, n, 200)?;
     let nk = k.min(full.values.len());
     let values = full.values[..nk].to_vec();
     let mut vectors = vec![0.0; n * nk];
@@ -733,7 +733,7 @@ pub fn lanczos_generalized_eigen_sparse(
     if n <= 80 || k >= n / 2 {
         let k_dense = k_ff.to_dense_symmetric();
         let m_dense = m_ff.to_dense_symmetric();
-        return solve_generalized_eigen(&k_dense, &m_dense, n, 200).map(|full| {
+        return solve_generalized_eigen_mass(&k_dense, &m_dense, n, 200).map(|full| {
             let nk = k.min(full.values.len());
             let values = full.values[..nk].to_vec();
             let mut vectors = vec![0.0; n * nk];

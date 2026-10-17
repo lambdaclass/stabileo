@@ -1,0 +1,1 @@
+--gen rich3d_ccx 400 --gen rich2d_ccx 200 --gen frame3d_ccx 200 --gen building_ccx 100 --gen frame2d_ccx 100

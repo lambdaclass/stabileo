@@ -162,6 +162,61 @@ pub fn solve_generalized_eigen(
     Some(result)
 }
 
+/// `K x = λ M x` for a positive definite `K` and a positive *semi*definite
+/// mass `M`, the smallest eigenvalues first.
+///
+/// When `M` is positive definite this is [`solve_generalized_eigen`]. A
+/// lumped mass leaves DOFs without mass (the rotations of members with a
+/// released end, of trusses): `M` is singular, its Cholesky fails, and the
+/// massless DOFs carry infinite eigenvalues. Then the roles are swapped:
+/// with `K = L Lᵀ`, `L⁻¹ M L⁻ᵀ y = μ y`, `λ = 1/μ`, `x = L⁻ᵀ y` scaled to
+/// `xᵀ M x = 1`; the eigenvalues with `μ ≤ 1e-12 · max μ` (no mass) are
+/// dropped, so fewer than `n` values come back. `None` when neither `M` nor
+/// `K` is positive definite.
+pub fn solve_generalized_eigen_mass(k: &[f64], m: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
+    if let Some(r) = solve_generalized_eigen(k, m, n, max_iter) {
+        return Some(r);
+    }
+    let mut l = k.to_vec();
+    if !cholesky_decompose(&mut l, n) {
+        return None;
+    }
+    let l_inv = lower_triangular_inverse(&l, n);
+    let mut l_inv_t = vec![0.0; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            l_inv_t[i * n + j] = l_inv[j * n + i];
+        }
+    }
+    let c = mat_mul(&mat_mul(&l_inv, m, n), &l_inv_t, n);
+    if c.iter().any(|x| !x.is_finite()) {
+        return None;
+    }
+    let r = jacobi_eigen(&c, n, max_iter);
+    let mu_max = r.values.iter().fold(0.0f64, |a, &v| a.max(v));
+    if mu_max <= 0.0 {
+        return None;
+    }
+    // Largest μ = smallest λ first.
+    let mut idx: Vec<usize> = (0..n).filter(|&j| r.values[j] > 1e-12 * mu_max).collect();
+    idx.sort_by(|&a, &b| r.values[b].total_cmp(&r.values[a]));
+    let mut values = Vec::with_capacity(idx.len());
+    let mut vectors = vec![0.0; n * n];
+    for (col, &j) in idx.iter().enumerate() {
+        let mut x = vec![0.0; n];
+        for (i, xi) in x.iter_mut().enumerate() {
+            *xi = (0..n).map(|q| l_inv_t[i * n + q] * r.vectors[q * n + j]).sum();
+        }
+        let mx: f64 = (0..n).map(|i| x[i] * (0..n).map(|q| m[i * n + q] * x[q]).sum::<f64>()).sum();
+        let s = if mx > 0.0 { 1.0 / mx.sqrt() } else { 1.0 };
+        for i in 0..n {
+            vectors[i * n + col] = x[i] * s;
+        }
+        values.push(1.0 / r.values[j]);
+    }
+    Some(EigenResult { values, vectors })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +239,21 @@ mod tests {
         assert!((result.values[0] - 1.0).abs() < 1e-10);
         assert!((result.values[1] - 2.0).abs() < 1e-10);
         assert!((result.values[2] - 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn generalized_eigen_with_massless_dof() {
+        // K = [[2,-1],[-1,2]], M = diag(1, 0): the second DOF has no mass.
+        // Condensing it: k* = 2 - 1/2 = 1.5, λ = 1.5 (one finite mode).
+        let k = vec![2.0, -1.0, -1.0, 2.0];
+        let m = vec![1.0, 0.0, 0.0, 0.0];
+        assert!(solve_generalized_eigen(&k, &m, 2, 100).is_none());
+        let r = solve_generalized_eigen_mass(&k, &m, 2, 100).unwrap();
+        assert_eq!(r.values.len(), 1);
+        assert!((r.values[0] - 1.5).abs() < 1e-12, "{:?}", r.values);
+        // x = (1, 1/2) scaled to xᵀ M x = 1, K x = λ M x.
+        let (x0, x1) = (r.vectors[0], r.vectors[2]);
+        assert!((x0 * x0 - 1.0).abs() < 1e-12 && (x1 - 0.5 * x0).abs() < 1e-12);
     }
 
     #[test]

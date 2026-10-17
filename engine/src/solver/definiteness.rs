@@ -11,13 +11,37 @@
 //! eliminating the previous DOFs. When `d_j ≤ SINGULAR_PIVOT_RATIO · K_jj`
 //! the DOF's remaining stiffness is at the level of the rounding errors of
 //! the elimination, so `K` is numerically singular.
+//!
+//! Those rounding errors are not a few ε of `K_jj`: the entries eliminated
+//! into `d_j` carry the errors of every earlier step, scaled by the stiffer
+//! terms they were coupled to. Mechanisms solved with round-off pivots of
+//! 1e-14 of their diagonal (a member hinged at the tip of another and free at
+//! its other end, found by differential testing against PyNite and OpenSees;
+//! a ring held on its loaded diameter, which turns about it) passed the old
+//! 64 ε threshold silently. The threshold is now 1e-10, and it cannot flag a
+//! regular model that keeps more than ten digits: with `A = D^{-1/2} K
+//! D^{-1/2}` (unit diagonal, so `λ_max(A) ≥ 1`), the pivot ratio
+//! `d_j / K_jj` is `1 / [B⁻¹]_jj` for `B` the leading block of `A` in
+//! elimination order, so `d_j / K_jj ≥ λ_min(B) ≥ λ_min(A) ≥ 1 / κ(A)`
+//! (Cauchy interlacing): a ratio below 1e-10 needs a Jacobi-scaled condition
+//! number above 1e10 in exact arithmetic.
+//!
+//! No pivot threshold separates all mechanisms from all regular models: on
+//! the engine's own test models, rigid-body motions left free by the
+//! supports (a plate turning in its plane) had pivots from 1.3e-10 to 3.4e-8,
+//! while regular models with very stiff springs or stiff members on soft
+//! supports reached 9e-9 and 3e-8. Free rigid-body motions are caught exactly,
+//! before assembly, by `pre_solve_gates::check_rigid_body_restraint_3d`; this
+//! check catches internal mechanisms whose pivot is round-off.
 
 use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::NumericCholesky;
 use crate::types::{DiagnosticCode, Severity, StructuredDiagnostic};
 
-/// Pivot-to-diagonal ratio below which a Cholesky pivot is round-off (64 ε).
-pub const SINGULAR_PIVOT_RATIO: f64 = 64.0 * f64::EPSILON;
+/// Pivot-to-diagonal ratio below which a Cholesky pivot is round-off (see
+/// the module notes: only a Jacobi-scaled condition number above 1e10 can
+/// produce it in a regular model).
+pub const SINGULAR_PIVOT_RATIO: f64 = 1e-10;
 
 /// The warning, with `detail` saying how non-definiteness was detected.
 pub fn not_positive_definite(detail: &str) -> StructuredDiagnostic {
@@ -70,7 +94,7 @@ fn pivot_warning(ratio: f64, dof: usize) -> Option<StructuredDiagnostic> {
     }
     Some(
         not_positive_definite(&format!(
-            "Cholesky pivot of DOF {dof} is {ratio:.1e} of its diagonal, at round-off level"
+            "Cholesky pivot of DOF {dof} is {ratio:.1e} of its diagonal, at the round-off level of the elimination"
         ))
         .with_value(ratio, SINGULAR_PIVOT_RATIO)
         .with_dofs(vec![dof]),
