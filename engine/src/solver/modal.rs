@@ -162,7 +162,8 @@ pub fn solve_modal_2d(
     let n_converged = result.values.len();
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
-        if eigenvalue <= 1e-10 || modes.len() >= num_modes {
+        // ∞: a massless direction (lumped-mass rotations), not a mode.
+        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes {
             continue;
         }
 
@@ -386,7 +387,8 @@ pub fn solve_modal_3d(
     let n_converged = result.values.len();
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
-        if eigenvalue <= 1e-10 || modes.len() >= num_modes { continue; }
+        // ∞: a massless direction (lumped-mass rotations), not a mode.
+        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes { continue; }
 
         let omega = eigenvalue.sqrt();
         let freq = omega / (2.0 * std::f64::consts::PI);

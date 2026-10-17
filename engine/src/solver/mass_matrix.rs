@@ -139,7 +139,18 @@ pub fn assemble_mass_matrix_2d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    let nf = dof_num.n_free;
+    assemble_mass_matrix_2d_sparse_block(input, dof_num, densities, dof_num.n_free)
+}
+
+/// `assemble_mass_matrix_2d_sparse` over the DOFs numbered below `nf`: the free
+/// block, or with `n_total` the whole matrix (the restrained DOFs' rows are
+/// what couples a ground motion's support translations to the free DOFs).
+pub fn assemble_mass_matrix_2d_sparse_block(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    nf: usize,
+) -> CscMatrix {
     let mut rows: Vec<usize> = Vec::new();
     let mut cols: Vec<usize> = Vec::new();
     let mut vals: Vec<f64> = Vec::new();
@@ -458,7 +469,16 @@ pub fn assemble_mass_matrix_3d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    let nf = dof_num.n_free;
+    assemble_mass_matrix_3d_sparse_block(input, dof_num, densities, dof_num.n_free)
+}
+
+/// 3D counterpart of `assemble_mass_matrix_2d_sparse_block`.
+pub fn assemble_mass_matrix_3d_sparse_block(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    nf: usize,
+) -> CscMatrix {
     let left_hand = input.left_hand.unwrap_or(false);
 
     let mut rows: Vec<usize> = Vec::new();

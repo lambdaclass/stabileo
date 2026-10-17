@@ -11,6 +11,46 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)
+
+**BREAKING (results): buckling load factors of models with axial point loads or partial /
+trapezoidal axial loads on members change, P-Delta member end forces change, 2D buckling and
+P-Delta of hinged frames change, ground-motion time histories change, and small modal models with massless DOFs now solve.** Found by `tools/opensees/compare.py --buckling2d/3d --modal2d/3d`; each has a
+regression test in `engine/tests/opensees_differential_regressions.rs`.
+
+- **Buckling took each member's axial force as (N_start + N_end)/2.** The geometric
+  stiffness integrates N along the member, so it needs the mean axial force, which the end
+  average is only while N is linear. An axial point load or a partial axial load on a
+  member gave a wrong load factor (3× on a truss braced by a spring). Kg is now built at
+  the linear solution with each member's force read from its elongation, EA·(δ/L − αΔT)
+  — the exact mean, and the same force the P-Delta iteration uses.
+- **P-Delta member end forces left out the geometric stiffness.** Displacements and
+  reactions came from K + Kg, but the end forces were recovered with the elastic K alone,
+  so they balanced neither the joints nor the reactions: a free cantilever tip reported a
+  moment and the base moment was not H·L + P·Δ. End forces are now (K + Kg(N))·u − FEF
+  for frame members; OpenSees agrees to ~1e-10 on 596 random frames. The web app's 3D
+  workaround that added Kg·u to the engine's forces (`pdelta-forces.ts`) is removed, since
+  with the engine fixed it counted the geometric part twice.
+- **Ground motion left out the mass coupled to the supports.** The relative-motion load
+  is −(M·r)_f·a_g with r the rigid-body translation of every DOF, supports included; with
+  a consistent mass the free DOFs are coupled to the supports' translations (M_fr·r_r),
+  and the time history took M_ff·r_f only: a bar on two supports felt half the
+  earthquake, random frames up to ~50 % less in OpenSees' comparison. The influence vector
+  now spans every DOF (the full mass is assembled only when a restrained DOF moves with
+  the ground), in 2D and 3D. Modal participation factors still use M_ff·r_f.
+- **2D buckling and P-Delta used an uncondensed Kg on hinged members.** The elastic
+  stiffness condenses a hinged end's rotation out of the member, but the 2D geometric
+  stiffness kept the consistent matrix on the node's rotation — the Kg of a different
+  member. A portal whose beam is hinged at one end buckled 2.5 % off its own 3D model
+  (which already condensed Kg). The 2D Kg is now condensed with the same elastic map as
+  the 3D one, in buckling, P-Delta, its end forces and the P-Delta certificate's terms.
+- **Modal analysis failed on small models with a massless DOF.** Hinged members (and
+  3D members with any release) get a lumped mass with no rotational inertia, and a node
+  of trusses only has none either; the dense eigensolver used below 80 DOFs
+  Cholesky-factored M and returned "Eigenvalue decomposition failed". A semi-definite M
+  is now solved as the inverse problem M·x = μ·K·x (K definite), massless directions
+  dropped as λ = ∞.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

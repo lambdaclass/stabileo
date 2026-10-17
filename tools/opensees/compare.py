@@ -218,8 +218,7 @@ def check_supported_2d(d):
 
 def check_supported_3d(d):
     why = []
-    for k in ("constraints", "connectors", "plates", "quads", "quad9s",
-              "solidShells", "curvedShells", "curvedBeams"):
+    for k in ("constraints", "connectors", "quad9s", "solidShells", "curvedShells", "curvedBeams"):
         if _nonempty(d, k):
             why.append(k)
     if d.get("leftHand"):
@@ -239,7 +238,7 @@ def check_supported_3d(d):
         if s.get("rw") or s.get("kw"):
             why.append("warping support")
     for l in d["loads"]:
-        if l["type"] not in ("nodal", "distributed", "pointOnElement"):
+        if l["type"] not in ("nodal", "distributed", "pointOnElement", "pressure", "quadPressure"):
             why.append(f"load {l['type']}")
         elif l["type"] == "nodal" and l["data"].get("bw"):
             why.append("bimoment load")
@@ -256,14 +255,20 @@ def _lever(qi, qj, a, b, L):
     return ri, rj
 
 
-def opensees_2d(d):
+def opensees_2d(d, mode="static", spec=None):
+    """Build the OpenSees model of a 2D stabileo model and run `mode`:
+    "static" (linear), or one of ANALYSES (buckling, modal, pdelta, th)."""
     ops = _ops()
+    geom = mode in GEOM_MODES
+    dens = (spec or {}).get("densities") if mode in MASS_MODES else None
     nodes = {n["id"]: (float(n["x"]), float(_get(n, "z", "y"))) for n in d["nodes"].values()}
     mats = {m["id"]: m for m in d["materials"].values()}
     secs = {s["id"]: s for s in d["sections"].values()}
     elems = sorted(d["elements"].values(), key=lambda e: e["id"])
     has_frame = any(e["type"] == "frame" for e in elems)
     ndf = 3 if has_frame else 2
+    if geom:
+        _check_geom(d, elems, secs, has_frame)
 
     ops.wipe()
     ops.model("basic", "-ndm", 2, "-ndf", ndf)
@@ -339,6 +344,9 @@ def opensees_2d(d):
     max_id = max(list(nodes) + [e["id"] for e in elems] + [0])
     tag = 10 ** (len(str(max_id)) + 1)
     spring_elems = []
+    # The engine's Rayleigh C = a0*M + a1*K includes the support springs;
+    # zeroLength skips Rayleigh damping unless asked.
+    ray = ["-doRayleigh", 1] if dens else []
     for sp in springs:
         nid = sp[0]
         tag += 1
@@ -352,11 +360,11 @@ def opensees_2d(d):
             tag += 1
             c, s_ = math.cos(ang), math.sin(ang)
             ops.element("zeroLength", g, g, nid, "-mat", g, g + 1, "-dir", 1, 2,
-                        "-orient", c, s_, 0.0, -s_, c, 0.0)
+                        "-orient", c, s_, 0.0, -s_, c, 0.0, *ray)
         else:
             _, dof, k = sp
             ops.uniaxialMaterial("Elastic", g, k)
-            ops.element("zeroLength", g, g, nid, "-mat", g, "-dir", dof + 1)
+            ops.element("zeroLength", g, g, nid, "-mat", g, "-dir", dof + 1, *ray)
         spring_elems.append((nid, g))
 
     # Member loads (local axes). Full-length uniform loads use -beamUniform;
@@ -413,12 +421,30 @@ def opensees_2d(d):
         pi, pj = nodes[e["nodeI"]], nodes[e["nodeJ"]]
         m, sec = mats[e["materialId"]], secs[e["sectionId"]]
         E = m["e"] * 1000.0
+        if e["type"] == "truss" and geom:
+            # String geometric stiffness N/L: a both-ends-released beam on a
+            # PDelta transformation (Truss has none; corotTruss is not linear
+            # in N). Bending stiffness is condensed out by the releases.
+            ops.geomTransf("PDelta", e["id"])
+            ops.element("elasticBeamColumn", e["id"], e["nodeI"], e["nodeJ"],
+                        sec["a"], E, sec.get("iz") or 1.0, e["id"], "-release", 3)
+            continue
         if e["type"] == "truss":
             tag += 1
             ops.uniaxialMaterial("Elastic", tag, E)
-            ops.element("Truss", e["id"], e["nodeI"], e["nodeJ"], sec["a"], tag)
+            # -doRayleigh: Truss skips Rayleigh damping unless asked.
+            mass = ["-rho", _rho_a(dens, m, sec), "-cMass", 1, "-doRayleigh", 1] if dens else []
+            ops.element("Truss", e["id"], e["nodeI"], e["nodeJ"], sec["a"], tag, *mass)
             continue
         ops.geomTransf("Linear", e["id"])
+        if dens:
+            # Mass on a parallel zero-stiffness element: the engine's mass is
+            # the Euler-Bernoulli consistent one for every frame, lumped
+            # (rho*A*L/2 on the translations) when an end is hinged.
+            tag += 1
+            ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], sec["a"], 0.0, sec["iz"], e["id"],
+                        "-mass", _rho_a(dens, m, sec),
+                        *([] if e.get("hingeStart") or e.get("hingeEnd") else ["-cMass"]))
         stations = []
         for pos, f in sorted(point_loads.get(e["id"], []), key=lambda p: p[0]):
             if stations and abs(pos - stations[-1][0]) <= 1e-9 * L:
@@ -437,7 +463,13 @@ def opensees_2d(d):
             first, last = k == 0, k == len(chain) - 2
             sub = e["id"] if len(chain) == 2 else (tag := tag + 1)
             subs.append(sub)
-            if sec.get("asY"):
+            if geom:
+                # Consistent (cubic) geometric stiffness, linear in N: the
+                # engine's Kg. Av = 1e12*A makes it Euler-Bernoulli (phi ~ 1e-12).
+                G = E / (2 * (1 + m["nu"]))
+                ops.element("ElasticTimoshenkoBeam", sub, chain[k], chain[k + 1],
+                            E, G, sec["a"], sec["iz"], 1e12 * sec["a"], e["id"], "-geomNonlinear")
+            elif sec.get("asY"):
                 G = E / (2 * (1 + m["nu"]))
                 ni, nj = chain[k], chain[k + 1]
                 # ElasticTimoshenkoBeam has no -release: a hinged end gets
@@ -499,8 +531,18 @@ def opensees_2d(d):
     for nid, dof, v in settlements:
         ops.sp(nid, dof + 1, v)
 
+    ctx = dict(ops=ops, dim=2, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {})
+    if mode != "static":
+        ctx["collect"] = lambda: _collect_2d(ops, nodes, ndf, sup_by_node, art_rot, spring_elems,
+                                            hinge_slaves, elems, truss_axial, pieces)
+        return ANALYSES[mode](ctx)
     kappa = _analyze(ops, fixed)
+    r = _collect_2d(ops, nodes, ndf, sup_by_node, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces)
+    return dict(dim=2, art_rot=sorted(art_rot), kappa=kappa, **r)
 
+
+def _collect_2d(ops, nodes, ndf, sup_by_node, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces):
+    """Displacements, reactions and member end forces (stabileo shape)."""
     disp = {}
     for nid in nodes:
         u = ops.nodeDisp(nid)
@@ -519,14 +561,21 @@ def opensees_2d(d):
     forces = {}
     for e in elems:
         if e["type"] == "truss":
-            N = ops.eleResponse(e["id"], "axialForce")[0]
+            N = _truss_n(ops, e["id"])
             fi, fj = truss_axial.get(e["id"], [0.0, 0.0])
             forces[e["id"]] = dict(nStart=N + fi, nEnd=N - fj, vStart=0.0, vEnd=0.0, mStart=0.0, mEnd=0.0)
         else:
             f = list(ops.eleResponse(pieces[e["id"]][0], "localForce"))[:3] + \
                 list(ops.eleResponse(pieces[e["id"]][-1], "localForce"))[3:]
             forces[e["id"]] = dict(nStart=-f[0], nEnd=f[3], vStart=f[1], vEnd=-f[4], mStart=f[2], mEnd=-f[5])
-    return dict(dim=2, disp=disp, reac=reac, forces=forces, art_rot=sorted(art_rot), kappa=kappa)
+    return dict(disp=disp, reac=reac, forces=forces)
+
+
+def _truss_n(ops, eid):
+    """Axial force of a Truss, or of the released-beam stand-in (geometric
+    modes), whose localForce starts with the force on end I along x."""
+    n = ops.eleResponse(eid, "axialForce")
+    return n[0] if n else -ops.eleResponse(eid, "localForce")[0]
 
 
 def _elem(d, eid):
@@ -536,14 +585,20 @@ def _elem(d, eid):
     raise KeyError(eid)
 
 
-def opensees_3d(d):
+def opensees_3d(d, mode="static", spec=None):
+    """3D counterpart of opensees_2d."""
     ops = _ops()
+    geom = mode in GEOM_MODES
+    dens = (spec or {}).get("densities") if mode in MASS_MODES else None
     nodes = {n["id"]: (float(n["x"]), float(n["y"]), float(n["z"])) for n in d["nodes"].values()}
     mats = {m["id"]: m for m in d["materials"].values()}
     secs = {s["id"]: s for s in d["sections"].values()}
     elems = sorted(d["elements"].values(), key=lambda e: e["id"])
     has_frame = any(e["type"] == "frame" for e in elems)
-    ndf = 6 if has_frame else 3
+    shells = _shell_elems(d)
+    ndf = 6 if has_frame or shells else 3
+    if geom:
+        _check_geom(d, elems, secs, has_frame)
 
     ops.wipe()
     ops.model("basic", "-ndm", 3, "-ndf", ndf)
@@ -591,6 +646,9 @@ def opensees_3d(d):
     art_rot = set()
     if ndf == 6:
         dirs = {nid: [] for nid in nodes}
+        for _, _, sn, _, _ in shells:
+            for nid in sn:
+                dirs[nid] += [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
         for e in elems:
             if e["type"] != "frame":
                 continue
@@ -621,12 +679,15 @@ def opensees_3d(d):
     max_id = max(list(nodes) + [e["id"] for e in elems] + [0])
     tag = 10 ** (len(str(max_id)) + 1)
     spring_elems = []
+    # The engine's Rayleigh C = a0*M + a1*K includes the support springs;
+    # zeroLength skips Rayleigh damping unless asked.
+    ray = ["-doRayleigh", 1] if dens else []
     for nid, k, kv in springs:
         tag += 1
         ops.node(tag, *nodes[nid])
         ops.fix(tag, *([1] * ndf))
         ops.uniaxialMaterial("Elastic", tag, kv)
-        ops.element("zeroLength", tag, tag, nid, "-mat", tag, "-dir", k + 1)
+        ops.element("zeroLength", tag, tag, nid, "-mat", tag, "-dir", k + 1, *ray)
         spring_elems.append((nid, tag))
 
     # Member loads, local axes. Concentrated loads (point loads, and the
@@ -645,7 +706,7 @@ def opensees_3d(d):
     point_loads = {}     # eid -> [(pos, [px, py, pz])]
     for ld in d["loads"]:
         t, x = ld["type"], ld["data"]
-        if t == "nodal" or etype[x["elementId"]]["type"] == "truss":
+        if t in ("nodal", "pressure", "quadPressure") or etype[x["elementId"]]["type"] == "truss":
             continue
         eid = x["elementId"]
         L = geo[eid][0]
@@ -687,12 +748,30 @@ def opensees_3d(d):
         m, sec = mats[e["materialId"]], secs[e["sectionId"]]
         E = m["e"] * 1000.0
         G = E / (2 * (1 + m["nu"]))
+        if e["type"] == "truss" and geom:
+            # See opensees_2d: string Kg from a released beam on PDelta.
+            ops.geomTransf("PDelta", e["id"], *ez)
+            ops.element("elasticBeamColumn", e["id"], e["nodeI"], e["nodeJ"], sec["a"], E, G, 0.0,
+                        sec.get("iy") or 1.0, sec.get("iz") or 1.0, e["id"], "-releasez", 3, "-releasey", 3)
+            continue
         if e["type"] == "truss":
             tag += 1
             ops.uniaxialMaterial("Elastic", tag, E)
-            ops.element("Truss", e["id"], e["nodeI"], e["nodeJ"], sec["a"], tag)
+            # -doRayleigh: Truss skips Rayleigh damping unless asked.
+            mass = ["-rho", _rho_a(dens, m, sec), "-cMass", 1, "-doRayleigh", 1] if dens else []
+            ops.element("Truss", e["id"], e["nodeI"], e["nodeJ"], sec["a"], tag, *mass)
             continue
         ops.geomTransf("Linear", e["id"], *ez)
+        if dens:
+            # Parallel zero-stiffness mass element (see opensees_2d). Its J is
+            # Iy + Iz: the engine's torsional inertia is rho*(Iy+Iz)*L/6*[2 1; 1 2]
+            # (polar moment), OpenSees' is the same with Jx in place of Ip.
+            tag += 1
+            rel = any(e.get(k) for k in ("releaseMyStart", "releaseMyEnd", "releaseMzStart", "releaseMzEnd",
+                                         "releaseTStart", "releaseTEnd"))
+            ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], sec["a"], 0.0, 0.0,
+                        sec["iy"] + sec["iz"], sec["iy"], sec["iz"], e["id"],
+                        "-mass", _rho_a(dens, m, sec), *([] if rel else ["-cMass"]))
         # Station nodes at the concentrated loads (merged when coincident).
         stations = []
         for pos, f in sorted(point_loads.get(e["id"], []), key=lambda p: p[0]):
@@ -712,7 +791,11 @@ def opensees_3d(d):
             first, last = s_i == 0, s_i == len(chain) - 2
             sub = e["id"] if len(chain) == 2 else (tag := tag + 1)
             subs.append(sub)
-            if sec.get("asY") or sec.get("asZ"):
+            if geom:
+                big = 1e12 * sec["a"]  # Euler-Bernoulli consistent Kg (see opensees_2d)
+                ops.element("ElasticTimoshenkoBeam", sub, chain[s_i], chain[s_i + 1],
+                            E, G, sec["a"], sec["j"], sec["iy"], sec["iz"], big, big, e["id"], "-geomNonlinear")
+            elif sec.get("asY") or sec.get("asZ"):
                 # Engine: phi_y = 12 E Iy / (G asY L^2), i.e. asY is the shear
                 # area of the Iy bending plane (shear along local z) -> Avz.
                 big = 1e12 * sec["a"]
@@ -744,6 +827,22 @@ def opensees_3d(d):
                             sec["a"], E, G, sec["j"], sec["iy"], sec["iz"], e["id"], *args)
         pieces[e["id"]] = subs
 
+    # Shells: quads -> ShellMITC4 (MITC4 bending, as the engine's; membrane
+    # bilinear + Hughes-Brezzi drilling vs the engine's EAS-7), plates ->
+    # ShellDKGT (DKT bending, as the engine's; GT9 membrane vs CST). The
+    # bending parts are the same formulation; models whose membrane and
+    # drilling DOFs are all restrained compare them exactly.
+    shell_sec = {}
+    for kind, sid, sn, mid, th in shells:
+        key = (mid, th)
+        if key not in shell_sec:
+            tag += 1
+            mm = mats[mid]
+            ops.section("ElasticMembranePlateSection", tag, mm["e"] * 1000.0, mm["nu"], th, 0.0)
+            shell_sec[key] = tag
+        tag += 1
+        ops.element("ShellMITC4" if kind == "quad" else "ShellDKGT", tag, *sn, shell_sec[key])
+
     ops.timeSeries("Linear", 1)
     ops.pattern("Plain", 1, 1)
     for eid, w in uniform_loads.items():
@@ -757,6 +856,13 @@ def opensees_3d(d):
             if x["nodeId"] in art_rot and any(abs(v) > 0 for v in f[3:]):
                 raise Unsupported("nodal moment on a rotation-free node")
             add_nodal(x["nodeId"], f[:ndf])
+            continue
+        if t in ("pressure", "quadPressure"):
+            sh = {(k_, i_): sn_ for k_, i_, sn_, _, _ in shells}.get(("plate" if t == "pressure" else "quad", x["elementId"]))
+            if sh is None:
+                continue  # the engine ignores a pressure on a missing element
+            for i_, f in _pressure_nodal([nodes[n_] for n_ in sh], x["pressure"]):
+                add_nodal(sh[i_], f + [0.0] * (ndf - 3))
             continue
         eid = x["elementId"]
         e = etype[eid]
@@ -789,8 +895,17 @@ def opensees_3d(d):
     for nid, dof, v in settlements:
         ops.sp(nid, dof + 1, v)
 
+    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {})
+    if mode != "static":
+        ctx["collect"] = lambda: _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems,
+                                            hinge_slaves, elems, truss_axial, pieces)
+        return ANALYSES[mode](ctx)
     kappa = _analyze(ops, fixed)
+    r = _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces)
+    return dict(dim=3, art_rot=sorted(art_rot), kappa=kappa, **r)
 
+
+def _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces):
     disp = {}
     for nid in nodes:
         u = list(ops.nodeDisp(nid))[:ndf]
@@ -810,7 +925,7 @@ def opensees_3d(d):
     names = ["n", "vy", "vz", "mx", "my", "mz"]
     for e in elems:
         if e["type"] == "truss":
-            N = ops.eleResponse(e["id"], "axialForce")[0]
+            N = _truss_n(ops, e["id"])
             fi, fj = truss_axial.get(e["id"], [0.0, 0.0])
             fd = {f"{n}Start": 0.0 for n in names}
             fd.update({f"{n}End": 0.0 for n in names})
@@ -824,7 +939,7 @@ def opensees_3d(d):
             fd[f"{n}Start"] = -f[k] if k == 0 else f[k]
             fd[f"{n}End"] = f[6 + k] if k == 0 else -f[6 + k]
         forces[e["id"]] = fd
-    return dict(dim=3, disp=disp, reac=reac, forces=forces, art_rot=sorted(art_rot), kappa=kappa)
+    return dict(disp=disp, reac=reac, forces=forces)
 
 
 def _rank3(vs, tol=1e-9):
@@ -843,6 +958,332 @@ def _rank3(vs, tol=1e-9):
     return len(basis)
 
 
+# ------------------------------------------------- OpenSees: other analyses
+#
+# The same OpenSees model, analysed otherwise. Matrices are read back with
+# printA (FullGeneral), which forms the tangent at the current state:
+#
+#   buckling  K at u = 0, then K + Kg(N) after the linear load step; the
+#             eigenproblem K phi = lambda (-Kg) phi is solved here (numpy).
+#             Frames are ElasticTimoshenkoBeam -geomNonlinear (consistent
+#             cubic Kg, linear in the axial force; Av = 1e12 A makes it the
+#             Euler-Bernoulli one), trusses a released beam on a PDelta
+#             transformation (string Kg N/L). Both are the engine's Kg.
+#   modal     eigen -fullGenLapack with the engine's mass model (see
+#             opensees_2d / opensees_3d).
+#   pdelta    the same geometric elements, Newton to convergence: the fixed
+#             point (K + Kg(N(u))) u = F the engine iterates to.
+#   th        Newmark / HHT transient with the engine's mass and Rayleigh
+#             damping (anchored on the first two modes, like the engine).
+
+GEOM_MODES = ("buckling", "pdelta")
+MASS_MODES = ("modal", "th")
+
+
+def _rho_a(dens, m, sec):
+    """Mass per unit length (t/m): density (kg/m^3) * A / 1000, as the engine."""
+    return float(dens.get(str(m["id"]), 0.0)) * sec["a"] / 1000.0
+
+
+def _check_geom(d, elems, secs, has_frame):
+    """Features whose geometric stiffness has no exact OpenSees counterpart."""
+    if not has_frame:
+        raise Unsupported("geometric analysis of a truss-only model")
+    for e in elems:
+        if e["type"] != "frame":
+            continue
+        if any(e.get(k) for k in ("hingeStart", "hingeEnd", "releaseMyStart", "releaseMyEnd",
+                                  "releaseMzStart", "releaseMzEnd")):
+            # The engine condenses Kg with the elastic map of the released
+            # rotation (3D) or not at all (2D); OpenSees would keep the
+            # released rotation as a DOF of the eigenproblem.
+            raise Unsupported("hinge/release in a geometric analysis")
+        sec = secs[e["sectionId"]]
+        if sec.get("asY") or sec.get("asZ"):
+            # OpenSees' Kg is the Timoshenko one, the engine's Euler-Bernoulli.
+            raise Unsupported("Timoshenko section in a geometric analysis")
+    etype = {e["id"]: e["type"] for e in elems}
+    for ld in d["loads"]:
+        x = ld["data"]
+        if ld["type"] == "nodal" or etype.get(x.get("elementId")) == "truss":
+            continue
+        partial = ld["type"] == "distributed" and (x.get("a") or x.get("b") is not None)
+        trapez = ld["type"] == "distributed" and any(
+            abs((x.get(k + "I") or 0.0) - (x.get(k + "J") or 0.0)) > 0 for k in ("q", "qY", "qZ", "qX"))
+        if ld["type"] != "distributed" or partial or trapez:
+            # Station nodes would split the member, and its consistent Kg.
+            raise Unsupported("concentrated/partial member load in a geometric analysis")
+
+
+def _shell_elems(d):
+    """[(tag kind, id, node ids, material id, thickness)]: plates (DKT+CST
+    triangles) and quads (MITC4), the shell families with an OpenSees pair."""
+    out = [("plate", p["id"], list(p["nodes"]), p["materialId"], p["thickness"])
+           for p in (d.get("plates") or {}).values()]
+    out += [("quad", q["id"], list(q["nodes"]), q["materialId"], q["thickness"])
+            for q in (d.get("quads") or {}).values()]
+    return out
+
+
+def _pressure_nodal(pts, p):
+    """Consistent nodal forces of a uniform pressure along the element normal,
+    as the engine (quad: integral of N_i over the bilinear map, 2x2 Gauss, with
+    the normal of the diagonals' cross product; triangle: p*A/3 each, normal
+    of (x1-x0) x (x2-x0)). [(node index, [fx, fy, fz])]."""
+    if len(pts) == 3:
+        n = _cross([pts[1][k] - pts[0][k] for k in range(3)], [pts[2][k] - pts[0][k] for k in range(3)])
+        area = _norm(n) / 2
+        ez = _unit(n)
+        return [(i, [p * area / 3 * ez[k] for k in range(3)]) for i in range(3)]
+    ez = _unit(_cross([pts[2][k] - pts[0][k] for k in range(3)], [pts[3][k] - pts[1][k] for k in range(3)]))
+    g = 1 / math.sqrt(3)
+    f = [0.0] * 4
+    for xi in (-g, g):
+        for eta in (-g, g):
+            nn = [(1 - xi) * (1 - eta) / 4, (1 + xi) * (1 - eta) / 4, (1 + xi) * (1 + eta) / 4, (1 - xi) * (1 + eta) / 4]
+            dxi = [-(1 - eta) / 4, (1 - eta) / 4, (1 + eta) / 4, -(1 + eta) / 4]
+            deta = [-(1 - xi) / 4, -(1 + xi) / 4, (1 + xi) / 4, (1 - xi) / 4]
+            a = [sum(dxi[i] * pts[i][k] for i in range(4)) for k in range(3)]
+            b = [sum(deta[i] * pts[i][k] for i in range(4)) for k in range(3)]
+            det = _norm(_cross(a, b))
+            for i in range(4):
+                f[i] += nn[i] * det
+    return [(i, [p * f[i] * ez[k] for k in range(3)]) for i in range(4)]
+
+
+def _np():
+    import numpy as np  # noqa: venv only
+    return np
+
+
+def _static_setup(ops, lf):
+    ops.wipeAnalysis()
+    ops.constraints("Transformation")
+    ops.numberer("RCM")
+    ops.system("FullGeneral")
+    ops.test("NormDispIncr", 1e-12, 1, 0)
+    ops.integrator("LoadControl", lf)
+    ops.algorithm("Linear")
+    ops.analysis("Static")
+
+
+def _tangent(ops):
+    """The assembled free-DOF tangent at the current state (dense)."""
+    np = _np()
+    n = ops.systemSize()
+    return np.array(ops.printA("-ret")).reshape(n, n)
+
+
+def _kappa(k):
+    np = _np()
+    dg = np.sqrt(np.abs(np.diag(k)))
+    dg[dg == 0] = 1.0
+    return float(np.linalg.cond(k / np.outer(dg, dg)))
+
+
+def _stiffness(ctx):
+    """K at the unloaded state, and the equation numbers of every node."""
+    ops, fixed = ctx["ops"], ctx["fixed"]
+    if all(all(fl) for fl in fixed.values()):
+        raise Unsupported("no free DOF")
+    if sum(not f for fl in fixed.values() for f in fl) > 2500:
+        raise Unsupported("too large for dense eigen/transient comparison")
+    _static_setup(ops, 0.0)
+    if ops.analyze(1) != 0:
+        raise RuntimeError("OpenSees analyze failed (singular / mechanism)")
+    k = _tangent(ops)
+    eq = {nid: list(ops.nodeDOFs(nid))[:ctx["ndf"]] for nid in ctx["nodes"]}
+    return k, eq
+
+
+def _vec_to_nodes(ctx, eq, vec):
+    """Equation-numbered vector -> {node: [6 or 3 components]} (stabileo shape)."""
+    width = 3 if ctx["dim"] == 2 else 6
+    out = {}
+    for nid, dofs in eq.items():
+        u = [float(vec[q]) if q >= 0 else 0.0 for q in dofs]
+        out[nid] = u + [0.0] * (width - len(u))
+    return out
+
+
+def _gen_eig_spd(a, b):
+    """Eigenpairs of a x = mu b x with b SPD (Cholesky reduction, numpy only)."""
+    np = _np()
+    l = np.linalg.cholesky(b)
+    c = np.linalg.solve(l, np.linalg.solve(l, a).T).T
+    mu, y = np.linalg.eigh((c + c.T) / 2)
+    return mu, np.linalg.solve(l.T, y)
+
+
+def analysis_buckling(ctx):
+    np = _np()
+    ops = ctx["ops"]
+    k, eq = _stiffness(ctx)
+    ops.integrator("LoadControl", 1.0)
+    if ops.analyze(1) != 0:
+        raise RuntimeError("OpenSees analyze failed (singular / mechanism)")
+    ops.reactions()
+    kg = _tangent(ops) - k
+    linear = dict(dim=ctx["dim"], art_rot=sorted(ctx["art_rot"]), **ctx["collect"]())
+    # K phi = lambda (-Kg) phi  <=>  (-Kg) phi = mu K phi, lambda = 1/mu.
+    mu, vec = _gen_eig_spd(-kg, k)
+    top = max(abs(mu).max(), 1e-300)
+    # mu below 1e-9 of the largest is the round-off of Kg's null space (no
+    # compressed member along it), lambda ~ 1e10..1e16: not a buckling mode.
+    order = [i for i in np.argsort(-mu) if mu[i] > 1e-9 * top]
+    n = int(ctx["spec"].get("numModes", 4))
+    return dict(dim=ctx["dim"], kappa=_kappa(k), art_rot=sorted(ctx["art_rot"]), linear=linear,
+                values=[1.0 / float(mu[i]) for i in order[:n]],
+                modes=[_vec_to_nodes(ctx, eq, vec[:, i]) for i in order[:n]])
+
+
+def analysis_modal(ctx):
+    ops = ctx["ops"]
+    k, eq = _stiffness(ctx)
+    ops.wipeAnalysis()
+    n = int(ctx["spec"].get("numModes", 4))
+    lam = ops.eigen("-fullGenLapack", n)
+    # Massless directions are infinite eigenvalues, which fullGenLapack
+    # returns as ~1e308 followed by zeros: keep the ascending finite prefix.
+    for i, v in enumerate(lam):
+        if not v < 1e100 or (i and v < lam[i - 1]):
+            lam = lam[:i]
+            break
+    modes = []
+    for i in range(len(lam)):
+        modes.append({nid: list(ops.nodeEigenvector(nid, i + 1))[:ctx["ndf"]] for nid in ctx["nodes"]})
+        for nid, u in modes[-1].items():
+            u.extend([0.0] * ((3 if ctx["dim"] == 2 else 6) - len(u)))
+    return dict(dim=ctx["dim"], kappa=_kappa(k), art_rot=sorted(ctx["art_rot"]),
+                values=[math.sqrt(max(v, 0.0)) for v in lam], modes=modes)
+
+
+def analysis_pdelta(ctx):
+    ops = ctx["ops"]
+    _stiffness(ctx)
+    ops.wipeAnalysis()
+    ops.constraints("Transformation")
+    ops.numberer("RCM")
+    ops.system("FullGeneral")
+    ops.test("RelativeNormDispIncr", 1e-11, 200, 0)
+    ops.integrator("LoadControl", 1.0)
+    ops.algorithm("Newton")
+    ops.analysis("Static")
+    if ops.analyze(1) != 0:
+        raise RuntimeError("OpenSees P-Delta did not converge")
+    ops.reactions()
+    kt = _tangent(ops)
+    r = ctx["collect"]()
+    return dict(dim=ctx["dim"], kappa=_kappa(kt), art_rot=sorted(ctx["art_rot"]), **r)
+
+
+def analysis_th(ctx):
+    """Linear transient. spec: dt, nSteps, alpha (HHT, engine convention
+    [-1/3, 0]; absent = Newmark average acceleration), dampingXi,
+    groundAccel + groundDir (1-based OpenSees direction), or forceTimes /
+    forceFactors / forceLoads (one shape, scaled by a piecewise-linear
+    factor)."""
+    ops, sp = ctx["ops"], ctx["spec"]
+    k, eq = _stiffness(ctx)
+    ops.wipeAnalysis()
+    ops.remove("loadPattern", 1)  # the static loads (the model's own are not part of the history)
+    xi = sp.get("dampingXi") or 0.0
+    if xi > 0:
+        lam = [v for v in ops.eigen("-fullGenLapack", 2) if v > 1e-10]
+        if not lam:
+            raise Unsupported("no positive eigenvalue for Rayleigh damping")
+        w1 = math.sqrt(lam[0])
+        w2 = math.sqrt(lam[1]) if len(lam) > 1 else 3.0 * w1
+        ops.rayleigh(2 * xi * w1 * w2 / (w1 + w2), 2 * xi / (w1 + w2), 0.0, 0.0)
+    dt, nsteps = float(sp["dt"]), int(sp["nSteps"])
+    if sp.get("groundAccel") is not None:
+        # One more sample: the last step's time, accumulated in floating
+        # point, lands just past the record, where a Path series is 0.
+        vals = list(sp["groundAccel"])
+        ops.timeSeries("Path", 101, "-dt", dt, "-values", *(vals + vals[-1:]))
+        ops.pattern("UniformExcitation", 101, int(sp["groundDir"]), "-accel", 101)
+    else:
+        ops.timeSeries("Path", 101, "-time", *sp["forceTimes"], "-values", *sp["forceFactors"], "-useLast")
+        ops.pattern("Plain", 101, 101)
+        for nid, f in sp["forceLoads"]:
+            ops.load(int(nid), *f[:ctx["ndf"]])
+    ops.constraints("Transformation")
+    ops.numberer("RCM")
+    ops.system("FullGeneral")
+    ops.test("NormDispIncr", 1e-12, 1, 0)
+    ops.algorithm("Linear")
+    if sp.get("alpha") is not None:
+        ops.integrator("HHT", 1.0 + float(sp["alpha"]))  # OpenSees alpha = 1 + engine alpha
+    else:
+        ops.integrator("Newmark", 0.5, 0.25)
+    ops.analysis("Transient")
+    width = 3 if ctx["dim"] == 2 else 6
+    hist = {nid: [[0.0] * width] for nid in ctx["nodes"]}
+    for _ in range(nsteps):
+        if ops.analyze(1, dt) != 0:
+            raise RuntimeError("OpenSees transient step failed")
+        for nid in ctx["nodes"]:
+            u = list(ops.nodeDisp(nid))[:ctx["ndf"]]
+            hist[nid].append(u + [0.0] * (width - len(u)))
+    return dict(dim=ctx["dim"], kappa=_kappa(k), art_rot=sorted(ctx["art_rot"]), hist=hist)
+
+
+def _planar_th_in_3d(d, spec):
+    """A 2D ground-motion history run on the plane frame embedded in 3D (the
+    y = 0 plane, out-of-plane DOFs fixed). OpenSees 3.8's ElasticBeam2d and
+    ElasticTimoshenkoBeam2d subtract their UniformExcitation inertia load
+    twice (getResistingForce and getResistingForceIncInertia both do), which
+    doubles the earthquake on every 2D beam with mass; ElasticBeam3d does it
+    once. In-plane bending of the 3D member is about its local y (local z
+    lies in the plane for the engine's default axes), so Iy = Iz(2D), a hinge
+    is a My release and ry(2D) = -ry(3D)."""
+    if any(s.get("angle") for s in d["supports"].values()):
+        raise Unsupported("rotated spring in a planar ground-motion history")
+    flags = {"fixed": (1, 1, 1), "pinned": (1, 1, 0), "rollerX": (0, 1, 0), "rollerY": (1, 0, 0),
+             "rollerZ": (1, 0, 0), "guidedX": (0, 1, 1), "guidedY": (1, 0, 1), "guidedZ": (1, 0, 1),
+             "spring": (0, 0, 0)}
+    win = {}
+    for s_ in sorted(d["supports"].values(), key=lambda s_: s_["id"]):
+        win[s_["nodeId"]] = s_  # the highest id wins (DofNumbering::build_2d)
+    sups = {}
+    for nid, s_ in win.items():
+        fx, fz, fr = flags[s_["type"]]
+        t = {"nodeId": nid, "rx": bool(fx), "ry": True, "rz": bool(fz), "rrx": True, "rry": bool(fr), "rrz": True}
+        for k2, k3 in (("kx", "kx"), ("ky", "kz"), ("kz", "kry")):
+            if (s_.get(k2) or 0.0) > 0:
+                t[k3] = s_[k2]
+        sups[str(nid)] = t
+    for n in d["nodes"].values():
+        if n["id"] not in win:
+            sups[f"p{n['id']}"] = {"nodeId": n["id"], "rx": False, "ry": True, "rz": False,
+                                   "rrx": True, "rry": False, "rrz": True}
+    secs = {}
+    for k, s_ in d["sections"].items():
+        t = {"id": s_["id"], "a": s_["a"], "iy": s_["iz"], "iz": s_["iz"], "j": s_["iz"]}
+        if s_.get("asY"):
+            t["asY"] = s_["asY"]
+        secs[k] = t
+    elems = {}
+    for k, e in d["elements"].items():
+        t = {x: e[x] for x in ("id", "type", "nodeI", "nodeJ", "materialId", "sectionId")}
+        if e.get("hingeStart"):
+            t["releaseMyStart"] = True
+        if e.get("hingeEnd"):
+            t["releaseMyEnd"] = True
+        elems[k] = t
+    d3 = {"nodes": {k: {"id": n["id"], "x": n["x"], "y": 0.0, "z": _get(n, "z", "y")} for k, n in d["nodes"].items()},
+          "materials": d["materials"], "sections": secs, "elements": elems, "supports": sups, "loads": []}
+    sp3 = dict(spec, groundDir={1: 1, 2: 3}[int(spec["groundDir"])])
+    r = opensees_3d(d3, "th", sp3)
+    r["dim"] = 2
+    r["hist"] = {nid: [[u[0], u[2], -u[4]] for u in h] for nid, h in r["hist"].items()}
+    return r
+
+
+ANALYSES = {"buckling": analysis_buckling, "modal": analysis_modal,
+            "pdelta": analysis_pdelta, "th": analysis_th}
+
+
 # ---------------------------------------------------------------- stabileo
 
 def stabileo(path_or_json, binary):
@@ -857,6 +1298,61 @@ def stabileo(path_or_json, binary):
     if "error" in out:
         raise RuntimeError("stabileo: " + out["error"])
     return out
+
+
+def stabileo_job(job, binary):
+    """Run the engine on a harness job ({"analysis": kind, "model": ..., spec})."""
+    kind, d = job["analysis"], job["model"]
+    if kind == "buckling":
+        w = {"analysis": "buckling", "numModes": job["numModes"], "model": d}
+    elif kind == "modal":
+        w = {"analysis": "modal", "numModes": job["numModes"], "densities": job["densities"], "model": d}
+    elif kind == "pdelta":
+        # 1e-11 relative increment; a model whose round-off floor sits above
+        # that (it stalls there, converged to ~1e-9) is retried at 1e-8,
+        # still far inside the 1e-6 comparison tolerance.
+        out = stabileo({"analysis": "pdelta", "maxIter": 200, "tolerance": 1e-11, "model": d}, binary)
+        if out["converged"]:
+            return out
+        w = {"analysis": "pdelta", "maxIter": 200, "tolerance": 1e-8, "model": d}
+    elif kind == "th":
+        th = {"solver": d, "densities": job["densities"], "timeStep": job["dt"], "nSteps": job["nSteps"],
+              "method": "hht" if job.get("alpha") is not None else "newmark",
+              "alpha": job.get("alpha"), "dampingXi": job.get("dampingXi")}
+        dim3 = _is_3d(d)
+        if job.get("groundAccel") is not None:
+            axis = "XYZ"[job["groundDir"] - 1] if dim3 else "XY"[job["groundDir"] - 1]
+            if dim3:
+                th["groundAccel" + axis] = job["groundAccel"]
+            else:
+                th["groundAccel"], th["groundDirection"] = job["groundAccel"], axis
+        else:
+            keys = ("fx", "fy", "fz", "mx", "my", "mz") if dim3 else ("fx", "fz", "my")
+            th["forceHistory"] = [
+                {"time": t, "loads": [dict(nodeId=nid, **{k: c * f[i] for i, k in enumerate(keys)})
+                                      for nid, f in job["forceLoads"]]}
+                for t, c in zip(job["forceTimes"], job["forceFactors"])]
+        w = {"analysis": "timeHistory", "input": th}
+    else:
+        raise ValueError(kind)
+    return stabileo(w, binary)
+
+
+def normalize_ext(kind, res, dim):
+    """Engine result of an extended analysis -> the opensees_* result shape."""
+    def node_vec(ds):
+        if dim == 2:
+            return {x["nodeId"]: [x["ux"], _get(x, "uz", "uy"), _get(x, "ry", "rz")] for x in ds}
+        return {x["nodeId"]: [x[k] for k in ("ux", "uy", "uz", "rx", "ry", "rz")] for x in ds}
+    if kind in ("buckling", "modal"):
+        key = "loadFactor" if kind == "buckling" else "omega"
+        return dict(values=[m[key] for m in res["modes"]], modes=[node_vec(m["displacements"]) for m in res["modes"]])
+    if kind == "pdelta":
+        r = normalize_stabileo(res["results"], dim)
+        r["converged"], r["stable"] = res["converged"], res["isStable"]
+        return r
+    comps = ("ux", "uz", "ry") if dim == 2 else ("ux", "uy", "uz", "rx", "ry", "rz")
+    return dict(hist={h["nodeId"]: [list(u) for u in zip(*(h[c] for c in comps))] for h in res["nodeHistories"]})
 
 
 def normalize_stabileo(res, dim):
@@ -912,7 +1408,8 @@ def compare(model, sres, ores, tol):
     # under the largest force (all-zero displacement fields otherwise
     # compare round-off against round-off).
     ea = max(m["e"] * 1000.0 for m in model["materials"].values()) * \
-        max(s_["a"] for s_ in model["sections"].values())
+        max([s_["a"] for s_ in model["sections"].values()] +
+            [p["thickness"] * size for k in ("plates", "quads") for p in (model.get(k) or {}).values()])
     u_floor = f_sc * size / ea
     sc = dict(ut=max(scale(tr), scale(ro) * size, u_floor), ur=max(scale(ro), scale(tr) / size, u_floor / size),
               rf=f_sc, rm=f_sc * size, ef=f_sc, em=f_sc * size)
@@ -960,6 +1457,136 @@ def compare(model, sres, ores, tol):
     return bad, groups
 
 
+# Eigenvalue comparison. Load factors / circular frequencies are compared
+# relatively; a mode shape only when its eigenvalue is separated from its
+# neighbours by more than MAC_GAP (relative), where the eigenvector is well
+# determined (perturbation ~ eigenvalue error / gap), as 1 - MAC.
+MAC_GAP = 1e-3
+MAC_TOL = 1e-6
+
+
+def _mac(a, b, art, nt):
+    va, vb = [], []
+    for nid, ua in a.items():
+        ub = b.get(nid)
+        if ub is None:
+            continue
+        for k in range(len(ua)):
+            if k >= nt and nid in art:
+                continue
+            va.append(ua[k])
+            vb.append(ub[k])
+    ab = sum(x * y for x, y in zip(va, vb))
+    aa = sum(x * x for x in va)
+    bb = sum(y * y for y in vb)
+    return ab * ab / (aa * bb) if aa > 0 and bb > 0 else 0.0
+
+
+def compare_eigen(sres, ores, tol, n_req, power):
+    """(bad, groups) for buckling load factors / modal frequencies + MAC.
+
+    Both solvers get the eigenvalues mu = 1/lambda of the inverted problem
+    with an absolute error ~ eps*kappa*mu_1, so the relative error of the k-th
+    eigenvalue grows like lambda_k / lambda_1: the tolerance is scaled by it
+    (`power` 1 for load factors, 2 for circular frequencies, omega^2 being the
+    eigenvalue)."""
+    so, oo = sres["values"], ores["values"]
+    nt = 2 if ores["dim"] == 2 else 3
+    art = set(ores.get("art_rot", []))
+    bad, groups = [], {"eig": 0.0, "mac": 0.0}
+    n = min(n_req, len(oo))
+    if len(so) < n:
+        bad.append(("eig", len(so), "missing", len(so), n, math.inf))
+    for i in range(min(n, len(so))):
+        err = abs(so[i] - oo[i]) / max(abs(oo[i]), 1e-300) / max(1.0, abs(oo[i] / oo[0]) ** power)
+        groups["eig"] = max(groups["eig"], err)
+        if err > tol:
+            bad.append(("eig", i + 1, "value", so[i], oo[i], err))
+        nb = [oo[j] for j in (i - 1, i + 1) if 0 <= j < len(oo)]
+        if i + 1 >= len(oo) or any(abs(v - oo[i]) <= MAC_GAP * abs(oo[i]) for v in nb):
+            continue  # last known mode (gap unknown) or a cluster
+        e = 1.0 - _mac(sres["modes"][i], ores["modes"][i], art, nt)
+        groups["mac"] = max(groups["mac"], e)
+        if e > MAC_TOL:
+            bad.append(("mode", i + 1, "1-MAC", e, 0.0, e))
+    return bad, groups
+
+
+def compare_th(model, sres, ores, tol):
+    """Displacement histories, normalized per group (translations, rotations)
+    by the largest magnitude over all nodes and steps (rotations floored by
+    translations / model size and vice versa, as in compare())."""
+    nt = 2 if ores["dim"] == 2 else 3
+    art = set(ores.get("art_rot", []))
+    tr = [abs(v) for h in ores["hist"].values() for u in h for v in u[:nt]]
+    ro = [abs(v) for nid, h in ores["hist"].items() if nid not in art for u in h for v in u[nt:]]
+    xs = [c for p in model["nodes"].values() for c in (p["x"], p.get("y", 0.0), p.get("z", 0.0))]
+    size = max(max(xs) - min(xs), 1e-12)
+    st, sr = max(tr + [0.0]), max(ro + [0.0])
+    sc_t, sc_r = max(st, sr * size, 1e-300), max(sr, st / size, 1e-300)
+    if st == 0.0 and sr == 0.0:
+        return None, {}
+    bad, groups = [], {"th_t": 0.0, "th_r": 0.0}
+    for nid, ho in ores["hist"].items():
+        hs = sres["hist"].get(nid)
+        if hs is None or len(hs) != len(ho):
+            bad.append(("hist", nid, "missing", None, None, math.inf))
+            continue
+        for step, (us, uo) in enumerate(zip(hs, ho)):
+            for k in range(len(uo)):
+                if k >= nt and nid in art:
+                    continue
+                g = "th_t" if k < nt else "th_r"
+                err = abs(us[k] - uo[k]) / (sc_t if k < nt else sc_r)
+                groups[g] = max(groups[g], err)
+                if err > tol:
+                    bad.append(("hist", nid, f"step{step}.{k}", us[k], uo[k], err))
+    return bad, groups
+
+
+# Folded shells: different membrane formulations (see gen_models.shell).
+# OpenSees' ShellMITC4 membrane is the plain bilinear one and locks in
+# in-plane bending: on these cantilevers its lateral tip displacement is 5 %
+# (coarse) to 70 % (refined 4x) of the converged value, which the engine's
+# EAS-7 membrane is within a few percent of from the coarsest mesh. So the
+# translations are only reported (max_err "disp_t", not a failure), and what
+# is checked is the reaction resultant about the origin, which equilibrium
+# fixes exactly for any formulation: it catches a lost, doubled or misdirected
+# load (pressure normals, consistent nodal loads) and a wrong support.
+SHELL_DISP_TOL = math.inf
+
+
+def compare_shell(model, sres, ores, tol):
+    keep = {k: ores[k] for k in ("dim", "art_rot")}
+    trans = lambda dd: {n: u[:3] + [0.0] * 3 for n, u in dd.items()}  # noqa: E731
+    o2 = dict(keep, disp=trans(ores["disp"]), reac={}, forces={})
+    bad, groups = compare(model, dict(sres, disp=trans(sres["disp"]), reac={}, forces={}), o2, SHELL_DISP_TOL)
+    groups.pop("disp_r", None)
+    if bad is None:
+        return None, {}
+
+    def resultant(reac):
+        f, mm = [0.0] * 3, [0.0] * 3
+        for nid, r in reac.items():
+            n = next(v for v in model["nodes"].values() if v["id"] == nid)
+            p = (n["x"], n["y"], n["z"])
+            mxyz = _cross(p, r[:3])
+            for k in range(3):
+                f[k] += r[k]
+                mm[k] += r[3 + k] + mxyz[k]
+        return f + mm
+    rs, ro = resultant(sres["reac"]), resultant(ores["reac"])
+    sc = max(max(abs(v) for v in ro[:3]), 1e-300)
+    xs = [c for p in model["nodes"].values() for c in (p["x"], p["y"], p["z"])]
+    size = max(xs) - min(xs)
+    for k, name in enumerate(("Fx", "Fy", "Fz", "Mx", "My", "Mz")):
+        err = abs(rs[k] - ro[k]) / (sc if k < 3 else sc * size)
+        groups["resultant"] = max(groups.get("resultant", 0.0), err)
+        if err > tol:
+            bad.append(("resultant", 0, name, rs[k], ro[k], err))
+    return bad, groups
+
+
 # ---------------------------------------------------------------- driver
 
 def prune_orphans(d):
@@ -975,9 +1602,23 @@ def prune_orphans(d):
 
 
 def opensees_worker(model):
-    """OpenSees run in this process -> JSON-able dict."""
+    """OpenSees run in this process -> JSON-able dict. `model` is a stabileo
+    model or a harness job ({"analysis": kind, "model": ..., spec})."""
     try:
-        r = opensees_3d(model) if _is_3d(model) else opensees_2d(model)
+        if "analysis" in model:
+            d, spec = model["model"], dict(model)
+            if "numModes" in spec:
+                spec["numModes"] += 1  # one more: the gap above the last compared mode
+            if spec["analysis"] == "th":
+                d = dict(d, loads=[])
+            if spec["analysis"] == "shell":
+                r = opensees_3d(d)
+            elif spec["analysis"] == "th" and spec.get("groundAccel") is not None and not _is_3d(d):
+                r = _planar_th_in_3d(d, spec)
+            else:
+                r = (opensees_3d if _is_3d(d) else opensees_2d)(d, spec["analysis"], spec)
+        else:
+            r = opensees_3d(model) if _is_3d(model) else opensees_2d(model)
     except Unsupported as ex:
         return {"unsupported": str(ex)}
     except Exception as ex:  # noqa: OpenSees raises bare errors
@@ -998,9 +1639,19 @@ def opensees_isolated(model):
     if "ok" not in out:
         return out
     r = out["ok"]
-    for k in ("disp", "reac", "forces"):
-        r[k] = {int(i): v for i, v in r[k].items()}
+    _int_keys(r)
     return r
+
+
+def _int_keys(r):
+    """JSON turned the node / element id keys into strings."""
+    for k in ("disp", "reac", "forces", "hist"):
+        if k in r:
+            r[k] = {int(i): v for i, v in r[k].items()}
+    if "modes" in r:
+        r["modes"] = [{int(i): v for i, v in m.items()} for m in r["modes"]]
+    if "linear" in r:
+        _int_keys(r["linear"])
 
 
 # Models whose scaled stiffness condition number exceeds this are reported as
@@ -1009,6 +1660,8 @@ KAPPA_MAX = 1e12
 
 
 def run_one(name, model, binary, tol, verbose, dump_dir=None):
+    if "analysis" in model:
+        return run_ext(name, model, binary, tol, dump_dir)
     dim = 3 if _is_3d(model) else 2
     why = check_supported_3d(model) if dim == 3 else check_supported_2d(model)
     if why:
@@ -1042,6 +1695,90 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     return r
 
 
+def _dump(dump_dir, name, model):
+    os.makedirs(dump_dir, exist_ok=True)
+    with open(os.path.join(dump_dir, name.replace("/", "_") + ".json"), "w") as f:
+        json.dump(model, f, indent=1)
+
+
+def _probe_loads(d):
+    """The model under a load on every translational DOF: the linear solve's
+    conditioning diagnostics then expose mechanisms (an unloaded mechanism
+    solves to zero without complaint)."""
+    keys = ("fx", "fy", "fz") if _is_3d(d) else ("fx", "fz")
+    zero = {k: 0.0 for k in ("fx", "fy", "fz", "mx", "my", "mz")} if _is_3d(d) else {"fx": 0.0, "fz": 0.0, "my": 0.0}
+    loads = [{"type": "nodal", "data": dict(zero, nodeId=n["id"], **{k: 1.0 for k in keys})}
+             for n in d["nodes"].values()]
+    return dict(d, loads=loads)
+
+
+def run_ext(name, job, binary, tol, dump_dir=None):
+    """run_one for a buckling / modal / pdelta / th job."""
+    kind, d = job["analysis"], job["model"]
+    dim = 3 if _is_3d(d) else 2
+    base = dict(name=name, dim=dim, analysis=kind)
+    why = check_supported_3d(d) if dim == 3 else check_supported_2d(d)
+    if why:
+        return dict(base, status="unsupported", why=why)
+    try:
+        lin = normalize_stabileo(stabileo(_probe_loads(d) if kind in MASS_MODES else d, binary), dim)
+        sres = lin if kind == "shell" else normalize_ext(kind, stabileo_job(job, binary), dim)
+    except RuntimeError as ex:
+        ores = opensees_isolated(job)  # a model OpenSees cannot take either is not a failure
+        if "unsupported" in ores:
+            return dict(base, status="unsupported", why=[ores["unsupported"]])
+        v = ores.get("values") or []
+        if kind == "modal" and v and v[0] < 1e-3 * max(v):
+            # A rigid-body mode (a member hanging on hinges, say): the static
+            # probe does not load it, the eigenproblem finds it.
+            return dict(base, status="ill_conditioned", why=[f"mechanism (OpenSees omega_1 = {v[0]:.1e})"])
+        return dict(base, status="stabileo_failed", why=[str(ex)[:200]])
+    ill = sorted(set(lin["diags"]) & ILL_CONDITIONED)
+    if ill:
+        return dict(base, status="ill_conditioned", why=ill)
+    ores = opensees_isolated(job)
+    if kind == "pdelta" and not (sres["converged"] and sres["stable"]):
+        # Beyond the buckling load: no stable equilibrium to compare (the
+        # engine flags it, or neither iteration converges).
+        if sres["converged"] or "failed" in ores:
+            return dict(base, status="unstable", why=["beyond buckling"])
+        return dict(base, status="stabileo_failed", why=["P-Delta not converged"])
+    if "unsupported" in ores:
+        return dict(base, status="unsupported", why=[ores["unsupported"]])
+    if "failed" in ores:
+        return dict(base, status="opensees_failed", why=[ores["failed"]])
+    kappa = ores.get("kappa")
+    if kappa is not None and kappa > KAPPA_MAX:
+        return dict(base, status="ill_conditioned", why=[f"kappa={kappa:.1e}"])
+    tol = max(tol, 100 * 2.2e-16 * (kappa or 0.0))
+    if kind in ("buckling", "modal"):
+        bad, groups = compare_eigen(sres, ores, tol, job["numModes"], 1 if kind == "buckling" else 2)
+        if kind == "buckling":
+            # The linear solution Kg is built from: displacements and axial
+            # forces (OpenSees' shears and moments include N*Kg*u by then).
+            ol = dict(ores["linear"], reac={})
+            ol["forces"] = {i: {k: v for k, v in f.items() if k[0] == "n"} for i, f in ol["forces"].items()}
+            b2, g2 = compare(d, lin, ol, tol)
+            bad += b2 or []
+            groups.update({"lin_" + k: v for k, v in g2.items()})
+    elif kind == "pdelta":
+        bad, groups = compare(d, sres, ores, tol)
+    elif kind == "shell":
+        bad, groups = compare_shell(d, sres, ores, tol)
+    else:
+        bad, groups = compare_th(d, sres, ores, tol)
+    if bad is None:
+        return dict(base, status="unloaded")
+    r = dict(base, status="mismatch" if bad else "ok", max_err=groups, kappa=kappa, tol=tol,
+             n_bad=len(bad), worst=sorted(bad, key=lambda b: -b[5])[:8])
+    if bad and dump_dir:
+        _dump(dump_dir, name, job)
+    return r
+
+
+EXT_KINDS = ("buckling", "modal", "pdelta", "th")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("files", nargs="*")
@@ -1050,6 +1787,11 @@ def main():
     ap.add_argument("--random3d", type=int, default=0)
     ap.add_argument("--rich2d", type=int, default=0, help="gen_models.rich_2d models")
     ap.add_argument("--rich3d", type=int, default=0, help="gen_models.rich_3d models")
+    ap.add_argument("--plates", type=int, default=0, help="gen_models.plate models (MITC4 / DKT bending)")
+    ap.add_argument("--shells", type=int, default=0, help="gen_models.shell folded cantilevers (loose tolerance)")
+    for kind in EXT_KINDS:
+        for dim in ("2d", "3d"):
+            ap.add_argument(f"--{kind}{dim}", type=int, default=0, help=f"gen_models.job('{kind}', {dim[0]}) jobs")
     ap.add_argument("--seed-start", type=int, default=0)
     ap.add_argument("--bin", default=os.environ.get("STABILEO_SOLVE_JSON", DEFAULT_BIN))
     ap.add_argument("--tol", type=float, default=1e-6)
@@ -1080,9 +1822,16 @@ def main():
             p = subprocess.run([a.bin, f"--gen{kind}", str(s)], capture_output=True, text=True, check=True)
             jobs.append((f"random{kind}-{s}", prune_orphans(json.loads(p.stdout))))
     import gen_models
-    for kind, n, gen in (("2d", a.rich2d, gen_models.rich_2d), ("3d", a.rich3d, gen_models.rich_3d)):
+    for kind, n, gen in (("2d", a.rich2d, gen_models.rich_2d), ("3d", a.rich3d, gen_models.rich_3d),
+                         ("plate", a.plates, gen_models.plate)):
         for s in range(a.seed_start, a.seed_start + n):
-            jobs.append((f"rich{kind}-{s}", gen(s)))
+            jobs.append((f"{'' if kind == 'plate' else 'rich'}{kind}-{s}", gen(s)))
+    for kind in EXT_KINDS:
+        for dim in (2, 3):
+            for s in range(a.seed_start, a.seed_start + getattr(a, f"{kind}{dim}d")):
+                jobs.append((f"{kind}{dim}d-{s}", gen_models.job(kind, dim, s)))
+    for s in range(a.seed_start, a.seed_start + a.shells):
+        jobs.append((f"shell-{s}", {"analysis": "shell", "model": gen_models.shell(s, 2)}))
 
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
@@ -1098,7 +1847,14 @@ def main():
 
     from collections import Counter
     cnt = Counter(r["status"] for r in results)
-    print("\nsummary:", dict(cnt))
+    by_cat = {}
+    for r in results:
+        cat = "files" if r["name"].endswith(".json") else r["name"].rsplit("-", 1)[0]
+        by_cat.setdefault(cat, Counter())[r["status"]] += 1
+    print()
+    for cat, c_ in sorted(by_cat.items()):
+        print(f"  {cat:12} {dict(c_)}")
+    print("summary:", dict(cnt))
     ok = [r for r in results if r["status"] in ("ok", "mismatch")]
     if ok:
         g = {}
@@ -1106,7 +1862,7 @@ def main():
             for k, v in r["max_err"].items():
                 g[k] = max(g.get(k, 0.0), v)
         print("max normalized error over compared models:", {k: f"{v:.2e}" for k, v in sorted(g.items())})
-    for st in ("unsupported",):
+    for st in ("unsupported", "stabileo_failed", "opensees_failed"):
         reasons = Counter(w for r in results if r["status"] == st for w in r["why"])
         if reasons:
             print(f"{st} reasons:", dict(reasons))

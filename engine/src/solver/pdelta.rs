@@ -356,7 +356,7 @@ pub fn solve_pdelta_2d_on(
         results: AnalysisResults {
             displacements: build_displacements_2d(dof_num, &u_global),
             reactions,
-            element_forces: compute_internal_forces_2d(input, dof_num, &u_global),
+            element_forces: second_order_forces_2d(input, dof_num, &u_global),
             constraint_forces,
             // The model's diagnostics belong to the model, not to the path that
             // analysed it: the linear pass above already ran the pre-solve gates
@@ -376,6 +376,45 @@ pub fn solve_pdelta_2d_on(
         b2_factor: max_ratio,
         linear_results,
     })
+}
+
+/// End forces of the members P-Delta solved, (K_e + Kg_e(N))·u_e − FEF: the
+/// elastic recovery plus each frame member's geometric end forces. The
+/// reactions are taken from K + Kg; with the elastic part alone the end forces
+/// balanced neither the joints nor the reactions (a free cantilever tip
+/// reported a moment). Trusses report only N, which Kg does not change.
+fn second_order_forces_2d(input: &SolverInput, dof_num: &DofNumbering, u: &[f64]) -> Vec<ElementForces> {
+    let mut forces = compute_internal_forces_2d(input, dof_num, u);
+    for (id, g) in super::geometric_stiffness::frame_geometric_end_forces_2d(input, dof_num, u) {
+        if let Some(f) = forces.iter_mut().find(|f| f.element_id == id) {
+            // n_start = −f_I,x, v_start = f_I,y, m_start = f_I,θ; the end ones negated.
+            f.v_start += g[1];
+            f.m_start += g[2];
+            f.v_end -= g[4];
+            f.m_end -= g[5];
+        }
+    }
+    forces
+}
+
+/// 3D counterpart of `second_order_forces_2d`.
+fn second_order_forces_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64]) -> Vec<ElementForces3D> {
+    let mut forces = compute_internal_forces_3d(input, dof_num, u);
+    for (id, g) in super::geometric_stiffness::frame_geometric_end_forces_3d(input, dof_num, u) {
+        if let Some(f) = forces.iter_mut().find(|f| f.element_id == id) {
+            f.vy_start += g[1];
+            f.vz_start += g[2];
+            f.mx_start += g[3];
+            f.my_start += g[4];
+            f.mz_start += g[5];
+            f.vy_end -= g[7];
+            f.vz_end -= g[8];
+            f.mx_end -= g[9];
+            f.my_end -= g[10];
+            f.mz_end -= g[11];
+        }
+    }
+    forces
 }
 
 /// P-Delta analysis result for 3D structures.
@@ -568,7 +607,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     Ok(PDeltaResult3D {
         results: AnalysisResults3D {
             displacements: build_displacements_3d(dof_num, &u_global), reactions,
-            element_forces: compute_internal_forces_3d(input, dof_num, &u_global),
+            element_forces: second_order_forces_3d(input, dof_num, &u_global),
             plate_stresses: compute_plate_stresses(input, dof_num, &u_global, None),
             quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
             diagnostics: linear_results.diagnostics.clone(),

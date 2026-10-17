@@ -111,12 +111,23 @@ pub fn jacobi_eigen(a: &[f64], n: usize, max_iter: usize) -> EigenResult {
 /// where B is symmetric positive definite.
 /// Transform to standard problem via Cholesky: B = L*L^T
 /// C = L^{-1} * A * L^{-T}, solve C*y = λ*y, then x = L^{-T}*y
+///
+/// B only semi-definite (a mass matrix with massless DOFs: the rotations of
+/// lumped-mass members, a node of trusses only) but A definite (a stiffness):
+/// solved as the inverse problem B*x = μ*A*x, λ = 1/μ; the massless
+/// directions are the μ = 0 ones and come last as λ = ∞. Ascending order and
+/// xᵀBx = 1 for the finite ones, as on the definite path.
 pub fn solve_generalized_eigen(
     a: &[f64],
     b: &[f64],
     n: usize,
     max_iter: usize,
 ) -> Option<EigenResult> {
+    generalized_eigen_cholesky(a, b, n, max_iter).or_else(|| solve_generalized_eigen_inverse(a, b, n, max_iter))
+}
+
+/// A*x = λ*B*x through the Cholesky factor of B; None when B is not definite.
+fn generalized_eigen_cholesky(a: &[f64], b: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
     // Cholesky of B
     let mut b_work = b.to_vec();
     if !cholesky_decompose(&mut b_work, n) {
@@ -160,6 +171,28 @@ pub fn solve_generalized_eigen(
     result.vectors = transformed;
 
     Some(result)
+}
+
+/// `solve_generalized_eigen` for a semi-definite B and a definite A (see there).
+fn solve_generalized_eigen_inverse(a: &[f64], b: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
+    let inv = generalized_eigen_cholesky(b, a, n, max_iter)?;
+    let top = inv.values.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    let mut pairs: Vec<(f64, usize)> = inv
+        .values
+        .iter()
+        .enumerate()
+        .map(|(i, &mu)| (if mu > 1e-12 * top { 1.0 / mu } else { f64::INFINITY }, i))
+        .collect();
+    pairs.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut vectors = vec![0.0; n * n];
+    for (new_col, &(lambda, old_col)) in pairs.iter().enumerate() {
+        // xᵀAx = 1 on the inverse problem, so xᵀBx = μ: rescale to xᵀBx = 1.
+        let scale = if lambda.is_finite() { lambda.sqrt() } else { 1.0 };
+        for row in 0..n {
+            vectors[row * n + new_col] = inv.vectors[row * n + old_col] * scale;
+        }
+    }
+    Some(EigenResult { values: pairs.iter().map(|p| p.0).collect(), vectors })
 }
 
 #[cfg(test)]

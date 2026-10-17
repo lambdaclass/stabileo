@@ -104,6 +104,8 @@ jobs:
   # Differential test against OpenSees (an independent FE code): catches
   # element-matrix, fixed-end-force, axis-convention and reaction bugs that the
   # certificates cannot (they certify the assembled system, right or wrong).
+  # Linear static, buckling, modal, P-Delta, time history, plates and shells
+  # (~2 min on 4 cores; tools/opensees/README.md).
   # Fixed fixture set plus random models from a seed that moves daily; the
   # seed is printed so a failure reproduces with tools/opensees/run.sh.
   opensees-diff:
@@ -127,6 +129,9 @@ jobs:
           echo "seed-start $seed"
           python tools/opensees/compare.py --fixtures \
             --random2d 300 --random3d 300 --rich2d 500 --rich3d 500 \
+            --buckling2d 300 --buckling3d 300 --modal2d 300 --modal3d 300 \
+            --pdelta2d 300 --pdelta3d 300 --th2d 200 --th3d 200 \
+            --plates 300 --shells 60 \
             --seed-start "$seed" -j 4 --report opensees-report.json \
             --dump-dir opensees-mismatches
       - uses: actions/upload-artifact@v4

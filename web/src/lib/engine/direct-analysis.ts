@@ -40,11 +40,11 @@ import { collapseVariableResults, variableExpansionFor } from './variable-member
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, SolverNode3D } from './types-3d';
 import { computeLocalAxes3D } from './local-axes-3d';
-import { input3DToWireObject } from './wasm-solver';
-import { correctPDeltaForces, solvePDelta3DCorrected, amplification } from './pdelta-forces';
+import { input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { amplification } from './pdelta-amplification';
 import { caseOrder, withCaseEffects } from './case-effects';
 import { isCompositeCase } from './loads/combination-cases';
-export { amplification } from './pdelta-forces';
+export { amplification } from './pdelta-amplification';
 
 export type TauBMode = 'iterate' | 'unity';
 
@@ -88,15 +88,15 @@ export type PDeltaRunner = (input: SolverInput3D, maxIter: number, tol: number) 
   b2Factor?: number; amplification?: Array<{ nodeId: number; ratio: number }>;
 }>;
 
-export const mainThreadPDelta: PDeltaRunner = async (input, maxIter, tol) => solvePDelta3DCorrected(input, maxIter, tol);
+export const mainThreadPDelta: PDeltaRunner = async (input, maxIter, tol) => solvePDelta3D(input, maxIter, tol);
 
 /** A runner over the worker pool, falling back to this thread when there is none. */
 export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, tol: number) => Promise<any>): PDeltaRunner {
   return async (input, maxIter, tol) => {
     try {
-      const r = await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
-      // The worker finishes the solve (`solve-finish.ts`); the geometric correction applies here.
-      return { ...r, results: correctPDeltaForces(input, r.results) };
+      // The worker finishes the solve (`solve-finish.ts`); its member forces already carry the
+      // geometric stiffness, as the engine reports them.
+      return await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
     } catch {
       return mainThreadPDelta(input, maxIter, tol);
     }

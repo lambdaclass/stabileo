@@ -49,8 +49,8 @@
     buildSectionGeometry,
     analyzeSectionTorsion,
   } from '../../lib/engine/wasm-solver';
-  // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
-  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
+  import { amplification } from '../../lib/engine/pdelta-amplification';
   // The SSI and Winkler wrappers return the engine's answer as is; whoever shows it finishes it.
   import { finishSolve3D } from '../../lib/engine/solve-finish';
   // Every solver below is a WASM export that throws a bare string, which has no

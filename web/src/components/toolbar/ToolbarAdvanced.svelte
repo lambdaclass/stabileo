@@ -72,7 +72,8 @@
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
-  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
+  import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';

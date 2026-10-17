@@ -10,11 +10,11 @@ import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, solveStiffnessFactors, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
-import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
+import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -2692,8 +2692,8 @@ function solveCombinations3DNonlinear(
  * Combinations solved with P-Delta, each on its own factored loads (`analysis.perCombination`).
  *
  * The cases stay linear, since a case on its own is a service picture and not a combination to
- * design for. A settlement goes into each combination once, with its loads. The member forces
- * carry the geometric part (`pdelta-forces.ts`), and whether a second-order equilibrium exists
+ * design for. A settlement goes into each combination once, with its loads. The engine's member
+ * forces carry the geometric part, (K + Kg)·u, and whether a second-order equilibrium exists
  * is read from the displacements rather than from the engine's flag (`direct-analysis.ts`).
  */
 function solveCombinations3DPDelta(
@@ -2743,7 +2743,7 @@ function solveCombinations3DPDelta(
       if (!on) return t('svc.emptyModel');
       if (typeof on === 'string') return on;
       const full = { ...on, loads };
-      const r = solvePDelta3DCorrected(full, 30, 1e-6, false);
+      const r = solvePDelta3D(full, 30, 1e-6);
       const amp = amplification(r);
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };

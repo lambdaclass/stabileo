@@ -1,14 +1,14 @@
 /**
- * P-Delta member forces with the geometric stiffness restored, against the exact elastic solution
- * of a cantilever with a head load, in both planes and with one and with four elements; and the
- * engine's own forces pinned as they are, so fixing them there shows up here.
+ * The engine's 3D P-Delta member forces, (K + Kg(N))·u − FEF, against the exact elastic solution
+ * of a cantilever with a head load, in both planes and with one and with four elements. They used
+ * to leave the geometric part out and were corrected in the app (`pdelta-forces.ts`, removed);
+ * these tests now hold the engine to the exact answer directly.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
-import { initSolver, solvePDelta3D as solvePDelta3DRaw } from '../wasm-solver';
+import { initSolver, solvePDelta3D } from '../wasm-solver';
 import { buildSolverInput3D } from '../solver-service';
-import { correctPDeltaForces, solvePDelta3DCorrected as solvePDelta3D } from '../pdelta-forces';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -39,8 +39,6 @@ describe('P-Delta member forces', () => {
       it(`${alongX ? 'strong' : 'weak'} axis, ${segments} element(s): the base moment is the exact one, the shear the applied load`, () => {
         const { input, exact, baseId, headId } = cantilever(segments, alongX);
         const r = solvePDelta3D(input as never).results;
-        // The wrapper's correction is the module's; applying it by hand to the raw answer agrees.
-        expect(byId(correctPDeltaForces(input as never, solvePDelta3DRaw(input as never).results), baseId).myStart).toBeCloseTo(byId(r, baseId).myStart, 12);
         const base = byId(r, baseId);
         expect(Math.abs(moment(base) - exact(0)) / exact(0)).toBeLessThan(0.01);
         expect(Math.abs(shear(base) - H) / H).toBeLessThan(0.02);
@@ -78,10 +76,9 @@ describe('P-Delta member forces', () => {
     expect(sum('fz') - 800).toBeCloseTo(0, 6);
   });
 
-  // The engine's reactions had the same defect as the member forces (0.198 kN against 0.12
-  // applied, 0.824 against the exact 0.778) until it was fixed on its side. The wrapper must
-  // leave them untouched: adding the geometric terms again would double-count them.
-  it('reactions balance the applied loads, and agree with the corrected member forces', () => {
+  // The engine's reactions once had the same defect as its member forces (0.198 kN against 0.12
+  // applied, 0.824 against the exact 0.778). Both come from K + Kg now, and must agree.
+  it('reactions balance the applied loads, and agree with the member forces', () => {
     const { input, exact } = cantilever(1, false);
     const r = solvePDelta3D(input as never).results;
     const base = r.reactions.find((x: { nodeId: number }) => x.nodeId === 1)!;
@@ -112,21 +109,10 @@ describe('P-Delta member forces', () => {
     });
   }
 
-  // The engine's own forces leave the geometric part out. When this starts passing, the engine
-  // has been fixed and `pdelta-forces.ts` must go, or it will count Kg·u twice.
-  it.fails('the engine reports the weak-axis base moment of a P-Delta solve within 1 %', () => {
+  // The defect the app used to correct: K·u alone put the weak-axis base moment about 6 % off.
+  it('the engine reports the weak-axis base moment of a P-Delta solve within 1 %', () => {
     const { input, exact, baseId } = cantilever(1, false);
-    const base = byId(solvePDelta3DRaw(input as never).results, baseId);
+    const base = byId(solvePDelta3D(input as never).results, baseId);
     expect(Math.abs(moment(base) - exact(0)) / exact(0)).toBeLessThan(0.01);
-  });
-
-  // The known gap, bounded: the engine's own moment is about 6 % off (without Kg·u), not some
-  // other failure the it.fails above would also accept.
-  it('the engine\'s own weak-axis moment is off by the geometric part alone', () => {
-    const { input, exact, baseId } = cantilever(1, false);
-    const base = byId(solvePDelta3DRaw(input as never).results, baseId);
-    const err = Math.abs(moment(base) - exact(0)) / exact(0);
-    expect(err).toBeGreaterThan(0.01);
-    expect(err).toBeLessThan(0.1);
   });
 });

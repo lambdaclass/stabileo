@@ -20,6 +20,8 @@ fi
 (cd "$repo" && cargo build --release --quiet --example solve_json)
 
 if [ "$#" -eq 0 ]; then
-  set -- --fixtures --random2d 300 --random3d 300 --rich2d 300 --rich3d 300
+  set -- --fixtures --random2d 300 --random3d 300 --rich2d 300 --rich3d 300 \
+    --buckling2d 100 --buckling3d 100 --modal2d 100 --modal3d 100 \
+    --pdelta2d 100 --pdelta3d 100 --th2d 50 --th3d 50 --plates 100 --shells 20
 fi
 exec "$venv/bin/python" "$here/compare.py" "$@"

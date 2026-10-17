@@ -3,7 +3,10 @@
 //! answer, which OpenSees also reproduces.
 
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
-use dedaliano_engine::types::{SolverInput, SolverInput3D};
+use dedaliano_engine::solver::{
+    solve_buckling_2d, solve_buckling_3d, solve_modal_2d, solve_pdelta_2d, solve_pdelta_3d, solve_time_history_2d,
+};
+use dedaliano_engine::types::{SolverInput, SolverInput3D, TimeHistoryInput};
 use serde_json::json;
 
 fn input_2d(v: serde_json::Value) -> SolverInput {
@@ -267,4 +270,263 @@ fn roller_with_spring_reaction_balances_load() {
     assert!(close(r2.rx, -1000.0 * ux, 1e-12), "rx {} vs {}", r2.rx, -1000.0 * ux);
     let sum: f64 = res.reactions.iter().map(|r| r.rx).sum();
     assert!((sum + 10.0).abs() < 1e-9, "ΣRx = {sum}, load 10");
+}
+
+/// The geometric stiffness of a bar is (1/L)·∫N dx times the string matrix:
+/// its mean axial force, which is EA·δ/L. Buckling took (N_start + N_end)/2,
+/// which is the mean only while N is linear along the member, so an axial
+/// point load (or a partial / trapezoidal axial load) on a member gave the
+/// wrong load factor. Here a vertical truss, pinned at the top, held
+/// laterally by a spring k at the bottom node (which also carries a vertical
+/// spring kv), with an axial load px at L/4: the bar compresses by
+/// w = f_I/(kv + EA/L), f_I = px(1 − a/L), and λ = k·L/|EA·w/L|. The old
+/// load factor was 3× too high (the end average is −12.5 kN here, the mean
+/// −37.5 kN).
+#[test]
+fn buckling_uses_mean_axial_force_of_truss_with_axial_point_load() {
+    let (l, a, px, k, kv) = (4.0, 1.0, 100.0, 1000.0, 5e5);
+    let ea = 200000.0 * 1000.0 * 0.01;
+    let input = input_2d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": l}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "spring", "kx": k, "ky": kv},
+                     "2": {"id": 2, "nodeId": 2, "type": "pinned"}},
+        "loads": [{"type": "pointOnElement",
+                   "data": {"elementId": 1, "a": a, "p": 0.0, "px": px}}]
+    }));
+    let w = px * (1.0 - a / l) / (kv + ea / l);
+    let lambda = k * l / (ea * w / l);
+    let res = solve_buckling_2d(&input, 1).unwrap();
+    let got = res.modes[0].load_factor;
+    assert!(close(got, lambda, 1e-9), "λ {got} vs {lambda}");
+}
+
+/// The same on a 3D frame member: a cantilever column (one element, so the
+/// consistent Kg is the whole discretisation) with a tip load P and a uniform
+/// axial load w on its lowest s metres. The discrete eigenproblem
+/// det(K − μ·G) = 0 in the tip's (v, θ) gives μ = λ·|N̄| in closed form, with
+/// N̄ = −(P + w·s²/(2L)) the mean axial force; the end average −(P + w·s/2)
+/// was used before.
+#[test]
+fn buckling_3d_uses_mean_axial_force_of_frame_with_partial_axial_load() {
+    let (l, s, p, w): (f64, f64, f64, f64) = (3.0, 1.2, 200.0, 300.0);
+    let (e, iz) = (200000.0 * 1000.0, 8e-5);
+    let input = input_3d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+                  "2": {"id": 2, "x": 0.0, "y": 0.0, "z": l}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2.0 * iz, "iz": iz, "j": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true,
+                           "rrx": true, "rry": true, "rrz": true}},
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fy": 0.0, "fz": -p,
+                                       "mx": 0.0, "my": 0.0, "mz": 0.0}},
+            {"type": "distributed", "data": {"elementId": 1, "qXI": -w, "qXJ": -w, "a": 0.0, "b": s,
+                                             "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0}}
+        ]
+    }));
+    // det([12c − 36d, −6Lc + 3Ld], [−6Lc + 3Ld, 4L²c − 4L²d]) = 0, c = EI/L³,
+    // d = μ/(30L), with I the weaker one: a quadratic in d, smallest root.
+    let c = e * iz / l.powi(3);
+    let (qa, qb, qc) = (144.0 * l * l - 9.0 * l * l, -(192.0 * l * l * c) + 36.0 * l * l * c, 48.0 * l * l * c * c - 36.0 * l * l * c * c);
+    let d = (-qb - (qb * qb - 4.0 * qa * qc).sqrt()) / (2.0 * qa);
+    let mu = d * 30.0 * l;
+    let lambda = mu / (p + w * s * s / (2.0 * l));
+    let res = solve_buckling_3d(&input, 1).unwrap();
+    let got = res.modes[0].load_factor;
+    assert!(close(got, lambda, 1e-9), "λ {got} vs {lambda}");
+}
+
+/// A mass matrix with a massless DOF (the rotations of lumped-mass members —
+/// the engine lumps every hinged member — or of a node with trusses only)
+/// is only semi-definite. The dense eigensolver used for small models
+/// Cholesky-factored M and gave up ("Eigenvalue decomposition failed") on
+/// any such model. Here a cantilever column with its top end hinged: the
+/// lumped top mass ρAL/2 on a lateral stiffness 3EI/L³.
+#[test]
+fn modal_with_massless_rotation_small_model() {
+    let (l, a, iz, rho) = (3.0, 0.01, 1e-4, 7850.0);
+    let e = 200000.0 * 1000.0;
+    let input = input_2d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": l}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": a, "iz": iz}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": true}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": []
+    }));
+    let densities = [("1".to_string(), rho)].into_iter().collect();
+    let res = solve_modal_2d(&input, &densities, 2).unwrap();
+    let m = rho * a * l / 2.0 / 1000.0;
+    let omega = (3.0 * e * iz / l.powi(3) / m).sqrt();
+    assert!(close(res.modes[0].omega, omega, 1e-9), "ω {} vs {omega}", res.modes[0].omega);
+    let omega_axial = (e * a / l / m).sqrt();
+    assert!(close(res.modes[1].omega, omega_axial, 1e-9), "ω2 {} vs {omega_axial}", res.modes[1].omega);
+}
+
+/// P-Delta member end forces are those of the member that was solved,
+/// (K_e + Kg_e(N))·u_e − FEF: the reactions already came from K + Kg, but the
+/// end forces were recovered with the elastic K_e alone, so they balanced
+/// neither the joints nor the reactions — a free cantilever tip reported a
+/// moment (0.64 kN·m here) and the base moment was not the base reaction
+/// H·L + P·Δ. OpenSees (ElasticTimoshenkoBeam -geomNonlinear) agrees with
+/// the corrected forces to round-off.
+#[test]
+fn pdelta_2d_end_forces_balance_joints_and_reactions() {
+    let (l, h, p) = (4.0, 10.0, 500.0);
+    let input = input_2d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": l}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": h, "fz": -p, "my": 0.0}}]
+    }));
+    let res = solve_pdelta_2d(&input, 100, 1e-12).unwrap();
+    assert!(res.converged);
+    let r = &res.results;
+    let ux = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+    let my = r.reactions[0].my;
+    assert!(close(my.abs(), h * l + p * ux, 1e-9), "base reaction {my} vs HL + PΔ {}", h * l + p * ux);
+    let f = &r.element_forces[0];
+    assert!(f.m_end.abs() < 1e-9 * my.abs(), "free tip moment {}", f.m_end);
+    assert!(close(f.m_start.abs(), my.abs(), 1e-9), "base end moment {} vs reaction {my}", f.m_start);
+    assert!(close(f.v_start.abs(), h, 1e-9) && close(f.v_end.abs(), h, 1e-9), "shear {} {}", f.v_start, f.v_end);
+}
+
+/// The same in 3D, both bending planes: a column with a tip load in x, y, z.
+#[test]
+fn pdelta_3d_end_forces_balance_joints_and_reactions() {
+    let (l, hx, hy, p) = (3.5, 8.0, -5.0, 400.0);
+    let zero = json!(0.0);
+    let input = input_3d(json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+                  "2": {"id": 2, "x": 0.0, "y": 0.0, "z": l}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 1.5e-4, "iz": 1e-4, "j": 2e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true,
+                           "rrx": true, "rry": true, "rrz": true}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": hx, "fy": hy, "fz": -p,
+                                             "mx": zero, "my": zero, "mz": zero}}]
+    }));
+    let res = solve_pdelta_3d(&input, 100, 1e-12).unwrap();
+    assert!(res.converged);
+    let r = &res.results;
+    let d = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let re = &r.reactions[0];
+    // Base moments of the deformed column: about y from Hx and P·ux, about x from Hy and P·uy.
+    assert!(close(re.my.abs(), (hx * l + p * d.ux).abs(), 1e-9), "My {} vs {}", re.my, hx * l + p * d.ux);
+    assert!(close(re.mx.abs(), (hy * l + p * d.uy).abs(), 1e-9), "Mx {} vs {}", re.mx, hy * l + p * d.uy);
+    let f = &r.element_forces[0];
+    let base = re.mx.hypot(re.my);
+    assert!(f.my_end.abs() < 1e-9 * base && f.mz_end.abs() < 1e-9 * base, "tip moments {} {}", f.my_end, f.mz_end);
+    assert!(close(f.my_start.hypot(f.mz_start), base, 1e-9), "base end moment vs reaction");
+}
+
+/// Ground motion loads the free DOFs with −(M·r)_f·a_g, r the rigid-body
+/// translation of every DOF, the supports' included: with a consistent mass a
+/// free DOF is coupled to the supports' translations, and that coupling
+/// M_fr·r_r is part of the inertia of the rigid-body motion. The engine took
+/// M_ff·r_f only, so a frame on consistent mass felt too little of the
+/// earthquake (up to ~50 % on OpenSees' random frames). Here a truss bar
+/// along the motion, pinned at one end and on a roller at the other: one free
+/// DOF with mass 2m and coupling m to the support (m = ρAL/6), so
+/// 2m·ü + k·u = −3m·a_g, integrated here with the same Newmark recurrence.
+#[test]
+fn ground_motion_includes_mass_coupled_to_supports() {
+    let (l, a, rho, dt, n) = (2.0, 0.01, 7850.0, 0.002, 100usize);
+    let k = 200000.0 * 1000.0 * a / l;
+    let m = rho * a / 1000.0 * l / 6.0;
+    let ag: Vec<f64> = (0..=n).map(|i| (2.0 * std::f64::consts::PI * 5.0 * i as f64 * dt).sin()).collect();
+    let solver = json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": l, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": a, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2,
+                           "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"},
+                     "2": {"id": 2, "nodeId": 2, "type": "rollerX"}},
+        "loads": []
+    });
+    let input: TimeHistoryInput = serde_json::from_value(json!({
+        "solver": solver, "densities": {"1": rho}, "timeStep": dt, "nSteps": n,
+        "groundAccel": ag, "groundDirection": "X"
+    })).unwrap();
+    let res = solve_time_history_2d(&input).unwrap();
+    let ux = &res.node_histories.iter().find(|h| h.node_id == 2).unwrap().ux;
+    // Newmark average acceleration on 2m·ü + k·u = f, f = −3m·a_g.
+    let (mass, f) = (2.0 * m, |i: usize| -3.0 * m * ag[i]);
+    let (mut u, mut v, mut acc) = (0.0, 0.0, f(0) / mass);
+    let keff = k + 4.0 * mass / (dt * dt);
+    let mut worst = 0.0f64;
+    for i in 1..=n {
+        let un = (f(i) + mass * (4.0 * u / (dt * dt) + 4.0 * v / dt + acc)) / keff;
+        let an = 4.0 * (un - u) / (dt * dt) - 4.0 * v / dt - acc;
+        v += dt / 2.0 * (acc + an);
+        u = un;
+        acc = an;
+        worst = worst.max((ux[i] - u).abs());
+    }
+    let peak = ux.iter().fold(0.0f64, |p, x| p.max(x.abs()));
+    assert!(worst <= 1e-9 * peak, "max |u − u_ref| = {worst:.3e}, peak {peak:.3e}");
+}
+
+/// A plane frame with hinges must buckle and sway like the same frame built in
+/// 3D (in the x–z plane, out-of-plane DOFs held): the 3D Kg condenses a
+/// released end rotation with the elastic map, the 2D Kg used the node's
+/// rotation as the member's, a different member — 2.5 % on the load factor
+/// of this portal (beam hinged at one end) and 0.5–0.9 % on its P-Delta sway.
+#[test]
+fn hinged_plane_frame_kg_matches_its_3d_model() {
+    for (hs, he) in [(true, false), (false, true), (true, true)] {
+        let m2 = input_2d(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 4.0},
+                      "3": {"id": 3, "x": 5.0, "z": 4.0}, "4": {"id": 4, "x": 5.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+            "elements": {
+                "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1,
+                      "hingeStart": hs, "hingeEnd": he},
+                "3": {"id": 3, "type": "frame", "nodeI": 4, "nodeJ": 3, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}, "2": {"id": 2, "nodeId": 4, "type": "pinned"}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 300.0, "fz": -500.0, "my": 0.0}},
+                      {"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fz": -500.0, "my": 0.0}}]
+        }));
+        let held = |id: usize, ux: bool, uz: bool, ry: bool| json!({"nodeId": id, "rx": ux, "ry": true, "rz": uz,
+                                                                     "rrx": true, "rry": ry, "rrz": true});
+        let m3 = input_3d(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "y": 0.0, "z": 4.0},
+                      "3": {"id": 3, "x": 5.0, "y": 0.0, "z": 4.0}, "4": {"id": 4, "x": 5.0, "y": 0.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 1e-4}},
+            "elements": {
+                "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1,
+                      "releaseMyStart": hs, "releaseMyEnd": he},
+                "3": {"id": 3, "type": "frame", "nodeI": 4, "nodeJ": 3, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": held(1, true, true, true), "2": held(2, false, false, false),
+                         "3": held(3, false, false, false), "4": held(4, true, true, false)},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 300.0, "fy": 0.0, "fz": -500.0, "mx": 0.0, "my": 0.0, "mz": 0.0}},
+                      {"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fy": 0.0, "fz": -500.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}]
+        }));
+        let (b2, b3) = (solve_buckling_2d(&m2, 2).unwrap(), solve_buckling_3d(&m3, 2).unwrap());
+        for k in 0..2 {
+            let (l2, l3) = (b2.modes[k].load_factor, b3.modes[k].load_factor);
+            assert!(close(l2, l3, 1e-9), "hinges {hs}/{he}: λ{k} 2D {l2} vs 3D {l3}");
+        }
+        let (p2, p3) = (solve_pdelta_2d(&m2, 100, 1e-12).unwrap(), solve_pdelta_3d(&m3, 100, 1e-12).unwrap());
+        let ux2 = p2.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+        let ux3 = p3.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+        assert!(close(ux2, ux3, 1e-9), "hinges {hs}/{he}: P-Delta sway 2D {ux2} vs 3D {ux3}");
+    }
 }

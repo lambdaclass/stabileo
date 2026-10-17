@@ -459,17 +459,36 @@ fn build_ground_influence_2d(
         _ => 0, // "X" or default
     };
 
-    // Influence vector r (1.0 for DOFs in ground direction)
-    let mut r = vec![0.0; nf];
+    Some(ground_influence(dof_num, nf, local_dof, m_ff, || {
+        mass_matrix::assemble_mass_matrix_2d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
+    }))
+}
+
+/// (M·r)_f for the rigid-body translation r along `local_dof` of EVERY node,
+/// restrained ones included: the relative-motion load is −(M·r)_f·a_g, and with
+/// a consistent mass the free DOFs are coupled to the supports' translations
+/// (M_fr·r_r). M_ff·r_f alone missed that part of the inertia — half of it on a
+/// bar on two supports. `m_full` assembles the whole mass; it is only built
+/// when some restrained DOF moves with the ground.
+fn ground_influence(
+    dof_num: &DofNumbering,
+    nf: usize,
+    local_dof: usize,
+    m_ff: &CscMatrix,
+    m_full: impl FnOnce() -> CscMatrix,
+) -> Vec<f64> {
+    let mut r = vec![0.0; dof_num.n_total];
     for &node_id in &dof_num.node_order {
         if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
-            if d < nf {
-                r[d] = 1.0;
-            }
+            r[d] = 1.0;
         }
     }
-
-    Some(m_ff.sym_mat_vec(&r))
+    if r[nf..].iter().all(|&x| x == 0.0) {
+        return m_ff.sym_mat_vec(&r[..nf]);
+    }
+    let mut mr = m_full().sym_mat_vec(&r);
+    mr.truncate(nf);
+    mr
 }
 
 /// Compute the external force vector at a given time step.
@@ -1249,15 +1268,9 @@ fn build_ground_influence_3d(
     let mut out: [Option<Vec<f64>>; 3] = [None, None, None];
     for (slot, (accel_opt, local_dof)) in out.iter_mut().zip(accel_dirs.iter()) {
         if accel_opt.is_some() {
-            let mut r = vec![0.0; nf];
-            for &node_id in &dof_num.node_order {
-                if let Some(&d) = dof_num.map.get(&(node_id, *local_dof)) {
-                    if d < nf {
-                        r[d] = 1.0;
-                    }
-                }
-            }
-            *slot = Some(m_ff.sym_mat_vec(&r));
+            *slot = Some(ground_influence(dof_num, nf, *local_dof, m_ff, || {
+                mass_matrix::assemble_mass_matrix_3d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
+            }));
         }
     }
     out

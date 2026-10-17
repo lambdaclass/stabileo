@@ -8,8 +8,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import '../index';
-import { initSolver, solve3D } from '../../engine/wasm-solver';
-import { solvePDelta3DCorrected } from '../../engine/pdelta-forces';
+import { initSolver, solve3D, solvePDelta3D } from '../../engine/wasm-solver';
 import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -55,7 +54,7 @@ describe("the advanced analyses' input", () => {
     const EI = mat.e * 1000 * sec.iy!;
     // As the toolbar builds it.
     const input = modelStore.buildSolverInput3D(false, false, { basic: false, expandMemberOffsets: false, caseDisplacements: true })!;
-    const pd = solvePDelta3DCorrected(input);
+    const pd = solvePDelta3D(input);
     const linear = modelStore.solve3D(false, false, true);
     if (!linear || typeof linear === 'string') throw new Error(String(linear));
     expect(pd.results.displacements.find((d: { nodeId: number }) => d.nodeId === b)!.uz).toBeCloseTo(DZ, 9);

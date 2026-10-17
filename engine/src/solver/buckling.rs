@@ -3,7 +3,9 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
-use super::geometric_stiffness::{build_kg_from_forces_2d, build_kg_from_forces_3d, add_plate_geometric_stiffness_3d};
+use super::geometric_stiffness::{
+    add_plate_geometric_stiffness_3d, emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, KgTriplets,
+};
 use super::constraints::FreeConstraintSystem;
 
 /// Buckling analysis result.
@@ -36,6 +38,14 @@ pub struct ElementBucklingData {
 
 /// The matrices of the 2D linear buckling problem K·φ = λ·(−Kg)·φ: the linear
 /// solution whose axial forces define Kg, the sparse free-DOF K, and −Kg.
+///
+/// Each member's Kg takes its axial force from its elongation in the linear
+/// solution, EA·(δ/L − αΔT) — the mean of N along the member, which is what
+/// the geometric stiffness integrates (∫N·φ'ᵀφ' dx with N constant). The end
+/// average (N_start + N_end)/2 used before is the mean only while N is linear,
+/// so an axial point load or a partial axial load on a member gave the wrong
+/// load factor (3× on a truss in `opensees_differential_regressions`). It is
+/// also the force the P-Delta iteration uses.
 /// Shared by `solve_buckling_2d` and the buckling certificate.
 pub(crate) struct BucklingSystem2D {
     pub linear: AnalysisResults,
@@ -64,12 +74,22 @@ pub(crate) fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // 3. Build geometric stiffness from linear axial forces (sparse free block;
+    // 3. Build geometric stiffness at the linear solution (sparse free block;
     //    the eigensolver below is sparse, so a dense n×n Kg was pure waste).
     //    Negate it in place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues,
     //    and nothing reads the un-negated Kg.
     let neg_kg_csc = {
-        let mut kg_csc = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces).into_csc();
+        let mut u = vec![0.0; dof_num.n_total];
+        for d in &linear.displacements {
+            for (i, v) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                    u[dof] = v;
+                }
+            }
+        }
+        let mut kg = KgTriplets::new(nf);
+        emit_geometric_stiffness_2d(input, &dof_num, &u, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        let mut kg_csc = kg.into_csc();
         for v in kg_csc.values.iter_mut() {
             *v = -*v;
         }
@@ -235,20 +255,21 @@ pub(crate) fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    let mut kg = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
-
-    if has_surfaces {
-        // Reconstruct the displacement vector from the linear results once, for
-        // every surface family that needs it.
-        let mut u_full = vec![0.0; n];
-        for d in &linear.displacements {
-            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
-            for (i, &v) in vals.iter().enumerate() {
-                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
-                    u_full[dof] = v;
-                }
+    // The displacement vector of the linear solution, which every member and
+    // surface family reads its prestress from.
+    let mut u_full = vec![0.0; n];
+    for d in &linear.displacements {
+        let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+        for (i, &v) in vals.iter().enumerate() {
+            if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                u_full[dof] = v;
             }
         }
+    }
+    let mut kg = KgTriplets::new(nf);
+    emit_geometric_stiffness_3d(input, &dof_num, &u_full, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+
+    if has_surfaces {
         if !input.quads.is_empty() {
             super::geometric_stiffness::add_quad_geometric_stiffness_3d(
                 input, &dof_num, &u_full, &mut kg,
