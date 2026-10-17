@@ -435,10 +435,33 @@ fn compute_initial_acceleration(
     match solve_spd_sparse_or_dense(m, &rhs, "initial acceleration") {
         Ok(x) => a.copy_from_slice(&x),
         Err(_) => {
-            // Last resort: lumped mass approximation (diagonal)
+            // M is singular: some DOFs carry no mass (the rotations of a node
+            // only solid shells reach, lumped-mass rotations). M is positive
+            // semi-definite, so a zero diagonal is a zero row: those DOFs
+            // follow quasi-statically and get no initial acceleration, and the
+            // massive ones solve their own block of M exactly. (The diagonal
+            // solve this used to fall back to straight away replaced a
+            // consistent M by its diagonal for every DOF: the first steps of a
+            // solid-shell model meshed with frames came out up to twice too
+            // large.)
             let md = m.diagonal();
-            for i in 0..n {
-                a[i] = if md[i].abs() > 1e-30 { rhs[i] / md[i] } else { 0.0 };
+            let max_m = md.iter().fold(0.0f64, |acc, v| acc.max(v.abs()));
+            let massive: Vec<usize> = (0..n).filter(|&i| md[i].abs() > max_m * 1e-12).collect();
+            a.iter_mut().for_each(|x| *x = 0.0);
+            let rhs_m: Vec<f64> = massive.iter().map(|&i| rhs[i]).collect();
+            let m_mm = m.extract_principal_submatrix(&massive);
+            match solve_spd_sparse_or_dense(&m_mm, &rhs_m, "initial acceleration") {
+                Ok(x) => {
+                    for (k, &i) in massive.iter().enumerate() {
+                        a[i] = x[k];
+                    }
+                }
+                Err(_) => {
+                    // Last resort: lumped mass approximation (diagonal)
+                    for i in 0..n {
+                        a[i] = if md[i].abs() > 1e-30 { rhs[i] / md[i] } else { 0.0 };
+                    }
+                }
             }
         }
     }
@@ -1032,6 +1055,15 @@ fn solve_time_history_3d_inner(
     // the recorded states are rotated back to global axes (as in 2D).
     let sasm = assembly::assemble_sparse_3d(input_solver, &dof_num, true);
     let its = &sasm.inclined_transforms;
+
+    // A force-history moment on a node without rotational stiffness would be
+    // lost, as in a static load case (`validate_loads_3d` checks `loads` only).
+    if let Some(fh) = &input.force_history {
+        let loads: Vec<SolverLoad3D> = fh.iter().flat_map(|r| r.loads.iter().cloned().map(SolverLoad3D::Nodal)).collect();
+        super::linear::refuse_moments_without_rotation_3d(input_solver, &loads)?;
+        let orphan: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
+        super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &orphan, &loads)?;
+    }
 
     // 2. Assemble mass matrix M (sparse CSC, free block)
     let m_ff = mass_matrix::assemble_mass_matrix_3d_sparse_inclined(input_solver, &dof_num, &input.densities, its);

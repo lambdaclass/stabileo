@@ -1934,6 +1934,9 @@ pub struct PreparedStatic3D {
     n_nodes: usize,
     u_r: Vec<f64>,
     pre_solve_diags: Vec<StructuredDiagnostic>,
+    /// Free DOFs held only by artificial stiffness (orphan rotations and
+    /// warping): a load on one would never reach the structure.
+    orphan_dofs: std::collections::HashSet<usize>,
     path: PreparedPath3D,
 }
 
@@ -2178,6 +2181,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             n_nodes,
             u_r,
             pre_solve_diags,
+            orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
             path: PreparedPath3D::FullyRestrained(FullyRestrained3D {
                 ku_full,
                 diagnostics: stiff.diagnostics,
@@ -2236,6 +2240,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                 n_nodes,
                 u_r,
                 pre_solve_diags,
+                orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
                 path: PreparedPath3D::Pcg(PcgPrepared3D {
                     k_ff: stiff.k_ff,
                     k_full: stiff.k_full.unwrap(),
@@ -2331,6 +2336,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     n_nodes,
                     u_r,
                     pre_solve_diags,
+                    orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
                     path: PreparedPath3D::Sparse(SparsePrepared3D {
                         k_ff: stiff.k_ff,
                         k_full: stiff.k_full.unwrap(),
@@ -2381,6 +2387,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     n_nodes,
                     u_r,
                     pre_solve_diags,
+                    orphan_dofs: stiff_d.artificial_dofs.iter().copied().collect(),
                     path: PreparedPath3D::SparseDenseLu(SparseDenseLuPrepared3D {
                         k_full: stiff.k_full.unwrap(),
                         lu: k_ff_d,
@@ -2453,6 +2460,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             n_nodes,
             u_r,
             pre_solve_diags,
+            orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
             path: PreparedPath3D::Dense(DensePrepared3D {
                 k_ff,
                 k_rf,
@@ -2476,6 +2484,7 @@ impl PreparedStatic3D {
     pub fn solve_loads(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {
         // Per-case load validation (the structure was validated in prepare)
         validate_loads_3d(&self.input, loads)?;
+        self.refuse_loads_on_orphan_dofs(loads)?;
         match &self.path {
             PreparedPath3D::FullyRestrained(p) => self.solve_loads_fully_restrained(loads, p),
             PreparedPath3D::Dense(p) => self.solve_loads_dense(loads, p),
@@ -2483,6 +2492,10 @@ impl PreparedStatic3D {
             PreparedPath3D::Pcg(p) => self.solve_loads_pcg(loads, p),
             PreparedPath3D::SparseDenseLu(p) => self.solve_loads_sparse_dense_lu(loads, p),
         }
+    }
+
+    fn refuse_loads_on_orphan_dofs(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
+        refuse_loads_on_orphan_dofs_3d(&self.dof_num, &self.orphan_dofs, loads)
     }
 
     fn solve_loads_fully_restrained(
@@ -4567,7 +4580,119 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
         }
     }
 
+    refuse_moments_without_rotation_3d(input, loads)?;
+
     Ok(())
+}
+
+/// A nodal moment on a node no element, support or constraint gives rotational
+/// stiffness would be lost: a model of solid shells and trusses only has no
+/// rotation DOFs at all (the moment was dropped from the load vector), and in
+/// a model with frames or shells the rotation of a node only solid shells or
+/// trusses reach is an orphan DOF held by artificial stiffness (the moment
+/// produced a meaningless rotation and never reached the structure). Refused,
+/// by node, instead of answering for a model without the load.
+pub(crate) fn refuse_moments_without_rotation_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<(), String> {
+    let moments: Vec<&SolverNodalLoad3D> = loads
+        .iter()
+        .filter_map(|l| match l {
+            SolverLoad3D::Nodal(n) if n.mx != 0.0 || n.my != 0.0 || n.mz != 0.0 => Some(n),
+            _ => None,
+        })
+        .collect();
+    if moments.is_empty() {
+        return Ok(());
+    }
+    if DofNumbering::dofs_per_node_3d(input) < 6 {
+        return Err(moment_lost_3d(
+            moments[0].node_id,
+            "the model has no rotational degrees of freedom (solid shells, trusses and cables carry translations only)",
+        ));
+    }
+    // Per node and global rotation component: whether anything stiffens it.
+    let mut carried: std::collections::HashMap<usize, [bool; 3]> = std::collections::HashMap::new();
+    let mut nodes: Vec<usize> = Vec::new();
+    for e in input.elements.values() {
+        if e.elem_type == "truss" || e.elem_type == "cable" {
+            continue;
+        }
+        if !(e.release_my_start && e.release_mz_start && e.release_t_start) { nodes.push(e.node_i); }
+        if !(e.release_my_end && e.release_mz_end && e.release_t_end) { nodes.push(e.node_j); }
+    }
+    nodes.extend(input.plates.values().flat_map(|p| p.nodes));
+    nodes.extend(input.quads.values().flat_map(|q| q.nodes));
+    nodes.extend(input.quad9s.values().flat_map(|q| q.nodes));
+    nodes.extend(input.curved_shells.values().flat_map(|c| c.nodes));
+    nodes.extend(input.connectors.values().flat_map(|c| [c.node_i, c.node_j]));
+    for c in &input.constraints {
+        match c {
+            Constraint::RigidLink(r) => nodes.extend([r.master_node, r.slave_node]),
+            Constraint::Diaphragm(d) => { nodes.push(d.master_node); nodes.extend(&d.slave_nodes); }
+            Constraint::LinearMPC(m) => nodes.extend(m.terms.iter().map(|t| t.node_id)),
+            Constraint::EqualDOF(e) => nodes.extend([e.master_node, e.slave_node]),
+            Constraint::EccentricConnection(e) => nodes.extend([e.master_node, e.slave_node]),
+        }
+    }
+    for n in nodes {
+        carried.insert(n, [true; 3]);
+    }
+    for s in input.supports.values() {
+        let c = carried.entry(s.node_id).or_insert([false; 3]);
+        let k = [s.krx, s.kry, s.krz];
+        for (i, r) in [s.rrx, s.rry, s.rrz].into_iter().enumerate() {
+            c[i] |= r || k[i].unwrap_or(0.0) > 0.0;
+        }
+    }
+    for m in moments {
+        let c = carried.get(&m.node_id).copied().unwrap_or([false; 3]);
+        if [m.mx, m.my, m.mz].iter().zip(c).any(|(v, ok)| *v != 0.0 && !ok) {
+            return Err(moment_lost_3d(
+                m.node_id,
+                "no frame, shell, rotational support or constraint gives that node rotational stiffness (solid shells, trusses and cables carry translations only)",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Backstop for `refuse_moments_without_rotation_3d`, on the assembled DOFs:
+/// a nodal moment or bimoment on a DOF only artificial stiffness holds (a
+/// rotation every member releases, say) would be lost. `orphan` is the
+/// assembler's `artificial_dofs`.
+pub(crate) fn refuse_loads_on_orphan_dofs_3d(
+    dof_num: &DofNumbering,
+    orphan: &std::collections::HashSet<usize>,
+    loads: &[SolverLoad3D],
+) -> Result<(), String> {
+    if orphan.is_empty() {
+        return Ok(());
+    }
+    for load in loads {
+        let (node, comps): (usize, [(usize, f64); 4]) = match load {
+            SolverLoad3D::Nodal(l) => (l.node_id, [(3, l.mx), (4, l.my), (5, l.mz), (6, l.bw.unwrap_or(0.0))]),
+            SolverLoad3D::Bimoment(l) => (l.node_id, [(6, l.bimoment), (6, 0.0), (6, 0.0), (6, 0.0)]),
+            _ => continue,
+        };
+        for (local, v) in comps {
+            if v == 0.0 { continue; }
+            if let Some(d) = dof_num.global_dof(node, local) {
+                if orphan.contains(&d) {
+                    return Err(moment_lost_3d(
+                        node,
+                        "nothing in the model gives that rotation (or warping) of the node stiffness — every member is released there, or only solid shells and trusses reach it",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn moment_lost_3d(node: usize, why: &str) -> String {
+    format!(
+        "Nodal moment at node {node} is not supported: {why}, so the moment would not reach the structure. \
+         Apply it as a force couple, or connect the node to a frame or shell"
+    )
 }
 
 pub(crate) fn compute_internal_forces_2d(

@@ -673,8 +673,20 @@ fn assembled_free_model_rigid_modes_and_kernel() {
     assert!(input.nodes.len() > 9, "curved beam was not expanded");
     let dof = DofNumbering::build_3d(&input);
     assert_eq!(dof.dofs_per_node, 6);
-    let asm = assemble_stiffness_3d(&input, &dof);
+    let mut asm = assemble_stiffness_3d(&input, &dof);
     let n = dof.n_total;
+    // Node 9's rotations, which only trusses reach, are the only DOFs nothing
+    // stiffens: exactly they get the assembler's artificial stiffness (so a
+    // mixed model is not singular), which is removed again here to check the
+    // elements' own K.
+    let mut node9_rot: Vec<usize> = (3..6).map(|d| dof.map[&(9, d)]).collect();
+    node9_rot.sort();
+    let mut art = asm.artificial_dofs.clone();
+    art.sort();
+    assert_eq!(art, node9_rot, "artificial DOFs must be exactly node 9's rotations");
+    for &d in &art {
+        asm.k[d * n + d] = 0.0;
+    }
     // The curved beam's mid node is only a geometric definition point; if the
     // expansion leaves it unconnected its 6 DOFs are free (zero rows).
     let mut ids: Vec<usize> = input.nodes.values().map(|nd| nd.id).collect();
@@ -698,10 +710,9 @@ fn assembled_free_model_rigid_modes_and_kernel() {
         }
     }
     let coords: Vec<[f64; 3]> = connected.iter().map(|id| by_id[id]).collect();
-    assert!(asm.artificial_dofs.is_empty(), "unexpected artificial DOFs {:?}", asm.artificial_dofs);
     check("assembled free model", &k, &coords, Layout::Spatial { rot: true, warp: false }, 1e-9);
     // Kernel: the 6 rigid motions plus the 3 rotations of node 9, which only
-    // trusses reach (zero rows; assembly adds no artificial stiffness there).
+    // trusses reach (zero rows once the artificial stiffness is removed).
     // The released my_end of element 2 meets stiff members at node 7: no mechanism.
     assert_kernel("assembled free model", &k, m, 9, 1e-11, 1e-12);
 }

@@ -616,10 +616,21 @@ fn check_embedding(c: &mut Checks, input: &SolverInput, densities: &HashMap<Stri
         k
     };
     let s2 = assemble_stiffness_2d(&p, &d2);
-    // 3D has no artificial rotational stiffness (its rotations are masked).
+    let s3 = assemble_stiffness_3d(&q, &d3);
+    // Both put artificial stiffness on the rotations nothing holds (a node
+    // every member is hinged at), scaled by their own largest diagonal, which
+    // differ: the same DOFs must get it, and the rest of K must agree.
+    let art3: std::collections::BTreeSet<usize> = s3.artificial_dofs.iter().copied().collect();
+    let art2: std::collections::BTreeSet<usize> = s2.artificial_dofs.iter().map(|&i| to3[i].0).collect();
+    if art2 != art3 {
+        c.fail("2d3d.artificial", format!("artificial DOFs: 2D {art2:?} vs 3D {art3:?}"));
+    }
+    c.ran.insert("2d3d.artificial");
     let mut k2 = s2.k.clone();
     mask_diag(&mut k2, n2, &s2.artificial_dofs);
-    c.mat("2d3d.k", &pull(&assemble_stiffness_3d(&q, &d3).k), &k2, n2);
+    let mut k3 = s3.k.clone();
+    mask_diag(&mut k3, n3, &s3.artificial_dofs);
+    c.mat("2d3d.k", &pull(&k3), &k2, n2);
     let f3 = assemble_load_vector_3d_dense(&q, &q.loads, &d3, &[]);
     let f2 = assemble_load_vector_2d(&p, &p.loads, &d2, &[]);
     let f3p: Vec<f64> = (0..n2).map(|i| to3[i].1 * f3[to3[i].0]).collect();
@@ -1039,7 +1050,7 @@ const ALL_CHECKS: &[&str] = &[
     "2d.ex.k_ff", "2d.ex.f", "2d.ex.artificial_scale", "2d.legacy.k_ff", "2d.legacy.f", "2d.legacy_parallel.k_ff",
     "2d.legacy_parallel.f", "2d.mass.sparse", "2d.mass.inclined_frame", "2d.kg.symmetric", "2d.kg.terms",
     "2d.kg.forces", "2d.constrained.k", "2d.constrained.m", "2d.constrained.kg", "2d.certify.k_ff",
-    "2d.certify.rhs", "2d.buckling.k_ff", "2d.buckling.kg", "2d3d.dof_map", "2d3d.k", "2d3d.f", "2d3d.m",
+    "2d.certify.rhs", "2d.buckling.k_ff", "2d.buckling.kg", "2d3d.dof_map", "2d3d.artificial", "2d3d.k", "2d3d.f", "2d3d.m",
     "2d3d.kg", "3d.dof_map", "3d.dense.symmetric", "3d.sparse.k_full", "3d.sparse.k_ff",
     "3d.sparse.artificial_dofs", "3d.sparse.max_diag", "3d.sparse.inclined", "3d.sparse.f", "3d.parallel.k_full",
     "3d.parallel.k_ff", "3d.parallel.artificial_dofs", "3d.parallel.max_diag", "3d.parallel.inclined",

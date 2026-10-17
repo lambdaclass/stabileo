@@ -1599,9 +1599,6 @@ const KNOWN: &[(&str, &str, &str, &str)] = &[
     // 3D buckling and time integration rotate K at inclined supports but not Kg / M.
     ("3D", "inclined support", "buckling", "PR #287 (fix/inclined-supports)"),
     ("3D", "inclined support", "time history", "PR #287 (fix/inclined-supports)"),
-    // Solid shell: singular on the sparse path, spurious modes in the spectral sum.
-    // Still open with PR #289 (fix/solidshell) merged (integration/safety-wave).
-    ("3D", "solid shell", "", "open — not fixed by PR #289 (fix/solidshell)"),
 ];
 
 fn known_for(dim: &str, feature: &str, analysis: &str) -> Option<&'static str> {
@@ -2605,25 +2602,18 @@ fn shell_cases() -> Vec<Case3> {
         }
         let mut without = with.clone();
         without.s.solid_shells.clear();
-        let mut eq = strip_beam();
-        strip_tip_loads(&mut eq, None);
-        // Probe ids differ: compare the beam's centreline with the bottom layer.
-        let mut eq2 = eq.clone();
-        for (id, n) in eq.s.nodes.iter() {
-            let nn = n.clone();
-            eq2.s.nodes.remove(id);
-            eq2.node(1000 + nn.id, nn.x, nn.y, nn.z);
-        }
-        for e in eq2.s.elements.values_mut() {
-            e.node_i += 1000;
-            e.node_j += 1000;
-        }
-        eq2.s.supports.clear();
-        eq2.sup(1000 + sid(0, 1), FIXED);
-        for l in eq2.s.loads.iter_mut() {
-            if let SolverLoad3D::Nodal(n) = l {
-                n.node_id += 1000;
-            }
+        let mut eq2 = strip_beam();
+        strip_tip_loads(&mut eq2, None);
+        // The probes are bottom-layer nodes, t/2 below the centreline: hang
+        // them off the beam on massless rigid stubs, so they move as the
+        // bottom fibre of the beam does (plane sections stay plane), ux = θ·t/2
+        // included. Compared with the centreline itself, that ux read as a
+        // spurious response wherever the reference's ux is ~0 (the spectral
+        // sum, compared component by component).
+        eq2.mat(RIGID_MAT, E * 10.0, NU);
+        for (k, i) in [8usize, 4].into_iter().enumerate() {
+            eq2.node(1000 + sid(i, 1), STRIP_L * i as f64 / 8.0, 0.0, -STRIP_T / 2.0);
+            eq2.elem(900 + k, "frame", sid(i, 1), 1000 + sid(i, 1), RIGID_MAT, 1);
         }
         let mut c = Case3::base("solid shell", "strip cantilever, ν = 0", &["solid shell", "shell"], with, without, vec![1000 + sid(8, 1), 1000 + sid(4, 1)]);
         c.equiv = Some(eq2);

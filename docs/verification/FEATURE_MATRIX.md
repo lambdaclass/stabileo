@@ -113,12 +113,12 @@ Notes on every cell that is not ✓ or ·:
 | Analysis | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | F11 | F12 | F13 | F14 | F15 | F16 | F17 | F18 | F19 | F20 | F21 | F22 | F23 | F24 | F25 | F26 | F27 | F28 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | K | ✓ | ✓ | ✓ | ✓ |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| P-Delta (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | K | ✓ | ✓ | ✓ | ✓ |
+| P-Delta (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | corotational | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | corotational (sparse path) | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | R | R | R | R | R | R |
@@ -134,7 +134,7 @@ Notes on every cell that is not ✓ or ·:
 | certified modal | ✓ | ✓ | · | · | ✓ | · | ✓ | ✓ | · | · | · | · | · | · | ✓ | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | buckling | ✓ | ✓ | · | · | ✓ | · | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
 | time history | ~ | ✓ | ~ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
-| spectral | ~ | ✓ | ~ | · | ✓ | ✓ | ✓ | ✓ | ~ | · | · | · | · | · | ✓ | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | K | · | · | · | · |
+| spectral | ~ | ✓ | ~ | · | ✓ | ✓ | ✓ | ✓ | ~ | · | · | · | · | · | ✓ | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | harmonic | ~ | ✓ | ~ | · | ✓ | ✓ | ✓ | ✓ | ✓ | R | · | · | · | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | Guyan reduction | ~ | ✓ | ~ | · | ✓ | · | ✓ | ✓ | · | · | · | · | · | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · | · | · |
 | Craig–Bampton | ~ | ✓ | ~ | · | ✓ | · | ✓ | ✓ | · | · | · | · | · | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · | · | · |
@@ -174,7 +174,7 @@ Features:
 - **F27** shell edge load
 - **F28** shell thermal load
 
-Totals: · 174, ✓ 582, R 69, ~ 12, E 2, BAD 1
+Totals: · 174, ✓ 585, R 69, ~ 12
 
 Notes on every cell that is not ✓ or ·:
 
@@ -233,15 +233,12 @@ Notes on every cell that is not ✓ or ·:
 - material nonlinear (sparse path) × curved shell: strip cantilever, ν = 0: R Material-nonlinear analysis does not support shell elements (curved shell 1, curved shell 2, curved shell 3, ……
 - fiber nonlinear × curved shell: strip cantilever, ν = 0: R Fiber-nonlinear analysis does not support shell elements (curved shell 1, curved shell 2, curved shell 3, … (1…
 - staged (one stage) × curved shell: strip cantilever, ν = 0: R Staged construction analysis does not support curved shell elements; it would solve the model without them. Re…
-- linear (sparse path) × solid shell — known, open — not fixed by PR #289 (fix/solidshell): strip cantilever, ν = 0: E error: Singular stiffness matrix — structure is a mechanism
-- P-Delta (sparse path) × solid shell — known, open — not fixed by PR #289 (fix/solidshell): strip cantilever, ν = 0: E error: Singular stiffness matrix — structure is a mechanism
 - corotational × solid shell: strip cantilever, ν = 0: R Corotational 3D solver does not support shell elements. Use the linear solver for models with plates, quads, o…
 - corotational (sparse path) × solid shell: strip cantilever, ν = 0: R Corotational 3D solver does not support shell elements. Use the linear solver for models with plates, quads, o…
 - material nonlinear × solid shell: strip cantilever, ν = 0: R Material-nonlinear analysis does not support shell elements (solid shell 1, solid shell 2, solid shell 3, … (1…
 - material nonlinear (sparse path) × solid shell: strip cantilever, ν = 0: R Material-nonlinear analysis does not support shell elements (solid shell 1, solid shell 2, solid shell 3, … (1…
 - fiber nonlinear × solid shell: strip cantilever, ν = 0: R Fiber-nonlinear analysis does not support shell elements (solid shell 1, solid shell 2, solid shell 3, … (16 i…
 - staged (one stage) × solid shell: strip cantilever, ν = 0: R Staged construction analysis does not support solid shell elements; it would solve the model without them. Rem…
-- spectral × solid shell — known, open — not fixed by PR #289 (fix/solidshell): strip cantilever, ν = 0: BAD differs from the equivalent model by 7.79e7
 - corotational × shell pressure load: MITC4 strip: R Corotational 3D solver does not support shell elements. Use the linear solver for models with plates, quads, o…
 - corotational (sparse path) × shell pressure load: MITC4 strip: R Corotational 3D solver does not support shell elements. Use the linear solver for models with plates, quads, o…
 - material nonlinear × shell pressure load: MITC4 strip: R Material-nonlinear analysis does not support shell elements (quad 1, quad 2, quad 3, … (16 in all)); it would …

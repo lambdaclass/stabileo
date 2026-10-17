@@ -294,6 +294,16 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     // response read in global axes (see the 2D solver).
     let sasm = assemble_sparse_3d(&input.solver, &dof_num, false);
     let its = &sasm.inclined_transforms;
+    // A load on, or a response read from, a DOF only artificial stiffness
+    // holds (the rotation of a node only solid shells reach) is meaningless.
+    let orphan: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
+    super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &orphan, &input.solver.loads)?;
+    if orphan.contains(&target_dof) {
+        return Err(format!(
+            "Harmonic response DOF '{}' of node {} has no stiffness of its own (a rotation only solid shells or trusses reach, or one every member releases); pick a translation",
+            input.response_dof, input.response_node_id
+        ));
+    }
     let target = target_functional(&dof_num, input.response_node_id, target_dof, its)?;
     let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
 

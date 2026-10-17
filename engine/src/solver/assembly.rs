@@ -31,6 +31,36 @@ pub fn artificial_stiffness_entries(asm: &AssemblyResult) -> Vec<(usize, f64)> {
     asm.artificial_dofs.iter().map(|&d| (d, k)).collect()
 }
 
+/// Free rotation DOFs (θx, θy, θz) that no element, spring or connector
+/// stiffens: the rotations of a node reached only by solid shells (whose
+/// nodes carry translations alone), trusses, or members released there.
+///
+/// K is a sum of positive semi-definite contributions, so a zero diagonal
+/// means a zero row and column: the DOF is decoupled from the rest of the
+/// model and its stiffness does not change any other DOF's answer. Each gets
+/// the same artificial stiffness the warping DOFs and the 2D orphan guard
+/// get, instead of leaving K singular (a solid-shell model meshed together
+/// with frames or shells was refused as "a mechanism" on every path). A load
+/// on such a DOF would be lost; `validate_loads_3d` and the linear solver
+/// refuse that.
+pub(crate) fn orphan_rotation_dofs_3d(dof_num: &DofNumbering, diag: impl Fn(usize) -> f64, max_diag: f64) -> Vec<usize> {
+    let mut out = Vec::new();
+    if dof_num.dofs_per_node < 6 {
+        return out;
+    }
+    let tol = if max_diag > 0.0 { max_diag * 1e-12 } else { 1e-14 };
+    for &node_id in &dof_num.node_order {
+        for local in 3..6 {
+            if let Some(&d) = dof_num.map.get(&(node_id, local)) {
+                if d < dof_num.n_free && diag(d).abs() <= tol {
+                    out.push(d);
+                }
+            }
+        }
+    }
+    out
+}
+
 /// Data needed to reverse the inclined support rotation after solving (3D).
 pub struct InclinedTransformData {
     pub node_id: usize,
@@ -1040,6 +1070,13 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
     // Add artificial stiffness at warping DOFs for nodes with no warping stiffness.
     // This prevents a singular matrix when some elements lack warping.
     let mut artificial_dofs_3d = Vec::new();
+    {
+        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        for d in orphan_rotation_dofs_3d(dof_num, |d| k_global[d * n + d], max_diag) {
+            k_global[d * n + d] += artificial_k;
+            artificial_dofs_3d.push(d);
+        }
+    }
     if dof_num.dofs_per_node >= 7 {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
         for &node_id in &dof_num.node_order {
@@ -2496,6 +2533,13 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
 
     // Artificial stiffness at floating warping DOFs
     let mut artificial_dofs_3d = Vec::new();
+    {
+        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        for d in orphan_rotation_dofs_3d(dof_num, |d| diag_vals[d], max_diag) {
+            trip_rows.push(d); trip_cols.push(d); trip_vals.push(artificial_k);
+            artificial_dofs_3d.push(d);
+        }
+    }
     if dof_num.dofs_per_node >= 7 {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
         for &node_id in &dof_num.node_order {
