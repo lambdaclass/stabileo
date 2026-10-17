@@ -19,6 +19,7 @@
   import ProMemberBehaviour from '../ProMemberBehaviour.svelte';
   import MemberOffsetEditor from '../../property/MemberOffsetEditor.svelte';
   import ProSteelLbEditor from '../ProSteelLbEditor.svelte';
+  import TensionConnectionEditor from '../steel/TensionConnectionEditor.svelte';
   import SpecEmpty from './SpecEmpty.svelte';
   import SpecVariableSection from './SpecVariableSection.svelte';
 
@@ -68,6 +69,7 @@
     { title: 'behaviour.stiffness', hint: 'spec.item.stiffness' },
     { title: 'spec.members.offsets', hint: 'spec.item.offsets' },
     { title: 'spec.members.designLengths', hint: 'spec.item.designLengths' },
+    { title: 'steel.tc.title', hint: 'steel.tc.hint' },
     { title: 'spec.members.variable', hint: 'spec.item.variable' },
   ]} />
 {:else}
@@ -138,6 +140,11 @@
     <section class="pk-card">
       <h4 class="pk-heading">{t('spec.members.designLengths')}</h4>
       <ProSteelLbEditor steelIds={allIds} bare />
+    </section>
+
+    <section class="pk-card" data-testid="spec-tension-connection-card">
+      <h4 class="pk-heading">{t('steel.tc.title')}</h4>
+      <TensionConnectionEditor {ids} bare />
     </section>
   </div>
 {/if}

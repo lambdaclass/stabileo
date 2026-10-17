@@ -197,6 +197,16 @@ export function segmentFields(elem: Element, k: number, count: number, t0 = k / 
     if (Object.keys(kept).length) (out as { semiRigid?: unknown }).semiRigid = kept;
     else delete (out as { semiRigid?: unknown }).semiRigid;
   }
+  /*
+   * The tension connection, like the semi-rigid end, belongs to its end. The cuts are continuous
+   * material: `memberEndsFor` reads the chain and asks for no connection there.
+   */
+  const tc = elem.tensionConnection;
+  if (tc) {
+    const kept = { ...(first && tc.i ? { i: JSON.parse(JSON.stringify(tc.i)) } : {}), ...(last && tc.j ? { j: JSON.parse(JSON.stringify(tc.j)) } : {}) };
+    if (Object.keys(kept).length) out.tensionConnection = kept;
+    else delete out.tensionConnection;
+  }
   if (offset) {
     const o: NonNullable<Element['offset']> = { frame: offset.frame };
     const at = (t: number) => ({

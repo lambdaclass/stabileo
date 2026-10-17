@@ -19,6 +19,7 @@ import { resultsStore } from './results.svelte';
 import { activePerCombo3D, activeCombinations } from './active-results';
 import { computeStationDemands, steelDemandOf, steelSegmentDiagram } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
+import { memberEndsFor } from '../engine/steel/tension-connection';
 import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict, type OptimiseCriteria } from '../engine/steel/profile-optimise';
 import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
@@ -98,7 +99,7 @@ function catalogueProfileOf(sec: { name: string; profileFamily?: string; composi
 }
 
 /** The demands, lengths and material of the steel members in `ids`, against the analysis on hand. */
-function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materialOf: Map<number, { fy?: number; e?: number; fu?: number }> } {
+export function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materialOf: Map<number, { fy?: number; e?: number; fu?: number }> } {
   const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
   let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
   let combos = activeCombinations();
@@ -121,7 +122,11 @@ function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materi
       elementId: id,
       // As the check reads it: a tension-only brace is not sized for buckling.
       demand: maskAxialDemand(steelDemandOf(ef, demands.get(id), stations.get(id)), e.behaviour),
-      lengths: { ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k },
+      lengths: {
+        ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k,
+        // The member's end connections, resolved per candidate section for tension rupture (D.3).
+        tensionEnds: memberEndsFor(id, modelStore.model as never, len?.chain),
+      },
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),
     });

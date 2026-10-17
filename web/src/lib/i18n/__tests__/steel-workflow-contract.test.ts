@@ -292,20 +292,20 @@ describe('limitations — what the app does not do, separated from what awaits r
 
   it('marks what the normative audit closed, and what it did not', () => {
     /*
-     * Four closed: the tests, the seven inferred inputs, the clause map, and the `1,5·My` cap that
-     * the audit of the shipped F.2.1 and F.6.1 text turned up.
+     * Five closed: the tests, the seven inferred inputs, the clause map, the `1,5·My` cap that
+     * the audit of the shipped F.2.1 and F.6.1 text turned up, and the net area — the model now
+     * holds each member end's connection (`Element.tensionConnection`, D.3 / B.4.2.2).
      *
-     * Three open, and each for a different reason: the unbraced length needs a model field, the
-     * section classification needs table values that are IMAGES in the source PDF, and the net area
-     * needs connection geometry.
+     * Two open, each for a different reason: the unbraced length needs a model field, and the
+     * section classification needs table values that are IMAGES in the source PDF.
      */
     const block = SRC.split('const LIMITATIONS = [')[1].split('] as const')[0];
     const m = new Map([...block.matchAll(/workflow\.(?:blocker|limit)\.(\w+)', addressed: (true|false)/g)]
       .map((x) => [x[1], x[2] === 'true'] as const));
-    for (const closed of ['tests', 'inferredProperties', 'clauseRefs', 'flexuralCap']) {
+    for (const closed of ['tests', 'inferredProperties', 'clauseRefs', 'flexuralCap', 'netArea']) {
       expect(m.get(closed), `${closed} closed`).toBe(true);
     }
-    for (const open of ['unbracedLength', 'sectionClassification', 'netArea']) {
+    for (const open of ['unbracedLength', 'sectionClassification']) {
       expect(m.get(open), `${open} open`).toBe(false);
     }
   });

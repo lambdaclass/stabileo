@@ -108,6 +108,13 @@ export interface SteelDesignParams {
  * Without any of them U is unknown and the rupture limit state is refused.
  */
 export interface TensionConnection {
+  /**
+   * Ae already resolved from the model's end connections (`engine/steel/tension-connection.ts`),
+   * m², with the steps that produced it — printed verbatim. Takes precedence over every field below.
+   */
+  resolved?: { Ae: number; steps: string[] };
+  /** The model's end connections could not give Ae: the reason, printed and returned as NOT EVALUATED. */
+  refused?: string;
   An?: number;
   holes?: { count: number; d: number; t: number; staggers?: { s: number; g: number; t: number }[] };
   U?: number;
@@ -348,6 +355,12 @@ export function checkSteelTension(params: SteelDesignParams, Pu: number): SteelT
 function effectiveNetArea(p: SteelDesignParams, steps: string[]): { Ae: number } | { refused: string } {
   const c = p.tensionConnection;
   if (!c) return { refused: 'falta la union extrema (agujeros y coeficiente U de D.3)' };
+  if (c.refused) return { refused: c.refused };
+  if (c.resolved) {
+    if (!(c.resolved.Ae > 0 && c.resolved.Ae <= p.A * (1 + 1e-9))) return { refused: `Ae = ${c.resolved.Ae} fuera de (0, Ag]` };
+    steps.push(...c.resolved.steps);
+    return { Ae: c.resolved.Ae };
+  }
   const Ag = p.A;
   let An = Ag;
   if (c.An !== undefined) {

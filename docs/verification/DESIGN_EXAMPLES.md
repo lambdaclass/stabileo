@@ -146,6 +146,7 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | E.3-3 elastic | INTI301 Ej. 10(a) | kL/r = 194, Fcr = 46.0 MPa, Rd = 210.3 kN | pass |
 | E.3-2 inelastic | INTI301 Ej. 10(b) | kL/r = 111.9, Fcr = 126.04 MPa, Pd = 221.2 kN | pass |
 | D.2(b)/D.3 Ae = An·U, B.4.2.2 An (+2 mm, s²/4g) | — (clause by hand: IPE 200 bolted through the flanges, x̄ = 25, L = 150 mm; edge-welded plate) | An = 2340 mm², U = 0.833, φPn = 526.5 kN | clause test; refused without the connection (was Ae = Ag) |
+| D.3 from the model's end connection (`tension-connection.ts`): x̄, U, An | AISC Design Examples D.1 (W8x21 flanges, x̄ 0.831 in), D.2 (L4x4x1/2 one leg, x̄ 1.18 in, U 0.869), D.3 (WT6x20 flange welded, x̄ 1.09 in, U 0.932); clause by hand: L 100×10 one leg 4 × M20 @ 70, IPE 200 flanges/web, 2 × L 50×5 back to back, UPN web, 300 × 12 plate staggered, edge-welded bar | x̄ within 1 % above AISC's (sharp corners); U = 0,9 where CIRSOC's cap binds (D.1, D.3); L100: An 1680, U 0.8634, Ae 1450.5 mm² | clause test; tubes/cold-formed/drawn refused |
 | E.4 torsional / flexural-torsional (E.4.2, E.4.4, E.4.5) | — (clause by hand: tee 200×150×12×10, L = 3 m; IPE 300 with ky = 0.5) | Fcr = 125.6 MPa, φPn = 392.8 kN (flexural alone 451.8) | clause test; no INTI tee/channel column example at hand |
 | E.7 slender elements (Q) | INTI301 Ej. 10(c) | Q = 0.794, Fcr = 135.70 MPa, Pd = 204.7 kN | **fixed** (D6); Q, Fcr at 1 % (2005 vs 2018 E.7.17), D17 |
 | F.2.1 Mp | INTI301 Ej. 14, V1 | Mp = 43.95 kNm | pass |

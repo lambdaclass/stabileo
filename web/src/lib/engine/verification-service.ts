@@ -35,6 +35,7 @@ import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams, type TensionConnection } from './codes/argentina/cirsoc301';
 import { momentGradient, type StationMoment } from './steel/moment-gradient';
+import { memberNetArea, memberEndsFor, type MemberEnd, type TensionSectionInput } from './steel/tension-connection';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
 import { isDesignedMember, maskAxialDemand } from './design/behaviour-demands';
@@ -435,7 +436,8 @@ export function runSteelVerification(
     const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
     const len = lengths?.get(ef.elementId);
     const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
-    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(len ?? { L, Lb: L }), ...k }, segment);
+    const tensionEnds = memberEndsFor(ef.elementId, model as never, len?.chain);
+    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(len ?? { L, Lb: L }), ...k, tensionEnds }, segment);
     if (v) verifs.push(v);
   }
 
@@ -625,6 +627,21 @@ export function steelGoverningRatio(v: SteelVerification): number {
  * verification runs. When the member sees both compression and tension, both are checked and
  * the worse is returned.
  */
+/**
+ * The model's end connections as the checker's `TensionConnection`: Ae with its steps, or the
+ * reason it is NOT EVALUATED. A missing end says «falta la union extrema», the phrase the checker
+ * already uses for a member with no connection at all.
+ */
+export function resolveTensionEnds(section: TensionSectionInput, ends: readonly MemberEnd[]): TensionConnection {
+  const r = memberNetArea(section, ends);
+  if ('Ae' in r) return { resolved: { Ae: r.Ae, steps: ['§D.3 — Area neta efectiva, de la union extrema del modelo:', ...r.steps] } };
+  if ('missing' in r) {
+    const where = r.missing.map((e) => `barra ${e.elementId} extremo ${e.end.toUpperCase()}`).join(', ');
+    return { refused: `falta la union extrema (${where}): agujeros y coeficiente U de D.3` };
+  }
+  return { refused: `barra ${r.at.elementId} extremo ${r.at.end.toUpperCase()}: ${r.refused.message}` };
+}
+
 export function checkSteelMember(
   elementId: number,
   demand: SteelMemberDemand,
@@ -637,6 +654,13 @@ export function checkSteelMember(
      * the usual case — a member in tension is NOT EVALUATED rather than given Ae = Ag.
      */
     tensionConnection?: TensionConnection;
+    /**
+     * The member ends whose connection decides rupture (`memberEndsFor`), each with the model's
+     * description or none. Resolved here against THIS section — so a candidate profile in the
+     * optimiser gets its own An and U — into `tensionConnection`. An end without a description
+     * leaves the tension check NOT EVALUATED, as before.
+     */
+    tensionEnds?: readonly MemberEnd[];
   },
   /**
    * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
@@ -786,6 +810,7 @@ export function checkSteelMember(
     ...(lengths.Kx !== undefined ? { Kx: lengths.Kx } : {}),
     ...(lengths.Ky !== undefined ? { Ky: lengths.Ky } : {}),
     ...(lengths.tensionConnection ? { tensionConnection: lengths.tensionConnection } : {}),
+    ...(!lengths.tensionConnection && lengths.tensionEnds ? { tensionConnection: resolveTensionEnds(section as TensionSectionInput, lengths.tensionEnds) } : {}),
   };
 
 

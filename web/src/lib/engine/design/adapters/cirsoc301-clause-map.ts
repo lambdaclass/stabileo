@@ -106,8 +106,11 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
       + '1 − x̄/L ≤ 0,9 (D.3.2) not below A unida/Ag, or the L/w table for an edge-welded plate (D.3.5).',
     ],
     limitations: [
-      'Without the connection the rupture limit state is NOT EVALUATED (the model holds no hole '
-      + 'pattern or connection geometry). It used to take Ae = Ag, optimistic for a bolted member.',
+      'The connection comes from Element.tensionConnection, per member end (engine/steel/'
+      + 'tension-connection.ts: x̄ from the sharp-cornered outline, I/H, channels, tees, angles, '
+      + 'back-to-back pairs and plates). An end not described leaves the rupture limit state NOT '
+      + 'EVALUATED; tubes (CIRSOC 302), cold-formed (CIRSOC 303), drawn sections and other built-ups '
+      + 'are refused by name. It used to take Ae = Ag, optimistic for a bolted member.',
     ],
     validation: 'unvalidated',
   },

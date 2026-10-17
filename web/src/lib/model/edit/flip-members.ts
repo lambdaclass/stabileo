@@ -43,6 +43,7 @@ export function flipMembers(ids: Iterable<number>): FlipReport {
         releaseI: e.releaseJ, releaseJ: e.releaseI,
         jointI: e.jointJ, jointJ: e.jointI,
         ...(e.variableSection ? { sectionId: e.variableSection.sectionJ, variableSection: { ...e.variableSection, sectionJ: e.sectionId } } : {}),
+        ...(e.tensionConnection ? { tensionConnection: { ...(e.tensionConnection.j ? { i: e.tensionConnection.j } : {}), ...(e.tensionConnection.i ? { j: e.tensionConnection.i } : {}) } } : {}),
         ...(e.semiRigid ? { semiRigid: { ...(e.semiRigid.j ? { i: e.semiRigid.j } : {}), ...(e.semiRigid.i ? { j: e.semiRigid.i } : {}) } } : {}),
         ...(off ? { offset: { frame: off.frame, ...(off.j ? { i: mirror(off.j) } : {}), ...(off.i ? { j: mirror(off.i) } : {}) } } : {}),
         localYx: axes.ey[0], localYy: axes.ey[1], localYz: axes.ey[2], rollAngle: 0,

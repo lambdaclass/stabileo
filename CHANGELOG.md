@@ -11,6 +11,23 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Tension members: end connections in the model (2026-10-17)
+
+- **CIRSOC 301 tension rupture (Ae = An·U) can now be evaluated in the app.** Each member end
+  can carry its connection (`Element.tensionConnection`): bolted (diameter, standard/oversize
+  hole, bolts per line, lines per connected element, pitch, optional stagger) or welded
+  (longitudinal / transverse / both, weld length), and which elements are connected (all, both
+  flanges, web, tee flange, one angle leg). `engine/steel/tension-connection.ts` computes An
+  (B.4.2.2, nominal hole + 2 mm, s²/4g) and U (D.3(1), D.3(2)(a)–(d), U ≤ 0,9, U ≥ A_conn/Ag)
+  for I/H, channels, tees, angles, back-to-back pairs and plates, and refuses tubes (CIRSOC 302),
+  cold-formed (CIRSOC 303), drawn sections and other built-ups by name. An end left undescribed
+  keeps rupture NOT EVALUATED; Ae = Ag is never assumed. Old models load unchanged.
+- PRO: an "End connection (tension)" card in Specifications › Members and in the steel workflow
+  (presets, apply to the selection, An/U/Ae preview per member, copy a bolt layout designed at
+  the end node), and a tension-members table in the workflow's verification block with the
+  rupture ratio, the calculation with clause references, or "not evaluated — add the end
+  connection". Reverse, split and merge carry the end connections.
+
 #### Further unsafe design-check gaps closed (2026-10-17)
 
 **BREAKING (results): web fillet welds, EC3/AISC lateral-torsional buckling, EC3 Class 4
