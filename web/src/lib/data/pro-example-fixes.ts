@@ -89,28 +89,6 @@ export const PRO_EXAMPLE_FIXES: Readonly<Record<string, Fix>> = {
   },
 
   /*
-   * The loads were written for a Y-up model: the dead and wind loads as local qY, which on a
-   * Z-up model is horizontal, and the live loads as nodal −fy. They are turned to what they
-   * meant: dead load down along global Z, wind normal to each member on the same side, live
-   * loads down.
-   */
-  'la-bombonera': () => {
-    for (const l of [...modelStore.loads]) {
-      if (l.type === 'distributed3d') {
-        const v = l.data as { id: number; elementId: number; qYI: number; qYJ: number; qZI: number; qZJ: number; caseId?: number };
-        if (v.qYI === 0 && v.qYJ === 0) continue;
-        const wind = (v.caseId ?? 1) === firstCase('W')?.id;
-        modelStore.updateLoad(v.id, wind
-          ? { qYI: 0, qYJ: 0, qZI: -Math.abs(v.qYI), qZJ: -Math.abs(v.qYJ) }
-          : { qYI: 0, qYJ: 0, qZI: -Math.abs(v.qYI), qZJ: -Math.abs(v.qYJ), frame: 'global' });
-      } else if (l.type === 'nodal3d') {
-        const v = l.data as { id: number; fy: number; fz: number };
-        if (v.fy !== 0 && v.fz === 0) modelStore.updateLoad(v.id, { fy: 0, fz: -Math.abs(v.fy) });
-      }
-    }
-  },
-
-  /*
    * The hangers work in tension only. The main cable stays a member that bends: as a chain of
    * trusses, with no pretension and a linear analysis, it would have no stiffness across itself.
    */

@@ -422,7 +422,12 @@ describe('every member along a panel’s sides is the panel’s, never loaded by
 
   it('the PRO examples collect what they did before panels learned openings', async () => {
     // Panel mode, width 3: the totals of main before this change (2430, 3132 and 34916.4 with it).
-    const want: Array<[string, number]> = [['pipe-rack', 1890], ['3d-nave-industrial', 2988], ['suspension-bridge', 34896.6]];
+    // The hall was 2988 until its gable girts were split at the column chords they cross: at
+    // z = 6 m the end panels now close, and that level collects 480 m² like those at 2 and 4 m
+    // instead of 624 (144 m² of it by tributary width along the unsplit girts). The bridge was
+    // 34896.6 until its deck was brought under the cables (22 -> 18.7 m wide, so its hangers hang
+    // plumb): 720 m × 3.3 m less on each of its two deck levels.
+    const want: Array<[string, number]> = [['pipe-rack', 1890], ['3d-nave-industrial', 2844], ['suspension-bridge', 30144.6]];
     for (const [id, area] of want) {
       const f = (await import(`../../../templates/fixtures/${id}.json`)).default;
       expect(collected(gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3 })), id).toBeCloseTo(area, 6);

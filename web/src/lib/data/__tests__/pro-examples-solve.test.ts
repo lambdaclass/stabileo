@@ -45,9 +45,14 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
     const d = r.perCase.get(dead.id)!;
     const [hx, hy, v] = resultant(d);
     if (id === 'la-bombonera') {
-      // Dead load down, and nothing sideways under it: it was written for a Y-up model.
+      // Dead load down, and nothing sideways under it: it was written for a Y-up model. Its wind
+      // is a wind: sideways, and nothing down (it once added 14.6 MN of downward load).
       expect(v).toBeGreaterThan(0);
       expect(Math.hypot(hx, hy)).toBeLessThan(1e-6 * v);
+      const w = modelStore.model.loadCases.find((c) => c.type === 'W')!;
+      const [wx, wy, wv] = resultant(r.perCase.get(w.id)!);
+      expect(Math.hypot(wx, wy)).toBeGreaterThan(1000);
+      expect(Math.abs(wv)).toBeLessThan(1e-6 * Math.hypot(wx, wy));
     }
     if (id === 'xl-diagrid-tower') {
       expect(Math.hypot(hx, hy)).toBeLessThan(1e-6 * v);

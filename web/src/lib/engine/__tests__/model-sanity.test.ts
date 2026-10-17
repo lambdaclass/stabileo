@@ -58,29 +58,6 @@ const summary = (r: SanityReport | null) => (r?.findings ?? []).map((f) => `${f.
  * example fails here until it is examined and justified the same way.
  */
 const JUSTIFIED_WARNINGS: Record<string, string[]> = {
-  // Half the dead and live member loads are given in local Y, which is horizontal for those beams:
-  // 1440 kN of the dead case (and 720 kN of the live) push the building sideways, and the columns
-  // then carry nothing like their tributary loads. A modelling error in the example, found by the
-  // review; its results are what the model says, not what a building would carry.
-  '3d-building': ['gravity_case_horizontal', 'gravity_case_horizontal', 'tributary_mismatch', 'tributary_mismatch'],
-  // Demo models whose loads carry no case: they fall into case 1, "Dead Load", lateral loads and
-  // all. In a PRO solve that case is factored as dead load with its lateral part in it.
-  '3d-cantilever-load': ['gravity_case_horizontal'],
-  '3d-portal-frame': ['gravity_case_horizontal'],
-  '3d-tower': ['gravity_case_horizontal'],
-  'tower-3d-2': ['gravity_case_horizontal'],
-  'tower-3d-4': ['gravity_case_horizontal'],
-  // Gravity member loads typed in local Y (horizontal for those beams), as in 3d-building; with
-  // half its floor load pushing sideways, space-frame's floors also weigh less than a building's.
-  'space-frame': ['gravity_case_horizontal', 'weight_per_area_low'],
-  'torre-irregular-con-retiros': ['gravity_case_horizontal', 'gravity_case_horizontal'],
-  // The live case's loads are all along global Y, horizontal in a Z-up model: 569 kN sideways and
-  // none down.
-  'la-bombonera': ['gravity_case_horizontal'],
-  // "Sin peso propio": a weightless material on purpose (the blog's deep-beam comparison), solved
-  // with self-weight on, so the warning is literally true and the example intends it.
-  'deep-beam-bar': ['density_zero'],
-  'deep-beam-shell': ['density_zero'],
   // The diagrid's 42 floors carry no floor loads, only the frame's own weight: 0.22 kN/m². True of
   // the example, which models the structure, not a loaded building.
   'xl-diagrid-tower': ['weight_per_area_low'],
@@ -88,26 +65,17 @@ const JUSTIFIED_WARNINGS: Record<string, string[]> = {
   // regular column grid), and carries pipes, not floors: 2.4 kN/m². The band is for buildings and
   // the review cannot tell a rack from one; the warning says what it compared.
   'pipe-rack': ['weight_per_area_low'],
-  // Members whose ends move apart sideways by more than L/10 in a linear solve: under the 100-year
-  // wind the 1.5 m truss box at the top of the derrick (no diagonals), and under dead load ten
-  // members of the stadium's cantilever roof. Local near-mechanisms or very flexible zones in the
-  // demo models, which the review is right to point at.
-  'offshore-platform': ['deflection_large'],
+  // Members whose ends move apart sideways by more than L/10 in a linear solve: under dead load ten
+  // members of the stadium's cantilever roof. A very flexible zone in the demo model, which the
+  // review is right to point at.
   'full-stadium': ['deflection_large'],
 };
 
 /*
  * Examples whose linear results are absurd, and which the review therefore reports as errors.
- * They are not hidden: a node of the stadium canopy moves 254 m under its own dead load (the IPN
- * rafters bend about their weak axis out of the canopy's plane, held by almost nothing), and the
- * suspension bridge's deck sags 440 m because a cable bridge solved linearly, without the cables'
- * geometric stiffness, is a mechanism. Pinned here so a change to either is seen; the examples
- * themselves need fixing (or a nonlinear solve), which is outside this review.
+ * None: an example that is not a valid structure under its own loads is fixed, not pinned here.
  */
-const KNOWN_ERRORS: Record<string, string[]> = {
-  'stadium-canopy': ['displacement_absurd'],
-  'suspension-bridge': ['displacement_absurd'],
-};
+const KNOWN_ERRORS: Record<string, string[]> = {};
 
 const fixtures = readdirSync('src/lib/templates/fixtures')
   .filter((f) => f.endsWith('.json'))
@@ -169,6 +137,12 @@ describe('broken models are caught', () => {
 
   it('self-weight left out of a building', async () => {
     await building();
+    // The example's beam loads stand for its slabs, which outweigh its frame: with them the dead
+    // case carries more than the frame weighs, and the frame's own weight is not missed. A
+    // building whose dead case holds only finishes (a quarter of them) is one where it is.
+    for (const l of modelStore.loads) {
+      if (l.type === 'distributed3d' && (l.data.caseId ?? 1) === 1) { l.data.qZI /= 4; l.data.qZJ /= 4; }
+    }
     uiStore.includeSelfWeight = false;
     if (modelStore.analysis?.selfWeight) modelStore.analysis.selfWeight = [];
     solve();

@@ -13,6 +13,7 @@ pub(super) fn run(input: &SanityInput, g: &ModelGeometry, r: &mut Report) {
     sections(input, g, r);
     geometry_scale(input, g, r);
     load_path(input, g, r);
+    nodes_on_spans(input, g, r);
     supports(input, g, r);
     springs(input, g, r);
 }
@@ -528,6 +529,108 @@ fn load_path(input: &SanityInput, g: &ModelGeometry, r: &mut Report) {
         );
     }
     r.ran(CheckId::LoadPath);
+}
+
+// ---------------------------------------------------------------------------
+// Nodes on a member's span, not connected to it
+// ---------------------------------------------------------------------------
+
+/// A node within this fraction of a member's length of its axis, and at least this far from
+/// both ends, lies on its span. Scale-free, so a model drawn in millimetres reads the same.
+const ON_SPAN_TOL: f64 = 1e-3;
+
+/// Nodes that lie on a member's span without being one of its ends. The solver connects a member
+/// only at its two end nodes, so a node drawn on it is not connected: what frames into that node
+/// never reaches the member. Only nodes that something structural uses (a member or a shell) are
+/// looked at; a free construction point on a member changes nothing. A node tied to one of the
+/// member's ends by a link (a rigid offset, a constraint) is connected through it: a beam hung
+/// below a slab by an offset has its end on the column's line, linked to the column's node.
+fn nodes_on_spans(input: &SanityInput, g: &ModelGeometry, r: &mut Report) {
+    if g.members.is_empty() {
+        r.skipped(CheckId::Connectivity, SkipReason::NoMembers, "the model has no members", Params::new());
+        return;
+    }
+    let mut linked = Components::new();
+    for l in &input.links {
+        for w in l.windows(2) {
+            linked.union(w[0], w[1]);
+        }
+    }
+    let mut used: BTreeSet<usize> = BTreeSet::new();
+    for m in &g.members {
+        used.insert(m.i);
+        used.insert(m.j);
+    }
+    for s in &input.shells {
+        used.extend(s.nodes.iter().copied());
+    }
+    // A uniform grid over the used nodes, cells about a typical member long.
+    let mut lengths: Vec<f64> = g.members.iter().map(|m| m.length).collect();
+    let cell = median(&mut lengths).max(1e-3 * g.extent).max(1e-9);
+    let key = |p: [f64; 3]| [(p[0] / cell).floor() as i64, (p[1] / cell).floor() as i64, (p[2] / cell).floor() as i64];
+    let mut grid: HashMap<[i64; 3], Vec<(usize, [f64; 3])>> = HashMap::new();
+    for &n in &used {
+        if let Some(&p) = g.nodes.get(&n) {
+            grid.entry(key(p)).or_default().push((n, p));
+        }
+    }
+    // (member, node) pairs, the member's own ends excluded.
+    let mut hits: Vec<(usize, usize, f64)> = vec![];
+    for m in &g.members {
+        let tol = ON_SPAN_TOL * m.length;
+        let lo = key([m.pi[0].min(m.pj[0]) - tol, m.pi[1].min(m.pj[1]) - tol, m.pi[2].min(m.pj[2]) - tol]);
+        let hi = key([m.pi[0].max(m.pj[0]) + tol, m.pi[1].max(m.pj[1]) + tol, m.pi[2].max(m.pj[2]) + tol]);
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    let Some(bucket) = grid.get(&[x, y, z]) else { continue };
+                    for &(n, p) in bucket {
+                        if n == m.i || n == m.j {
+                            continue;
+                        }
+                        let root = linked.find(n);
+                        if root == linked.find(m.i) || root == linked.find(m.j) {
+                            continue;
+                        }
+                        let v = sub(p, m.pi);
+                        let t = dot(v, m.dir);
+                        if t < tol || t > m.length - tol {
+                            continue;
+                        }
+                        let off = norm([v[0] - t * m.dir[0], v[1] - t * m.dir[1], v[2] - t * m.dir[2]]);
+                        if off <= tol {
+                            hits.push((m.id, n, t / m.length));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if !hits.is_empty() {
+        hits.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+        let members: BTreeSet<usize> = hits.iter().map(|h| h.0).collect();
+        let nodes: BTreeSet<usize> = hits.iter().map(|h| h.1).collect();
+        let (m0, n0, t0) = hits[0];
+        let msg = format!(
+            "{} node(s) lie on the span of {} member(s) without being connected to them. First: node {} at {} % of member {}.",
+            nodes.len(),
+            members.len(),
+            n0,
+            fmt(100.0 * t0),
+            m0
+        );
+        r.push(
+            finding(SanityCode::NodeOnSpan, CheckId::Connectivity, Severity::Warning, msg)
+                .with("count", nodes.len())
+                .with("members", members.len())
+                .with("node", n0)
+                .with("member", m0)
+                .with("percent", 100.0 * t0)
+                .elements(members.into_iter().collect())
+                .nodes(nodes.into_iter().collect()),
+        );
+    }
+    r.ran(CheckId::Connectivity);
 }
 
 // ---------------------------------------------------------------------------

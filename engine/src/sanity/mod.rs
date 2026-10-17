@@ -17,8 +17,9 @@
 //! 4. **Tributary-area column loads** against the FE axial forces, on regular frames only.
 //! 5. **Input plausibility**: E, density and fy against known materials (unit mix-ups); section
 //!    properties near zero or huge relative to the model; parts with no path to a support;
-//!    supports that all sit on one point or one line; springs absurdly soft or stiff relative to
-//!    what they hold; displacements absurd for the span.
+//!    nodes lying on a member's span without being connected to it; supports that all sit on
+//!    one point or one line; springs absurdly soft or stiff relative to what they hold;
+//!    displacements absurd for the span.
 //!
 //! Every finding carries a severity, what was found with its numbers, why it matters, how to fix
 //! it and the ids it is about. Every check also reports whether it ran: a check that could not
@@ -411,6 +412,7 @@ pub enum CheckId {
     Supports,
     Springs,
     Deflection,
+    Connectivity,
 }
 
 /// Stable finding codes. May be added, never renamed.
@@ -442,6 +444,7 @@ pub enum SanityCode {
     SpringStiff,
     DeflectionLarge,
     DisplacementAbsurd,
+    NodeOnSpan,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -733,6 +736,10 @@ pub fn explain(code: SanityCode) -> (&'static str, &'static str) {
         DisplacementAbsurd => (
             "A displacement of more than a tenth of the whole structure's size cannot be a small-displacement result: the model is near a mechanism, or stiffness or loads are in the wrong units.",
             "Check supports (are they all on one line?), releases and units; then solve again.",
+        ),
+        NodeOnSpan => (
+            "A node that lies on a member's span without being one of its ends is not connected to it: the member passes through as if the node were not there, so whatever frames into that node (a beam, a brace, a load) never reaches the member, and the member spans further than drawn.",
+            "Split the member at the node (so the node becomes an end of both halves), or move the node off the member if they really are not connected.",
         ),
     }
 }

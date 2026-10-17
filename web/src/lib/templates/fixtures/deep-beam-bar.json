@@ -100,5 +100,8 @@
  "quads": [],
  "constraints": [],
  "loadCases": [],
- "combinations": []
+ "combinations": [],
+ "analysis": {
+  "selfWeight": []
+ }
 }

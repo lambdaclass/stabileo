@@ -120,13 +120,13 @@ test.describe('@smoke Basic interaction and view', () => {
     await page.getByTestId('rb-cmd-element').click();
     const nodeJ = page.getByTestId('elem-node-j-1');
     await expect(nodeJ).toBeVisible();
-    // 709 members × 2 × 232 nodes was 330 000 options built at once.
+    // 729 members × 2 × 232 nodes was 330 000 options built at once.
     expect(await page.evaluate(() => document.getElementsByTagName('option').length)).toBeLessThan(30_000);
-    await expect(page.locator('[data-testid^=elem-type-]')).toHaveCount(709);
+    await expect(page.locator('[data-testid^=elem-type-]')).toHaveCount(729);
     await nodeJ.focus();
     await expect(nodeJ.locator('option')).toHaveCount(232);
     await nodeJ.selectOption('9');
-    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().elements)).toBe(709);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().elements)).toBe(729);
     await expect(nodeJ).toHaveValue('9');
   });
 

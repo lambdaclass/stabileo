@@ -1884,7 +1884,7 @@
       "id": 35,
       "type": "frame",
       "nodeI": 17,
-      "nodeJ": 21,
+      "nodeJ": 18,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -1954,7 +1954,7 @@
       "id": 42,
       "type": "frame",
       "nodeI": 27,
-      "nodeJ": 19,
+      "nodeJ": 20,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -2514,7 +2514,7 @@
       "id": 98,
       "type": "frame",
       "nodeI": 51,
-      "nodeJ": 55,
+      "nodeJ": 52,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -2584,7 +2584,7 @@
       "id": 105,
       "type": "frame",
       "nodeI": 61,
-      "nodeJ": 53,
+      "nodeJ": 54,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -3144,7 +3144,7 @@
       "id": 161,
       "type": "frame",
       "nodeI": 85,
-      "nodeJ": 89,
+      "nodeJ": 86,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -3214,7 +3214,7 @@
       "id": 168,
       "type": "frame",
       "nodeI": 95,
-      "nodeJ": 87,
+      "nodeJ": 88,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -3774,7 +3774,7 @@
       "id": 224,
       "type": "frame",
       "nodeI": 119,
-      "nodeJ": 123,
+      "nodeJ": 120,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -3844,7 +3844,7 @@
       "id": 231,
       "type": "frame",
       "nodeI": 129,
-      "nodeJ": 121,
+      "nodeJ": 122,
       "materialId": 2,
       "sectionId": 4,
       "hingeStart": false,
@@ -7354,7 +7354,7 @@
       "id": 582,
       "type": "frame",
       "nodeI": 5,
-      "nodeJ": 210,
+      "nodeJ": 6,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7384,7 +7384,7 @@
       "id": 585,
       "type": "frame",
       "nodeI": 218,
-      "nodeJ": 7,
+      "nodeJ": 8,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7394,7 +7394,7 @@
       "id": 586,
       "type": "frame",
       "nodeI": 9,
-      "nodeJ": 211,
+      "nodeJ": 10,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7424,7 +7424,7 @@
       "id": 589,
       "type": "frame",
       "nodeI": 219,
-      "nodeJ": 11,
+      "nodeJ": 12,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7434,7 +7434,7 @@
       "id": 590,
       "type": "frame",
       "nodeI": 13,
-      "nodeJ": 212,
+      "nodeJ": 14,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7464,7 +7464,7 @@
       "id": 593,
       "type": "frame",
       "nodeI": 220,
-      "nodeJ": 15,
+      "nodeJ": 16,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7674,7 +7674,7 @@
       "id": 614,
       "type": "frame",
       "nodeI": 107,
-      "nodeJ": 222,
+      "nodeJ": 108,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7704,7 +7704,7 @@
       "id": 617,
       "type": "frame",
       "nodeI": 230,
-      "nodeJ": 109,
+      "nodeJ": 110,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7714,7 +7714,7 @@
       "id": 618,
       "type": "frame",
       "nodeI": 111,
-      "nodeJ": 223,
+      "nodeJ": 112,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7744,7 +7744,7 @@
       "id": 621,
       "type": "frame",
       "nodeI": 231,
-      "nodeJ": 113,
+      "nodeJ": 114,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7754,7 +7754,7 @@
       "id": 622,
       "type": "frame",
       "nodeI": 115,
-      "nodeJ": 224,
+      "nodeJ": 116,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -7784,7 +7784,7 @@
       "id": 625,
       "type": "frame",
       "nodeI": 232,
-      "nodeJ": 117,
+      "nodeJ": 118,
       "materialId": 2,
       "sectionId": 7,
       "hingeStart": false,
@@ -8627,6 +8627,206 @@
       "nodeJ": 147,
       "materialId": 2,
       "sectionId": 8,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 710,
+      "type": "frame",
+      "nodeI": 18,
+      "nodeJ": 21,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 711,
+      "type": "frame",
+      "nodeI": 20,
+      "nodeJ": 19,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 712,
+      "type": "frame",
+      "nodeI": 52,
+      "nodeJ": 55,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 713,
+      "type": "frame",
+      "nodeI": 54,
+      "nodeJ": 53,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 714,
+      "type": "frame",
+      "nodeI": 86,
+      "nodeJ": 89,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 715,
+      "type": "frame",
+      "nodeI": 88,
+      "nodeJ": 87,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 716,
+      "type": "frame",
+      "nodeI": 120,
+      "nodeJ": 123,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 717,
+      "type": "frame",
+      "nodeI": 122,
+      "nodeJ": 121,
+      "materialId": 2,
+      "sectionId": 4,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 718,
+      "type": "frame",
+      "nodeI": 6,
+      "nodeJ": 210,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 719,
+      "type": "frame",
+      "nodeI": 8,
+      "nodeJ": 7,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 720,
+      "type": "frame",
+      "nodeI": 10,
+      "nodeJ": 211,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 721,
+      "type": "frame",
+      "nodeI": 12,
+      "nodeJ": 11,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 722,
+      "type": "frame",
+      "nodeI": 14,
+      "nodeJ": 212,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 723,
+      "type": "frame",
+      "nodeI": 16,
+      "nodeJ": 15,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 724,
+      "type": "frame",
+      "nodeI": 108,
+      "nodeJ": 222,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 725,
+      "type": "frame",
+      "nodeI": 110,
+      "nodeJ": 109,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 726,
+      "type": "frame",
+      "nodeI": 112,
+      "nodeJ": 223,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 727,
+      "type": "frame",
+      "nodeI": 114,
+      "nodeJ": 113,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 728,
+      "type": "frame",
+      "nodeI": 116,
+      "nodeJ": 224,
+      "materialId": 2,
+      "sectionId": 7,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 729,
+      "type": "frame",
+      "nodeI": 118,
+      "nodeJ": 117,
+      "materialId": 2,
+      "sectionId": 7,
       "hingeStart": false,
       "hingeEnd": false
     }
@@ -11943,6 +12143,150 @@
         "mx": 0,
         "my": 0,
         "mz": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 243,
+        "elementId": 718,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 244,
+        "elementId": 719,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 245,
+        "elementId": 720,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 246,
+        "elementId": 721,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 247,
+        "elementId": 722,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 248,
+        "elementId": 723,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 249,
+        "elementId": 724,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 250,
+        "elementId": 725,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 251,
+        "elementId": 726,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 252,
+        "elementId": 727,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 253,
+        "elementId": 728,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
+        "caseId": 3
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 254,
+        "elementId": 729,
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0,
         "caseId": 3
       }
     }

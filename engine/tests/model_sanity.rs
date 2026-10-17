@@ -383,6 +383,7 @@ fn sound_steel_building_is_clean() {
         CheckId::Supports,
         CheckId::Springs,
         CheckId::Deflection,
+        CheckId::Connectivity,
     ] {
         assert_eq!(r.status(c).map(|s| s.status), Some(CheckStatusKind::Ran), "{:?}: {:?}", c, r.status(c));
     }
@@ -570,6 +571,46 @@ fn a_floating_part_is_caught() {
     input.members.push(SanityMember { id: 900, node_i: 900, node_j: 901, material_id: 1, section_id: 2, truss: false });
     let f = find(&review(&input), SanityCode::UnsupportedPart).clone();
     assert_eq!((f.severity, f.element_ids.clone(), f.node_ids.clone()), (Severity::Error, vec![900], vec![900, 901]));
+}
+
+#[test]
+fn a_node_on_a_span_without_a_connection_is_caught() {
+    // A secondary beam drawn between the midspans of two parallel first-floor beams, whose nodes
+    // were placed on those beams but the beams were never split there.
+    let (mut input, _) = reviewed(&Spec::steel());
+    input.nodes.push(SanityNode { id: 900, x: 3.0, y: 0.0, z: 3.0 });
+    input.nodes.push(SanityNode { id: 901, x: 3.0, y: 6.0, z: 3.0 });
+    input.members.push(SanityMember { id: 900, node_i: 900, node_j: 901, material_id: 1, section_id: 2, truss: false });
+    let r = review(&input);
+    let f = find(&r, SanityCode::NodeOnSpan).clone();
+    assert_eq!(f.severity, Severity::Warning);
+    assert_eq!(f.node_ids, vec![900, 901]);
+    assert_eq!(f.element_ids.len(), 2, "{:?}", f.element_ids);
+    assert_eq!(f.params.get("percent"), Some(&Param::Num(50.0)));
+    // The new beam is not connected to anything that holds it either.
+    assert!(r.has(SanityCode::UnsupportedPart));
+    assert_eq!(r.status(CheckId::Connectivity).map(|s| s.status), Some(CheckStatusKind::Ran));
+}
+
+#[test]
+fn a_node_near_but_off_a_span_or_unused_is_not_flagged() {
+    let (mut input, _) = reviewed(&Spec::steel());
+    // 5 cm off a 6 m beam: a different line, not a node on it.
+    input.nodes.push(SanityNode { id: 900, x: 3.0, y: 0.05, z: 3.0 });
+    input.nodes.push(SanityNode { id: 901, x: 3.0, y: 0.05, z: 0.0 });
+    input.members.push(SanityMember { id: 900, node_i: 900, node_j: 901, material_id: 1, section_id: 1, truss: false });
+    input.supports.push(SanitySupport { node_id: 901, restraint: [true; 6], spring: [None; 6] });
+    // A construction point on a beam that nothing uses.
+    input.nodes.push(SanityNode { id: 902, x: 3.0, y: 6.0, z: 3.0 });
+    // A beam hung 0.2 m below the first floor by a rigid offset: its end node lies on the column
+    // below, tied to the column's top node by a link, which is a connection.
+    let (top, below) = (node_id(&Spec::steel(), 2, 2, 1), 903);
+    input.nodes.push(SanityNode { id: below, x: 12.0, y: 12.0, z: 2.8 });
+    input.nodes.push(SanityNode { id: 904, x: 18.0, y: 12.0, z: 2.8 });
+    input.members.push(SanityMember { id: 903, node_i: below, node_j: 904, material_id: 1, section_id: 2, truss: false });
+    input.links.push(vec![top, below]);
+    let r = review(&input);
+    assert!(!r.has(SanityCode::NodeOnSpan), "{:#?}", r.findings);
 }
 
 #[test]

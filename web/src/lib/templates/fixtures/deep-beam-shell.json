@@ -4043,5 +4043,8 @@
  ],
  "constraints": [],
  "loadCases": [],
- "combinations": []
+ "combinations": [],
+ "analysis": {
+  "selfWeight": []
+ }
 }

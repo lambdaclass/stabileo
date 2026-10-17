@@ -170,7 +170,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   entry({ id: 'pro-edificio-7p', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 141, members: 203, shells: 77 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
   entry({ id: 'rc-design-frame', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagDesign'], stats: { nodes: 180, members: 408 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 447, shells: 756 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1432 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the
   // combinations they were drafted with.
@@ -180,21 +180,21 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   // ── Sheds and industrial buildings ──
   entry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pipe-rack', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagIndustrial'], stats: { nodes: 64, members: 156 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 709 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 729 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-concrete-wall-storehouse', source: 'code', group: 'industrial', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 480, members: 317, shells: 288 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-crane-hangar', source: 'code', group: 'industrial', tags: ['pro.tagCrane', 'pro.tagPDelta'], stats: { nodes: 222, members: 467 }, selfWeight: 'all', combinations: 'own' }),
 
   // ── Towers ──
   entry({ id: 'pro-guyed-tower', source: 'code', group: 'towers', tags: ['pro.tagCables', 'pro.tagTensionOnly'], stats: { nodes: 90, members: 261 }, selfWeight: 'all', combinations: 'regulation' }),
   // The platform's "E" is wave and current, not an earthquake: it keeps its own combinations.
-  entry({ id: 'offshore-platform', source: 'fixture', group: 'towers', tags: ['pro.tagSteel', 'pro.tagOffshore'], stats: { nodes: 196, members: 762 }, selfWeight: 'all', combinations: 'own' }),
+  entry({ id: 'offshore-platform', source: 'fixture', group: 'towers', tags: ['pro.tagSteel', 'pro.tagOffshore'], stats: { nodes: 203, members: 780 }, selfWeight: 'all', combinations: 'own' }),
   entry({ id: 'xl-diagrid-tower', source: 'fixture', group: 'towers', tags: ['pro.tagScale', 'pro.tagDrift'], stats: { nodes: 1090, members: 3434 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── Bridges and long spans ──
-  entry({ id: 'cable-stayed-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 74, members: 125 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'cable-stayed-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 66, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'geodesic-dome', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagLattice'], stats: { nodes: 337, members: 961 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'full-stadium', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagBowl'], stats: { nodes: 360, members: 876, shells: 144 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'suspension-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 378, members: 932 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'suspension-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 374, members: 932 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── Foundations ── the ribs lie inside the slab: only the slab's weight is counted.
   entry({ id: 'mat-foundation', source: 'fixture', group: 'foundations', tags: ['pro.tagFoundation', 'pro.tagSoil'], stats: { nodes: 72, members: 127, shells: 56 }, selfWeight: 'shells', combinations: 'regulation' }),
