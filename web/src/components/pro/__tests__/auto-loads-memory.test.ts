@@ -20,6 +20,8 @@ import { regulationsStore } from '../../../lib/store/regulations.svelte';
 import { registerLoadCodes } from '../../../lib/codes/families';
 import { CIRSOC102_WIND } from '../../../lib/codes/families/cirsoc';
 import { autoLoadsDefaults, autoLoadsMemory, type AutoLoadsMemory } from '../auto-loads-memory';
+import { findDeadEntry, deadComponentLoad, checkPartitionAllowance } from '../../../lib/codes/cirsoc101/dead-loads';
+import { findOccupancy } from '../../../lib/codes/cirsoc101/live-loads';
 
 const dialog = readFileSync(join(process.cwd(), 'src/components/pro/ProAutoLoadsDialog.svelte'), 'utf8');
 const BOTH = { wind: true, seismic: true };
@@ -109,6 +111,17 @@ describe('the dialog edits a copy of what the project saved', () => {
 describe('with nothing saved, the dialog starts from the defaults whole', () => {
   it('every value of a fresh project is the default', () => {
     expect(autoLoadsMemory(regulationsStore.roles, BOTH)).toEqual(autoLoadsDefaults(regulationsStore.roles));
+  });
+
+  it('the default build-up satisfies §3.1.4 and the §4.3.2 minimum on its own default occupancy', () => {
+    const d = autoLoadsDefaults(regulationsStore.roles);
+    const partitionQ = d.deadRows
+      .filter((r) => r.isPartition)
+      .reduce((s, r) => s + deadComponentLoad(findDeadEntry(r.entryKey!)!, { thicknessM: r.thickness }).qKNm2, 0);
+    const lo = findOccupancy(d.selectedOccupancy)!.uniformKNm2!;
+    const check = checkPartitionAllowance(lo, partitionQ);
+    expect(check.missing, check.message.key).toBe(false);
+    expect(check.message.key).toBe('loads.cirsoc101.dead.partitionIncluded');
   });
 
   it('another project opened after one with saved settings starts from the defaults, not from it', () => {

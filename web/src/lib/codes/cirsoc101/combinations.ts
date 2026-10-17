@@ -29,7 +29,18 @@
  *
  * Also normative in §2.3.2: the effects of one or more loads not acting must be
  * investigated, and wind and seismic effects need not be considered simultaneously.
- * The generator therefore never emits a combination containing both W and E.
+ * The generator therefore never emits a combination containing both W and E, and emits each
+ * combination also without each subset of its companion loads (`notActing`): a companion whose
+ * effect opposes the principal one (a live load whose moment counters the wind's in a column)
+ * lowers the combination, and the printed one alone does not reach the case where it is absent.
+ * Taking the principal load away needs no combination of its own: what is left lies between
+ * 1,4 D and a combination the set already holds, so its effect is inside their envelope.
+ *
+ * Seismic combinations. INPRES-CIRSOC 103-2018 Parte I §3.7.1 defines the combinations that
+ * include the earthquake as [3.16] 1,2 D ± 1,0 E + f1 L + f2 S and [3.17] 0,9 D ± 1,0 E, f1 and
+ * f2 from its Tabla 3.3: f2 = 0,70 on a roof that is horizontal or does not shed its snow, where
+ * combination 5 above prints 0,2 S. With `seismicCompanions` the companions of combination 5
+ * take the larger of the two codes' factors, so the combination satisfies both.
  *
  * Pure: no store, no runes.
  */
@@ -100,11 +111,31 @@ export interface CombinationInputs {
   earthPressureAction?: 'adds' | 'opposes' | 'unknown';
   /** True when H is a permanent load, which allows 0,9 rather than 0 when it opposes. */
   earthPressurePermanent?: boolean;
+  /**
+   * The companions of the seismic combination by INPRES-CIRSOC 103-2018 [3.16] (Tabla 3.3):
+   * f1 for L, f2 for S. Combination 5 takes the larger of these and its own factor for each.
+   * Absent: combination 5 as CIRSOC 101 prints it.
+   */
+  seismicCompanions?: { f1?: number; f2?: number };
+  /**
+   * Also emit each combination without each subset of its companion loads (§2.3.2, "se deberán
+   * investigar los efectos de una o más cargas que no estén actuando"). Absent: true.
+   */
+  notActing?: boolean;
 }
 
 const REF_BASIC = clause('cirsoc-101', '2025', '2.3.2', 'combinaciones básicas');
 const REF_EXC1 = clause('cirsoc-101', '2025', '2.3.2 Excepción 1', 'factor de carga L reducido');
 const REF_EXC2 = clause('cirsoc-101', '2025', '2.3.2 Excepción 2', 'S como carga de nieve sobre cubierta plana');
+const REF_NOT_ACTING = clause('cirsoc-101', '2025', '2.3.2', 'efectos de cargas que no estén actuando');
+const REF_103_COMB = clause('inpres-cirsoc-103-i', '2018', '3.7.1', 'combinación de acciones con sismo [3.16]');
+
+/** The principal load of each printed combination: the others in it are its companions. */
+const PRINCIPAL: Readonly<Record<number, readonly LoadSymbol[]>> = {
+  2: ['L'], 3: ['Lr', 'S', 'R'], 4: ['W'], 5: ['E'],
+};
+/** Loads a combination can be investigated without: the variable ones. D, F, H stay. */
+const COMPANION: ReadonlySet<LoadSymbol> = new Set(['L', 'Lr', 'S', 'R', 'W', 'E']);
 
 /**
  * A factor as combinations print it: one decimal when that is exact, else up to three
@@ -258,14 +289,20 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
 
   // ── 5. 1,2 D + 1,0 E + L + 0,2 S ──
   // Never combined with W: §2.3.2 states wind and seismic need not be taken simultaneously.
+  // With the seismic code's companions ([3.16], Tabla 3.3), each takes the larger factor.
   if (p.E) {
+    const sc = inputs.seismicCompanions;
+    const lE = Math.max(lCompanion, sc?.f1 ?? 0);
+    const sE = Math.max(0.2, sc?.f2 ?? 0);
+    const raised = (p.L && lE > lCompanion) || (p.S && sE > 0.2);
     push(5, '', [
       { symbol: 'D', factor: 1.2 }, { symbol: 'E', factor: 1.0 },
-      ...(p.L ? [{ symbol: 'L' as LoadSymbol, factor: lCompanion }] : []),
-      ...(p.S ? [{ symbol: 'S' as LoadSymbol, factor: 0.2 }] : []),
-    ], [REF_BASIC, REF_EXC1, ...(p.S ? [REF_EXC2] : [])],
+      ...(p.L ? [{ symbol: 'L' as LoadSymbol, factor: lE }] : []),
+      ...(p.S ? [{ symbol: 'S' as LoadSymbol, factor: sE }] : []),
+    ], [REF_BASIC, REF_EXC1, ...(p.S ? [REF_EXC2] : []), ...(sc ? [REF_103_COMB] : [])],
     [...(p.L && excNote ? [excNote] : []),
-     ...(p.S ? [msg('loads.cirsoc101.note.snowAsFlatRoof')] : [])]);
+     ...(p.S ? [msg('loads.cirsoc101.note.snowAsFlatRoof')] : []),
+     ...(raised ? [msg('loads.cirsoc101.note.seismicCompanions', { l: lE, s: sE })] : [])]);
   }
 
   // ── 6. 0,9 D + 1,0 W ──
@@ -273,6 +310,32 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
 
   // ── 7. 0,9 D + 1,0 E ──
   if (p.E) push(7, '', [{ symbol: 'D', factor: 0.9 }, { symbol: 'E', factor: 1.0 }], [REF_BASIC], []);
+
+  // ── §2.3.2, loads not acting ──
+  if (inputs.notActing ?? true) {
+    const seen = new Set(out.map((c) => termKey(c.terms)));
+    const printed = out.length;
+    for (let k = 0; k < printed; k++) {
+      const c = out[k]!;
+      const principal = PRINCIPAL[c.basic ?? 0];
+      if (!principal) continue;
+      const companions = c.terms.filter((t) => COMPANION.has(t.symbol) && !principal.includes(t.symbol) && t.factor !== 0);
+      // Combination 2 with no L takes its roof load as the principal: it has no companion then.
+      if (!c.terms.some((t) => principal.includes(t.symbol))) continue;
+      for (let mask = 1; mask < 1 << companions.length; mask++) {
+        const drop = companions.filter((_, i) => mask & (1 << i)).map((t) => t.symbol);
+        const terms = c.terms.filter((t) => !drop.includes(t.symbol));
+        const key = termKey(terms);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+          ...c, id: `${c.id}-no${drop.join('')}`, terms, label: combinationLabel(terms),
+          refs: [...c.refs, REF_NOT_ACTING],
+          notes: [...c.notes, msg('loads.cirsoc101.note.notActing', { loads: drop.join(', ') })],
+        });
+      }
+    }
+  }
 
   // ── §2.3.4, T ──
   // The clause asks for T with the other loads at a factor of no less than 1,0 and leaves the
@@ -290,6 +353,11 @@ export function generateCombinations(inputs: CombinationInputs): LoadCombination
   }
 
   return out;
+}
+
+/** A combination's terms as a set, for telling two combinations apart whatever their order. */
+function termKey(terms: readonly CombinationTerm[]): string {
+  return terms.filter((t) => t.factor !== 0).map((t) => `${t.symbol}:${+t.factor.toFixed(4)}`).sort().join(' ');
 }
 
 interface Variant {

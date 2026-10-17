@@ -853,3 +853,26 @@ describe('the companion live load factor reads the roof occupancy too', () => {
     expect(p.combinations.some((c) => c.terms.some((t) => t.symbol === 'L' && t.factor === 0.5))).toBe(true);
   });
 });
+
+// ─── §4.7.2 by width: each member's own tributary area ───────────
+
+describe('live load reduction by width (CIRSOC 101-2025 §4.7.2)', () => {
+  /*
+   * A 6 m beam under a 3 m width carries AT = 18 m²: KLL·AT = 2 × 18 = 36 m² < 37 m², which §4.7.2
+   * does not reduce. Width mode used to read AT off the largest area any member could carry (the
+   * whole 36 m² level) and gave every beam L = 2 (0,25 + 4,57/√72) = 1,577 kN/m², 21 % light.
+   */
+  it('reduces each beam by its width × length in plan, not by the level\'s area', () => {
+    const p = buildLoadPlan(input({ reductionElementKind: 'edgeBeamNoCantilever', applyLiveReduction: true }));
+    const live = p.distributed.filter((d) => d.caseType === 'L');
+    expect(live.length).toBeGreaterThan(0);
+    for (const d of live) expect(Math.abs(d.q)).toBeCloseTo(2 * 3, 9);
+  });
+
+  it('and reduces a beam whose own area passes the threshold', () => {
+    // 6 m width: AT = 36 m², KLL·AT = 72 m² ≥ 37, L = 2 (0,25 + 4,57/√72) = 1,577 kN/m².
+    const p = buildLoadPlan(input({ tributaryWidth: 6, reductionElementKind: 'edgeBeamNoCantilever', applyLiveReduction: true }));
+    const live = p.distributed.filter((d) => d.caseType === 'L');
+    for (const d of live) expect(Math.abs(d.q)).toBeCloseTo(2 * (0.25 + 4.57 / Math.sqrt(72)) * 6, 6);
+  });
+});

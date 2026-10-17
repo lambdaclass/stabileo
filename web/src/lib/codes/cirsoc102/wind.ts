@@ -209,58 +209,44 @@ export function cpLeewardWall(lOverB: number): number {
 /**
  * Fig. 2.4-1 — windward roof slope, wind normal to the ridge, θ ≥ 10°.
  *
- * Printed grid, by h/L then θ in degrees. Where the table lists two values, the roof
- * must be designed for both (note 3), so both are returned.
+ * Printed grid, by h/L then θ in degrees, as its two printed rows: `upper` (the first value of a
+ * cell, the slope under suction) and `lower` (the second, or the only one). Where a cell lists two
+ * values the roof must be designed for both (note 3). `upper` ends where the table stops printing
+ * it: its last value is the 0,0* "given for interpolation", and past it there is no value of that
+ * sign, so it is 0,0 for interpolation (note 2) and absent from the column on.
  *
  * The "≥ 60" column is printed as the FORMULA `0,01 θ` (Cp = 0.01·θ), not the literal
  * 0.01: 0.6 at 60°, 0.8 at 80° — continuous with the 45° value and with the > 80°
  * footnote (Cp = 0,8). Since the formula is linear, the rows at 60° and 80° below
  * reproduce it exactly through the same interpolation used between printed rows.
  */
-const CP_ROOF_WINDWARD: Record<string, Array<{ theta: number; values: number[] }>> = {
-  '0.25': [
-    { theta: 10, values: [-0.7, -0.18] }, { theta: 15, values: [-0.5, 0.0] },
-    { theta: 20, values: [-0.3, 0.2] }, { theta: 25, values: [-0.2, 0.3] },
-    { theta: 30, values: [-0.2, 0.3] }, { theta: 35, values: [0.0, 0.4] },
-    { theta: 45, values: [0.4] }, { theta: 60, values: [0.6] }, { theta: 80, values: [0.8] },
-  ],
-  '0.5': [
-    { theta: 10, values: [-0.9, -0.18] }, { theta: 15, values: [-0.7, -0.18] },
-    { theta: 20, values: [-0.4, 0.0] }, { theta: 25, values: [-0.3, 0.2] },
-    { theta: 30, values: [-0.2, 0.2] }, { theta: 35, values: [-0.2, 0.3] },
-    { theta: 45, values: [0.0, 0.4] }, { theta: 60, values: [0.6] }, { theta: 80, values: [0.8] },
-  ],
-  '1.0': [
-    { theta: 10, values: [-1.3, -0.18] }, { theta: 15, values: [-1.0, -0.18] },
-    { theta: 20, values: [-0.7, -0.18] }, { theta: 25, values: [-0.5, 0.0] },
-    { theta: 30, values: [-0.3, 0.2] }, { theta: 35, values: [-0.2, 0.2] },
-    { theta: 45, values: [0.0, 0.3] }, { theta: 60, values: [0.6] }, { theta: 80, values: [0.8] },
-  ],
-};
+const ROOF_THETAS = [10, 15, 20, 25, 30, 35, 45, 60, 80] as const;
+const ROOF_HL = [0.25, 0.5, 1.0] as const;
+const CP_ROOF_WINDWARD: ReadonlyArray<{ upper: ReadonlyArray<number | null>; lower: readonly number[] }> = [
+  // h/L ≤ 0,25
+  { upper: [-0.7, -0.5, -0.3, -0.2, -0.2, 0.0, null, null, null], lower: [-0.18, 0.0, 0.2, 0.3, 0.3, 0.4, 0.4, 0.6, 0.8] },
+  // h/L = 0,5
+  { upper: [-0.9, -0.7, -0.4, -0.3, -0.2, -0.2, 0.0, null, null], lower: [-0.18, -0.18, 0.0, 0.2, 0.2, 0.3, 0.4, 0.6, 0.8] },
+  // h/L ≥ 1,0
+  { upper: [-1.3, -1.0, -0.7, -0.5, -0.3, -0.2, 0.0, null, null], lower: [-0.18, -0.18, -0.18, 0.0, 0.2, 0.2, 0.3, 0.6, 0.8] },
+];
 
-/** Fig. 2.4-1 — leeward roof slope, wind normal to the ridge, θ ≥ 10°. */
-const CP_ROOF_LEEWARD: Record<string, Array<{ theta: number; value: number }>> = {
-  '0.25': [{ theta: 10, value: -0.3 }, { theta: 15, value: -0.5 }, { theta: 20, value: -0.6 }],
-  '0.5': [{ theta: 10, value: -0.5 }, { theta: 15, value: -0.5 }, { theta: 20, value: -0.6 }],
-  '1.0': [{ theta: 10, value: -0.7 }, { theta: 15, value: -0.6 }, { theta: 20, value: -0.6 }],
-};
+/** Fig. 2.4-1 — leeward roof slope, wind normal to the ridge, θ = 10°, 15°, ≥ 20°, by h/L. */
+const LEEWARD_THETAS = [10, 15, 20] as const;
+const CP_ROOF_LEEWARD: ReadonlyArray<readonly number[]> = [
+  [-0.3, -0.5, -0.6], [-0.5, -0.5, -0.6], [-0.7, -0.6, -0.6],
+];
 
-function hOverLBucket(hOverL: number): '0.25' | '0.5' | '1.0' {
-  if (hOverL <= 0.25) return '0.25';
-  if (hOverL <= 0.5) return '0.5';
-  return '1.0';
-}
-
-function interp(rows: Array<{ theta: number }>, theta: number): { lo: number; hi: number; t: number } {
-  if (theta <= rows[0].theta) return { lo: 0, hi: 0, t: 0 };
-  for (let i = 1; i < rows.length; i++) {
-    if (theta <= rows[i].theta) {
-      const span = rows[i].theta - rows[i - 1].theta;
-      return { lo: i - 1, hi: i, t: span === 0 ? 0 : (theta - rows[i - 1].theta) / span };
-    }
+/** The bracketing indices of `x` in ascending `xs` and the fraction between them, clamped at the ends. */
+function bracket(xs: readonly number[], x: number): { lo: number; hi: number; t: number } {
+  if (x <= xs[0]!) return { lo: 0, hi: 0, t: 0 };
+  for (let i = 1; i < xs.length; i++) {
+    if (x <= xs[i]!) return { lo: i - 1, hi: i, t: (x - xs[i - 1]!) / (xs[i]! - xs[i - 1]!) };
   }
-  return { lo: rows.length - 1, hi: rows.length - 1, t: 0 };
+  return { lo: xs.length - 1, hi: xs.length - 1, t: 0 };
 }
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export interface RoofCpResult {
   /** Every C_p the roof must be designed for; more than one when the table lists both signs. */
@@ -274,10 +260,15 @@ export interface RoofCpResult {
 /**
  * Fig. 2.4-1 — roof pressure coefficients, wind normal to the ridge.
  *
- * Note 2 permits interpolation only between values of the same sign; where signs
- * differ, 0,0 is taken for interpolation purposes. This implementation interpolates
- * each of the two printed value-sets independently, which honours that rule because the
- * "first" set is negative throughout and the "second" is the non-negative one.
+ * Interpolated linearly in θ and in h/L (note 2), each printed row on its own: note 3 allows
+ * interpolation in h/L only between values of the same sign, and each row passes through 0,0
+ * (printed, or taken per note 2) wherever its sign changes, so a linear blend of a row honours it.
+ * h/L below 0,25 takes the 0,25 row and above 1,0 the 1,0 row, as the table's ≤ and ≥ say.
+ *
+ * This used to round h/L up to the next printed row instead of interpolating, which took the
+ * h/L = 0,5 row for h/L = 0,26: 0,2 for the positive windward case at 25° where the table gives
+ * 0,3 and interpolation 0,296. It also interpolated the upper row past its last value toward the
+ * lower one (0,2 at 40° and h/L ≤ 0,25, 0,3 at 52,5° and h/L = 0,5), where note 2 takes 0,0.
  */
 export function roofCp(hOverL: number, thetaDeg: number): RoofCpResult {
   if (thetaDeg > 80) {
@@ -290,26 +281,25 @@ export function roofCp(hOverL: number, thetaDeg: number): RoofCpResult {
       unsupported: msg('loads.cirsoc102.unsupported.shallowRoofParallelRidge'),
     };
   }
-  const bucket = hOverLBucket(hOverL);
-  const wRows = CP_ROOF_WINDWARD[bucket];
-  const lRows = CP_ROOF_LEEWARD[bucket];
+  const r = bracket(ROOF_HL, hOverL);
+  const th = bracket(ROOF_THETAS, thetaDeg);
+  /** A row's value at θ, with an absent cell as 0,0 (note 2). */
+  const atTheta = (row: ReadonlyArray<number | null>) => lerp(row[th.lo] ?? 0, row[th.hi] ?? 0, th.t);
+  const lower = lerp(atTheta(CP_ROOF_WINDWARD[r.lo]!.lower), atTheta(CP_ROOF_WINDWARD[r.hi]!.lower), r.t);
+  // The upper row applies below the first column of either bracketing h/L row that no longer prints it.
+  const upperEnds = (row: ReadonlyArray<number | null>) => ROOF_THETAS[row.indexOf(null)] ?? Infinity;
+  const upperLimit = Math.max(upperEnds(CP_ROOF_WINDWARD[r.lo]!.upper), upperEnds(CP_ROOF_WINDWARD[r.hi]!.upper));
+  const windward = thetaDeg < upperLimit
+    ? [lerp(atTheta(CP_ROOF_WINDWARD[r.lo]!.upper), atTheta(CP_ROOF_WINDWARD[r.hi]!.upper), r.t), lower]
+    : [lower];
 
-  const wi = interp(wRows, thetaDeg);
-  const li = interp(lRows, Math.min(thetaDeg, 20));
-
-  const nSets = Math.max(wRows[wi.lo].values.length, wRows[wi.hi].values.length);
-  const windward: number[] = [];
-  for (let s = 0; s < nSets; s++) {
-    const a = wRows[wi.lo].values[s] ?? wRows[wi.lo].values[wRows[wi.lo].values.length - 1];
-    const b = wRows[wi.hi].values[s] ?? wRows[wi.hi].values[wRows[wi.hi].values.length - 1];
-    windward.push(a + (b - a) * wi.t);
-  }
-  const la = lRows[li.lo].value;
-  const lb = lRows[li.hi].value;
+  const lt = bracket(LEEWARD_THETAS, Math.min(thetaDeg, 20));
+  const lee = (row: readonly number[]) => lerp(row[lt.lo]!, row[lt.hi]!, lt.t);
+  const leeward = lerp(lee(CP_ROOF_LEEWARD[r.lo]!), lee(CP_ROOF_LEEWARD[r.hi]!), r.t);
 
   return {
     windward: [...new Set(windward.map((v) => +v.toFixed(4)))],
-    leeward: [+(la + (lb - la) * li.t).toFixed(4)],
+    leeward: [+leeward.toFixed(4)],
     refs: [REF_CP],
   };
 }

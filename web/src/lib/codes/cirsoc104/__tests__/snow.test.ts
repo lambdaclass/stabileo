@@ -80,7 +80,7 @@ describe('Tablas 1.1 a 1.15', () => {
   it('match the converted text row by row', () => {
     const md = readFileSync(new URL('../../../../../../docs/codes/CIRSOC/markdown/cirsoc-104-2005/tablas.md', import.meta.url), 'utf8');
     const rows = md.split('\n').filter((l) => /^\s*\d{1,3}\s{2,}\S/.test(l)).map((l) => l.trim().split(/\s{2,}/));
-    const flat = GROUND_SNOW_TABLES.flatMap((t) => t.rows);
+    const flat = GROUND_SNOW_TABLES.flatMap((t) => t.rows).filter((r) => !r.heading);
     expect(flat).toHaveLength(rows.length);
     rows.forEach(([n, loc, dist, h, pg], i) => {
       const r = flat[i]!;

@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
   BATTEN_DEDUCTION_KNM2, PARTITION_EXEMPTION_LKNM2,
+  PARTITION_MINIMUM_ENTRY, PARTITION_MINIMUM_KNM2,
 } from '../dead-loads';
 
 describe('Tabla 3.1 — the catalogue', () => {
@@ -107,7 +108,21 @@ describe('§3.1.4 — the partition allowance', () => {
     expect(r.message.key).toBe('loads.cirsoc101.dead.partitionMissing');
   });
 
-  it('is satisfied by any allowance at all', () => {
+  it('the §4.3.2 allowance row is the printed minimum, cited to §4.3.2, and not a Tabla 3.1 row', () => {
+    const e = findDeadEntry('tabiques_minimo_432')!;
+    expect(e).toBe(PARTITION_MINIMUM_ENTRY);
+    expect(e.group).toBe('partition');
+    expect(deadComponentLoad(e).qKNm2).toBe(PARTITION_MINIMUM_KNM2);
+    expect(e.refs.map((r) => r.clause)).toEqual(['4.3.2']);
+    expect(DEAD_TABLE_2025).not.toContain(e);
+    expect(checkPartitionAllowance(2.0, deadComponentLoad(e).qKNm2).missing).toBe(false);
+    // No Tabla 3.1 partition row (a weight per m² of wall) reaches the floor minimum.
+    for (const t of DEAD_TABLE_2025.filter((x) => x.group === 'partition')) {
+      expect(t.areaKNm2!, t.key).toBeLessThan(PARTITION_MINIMUM_KNM2);
+    }
+  });
+
+  it('is satisfied by any allowance at or above the §4.3.2 minimum', () => {
     const r = checkPartitionAllowance(2.0, 1.0);
     expect(r.missing).toBe(false);
     expect(r.message.key).toBe('loads.cirsoc101.dead.partitionIncluded');

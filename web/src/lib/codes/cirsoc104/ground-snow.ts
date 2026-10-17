@@ -8,6 +8,12 @@
  *
  * A locality not listed, or above the altitude listed, needs a site value approved by the
  * jurisdiction (Capítulo 2); the app then takes p_g as a project value.
+ *
+ * Two tables also print a locality above their header, outside the rows, with no number, district
+ * or altitude: Tabla 1.8 "Uspallata pg = 0.80kN/m2" and Tabla 1.13 "Villa Reynolds pg = 0.45kN/m2".
+ * They were left out, so Uspallata could only be read as its department's Las Heras (0,3) and Villa
+ * Reynolds as General Pedernera's Mercedes (0,3): less than the table gives them. They are rows
+ * here with `heading` set and `n` 0, the map number they do not have.
  */
 
 export interface GroundSnowRow {
@@ -15,10 +21,13 @@ export interface GroundSnowRow {
   locality: string;
   /** Partido or departamento. */
   district: string;
-  altitudeM: number;
+  /** Absent for a locality the table prints above its header (`heading`), with no altitude. */
+  altitudeM?: number;
   /** kN/m². */
   pg: number;
   estimated?: true;
+  /** Printed above the table's header rather than as a row (see the header). */
+  heading?: true;
 }
 
 export interface GroundSnowTable {
@@ -139,6 +148,7 @@ export const GROUND_SNOW_TABLES: readonly GroundSnowTable[] = [
     { n: 12, locality: "Santa Rosa", district: "Santa Rosa", altitudeM: 606, pg: 0.3 },
     { n: 14, locality: "Tunuyán", district: "Tunuyán", altitudeM: 869, pg: 0.3 },
     { n: 10, locality: "Tupungato", district: "Tupungato", altitudeM: 1067, pg: 0.9 },
+    { n: 0, locality: "Uspallata", district: "", pg: 0.8, heading: true },
   ] },
   { table: '1.9', province: "Neuquén", rows: [
     { n: 10, locality: "Aluminé", district: "Aluminé", altitudeM: 1260, pg: 2.3 },
@@ -210,6 +220,7 @@ export const GROUND_SNOW_TABLES: readonly GroundSnowTable[] = [
     { n: 5, locality: "San Martín", district: "Libertador Gral. San Martín", altitudeM: 955, pg: 0.3, estimated: true },
     { n: 2, locality: "Santa Rosa", district: "Junín", altitudeM: 505, pg: 0.3 },
     { n: 3, locality: "Villa General Roca", district: "Belgrano", altitudeM: 648, pg: 0.3, estimated: true },
+    { n: 0, locality: "Villa Reynolds", district: "", pg: 0.45, heading: true },
   ] },
   { table: '1.14', province: "Santa Cruz", rows: [
     { n: 5, locality: "El Calafate", district: "Lago Argentino", altitudeM: 225, pg: 1.2 },

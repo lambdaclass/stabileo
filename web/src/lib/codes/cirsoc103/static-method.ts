@@ -377,8 +377,13 @@ export function staticMethodApplicable(i: ApplicabilityInputs): Applicability {
       h: round(i.heightM, 2), limit, zone: i.zone, group: i.group,
     }));
   }
+  // Group Ao asks for line 1a of Tabla 2.4 (no stiffness irregularity) in every zone, and in
+  // zones 3 and 4 for line 1a of Tabla 2.3 too (torsional regularity): a medium irregularity,
+  // in plan or in elevation, is outside its columns. The other groups admit line 1b.
   if (i.regularity === 'irregular') {
     reasons.push(msg('seismic.blocked.irregular'));
+  } else if (i.regularity === 'medium' && i.group === 'Ao') {
+    reasons.push(msg('seismic.blocked.aoIrregular'));
   }
   if (i.group === 'C') {
     reasons.push(msg('seismic.assumed.groupCAsB'));

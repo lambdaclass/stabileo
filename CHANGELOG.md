@@ -11,6 +11,57 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Loads and combinations verified clause by clause against the CIRSOC texts (2026-10-17)
+
+**BREAKING (results): generated combinations, seismic weights and wind roof pressures change.**
+Every load table and combination rule was re-read from the official texts and checked against
+published worked examples where any exist (`docs/verification/LOADS.md`). The errors found
+were all unsafe, and each has a regression test.
+
+- **Combinations with companion loads not acting were never generated.** CIRSOC 101-2025
+  §2.3.2 requires "investigar los efectos de una o más cargas que no estén actuando". The
+  generator emitted only the printed combinations. A roof without floor live load, under wind,
+  got combination 3 only as 1,2 D + 1,6 Lr + 0,5 W, so roof suction lowered every gravity
+  combination: in the `pro-simple-shed` example the column axial force grew from 44 to 62 kN
+  and the rafter moment from 6.9 to 11.4 kN·m once 1,2 D + 1,6 Lr was generated. Combinations
+  2 to 5 are now also emitted without each subset of their companions (`notActing`, default on).
+  Combinations with the principal load removed are left out because they fall inside the
+  envelope of the rest, and a property test checks that claim over every subset of loads.
+- **The seismic combination took 0,2 S where INPRES-CIRSOC 103 asks for 0,70.** [3.16]
+  combines 1,20 D ± 1,00 E + f1 L + f2 S, and Tabla 3.3 gives f2 = 0,70 for roofs that are
+  horizontal or do not shed snow. Combination 5 now takes the larger of the two codes' factors
+  for L (f1) and for S (f2). f2 is read from the planned roof's C_s, or from the project's
+  `snowRetaining`.
+- **Snow was missing from the seismic weight.** [3.15] weighs each level as
+  Wi = Di + f1·Li + f2·Si, and the levels left out f2·S. With snow planned, the base shear now
+  includes it.
+- **Group Ao with medium irregularity was given the static method.** INPRES-CIRSOC 103
+  Tabla 2.5 allows Ao only line 1a of Tablas 2.3 and 2.4. Such a plan is now refused with its
+  own message, and the modal method is required.
+- **CIRSOC 102 roof pressure coefficients (Fig. 2.4-1, θ ≥ 10°) did not interpolate in h/L
+  and ran past the first row's 0,0\*.** h/L between printed rows was rounded up to the next
+  row, which understated the positive windward Cp (0,2 where the figure gives 0,296 at 25°,
+  h/L 0,26). Past the 0,0\*, the first row was interpolated toward positive values, where
+  note 2 prescribes 0,0 (0,3 instead of 0,0 at 52,5°, h/L 0,5). Pitched-roof wind loads change
+  for h/L other than 0,25, 0,5 or 1,0 and for slopes between 35° and 60°.
+- **By width, every member took the live load reduction of the largest area in the model.**
+  The plan read AT as the largest area any member could carry and applied it to all of them. A
+  6 m edge beam under a 3 m width has KLL·AT = 36 m² < 37 m², which §4.7.2 does not reduce, but
+  it came out 21 % light. Each member now takes its own width × length in plan. Panel mode
+  already did this.
+- **One-way slabs were given the live load reduction.** CIRSOC 101-2025 §4.7.6 reads "Para
+  losas en una sola dirección, las sobrecargas no se podrán reducir excepto en el caso de
+  sobrecargas pesadas". The module followed ASCE 7 and the commentary, which allow the
+  reduction up to 1,5 × the span. It now refuses it up to 5 kN/m².
+- **A partition allowance below 0,75 kN/m² counted** (§4.3.2). It is now reported as missing.
+  Tabla 4.1's 9 and 14 kN concentrated loads for light and heavy manufacturing were added.
+- **CIRSOC 104 Tablas 1.8 and 1.13: Uspallata (0,80 kN/m²) and Villa Reynolds (0,45 kN/m²)
+  added.** The tables print them above their headers, and they were missing, so they could only
+  be read as their departments' 0,3 kN/m². The slippery-roof option now states the §4.1
+  thermal-resistance condition for warm roofs.
+- The companion-snow note now says what the S case is: the balanced roof snow load. Exception
+  2 names the flat-roof load and its commentary admits the sloped one (ps).
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

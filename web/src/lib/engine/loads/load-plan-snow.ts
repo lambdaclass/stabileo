@@ -27,6 +27,9 @@ export function planSnow(input: LoadPlanInput, sink: PlanSink, layout?: GravityL
     } else {
       const r = out.result;
       refs.push(...r.refs);
+      // A roof that keeps its snow (C_s = 1 on some surface) is one INPRES-CIRSOC 103 Tabla 3.3
+      // weighs with f2 = 0,70 (`load-plan.ts`).
+      sink.snowRetains = r.cs >= 1 || out.surfaces.some((sf) => sf.cs >= 1);
       derivation.push(msg('snow.derivation.pf', {
         pg: round(sn.pg, 2), source: sn.source, ce: r.ce, ct: r.ct, i: r.importance,
         pf: round(r.pfComputed, 3),

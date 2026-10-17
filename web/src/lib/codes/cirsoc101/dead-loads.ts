@@ -152,6 +152,7 @@ export const DEAD_TABLE_2025: readonly DeadEntry[] = Object.freeze([
   d('vid_armado', 'glazing', 0.15, null),]);
 
 export function findDeadEntry(key: string): DeadEntry | undefined {
+  if (key === PARTITION_MINIMUM_ENTRY.key) return PARTITION_MINIMUM_ENTRY;
   return DEAD_TABLE_2025.find((e) => e.key === key);
 }
 
@@ -223,6 +224,30 @@ export const PARTITION_EXEMPTION_LKNM2 = 4;
 export const PARTITION_REF = clause('cirsoc-101', '2025', '3.1.4',
   'carga debida a elementos divisorios');
 
+/**
+ * §4.3.2 — the least partition load, kN/m²: "La carga de dichos elementos deberá ser mayor o
+ * igual que 0,75 kN/m²". §3.1.4 only says one is owed; this is the number. (§4.3.2 releases
+ * live loads over 3,85 kN/m², §3.1.4 those over 4: the stricter, 4, is kept.)
+ */
+export const PARTITION_MINIMUM_KNM2 = 0.75;
+
+export const PARTITION_MINIMUM_REF = clause('cirsoc-101', '2025', '4.3.2',
+  'requerimientos para elementos divisorios');
+
+/**
+ * §4.3.2 — the partition allowance itself, as a catalogue row: 0,75 kN/m² of FLOOR.
+ *
+ * Not a Tabla 3.1 row, and kept out of `DEAD_TABLE_2025` for that reason. The table's
+ * "Tabiques" rows weigh a square metre of WALL (a 120 mm double plasterboard partition is
+ * 0,55 kN/m² of its own face); none of them reaches 0,75, and none is a load per square
+ * metre of floor. What §4.3.2 prints is the least floor allowance, so this row carries that
+ * number with that clause, and the default build-up uses it.
+ */
+export const PARTITION_MINIMUM_ENTRY: DeadEntry = Object.freeze({
+  key: 'tabiques_minimo_432', labelKey: 'loads.dead.tabiques_minimo_432', group: 'partition',
+  areaKNm2: PARTITION_MINIMUM_KNM2, volumeKNm3: null, refs: [PARTITION_MINIMUM_REF],
+});
+
 export interface PartitionCheck {
   /** True when §3.1.4 requires an allowance and the build-up carries none. */
   missing: boolean;
@@ -250,6 +275,15 @@ export function checkPartitionAllowance(
         lo: round(liveLoKNm2, 2), limit: PARTITION_EXEMPTION_LKNM2,
       }),
       refs: [PARTITION_REF],
+    };
+  }
+  if (partitionAllowanceKNm2 > 0 && partitionAllowanceKNm2 < PARTITION_MINIMUM_KNM2) {
+    return {
+      missing: true, exempt: false,
+      message: msg('loads.cirsoc101.dead.partitionBelowMinimum', {
+        q: round(partitionAllowanceKNm2, 2), min: PARTITION_MINIMUM_KNM2,
+      }),
+      refs: [PARTITION_REF, PARTITION_MINIMUM_REF],
     };
   }
   if (partitionAllowanceKNm2 > 0) {

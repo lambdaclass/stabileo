@@ -203,8 +203,9 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
   e('vivienda_dormitorio', 'residential', 2.0),
 
   // Fábricas y talleres
-  e('fabrica_liviana', 'industrial', 6.0, null, { seeArticle: '4.12.1', noReduction: true }),
-  e('fabrica_pesada', 'industrial', 12.0, null, { seeArticle: '4.12.1', noReduction: true }),
+  // Tabla 4.1 prints concentrated loads of 9 and 14 kN for these rows; they were left out.
+  e('fabrica_liviana', 'industrial', 6.0, 9.0, { seeArticle: '4.12.1', noReduction: true }),
+  e('fabrica_pesada', 'industrial', 12.0, 14.0, { seeArticle: '4.12.1', noReduction: true }),
 ]);
 
 export function findOccupancy(key: string): OccupancyEntry | undefined {
@@ -250,11 +251,13 @@ export interface ReductionInputs {
   /** True when Table 4.1 marks the occupancy with note (a). */
   noReduction?: boolean;
   /**
-   * One-way slab: the tributary width used for A_t is capped at 1.5 × span (§4.7.6).
-   * Supply the span so the cap can be enforced rather than assumed satisfied.
+   * The member is a one-way slab (§4.7.6). Its live load is not reduced unless it is heavy
+   * (§4.7.3). Giving `oneWaySlabSpanM` says the same.
    */
+  oneWaySlab?: boolean;
+  /** One-way slab span, m (§4.7.6). */
   oneWaySlabSpanM?: number;
-  /** Tributary width actually used, m. Required when `oneWaySlabSpanM` is given. */
+  /** Tributary width actually used, m. */
   tributaryWidthM?: number;
 }
 
@@ -303,16 +306,16 @@ export function reduceLiveLoad(inputs: ReductionInputs): ReductionResult {
       [clause('cirsoc-101', '2025', '4.7.5', 'lugares destinados a reuniones públicas')]);
   }
 
-  // §4.7.6 — one-way slabs: A_t must not exceed 1.5 × span × span.
-  if (inputs.oneWaySlabSpanM !== undefined && inputs.tributaryWidthM !== undefined) {
-    const cap = 1.5 * inputs.oneWaySlabSpanM;
-    if (inputs.tributaryWidthM > cap) {
-      return none(
-        msg('loads.cirsoc101.reduction.oneWaySlabWidthExceeded', {
-          width: round(inputs.tributaryWidthM, 2), cap: round(cap, 2),
-        }),
-        [clause('cirsoc-101', '2025', '4.7.6', 'limitaciones para losas en una sola dirección')]);
-    }
+  /*
+   * §4.7.6 — "Para losas en una sola dirección, las sobrecargas no se podrán reducir excepto en
+   * el caso de sobrecargas pesadas." The normative text of the 2025 edition forbids it outright
+   * below 5 kN/m²; only its commentary (C 4.7.6) and ASCE 7 reduce one-way slabs with A_t capped
+   * at span × 1,5 span. This applied Eq. (4.1) whenever the width was under that cap. A heavy
+   * load goes on to §4.7.3 below.
+   */
+  if ((inputs.oneWaySlab || inputs.oneWaySlabSpanM !== undefined) && !(lo > 5.0)) {
+    return none(msg('loads.cirsoc101.reduction.oneWaySlab'),
+      [clause('cirsoc-101', '2025', '4.7.6', 'limitaciones para losas en una sola dirección')]);
   }
 
   // §4.7.4 — passenger garages are not reduced, except members supporting 2+ floors,
