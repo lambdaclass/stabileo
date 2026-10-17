@@ -116,25 +116,25 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
         return Err("No free DOFs".into());
     }
 
-    // Get target DOF index
     let target_dof = get_target_dof_2d(&dof_num, input.response_node_id, &input.response_dof)?;
-    if target_dof >= nf {
-        return Err("Target DOF is restrained".into());
-    }
 
     // Assemble K, M, F — sparse first for large models (dense K and M are
     // O(n²) memory and assembly time). Constraints reduce as sparse triple
-    // products, so the constrained case stays sparse end to end too.
+    // products, so the constrained case stays sparse end to end too. K and F
+    // are in the inclined-roller frames (the same by either assembler), M
+    // is rotated with them, and the response is read in global axes.
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     if nf >= super::linear::SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num);
+        let its = &sasm.inclined_transforms_2d;
+        let target = target_functional(&dof_num, input.response_node_id, target_dof, its)?;
         let f_full = crate::solver::assembly::assemble_load_vector_2d(
-            &input.solver, &input.solver.loads, &dof_num, &sasm.inclined_transforms_2d,
+            &input.solver, &input.solver.loads, &dof_num, its,
         );
         let f_ff: Vec<f64> = f_full[..nf].to_vec();
-        let m_csc = assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
+        let m_csc = assemble_mass_matrix_2d_sparse_inclined(&input.solver, &dof_num, &input.densities, its);
         // Reduced-space matrices owned here so both branches can borrow them.
         let k_red;
         let m_red;
@@ -145,14 +145,9 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
         } else {
             (&sasm.k_ff, &m_csc, f_ff)
         };
-        let target_s = if let Some(ref cs) = cs {
-            cs.map_dof_to_reduced(target_dof)
-                .ok_or("Target DOF is dependent (constrained)")?
-        } else {
-            target_dof
-        };
+        let target_s = reduce_target(&target, cs.as_ref())?;
         if let Some((sweep, damping)) =
-            solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, target_s)
+            solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, &target_s)
         {
             return Ok((sweep, damping));
         }
@@ -168,7 +163,10 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
     }
 
     let asm = assemble_2d(&input.solver, &dof_num);
-    let m_full = assemble_mass_matrix_2d(&input.solver, &dof_num, &input.densities);
+    let its = &asm.inclined_transforms_2d;
+    let target = target_functional(&dof_num, input.response_node_id, target_dof, its)?;
+    let mut m_full = assemble_mass_matrix_2d(&input.solver, &dof_num, &input.densities);
+    rotate_inclined_dense(&mut m_full, n, its);
 
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
@@ -183,15 +181,10 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
     };
 
     // Try modal superposition first (much faster for many frequency steps)
-    let target_s = if let Some(ref cs) = cs {
-        cs.map_dof_to_reduced(target_dof)
-            .ok_or("Target DOF is dependent (constrained)")?
-    } else {
-        target_dof
-    };
+    let target_s = reduce_target(&target, cs.as_ref())?;
 
     if let Some((sweep, damping)) =
-        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, target_s)
+        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, &target_s)
     {
         return Ok((sweep, damping));
     }
@@ -214,8 +207,8 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
             (u_real_s, u_imag_s)
         };
 
-        let re = u_real[target_dof];
-        let im = u_imag[target_dof];
+        let re = apply_target(&target, &u_real);
+        let im = apply_target(&target, &u_imag);
         let amplitude = (re * re + im * im).sqrt();
         let phase = im.atan2(re);
 
@@ -276,11 +269,12 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     }
 
     let target_dof = get_target_dof_3d(&dof_num, input.response_node_id, &input.response_dof)?;
-    if target_dof >= nf {
-        return Err("Target DOF is restrained".into());
-    }
 
+    // K and F in the inclined-support frames; M rotated with them, the
+    // response read in global axes (see the 2D solver).
     let sasm = assemble_sparse_3d(&input.solver, &dof_num, false);
+    let its = &sasm.inclined_transforms;
+    let target = target_functional(&dof_num, input.response_node_id, target_dof, its)?;
     let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
@@ -290,7 +284,7 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     // Sparse modal path with sparse mass (avoids the dense n² mass matrix).
     // Constraints reduce as sparse triple products, so the constrained case
     // stays sparse end to end too.
-    let m_csc = assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
+    let m_csc = assemble_mass_matrix_3d_sparse_inclined(&input.solver, &dof_num, &input.densities, its);
     let k_red;
     let m_red;
     let (k_sp, m_sp, f_sp): (&CscMatrix, &CscMatrix, Vec<f64>) = if let Some(ref cs) = cs {
@@ -300,14 +294,9 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     } else {
         (&sasm.k_ff, &m_csc, f_ff.clone())
     };
-    let target_s = if let Some(ref cs) = cs {
-        cs.map_dof_to_reduced(target_dof)
-            .ok_or("Target DOF is dependent (constrained)")?
-    } else {
-        target_dof
-    };
+    let target_s = reduce_target(&target, cs.as_ref())?;
     if let Some((sweep, damping)) =
-        solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, target_s)
+        solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, &target_s)
     {
         return Ok((sweep, damping));
     }
@@ -320,7 +309,8 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
             8 * ns * ns / 1_000_000
         ));
     }
-    let m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
+    let mut m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
+    rotate_inclined_dense(&mut m_full, n, its);
     let free_idx: Vec<usize> = (0..nf).collect();
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let k_ff = sasm.k_ff.to_dense_symmetric();
@@ -332,16 +322,11 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     };
 
     // Map target_dof to reduced space
-    let target_s = if let Some(ref cs) = cs {
-        cs.map_dof_to_reduced(target_dof)
-            .ok_or("Target DOF is dependent (constrained)")?
-    } else {
-        target_dof
-    };
+    let target_s = reduce_target(&target, cs.as_ref())?;
 
     // Try dense modal superposition
     if let Some((sweep, damping)) =
-        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, target_s)
+        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, &target_s)
     {
         return Ok((sweep, damping));
     }
@@ -364,8 +349,8 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
             (u_real_s, u_imag_s)
         };
 
-        let re = u_real[target_dof];
-        let im = u_imag[target_dof];
+        let re = apply_target(&target, &u_real);
+        let im = apply_target(&target, &u_imag);
         let amplitude = (re * re + im * im).sqrt();
         let phase = im.atan2(re);
 
@@ -432,7 +417,7 @@ fn harmonic_modal_from_eigen(
     n: usize,
     frequencies: &[f64],
     damping_ratio: f64,
-    target_dof: usize,
+    target: &[(usize, f64)],
 ) -> Option<ModalSweep> {
     let f_max = frequencies.iter().cloned().fold(0.0f64, f64::max);
     let omega_max = 2.0 * std::f64::consts::PI * f_max;
@@ -480,7 +465,7 @@ fn harmonic_modal_from_eigen(
 
         modal_mass.push(mj);
         modal_force.push(fj);
-        phi_target.push(eigen.vectors[target_dof * nk + j]);
+        phi_target.push(target.iter().map(|&(i, w)| w * eigen.vectors[i * nk + j]).sum::<f64>());
     }
 
     // Rayleigh damping
@@ -505,13 +490,14 @@ fn harmonic_modal_from_eigen(
     // Static correction of the omitted modes: r₁, r₂ (see above).
     let residuals = k_solve(f).and_then(|s1| {
         let s2 = k_solve(&m_times(&s1))?;
-        let (mut r1, mut r2) = (s1[target_dof], s2[target_dof]);
+        let (t1, t2) = (apply_target(target, &s1), apply_target(target, &s2));
+        let (mut r1, mut r2) = (t1, t2);
         for i in 0..p {
             let lam = omega_j[i] * omega_j[i];
             r1 -= participation[i] / lam;
             r2 -= participation[i] / (lam * lam);
         }
-        let ratio = (s1[target_dof] != 0.0).then(|| r1.abs() / s1[target_dof].abs());
+        let ratio = (t1 != 0.0).then(|| r1.abs() / t1.abs());
         (r1.is_finite() && r2.is_finite()).then_some((r1, r2, ratio))
     });
 
@@ -604,7 +590,7 @@ fn harmonic_modal_from_eigen(
 fn solve_harmonic_modal(
     k: &[f64], m: &[f64], f: &[f64], n: usize,
     frequencies: &[f64], damping_ratio: f64,
-    target_dof: usize,
+    target: &[(usize, f64)],
 ) -> Option<ModalSweep> {
     if frequencies.is_empty() || n == 0 { return None; }
 
@@ -626,14 +612,14 @@ fn solve_harmonic_modal(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         k_spd.then(|| back_solve(&l, &forward_solve(&l, b, n), n))
     };
-    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target_dof)
+    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)
 }
 
 /// Modal superposition harmonic solver (sparse eigensolve on CSC K_ff and CSC M_ff).
 fn solve_harmonic_modal_sparse(
     k_csc: &CscMatrix, m: &CscMatrix, f: &[f64],
     frequencies: &[f64], damping_ratio: f64,
-    target_dof: usize,
+    target: &[(usize, f64)],
 ) -> Option<ModalSweep> {
     let n = k_csc.n;
     if frequencies.is_empty() || n == 0 { return None; }
@@ -646,7 +632,7 @@ fn solve_harmonic_modal_sparse(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         factor.as_ref().map(|fac| sparse_cholesky_solve(fac, b))
     };
-    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target_dof)
+    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)
 }
 
 // ==================== Helpers ====================
@@ -709,6 +695,45 @@ fn compute_rayleigh_from_stiffness_mass(
     k: &[f64], m: &[f64], n: usize, xi: f64,
 ) -> (f64, f64) {
     rayleigh_from_modes(k, m, n, xi)
+}
+
+/// The response DOF as a linear functional on the free DOFs of K's frames,
+/// `Σ w·u[i]`: the global component `target_dof` of the node's displacement.
+/// A plain free DOF is one term of weight 1; at an inclined support the
+/// global translation is Rᵀ of the support-frame one, a combination of the
+/// free tangential DOFs (the normal one is zero). Restrained throughout is an
+/// error.
+fn target_functional<T: InclinedFrame>(
+    dof_num: &DofNumbering, node_id: usize, target_dof: usize, its: &[T],
+) -> Result<Vec<(usize, f64)>, String> {
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
+    let mut target = Vec::new();
+    for local in 0..dof_num.dofs_per_node {
+        let Some(&i) = dof_num.map.get(&(node_id, local)) else { continue };
+        if i >= nf { continue; }
+        let mut e = vec![0.0; nf];
+        e[i] = 1.0;
+        let w = to_global(&e, n, its)[target_dof];
+        if w.abs() > 1e-14 {
+            target.push((i, w));
+        }
+    }
+    if target.is_empty() {
+        return Err("Target DOF is restrained".into());
+    }
+    Ok(target)
+}
+
+/// `target_functional` in the constraint-reduced space.
+fn reduce_target(target: &[(usize, f64)], cs: Option<&FreeConstraintSystem>) -> Result<Vec<(usize, f64)>, String> {
+    let Some(cs) = cs else { return Ok(target.to_vec()) };
+    target.iter()
+        .map(|&(i, w)| cs.map_dof_to_reduced(i).map(|r| (r, w)).ok_or_else(|| "Target DOF is dependent (constrained)".to_string()))
+        .collect()
+}
+
+fn apply_target(target: &[(usize, f64)], u: &[f64]) -> f64 {
+    target.iter().map(|&(i, w)| w * u[i]).sum()
 }
 
 fn get_target_dof_2d(dof_num: &DofNumbering, node_id: usize, dof: &str) -> Result<usize, String> {

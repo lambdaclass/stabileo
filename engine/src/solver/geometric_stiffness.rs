@@ -1,7 +1,7 @@
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
-use super::assembly::{rotate_inclined_free_block_2d, InclinedTransformData2D};
+use super::assembly::{rotate_inclined_free_block, InclinedFrame, InclinedTransformData, InclinedTransformData2D};
 
 /// The expansion coefficient the load assembly uses for frame and truss members.
 const THERMAL_ALPHA: f64 = 12e-6;
@@ -54,10 +54,10 @@ impl KgTriplets {
         KgTriplets { nf, rows: Vec::new(), cols: Vec::new(), vals: Vec::new() }
     }
 
-    /// Collect over all `n` DOFs, rotate into the 2D inclined-roller frames,
-    /// then keep the `nf` free block (see `rotate_inclined_free_block_2d`).
-    fn rotate_inclined_2d(mut self, its: &[InclinedTransformData2D], nf: usize) -> Self {
-        rotate_inclined_free_block_2d(&mut self.rows, &mut self.cols, &mut self.vals, its, nf);
+    /// Collected over all `n` DOFs: rotate into the inclined-support frames,
+    /// then keep the `nf` free block (see `rotate_inclined_free_block`).
+    pub(crate) fn rotate_inclined<T: InclinedFrame>(mut self, its: &[T], nf: usize) -> Self {
+        rotate_inclined_free_block(&mut self.rows, &mut self.cols, &mut self.vals, its, nf);
         self.nf = nf;
         self
     }
@@ -398,7 +398,7 @@ pub fn build_kg_from_forces_2d(
             }
         }
     }
-    if inclined.is_empty() { kg } else { kg.rotate_inclined_2d(inclined, nf) }
+    if inclined.is_empty() { kg } else { kg.rotate_inclined(inclined, nf) }
 }
 
 /// Build 3D geometric stiffness matrix from element forces.
@@ -407,7 +407,20 @@ pub fn build_kg_from_forces_3d(
     dof_num: &DofNumbering,
     element_forces: &[ElementForces3D],
 ) -> KgTriplets {
-    let mut kg = KgTriplets::new(dof_num.n_free);
+    build_kg_from_forces_3d_keep(input, dof_num, element_forces, &[])
+}
+
+/// `build_kg_from_forces_3d`, over all DOFs when `inclined` (the rotations K
+/// was assembled with) is not empty: the caller adds any surface Kg and then
+/// rotates the whole with `KgTriplets::rotate_inclined`, so Kg and K share
+/// the inclined-support frames.
+pub(crate) fn build_kg_from_forces_3d_keep(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    element_forces: &[ElementForces3D],
+    inclined: &[InclinedTransformData],
+) -> KgTriplets {
+    let mut kg = KgTriplets::new(if inclined.is_empty() { dof_num.n_free } else { dof_num.n_total });
     let left_hand = input.left_hand.unwrap_or(false);
     let elem_by_id: std::collections::HashMap<usize, &SolverElement3D> = input.elements.values().map(|e| (e.id, e)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();

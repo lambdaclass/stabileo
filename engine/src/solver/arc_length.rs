@@ -11,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
-use super::assembly;
+use super::assembly::{self, InclinedFrame, InclinedTransformData2D};
 use super::corotational::{assemble_corotational_public, assemble_corotational_triplets_2d};
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
@@ -144,7 +144,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     // Reference load vector
+    // f_ref, the tangent and `u_full` are in the inclined-roller frames the
+    // restraints are numbered in (`assemble_tangent` rotates); results are
+    // rotated back to global axes.
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let its = asm.inclined_transforms_2d;
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s = if let Some(ref cs) = cs {
         cs.reduce_vector(&f_ref)
@@ -170,7 +174,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut step = 0;
     while step < input.max_steps {
         // Predictor: solve K_T * δu_hat = f_ref
-        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse, &its);
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
@@ -209,7 +213,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             total_iters += 1;
 
             // Compute residual
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse, &its);
             let f_int_new = &asm_t.f_int;
 
             let mut residual = vec![0.0; nf];
@@ -320,12 +324,13 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     }
 
     // Build final results using corotational forces (not linear)
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
+    let u_global = assembly::to_global(&u_full[..nf], n, &its);
+    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse, &its);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -418,7 +423,11 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     }
 
     // Reference load
+    // f_ref, the tangent and `u_full` are in the inclined-roller frames the
+    // restraints are numbered in (`assemble_tangent` rotates); results are
+    // rotated back to global axes.
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let its = asm.inclined_transforms_2d;
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
         cs.reduce_vector(&f_ref)
@@ -463,7 +472,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             total_iters += 1;
 
             // Compute tangent stiffness and internal forces
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse, &its);
             let f_int = &asm_t.f_int;
 
             // Residual
@@ -554,12 +563,13 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
         }
     }
 
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
+    let u_global = assembly::to_global(&u_full[..nf], n, &its);
+    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse, &its);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -792,13 +802,18 @@ struct TangentAssembly {
     trip_vals: Vec<f64>,
 }
 
+/// `u_frame` and the returned tangent and `f_int` are in the inclined-roller
+/// frames `its`; the elements see the displacement in global axes.
 fn assemble_tangent(
     input: &SolverInput,
     dof_num: &DofNumbering,
-    u_full: &[f64],
+    u_frame: &[f64],
     sparse: bool,
+    its: &[InclinedTransformData2D],
 ) -> TangentAssembly {
     let n = dof_num.n_total;
+    let u_global = assembly::to_global(&u_frame[..dof_num.n_free], n, its);
+    let u_full = &u_global[..];
     let mut f_int = vec![0.0; n];
     let mut k_t: Vec<f64> = Vec::new();
     let mut trip_rows: Vec<usize> = Vec::new();
@@ -822,6 +837,15 @@ fn assemble_tangent(
         add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
             k_t[gi * n + gj] += v;
         });
+    }
+
+    for it in its {
+        if sparse {
+            it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+        } else {
+            it.rotate_dense(&mut k_t, n);
+        }
+        it.rotate(&mut f_int);
     }
 
     TangentAssembly { f_int, k_t, trip_rows, trip_cols, trip_vals }

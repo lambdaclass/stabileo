@@ -24,7 +24,7 @@ use super::interval::Interval;
 use super::solver::{gather_u_2d, gather_u_3d};
 use super::sparse::certify_lambda_min_lower;
 use crate::linalg::sparse::CscMatrix;
-use crate::solver::assembly::rotate_inclined_f_2d;
+use crate::solver::assembly::{rotate_inclined_f_2d, rotate_inclined_f_3d};
 use crate::solver::constraints::build_constraint_transform;
 use crate::solver::buckling::{
     buckling_system_2d, buckling_system_3d, solve_buckling_2d, solve_buckling_3d, BucklingResult,
@@ -104,7 +104,11 @@ pub fn certify_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<Ce
     let sys = buckling_system_3d(input)?;
     let mode = &results.modes[0];
     let certificate = match gather_u_3d(&sys.dof_num, &mode.displacements) {
-        Ok(phi) => {
+        Ok(mut phi) => {
+            // Global axes to the inclined-support frames of K and Kg.
+            for it in &sys.inclined_transforms {
+                rotate_inclined_f_3d(&mut phi, &it.dofs, &it.r);
+            }
             let phi = &phi[..sys.dof_num.n_free];
             if input.constraints.is_empty() {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)

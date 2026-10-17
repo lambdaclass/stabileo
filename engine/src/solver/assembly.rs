@@ -1999,18 +1999,52 @@ pub fn rotate_inclined_f_triplets(f_global: &mut [f64], dofs: &[usize; 3], r: &[
     }
 }
 
+/// One inclined-support rotation, plane (`InclinedTransformData2D`) or
+/// spatial (`InclinedTransformData`). The stiffness assemblers rotate K into
+/// these frames; every analysis that builds a matrix or vector beside K (mass,
+/// geometric stiffness, influence vectors, load histories) rotates it the same
+/// way, and rotates its results back, through this trait.
+pub(crate) trait InclinedFrame {
+    /// `v[dofs] = R·v[dofs]`: global axes to the support frame.
+    fn rotate(&self, v: &mut [f64]);
+    /// `v[dofs] = Rᵀ·v[dofs]`: support frame to global axes.
+    fn reverse(&self, v: &mut [f64]);
+    /// `R·K·Rᵀ` on the support DOFs of a symmetric matrix given as triplets.
+    fn rotate_triplets(&self, rows: &mut Vec<usize>, cols: &mut Vec<usize>, vals: &mut Vec<f64>);
+    /// `R·K·Rᵀ` on the support DOFs of a dense row-major n×n matrix.
+    fn rotate_dense(&self, k: &mut [f64], n: usize);
+}
+
+impl InclinedFrame for InclinedTransformData2D {
+    fn rotate(&self, v: &mut [f64]) { rotate_inclined_f_2d(v, &self.dofs, &self.r) }
+    fn reverse(&self, v: &mut [f64]) { reverse_inclined_transform_2d(v, &self.dofs, &self.r) }
+    fn rotate_triplets(&self, rows: &mut Vec<usize>, cols: &mut Vec<usize>, vals: &mut Vec<f64>) {
+        apply_inclined_transform_triplets_2d(rows, cols, vals, &self.dofs, &self.r)
+    }
+    fn rotate_dense(&self, k: &mut [f64], n: usize) { rotate_inclined_k_2d(k, n, &self.dofs, &self.r) }
+}
+
+impl InclinedFrame for InclinedTransformData {
+    fn rotate(&self, v: &mut [f64]) { rotate_inclined_f_3d(v, &self.dofs, &self.r) }
+    fn reverse(&self, v: &mut [f64]) { reverse_inclined_transform(v, &self.dofs, &self.r) }
+    fn rotate_triplets(&self, rows: &mut Vec<usize>, cols: &mut Vec<usize>, vals: &mut Vec<f64>) {
+        apply_inclined_transform_triplets_k(rows, cols, vals, &self.dofs, &self.r)
+    }
+    fn rotate_dense(&self, k: &mut [f64], n: usize) { rotate_inclined_k_3d(k, n, &self.dofs, &self.r) }
+}
+
 /// Rotate a symmetric matrix given as triplets over all DOFs (each unordered
-/// pair once, either triangle) into the 2D inclined-roller frames, then keep
-/// only the free×free block. This is what `assemble_stiffness_sparse_2d` does
+/// pair once, either triangle) into the inclined-support frames, then keep
+/// only the free×free block. This is what the sparse stiffness assemblers do
 /// to K, for the matrices built beside it (mass, geometric stiffness): the
 /// rotated free block needs the restrained normal DOF's row, so the rotation
 /// has to happen before the free filter.
-pub(crate) fn rotate_inclined_free_block_2d(
+pub(crate) fn rotate_inclined_free_block<T: InclinedFrame>(
     trip_rows: &mut Vec<usize>, trip_cols: &mut Vec<usize>, trip_vals: &mut Vec<f64>,
-    its: &[InclinedTransformData2D], nf: usize,
+    its: &[T], nf: usize,
 ) {
     for it in its {
-        apply_inclined_transform_triplets_2d(trip_rows, trip_cols, trip_vals, &it.dofs, &it.r);
+        it.rotate_triplets(trip_rows, trip_cols, trip_vals);
     }
     let mut w = 0;
     for r in 0..trip_rows.len() {
@@ -2024,6 +2058,38 @@ pub(crate) fn rotate_inclined_free_block_2d(
     trip_rows.truncate(w);
     trip_cols.truncate(w);
     trip_vals.truncate(w);
+}
+
+/// Rotate a dense all-DOF n×n matrix (a dense mass) into the inclined-support
+/// frames, as the dense stiffness assemblers do to K. Extract the free block
+/// afterwards.
+pub(crate) fn rotate_inclined_dense<T: InclinedFrame>(m: &mut [f64], n: usize, its: &[T]) {
+    for it in its {
+        it.rotate_dense(m, n);
+    }
+}
+
+/// A global-axes vector over all DOFs (an influence vector, a force record)
+/// to the free DOFs of the inclined-support frames: rotated, then cut to `nf`
+/// (at a support only the tangential components are free).
+pub(crate) fn to_inclined_free<T: InclinedFrame>(mut v: Vec<f64>, its: &[T], nf: usize) -> Vec<f64> {
+    for it in its {
+        it.rotate(&mut v);
+    }
+    v.truncate(nf);
+    v
+}
+
+/// A free-DOF vector in the inclined-support frames (a mode shape, a state)
+/// to an all-DOF vector in global axes: restrained DOFs zero, supports
+/// rotated back.
+pub(crate) fn to_global<T: InclinedFrame>(v_free: &[f64], n: usize, its: &[T]) -> Vec<f64> {
+    let mut g = vec![0.0; n];
+    g[..v_free.len()].copy_from_slice(v_free);
+    for it in its {
+        it.reverse(&mut g);
+    }
+    g
 }
 
 /// K-only 2D inclined support rotation on stiffness triplets (zeros originals,

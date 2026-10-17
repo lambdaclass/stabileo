@@ -41,10 +41,10 @@ use super::sparse::certify_lambda_min_lower;
 use crate::linalg::sparse::CscMatrix;
 use crate::solver::constraints::build_constraint_transform;
 use crate::solver::dof::DofNumbering;
-use crate::solver::mass_matrix::{assemble_mass_matrix_2d_sparse, assemble_mass_matrix_3d_sparse};
+use crate::solver::mass_matrix::{assemble_mass_matrix_2d_sparse_inclined, assemble_mass_matrix_3d_sparse_inclined};
 use crate::solver::modal::{solve_modal_2d, solve_modal_3d, ModalResult, ModalResult3D};
 use crate::solver::sparse_assembly::assemble_stiffness_sparse_2d;
-use crate::solver::assembly::assemble_stiffness_sparse_3d;
+use crate::solver::assembly::{assemble_stiffness_sparse_3d, to_inclined_free};
 use crate::types::*;
 
 #[inline]
@@ -118,13 +118,17 @@ pub fn certify_modal_2d(
     let results = solve_modal_2d(input, densities, num_modes)?;
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
-    let k = assemble_stiffness_sparse_2d(input, &dof_num).k_ff;
-    let m = assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
+    // K and M in the inclined-roller frames; the published modes (global
+    // axes) are rotated into them.
+    let stiff = assemble_stiffness_sparse_2d(input, &dof_num);
+    let its = &stiff.inclined_transforms_2d;
+    let k = stiff.k_ff;
+    let m = assemble_mass_matrix_2d_sparse_inclined(input, &dof_num, densities, its);
     let mut modes = Vec::new();
     let mut err = None;
     for mode in &results.modes {
         match gather_u_2d(&dof_num, &mode.displacements) {
-            Ok(u) => modes.push((mode.omega * mode.omega, u[..nf].to_vec())),
+            Ok(u) => modes.push((mode.omega * mode.omega, to_inclined_free(u, its, nf))),
             Err(c) => err = Some(format!("mode shape: {c:?}")),
         }
     }
@@ -155,13 +159,16 @@ pub fn certify_modal_3d(
     let results = solve_modal_3d(input, densities, num_modes)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
-    let k = assemble_stiffness_sparse_3d(input, &dof_num, false).k_ff;
-    let m = assemble_mass_matrix_3d_sparse(input, &dof_num, densities);
+    // In the inclined-support frames, as in 2D.
+    let stiff = assemble_stiffness_sparse_3d(input, &dof_num, false);
+    let its = &stiff.inclined_transforms;
+    let k = stiff.k_ff;
+    let m = assemble_mass_matrix_3d_sparse_inclined(input, &dof_num, densities, its);
     let mut modes = Vec::new();
     let mut err = None;
     for mode in &results.modes {
         match gather_u_3d(&dof_num, &mode.displacements) {
-            Ok(u) => modes.push((mode.omega * mode.omega, u[..nf].to_vec())),
+            Ok(u) => modes.push((mode.omega * mode.omega, to_inclined_free(u, its, nf))),
             Err(c) => err = Some(format!("mode shape: {c:?}")),
         }
     }

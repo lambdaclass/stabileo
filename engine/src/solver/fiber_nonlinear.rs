@@ -13,7 +13,7 @@ use crate::linalg::*;
 use crate::element::fiber_beam::*;
 use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d, Hinge3D};
 use super::dof::DofNumbering;
-use super::assembly;
+use super::assembly::{self, InclinedFrame};
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse};
 
@@ -94,8 +94,12 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector
-    let asm = assembly::assemble_2d(&input.solver, &dof_num);
-    let f_total = asm.f.clone();
+    // The iteration keeps u, f_int and the loads in global axes, where the
+    // element state lives; each Newton step is solved in the inclined-roller
+    // frames the restraints are numbered in: the tangent and the residual are
+    // rotated into them and the correction rotated back.
+    let its = assembly::assemble_stiffness_2d(&input.solver, &dof_num).inclined_transforms_2d;
+    let f_total = assembly::assemble_load_vector_2d(&input.solver, &input.solver.loads, &dof_num, &[]);
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
@@ -140,8 +144,6 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
             // or above it, as lower-triangle COO triplets that feed the CSC
             // sparse solve directly — no O(n²) dense matrix is ever built.
-            // NOTE: unlike the corotational solver, fiber never rotates the
-            // tangent for inclined supports; both paths preserve that.
             let mut f_int = vec![0.0; n];
             let sparse_tangent = ns >= super::linear::SPARSE_THRESHOLD;
             let mut k_t: Vec<f64> = Vec::new();
@@ -190,11 +192,21 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
             }
 
+            // Into the inclined-support frames: tangent and residual.
+            for it in &its {
+                if sparse_tangent {
+                    it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+                } else {
+                    it.rotate_dense(&mut k_t, n);
+                }
+            }
+
             // Residual
             let mut residual = vec![0.0; n];
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
             }
+            let residual = assembly::to_inclined_free(residual, &its, nf);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
@@ -203,7 +215,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             } else {
                 r_f.clone()
             };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
             let f_check = if let Some(ref cs) = cs {
                 cs.reduce_vector(&f_ext_f)
             } else {
@@ -308,8 +320,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 delta_u_indep
             };
 
-            for i in 0..nf {
-                u_full[i] += delta_u_f[i];
+            let delta_u_g = assembly::to_global(&delta_u_f, n, &its);
+            for i in 0..n {
+                u_full[i] += delta_u_g[i];
             }
         }
 
@@ -640,8 +653,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
-    let f_total = asm.f.clone();
+    // Global-axes iteration, steps solved in the inclined-support frames (see 2D).
+    let its = assembly::assemble_stiffness_3d(&input.solver, &dof_num).inclined_transforms;
+    let f_total = assembly::assemble_load_vector_3d_dense(&input.solver, &input.solver.loads, &dof_num, &[]);
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
@@ -725,11 +739,21 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 );
             }
 
+            // Into the inclined-support frames: tangent and residual.
+            for it in &its {
+                if sparse_tangent {
+                    it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+                } else {
+                    it.rotate_dense(&mut k_t, n);
+                }
+            }
+
             // Residual
             let mut residual = vec![0.0; n];
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
             }
+            let residual = assembly::to_inclined_free(residual, &its, nf);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
@@ -738,7 +762,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             } else {
                 r_f.clone()
             };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
             let f_check = if let Some(ref cs) = cs {
                 cs.reduce_vector(&f_ext_f)
             } else {
@@ -841,8 +865,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 delta_u_indep
             };
 
-            for i in 0..nf {
-                u_full[i] += delta_u_f[i];
+            let delta_u_g = assembly::to_global(&delta_u_f, n, &its);
+            for i in 0..n {
+                u_full[i] += delta_u_g[i];
             }
         }
 

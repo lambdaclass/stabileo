@@ -16,7 +16,7 @@
 /// tolerance but with different roundoff histories.
 
 use dedaliano_engine::linalg::{extract_submatrix, lanczos_generalized_eigen};
-use dedaliano_engine::solver::assembly::assemble_2d;
+use dedaliano_engine::solver::assembly::{assemble_2d, rotate_inclined_f_2d};
 use dedaliano_engine::solver::dof::DofNumbering;
 use dedaliano_engine::solver::linear::{prepare_static_2d_dense_reference, solve_2d};
 use dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_2d;
@@ -306,7 +306,18 @@ fn parity_modal_2d_frequencies() {
     let n = dof_num.n_total;
     assert!(nf >= 64);
     let asm = assemble_2d(&input, &dof_num);
-    let m_full = assemble_mass_matrix_2d(&input, &dof_num, &densities);
+    let mut m_full = assemble_mass_matrix_2d(&input, &dof_num, &densities);
+    // K is in the inclined roller's frame; the mass has to be too (T·M·Tᵀ).
+    for it in &asm.inclined_transforms_2d {
+        for j in 0..n {
+            let mut col: Vec<f64> = (0..n).map(|i| m_full[i * n + j]).collect();
+            rotate_inclined_f_2d(&mut col, &it.dofs, &it.r);
+            for i in 0..n { m_full[i * n + j] = col[i]; }
+        }
+        for i in 0..n {
+            rotate_inclined_f_2d(&mut m_full[i * n..(i + 1) * n], &it.dofs, &it.r);
+        }
+    }
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);

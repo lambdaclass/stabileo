@@ -11,6 +11,62 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Every analysis works in the inclined-support frames with K (2026-10-17)
+
+**BREAKING (results): modal, harmonic, spectral, Craig–Bampton, 3D buckling, 3D time
+history, SSI, fiber, arc-length / displacement control and 3D contact results of models with
+an inclined support change, and 2D modal analysis of a frame with truss-only nodes now
+solves.** The stiffness assemblers rotate K (and f) into each inclined support's frame, where
+the restrained normal is a DOF of its own. The analyses that build something beside K kept it
+in global axes, and most reported their solution in the support frames. Each is now checked
+against the same structure turned rigidly so that the support is a plain restraint
+(`tests/inclined_support_analyses.rs`, dense and sparse paths): eigenvalues equal, shapes,
+histories, responses and reactions equal after the rotation.
+
+- **Shared helpers** (`assembly::InclinedFrame`, implemented by the 2D and 3D transform data):
+  `rotate_inclined_free_block` (triplets), `rotate_inclined_dense`, `to_inclined_free`
+  (global vector → free DOFs of the support frames) and `to_global` (back), generalizing the
+  2D ones of the entry below. `assemble_mass_matrix_3d_sparse_inclined` joins the 2D one.
+- **Modal (2D, 3D)**: the mass (sparse and dense) and the X/Y/Z influence vectors are rotated
+  with K, and mode shapes are rotated back before normalization. A rotated portal frame gave
+  6.31 Hz against 5.67 Hz. The modal certificate rotates M and the published modes into K's
+  frames.
+- **Massless DOFs in the eigensolver.** The dense generalized eigensolve (every model up to
+  80 free DOFs, and the fallbacks) factored the mass, so a free DOF without mass — the
+  rotation of a node reached only by trusses, or of a node where every frame is hinged —
+  failed modal analysis with "Eigenvalue decomposition failed" (no inclined support needed).
+  It now solves the reciprocal pencil when M is singular, factoring K as the sparse
+  shift-invert path already did, and keeps the finite eigenpairs: exactly the result of
+  condensing the massless DOFs out statically, with their components in the mode shapes.
+  No artificial mass is added (it would invent modes at a frequency set by its size).
+  Harmonic, Craig–Bampton and the Rayleigh-damping estimates use the same solver.
+- **3D buckling**: K_G is built over all DOFs (surface K_G included), rotated with K and cut
+  to the free block; modes are rotated back before normalization; the certificate rotates
+  the mode into K's frames. A column guided by an inclined support gave 11.4 against 30.9.
+- **3D time history**: the mass, the ground-acceleration influence vectors and the force
+  history are rotated into the support frames and the recorded states back to global axes,
+  as in 2D. Peak reactions come from the linear solver's reaction builder (springs and
+  inclined supports included; springs were reported as zero).
+- **Harmonic (2D, 3D)**: the mass is rotated with K, and the response is read in global axes:
+  the response DOF is a functional of the free DOFs, so a global component at an inclined
+  support is Rᵀ of its tangential DOFs (it was refused as restrained, or read in the support
+  frame).
+- **Spectral (2D, 3D)**: each mode's displacement is built over all DOFs from the global mode
+  shape; the restrained slot was dropped, which at an inclined support holds a real global
+  component, so element forces lost it.
+- **Craig–Bampton (2D dense and sparse, 3D)**: the mass is rotated with K. Boundary DOFs at
+  an inclined support are its tangential DOFs.
+- **SSI (2D, 3D)**: soil springs act along global axes and are rotated (R·k·Rᵀ) into the
+  support frame; displacements are rotated back before the soil curves and the results read
+  them.
+- **Fiber (2D, 3D), arc length and displacement control**: tangent and internal forces were in
+  global axes against loads and restraints in the support frames. Each Newton step is now
+  solved in the support frames, with the correction rotated back.
+- **3D contact**: gap, friction, damping and deactivated-truss corrections are built in global
+  axes and rotated into the support frames; the state and the results are in global axes.
+- Already consistent, now tested: P-Delta, material-nonlinear and Winkler (2D, 3D) and
+  corotational 2D. Staged construction refuses inclined supports.
+
 #### 2D buckling and time integration use the linear path's stiffness (2026-10-17)
 
 **BREAKING (results): 2D buckling and 2D time histories of models with an angled spring, an
@@ -36,10 +92,10 @@ a hand-kept copy of the 2D assembler that had drifted from the dense and linear 
   springs, springs on rigid supports and inclined rollers are reported like `solve_2d`'s.
 - The 2D kinematic fast path no longer defers models with inclined rollers or angled springs
   to the dense analysis: the sparse K is now the same matrix.
-- Not fixed: 2D modal, harmonic and Craig–Bampton, and 3D buckling and time integration
-  still pair a K rotated into the inclined-support frame with an unrotated mass or
-  geometric stiffness (2D modal and the 3D two pinned by ignored tests). The 3D
-  `assemble_sparse_3d` already shares the linear path's stiffness.
+- 2D modal, harmonic and Craig–Bampton, and 3D buckling and time integration still paired a
+  K rotated into the inclined-support frame with an unrotated mass or geometric stiffness:
+  fixed in the entry above. The 3D `assemble_sparse_3d` already shares the linear path's
+  stiffness.
 
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 

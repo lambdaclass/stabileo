@@ -554,6 +554,49 @@ pub fn lanczos_eigen(
     Some(EigenResult { values, vectors })
 }
 
+/// Dense `A·x = λ·B·x` for a stiffness `A` and a mass `B` that may be only
+/// semidefinite: every eigenpair of finite λ, ascending, B-normalized
+/// (`xᵀBx = 1`), with the vectors n×n row-major (columns past `values.len()`
+/// are zero).
+///
+/// `solve_generalized_eigen` factors B, which fails as soon as a DOF carries
+/// no mass: the rotation of a node reached only by trusses, or one where every
+/// frame is hinged (hinged frames get a lumped mass with no rotary inertia).
+/// Such a DOF has an infinite eigenvalue. This is the problem the sparse
+/// shift-invert path already solves, by factoring A instead of B: here too,
+/// when B is not positive definite, solve `B·x = μ·A·x` (Cholesky of A) and
+/// take λ = 1/μ for the μ that are not zero to working precision. The finite
+/// eigenpairs are those of the massless DOFs condensed out statically
+/// (`K_mm − K_ms·K_ss⁻¹·K_sm` against `M_mm`), exactly, with the massless
+/// components of each vector included, `x_s = −K_ss⁻¹·K_sm·x_m`; nothing is
+/// added to the model (an artificial mass would invent modes at a frequency
+/// set by its arbitrary size).
+pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usize) -> Option<EigenResult> {
+    if let Some(r) = solve_generalized_eigen(a, b, n, 200) {
+        return Some(r);
+    }
+    let recip = solve_generalized_eigen(b, a, n, 200)?;
+    let mu_max = recip.values.iter().cloned().fold(0.0f64, f64::max);
+    if !(mu_max > 0.0) {
+        return None;
+    }
+    // μ = 1/λ, ascending; keep the nonzero ones from the top (lowest λ first).
+    let mut kept: Vec<(f64, usize)> = recip.values.iter().enumerate()
+        .filter(|&(_, &mu)| mu > mu_max * 1e-12)
+        .map(|(j, &mu)| (1.0 / mu, j))
+        .collect();
+    kept.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
+    let mut vectors = vec![0.0; n * n];
+    for (col, &(lam, j)) in kept.iter().enumerate() {
+        // xᵀAx = 1, so xᵀBx = μ: rescale to xᵀBx = 1.
+        let s = lam.sqrt();
+        for row in 0..n {
+            vectors[row * n + col] = recip.vectors[row * n + j] * s;
+        }
+    }
+    Some(EigenResult { values: kept.iter().map(|p| p.0).collect(), vectors })
+}
+
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x.
 /// Uses shift-invert Lanczos near sigma, or falls back to dense solve.
 pub fn lanczos_generalized_eigen(
@@ -567,7 +610,7 @@ pub fn lanczos_generalized_eigen(
 
     // For small problems, use dense path directly
     if n <= 80 || k >= n / 2 {
-        let full = solve_generalized_eigen(a, b, n, 200)?;
+        let full = dense_generalized_eigen_semidefinite(a, b, n)?;
         let nk = k.min(full.values.len());
         let values = full.values[..nk].to_vec();
         let mut vectors = vec![0.0; n * nk];
@@ -616,7 +659,7 @@ pub fn lanczos_generalized_eigen(
     }
 
     // Fallback to dense
-    let full = solve_generalized_eigen(a, b, n, 200)?;
+    let full = dense_generalized_eigen_semidefinite(a, b, n)?;
     let nk = k.min(full.values.len());
     let values = full.values[..nk].to_vec();
     let mut vectors = vec![0.0; n * nk];
@@ -733,7 +776,7 @@ pub fn lanczos_generalized_eigen_sparse(
     if n <= 80 || k >= n / 2 {
         let k_dense = k_ff.to_dense_symmetric();
         let m_dense = m_ff.to_dense_symmetric();
-        return solve_generalized_eigen(&k_dense, &m_dense, n, 200).map(|full| {
+        return dense_generalized_eigen_semidefinite(&k_dense, &m_dense, n).map(|full| {
             let nk = k.min(full.values.len());
             let values = full.values[..nk].to_vec();
             let mut vectors = vec![0.0; n * nk];

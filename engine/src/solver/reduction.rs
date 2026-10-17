@@ -612,8 +612,10 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
 
     let asm = assembly::assemble_2d(&input.solver, dof_num);
 
-    // Build mass matrix
-    let m_full = super::mass_matrix::assemble_mass_matrix_2d(&input.solver, dof_num, &input.densities);
+    // Build mass matrix, in the inclined-roller frames K was assembled in
+    // (boundary DOFs at an inclined roller are its tangential DOF)
+    let mut m_full = super::mass_matrix::assemble_mass_matrix_2d(&input.solver, dof_num, &input.densities);
+    assembly::rotate_inclined_dense(&mut m_full, n, &asm.inclined_transforms_2d);
 
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -871,7 +873,9 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     let nf = dof_num.n_free;
 
     let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num);
-    let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, dof_num, &input.densities);
+    let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse_inclined(
+        &input.solver, dof_num, &input.densities, &stiff.inclined_transforms_2d,
+    );
 
     let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -1273,7 +1277,10 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     if nf == 0 { return Err("No free DOFs".into()); }
 
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
-    let m_csc = super::mass_matrix::assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
+    // In the inclined-support frames K was assembled in.
+    let m_csc = super::mass_matrix::assemble_mass_matrix_3d_sparse_inclined(
+        &input.solver, &dof_num, &input.densities, &sasm.inclined_transforms,
+    );
 
     // Apply constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);

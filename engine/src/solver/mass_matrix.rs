@@ -2,7 +2,7 @@ use crate::types::*;
 use crate::linalg::*;
 use std::collections::HashMap;
 use super::dof::DofNumbering;
-use super::assembly::{rotate_inclined_free_block_2d, InclinedTransformData2D};
+use super::assembly::{rotate_inclined_free_block, InclinedTransformData, InclinedTransformData2D};
 
 /// Assemble consistent mass matrix for 2D structure.
 /// densities: materialId → density in kg/m³
@@ -222,7 +222,7 @@ pub fn assemble_mass_matrix_2d_sparse_inclined(
     }
 
     if !inclined.is_empty() {
-        rotate_inclined_free_block_2d(&mut rows, &mut cols, &mut vals, inclined, nf);
+        rotate_inclined_free_block(&mut rows, &mut cols, &mut vals, inclined, nf);
     }
     CscMatrix::from_triplets(nf, &rows, &cols, &vals)
 }
@@ -475,7 +475,20 @@ pub fn assemble_mass_matrix_3d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
+    assemble_mass_matrix_3d_sparse_inclined(input, dof_num, densities, &[])
+}
+
+/// `assemble_mass_matrix_3d_sparse` in the inclined-support frames K was
+/// assembled in (`inclined_transforms`), so K and M share one basis.
+pub fn assemble_mass_matrix_3d_sparse_inclined(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData],
+) -> CscMatrix {
     let nf = dof_num.n_free;
+    // With inclined supports, keep every DOF until the rotation is applied.
+    let keep = if inclined.is_empty() { nf } else { dof_num.n_total };
     let left_hand = input.left_hand.unwrap_or(false);
 
     let mut rows: Vec<usize> = Vec::new();
@@ -494,7 +507,7 @@ pub fn assemble_mass_matrix_3d_sparse(
             let gi = $dofs[$i];
             let gj = $dofs[$j];
             let v = $v;
-            if gi < nf && gj < nf && v.abs() > 1e-30 {
+            if gi < keep && gj < keep && v.abs() > 1e-30 {
                 rows.push(gi);
                 cols.push(gj);
                 vals.push(v);
@@ -698,6 +711,9 @@ pub fn assemble_mass_matrix_3d_sparse(
         }
     }
 
+    if !inclined.is_empty() {
+        rotate_inclined_free_block(&mut rows, &mut cols, &mut vals, inclined, nf);
+    }
     CscMatrix::from_triplets(nf, &rows, &cols, &vals)
 }
 
