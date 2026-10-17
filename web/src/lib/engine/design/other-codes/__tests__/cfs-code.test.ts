@@ -104,8 +104,8 @@ describe('AISI S100 member check', () => {
     expect(row.reading.ratio / (Mu / (0.9 * d.seX * Fn))).toBeCloseTo(1, 3);
   });
 
-  it('the checker still reads 1 + √X in F2.1: when it is corrected, `ltbInputs` has to go', () => {
-    // Sent the section's own J and Cw, the checker's ratio is the (1 + √X) one, not the code's.
+  it('the checker reads √(1 + X) in F2.1, so `ltbInputs` only rescales J for G', () => {
+    // Sent the section's own J and Cw, the checker's ratio is F2.1's with G = E/2,6.
     const L = 3, q = 1;
     const ctx = beam(L, q)[0]!;
     const m = AISI_S100.member(ctx);
@@ -116,7 +116,7 @@ describe('AISI S100 member check', () => {
     const res = checkCfsMembers({ members: [raw], forces: [fr] })![0] as Record<string, number>;
     const d = raw as Record<string, number>;
     const G = E / 2.6, X = (Math.PI ** 2 * E * eff.cw) / (G * d.j * d.lb ** 2);
-    const MeChecker = (Math.PI / d.lb) * Math.sqrt(E * d.iy * G * d.j) * (1 + Math.sqrt(X));
+    const MeChecker = (Math.PI / d.lb) * Math.sqrt(E * d.iy * G * d.j) * Math.sqrt(1 + X);
     const Fe = MeChecker / d.sfX;
     const Fn = Fe >= 2.78 * FY ? FY : Fe >= 0.56 * FY ? (10 / 9) * FY * (1 - (10 * FY) / (36 * Fe)) : Fe;
     expect(res.mnX / (d.seX * Fn)).toBeCloseTo(1, 6);

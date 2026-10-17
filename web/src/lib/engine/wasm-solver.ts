@@ -893,6 +893,7 @@ const CERTIFY_EXPORTS = [
   'certify_spectral_2d', 'certify_spectral_3d', 'certify_harmonic_2d', 'certify_harmonic_3d',
   'certify_time_history_2d', 'certify_time_history_3d', 'certify_plastic_2d',
   'certify_steel_members', 'certify_ec3_members', 'certify_ec2_members',
+  'certify_cirsoc201_members', 'certify_rc_members', 'certify_timber_members', 'certify_cfs_members',
   'export_linear_bundle_2d', 'export_linear_bundle_3d',
 ] as const;
 export type CertifyExport = (typeof CERTIFY_EXPORTS)[number];

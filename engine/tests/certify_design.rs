@@ -459,3 +459,77 @@ fn certified_ec2_utilization_end_to_end_2d() {
         eprintln!("EC2 elem {}: U ∈ [{:.6}, {:.6}] {}", m.element_id, r.utilization_lower, r.utilization_upper, r.governing_check);
     }
 }
+
+/// CIRSOC 201 (Pa / N units) end to end, as EC2.
+#[test]
+fn certified_cirsoc201_utilization_end_to_end_2d() {
+    use dedaliano_engine::postprocess::cirsoc201_check::{check_cirsoc201_members, Cirsoc201CheckInput, Cirsoc201MemberData};
+    let mc = building_2d();
+    let analysis = certify_multi_case_2d(&mc).unwrap();
+    let demands = cirsoc201_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0));
+    let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
+    ids.sort();
+    let members: Vec<Cirsoc201MemberData> = ids
+        .iter()
+        .map(|&id| {
+            serde_json::from_value(serde_json::json!({
+                "elementId": id, "fc": 25e6, "fy": 420e6, "b": 0.3, "h": 0.6, "d": 0.55,
+                "asTension": 1.5e-3, "asCompression": 4e-4, "dPrime": 0.05, "av": 1.0e-4, "sStirrup": 0.15
+            }))
+            .unwrap()
+        })
+        .collect();
+    let res = certify_cirsoc201_members(&CertifiedCirsoc201CheckInput { members: members.clone(), demands: demands.clone() });
+    for (m, r) in members.iter().zip(&res) {
+        assert!(r.certified, "{}: {:?}", m.element_id, r.reason);
+        let f64_max = demands
+            .iter()
+            .filter(|d| d.forces.element_id == m.element_id)
+            .map(|d| {
+                let c = &check_cirsoc201_members(&Cirsoc201CheckInput { members: vec![m.clone()], forces: vec![d.forces.clone()] })[0];
+                c.flexure_ratio.max(c.shear_ratio)
+            })
+            .fold(0.0, f64::max);
+        assert!(r.utilization_lower <= f64_max * (1.0 + 1e-12) && f64_max <= r.utilization_upper * (1.0 + 1e-12),
+            "{}: {f64_max} ∉ [{}, {}]", m.element_id, r.utilization_lower, r.utilization_upper);
+        assert!(r.utilization_upper - r.utilization_lower <= 1e-9 * (1.0 + f64_max));
+    }
+}
+
+/// ACI 318 RC end to end, with the axial force of every station (P-M interaction).
+#[test]
+fn certified_aci_rc_utilization_end_to_end_2d() {
+    use dedaliano_engine::postprocess::rc_check::{check_rc_members, RCCheckInput, RCMemberData};
+    let mc = building_2d();
+    let analysis = certify_multi_case_2d(&mc).unwrap();
+    let demands = rc_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0));
+    let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
+    ids.sort();
+    let members: Vec<RCMemberData> = ids
+        .iter()
+        .map(|&id| {
+            serde_json::from_value(serde_json::json!({
+                "elementId": id, "fc": 28e6, "fy": 420e6, "b": 0.4, "h": 0.6, "d": 0.55,
+                "asTension": 2.0e-3, "asCompression": 1.0e-3, "dPrime": 0.05, "av": 1.5e-4, "sStirrup": 0.15
+            }))
+            .unwrap()
+        })
+        .collect();
+    let res = certify_rc_members(&CertifiedRcCheckInput { members: members.clone(), demands: demands.clone() });
+    for (m, r) in members.iter().zip(&res) {
+        assert!(r.certified, "{}: {:?}", m.element_id, r.reason);
+        let f64_max = demands
+            .iter()
+            .filter(|d| d.forces.element_id == m.element_id)
+            .map(|d| {
+                let c = &check_rc_members(&RCCheckInput { members: vec![m.clone()], forces: vec![d.forces.clone()] })[0];
+                assert!(c.unevaluated.is_empty());
+                c.unity_ratio
+            })
+            .fold(0.0, f64::max);
+        assert!(r.utilization_lower <= f64_max * (1.0 + 1e-9) && f64_max <= r.utilization_upper * (1.0 + 1e-9),
+            "{}: {f64_max} ∉ [{}, {}]", m.element_id, r.utilization_lower, r.utilization_upper);
+        assert!(r.utilization_upper - r.utilization_lower <= 1e-6 * (1.0 + f64_max));
+        eprintln!("ACI elem {}: U ∈ [{:.6}, {:.6}] {}", m.element_id, r.utilization_lower, r.utilization_upper, r.governing_check);
+    }
+}

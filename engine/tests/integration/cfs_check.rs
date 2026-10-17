@@ -305,3 +305,83 @@ fn cfs_multiple_members() {
         "Longer column should have higher ratio"
     );
 }
+
+// ==================== Regression tests (certification review) ====================
+
+fn cfs_run(m: CfsMemberData, axial: Option<f64>, mx: Option<f64>, shear: Option<f64>) -> CfsCheckResult {
+    check_cfs_members(&CfsCheckInput {
+        members: vec![m],
+        forces: vec![CfsDesignForces { element_id: 1, axial, mx, my: None, shear }],
+    })
+    .remove(0)
+}
+
+/// ry = 0 gave Fe = 0, Pn = 0, ratio 0 and a pass under any compression.
+#[test]
+fn cfs_zero_capacity_does_not_pass() {
+    let mut m = typical_c_section();
+    m.ry = 0.0;
+    let r = cfs_run(m, Some(-30_000.0), None, None);
+    assert!(!r.pass && r.unevaluated.iter().any(|n| n.contains("Compression")), "{r:?}");
+}
+
+/// F2.1: Me = Cb·(π/Lb)·sqrt(E·Iy·G·J)·sqrt(1 + X), not (1 + sqrt(X)).
+#[test]
+fn cfs_ltb_uses_sqrt_one_plus_x() {
+    let mut m = typical_c_section();
+    m.lb = 2.0;
+    let r = cfs_run(m.clone(), None, Some(1_000.0), None);
+    let pi = std::f64::consts::PI;
+    let g = m.e / 2.6;
+    let x = pi * pi * m.e * m.cw / (g * m.j * m.lb * m.lb);
+    let me = pi / m.lb * (m.e * m.iy * g * m.j).sqrt() * (1.0 + x).sqrt();
+    let fe = me / m.sf_x;
+    assert!(fe > 0.56 * m.fy && fe < 2.78 * m.fy, "inelastic range: {fe}");
+    let fnl = 10.0 / 9.0 * m.fy * (1.0 - 10.0 * m.fy / (36.0 * fe));
+    let expected = m.se_x * fnl;
+    assert!((r.mn_x - expected).abs() / expected < 1e-12, "Mn {} vs {expected}", r.mn_x);
+}
+
+/// G2.1 on a web with h/t = 98.7 > 1.51·sqrt(E·kv/Fy) = 84.0: elastic shear
+/// buckling, Vn = h·t·π²·E·kv/(12·(1 − 0.3²)·(h/t)²) = 22.6 kN. The check
+/// used the inelastic expression there (26.6 kN).
+#[test]
+fn cfs_shear_elastic_buckling_range() {
+    let m = typical_c_section();
+    let r = cfs_run(m.clone(), None, None, Some(10_000.0));
+    let (h, t) = (m.h.unwrap(), m.t.unwrap());
+    let pi = std::f64::consts::PI;
+    let vn = h * t * pi * pi * m.e * 5.34 / (12.0 * (1.0 - 0.09) * (h / t).powi(2));
+    let expected = 10_000.0 / (0.95 * vn);
+    assert!((r.shear_ratio - expected).abs() / expected < 1e-12, "{} vs {expected}", r.shear_ratio);
+    // Between the limits (h/t = 70): inelastic, Fv = 0.60·sqrt(E·kv·Fy)/(h/t).
+    let mut m2 = m.clone();
+    m2.t = Some(h / 70.0);
+    let r = cfs_run(m2.clone(), None, None, Some(10_000.0));
+    let t2 = m2.t.unwrap();
+    let vn = h * t2 * 0.60 * (m.e * 5.34 * m.fy).sqrt() / (h / t2);
+    assert!((r.shear_ratio - 10_000.0 / (0.95 * vn)).abs() / r.shear_ratio < 1e-12, "{r:?}");
+}
+
+/// A shear demand with no web geometry cannot be checked.
+#[test]
+fn cfs_shear_without_web_is_unevaluated() {
+    let mut m = typical_c_section();
+    m.h = None;
+    let r = cfs_run(m, None, None, Some(5_000.0));
+    assert!(!r.pass && r.unevaluated.iter().any(|n| n.contains("Shear")), "{r:?}");
+}
+
+/// AISI H1.2 is linear: P/Pa + Mx/Max. The AISC split gave P + 8/9·M above
+/// P/Pa = 0.15 and P/2 + M below it, both lower.
+#[test]
+fn cfs_interaction_is_linear() {
+    let mut m = typical_c_section();
+    m.lc = 2.5;
+    m.lb = 2.5;
+    for p in [-5_000.0, -40_000.0] {
+        let r = cfs_run(m.clone(), Some(p), Some(2_000.0), None);
+        let sum = r.compression_ratio + r.flexure_ratio_x;
+        assert!((r.interaction_ratio - sum).abs() <= 1e-15 * sum, "{p}: {r:?}");
+    }
+}

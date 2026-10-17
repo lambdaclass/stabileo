@@ -81,7 +81,7 @@ export interface OtherCode {
    * checker's units, from the combination's certified station bound (kN, kN·m) of the member.
    */
   certify?: {
-    name: 'certify_steel_members' | 'certify_ec3_members' | 'certify_ec2_members';
+    name: 'certify_steel_members' | 'certify_ec3_members' | 'certify_ec2_members' | 'certify_rc_members';
     bound(ctx: MemberContext, d: GoverningDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
   };
 }

@@ -408,8 +408,31 @@ inconclusive at this precision.
   combination is refused. Values *between* stations are not covered (as in the f64
   envelope).
 
-Wasm: `certify_steel_members`, `certify_ec3_members`, `certify_ec2_members` (bounded
-demands in; `ec3_demands` / `ec2_demands` convert the station demand sets and
+* **Roots (RC flexure).** CIRSOC 201 and ACI 318 flexure solve strain compatibility
+  (`postprocess/rc_flexure.rs`): the neutral axis `c` is the root of the force residual
+  `R(c) = Cc(c) + As'·fs'(c) − As·fs(c)`, with both steel stresses clamped to `±fy`.
+  `R` is continuous and strictly increasing for `c > 0` on the data domain checked by
+  `RcFlexureSection::monotone` (f'c, bw > 0, bf ≥ bw, hf, As, As', Es, d, d', fy ≥ 0;
+  otherwise the member is refused), so the root is unique. `Real::increasing_root`
+  bisects in f64 and the interval instantiation certifies a bracket `[r − δ, r + δ]`
+  around the f64 root by evaluating `R` in interval arithmetic at both ends (`< 0` left,
+  `> 0` right for every real parameter in its enclosure); `Mn`, `εt` and `φ` are then
+  evaluated over the bracket. Capacities depend only on the exact member data.
+* **P-M interaction (ACI).** With `Nu ≠ 0` the f64 check bisects to *a* neutral axis
+  where `φPn(c) = Pu` (`φPn` need not be monotonic). The certified check encloses `φMn`
+  over the whole set `{c : φPn(c) ∈ [Pu]}` by branch and bound on `c`: boxes whose
+  `φPn` enclosure misses `[Pu]` are dropped, the rest split down to a relative width of
+  1e-12 (or 1e-4 for boxes entirely inside `[Pu]`), at most 200 000 boxes. This contains
+  whichever crossing the f64 bisection finds. `[Pu]` must be certified strictly inside
+  `(φPn(c_min), φPn(c_max)]` (off the diagram the f64 check flags the flexure check), and
+  an `Nu` box containing 0 and non-zero values takes the hull of the pure-flexure and
+  diagram strengths (the f64 check switches at exactly `Nu = 0`). A T-beam with a
+  possibly non-zero `Nu` is refused (the f64 check flags it incomplete).
+
+Wasm: `certify_steel_members`, `certify_ec3_members`, `certify_ec2_members`,
+`certify_cirsoc201_members`, `certify_rc_members`, `certify_timber_members`,
+`certify_cfs_members` (bounded demands in; `ec3_demands` / `ec2_demands` /
+`cirsoc201_demands` / `rc_demands` / `timber_demands` / `cfs_demands` convert the station demand sets and
 `scale_demands` changes units, e.g. kN → N for EC2's Pa-based formulas, widening each
 bound by the scaling's rounding), `certify_steel_multi_case_2d/3d`
 (multi-case model + members in, `{ analysis, steel }` out).
@@ -419,10 +442,39 @@ bound by the scaling's rounding), `certify_steel_multi_case_2d/3d`
 | AISC 360 (`steel_check`): tension D2 (yield + rupture), compression E3, flexure F2 (LTB) / F6, shear G2, interaction H1 | **certified** |
 | EC3 (`ec3_check`): tension 6.2.3, flexural buckling 6.3.1 (χ curves a–d), LTB 6.3.2, weak-axis flexure 6.2.5, shear 6.2.6, simplified interaction 6.3.3 | **certified** |
 | EC2 (`ec2_check`): RC flexure 6.1 (rectangular block, singly / doubly reinforced, compression-steel yield branch), shear 6.2 (VRd,c with the NEd axial term over the whole NEd interval, VRd,s, VRd,max) | **certified** |
-| CIRSOC 201 (`cirsoc201_check`), ACI RC (`rc_check`), timber, masonry, CFS, connections, foundations, serviceability | not certified (f64 only) |
+| CIRSOC 201 (`cirsoc201_check`): RC flexure 10.2 (strain compatibility, singly / doubly reinforced, compression- and tension-steel yield branches, φ 9.3.2 with εty = 0.002 for fy ≤ 420 MPa else fy/Es), shear Cap. 11 (Vc with √f'c ≤ 25/3, Vs, Vs,max) | **certified** |
+| ACI 318-19 (`rc_check`): RC flexure 22.2 (strain compatibility, rectangular singly / doubly, T-beam flange / web), P-M interaction 22.4 at the axial load, axial capacity 22.4.2.1 / 22.4.3.1, φ Table 21.2.2, shear 22.5.5.1 (Av,min switch, λs, √f'c ≤ 8.3, Vs,max) | **certified** |
+| NDS timber (`timber_check`): bending 3.3 (CL with the Table 3.3.3 effective span), compression 3.6 (CP), tension 3.8, shear 3.4, interaction 3.9.1 / 3.9.2 (FcE1 amplification, saturated at 99) | **certified** |
+| AISI S100 (`cfs_check`): compression E2 (weak-axis flexural buckling, local via Ae) / E4 distortional, tension D2, flexure F2.1 LTB / F4 distortional, weak-axis flexure, web shear G2.1 (three ranges), linear interaction H1.2 / H2 | **certified** |
+| masonry, connections, foundations, serviceability | not certified (f64 only) |
+
+Timber note: past buckling (`fc ≥ FcE1`) the f64 check saturates the 3.9.2 ratio at 99;
+the amplified term is written `fb/max(1 − fc/FcE1, fb/99)` (equal after the final
+`min(·, 99)`, and finite), so a box reaching `FcE1` has an enclosure reaching 99. A box
+that also contains a zero moment is refused (the term jumps 0 → 99 there).
+
+CFS note: flexural-torsional buckling of singly symmetric sections and second-order
+amplification are not in the f64 check (the web flags the former). Fixed while
+certifying (regression tests in `tests/integration/cfs_check.rs`): zero / non-finite
+capacities passed (now `unevaluated`), F2.1 read `1 + √X` for `√(1 + X)` (Me high; the
+web's compensating Cw rescaling in `cfs-code.ts` is removed), G2.1 used the yield branch
+up to the elastic limit, a misprinted inelastic limit and an elastic Vn missing a factor
+t, a shear demand without web geometry read ratio 0, and the interaction used AISC's
+H1-1a/b split instead of AISI's linear sum.
 
 EC3 note: an unbraced length `lb = 0` gives `Mcr = x/0`; the f64 check reads it as no
 LTB reduction, the interval check refuses (division by an interval containing 0).
+
+RC model notes (the f64 check's model, which is what is certified): the displaced
+concrete at the compression bars is not deducted in pure flexure (it is in the ACI
+interaction diagram); the T-beam ignores compression steel; CIRSOC 201 has no axial
+force. Fixed while certifying (regression tests in `tests/integration/cirsoc201_check.rs`
+and `rc_check.rs`): CIRSOC 201 passed a member with zero capacity, assumed the tension
+steel yields when εt < εy, took the compression-steel stress from the singly reinforced
+neutral axis, used εty = 0.002 for every grade and left √f'c uncapped in Vc; ACI had no
+axial capacity check (an overloaded column reported the moment at the end of the
+diagram), dropped the axial force on T-beams, assumed the tension steel yields, and left
+√f'c uncapped in Vc.
 
 Inherited limitations: rounding in the f64 evaluation of member forces and diagram
 polynomials (see member force bounds) is not included; capacities are certified as the

@@ -106,6 +106,16 @@ export const ACI318: OtherCode = {
     return { elementId: ctx.elementId, mu: M, vu: V, nu: d.forces.n * N };
   },
   run: (input) => checkRcMembers(input),
+  // Mu and Vu about the axes `member` chose, Nu axial, as `forces` sends them.
+  certify: {
+    name: 'certify_rc_members',
+    bound: (_ctx, _d, data, sb) => ({
+      n: upScaled(sb.axial, N),
+      my: upScaled(data.axis === 'My' ? sb.momentY : sb.momentZ, N),
+      mz: 0,
+      vy: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
+    }),
+  },
   read(r): CheckReading {
     const flex = num(r.flexureRatio), sh = num(r.shearRatio);
     const ratio = num(r.unityRatio);

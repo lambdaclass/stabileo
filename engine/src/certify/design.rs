@@ -10,7 +10,10 @@
 //!
 //! Covered: AISC 360 member checks (`postprocess::steel_check`): tension D2,
 //! compression E3, flexure F2/F6, shear G2 and the H1 interaction; EC3
-//! (`ec3_check`) member checks; EC2 (`ec2_check`) RC flexure and shear.
+//! (`ec3_check`) member checks; EC2 (`ec2_check`) RC flexure and shear;
+//! CIRSOC 201 (`cirsoc201_check`) RC flexure and shear; ACI 318 (`rc_check`)
+//! RC flexure (incl. P-M interaction), shear and axial capacity; NDS timber
+//! (`timber_check`); AISI S100 cold-formed steel (`cfs_check`).
 
 use std::collections::HashMap;
 
@@ -23,6 +26,24 @@ use super::real::{branch, Real};
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use crate::postprocess::ec2_check::{ec2_flexure, ec2_shear, Ec2DesignForces, Ec2Flexure, Ec2MemberData, Ec2Shear};
+use crate::postprocess::cirsoc201_check::{
+    cirsoc201_flexure, cirsoc201_shear, flexure_section as cirsoc201_flexure_section, Cirsoc201DesignForces,
+    Cirsoc201Flexure, Cirsoc201MemberData, Cirsoc201Shear, CIRSOC201_FLEXURE, CIRSOC201_SHEAR,
+};
+use crate::postprocess::rc_check::{
+    axial_capacity as rc_axial_capacity, flexural_capacity as rc_flexural_capacity,
+    flexure_section as rc_flexure_section, interaction_c_range, interaction_point,
+    shear_capacity as rc_shear_capacity, RCDesignForces, RCMemberData, RCSectionType, RC_AXIAL, RC_FLEXURE,
+    RC_SHEAR,
+};
+use crate::postprocess::cfs_check::{
+    cfs_capacities, CfsCapacities, CfsDesignForces, CfsMemberData, CFS_CHECK_NAMES, PHI_B as CFS_PHI_B,
+    PHI_C as CFS_PHI_C, PHI_T as CFS_PHI_T, PHI_V as CFS_PHI_V,
+};
+use crate::postprocess::rc_flexure::RcFlexureSection;
+use crate::postprocess::timber_check::{
+    timber_capacities, timber_interaction, TimberCapacities, TimberDesignForces, TimberMemberData, TIMBER_CHECK_NAMES,
+};
 use crate::postprocess::ec3_check::{ec3_capacities, Ec3Capacities, Ec3DesignForces, Ec3MemberData};
 use crate::postprocess::steel_check::{
     compression_capacity, flexural_capacity_y, flexural_capacity_z, interaction_h1, shear_capacity,
@@ -466,6 +487,393 @@ pub fn certify_ec2_members(input: &CertifiedEc2CheckInput) -> Vec<CertifiedMembe
         &EC2_CHECK_NAMES,
         |m, d| ec2_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
     )
+}
+
+// ───────────────────────────── CIRSOC 201 (RC) ─────────────────────────────
+
+/// CIRSOC 201 design forces with their certified error bounds (`my`→Mu,
+/// `vy`→Vu; `n`, `mz` unused).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundedCirsoc201Demand {
+    pub forces: Cirsoc201DesignForces,
+    pub bound: DemandBound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CertifiedCirsoc201CheckInput {
+    pub members: Vec<Cirsoc201MemberData>,
+    pub demands: Vec<BoundedCirsoc201Demand>,
+}
+
+const CIRSOC201_CHECK_NAMES: [&str; 2] = [CIRSOC201_FLEXURE, CIRSOC201_SHEAR];
+
+/// Flexure ratio as `CheckLedger::ratio`: the capacity must be certified
+/// positive even with no moment (the f64 check flags it otherwise).
+fn required_ratio(name: &str, d: Interval, cap: Interval) -> Result<Interval, String> {
+    if !cap.is_finite() || !(cap.lo > 0.0) {
+        return Err(format!("{name}: capacity not certified positive ({cap:?})"));
+    }
+    let r = d.div(cap);
+    if r.is_finite() { Ok(r) } else { Err(format!("{name}: non-finite ratio")) }
+}
+
+/// Refuse a flexure section whose force residual is not provably strictly
+/// increasing (the uniqueness argument of `rc_flexure`).
+fn require_monotone(sec: &RcFlexureSection) -> Result<(), String> {
+    if sec.monotone() { Ok(()) } else { Err(format!("section data outside the certified domain: {sec:?}")) }
+}
+
+/// Interval enclosures of the CIRSOC 201 flexure and shear ratios for one
+/// demand box. Mirrors `cirsoc201_check::check_single_cirsoc201`. The
+/// capacities depend only on the (exact) member data; the neutral axis is
+/// the certified unique root of the strain-compatibility residual.
+pub fn cirsoc201_ratio_enclosures(
+    m: &Cirsoc201MemberData,
+    f: &Cirsoc201DesignForces,
+    b: &DemandBound,
+) -> Result<[Interval; 2], String> {
+    let mu = around(f.mu.unwrap_or(0.0), b.my, "Mu")?.abs();
+    let vu = around(f.vu.unwrap_or(0.0), b.vy, "Vu")?.abs();
+    require_monotone(&cirsoc201_flexure_section(m))?;
+    let flex: Cirsoc201Flexure<Interval> = cirsoc201_flexure(m);
+    let flexure = required_ratio(CIRSOC201_CHECK_NAMES[0], mu, flex.phi_mn)?;
+    let shear: Cirsoc201Shear<Interval> = cirsoc201_shear(m);
+    let shear = loaded_ratio(CIRSOC201_CHECK_NAMES[1], vu, shear.phi_vn)?;
+    Ok([flexure, shear])
+}
+
+/// Certified CIRSOC 201 member checks (flexure, shear).
+pub fn certify_cirsoc201_members(input: &CertifiedCirsoc201CheckInput) -> Vec<CertifiedMemberResult> {
+    certify_members(
+        &input.members,
+        |m| m.element_id,
+        &input.demands,
+        |d| d.forces.element_id,
+        &CIRSOC201_CHECK_NAMES,
+        |m, d| cirsoc201_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
+    )
+}
+
+/// The same demand sets in CIRSOC 201 form (major-axis moment, shear).
+pub fn cirsoc201_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCirsoc201Demand> {
+    demands
+        .iter()
+        .map(|d| BoundedCirsoc201Demand {
+            forces: Cirsoc201DesignForces { element_id: d.forces.element_id, mu: Some(d.forces.my), vu: d.forces.vy },
+            bound: d.bound,
+        })
+        .collect()
+}
+
+// ───────────────────────────── ACI 318 (RC) ─────────────────────────────
+
+/// ACI 318 RC design forces with their certified error bounds (`my`→Mu,
+/// `vy`→Vu, `n`→Nu tension-positive; `mz` unused).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundedRcDemand {
+    pub forces: RCDesignForces,
+    pub bound: DemandBound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CertifiedRcCheckInput {
+    pub members: Vec<RCMemberData>,
+    pub demands: Vec<BoundedRcDemand>,
+}
+
+const RC_CHECK_NAMES: [&str; 3] = [RC_FLEXURE, RC_SHEAR, RC_AXIAL];
+
+/// Most boxes the axial-flexure branch and bound may evaluate before refusing.
+const PM_MAX_BOXES: usize = 200_000;
+
+/// Enclosure of phi*Mn over every point of the interaction diagram whose
+/// phi*Pn lies in `pu` (compression positive): the f64 check bisects to *a*
+/// crossing phi*Pn(c) = Pu, which this set contains whichever crossing it is
+/// (phi*Pn need not be monotonic). Branch and bound over the neutral-axis
+/// range: boxes whose phi*Pn enclosure misses `pu` are dropped, boxes inside
+/// it are kept once narrow, boxes straddling its edge are split down to a
+/// relative width of 1e-12. Err unless `pu` is certified to lie strictly
+/// inside (phi*Pn(lo), phi*Pn(hi)] — off the diagram the f64 check flags the
+/// flexure check unevaluated.
+fn interaction_moment_enclosure(m: &RCMemberData, es: f64, pu: Interval) -> Result<Interval, String> {
+    let (c_lo, c_hi) = interaction_c_range(m);
+    let p_at = |c: f64| interaction_point::<Interval>(m, es, Interval::point(c)).0;
+    let (p_lo, p_hi) = (p_at(c_lo), p_at(c_hi));
+    if !(p_lo.is_finite() && p_hi.is_finite() && p_lo.hi < pu.lo && pu.hi <= p_hi.lo) {
+        return Err(format!("{RC_FLEXURE}: axial load {pu:?} not certified on the interaction diagram"));
+    }
+    let narrow = 1e-12 * c_hi;
+    let inside_narrow = 1e-4 * c_hi;
+    let mut stack = vec![Interval::new(c_lo, c_hi)];
+    let mut hull: Option<Interval> = None;
+    let mut boxes = 0usize;
+    while let Some(c) = stack.pop() {
+        boxes += 1;
+        if boxes > PM_MAX_BOXES {
+            return Err(format!("{RC_FLEXURE}: interaction branch and bound did not converge"));
+        }
+        let (p, mn, _, _) = interaction_point::<Interval>(m, es, c);
+        if !p.is_finite() || !mn.is_finite() {
+            return Err(format!("{RC_FLEXURE}: non-finite interaction point on {c:?}"));
+        }
+        if p.hi < pu.lo || p.lo > pu.hi {
+            continue; // no crossing for any Pu in the box
+        }
+        let inside = pu.lo <= p.lo && p.hi <= pu.hi;
+        let w = c.hi - c.lo;
+        if w <= narrow || (inside && w <= inside_narrow) {
+            hull = Some(match hull {
+                None => mn,
+                Some(h) => Interval::new(h.lo.min(mn.lo), h.hi.max(mn.hi)),
+            });
+            continue;
+        }
+        let mid = 0.5 * (c.lo + c.hi);
+        stack.push(Interval::new(c.lo, mid));
+        stack.push(Interval::new(mid, c.hi));
+    }
+    // Non-empty: pu inside (p_lo, p_hi] gives a crossing for every Pu by continuity.
+    let h = hull.ok_or_else(|| format!("{RC_FLEXURE}: no interaction point found"))?;
+    Ok(h.max(Interval::ZERO)) // `phi_mn.max(0.0)`
+}
+
+/// Interval enclosures of the ACI 318 flexure, shear and axial ratios for one
+/// demand box. Mirrors `rc_check::check_single_rc_member`: Nu = 0 uses the
+/// pure-flexure strength, Nu ≠ 0 on a rectangular section the interaction
+/// diagram at Pu = −Nu; a box containing 0 and non-zero values takes the hull
+/// of both. A T-beam with a possibly non-zero axial force is refused (the f64
+/// check flags it incomplete).
+pub fn rc_ratio_enclosures(m: &RCMemberData, f: &RCDesignForces, b: &DemandBound) -> Result<[Interval; 3], String> {
+    let mu = around(f.mu, b.my, "Mu")?.abs();
+    let vu = around(f.vu.unwrap_or(0.0), b.vy, "Vu")?.abs();
+    let nu = around(f.nu.unwrap_or(0.0), b.n, "Nu")?;
+    let es = m.es.unwrap_or(200e9);
+    let zero_possible = nu.contains_zero();
+    let nonzero_possible = !(nu.lo == 0.0 && nu.hi == 0.0);
+
+    let pure = || -> Result<Interval, String> {
+        require_monotone(&rc_flexure_section(m))?;
+        Ok(rc_flexural_capacity::<Interval>(m).0)
+    };
+    let phi_mn = match m.section_type {
+        RCSectionType::TBeam if nonzero_possible => {
+            return Err(format!("{RC_FLEXURE}: T-beam with axial force {nu:?} (no P-M interaction)"));
+        }
+        RCSectionType::TBeam => pure()?,
+        RCSectionType::Rectangular => {
+            let mut acc: Option<Interval> = None;
+            if zero_possible {
+                acc = Some(pure()?);
+            }
+            if nonzero_possible {
+                let pm = interaction_moment_enclosure(m, es, -nu)?;
+                acc = Some(acc.map_or(pm, |a| a.hull(pm)));
+            }
+            acc.ok_or("internal: empty axial case")?
+        }
+    };
+    let flexure = required_ratio(RC_CHECK_NAMES[0], mu, phi_mn)?;
+    let phi_vn: Interval = rc_shear_capacity(m);
+    let shear = loaded_ratio(RC_CHECK_NAMES[1], vu, phi_vn)?;
+    // `if pu >= 0 { pu / phiPn,max } else { -pu / phiPnt }`, each "if loaded".
+    let (pmax, pnt): (Interval, Interval) = rc_axial_capacity(m);
+    let pu = -nu;
+    let zero = Interval::ZERO;
+    let compression = || loaded_ratio(RC_CHECK_NAMES[2], pu.max(zero), pmax);
+    let tension = || loaded_ratio(RC_CHECK_NAMES[2], (-pu).max(zero), pnt);
+    let axial = if pu.lo >= 0.0 {
+        compression()?
+    } else if pu.hi < 0.0 {
+        tension()?
+    } else {
+        compression()?.hull(tension()?)
+    };
+    for (r, name) in [flexure, shear, axial].iter().zip(RC_CHECK_NAMES) {
+        if !r.is_finite() {
+            return Err(format!("{name}: enclosure not finite"));
+        }
+    }
+    Ok([flexure, shear, axial])
+}
+
+/// Certified ACI 318 RC member checks (flexure incl. P-M interaction, shear, axial).
+pub fn certify_rc_members(input: &CertifiedRcCheckInput) -> Vec<CertifiedMemberResult> {
+    certify_members(
+        &input.members,
+        |m| m.element_id,
+        &input.demands,
+        |d| d.forces.element_id,
+        &RC_CHECK_NAMES,
+        |m, d| rc_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
+    )
+}
+
+/// The same demand sets in ACI RC form (major-axis moment, shear, axial).
+pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedRcDemand> {
+    demands
+        .iter()
+        .map(|d| BoundedRcDemand {
+            forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.vy, nu: Some(d.forces.n) },
+            bound: d.bound,
+        })
+        .collect()
+}
+
+// ───────────────────────────── NDS timber ─────────────────────────────
+
+/// NDS timber design forces with their certified error bounds (`my`→M,
+/// `n`→N tension-positive, `vy`→V; `mz` unused).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundedTimberDemand {
+    pub forces: TimberDesignForces,
+    pub bound: DemandBound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CertifiedTimberCheckInput {
+    pub members: Vec<TimberMemberData>,
+    pub demands: Vec<BoundedTimberDemand>,
+}
+
+/// Interval enclosures of the five NDS ratios for one demand box. Mirrors
+/// `timber_check::check_single_timber_member` (the adjusted design values and
+/// the 3.9 interaction are the same generic functions). Requires b, d > 0.
+pub fn timber_ratio_enclosures(
+    m: &TimberMemberData,
+    f: &TimberDesignForces,
+    b: &DemandBound,
+) -> Result<[Interval; 5], String> {
+    let names = TIMBER_CHECK_NAMES;
+    let mm = around(f.m, b.my, "M")?.abs();
+    let n = around(f.n.unwrap_or(0.0), b.n, "N")?;
+    let v = around(f.v.unwrap_or(0.0), b.vy, "V")?.abs();
+    if !(m.b > 0.0 && m.d > 0.0 && m.b.is_finite() && m.d.is_finite()) {
+        return Err(format!("section b = {}, d = {} not positive", m.b, m.d));
+    }
+    let zero = Interval::ZERO;
+    let caps: TimberCapacities<Interval> = timber_capacities(m);
+    let fb = mm.div(caps.s);
+    let fv = (Interval::point(1.5) * v).div(caps.area);
+    // `CheckLedger::ratio`: Fb' must be certified positive even without a moment.
+    let bending = required_ratio(names[0], fb, caps.fb_prime)?;
+    let compression = loaded_ratio(names[1], (-n).max(zero).div(caps.area), caps.fc_prime)?;
+    let tension = loaded_ratio(names[2], n.max(zero).div(caps.area), caps.ft_prime)?;
+    let shear = loaded_ratio(names[3], fv, caps.fv_prime)?;
+    let interaction = timber_interaction(m, &caps, n, bending, tension);
+    let out = [bending, compression, tension, shear, interaction];
+    for (r, name) in out.iter().zip(names) {
+        if !r.is_finite() {
+            return Err(format!("{name}: enclosure not finite"));
+        }
+    }
+    Ok(out)
+}
+
+/// Certified NDS timber member checks.
+pub fn certify_timber_members(input: &CertifiedTimberCheckInput) -> Vec<CertifiedMemberResult> {
+    certify_members(
+        &input.members,
+        |m| m.element_id,
+        &input.demands,
+        |d| d.forces.element_id,
+        &TIMBER_CHECK_NAMES,
+        |m, d| timber_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
+    )
+}
+
+/// The same demand sets in NDS timber form (major-axis moment, axial, shear).
+pub fn timber_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedTimberDemand> {
+    demands
+        .iter()
+        .map(|d| BoundedTimberDemand {
+            forces: TimberDesignForces { element_id: d.forces.element_id, m: d.forces.my, n: Some(d.forces.n), v: d.forces.vy },
+            bound: d.bound,
+        })
+        .collect()
+}
+
+// ───────────────────────────── AISI S100 (CFS) ─────────────────────────────
+
+/// AISI S100 design forces with their certified error bounds (`n`→axial
+/// tension-positive, `my`→Mx strong axis, `mz`→My weak axis, `vy`→shear).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoundedCfsDemand {
+    pub forces: CfsDesignForces,
+    pub bound: DemandBound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CertifiedCfsCheckInput {
+    pub members: Vec<CfsMemberData>,
+    pub demands: Vec<BoundedCfsDemand>,
+}
+
+/// Interval enclosures of the six AISI S100 ratios for one demand box.
+/// Mirrors `cfs_check::check_single_cfs_member`. A shear demand on a member
+/// without web geometry is refused (the f64 check flags it).
+pub fn cfs_ratio_enclosures(m: &CfsMemberData, f: &CfsDesignForces, b: &DemandBound) -> Result<[Interval; 6], String> {
+    let names = CFS_CHECK_NAMES;
+    let n = around(f.axial.unwrap_or(0.0), b.n, "axial")?;
+    let mx = around(f.mx.unwrap_or(0.0), b.my, "Mx")?.abs();
+    let my = around(f.my.unwrap_or(0.0), b.mz, "My")?.abs();
+    let v = around(f.shear.unwrap_or(0.0), b.vy, "shear")?.abs();
+    let zero = Interval::ZERO;
+    let caps: CfsCapacities<Interval> = cfs_capacities(m);
+    let phi = |x: f64, c: Interval| Interval::lit(x) * c;
+    let compression = loaded_ratio(names[0], (-n).max(zero), phi(CFS_PHI_C, caps.pn))?;
+    let tension = loaded_ratio(names[1], n.max(zero), phi(CFS_PHI_T, caps.tn))?;
+    let flex_x = loaded_ratio(names[2], mx, phi(CFS_PHI_B, caps.mn_x))?;
+    let flex_y = loaded_ratio(names[3], my, phi(CFS_PHI_B, caps.mn_y))?;
+    let shear = match caps.vn {
+        Some(vn) => loaded_ratio(names[4], v, phi(CFS_PHI_V, vn))?,
+        None if v.lo == 0.0 && v.hi == 0.0 => zero,
+        None => return Err(format!("{}: no web geometry (h, t) for a shear demand", names[4])),
+    };
+    let interaction = compression + tension + flex_x + flex_y;
+    let out = [compression, tension, flex_x, flex_y, shear, interaction];
+    for (r, name) in out.iter().zip(names) {
+        if !r.is_finite() {
+            return Err(format!("{name}: enclosure not finite"));
+        }
+    }
+    Ok(out)
+}
+
+/// Certified AISI S100 cold-formed steel member checks.
+pub fn certify_cfs_members(input: &CertifiedCfsCheckInput) -> Vec<CertifiedMemberResult> {
+    certify_members(
+        &input.members,
+        |m| m.element_id,
+        &input.demands,
+        |d| d.forces.element_id,
+        &CFS_CHECK_NAMES,
+        |m, d| cfs_ratio_enclosures(m, &d.forces, &d.bound).map(|r| r.to_vec()),
+    )
+}
+
+/// The same demand sets in AISI S100 form.
+pub fn cfs_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCfsDemand> {
+    demands
+        .iter()
+        .map(|d| BoundedCfsDemand {
+            forces: CfsDesignForces {
+                element_id: d.forces.element_id,
+                axial: Some(d.forces.n),
+                mx: Some(d.forces.my),
+                my: d.forces.mz,
+                shear: d.forces.vy,
+            },
+            bound: d.bound,
+        })
+        .collect()
 }
 
 /// Demand sets with every force and moment multiplied by `s` (e.g. 1000 for
@@ -1024,6 +1432,633 @@ mod tests {
             demands: vec![BoundedEc2Demand { forces: Ec2DesignForces { m_ed: Some(0.0), ..f }, bound: ZERO_BOUND }],
         });
         assert!(!res[0].certified, "{res:?}"); // MRd = 0: the f64 check flags it even at M = 0
+    }
+
+    // ───────────── CIRSOC 201 ─────────────
+
+    use crate::postprocess::cirsoc201_check::{check_cirsoc201_members, Cirsoc201CheckInput};
+
+    fn cirsoc_beam(g: &mut Lcg, id: usize) -> Cirsoc201MemberData {
+        let h = g.range(0.3, 0.9);
+        let b = g.range(0.2, 0.6);
+        let d = h - 0.05;
+        let doubly = g.unit() < 0.4;
+        let stirrups = g.unit() < 0.6;
+        Cirsoc201MemberData {
+            element_id: id,
+            fc: [20e6, 25e6, 28e6, 30e6, 40e6, 56e6, 60e6, 80e6][(g.unit() * 8.0) as usize % 8],
+            fy: [220e6, 420e6, 500e6][(g.unit() * 3.0) as usize % 3],
+            es: if g.unit() < 0.2 { Some(g.range(190e9, 210e9)) } else { None },
+            b,
+            h,
+            d,
+            // up to heavily over-reinforced (eps_t < eps_y)
+            as_tension: b * d * g.range(0.002, 0.06),
+            as_compression: if doubly { Some(b * d * g.range(0.001, 0.03)) } else { None },
+            d_prime: if doubly { Some(g.range(0.02, 0.1)) } else { None },
+            av: if stirrups { Some(g.range(1e-4, 4e-4)) } else { None },
+            s_stirrup: if stirrups { Some(g.range(0.05, 0.3)) } else { None },
+            lambda: if g.unit() < 0.2 { Some(0.75) } else { None },
+        }
+    }
+
+    fn cirsoc_forces(g: &mut Lcg, id: usize) -> Cirsoc201DesignForces {
+        let pick = |g: &mut Lcg, x: f64| if g.unit() < 0.1 { None } else { Some(g.range(-x, x)) };
+        Cirsoc201DesignForces { element_id: id, mu: pick(g, 8e5), vu: pick(g, 6e5) }
+    }
+
+    fn cirsoc_f64(m: &Cirsoc201MemberData, f: &Cirsoc201DesignForces) -> [f64; 2] {
+        let r = &check_cirsoc201_members(&Cirsoc201CheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        [r.flexure_ratio, r.shear_ratio]
+    }
+
+    #[test]
+    fn cirsoc201_f64_and_interval_paths_agree_on_points() {
+        let mut g = Lcg(201);
+        let mut n = 0;
+        for i in 0..4000 {
+            let m = cirsoc_beam(&mut g, i);
+            let f = cirsoc_forces(&mut g, i);
+            let Ok(r) = cirsoc201_ratio_enclosures(&m, &f, &ZERO_BOUND) else {
+                let res = &check_cirsoc201_members(&Cirsoc201CheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+                assert!(!res.unevaluated.is_empty(), "{i}: refused an evaluable member {res:?}");
+                continue;
+            };
+            n += 1;
+            let p = cirsoc_f64(&m, &f);
+            for k in 0..2 {
+                let tol = 1e-12 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                assert!(r[k].hi - r[k].lo <= 1e-11 * p[k].abs().max(1e-12), "{i}/{k}: wide {:?}", r[k]);
+            }
+        }
+        assert!(n > 3900, "{n}");
+    }
+
+    #[test]
+    fn cirsoc201_enclosure_contains_sampled_demands() {
+        let mut g = Lcg(2010);
+        for i in 0..400 {
+            let m = cirsoc_beam(&mut g, i);
+            let f = cirsoc_forces(&mut g, i);
+            let b = DemandBound {
+                n: 0.0,
+                my: f.mu.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
+                mz: 0.0,
+                vy: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+            };
+            let r = cirsoc201_ratio_enclosures(&m, &f, &b).unwrap();
+            for _ in 0..40 {
+                let s = Cirsoc201DesignForces {
+                    element_id: i,
+                    mu: Some(f.mu.unwrap_or(0.0) + b.my * g.range(-1.0, 1.0)),
+                    vu: Some(f.vu.unwrap_or(0.0) + b.vy * g.range(-1.0, 1.0)),
+                };
+                let p = cirsoc_f64(&m, &s);
+                for k in 0..2 {
+                    let tol = 1e-12 * p[k].abs();
+                    assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                }
+            }
+        }
+    }
+
+    /// Sections built to sit on a branch threshold (beta1 at f'c = 28 / 56
+    /// MPa; eps_t at 0.005, at eps_y; the compression steel at first yield;
+    /// sqrt(f'c) at the 25/3 cap): the interval comparison is undecided there
+    /// and the hull of both arms must still contain the f64 value.
+    #[test]
+    fn cirsoc201_straddled_thresholds_are_enclosed() {
+        let base = Cirsoc201MemberData {
+            element_id: 1,
+            fc: 28e6,
+            fy: 420e6,
+            es: None,
+            b: 0.3,
+            h: 0.5,
+            d: 0.45,
+            as_tension: 1.5e-3,
+            as_compression: None,
+            d_prime: None,
+            av: Some(1.5e-4),
+            s_stirrup: Some(0.15),
+            lambda: None,
+        };
+        let f = Cirsoc201DesignForces { element_id: 1, mu: Some(1e5), vu: Some(1e5) };
+        let mut cases = vec![base.clone(), Cirsoc201MemberData { fc: 56e6, ..base.clone() }];
+        // eps_t exactly at a phi threshold: singly, steel yielding, c = 0.003·d/(0.003 + eps)
+        for (eps, fy) in [(0.005, 420e6), (0.002, 420e6), (0.0025, 500e6), (0.005, 500e6)] {
+            let c = 0.003 * base.d / (0.003 + eps);
+            let as_t = 0.85 * base.fc * 0.85 * c * base.b / fy;
+            cases.push(Cirsoc201MemberData { fy, as_tension: as_t, ..base.clone() });
+        }
+        // compression steel exactly at first yield: c = d'·600/(600 − 420)
+        let dp = 0.06;
+        let c = dp * 600.0 / 180.0;
+        let as_c = 4e-4;
+        let as_t = (0.85 * base.fc * 0.85 * c * base.b + as_c * 420e6) / 420e6;
+        cases.push(Cirsoc201MemberData { as_tension: as_t, as_compression: Some(as_c), d_prime: Some(dp), ..base.clone() });
+        // sqrt(f'c) = 25/3
+        cases.push(Cirsoc201MemberData { fc: (25.0f64 / 3.0).powi(2) * 1e6, ..base.clone() });
+        for (i, m) in cases.iter().enumerate() {
+            let r = cirsoc201_ratio_enclosures(m, &f, &ZERO_BOUND).unwrap();
+            let p = cirsoc_f64(m, &f);
+            for k in 0..2 {
+                let tol = 1e-12 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "case {i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                assert!(r[k].hi - r[k].lo <= 1e-6 * p[k], "case {i}/{k}: wide {:?}", r[k]);
+            }
+        }
+    }
+
+    #[test]
+    fn cirsoc201_refuses() {
+        let mut g = Lcg(4);
+        let mut m = cirsoc_beam(&mut g, 1);
+        let f = cirsoc_forces(&mut g, 1);
+        assert!(cirsoc201_ratio_enclosures(&m, &f, &DemandBound { my: f64::NAN, ..ZERO_BOUND }).is_err());
+        m.as_tension = 0.0;
+        m.as_compression = None;
+        let res = certify_cirsoc201_members(&CertifiedCirsoc201CheckInput {
+            members: vec![m.clone()],
+            demands: vec![BoundedCirsoc201Demand { forces: Cirsoc201DesignForces { mu: Some(0.0), ..f.clone() }, bound: ZERO_BOUND }],
+        });
+        assert!(!res[0].certified && !res[0].certified_ok, "{res:?}");
+        m.as_tension = 1e-3;
+        m.b = -0.3; // outside the monotone domain
+        assert!(cirsoc201_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err());
+    }
+
+    // ───────────── ACI 318 RC ─────────────
+
+    use crate::postprocess::rc_check::{check_rc_members, RCCheckInput};
+
+    fn aci_member(g: &mut Lcg, id: usize) -> RCMemberData {
+        let h = g.range(0.3, 0.9);
+        let b = g.range(0.2, 0.6);
+        let d = h - 0.05;
+        let tbeam = g.unit() < 0.25;
+        let doubly = g.unit() < 0.5;
+        let stirrups = g.unit() < 0.6;
+        RCMemberData {
+            element_id: id,
+            fc: [21e6, 28e6, 35e6, 56e6, 70e6, 80e6][(g.unit() * 6.0) as usize % 6],
+            fy: [420e6, 550e6][(g.unit() * 2.0) as usize % 2],
+            es: if g.unit() < 0.5 { Some(200e9) } else { None },
+            b,
+            h,
+            d,
+            d_prime: if doubly { Some(g.range(0.03, 0.08)) } else { None },
+            as_tension: b * d * g.range(0.003, 0.05),
+            as_compression: if doubly { Some(b * d * g.range(0.002, 0.03)) } else { None },
+            section_type: if tbeam { RCSectionType::TBeam } else { RCSectionType::Rectangular },
+            bf: if tbeam { Some(b * g.range(1.0, 4.0)) } else { None },
+            hf: if tbeam && g.unit() < 0.7 { Some(g.range(0.05, 0.2)) } else { None },
+            av: if stirrups { Some(g.range(2e-5, 4e-4)) } else { None },
+            s_stirrup: if stirrups { Some(g.range(0.05, 0.3)) } else { None },
+            lambda: if g.unit() < 0.2 { Some(0.85) } else { None },
+        }
+    }
+
+    fn aci_forces(g: &mut Lcg, m: &RCMemberData) -> RCDesignForces {
+        let rect = matches!(m.section_type, RCSectionType::Rectangular);
+        let po = 0.85 * m.fc * m.b * m.h;
+        RCDesignForces {
+            element_id: m.element_id,
+            mu: g.range(-8e5, 8e5),
+            vu: if g.unit() < 0.1 { None } else { Some(g.range(-6e5, 6e5)) },
+            nu: if !rect || g.unit() < 0.3 { None } else { Some(g.range(-0.6 * po, 0.1 * po)) },
+        }
+    }
+
+    fn aci_f64(m: &RCMemberData, f: &RCDesignForces) -> Option<[f64; 3]> {
+        let r = &check_rc_members(&RCCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        r.unevaluated.is_empty().then_some([r.flexure_ratio, r.shear_ratio, r.axial_ratio])
+    }
+
+    #[test]
+    fn rc_f64_and_interval_paths_agree_on_points() {
+        let mut g = Lcg(318);
+        let (mut n, mut pm) = (0, 0);
+        for i in 0..3000 {
+            let m = aci_member(&mut g, i);
+            let f = aci_forces(&mut g, &m);
+            let r = rc_ratio_enclosures(&m, &f, &ZERO_BOUND);
+            let p = aci_f64(&m, &f);
+            let (Ok(r), Some(p)) = (r, p) else {
+                // Only refusals where the f64 check also could not evaluate.
+                assert!(p.is_none(), "{i}: refused an evaluable member {m:?} {f:?}");
+                continue;
+            };
+            n += 1;
+            if f.nu.unwrap_or(0.0) != 0.0 {
+                pm += 1;
+            }
+            for k in 0..3 {
+                let tol = 1e-9 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                assert!(r[k].hi - r[k].lo <= 1e-8 * p[k].abs().max(1e-12), "{i}/{k}: wide {:?}", r[k]);
+            }
+        }
+        assert!(n > 2700 && pm > 1200, "{n} {pm}");
+    }
+
+    #[test]
+    fn rc_enclosure_contains_sampled_demands() {
+        let mut g = Lcg(3180);
+        let mut checked = 0;
+        for i in 0..300 {
+            let m = aci_member(&mut g, i);
+            let f = aci_forces(&mut g, &m);
+            let rect = matches!(m.section_type, RCSectionType::Rectangular);
+            let b = DemandBound {
+                n: if rect { f.nu.unwrap_or(0.0).abs() * g.range(0.0, 0.2) + 1e3 } else { 0.0 },
+                my: f.mu.abs() * g.range(0.0, 0.3),
+                mz: 0.0,
+                vy: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+            };
+            let Ok(r) = rc_ratio_enclosures(&m, &f, &b) else { continue };
+            checked += 1;
+            for j in 0..30 {
+                // include the box ends and Nu = 0 when it is in the box
+                let t = [-1.0, 1.0][j % 2] * if j < 2 { 1.0 } else { g.unit() };
+                let nu = f.nu.unwrap_or(0.0) + b.n * t;
+                let nu = if j == 2 && (f.nu.unwrap_or(0.0).abs() <= b.n) { 0.0 } else { nu };
+                let s = RCDesignForces {
+                    element_id: i,
+                    mu: f.mu + b.my * g.range(-1.0, 1.0),
+                    vu: Some(f.vu.unwrap_or(0.0) + b.vy * g.range(-1.0, 1.0)),
+                    nu: Some(nu),
+                };
+                let p = aci_f64(&m, &s).unwrap_or_else(|| panic!("{i}: certified box contains an unevaluable point"));
+                for k in 0..3 {
+                    let tol = 1e-9 * p[k].abs();
+                    assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                }
+            }
+        }
+        assert!(checked > 250, "{checked}");
+    }
+
+    /// Nu straddling 0 switches between the pure-flexure strength and the
+    /// interaction diagram (which differ: the diagram deducts the displaced
+    /// concrete), and the axial check between tension and compression.
+    #[test]
+    fn rc_axial_straddling_zero_takes_hull() {
+        let m = RCMemberData {
+            element_id: 1,
+            fc: 28e6,
+            fy: 420e6,
+            es: Some(200e9),
+            b: 0.4,
+            h: 0.4,
+            d: 0.34,
+            d_prime: Some(0.06),
+            as_tension: 1.6e-3,
+            as_compression: Some(0.8e-3),
+            section_type: RCSectionType::Rectangular,
+            bf: None,
+            hf: None,
+            av: None,
+            s_stirrup: None,
+            lambda: None,
+        };
+        let f = RCDesignForces { element_id: 1, mu: 1.5e5, vu: None, nu: Some(0.0) };
+        let r = rc_ratio_enclosures(&m, &f, &DemandBound { n: 5e4, ..ZERO_BOUND }).unwrap();
+        for nu in [-5e4, -1e4, -1.0, 0.0, 1.0, 1e4, 5e4] {
+            let p = aci_f64(&m, &RCDesignForces { nu: Some(nu), ..f.clone() }).unwrap();
+            for k in 0..3 {
+                assert!(r[k].lo <= p[k] * (1.0 + 1e-9) && p[k] <= r[k].hi * (1.0 + 1e-9), "{nu}/{k}: {} ∉ {:?}", p[k], r[k]);
+            }
+        }
+        // A T-beam with a possibly non-zero axial force is refused.
+        let t = RCMemberData { section_type: RCSectionType::TBeam, bf: Some(1.0), hf: Some(0.1), ..m.clone() };
+        assert!(rc_ratio_enclosures(&t, &f, &DemandBound { n: 1.0, ..ZERO_BOUND }).is_err());
+        assert!(rc_ratio_enclosures(&t, &f, &ZERO_BOUND).is_ok());
+        // Off the interaction diagram: refused (the f64 check flags it).
+        let over = RCDesignForces { nu: Some(-2e7), ..f.clone() };
+        assert!(rc_ratio_enclosures(&m, &over, &ZERO_BOUND).is_err());
+        assert!(aci_f64(&m, &over).is_none());
+    }
+
+    /// Shear exactly at Av,min (22.5.5.1 table switch) and phi exactly at the
+    /// tension-controlled limit: undecided comparisons, hull contains f64.
+    #[test]
+    fn rc_straddled_thresholds_are_enclosed() {
+        let mut m = RCMemberData {
+            element_id: 1,
+            fc: 28e6,
+            fy: 420e6,
+            es: Some(200e9),
+            b: 0.3,
+            h: 0.6,
+            d: 0.55,
+            d_prime: None,
+            as_tension: 0.0,
+            as_compression: None,
+            section_type: RCSectionType::Rectangular,
+            bf: None,
+            hf: None,
+            av: None,
+            s_stirrup: Some(0.2),
+            lambda: None,
+        };
+        let eps = 420e6 / 200e9 + 0.003;
+        let c = 0.003 * m.d / (0.003 + eps);
+        m.as_tension = 0.85 * m.fc * 0.85 * c * m.b / m.fy;
+        let sqrt_fc = 28.0f64.sqrt();
+        let av_min_mm2 = (0.062 * sqrt_fc * 300.0 * 200.0 / 420.0).max(0.35 * 300.0 * 200.0 / 420.0);
+        m.av = Some(av_min_mm2 / 1e6);
+        let f = RCDesignForces { element_id: 1, mu: 1e5, vu: Some(2e5), nu: None };
+        let r = rc_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
+        let p = aci_f64(&m, &f).unwrap();
+        for k in 0..3 {
+            let tol = 1e-12 * p[k].abs();
+            assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{k}: {} ∉ {:?}", p[k], r[k]);
+        }
+    }
+
+    // ───────────── NDS timber ─────────────
+
+    use crate::postprocess::timber_check::{check_timber_members, TimberCheckInput};
+
+    fn timber_member(g: &mut Lcg, id: usize) -> TimberMemberData {
+        let b = g.range(0.038, 0.2);
+        let d = g.range(0.089, 0.4);
+        let opt = |g: &mut Lcg, lo: f64, hi: f64| if g.unit() < 0.5 { None } else { Some(g.range(lo, hi)) };
+        TimberMemberData {
+            element_id: id,
+            fb: g.range(5e6, 15e6),
+            ft: g.range(3e6, 9e6),
+            fc: g.range(6e6, 12e6),
+            fv: g.range(0.9e6, 1.4e6),
+            e: g.range(8e9, 13e9),
+            e_min: if g.unit() < 0.5 { None } else { Some(g.range(3e9, 5e9)) },
+            b,
+            d,
+            le: g.range(0.5, 6.0),
+            lu: opt(g, 0.3, 6.0),
+            cd: opt(g, 0.9, 1.6),
+            cm: opt(g, 0.8, 1.0),
+            ct: opt(g, 0.7, 1.0),
+            cf_bending: opt(g, 1.0, 1.5),
+            cf_tension: opt(g, 1.0, 1.5),
+            cf_compression: opt(g, 1.0, 1.15),
+            cfu: opt(g, 1.0, 1.2),
+            ci: opt(g, 0.8, 1.0),
+            cr: opt(g, 1.0, 1.15),
+        }
+    }
+
+    fn timber_forces(g: &mut Lcg, m: &TimberMemberData) -> TimberDesignForces {
+        let a = m.b * m.d;
+        TimberDesignForces {
+            element_id: m.element_id,
+            m: g.range(-1.0, 1.0) * 10e6 * m.b * m.d * m.d / 6.0,
+            n: if g.unit() < 0.2 { None } else { Some(g.range(-1.2, 0.8) * 8e6 * a) },
+            v: if g.unit() < 0.2 { None } else { Some(g.range(-1.0, 1.0) * 1e6 * a) },
+        }
+    }
+
+    fn timber_f64(m: &TimberMemberData, f: &TimberDesignForces) -> [f64; 5] {
+        let r = &check_timber_members(&TimberCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        [r.bending_ratio, r.compression_ratio, r.tension_ratio, r.shear_ratio, r.interaction_ratio]
+    }
+
+    #[test]
+    fn timber_f64_and_interval_paths_agree_on_points() {
+        let mut g = Lcg(1997);
+        for i in 0..4000 {
+            let m = timber_member(&mut g, i);
+            let f = timber_forces(&mut g, &m);
+            let r = timber_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
+            let p = timber_f64(&m, &f);
+            for k in 0..5 {
+                let tol = 1e-12 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                assert!(r[k].hi - r[k].lo <= 1e-11 * p[k].abs().max(1e-12), "{i}/{k}: wide {:?}", r[k]);
+            }
+        }
+    }
+
+    #[test]
+    fn timber_enclosure_contains_sampled_demands() {
+        let mut g = Lcg(1998);
+        let mut checked = 0;
+        for i in 0..400 {
+            let m = timber_member(&mut g, i);
+            let f = timber_forces(&mut g, &m);
+            let b = DemandBound {
+                n: f.n.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
+                my: f.m.abs() * g.range(0.0, 0.3),
+                mz: 0.0,
+                vy: f.v.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+            };
+            // Refused only where the box reaches a buckled member with a moment
+            // box containing 0 (the saturated term jumps 0 → 99 there).
+            let Ok(r) = timber_ratio_enclosures(&m, &f, &b) else { continue };
+            checked += 1;
+            for j in 0..40 {
+                let t = |g: &mut Lcg| if j < 2 { [-1.0, 1.0][j] } else { g.range(-1.0, 1.0) };
+                let s = TimberDesignForces {
+                    element_id: i,
+                    m: f.m + b.my * t(&mut g),
+                    n: Some(f.n.unwrap_or(0.0) + b.n * t(&mut g)),
+                    v: Some(f.v.unwrap_or(0.0) + b.vy * t(&mut g)),
+                };
+                let p = timber_f64(&m, &s);
+                for k in 0..5 {
+                    let tol = 1e-12 * p[k].abs();
+                    assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                }
+            }
+        }
+        assert!(checked > 380, "{checked}");
+    }
+
+    /// N straddling 0 (three interaction forms) and N straddling FcE1 (the
+    /// amplification passes through 0 and the term saturates at 99).
+    #[test]
+    fn timber_straddled_branches_take_hull() {
+        let mut g = Lcg(7);
+        let m = TimberMemberData { le: 5.0, lu: Some(5.0), ..timber_member(&mut g, 1) };
+        let f = TimberDesignForces { element_id: 1, m: 2e3, n: Some(0.0), v: Some(1e3) };
+        let r = timber_ratio_enclosures(&m, &f, &DemandBound { n: 1e4, ..ZERO_BOUND }).unwrap();
+        for nn in [-1e4, -1.0, 0.0, 1.0, 1e4] {
+            let p = timber_f64(&m, &TimberDesignForces { n: Some(nn), ..f.clone() });
+            for k in 0..5 {
+                assert!(r[k].lo <= p[k] * (1.0 + 1e-12) && p[k] <= r[k].hi * (1.0 + 1e-12), "{nn}/{k}: {} ∉ {:?}", p[k], r[k]);
+            }
+        }
+        // fc = FcE1: compression N = −FcE1·A.
+        let emin = m.e_min.unwrap_or(m.e * (1.0 - 1.645 * 0.25) * 1.03 / 1.66)
+            * m.cm.unwrap_or(1.0) * m.ct.unwrap_or(1.0) * m.ci.unwrap_or(1.0);
+        let fce = 0.822 * emin / (m.le / m.d).powi(2);
+        let n0 = -fce * m.b * m.d;
+        let f = TimberDesignForces { n: Some(n0), ..f };
+        let bn = 1e-3 * n0.abs();
+        let r = timber_ratio_enclosures(&m, &f, &DemandBound { n: bn, ..ZERO_BOUND }).unwrap();
+        assert!(r[4].hi >= 99.0 - 1e-9, "{:?}", r[4]);
+        for t in [-1.0, -0.5, -1e-6, 0.0, 1e-6, 0.5, 1.0] {
+            let p = timber_f64(&m, &TimberDesignForces { n: Some(n0 + bn * t), ..f.clone() })[4];
+            assert!(r[4].lo <= p * (1.0 + 1e-12) && p <= r[4].hi * (1.0 + 1e-12), "{t}: {p} ∉ {:?}", r[4]);
+        }
+    }
+
+    #[test]
+    fn timber_refuses() {
+        let mut g = Lcg(9);
+        let m = timber_member(&mut g, 1);
+        let f = timber_forces(&mut g, &m);
+        assert!(timber_ratio_enclosures(&m, &f, &DemandBound { vy: f64::NAN, ..ZERO_BOUND }).is_err());
+        assert!(timber_ratio_enclosures(&TimberMemberData { b: 0.0, ..m.clone() }, &f, &ZERO_BOUND).is_err());
+        let res = certify_timber_members(&CertifiedTimberCheckInput {
+            members: vec![TimberMemberData { fb: 0.0, ..m }],
+            demands: vec![BoundedTimberDemand { forces: f, bound: ZERO_BOUND }],
+        });
+        assert!(!res[0].certified && !res[0].certified_ok);
+    }
+
+    // ───────────── AISI S100 (CFS) ─────────────
+
+    use crate::postprocess::cfs_check::{check_cfs_members, CfsCheckInput};
+
+    fn cfs_member(g: &mut Lcg, id: usize) -> CfsMemberData {
+        let s = g.range(0.5, 2.0);
+        let opt = |g: &mut Lcg, lo: f64, hi: f64| if g.unit() < 0.5 { None } else { Some(g.range(lo, hi)) };
+        let web = g.unit() < 0.7;
+        CfsMemberData {
+            element_id: id,
+            fy: [230e6, 345e6, 450e6][(g.unit() * 3.0) as usize % 3],
+            e: 200e9,
+            ag: 4.84e-4 * s,
+            ae: 4.84e-4 * s * g.range(0.6, 1.0),
+            ix: 1.16e-6 * s * s,
+            se_x: 1.53e-5 * s * g.range(0.7, 1.0),
+            sf_x: 1.53e-5 * s,
+            iy: 1.10e-7 * s * s,
+            se_y: 3.8e-6 * s,
+            rx: 0.049 * s.sqrt(),
+            ry: 0.0151 * s.sqrt(),
+            j: 3.73e-10 * s * g.range(0.5, 2.0),
+            cw: 7.5e-10 * s * s * g.range(0.5, 2.0),
+            lb: g.range(0.3, 6.0),
+            lc: g.range(0.3, 6.0),
+            k: opt(g, 0.5, 2.0),
+            cb: opt(g, 1.0, 2.3),
+            fcrd: opt(g, 50e6, 900e6),
+            fcrd_flex: opt(g, 50e6, 900e6),
+            aw: None,
+            h: if web { Some(g.range(0.08, 0.3)) } else { None },
+            t: if web { Some(g.range(0.0008, 0.004)) } else { None },
+        }
+    }
+
+    fn cfs_forces(g: &mut Lcg, m: &CfsMemberData) -> CfsDesignForces {
+        let pick = |g: &mut Lcg, x: f64| if g.unit() < 0.15 { None } else { Some(g.range(-x, x)) };
+        CfsDesignForces {
+            element_id: m.element_id,
+            axial: pick(g, 0.5 * m.ag * m.fy),
+            mx: pick(g, 0.6 * m.sf_x * m.fy),
+            my: pick(g, 0.6 * m.se_y * m.fy),
+            shear: if m.h.is_some() { pick(g, 3e4) } else { None },
+        }
+    }
+
+    fn cfs_f64(m: &CfsMemberData, f: &CfsDesignForces) -> [f64; 6] {
+        let r = &check_cfs_members(&CfsCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+        [r.compression_ratio, r.tension_ratio, r.flexure_ratio_x, r.flexure_ratio_y, r.shear_ratio, r.interaction_ratio]
+    }
+
+    #[test]
+    fn cfs_f64_and_interval_paths_agree_on_points() {
+        let mut g = Lcg(100);
+        for i in 0..4000 {
+            let m = cfs_member(&mut g, i);
+            let f = cfs_forces(&mut g, &m);
+            let r = cfs_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
+            let p = cfs_f64(&m, &f);
+            for k in 0..6 {
+                let tol = 1e-12 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                assert!(r[k].hi - r[k].lo <= 1e-11 * p[k].abs().max(1e-12), "{i}/{k}: wide {:?}", r[k]);
+            }
+        }
+    }
+
+    #[test]
+    fn cfs_enclosure_contains_sampled_demands() {
+        let mut g = Lcg(101);
+        for i in 0..400 {
+            let m = cfs_member(&mut g, i);
+            let f = cfs_forces(&mut g, &m);
+            let b = DemandBound {
+                n: f.axial.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
+                my: f.mx.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                mz: f.my.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                vy: f.shear.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+            };
+            let r = cfs_ratio_enclosures(&m, &f, &b).unwrap();
+            for j in 0..40 {
+                let t = |g: &mut Lcg| if j < 2 { [-1.0, 1.0][j] } else { g.range(-1.0, 1.0) };
+                let s = CfsDesignForces {
+                    element_id: i,
+                    axial: Some(f.axial.unwrap_or(0.0) + b.n * t(&mut g)),
+                    mx: Some(f.mx.unwrap_or(0.0) + b.my * t(&mut g)),
+                    my: Some(f.my.unwrap_or(0.0) + b.mz * t(&mut g)),
+                    shear: if m.h.is_some() { Some(f.shear.unwrap_or(0.0) + b.vy * t(&mut g)) } else { None },
+                };
+                let p = cfs_f64(&m, &s);
+                for k in 0..6 {
+                    let tol = 1e-12 * p[k].abs();
+                    assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
+                }
+            }
+        }
+    }
+
+    /// Members built on capacity thresholds (λc = 1.5, Fe = 2.78·Fy and
+    /// 0.56·Fy for LTB, h/t at both shear limits): the hull contains the f64.
+    #[test]
+    fn cfs_straddled_thresholds_are_enclosed() {
+        let mut g = Lcg(102);
+        let base = CfsMemberData { fcrd: None, fcrd_flex: None, k: Some(1.0), cb: Some(1.0), ..cfs_member(&mut g, 1) };
+        let pi = std::f64::consts::PI;
+        let mut cases = vec![];
+        // λc = 1.5: Fe = Fy/2.25 → lc = π·ry·sqrt(E/Fe)
+        cases.push(CfsMemberData { lc: pi * base.ry * (base.e * 2.25 / base.fy).sqrt(), ..base.clone() });
+        // shear limits: h/t = sqrt(E·kv/Fy) and 1.51·sqrt(...)
+        let lim = (base.e * 5.34 / base.fy).sqrt();
+        for r in [1.0, 1.51] {
+            cases.push(CfsMemberData { h: Some(0.15), t: Some(0.15 / (r * lim)), ..base.clone() });
+        }
+        let f = CfsDesignForces { element_id: 1, axial: Some(-1e4), mx: Some(1e3), my: Some(10.0), shear: Some(5e3) };
+        for (i, m) in cases.iter().enumerate() {
+            let r = cfs_ratio_enclosures(m, &f, &ZERO_BOUND).unwrap();
+            let p = cfs_f64(m, &f);
+            for k in 0..6 {
+                let tol = 1e-12 * p[k].abs();
+                assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "case {i}/{k}: {} ∉ {:?}", p[k], r[k]);
+            }
+        }
+    }
+
+    #[test]
+    fn cfs_refuses() {
+        let mut g = Lcg(103);
+        let m = CfsMemberData { h: None, t: None, ..cfs_member(&mut g, 1) };
+        let f = CfsDesignForces { element_id: 1, axial: Some(-1e3), mx: None, my: None, shear: Some(1e3) };
+        assert!(cfs_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err());
+        let f0 = CfsDesignForces { shear: None, ..f.clone() };
+        assert!(cfs_ratio_enclosures(&m, &f0, &ZERO_BOUND).is_ok());
+        let res = certify_cfs_members(&CertifiedCfsCheckInput {
+            members: vec![CfsMemberData { ry: 0.0, ..m }],
+            demands: vec![BoundedCfsDemand { forces: f0, bound: ZERO_BOUND }],
+        });
+        assert!(!res[0].certified && !res[0].certified_ok, "{res:?}");
     }
 
     #[test]

@@ -401,3 +401,91 @@ fn rc_check_high_strength_concrete() {
     assert!(r.phi_mn > 0.0);
     assert!(r.tension_controlled);
 }
+
+// ==================== Regression tests (certification review) ====================
+
+/// Over-reinforced beam: eps_t < eps_y, so the tension steel does not yield.
+/// Strain compatibility (independent bisection): c = 0.226475 m,
+/// fs = 327.26 MPa, Mn = 290 642 N·m, eps_t = 0.001636 → phi = 0.65.
+/// Assuming fs = fy gave Mn = 332 912 N·m (+14.5%).
+#[test]
+fn rc_check_over_reinforced_uses_steel_strain() {
+    let m = rectangular_beam(1, 0.25, 0.40, 0.35, 3.5e-3);
+    let r = &check_rc_members(&RCCheckInput {
+        members: vec![m],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: None }],
+    })[0];
+    let expected = 0.65 * 290_642.17;
+    assert!((r.phi_flexure - 0.65).abs() < 1e-12, "phi {}", r.phi_flexure);
+    assert!((r.phi_mn - expected).abs() / expected < 1e-6, "phi·Mn {} vs {expected}", r.phi_mn);
+}
+
+/// 400 x 400 column with the larger steel on the compression face, under
+/// 3.5 MN — 41% above phi·Pn,max = 0.80·0.65·Po = 2.475 MN and above the
+/// whole interaction diagram. The bisection ran off its end and the column
+/// reported phi·Mn ≈ 27 kN·m, so a 20 kN·m moment passed.
+#[test]
+fn rc_check_axial_overload_fails() {
+    let m = RCMemberData {
+        as_tension: 0.8e-3,
+        as_compression: Some(1.6e-3),
+        d_prime: Some(0.06),
+        ..rectangular_beam(1, 0.40, 0.40, 0.34, 0.8e-3)
+    };
+    let run = |nu: f64| {
+        check_rc_members(&RCCheckInput {
+            members: vec![m.clone()],
+            forces: vec![RCDesignForces { element_id: 1, mu: 20e3, vu: None, nu: Some(nu) }],
+        })
+        .remove(0)
+    };
+    let r = run(-3.5e6);
+    let po = 0.85 * 28e6 * (0.16 - 2.4e-3) + 420e6 * 2.4e-3;
+    let expected = 3.5e6 / (0.80 * 0.65 * po);
+    assert!((r.axial_ratio - expected).abs() / expected < 1e-9, "{} vs {expected}", r.axial_ratio);
+    assert!(r.unity_ratio > 1.0, "{r:?}");
+    assert!(r.unevaluated.iter().any(|n| n.contains("Flexure")), "beyond the diagram: {r:?}");
+    // Tension beyond 0.9·fy·Ast also fails.
+    let r = run(1.0e6);
+    assert!((r.axial_ratio - 1.0e6 / (0.9 * 420e6 * 2.4e-3)).abs() < 1e-9, "{r:?}");
+    assert!(r.unity_ratio > 1.0);
+    // Within the diagram the axial ratio is reported and nothing is flagged.
+    let r = run(-1.0e6);
+    assert!(r.axial_ratio > 0.0 && r.axial_ratio < 1.0 && r.unevaluated.is_empty(), "{r:?}");
+}
+
+fn rectangular_beam_as(b: f64, h: f64, d: f64) -> RCMemberData {
+    rectangular_beam(1, b, h, d, 1.5e-3)
+}
+
+/// A T-beam has no P-M interaction here; an axial force was silently dropped.
+#[test]
+fn rc_check_tbeam_with_axial_force_is_incomplete() {
+    let m = RCMemberData {
+        section_type: RCSectionType::TBeam,
+        bf: Some(1.0),
+        hf: Some(0.12),
+        ..rectangular_beam_as(0.3, 0.6, 0.55)
+    };
+    let r = &check_rc_members(&RCCheckInput {
+        members: vec![m],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: Some(-500e3) }],
+    })[0];
+    assert!(r.unevaluated.iter().any(|n| n.contains("Flexure")), "{r:?}");
+    assert!(r.governing_check.contains("incomplete"));
+}
+
+/// 22.5.3.1: without minimum shear reinforcement sqrt(f'c) <= 8.3 MPa in Vc.
+#[test]
+fn rc_check_vc_caps_sqrt_fc() {
+    let mut m = rectangular_beam(1, 0.30, 0.30, 0.25, 1.5e-3);
+    m.fc = 80e6;
+    let r = &check_rc_members(&RCCheckInput {
+        members: vec![m],
+        forces: vec![RCDesignForces { element_id: 1, mu: 1.0, vu: Some(50e3), nu: None }],
+    })[0];
+    // d = 250 mm → lambda_s = 1
+    let rho: f64 = 1.5e-3 / (0.30 * 0.25);
+    let expected = 0.75 * 0.66 * rho.cbrt() * 8.3 * 300.0 * 250.0;
+    assert!((r.phi_vn - expected).abs() / expected < 1e-12, "{} vs {expected}", r.phi_vn);
+}

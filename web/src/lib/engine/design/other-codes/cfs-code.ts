@@ -15,15 +15,12 @@
  *
  * Zeds are refused: their principal axes are rotated and the model has no product of inertia.
  *
- * ── Lateral-torsional buckling: what is sent is not the section's J and Cw ──
+ * ── Lateral-torsional buckling: J is scaled for the checker's G ──
  *
- * The checker computes Me = Cb·(π/Lb)·√(E·Iy·G·J)·(1 + √X), X = π²·E·Cw/(G·J·Lb²), with G fixed
- * at E/2,6. F2.1 reads √(1 + X) where the checker has 1 + √X, which is always larger: Me comes out
- * high, on the unsafe side (12 % on the ratio of a 3 m C 150×60×20×2). Until the checker is
- * corrected, `ltbInputs` sends the J and Cw that make its expression equal the code's for this
- * member — J scaled so √(G·J) is the material's, Cw so that 1 + √X' = √(1 + X). J and Cw enter
- * nothing else in the checker. `cfs-code.test.ts` pins the checker's present expression, so the
- * correction cannot outlive the defect unnoticed.
+ * The checker computes F2.1's Me = Cb·(π/Lb)·√(E·Iy·G·J)·√(1 + X), X = π²·E·Cw/(G·J·Lb²), with G
+ * fixed at E/2,6. `ltbInputs` sends J scaled so G·J is the material's; Cw goes as it is. (The
+ * checker used to read 1 + √X, and Cw was then rescaled to compensate; it now reads √(1 + X), so
+ * the rescaling is gone. `cfs-code.test.ts` pins the checker's expression.)
  */
 import { checkCfsMembers } from '../../wasm-solver';
 import { materialFamilyOf } from '../../steel/material-family';
@@ -39,12 +36,9 @@ const KV = 5.34; // unstiffened web, G2.3
 const CHECKER_G = 1 / 2.6;
 
 /** J and Cw for the checker, such that its Me is F2.1's for this member (see the header). */
-export function ltbInputs(E: number, nu: number, J: number, Cw: number, Lb: number): { j: number; cw: number } {
+export function ltbInputs(E: number, nu: number, J: number, Cw: number, _Lb: number): { j: number; cw: number } {
   const G = E / (2 * (1 + nu));
-  const j = (J * G) / (E * CHECKER_G);
-  if (!(Cw > 0 && J > 0 && Lb > 0)) return { j, cw: Cw };
-  const X = (Math.PI ** 2 * E * Cw) / (G * J * Lb * Lb);
-  return { j, cw: (Cw * (Math.sqrt(1 + X) - 1) ** 2) / X };
+  return { j: (J * G) / (E * CHECKER_G), cw: Cw };
 }
 
 export const AISI_S100: OtherCode = {

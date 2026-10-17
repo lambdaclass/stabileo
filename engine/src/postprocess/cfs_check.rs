@@ -6,6 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::certify::real::{branch, Real};
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+
 // ==================== Types ====================
 
 /// Cold-formed steel member properties.
@@ -118,16 +121,19 @@ pub struct CfsCheckResult {
     pub mn_y: f64,
     /// Global buckling stress Fe (Pa)
     pub fe: f64,
-    /// Overall pass
+    /// Overall pass (false when any check could not be evaluated)
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Constants ====================
 
-const PHI_C: f64 = 0.85; // Compression
-const PHI_T: f64 = 0.90; // Tension (yielding)
-const PHI_B: f64 = 0.90; // Flexure
-const PHI_V: f64 = 0.95; // Shear
+pub(crate) const PHI_C: f64 = 0.85; // Compression
+pub(crate) const PHI_T: f64 = 0.90; // Tension (yielding)
+pub(crate) const PHI_B: f64 = 0.90; // Flexure
+pub(crate) const PHI_V: f64 = 0.95; // Shear
 
 // ==================== Implementation ====================
 
@@ -162,165 +168,186 @@ pub fn check_cfs_members(input: &CfsCheckInput) -> Vec<CfsCheckResult> {
     results
 }
 
-fn check_single_cfs_member(m: &CfsMemberData, f: &CfsDesignForces) -> CfsCheckResult {
-    let k = m.k.unwrap_or(1.0);
-    let cb = m.cb.unwrap_or(1.0);
-    let axial = f.axial.unwrap_or(0.0);
-    let mx = f.mx.unwrap_or(0.0);
-    let my = f.my.unwrap_or(0.0);
-    let shear = f.shear.unwrap_or(0.0);
+/// AISI S100 nominal strengths for one member.
+pub(crate) struct CfsCapacities<T> {
+    /// Compression Pn (global E2 with local Ae, distortional E4).
+    pub pn: T,
+    /// Tension Tn = Ag·Fy (D2).
+    pub tn: T,
+    /// Strong-axis flexure Mn (LTB F2, distortional F4).
+    pub mn_x: T,
+    /// Weak-axis flexure Mn = Se,y·Fy.
+    pub mn_y: T,
+    /// Web shear Vn (G2.1), None when h and t are not given.
+    pub vn: Option<T>,
+    /// Weak-axis flexural buckling stress Fe.
+    pub fe: T,
+}
+
+/// Nominal strengths. Generic over `Real` so the certified check
+/// (`certify::design`) evaluates the same formulas in interval arithmetic.
+pub(crate) fn cfs_capacities<T: Real>(m: &CfsMemberData) -> CfsCapacities<T> {
+    let k = T::exact(m.k.unwrap_or(1.0));
+    let cb = T::exact(m.cb.unwrap_or(1.0));
+    let (fy, e) = (T::exact(m.fy), T::exact(m.e));
+    let one = T::exact(1.0);
+    let pi2 = T::pi().sq();
 
     // ==================== Compression (AISI S100 Ch. E) ====================
 
-    // Global buckling: flexural buckling about weak axis (controls for most CFS)
-    let kl_ry = k * m.lc / m.ry;
-    let fe = std::f64::consts::PI.powi(2) * m.e / (kl_ry * kl_ry);
+    // Global buckling: flexural buckling about weak axis (controls for most CFS;
+    // flexural-torsional buckling of singly symmetric sections is not checked)
+    let kl_ry = (k * T::exact(m.lc)).dv(T::exact(m.ry));
+    let fe = (pi2 * e).dv(kl_ry.sq());
 
     // Inelastic/elastic buckling per AISI S100 E2
-    let lambda_c = (m.fy / fe).sqrt();
-    let fn_global = if lambda_c <= 1.5 {
+    let lambda_c = fy.dv(fe).sqrt();
+    let fn_global = branch(
+        lambda_c.le(T::lit(1.5)),
         // Inelastic: Fn = (0.658^(lambda²)) * Fy
-        0.658_f64.powf(lambda_c * lambda_c) * m.fy
-    } else {
+        || T::lit(0.658).powf(lambda_c.sq()) * fy,
         // Elastic: Fn = (0.877 / lambda²) * Fy
-        (0.877 / (lambda_c * lambda_c)) * m.fy
-    };
+        || T::lit(0.877).dv(lambda_c.sq()) * fy,
+    );
 
     // Local-global interaction: Pn = Ae * Fn
-    let pn_local = m.ae * fn_global;
+    let pn_local = T::exact(m.ae) * fn_global;
 
     // Distortional buckling: Pn = Ag * Fd (if given)
-    let pn_dist = m.fcrd.map(|fcrd| {
-        let lambda_d = (m.fy / fcrd).sqrt();
-        if lambda_d <= 0.561 {
-            m.ag * m.fy
-        } else {
-            let ratio = (fcrd / m.fy).powf(0.6);
-            m.ag * m.fy * (1.0 - 0.25 * ratio) * ratio
+    let ag = T::exact(m.ag);
+    let pn = match m.fcrd {
+        Some(fcrd) => {
+            let fcrd = T::exact(fcrd);
+            let lambda_d = fy.dv(fcrd).sqrt();
+            let pd = branch(lambda_d.le(T::lit(0.561)), || ag * fy, || {
+                let ratio = fcrd.dv(fy).powf(T::lit(0.6));
+                ag * fy * (one - T::lit(0.25) * ratio) * ratio
+            });
+            pn_local.min(pd)
         }
-    });
-
-    let pn = match pn_dist {
-        Some(pd) => pn_local.min(pd),
         None => pn_local,
-    };
-
-    let compression_ratio = if axial < 0.0 && pn > 0.0 {
-        axial.abs() / (PHI_C * pn)
-    } else {
-        0.0
     };
 
     // ==================== Tension (AISI S100 Ch. D) ====================
 
-    let tn = m.ag * m.fy; // Yielding on gross section
-    let tension_ratio = if axial > 0.0 && tn > 0.0 {
-        axial / (PHI_T * tn)
-    } else {
-        0.0
-    };
+    let tn = ag * fy; // Yielding on gross section
 
     // ==================== Flexure (AISI S100 Ch. F) ====================
 
-    // Lateral-torsional buckling
-    let g = m.e / (2.0 * 1.3); // G ≈ E/2.6 for steel
-    let me = cb
-        * std::f64::consts::PI
-        * (m.e * m.iy * g * m.j).sqrt()
-        / m.lb
-        * (1.0 + (std::f64::consts::PI.powi(2) * m.e * m.cw / (g * m.j * m.lb * m.lb)).sqrt());
+    // Lateral-torsional buckling, F2.1.1 (doubly symmetric form):
+    //   Me = Cb·(π/Lb)·sqrt(E·Iy·G·J)·sqrt(1 + π²·E·Cw/(G·J·Lb²)).
+    // This read (1 + sqrt(X)) for sqrt(1 + X), which is always larger: Me and
+    // so Mn were overstated (12% on the ratio of a 3 m C 150×60×20×2).
+    let g = e.dv(T::exact(2.0) * T::lit(1.3)); // G ≈ E/2.6 for steel
+    let (lb, iy, j, cw) = (T::exact(m.lb), T::exact(m.iy), T::exact(m.j), T::exact(m.cw));
+    let x = (pi2 * e * cw).dv(g * j * lb * lb);
+    let me = (cb * T::pi() * (e * iy * g * j).sqrt()).dv(lb) * (one + x).sqrt();
 
-    let my_yield = m.sf_x * m.fy;
-    let fc_ltb = if m.sf_x > 0.0 {
-        me / m.sf_x
-    } else {
-        0.0
-    };
+    let sf_x = T::exact(m.sf_x);
+    let my_yield = sf_x * fy;
+    let fc_ltb = if m.sf_x > 0.0 { me.dv(sf_x) } else { T::exact(0.0) };
 
-    let fn_ltb = if fc_ltb >= 2.78 * m.fy {
-        m.fy // Full yield
-    } else if fc_ltb >= 0.56 * m.fy {
-        // Inelastic LTB
-        10.0 / 9.0 * m.fy * (1.0 - 10.0 * m.fy / (36.0 * fc_ltb))
-    } else {
-        fc_ltb
-    };
+    let fn_ltb = branch(
+        (T::lit(2.78) * fy).le(fc_ltb),
+        || fy, // Full yield
+        || {
+            branch(
+                (T::lit(0.56) * fy).le(fc_ltb),
+                // Inelastic LTB
+                || (T::exact(10.0).dv(T::exact(9.0))) * fy * (one - (T::exact(10.0) * fy).dv(T::exact(36.0) * fc_ltb)),
+                || fc_ltb,
+            )
+        },
+    );
 
-    let mn_ltb = m.se_x * fn_ltb;
+    let mn_ltb = T::exact(m.se_x) * fn_ltb;
 
     // Distortional buckling for flexure
-    let mn_dist = m.fcrd_flex.map(|fd| {
-        let lambda_d = (my_yield / (m.sf_x * fd)).sqrt();
-        if lambda_d <= 0.673 {
-            my_yield
-        } else {
-            let ratio = (m.sf_x * fd / my_yield).powf(0.5);
-            my_yield * (1.0 - 0.22 * ratio) * ratio
+    let mn_x = match m.fcrd_flex {
+        Some(fd) => {
+            let mcrd = sf_x * T::exact(fd);
+            let lambda_d = my_yield.dv(mcrd).sqrt();
+            let md = branch(lambda_d.le(T::lit(0.673)), || my_yield, || {
+                let ratio = mcrd.dv(my_yield).powf(T::lit(0.5));
+                my_yield * (one - T::lit(0.22) * ratio) * ratio
+            });
+            mn_ltb.min(md)
         }
-    });
-
-    let mn_x = match mn_dist {
-        Some(md) => mn_ltb.min(md),
         None => mn_ltb,
     };
 
-    let flexure_ratio_x = if mx.abs() > 0.0 && mn_x > 0.0 {
-        mx.abs() / (PHI_B * mn_x)
-    } else {
-        0.0
-    };
-
     // Weak axis flexure (local buckling controls)
-    let mn_y = m.se_y * m.fy;
-    let flexure_ratio_y = if my.abs() > 0.0 && mn_y > 0.0 {
-        my.abs() / (PHI_B * mn_y)
-    } else {
-        0.0
+    let mn_y = T::exact(m.se_y) * fy;
+
+    // ==================== Shear (AISI S100 G2.1) ====================
+    // Vn = Aw·Fv, Aw = h·t:
+    //   h/t <= sqrt(E·kv/Fy):                 Fv = 0.60·Fy
+    //   sqrt(E·kv/Fy) < h/t <= 1.51·sqrt(...): Fv = 0.60·sqrt(E·kv·Fy)/(h/t)
+    //   h/t > 1.51·sqrt(E·kv/Fy):             Fv = π²·E·kv/(12·(1 − μ²)·(h/t)²)
+    // The yield branch ran to the elastic limit 1.51·sqrt(E·kv/Fy) (51% high
+    // there), the inelastic one to a misprinted 1.227·(E·kv/Fy)^(3/4) (2.4×
+    // the elastic value at h/t = 200), and the elastic Vn lacked a factor t.
+    let vn = match (m.h, m.t) {
+        (Some(h), Some(t)) => {
+            let (h, t) = (T::exact(h), T::exact(t));
+            let ek = e * T::lit(5.34); // unstiffened web
+            let ht = h.dv(t);
+            let lim = ek.dv(fy).sqrt();
+            let fv = branch(ht.le(lim), || T::lit(0.60) * fy, || {
+                branch(
+                    ht.le(T::lit(1.51) * lim),
+                    || (T::lit(0.60) * (ek * fy).sqrt()).dv(ht),
+                    || (pi2 * ek).dv(T::exact(12.0) * (one - T::lit(0.3).sq()) * ht.sq()),
+                )
+            });
+            Some(h * t * fv)
+        }
+        _ => None,
     };
 
-    // ==================== Shear (AISI S100 Ch. G) ====================
-    let shear_ratio = if let (Some(h), Some(t)) = (m.h, m.t) {
-        let kv = 5.34; // unstiffened web
-        let ek = m.e * kv;
-        let ht = h / t;
+    CfsCapacities { pn, tn, mn_x, mn_y, vn, fe }
+}
 
-        let vn = if ht <= 1.51 * (ek / m.fy).sqrt() {
-            // Yielding
-            0.60 * m.fy * h * t
-        } else if ht <= 1.227 * (ek / m.fy).sqrt() * (ek / m.fy).sqrt().sqrt() {
-            // Inelastic
-            0.60 * t * (ek * m.fy).sqrt() * h / ht
-        } else {
-            // Elastic
-            std::f64::consts::PI.powi(2) * ek * t / (12.0 * (1.0 - 0.3 * 0.3) * ht)
-        };
+pub(crate) const CFS_CHECK_NAMES: [&str; 6] =
+    ["Compression E", "Tension D", "Flexure-x F", "Flexure-y F", "Shear G", "Interaction H"];
 
-        if shear.abs() > 0.0 && vn > 0.0 {
-            shear.abs() / (PHI_V * vn)
-        } else {
+fn check_single_cfs_member(m: &CfsMemberData, f: &CfsDesignForces) -> CfsCheckResult {
+    let axial = f.axial.unwrap_or(0.0);
+    let mx = f.mx.unwrap_or(0.0);
+    let my = f.my.unwrap_or(0.0);
+    let shear = f.shear.unwrap_or(0.0);
+    let n = CFS_CHECK_NAMES;
+
+    let CfsCapacities { pn, tn, mn_x, mn_y, vn, fe } = cfs_capacities::<f64>(m);
+
+    // A capacity that is zero, negative or not finite was read as ratio 0 and
+    // the member passed (ry = 0 gave Pn = 0 and passed any compression).
+    let mut ledger = CheckLedger::new();
+    let compression_ratio = ledger.ratio_if_loaded(n[0], (-axial).max(0.0), PHI_C * pn);
+    let tension_ratio = ledger.ratio_if_loaded(n[1], axial.max(0.0), PHI_T * tn);
+    let flexure_ratio_x = ledger.ratio_if_loaded(n[2], mx.abs(), PHI_B * mn_x);
+    let flexure_ratio_y = ledger.ratio_if_loaded(n[3], my.abs(), PHI_B * mn_y);
+    let shear_ratio = match vn {
+        Some(vn) => ledger.ratio_if_loaded(n[4], shear.abs(), PHI_V * vn),
+        None => {
+            // Without h and t the web shear strength is unknown: a shear
+            // demand was reported as ratio 0.
+            if shear != 0.0 {
+                ledger.flag(n[4]);
+            }
             0.0
         }
-    } else {
-        0.0
     };
 
     // ==================== Combined Loading (AISI S100 Ch. H) ====================
-    let interaction_ratio = if axial < 0.0 {
-        // Compression + bending: H1-1
-        let pu_ratio = compression_ratio;
-        if pu_ratio > 0.15 {
-            pu_ratio + 8.0 / 9.0 * (flexure_ratio_x + flexure_ratio_y)
-        } else {
-            pu_ratio / 2.0 + flexure_ratio_x + flexure_ratio_y
-        }
-    } else if axial > 0.0 {
-        // Tension + bending
-        tension_ratio + flexure_ratio_x + flexure_ratio_y
-    } else {
-        flexure_ratio_x + flexure_ratio_y
-    };
+    // H1.2 / H2: P/Pa + Mx/Max + My/May <= 1 (linear, with the required
+    // strengths from a second-order analysis). The AISC H1-1a/b split used
+    // here (8/9 on the moments above P/Pa = 0.15, P/(2Pa) below) is not in
+    // AISI and understated the interaction.
+    let interaction_ratio = compression_ratio + tension_ratio + flexure_ratio_x + flexure_ratio_y;
 
-    let pass = compression_ratio <= 1.0
+    let pass = ledger.all_evaluated()
+        && compression_ratio <= 1.0
         && tension_ratio <= 1.0
         && flexure_ratio_x <= 1.0
         && flexure_ratio_y <= 1.0
@@ -340,5 +367,6 @@ fn check_single_cfs_member(m: &CfsMemberData, f: &CfsDesignForces) -> CfsCheckRe
         mn_y,
         fe,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }

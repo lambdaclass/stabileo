@@ -67,6 +67,37 @@ pub trait Real:
     fn hull(self, o: Self) -> Self;
     fn lt(self, o: Self) -> Tri;
     fn le(self, o: Self) -> Tri;
+    /// The root of `g` on `(lo, hi)`, where the caller guarantees `g` is
+    /// continuous and strictly increasing there (so the root is unique).
+    /// `g64` is the same formula instantiated in f64, `g` the generic one.
+    ///
+    /// f64: bisection on `g64` (NaN unless `g64(lo) < 0 < g64(hi)`).
+    /// Interval: the f64 root `r`, then a bracket `[r − δ, r + δ]` certified
+    /// by evaluating `g` in interval arithmetic at both ends (`g < 0` at the
+    /// left end and `> 0` at the right for every real parameter in the
+    /// enclosures): by continuity the exact root is inside, by monotonicity
+    /// it is the only one. NaN if no bracket up to `δ = 1e-3·|r|` certifies.
+    fn increasing_root(g64: impl Fn(f64) -> f64, g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self;
+}
+
+/// Bisection for an increasing `g`: NaN unless `g(lo) < 0 < g(hi)`.
+pub fn bisect_increasing(g: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
+    let (mut lo, mut hi) = (lo, hi);
+    if !(lo < hi) || !(g(lo) < 0.0) || !(g(hi) > 0.0) {
+        return f64::NAN;
+    }
+    for _ in 0..2000 {
+        let mid = 0.5 * (lo + hi);
+        if mid <= lo || mid >= hi {
+            break; // adjacent floats
+        }
+        if g(mid) < 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
 }
 
 /// `if c { a } else { b }`, taking the hull of both arms when `c` is undecided.
@@ -140,6 +171,9 @@ impl Real for f64 {
     #[inline]
     fn le(self, o: Self) -> Tri {
         Tri::of_bool(self <= o)
+    }
+    fn increasing_root(g64: impl Fn(f64) -> f64, _g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
+        bisect_increasing(g64, lo, hi)
     }
 }
 
@@ -253,6 +287,25 @@ impl Real for Interval {
         } else {
             Tri::Unknown
         }
+    }
+    fn increasing_root(g64: impl Fn(f64) -> f64, g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
+        let r = bisect_increasing(g64, lo, hi);
+        if !r.is_finite() {
+            return Interval::NAN;
+        }
+        let mut delta = (r.abs() * 4.0 * f64::EPSILON).max(f64::MIN_POSITIVE);
+        while delta <= 1e-3 * r.abs().max(f64::MIN_POSITIVE) {
+            let (a, b) = ((r - delta).next_down(), (r + delta).next_up());
+            // Stay inside (lo, hi), where the caller guarantees monotonicity.
+            if a >= lo && b <= hi {
+                let (ga, gb) = (g(Interval::point(a)), g(Interval::point(b)));
+                if ga.is_finite() && gb.is_finite() && ga.hi < 0.0 && gb.lo > 0.0 {
+                    return Interval::new(a, b);
+                }
+            }
+            delta *= 4.0;
+        }
+        Interval::NAN
     }
 }
 

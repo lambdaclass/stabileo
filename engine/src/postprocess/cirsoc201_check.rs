@@ -2,9 +2,13 @@
 //!
 //! Argentine concrete design code based on ACI 318 with local modifications.
 //! Uses load and resistance factor design (LRFD/USD).
-//! Covers flexure (Whitney stress block), shear, and combined loading.
+//! Covers flexure (Whitney stress block, strain compatibility) and shear.
 
 use serde::{Deserialize, Serialize};
+
+use crate::certify::real::{branch, Real};
+use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
+use crate::postprocess::rc_flexure::RcFlexureSection;
 
 // ==================== Types ====================
 
@@ -87,36 +91,124 @@ pub struct Cirsoc201CheckResult {
     pub a: f64,
     /// Phi factor used
     pub phi: f64,
-    /// Overall pass
+    /// Overall pass (false when any check could not be evaluated)
     pub pass: bool,
+    /// Checks whose capacity could not be evaluated.
+    #[serde(default)]
+    pub unevaluated: Unevaluated,
 }
 
 // ==================== Implementation ====================
 
-/// Compute beta1 per CIRSOC 201 (same as ACI 318).
-fn compute_beta1(fc: f64) -> f64 {
-    let fc_mpa = fc / 1e6;
-    if fc_mpa <= 28.0 {
-        0.85
-    } else if fc_mpa >= 56.0 {
-        0.65
-    } else {
-        0.85 - 0.05 * (fc_mpa - 28.0) / 7.0
+/// beta1 per CIRSOC 201 10.2.7.3 (same as ACI 318).
+pub(crate) fn compute_beta1<T: Real>(fc: f64) -> T {
+    let fc_mpa = T::exact(fc).dv(T::exact(1e6));
+    let (lo, hi) = (T::exact(28.0), T::exact(56.0));
+    branch(
+        fc_mpa.le(lo),
+        || T::lit(0.85),
+        || branch(hi.le(fc_mpa), || T::lit(0.65), || T::lit(0.85) - T::lit(0.05) * (fc_mpa - lo).dv(T::exact(7.0))),
+    )
+}
+
+/// Compression-controlled strain limit (CIRSOC 201 10.3.3): εy = fy/Es, which
+/// may be taken as 0.002 for fy = 420 MPa (and, conservatively, below).
+///
+/// The fixed 0.002 used for every grade overstated phi in the transition
+/// zone for ADN 500 (εy = 0.0025): at εt = 0.0025 phi came out 0.69, not 0.65.
+fn epsilon_ty<T: Real>(fy: f64, es: f64) -> T {
+    branch(T::exact(fy).le(T::exact(420e6)), || T::lit(0.002), || T::exact(fy).dv(T::exact(es)))
+}
+
+/// Phi for flexure from the net tensile strain (CIRSOC 201 9.3.2).
+pub(crate) fn compute_phi<T: Real>(epsilon_t: T, fy: f64, es: f64) -> T {
+    let ety = epsilon_ty::<T>(fy, es);
+    let etc = T::lit(0.005);
+    branch(
+        etc.le(epsilon_t),
+        || T::lit(0.90), // tension-controlled
+        || {
+            branch(
+                epsilon_t.le(ety),
+                || T::lit(0.65), // compression-controlled
+                || T::lit(0.65) + T::lit(0.25) * (epsilon_t - ety).dv(etc - ety),
+            )
+        },
+    )
+}
+
+/// CIRSOC 201 flexural strength (10.2, strain compatibility).
+pub(crate) struct Cirsoc201Flexure<T> {
+    pub phi_mn: T,
+    pub a: T,
+    pub phi: T,
+}
+
+/// CIRSOC 201 shear strength (Cap. 11).
+pub(crate) struct Cirsoc201Shear<T> {
+    pub phi_vn: T,
+    pub vc: T,
+    pub vs: T,
+}
+
+pub(crate) fn flexure_section(m: &Cirsoc201MemberData) -> RcFlexureSection {
+    let (as_c, d_prime) = match (m.as_compression, m.d_prime) {
+        (Some(a), Some(d)) => (a, d),
+        _ => (0.0, 0.0),
+    };
+    RcFlexureSection {
+        fc: m.fc,
+        fy: m.fy,
+        es: m.es.unwrap_or(200e9),
+        bw: m.b,
+        bf: m.b,
+        hf: 0.0,
+        d: m.d,
+        as_t: m.as_tension,
+        as_c,
+        d_prime,
     }
 }
 
-/// Compute phi factor based on net tensile strain (CIRSOC 201 9.3).
-fn compute_phi(epsilon_t: f64) -> f64 {
-    let epsilon_ty = 0.002; // fy/Es for 420 MPa steel
-    if epsilon_t >= 0.005 {
-        0.90 // Tension-controlled
-    } else if epsilon_t <= epsilon_ty {
-        0.65 // Compression-controlled
-    } else {
-        0.65 + 0.25 * (epsilon_t - epsilon_ty) / (0.005 - epsilon_ty)
-    }
+/// Flexural strength. Generic over `Real` so the certified check evaluates the
+/// same formulas in interval arithmetic.
+pub(crate) fn cirsoc201_flexure<T: Real>(m: &Cirsoc201MemberData) -> Cirsoc201Flexure<T> {
+    let es = m.es.unwrap_or(200e9);
+    let sec = flexure_section(m);
+    let f = sec.strength(compute_beta1::<T>(m.fc), compute_beta1::<f64>(m.fc));
+    let phi = compute_phi(f.epsilon_t, m.fy, es);
+    Cirsoc201Flexure { phi_mn: phi * f.mn, a: f.a, phi }
 }
 
+/// Shear strength (CIRSOC 201 11.3.1.1, 11.5.7.2, 11.5.7.9).
+pub(crate) fn cirsoc201_shear<T: Real>(m: &Cirsoc201MemberData) -> Cirsoc201Shear<T> {
+    let lambda = T::exact(m.lambda.unwrap_or(1.0));
+    // Empirical formula with f'c in MPa and bw, d in mm (result in N).
+    let fc_mpa = T::exact(m.fc).dv(T::exact(1e6));
+    let bw_mm = T::exact(m.b) * T::exact(1000.0);
+    let d_mm = T::exact(m.d) * T::exact(1000.0);
+    let sqrt_fc = fc_mpa.sqrt();
+    // 11.1.2: sqrt(f'c) <= 25/3 MPa in Vc. Uncapped, Vc was overstated for
+    // f'c > 69 MPa. (11.1.2.1 relaxes this with minimum web reinforcement;
+    // the cap is applied regardless, conservatively.)
+    let sqrt_fc_vc = sqrt_fc.min(T::exact(25.0).dv(T::exact(3.0)));
+    let vc = T::lit(0.17) * lambda * sqrt_fc_vc * bw_mm * d_mm;
+
+    // Vs from stirrups
+    let vs = match (m.av, m.s_stirrup) {
+        (Some(av), Some(s)) if s > 0.0 => (T::exact(av) * T::exact(m.fy) * T::exact(m.d)).dv(T::exact(s)),
+        _ => T::exact(0.0),
+    };
+    // Vs <= (2/3)·sqrt(f'c)·bw·d (11.5.7.9, written 0.66 as in ACI 318M)
+    let vs_max = T::lit(0.66) * sqrt_fc * bw_mm * d_mm;
+    let vs = vs.min(vs_max);
+
+    let phi_vn = T::lit(0.75) * (vc + vs);
+    Cirsoc201Shear { phi_vn, vc, vs }
+}
+
+pub(crate) const CIRSOC201_FLEXURE: &str = "Flexure CIRSOC 201";
+pub(crate) const CIRSOC201_SHEAR: &str = "Shear CIRSOC 201";
 
 /// Index the force records by id so each member is a hash lookup rather than a
 /// scan of the whole list. The pairing was O(members x forces): fine at 100
@@ -152,71 +244,20 @@ fn check_single_cirsoc201(
     m: &Cirsoc201MemberData,
     f: &Cirsoc201DesignForces,
 ) -> Cirsoc201CheckResult {
-    let es = m.es.unwrap_or(200e9);
-    let lambda = m.lambda.unwrap_or(1.0);
     let mu = f.mu.unwrap_or(0.0).abs();
     let vu = f.vu.unwrap_or(0.0).abs();
 
-    // ==================== Flexure ====================
+    let Cirsoc201Flexure { phi_mn, a, phi } = cirsoc201_flexure::<f64>(m);
+    let Cirsoc201Shear { phi_vn, vc, vs } = cirsoc201_shear::<f64>(m);
 
-    let beta1 = compute_beta1(m.fc);
+    // A capacity that is zero, negative or not finite was read as ratio 0 and
+    // the member passed (e.g. As = 0 passed any moment). The ledger records it
+    // and the member no longer passes.
+    let mut ledger = CheckLedger::new();
+    let flexure_ratio = ledger.ratio(CIRSOC201_FLEXURE, mu, phi_mn);
+    let shear_ratio = ledger.ratio_if_loaded(CIRSOC201_SHEAR, vu, phi_vn);
 
-    // Whitney stress block: C = 0.85 * f'c * a * b, T = As * fy
-    // a = As * fy / (0.85 * f'c * b)
-    let a = m.as_tension * m.fy / (0.85 * m.fc * m.b);
-    let c = a / beta1;
-
-    // Include compression steel if present
-    let (a_final, mn) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
-        let epsilon_cu = 0.003;
-        let epsilon_sc = epsilon_cu * (c - d_p) / c;
-        let fsc = (epsilon_sc * es).min(m.fy);
-        let fsc = fsc.max(-m.fy); // Clamp
-
-        // Recompute a with compression steel
-        let a_new = (m.as_tension * m.fy - as_c * fsc) / (0.85 * m.fc * m.b);
-        let _c_new = a_new / beta1;
-
-        let mn_c = 0.85 * m.fc * a_new * m.b * (m.d - a_new / 2.0);
-        let mn_s = as_c * fsc * (m.d - d_p);
-        (a_new, mn_c + mn_s)
-    } else {
-        let mn_val = m.as_tension * m.fy * (m.d - a / 2.0);
-        (a, mn_val)
-    };
-
-    // Net tensile strain for phi
-    let c_final = a_final / beta1;
-    let epsilon_t = 0.003 * (m.d - c_final) / c_final;
-    let phi = compute_phi(epsilon_t);
-
-    let phi_mn = phi * mn;
-    let flexure_ratio = if phi_mn > 0.0 { mu / phi_mn } else { 0.0 };
-
-    // ==================== Shear (CIRSOC 201 Cap. 11) ====================
-
-    // CIRSOC 201 uses the same empirical formula as ACI 318M
-    // Vc = 0.17 * lambda * sqrt(f'c_MPa) * bw_mm * d_mm (in Newtons)
-    let fc_mpa = m.fc / 1e6;
-    let bw_mm = m.b * 1000.0;
-    let d_mm = m.d * 1000.0;
-    let vc = 0.17 * lambda * fc_mpa.sqrt() * bw_mm * d_mm;
-
-    // Vs from stirrups
-    let vs = match (m.av, m.s_stirrup) {
-        (Some(av), Some(s)) if s > 0.0 => av * m.fy * m.d / s,
-        _ => 0.0,
-    };
-
-    // Maximum Vs per CIRSOC 201 (same as ACI)
-    let vs_max = 0.66 * fc_mpa.sqrt() * bw_mm * d_mm;
-    let vs = vs.min(vs_max);
-
-    let phi_v = 0.75;
-    let phi_vn = phi_v * (vc + vs);
-    let shear_ratio = if phi_vn > 0.0 { vu / phi_vn } else { 0.0 };
-
-    let pass = flexure_ratio <= 1.0 && shear_ratio <= 1.0;
+    let pass = ledger.all_evaluated() && flexure_ratio <= 1.0 && shear_ratio <= 1.0;
 
     Cirsoc201CheckResult {
         element_id: m.element_id,
@@ -226,8 +267,9 @@ fn check_single_cirsoc201(
         shear_ratio,
         vc,
         vs,
-        a: a_final,
+        a,
         phi,
         pass,
+        unevaluated: ledger.into_unevaluated(),
     }
 }
