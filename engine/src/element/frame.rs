@@ -249,13 +249,22 @@ pub fn frame_local_stiffness_3d(
 }
 
 /// Torsion-warping 4×4 block over [θx1, φ'1, θx2, φ'2] (row-major).
+///
+/// The twist θx is the cubic Hermite interpolant of the four DOFs and the
+/// block is its strain energy ½∫(G·J·θx'² + E·Cw·θx''²) dx: the St-Venant part
+/// G·J/(30L)·[36, 3L, −36, 3L; 3L, 4L², −3L, −L²; …] plus the warping part
+/// E·Cw/L³·[12, 6L, −12, 6L; …] (Barsoum & Gallagher 1970; McGuire, Gallagher
+/// & Ziemian, Matrix Structural Analysis, 2nd ed., §8.4). The St-Venant part
+/// used to be G·J/L on the twist DOFs alone, the energy of a linear twist
+/// beside the cubic one of the warping part: still convergent, but as h²
+/// instead of h⁴ (10% off for one element of a cantilever with kL ≈ 2.4).
 pub(crate) fn torsion_warping_block(gj: f64, ecw: f64, l: f64, l2: f64, l3: f64) -> [f64; 16] {
     // Each distinct term computed once: symmetric entries are the same f64 value
     // by construction. (−x − y and −(x + y) round identically.)
-    let t = gj / l + 12.0 * ecw / l3;
-    let b = 6.0 * ecw / l2;
-    let c = 4.0 * ecw / l;
-    let d = 2.0 * ecw / l;
+    let t = 6.0 * gj / (5.0 * l) + 12.0 * ecw / l3;
+    let b = gj / 10.0 + 6.0 * ecw / l2;
+    let c = 2.0 * gj * l / 15.0 + 4.0 * ecw / l;
+    let d = 2.0 * ecw / l - gj * l / 30.0;
     [
          t,  b, -t,  b,
          b,  c, -b,  d,
@@ -287,7 +296,7 @@ pub fn frame_local_stiffness_3d_warping(
     }
 
     // Add warping torsion coupling (DOFs 3,6 for node I and 10,13 for node J)
-    // Warping stiffness submatrix using Hermitian cubic interpolation:
+    // Torsion-warping submatrix of the cubic Hermite twist (torsion_warping_block):
     //   Torsion DOFs: theta_x at DOFs 3 (node I) and 10 (node J)
     //   Warping DOFs: phi' at DOFs 6 (node I) and 13 (node J)
     let l2 = l * l;

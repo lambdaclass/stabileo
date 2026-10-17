@@ -11,6 +11,29 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Frame element matrices checked against a symbolic derivation (2026-10-17)
+
+**BREAKING (results): 2D buckling and P-Delta of frames with hinged members, and every model
+with warping members (`cw` set) — static, buckling and modal — solve differently.** Found by
+deriving the frame-family element matrices from shape functions and energy in SymPy and comparing
+the Rust kernels exactly (`tools/symbolic/`, `engine/tests/symbolic_elements.rs`,
+`docs/verification/SYMBOLIC.md`); each fix has a regression test.
+
+- **The 2D geometric stiffness ignored hinges.** A hinged rotation kept the fixed-fixed −4PL/30,
+  held only by the solver's artificial rotational stiffness, so a plane frame with a pin-ended
+  member buckled at λ ≈ 1e-6 (a leaning-column frame: 5e-6 instead of 3.75) and P-Delta amplified
+  wrongly. Kg is now condensed for the hinges exactly as in 3D.
+- **The warping torsion block mixed a linear-twist St-Venant term (GJ/L) with the cubic warping
+  term.** It is now the energy of the cubic twist (Barsoum–Gallagher): convergence h⁴ instead of
+  h² (a cantilever’s tip twist with one element: 11% off before, under 2% now).
+- **Warping DOFs carried a lumped ρ·Ip·L/2**, a rotation's inertia on a rate-of-twist DOF.
+  Warping members now use the consistent 14×14 mass of their cubic twist (ρIp and ρCw terms); a
+  fork beam's first torsional frequency was 10.6% low.
+- `fef_distributed_torsion_warping` (no callers) now returns the loads consistent with the
+  warping element.
+- Not fixed, reproduced by an ignored test: the 3D co-rotational solver does not converge on (or
+  converges wrongly for) frames with pin-ended members.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

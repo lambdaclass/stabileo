@@ -430,124 +430,37 @@ pub fn fef_thermal_3d(
     [-fx, 0.0, 0.0, 0.0, -my, -mz, fx, 0.0, 0.0, 0.0, my, mz]
 }
 
-/// Fixed-end forces for distributed torsion on a warping element (14-DOF).
+/// Equivalent nodal loads of a distributed torque on a warping element (14-DOF).
 ///
-/// For a beam with warping torsion, a distributed torque t(x) linearly varying
-/// from t_i at node I to t_j at node J produces non-zero warping DOF FEFs.
+/// The torque t(x) varies linearly from `t_i` at node I to `t_j` at node J.
+/// The loads are the work of t on the element's own twist shapes, the cubic
+/// Hermite functions of [θx1, φ'1, θx2, φ'2] that `torsion_warping_block`
+/// interpolates with:
+///   Mx_i = L(7t_i + 3t_j)/20,   B_i = L²(3t_i + 2t_j)/60,
+///   Mx_j = L(3t_i + 7t_j)/20,   B_j = −L²(2t_i + 3t_j)/60.
+/// (Before, the twist DOFs got the linear-shape split, tL/2 and tL/6 / tL/3,
+/// and the warping DOFs the exact Vlasov bimoments of a uniform torque with
+/// the opposite sign plus a "simplified" triangular term that multiplied its
+/// shape functions by zero — loads consistent with no element. Found by
+/// tests/symbolic_elements.rs; the function had no callers.)
+/// `e`, `cw`, `g`, `j` are kept for the signature: consistent loads do not
+/// depend on the section.
 ///
-/// The warping FEF terms use the parameter k = sqrt(GJ / (E*Cw)).
-/// Returns a 14-element FEF vector.
-///
-/// DOF layout: [ux, uy, uz, rx, ry, rz, φ, ux, uy, uz, rx, ry, rz, φ]
-///
-/// Reference: Vlasov, "Thin-Walled Elastic Beams" (1961)
+/// DOF layout: [ux, uy, uz, rx, ry, rz, φ', ux, uy, uz, rx, ry, rz, φ']
 pub fn fef_distributed_torsion_warping(
     t_i: f64,
     t_j: f64,
     l: f64,
-    e: f64,
-    cw: f64,
-    g: f64,
-    j: f64,
+    _e: f64,
+    _cw: f64,
+    _g: f64,
+    _j: f64,
 ) -> [f64; 14] {
     let mut fef = [0.0; 14];
-
-    if (cw).abs() < 1e-30 {
-        // No warping constant — fall back to St. Venant torsion only
-        let t_uniform = t_i;
-        let t_tri = t_j - t_i;
-        // Uniform: mx_i = tL/2, mx_j = tL/2
-        fef[3] = t_uniform * l / 2.0;
-        fef[10] = t_uniform * l / 2.0;
-        // Triangular: mx_i = tL/6, mx_j = tL/3
-        fef[3] += t_tri * l / 6.0;
-        fef[10] += t_tri * l / 3.0;
-        return fef;
-    }
-
-    let k = (g * j / (e * cw)).sqrt();
-    let kl = k * l;
-
-    // Decompose into uniform (t_i) and triangular (t_j - t_i) components
-    let t_uniform = t_i;
-    let t_tri = t_j - t_i;
-
-    // -- Uniform distributed torsion t_uniform --
-    // St. Venant torsion reactions (same as beam with no warping)
-    fef[3] = t_uniform * l / 2.0;
-    fef[10] = t_uniform * l / 2.0;
-
-    // Warping DOF (bimoment) terms for uniform torque on warping beam:
-    // The bimoment FEF terms: φ_i and φ_j (DOFs 6 and 13)
-    // For uniform torsion on a fixed-fixed warping beam:
-    // B_i = t/(2k²) * [1 - kL·cosh(kL/2) / (2·sinh(kL/2))]  (antisymmetric)
-    if kl > 1e-6 {
-        let half_kl = kl / 2.0;
-        let sh = half_kl.sinh();
-        let ch = half_kl.cosh();
-        // Warping FEF at node I (bimoment ≡ E·Cw·φ'')
-        // In our DOF system, the warping DOF generalized force is the bimoment.
-        let bw_coeff = t_uniform / (k * k);
-        if sh.abs() > 1e-15 {
-            let term = 1.0 - kl * ch / (2.0 * sh);
-            fef[6] = bw_coeff * term;    // Warping DOF at node I
-            fef[13] = -bw_coeff * term;  // Warping DOF at node J (antisymmetric)
-        }
-    }
-
-    // -- Triangular distributed torsion (0 at I, t_tri at J) --
-    // St. Venant: mx_i = t·L/6, mx_j = t·L/3
-    fef[3] += t_tri * l / 6.0;
-    fef[10] += t_tri * l / 3.0;
-
-    // Warping terms for triangular load: more complex, use Simpson integration
-    if kl > 1e-6 && t_tri.abs() > 1e-15 {
-        let n_seg = 20;
-        let dx = l / n_seg as f64;
-        let mut bw_i = 0.0;
-        let mut bw_j = 0.0;
-
-        for i in 0..=n_seg {
-            let x = i as f64 * dx;
-            let xi = x / l;
-            let t_x = t_tri * xi; // linear load at position x
-
-            // Green's function for bimoment on warping beam
-            // Simplified: use beam-on-elastic-foundation analogy
-            // Shape functions for warping DOFs
-            let s_kl = kl.sinh();
-            let _c_kl = kl.cosh();
-
-            let (n_w1, n_w2) = if s_kl.abs() > 1e-15 {
-                let kx = k * x;
-                let klx = k * (l - x);
-                // Warping shape functions (analogous to beam on elastic foundation)
-                let n1 = (klx.sinh() + kl.sinh() - kx.sinh()) / s_kl - 1.0 + xi;
-                let n2 = (kx.sinh()) / s_kl - xi;
-                (n1 * 0.0 + (1.0 - xi), n2 * 0.0 + xi) // Simplified linear distribution
-            } else {
-                (1.0 - xi, xi)
-            };
-
-            // Simpson weight
-            let w = if i == 0 || i == n_seg {
-                1.0
-            } else if i % 2 == 1 {
-                4.0
-            } else {
-                2.0
-            };
-
-            let tw = t_x * w * dx / 3.0;
-            bw_i += n_w1 * tw / (e * cw).max(1e-30);
-            bw_j += n_w2 * tw / (e * cw).max(1e-30);
-        }
-
-        // Scale by E*Cw to get bimoment (force dimension)
-        fef[6] += bw_i * e * cw;
-        fef[13] += bw_j * e * cw;
-    }
-
+    fef[3] = l * (7.0 * t_i + 3.0 * t_j) / 20.0;
+    fef[6] = l * l * (3.0 * t_i + 2.0 * t_j) / 60.0;
+    fef[10] = l * (3.0 * t_i + 7.0 * t_j) / 20.0;
+    fef[13] = -l * l * (2.0 * t_i + 3.0 * t_j) / 60.0;
     fef
 }
 

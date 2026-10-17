@@ -13,6 +13,8 @@ on:
       - "verify/**"
       - "engine/src/**"
       - "docs/verification/**"
+      - "tools/symbolic/**"
+      - "engine/tests/symbolic_elements.rs"
       - "flake.nix"
       - "flake.lock"
       - ".github/workflows/verify.yml"
@@ -49,6 +51,22 @@ jobs:
       - name: Certificate bundles
         working-directory: verify
         run: nix develop ..#verify -c ./scripts/check-bundles.sh
+
+  # The element matrices derived symbolically (tools/symbolic): regenerating
+  # engine/tests/symbolic_elements.rs must reproduce the committed file. The
+  # generated test itself runs in ci.yml's engine suite.
+  symbolic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install SymPy
+        run: pip install -r tools/symbolic/requirements.txt
+      - name: Generated test is up to date
+        run: python -I tools/symbolic/gen.py --check
 
   kani:
     runs-on: ubuntu-latest
