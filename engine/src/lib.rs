@@ -1100,6 +1100,13 @@ pub fn check_ec3_members(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Batched CIRSOC 201 beam-section flexure and shear; layout in
+/// `postprocess::cirsoc201_check::beam_batch`.
+#[wasm_bindgen]
+pub fn cirsoc201_beam_batch(data: &[f64]) -> Result<Vec<f64>, JsValue> {
+    postprocess::cirsoc201_check::beam_batch(data).map_err(JsValue::from_str)
+}
+
 #[wasm_bindgen]
 pub fn check_cirsoc201_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cirsoc201_check::Cirsoc201CheckInput =

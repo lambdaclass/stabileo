@@ -1,4 +1,5 @@
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
+import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { packedShellCombinationKernel, registerShellCombinationKernel } from './shell-combination-kernel';
 import { registerRcSectionKernel } from './codes/argentina/rc-section-kernel';
 import { registerCollisionKernel } from './detailing/collision-kernel';
@@ -202,6 +203,7 @@ export async function initSolver(): Promise<void> {
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
     registerRcSectionKernel(wasm.RcSectionGeometry ?? null);
     registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
+    registerCirsoc201BeamKernel(wasm.cirsoc201_beam_batch ?? null);
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);

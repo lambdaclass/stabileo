@@ -276,7 +276,7 @@ fn foundation_missing_allowable_pressure_does_not_pass() {
             length: 2.0, width: 2.0, thickness: 0.5, depth: 1.0,
             q_allowable: 0.0,
             gamma_soil: 18_000.0, fc: 28e6,
-            col_length: 0.4, col_width: 0.4, d: None, mu_sliding: None,
+            col_length: 0.4, col_width: 0.4, d: None, mu_sliding: None, rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1, p: 500e3, mx: None, my: None, h: None,

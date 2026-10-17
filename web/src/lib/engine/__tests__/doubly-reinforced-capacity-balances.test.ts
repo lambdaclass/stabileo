@@ -40,11 +40,17 @@ function equilibriumResidual(
   r: { a: number; c: number }, AsCm2: number, AsCompCm2: number,
   b: number, fc: number, fy: number, dPrime: number,
 ): number {
-  const T = AsCm2 * 1e-4 * fy * 1000;
+  // Tension steel at its strain-compatible stress: the checker no longer assumes it yields.
+  const d = 0.459;
+  const epsT = 0.003 * (d - r.c) / r.c;
+  const T = AsCm2 * 1e-4 * Math.min(ES_KPA * epsT, fy * 1000);
   const Cc = ALPHA1 * fc * 1000 * r.a * b;
   const eps = r.c > dPrime ? 0.003 * (r.c - dPrime) / r.c : 0;
   const fs = Math.min(ES_KPA * eps, fy * 1000);
-  const Cs = AsCompCm2 * 1e-4 * Math.max(0, fs - ALPHA1 * fc * 1000);
+  // Net of displaced concrete only where the bar sits inside the stress block (d' ≤ a): a bar
+  // between the block and the neutral axis displaces no block concrete. The engine checker
+  // follows the clause here; this helper used to deduct it regardless.
+  const Cs = AsCompCm2 * 1e-4 * Math.max(0, fs - (dPrime <= r.a ? ALPHA1 * fc * 1000 : 0));
   return Math.abs(Cc + Cs - T) / T;
 }
 

@@ -38,6 +38,11 @@ pub struct SpreadFootingData {
     /// Coefficient of friction soil-concrete (default 0.5)
     #[serde(default)]
     pub mu_sliding: Option<f64>,
+    /// Tension steel ratio As/(b·d) of the bottom mat, for one-way shear (Tabla 22.5.5.1 (c)).
+    /// Absent: 0,0018, the least a footing may carry (7.6.1.1, 13.3), so the shear strength
+    /// taken is the least the code allows, never more.
+    #[serde(default)]
+    pub rho_w: Option<f64>,
 }
 
 /// Applied loads on a spread footing.
@@ -186,6 +191,13 @@ fn check_single_footing(
     // checking only the length direction misses it entirely.
     let fc_mpa = ftg.fc / 1e6;
     let d_mm = d * 1000.0;
+    // CIRSOC 201-2025: √f'c ≤ 8,3 MPa (22.5.3.1, 22.6.3.1) and the size factor λs (22.5.5.1.3),
+    // which applies to a footing without shear reinforcement in one-way shear (Tabla 22.5.5.1
+    // row (c)) and in punching (Tabla 22.6.5.2). Both were missing: at d = 500 mm, λs = 0,82,
+    // so the check overstated the footing's shear strength by 22 %.
+    let sqrt_fc = fc_mpa.sqrt().min(8.3);
+    let lambda_s = (2.0 / (1.0 + 0.004 * d_mm)).sqrt().min(1.0);
+    let rho_w = ftg.rho_w.unwrap_or(0.0018).max(0.0);
 
     // phi*Vc = phi * 0.17 * sqrt(f'c_MPa) * bw_mm * d_mm (ACI 318 metric)
     // Demand and capacity for one direction: the strip cantilevering past the
@@ -196,8 +208,8 @@ fn check_single_footing(
         } else {
             0.0
         };
-        // phi*Vc = phi * 0.17 * sqrt(f'c_MPa) * bw_mm * d_mm (ACI 318 metric)
-        let phi_vc = PHI_SHEAR * 0.17 * fc_mpa.sqrt() * (resisting_width * 1000.0) * d_mm;
+        // Tabla 22.5.5.1 row (c): no shear reinforcement in a footing.
+        let phi_vc = PHI_SHEAR * 0.66 * lambda_s * rho_w.cbrt() * sqrt_fc * (resisting_width * 1000.0) * d_mm;
         (vu, phi_vc)
     };
 
@@ -230,9 +242,10 @@ fn check_single_footing(
         / ftg.col_length.min(ftg.col_width).max(1e-6);
     let alpha_s = 40.0; // interior column
 
-    let vc1 = 0.33 * fc_mpa.sqrt() * b0_mm * d_mm;
-    let vc2 = (0.17 + 0.33 / beta_col) * fc_mpa.sqrt() * b0_mm * d_mm;
-    let vc3 = (0.083 * (alpha_s * d_mm / b0_mm + 2.0)) * fc_mpa.sqrt() * b0_mm * d_mm;
+    let root = lambda_s * sqrt_fc;
+    let vc1 = 0.33 * root * b0_mm * d_mm;
+    let vc2 = 0.17 * (1.0 + 2.0 / beta_col) * root * b0_mm * d_mm;
+    let vc3 = (0.083 * (alpha_s * d_mm / b0_mm + 2.0)) * root * b0_mm * d_mm;
     let vc_punch = vc1.min(vc2).min(vc3);
     let phi_vc_punch = PHI_SHEAR * vc_punch;
 

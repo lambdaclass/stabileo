@@ -28,6 +28,7 @@ fn rect_footing() -> SpreadFootingData {
         col_width: 0.40,
         d: None,
         mu_sliding: None,
+        rho_w: None,
     }
 }
 

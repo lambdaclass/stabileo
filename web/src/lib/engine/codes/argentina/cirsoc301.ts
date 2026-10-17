@@ -137,10 +137,13 @@ function fmt(v: number, decimals = 2): string {
   return v.toFixed(decimals);
 }
 
-function statusFromRatio(ratio: number): VerifStatus {
-  if (ratio <= 1.0) return 'ok';
-  if (ratio <= 1.05) return 'warn';
-  return 'fail';
+/**
+ * A ratio above 1,0 fails: CIRSOC 301 grants no overstress band. This read 1,00 < ratio ≤ 1,05
+ * as 'warn', so a member 5 % over its design strength was shown in amber, while CIRSOC 201
+ * uses 'warn' for 0,9 < ratio ≤ 1,0, a pass close to the limit. A warning is never a failure.
+ */
+export function statusFromRatio(ratio: number): VerifStatus {
+  return ratio <= 1.0 ? 'ok' : 'fail';
 }
 
 function worstStatus(...statuses: VerifStatus[]): VerifStatus {

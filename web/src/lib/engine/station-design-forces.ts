@@ -1,4 +1,5 @@
-import { getColumnCapacityKernel } from './column-capacity-kernel';
+import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
+import { evaluateBeamSection } from './codes/argentina/cirsoc201-beam-kernel';
 /**
  * Station-based, sign-aware, per-combo force extraction for member design.
  *
@@ -1208,20 +1209,25 @@ function beta1(fc: number): number {
 const ALPHA1 = 0.85;
 
 /**
- * Compute φ·Mn for a rectangular beam section with optional compression steel.
- * Uses CIRSOC 201 §10.2 Whitney stress block method with strain compatibility.
+ * φ·Mn of a rectangular beam section with the bars it has — computed by the ENGINE.
  *
- * **Strain-compatible doubly reinforced** (when AsComp > 0):
- *   Solves equilibrium for the neutral axis c by bisection, then:
- *   - εs' = 0.003·(c - d')/c — actual compression steel strain
- *   - fs' = min(Es·εs', fy) — compression steel stress (may not yield)
- *   - Cs = As'·(fs' - α1·f'c) if fs' > α1·f'c, else Cs = 0
- *   - Equilibrium: As·fy = α1·f'c·a·b + Cs → solve for c
- *   - φMn = φ·(Cc·(d - a/2) + Cs·(d - d'))
+ * Thin adapter over `cirsoc201-beam-kernel.ts` (Rust `cirsoc201_check::beam_batch`). The rule
+ * used to live here, in TypeScript, outside the engine's verification, and a differential test
+ * against the Rust checker (`__tests__/differential/cirsoc201-beam.test.ts`) found it wrong in
+ * three ways, all on the unsafe side:
  *
- * **Singly reinforced** (when AsComp = 0):
- *   - a = (As·fy)/(α1·f'c·b), c = a/β1
- *   - φMn = φ·As·fy·(d - a/2)
+ *   - the tension steel was assumed to yield. An over-reinforced section (εt < εy) was credited
+ *     up to 18 % more moment than strain compatibility gives;
+ *   - φ ran its transition up to εt = 0,005, the 2005 limit. CIRSOC 201-2025 Tabla 21.2.2 ends
+ *     it at εty + 0,003 (0,0055 for 500 MPa steel): up to 3 % too much φ;
+ *   - and, on the safe side, a compression bar between the stress block and the neutral axis
+ *     was charged for concrete it does not displace.
+ *
+ * The returned shape is the one callers always read, plus `epsilonTMin`, the least εt the
+ * ductility clause (9.3.3.1; 2005: 10.3.5) allows, and `tensionYields`.
+ *
+ * `null` when the section cannot be evaluated or the engine is not loaded: the caller reports
+ * the member as not verifiable, never as verified.
  *
  * @param AsProv_cm2 Provided tension steel area (cm²)
  * @param b Section width (m)
@@ -1230,138 +1236,48 @@ const ALPHA1 = 0.85;
  * @param fy Steel yield strength (MPa)
  * @param AsComp_cm2 Provided compression steel area (cm², 0 for singly reinforced)
  * @param dPrime Depth to compression steel centroid (m)
- * @param tensDia Tension bar diameter (mm) — for improved d computation (optional)
- * @param compDia Compression bar diameter (mm) — for improved d' computation (optional)
+ * @param opts.h Total depth (m). Absent: d, a lower bound, which only matters where the stress
+ *               block would reach past the section.
+ * @param opts.edition CIRSOC 201 edition. Absent: the edition in force, 2025.
  */
 export function computeFlexureCapacity(
   AsProv_cm2: number, b: number, d: number, fc: number, fy: number,
   AsComp_cm2: number = 0, dPrime: number = 0,
-  tensDia: number = 0, compDia: number = 0,
+  _tensDia: number = 0, _compDia: number = 0,
+  opts: { h?: number; edition?: RegulationEdition } = {},
 ): {
   phiMn: number; a: number; c: number; phi: number; epsilonT: number;
   isDoubly: boolean; compYields: boolean; fsComp: number; epsilonComp: number;
+  fsTension: number; tensionYields: boolean; epsilonTMin: number;
 } | null {
-  if (AsProv_cm2 <= 0 || b <= 0 || d <= 0 || fc <= 0 || fy <= 0) return null;
-  const As_m2 = AsProv_cm2 * 1e-4;
-  const AsComp_m2 = AsComp_cm2 * 1e-4;
-  const fc_kPa = fc * 1000;
-  const fy_kPa = fy * 1000;
-  const Es = 200000 * 1000; // Steel elastic modulus: 200,000 MPa → kPa
-  const b1 = beta1(fc);
-  const isDoubly = AsComp_m2 > 1e-8 && dPrime > 0;
-
-  let a: number;
-  let c: number;
-  let fsComp = 0;       // actual compression steel stress (kPa)
-  let epsilonComp = 0;  // compression steel strain
-  let compYields = false;
-
-  if (isDoubly) {
-    /*
-     * ── Strain-compatible solution for the doubly reinforced section ──
-     *
-     * By BISECTION on c, and not by the fixed-point iteration that used to be here.
-     *
-     * The old loop substituted c ← (As·fy − Cs(c)) / (α1·f'c·β1·b) twenty times and then
-     * used whatever the twentieth pass happened to leave, converged or not. For a section
-     * with symmetric reinforcement — the ordinary arrangement — it does not converge: it
-     * oscillates. Taking As = A's = 10.05 cm² in a 30×50 with d' = 4.1 cm, c alternates
-     * between 0.065 m (where the compression steel is counted) and 0.035 m (where c < d',
-     * so it is not), forever, because each value maps to the other.
-     *
-     * The twentieth pass then returned c from the branch that IGNORES the compression
-     * steel, while the moment below ADDS it. The state that came out satisfied no
-     * equilibrium at all: Cc + Cs = 618 kN against T = 422 kN, 47 % out, and φMn came
-     * back as 238 kN·m where the section carries about 164. The error ran one way only —
-     * always more capacity — and grew with the compression steel, so the more heavily
-     * reinforced the beam, the more it overstated.
-     *
-     * Bisection cannot do that. The residual
-     *
-     *     f(c) = α1·f'c·β1·c·b + Cs(c) − As·fy
-     *
-     * is continuous and non-decreasing in c: the concrete block grows with c, and Cs(c)
-     * is zero up to d' and then rises monotonically to its cap at yield. So the root is
-     * unique and bracketed by [0, h], and halving the bracket always converges.
-     *
-     * What does not happen any more is returning a number that is not a solution. If the
-     * bracket does not close — which would mean the residual is not what this reasoning
-     * says it is — the function returns null, and the member reports as not verifiable
-     * rather than as verified against an equilibrium that was never satisfied.
-     */
-    const CsOf = (cTrial: number): number => {
-      const eps = cTrial > dPrime ? 0.003 * (cTrial - dPrime) / cTrial : 0;
-      const fs = Math.min(Es * eps, fy_kPa);
-      return AsComp_m2 * Math.max(0, fs - ALPHA1 * fc_kPa);
-    };
-    const residual = (cTrial: number): number =>
-      ALPHA1 * fc_kPa * b1 * cTrial * b + CsOf(cTrial) - As_m2 * fy_kPa;
-
-    // The neutral axis cannot sit deeper than the section. `d` is the tension centroid,
-    // so the depth to the compression face bounds it with room to spare.
-    let lo = 1e-6;
-    let hi = Math.max(d, dPrime) * 2;
-    if (residual(lo) > 0 || residual(hi) < 0) return null;
-    for (let iter = 0; iter < 80; iter++) {
-      const mid = 0.5 * (lo + hi);
-      if (residual(mid) < 0) lo = mid; else hi = mid;
-      if (hi - lo < 1e-9) break;
-    }
-    c = 0.5 * (lo + hi);
-
-    a = b1 * c;
-    epsilonComp = c > dPrime ? 0.003 * (c - dPrime) / c : 0;
-    fsComp = Math.min(Es * epsilonComp, fy_kPa);
-    compYields = epsilonComp >= (fy / 200000); // εy = fy/Es
-
-    /*
-     * Equilibrium is now a POSTCONDITION, not an expectation. This is the assertion the
-     * old code had nowhere to fail: it is what turns "the loop ran" into "the answer
-     * balances". One per mille of the tension force is far tighter than bisection needs
-     * and far looser than any real imbalance.
-     */
-    const Cc_check = ALPHA1 * fc_kPa * a * b;
-    if (Math.abs(Cc_check + CsOf(c) - As_m2 * fy_kPa) > 1e-3 * As_m2 * fy_kPa) return null;
-  } else {
-    // Singly reinforced — direct solution
-    a = (As_m2 * fy_kPa) / (ALPHA1 * fc_kPa * b);
-    c = a / b1;
-  }
-
-  // Strain in tension steel
-  const epsilonT = c > 0 ? 0.003 * (d - c) / c : 999;
-
-  // φ factor based on tension steel strain (CIRSOC 201 §9.3.2)
-  const epsilonY = fy / 200000; // exact yield strain
-  let phi: number;
-  if (epsilonT >= 0.005) {
-    phi = 0.9; // tension-controlled
-  } else if (epsilonT >= epsilonY) {
-    phi = 0.65 + 0.25 * (epsilonT - epsilonY) / (0.005 - epsilonY); // transition
-  } else {
-    phi = 0.65; // compression-controlled
-  }
-
-  // Moment capacity
-  let phiMn: number;
-  if (isDoubly) {
-    const Cc = ALPHA1 * fc_kPa * a * b;
-    const CsNet = AsComp_m2 * Math.max(0, fsComp - ALPHA1 * fc_kPa);
-    phiMn = phi * (Cc * (d - a / 2) + CsNet * (d - dPrime));
-  } else {
-    phiMn = phi * As_m2 * fy_kPa * (d - a / 2);
-  }
-
+  if (!(AsProv_cm2 > 0 && b > 0 && d > 0 && fc > 0 && fy > 0)) return null;
+  const isDoubly = AsComp_cm2 > 1e-4 && dPrime > 0 && dPrime < d;
+  const r = evaluateBeamSection({
+    edition: opts.edition ?? '2025',
+    fc: fc * 1e6, fy: fy * 1e6, b, h: Math.max(opts.h ?? d, d), d,
+    As: AsProv_cm2 * 1e-4,
+    AsComp: isDoubly ? AsComp_cm2 * 1e-4 : 0, dPrime: isDoubly ? dPrime : 0,
+  });
+  if (!r || !r.flexureValid || !Number.isFinite(r.phiMn)) return null;
+  const epsilonComp = isDoubly && r.c > dPrime ? 0.003 * (r.c - dPrime) / r.c : 0;
   return {
-    phiMn: +phiMn.toFixed(2), a, c, phi, epsilonT,
-    isDoubly, compYields, fsComp: +(fsComp / 1000).toFixed(1), // MPa for display
-    epsilonComp: +epsilonComp.toFixed(5),
+    phiMn: +(r.phiMn / 1e3).toFixed(2), a: r.a, c: r.c, phi: r.phi, epsilonT: r.epsilonT,
+    isDoubly, compYields: epsilonComp >= fy / 200000,
+    fsComp: +(r.fsComp / 1e6).toFixed(1), epsilonComp: +epsilonComp.toFixed(5),
+    fsTension: r.fsTension / 1e6, tensionYields: r.fsTension >= fy * 1e6 * (1 - 1e-9),
+    epsilonTMin: r.epsilonTMin,
   };
 }
 
 /**
- * Compute φ·Vn for a beam section with provided stirrups.
- * Uses CIRSOC 201 §11.2-11.4.
+ * φ·Vn of a section with the stirrups it has — computed by the ENGINE.
+ *
+ * Thin adapter over `cirsoc201-beam-kernel.ts`: CIRSOC 201-2025 Tabla 22.5.5.1 rows (a)/(c)
+ * with λs, Nu/(6·Ag) ≤ 0,05·f'c, 0 ≤ Vc ≤ 0,42·√f'c·bw·d, √f'c ≤ 8,3 MPa, Vs ≤ 0,66·√f'c·bw·d,
+ * Av,min of 9.6.3.4 (2005: §11.3 and §11.5). The TypeScript copy of the rule credited the
+ * stirrups with fy above 420 MPa, which 22.5.3.3 does not allow (19 % too much Vs at 500 MPa).
+ *
+ * Engine not loaded or section not evaluable: φVn = 0, so the check fails rather than passes.
  *
  * @param stirrupDia Stirrup bar diameter (mm)
  * @param legs Number of stirrup legs
@@ -1369,66 +1285,35 @@ export function computeFlexureCapacity(
  * @param b Section width (m)
  * @param d Effective depth (m)
  * @param fc Concrete compressive strength (MPa)
- * @param fy Steel yield strength (MPa)
+ * @param fy Stirrup yield strength (MPa)
  * @param Nu Axial force (kN, + = compression) — modifies Vc
- * @returns { phiVn, phiVc, VsProv, phi }
  */
 export function computeShearCapacity(
   stirrupDia: number, legs: number, spacing: number,
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
   /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
-  opts: { Ag?: number; rhoW?: number } = {},
-): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean } {
-  const phi = 0.75; // φ for shear per CIRSOC 201
-  /*
-   * CIRSOC 201-2025, the way the code writes it (it read the 2005 expressions):
-   *
-   *   Av ≥ Av,min (9.6.3.4):  Vc = [0,17·√f'c + Nu/(6·Ag)]·bw·d                    Tabla 22.5.5.1 (a)
-   *   Av < Av,min:            Vc = [0,66·λs·ρw^⅓·√f'c + Nu/(6·Ag)]·bw·d            Tabla 22.5.5.1 (c)
-   *                           λs = √(2/(1 + 0,004·d)) ≤ 1, d in mm
-   *   0 ≤ Vc ≤ 0,42·√f'c·bw·d,  Nu/(6·Ag) ≤ 0,05·f'c
-   *   Av,min = max(0,062·√f'c, 0,35)·bw·s/fyt
-   *   Vs ≤ 0,66·√f'c·bw·d, the section limit of §22.5.1.2.
-   *
-   * Without the section limit a 20×40 H-20 beam with Ø12 4 legs c/5 was certified for 700 kN
-   * where the section takes about 197; without Av,min and row (c) a 30×60 H-30 with Ø6 c/25
-   * passed at 0,77 where it fails.
-   */
-  const bw = b * 1000, dmm = d * 1000;              // mm
-  const Ag = (opts.Ag ?? b * d) * 1e6;              // mm²
-  const sq = Math.sqrt(fc);
-  const axial = Math.min(Nu * 1000 / (6 * Ag), 0.05 * fc); // MPa, compression positive
-
+  opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {},
+): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean } {
+  const phi = 0.75;
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
   const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
   const Av = legs * legArea; // cm²
-  const AvMin = Math.max(0.062 * sq, 0.35) * bw * (spacing * 1000) / fy / 100; // cm²
-  const avBelowMin = Av < AvMin;
-
-  let vc: number; // MPa
-  if (avBelowMin) {
-    const lambdaS = Math.min(1, Math.sqrt(2 / (1 + 0.004 * dmm)));
-    const rhoW = Math.max(0, opts.rhoW ?? 0);
-    vc = 0.66 * lambdaS * Math.cbrt(rhoW) * sq + axial;
-  } else {
-    vc = 0.17 * sq + axial;
+  const r = evaluateBeamSection({
+    edition: opts.edition ?? '2025',
+    fc: fc * 1e6, fy: fy * 1e6, b, h: Math.max(opts.h ?? d, d), d,
+    As: Math.max(0, opts.rhoW ?? 0) * b * d,
+    Av: Av * 1e-4, s: spacing,
+    Ag: opts.Ag ?? b * d,
+    NuCompression: Nu * 1e3,
+  });
+  if (!r || !r.shearValid || !Number.isFinite(r.phiVn)) {
+    return { phiVn: 0, phiVc: 0, VsProv: 0, phi, avBelowMin: true, capped: false, evaluated: false };
   }
-  vc = Math.min(Math.max(vc, 0), 0.42 * sq);
-  const Vc = vc * bw * dmm / 1000; // kN
-  const phiVc = phi * Vc;
-
-  const VsRaw = (Av / spacing) * fy * d / 10; // kN (Av in cm², spacing in m, fy MPa, d m)
-  const VsMax = 0.66 * sq * bw * dmm / 1000;
-  const capped = VsRaw > VsMax;
-  const VsProv = Math.min(VsRaw, VsMax);
-
-  const phiVn = phi * (Vc + VsProv);
-
   return {
-    phiVn: +phiVn.toFixed(2),
-    phiVc: +phiVc.toFixed(2),
-    VsProv: +VsProv.toFixed(2),
-    phi, avBelowMin, capped,
+    phiVn: +(r.phiVn / 1e3).toFixed(2),
+    phiVc: +(phi * r.Vc / 1e3).toFixed(2),
+    VsProv: +(r.Vs / 1e3).toFixed(2),
+    phi, avBelowMin: r.avBelowMin, capped: r.vsCapped, evaluated: true,
   };
 }
 
@@ -1962,6 +1847,31 @@ export function verifyProvidedReinforcement(
     checks.push({ ...rest, ratio: +utilization.toFixed(3), status: utilizationStatus(utilization) });
   };
 
+  /*
+   * Ductility of a flexural member: CIRSOC 201-2025 9.3.3.1 wants a beam with Pu < 0,10·f'c·Ag
+   * tension-controlled (εt ≥ εty + 0,003); 2005 asked for εt ≥ 0,004 (10.3.5). The φ ramp only
+   * lowers the strength of an over-reinforced section, it does not make it acceptable, and this
+   * verifier never asked. The axial force used is the largest compression the member sees.
+   */
+  const allTuplesMaxCompression = () => allTuples.reduce((m, t) => Math.max(m, -t.n), 0);
+  let maxCompressionCache: number | null = null;
+  const pushDuctility = (
+    label: string, demandCategory: ProvidedRebarCheck['demandCategory'], range: [number, number],
+    cap: { epsilonT: number; epsilonTMin: number }, comboName: string, stationX: number,
+  ) => {
+    maxCompressionCache ??= allTuplesMaxCompression();
+    if (!section || maxCompressionCache >= 0.10 * section.fc * 1000 * section.b * section.h) return;
+    const utilization = cap.epsilonT > 0 ? cap.epsilonTMin / cap.epsilonT : Number.POSITIVE_INFINITY;
+    pushStrength({
+      category: `${label} ductility`, demandCategory,
+      demand: +cap.epsilonTMin.toFixed(5), capacity: +cap.epsilonT.toFixed(5), utilization,
+      unit: 'εt', method: 'capacity', tuplesChecked: 1, regionRange: range,
+      description: `εt = ${(cap.epsilonT * 1000).toFixed(2)}‰ ${utilization > 1 ? '<' : '≥'} εt,min = `
+        + `${(cap.epsilonTMin * 1000).toFixed(2)}‰ (${spacingRule.edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`,
+      comboName, stationX, limiting: 'maxSteel',
+    });
+  };
+
   // Compute geometry-aware critical sections for beams
   let critSections: BeamCriticalSections | undefined;
   if ((elementType === 'beam' || elementType === 'wall') && section && modelData) {
@@ -2180,7 +2090,8 @@ export function verifyProvidedReinforcement(
       }
 
       const tensArea = layersTotalArea(rs.layers);
-      const cap = computeFlexureCapacity(tensArea, section.b, rs.d, section.fc, section.fy, rs.compArea, rs.dPrime);
+      const cap = computeFlexureCapacity(tensArea, section.b, rs.d, section.fc, section.fy, rs.compArea, rs.dPrime, 0, 0,
+        { h: section.h, edition: spacingRule.edition });
       if (!cap) {
         pushStrength({
           category: rs.label, demandCategory: rs.sign === 1 ? axes.sagCategory : axes.hogCategory,
@@ -2206,6 +2117,8 @@ export function verifyProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
+      pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, cap,
+        worstDemand.comboName, worstDemand.stationX);
 
       // ── §24.3.2: the bars next to this region's tension face, spaced for crack control ──
       const stirMm = (rs.sign === 1 ? stirSpan : stirSupport)?.diameter ?? section.stirrupDia;
@@ -2295,7 +2208,8 @@ export function verifyProvidedReinforcement(
         continue;
       }
 
-      const cap = computeFlexureCapacity(os.tensArea, section.b, os.d, section.fc, section.fy, os.compArea, os.dPrime);
+      const cap = computeFlexureCapacity(os.tensArea, section.b, os.d, section.fc, section.fy, os.compArea, os.dPrime, 0, 0,
+        { h: section.h, edition: spacingRule.edition });
       if (!cap) {
         pushStrength({
           category: os.label, demandCategory: demandCat,
@@ -2318,6 +2232,7 @@ export function verifyProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
+      pushDuctility(os.label, demandCat, os.range, cap, worstDemand.comboName, worstDemand.stationX);
     }
 
     // ─── Minimum flexural steel (CIRSOC 201 §10.5) on the tension face in span ───
@@ -2384,7 +2299,7 @@ export function verifyProvidedReinforcement(
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
         const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n,
-          { Ag: section.b * section.h, rhoW: ss.rhoW });
+          { Ag: section.b * section.h, rhoW: ss.rhoW, h: section.h, edition: spacingRule.edition });
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
       }
@@ -2521,6 +2436,16 @@ export function verifyProvidedReinforcement(
           limiting: 'axialFlexure', missingReinforcement: true,
         });
       }
+    } else if (hasTuples && !columnCapacityKernelRegistered()) {
+      // The column check is the engine's (Rust column kernel). Not loaded: not verified, never
+      // the TypeScript reference standing in for it unannounced.
+      pushStrength({
+        category: 'Longitudinal (engine unavailable)', demandCategory: 'N_compression',
+        utilization: Number.POSITIVE_INFINITY,
+        unit: 'kN·m', method: 'capacity', tuplesChecked: 0,
+        description: 'the engine column checker is not loaded — not verified',
+        limiting: 'unsupportedCheck',
+      });
     } else if (hasTuples) {
       const provArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
       // Slenderness magnification applies to BOTH moment components.
@@ -2695,7 +2620,7 @@ export function verifyProvidedReinforcement(
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
           const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n,
-            { Ag: section.b * section.h, rhoW: colRhoW });
+            { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }

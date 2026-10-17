@@ -48,10 +48,19 @@ export interface DesignCheckSummary {
 
 // ─── Status helpers ──────────────────────────────────────────────
 
-function ratioToStatus(ratio: number): CheckStatus {
-  if (ratio <= 1.0) return 'ok';
-  if (ratio <= 1.1) return 'warn';
-  return 'fail';
+/**
+ * Above 1,0 is a failure, never a warning: no code these checkers implement grants an
+ * overstress band. This read 1,0 < ratio ≤ 1,1 as 'warn', which put a member 10 % over its
+ * design strength in amber next to CIRSOC 201's 'warn', a pass between 0,9 and 1,0. A ratio
+ * that is not a number is not a pass either.
+ */
+export function ratioToStatus(ratio: number): CheckStatus {
+  return ratio <= 1.0 ? 'ok' : 'fail';
+}
+
+/** The engine's own verdict: an explicit `pass: false` or an unevaluated check is a failure. */
+function engineRefused(r: any): boolean {
+  return r.pass === false || (Array.isArray(r.unevaluated) && r.unevaluated.length > 0);
 }
 
 // ─── CIRSOC 201 (RC, JS) adapter ─────────────────────────────────
@@ -229,49 +238,62 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
 // ─── WASM steel check adapter (AISC 360 / EC3) ──────────────────
 
 /**
+ * The engine's results are camelCase (serde `rename_all = "camelCase"`). These normalisers read
+ * snake_case, so a real engine result had no ratio they could see and every member came out as
+ * "not checked". Both spellings are accepted; camelCase is what the engine sends.
+ */
+function camelKeys(r: any): any {
+  if (!r || typeof r !== 'object') return r;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(r)) out[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = v;
+  return out;
+}
+
+/**
  * Normalize WASM steel check results (AISC 360 or EC3).
  * Both have: element_id, unity_ratio, governing_check, and per-check ratios.
  * Fields use snake_case from Rust serde.
  */
 export function normalizeWasmSteel(results: any[], codeId: string, codeName: string, sectionNames: Map<number, string>): MemberDesignResult[] {
   if (!results || !Array.isArray(results)) return [];
-  return results.map((r: any) => {
+  return results.map((raw: any) => {
+    const r = camelKeys(raw);
     const checks: CheckDetail[] = [];
-    const id = r.element_id ?? r.elementId;
+    const id = r.elementId ?? r.elementId;
 
-    if (r.tension_ratio != null && r.tension_ratio > 0) {
-      checks.push({ name: 'Tension', demand: 0, capacity: r.phi_pn_tension ?? 0, ratio: r.tension_ratio, unit: 'kN', status: ratioToStatus(r.tension_ratio) });
+    if (r.tensionRatio != null && r.tensionRatio > 0) {
+      checks.push({ name: 'Tension', demand: 0, capacity: r.phiPnTension ?? 0, ratio: r.tensionRatio, unit: 'kN', status: ratioToStatus(r.tensionRatio) });
     }
-    if (r.compression_ratio != null && r.compression_ratio > 0) {
-      checks.push({ name: 'Compression', demand: 0, capacity: r.phi_pn_compression ?? 0, ratio: r.compression_ratio, unit: 'kN', status: ratioToStatus(r.compression_ratio) });
+    if (r.compressionRatio != null && r.compressionRatio > 0) {
+      checks.push({ name: 'Compression', demand: 0, capacity: r.phiPnCompression ?? 0, ratio: r.compressionRatio, unit: 'kN', status: ratioToStatus(r.compressionRatio) });
     }
-    if (r.flexure_z_ratio != null) {
-      checks.push({ name: 'Flexure (strong)', demand: 0, capacity: r.phi_mn_z ?? 0, ratio: r.flexure_z_ratio, unit: 'kN·m', status: ratioToStatus(r.flexure_z_ratio) });
+    if (r.flexureZRatio != null) {
+      checks.push({ name: 'Flexure (strong)', demand: 0, capacity: r.phiMnZ ?? 0, ratio: r.flexureZRatio, unit: 'kN·m', status: ratioToStatus(r.flexureZRatio) });
     }
-    if (r.flexure_y_ratio != null) {
-      checks.push({ name: 'Flexure (weak)', demand: 0, capacity: r.phi_mn_y ?? 0, ratio: r.flexure_y_ratio, unit: 'kN·m', status: ratioToStatus(r.flexure_y_ratio) });
+    if (r.flexureYRatio != null) {
+      checks.push({ name: 'Flexure (weak)', demand: 0, capacity: r.phiMnY ?? 0, ratio: r.flexureYRatio, unit: 'kN·m', status: ratioToStatus(r.flexureYRatio) });
     }
     // EC3 uses flexure_ratio_y and flexure_ratio_z
-    if (r.flexure_ratio_y != null) {
-      checks.push({ name: 'Flexure (strong)', demand: 0, capacity: 0, ratio: r.flexure_ratio_y, unit: 'kN·m', status: ratioToStatus(r.flexure_ratio_y) });
+    if (r.flexureRatioY != null) {
+      checks.push({ name: 'Flexure (strong)', demand: 0, capacity: 0, ratio: r.flexureRatioY, unit: 'kN·m', status: ratioToStatus(r.flexureRatioY) });
     }
-    if (r.flexure_ratio_z != null) {
-      checks.push({ name: 'Flexure (weak)', demand: 0, capacity: 0, ratio: r.flexure_ratio_z, unit: 'kN·m', status: ratioToStatus(r.flexure_ratio_z) });
+    if (r.flexureRatioZ != null) {
+      checks.push({ name: 'Flexure (weak)', demand: 0, capacity: 0, ratio: r.flexureRatioZ, unit: 'kN·m', status: ratioToStatus(r.flexureRatioZ) });
     }
-    if (r.shear_ratio != null) {
-      checks.push({ name: 'Shear', demand: 0, capacity: r.phi_vn ?? r.v_pl_rd ?? 0, ratio: r.shear_ratio, unit: 'kN', status: ratioToStatus(r.shear_ratio) });
+    if (r.shearRatio != null) {
+      checks.push({ name: 'Shear', demand: 0, capacity: r.phiVn ?? r.vPlRd ?? 0, ratio: r.shearRatio, unit: 'kN', status: ratioToStatus(r.shearRatio) });
     }
-    if (r.interaction_ratio != null && r.interaction_ratio > 0) {
-      checks.push({ name: 'Interaction', demand: r.interaction_ratio, capacity: 1.0, ratio: r.interaction_ratio, unit: '—', status: ratioToStatus(r.interaction_ratio) });
+    if (r.interactionRatio != null && r.interactionRatio > 0) {
+      checks.push({ name: 'Interaction', demand: r.interactionRatio, capacity: 1.0, ratio: r.interactionRatio, unit: '—', status: ratioToStatus(r.interactionRatio) });
     }
 
     // A member that produced no individual checks AND carries no explicit
     // unity ratio was never actually verified (solver skipped it, or a serde
     // field rename dropped every ratio). Treat it as unverified rather than
     // letting unity default to 0 → a falsely-green "ok".
-    const verifiable = checks.length > 0 || r.unity_ratio != null || r.utilization != null;
-    const unity = r.unity_ratio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
-    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
+    const verifiable = checks.length > 0 || r.unityRatio != null || r.utilization != null;
+    const unity = r.unityRatio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
+    const govCheck = r.governingCheck ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
 
     return {
       elementId: id,
@@ -281,7 +303,7 @@ export function normalizeWasmSteel(results: any[], codeId: string, codeName: str
       codeName,
       governingCheck: govCheck,
       utilization: unity,
-      status: verifiable ? ratioToStatus(unity) : 'fail',
+      status: verifiable && !engineRefused(r) ? ratioToStatus(unity) : 'fail',
       checks,
     };
   });
@@ -291,22 +313,23 @@ export function normalizeWasmSteel(results: any[], codeId: string, codeName: str
 
 export function normalizeWasmRC(results: any[], codeId: string, codeName: string, sectionNames: Map<number, string>): MemberDesignResult[] {
   if (!results || !Array.isArray(results)) return [];
-  return results.map((r: any) => {
+  return results.map((raw: any) => {
+    const r = camelKeys(raw);
     const checks: CheckDetail[] = [];
-    const id = r.element_id ?? r.elementId;
+    const id = r.elementId ?? r.elementId;
 
-    if (r.flexure_ratio != null) {
-      checks.push({ name: 'Flexure', demand: 0, capacity: r.phi_mn ?? r.m_rd ?? 0, ratio: r.flexure_ratio, unit: 'kN·m', status: ratioToStatus(r.flexure_ratio) });
+    if (r.flexureRatio != null) {
+      checks.push({ name: 'Flexure', demand: 0, capacity: r.phiMn ?? r.mRd ?? 0, ratio: r.flexureRatio, unit: 'kN·m', status: ratioToStatus(r.flexureRatio) });
     }
-    if (r.shear_ratio != null) {
-      checks.push({ name: 'Shear', demand: 0, capacity: r.phi_vn ?? r.v_rd ?? 0, ratio: r.shear_ratio, unit: 'kN', status: ratioToStatus(r.shear_ratio) });
+    if (r.shearRatio != null) {
+      checks.push({ name: 'Shear', demand: 0, capacity: r.phiVn ?? r.vRd ?? 0, ratio: r.shearRatio, unit: 'kN', status: ratioToStatus(r.shearRatio) });
     }
 
     // See normalizeWasmSteel: an empty result with no explicit unity ratio is
     // "not checked", not a pass.
-    const verifiable = checks.length > 0 || r.unity_ratio != null || r.utilization != null;
-    const unity = r.unity_ratio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
-    const govCheck = r.governing_check ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
+    const verifiable = checks.length > 0 || r.unityRatio != null || r.utilization != null;
+    const unity = r.unityRatio ?? r.utilization ?? (checks.length > 0 ? Math.max(...checks.map(c => c.ratio)) : 0);
+    const govCheck = r.governingCheck ?? (checks.length > 0 ? checks.reduce((m, c) => c.ratio > m.ratio ? c : m).name : (verifiable ? '—' : 'Not checked'));
 
     return {
       elementId: id,
@@ -316,7 +339,7 @@ export function normalizeWasmRC(results: any[], codeId: string, codeName: string
       codeName,
       governingCheck: govCheck,
       utilization: unity,
-      status: verifiable ? ratioToStatus(unity) : 'fail',
+      status: verifiable && !engineRefused(r) ? ratioToStatus(unity) : 'fail',
       checks,
     };
   });
