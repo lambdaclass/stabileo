@@ -5,6 +5,8 @@
  * ulps for the f64 arithmetic that derives it, so it stays a bound.
  */
 import type { ModalCertificate, ModeEnclosure, PlasticCertificate } from './certificate-types';
+import type { ReactionBound2D, ReactionBound3D, StationBound2D, StationBound3D } from './wasm-solver';
+import type { Diagram3DKind } from './diagrams-3d';
 
 const TWO_PI = 2 * Math.PI;
 /** Relative widening for the few f64 operations a derived bound goes through. */
@@ -54,4 +56,43 @@ export function plasticReading(cert: PlasticCertificate, lambda: number): { lo: 
   const above = hi !== null && lambda > hi ? (lambda - hi) / scale : 0;
   const deviation = Math.max(below, above);
   return { lo, up: hi, within: deviation <= 1e-9, deviation };
+}
+
+/**
+ * What a diagram's certificate says about the value on screen: `atPoint` bounds |exact − shown| at
+ * any point along the member (the hover), `extreme` the exact extreme along the whole member
+ * against the largest station value shown (the max |M| label): the bound plus the gap between
+ * stations. Without gaps (envelopes) `extreme` bounds the station extreme only. Null: no bound.
+ */
+export interface DiagramBound { atPoint: number; extreme: number }
+
+const KIND_2D = { moment: 'moment', shear: 'shear', axial: 'axial' } as const;
+
+function diagramBound(bound: number, gap: number | undefined): DiagramBound | null {
+  if (!Number.isFinite(bound)) return null;
+  return { atPoint: bound, extreme: gap === undefined || !Number.isFinite(gap) ? bound : up(bound + gap) };
+}
+
+export function diagramBound2D(sb: StationBound2D | null | undefined, kind: 'moment' | 'shear' | 'axial'): DiagramBound | null {
+  if (!sb) return null;
+  const k = KIND_2D[kind];
+  return diagramBound(sb[k], sb.gaps?.[k]);
+}
+
+const KIND_3D = {
+  momentY: 'momentY', momentZ: 'momentZ', shearY: 'shearY', shearZ: 'shearZ', axial: 'axial', torsion: 'torsion',
+} as const satisfies Record<Diagram3DKind, keyof NonNullable<StationBound3D['gaps']>>;
+
+export function diagramBound3D(sb: StationBound3D | null | undefined, kind: Diagram3DKind): DiagramBound | null {
+  if (!sb) return null;
+  const k = KIND_3D[kind];
+  return diagramBound(sb[k], sb.gaps?.[k]);
+}
+
+/** The largest bound over a node's force reactions (the components a tooltip prints together). */
+export function forceReactionBound(rb: ReactionBound2D | ReactionBound3D | null | undefined): number | null {
+  if (!rb) return null;
+  const xs = 'fx' in rb ? [rb.fx, rb.fy, rb.fz] : [rb.rx, rb.rz];
+  const m = Math.max(...xs);
+  return Number.isFinite(m) ? m : null;
 }

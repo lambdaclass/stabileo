@@ -3605,6 +3605,7 @@ const ar: Translations = {
   'certificate.bundleTooltip': 'ينزّل حزمة شهادة هذا الحل (JSON، كل رقم مكتوب بدقة). يمكن لأي شخص إعادة التحقق منها باستقلالية، دون الوثوق بهذا التطبيق، باستخدام مدقق Lean: lake exe certcheck <ملف>.',
   'certificate.bundleFailed': 'تعذّر تصدير الشهادة: {reason}',
   'certificate.shellTooltip': 'حد معتمد لخطأ هذه المحصلة: الحل الدقيق للنظام المُجمَّع يعطي قيمة ضمن ± هذا المقدار من القيمة المعروضة.',
+  'certificate.atPoint': 'القيمة الدقيقة ضمن ± {b} (معتمد)',
   'certificate.modal': 'ω² لعدد {n} من الأنماط محصورة (معتمد)',
   'certificate.modalComplete': 'لم يُغفل أي نمط تحت {f} هرتز ({n} أنماط)',
   'certificate.modalIncomplete': 'الاكتمال غير معتمد: {reason}',

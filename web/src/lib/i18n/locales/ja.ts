@@ -3597,6 +3597,7 @@ const ja: Translations = {
   'certificate.bundleTooltip': 'この解析の証明書パッケージ（JSON、各数値を厳密に記述）をダウンロードします。誰でもこのアプリを信頼せずに Lean チェッカーで独立に再検証できます: lake exe certcheck <ファイル>。',
   'certificate.bundleFailed': '証明書をエクスポートできませんでした: {reason}',
   'certificate.shellTooltip': 'この合応力の誤差の認証済み上界: 組み立てた系の厳密解は表示値から ± この値以内です。',
+  'certificate.atPoint': '厳密値は ± {b} 以内（認証済み）',
   'certificate.modal': '{n} モードの ω² を包含（認証済み）',
   'certificate.modalComplete': '{f} Hz 未満のモードの見落としなし（{n} モード）',
   'certificate.modalIncomplete': '完全性は未認証: {reason}',

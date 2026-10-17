@@ -4,6 +4,7 @@ pub mod buckling;
 pub mod bundle;
 pub mod combinations;
 pub mod constrained;
+pub mod deflection;
 pub mod design;
 pub mod dynamics;
 pub mod exact;
@@ -15,9 +16,11 @@ pub mod modal;
 pub mod pdelta;
 pub mod plastic;
 pub mod plastic_3d;
+pub mod reactions;
 pub mod real;
 pub mod solver;
 pub mod spectral;
+pub mod stations;
 pub mod sparse;
 
 pub use linear::{

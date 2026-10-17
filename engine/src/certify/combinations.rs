@@ -12,9 +12,12 @@
 //! * Member end forces are affine in the displacements with load terms that do
 //!   not depend on them, so the same argument applies per force component with
 //!   the per-case force bounds of `forces.rs`.
-//! * Diagram values at interior stations are `M(x) = M_start − V_start·x + (load
-//!   terms)`, `V(x) = V_start + (load terms)`, `N(x) = N_start + (load terms)`, so
-//!   their error is at most `ΔM + ΔV·L`, `ΔV`, `ΔN` at every station.
+//! * Diagram values: each case's station bound (`stations.rs`, valid at every x)
+//!   combines the same way, `Σ|cᵢ|·Sᵢ`, plus the rounding of the combined start
+//!   forces the diagram formula reads (`δM + L·δV` for moments).
+//! * Deflection curves: the per-member factor of `deflection.rs` times the
+//!   combination's displacement bound. Reactions: `Σ|cᵢ|·Rᵢ` plus the rounding
+//!   of the combination, like the end forces.
 //! * Envelopes (max/min, max-abs over combinations) are 1-Lipschitz in the
 //!   sup-norm, so the envelope error is at most the largest combination bound.
 //!
@@ -25,10 +28,19 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::deflection::{deflection_bounds, deflection_factors_2d, deflection_factors_3d, DeflectionBound};
 use super::forces::{force_bounds_2d, force_bounds_3d, ForceBound2D, ForceBound3D};
 use super::interval::Interval;
 use super::linear::Certificate;
-use super::solver::{certify_load_cases_2d, certify_load_cases_3d};
+use super::reactions::{
+    reaction_bounds_2d_with, reaction_bounds_3d_with, restrained_rows_2d, restrained_rows_3d, ReactionBound2D,
+    ReactionBound3D,
+};
+use super::solver::{certify_load_cases_2d, certify_load_cases_3d, ShownBounds};
+pub use super::stations::{StationBound2D, StationBound3D};
+use super::stations::{
+    station_from_rows_2d, station_from_rows_3d, station_rows_2d, station_rows_3d, with_gaps_2d, with_gaps_3d,
+};
 use crate::solver::linear::expand_curved_beams_3d;
 use crate::solver::load_cases::{
     solve_multi_case_2d, solve_multi_case_3d, CombinationDef, MultiCaseInput, MultiCaseInput3D,
@@ -43,35 +55,14 @@ fn up(x: f64) -> f64 {
 
 // ───────────────────────────── output types ─────────────────────────────
 
-/// Bounds valid at every diagram station of one 2D member: |exact − computed|.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StationBound2D {
-    pub element_id: usize,
-    pub axial: f64,
-    pub shear: f64,
-    pub moment: f64,
-}
-
-/// Bounds valid at every diagram station of one 3D member.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StationBound3D {
-    pub element_id: usize,
-    pub axial: f64,
-    pub shear_y: f64,
-    pub shear_z: f64,
-    pub torsion: f64,
-    pub moment_y: f64,
-    pub moment_z: f64,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaseCertificate2D {
     pub name: String,
     pub certificate: Certificate,
     pub force_bounds: Vec<ForceBound2D>,
+    #[serde(flatten)]
+    pub shown: ShownBounds<StationBound2D, ReactionBound2D>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +71,8 @@ pub struct CaseCertificate3D {
     pub name: String,
     pub certificate: Certificate,
     pub force_bounds: Vec<ForceBound3D>,
+    #[serde(flatten)]
+    pub shown: ShownBounds<StationBound3D, ReactionBound3D>,
 }
 
 /// Certified bounds for one combination (or for the envelope). When
@@ -97,8 +90,14 @@ pub struct CombinationCertificate2D {
     pub disp_abs_bound: Option<f64>,
     /// End-force bounds (both ends).
     pub force_bounds: Vec<ForceBound2D>,
-    /// Diagram bounds valid at every station along the member.
+    /// Diagram bounds valid at every x along the member (gaps: combinations only).
     pub station_bounds: Vec<StationBound2D>,
+    /// Deflection-curve bounds per member.
+    #[serde(default)]
+    pub deflection_bounds: Vec<DeflectionBound>,
+    /// Reaction bounds per node (nodes bounded in every case with a non-zero factor).
+    #[serde(default)]
+    pub reaction_bounds: Vec<ReactionBound2D>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +110,10 @@ pub struct CombinationCertificate3D {
     pub disp_abs_bound: Option<f64>,
     pub force_bounds: Vec<ForceBound3D>,
     pub station_bounds: Vec<StationBound3D>,
+    #[serde(default)]
+    pub deflection_bounds: Vec<DeflectionBound>,
+    #[serde(default)]
+    pub reaction_bounds: Vec<ReactionBound3D>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,22 +138,39 @@ pub struct CertifiedMultiCase3D {
 // ───────────────────────────── generic core ─────────────────────────────
 
 /// One case reduced to arrays: D displacement components per node, K force
-/// components per element (start and end values).
-struct CaseData<const D: usize, const K: usize> {
+/// components per element (start and end values), S diagram bounds per
+/// element, R reaction components per node.
+struct CaseData<const D: usize, const K: usize, const S: usize, const R: usize> {
     name: String,
     abs_bound: Result<f64, String>,
     disp: HashMap<usize, [f64; D]>,
     forces: HashMap<usize, ([f64; K], [f64; K])>,
     force_bounds: HashMap<usize, [f64; K]>,
+    station_bounds: HashMap<usize, [f64; S]>,
+    reactions: HashMap<usize, [f64; R]>,
+    reaction_bounds: HashMap<usize, [f64; R]>,
 }
 
 /// Displacements by node and (start, end) forces by element.
 type Indexed<const D: usize, const K: usize> = (HashMap<usize, [f64; D]>, HashMap<usize, ([f64; K], [f64; K])>);
 
-/// Combination bounds: displacement 2-norm bound and per-element force bounds.
-struct ComboBounds<const K: usize> {
+/// Combination bounds: displacement 2-norm bound, per-element force and
+/// diagram bounds, per-node reaction bounds.
+struct ComboBounds<const K: usize, const S: usize, const R: usize> {
     disp: f64,
     forces: Vec<(usize, [f64; K])>,
+    stations: Vec<(usize, [f64; S])>,
+    reactions: Vec<(usize, [f64; R])>,
+}
+
+/// The reported combination, reduced to arrays.
+struct ComboData<'a, const D: usize, const K: usize, const R: usize> {
+    disp: &'a HashMap<usize, [f64; D]>,
+    forces: &'a HashMap<usize, ([f64; K], [f64; K])>,
+    reactions: &'a HashMap<usize, [f64; R]>,
+    lengths: &'a HashMap<usize, f64>,
+    /// Diagram rounding from the end-force rounding `δ` (per component) and length.
+    station_dev: fn(&[f64; K], f64) -> Vec<f64>,
 }
 
 /// `Σ cᵢ xᵢ` in interval arithmetic minus the reported value, as |·| bound.
@@ -163,12 +183,11 @@ fn rounding_dev(terms: impl Iterator<Item = (f64, f64)>, reported: f64) -> f64 {
     if d.is_finite() { d } else { f64::INFINITY }
 }
 
-fn certify_combo<const D: usize, const K: usize>(
+fn certify_combo<const D: usize, const K: usize, const S: usize, const R: usize>(
     factors: &[(usize, f64)],
-    cases: &[CaseData<D, K>],
-    combo_disp: &HashMap<usize, [f64; D]>,
-    combo_forces: &HashMap<usize, ([f64; K], [f64; K])>,
-) -> Result<ComboBounds<K>, String> {
+    cases: &[CaseData<D, K, S, R>],
+    combo: &ComboData<D, K, R>,
+) -> Result<ComboBounds<K, S, R>, String> {
     // Exactly-zero factors contribute exactly zero and need no certificate.
     let factors: Vec<(usize, f64)> = factors.iter().copied().filter(|&(_, c)| c != 0.0).collect();
     let mut disp = 0.0f64;
@@ -181,7 +200,7 @@ fn certify_combo<const D: usize, const K: usize>(
     }
     // Rounding of the combination itself, over every reported component.
     let mut dev2 = 0.0f64;
-    for (node, rep) in combo_disp {
+    for (node, rep) in combo.disp {
         for (k, &r) in rep.iter().enumerate() {
             let mut terms = Vec::with_capacity(factors.len());
             for &(i, c) in &factors {
@@ -200,8 +219,11 @@ fn certify_combo<const D: usize, const K: usize>(
     }
 
     let mut forces = Vec::new();
-    'elem: for (&eid, (rs, re)) in combo_forces {
+    let mut stations = Vec::new();
+    'elem: for (&eid, (rs, re)) in combo.forces {
         let mut b = [0.0f64; K];
+        let mut sb = [0.0f64; S];
+        let mut has_stations = true;
         let mut ts: Vec<Vec<(f64, f64)>> = vec![Vec::new(); 2 * K];
         for &(i, c) in &factors {
             let (Some(fb), Some((s, e))) = (cases[i].force_bounds.get(&eid), cases[i].forces.get(&eid)) else {
@@ -212,41 +234,94 @@ fn certify_combo<const D: usize, const K: usize>(
                 ts[k].push((c, s[k]));
                 ts[K + k].push((c, e[k]));
             }
+            match cases[i].station_bounds.get(&eid) {
+                Some(st) => (0..S).for_each(|k| sb[k] = up(sb[k] + up(c.abs() * st[k]))),
+                None => has_stations = false,
+            }
         }
+        let mut delta = [0.0f64; K];
         for k in 0..K {
             let ds = rounding_dev(ts[k].iter().copied(), rs[k]);
             let de = rounding_dev(ts[K + k].iter().copied(), re[k]);
-            b[k] = up(b[k] + ds.max(de));
+            delta[k] = ds.max(de);
+            b[k] = up(b[k] + delta[k]);
         }
         if b.iter().all(|x| x.is_finite()) {
             forces.push((eid, b));
         }
+        if let (true, Some(&l)) = (has_stations, combo.lengths.get(&eid)) {
+            for (k, d) in (combo.station_dev)(&delta, l).into_iter().enumerate() {
+                sb[k] = up(sb[k] + d);
+            }
+            if sb.iter().all(|x| x.is_finite()) {
+                stations.push((eid, sb));
+            }
+        }
     }
     forces.sort_by_key(|f| f.0);
-    Ok(ComboBounds { disp, forces })
+    stations.sort_by_key(|f| f.0);
+
+    let mut reactions = Vec::new();
+    'node: for (&node, rep) in combo.reactions {
+        let mut b = [0.0f64; R];
+        let mut ts: Vec<Vec<(f64, f64)>> = vec![Vec::new(); R];
+        for &(i, c) in &factors {
+            let (Some(rb), Some(r)) = (cases[i].reaction_bounds.get(&node), cases[i].reactions.get(&node)) else {
+                continue 'node;
+            };
+            for k in 0..R {
+                b[k] = up(b[k] + up(c.abs() * rb[k]));
+                ts[k].push((c, r[k]));
+            }
+        }
+        for k in 0..R {
+            b[k] = up(b[k] + rounding_dev(ts[k].iter().copied(), rep[k]));
+        }
+        if b.iter().all(|x| x.is_finite()) {
+            reactions.push((node, b));
+        }
+    }
+    reactions.sort_by_key(|f| f.0);
+    Ok(ComboBounds { disp, forces, stations, reactions })
 }
 
-/// Envelope bound: componentwise max over all combinations. Requires every
-/// combination certified, and an element is kept only if every combination
-/// bounds it.
-fn envelope_bounds<const K: usize>(combos: &[Result<ComboBounds<K>, String>]) -> Result<ComboBounds<K>, String> {
-    let mut disp = 0.0f64;
-    let mut forces: HashMap<usize, ([f64; K], usize)> = HashMap::new();
-    for (idx, c) in combos.iter().enumerate() {
-        let c = c.as_ref().map_err(|r| format!("combination {idx} uncertified: {r}"))?;
-        disp = disp.max(c.disp);
-        for (eid, b) in &c.forces {
-            let e = forces.entry(*eid).or_insert(([0.0; K], 0));
-            for k in 0..K {
+/// Componentwise max over keyed bounds, keeping the keys every list has.
+fn max_keyed<const N: usize>(lists: &[&Vec<(usize, [f64; N])>]) -> Vec<(usize, [f64; N])> {
+    let mut acc: HashMap<usize, ([f64; N], usize)> = HashMap::new();
+    for list in lists {
+        for (key, b) in *list {
+            let e = acc.entry(*key).or_insert(([0.0; N], 0));
+            for k in 0..N {
                 e.0[k] = e.0[k].max(b[k]);
             }
             e.1 += 1;
         }
     }
-    let mut forces: Vec<(usize, [f64; K])> =
-        forces.into_iter().filter(|(_, (_, n))| *n == combos.len()).map(|(e, (b, _))| (e, b)).collect();
-    forces.sort_by_key(|f| f.0);
-    Ok(ComboBounds { disp, forces })
+    let mut out: Vec<(usize, [f64; N])> =
+        acc.into_iter().filter(|(_, (_, n))| *n == lists.len()).map(|(e, (b, _))| (e, b)).collect();
+    out.sort_by_key(|f| f.0);
+    out
+}
+
+/// Envelope bound: componentwise max over all combinations. Requires every
+/// combination certified, and an element (node) is kept only if every
+/// combination bounds it.
+fn envelope_bounds<const K: usize, const S: usize, const R: usize>(
+    combos: &[Result<ComboBounds<K, S, R>, String>],
+) -> Result<ComboBounds<K, S, R>, String> {
+    let mut disp = 0.0f64;
+    let mut ok = Vec::with_capacity(combos.len());
+    for (idx, c) in combos.iter().enumerate() {
+        let c = c.as_ref().map_err(|r| format!("combination {idx} uncertified: {r}"))?;
+        disp = disp.max(c.disp);
+        ok.push(c);
+    }
+    Ok(ComboBounds {
+        disp,
+        forces: max_keyed(&ok.iter().map(|c| &c.forces).collect::<Vec<_>>()),
+        stations: max_keyed(&ok.iter().map(|c| &c.stations).collect::<Vec<_>>()),
+        reactions: max_keyed(&ok.iter().map(|c| &c.reactions).collect::<Vec<_>>()),
+    })
 }
 
 fn factor_list(def: &CombinationDef, case_names: &[&str]) -> Result<Vec<(usize, f64)>, String> {
@@ -290,25 +365,53 @@ fn index2(r: &AnalysisResults) -> Indexed<3, 3> {
     )
 }
 
-fn station2(b: &ForceBound2D, length: f64) -> StationBound2D {
-    StationBound2D { element_id: b.element_id, axial: b.n, shear: b.v, moment: up(b.m + up(b.v * length.abs())) }
+fn reactions2(r: &AnalysisResults) -> HashMap<usize, [f64; 3]> {
+    r.reactions.iter().map(|x| (x.node_id, [x.rx, x.rz, x.my])).collect()
 }
 
-fn combo_cert_2d(name: &str, r: Result<&ComboBounds<3>, String>, lengths: &HashMap<usize, f64>) -> CombinationCertificate2D {
+fn sb2_arr(b: &StationBound2D) -> [f64; 3] {
+    [b.axial, b.shear, b.moment]
+}
+
+fn rb2_arr(b: &ReactionBound2D) -> [f64; 3] {
+    [b.rx, b.rz, b.my]
+}
+
+/// Diagram rounding from the end-force rounding δ = [δN, δV, δM]: M(x) reads
+/// M_start and V_start (x ≤ L), N and V their start (TS: and end) values.
+fn station_dev_2d(d: &[f64; 3], l: f64) -> Vec<f64> {
+    vec![d[0], d[1], up(d[2] + up(d[1] * l.abs()))]
+}
+
+fn combo_cert_2d(
+    name: &str,
+    r: Result<&ComboBounds<3, 3, 3>, String>,
+    factors: &HashMap<usize, f64>,
+    forces: Option<&[ElementForces]>,
+) -> CombinationCertificate2D {
     match r {
         Ok(c) => {
-            let force_bounds: Vec<ForceBound2D> = c.forces.iter().map(|(e, b)| arr_fb2(*e, *b)).collect();
-            let station_bounds = force_bounds
+            let mut station_bounds: Vec<StationBound2D> = c
+                .stations
                 .iter()
-                .filter_map(|b| lengths.get(&b.element_id).map(|&l| station2(b, l)))
+                .map(|(e, b)| StationBound2D { element_id: *e, axial: b[0], shear: b[1], moment: b[2], gaps: None })
                 .collect();
+            if let Some(f) = forces {
+                with_gaps_2d(&mut station_bounds, f);
+            }
             CombinationCertificate2D {
                 name: name.to_string(),
                 certified: true,
                 reason: None,
                 disp_abs_bound: Some(c.disp),
-                force_bounds,
+                force_bounds: c.forces.iter().map(|(e, b)| arr_fb2(*e, *b)).collect(),
                 station_bounds,
+                deflection_bounds: deflections_of(factors, c.disp),
+                reaction_bounds: c
+                    .reactions
+                    .iter()
+                    .map(|(n, b)| ReactionBound2D { node_id: *n, rx: b[0], rz: b[1], my: b[2] })
+                    .collect(),
             }
         }
         Err(reason) => CombinationCertificate2D {
@@ -318,8 +421,25 @@ fn combo_cert_2d(name: &str, r: Result<&ComboBounds<3>, String>, lengths: &HashM
             disp_abs_bound: None,
             force_bounds: vec![],
             station_bounds: vec![],
+            deflection_bounds: vec![],
+            reaction_bounds: vec![],
         },
     }
+}
+
+fn deflections_of(factors: &HashMap<usize, f64>, disp: f64) -> Vec<DeflectionBound> {
+    let mut f: Vec<(usize, f64)> = factors.iter().map(|(&e, &x)| (e, x)).collect();
+    f.sort_by_key(|x| x.0);
+    deflection_bounds(&f, disp)
+}
+
+fn lengths_of<'a>(forces: impl Iterator<Item = (usize, f64)> + 'a) -> HashMap<usize, f64> {
+    let mut lengths: HashMap<usize, f64> = HashMap::new();
+    for (eid, len) in forces {
+        let l = lengths.entry(eid).or_insert(0.0);
+        *l = l.max(len.abs());
+    }
+    lengths
 }
 
 /// Solve a 2D multi-case model (`solve_multi_case_2d`) and certify its cases,
@@ -356,16 +476,46 @@ pub fn certify_multi_case_results_2d(input: &MultiCaseInput, results: MultiCaseR
         Ok(()) => certify_load_cases_2d(&input.solver, &case_pairs),
         Err(r) => vec![Certificate::uncertified(r.clone()); case_pairs.len()],
     };
+    // Shared by every case: the stiffness rows behind the diagram bounds, the
+    // deflection factors, the restrained rows behind the reactions.
+    let rows = station_rows_2d(&input.solver);
+    let dfactors: HashMap<usize, f64> = deflection_factors_2d(&input.solver).into_iter().collect();
+    let restrained = restrained_rows_2d(&input.solver);
     let cases: Vec<CaseCertificate2D> = input
         .load_cases
         .iter()
+        .zip(&case_pairs)
         .zip(certs)
-        .map(|(lc, certificate)| {
-            let force_bounds = certificate.abs_bound().map(|b| force_bounds_2d(&input.solver, b)).unwrap_or_default();
-            CaseCertificate2D { name: lc.name.clone(), certificate, force_bounds }
+        .map(|((lc, (loads, res)), certificate)| {
+            let Some(b) = certificate.abs_bound() else {
+                return CaseCertificate2D {
+                    name: lc.name.clone(), certificate, force_bounds: vec![], shown: Default::default(),
+                };
+            };
+            let mut station_bounds: Vec<StationBound2D> =
+                rows.iter().map(|(e, r)| station_from_rows_2d(*e, r, b)).collect();
+            with_gaps_2d(&mut station_bounds, &res.element_forces);
+            let (reaction_bounds, reaction_reason) = match &restrained {
+                Ok((dof, rr)) => match reaction_bounds_2d_with(&input.solver, dof, rr, loads, res, b) {
+                    Ok(r) => (r, None),
+                    Err(e) => (vec![], Some(e)),
+                },
+                Err(e) => (vec![], Some(e.clone())),
+            };
+            CaseCertificate2D {
+                name: lc.name.clone(),
+                force_bounds: force_bounds_2d(&input.solver, b),
+                shown: ShownBounds {
+                    station_bounds,
+                    deflection_bounds: deflections_of(&dfactors, b),
+                    reaction_bounds,
+                    reaction_reason,
+                },
+                certificate,
+            }
         })
         .collect();
-    let data: Vec<CaseData<3, 3>> = cases
+    let data: Vec<CaseData<3, 3, 3, 3>> = cases
         .iter()
         .zip(&case_pairs)
         .map(|(c, (_, r))| {
@@ -379,38 +529,44 @@ pub fn certify_multi_case_results_2d(input: &MultiCaseInput, results: MultiCaseR
                 disp,
                 forces,
                 force_bounds: c.force_bounds.iter().map(|b| (b.element_id, fb2_arr(b))).collect(),
+                station_bounds: c.shown.station_bounds.iter().map(|b| (b.element_id, sb2_arr(b))).collect(),
+                reactions: reactions2(r),
+                reaction_bounds: c.shown.reaction_bounds.iter().map(|b| (b.node_id, rb2_arr(b))).collect(),
             }
         })
         .collect();
 
+    let lengths = lengths_of(
+        results.combination_results.iter().flat_map(|cr| cr.results.element_forces.iter().map(|f| (f.element_id, f.length))),
+    );
     let names: Vec<&str> = input.load_cases.iter().map(|c| c.name.as_str()).collect();
-    let bounds: Vec<Result<ComboBounds<3>, String>> = input
+    let bounds: Vec<Result<ComboBounds<3, 3, 3>, String>> = input
         .combinations
         .iter()
         .enumerate()
         .map(|(i, def)| {
             structural.clone()?;
             let factors = factor_list(def, &names)?;
-            let (disp, forces) = index2(&results.combination_results[i].results);
-            certify_combo(&factors, &data, &disp, &forces)
+            let cr = &results.combination_results[i].results;
+            let (disp, forces) = index2(cr);
+            let reactions = reactions2(cr);
+            let combo = ComboData { disp: &disp, forces: &forces, reactions: &reactions, lengths: &lengths, station_dev: station_dev_2d };
+            certify_combo(&factors, &data, &combo)
         })
         .collect();
 
-    let mut lengths: HashMap<usize, f64> = HashMap::new();
-    for cr in &results.combination_results {
-        for f in &cr.results.element_forces {
-            let l = lengths.entry(f.element_id).or_insert(0.0);
-            *l = l.max(f.length.abs());
-        }
-    }
     let combinations = input
         .combinations
         .iter()
+        .enumerate()
         .zip(&bounds)
-        .map(|(def, b)| combo_cert_2d(&def.name, b.as_ref().map_err(|e| e.clone()), &lengths))
+        .map(|((i, def), b)| {
+            let forces = results.combination_results.get(i).map(|r| r.results.element_forces.as_slice());
+            combo_cert_2d(&def.name, b.as_ref().map_err(|e| e.clone()), &dfactors, forces)
+        })
         .collect();
     let env = envelope_aligned_2d(&results).and_then(|()| envelope_bounds(&bounds));
-    let envelope = combo_cert_2d("envelope", env.as_ref().map_err(|e| e.clone()), &lengths);
+    let envelope = combo_cert_2d("envelope", env.as_ref().map_err(|e| e.clone()), &dfactors, None);
     CertifiedMultiCase2D { results, cases, combinations, envelope }
 }
 
@@ -461,34 +617,56 @@ fn index3(r: &AnalysisResults3D) -> Indexed<6, 6> {
     )
 }
 
-fn station3(b: &ForceBound3D, length: f64) -> StationBound3D {
-    let l = length.abs();
-    StationBound3D {
-        element_id: b.element_id,
-        axial: b.n,
-        shear_y: b.vy,
-        shear_z: b.vz,
-        torsion: b.t,
-        moment_y: up(b.my + up(b.vz * l)),
-        moment_z: up(b.mz + up(b.vy * l)),
-    }
+fn reactions3(r: &AnalysisResults3D) -> HashMap<usize, [f64; 6]> {
+    r.reactions.iter().map(|x| (x.node_id, [x.fx, x.fy, x.fz, x.mx, x.my, x.mz])).collect()
 }
 
-fn combo_cert_3d(name: &str, r: Result<&ComboBounds<6>, String>, lengths: &HashMap<usize, f64>) -> CombinationCertificate3D {
+fn sb3_arr(b: &StationBound3D) -> [f64; 6] {
+    [b.axial, b.shear_y, b.shear_z, b.torsion, b.moment_y, b.moment_z]
+}
+
+fn rb3_arr(b: &ReactionBound3D) -> [f64; 6] {
+    [b.fx, b.fy, b.fz, b.mx, b.my, b.mz]
+}
+
+/// δ = [δN, δVy, δVz, δT, δMy, δMz]: My(x) reads My_start, Vz_start; Mz(x) Mz_start, Vy_start.
+fn station_dev_3d(d: &[f64; 6], l: f64) -> Vec<f64> {
+    let l = l.abs();
+    vec![d[0], d[1], d[2], d[3], up(d[4] + up(d[2] * l)), up(d[5] + up(d[1] * l))]
+}
+
+fn combo_cert_3d(
+    name: &str,
+    r: Result<&ComboBounds<6, 6, 6>, String>,
+    factors: &HashMap<usize, f64>,
+    forces: Option<&[ElementForces3D]>,
+) -> CombinationCertificate3D {
     match r {
         Ok(c) => {
-            let force_bounds: Vec<ForceBound3D> = c.forces.iter().map(|(e, b)| arr_fb3(*e, *b)).collect();
-            let station_bounds = force_bounds
+            let mut station_bounds: Vec<StationBound3D> = c
+                .stations
                 .iter()
-                .filter_map(|b| lengths.get(&b.element_id).map(|&l| station3(b, l)))
+                .map(|(e, b)| StationBound3D {
+                    element_id: *e, axial: b[0], shear_y: b[1], shear_z: b[2], torsion: b[3],
+                    moment_y: b[4], moment_z: b[5], gaps: None,
+                })
                 .collect();
+            if let Some(f) = forces {
+                with_gaps_3d(&mut station_bounds, f);
+            }
             CombinationCertificate3D {
                 name: name.to_string(),
                 certified: true,
                 reason: None,
                 disp_abs_bound: Some(c.disp),
-                force_bounds,
+                force_bounds: c.forces.iter().map(|(e, b)| arr_fb3(*e, *b)).collect(),
                 station_bounds,
+                deflection_bounds: deflections_of(factors, c.disp),
+                reaction_bounds: c
+                    .reactions
+                    .iter()
+                    .map(|(n, b)| ReactionBound3D { node_id: *n, fx: b[0], fy: b[1], fz: b[2], mx: b[3], my: b[4], mz: b[5] })
+                    .collect(),
             }
         }
         Err(reason) => CombinationCertificate3D {
@@ -498,6 +676,8 @@ fn combo_cert_3d(name: &str, r: Result<&ComboBounds<6>, String>, lengths: &HashM
             disp_abs_bound: None,
             force_bounds: vec![],
             station_bounds: vec![],
+            deflection_bounds: vec![],
+            reaction_bounds: vec![],
         },
     }
 }
@@ -537,16 +717,44 @@ pub fn certify_multi_case_results_3d(input: &MultiCaseInput3D, results: MultiCas
         Err(r) => vec![Certificate::uncertified(r.clone()); case_pairs.len()],
     };
     let expanded = expand_curved_beams_3d(&input.solver);
+    let rows = station_rows_3d(&expanded);
+    let dfactors: HashMap<usize, f64> = deflection_factors_3d(&expanded).into_iter().collect();
+    let restrained = restrained_rows_3d(&expanded);
     let cases: Vec<CaseCertificate3D> = input
         .load_cases
         .iter()
+        .zip(&case_pairs)
         .zip(certs)
-        .map(|(lc, certificate)| {
-            let force_bounds = certificate.abs_bound().map(|b| force_bounds_3d(&expanded, b)).unwrap_or_default();
-            CaseCertificate3D { name: lc.name.clone(), certificate, force_bounds }
+        .map(|((lc, (loads, res)), certificate)| {
+            let Some(b) = certificate.abs_bound() else {
+                return CaseCertificate3D {
+                    name: lc.name.clone(), certificate, force_bounds: vec![], shown: Default::default(),
+                };
+            };
+            let mut station_bounds: Vec<StationBound3D> =
+                rows.iter().map(|(e, r)| station_from_rows_3d(*e, r, b)).collect();
+            with_gaps_3d(&mut station_bounds, &res.element_forces);
+            let (reaction_bounds, reaction_reason) = match &restrained {
+                Ok((dof, rr, sparse)) => match reaction_bounds_3d_with(&expanded, dof, rr, *sparse, loads, res, b) {
+                    Ok(r) => (r, None),
+                    Err(e) => (vec![], Some(e)),
+                },
+                Err(e) => (vec![], Some(e.clone())),
+            };
+            CaseCertificate3D {
+                name: lc.name.clone(),
+                force_bounds: force_bounds_3d(&expanded, b),
+                shown: ShownBounds {
+                    station_bounds,
+                    deflection_bounds: deflections_of(&dfactors, b),
+                    reaction_bounds,
+                    reaction_reason,
+                },
+                certificate,
+            }
         })
         .collect();
-    let data: Vec<CaseData<6, 6>> = cases
+    let data: Vec<CaseData<6, 6, 6, 6>> = cases
         .iter()
         .zip(&case_pairs)
         .map(|(c, (_, r))| {
@@ -560,38 +768,44 @@ pub fn certify_multi_case_results_3d(input: &MultiCaseInput3D, results: MultiCas
                 disp,
                 forces,
                 force_bounds: c.force_bounds.iter().map(|b| (b.element_id, fb3_arr(b))).collect(),
+                station_bounds: c.shown.station_bounds.iter().map(|b| (b.element_id, sb3_arr(b))).collect(),
+                reactions: reactions3(r),
+                reaction_bounds: c.shown.reaction_bounds.iter().map(|b| (b.node_id, rb3_arr(b))).collect(),
             }
         })
         .collect();
 
+    let lengths = lengths_of(
+        results.combination_results.iter().flat_map(|cr| cr.results.element_forces.iter().map(|f| (f.element_id, f.length))),
+    );
     let names: Vec<&str> = input.load_cases.iter().map(|c| c.name.as_str()).collect();
-    let bounds: Vec<Result<ComboBounds<6>, String>> = input
+    let bounds: Vec<Result<ComboBounds<6, 6, 6>, String>> = input
         .combinations
         .iter()
         .enumerate()
         .map(|(i, def)| {
             structural.clone()?;
             let factors = factor_list(def, &names)?;
-            let (disp, forces) = index3(&results.combination_results[i].results);
-            certify_combo(&factors, &data, &disp, &forces)
+            let cr = &results.combination_results[i].results;
+            let (disp, forces) = index3(cr);
+            let reactions = reactions3(cr);
+            let combo = ComboData { disp: &disp, forces: &forces, reactions: &reactions, lengths: &lengths, station_dev: station_dev_3d };
+            certify_combo(&factors, &data, &combo)
         })
         .collect();
 
-    let mut lengths: HashMap<usize, f64> = HashMap::new();
-    for cr in &results.combination_results {
-        for f in &cr.results.element_forces {
-            let l = lengths.entry(f.element_id).or_insert(0.0);
-            *l = l.max(f.length.abs());
-        }
-    }
     let combinations = input
         .combinations
         .iter()
+        .enumerate()
         .zip(&bounds)
-        .map(|(def, b)| combo_cert_3d(&def.name, b.as_ref().map_err(|e| e.clone()), &lengths))
+        .map(|((i, def), b)| {
+            let forces = results.combination_results.get(i).map(|r| r.results.element_forces.as_slice());
+            combo_cert_3d(&def.name, b.as_ref().map_err(|e| e.clone()), &dfactors, forces)
+        })
         .collect();
     let env = envelope_aligned_3d(&results).and_then(|()| envelope_bounds(&bounds));
-    let envelope = combo_cert_3d("envelope", env.as_ref().map_err(|e| e.clone()), &lengths);
+    let envelope = combo_cert_3d("envelope", env.as_ref().map_err(|e| e.clone()), &dfactors, None);
     CertifiedMultiCase3D { results, cases, combinations, envelope }
 }
 
@@ -615,14 +829,32 @@ fn envelope_aligned_3d(results: &MultiCaseResult3D) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    fn case(name: &str, b: Result<f64, String>, u: [f64; 2], f: f64, fb: f64) -> CaseData<2, 1> {
+    fn case(name: &str, b: Result<f64, String>, u: [f64; 2], f: f64, fb: f64) -> CaseData<2, 1, 1, 1> {
         CaseData {
             name: name.into(),
             abs_bound: b,
             disp: [(1, u)].into_iter().collect(),
             forces: [(7, ([f], [f]))].into_iter().collect(),
             force_bounds: [(7, [fb])].into_iter().collect(),
+            station_bounds: [(7, [2.0 * fb])].into_iter().collect(),
+            reactions: [(1, [f])].into_iter().collect(),
+            reaction_bounds: [(1, [3.0 * fb])].into_iter().collect(),
         }
+    }
+
+    fn no_dev(d: &[f64; 1], _l: f64) -> Vec<f64> {
+        vec![d[0]]
+    }
+
+    type Disp = HashMap<usize, [f64; 2]>;
+    type Forces = HashMap<usize, ([f64; 1], [f64; 1])>;
+
+    fn run(
+        factors: &[(usize, f64)], cases: &[CaseData<2, 1, 1, 1>], disp: &Disp, forces: &Forces, reaction: f64,
+    ) -> Result<ComboBounds<1, 1, 1>, String> {
+        let reactions = [(1, [reaction])].into_iter().collect();
+        let lengths = [(7, 2.0)].into_iter().collect();
+        certify_combo(factors, cases, &ComboData { disp, forces, reactions: &reactions, lengths: &lengths, station_dev: no_dev })
     }
 
     #[test]
@@ -634,11 +866,14 @@ mod tests {
         let disp = [(1, [ux, uy])].into_iter().collect();
         let fc = 1.2 * 10.0 + 1.6 * 4.0;
         let forces = [(7, ([fc], [fc]))].into_iter().collect();
-        let b = certify_combo(&factors, &cases, &disp, &forces).unwrap();
+        let b = run(&factors, &cases, &disp, &forces, fc).unwrap();
         let expect = 1.2 * 1e-6 + 1.6 * 2e-6;
         assert!(b.disp >= expect && b.disp < expect * 1.0001, "{}", b.disp);
         let fexp = 1.2 * 0.5 + 1.6 * 0.25;
         assert!(b.forces[0].1[0] >= fexp && b.forces[0].1[0] < fexp * 1.0001);
+        // Diagram and reaction bounds combine the cases' own bounds the same way.
+        assert!(b.stations[0].1[0] >= 2.0 * fexp && b.stations[0].1[0] < 2.0 * fexp * 1.0001);
+        assert!(b.reactions[0].1[0] >= 3.0 * fexp && b.reactions[0].1[0] < 3.0 * fexp * 1.0001);
     }
 
     #[test]
@@ -647,9 +882,11 @@ mod tests {
         let cases = vec![case("D", Ok(1e-9), [1.0, 2.0], 10.0, 1e-9)];
         let disp = [(1, [1.5 + 1e-3, 3.0])].into_iter().collect();
         let forces = [(7, ([15.0 + 1e-3], [15.0]))].into_iter().collect();
-        let b = certify_combo(&[(0, 1.5)], &cases, &disp, &forces).unwrap();
+        let b = run(&[(0, 1.5)], &cases, &disp, &forces, 15.0 + 2e-3).unwrap();
         assert!(b.disp >= 1e-3);
         assert!(b.forces[0].1[0] >= 1e-3);
+        assert!(b.stations[0].1[0] >= 1e-3, "station bound carries the end-force rounding");
+        assert!(b.reactions[0].1[0] >= 2e-3, "a misreported reaction widens its bound");
     }
 
     #[test]
@@ -657,19 +894,24 @@ mod tests {
         let cases = vec![case("D", Ok(1e-9), [1.0, 2.0], 10.0, 1e-9), case("X", Err("mechanism".into()), [0.0, 0.0], 0.0, 0.0)];
         let disp = [(1, [1.0, 2.0])].into_iter().collect();
         let forces = [(7, ([10.0], [10.0]))].into_iter().collect();
-        assert!(certify_combo(&[(0, 1.0), (1, 1.0)], &cases, &disp, &forces).is_err());
-        assert!(certify_combo(&[(0, 1.0), (1, 0.0)], &cases, &disp, &forces).is_ok());
-        assert!(certify_combo(&[(0, f64::NAN)], &cases, &disp, &forces).is_err());
+        assert!(run(&[(0, 1.0), (1, 1.0)], &cases, &disp, &forces, 10.0).is_err());
+        assert!(run(&[(0, 1.0), (1, 0.0)], &cases, &disp, &forces, 10.0).is_ok());
+        assert!(run(&[(0, f64::NAN)], &cases, &disp, &forces, 10.0).is_err());
     }
 
     #[test]
     fn envelope_takes_max_and_requires_all() {
-        let a = ComboBounds { disp: 1.0, forces: vec![(1, [2.0]), (2, [1.0])] };
-        let b = ComboBounds { disp: 3.0, forces: vec![(1, [1.0])] };
+        let cb = |disp: f64, forces: Vec<(usize, [f64; 1])>| ComboBounds::<1, 1, 1> {
+            disp, stations: forces.clone(), reactions: forces.clone(), forces,
+        };
+        let a = cb(1.0, vec![(1, [2.0]), (2, [1.0])]);
+        let b = cb(3.0, vec![(1, [1.0])]);
         let e = envelope_bounds(&[Ok(a), Ok(b)]).unwrap();
         assert_eq!(e.disp, 3.0);
         assert_eq!(e.forces, vec![(1, [2.0])]); // element 2 not bounded by every combination
-        let c: ComboBounds<1> = ComboBounds { disp: 1.0, forces: vec![] };
+        assert_eq!(e.stations, vec![(1, [2.0])]);
+        assert_eq!(e.reactions, vec![(1, [2.0])]);
+        let c = cb(1.0, vec![]);
         assert!(envelope_bounds(&[Ok(c), Err("x".into())]).is_err());
     }
 
@@ -697,8 +939,9 @@ mod tests {
         let dof = DofNumbering::build_2d(structure);
         let b = 1e-4;
         let fb = force_bounds_2d(structure, b);
+        let sb = super::super::stations::station_bounds_2d(structure, b);
         let res: Vec<AnalysisResults> = inputs.iter().map(|i| solve_2d(i).unwrap()).collect();
-        let data: Vec<CaseData<3, 3>> = res
+        let data: Vec<CaseData<3, 3, 3, 3>> = res
             .iter()
             .zip(names)
             .map(|(r, n)| {
@@ -709,6 +952,9 @@ mod tests {
                     disp,
                     forces,
                     force_bounds: fb.iter().map(|x| (x.element_id, fb2_arr(x))).collect(),
+                    station_bounds: sb.iter().map(|x| (x.element_id, sb2_arr(x))).collect(),
+                    reactions: HashMap::new(),
+                    reaction_bounds: HashMap::new(),
                 }
             })
             .collect();
@@ -717,9 +963,11 @@ mod tests {
         let refs: Vec<(usize, &AnalysisResults)> = res.iter().enumerate().collect();
         let combo = combine_results_refs(&cf, &refs).unwrap();
         let (cd, cfo) = index2(&combo);
-        let bounds = certify_combo(&factors, &data, &cd, &cfo).unwrap();
         let lengths: HashMap<usize, f64> = combo.element_forces.iter().map(|f| (f.element_id, f.length)).collect();
-        let cert = combo_cert_2d("c", Ok(&bounds), &lengths);
+        let no_reactions = HashMap::new();
+        let cdata = ComboData { disp: &cd, forces: &cfo, reactions: &no_reactions, lengths: &lengths, station_dev: station_dev_2d };
+        let bounds = certify_combo(&factors, &data, &cdata).unwrap();
+        let cert = combo_cert_2d("c", Ok(&bounds), &HashMap::new(), Some(&combo.element_forces));
         let fbm: HashMap<usize, &ForceBound2D> = cert.force_bounds.iter().map(|f| (f.element_id, f)).collect();
         let sbm: HashMap<usize, &StationBound2D> = cert.station_bounds.iter().map(|f| (f.element_id, f)).collect();
         assert_eq!(fbm.len(), structure.elements.len());

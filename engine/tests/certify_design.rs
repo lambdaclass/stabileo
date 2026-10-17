@@ -152,8 +152,19 @@ fn certify_combinations_2d_building() {
     for cc in &out.combinations {
         assert_eq!(cc.force_bounds.len(), input.solver.elements.len());
         assert_eq!(cc.station_bounds.len(), input.solver.elements.len());
+        let lengths: std::collections::HashMap<usize, f64> = out.results.combination_results[0]
+            .results
+            .element_forces
+            .iter()
+            .map(|f| (f.element_id, f.length))
+            .collect();
         for (fb, sb) in cc.force_bounds.iter().zip(&cc.station_bounds) {
-            assert!(sb.moment >= fb.m && sb.shear == fb.v && sb.axial == fb.n);
+            // Station bounds (valid at every x) come from the stiffness rows the
+            // diagram formula reads: no looser than ΔM + ΔV·L from the end forces.
+            assert_eq!(fb.element_id, sb.element_id);
+            assert!(sb.shear <= fb.v && sb.axial <= fb.n * (1.0 + 1e-12));
+            assert!(sb.moment <= fb.m + fb.v * lengths[&fb.element_id]);
+            assert!(sb.moment >= 0.5 * fb.m, "not vacuous");
         }
     }
     let env = &out.envelope;

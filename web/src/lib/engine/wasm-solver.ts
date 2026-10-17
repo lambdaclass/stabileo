@@ -816,15 +816,41 @@ export interface ShellBound {
   qx: number | null; qy: number | null;
 }
 
-export interface CertifiedLinear2D { results: AnalysisResults; certificate: LinearCertificate; forceBounds: ForceBound2D[] }
-export interface CertifiedLinear3D { results: AnalysisResults3D; certificate: LinearCertificate; forceBounds: ForceBound3D[]; shellBounds?: ShellBound[] }
+/**
+ * Per-member bound on |diagram(exact) − diagram(computed)|, valid at every point along the member
+ * (so also for the extremes over any stations), kN / kN·m. `gaps`: how far the computed diagram
+ * can rise above its largest station value (fall below its smallest) between stations, so the
+ * exact extreme along the member lies within ±(bound + gap) of the station extreme shown. Absent
+ * for envelopes.
+ */
+export interface StationBound2D {
+  elementId: number; axial: number; shear: number; moment: number;
+  gaps?: { axial: number; shear: number; moment: number };
+}
+export interface StationBound3D {
+  elementId: number; axial: number; shearY: number; shearZ: number; torsion: number; momentY: number; momentZ: number;
+  gaps?: { axial: number; shearY: number; shearZ: number; torsion: number; momentY: number; momentZ: number };
+}
+/** Per-member bound on every displayed translation of its deflection curve, at every point (m). */
+export interface DeflectionBound { elementId: number; displacement: number }
+/** Per-node bound on |reaction(exact) − reaction(reported)| (kN, kN·m). */
+export interface ReactionBound2D { nodeId: number; rx: number; rz: number; my: number }
+export interface ReactionBound3D { nodeId: number; fx: number; fy: number; fz: number; mx: number; my: number; mz: number }
 
-/** Per-member bound on the forces at every diagram station of a combination (`stationBounds`). */
-export interface StationBound2D { elementId: number; axial: number; shear: number; moment: number }
-export interface StationBound3D { elementId: number; axial: number; shearY: number; shearZ: number; torsion: number; momentY: number; momentZ: number }
+/** The bounds on what the views compute after the solve (docs/verification/CERTIFY.md). */
+export interface ShownBounds<S = StationBound2D | StationBound3D, R = ReactionBound2D | ReactionBound3D> {
+  stationBounds?: S[];
+  deflectionBounds?: DeflectionBound[];
+  reactionBounds?: R[];
+  /** Why reactions are not bounded (constraints, inclined supports), when they are not. */
+  reactionReason?: string;
+}
+
+export interface CertifiedLinear2D extends ShownBounds<StationBound2D, ReactionBound2D> { results: AnalysisResults; certificate: LinearCertificate; forceBounds: ForceBound2D[] }
+export interface CertifiedLinear3D extends ShownBounds<StationBound3D, ReactionBound3D> { results: AnalysisResults3D; certificate: LinearCertificate; forceBounds: ForceBound3D[]; shellBounds?: ShellBound[] }
 
 /** One load case of a certified multi-case solve: a linear certificate of its own. */
-export interface CaseCertificate<F> { name: string; certificate: LinearCertificate; forceBounds: F[] }
+export interface CaseCertificate<F> extends ShownBounds { name: string; certificate: LinearCertificate; forceBounds: F[] }
 /**
  * A combination, or the envelope, of a certified multi-case solve. `dispAbsBound` bounds
  * ‖u*_c − ũ_c‖₂ (the envelope: every max-abs value within it of the exact envelope).
@@ -832,6 +858,7 @@ export interface CaseCertificate<F> { name: string; certificate: LinearCertifica
 export interface CombinationCertificate<F, S> {
   name: string; certified: boolean; reason?: string;
   dispAbsBound: number | null; forceBounds: F[]; stationBounds: S[];
+  deflectionBounds?: DeflectionBound[]; reactionBounds?: Array<ReactionBound2D | ReactionBound3D>;
 }
 /** `certify_multi_case_2d/3d` without its results (the solve's, already on screen). */
 export interface MultiCaseCertificate<F = ForceBound2D | ForceBound3D, S = StationBound2D | StationBound3D> {
@@ -876,12 +903,19 @@ export function certifyLinearWire(dim: '2d' | '3d', wire: Record<string, any>): 
   const certify = { '2d': wasmCertifyLinear2d, '3d': wasmCertifyLinear3d }[dim];
   if (!wasmReady || !certify) throw new Error('WASM certificate export not available.');
   assertFiniteWire(wire);
-  const { certificate, forceBounds, shellBounds } = certify(wire);
-  return { certificate, forceBounds, shellBounds: shellBounds ?? [] };
+  return certificateOnly(certify(wire));
 }
 
 /** A linear certificate without the results it re-solved (3D carries the shells' bounds). */
-export interface LinearCertificateOnly { certificate: LinearCertificate; forceBounds: Array<ForceBound2D | ForceBound3D>; shellBounds?: ShellBound[] }
+export interface LinearCertificateOnly extends ShownBounds {
+  certificate: LinearCertificate; forceBounds: Array<ForceBound2D | ForceBound3D>; shellBounds?: ShellBound[];
+}
+
+/** A certify answer without its results (what a worker posts back). */
+export function certificateOnly(out: LinearCertificateOnly & { results?: unknown }): LinearCertificateOnly {
+  const { certificate, forceBounds, shellBounds, stationBounds, deflectionBounds, reactionBounds, reactionReason } = out;
+  return { certificate, forceBounds, shellBounds: shellBounds ?? [], stationBounds, deflectionBounds, reactionBounds, reactionReason };
+}
 
 /**
  * The engine's other certify exports, by name, called through `callCertify` (`certify-jobs.ts`

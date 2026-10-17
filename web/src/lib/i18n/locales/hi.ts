@@ -3617,6 +3617,7 @@ const hi: Translations = {
   'certificate.bundleTooltip': 'इस हल का प्रमाणपत्र पैकेज डाउनलोड करें (JSON, हर संख्या सटीक लिखी गई)। कोई भी इसे इस ऐप पर भरोसा किए बिना Lean परीक्षक से स्वतंत्र रूप से दोबारा जाँच सकता है: lake exe certcheck <फ़ाइल>।',
   'certificate.bundleFailed': 'प्रमाणपत्र निर्यात नहीं हो सका: {reason}',
   'certificate.shellTooltip': 'इस परिणामी की त्रुटि की प्रमाणित सीमा: संयोजित प्रणाली का सटीक हल दिखाए गए मान से ± इतने के भीतर मान देता है।',
+  'certificate.atPoint': 'सटीक मान ± {b} के भीतर (प्रमाणित)',
   'certificate.modal': '{n} मोड के ω² घेरे गए (प्रमाणित)',
   'certificate.modalComplete': '{f} Hz से नीचे कोई मोड नहीं छूटा ({n} मोड)',
   'certificate.modalIncomplete': 'पूर्णता प्रमाणित नहीं: {reason}',

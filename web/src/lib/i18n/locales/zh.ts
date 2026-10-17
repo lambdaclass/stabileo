@@ -3606,6 +3606,7 @@ const zh: Translations = {
   'certificate.bundleTooltip': '下载本次求解的证书包（JSON，每个数都精确写出）。任何人都可以不依赖本应用，用 Lean 检查器独立复核：lake exe certcheck <文件>。',
   'certificate.bundleFailed': '无法导出证书：{reason}',
   'certificate.shellTooltip': '该合力误差的认证上界：组装系统的精确解给出的值与显示值相差在 ± 此值以内。',
+  'certificate.atPoint': '精确值在 ± {b} 以内（已认证）',
   'certificate.modal': '{n} 个振型的 ω² 已包含（已认证）',
   'certificate.modalComplete': '{f} Hz 以下无遗漏振型（{n} 个振型）',
   'certificate.modalIncomplete': '完备性未认证：{reason}',

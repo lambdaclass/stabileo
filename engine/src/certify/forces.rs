@@ -74,15 +74,15 @@ pub struct ShellBound {
 }
 
 #[inline]
-fn up(x: f64) -> f64 {
+pub(crate) fn up(x: f64) -> f64 {
     x.next_up()
 }
 
 /// ‖T‖₂ ≤ 1 + 4ε for a rotation whose entries are rounded.
-const T_NORM: f64 = 1.0 + 4.0 * f64::EPSILON;
+pub(crate) const T_NORM: f64 = 1.0 + 4.0 * f64::EPSILON;
 
 /// Upper bound on the 2-norm of row `i` of an n×n row-major matrix.
-fn row_norm(k: &[f64], n: usize, i: usize) -> f64 {
+pub(crate) fn row_norm(k: &[f64], n: usize, i: usize) -> f64 {
     let mut s = 0.0f64;
     for &x in &k[i * n..(i + 1) * n] {
         s = up(s + up(x * x));
@@ -90,19 +90,36 @@ fn row_norm(k: &[f64], n: usize, i: usize) -> f64 {
     up(s.sqrt())
 }
 
-/// `‖row‖ · ‖T‖ · abs_bound`, rounded up, over the given rows (max).
-fn bound(k: &[f64], n: usize, rows: &[usize], abs_bound: f64) -> f64 {
-    let r = rows.iter().map(|&i| row_norm(k, n, i)).fold(0.0, f64::max);
-    up(up(r * T_NORM) * abs_bound)
+/// One member's local stiffness exactly as the solver's force recovery builds
+/// it (`compute_internal_forces_{2d,3d}`): `k` is `n × n` row-major in local
+/// DOFs; a truss/cable has `n = 2` and `k = [EA/L, −EA/L]` (its one axial row).
+pub(crate) struct LocalK {
+    pub element_id: usize,
+    /// The member length as the force recovery computes it (`ef.length`).
+    pub length: f64,
+    pub n: usize,
+    pub k: Vec<f64>,
+    pub truss: bool,
 }
 
-/// Per-member force bounds for a 2D model, given `‖u* − ũ‖₂ ≤ abs_bound`.
-/// Uses the element stiffness exactly as `assemble_stiffness_2d` builds it.
-pub fn force_bounds_2d(input: &SolverInput, abs_bound: f64) -> Vec<ForceBound2D> {
+impl LocalK {
+    /// Row `i` of `k` (the truss has its single row at 0).
+    pub fn row(&self, i: usize) -> &[f64] {
+        if self.truss {
+            &self.k
+        } else {
+            &self.k[i * self.n..(i + 1) * self.n]
+        }
+    }
+}
+
+/// Every 2D member's local stiffness, as `assemble_stiffness_2d` and
+/// `compute_internal_forces_2d` build it, sorted by element id.
+pub(crate) fn local_stiffness_2d(input: &SolverInput) -> Vec<LocalK> {
     let nodes: HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let secs: HashMap<usize, &SolverSection> = input.sections.values().map(|s| (s.id, s)).collect();
-    let mut out: Vec<ForceBound2D> = input
+    let mut out: Vec<LocalK> = input
         .elements
         .values()
         .map(|elem| {
@@ -113,8 +130,8 @@ pub fn force_bounds_2d(input: &SolverInput, abs_bound: f64) -> Vec<ForceBound2D>
             let e = mat.e * 1000.0;
             if elem.elem_type == "truss" || elem.elem_type == "cable" {
                 // local axial stiffness EA/L·[[1, −1], [−1, 1]]: row norm √2·EA/L
-                let k = [e * sec.a / l, -(e * sec.a / l)];
-                return ForceBound2D { element_id: elem.id, n: bound(&k, 2, &[0], abs_bound), v: 0.0, m: 0.0 };
+                let k = vec![e * sec.a / l, -(e * sec.a / l)];
+                return LocalK { element_id: elem.id, length: l, n: 2, k, truss: true };
             }
             let phi = match sec.as_y {
                 Some(as_y) => {
@@ -124,28 +141,23 @@ pub fn force_bounds_2d(input: &SolverInput, abs_bound: f64) -> Vec<ForceBound2D>
                 None => 0.0,
             };
             let k = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
-            ForceBound2D {
-                element_id: elem.id,
-                n: bound(&k, 6, &[0, 3], abs_bound),
-                v: bound(&k, 6, &[1, 4], abs_bound),
-                m: bound(&k, 6, &[2, 5], abs_bound),
-            }
+            LocalK { element_id: elem.id, length: l, n: 6, k, truss: false }
         })
         .collect();
     out.sort_by_key(|b| b.element_id);
     out
 }
 
-/// Per-member force bounds for a 3D model (frames, warping frames and
-/// trusses), given `‖u* − ũ‖₂ ≤ abs_bound`. Uses the element stiffness exactly
-/// as `assemble_stiffness_3d` builds it.
-pub fn force_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ForceBound3D> {
+/// Every 3D member's local stiffness (frames, warping frames, trusses), as
+/// `assemble_stiffness_3d` and `compute_internal_forces_3d` build it, sorted by
+/// element id. Warping members in a 7-DOF-per-node model have `n = 14`.
+pub(crate) fn local_stiffness_3d(input: &SolverInput3D) -> Vec<LocalK> {
     let nodes: HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mats: HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
     let secs: HashMap<usize, &SolverSection3D> = input.sections.values().map(|s| (s.id, s)).collect();
     // The solver uses the 14-DOF warping element only in a 7-DOF-per-node model.
     let warping_model = DofNumbering::build_3d(input).dofs_per_node >= 7;
-    let mut out: Vec<ForceBound3D> = input
+    let mut out: Vec<LocalK> = input
         .elements
         .values()
         .map(|elem| {
@@ -156,11 +168,8 @@ pub fn force_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ForceBound3
             let e = mat.e * 1000.0;
             let g = e / (2.0 * (1.0 + mat.nu));
             if elem.elem_type == "truss" || elem.elem_type == "cable" {
-                let k = [e * sec.a / l, -(e * sec.a / l)];
-                let n = bound(&k, 2, &[0], abs_bound);
-                return ForceBound3D {
-                    element_id: elem.id, n, vy: 0.0, vz: 0.0, t: 0.0, my: 0.0, mz: 0.0, bimoment: 0.0,
-                };
+                let k = vec![e * sec.a / l, -(e * sec.a / l)];
+                return LocalK { element_id: elem.id, length: l, n: 2, k, truss: true };
             }
             let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
                 let l2 = l * l;
@@ -176,34 +185,63 @@ pub fn force_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ForceBound3
                 let k = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, cw, l, g, Hinge3D::from_elem(elem), phi_y, phi_z,
                 );
-                return ForceBound3D {
-                    element_id: elem.id,
-                    n: bound(&k, 14, &[0, 7], abs_bound),
-                    vy: bound(&k, 14, &[1, 8], abs_bound),
-                    vz: bound(&k, 14, &[2, 9], abs_bound),
-                    t: bound(&k, 14, &[3, 10], abs_bound),
-                    my: bound(&k, 14, &[4, 11], abs_bound),
-                    mz: bound(&k, 14, &[5, 12], abs_bound),
-                    bimoment: bound(&k, 14, &[6, 13], abs_bound),
-                };
+                return LocalK { element_id: elem.id, length: l, n: 14, k, truss: false };
             }
             let k = frame_local_stiffness_3d(
                 e, sec.a, sec.iy, sec.iz, sec.j, l, g, Hinge3D::from_elem(elem), phi_y, phi_z,
             );
-            ForceBound3D {
-                element_id: elem.id,
-                n: bound(&k, 12, &[0, 6], abs_bound),
-                vy: bound(&k, 12, &[1, 7], abs_bound),
-                vz: bound(&k, 12, &[2, 8], abs_bound),
-                t: bound(&k, 12, &[3, 9], abs_bound),
-                my: bound(&k, 12, &[4, 10], abs_bound),
-                mz: bound(&k, 12, &[5, 11], abs_bound),
-                bimoment: 0.0,
-            }
+            LocalK { element_id: elem.id, length: l, n: 12, k, truss: false }
         })
         .collect();
     out.sort_by_key(|b| b.element_id);
     out
+}
+
+/// `‖row‖ · ‖T‖ · abs_bound` over the given rows (max), rounded up.
+pub(crate) fn scaled_row_bound(lk: &LocalK, rows: &[usize], abs_bound: f64) -> f64 {
+    let r = rows.iter().map(|&i| row_norm(lk.row(i), lk.row(i).len(), 0)).fold(0.0, f64::max);
+    up(up(r * T_NORM) * abs_bound)
+}
+
+/// Per-member force bounds for a 2D model, given `‖u* − ũ‖₂ ≤ abs_bound`.
+/// Uses the element stiffness exactly as `assemble_stiffness_2d` builds it.
+pub fn force_bounds_2d(input: &SolverInput, abs_bound: f64) -> Vec<ForceBound2D> {
+    local_stiffness_2d(input)
+        .iter()
+        .map(|lk| {
+            let b = |rows: &[usize]| scaled_row_bound(lk, rows, abs_bound);
+            if lk.truss {
+                return ForceBound2D { element_id: lk.element_id, n: b(&[0]), v: 0.0, m: 0.0 };
+            }
+            ForceBound2D { element_id: lk.element_id, n: b(&[0, 3]), v: b(&[1, 4]), m: b(&[2, 5]) }
+        })
+        .collect()
+}
+
+/// Per-member force bounds for a 3D model (frames, warping frames and
+/// trusses), given `‖u* − ũ‖₂ ≤ abs_bound`. Uses the element stiffness exactly
+/// as `assemble_stiffness_3d` builds it.
+pub fn force_bounds_3d(input: &SolverInput3D, abs_bound: f64) -> Vec<ForceBound3D> {
+    local_stiffness_3d(input)
+        .iter()
+        .map(|lk| {
+            let b = |rows: &[usize]| scaled_row_bound(lk, rows, abs_bound);
+            let eid = lk.element_id;
+            match lk.n {
+                2 => ForceBound3D { element_id: eid, n: b(&[0]), vy: 0.0, vz: 0.0, t: 0.0, my: 0.0, mz: 0.0, bimoment: 0.0 },
+                14 => ForceBound3D {
+                    element_id: eid,
+                    n: b(&[0, 7]), vy: b(&[1, 8]), vz: b(&[2, 9]), t: b(&[3, 10]),
+                    my: b(&[4, 11]), mz: b(&[5, 12]), bimoment: b(&[6, 13]),
+                },
+                _ => ForceBound3D {
+                    element_id: eid,
+                    n: b(&[0, 6]), vy: b(&[1, 7]), vz: b(&[2, 8]), t: b(&[3, 9]),
+                    my: b(&[4, 10]), mz: b(&[5, 11]), bimoment: 0.0,
+                },
+            }
+        })
+        .collect()
 }
 
 /// `‖row‖₂` of each row of a row-major `rows × cols` matrix, rounded up.

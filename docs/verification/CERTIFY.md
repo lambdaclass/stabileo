@@ -354,10 +354,13 @@ case's right-hand side and combine the same way).
 * **Combination member forces.** End forces are affine in `u` with load terms that do
   not depend on `u` (`f = k T u − fef`), so `|F_c* − F̃_c| ≤ Σ|cᵢ|ΔFᵢ + |Σcᵢ F̃ᵢ − F̃_c|`
   per component, with `ΔFᵢ` from the member force bounds below.
-* **Diagram stations.** The diagram evaluators compute `M(x) = M_start − V_start·x +
-  (load terms)`, `V(x) = V_start + …`, `N(x) = N_start + …`, `T(x)` linear between ends,
-  so at every station the error is at most `ΔM + ΔV·L`, `ΔV`, `ΔN`, `ΔT` (3D: `M_z` uses
-  `ΔV_y`, `M_y` uses `ΔV_z`). These are the `stationBounds`.
+* **Diagram stations.** Each case's diagram bound (next section, valid at every x)
+  combines the same way, `Σ|cᵢ|·Sᵢ`, plus the rounding of the combined start forces the
+  diagram formula reads (`δM + L·δV` for moments, `δN`, `δV`, `δT` otherwise). These are
+  the `stationBounds`; they replace the former `ΔM + ΔV·L`, which is several times looser.
+  Combinations also carry the gaps of their computed diagrams, `deflectionBounds` (member
+  factor × the combination's displacement bound) and `reactionBounds` (`Σ|cᵢ|Rᵢ` plus the
+  rounding of the combined reaction against the reported one).
 * **Envelopes.** `max_k`, `min_k` and max-abs over combinations are 1-Lipschitz in the
   sup norm, so every envelope value (max-abs results, envelope diagram ordinates) is
   within the largest combination bound of the exact envelope. The envelope is
@@ -366,8 +369,67 @@ case's right-hand side and combine the same way).
   tie).
 
 Not included (inherited from the member force bounds): f64 rounding in each case's
-force formulas and in evaluating the diagram polynomials. Reactions are not bounded.
-Constraints and inclined supports are unsupported, as for single cases.
+force formulas and in evaluating the diagram polynomials. Constraints and inclined
+supports are unsupported, as for single cases. Envelope curves get no gaps: their
+station values are certified, not the envelope between stations.
+
+## Diagrams, extremes, deflections and reactions
+
+What the result views compute after the solve (`engine/src/certify/stations.rs`,
+`deflection.rs`, `reactions.rs`; attached to `certify_linear_2d/3d`, to every case and
+combination of `certify_multi_case_2d/3d` and to the envelope as `stationBounds`,
+`deflectionBounds`, `reactionBounds`, `reactionReason`). Tests:
+`engine/tests/certify_shown.rs`.
+
+* **Diagrams at every x.** The evaluators (`postprocess::diagrams::compute_diagram_value_at`,
+  `diagrams_3d::evaluate_diagram_3d_at` and their TypeScript twins `computeDiagramValueAt`,
+  `evaluateDiagramAt`) compute `M(x) = M_start − V_start·x + (loads)`, `V(x) = V_start + …`,
+  `N(x) = N_start + …` (TS: `(1−t)N_start + t(N_end + Σpx) − …`), 3D `M_z = M_z,start −
+  V_y,start·x + …`, `M_y = M_y,start + V_z,start·x + …`, `T = (1−t)T_start + t·T_end`. The load
+  terms do not depend on `u` and the end forces are rows of `k_local T u_e`, so the error is
+  `r(x)·T·Δu_e` with `r(x)` affine in x (or a convex combination of two rows) and
+  `|r(x)TΔu| ≤ ‖r(x)‖₂·‖T‖₂·‖u* − ũ‖₂`. `x ↦ ‖r(x)‖₂` is convex: its sup over `[0, L]` is at
+  `x = 0` or `x = L`, evaluated in interval arithmetic. The bound therefore holds at *every*
+  point of the member (the hover, any polyline between stations) and for both evaluators,
+  which share the u-dependence exactly; the TS–engine agreement of the load terms is a
+  vitest (`certificate-shown.test.ts`).
+* **Extremes.** max, min and max-abs over a fixed set of stations are 1-Lipschitz in the sup
+  norm: the station bound bounds the error of every displayed extreme. Between stations the
+  *computed* diagram can exceed its station extreme; `gaps` bound by how much over the
+  engine's stations (`diagram_positions_2d/3d`, which the TS diagrams use too):
+  `G_k = K·h²/8 + Σ|S_i|·min(c_i − x_k, x_{k+1} − c_i, h/4) + min(Σ|J_i|, D·h)` on each station
+  interval, with `K ≥ |f''|` on smooth pieces (`|q|` for moments, `|q'|` for shears), `S_i` the
+  slope jumps (point loads in M, load ends in V), `J_i` the value jumps (couples in M, point
+  loads in V) and `D ≥ |f'|` (proof in `stations.rs`). So the exact extreme along the member
+  lies in `[shown − bound, shown + bound + gap]`; the max label prints `±(bound + gap)`. Where
+  the extreme occurs is **not** certified: the argmax is not continuous in the forces (two
+  near-equal peaks can swap).
+* **Deflection curves.** `compute_deformed_shape` (and TS `computeDisplacementAt`,
+  `memberLocalCurve`, the same Euler–Bernoulli/Timoshenko member) is `u(x) = (1−t)u_i + t u_j`
+  and `v(x) = Σ p_k(x) q_k + (loads)` per bending plane, `q = (v_i, θ_i, v_j, θ_j)`. The cubics
+  `p_k` are probed from the solver's own `MemberDeflection` (`deflection_shape_cubics`) and the
+  three parts use disjoint end components, so every displayed translation (and the length of
+  the displacement) at every x is within `√max(1, S)·‖T‖²·‖u* − ũ‖₂`, `S = sup ‖p(x)‖₂²`
+  enclosed by interval Horner on 64 subintervals (max over Euler–Bernoulli and, with a shear
+  area, Timoshenko; trusses as straight lines). Rotations along the curve are not bounded.
+* **Reactions.** Restrained DOF: `R = (K u − f)_d`, so `|ΔR| ≤ ‖K_{d,F}‖₂·‖u* − ũ‖₂`; spring
+  DOF: `R = −k u_d`, `|k|·‖u* − ũ‖₂`. The reported value is also compared with the formula
+  at ũ in interval arithmetic and the difference added, so the reaction bound covers the
+  f64 evaluation and any mismatch with the formula. Not bounded (with `reactionReason`):
+  constraints, inclined supports; skipped: 2D springs with an angle, nodes with several
+  supports, the bimoment reaction.
+
+Tests: the double-double reference of the same assembled system lies inside every bound on
+84 certified random models (≈170 000 checks; the reference reaches 41% of a bound) and on
+feature models (partial and trapezoidal loads, couples, thermal loads, hinges, trusses,
+Timoshenko, springs, 3D releases, axial distributed loads); the worst displacement-error
+direction allowed by the certificate, probed through the solver's own routines, reaches
+≥ 0.9999 of every bound kind (so halving any bound fails); gaps are attained (ratio > 0.99)
+by diagrams peaking midway between stations; combinations contain the combined reference.
+
+Inherited limitation: rounding in the f64 evaluation of the diagram and curve formulas is
+not included (reactions excepted, see above). Not yet formalized in Lean (instances of
+`force_bound` with `r(x)` for `k`, plus the convexity and chord-error lemmas).
 
 ## Certified design checks
 

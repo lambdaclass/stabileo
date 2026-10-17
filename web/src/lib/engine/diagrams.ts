@@ -90,7 +90,20 @@ function buildDiagram(
 }
 
 /**
- * Compute moment diagram M(x) along element
+ * The diagram of one member from its full element forces: partial distributed loads included,
+ * at the engine's stations (`diagram_positions_2d`). The canvas draws this one.
+ */
+export function computeElementDiagram(
+  kind: 'moment' | 'shear' | 'axial',
+  ef: Parameters<typeof computeDiagramValueAt>[2],
+  nodeIx: number, nodeIy: number,
+  nodeJx: number, nodeJy: number,
+): ElementDiagram {
+  return buildDiagram(kind, ef, nodeIx, nodeIy, nodeJx, nodeJy, ef.pointLoads ?? []);
+}
+
+/**
+ * Compute moment diagram M(x) along element (full-length loads only: `qI`, `qJ`)
  */
 export function computeMomentDiagram(
   mStart: number, _mEnd: number,

@@ -10162,6 +10162,7 @@ const en: Record<string, string> = {
   'certificate.bundleTooltip': 'Download this solve\'s certificate bundle (JSON, every number written exactly). Anyone can re-check it independently, without trusting this app, with the Lean checker: lake exe certcheck <file>.',
   'certificate.bundleFailed': 'Could not export the certificate: {reason}',
   'certificate.shellTooltip': 'Certified bound on this resultant\'s error: the exact solution of the assembled system gives a value within ± this of the one shown.',
+  'certificate.atPoint': 'exact value within ± {b} (certified)',
   'certificate.modal': 'ω² of {n} modes enclosed (certified)',
   'certificate.modalComplete': 'no mode missed below {f} Hz ({n} modes)',
   'certificate.modalIncomplete': 'completeness not certified: {reason}',

@@ -4,7 +4,9 @@
  *
  * Not the design-code "verification" (`verification.svelte.ts`): this is a rigorous bound on how
  * far the computed displacements and member forces can be from the exact solution of the
- * assembled system, checked in interval arithmetic by the engine and proved in Lean.
+ * assembled system, checked in interval arithmetic by the engine and proved in Lean — and on what
+ * the views compute from them: diagram values at any point, their extremes, deflection curves and
+ * reactions (`certificate-read.ts` reads them against a value on screen).
  *
  * Certifying costs a few times the solve, so it never delays the results: a published solve is
  * certified after a short pause (live-calc re-solves on every edit; only the one that stays is
@@ -18,7 +20,7 @@ import { certifyInWorker, PoolUnavailableError } from '../engine/solver-pool';
 import {
   certifyLinearWire, hasCertifyExport, type LinearCertificate, type LinearCertificateOnly,
   type ForceBound2D, type ForceBound3D, type ShellBound, type MultiCaseCertificate, type CombinationCertificate,
-  type StationBound2D, type StationBound3D,
+  type StationBound2D, type StationBound3D, type ReactionBound2D, type ReactionBound3D, type ShownBounds,
 } from '../engine/wasm-solver';
 import { runCertify, hasCertify } from '../engine/certify-jobs';
 import { errorText } from '../utils/error-text';
@@ -28,6 +30,8 @@ export { formatBound } from '../utils/certificate-format';
 
 type Dim = '2d' | '3d';
 type ForceBound = ForceBound2D | ForceBound3D;
+type StationBound = StationBound2D | StationBound3D;
+type ReactionBound = ReactionBound2D | ReactionBound3D;
 
 /**
  * A certificate as the results panel reads it. `relBound` (relative to the computed
@@ -45,8 +49,12 @@ interface Certified {
   forceBounds: Map<number, ForceBound>;
   /** Shells (3D base solve only), keyed `kind:id`. */
   shellBounds: Map<string, ShellBound>;
-  /** A combination's bound at every diagram station of each member (design checks read it). */
-  stationBounds?: Map<number, StationBound2D | StationBound3D>;
+  /** Each member's diagram bound, valid at every point along it (design checks read it too). */
+  stationBounds: Map<number, StationBound>;
+  /** Each member's bound on its deflection curve (m). */
+  deflectionBounds: Map<number, number>;
+  /** Each supported node's reaction bounds (absent: not bounded). */
+  reactionBounds: Map<number, ReactionBound>;
 }
 
 export type CertificateState =
@@ -65,15 +73,25 @@ const BUNDLE_EXPORT = { '2d': 'export_linear_bundle_2d', '3d': 'export_linear_bu
 
 const shellKey = (kind: string, id: number) => `${kind}:${id}`;
 
+/** The shown-quantity bounds of an answer, keyed as the views look them up. */
+function shownMaps(out: ShownBounds): Pick<Certified, 'stationBounds' | 'deflectionBounds' | 'reactionBounds'> {
+  return {
+    stationBounds: new Map((out.stationBounds ?? []).map((b) => [b.elementId, b])),
+    deflectionBounds: new Map((out.deflectionBounds ?? []).map((b) => [b.elementId, b.displacement])),
+    reactionBounds: new Map((out.reactionBounds ?? []).map((b) => [b.nodeId, b])),
+  };
+}
+
 function fromLinear(out: LinearCertificateOnly): Certified {
   return {
     certificate: out.certificate,
     forceBounds: new Map((out.forceBounds ?? []).map((b) => [b.elementId, b])),
     shellBounds: new Map((out.shellBounds ?? []).map((b) => [shellKey(b.kind, b.elementId), b])),
+    ...shownMaps(out),
   };
 }
 
-function fromCombination(c: CombinationCertificate<ForceBound, StationBound2D | StationBound3D>): Certified {
+function fromCombination(c: CombinationCertificate<ForceBound, StationBound>): Certified {
   const certificate: ShownCertificate = c.certified && c.dispAbsBound !== null && Number.isFinite(c.dispAbsBound)
     ? { status: 'certified', absBound: c.dispAbsBound, relBound: null }
     : { status: 'uncertified', reason: c.reason ?? 'not certified' };
@@ -81,12 +99,12 @@ function fromCombination(c: CombinationCertificate<ForceBound, StationBound2D | 
     certificate,
     forceBounds: new Map((c.forceBounds ?? []).map((b) => [b.elementId, b])),
     shellBounds: new Map(),
-    stationBounds: certificate.status === 'certified' ? new Map((c.stationBounds ?? []).map((b) => [b.elementId, b])) : new Map(),
+    ...shownMaps(certificate.status === 'certified' ? c : {}),
   };
 }
 
 function failed(reason: string): Certified {
-  return { certificate: { status: 'uncertified', reason }, forceBounds: new Map(), shellBounds: new Map() };
+  return { certificate: { status: 'uncertified', reason }, forceBounds: new Map(), shellBounds: new Map(), ...shownMaps({}) };
 }
 
 function createCertificateStore() {
@@ -126,7 +144,7 @@ function createCertificateStore() {
       const cases = new Map<number, Certified>();
       for (const id of found.cases) {
         const c = caseByName.get(found.input.caseNames.get(id) ?? '');
-        if (c) cases.set(id, fromLinear({ certificate: c.certificate, forceBounds: c.forceBounds }));
+        if (c) cases.set(id, fromLinear(c));
       }
       const combos = new Map<number, Certified>();
       for (const id of found.combos) {
@@ -211,6 +229,24 @@ function createCertificateStore() {
       return s.status === 'done' ? (s.forceBounds.get(elementId) as B | undefined) ?? null : null;
     },
 
+    /** The diagram bounds of one member of the results on screen (valid at every point), when certified. */
+    stationBound<B extends StationBound>(is3D: boolean, elementId: number): B | null {
+      const s = this.shown(is3D);
+      return s.status === 'done' ? (s.stationBounds.get(elementId) as B | undefined) ?? null : null;
+    },
+
+    /** The bound on one member's deflection curve on screen (m), when certified. */
+    deflectionBound(is3D: boolean, elementId: number): number | null {
+      const s = this.shown(is3D);
+      return s.status === 'done' ? s.deflectionBounds.get(elementId) ?? null : null;
+    },
+
+    /** The reaction bounds of one supported node on screen, when certified. */
+    reactionBound<B extends ReactionBound>(is3D: boolean, nodeId: number): B | null {
+      const s = this.shown(is3D);
+      return s.status === 'done' ? (s.reactionBounds.get(nodeId) as B | undefined) ?? null : null;
+    },
+
     /** The bounds on one shell's stress resultants on screen (3D base solve), when certified. */
     shellBound(kind: ShellBound['kind'], elementId: number): ShellBound | null {
       const s = this.shown(true);
@@ -225,7 +261,7 @@ function createCertificateStore() {
     comboStationBound3D(comboId: number, elementId: number): StationBound3D | null {
       const dim: Dim = '3d';
       if (multi.status !== 'done' || multi.dim !== dim) return null;
-      return (multi.combos.get(comboId)?.stationBounds?.get(elementId) as StationBound3D | undefined) ?? null;
+      return (multi.combos.get(comboId)?.stationBounds.get(elementId) as StationBound3D | undefined) ?? null;
     },
 
     /** Whether the base solve on screen can be exported as a certificate bundle. */

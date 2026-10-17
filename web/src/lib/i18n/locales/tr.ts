@@ -3617,6 +3617,7 @@ const tr: Translations = {
   'certificate.bundleTooltip': 'Bu çözümün sertifika paketini indirir (JSON, her sayı tam olarak yazılır). Herkes onu bu uygulamaya güvenmeden Lean denetleyicisiyle bağımsız olarak yeniden kontrol edebilir: lake exe certcheck <dosya>.',
   'certificate.bundleFailed': 'Sertifika dışa aktarılamadı: {reason}',
   'certificate.shellTooltip': 'Bu bileşkenin hatası için sertifikalı sınır: birleştirilmiş sistemin kesin çözümü, gösterilenden ± bu kadar içinde bir değer verir.',
+  'certificate.atPoint': 'kesin değer ± {b} içinde (sertifikalı)',
   'certificate.modal': '{n} modun ω² değeri aralıkla sınırlandı (sertifikalı)',
   'certificate.modalComplete': '{f} Hz altında hiçbir mod atlanmadı ({n} mod)',
   'certificate.modalIncomplete': 'tamlık sertifikalı değil: {reason}',

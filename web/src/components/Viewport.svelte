@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { displayUnits, fmtQ, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
+  import { displayUnits, fmtQ, fmtCoord, unitQ, toQ } from '../lib/store/display-units.svelte';
+  import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
+  import { diagramBound2D, forceReactionBound } from '../lib/engine/certificate-read';
+  import type { StationBound2D, ReactionBound2D } from '../lib/engine/wasm-solver';
   import { setCanvasUnitSystem, setCanvasLoadScale } from '../lib/canvas/canvas-units';
   import { displacementText, fixedQuantity } from '../lib/utils/unit-format';
   import type { Quantity } from '../lib/utils/units';
@@ -317,6 +320,22 @@
     updateAnimating();
     invalidate();
   });
+
+  /*
+   * Certified bounds (`store/certificate.svelte.ts`) on what the canvas shows: a diagram value at a
+   * point, the exact extreme against the max label, a point of the deflection curve. The tooltip
+   * line reads "exact value within ± b"; nothing is added while no certificate is there.
+   */
+  type DiagramKind2D = 'moment' | 'shear' | 'axial';
+  /** The diagram a hover label reads (stress labels have no diagram bound). */
+  const HOVER_DIAGRAM_KIND: Record<string, DiagramKind2D | undefined> = { M: 'moment', V: 'shear', N: 'axial' };
+  const diagramCert = (elementId: number, kind: DiagramKind2D) =>
+    diagramBound2D(certificateStore.stationBound<StationBound2D>(false, elementId), kind);
+  const certLine = (b: number | null, qty: 'force' | 'moment' | 'displacement'): string[] =>
+    b === null ? [] : [t('certificate.atPoint').replace('{b}', `${formatBound(toQ(b, qty))} ${unitQ(qty)}`)];
+  const diagramCertLine = (elementId: number, kind: DiagramKind2D) =>
+    certLine(diagramCert(elementId, kind)?.atPoint ?? null, kind === 'moment' ? 'moment' : 'force');
+  const extremeBound = (elementId: number, kind: DiagramKind2D) => diagramCert(elementId, kind)?.extreme ?? null;
 
   // Draw context helper for canvas renderers
   function makeDrawContext() {
@@ -1325,9 +1344,11 @@
             );
             const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
             drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+            drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
           } else {
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+            // The certified ± beside the max label on screen only; a figure export stays as it was.
+            const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
+            drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
@@ -1433,6 +1454,7 @@
         drawTooltip(s.x + 12, s.y - 25, [
           `${label} = ${fmtQ(displayVal, qty)} ${unitQ(qty)}`,
           `x/L = ${xPos}%`,
+          ...diagramCertLine(diagramQuery.elementId, dt),
         ]);
       }
     }
@@ -1504,6 +1526,7 @@
           drawTooltip(s.x + 12, s.y - 25, [
             ...diagramHover.lines,
             `x/L = ${xPos}%`,
+            ...(dt === 'deformed' ? certLine(certificateStore.deflectionBound(false, diagramHover.elementId), 'displacement') : []),
           ]);
         } else {
           // Determine label/unit from type or from hover data
@@ -1514,9 +1537,11 @@
           const isMomentHover = label === 'M' && (dt === 'moment' || dt === 'colorMap');
           const displayVal = isMomentHover ? -diagramHover.value : diagramHover.value;
           const text = qty === null ? (Number.isFinite(displayVal) ? `${(displayVal * 100).toFixed(0)} %` : '—') : `${fmtQ(displayVal, qty)} ${unitQ(qty)}`;
+          const certKind = HOVER_DIAGRAM_KIND[label];
           drawTooltip(s.x + 12, s.y - 25, [
             `${label} = ${text}`,
             `x/L = ${xPos}%`,
+            ...(certKind ? diagramCertLine(diagramHover.elementId, certKind) : []),
           ]);
         }
       }
@@ -1533,6 +1558,12 @@
           const d = resultsStore.getDisplacement(hoverNode.id);
           if (d) {
             lines.push(`δ: ${displacementText(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2), 3, uiStore.unitSystem)}`);
+          }
+          const r = resultsStore.getReaction(hoverNode.id);
+          if (r) {
+            const rb = forceReactionBound(certificateStore.reactionBound<ReactionBound2D>(false, hoverNode.id));
+            const pm = rb === null ? '' : ` ± ${formatBound(toQ(rb, 'force'))}`;
+            lines.push(`R: ${fmtQ(r.rx, 'force')}; ${fmtQ(r.rz, 'force')}${pm} ${unitQ('force')}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);

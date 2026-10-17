@@ -3618,6 +3618,7 @@ const it: Translations = {
   'certificate.bundleTooltip': 'Scarica il pacchetto di certificato di questo calcolo (JSON, ogni numero scritto esattamente). Chiunque può ricontrollarlo in modo indipendente, senza fidarsi di questa applicazione, con il verificatore Lean: lake exe certcheck <file>.',
   'certificate.bundleFailed': 'Impossibile esportare il certificato: {reason}',
   'certificate.shellTooltip': 'Limite certificato dell\'errore di questa risultante: la soluzione esatta del sistema assemblato dà un valore entro ± questa quantità da quello mostrato.',
+  'certificate.atPoint': 'valore esatto entro ± {b} (certificato)',
   'certificate.modal': 'ω² di {n} modi racchiusi (certificato)',
   'certificate.modalComplete': 'nessun modo omesso sotto {f} Hz ({n} modi)',
   'certificate.modalIncomplete': 'completezza non certificata: {reason}',

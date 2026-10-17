@@ -9795,6 +9795,7 @@ const pt: Translations = {
   'certificate.bundleTooltip': 'Baixe o pacote de certificado deste cálculo (JSON, cada número escrito de forma exata). Qualquer pessoa pode verificá-lo de forma independente, sem confiar neste aplicativo, com o verificador Lean: lake exe certcheck <arquivo>.',
   'certificate.bundleFailed': 'Não foi possível exportar o certificado: {reason}',
   'certificate.shellTooltip': 'Limite certificado do erro desta resultante: a solução exata do sistema montado dá um valor a ± isto do mostrado.',
+  'certificate.atPoint': 'valor exato dentro de ± {b} (certificado)',
   'certificate.modal': 'ω² de {n} modos delimitados (certificado)',
   'certificate.modalComplete': 'nenhum modo omitido abaixo de {f} Hz ({n} modos)',
   'certificate.modalIncomplete': 'completude não certificada: {reason}',

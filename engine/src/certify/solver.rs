@@ -24,7 +24,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::constrained::{certify_constrained_system, rotate_back, to_rotated, ConstraintMap, KRef, Rotation};
+use super::deflection::{deflection_bounds_2d, deflection_bounds_3d, DeflectionBound};
 use super::forces::{force_bounds_2d, force_bounds_3d, shell_bounds_3d, ForceBound2D, ForceBound3D, ShellBound};
+use super::reactions::{reaction_bounds_2d, reaction_bounds_3d, ReactionBound2D, ReactionBound3D};
+use super::stations::{station_bounds_2d, station_bounds_3d, with_gaps_2d, with_gaps_3d, StationBound2D, StationBound3D};
 use super::interval::Interval;
 use super::linear::{
     certify_linear_system_auto_interval_rhs, certify_sigma_auto, certify_with_certified_sigma, Certificate, MAX_CERTIFY_N,
@@ -48,6 +51,68 @@ pub struct CertifiedResults2D {
     pub certificate: Certificate,
     /// Per-member bounds on |force(u*) − force(ũ)| (empty when uncertified).
     pub force_bounds: Vec<ForceBound2D>,
+    /// What the views show beyond the end forces (empty when uncertified).
+    #[serde(flatten)]
+    pub shown: ShownBounds<StationBound2D, ReactionBound2D>,
+}
+
+/// Bounds on the quantities the result views compute after the solve
+/// (`stations.rs`, `deflection.rs`, `reactions.rs`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShownBounds<S, R> {
+    /// Diagram bounds valid at every x along each member, with the gaps of the
+    /// computed diagrams between their stations.
+    #[serde(default = "Vec::new")]
+    pub station_bounds: Vec<S>,
+    /// Deflection-curve bounds per member.
+    #[serde(default = "Vec::new")]
+    pub deflection_bounds: Vec<DeflectionBound>,
+    /// Reaction bounds per supported node.
+    #[serde(default = "Vec::new")]
+    pub reaction_bounds: Vec<R>,
+    /// Why reactions are not bounded, when they are not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaction_reason: Option<String>,
+}
+
+impl<S, R> Default for ShownBounds<S, R> {
+    fn default() -> Self {
+        ShownBounds { station_bounds: Vec::new(), deflection_bounds: Vec::new(), reaction_bounds: Vec::new(), reaction_reason: None }
+    }
+}
+
+/// The shown-quantity bounds of one certified 2D solve (`loads` on `input`'s structure).
+pub fn shown_bounds_2d(
+    input: &SolverInput,
+    loads: &[SolverLoad],
+    results: &AnalysisResults,
+    abs_bound: f64,
+) -> ShownBounds<StationBound2D, ReactionBound2D> {
+    let mut station_bounds = station_bounds_2d(input, abs_bound);
+    with_gaps_2d(&mut station_bounds, &results.element_forces);
+    let (reaction_bounds, reaction_reason) = match reaction_bounds_2d(input, loads, results, abs_bound) {
+        Ok(r) => (r, None),
+        Err(e) => (Vec::new(), Some(e)),
+    };
+    ShownBounds { station_bounds, deflection_bounds: deflection_bounds_2d(input, abs_bound), reaction_bounds, reaction_reason }
+}
+
+/// The shown-quantity bounds of one certified 3D solve.
+pub fn shown_bounds_3d(
+    input: &SolverInput3D,
+    loads: &[SolverLoad3D],
+    results: &AnalysisResults3D,
+    abs_bound: f64,
+) -> ShownBounds<StationBound3D, ReactionBound3D> {
+    let expanded = expand_curved_beams_3d(input);
+    let mut station_bounds = station_bounds_3d(&expanded, abs_bound);
+    with_gaps_3d(&mut station_bounds, &results.element_forces);
+    let (reaction_bounds, reaction_reason) = match reaction_bounds_3d(input, loads, results, abs_bound) {
+        Ok(r) => (r, None),
+        Err(e) => (Vec::new(), Some(e)),
+    };
+    ShownBounds { station_bounds, deflection_bounds: deflection_bounds_3d(&expanded, abs_bound), reaction_bounds, reaction_reason }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,13 +125,17 @@ pub struct CertifiedResults3D {
     /// Per-shell-element bounds on the reported stress resultants (empty when uncertified).
     #[serde(default)]
     pub shell_bounds: Vec<ShellBound>,
+    #[serde(flatten)]
+    pub shown: ShownBounds<StationBound3D, ReactionBound3D>,
 }
 
-/// `certify_linear_2d` plus per-member force bounds.
+/// `certify_linear_2d` plus per-member force bounds and the bounds on what the
+/// views show (diagrams, deflection curves, reactions).
 pub fn certify_linear_2d_full(input: &SolverInput) -> Result<CertifiedResults2D, String> {
     let (results, certificate) = certify_linear_2d(input)?;
     let force_bounds = certificate.abs_bound().map(|b| force_bounds_2d(input, b)).unwrap_or_default();
-    Ok(CertifiedResults2D { results, certificate, force_bounds })
+    let shown = certificate.abs_bound().map(|b| shown_bounds_2d(input, &input.loads, &results, b)).unwrap_or_default();
+    Ok(CertifiedResults2D { results, certificate, force_bounds, shown })
 }
 
 /// `certify_linear_3d` plus per-member force bounds and shell resultant bounds.
@@ -77,7 +146,8 @@ pub fn certify_linear_3d_full(input: &SolverInput3D) -> Result<CertifiedResults3
         Some(b) => (force_bounds_3d(&expanded, b), shell_bounds_3d(&expanded, b)),
         None => Default::default(),
     };
-    Ok(CertifiedResults3D { results, certificate, force_bounds, shell_bounds })
+    let shown = certificate.abs_bound().map(|b| shown_bounds_3d(input, &input.loads, &results, b)).unwrap_or_default();
+    Ok(CertifiedResults3D { results, certificate, force_bounds, shell_bounds, shown })
 }
 
 /// Solve a 2D linear static model with `solve_2d` and certify its displacements.

@@ -3,12 +3,9 @@
 import { transverseSign } from '../engine/transverse-sign-2d';
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import { createLabelCollector, type LabelCollector } from './label-layout';
-import {
-  computeMomentDiagram, computeShearDiagram, computeAxialDiagram,
-  computeDiagramValueAt,
-  type ElementDiagram,
-} from '../engine/diagrams';
-import { type UnitSystem, formatDiagramValue } from '../utils/units';
+import { computeElementDiagram, computeDiagramValueAt, type ElementDiagram } from '../engine/diagrams';
+import { type UnitSystem, formatDiagramValue, toDisplay } from '../utils/units';
+import { formatBound } from '../utils/certificate-format';
 
 export type DiagramKind = 'moment' | 'shear' | 'axial';
 
@@ -19,6 +16,11 @@ interface DrawContext {
   getElement: (id: number) => { nodeI: number; nodeJ: number } | undefined;
   /** The frame's shared label layout, when the caller runs one. */
   labels?: LabelCollector;
+  /**
+   * The certified bound on the exact extreme along a member against its largest value shown
+   * (`certificate-read.ts`, `diagramBound2D(…).extreme`), printed as `±` beside that value.
+   */
+  extremeBound?: (elementId: number, kind: DiagramKind) => number | null;
 }
 
 /*
@@ -98,27 +100,9 @@ export function drawDiagrams(
     const nodeJ = dc.getNode(elem.nodeJ);
     if (!nodeI || !nodeJ) continue;
 
-    let diagram: ElementDiagram;
-    const pLoads = ef.pointLoads ?? [];
-    if (kind === 'moment') {
-      diagram = computeMomentDiagram(
-        ef.mStart, ef.mEnd, ef.vStart, ef.qI, ef.qJ,
-        ef.length, nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
-        pLoads,
-      );
-    } else if (kind === 'shear') {
-      diagram = computeShearDiagram(
-        ef.vStart, ef.qI, ef.qJ, ef.length,
-        nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
-        pLoads,
-      );
-    } else {
-      diagram = computeAxialDiagram(
-        ef.nStart, ef.nEnd, ef.length,
-        nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
-        pLoads,
-      );
-    }
+    // The full element forces: partial distributed loads are in `distributedLoads` only (the
+    // legacy qI/qJ carry the full-length ones), and drawing from qI/qJ dropped them.
+    const diagram: ElementDiagram = computeElementDiagram(kind, ef, nodeI.x, nodeI.y, nodeJ.x, nodeJ.y);
     diagram.elementId = ef.elementId;
 
     drawSingleDiagram(dc, diagram, scale, colors, ef.length, nodeI, nodeJ, kind, showAllValues, globalMax, towardLocalAxes);
@@ -230,7 +214,9 @@ function drawSingleDiagram(
     // Label at max absolute value (if not at endpoints)
     if (diagram.maxAbsT > 0.05 && diagram.maxAbsT < 0.95 && Math.abs(diagram.maxAbsValue) > 1e-3) {
       const idx = Math.round(diagram.maxAbsT * (pts.length - 1));
-      drawValueLabel(labels, colors.text, screenDiagram[idx], screenBaseline[idx], formatValue(diagram.maxAbsValue, kind));
+      const b = dc.extremeBound?.(diagram.elementId, kind) ?? null;
+      const pm = b === null ? '' : ` ±${formatBound(toDisplay(b, kind === 'moment' ? 'moment' : 'force', _unitSystem))}`;
+      drawValueLabel(labels, colors.text, screenDiagram[idx], screenBaseline[idx], formatValue(diagram.maxAbsValue, kind) + pm);
     }
 
     // A caller without a shared collector still gets its own labels resolved.

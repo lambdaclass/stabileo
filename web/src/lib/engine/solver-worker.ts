@@ -8,13 +8,13 @@
  *   { type: 'solve3d', id: number, input: object }    → 3D solve (SolverInput3D wire object)
  *   { type: 'pdelta3d', id, input, maxIter, tol }      → 3D P-Delta, one load set
  *   { type: 'certify2d' | 'certify3d', id, input }      → certificate of a linear solve
- *                                                         ({ certificate, forceBounds }, no results)
+ *                                                         ({ certificate, forceBounds, …bounds }, no results)
  *   { type: 'certify', id, name, input: args }          → any other `certify_*` / `export_linear_bundle_*`
  *                                                         export (`certify-jobs.ts`), its results dropped
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { assertFiniteWire, readCertifyAnswer } from './wasm-solver';
+import { assertFiniteWire, certificateOnly, readCertifyAnswer } from './wasm-solver';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
@@ -88,8 +88,7 @@ self.onmessage = async (e: MessageEvent) => {
     try {
       assertFiniteWire(msg.input);
       // Only the certificate crosses back: the results are the solve's, already on screen.
-      const { certificate, forceBounds, shellBounds } = certify(msg.input);
-      self.postMessage({ type: 'result', id: msg.id, result: { certificate, forceBounds, shellBounds: shellBounds ?? [] } });
+      self.postMessage({ type: 'result', id: msg.id, result: certificateOnly(certify(msg.input)) });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
     }

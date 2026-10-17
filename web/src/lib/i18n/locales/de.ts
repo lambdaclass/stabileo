@@ -3625,6 +3625,7 @@ const de: Translations = {
   'certificate.bundleTooltip': 'Lädt das Zertifikatspaket dieser Berechnung herunter (JSON, jede Zahl exakt geschrieben). Jeder kann es unabhängig, ohne dieser Anwendung zu vertrauen, mit dem Lean-Prüfer nachprüfen: lake exe certcheck <Datei>.',
   'certificate.bundleFailed': 'Das Zertifikat konnte nicht exportiert werden: {reason}',
   'certificate.shellTooltip': 'Zertifizierte Schranke für den Fehler dieser Resultierenden: die exakte Lösung des assemblierten Systems liefert einen Wert innerhalb ± dieses Betrags vom angezeigten.',
+  'certificate.atPoint': 'exakter Wert innerhalb ± {b} (zertifiziert)',
   'certificate.modal': 'ω² von {n} Moden eingeschlossen (zertifiziert)',
   'certificate.modalComplete': 'keine Mode unter {f} Hz ausgelassen ({n} Moden)',
   'certificate.modalIncomplete': 'Vollständigkeit nicht zertifiziert: {reason}',

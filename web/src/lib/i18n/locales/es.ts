@@ -10151,6 +10151,7 @@ const es: Record<string, string> = {
   'certificate.bundleTooltip': 'Descargá el paquete de certificado de este cálculo (JSON, cada número escrito en forma exacta). Cualquiera puede verificarlo de forma independiente, sin confiar en esta aplicación, con el verificador de Lean: lake exe certcheck <archivo>.',
   'certificate.bundleFailed': 'No se pudo exportar el certificado: {reason}',
   'certificate.shellTooltip': 'Cota certificada del error de esta resultante: la solución exacta del sistema ensamblado da un valor a ± esto del mostrado.',
+  'certificate.atPoint': 'valor exacto dentro de ± {b} (certificado)',
   'certificate.modal': 'ω² de {n} modos acotados (certificado)',
   'certificate.modalComplete': 'ningún modo omitido por debajo de {f} Hz ({n} modos)',
   'certificate.modalIncomplete': 'completitud no certificada: {reason}',

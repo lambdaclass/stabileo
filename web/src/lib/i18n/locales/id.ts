@@ -3607,6 +3607,7 @@ const id: Translations = {
   'certificate.bundleTooltip': 'Unduh paket sertifikat perhitungan ini (JSON, setiap angka ditulis eksak). Siapa pun dapat memeriksanya ulang secara independen, tanpa memercayai aplikasi ini, dengan pemeriksa Lean: lake exe certcheck <berkas>.',
   'certificate.bundleFailed': 'Sertifikat tidak dapat diekspor: {reason}',
   'certificate.shellTooltip': 'Batas tersertifikasi untuk galat resultan ini: solusi eksak sistem yang dirakit memberi nilai dalam ± besaran ini dari yang ditampilkan.',
+  'certificate.atPoint': 'nilai eksak dalam ± {b} (tersertifikasi)',
   'certificate.modal': 'ω² dari {n} ragam terkurung (tersertifikasi)',
   'certificate.modalComplete': 'tidak ada ragam terlewat di bawah {f} Hz ({n} ragam)',
   'certificate.modalIncomplete': 'kelengkapan tidak tersertifikasi: {reason}',

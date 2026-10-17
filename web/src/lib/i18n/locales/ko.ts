@@ -3604,6 +3604,7 @@ const ko: Translations = {
   'certificate.bundleTooltip': '이 해석의 인증서 패키지(JSON, 모든 수를 정확히 기록)를 다운로드합니다. 누구나 이 앱을 신뢰하지 않고 Lean 검사기로 독립적으로 재검증할 수 있습니다: lake exe certcheck <파일>.',
   'certificate.bundleFailed': '인증서를 내보낼 수 없습니다: {reason}',
   'certificate.shellTooltip': '이 합응력 오차의 인증된 한계: 조립된 시스템의 정확해는 표시된 값에서 ± 이 값 이내입니다.',
+  'certificate.atPoint': '정확한 값은 ± {b} 이내 (인증됨)',
   'certificate.modal': '{n}개 모드의 ω² 포함 (인증됨)',
   'certificate.modalComplete': '{f} Hz 미만에서 누락된 모드 없음 ({n}개 모드)',
   'certificate.modalIncomplete': '완전성 미인증: {reason}',

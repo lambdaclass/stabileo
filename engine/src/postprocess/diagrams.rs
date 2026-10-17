@@ -71,6 +71,19 @@ fn build_sampling_positions(
     positions.into_iter().map(|k| k as f64 / 1e12).collect()
 }
 
+/// The stations (t ∈ [0, 1]) at which `compute_diagrams_2d` samples diagram
+/// `kind` of one member: a regular grid of 21, plus each point load's position
+/// and its ±1e-6 neighbours (the axial diagram only when it has axial point
+/// loads). The certified gaps between stations (`certify::stations`) use this.
+pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
+    let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
+    if kind == "axial" && !has_axial_pl {
+        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
+    } else {
+        build_sampling_positions(ef.length, &ef.point_loads)
+    }
+}
+
 // ==================== Diagram Value At ====================
 
 /// Return the element's point loads sorted by position `a` (stable, ascending).
@@ -264,29 +277,14 @@ pub fn compute_diagrams_2d(
             (0.0, 0.0, ef.length, 0.0)
         };
 
-        // Sort the point loads and build the station list once per element
-        // rather than once per diagram kind: the previous code redid both
-        // three times over, for identical inputs.
         let sorted_pl = sorted_point_loads(ef);
-        let loaded_positions = build_sampling_positions(ef.length, &ef.point_loads);
-        let plain_positions: Vec<f64> =
-            (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect();
-        let has_axial_pl = ef
-            .point_loads
-            .iter()
-            .any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
-
         let geom = (node_ix, node_iy, node_jx, node_jy);
         for (kind, out) in [
             ("moment", &mut moment),
             ("shear", &mut shear),
             ("axial", &mut axial),
         ] {
-            let positions = if kind == "axial" && !has_axial_pl {
-                &plain_positions
-            } else {
-                &loaded_positions
-            };
+            let positions = &diagram_positions_2d(ef, kind);
             out.push(compute_single_diagram(kind, ef, geom, positions, &sorted_pl));
         }
     }
@@ -402,6 +400,25 @@ impl MemberDeflection {
             + (self.m0 * x * x / 2.0 + self.s0 * x * x * x / 6.0 + mq2) / self.ei
             - self.flex_s * (self.s0 * x + mq)
     }
+}
+
+/// The member deflection of `compute_deformed_shape` without member loads, for
+/// unit end values: row k holds `[c0, c1, c2, c3]` with `v(x) = c0 + c1·x + c2·x² +
+/// c3·x³` when the k-th of (v_i, θ_i, v_j, θ_j) is 1 and the others 0. The
+/// deflection is affine in the end values (the unknowns solve a 3×3 system whose
+/// matrix does not depend on them) with exactly these coefficients; the load
+/// terms do not depend on the end values. `certify::deflection` bounds it.
+pub(crate) fn deflection_shape_cubics(
+    l: f64, ei: f64, flex_s: f64, hinge_start: bool, hinge_end: bool,
+) -> [[f64; 4]; 4] {
+    let mut out = [[0.0; 4]; 4];
+    for (k, row) in out.iter_mut().enumerate() {
+        let mut e = [0.0; 4];
+        e[k] = 1.0;
+        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new());
+        *row = [d.v_i, d.theta_i - flex_s * d.s0, d.m0 / (2.0 * d.ei), d.s0 / (6.0 * d.ei)];
+    }
+    out
 }
 
 /// Compute deformed shape for a 2D element: the exact deflection of the

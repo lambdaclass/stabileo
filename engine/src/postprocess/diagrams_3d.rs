@@ -55,6 +55,22 @@ fn build_sampling_positions_3d(
     positions.into_iter().map(|k| k as f64 / 1e12).collect()
 }
 
+/// The stations (t ∈ [0, 1]) at which `compute_diagrams_3d` samples diagram
+/// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
+/// neighbours of each point load acting in that diagram's plane.
+pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
+    let relevant_pl: &[PointLoadInfo3D] = match kind {
+        "momentZ" | "shearY" => &ef.point_loads_y,
+        "momentY" | "shearZ" => &ef.point_loads_z,
+        _ => &[],
+    };
+    if relevant_pl.is_empty() {
+        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
+    } else {
+        build_sampling_positions_3d(ef.length, relevant_pl)
+    }
+}
+
 // ==================== Evaluate at t ====================
 
 /// Evaluate a 3D diagram value at position t.
@@ -167,17 +183,7 @@ fn compute_single_diagram_3d(
     ef: &ElementForces3D,
     kind: &str,
 ) -> ElementDiagram3D {
-    let relevant_pl: &[PointLoadInfo3D] = match kind {
-        "momentZ" | "shearY" => &ef.point_loads_y,
-        "momentY" | "shearZ" => &ef.point_loads_z,
-        _ => &[],
-    };
-
-    let positions = if relevant_pl.is_empty() {
-        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
-    } else {
-        build_sampling_positions_3d(ef.length, relevant_pl)
-    };
+    let positions = diagram_positions_3d(ef, kind);
 
     let mut points = Vec::new();
     let mut max_val = f64::NEG_INFINITY;
