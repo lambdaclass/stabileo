@@ -24,6 +24,7 @@
 //! Gauss–Jordan elimination.
 
 use super::exact::*;
+use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use crate::solver::plastic::{solve_plastic_2d, PlasticResult};
 use crate::types::*;
 use num_traits::{One, Signed, Zero};
@@ -700,6 +701,15 @@ struct Equilibrium {
 /// Exact particular solution and self-stress basis of the equilibrium equations
 /// `A x = λ b` (x = (Fx, Fz, Mi) per member).
 fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
+    let (rows, rhs) = equilibrium_rows(model);
+    let r = rref_solve(&rows, Some(&rhs), 3 * model.elems.len());
+    let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
+    Ok(Equilibrium { xp, null: r.null_basis })
+}
+
+/// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
+/// nodal DOF, then every moment release.
+fn equilibrium_rows(model: &PlasticModel) -> (Vec<Vec<Q>>, Vec<Q>) {
     let ne = model.elems.len();
     let n = 3 * ne;
     let nn = model.node_ids.len();
@@ -759,9 +769,46 @@ fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
             rhs.push(lm1);
         }
     }
-    let r = rref_solve(&rows, Some(&rhs), n);
-    let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
-    Ok(Equilibrium { xp, null: r.null_basis })
+    (rows, rhs)
+}
+
+/// The model as the generic limit-analysis problem of a certificate bundle
+/// (`plastic_bundle`): the equilibrium rows over `x = (Fx, Fz, Mi)` per member, and per
+/// member with a plastic moment its section moment `M(t)` (`|M| ≤ Mp`) on the end
+/// sections `[0, 0]`, `[1, 1]` (the end moments `−Mᵢ`, `Mⱼ`, as `check_static` bounds
+/// them) and on the load pieces, `M(t) = −Mᵢ + t (d × F) − λ Lm(t)`.
+pub fn limit_problem_2d(model: &PlasticModel) -> LimitProblem {
+    let (rows, rhs) = equilibrium_rows(model);
+    let mut members = Vec::new();
+    for (ei, e) in model.elems.iter().enumerate() {
+        let Some((lo, hi)) = &e.mp else { continue };
+        let c = 3 * ei;
+        let zero = || LinF::default();
+        let mi = || vec![(c + 2, -Q::one())];
+        let cr = || vec![(c, -e.dz.clone()), (c + 1, e.dx.clone())];
+        let point = |a: Q, f: LinF| YieldPiece { a: a.clone(), b: a, polys: vec![CubicF([f, zero(), zero(), zero()])] };
+        let mut pieces = vec![point(Q::zero(), LinF::new(mi(), Q::zero()))];
+        for pc in &e.pieces {
+            pieces.push(YieldPiece {
+                a: pc.a.clone(),
+                b: pc.b.clone(),
+                polys: vec![CubicF([
+                    LinF::new(mi(), -pc.c[0].clone()),
+                    LinF::new(cr(), -pc.c[1].clone()),
+                    LinF::new(vec![], -pc.c[2].clone()),
+                    LinF::new(vec![], -pc.c[3].clone()),
+                ])],
+            });
+        }
+        let mj: Vec<(usize, Q)> = mi().into_iter().chain(cr()).collect();
+        pieces.push(point(Q::one(), LinF::new(mj, -elem_end_moment_load(e))));
+        members.push(YieldMember {
+            element_id: e.id,
+            comps: vec![YieldComp { n: Q::one(), mp_lo: lo.clone(), mp_hi: hi.clone() }],
+            pieces,
+        });
+    }
+    LimitProblem { nv: 3 * model.elems.len(), rows: sparse_rows(&rows, &rhs), members }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

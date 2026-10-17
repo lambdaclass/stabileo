@@ -294,7 +294,7 @@ export async function certifyInWorker(dim: '2d' | '3d', input: any): Promise<any
 }
 
 /**
- * Call a certify export (`certify_*`, `export_linear_bundle_*`) in a worker, as `callCertify`
+ * Call a certify export (`certify_*`, `export_*_bundle_*`) in a worker, as `callCertify`
  * does on the main thread; an idle warmed worker first, as `certifyInWorker`.
  * @throws PoolUnavailableError when Workers are unavailable — caller should fall back
  */

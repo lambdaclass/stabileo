@@ -30,6 +30,13 @@ theorems=(
 	Certify.kahan_lower_count
 	Certify.Bundle.check_sound
 	Certify.Bundle.check_sound_coercive
+	Certify.Plastic.bern_bound
+	Certify.Plastic.static_sound
+	Certify.Plastic.kinematic_sound
+	Certify.Plastic.check_sound
+	Certify.Combo.case_sound
+	Certify.Combo.check_sound_disp
+	Certify.Combo.check_sound_quantities
 )
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

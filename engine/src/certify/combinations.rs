@@ -249,7 +249,7 @@ fn envelope_bounds<const K: usize>(combos: &[Result<ComboBounds<K>, String>]) ->
     Ok(ComboBounds { disp, forces })
 }
 
-fn factor_list(def: &CombinationDef, case_names: &[&str]) -> Result<Vec<(usize, f64)>, String> {
+pub(super) fn factor_list(def: &CombinationDef, case_names: &[&str]) -> Result<Vec<(usize, f64)>, String> {
     let mut out: Vec<(usize, f64)> = def
         .factors
         .iter()
@@ -271,11 +271,11 @@ fn disp2(d: &Displacement) -> [f64; 3] {
     [d.ux, d.uz, d.ry]
 }
 
-fn forces2(f: &ElementForces) -> ([f64; 3], [f64; 3]) {
+pub(super) fn forces2(f: &ElementForces) -> ([f64; 3], [f64; 3]) {
     ([f.n_start, f.v_start, f.m_start], [f.n_end, f.v_end, f.m_end])
 }
 
-fn fb2_arr(b: &ForceBound2D) -> [f64; 3] {
+pub(super) fn fb2_arr(b: &ForceBound2D) -> [f64; 3] {
     [b.n, b.v, b.m]
 }
 
@@ -437,14 +437,14 @@ fn disp3(d: &Displacement3D) -> [f64; 6] {
     [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]
 }
 
-fn forces3(f: &ElementForces3D) -> ([f64; 6], [f64; 6]) {
+pub(super) fn forces3(f: &ElementForces3D) -> ([f64; 6], [f64; 6]) {
     (
         [f.n_start, f.vy_start, f.vz_start, f.mx_start, f.my_start, f.mz_start],
         [f.n_end, f.vy_end, f.vz_end, f.mx_end, f.my_end, f.mz_end],
     )
 }
 
-fn fb3_arr(b: &ForceBound3D) -> [f64; 6] {
+pub(super) fn fb3_arr(b: &ForceBound3D) -> [f64; 6] {
     [b.n, b.vy, b.vz, b.t, b.my, b.mz]
 }
 

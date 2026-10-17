@@ -136,7 +136,8 @@ residual + Gershgorin certificate and writes the data it used;
 free-DOF system from the sparse assembly (any model size). Wasm:
 `export_linear_bundle_{2d,3d}(json) -> bundle JSON`.
 
-**Format** (`stabileo.linear-certificate.v1`, JSON). Every f64 is written exactly as an
+**Format** (`stabileo.linear-certificate.v2`, JSON; `v1` is `v2` without `provenance`
+and is still read). Every f64 is written exactly as an
 integer pair `[m, e]` meaning `m · 2^e` (`m` odd, or `[0, 0]`), so the checker sees the
 exact dyadic rationals the engine used.
 
@@ -150,6 +151,7 @@ exact dyadic rationals the engine used.
 | `l` | `{colPtr, rowIdx, values}`: the f64 Cholesky factor `L` of `P K Pᵀ − tI` in permuted numbering; it denotes `L'` with `L'[perm[a]][c] = L[a][c]` |
 | `mu` | the claimed `μ`, `λ_min(K) ≥ μ > 0` |
 | `bound` | the claimed bound `b`: `‖K⁻¹f − ũ‖₂ ≤ b` |
+| `provenance` | what was solved, by which engine (see *Provenance* below; absent for a bundle exported from a bare matrix) |
 | `info` | display copies of μ, b, ρ, relative bound (ignored by the checker) |
 
 **Check (Lean, `lake exe certcheck <bundle.json>...`).** `Certify.Bundle.check`
@@ -201,15 +203,166 @@ f64 export of the same bundles takes 4 ms to 4 s.
 Nothing about `L` or `perm` is checked: `L' L'ᵀ ⪰ 0` for every real `L'`, so a wrong
 factor or a non-permutation can only make the Gershgorin test fail.
 
-**Tests.** `engine/tests/certify_bundle.rs` (`export_bundles`) writes bundles for three
-fixtures (`ex-3d-portal-frame`, `ex-3d-tower`, `ex-3d-nave-industrial`) to
-`target/cert-bundles/`, plus three tampered copies of each whose claims are false or
-unsupportable: `bound / 1024`, `ũ` moved by `4b` in one component with `b` kept (then
-`‖u* − ũ'‖ ≥ 3b`, so acceptance would contradict `check_sound`), and `μ = 2 min Kᵢᵢ`
-(`> λ_min`, contradicting `check_sound_coercive`). `verify/scripts/check-bundles.sh`
-regenerates them, runs `certcheck`, and requires every original to be accepted and
-every tampered copy rejected. The ignored test `export_large_bundles` writes the generated
+### Plastic collapse bundles
+
+`certify::plastic_bundle::export_plastic_bundle_{2d,3d}(input)` (wasm
+`export_plastic_bundle_{2d,3d}(json)`) export the plastic-collapse certificate of a 2D or
+3D model (see "Plastic collapse load factor" below) as `stabileo.plastic-certificate.v1`.
+All numbers are exact rationals written as decimal text `"n"` or `"n/d"`.
+
+**The problem the bundle states** (a discretized rigid–perfectly-plastic limit-analysis
+problem; `plastic.rs::limit_problem_2d`, `plastic_3d.rs::limit_problem_3d`). Unknowns: the
+member end forces `x ∈ ℝ^nv` (`(Fx, Fz, Mᵢ)` per member in 2D, `(F, Mᵢ)` in 3D) and the
+load factor `λ`.
+
+| field | meaning |
+|---|---|
+| `rows` | equilibrium `Σ aᵢ xᵢ = λ p`: every free nodal DOF, every moment release |
+| `members[].comps` | per bending component `c`: weight `n_c > 0`, enclosure `[mpLo_c, mpHi_c]` of the plastic moment |
+| `members[].pieces` | `[a, b] ⊂ [0, 1]` and per component the cubic `M_c(t) = Σⱼ cⱼ tʲ`, each `cⱼ` an affine functional `{terms, lam}` of `(x, λ)` |
+| `static` | `{lambda, x}`: the static certificate; `pieces[].cuts` are its cut points |
+| `kinematic` | `{multipliers, hinges: [{member, piece, t, theta, diss}], lambda}` |
+
+The pieces are the end sections `[0, 0]` and `[1, 1]` (the end moments `−Mᵢ`, `Mⱼ`) and the
+load pieces between member-load breakpoints, `M(t) = −Mᵢ + t (d × F) − λ Lm(t)`. The yield
+condition is `Σ_c M_c(t)² / (n_c Mp_c²) ≤ 1` at every `t` of every piece: in 2D one
+component with `n = 1`, i.e. `|M(t)| ≤ Mp`; in 3D the biaxial ellipse
+`(M_y/Mp_y)² + (M_z/Mp_z)² ≤ 1` with `M_y = C·u_y`, `n_y = |u_y|²` for the exact (non-unit)
+local axes, checked exactly in rationals, no square roots.
+
+**Check (Lean, `Certify.Plastic.check`, `verify/Certify/PlasticCheck.lean`, core only).**
+* static: every row holds exactly at `(λ_lo, x)`; on every piece the chain
+  `a ≤ cuts… ≤ b` covers `[a, b]` and on each segment
+  `Σ_c B_c² / (n_c mpLo_c²) ≤ 1`, `B_c` the largest absolute Bernstein coefficient of the
+  cubic `M_c` on the segment (Taylor shift, scale, four coefficients);
+* kinematic: the multiplier-weighted rows equal the hinge-weighted moment functionals as
+  linear forms in `x` (every coefficient, accumulated into one array, is exactly 0); the
+  work `W = Σ_r u_r p_r + Σ_h Σ_c θ_{h,c} ∂M_c(t_h)/∂λ > 0`; each hinge lies on its piece,
+  `D_h ≥ 0`, `D_h² ≥ Σ_c θ_{h,c}² n_c mpHi_c²`; and `Σ_h D_h ≤ λ_up W`.
+
+**Soundness (`verify/Certify/PlasticSound.lean`).** For every assignment of plastic
+moments `Mp_{m,c} ∈ [mpLo, mpHi]` (`MpIn`), with `Admissible d mp λ x` = equilibrium and the
+yield condition at every point of every piece, and
+`λ_c = collapseFactor d mp = sSup {λ | ∃ x, Admissible d mp λ x}`:
+
+* `Certify.Plastic.static_sound`: `check d = true → Admissible d mp λ_lo x_static`
+  (static theorem; uses `bern_bound`: on `[s, s']` a cubic is bounded by its largest
+  absolute Bernstein coefficient, since `h³ q(s+v) = Σⱼ bⱼ C(3,j) vʲ (h−v)^(3−j)`);
+* `Certify.Plastic.kinematic_sound`: `check d = true → Admissible d mp λ x → λ ≤ λ_up`
+  (kinematic theorem, as LP weak duality: the checked identity gives
+  `Σ_h Σ_c θ_{h,c} M_c(t_h) = λ W` for any equilibrium field — the virtual-work equation —
+  and Cauchy–Schwarz against the ellipse bounds each hinge's term by `D_h`);
+* `Certify.Plastic.check_sound`: both, and `λ_lo ≤ λ_c ≤ λ_up`.
+
+So the bundle proves a lower and an upper bound on the collapse load factor **of the
+discretized model under the stated yield condition** (bending only; axial force, shear and
+torsion unlimited; associated flow is not needed for the bounds as stated). What this does
+*not* cover: that the rows and moment functionals are the right ones for the structure in
+the input (the model building in `plastic*.rs`: geometry, supports, releases, member-load
+statics, the `Mp` enclosures from section data), exactly as a linear bundle trusts the
+assembly of `K`.
+
+The engine side: the static field is the engine's exactly equilibrated candidate scaled by
+`s` (`s² U ≤ 1` for the bundle's own best-first Bernstein subdivision, within `2⁻³⁰` of the
+best point value), the hinges are the engine's checked mechanism (rotations per component,
+`ρ·u_c / n_c` in 3D), and the multipliers solve `Aᵀ u = Σ_h θ_h ∂M(t_h)/∂x` exactly. For the
+biaxial condition the per-component Bernstein bound is a little more conservative than the
+engine's degree-6 bound, so a 3D bundle's `λ_lo` can sit slightly (about `10⁻¹⁰`
+relative) below the in-app value.
+
+### Load-combination bundles
+
+`certify::combination_bundle::export_combination_bundle_{2d,3d}(input)` (wasm
+`export_combination_bundle_{2d,3d}(json)`) export `stabileo.combination-certificate.v1`
+(numbers as exact `[m, e]` dyadics):
+
+| field | meaning |
+|---|---|
+| `n`, `k`, `perm`, `l`, `mu` | the shared reduced stiffness, factor and `μ`, as in a linear bundle |
+| `cases[]` | per load case: `fLo`, `fHi`, `u`, `bound` (a linear certificate over the shared `K`) |
+| `combos[]` | `factors: [[case, cᵢ]]`, the computed combination `u` (free DOFs), its `bound` `B_j` |
+| `envelope` | `maxAbs[k]` (the engine's max-abs displacement envelope) and `bound` `E` |
+| `quantities` | member end forces (`labels` `e<id>.<start|end>.<component>`): `caseValues`, `caseBounds` (from `forces.rs`), `comboValues`, `comboBounds`, `envelopeBounds` |
+
+**Check (`Certify.Combo.check`, `verify/Certify/ComboCheck.lean`).** Gershgorin on
+`K − L'L'ᵀ` once; per case the shape and residual test of a linear bundle; per combination
+`B_j − Σ|cᵢ|bᵢ ≥ 0` and `Σ_k (Σcᵢũᵢ[k] − ũ_j[k])² ≤ (B_j − Σ|cᵢ|bᵢ)²`; for the envelope
+`E ≥ B_j` and `maxAbs[k] = max_j |ũ_j[k]|` exactly; per quantity
+`Σ|cᵢ| b_{i,q} + |Σcᵢ v_{i,q} − v_{j,q}| ≤ B_{j,q} ≤ E_q`.
+
+**Soundness (`verify/Certify/ComboSound.lean`).**
+* `Certify.Combo.check_sound_disp`: for all right-hand sides `fᵢ` in the cases'
+  enclosures, `‖K⁻¹fᵢ − ũᵢ‖₂ ≤ bᵢ` (`case_sound`, via `Certify.Bundle.check_sound`),
+  `‖Σ cᵢ K⁻¹fᵢ − ũ_j‖₂ ≤ B_j`, and for every DOF `k` every exact
+  `|(Σ cᵢ K⁻¹fᵢ)[k]|` is `≤ maxAbs[k] + E` and some is `≥ maxAbs[k] − E`
+  (i.e. `|max_j |exact_j[k]| − maxAbs[k]| ≤ E`);
+* `Certify.Combo.check_sound_quantities` (interval linear combination): if every exact case
+  value is within its stated case bound, every exact combination `Σ cᵢ eᵢ` is within
+  `B_{j,q}` of the reported combination value, and `B_{j,q} ≤ E_q`.
+
+Displacements of combinations and the envelope are therefore checked end to end; for end
+forces the per-case bounds (`forces.rs`, f64 evaluation of the force formulas) remain an
+assumption and only the combination step is checked. Station (diagram) bounds are not in
+the bundle.
+
+### Provenance
+
+Every bundle (linear `v2`, plastic, combination) carries
+
+| field | meaning |
+|---|---|
+| `provenance.inputSha256` | SHA-256 of the *canonical JSON* of the solver input: the input as the engine parsed it (`SolverInput`, `PlasticInput`, `MultiCaseInput`, … ), serialized by `serde_json` through `serde_json::Value` (object keys sorted), compact (`certify::provenance::canonical_json`) |
+| `provenance.inputKind` | the input type |
+| `provenance.engineVersion`, `engineCommit` | `CARGO_PKG_VERSION` and the git commit the engine was built from (`engine/build.rs`; `STABILEO_GIT_COMMIT` overrides, `unknown` without git) |
+| `provenance.kinds` | certificate kinds: `linear-static`; `plastic-collapse-static`, `plastic-collapse-kinematic`; `linear-static`, `load-combination`, `envelope`, `end-force-combination` |
+
+`certcheck` prints the provenance with its verdict (and rejects an unknown `format` with a
+clear message, exit 2). It does not hash: `verify/scripts/check-bundles.sh` checks that
+`inputSha256` is the SHA-256 of the canonical input `NAME.input.json` shipped next to each
+sample bundle `NAME.json`. The provenance is not covered by the soundness theorems: it ties
+a checked bundle to an input, and a mismatch is caught by the script, not by Lean.
+
+### Tests and samples
+
+`engine/tests/certify_bundle.rs` writes to `target/cert-bundles/`:
+* linear (`export_bundles`): `ex-3d-portal-frame`, `ex-3d-tower`, `ex-3d-nave-industrial`,
+  with tampered copies `bound / 1024`, `ũ` moved by `4b` (then `‖u* − ũ'‖ ≥ 3b`), and
+  `μ = 2 min Kᵢᵢ` (`> λ_min`, contradicting `check_sound_coercive`);
+* plastic (`export_plastic_bundles`): a 2D portal (combined mechanism, `λ_c = 6Mp/7`), a
+  2D continuous beam (hinges inside members), a 3D biaxial cantilever (`λ_c = 8`) and a 3D
+  space portal under biaxial sway with a member load; tampered: static field and `λ_lo`
+  scaled by 3/2 (equilibrium holds, yield fails, `1.5 λ_lo > λ_up`), `λ_up / 2`, `mpLo / 2`
+  (the claim for the wider enclosure is false), a hinge rotation doubled (identity fails);
+* combinations (`export_combination_bundles`): 2D frame (2 cases, 4 combinations incl. a
+  negative factor), 2D 3-storey building, 3D building (n = 270, 4 cases); tampered: a
+  combination bound `/ 1024`, a combination `ũ` moved by `4B`, an envelope value doubled,
+  an end-force combination bound `/ 1024`;
+* every bundle's canonical input `NAME.input.json`, and wrong-hash copies
+  (`*.wronghash.json`: valid certificates whose recorded input hash is not that of the
+  shipped input).
+
+`verify/samples/` holds small committed copies of these (all three formats, positive and
+negative), a `v1` linear bundle (no provenance; must still be accepted) and a bundle with
+an unknown format (`*.badformat.json`; must be refused with exit 2). `verify/scripts/check-bundles.sh [--no-generate] [DIR...]` regenerates the
+bundles (unless `--no-generate`), builds `certcheck` and checks the generated directory and
+`samples/`: every `NAME.json` must be accepted *and* match its input hash, every
+`*.tampered-*` must be rejected, and every `*.wronghash*` must be accepted by `certcheck`
+but caught by the hash check. The ignored test `export_large_bundles` writes the generated
 frame buildings above to `target/cert-bundles-large/`.
+
+### What the Lean checker proves, and what remains trusted
+
+| result | checked in Lean (theorem) | still trusted |
+|---|---|---|
+| linear static displacements | `‖K⁻¹f − ũ‖₂ ≤ b` for every `f` in the enclosure (`Bundle.check_sound`) | assembly of `K` and of the `f` enclosure from the input; the JSON reader |
+| plastic collapse, 2D and 3D | `λ_lo ≤ λ_c ≤ λ_up` for the stated discretized problem and every `Mp` in the enclosures (`Plastic.check_sound`) | model building (rows, moment functionals, `Mp` enclosures from section data); the JSON reader |
+| combinations / envelope, displacements | case bounds, combination bounds, max-abs envelope within `E` (`Combo.check_sound_disp`) | as for linear static |
+| combinations / envelope, end forces | combination and envelope bounds follow from the case bounds (`Combo.check_sound_quantities`) | the per-case force bounds (`forces.rs`), as before |
+| provenance | — (hash checked by `check-bundles.sh`) | the canonicalization and SHA-256 in the engine and the script's `sha256sum` |
+
+Not in any bundle (trusted in Rust only, with their own Lean theorems for the mathematics
+where listed above): buckling, modal, P-Delta, spectral, harmonic, time-history, member
+force bounds themselves, station bounds, design checks.
 
 ## Buckling load-factor enclosure
 

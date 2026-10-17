@@ -1,11 +1,25 @@
 //! Certificate bundles (docs/verification/CERTIFY.md, "Independent checking:
-//! certificate bundles"): export bundles for fixture models, plus tampered copies
-//! whose claims are false, into `target/cert-bundles/` for
-//! `verify/scripts/check-bundles.sh` (`lake exe certcheck`).
+//! certificate bundles"): export linear-static, plastic-collapse and
+//! load-combination bundles for fixture models into `target/cert-bundles/` for
+//! `verify/scripts/check-bundles.sh` (`lake exe certcheck`), each with the canonical
+//! solver input it was made from (`<name>.input.json`, whose SHA-256 the bundle
+//! records), plus negative samples: tampered copies whose claims are false
+//! (`*.tampered-*.json`, the checker must reject them) and copies with a wrong input
+//! hash (`*.wronghash.json`, the script must flag them).
 
+mod common;
+
+use common::*;
 use dedaliano_engine::certify::bundle::{export_linear_bundle_3d, from_dyadic, to_dyadic, LinearBundle};
+use dedaliano_engine::certify::combination_bundle::{export_combination_bundle_2d, export_combination_bundle_3d, CombinationBundle};
+use dedaliano_engine::certify::exact::{qr, Q};
+use dedaliano_engine::certify::plastic_bundle::{export_plastic_bundle_2d, export_plastic_bundle_3d, parse_q, qs, PlasticBundle};
+use dedaliano_engine::certify::provenance::{canonical_json, sha256_hex, Provenance};
+use dedaliano_engine::solver::load_cases::{CombinationDef, LoadCase, LoadCase3D, MultiCaseInput, MultiCaseInput3D};
 use dedaliano_engine::types::*;
-use std::path::PathBuf;
+use serde::Serialize;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const FIXTURES: [&str; 3] = ["ex-3d-portal-frame", "ex-3d-tower", "ex-3d-nave-industrial"];
@@ -26,6 +40,20 @@ fn load(name: &str) -> SolverInput3D {
 
 fn write(dir: &PathBuf, name: &str, b: &LinearBundle) {
     std::fs::write(dir.join(format!("{name}.json")), b.to_json()).unwrap();
+}
+
+/// Write the canonical input next to the bundle and check the bundle's hash of it.
+fn write_input<T: Serialize>(dir: &Path, name: &str, input: &T, prov: &Provenance) {
+    let text = canonical_json(input).unwrap();
+    assert_eq!(sha256_hex(text.as_bytes()), prov.input_sha256, "{name}: provenance hash");
+    assert_eq!(prov.engine_version, env!("CARGO_PKG_VERSION"));
+    assert!(!prov.engine_commit.is_empty() && !prov.kinds.is_empty());
+    std::fs::write(dir.join(format!("{name}.input.json")), text).unwrap();
+}
+
+/// A provenance whose hash is not that of the shipped input.
+fn wrong_hash(p: &Provenance) -> Provenance {
+    Provenance { input_sha256: sha256_hex(b"not the input"), ..p.clone() }
 }
 
 /// Tampered copies whose claims are false (or, for the bound, far tighter than the
@@ -86,9 +114,305 @@ fn export_bundles() {
             t.elapsed().as_secs_f64() * 1e3
         );
         std::fs::write(dir.join(format!("{name}.json")), json).unwrap();
+        let prov = b.provenance.as_ref().expect("provenance");
+        write_input(&dir, name, &input, prov);
         write_tampered(&dir, name, &b);
+        if name == FIXTURES[0] {
+            let mut w = b.clone();
+            w.provenance = Some(wrong_hash(prov));
+            write(&dir, &format!("{name}.wronghash"), &w);
+        }
     }
     eprintln!("bundles written to {}", dir.display());
+}
+
+// ───────────────────────────── plastic collapse ─────────────────────────────
+
+const E: f64 = 200_000.0;
+const MP: f64 = 843.75;
+
+fn plastic_2d(solver: SolverInput) -> PlasticInput {
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), PlasticSectionData { a: 0.045, iz: 3.375e-4, material_id: 1, b: Some(0.15), h: Some(0.3) });
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), PlasticMaterialData { fy: Some(250.0) });
+    PlasticInput { solver, sections, materials, max_hinges: Some(20), mp_overrides: Some(HashMap::from([("1".to_string(), MP)])) }
+}
+
+/// Portal frame, columns 1-2, 4-5 (h = 4), beam 2-3-4 (w = 6), fixed bases, sway
+/// load at 2 and vertical load at 3: λ_c = 6 Mp / (H h + V w/2) = 6 Mp / 7.
+fn plastic_portal_2d() -> PlasticInput {
+    let nodes = vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 3.0, 4.0), (4, 6.0, 4.0), (5, 6.0, 0.0)];
+    let elems = vec![
+        (1, "frame", 1, 2, 1, 1, false, false),
+        (2, "frame", 2, 3, 1, 1, false, false),
+        (3, "frame", 3, 4, 1, 1, false, false),
+        (4, "frame", 4, 5, 1, 1, false, false),
+    ];
+    let loads = vec![
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 }),
+    ];
+    plastic_2d(make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.045, 3.375e-4)], elems, vec![(1, 1, "fixed"), (2, 5, "fixed")], loads))
+}
+
+/// Two-span continuous beam with a UDL on one span and a point load on the other:
+/// hinges inside the members (the load pieces).
+fn plastic_continuous_2d() -> PlasticInput {
+    let nodes = vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 10.0, 0.0)];
+    let elems = vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)];
+    let loads = vec![
+        SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -2.0, q_j: -2.0, a: None, b: None }),
+        SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 2, a: 1.0, p: -5.0, px: None, my: None }),
+    ];
+    let sups = vec![(1, 1, "fixed"), (2, 2, "rollerX"), (3, 3, "pinned")];
+    plastic_2d(make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.045, 3.375e-4)], elems, sups, loads))
+}
+
+const FIXED6: [bool; 6] = [true; 6];
+
+fn plastic_3d(solver: SolverInput3D, mpy: f64, mpz: f64) -> PlasticInput3D {
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), PlasticSectionData3D { a: 1e-3, iy: 8e-6, iz: 4e-6, material_id: 1, b: None, h: None, d: None });
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), PlasticMaterialData { fy: Some(250.0) });
+    PlasticInput3D { solver, sections, materials, max_hinges: Some(60), mp_overrides: Some(HashMap::from([("1".to_string(), [mpy, mpz])])) }
+}
+
+fn frame_3d(nodes: Vec<(usize, f64, f64, f64)>, elems: Vec<(usize, usize, usize)>, sups: Vec<(usize, [bool; 6])>, loads: Vec<SolverLoad3D>) -> SolverInput3D {
+    make_3d_input(
+        nodes,
+        vec![(1, E, 0.3)],
+        vec![(1, 1e-3, 8e-6, 4e-6, 1e-5)],
+        elems.into_iter().map(|(id, i, j)| (id, "frame", i, j, 1, 1)).collect(),
+        sups.into_iter().map(|(n, d)| (n, d.to_vec())).collect(),
+        loads,
+    )
+}
+
+fn nodal_3d(n: usize, f: [f64; 6]) -> SolverLoad3D {
+    SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: n, fx: f[0], fy: f[1], fz: f[2], mx: f[3], my: f[4], mz: f[5], bw: None })
+}
+
+/// Space portal (columns 1-2, 4-3 of height 3, beam 2-3 of span 4) under sway in
+/// both directions and a vertical point load on the beam: biaxial hinges.
+fn plastic_portal_3d() -> PlasticInput3D {
+    let mut s = frame_3d(
+        vec![(1, 0.0, 0.0, 0.0), (2, 0.0, 0.0, 3.0), (3, 4.0, 0.0, 3.0), (4, 4.0, 0.0, 0.0)],
+        vec![(1, 1, 2), (2, 2, 3), (3, 4, 3)],
+        vec![(1, FIXED6), (4, FIXED6)],
+        vec![nodal_3d(2, [1.0, 1.0, 0.0, 0.0, 0.0, 0.0])],
+    );
+    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
+    plastic_3d(s, 100.0, 50.0)
+}
+
+/// Cantilever with a skew tip force: one biaxial hinge, λ_c = 8.
+fn plastic_cantilever_3d() -> PlasticInput3D {
+    let s = frame_3d(vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED6)], vec![nodal_3d(2, [0.0, -1.0, -1.0, 0.0, 0.0, 0.0])]);
+    plastic_3d(s, 30.0, 40.0)
+}
+
+fn write_plastic(dir: &Path, name: &str, b: &PlasticBundle) {
+    std::fs::write(dir.join(format!("{name}.json")), b.to_json()).unwrap();
+}
+
+fn scale_q(s: &str, k: &Q) -> String {
+    qs(&(parse_q(s).unwrap() * k))
+}
+
+/// Tampered plastic bundles whose claims are false or whose certificates are broken.
+fn write_tampered_plastic(dir: &Path, name: &str, b: &PlasticBundle) {
+    // static field and λ scaled by 3/2: equilibrium still holds, the yield test fails
+    // (and 1.5 λ_lo > λ_up ≥ λ_c, so the claim is false)
+    let mut t = b.clone();
+    let k = qr(3, 2);
+    t.static_cert.lambda = scale_q(&b.static_cert.lambda, &k);
+    t.static_cert.x = b.static_cert.x.iter().map(|v| scale_q(v, &k)).collect();
+    write_plastic(dir, &format!("{name}.tampered-lower"), &t);
+    // λ_up halved: below λ_lo ≤ λ_c
+    let mut t = b.clone();
+    t.kinematic.lambda = scale_q(&b.kinematic.lambda, &qr(1, 2));
+    write_plastic(dir, &format!("{name}.tampered-upper"), &t);
+    // the plastic moment's lower end halved: the claim (for all Mp ∈ [lo/2, hi]) is false
+    let mut t = b.clone();
+    for c in &mut t.members[0].comps {
+        c.mp_lo = scale_q(&c.mp_lo, &qr(1, 2));
+    }
+    write_plastic(dir, &format!("{name}.tampered-mp"), &t);
+    // a hinge rotation changed: the virtual-work identity fails
+    let mut t = b.clone();
+    let h = &mut t.kinematic.hinges[0];
+    h.theta[0] = scale_q(&h.theta[0], &qr(2, 1));
+    if parse_q(&h.theta[0]).unwrap() == Q::from_integer(0.into()) {
+        h.theta[0] = "1".into();
+    }
+    write_plastic(dir, &format!("{name}.tampered-hinge"), &t);
+}
+
+fn export_plastic<T: Serialize>(dir: &Path, name: &str, input: &T, b: PlasticBundle) {
+    let json = b.to_json();
+    assert_eq!(PlasticBundle::from_json(&json).unwrap(), b, "{name}: JSON round trip");
+    eprintln!(
+        "{name}: λ_c ∈ [{:.12}, {:.12}], {} rows, {} yield members, {} hinges, {} bytes",
+        b.info.lambda_lower,
+        b.info.lambda_upper,
+        b.rows.len(),
+        b.members.len(),
+        b.kinematic.hinges.len(),
+        json.len()
+    );
+    std::fs::write(dir.join(format!("{name}.json")), json).unwrap();
+    write_input(dir, name, input, &b.provenance);
+    write_tampered_plastic(dir, name, &b);
+}
+
+#[test]
+fn export_plastic_bundles() {
+    let dir = out_dir();
+    let input = plastic_portal_2d();
+    let b = export_plastic_bundle_2d(&input).unwrap();
+    // the enclosure contains the closed form 6 Mp / 7
+    let exact = 6.0 * MP / 7.0;
+    assert!(b.info.lambda_lower <= exact && exact <= b.info.lambda_upper, "{:?}", b.info);
+    assert!((b.info.lambda_upper - b.info.lambda_lower) / exact < 1e-9, "{:?}", b.info);
+    let mut w = b.clone();
+    w.provenance = wrong_hash(&b.provenance);
+    write_plastic(&dir, "plastic-2d-portal.wronghash", &w);
+    export_plastic(&dir, "plastic-2d-portal", &input, b);
+
+    let input = plastic_continuous_2d();
+    export_plastic(&dir, "plastic-2d-continuous", &input, export_plastic_bundle_2d(&input).unwrap());
+
+    let input = plastic_cantilever_3d();
+    let b = export_plastic_bundle_3d(&input).unwrap();
+    assert!(b.info.lambda_lower <= 8.0 && 8.0 <= b.info.lambda_upper && b.info.lambda_upper - b.info.lambda_lower < 1e-6, "{:?}", b.info);
+    export_plastic(&dir, "plastic-3d-cantilever", &input, b);
+
+    let input = plastic_portal_3d();
+    export_plastic(&dir, "plastic-3d-portal", &input, export_plastic_bundle_3d(&input).unwrap());
+}
+
+// ───────────────────────────── combinations ─────────────────────────────
+
+fn fixture_text(name: &str) -> String {
+    std::fs::read_to_string(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+}
+
+fn meta_combinations(meta: &str, case_names: &[String]) -> Vec<CombinationDef> {
+    let v: serde_json::Value = serde_json::from_str(&fixture_text(meta)).unwrap();
+    v["combinations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| CombinationDef {
+            name: c["name"].as_str().unwrap().to_string(),
+            factors: c["factors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|f| (case_names[f["caseId"].as_u64().unwrap() as usize - 1].clone(), f["factor"].as_f64().unwrap()))
+                .collect(),
+        })
+        .collect()
+}
+
+fn multi_case_2d(prefix: &str, n: usize) -> MultiCaseInput {
+    let names: Vec<String> = (1..=n).map(|i| format!("case{i}")).collect();
+    let inputs: Vec<SolverInput> =
+        (1..=n).map(|i| serde_json::from_str(&fixture_text(&format!("{prefix}-case{i}-input.json"))).unwrap()).collect();
+    let mut solver = inputs[0].clone();
+    solver.loads = vec![];
+    let mut combinations = meta_combinations(&format!("{prefix}-meta.json"), &names);
+    combinations.push(CombinationDef {
+        name: "0.9 case1 - 1.6 case2".into(),
+        factors: [("case1".to_string(), 0.9), ("case2".to_string(), -1.6)].into_iter().collect(),
+    });
+    MultiCaseInput {
+        solver,
+        load_cases: names.iter().zip(&inputs).map(|(n, i)| LoadCase { name: n.clone(), loads: i.loads.clone() }).collect(),
+        combinations,
+    }
+}
+
+fn multi_case_3d() -> MultiCaseInput3D {
+    let names: Vec<String> = (1..=4).map(|i| format!("case{i}")).collect();
+    let inputs: Vec<SolverInput3D> =
+        (1..=4).map(|i| serde_json::from_str(&fixture_text(&format!("ex-3d-building-case{i}-input.json"))).unwrap()).collect();
+    let mut solver = inputs[0].clone();
+    solver.loads = vec![];
+    MultiCaseInput3D {
+        solver,
+        load_cases: names.iter().zip(&inputs).map(|(n, i)| LoadCase3D { name: n.clone(), loads: i.loads.clone() }).collect(),
+        combinations: meta_combinations("ex-3d-building-meta.json", &names),
+    }
+}
+
+fn write_combo(dir: &Path, name: &str, b: &CombinationBundle) {
+    std::fs::write(dir.join(format!("{name}.json")), b.to_json()).unwrap();
+}
+
+/// Tampered combination bundles whose claims are false.
+fn write_tampered_combo(dir: &Path, name: &str, b: &CombinationBundle) {
+    // a combination bound shrunk 1024× (below the rounding term or the case terms)
+    let mut t = b.clone();
+    let bound = from_dyadic(b.combos[0].bound).unwrap();
+    t.combos[0].bound = to_dyadic(bound / 1024.0).unwrap();
+    write_combo(dir, &format!("{name}.tampered-combo-bound"), &t);
+    // a combination's ũ moved by 4B in one component: ‖Σcᵢu*ᵢ − ũ'‖ > B
+    let mut t = b.clone();
+    let u: Vec<f64> = b.combos[0].u.iter().map(|&d| from_dyadic(d).unwrap()).collect();
+    let k = (0..u.len()).max_by(|&i, &j| u[i].abs().total_cmp(&u[j].abs())).unwrap();
+    t.combos[0].u[k] = to_dyadic(u[k] + 4.0 * bound).unwrap();
+    write_combo(dir, &format!("{name}.tampered-combo-u"), &t);
+    // an envelope value doubled (at the DOF with the largest value)
+    let mut t = b.clone();
+    let env: Vec<f64> = b.envelope.max_abs.iter().map(|&d| from_dyadic(d).unwrap()).collect();
+    let k = (0..env.len()).max_by(|&i, &j| env[i].total_cmp(&env[j])).unwrap();
+    t.envelope.max_abs[k] = to_dyadic(2.0 * env[k]).unwrap();
+    write_combo(dir, &format!("{name}.tampered-envelope"), &t);
+    // an end-force combination bound shrunk 1024× (the largest one)
+    let mut t = b.clone();
+    let qb: Vec<f64> = b.quantities.combo_bounds[0].iter().map(|&d| from_dyadic(d).unwrap()).collect();
+    let q = (0..qb.len()).max_by(|&i, &j| qb[i].total_cmp(&qb[j])).unwrap();
+    t.quantities.combo_bounds[0][q] = to_dyadic(qb[q] / 1024.0).unwrap();
+    write_combo(dir, &format!("{name}.tampered-force-bound"), &t);
+}
+
+fn export_combo<T: Serialize>(dir: &Path, name: &str, input: &T, b: CombinationBundle) {
+    let json = b.to_json();
+    let mut back = CombinationBundle::from_json(&json).unwrap();
+    back.info = b.info.clone();
+    assert_eq!(back, b, "{name}: JSON round trip");
+    eprintln!(
+        "{name}: n={} cases={} combos={} quantities={} envelope bound={:.3e} {} bytes",
+        b.n,
+        b.cases.len(),
+        b.combos.len(),
+        b.quantities.labels.len(),
+        b.info.envelope_bound,
+        json.len()
+    );
+    std::fs::write(dir.join(format!("{name}.json")), json).unwrap();
+    write_input(dir, name, input, &b.provenance);
+    write_tampered_combo(dir, name, &b);
+}
+
+#[test]
+fn export_combination_bundles() {
+    let dir = out_dir();
+    let input = multi_case_2d("ex-frame-cirsoc-dl", 2);
+    let b = export_combination_bundle_2d(&input).unwrap();
+    let mut w = b.clone();
+    w.provenance = wrong_hash(&b.provenance);
+    write_combo(&dir, "combo-2d-frame.wronghash", &w);
+    export_combo(&dir, "combo-2d-frame", &input, b);
+
+    let input = multi_case_2d("ex-building-3story-dlw", 3);
+    export_combo(&dir, "combo-2d-building", &input, export_combination_bundle_2d(&input).unwrap());
+
+    let input = multi_case_3d();
+    export_combo(&dir, "combo-3d-building", &input, export_combination_bundle_3d(&input).unwrap());
 }
 
 

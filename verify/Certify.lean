@@ -9,3 +9,7 @@ import Certify.Forces
 import Certify.Kahan
 import Certify.BundleCheck
 import Certify.BundleSound
+import Certify.PlasticCheck
+import Certify.PlasticSound
+import Certify.ComboCheck
+import Certify.ComboSound

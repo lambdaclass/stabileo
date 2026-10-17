@@ -27,6 +27,7 @@
 //! mechanism through the exact compatibility null space.
 
 use super::exact::*;
+use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use super::plastic::{approx_mp, least_squares, lm_end, lm_pieces, push_breakpoints, simplex_min_sum, ElemLoad, Piece};
 use crate::solver::plastic::{solve_plastic_3d, PlasticResult3D};
 use crate::types::*;
@@ -822,6 +823,15 @@ struct Equilibrium {
 /// Exact particular solution and self-stress basis of `A x = λ b`,
 /// `x = (F, Mᵢ)` per member.
 fn equilibrium_system(model: &PlasticModel3) -> Result<Equilibrium, String> {
+    let (rows, rhs) = equilibrium_rows(model);
+    let r = rref_solve(&rows, Some(&rhs), 6 * model.elems.len());
+    let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
+    Ok(Equilibrium { xp, null: r.null_basis })
+}
+
+/// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
+/// nodal DOF, then every release.
+fn equilibrium_rows(model: &PlasticModel3) -> (Vec<Vec<Q>>, Vec<Q>) {
     let ne = model.elems.len();
     let n = 6 * ne;
     let nn = model.node_ids.len();
@@ -898,9 +908,94 @@ fn equilibrium_system(model: &PlasticModel3) -> Result<Equilibrium, String> {
             }
         }
     }
-    let r = rref_solve(&rows, Some(&rhs), n);
-    let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
-    Ok(Equilibrium { xp, null: r.null_basis })
+    (rows, rhs)
+}
+
+/// The model as the generic limit-analysis problem of a certificate bundle
+/// (`plastic_bundle`): the equilibrium rows over `x = (F, Mᵢ)` per member, and per
+/// member with plastic moments the components `M_y = C·u_y`, `M_z = C·u_z` of the
+/// section moment `C(t) = −Mᵢ + t (d × F) − λ Lm3(t)` with weights `n = |u|²`, so
+/// that the yield condition reads `M_y²/(n_y Mp_y²) + M_z²/(n_z Mp_z²) ≤ 1`, on the end
+/// sections `[0, 0]`, `[1, 1]` (`C = −Mᵢ`, `Mⱼ`) and on the load pieces.
+pub fn limit_problem_3d(model: &PlasticModel3) -> LimitProblem {
+    let (rows, rhs) = equilibrium_rows(model);
+    let mut members = Vec::new();
+    for (ei, e) in model.elems.iter().enumerate() {
+        let Some([(ylo, yhi), (zlo, zhi)]) = &e.mp else { continue };
+        let c = 6 * ei;
+        let zero = || LinF::default();
+        // −Mᵢ·u and F·(u × d) = (d × F)·u
+        let mi = |u: &V3| -> Vec<(usize, Q)> { (0..3).map(|m| (c + 3 + m, -u[m].clone())).collect() };
+        let dxf = |u: &V3| -> Vec<(usize, Q)> {
+            let w = cross(u, &e.d);
+            (0..3).map(|m| (c + m, w[m].clone())).collect()
+        };
+        let has_loads = e.frame.is_some();
+        let lm1 = e.lm1();
+        let point = |a: Q, fy: LinF, fz: LinF| YieldPiece {
+            a: a.clone(),
+            b: a,
+            polys: vec![CubicF([fy, zero(), zero(), zero()]), CubicF([fz, zero(), zero(), zero()])],
+        };
+        let mut pieces = vec![point(Q::zero(), LinF::new(mi(&e.uy), Q::zero()), LinF::new(mi(&e.uz), Q::zero()))];
+        for (py, pz) in e.pieces_y.iter().zip(&e.pieces_z) {
+            // λ-coefficients: C·u_y gets +λ Lm_z, C·u_z gets −λ Lm_y (`section_polys`)
+            let ly = |j: usize| if has_loads { pz.c[j].clone() } else { Q::zero() };
+            let lz = |j: usize| if has_loads { -py.c[j].clone() } else { Q::zero() };
+            pieces.push(YieldPiece {
+                a: py.a.clone(),
+                b: py.b.clone(),
+                polys: vec![
+                    CubicF([LinF::new(mi(&e.uy), ly(0)), LinF::new(dxf(&e.uy), ly(1)), LinF::new(vec![], ly(2)), LinF::new(vec![], ly(3))]),
+                    CubicF([LinF::new(mi(&e.uz), lz(0)), LinF::new(dxf(&e.uz), lz(1)), LinF::new(vec![], lz(2)), LinF::new(vec![], lz(3))]),
+                ],
+            });
+        }
+        let mj = |u: &V3| -> LinF {
+            let mut t = mi(u);
+            t.extend(dxf(u));
+            LinF::new(t, -dot(&lm1, u))
+        };
+        pieces.push(point(Q::one(), mj(&e.uy), mj(&e.uz)));
+        members.push(YieldMember {
+            element_id: e.id,
+            comps: vec![
+                YieldComp { n: e.ny.clone(), mp_lo: ylo.clone(), mp_hi: yhi.clone() },
+                YieldComp { n: e.nz.clone(), mp_lo: zlo.clone(), mp_hi: zhi.clone() },
+            ],
+            pieces,
+        });
+    }
+    LimitProblem { nv: 6 * model.elems.len(), rows: sparse_rows(&rows, &rhs), members }
+}
+
+/// The dissipating hinges of a mechanism, exactly: `(element id, t, [ρ·u_y/n_y,
+/// ρ·u_z/n_z])` for the hinge rotation `ρ` (zeroing released components, as
+/// `mechanism_terms` does), the multipliers of `(M_y, M_z)` in the virtual work.
+pub fn mechanism_rotations_3d(model: &PlasticModel3, mech: &Mechanism3) -> Result<Vec<(usize, Q, [Q; 2])>, String> {
+    check_mechanism_3d(model, mech)?;
+    let mut out = Vec::new();
+    for (e, m) in model.elems.iter().zip(&mech.elems) {
+        let h = m.hinges.len();
+        let ui = &mech.nodes[e.ni];
+        let uj = &mech.nodes[e.nj];
+        let ti: V3 = [ui[3].clone(), ui[4].clone(), ui[5].clone()];
+        let tj: V3 = [uj[3].clone(), uj[4].clone(), uj[5].clone()];
+        let mut push = |rho: V3, t: Q, end: Option<usize>| {
+            let rel = end.map_or([false; 3], |k| e.rel[k]);
+            let ry = if rel[1] { Q::zero() } else { dot(&rho, &e.uy) };
+            let rz = if rel[2] { Q::zero() } else { dot(&rho, &e.uz) };
+            if !(ry.is_zero() && rz.is_zero()) {
+                out.push((e.id, t, [ry / &e.ny, rz / &e.nz]));
+            }
+        };
+        push(sub(&m.omegas[0], &ti), Q::zero(), Some(0));
+        for s in 1..=h {
+            push(sub(&m.omegas[s], &m.omegas[s - 1]), m.hinges[s - 1].clone(), None);
+        }
+        push(sub(&tj, &m.omegas[h]), Q::one(), Some(1));
+    }
+    Ok(out)
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

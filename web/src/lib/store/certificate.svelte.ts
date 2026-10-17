@@ -235,7 +235,8 @@ function createCertificateStore() {
     },
 
     /**
-     * The certificate bundle of the base solve on screen (`stabileo.linear-certificate.v1` JSON),
+     * The certificate bundle of the base solve on screen (`stabileo.linear-certificate.v2` JSON, with the
+     * provenance of the solve: SHA-256 of the canonical input, engine version and commit),
      * which `lake exe certcheck` re-checks without trusting the engine. Null when there is none.
      */
     async exportBundle(is3D: boolean): Promise<string | null> {

@@ -110,7 +110,9 @@ describe('certified combinations and envelope', () => {
     const text = await certificateStore.exportBundle(false);
     expect(typeof text).toBe('string');
     const bundle = JSON.parse(text!);
-    expect(JSON.stringify(bundle)).toContain('stabileo.linear-certificate.v1');
+    expect(bundle.format).toBe('stabileo.linear-certificate.v2');
+    expect(bundle.provenance.inputSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(bundle.provenance.kinds).toEqual(['linear-static']);
     expect(bundle.n).toBe(3);
     resultsStore.clear();
   });

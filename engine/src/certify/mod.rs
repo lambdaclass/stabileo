@@ -2,6 +2,7 @@
 
 pub mod buckling;
 pub mod bundle;
+pub mod combination_bundle;
 pub mod combinations;
 pub mod constrained;
 pub mod design;
@@ -15,6 +16,8 @@ pub mod modal;
 pub mod pdelta;
 pub mod plastic;
 pub mod plastic_3d;
+pub mod plastic_bundle;
+pub mod provenance;
 pub mod real;
 pub mod solver;
 pub mod spectral;

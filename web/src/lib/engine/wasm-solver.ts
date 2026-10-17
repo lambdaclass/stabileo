@@ -894,6 +894,8 @@ const CERTIFY_EXPORTS = [
   'certify_time_history_2d', 'certify_time_history_3d', 'certify_plastic_2d',
   'certify_steel_members', 'certify_ec3_members', 'certify_ec2_members',
   'export_linear_bundle_2d', 'export_linear_bundle_3d',
+  'export_plastic_bundle_2d', 'export_plastic_bundle_3d',
+  'export_combination_bundle_2d', 'export_combination_bundle_3d',
 ] as const;
 export type CertifyExport = (typeof CERTIFY_EXPORTS)[number];
 const certifyExports = new Map<string, (...args: any[]) => any>();
@@ -905,7 +907,7 @@ export function hasCertify(name: string): boolean {
 
 /**
  * Call a certify export on this thread. A JSON-string answer is parsed, except a certificate
- * bundle's (`export_linear_bundle_*`), which is returned as the text to save. The `results`
+ * bundle's (`export_*_bundle_*`), which is returned as the text to save. The `results`
  * the certifying exports carry (a re-solve of what is on screen) are dropped.
  */
 export function callCertify(name: string, args: unknown[]): any {

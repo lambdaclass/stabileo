@@ -96,6 +96,45 @@ pub fn export_linear_bundle_2d(json: &str) -> Result<String, JsValue> {
     Ok(bundle.to_json())
 }
 
+/// Solve and certify a 2D plastic collapse model and export its certificate bundle
+/// (`stabileo.plastic-certificate.v1`, docs/verification/CERTIFY.md): JSON in → bundle
+/// JSON out, checkable with `lake exe certcheck`.
+#[wasm_bindgen]
+pub fn export_plastic_bundle_2d(json: &str) -> Result<String, JsValue> {
+    let input: types::PlasticInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let bundle = certify::plastic_bundle::export_plastic_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
+    Ok(bundle.to_json())
+}
+
+/// 3D version of `export_plastic_bundle_2d`.
+#[wasm_bindgen]
+pub fn export_plastic_bundle_3d(json: &str) -> Result<String, JsValue> {
+    let input: types::PlasticInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let bundle = certify::plastic_bundle::export_plastic_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
+    Ok(bundle.to_json())
+}
+
+/// Solve and certify a 2D multi-case model and export its load-combination bundle
+/// (`stabileo.combination-certificate.v1`, docs/verification/CERTIFY.md).
+#[wasm_bindgen]
+pub fn export_combination_bundle_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::load_cases::MultiCaseInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let bundle = certify::combination_bundle::export_combination_bundle_2d(&input).map_err(|e| JsValue::from_str(&e))?;
+    Ok(bundle.to_json())
+}
+
+/// 3D version of `export_combination_bundle_2d`.
+#[wasm_bindgen]
+pub fn export_combination_bundle_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::load_cases::MultiCaseInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let bundle = certify::combination_bundle::export_combination_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
+    Ok(bundle.to_json())
+}
+
 /// Solve 2D P-Delta and certify the displacements: a Newton–Kantorovich bound on
 /// the distance to the exact fixed point of the P-Delta model, its uniqueness
 /// radius and certified stability (docs/verification/CERTIFY.md).

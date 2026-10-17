@@ -10,18 +10,26 @@
 //! (`verify/CertCheck.lean`) recomputes `R = K − L' L'ᵀ`, the Gershgorin row test,
 //! `f − K ũ` and `ρ² ≤ (b μ)²` in exact rational arithmetic; its soundness is the
 //! Lean theorem `Certify.Bundle.check_sound`.
+//!
+//! Format history: `v1` had no provenance; `v2` adds `provenance` (hash of the
+//! canonical solver input, engine version and commit, certificate kinds; see
+//! `provenance.rs`). The checker reads both.
 
 use serde::{Deserialize, Serialize};
 
 use super::interval::Interval;
 use super::linear::Certificate;
+use super::provenance::Provenance;
 use super::solver::{reduced_sparse_2d, reduced_sparse_3d};
 use super::sparse::{certify_lambda_min_lower_with_factor, finish};
 use crate::linalg::sparse::CscMatrix;
 use crate::solver::linear::{solve_2d, solve_3d};
 use crate::types::{SolverInput, SolverInput3D};
 
-pub const BUNDLE_FORMAT: &str = "stabileo.linear-certificate.v1";
+pub const BUNDLE_FORMAT: &str = "stabileo.linear-certificate.v2";
+
+/// The certificate kind of a linear-static bundle (`provenance.kinds`).
+pub const KIND_LINEAR: &str = "linear-static";
 
 /// An f64 as `[m, e]` with value exactly `m · 2^e` (`m` odd, or `[0, 0]`).
 pub type Dyadic = [i64; 2];
@@ -85,7 +93,7 @@ pub struct BundleInfo {
     pub note: String,
 }
 
-/// A linear-static certificate bundle (JSON format `stabileo.linear-certificate.v1`).
+/// A linear-static certificate bundle (JSON format `stabileo.linear-certificate.v2`).
 ///
 /// Meaning: `K` is the symmetric matrix with `K[a][b] = K[b][a] = v` for each stored
 /// `(a, b, v)` of `k` (lower triangle); `L'[perm[a]][c] = v` for each stored
@@ -106,6 +114,9 @@ pub struct LinearBundle {
     pub l: CscJson,
     pub mu: Dyadic,
     pub bound: Dyadic,
+    /// What was solved (absent for a bundle exported from a bare matrix).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<Provenance>,
     pub info: BundleInfo,
 }
 
@@ -160,6 +171,7 @@ pub fn export_linear_bundle(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Result<
         },
         mu: to_dyadic(sigma)?,
         bound: to_dyadic(abs_bound)?,
+        provenance: None,
         info: BundleInfo {
             mu: sigma,
             bound: abs_bound,
@@ -175,7 +187,9 @@ pub fn export_linear_bundle(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Result<
 pub fn export_linear_bundle_2d(input: &SolverInput) -> Result<LinearBundle, String> {
     let results = solve_2d(input)?;
     let (k, f, u) = reduced_sparse_2d(input, &results).map_err(reason)?;
-    export_linear_bundle(&k, &f, &u)
+    let mut b = export_linear_bundle(&k, &f, &u)?;
+    b.provenance = Some(Provenance::new(input, "SolverInput", &[KIND_LINEAR])?);
+    Ok(b)
 }
 
 /// Solve a 3D linear static model and export the certificate bundle of its reduced
@@ -183,10 +197,12 @@ pub fn export_linear_bundle_2d(input: &SolverInput) -> Result<LinearBundle, Stri
 pub fn export_linear_bundle_3d(input: &SolverInput3D) -> Result<LinearBundle, String> {
     let results = solve_3d(input)?;
     let (k, f, u) = reduced_sparse_3d(input, &results).map_err(reason)?;
-    export_linear_bundle(&k, &f, &u)
+    let mut b = export_linear_bundle(&k, &f, &u)?;
+    b.provenance = Some(Provenance::new(input, "SolverInput3D", &[KIND_LINEAR])?);
+    Ok(b)
 }
 
-fn reason(c: Certificate) -> String {
+pub(super) fn reason(c: Certificate) -> String {
     match c {
         Certificate::Uncertified { reason } => reason,
         c => format!("{c:?}"),
