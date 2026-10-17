@@ -932,11 +932,12 @@
                   <span>{t('conn.weld.loading')}</span>
                   <select
                     data-testid="jw-loading"
-                    value={chosen.weld?.loading ?? 'other'}
+                    value={chosen.weld?.loading ?? 'endLoaded'}
                     onchange={(e) => setWeld({ loading: e.currentTarget.value as never })}
                   >
-                    <option value="other">{t('conn.weld.loadingOther')}</option>
+                    <!-- End-loaded first and by default: §J.2.1's β is the conservative side. -->
                     <option value="endLoaded">{t('conn.weld.loadingEnd')}</option>
+                    <option value="other">{t('conn.weld.loadingOther')}</option>
                   </select>
                 </label>
               </div>

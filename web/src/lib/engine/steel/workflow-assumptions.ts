@@ -98,11 +98,10 @@ const UNIVERSAL: readonly MemberAssumption[] = Object.freeze([
     source: 'assumed',
     routeOutKey: 'steel.assume.route.implementClassification',
   },
-  {
-    key: 'steel.assume.netAreaEqualsGross',
-    source: 'assumed',
-    routeOutKey: 'steel.assume.route.boltGeometry',
-  },
+  /*
+   * `netAreaEqualsGross` (route: bolt geometry) was here. Ae = Ag is no longer assumed: without
+   * the end connection the tension check is refused (D.2(b), D.3), so it is not an assumption.
+   */
   /*
    * `noPlasticMomentCap` was here, with `route.implementCap` as its way out. That route was
    * taken: `Math.min(MpUncapped, MpCap)` applies F.2.1 and F.6.1 on both axes, pinned by
@@ -111,10 +110,14 @@ const UNIVERSAL: readonly MemberAssumption[] = Object.freeze([
    * carries it either — the two lists are required to agree by `workflow-assumptions.test.ts`,
    * which is what caught this one still being here.
    */
+  /*
+   * `noTorsionalBuckling` (route: implement §E.4) was here. §E.4 is implemented; what remains
+   * assumed is the torsional length it uses.
+   */
   {
-    key: 'steel.assume.noTorsionalBuckling',
+    key: 'steel.assume.torsionalLengthIsMemberLength',
     source: 'assumed',
-    routeOutKey: 'steel.assume.route.implementE4',
+    routeOutKey: 'steel.assume.route.torsionalRestraint',
   },
   {
     key: 'steel.assume.momentGradientIsUnity',

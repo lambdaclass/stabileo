@@ -49,12 +49,18 @@ describe('tension is not checked as compression', () => {
     // The smallest IPE, 6 m long: slender enough that its buckling capacity is a fraction of its
     // tensile one.
     const sec = profileToSectionFull(PROFILE_FAMILIES.IPE[0]!);
-    const pull = checkSteelMember(1, { ...noDemand, Nt: 20 }, sec, steel, { L: 6, Lb: 6 })!;
-    const push = checkSteelMember(1, { ...noDemand, Nc: 20 }, sec, steel, { L: 6, Lb: 6 })!;
+    // Welded through every element, no holes (D.3(1)): the rupture check needs the connection.
+    const welded = { L: 6, Lb: 6, tensionConnection: { allElementsConnected: true } };
+    const pull = checkSteelMember(1, { ...noDemand, Nt: 20 }, sec, steel, welded)!;
+    const push = checkSteelMember(1, { ...noDemand, Nc: 20 }, sec, steel, welded)!;
     expect(pull.tension).toBeDefined();
     expect(pull.compression).toBeUndefined();
     expect(steelGoverningRatio(pull)).toBeLessThan(1);
     expect(steelGoverningRatio(push)).toBeGreaterThan(steelGoverningRatio(pull));
+    // Without the connection the tension check is refused (D.2(b) cannot be evaluated).
+    const blind = checkSteelMember(1, { ...noDemand, Nt: 20 }, sec, steel, { L: 6, Lb: 6 })!;
+    expect(blind.tension?.notEvaluated).toBeTruthy();
+    expect(blind.overallStatus).toBe('fail');
   });
 
   it('a member that sees both is checked for both and reports the worse', () => {

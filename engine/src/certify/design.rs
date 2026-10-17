@@ -301,8 +301,8 @@ pub fn ec3_ratio_enclosures(
     let interaction = branch(
         n.lt(zero),
         || {
-            let ([e1, e2], _) = ec3_interaction(m, &caps, -n, my, mz);
-            e1.max(e2)
+            let ([e1, e2, e3], _) = ec3_interaction(m, &caps, -n, my, mz);
+            e1.max(e2).max(e3)
         },
         || branch(zero.lt(n), || tension + flex_y + flex_z, || flex_y + flex_z),
     );
@@ -585,7 +585,7 @@ pub fn certify_steel_multi_case_3d(input: &SteelMultiCaseInput3D) -> Result<Cert
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::postprocess::steel_check::{check_steel_members, SteelCheckInput};
+    use crate::postprocess::steel_check::{check_steel_members, AiscElement, AiscElementKind, SteelCheckInput};
 
     /// W310x97-like section, SI units (N, m, Pa).
     pub(crate) fn w_member(id: usize, lb: f64) -> SteelMemberData {
@@ -618,6 +618,12 @@ mod tests {
             g: None,
             depth: Some(0.308),
             flange_slenderness: None,
+            // bf = 305, tf = 15.4, h = 255, tw = 9.9 mm: no element slender (E7).
+            compression_elements: Some(vec![
+                AiscElement { kind: AiscElementKind::RolledFlange, b: 0.1525, t: 0.0154, count: Some(4.0), kc: None },
+                AiscElement { kind: AiscElementKind::Web, b: 0.255, t: 0.0099, count: None, kc: None },
+            ]),
+            load_position: None,
         }
     }
 
@@ -803,6 +809,8 @@ mod tests {
             wpl_z: 1.25e-4,
             wel_z: 8.05e-5,
             weff_z: None,
+            e_n_y: None,
+            e_n_z: None,
             iy: 8.356e-5,
             iz: 6.04e-6,
             it: 2.01e-7,
@@ -819,6 +827,15 @@ mod tests {
             c1: Some(1.13),
             av: Some(2.568e-3),
             interaction: None,
+            // IPE 300; the default top-flange load height needs the depth.
+            geometry: Some(crate::postprocess::ec3_check::Ec3Geometry::I {
+                h: 0.300,
+                b: 0.150,
+                tw: 0.0071,
+                tf: 0.0107,
+                r: 0.015,
+            }),
+            ltb: None,
         }
     }
 

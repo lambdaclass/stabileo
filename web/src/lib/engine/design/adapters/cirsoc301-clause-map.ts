@@ -97,20 +97,17 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
   },
   {
     capability: 'steelTension',
-    expression: 'phiPn = 0.75 · Fu · Ae,  with Ae = Ag',
+    expression: 'phiPn = 0.75 · Fu · Ae,  Ae = An·U',
     clause: 'D.2.2',
-    inputs: ['Fu', 'A'],
+    inputs: ['Fu', 'A', 'tensionConnection'],
     assumptions: [
-      'Ae is taken EQUAL to Ag: no hole deduction and no shear-lag factor U.',
+      'Ae from the stated end connection (D.3): An by B.4.2.2 (each hole at its nominal dimension '
+      + 'PLUS 2 mm, s²/4g per diagonal), U = 1 when every element is connected (D.3(1)), '
+      + '1 − x̄/L ≤ 0,9 (D.3.2) not below A unida/Ag, or the L/w table for an edge-welded plate (D.3.5).',
     ],
     limitations: [
-      'D.3 defines Ae exactly: `Ae = An` when the force is transmitted by EVERY element of the '
-      + 'section (D.3(1)), and `Ae = An·U` with `U = 1 − x̄/L ≤ 0,9` (D.3.2) when only some '
-      + 'elements transmit it — x̄ the connection eccentricity and L its length, both in cm. `An` '
-      + 'follows B.4.2, which deducts each hole at its nominal dimension PLUS 2 mm.',
-      'So `Ae = Ag` is exact for a welded member with no holes, and optimistic for a bolted one. '
-      + 'Closing it needs the hole pattern and the connection length and eccentricity — not a '
-      + 'better rule, a datum the model does not hold.',
+      'Without the connection the rupture limit state is NOT EVALUATED (the model holds no hole '
+      + 'pattern or connection geometry). It used to take Ae = Ag, optimistic for a bolted member.',
     ],
     validation: 'unvalidated',
   },
@@ -121,10 +118,14 @@ export const CIRSOC301_CLAUSE_MAP: readonly ClauseMapEntry[] = Object.freeze([
     expression: 'phiPn = 0.85 · Fcr · Ag',
     clause: 'E.3.1',
     inputs: ['A'],
-    assumptions: ['Flexural buckling only: no torsional or flexural-torsional mode is considered.'],
+    assumptions: [
+      'Pn is the least of flexural (E.3/E.7) and torsional or flexural-torsional buckling (E.4: '
+      + 'E.4.4 for an I, E.4.5 for a channel or a slender tee, E.4.2 for a tee), with kz = 1 over '
+      + 'Lz = L unless stated and the thin-walled shear centre of the plates.',
+    ],
     limitations: [
-      'E.4 covers torsional and flexural-torsional buckling, which governs for angles, tees and '
-      + 'cruciform sections. Not implemented, so those sections are checked on the wrong mode.',
+      'Closed sections and solid bars are not checked for E.4 (their torsional stiffness keeps it '
+      + 'from governing). Angles and asymmetric sections (E.4.6) are refused by the classification.',
     ],
     validation: 'unvalidated',
   },

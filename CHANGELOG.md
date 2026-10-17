@@ -11,6 +11,80 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Further unsafe design-check gaps closed (2026-10-17)
+
+**BREAKING (results): web fillet welds, EC3/AISC lateral-torsional buckling, EC3 Class 4
+members, AISC 360 slender-element columns, CIRSOC 301 T/double-angle/channel columns and
+CIRSOC 301 tension members give lower capacities, or are refused (not evaluated) where the
+inputs needed to compute them safely are absent.**
+
+- **The web fillet weld applied β only to welds marked end-loaded** — the opposite default from
+  the engine's weld groups. `designFilletWeld` (joint designer) now treats an undeclared weld as
+  end-loaded (CIRSOC 301 §J.2.1, the conservative side); `loading: 'other'` opts out, and the
+  joint panel's selector defaults to end-loaded. The Connections tab's quick
+  `checkFilletWeld` credited `0.6 L` above `300 w` instead of the clause's `180 w` (at
+  `L = 600 w`, twice the allowed length); it now caps at `180 w` and takes `endLoaded`
+  (default true).
+- **EC3 Mcr ignored where the load acts** (the zg = 0 expression, NCCI SN003b eq. (3)), which
+  overstates Mcr for the usual gravity load on the top flange. It is now SN003b eq. (2) with
+  the load height zg and C2. `Ec3MemberData` takes optional `geometry` (I/RHS/CHS plate
+  dimensions) and `ltb` (`c2`, `loadPosition`, `zg`); absent, the load is on the **top flange**
+  (zg = +h/2) with C2 = C1 (a lower bound for every transverse-load case of SN003b Table 3.2),
+  and a top-flange load without a depth is refused (not evaluated). The result reports `mcr`.
+  SBE Worked Example A.1 (IPE 330, zg = +165 mm, C2 = 0.454: Mcr = 113.9 kNm; at the shear
+  centre the check gave more than 1.3× that) is a regression test. The web EC3 check sends
+  the section geometry, so its Mcr takes the top-flange load.
+- **EC3 Class 4 members used the gross A and Wel when Aeff/Weff were not given**, and never
+  added ΔM = eN·NEd. A Class 4 section buckles locally before A·fy or Wel·fy, so the stand-in
+  was unconservative by the whole effective-width reduction (a welded I 600×300×12×6 in S355:
+  Aeff = 8330 of A = 10 656 mm², −22 %). Aeff, Weff,y and Weff,z are now computed from
+  `geometry` by EN 1993-1-5 4.3/4.4 (internal and outstand ρ, Tables 4.1/4.2, web ψ from the
+  effective flanges, 4.4(3)) for I and RHS; `aEff`/`weffY`/`weffZ` still override. New
+  `eNY`/`eNZ` give the centroid shift; with geometry it is 0 (doubly symmetric). Without
+  either, the checks that need the missing property are refused and named ("Class 4 Aeff",
+  "Class 4 Weff,y", "Class 4 eN"); a Class 4 CHS (EN 1993-1-6) is refused. Class 3 and 4
+  members in compression also get the cross-section check 6.2.9.2/6.2.9.3
+  (`interactionRatioSection`), which (6.61)/(6.62) can fall below with Cm < 1. Tension
+  yields the gross section (6.2.3) for every class. The result reports `aEff`, `weffY`,
+  `weffZ`. The web EC3 check now checks Class 4 I and RHS members (it skipped them), and takes
+  an I section as **welded** (Table 6.2 curves b/c, Table 6.4 c/d) unless it was picked from a
+  rolled catalogue family — it read every I as rolled (a/b), unconservative for a welded or
+  parametric section.
+- **AISC 360 compression had no slender-element reduction (E7)**: Pn = Fcr·Ag for every section.
+  A W14×22 at Lc = 1 m (h/tw = 53.3, footnoted slender in the Manual) was 10.9 % high, an
+  HSS 12×8×3/16 16 %. `SteelMemberData` takes `compressionElements` (Table B4.1a kind: rolled
+  or welded flange with kc, angle, tee stem, web, HSS wall, other stiffened, round HSS; b, t,
+  count); Ae follows E7-2/E7-3/E7-5 with Table E7.1 c1, c2, and E7-7 for round HSS. **Without
+  `compressionElements` the compression check is refused** (an empty list states that there is
+  no element to reduce); a round HSS with D/t > 0.45E/Fy is refused. The result reports `ae`
+  and names the check "Compression E3/E7".
+- **AISC 360 lateral-torsional buckling ignored the load height.** `loadPosition` (`shearCentre`,
+  `topFlange`, `bottomFlange`); absent, the load is on the **top flange** and Cb is multiplied
+  by 1.4^(2y/h) = 1/1.4 (Helwig, Frank & Yura 1997; SSRC Guide §5.2.3). A bottom-flange load is
+  not credited (Cb as given). Applies to F2-2 and F2-3; not to cantilevers, where the factor is
+  not valid and Cb itself must be given for the case.
+- The web AISC check sends the section's E7 elements (it marked slender columns not evaluated)
+  and its LTB takes the top-flange load.
+- **CIRSOC 301 compression checked flexural buckling only (§E.3/E.7).** §E.4 is now evaluated
+  and Pn is the least of the limit states: E.4.4 torsional buckling for an I (whenever J and Cw
+  are given; refused without them when kz·Lz > ky·L), E.4.2/E.4.3 for a tee without slender
+  elements, E.4.5 flexural-torsional with Fez (E.4.9) for a channel or a slender tee, the Fe
+  going into E.7.2a/E.7.3a with Q. A rolled-flange tee 200×150×12×10 at L = 3 m: φPn =
+  392.8 kN where flexural buckling alone gave 451.8 (+15 %). `SteelDesignParams` takes `Kz`,
+  `Lz` (default 1 and L) and `shearCentreOffset` (default from the thin-walled plates); a tee or
+  channel without J is refused. Closed sections and solid bars are not checked for E.4. The
+  steel workflow's «no torsional buckling» assumption is replaced by the one that remains:
+  kz = 1 over the member length.
+- **CIRSOC 301 tension rupture took Ae = Ag** (no hole deduction, no shear lag), optimistic for
+  every bolted member and for any member connected through some of its elements. `SteelDesignParams`
+  takes `tensionConnection`: `An`, or `holes` (count, nominal d, t, staggers) with the 2 mm of
+  B.4.2.2 and s²t/4g; and U as given, `allElementsConnected` (D.3(1)), `plateWeld` {L, w} (D.3.5
+  table, L < w refused) or `xBar`/`length` (D.3.2, U = 1 − x̄/L ≤ 0.9, not below `connectedArea`/Ag,
+  on Ag when `welded`). **Without it, a member in tension is NOT EVALUATED** — the model holds no
+  hole pattern or connection, so app tension members are now reported not evaluated until the
+  connection can be given (`checkSteelMember`'s `lengths.tensionConnection`). The workflow's
+  «Ae = Ag» assumption is removed (it is a refusal now).
+
 #### Unsafe design-check disagreements closed (2026-10-17)
 
 **BREAKING (results): weld groups with long fillets, CIRSOC 301 slender-element columns,

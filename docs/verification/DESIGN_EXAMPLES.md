@@ -89,7 +89,9 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | G2-1 shear | AISC G.1B (p. G-4) | Aw = 10.2 in², Vn = 306 kips | doc (D9: φv = 0.90 not 1.00) |
 | H1-1b with tension, F2-2 with Cb, F6-1 | AISC H.3 (pp. H-8–H-11) | Lp = 8.76, Lr = 33.2 ft, φtPn = 1,080, Mnx = 6,560 kip-in, φbMnx = 492, φbMny = 168 kip-ft, Pr/Pc = 0.161, H1-1b = 0.873 | pass (Cb = 1.41 of H1.2 passed in) |
 | H1-1a | — | AISC H.1B needs Table 6-1 capacities of a W14×99 whose flanges are noncompact; not reproducible without F3/F6.2 inputs not printed | uncovered |
-| E4 torsional, E7 slender elements, F4/F5, G2.2 tension field, H1.2 Cb for tension | — | not implemented | uncovered (not implemented) |
+| E7 slender elements (E7.1 rectangular HSS, E7.2 round HSS) | — (clause by hand: HSS 12×8×3/16, Lc/r = 90; W14×22 at 1 m) | Ae = 5.835 in², Pn = 161.4 kips; W14×22 Ae = 3.778e-3 m² | clause test; refused without `compressionElements` |
+| F2 load height (Cb·1.4^(2y/h), Helwig et al. 1997) | — | top flange: φMn(F2-3) ÷ 1.4 | clause test; default top flange |
+| E4 torsional, F4/F5, G2.2 tension field, H1.2 Cb for tension | — | not implemented | uncovered (not implemented) |
 
 ### EN 1993-1-1 (`ec3_check`, Rust)
 
@@ -100,7 +102,9 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 | 6.2.4 / 6.2.3 A·fy/γM0 | P364 Ex. 9 | Nc,Rd = 5658 kN | pass |
 | 6.3.1 χ, Ncr, Nb,Rd | SBE A.5 (pp. 4-94–4-97) | χy = 0.808, χz = 0.671, Nb,Rd = 2349.5 kN, ratio 0.85 | pass |
 | 6.3.1, Class 3 | P364 Ex. 9 (sheets 1–6) | χz = 0.65, Nb,z,Rd = 3678 kN, Blue Book Nb,y,Rd = 5010 kN | pass |
-| 6.3.2 LTB | SBE A.1; P364 Ex. 3, 4, 5, 12 | — | uncovered: the examples load the top flange (zg ≠ 0) and/or use 6.3.2.3 with f, or take Mcr from LTBeam without printing It/Iw; stabileo implements 6.3.2.2 with zg = 0 (D10) |
+| 6.3.2 Mcr with load height (SN003b eq. 2) | SBE A.1 (pp. 4-60–4-61) | zg = +165 mm, C1 = 1.127, C2 = 0.454: Mcr = 113.9 kNm, λ̄LT = 1.288 | pass (zg added; default top flange) |
+| 6.3.2 χLT | SBE A.1; P364 Ex. 3, 4, 5, 12 | — | uncovered: the examples use 6.3.2.3 with f, or take Mcr from LTBeam without printing It/Iw; stabileo implements 6.3.2.2 (D10) |
+| Class 4: EN 1993-1-5 4.3/4.4 Aeff, Weff,y, Weff,z; 6.2.9.3 with eN·NEd | — (clause by hand: welded I 600×300×12×6 and 400×300×8×8, RHS 400×200×6, S355) | ρ = 0.949 / 0.430, Aeff = 8330 mm², Weff,y = 2302.3e3, Weff,z = 164.2e3 mm³, RHS Aeff = 5268 mm² | clause test; no free published example found. Gross A/Wel used to stand in (unsafe); now refused without Aeff/Weff/eN or geometry, CHS refused (EN 1993-1-6) |
 | 6.3.3 / Annex B (Table B.2) kyy, kzy, (6.61), (6.62) | SBE-MS8 Ex. 2 (pp. 8-18–8-22) | λ̄y = 0.12, λ̄z = 0.540, χz = 0.865, Nb,y,Rd = 3507, Nb,z,Rd = 3034 kN, kyy = 0.997, kzy = 0.997, (6.61) = 0.647, (6.62) = 0.653 | **fixed** (D11); equations compared with the printed Mb,Rd (6.3.2.3, D10) |
 | Annex B with Cm < 1, both kzy branches | SBE-SS4 App. D column (pp. 4-97–4-103) | CmLT = 0.888 → kzy = 0.996, (6.62) = 0.832; CmLT = 0.6 → kzy = 0.977, 0.758; Cmy = 0.6 → kyy = 0.605, (6.61) = 0.625 | pass |
 | Annex B kyz, kzz (biaxial) | — | no free published Annex B example with Mz,Ed ≠ 0 found | uncovered |
@@ -141,6 +145,8 @@ Status: **pass** — stabileo reproduces the printed values at the stated roundi
 |---|---|---|---|
 | E.3-3 elastic | INTI301 Ej. 10(a) | kL/r = 194, Fcr = 46.0 MPa, Rd = 210.3 kN | pass |
 | E.3-2 inelastic | INTI301 Ej. 10(b) | kL/r = 111.9, Fcr = 126.04 MPa, Pd = 221.2 kN | pass |
+| D.2(b)/D.3 Ae = An·U, B.4.2.2 An (+2 mm, s²/4g) | — (clause by hand: IPE 200 bolted through the flanges, x̄ = 25, L = 150 mm; edge-welded plate) | An = 2340 mm², U = 0.833, φPn = 526.5 kN | clause test; refused without the connection (was Ae = Ag) |
+| E.4 torsional / flexural-torsional (E.4.2, E.4.4, E.4.5) | — (clause by hand: tee 200×150×12×10, L = 3 m; IPE 300 with ky = 0.5) | Fcr = 125.6 MPa, φPn = 392.8 kN (flexural alone 451.8) | clause test; no INTI tee/channel column example at hand |
 | E.7 slender elements (Q) | INTI301 Ej. 10(c) | Q = 0.794, Fcr = 135.70 MPa, Pd = 204.7 kN | **fixed** (D6); Q, Fcr at 1 % (2005 vs 2018 E.7.17), D17 |
 | F.2.1 Mp | INTI301 Ej. 14, V1 | Mp = 43.95 kNm | pass |
 | G.2.1 Cv = 1 | INTI301 Ej. 14, V1 | Vn = 175.1, Vd = 157.6 kN | pass |

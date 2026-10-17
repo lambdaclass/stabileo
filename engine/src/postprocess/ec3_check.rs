@@ -59,23 +59,39 @@ pub struct Ec3MemberData {
     pub e: Option<f64>,
     /// Gross area A (m²)
     pub a: f64,
-    /// Effective area Aeff (m²) for Class 4 sections; falls back to A
+    /// Effective area Aeff (m²) of a Class 4 section under uniform
+    /// compression (EN 1993-1-5 4.3). Absent: computed from `geometry`
+    /// (EN 1993-1-5 4.4); with neither, compression is refused.
     #[serde(default)]
     pub a_eff: Option<f64>,
     /// Plastic section modulus Wpl,y — strong axis (m³)
     pub wpl_y: f64,
     /// Elastic section modulus Wel,y — strong axis (m³)
     pub wel_y: f64,
-    /// Effective section modulus Weff,y (m³) for Class 4; falls back to Wel,y
+    /// Effective section modulus Weff,y (m³) of a Class 4 section in
+    /// strong-axis bending. Absent: computed from `geometry`; with neither,
+    /// strong-axis bending is refused.
     #[serde(default)]
     pub weff_y: Option<f64>,
     /// Plastic section modulus Wpl,z — weak axis (m³)
     pub wpl_z: f64,
     /// Elastic section modulus Wel,z — weak axis (m³)
     pub wel_z: f64,
-    /// Effective section modulus Weff,z (m³) for Class 4; falls back to Wel,z
+    /// Effective section modulus Weff,z (m³) of a Class 4 section in
+    /// weak-axis bending. Absent: computed from `geometry`; with neither,
+    /// weak-axis bending is refused.
     #[serde(default)]
     pub weff_z: Option<f64>,
+    /// Shift eN,y (m) of the centroid of Aeff from the gross centroid
+    /// under uniform compression, Class 4 only: ΔMy,Ed = eN,y·NEd (6.2.9.3,
+    /// 6.3.3(4)). Absent: 0 when `geometry` is given (the doubly symmetric
+    /// shapes it describes do not shift); otherwise a Class 4 member in
+    /// compression has its interaction refused.
+    #[serde(default)]
+    pub e_n_y: Option<f64>,
+    /// Shift eN,z (m), as `e_n_y` for the weak axis.
+    #[serde(default)]
+    pub e_n_z: Option<f64>,
     /// Moment of inertia Iy — strong axis (m⁴)
     pub iy: f64,
     /// Moment of inertia Iz — weak axis (m⁴)
@@ -118,6 +134,133 @@ pub struct Ec3MemberData {
     /// conservative defaults documented on [`Ec3InteractionData`].
     #[serde(default)]
     pub interaction: Option<Ec3InteractionData>,
+    /// Cross-section geometry. Gives the depth the load height of
+    /// [`Ec3LtbData`] is measured from, and the plate widths the Class 4
+    /// effective section (EN 1993-1-5 4.4) is computed from.
+    #[serde(default)]
+    pub geometry: Option<Ec3Geometry>,
+    /// Lateral-torsional buckling inputs beyond C1: C2 and where the
+    /// transverse load acts. Absent: the load is on the TOP flange
+    /// (destabilising), see [`Ec3LtbData`].
+    #[serde(default)]
+    pub ltb: Option<Ec3LtbData>,
+}
+
+/// Cross-section geometry (m). Each shape is doubly symmetric by
+/// construction; a section that is not (a channel, a tee, an I with unequal
+/// flanges) has no geometry here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "shape", rename_all = "camelCase")]
+pub enum Ec3Geometry {
+    /// Doubly symmetric I or H: depth, flange width, web and flange
+    /// thickness, root radius (0 for a welded section: the flat widths are
+    /// then the largest, the conservative side).
+    #[serde(rename = "I")]
+    I {
+        h: f64,
+        b: f64,
+        tw: f64,
+        tf: f64,
+        #[serde(default)]
+        r: f64,
+    },
+    /// Rectangular hollow section: depth (parallel to z), width, wall.
+    #[serde(rename = "RHS")]
+    Rhs { h: f64, b: f64, t: f64 },
+    /// Circular hollow section: diameter, wall.
+    #[serde(rename = "CHS")]
+    Chs { d: f64, t: f64 },
+}
+
+impl Ec3Geometry {
+    /// Overall depth along z (m).
+    pub fn depth(&self) -> f64 {
+        match *self {
+            Ec3Geometry::I { h, .. } | Ec3Geometry::Rhs { h, .. } => h,
+            Ec3Geometry::Chs { d, .. } => d,
+        }
+    }
+}
+
+/// Where the transverse load acts, relative to the shear centre.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Ec3LoadPosition {
+    /// At the shear centre: zg = 0.
+    ShearCentre,
+    /// On the top (compression) flange: zg = +h/2, destabilising.
+    TopFlange,
+    /// On the bottom flange: zg = −h/2, stabilising.
+    BottomFlange,
+}
+
+/// Load height in the elastic critical moment, NCCI SN003b eq. (2):
+///
+/// Mcr = C1·π²EIz/L² · { √[Iw/Iz + L²GIt/(π²EIz) + (C2·zg)²] − C2·zg }
+///
+/// with k = kw = 1 (fork supports, warping free) and zg the distance from the
+/// point of load application to the shear centre, positive for a load acting
+/// towards the shear centre (a gravity load on the top flange). It replaces
+/// the zg = 0 expression (3), which is unconservative for top-flange loads.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ec3LtbData {
+    /// C2 for the moment diagram between lateral restraints, SN003b
+    /// Tables 3.2 / Figures 3.4, 3.6 (0 for end moments only). Absent:
+    /// * zg > 0 → C2 = C1. Mcr falls as C2 grows; with C2/C1 = 1 it is a
+    ///   lower bound for every transverse-load case of Table 3.2 (C2/C1 ≤
+    ///   1.645/1.683 = 0.98), and with the default C1 = 1 also for any case
+    ///   with C1 ≥ 1 and C2/C1 ≤ 1, because C1·f(C1·r·zg) grows with C1 at
+    ///   fixed r = C2/C1. For end moments combined with transverse load
+    ///   (Figures 3.3–3.6) give C1 and C2 explicitly.
+    /// * zg < 0 → C2 = 0: a stabilising load can only raise Mcr, and
+    ///   ignoring it is the conservative side.
+    #[serde(default)]
+    pub c2: Option<f64>,
+    /// Absent: `TopFlange` — the checker does not know where the load acts,
+    /// and the top flange gives the lowest Mcr (same choice as the CIRSOC 301
+    /// F.2 check). Needs `geometry` for the depth unless `zg` is given.
+    #[serde(default)]
+    pub load_position: Option<Ec3LoadPosition>,
+    /// Explicit zg (m), positive towards the shear centre. Overrides
+    /// `load_position`.
+    #[serde(default)]
+    pub zg: Option<f64>,
+}
+
+/// (zg, C2) for the Mcr of SN003b eq. (2), or `None` when the inputs cannot
+/// give them — a load position that needs a depth the member does not have,
+/// or a non-finite/negative input. `None` refuses the LTB check.
+pub(crate) fn ltb_load_height(m: &Ec3MemberData) -> Option<(f64, f64)> {
+    let ltb = m.ltb.clone().unwrap_or_default();
+    // C2 = 0 (a linear moment diagram, SN003b §2): C2·zg = 0 and the load
+    // height does not enter, so no depth is needed.
+    if ltb.c2 == Some(0.0) {
+        return Some((0.0, 0.0));
+    }
+    let zg = match ltb.zg {
+        Some(z) if z.is_finite() => z,
+        Some(_) => return None,
+        None => {
+            let depth = || m.geometry.as_ref().map(|g| g.depth()).filter(|h| h.is_finite() && *h > 0.0);
+            match ltb.load_position.unwrap_or(Ec3LoadPosition::TopFlange) {
+                Ec3LoadPosition::ShearCentre => 0.0,
+                Ec3LoadPosition::TopFlange => depth()? / 2.0,
+                Ec3LoadPosition::BottomFlange => -depth()? / 2.0,
+            }
+        }
+    };
+    if zg == 0.0 {
+        return Some((0.0, 0.0));
+    }
+    let c1 = m.c1.unwrap_or(1.0);
+    let c2 = match ltb.c2 {
+        Some(c) if c.is_finite() && c >= 0.0 => c,
+        Some(_) => return None,
+        None if zg > 0.0 => c1,
+        None => 0.0,
+    };
+    Some((zg, c2))
 }
 
 /// Inputs of the EN 1993-1-1 6.3.3 interaction, Annex B ("Method 2").
@@ -203,6 +346,18 @@ pub struct Ec3CheckResult {
     /// Eq. (6.62) (0 when the member is not in compression).
     #[serde(default)]
     pub interaction_ratio_z: f64,
+    /// Cross-section check 6.2.9.2 (Class 3) / 6.2.9.3 (Class 4) in
+    /// compression, with ΔM = eN·NEd; 0 for Class 1/2 and without compression.
+    #[serde(default)]
+    pub interaction_ratio_section: f64,
+    /// Effective properties of a Class 4 section as used (given or computed
+    /// from `geometry`, EN 1993-1-5 4.4); absent otherwise or when unknown.
+    #[serde(default)]
+    pub a_eff: Option<f64>,
+    #[serde(default)]
+    pub weff_y: Option<f64>,
+    #[serde(default)]
+    pub weff_z: Option<f64>,
     /// Annex B interaction factors used in (6.61)/(6.62); 0 when the member
     /// is not in compression.
     #[serde(default)]
@@ -223,6 +378,10 @@ pub struct Ec3CheckResult {
     pub nb_rd: f64,
     /// LTB moment resistance Mb,Rd (N-m)
     pub mb_rd: f64,
+    /// Elastic critical moment Mcr (N-m) with the load height; absent for
+    /// Lb = 0 (no LTB) and when it could not be evaluated.
+    #[serde(default)]
+    pub mcr: Option<f64>,
     /// Overall pass
     pub pass: bool,
     /// Checks whose capacity could not be evaluated.
@@ -239,36 +398,219 @@ pub struct Ec3CheckResult {
 /// locally before yield and uses effective properties. Applying Wpl to every
 /// section — which is what ignoring `section_class` amounts to — overstates a
 /// Class 3 resistance by 10-15 % on a typical rolled I-section.
-struct ClassProperties {
-    /// Area for cross-section and buckling resistance
-    area: f64,
+pub(crate) struct ClassProperties {
+    /// Area for cross-section and buckling resistance in compression
+    pub area: f64,
     /// Section modulus about the strong axis
-    w_y: f64,
+    pub w_y: f64,
     /// Section modulus about the weak axis
-    w_z: f64,
+    pub w_z: f64,
+    /// Centroid shifts eN,y, eN,z of Aeff (Class 4; 0 otherwise)
+    pub e_n_y: f64,
+    pub e_n_z: f64,
 }
 
-fn class_properties(m: &Ec3MemberData) -> ClassProperties {
+pub(crate) fn class_properties(m: &Ec3MemberData) -> ClassProperties {
     match m.section_class {
         SectionClass::Class1 | SectionClass::Class2 => ClassProperties {
             area: m.a,
             w_y: m.wpl_y,
             w_z: m.wpl_z,
+            e_n_y: 0.0,
+            e_n_z: 0.0,
         },
         SectionClass::Class3 => ClassProperties {
             area: m.a,
             w_y: m.wel_y,
             w_z: m.wel_z,
+            e_n_y: 0.0,
+            e_n_z: 0.0,
         },
-        SectionClass::Class4 => ClassProperties {
-            // Effective properties where supplied. Without them the elastic
-            // values are the closest available upper bound — they overstate a
-            // Class 4 resistance, so Aeff/Weff should be provided.
-            area: m.a_eff.unwrap_or(m.a),
-            w_y: m.weff_y.unwrap_or(m.wel_y),
-            w_z: m.weff_z.unwrap_or(m.wel_z),
-        },
+        SectionClass::Class4 => {
+            // Effective properties as given, else from the plate geometry
+            // (EN 1993-1-5 4.4). Neither: NaN, which refuses every check
+            // that needs the property. The gross values used to stand in,
+            // and they overstate a Class 4 resistance — by definition the
+            // section buckles locally before Wel·fy or A·fy.
+            let eff = m.geometry.as_ref().and_then(|g| effective_section(m, g));
+            let pick = |given: Option<f64>, computed: Option<f64>| {
+                given.or(computed).filter(|x| x.is_finite() && *x > 0.0).unwrap_or(f64::NAN)
+            };
+            // The shapes `geometry` describes are doubly symmetric: Aeff
+            // under uniform compression keeps the gross centroid, eN = 0.
+            let shift = |given: Option<f64>| match given {
+                Some(e) if e.is_finite() => e.abs(),
+                Some(_) => f64::NAN,
+                None if m.geometry.is_some() => 0.0,
+                None => f64::NAN,
+            };
+            ClassProperties {
+                area: pick(m.a_eff, eff.map(|e| e.a_eff)),
+                w_y: pick(m.weff_y, eff.map(|e| e.weff_y)),
+                w_z: pick(m.weff_z, eff.map(|e| e.weff_z)),
+                e_n_y: shift(m.e_n_y),
+                e_n_z: shift(m.e_n_z),
+            }
+        }
     }
+}
+
+/// Effective properties of a Class 4 section, EN 1993-1-5 4.3/4.4.
+#[derive(Debug, Clone, Copy)]
+pub struct EffectiveSection {
+    /// Aeff under uniform compression (4.3(3)).
+    pub a_eff: f64,
+    /// Weff,y, Weff,z under bending alone (4.3(4)).
+    pub weff_y: f64,
+    pub weff_z: f64,
+}
+
+/// A rectangular strip removed from the gross section: area, centroid
+/// coordinate along the bending axis' normal, own second moment.
+#[derive(Clone, Copy)]
+struct Strip {
+    a: f64,
+    x: f64,
+    i: f64,
+}
+
+/// Second moment and extreme-fibre modulus of the gross section (A0, I0,
+/// centroid at 0, extreme fibres at ±half) once `strips` are removed:
+/// I = I0 − Σ(i + a·x²) − A·x̄², W = I / (half + |x̄|).
+fn reduced_modulus(a0: f64, i0: f64, half: f64, strips: &[Strip]) -> f64 {
+    let a = a0 - strips.iter().map(|s| s.a).sum::<f64>();
+    let xbar = -strips.iter().map(|s| s.a * s.x).sum::<f64>() / a;
+    let i = i0 - strips.iter().map(|s| s.i + s.a * s.x * s.x).sum::<f64>() - a * xbar * xbar;
+    i / (half + xbar.abs())
+}
+
+fn shifted_centroid(a0: f64, strips: &[Strip]) -> f64 {
+    let a = a0 - strips.iter().map(|s| s.a).sum::<f64>();
+    -strips.iter().map(|s| s.a * s.x).sum::<f64>() / a
+}
+
+/// Plate slenderness λ̄p = √(fy/σcr), σcr = kσ·π²E/(12(1−ν²))·(t/b̄)²
+/// (EN 1993-1-5 4.4(2), A.1); with E = 210 GPa it is the code's
+/// (b̄/t)/(28.4·ε·√kσ), and it stays in the member's own units.
+fn plate_slenderness(fy: f64, e: f64, c: f64, t: f64, k_sigma: f64) -> f64 {
+    let sigma_e = std::f64::consts::PI.powi(2) * e / (12.0 * (1.0 - 0.3 * 0.3)) * (t / c).powi(2);
+    (fy / (k_sigma * sigma_e)).sqrt()
+}
+
+/// Buckling factor of an internal element, EN 1993-1-5 Table 4.1. NaN for
+/// ψ < −3, outside the table.
+fn k_sigma_internal(psi: f64) -> f64 {
+    if psi > 0.0 {
+        8.2 / (1.05 + psi)
+    } else if psi > -1.0 {
+        7.81 - 6.29 * psi + 9.78 * psi * psi
+    } else if psi >= -3.0 {
+        5.98 * (1.0 - psi).powi(2)
+    } else {
+        f64::NAN
+    }
+}
+
+/// ρ of an internal element, EN 1993-1-5 4.4(2) eq. (4.2).
+fn rho_internal(lp: f64, psi: f64) -> f64 {
+    if lp <= 0.5 + (0.085 - 0.055 * psi).sqrt() {
+        1.0
+    } else {
+        ((lp - 0.055 * (3.0 + psi)) / (lp * lp)).min(1.0)
+    }
+}
+
+/// ρ of an outstand element, eq. (4.3).
+fn rho_outstand(lp: f64) -> f64 {
+    if lp <= 0.748 {
+        1.0
+    } else {
+        ((lp - 0.188) / (lp * lp)).min(1.0)
+    }
+}
+
+/// The strip an internal element of flat width `c` and thickness `t` loses,
+/// Table 4.1: the compressed edge at coordinate `x_comp`, the plate running
+/// towards decreasing x (`dir` = −1) or increasing x (+1), stress ratio ψ.
+fn internal_strip(fy: f64, e: f64, c: f64, t: f64, psi: f64, x_comp: f64, dir: f64) -> Option<Strip> {
+    let lp = plate_slenderness(fy, e, c, t, k_sigma_internal(psi));
+    let rho = rho_internal(lp, psi);
+    if !rho.is_finite() {
+        return None;
+    }
+    let bc = if psi >= 0.0 { c } else { c / (1.0 - psi) };
+    let beff = rho * bc;
+    let be1 = if psi >= 1.0 {
+        0.5 * beff
+    } else if psi >= 0.0 {
+        2.0 * beff / (5.0 - psi)
+    } else {
+        0.4 * beff
+    };
+    let len = bc - beff;
+    Some(Strip { a: len * t, x: x_comp + dir * (be1 + len / 2.0), i: t * len.powi(3) / 12.0 })
+}
+
+/// EN 1993-1-5 4.4 effective section of a doubly symmetric I or RHS, from
+/// the member's gross A, Iy, Iz and the plate geometry; ψ of flanges from
+/// the gross section and of webs from the effective flanges and gross web,
+/// 4.4(3). `None` for a CHS (EN 1993-1-6, not 1-5) or inputs that give no
+/// finite result.
+pub fn effective_section(m: &Ec3MemberData, g: &Ec3Geometry) -> Option<EffectiveSection> {
+    let (fy, e) = (m.fy, m.e.unwrap_or(210e9));
+    let out = match *g {
+        Ec3Geometry::I { h, b, tw, tf, r } => {
+            let cw = h - 2.0 * tf - 2.0 * r;
+            let cf = (b - tw - 2.0 * r) / 2.0;
+            let rho_f = rho_outstand(plate_slenderness(fy, e, cf, tf, 0.43));
+            let rho_w = rho_internal(plate_slenderness(fy, e, cw, tw, 4.0), 1.0);
+            let a_eff = m.a - (1.0 - rho_w) * cw * tw - 4.0 * (1.0 - rho_f) * cf * tf;
+
+            // Strong axis: both outstands of the compression flange lose
+            // their tips, then the web with ψ about the shifted axis.
+            let lf = (1.0 - rho_f) * cf;
+            let tip = Strip { a: lf * tf, x: h / 2.0 - tf / 2.0, i: lf * tf.powi(3) / 12.0 };
+            let mut strips = vec![tip, tip];
+            let z1 = shifted_centroid(m.a, &strips);
+            let zt = h / 2.0 - tf - r;
+            let psi = (-zt - z1) / (zt - z1);
+            strips.push(internal_strip(fy, e, cw, tw, psi, zt, -1.0)?);
+            let weff_y = reduced_modulus(m.a, m.iy, h / 2.0, &strips);
+
+            // Weak axis: the web lies on the neutral axis; the outstands on
+            // the compressed side have the free edge in compression, ψ from
+            // the gross section (Table 4.2).
+            let psi = (tw / 2.0 + r) / (b / 2.0);
+            let k = 0.57 - 0.21 * psi + 0.07 * psi * psi;
+            let lf = (1.0 - rho_outstand(plate_slenderness(fy, e, cf, tf, k))) * cf;
+            let tip = Strip { a: lf * tf, x: b / 2.0 - lf / 2.0, i: tf * lf.powi(3) / 12.0 };
+            let weff_z = reduced_modulus(m.a, m.iz, b / 2.0, &[tip, tip]);
+            EffectiveSection { a_eff, weff_y, weff_z }
+        }
+        Ec3Geometry::Rhs { h, b, t } => {
+            // Flat widths c = h − 3t, b − 3t (EN 1993-1-1 Table 5.2).
+            let (ch, cb) = (h - 3.0 * t, b - 3.0 * t);
+            let rho = |c: f64| rho_internal(plate_slenderness(fy, e, c, t, 4.0), 1.0);
+            let a_eff = m.a - 2.0 * (1.0 - rho(ch)) * ch * t - 2.0 * (1.0 - rho(cb)) * cb * t;
+            // Bending: the compression flange (internal, ψ = 1) loses its
+            // middle, then both webs with ψ about the shifted axis.
+            let w = |depth: f64, width: f64, i0: f64| -> Option<f64> {
+                let (cd, cf) = (depth - 3.0 * t, width - 3.0 * t);
+                let lf = (1.0 - rho(cf)) * cf;
+                let mut strips = vec![Strip { a: lf * t, x: depth / 2.0 - t / 2.0, i: lf * t.powi(3) / 12.0 }];
+                let z1 = shifted_centroid(m.a, &strips);
+                let zt = depth / 2.0 - 1.5 * t;
+                let psi = (-zt - z1) / (zt - z1);
+                let web = internal_strip(fy, e, cd, t, psi, zt, -1.0)?;
+                strips.push(Strip { a: web.a, x: web.x, i: web.i });
+                strips.push(web);
+                Some(reduced_modulus(m.a, i0, depth / 2.0, &strips))
+            };
+            EffectiveSection { a_eff, weff_y: w(h, b, m.iy)?, weff_z: w(b, h, m.iz)? }
+        }
+        Ec3Geometry::Chs { .. } => return None,
+    };
+    [out.a_eff, out.weff_y, out.weff_z].iter().all(|x| x.is_finite() && *x > 0.0).then_some(out)
 }
 
 /// Compute EC3 column buckling reduction factor chi.
@@ -294,6 +636,13 @@ pub(crate) fn compute_chi<T: Real>(lambda_bar: T, alpha: T) -> T {
 /// Capacities of an EC3 member (independent of the design forces).
 pub(crate) struct Ec3Capacities<T> {
     pub npl_rd: T,
+    /// Nc,Rd and My,c,Rd (γM0), the denominators of the cross-section
+    /// check 6.2.9.2/6.2.9.3 for Class 3 and 4.
+    pub nc_rd: T,
+    pub mc_y_rd: T,
+    /// eN,y, eN,z of a Class 4 section (0 otherwise).
+    pub e_n_y: T,
+    pub e_n_z: T,
     pub nb_rd: T,
     /// χy·NRk/γM1 and χz·NRk/γM1, the denominators of (6.61) and (6.62).
     pub nb_y_rd: T,
@@ -309,6 +658,8 @@ pub(crate) struct Ec3Capacities<T> {
     pub chi_y: T,
     pub chi_z: T,
     pub chi_lt: T,
+    /// Elastic critical moment (None for Lb = 0: no LTB).
+    pub mcr: Option<T>,
 }
 
 /// EN 1993-1-1 resistances 6.2.3, 6.3.1, 6.3.2, 6.2.5, 6.2.6.
@@ -327,8 +678,12 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let w_y = T::exact(props.w_y);
     let w_z = T::exact(props.w_z);
 
-    // Cross-section resistances
-    let npl_rd = (area * fy).dv(gamma_m0);
+    // Cross-section resistances. Tension yields the gross section (6.2.3
+    // eq. 6.6) whatever the class; local buckling is a compression effect.
+    let npl_rd = (T::exact(m.a) * fy).dv(gamma_m0);
+    // Cross-section resistance in compression (6.2.4), A or Aeff.
+    let nc_rd = (area * fy).dv(gamma_m0);
+    let mc_y_rd = (w_y * fy).dv(gamma_m0);
 
     // Column buckling (EC3 6.3.1): slenderness about y and z
     let (lcr_y, lcr_z) = (T::exact(m.lcr_y), T::exact(m.lcr_z));
@@ -343,20 +698,24 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let nb_y_rd = (chi_y * area * fy).dv(gamma_m1);
     let nb_z_rd = (chi_z * area * fy).dv(gamma_m1);
 
-    // Lateral-torsional buckling (EC3 6.3.2): elastic critical moment Mcr
-    // (simplified for doubly-symmetric I-sections)
+    // Lateral-torsional buckling (EC3 6.3.2): elastic critical moment Mcr of
+    // a doubly symmetric section with the load height zg, NCCI SN003b eq. (2).
     // Lb = 0 is a continuously restrained member: there is no LTB and χLT = 1
     // (6.3.2.2(4) with λLT = 0). Evaluating Mcr there divides by Lb² = 0 and
     // the 0·∞ that follows made the strong-axis check NaN, i.e. unevaluated,
     // for exactly the member whose resistance is simplest.
-    let chi_lt = if m.lb <= 0.0 {
-        T::exact(1.0)
+    let (chi_lt, mcr) = if m.lb <= 0.0 {
+        (T::exact(1.0), None)
     } else {
+        // A load height the inputs cannot give refuses the check (NaN →
+        // unevaluated): zg = 0 under a top-flange load overstates Mcr.
+        let (zg, c2) = ltb_load_height(m).unwrap_or((f64::NAN, f64::NAN));
         let (lb, iz) = (T::exact(m.lb), T::exact(m.iz));
+        let c2zg = T::exact(c2) * T::exact(zg);
         let mcr = (c1 * pi2 * e * iz).dv(lb * lb)
-            * (T::exact(m.iw).dv(iz) + (lb * lb * g * T::exact(m.it)).dv(pi2 * e * iz)).sqrt();
+            * ((T::exact(m.iw).dv(iz) + (lb * lb * g * T::exact(m.it)).dv(pi2 * e * iz) + c2zg.sq()).sqrt() - c2zg);
         let lambda_lt = (w_y * fy).dv(mcr).sqrt();
-        compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha()))
+        (compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha())), Some(mcr))
     };
     let mb_rd = (chi_lt * w_y * fy).dv(gamma_m1);
 
@@ -373,6 +732,10 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
 
     Ec3Capacities {
         npl_rd,
+        nc_rd,
+        mc_y_rd,
+        e_n_y: T::exact(props.e_n_y),
+        e_n_z: T::exact(props.e_n_z),
         nb_rd,
         nb_y_rd,
         nb_z_rd,
@@ -385,6 +748,7 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
         chi_y,
         chi_z,
         chi_lt,
+        mcr,
     }
 }
 
@@ -459,16 +823,26 @@ pub fn annex_b_factors<T: Real>(i: &AnnexBInput<T>) -> [T; 4] {
     [kyy, kyz, kzy, kzz]
 }
 
-/// Eqs. (6.61), (6.62) and the factors, for a member in compression
-/// (`n` = |NEd| > 0). ΔMy = ΔMz = 0: Class 1–3, and Class 4 of the doubly
-/// symmetric I-sections this check models (eN = 0).
+/// Eqs. (6.61), (6.62) and the cross-section check, with the factors, for a
+/// member in compression (`n` = |NEd| > 0).
+///
+/// ΔMy = eN,y·NEd and ΔMz = eN,z·NEd (Class 4, 6.3.3(4) Table 6.7) are added
+/// to the moments with the sign that increases them — the side the shift
+/// acts on is not known from |M|, and adding is the conservative one.
+///
+/// The third value is the cross-section check of Class 3 (6.2.9.2, eq. 6.42
+/// as stresses) and Class 4 (6.2.9.3, eq. 6.44):
+/// NEd/(A·fy/γM0) + (My + ΔMy)/(W,y·fy/γM0) + (Mz + ΔMz)/(W,z·fy/γM0),
+/// with the effective A and W of Class 4. With Cm < 1 (6.61)/(6.62) can fall
+/// below it at the member end. Class 1/2: 0 (not evaluated here; the
+/// plastic interaction of 6.2.9.1 is not a linear sum).
 pub(crate) fn ec3_interaction<T: Real>(
     m: &Ec3MemberData,
     caps: &Ec3Capacities<T>,
     n: T,
     my: T,
     mz: T,
-) -> ([T; 2], [T; 4]) {
+) -> ([T; 3], [T; 4]) {
     let id = m.interaction.clone().unwrap_or_default();
     let plastic = matches!(m.section_class, SectionClass::Class1 | SectionClass::Class2);
     let hollow = id.hollow.unwrap_or(false);
@@ -490,13 +864,22 @@ pub(crate) fn ec3_interaction<T: Real>(
     });
     let [kyy, kyz, kzy, kzz] = k;
     let zero = T::exact(0.0);
+    let my = my + caps.e_n_y * n;
+    let mz = mz + caps.e_n_z * n;
     // A moment term is only formed where there is a moment, so a zero
     // capacity with zero demand stays 0 instead of 0/0.
     let my_term = branch(zero.lt(my), || my.dv(caps.mb_rd), || zero);
     let mz_term = branch(zero.lt(mz), || mz.dv(caps.mz_rd_m1), || zero);
     let eq_661 = n.dv(caps.nb_y_rd) + kyy * my_term + kyz * mz_term;
     let eq_662 = n.dv(caps.nb_z_rd) + kzy * my_term + kzz * mz_term;
-    ([eq_661, eq_662], k)
+    let section = if plastic {
+        zero
+    } else {
+        n.dv(caps.nc_rd)
+            + branch(zero.lt(my), || my.dv(caps.mc_y_rd), || zero)
+            + branch(zero.lt(mz), || mz.dv(caps.mc_z_rd), || zero)
+    };
+    ([eq_661, eq_662, section], k)
 }
 
 /// Table B.3 bounds the equivalent uniform moment factors: Cm ∈ [0.4, 1].
@@ -542,17 +925,35 @@ pub fn check_ec3_members(input: &Ec3CheckInput) -> Vec<Ec3CheckResult> {
 
 fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckResult {
     let caps: Ec3Capacities<f64> = ec3_capacities(m);
+    let class_props = class_properties(m);
 
     let n_ed = f.n_ed.unwrap_or(0.0);
     let my_ed = f.my_ed.unwrap_or(0.0);
     let mz_ed = f.mz_ed.unwrap_or(0.0);
     let v_ed = f.v_ed.unwrap_or(0.0);
 
-    let Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt, .. } = caps;
+    let Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt, mcr, .. } = caps;
 
     let mut ledger = CheckLedger::new();
-    ledger.require_finite("Column buckling chi_y", chi_y);
-    ledger.require_finite("Column buckling chi_z", chi_z);
+    if matches!(m.section_class, SectionClass::Class4) {
+        // Name what a Class 4 member lacks, where a demand needs it.
+        if n_ed < 0.0 && !class_props.area.is_finite() {
+            ledger.flag("Class 4 Aeff (EN 1993-1-5 4.3): give aEff or geometry");
+        }
+        if n_ed < 0.0 && !(class_props.e_n_y.is_finite() && class_props.e_n_z.is_finite()) {
+            ledger.flag("Class 4 eN (6.3.3(4)): give eNY/eNZ or geometry");
+        }
+        if my_ed != 0.0 && !class_props.w_y.is_finite() {
+            ledger.flag("Class 4 Weff,y (EN 1993-1-5 4.3): give weffY or geometry");
+        }
+        if mz_ed != 0.0 && !class_props.w_z.is_finite() {
+            ledger.flag("Class 4 Weff,z (EN 1993-1-5 4.3): give weffZ or geometry");
+        }
+    }
+    if n_ed < 0.0 {
+        ledger.require_finite("Column buckling chi_y", chi_y);
+        ledger.require_finite("Column buckling chi_z", chi_z);
+    }
 
     let compression_ratio =
         ledger.ratio_if_loaded("Compression 6.3.1", (-n_ed).max(0.0), nb_rd);
@@ -570,7 +971,7 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
 
     // ==================== Interaction (EC3 6.3.3, Annex B) ====================
 
-    let mut eqs = [0.0_f64; 2];
+    let mut eqs = [0.0_f64; 3];
     let mut k = [0.0_f64; 4];
     let interaction_ratio = if n_ed < 0.0 {
         // 6.3.3(4), eqs. (6.61) and (6.62) with the Annex B factors. This was
@@ -581,7 +982,7 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
             let (e, kk) = ec3_interaction(m, &caps, n_ed.abs(), my_ed.abs(), mz_ed.abs());
             eqs = e;
             k = kk;
-            e[0].max(e[1])
+            e[0].max(e[1]).max(e[2])
         } else {
             f64::NAN // refused below: a Cm outside Table B.3's [0.4, 1]
         }
@@ -612,6 +1013,10 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         interaction_ratio,
         interaction_ratio_y: eqs[0],
         interaction_ratio_z: eqs[1],
+        interaction_ratio_section: eqs[2],
+        a_eff: matches!(m.section_class, SectionClass::Class4).then_some(class_props.area).filter(|x| x.is_finite()),
+        weff_y: matches!(m.section_class, SectionClass::Class4).then_some(class_props.w_y).filter(|x| x.is_finite()),
+        weff_z: matches!(m.section_class, SectionClass::Class4).then_some(class_props.w_z).filter(|x| x.is_finite()),
         k_yy: k[0],
         k_yz: k[1],
         k_zy: k[2],
@@ -621,6 +1026,7 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         chi_lt,
         nb_rd,
         mb_rd,
+        mcr: mcr.filter(|x| x.is_finite()),
         pass,
         unevaluated: ledger.into_unevaluated(),
     }

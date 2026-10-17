@@ -104,6 +104,8 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
         g: None,
         depth: None,
         flange_slenderness: None,
+        compression_elements: None,
+        load_position: None,
     }
 }
 
@@ -113,6 +115,15 @@ fn aisc_run(m: SteelMemberData, n: f64, my: f64, mz: f64, vy: f64) -> SteelCheck
         forces: vec![ElementDesignForces { element_id: 1, n, my, mz: Some(mz), vy: Some(vy) }],
     })
     .remove(0)
+}
+
+/// The E7 elements of a rolled I (Table B4.1a cases 1 and 5): four flange
+/// outstands b = bf/2, and the web h between the fillets.
+fn rolled_i(bf: f64, tf: f64, h: f64, tw: f64) -> Option<Vec<AiscElement>> {
+    Some(vec![
+        AiscElement { kind: AiscElementKind::RolledFlange, b: bf / 2.0, t: tf, count: Some(4.0), kc: None },
+        AiscElement { kind: AiscElementKind::Web, b: h, t: tw, count: None, kc: None },
+    ])
 }
 
 /// [AISC] Example D.1, W8×21 tension member, pp. D-2 – D-4.
@@ -151,6 +162,9 @@ fn aisc_e1c_w14x132_inelastic_flexural_buckling() {
         rz: 3.76, // AISC ry
         lby: 360.0,
         lbz: 360.0,
+        // Manual Table 1-1: bf = 14.7, tf = 1.03, tw = 0.645, h/tw = 17.7 —
+        // no slender element (λr = 13.5 flange, 35.9 web): Ae = Ag.
+        compression_elements: rolled_i(14.7, 1.03, 17.7 * 0.645, 0.645),
         ..aisc_blank(50.0)
     };
     let r = aisc_run(m, -840.0, 0.0, 0.0, 0.0);
@@ -170,6 +184,9 @@ fn aisc_e1d_w14x90_major_axis_governs() {
         rz: 3.70,
         lby: 360.0,
         lbz: 180.0,
+        // Manual Table 1-1: bf = 14.5, tf = 0.710, tw = 0.440, h/tw = 25.9;
+        // bf/2tf = 10.2 < 13.5: no slender element.
+        compression_elements: rolled_i(14.5, 0.710, 25.9 * 0.440, 0.440),
         ..aisc_blank(50.0)
     };
     let r = aisc_run(m, -840.0, 0.0, 0.0, 0.0);
@@ -197,12 +214,79 @@ fn aisc_e3_3_elastic_branch_via_inti301_ej10a_ipe300() {
         lby: 6500.0,
         lbz: 6500.0,
         e: 200_000.0,
+        // IPE 300: bf = 150, tf = 10.7, h = 300 − 2·10.7 − 2·15 = 248.6, tw = 7.1.
+        compression_elements: rolled_i(150.0, 10.7, 248.6, 7.1),
         ..aisc_blank(235.0)
     };
     let r = aisc_run(m, -200e3, 0.0, 0.0, 0.0);
     let pn = r.phi_pn_compression / 0.90;
     published(pn / 5380.0, 46.0, THREE_SF, "Fcr = 0.877·Fe (E3-3)");
     published(pn / 1e3, 210.3 / 0.85, THREE_SF, "Pn");
+}
+
+/// [Clause] AISC 360-22 E7.1, rectangular HSS with a slender wall, and E7.2,
+/// round HSS. No published example is reproduced here (the Design Examples
+/// were not at hand); every number is the clause applied by hand.
+///
+/// HSS 12×8×3/16, Fy = 50 ksi, design wall t = 0.174 in, Ag = 6.76 in²,
+/// r = 3.20 in, Lc = 288 in: Lc/r = 90.0, Fe = 35.34 ksi, Fcr = 27.65 ksi
+/// (E3-2). Table B4.1a case 6: λr = 1.40·√(E/Fy) = 33.72;
+/// λr·√(Fy/Fcr) = 45.34 (E7-2 limit).
+/// 12 in walls: b = 12 − 3t = 11.478, b/t = 65.97 > 45.34, slender;
+///   Fel = (1.38·λr/λ)²·Fy = 24.88 ksi (E7-5, Table E7.1(b): c1 = 0.20,
+///   c2 = 1.38), √(Fel/Fcr) = 0.9484, be = b(1 − 0.20·0.9484)·0.9484 = 8.821 in.
+/// 8 in walls: b/t = 42.98 < 45.34, fully effective.
+/// Ae = 6.76 − 2·(11.478 − 8.821)·0.174 = 5.835 in²; Pn = Fcr·Ae = 161.4 kips,
+/// φcPn = 145.2 kips (E3 alone, Ae = Ag: 168.2, +16 %).
+///
+/// Round HSS D = 20 in, t = 0.2 in, Fy = 42 ksi: D/t = 100 between 0.11E/Fy
+/// = 75.95 and 0.45E/Fy = 310.7, Ae = [0.038E/(Fy·D/t) + 2/3]·Ag = 0.9290·Ag
+/// (E7-7).
+#[test]
+fn aisc_e7_slender_hss_effective_area() {
+    let t = 0.174;
+    let wall = |b: f64| AiscElement { kind: AiscElementKind::HssWall, b, t, count: Some(2.0), kc: None };
+    let m = SteelMemberData {
+        ag: 6.76,
+        ry: 4.0,
+        rz: 3.20,
+        lby: 288.0,
+        lbz: 288.0,
+        compression_elements: Some(vec![wall(12.0 - 3.0 * t), wall(8.0 - 3.0 * t)]),
+        ..aisc_blank(50.0)
+    };
+    let r = aisc_run(m.clone(), -100.0, 0.0, 0.0, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(r.ae.unwrap(), 5.835, THREE_SF, "Ae (E7-3, E7-5)");
+    published(r.phi_pn_compression / 0.90, 161.4, THREE_SF, "Pn = Fcr·Ae");
+    published(r.phi_pn_compression, 145.2, THREE_SF, "φcPn");
+
+    // The same column with no element data is refused, not given Ae = Ag.
+    let r = aisc_run(SteelMemberData { compression_elements: None, ..m }, -100.0, 0.0, 0.0, 0.0);
+    assert!(r.unevaluated.iter().any(|u| u.contains("E7")), "{:?}", r.unevaluated);
+
+    // Round HSS, E7.2.
+    let (d, tt) = (20.0, 0.2);
+    let ag = std::f64::consts::PI * (d - tt) * tt;
+    let pipe = |d_over_t: f64| SteelMemberData {
+        ag,
+        ry: 7.0,
+        rz: 7.0,
+        compression_elements: Some(vec![AiscElement {
+            kind: AiscElementKind::RoundHss,
+            b: d_over_t * tt,
+            t: tt,
+            count: None,
+            kc: None,
+        }]),
+        ..aisc_blank(42.0)
+    };
+    let r = aisc_run(pipe(100.0), -100.0, 0.0, 0.0, 0.0);
+    published(r.ae.unwrap() / ag, 0.038 * 29_000.0 / (42.0 * 100.0) + 2.0 / 3.0, 1e-9, "E7-7");
+    published(r.ae.unwrap() / ag, 0.9290, THREE_SF, "E7-7 factor");
+    // D/t beyond 0.45E/Fy is outside E7: refused.
+    let r = aisc_run(pipe(320.0), -100.0, 0.0, 0.0, 0.0);
+    assert!(!r.unevaluated.is_empty());
 }
 
 /// [AISC] Example F.1-1B, W18×50 continuously braced, p. F-8.
@@ -238,6 +322,9 @@ fn w18x50(lb_in: f64, cb: f64) -> SteelMemberData {
         cw: Some(cw),
         lb: Some(lb_in),
         cb: Some(cb),
+        // The examples take Cb from the moment diagram alone (load height
+        // not considered): the shear centre.
+        load_position: Some(AiscLoadPosition::ShearCentre),
         ..aisc_blank(50.0)
     }
 }
@@ -337,6 +424,7 @@ fn aisc_h3_w14x82_tension_and_biaxial_flexure() {
         cw: Some(iy_weak * ho * ho / 4.0),
         lb: Some(30.0 * 12.0),
         cb: Some(1.41),
+        load_position: Some(AiscLoadPosition::ShearCentre),
         ..aisc_blank(50.0)
     };
     let at = |lb_ft: f64| {
@@ -406,6 +494,8 @@ fn ec3_blank(fy: f64) -> Ec3MemberData {
         wpl_z: 0.0,
         wel_z: 0.0,
         weff_z: None,
+        e_n_y: None,
+        e_n_z: None,
         iy: 0.0,
         iz: 0.0,
         it: 0.0,
@@ -422,7 +512,15 @@ fn ec3_blank(fy: f64) -> Ec3MemberData {
         c1: None,
         av: None,
         interaction: None,
+        geometry: None,
+        ltb: None,
     }
+}
+
+/// LTB with a linear moment diagram (end moments only): SN003b sets
+/// C2·zg = 0, i.e. the load height does not enter Mcr.
+fn end_moments_only() -> Ec3LtbData {
+    Ec3LtbData { c2: Some(0.0), ..Default::default() }
 }
 
 fn ec3_run(m: Ec3MemberData, n_ed: f64, my_ed: f64, v_ed: f64) -> Ec3CheckResult {
@@ -445,12 +543,11 @@ fn ec3_run(m: Ec3MemberData, n_ed: f64, my_ed: f64, v_ed: f64) -> Ec3CheckResult
 /// Mc,Rd = 189.01 kNm (6.2.5); MEd/Mc,Rd = 0.479.
 /// Av = 3080 mm² (6.2.6(3)); Vpl,Rd = 417.9 kN (6.2.6(2)); VEd/Vpl,Rd = 0.152.
 ///
-/// The LTB part of A.1 is NOT reproducible: it loads the top flange
-/// (zg = +165 mm, C2 = 0.454) and uses the rolled-section curve of 6.3.2.3
-/// with the f-modification. stabileo has neither load height (Mcr is the
-/// zg = 0 expression) nor 6.3.2.3 — it implements the general case 6.3.2.2,
-/// which is permitted and more conservative. Lb = 0 below isolates the
-/// cross-section resistance (χLT = 1).
+/// The LTB part of A.1 (Mcr with zg = +165 mm) is the next test; its χLT is
+/// not compared, the example using the rolled-section curve of 6.3.2.3 with
+/// the f-modification where stabileo implements the general case 6.3.2.2
+/// (permitted, more conservative). Lb = 0 below isolates the cross-section
+/// resistance (χLT = 1).
 #[test]
 fn ec3_sbe_a1_ipe330_bending_and_shear_resistance() {
     let m = Ec3MemberData { a: 6260.0, wpl_y: 804.3e3, av: Some(3080.0), ..ec3_blank(235.0) };
@@ -458,6 +555,65 @@ fn ec3_sbe_a1_ipe330_bending_and_shear_resistance() {
     published(r.mb_rd / 1e6, 189.01, THREE_SF, "Mc,Rd (6.2.5)");
     published(r.flexure_ratio_y, 0.479, THREE_SF, "MEd/Mc,Rd");
     published(63.50e3 / r.shear_ratio / 1e3, 417.9, THREE_SF, "Vpl,Rd (6.2.6)");
+}
+
+/// [SBE] Worked Example A.1, IPE 330 S235, LTB part, pp. 4-60 – 4-61.
+///
+/// Printed: Iz = 788.1 cm⁴, It = 28.15 cm⁴, Iw = 199100 cm⁶, L = 5.70 m,
+/// E = 210000, G = 80770 N/mm²; k = kw = 1; uniformly distributed load on the
+/// top flange, zg = h/2 = +165 mm; SN003 C1 = 1.127, C2 = 0.454
+/// (C2·zg = 74.91 mm); Mcr = 113.9 kNm; λ̄LT = √(Wpl,y·fy/Mcr) = 1.288.
+///
+/// stabileo's G is E/2.6 = 80769 N/mm² (the example's 80770: 1e-5 relative).
+/// χLT is not compared: the example continues with 6.3.2.3 and f (D10).
+#[test]
+fn ec3_sbe_a1_ipe330_mcr_with_top_flange_load() {
+    let m = Ec3MemberData {
+        a: 6260.0,
+        wpl_y: 804.3e3,
+        iz: 788.1e4,
+        it: 28.15e4,
+        iw: 199_100e6,
+        lb: 5700.0,
+        c1: Some(1.127),
+        buckling_curve_lt: BucklingCurve::C,
+        geometry: Some(Ec3Geometry::I { h: 330.0, b: 160.0, tw: 7.5, tf: 11.5, r: 18.0 }),
+        ltb: Some(Ec3LtbData { c2: Some(0.454), ..Default::default() }),
+        ..ec3_blank(235.0)
+    };
+    let r = ec3_run(m.clone(), 0.0, 90.48e6, 0.0);
+    let mcr = r.mcr.expect("Mcr evaluated");
+    published(mcr / 1e6, 113.9, THREE_SF, "Mcr (SN003 eq. 2, zg = +165 mm)");
+    published((804.3e3 * 235.0 / mcr).sqrt(), 1.288, THREE_SF, "λ̄LT");
+
+    // The default load position IS the top flange: the same Mcr without
+    // naming it, and explicitly zg = +165 mm likewise.
+    let explicit = Ec3MemberData {
+        ltb: Some(Ec3LtbData { c2: Some(0.454), zg: Some(165.0), ..Default::default() }),
+        geometry: None,
+        ..m.clone()
+    };
+    published(ec3_run(explicit, 0.0, 90.48e6, 0.0).mcr.unwrap() / 1e6, 113.9, THREE_SF, "Mcr, zg given");
+
+    // At the shear centre Mcr is higher — what the check used to return for
+    // this top-flange-loaded beam (unconservative).
+    let sc = Ec3MemberData {
+        ltb: Some(Ec3LtbData { load_position: Some(Ec3LoadPosition::ShearCentre), ..Default::default() }),
+        ..m.clone()
+    };
+    assert!(ec3_run(sc, 0.0, 90.48e6, 0.0).mcr.unwrap() > 1.3 * mcr);
+
+    // No C2 given: C2 = C1 (1.127 > 0.454), a lower Mcr than the example's.
+    let no_c2 = Ec3MemberData { ltb: None, ..m.clone() };
+    assert!(ec3_run(no_c2, 0.0, 90.48e6, 0.0).mcr.unwrap() < mcr);
+
+    // Top flange (the default) with no depth and no zg: refused, not
+    // evaluated at zg = 0.
+    let blind = Ec3MemberData { geometry: None, ltb: None, ..m };
+    let r = ec3_run(blind, 0.0, 90.48e6, 0.0);
+    assert!(!r.pass);
+    assert!(r.mcr.is_none());
+    assert!(!r.unevaluated.is_empty());
 }
 
 /// [SBE] Worked Example A.2, IPE 400 S235, pp. 4-64 – 4-69.
@@ -593,6 +749,9 @@ fn ec3_sbe_ms8_ex2_annex_b_interaction() {
         buckling_curve_y: BucklingCurve::A,
         buckling_curve_z: BucklingCurve::B,
         buckling_curve_lt: BucklingCurve::C,
+        // A column under end moments: the moment diagram is linear, so
+        // SN003b's C2·zg = 0 whatever the load height.
+        ltb: Some(end_moments_only()),
         ..ec3_blank(355.0)
     };
     let r = ec3_run(m, -n * 1e3, my * 1e6, 0.0);
@@ -658,6 +817,9 @@ fn ec3_interaction_k_above_one_is_applied() {
         buckling_curve_y: BucklingCurve::A,
         buckling_curve_z: BucklingCurve::B,
         buckling_curve_lt: BucklingCurve::C,
+        // A column under end moments: the moment diagram is linear, so
+        // SN003b's C2·zg = 0 whatever the load height.
+        ltb: Some(end_moments_only()),
         ..ec3_blank(355.0)
     };
     let r = ec3_run(m.clone(), -1500e3, 150e6, 0.0);
@@ -672,6 +834,165 @@ fn ec3_interaction_k_above_one_is_applied() {
     let r = ec3_run(bad, -1500e3, 150e6, 0.0);
     assert!(!r.pass);
     assert!(!r.unevaluated.is_empty());
+}
+
+/// EN 1993-1-5 4.4 effective widths, the code's own form: λ̄p =
+/// (b̄/t)/(28.4·ε·√kσ). stabileo evaluates λ̄p = √(fy/σcr) with the member's
+/// E, which at E = 210 000 N/mm² is the same expression with 28.42 for the
+/// rounded 28.4 — inside the 0.5 % band.
+fn lambda_p(c_t: f64, fy: f64, k_sigma: f64) -> f64 {
+    c_t / (28.4 * (235.0 / fy).sqrt() * k_sigma.sqrt())
+}
+
+/// [Clause] EN 1993-1-5 4.3/4.4, Class 4 welded I 600×300×12×6, S355, no
+/// published example: every number below is the clause applied by hand,
+/// written out so a wrong clause cannot hide in the implementation.
+///
+/// A = 10 656 mm², Iy = 717.98e6 mm⁴; ε = 0.814.
+/// Flange outstand c = (300 − 6)/2 = 147, c/t = 12.25 > 14ε = 11.4 (Class 4),
+/// kσ = 0.43, λ̄p = 0.808 > 0.748, ρ = (λ̄p − 0.188)/λ̄p² = 0.949 (4.3).
+/// Web c = 576, c/t = 96, kσ = 4, λ̄p = 2.077, ρ = (λ̄p − 0.22)/λ̄p² = 0.430 (4.2).
+/// Aeff = A − 4·(1 − 0.949)·147·12 − (1 − 0.430)·576·6 = 8330 mm².
+/// Weff,y (4.4(3): web ψ from effective flange, gross web): the compression
+/// flange tips lose 2·7.46×12 mm², the axis drops 5.02 mm, web ψ = −0.966,
+/// kσ = 23.0, λ̄p = 0.866, ρ = 1; Ieff = 702.24e6 mm⁴,
+/// Weff,y = Ieff/(300 + 5.02) = 2302.3e3 mm³ (Wel,y = 2393.3e3).
+/// eN = 0 (doubly symmetric).
+#[test]
+fn ec3_class4_welded_i_effective_section_en1993_1_5() {
+    let (h, b, tf, tw, fy): (f64, f64, f64, f64, f64) = (600.0, 300.0, 12.0, 6.0, 355.0);
+    let a = 2.0 * b * tf + (h - 2.0 * tf) * tw;
+    let iy = (b * h * h * h - (b - tw) * (h - 2.0 * tf).powi(3)) / 12.0;
+    let iz = 2.0 * tf * b.powi(3) / 12.0 + (h - 2.0 * tf) * tw.powi(3) / 12.0;
+    let m = Ec3MemberData {
+        a,
+        wel_y: iy / (h / 2.0),
+        wel_z: iz / (b / 2.0),
+        iy,
+        iz,
+        section_class: SectionClass::Class4,
+        geometry: Some(Ec3Geometry::I { h, b, tw, tf, r: 0.0 }),
+        ..ec3_blank(fy)
+    };
+
+    // Hand values, clause by clause.
+    let lpf = lambda_p(147.0 / 12.0, fy, 0.43);
+    let rho_f = (lpf - 0.188) / (lpf * lpf);
+    let lpw = lambda_p(96.0, fy, 4.0);
+    let rho_w = (lpw - 0.22) / (lpw * lpw);
+    published(rho_f, 0.949, THREE_SF, "ρ flange (4.3)");
+    published(rho_w, 0.430, THREE_SF, "ρ web (4.2)");
+    let a_eff = a - 4.0 * (1.0 - rho_f) * 147.0 * 12.0 - (1.0 - rho_w) * 576.0 * 6.0;
+    published(a_eff, 8330.0, THREE_SF, "Aeff, by hand");
+
+    let eff = effective_section(&m, m.geometry.as_ref().unwrap()).expect("effective section");
+    published(eff.a_eff, 8330.0, THREE_SF, "Aeff");
+    published(eff.weff_y, 2302.3e3, THREE_SF, "Weff,y");
+    published(eff.weff_z, iz / (b / 2.0), 1e-9, "Weff,z (flanges fully effective in minor-axis bending here)");
+
+    // The check uses them: Nc,Rd = Aeff·fy, Mc,Rd = Weff,y·fy, and the
+    // Class 4 cross-section check 6.2.9.3 (eN = 0).
+    let r = ec3_run(m.clone(), -1000e3, 0.0, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(r.a_eff.unwrap(), 8330.0, THREE_SF, "result Aeff");
+    published(r.interaction_ratio_section, 1000e3 / (8330.0 * fy), THREE_SF, "NEd/(Aeff·fy)");
+    let r = ec3_run(m.clone(), -1000e3, 300e6, 0.0);
+    published(
+        r.interaction_ratio_section,
+        1000e3 / (8330.0 * fy) + 300e6 / (2302.3e3 * fy),
+        THREE_SF,
+        "6.2.9.3 (6.44)",
+    );
+    published(r.weff_y.unwrap(), 2302.3e3, THREE_SF, "result Weff,y");
+
+    // The gross values used to stand in when Aeff/Weff were not given:
+    // NEd/(A·fy) = 0.264 where the section resists only Aeff (0.338).
+    assert!(r.interaction_ratio_section > 1000e3 / (a * fy) + 300e6 / (iy / 300.0 * fy));
+
+    // No geometry and no Aeff/Weff/eN: refused, with the reason named.
+    let blind = Ec3MemberData { geometry: None, ltb: Some(end_moments_only()), ..m.clone() };
+    let r = ec3_run(blind.clone(), -1000e3, 300e6, 0.0);
+    assert!(!r.pass);
+    assert!(r.unevaluated.iter().any(|u| u.contains("Class 4 Aeff")), "{:?}", r.unevaluated);
+    assert!(r.unevaluated.iter().any(|u| u.contains("Class 4 Weff,y")), "{:?}", r.unevaluated);
+
+    // Aeff and Weff given but no eN, no geometry: compression + bending is
+    // refused (ΔM = eN·NEd unknown), bending alone is evaluated.
+    let given = Ec3MemberData { a_eff: Some(8330.0), weff_y: Some(2302.3e3), weff_z: Some(360e3), ..blind };
+    let r = ec3_run(given.clone(), -1000e3, 300e6, 0.0);
+    assert!(!r.pass);
+    assert!(r.unevaluated.iter().any(|u| u.contains("Class 4 eN")), "{:?}", r.unevaluated);
+    let r = ec3_run(given.clone(), 0.0, 300e6, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(r.flexure_ratio_y, 300e6 / (2302.3e3 * fy), THREE_SF, "My/(Weff,y·fy)");
+
+    // eN given: ΔMy = eN,y·NEd enters 6.2.9.3 and (6.61).
+    let shifted = Ec3MemberData { e_n_y: Some(20.0), e_n_z: Some(0.0), ..given };
+    let r = ec3_run(shifted, -1000e3, 0.0, 0.0);
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+    published(
+        r.interaction_ratio_section,
+        1000e3 / (8330.0 * fy) + 20.0 * 1000e3 / (2302.3e3 * fy),
+        THREE_SF,
+        "6.2.9.3 with ΔMy = eN·NEd",
+    );
+}
+
+/// [Clause] EN 1993-1-5 4.4, Table 4.2: minor-axis bending of a Class 4
+/// welded I 400×300×8×8, S355 — the outstands on the compressed side, free
+/// edge in compression, ψ = (tw/2)/(b/2) = 0.0267 from the gross section
+/// (4.4(3)), kσ = 0.57 − 0.21ψ + 0.07ψ² = 0.564, c/t = 146/8 = 18.25,
+/// λ̄p = 1.051, ρ = 0.781; each tip loses 31.96×8 mm², the axis moves
+/// 9.31 mm, Iz,eff = 26.15e6 mm⁴, Weff,z = Iz,eff/(150 + 9.31) = 164.2e3 mm³
+/// (Wel,z = 240.1e3). Also an RHS 400×200×6 S355 in compression:
+/// c/t = 382/6 = 63.7, λ̄p = 1.378, ρ = 0.610; 182/6 = 30.3, ρ = 1;
+/// Aeff = 7056 − 2·0.390·382·6 = 5268 mm².
+#[test]
+fn ec3_class4_minor_axis_and_rhs_effective_sections() {
+    let (h, b, tf, tw, fy): (f64, f64, f64, f64, f64) = (400.0, 300.0, 8.0, 8.0, 355.0);
+    let a = 2.0 * b * tf + (h - 2.0 * tf) * tw;
+    let iz = 2.0 * tf * b.powi(3) / 12.0 + (h - 2.0 * tf) * tw.powi(3) / 12.0;
+    let iy = (b * h.powi(3) - (b - tw) * (h - 2.0 * tf).powi(3)) / 12.0;
+    let m = Ec3MemberData {
+        a,
+        iy,
+        iz,
+        section_class: SectionClass::Class4,
+        geometry: Some(Ec3Geometry::I { h, b, tw, tf, r: 0.0 }),
+        ..ec3_blank(fy)
+    };
+    let psi = (tw / 2.0) / (b / 2.0);
+    let k = 0.57 - 0.21 * psi + 0.07 * psi * psi;
+    let lp = lambda_p(146.0 / 8.0, fy, k);
+    published((lp - 0.188) / (lp * lp), 0.781, THREE_SF, "ρ outstand, Table 4.2");
+    let eff = effective_section(&m, m.geometry.as_ref().unwrap()).unwrap();
+    published(eff.weff_z, 164.2e3, THREE_SF, "Weff,z");
+    let r = check_ec3_members(&Ec3CheckInput {
+        members: vec![m],
+        forces: vec![Ec3DesignForces { element_id: 1, n_ed: None, my_ed: None, mz_ed: Some(30e6), v_ed: None }],
+    })
+    .remove(0);
+    published(r.flexure_ratio_z, 30e6 / (164.2e3 * fy), THREE_SF, "Mz/(Weff,z·fy)");
+
+    let (h, b, t): (f64, f64, f64) = (400.0, 200.0, 6.0);
+    let rhs = Ec3MemberData {
+        a: 2.0 * (h + b) * t - 4.0 * t * t,
+        iy: (b * h.powi(3) - (b - 2.0 * t) * (h - 2.0 * t).powi(3)) / 12.0,
+        iz: (h * b.powi(3) - (h - 2.0 * t) * (b - 2.0 * t).powi(3)) / 12.0,
+        section_class: SectionClass::Class4,
+        geometry: Some(Ec3Geometry::Rhs { h, b, t }),
+        ..ec3_blank(fy)
+    };
+    let lp = lambda_p(382.0 / 6.0, fy, 4.0);
+    published((lp - 0.22) / (lp * lp), 0.610, THREE_SF, "ρ RHS web");
+    published(effective_section(&rhs, rhs.geometry.as_ref().unwrap()).unwrap().a_eff, 5268.0, THREE_SF, "Aeff RHS");
+
+    // A Class 4 CHS is EN 1993-1-6, not 1-5: no effective section, refused.
+    let chs = Ec3MemberData { geometry: Some(Ec3Geometry::Chs { d: 500.0, t: 4.0 }), ..rhs };
+    assert!(effective_section(&chs, chs.geometry.as_ref().unwrap()).is_none());
+    let r = ec3_run(Ec3MemberData { lcr_y: 1000.0, lcr_z: 1000.0, ..chs }, -100e3, 0.0, 0.0);
+    assert!(!r.pass);
+    assert!(r.unevaluated.iter().any(|u| u.contains("Class 4 Aeff")), "{:?}", r.unevaluated);
 }
 
 // ════════════════════════════════════════════════════════════════════════

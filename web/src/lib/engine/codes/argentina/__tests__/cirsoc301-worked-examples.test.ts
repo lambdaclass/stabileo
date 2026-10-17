@@ -269,3 +269,64 @@ describe('CIRSOC 301 — refusals instead of unsafe numbers', () => {
     expect(r.status).toBe('fail');
   });
 });
+
+/*
+ * §E.4 by the clause, by hand — no INTI example of a tee or channel column was at hand. Every
+ * expected value is E.4.2/E.4.3/E.4.5/E.4.10/E.4.11 applied to the plate section below.
+ */
+describe('CIRSOC 301-2018 §E.4 — torsional and flexural-torsional buckling (clause by hand)', () => {
+  /**
+   * Rolled-flange tee 200×150, tf = 12, tw = 10 mm, L = 3 m, Fy = 235, E = 200 000, G = 77 200.
+   * Ag = 36,8 cm²; Ix = 1475,4 cm⁴ (horizontal, the checker's Iz), Iy = 339,1 cm⁴ (the axis of
+   * symmetry); J = Σb·t³/3 = 14,91 cm⁴. b/2tf = 6,25 < 16,3, d/t = 20 < 21,9: no slender
+   * element, case (a).
+   * e0 = (h − tf)·tw·(h/2)/Ag = 5,109 cm (shear centre at the flange/stem junction);
+   * ro² = e0² + (Ix + Iy)/Ag = 75,41 cm², H = 1 − e0²/ro² = 0,6539 (E.4.10, E.4.11).
+   * Fey = π²E/(L/ry)² = 202,1 MPa → Fcry = 0,658^(Fy/Fey)·Fy = 144,4 MPa (E.3.2a);
+   * Fcrz = G·J/(Ag·ro²) = 414,7 MPa (E.4.3);
+   * Fcr = (Fcry + Fcrz)/(2H)·[1 − √(1 − 4·Fcry·Fcrz·H/(Fcry + Fcrz)²)] = 125,6 MPa (E.4.2);
+   * φPn = 0,85·125,6·36,8·0,1 = 392,8 kN. Flexural buckling alone gave 451,8 kN (+15 %).
+   */
+  const h = 0.2, b = 0.15, tf = 0.012, tw = 0.01;
+  const tee = (p: Partial<SteelDesignParams> = {}) => base({
+    A: 0.00368, Iz: 1.475448e-5, Iy: 3.390667e-6, h, b, tw, tf, L: 3, Lb: 3, shape: 'T',
+    J: (b * tf ** 3 + (h - tf) * tw ** 3) / 3, ...p,
+  });
+
+  it('tee without slender elements — E.4.2 governs over flexural buckling', () => {
+    const r = checkSteelCompression(tee(), 300);
+    expect(r.notEvaluated).toBeUndefined();
+    expect(r.Q).toBe(1);
+    published(r.Fcr, 125.6);
+    published(r.phiPn, 392.8);
+  });
+
+  it('the shear-centre offset given explicitly gives the same; without J the tee is refused', () => {
+    published(checkSteelCompression(tee({ shearCentreOffset: 0.051087 }), 300).phiPn, 392.8);
+    const r = checkSteelCompression(tee({ J: undefined }), 300);
+    expect(r.notEvaluated).toBeTruthy();
+    expect(r.status).toBe('fail');
+  });
+
+  /**
+   * A doubly symmetric I braced against weak-axis flexure at midspan (ky = 0,5) but not against
+   * twist: kz·Lz = L > ky·L, so E.4 applies (E.4.4). IPE 300-like, L = 6 m, J = 20,1 cm⁴,
+   * Cw = 125 900 cm⁶: Fe = [π²·E·Cw/L² + G·J]/(Ix + Iy) = (6,903e-3 + 15,517e-3)/(8,960e-5) =
+   * 250,2 MPa → Fcr = 0,658^(235/250,2)·235 = 158,6 MPa (E.3.2a); flexural (ky·L = 3 m,
+   * ry = 3,35 cm): Fe = 246,2 MPa, Fcr = 157,6 MPa — close; with the torsional length 6 m E.4
+   * must be evaluated, and without J/Cw it is refused.
+   */
+  it('doubly symmetric I with kz·Lz > ky·L: E.4.4 evaluated, refused without J/Cw', () => {
+    const A = 53.8e-4, Iz = 8356e-8, Iy = 603.8e-8;
+    const p = base({ A, Iz, Iy, h: 0.3, b: 0.15, tw: 0.0071, tf: 0.0107, L: 6, Lb: 6, Ky: 0.5, J: 20.1e-8, Cw: 125900e-12 });
+    const r = checkSteelCompression(p, 300);
+    const Fe = (Math.PI ** 2 * 200_000 * 125900e-12 / 36 + 77_200 * 20.1e-8) / (Iz + Iy);
+    published(Fe, 250.2);
+    const FcrT = 0.658 ** (235 / Fe) * 235;
+    const ry = Math.sqrt(Iy / A), FeF = Math.PI ** 2 * 200_000 / (3 / ry) ** 2;
+    const FcrF = 0.658 ** (235 / FeF) * 235;
+    published(r.Fcr, Math.min(FcrT, FcrF), 1e-9);
+    const refused = checkSteelCompression({ ...p, J: undefined, Cw: undefined }, 300);
+    expect(refused.notEvaluated).toBeTruthy();
+  });
+});

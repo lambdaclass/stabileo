@@ -33,7 +33,7 @@ import {
 import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
-import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
+import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams, type TensionConnection } from './codes/argentina/cirsoc301';
 import { momentGradient, type StationMoment } from './steel/moment-gradient';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
@@ -630,7 +630,14 @@ export function checkSteelMember(
   demand: SteelMemberDemand,
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
+  lengths: {
+    L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean;
+    /**
+     * The end connection for tension rupture (D.2(b), D.3). The model holds none, so absent —
+     * the usual case — a member in tension is NOT EVALUATED rather than given Ae = Ag.
+     */
+    tensionConnection?: TensionConnection;
+  },
   /**
    * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
    * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
@@ -778,6 +785,7 @@ export function checkSteelMember(
     // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).
     ...(lengths.Kx !== undefined ? { Kx: lengths.Kx } : {}),
     ...(lengths.Ky !== undefined ? { Ky: lengths.Ky } : {}),
+    ...(lengths.tensionConnection ? { tensionConnection: lengths.tensionConnection } : {}),
   };
 
 

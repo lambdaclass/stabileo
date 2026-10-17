@@ -87,6 +87,74 @@ pub struct SteelMemberData {
     /// unconservative for the rolled shapes footnoted [f] in Manual Table 1-1.
     #[serde(default)]
     pub flange_slenderness: Option<f64>,
+    /// The plate elements of the section in axial compression, for the
+    /// slender-element reduction of AISC 360-22 E7. Absent: the compression
+    /// check is refused — whether an element is slender cannot be known, and
+    /// E3 alone (Ae = Ag) overstates a slender section. An empty list states
+    /// that the section has no element to reduce (a solid bar).
+    #[serde(default)]
+    pub compression_elements: Option<Vec<AiscElement>>,
+    /// Where the transverse load acts, for lateral-torsional buckling.
+    /// Absent: the top flange (destabilising), see [`AiscLoadPosition`].
+    #[serde(default)]
+    pub load_position: Option<AiscLoadPosition>,
+}
+
+/// One kind of plate element of a section in compression, AISC 360-22
+/// Table B4.1a, with its width b and thickness t as B4.1 defines them, and
+/// how many the section has.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiscElement {
+    pub kind: AiscElementKind,
+    /// Width b (for a round HSS, the outside diameter D).
+    pub b: f64,
+    /// Thickness t.
+    pub t: f64,
+    /// Number of such elements (default 1): 4 flange outstands of an I,
+    /// 2 walls of each width of a rectangular HSS.
+    #[serde(default)]
+    pub count: Option<f64>,
+    /// kc of a welded I flange, 4/√(h/tw) within [0.35, 0.76] (Table B4.1a
+    /// note [a]). Absent: 0.35, the lower bound (the lowest λr).
+    #[serde(default)]
+    pub kc: Option<f64>,
+}
+
+/// Table B4.1a cases, and the Table E7.1 row each belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AiscElementKind {
+    /// Case 1: flange of a rolled I, plate projecting from a rolled shape. λr = 0.56√(E/Fy).
+    RolledFlange,
+    /// Case 2: flange of a built-up I. λr = 0.64√(kc·E/Fy).
+    WeldedFlange,
+    /// Case 3: leg of a single angle, angle legs with separators. λr = 0.45√(E/Fy).
+    Angle,
+    /// Case 4: stem of a tee. λr = 0.75√(E/Fy).
+    TeeStem,
+    /// Case 5: web of a doubly symmetric I or channel. λr = 1.49√(E/Fy). E7.1(a).
+    Web,
+    /// Case 6: wall of a rectangular HSS (b = outside width − 3t). λr = 1.40√(E/Fy). E7.1(b).
+    HssWall,
+    /// Case 8: other stiffened elements (built-up box walls, flange cover plates). λr = 1.49√(E/Fy). E7.1(a).
+    Stiffened,
+    /// Case 9: round HSS, b = D. λr = 0.11·E/Fy; E7.2.
+    RoundHss,
+}
+
+/// Where the transverse load acts on a doubly symmetric I.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AiscLoadPosition {
+    /// At the shear centre (or end moments only): Cb as given.
+    ShearCentre,
+    /// On the top flange: Cb·1.4^(2y/h) with y = −h/2, i.e. Cb/1.4
+    /// (Helwig, Frank & Yura 1997; SSRC Guide, Ziemian 2010, §5.2.3).
+    TopFlange,
+    /// On the bottom flange: Cb as given. The same expression would raise
+    /// Cb by 1.4; the stabilising effect is ignored, the conservative side.
+    BottomFlange,
 }
 
 /// Input for steel design check.
@@ -146,6 +214,10 @@ pub struct SteelCheckResult {
     pub phi_mn_y: f64,
     /// Available flexural strength about Z (phi*Mn)
     pub phi_mn_z: f64,
+    /// Effective area Ae of E7 (= Ag when no element is slender); absent
+    /// when the compression check was not evaluated.
+    #[serde(default)]
+    pub ae: Option<f64>,
     /// Checks whose capacity could not be evaluated. Non-empty means the
     /// reported ratios do not cover the member.
     #[serde(default)]
@@ -219,8 +291,11 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
 
     let tension_ratio =
         ledger.ratio_if_loaded("Tension D2", n.max(0.0), phi_pn_tension);
+    if n < 0.0 && member.compression_elements.is_none() {
+        ledger.flag("Compression E7: compressionElements not given (Table B4.1a)");
+    }
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression E3", (-n).max(0.0), phi_pn_compression);
+        ledger.ratio_if_loaded("Compression E3/E7", (-n).max(0.0), phi_pn_compression);
     let flexure_y_ratio = ledger.ratio_if_loaded("Flexure-Y F2", my, phi_mn_y);
     let flexure_z_ratio = ledger.ratio_if_loaded("Flexure-Z F6", mz, phi_mn_z);
 
@@ -244,7 +319,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     // Governing
     let checks = [
         (tension_ratio, "Tension D2"),
-        (compression_ratio, "Compression E3"),
+        (compression_ratio, "Compression E3/E7"),
         (flexure_y_ratio, "Flexure-Y F2"),
         (flexure_z_ratio, "Flexure-Z F6"),
         (shear_ratio, "Shear G2"),
@@ -273,6 +348,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         phi_pn_tension,
         phi_mn_y,
         phi_mn_z,
+        ae: Some(compression_ae::<f64>(member)).filter(|x| x.is_finite()),
         unevaluated: ledger.into_unevaluated(),
     }
 }
@@ -315,8 +391,8 @@ pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     }
 }
 
-/// AISC E3: Flexural buckling compression capacity.
-pub(crate) fn compression_capacity<T: Real>(m: &SteelMemberData) -> T {
+/// E3 critical stress Fcr (flexural buckling, about the weaker axis).
+fn compression_fcr<T: Real>(m: &SteelMemberData) -> T {
     let ky = m.ky.unwrap_or(1.0);
     let kz = m.kz.unwrap_or(1.0);
     let zero = T::exact(0.0);
@@ -329,23 +405,97 @@ pub(crate) fn compression_capacity<T: Real>(m: &SteelMemberData) -> T {
 
     branch(
         kl_r.le(zero),
-        || T::lit(PHI_C) * fy * T::exact(m.ag),
+        || fy,
         || {
             // Euler buckling stress
             let fe = (T::pi() * T::pi() * e).dv(kl_r.sq());
-
             // Critical stress (AISC E3-2, E3-3)
-            let fcr = branch(
+            branch(
                 (kl_r * fy.dv(e).sqrt()).le(T::lit(4.71)),
                 // Inelastic buckling: Fcr = (0.658^(Fy/Fe)) * Fy
                 || T::lit(0.658).powf(fy.dv(fe)) * fy,
                 // Elastic buckling: Fcr = 0.877 * Fe
                 || T::lit(0.877) * fe,
-            );
-
-            T::lit(PHI_C) * fcr * T::exact(m.ag)
+            )
         },
     )
+}
+
+/// Effective area Ae, AISC 360-22 E7. NaN when the elements are not given
+/// or one is outside what E7 covers (a round HSS with D/t > 0.45·E/Fy).
+///
+/// E7.1, elements other than round HSS (E7-2, E7-3, E7-5):
+///   λ ≤ λr·√(Fy/Fcr): be = b
+///   otherwise:        be = b·(1 − c1·√(Fel/Fcr))·√(Fel/Fcr),
+///                     Fel = (c2·λr/λ)²·Fy,
+/// with (c1, c2) from Table E7.1: (0.18, 1.31) stiffened except HSS walls,
+/// (0.20, 1.38) rectangular HSS walls, (0.22, 1.49) all others. Ae = Ag −
+/// Σ(b − be)·t.
+/// E7.2, round HSS: D/t ≤ 0.11·E/Fy: Ae = Ag; up to 0.45·E/Fy:
+///   Ae = [0.038·E/(Fy·D/t) + 2/3]·Ag (E7-7).
+pub(crate) fn compression_ae<T: Real>(m: &SteelMemberData) -> T {
+    let Some(elements) = &m.compression_elements else {
+        return T::exact(f64::NAN);
+    };
+    let (fy, e) = (T::exact(m.fy), T::exact(m.e));
+    let fcr = compression_fcr::<T>(m);
+    let ag = T::exact(m.ag);
+    let r = (m.e / m.fy).sqrt();
+    let mut ae = ag;
+    for el in elements {
+        let count = el.count.unwrap_or(1.0);
+        if !(el.b > 0.0 && el.t > 0.0 && count.is_finite() && count >= 0.0) {
+            return T::exact(f64::NAN);
+        }
+        let lambda = el.b / el.t;
+        if el.kind == AiscElementKind::RoundHss {
+            if lambda <= 0.11 * m.e / m.fy {
+                continue;
+            }
+            if lambda > 0.45 * m.e / m.fy {
+                return T::exact(f64::NAN);
+            }
+            // E7-7 reduces the whole section: Ae = factor·Ag.
+            let factor = T::lit(0.038) * e.dv(fy * T::exact(lambda)) + T::exact(2.0).dv(T::exact(3.0));
+            ae = ae.min(factor * ag);
+            continue;
+        }
+        let (lambda_r, c1, c2) = match el.kind {
+            AiscElementKind::RolledFlange => (0.56 * r, 0.22, 1.49),
+            AiscElementKind::WeldedFlange => {
+                let kc = el.kc.unwrap_or(0.35);
+                if !(0.35..=0.76).contains(&kc) {
+                    return T::exact(f64::NAN);
+                }
+                (0.64 * (kc * m.e / m.fy).sqrt(), 0.22, 1.49)
+            }
+            AiscElementKind::Angle => (0.45 * r, 0.22, 1.49),
+            AiscElementKind::TeeStem => (0.75 * r, 0.22, 1.49),
+            AiscElementKind::Web => (1.49 * r, 0.18, 1.31),
+            AiscElementKind::HssWall => (1.40 * r, 0.20, 1.38),
+            AiscElementKind::Stiffened => (1.49 * r, 0.18, 1.31),
+            AiscElementKind::RoundHss => unreachable!(),
+        };
+        let (b, t) = (T::exact(el.b), T::exact(el.t));
+        let fel = (T::exact(c2 * lambda_r / lambda)).sq() * fy;
+        let lost = branch(
+            T::exact(lambda).le(T::exact(lambda_r) * fy.dv(fcr).sqrt()),
+            || T::exact(0.0),
+            || {
+                let s = fel.dv(fcr).sqrt();
+                let be = b * (T::exact(1.0) - T::exact(c1) * s) * s;
+                (b - be) * t
+            },
+        );
+        ae = ae - T::exact(count) * lost;
+    }
+    ae
+}
+
+/// AISC E3/E7: compression capacity φc·Fcr·Ae (Ae = Ag when no element is
+/// slender). NaN — refused — without `compression_elements`.
+pub(crate) fn compression_capacity<T: Real>(m: &SteelMemberData) -> T {
+    T::lit(PHI_C) * compression_fcr::<T>(m) * compression_ae::<T>(m)
 }
 
 /// AISC F2: Lateral-torsional buckling for doubly-symmetric I-shapes (major axis).
@@ -353,7 +503,13 @@ pub(crate) fn flexural_capacity_y<T: Real>(m: &SteelMemberData) -> T {
     let (fy, e) = (T::exact(m.fy), T::exact(m.e));
     let mp = fy * T::exact(m.zy);
     let lb = T::exact(m.lb.unwrap_or(m.lby));
-    let cb = T::exact(m.cb.unwrap_or(1.0));
+    // Load height: a top-flange load lowers the elastic critical moment,
+    // Cb·1.4^(2y/h) with y = −h/2 (see [`AiscLoadPosition`]). The default is
+    // the top flange: the checker does not know where the load acts.
+    let cb = match m.load_position.unwrap_or(AiscLoadPosition::TopFlange) {
+        AiscLoadPosition::TopFlange => T::exact(m.cb.unwrap_or(1.0)).dv(T::lit(1.4)),
+        AiscLoadPosition::ShearCentre | AiscLoadPosition::BottomFlange => T::exact(m.cb.unwrap_or(1.0)),
+    };
     let cw = m.cw.unwrap_or(0.0);
     let zero = T::exact(0.0);
 

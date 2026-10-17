@@ -114,6 +114,12 @@ export interface WeldInput {
   Fexx: number;         // MPa — electrode strength (E70xx = 490 MPa)
   Vu: number;           // kN — factored shear demand on weld
   plateThickness: number; // mm — thickest connected plate (for min size check)
+  /**
+   * Whether the run is an end-loaded fillet (§J.2.1 / AISC J2.2b(d)). Unset is end-loaded —
+   * β ≤ 1 is the conservative side, and the same default as `designFilletWeld` and the engine's
+   * weld groups. Pass `false` only for a weld the code does not discount.
+   */
+  endLoaded?: boolean;
 }
 
 export interface WeldResult {
@@ -128,16 +134,20 @@ export interface WeldResult {
 }
 
 export function checkFilletWeld(input: WeldInput): WeldResult {
-  const { legSize: w, length: L, Fexx, Vu, plateThickness: tp } = input;
+  const { legSize: w, length: L, Fexx, Vu, plateThickness: tp, endLoaded = true } = input;
 
   const throatEff = 0.707 * w;
 
-  // Length reduction factor (β)
+  // End-loaded length reduction (§J.2.1 / AISC J2.2b(d)): β = 1,2 − 0,002 L/w ≤ 1 for
+  // 100 w < L ≤ 300 w, and above 300 w the effective length is 180 w — NOT 0,6 L, which at
+  // L = 600 w would credit 360 w, twice what the clause allows. Applied to the total length
+  // given, which can only make β smaller than per-run (the conservative side).
   const ratio_Lw = L / w;
-  let beta = 1.0;
-  if (ratio_Lw > 300) beta = 0.6;
-  else if (ratio_Lw > 100) beta = 1.2 - 0.002 * ratio_Lw;
-  const Le = beta * L;
+  let Le = L;
+  if (endLoaded && w > 0) {
+    if (ratio_Lw > 300) Le = 180 * w;
+    else if (ratio_Lw > 100) Le = Math.min(1, 1.2 - 0.002 * ratio_Lw) * L;
+  }
 
   const Aw = throatEff * Le; // mm²
   const phiRn = PHI_WELD * 0.6 * Fexx * Aw / 1000; // kN

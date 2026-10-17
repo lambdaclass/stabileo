@@ -72,6 +72,51 @@ export interface SteelDesignParams {
   G?: number;
   /** Elementos comprimidos para Q (§E.7), si se quieren dar explicitamente en vez de derivarlos. */
   compressionElements?: CompressionElement[];
+  /**
+   * Pandeo torsional y flexo-torsional, §E.4: factor kz (default 1,0 — torsion impedida y alabeo
+   * libre en los extremos) y longitud no arriostrada a torsion Lz (m, default L).
+   */
+  Kz?: number;
+  Lz?: number;
+  /**
+   * Distancia del centro de corte al baricentro sobre el eje de simetria (m), para 'U' y 'T'
+   * (xo, yo de E.4.10/E.4.11). Ausente => la de la seccion de chapas delgadas a partir de h, b,
+   * tw, tf.
+   */
+  shearCentreOffset?: number;
+  /**
+   * La union extrema de un miembro traccionado, para el area neta efectiva Ae = An·U de D.2(b)
+   * y D.3. Ausente => la rotura en la seccion neta NO se evalua y la traccion queda NO EVALUADA:
+   * An depende de los agujeros y U de como se une la barra, datos que la seccion no tiene.
+   */
+  tensionConnection?: TensionConnection;
+}
+
+/**
+ * The end connection of a tension member (D.3, B.4.2.2). Lengths in m, areas in m².
+ *
+ * Net area An: `An` as given, else Ag − Σ holes·(d + 2 mm)·t + Σ s²·t/(4g) over the chain
+ * (B.4.2.2), else Ag (no holes: `holes` empty or absent).
+ * Shear lag U, in this order:
+ *   · `U` as given (0 < U ≤ 1);
+ *   · `allElementsConnected` — D.3(1): every element of the section is connected, U = 1;
+ *   · `plateWeld` {L, w} — D.3(2)(d), a flat plate welded along both edges: L ≥ 2w → 1,
+ *     2w > L ≥ 1,5w → 0,87, 1,5w > L ≥ w → 0,75, L < w refused; applied to Ag (D.3.5);
+ *   · `xBar` and `length` — D.3.2, U = 1 − x̄/L ≤ 0,9, never below `connectedArea`/Ag
+ *     when that is given (D.3, open sections). Applied to An if bolted, to Ag if welded
+ *     (`welded`, D.3.3).
+ * Without any of them U is unknown and the rupture limit state is refused.
+ */
+export interface TensionConnection {
+  An?: number;
+  holes?: { count: number; d: number; t: number; staggers?: { s: number; g: number; t: number }[] };
+  U?: number;
+  allElementsConnected?: boolean;
+  plateWeld?: { L: number; w: number };
+  xBar?: number;
+  length?: number;
+  connectedArea?: number;
+  welded?: boolean;
 }
 
 export interface SteelTensionResult {
@@ -80,6 +125,8 @@ export interface SteelTensionResult {
   ratio: number;
   status: VerifStatus;
   steps: string[];
+  /** Why the check could not be evaluated (no connection for D.2(b)). */
+  notEvaluated?: string;
 }
 
 export interface SteelCompressionResult {
@@ -240,9 +287,7 @@ export function checkSteelTension(params: SteelDesignParams, Pu: number): SteelT
 
   // A en m², Fy en MPa = N/mm² => convertir A a mm² para la multiplicacion
   // Pn = Fy * Ag  (N) => / 1000 => kN
-  // A (m²) * 1e6 = mm²
   const Ag_mm2 = A * 1e6;
-  const Ae_mm2 = Ag_mm2; // area neta efectiva = area bruta (sin agujeros)
 
   const phiY = 0.90;
   const phiR = 0.75;
@@ -256,12 +301,28 @@ export function checkSteelTension(params: SteelDesignParams, Pu: number): SteelT
   steps.push(`  Pn = Fy·Ag = ${fmt(Fy)}·${fmt(Ag_mm2, 0)} = ${fmt(PnY)} kN`);
   steps.push(`  φPn = ${fmt(phiY)}·${fmt(PnY)} = ${fmt(phiPnY)} kN`);
 
-  // Rotura en seccion neta
+  /*
+   * ── D.2(b): rupture on the effective net section, Ae = An·U (D.3) ──
+   *
+   * It used Ae = Ag: no hole deduction and no shear lag. A bolted angle connected by one leg
+   * (U ≈ 0,6–0,8, holes ≈ 15 %) was overstated by up to half. Without the connection the
+   * limit state cannot be evaluated, and is refused.
+   */
+  const absPu = Math.abs(Pu);
+  const ae = effectiveNetArea(params, steps);
+  if ('refused' in ae) {
+    steps.push(`§D2 — Rotura en seccion neta: NO EVALUADO — ${ae.refused}`);
+    return {
+      Pu: absPu, phiPn: absPu > 0 ? 0 : phiPnY, ratio: absPu > 0 ? Infinity : 0,
+      status: absPu > 0 ? 'fail' : 'ok', steps, notEvaluated: ae.refused,
+    };
+  }
+  const Ae_mm2 = ae.Ae * 1e6;
   const PnR = Fu * Ae_mm2 / 1000; // kN
   const phiPnR = phiR * PnR;
 
   steps.push(`§D2 — Rotura en seccion neta:`);
-  steps.push(`  Ae = ${fmt(Ae_mm2, 0)} mm² (sin agujeros)`);
+  steps.push(`  Ae = ${fmt(Ae_mm2, 0)} mm²`);
   steps.push(`  Pn = Fu·Ae = ${fmt(Fu)}·${fmt(Ae_mm2, 0)} = ${fmt(PnR)} kN`);
   steps.push(`  φPn = ${fmt(phiR)}·${fmt(PnR)} = ${fmt(phiPnR)} kN`);
 
@@ -269,7 +330,6 @@ export function checkSteelTension(params: SteelDesignParams, Pu: number): SteelT
   const governing = phiPn === phiPnY ? 'fluencia' : 'rotura';
   steps.push(`  Gobierna: ${governing}, φPn = ${fmt(phiPn)} kN`);
 
-  const absPu = Math.abs(Pu);
   const ratio = phiPn > 0 ? absPu / phiPn : (absPu > 0 ? Infinity : 0);
 
   steps.push(`  Pu = ${fmt(absPu)} kN`);
@@ -282,6 +342,61 @@ export function checkSteelTension(params: SteelDesignParams, Pu: number): SteelT
     status: statusFromRatio(ratio),
     steps,
   };
+}
+
+/** Ae (m²) per D.3 and B.4.2.2 from `tensionConnection`, or why it cannot be known. */
+function effectiveNetArea(p: SteelDesignParams, steps: string[]): { Ae: number } | { refused: string } {
+  const c = p.tensionConnection;
+  if (!c) return { refused: 'falta la union extrema (agujeros y coeficiente U de D.3)' };
+  const Ag = p.A;
+  let An = Ag;
+  if (c.An !== undefined) {
+    if (!(c.An > 0 && c.An <= Ag)) return { refused: `An = ${c.An} fuera de (0, Ag]` };
+    An = c.An;
+    steps.push(`  An = ${fmt(An * 1e6, 0)} mm² (dada)`);
+  } else if (c.holes && c.holes.count > 0) {
+    const { count, d, t } = c.holes;
+    if (!(d > 0 && t > 0)) return { refused: 'agujeros sin diametro o espesor' };
+    // B.4.2.2: the hole width is the nominal hole (Tabla J.3.3) plus 2 mm.
+    const stagger = (c.holes.staggers ?? []).reduce((acc, z) => acc + (z.s * z.s * z.t) / (4 * z.g), 0);
+    An = Ag - count * (d + 0.002) * t + stagger;
+    steps.push(`  An = Ag − n·(d + 2 mm)·t + Σs²t/4g = ${fmt(Ag * 1e6, 0)} − ${count}·${fmt((d + 0.002) * 1000, 1)}·${fmt(t * 1000, 1)} + ${fmt(stagger * 1e6, 0)} = ${fmt(An * 1e6, 0)} mm²  (B.4.2.2)`);
+    if (!(An > 0)) return { refused: 'An ≤ 0' };
+  }
+
+  if (c.U !== undefined) {
+    if (!(c.U > 0 && c.U <= 1)) return { refused: `U = ${c.U} fuera de (0, 1]` };
+    steps.push(`  U = ${fmt(c.U, 3)} (dado)`);
+    return { Ae: An * c.U };
+  }
+  if (c.allElementsConnected) {
+    steps.push(`  Todos los elementos unidos: Ae = An  (D.3(1))`);
+    return { Ae: An };
+  }
+  if (c.plateWeld) {
+    const { L, w } = c.plateWeld;
+    if (!(L > 0 && w > 0) || L < w) return { refused: 'chapa soldada en sus bordes con L < w (D.3(2)(d) exige L ≥ w)' };
+    const U = L >= 2 * w ? 1 : L >= 1.5 * w ? 0.87 : 0.75;
+    steps.push(`  Chapa con cordones longitudinales: L = ${fmt(L * 1000, 0)} mm, w = ${fmt(w * 1000, 0)} mm → U = ${fmt(U, 2)}  (D.3.5)`);
+    return { Ae: Ag * U };
+  }
+  if (c.xBar !== undefined && c.length !== undefined) {
+    if (!(c.xBar >= 0 && c.length > 0)) return { refused: 'x̄ o L de la union no validos' };
+    let U = Math.min(0.9, 1 - c.xBar / c.length);
+    steps.push(`  U = 1 − x̄/L = 1 − ${fmt(c.xBar * 1000, 1)}/${fmt(c.length * 1000, 0)} = ${fmt(1 - c.xBar / c.length, 3)} ≤ 0,9 → ${fmt(U, 3)}  (D.3.2)`);
+    if (c.connectedArea !== undefined && c.connectedArea > 0) {
+      const lower = Math.min(1, c.connectedArea / Ag);
+      if (lower > U) {
+        U = lower;
+        steps.push(`  U ≥ A unida/Ag = ${fmt(lower, 3)} (D.3, secciones abiertas)`);
+      }
+    }
+    if (!(U > 0)) return { refused: `U = ${fmt(U, 3)} ≤ 0` };
+    const base = c.welded ? Ag : An;
+    steps.push(`  Ae = ${c.welded ? 'Ag' : 'An'}·U  (${c.welded ? 'D.3.3' : 'D.3.1'})`);
+    return { Ae: base * U };
+  }
+  return { refused: 'la union no da U: falta U, allElementsConnected, plateWeld o x̄ y L (D.3)' };
 }
 
 // ---------------------------------------------------------------------------
@@ -486,6 +601,92 @@ function slenderReduction(
 // §E — Compresion
 // ---------------------------------------------------------------------------
 
+/**
+ * §E.4 — torsional and flexural-torsional buckling. Returns the governing critical stress from
+ * E.4 for the section (null where E.4 does not apply), or the reason it cannot be evaluated.
+ *
+ *   I (doubly symmetric):  Fe = [π²·E·Cw/(kz·Lz)² + G·J]/(Ix + Iy)                    (E.4.4)
+ *   U (symmetric about x), T with slender elements (symmetric about y):
+ *     Fe = (Fes + Fez)/(2H)·[1 − √(1 − 4·Fes·Fez·H/(Fes + Fez)²)]                      (E.4.5)
+ *     Fez = [π²·E·Cw/(kz·Lz)² + G·J]/(Ag·ro²), ro² = e0² + (Ix + Iy)/Ag, H = 1 − e0²/ro²
+ *   T without slender elements (case (a)):
+ *     Fcr = (Fcry + Fcrz)/(2H)·[1 − √(1 − 4·Fcry·Fcrz·H/(Fcry + Fcrz)²)]              (E.4.2)
+ *     Fcrz = G·J/(Ag·ro²)                                                              (E.4.3)
+ *   Closed sections (box, RHS, CHS) and solid bars: their torsional stiffness keeps E.4 from
+ *   governing; not evaluated.
+ *
+ * Fe goes into E.7.2a/E.7.3a (E.3.2a/E.3.3a with Q = 1) as the flexural Fe does.
+ */
+type TorsionalBuckling =
+  | { kind: 'none' }
+  | { kind: 'Fe'; Fe: number }
+  | { kind: 'Fcr'; Fcr: number }
+  | { kind: 'refused'; reason: string };
+
+function torsionalBuckling(
+  p: SteelDesignParams, shape: SteelShape, Q: number, fcrFlexural: (Fe: number) => number, steps: string[],
+): TorsionalBuckling {
+  if (shape === 'box' || shape === 'RHS' || shape === 'CHS' || shape === 'solid') return { kind: 'none' };
+  const { E, A, Iz, Iy, L } = p;
+  const G = p.G ?? G_CIRSOC;
+  const kz = p.Kz ?? 1.0;
+  const Lz = p.Lz ?? L;
+  const kzL = kz * Lz;
+  const Ky = p.Ky ?? 1.0, Kx = p.Kx ?? 1.0;
+  const J = p.J;
+  if (shape === 'I') {
+    // E.4 applies to a doubly symmetric open section when its torsional length exceeds the
+    // flexural one; it is evaluated whenever J and Cw are known (it can only lower Pn).
+    if (!(J && J > 0 && p.Cw && p.Cw > 0)) {
+      if (kzL > Ky * L) return { kind: 'refused', reason: '§E.4: kz·Lz > ky·L y faltan J o Cw para el pandeo torsional' };
+      steps.push(`  §E.4: sin J/Cw; no aplica a una seccion doblemente simetrica con kz·Lz ≤ ky·L`);
+      return { kind: 'none' };
+    }
+    const Fe = ((Math.PI ** 2 * E * p.Cw) / (kzL * kzL) + G * J) / (Iz + Iy);
+    steps.push(`  §E.4 pandeo torsional: Fe = [π²·E·Cw/(kz·Lz)² + G·J]/(Ix + Iy) = ${fmt(Fe, 1)} MPa  (E.4.4)`);
+    return { kind: 'Fe', Fe };
+  }
+  // Singly symmetric: U about x (the strong axis), T about y.
+  if (!(J && J > 0)) return { kind: 'refused', reason: '§E.4: falta J para el pandeo flexo-torsional' };
+  const e0 = p.shearCentreOffset ?? shearCentreOffsetOf(p, shape);
+  if (!(Number.isFinite(e0) && e0 >= 0)) return { kind: 'refused', reason: '§E.4: centro de corte desconocido' };
+  // Cw of a tee is small and of a channel not always given: 0 understates Fez (conservative).
+  const Cw = p.Cw && p.Cw > 0 ? p.Cw : 0;
+  const ro2 = e0 * e0 + (Iz + Iy) / A;
+  const H = 1 - (e0 * e0) / ro2;
+  const Fez = ((Math.PI ** 2 * E * Cw) / (kzL * kzL) + G * J) / (A * ro2);
+  const combine = (a: number, b: number) => ((a + b) / (2 * H)) * (1 - Math.sqrt(1 - (4 * a * b * H) / ((a + b) * (a + b))));
+  steps.push(`  §E.4: e0 = ${fmt(e0 * 1000, 1)} mm, ro² = ${fmt(ro2 * 1e4, 2)} cm², H = ${fmt(H, 3)}  (E.4.10, E.4.11)`);
+  if (shape === 'T' && Q >= 1) {
+    const ry = radiusOfGyration(Iy, A);
+    const Fcry = fcrFlexural((Math.PI ** 2 * E) / ((Ky * L) / ry) ** 2);
+    const Fcrz = (G * J) / (A * ro2);
+    const Fcr = combine(Fcry, Fcrz);
+    steps.push(`  §E.4(a) Te: Fcry = ${fmt(Fcry, 1)} MPa, Fcrz = G·J/(Ag·ro²) = ${fmt(Fcrz, 1)} MPa → Fcr = ${fmt(Fcr, 1)} MPa  (E.4.2, E.4.3)`);
+    return { kind: 'Fcr', Fcr };
+  }
+  const Fes = shape === 'U'
+    ? (Math.PI ** 2 * E) / ((Kx * L) / radiusOfGyration(Iz, A)) ** 2
+    : (Math.PI ** 2 * E) / ((Ky * L) / radiusOfGyration(Iy, A)) ** 2;
+  const Fe = combine(Fes, Fez);
+  steps.push(`  §E.4(b.2) flexo-torsional: Fe(eje de simetria) = ${fmt(Fes, 1)}, Fez = ${fmt(Fez, 1)} → Fe = ${fmt(Fe, 1)} MPa  (E.4.5, E.4.9)`);
+  return { kind: 'Fe', Fe };
+}
+
+/**
+ * Shear-centre offset from the centroid along the axis of symmetry, thin-walled plates (m):
+ *   T: the flange/stem junction, e0 = (h − tf)·tw·(h/2)/(b·tf + (h − tf)·tw) from the flange
+ *      mid-plane to the centroid;
+ *   U: e = 3·b'²·tf/(6·b'·tf + h'·tw) behind the web, centroid x̄ = b'²·tf/(2·b'·tf + h'·tw) in
+ *      front of it, e0 = e + x̄, with b' = b − tw/2 and h' = h − tf.
+ */
+function shearCentreOffsetOf(p: SteelDesignParams, shape: SteelShape): number {
+  const { h, b, tw, tf } = p;
+  if (shape === 'T') return ((h - tf) * tw * (h / 2)) / (b * tf + (h - tf) * tw);
+  const bp = b - tw / 2, hp = h - tf;
+  return (3 * bp * bp * tf) / (6 * bp * tf + hp * tw) + (bp * bp * tf) / (2 * bp * tf + hp * tw);
+}
+
 export function checkSteelCompression(params: SteelDesignParams, Pu: number): SteelCompressionResult {
   const steps: string[] = [];
   const { Fy, E, A, Iz, Iy, L } = params;
@@ -523,8 +724,8 @@ export function checkSteelCompression(params: SteelDesignParams, Pu: number): St
    *
    * which is E.3.2/E.3.3 for Q = 1 (a section with no slender element, B.4.1).
    */
-  const fcrOf = (Q: number) => {
-    const lam2 = Fy / Fe;
+  const fcrOf = (Q: number, fe = Fe) => {
+    const lam2 = Fy / fe;
     return Math.sqrt(Q * lam2) <= 1.5 ? Q * Math.pow(0.658, Q * lam2) * Fy : (0.877 / lam2) * Fy;
   };
 
@@ -558,11 +759,33 @@ export function checkSteelCompression(params: SteelDesignParams, Pu: number): St
     steps.push(`  Seccion sin elementos esbeltos (Tabla B.4.1a): Q = 1`);
   }
 
-  const Fcr = fcrOf(Q);
+  const FcrFlex = fcrOf(Q);
   const lamE = Math.sqrt(Fy / Fe);
   steps.push(Math.sqrt(Q) * lamE <= 1.5
-    ? `  λe·√Q = ${fmt(lamE * Math.sqrt(Q), 3)} ≤ 1,5 → Fcr = Q·0,658^(Q·λe²)·Fy = ${fmt(Fcr, 1)} MPa  (${Q < 1 ? 'E.7.2' : 'E.3.2'})`
-    : `  λe·√Q = ${fmt(lamE * Math.sqrt(Q), 3)} > 1,5 → Fcr = 0,877/λe²·Fy = ${fmt(Fcr, 1)} MPa  (${Q < 1 ? 'E.7.3' : 'E.3.3'})`);
+    ? `  λe·√Q = ${fmt(lamE * Math.sqrt(Q), 3)} ≤ 1,5 → Fcr = Q·0,658^(Q·λe²)·Fy = ${fmt(FcrFlex, 1)} MPa  (${Q < 1 ? 'E.7.2' : 'E.3.2'})`
+    : `  λe·√Q = ${fmt(lamE * Math.sqrt(Q), 3)} > 1,5 → Fcr = 0,877/λe²·Fy = ${fmt(FcrFlex, 1)} MPa  (${Q < 1 ? 'E.7.3' : 'E.3.3'})`);
+
+  /*
+   * ── §E.4: torsional and flexural-torsional buckling ─────────────
+   *
+   * Missing before: only flexural buckling was checked, so a tee, a channel or a doubly
+   * symmetric section braced only against flexure could pass with a capacity E.4 does not give.
+   * Pn is the least of the limit states (E.7: «el menor valor ... pandeo flexional, pandeo
+   * torsional y pandeo flexotorsional»).
+   */
+  const tb = torsionalBuckling(params, shape!, Q, (fe) => fcrOf(1, fe), steps);
+  if (tb.kind === 'refused') {
+    steps.push(`  NO EVALUADO — ${tb.reason}`);
+    const ratio = absPu > 0 ? Infinity : 0;
+    return {
+      Pu: absPu, KLr, Fe, Fcr: NaN, phiPn: 0, Q, ratio,
+      status: absPu > 0 ? 'fail' : 'ok', steps, notEvaluated: tb.reason,
+    };
+  }
+  const FcrTors = tb.kind === 'Fe' ? fcrOf(Q, tb.Fe) : tb.kind === 'Fcr' ? tb.Fcr : Infinity;
+  if (tb.kind === 'Fe') steps.push(`  Fcr (E.4 con Q) = ${fmt(FcrTors, 1)} MPa  (${Q < 1 ? 'E.7.2a/E.7.3a' : 'E.3.2a/E.3.3a'})`);
+  const Fcr = Math.min(FcrFlex, FcrTors);
+  if (FcrTors < FcrFlex) steps.push(`  Gobierna el pandeo ${shape === 'I' ? 'torsional' : 'flexo-torsional'} (§E.4): Fcr = ${fmt(Fcr, 1)} MPa`);
 
   // E.1: φc = 0,85. It read 0,90, the AISC 360 value, which the CIRSOC 301 text does not
   // adopt; the clause map already stated 0,85, so the check was 5,9 % on the unsafe side of it.
@@ -1020,6 +1243,7 @@ export function checkSteelInteraction(
     // Traccion
     const tens = checkSteelTension(params, Pu);
     phiPn = tens.phiPn;
+    axialRefused = tens.notEvaluated;
     steps.push(`  Capacidad axial (traccion): φPn = ${fmt(phiPn)} kN`);
   }
 
