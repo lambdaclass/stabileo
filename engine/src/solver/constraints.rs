@@ -1253,12 +1253,20 @@ pub fn solve_constrained_2d_dense(
 
     // Solve reduced system
     let mut used_fallback = false;
+    let mut definiteness = None;
     let u_indep = {
+        // `cholesky_solve`, unrolled to inspect the factor's pivots.
         let mut k_work = k_reduced.clone();
-        match cholesky_solve(&mut k_work, &f_reduced, n_free_indep) {
+        match cholesky_decompose(&mut k_work, n_free_indep).then(|| {
+            definiteness = super::definiteness::dense_pivot_check(&k_work, &k_reduced, n_free_indep);
+            back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
+        }) {
             Some(u) => u,
             None => {
                 used_fallback = true;
+                definiteness = Some(super::definiteness::not_positive_definite(
+                    "constrained CᵀKC: Cholesky failed; solved by dense LU",
+                ));
                 let mut k_work = k_reduced;
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
@@ -1402,6 +1410,8 @@ pub fn solve_constrained_2d_dense(
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
+    constraint_diags.extend(definiteness);
+
     Ok(AnalysisResults {
         displacements,
         reactions,
@@ -1536,9 +1546,12 @@ fn solve_constrained_2d_sparse(
 
     // NO diagonal-shift regularization (the 2D contract): a mechanism fails
     // here and is reported by the dense path's LU, as the legacy solver did.
-    let Some(u_indep) = sparse_cholesky_solve_full(&k_reduced, &f_reduced) else {
+    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
+    let Some(num) = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced) else {
         return Ok(None);
     };
+    let definiteness = super::definiteness::sparse_pivot_check(&num, &k_reduced);
+    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
@@ -1641,6 +1654,8 @@ fn solve_constrained_2d_sparse(
             format!("Constrained 2D residual {:.2e} exceeds tolerance", rel_residual),
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
+
+    constraint_diags.extend(definiteness);
 
     Ok(Some(AnalysisResults {
         displacements,
@@ -1820,7 +1835,15 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let f_reduced = fcs.reduce_vector(&f_f);
 
     let mut used_fallback = false;
-    let u_indep = match sparse_cholesky_solve_full(&k_reduced, &f_reduced) {
+    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
+    let factor = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced);
+    let definiteness = match &factor {
+        Some(num) => super::definiteness::sparse_pivot_check(num, &k_reduced),
+        None => Some(super::definiteness::not_positive_definite(
+            "constrained CᵀKC: Cholesky failed; solved by dense LU",
+        )),
+    };
+    let u_indep = match factor.map(|num| sparse_cholesky_solve(&num, &f_reduced)) {
         Some(u) => u,
         None => {
             used_fallback = true;
@@ -1955,6 +1978,8 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
             format!("Constrained 3D residual {:.2e} exceeds tolerance", rel_residual),
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
+
+    constraint_diags.extend(definiteness);
 
     Ok(AnalysisResults3D {
         displacements,

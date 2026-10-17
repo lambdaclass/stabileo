@@ -41,12 +41,7 @@ pub fn compute_local_axes_3d(
     roll_angle: Option<f64>,
     left_hand: bool,
 ) -> ([f64; 3], [f64; 3], [f64; 3]) {
-    let dx = xj - xi;
-    let dy = yj - yi;
-    let dz = zj - zi;
-    let l = (dx * dx + dy * dy + dz * dz).sqrt();
-
-    let ex = [dx / l, dy / l, dz / l];
+    let ex = unit_direction(xj - xi, yj - yi, zj - zi);
 
     // Determine reference vector for local Y
     let ey_ref = if let (Some(lyx), Some(lyy), Some(lyz)) = (local_yx, local_yy, local_yz) {
@@ -60,23 +55,7 @@ pub fn compute_local_axes_3d(
         default_ey_ref(&ex)
     };
 
-    // ez = ex × ey_ref (then normalize)
-    let mut ez = cross(&ex, &ey_ref);
-    let ez_mag = norm(&ez);
-    if ez_mag < 1e-10 {
-        // ex parallel to ey_ref, use fallback
-        let fallback = if ex[0].abs() < 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
-        ez = cross(&ex, &fallback);
-        let ez_mag = norm(&ez);
-        ez = [ez[0] / ez_mag, ez[1] / ez_mag, ez[2] / ez_mag];
-    } else {
-        ez = [ez[0] / ez_mag, ez[1] / ez_mag, ez[2] / ez_mag];
-    }
-
-    // ey = ez × ex (guaranteed orthogonal)
-    let mut ey = cross(&ez, &ex);
-    let ey_mag = norm(&ey);
-    ey = [ey[0] / ey_mag, ey[1] / ey_mag, ey[2] / ey_mag];
+    let (ey, ez) = orthonormal_frame(&ex, &ey_ref);
 
     // Apply roll angle (rotation about local X)
     let (mut ey, ez) = if let Some(angle_deg) = roll_angle {
@@ -174,6 +153,33 @@ pub fn frame_transform_3d_warping(ex: &[f64; 3], ey: &[f64; 3], ez: &[f64; 3]) -
     t
 }
 
+/// Unit vector along (dx, dy, dz).
+pub(crate) fn unit_direction(dx: f64, dy: f64, dz: f64) -> [f64; 3] {
+    let l = (dx * dx + dy * dy + dz * dz).sqrt();
+    [dx / l, dy / l, dz / l]
+}
+
+/// (ey, ez) completing the unit `ex` to a right-handed frame, with ey in the
+/// plane of ex and `ey_ref`: ez = ex × ey_ref (normalized, with a fallback
+/// reference when they are parallel), ey = ez × ex (normalized).
+pub(crate) fn orthonormal_frame(ex: &[f64; 3], ey_ref: &[f64; 3]) -> ([f64; 3], [f64; 3]) {
+    let mut ez = cross(ex, ey_ref);
+    let ez_mag = norm(&ez);
+    if ez_mag < 1e-10 {
+        // ex parallel to ey_ref, use fallback
+        let fallback = if ex[0].abs() < 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
+        ez = cross(ex, &fallback);
+        let ez_mag = norm(&ez);
+        ez = [ez[0] / ez_mag, ez[1] / ez_mag, ez[2] / ez_mag];
+    } else {
+        ez = [ez[0] / ez_mag, ez[1] / ez_mag, ez[2] / ez_mag];
+    }
+    // ey = ez × ex (guaranteed orthogonal)
+    let ey = cross(&ez, ex);
+    let ey_mag = norm(&ey);
+    ([ey[0] / ey_mag, ey[1] / ey_mag, ey[2] / ey_mag], ez)
+}
+
 pub(crate) fn default_ey_ref(ex: &[f64; 3]) -> [f64; 3] {
     // Canonical Z-up convention (matches web computeLocalAxes3D — one convention
     // everywhere, no legacy mode):
@@ -217,6 +223,50 @@ fn norm(v: &[f64; 3]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Contracts of the local-axes helpers that the Kani composition proof
+    /// (kani_proofs::compute_local_axes_3d_default_finite) stubs.
+    #[test]
+    fn local_axes_helper_contracts() {
+        use rand::{Rng, SeedableRng};
+        let check = |d: [f64; 3]| {
+            let ex = unit_direction(d[0], d[1], d[2]);
+            assert!(ex.iter().all(|x| x.is_finite() && x.abs() <= 1.0 + 1e-12), "{d:?} → {ex:?}");
+            assert!(ex[0] * ex[0] + ex[1] * ex[1] + ex[2] * ex[2] >= 0.99, "{d:?}");
+            let r = default_ey_ref(&ex);
+            assert!(r.iter().all(|x| x.is_finite() && x.abs() <= 1.01), "{ex:?} → {r:?}");
+            for r in [r, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], ex, [-ex[0], -ex[1], -ex[2]]] {
+                let (ey, ez) = orthonormal_frame(&ex, &r);
+                assert!(ey.iter().chain(&ez).all(|x| x.is_finite()), "{ex:?}, {r:?}");
+            }
+        };
+        let vals: [f64; 10] = [0.0, 1e-3, -1e-3, 1e-12, 0.5, -0.999, 1.0, 3.0, 1e3, -1e3];
+        for &a in &vals {
+            for &b in &vals {
+                for &c in &vals {
+                    if a.abs() >= 1e-3 || b.abs() >= 1e-3 || c.abs() >= 1e-3 {
+                        check([a, b, c]);
+                    }
+                }
+            }
+        }
+        // Around the near-vertical switch in default_ey_ref (|ex_z| = 0.999).
+        for k in -50..=50 {
+            let z = 0.999 + k as f64 * 1e-6;
+            check([(1.0 - z * z).max(0.0).sqrt(), 0.0, z]);
+            check([0.0, (1.0 - z * z).max(0.0).sqrt(), -z]);
+        }
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+        for _ in 0..200_000 {
+            let mut d = [0.0; 3];
+            for x in d.iter_mut() {
+                *x = if rng.gen_bool(0.2) { 0.0 } else { rng.gen_range(-1e3..1e3) * 10f64.powi(-rng.gen_range(0..7)) };
+            }
+            if d.iter().any(|x| x.abs() >= 1e-3) {
+                check(d);
+            }
+        }
+    }
 
     #[test]
     fn test_transform_2d_horizontal() {

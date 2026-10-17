@@ -13,5 +13,5 @@ export function otherCode(id: OtherCodeId): OtherCode | undefined {
   return OTHER_CODES.find((c) => c.id === id);
 }
 
-export { memberContexts, runOtherCode } from './run';
-export type { OtherCode, OtherCodeId, OtherCodeRow, OtherCodeRun, CheckReading } from './types';
+export { memberContexts, runOtherCode, certifyOtherCode } from './run';
+export type { OtherCode, OtherCodeId, OtherCodeRow, OtherCodeRun, CheckReading, MemberCertificate, StationBound3D } from './types';

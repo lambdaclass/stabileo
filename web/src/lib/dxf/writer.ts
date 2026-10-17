@@ -76,6 +76,8 @@ export interface DxfModel {
   loadCases: ReadonlyArray<{ id: number; name: string }>;
   /** A plane model drawn in XZ (`shouldProjectModelToXZ`). */
   flat: boolean;
+  /** Whether the solve took shear deformation (`shearDeformation: 'none'` turns it off). */
+  analysis?: { shearDeformation?: 'none' };
 }
 
 type P3 = { x: number; y: number; z: number };
@@ -377,7 +379,7 @@ export function writeDxf(model: DxfModel, opts: DxfWriteOptions, tr: (key: strin
     for (const e of model.elements.values()) {
       const pI = scene(e.nodeI), pJ = scene(e.nodeJ), dI = disp.get(e.nodeI), dJ = disp.get(e.nodeJ), forces = ef.get(e.id);
       if (!pI || !pJ || !dI || !dJ || !forces) continue;
-      const ei: ElementEI | undefined = eiOf(model.materials.get(e.materialId), model.sections.get(e.sectionId));
+      const ei: ElementEI | undefined = eiOf(model.materials.get(e.materialId), model.sections.get(e.sectionId), model.analysis);
       const localY = (e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined) ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
       const roll = (e.rollAngle ?? 0) + (model.sections.get(e.sectionId)?.rotation ?? 0);
       const curve = computeDeformedShape3D(pI, pJ, dI, dJ, forces, scale, ei, localY, roll || undefined);

@@ -15,6 +15,12 @@
  * This is the computation the deformed-shape drawing always did; it lived there, twice. It is
  * here so the drawing and the serviceability check read one curve.
  *
+ * A shear-flexible (Timoshenko) plane — a section with shear areas, solved with them — adds the
+ * shear deflection: the plane is solved exactly as the engine's `compute_deformed_shape` does
+ * (`timoshenkoPlane`), so a cantilever's tip under P reads PL³/3EI + PL/(G·As). The Hermite
+ * curve above would miss the PL/(G·As), and between the nodes it would not even match the
+ * nodal rotations, which are the sections' rotations, not the slope.
+ *
  * ── Relative to the chord ─────────────────────────────────────────
  *
  * The deflection a span limit (L/240, L/360…) is written for is the member's own bending: the
@@ -29,13 +35,20 @@
 
 import { computeLocalAxes3D } from './local-axes-3d';
 import { solverProperties } from '../section/state';
+import { sectionShearAreas } from '../section/shear-areas';
 import type { Displacement3D, ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
 
-/** EI of both bending planes. */
+/**
+ * EI of both bending planes, and the shear stiffness G·As of each when the member is
+ * shear-flexible (Timoshenko). The shear areas pair as the solver pairs them
+ * (`section/shear-areas.ts`): As,y with Iy, As,z with Iz.
+ */
 export interface ElementEI {
   EIy: number;  // kN·m² — E·Iy for local-Z-plane bending
   EIz: number;  // kN·m² — E·Iz for local-Y-plane bending
+  GAy?: number; // kN — G·As,y, the local-Z plane's shear stiffness (absent: no shear deformation)
+  GAz?: number; // kN — G·As,z, the local-Y plane's shear stiffness
 }
 
 /**
@@ -48,7 +61,10 @@ export interface ElementEI {
  * rotations it is added to, and a simply supported beam's midspan deflection came out 0.12 %
  * high. Reading `solverProperties` here makes the curve exact again.
  */
-export function eiOf(material: { e: number } | undefined, section: Section | undefined): ElementEI | undefined {
+export function eiOf(
+  material: { e: number; nu?: number } | undefined, section: Section | undefined,
+  analysis?: { shearDeformation?: 'none' },
+): ElementEI | undefined {
   if (!material || !section) return undefined;
   const E = material.e * 1000; // MPa → kN/m²
   const props = solverProperties(section);
@@ -56,7 +72,17 @@ export function eiOf(material: { e: number } | undefined, section: Section | und
     ? props.iy
     : (section.iy ?? (section.b && section.h ? (section.b * section.h ** 3) / 12 : section.iz));
   const Iz = props.source === 'canonical' ? props.iz : section.iz;
-  return { EIy: E * Iy, EIz: E * Iz };
+  const out: ElementEI = { EIy: E * Iy, EIz: E * Iz };
+  // The shear areas exactly when the 3D solve sends them (`solver-service.ts`, `shearOf`), with
+  // its G = E / 2(1 + ν). The 2D solve never sends them, and reads no curve from here.
+  const sa = analysis?.shearDeformation === 'none' ? null : sectionShearAreas(section);
+  const nu = material.nu;
+  if (sa && typeof nu === 'number' && Number.isFinite(nu)) {
+    const G = E / (2 * (1 + nu));
+    out.GAy = G * sa.asY;
+    out.GAz = G * sa.asZ;
+  }
+  return out;
 }
 
 type Pt = { x: number; y: number; z: number };
@@ -125,6 +151,70 @@ function particular(x: number, dist: readonly DistLoad[], pts: readonly PointLoa
   for (const pl of pts) vp += pointDeflection(pl.p, pl.a, x, L, EI);
   return vp;
 }
+
+/**
+ * The exact transverse deflection of a loaded shear-flexible (Timoshenko) member in one plane —
+ * the engine's `MemberDeflection` (`engine/src/postprocess/diagrams.rs`), so the two agree.
+ *
+ * With m = EI·ψ' (ψ the section rotation, the nodal rotation), s = m', s' = q and
+ * v' = ψ − s/(G·As), integrating from I gives, with m_q the loads' own moment (zero at x = 0):
+ *   v(x) = vI + θI·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI − (s0·x + m_q(x))/(G·As)
+ * The unknowns (θI, m0, s0) follow from: θI the node's rotation, or m(0) = 0 at a release;
+ * v(L) = vJ; ψ(L) = θJ, or m(L) = 0 at a release. With 1/(G·As) = 0 it is the Hermite cubic
+ * plus the particular solution, the Euler–Bernoulli curve.
+ */
+function timoshenkoPlane(
+  L: number, EI: number, GA: number,
+  vI: number, rI: number, vJ: number, rJ: number, hingeStart: boolean, hingeEnd: boolean,
+  dist: readonly DistLoad[], pts: readonly PointLoad[],
+): (x: number) => number {
+  const fs = 1 / GA;
+  const g = Math.sqrt(0.6);
+  const gauss: Array<[number, number]> = [[-g, 5 / 9], [0, 8 / 9], [g, 5 / 9]];
+  /** [m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t)·m_q(t) dt] of the loads. */
+  const terms = (x: number): [number, number, number] => {
+    const out: [number, number, number] = [0, 0, 0];
+    const add = (p: number, d: number) => {
+      if (d > 0) { out[0] += p * d; out[1] += p * d * d / 2; out[2] += p * d * d * d / 6; }
+    };
+    for (const pl of pts) add(pl.p, x - pl.a);
+    // A linear load against (x − t)^k, k ≤ 3: degree ≤ 4, so 3-point Gauss is exact.
+    for (const dl of dist) {
+      const hi = Math.min(dl.b, x);
+      if (hi <= dl.a || dl.b - dl.a < 1e-12) continue;
+      const half = (hi - dl.a) / 2, mid = (hi + dl.a) / 2;
+      for (const [t, w] of gauss) {
+        const tt = mid + half * t;
+        add((dl.qI + (dl.qJ - dl.qI) * (tt - dl.a) / (dl.b - dl.a)) * w * half, x - tt);
+      }
+    }
+    return out;
+  };
+  const [mqL, mq1L, mq2L] = terms(L);
+  const A = [
+    hingeStart ? [0, 1, 0] : [1, 0, 0],
+    [L, L * L / (2 * EI), L * L * L / (6 * EI) - fs * L],
+    hingeEnd ? [0, 1, L] : [1, L / EI, L * L / (2 * EI)],
+  ];
+  const rhs = [hingeStart ? 0 : rI, vJ - vI - mq2L / EI + fs * mqL, hingeEnd ? -mqL : rJ - mq1L / EI];
+  const det = (m: number[][]) =>
+    m[0]![0]! * (m[1]![1]! * m[2]![2]! - m[1]![2]! * m[2]![1]!)
+    - m[0]![1]! * (m[1]![0]! * m[2]![2]! - m[1]![2]! * m[2]![0]!)
+    + m[0]![2]! * (m[1]![0]! * m[2]![1]! - m[1]![1]! * m[2]![0]!);
+  const den = det(A);
+  const sol = [0, 0, 0];
+  if (den !== 0 && Number.isFinite(den)) {
+    for (let c = 0; c < 3; c++) sol[c] = det(A.map((row, r) => row.map((a, k) => (k === c ? rhs[r]! : a)))) / den;
+  }
+  const [thI, m0, s0] = sol as [number, number, number];
+  return (x: number) => {
+    const [mq, , mq2] = terms(x);
+    return vI + thI * x + (m0 * x * x / 2 + s0 * x * x * x / 6 + mq2) / EI - fs * (s0 * x + mq);
+  };
+}
+
+const shearFlexible = (EI: number | undefined, GA: number | undefined): GA is number =>
+  !!EI && EI > 0 && typeof GA === 'number' && GA > 0 && Number.isFinite(GA);
 
 /** A member's displaced curve in its local axes, sampled from I to J. */
 export interface LocalCurve {
@@ -198,6 +288,18 @@ export function memberLocalCurve(
     sZJ = 3 * dw / (2 * L) + thYI / 2 - L * vppZ.vppL / 4;
   }
 
+  // A shear-flexible plane: the engine's exact Timoshenko curve instead (it does its own
+  // release and load terms). An Euler–Bernoulli plane keeps the curve above.
+  const noLoads = { dist: [] as DistLoad[], pts: [] as PointLoad[] };
+  const timoY = shearFlexible(EIz, ei?.GAz)
+    ? timoshenkoPlane(L, EIz!, ei!.GAz!, vI, thZI, vJ, thZJ, !!ef?.releaseMzStart, !!ef?.releaseMzEnd,
+      ef?.distributedLoadsY ?? noLoads.dist, ef?.pointLoadsY ?? noLoads.pts)
+    : null;
+  const timoZ = shearFlexible(EIy, ei?.GAy)
+    ? timoshenkoPlane(L, EIy!, ei!.GAy!, wI, -thYI, wJ, -thYJ, !!ef?.releaseMyStart, !!ef?.releaseMyEnd,
+      ef?.distributedLoadsZ ?? noLoads.dist, ef?.pointLoadsZ ?? noLoads.pts)
+    : null;
+
   const out: LocalCurve = { L, ex, ey, ez, xi: [], u: [], v: [], w: [] };
   const xis = typeof segments === 'number' ? Array.from({ length: segments + 1 }, (_, i) => i / segments) : segments;
   for (const xi of xis) {
@@ -209,8 +311,8 @@ export function memberLocalCurve(
     if (zLoads) w += particular(x, ef!.distributedLoadsZ, ef!.pointLoadsZ, L, EIy!);
     out.xi.push(xi);
     out.u.push(uI + xi * (uJ - uI));
-    out.v.push(v);
-    out.w.push(w);
+    out.v.push(timoY ? timoY(x) : v);
+    out.w.push(timoZ ? timoZ(x) : w);
   }
   return out;
 }

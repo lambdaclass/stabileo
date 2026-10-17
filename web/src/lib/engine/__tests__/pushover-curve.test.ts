@@ -54,27 +54,21 @@ function portal() {
 }
 
 describe('pushover curve', () => {
-  // The engine releases every end that reaches Mp in the same step. At the top-left joint the
-  // column and the beam reach it together, both are released, the joint's rotation is left with
-  // no stiffness, and the next solve fails and is read as a mechanism: the run stops before the
-  // top-right hinge, at 13,31 instead of 13,33. Flips when the engine forms one hinge per joint.
-  it.fails('collapses at 4·Mp/(H·h), the sway mechanism', () => {
-    const { res } = portal();
-    expect(res.collapseFactor).toBeCloseTo((4 * MP) / (H * h), 3);
-  });
-
-  // What the defect gives today, bounded, so a different failure (a throw, another value) is not
-  // taken for the known one by the it.fails above: 13.312 where 13.333 is exact.
-  it('stops just short of it, by the simultaneous-hinge stop and nothing else', () => {
+  // The engine used to release every end that reached Mp in the same step: at the top-left
+  // joint the column and the beam reached it together, the joint's rotation was left with no
+  // stiffness, the next solve failed and was read as a mechanism (13,31 instead of 13,33). It now
+  // forms one hinge at such a joint and runs on to the sway mechanism.
+  it('collapses at 4·Mp/(H·h), the sway mechanism', () => {
     const { res } = portal();
     const exact = (4 * MP) / (H * h);
-    expect(res.collapseFactor).toBeGreaterThan(exact * 0.995);
-    expect(res.collapseFactor).toBeLessThan(exact);
+    expect(Math.abs(res.collapseFactor - exact)).toBeLessThan(1e-9 * exact);
+    expect(res.isMechanism).toBe(true);
+    expect(res.warnings ?? []).toEqual([]);
   });
 
-  it('says when the run stopped at a joint where every end yielded at once', () => {
+  it('no longer stops at a joint where every end yielded at once', () => {
     const { res } = portal();
-    expect(stoppedAtJoint(res, modelStore.elements)).toBe(2);
+    expect(stoppedAtJoint(res, modelStore.elements)).toBeNull();
   });
 
   it('does not flag a run that ended in a true mechanism', () => {

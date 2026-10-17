@@ -34,25 +34,21 @@ pub struct ElementBucklingData {
     pub slenderness: f64,
 }
 
-/// Solve 2D buckling analysis.
-/// Solves K·φ = λ·(-Kg)·φ where Kg is from linear axial forces.
-pub fn solve_buckling_2d(
-    input: &SolverInput,
-    num_modes: usize,
-) -> Result<BucklingResult, String> {
-    // Build lookup maps for O(1) access by id
-    let elem_by_id: HashMap<usize, &SolverElement> =
-        input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> =
-        input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> =
-        input.sections.values().map(|s| (s.id, s)).collect();
+/// The matrices of the 2D linear buckling problem K·φ = λ·(−Kg)·φ: the linear
+/// solution whose axial forces define Kg, the sparse free-DOF K, and −Kg.
+/// Shared by `solve_buckling_2d` and the buckling certificate.
+pub(crate) struct BucklingSystem2D {
+    pub linear: AnalysisResults,
+    pub dof_num: DofNumbering,
+    pub k_ff: CscMatrix,
+    pub neg_kg_csc: CscMatrix,
+}
 
+pub(crate) fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, String> {
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
-    let n = dof_num.n_total;
 
     if nf == 0 {
         return Err("No free DOFs".into());
@@ -81,7 +77,27 @@ pub fn solve_buckling_2d(
     };
 
     // 4. Sparse stiffness of the free block
-    let sasm = assemble_sparse_2d(input, &dof_num);
+    let k_ff = assemble_sparse_2d(input, &dof_num).k_ff;
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc })
+}
+
+/// Solve 2D buckling analysis.
+/// Solves K·φ = λ·(-Kg)·φ where Kg is from linear axial forces.
+pub fn solve_buckling_2d(
+    input: &SolverInput,
+    num_modes: usize,
+) -> Result<BucklingResult, String> {
+    // Build lookup maps for O(1) access by id
+    let elem_by_id: HashMap<usize, &SolverElement> =
+        input.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc } = buckling_system_2d(input)?;
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
@@ -92,11 +108,11 @@ pub fn solve_buckling_2d(
     let k_red;
     let kg_red;
     let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
         kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
         (&k_red, &kg_red, cs_ref.n_free_indep)
     } else {
-        (&sasm.k_ff, &neg_kg_csc, nf)
+        (&k_ff, &neg_kg_csc, nf)
     };
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
@@ -185,48 +201,16 @@ pub fn solve_buckling_2d(
     })
 }
 
-/// 3D buckling analysis result.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BucklingResult3D {
-    pub modes: Vec<BucklingMode3D>,
-    pub n_dof: usize,
-    pub element_data: Vec<ElementBucklingData3D>,
+/// The matrices of the 3D linear buckling problem (see `BucklingSystem2D`),
+/// including surface-element geometric stiffness.
+pub(crate) struct BucklingSystem3D {
+    pub linear: AnalysisResults3D,
+    pub dof_num: DofNumbering,
+    pub k_ff: CscMatrix,
+    pub neg_kg_csc: CscMatrix,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BucklingMode3D {
-    pub load_factor: f64,
-    pub displacements: Vec<Displacement3D>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ElementBucklingData3D {
-    pub element_id: usize,
-    pub axial_force: f64,
-    pub critical_force: f64,
-    pub k_effective: f64,
-    pub effective_length: f64,
-    pub length: f64,
-    pub slenderness_y: f64,
-    pub slenderness_z: f64,
-}
-
-/// Solve 3D buckling analysis.
-pub fn solve_buckling_3d(
-    input: &SolverInput3D,
-    num_modes: usize,
-) -> Result<BucklingResult3D, String> {
-    // Build lookup maps for O(1) access by id
-    let elem_by_id: HashMap<usize, &SolverElement3D> =
-        input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> =
-        input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection3D> =
-        input.sections.values().map(|s| (s.id, s)).collect();
-
+pub(crate) fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, String> {
     let linear = super::linear::solve_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
@@ -294,7 +278,7 @@ pub fn solve_buckling_3d(
         }
     }
 
-    let sasm = assemble_sparse_3d(input, &dof_num, false);
+    let k_ff = assemble_sparse_3d(input, &dof_num, false).k_ff;
 
     // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
     // Kg is not read again, and on a large shell model its values vector is the
@@ -307,8 +291,6 @@ pub fn solve_buckling_3d(
         kg_csc
     };
 
-    // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
 
     // The rest of the gate, now that -Kg exists: surfaces carry no axial force
     // to test, so the only way to know they contribute is to look at what they
@@ -320,6 +302,57 @@ pub fn solve_buckling_3d(
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
+    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc })
+}
+
+/// 3D buckling analysis result.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BucklingResult3D {
+    pub modes: Vec<BucklingMode3D>,
+    pub n_dof: usize,
+    pub element_data: Vec<ElementBucklingData3D>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BucklingMode3D {
+    pub load_factor: f64,
+    pub displacements: Vec<Displacement3D>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementBucklingData3D {
+    pub element_id: usize,
+    pub axial_force: f64,
+    pub critical_force: f64,
+    pub k_effective: f64,
+    pub effective_length: f64,
+    pub length: f64,
+    pub slenderness_y: f64,
+    pub slenderness_z: f64,
+}
+
+/// Solve 3D buckling analysis.
+pub fn solve_buckling_3d(
+    input: &SolverInput3D,
+    num_modes: usize,
+) -> Result<BucklingResult3D, String> {
+    // Build lookup maps for O(1) access by id
+    let elem_by_id: HashMap<usize, &SolverElement3D> =
+        input.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection3D> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
+    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc } = buckling_system_3d(input)?;
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    // Apply constraint transform if present
+    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
 
     // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
     // Lanczos in both branches; with constraints, K and -Kg are reduced as
@@ -327,11 +360,11 @@ pub fn solve_buckling_3d(
     let k_red;
     let kg_red;
     let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
         kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
         (&k_red, &kg_red, cs_ref.n_free_indep)
     } else {
-        (&sasm.k_ff, &neg_kg_csc, nf)
+        (&k_ff, &neg_kg_csc, nf)
     };
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;

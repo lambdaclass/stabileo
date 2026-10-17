@@ -28,15 +28,17 @@ pub fn truss_local_stiffness_3d(e: f64, a: f64, l: f64) -> Vec<f64> {
 /// More efficient than local + transform for trusses.
 pub fn truss_global_stiffness_2d(e: f64, a: f64, l: f64, cos: f64, sin: f64) -> Vec<f64> {
     let ea_l = e * a / l;
-    let c2 = cos * cos;
-    let s2 = sin * sin;
-    let cs = cos * sin;
+    // Each distinct product computed once: symmetric entries are then the same
+    // f64 value by construction (and Kani need not prove two rounded products equal).
+    let kc2 = ea_l * (cos * cos);
+    let ks2 = ea_l * (sin * sin);
+    let kcs = ea_l * (cos * sin);
 
     vec![
-        ea_l * c2,  ea_l * cs, -ea_l * c2, -ea_l * cs,
-        ea_l * cs,  ea_l * s2, -ea_l * cs, -ea_l * s2,
-       -ea_l * c2, -ea_l * cs,  ea_l * c2,  ea_l * cs,
-       -ea_l * cs, -ea_l * s2,  ea_l * cs,  ea_l * s2,
+         kc2,  kcs, -kc2, -kcs,
+         kcs,  ks2, -kcs, -ks2,
+        -kc2, -kcs,  kc2,  kcs,
+        -kcs, -ks2,  kcs,  ks2,
     ]
 }
 

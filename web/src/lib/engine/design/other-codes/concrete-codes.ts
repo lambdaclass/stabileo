@@ -26,7 +26,7 @@ import type { GoverningDemand } from '../../station-design-forces';
 import { resolveDesignAxes, tupleMoment, tupleShear, MOMENT_NOISE_FLOOR } from '../design-axes';
 import { DEFAULT_COVER, DEFAULT_REBAR_FY } from '../member-context';
 import { beamBarsAt, columnBarsAt, hasLongitudinalBars, type RcAt } from './rc-bars';
-import { N, PA, gov, type CheckReading, type MemberContext, type OtherCode } from './types';
+import { N, PA, gov, upScaled, type CheckReading, type MemberContext, type OtherCode } from './types';
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
@@ -145,6 +145,16 @@ export const EC2: OtherCode = {
     return { elementId: ctx.elementId, mEd: M, vEd: V, nEd: d.forces.n * N };
   },
   run: (input) => checkEc2Members(input),
+  // MEd and VEd about the axes `member` chose, as `forces` sends them.
+  certify: {
+    name: 'certify_ec2_members',
+    bound: (_ctx, _d, data, sb) => ({
+      n: upScaled(sb.axial, N),
+      my: upScaled(data.axis === 'My' ? sb.momentY : sb.momentZ, N),
+      mz: 0,
+      vy: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
+    }),
+  },
   read(r): CheckReading {
     const flex = num(r.flexureRatio), sh = num(r.shearRatio);
     const ratio = Math.max(flex, sh);

@@ -320,7 +320,7 @@ fn validation_load_vector_assembly_udl() {
     let q = -8.0; // kN/m (downward)
 
     // Use the FEF function directly
-    let fef = fef_distributed_2d(q, q, l);
+    let fef = fef_distributed_2d(q, q, l, 0.0);
 
     // Expected FEF values (for uniform load on fixed-fixed beam):
     let fy_i_expected = q * l / 2.0;           // = -8 * 6 / 2 = -24

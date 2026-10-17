@@ -314,7 +314,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           const dI = disp.get(e.nodeI), dJ = disp.get(e.nodeJ), ef = efMap.get(e.id);
           if (!nI || !nJ || !dI || !dJ) continue;
           const pI = projectNodeToScene(nI, flat()), pJ = projectNodeToScene(nJ, flat());
-          const ei: ElementEI | undefined = eiOf(modelStore.materials.get(e.materialId), modelStore.sections.get(e.sectionId));
+          const ei: ElementEI | undefined = eiOf(modelStore.materials.get(e.materialId), modelStore.sections.get(e.sectionId), modelStore.analysis);
           const localY = (e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined) ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
           const roll = (e.rollAngle ?? 0) + (modelStore.sections.get(e.sectionId)?.rotation ?? 0);
           const pair = takesNoBending(e) || !ef || !ei ? {

@@ -29,7 +29,7 @@ export function proDxf(req: ProDxfRequest): string {
   return writeDxf({
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
     plates: modelStore.plates, quads: modelStore.quads, sections: modelStore.sections, materials: modelStore.materials,
-    loads: modelStore.loads, loadCases: modelStore.model.loadCases, flat,
+    loads: modelStore.loads, loadCases: modelStore.model.loadCases, flat, analysis: modelStore.analysis,
   }, {
     projection: req.projection, units: req.units, contents: req.contents,
     results: set.results, resultsName: set.name,

@@ -2,6 +2,7 @@ import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDel
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
+import { certificateStore } from './certificate.svelte';
 import { historyStore } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
@@ -118,6 +119,10 @@ resultsStore._setNormalise3D(
     modes: (r) => collapseVariableModes(r, variableExpansionFor(modelStore.model as never)),
   },
 );
+
+// Each base linear solve published is certified in the background (`certificate.svelte.ts`).
+resultsStore._setOnStaticPublish((r, dim) => certificateStore.track(r, dim));
+resultsStore._setOnComboPublish((pc, pco, dim) => certificateStore.trackCombinations(pc, pco, dim));
 
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();

@@ -9,6 +9,7 @@
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
   import { fmtQ, fmtCoord, unitQ, toQ, sigQ } from '../../lib/store/display-units.svelte';
   import { plainNumber } from '../../lib/utils/units';
+  import PlasticCertificate from './PlasticCertificate.svelte';
 
   let { mps }: { mps: SectionMp[] } = $props();
   const r = $derived(resultsStore.plasticResult as PlasticCollapseResult | null);
@@ -39,6 +40,7 @@
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
+  <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>
       <tr><th>#</th><th>{t('plastic.member')}</th><th>x [{unitQ('length')}]</th><th>{t('plastic.value')}</th><th>λ</th></tr>

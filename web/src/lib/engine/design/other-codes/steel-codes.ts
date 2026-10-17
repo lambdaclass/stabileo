@@ -12,7 +12,7 @@ import type { GoverningDemand } from '../../station-design-forces';
 import { MOMENT_NOISE_FLOOR } from '../design-axes';
 import { steelProps, type SteelProps } from './steel-props';
 import { ec3Class, ec3Curves, ec3CurveLt } from './ec3-classify';
-import { N, PA, gov, type CheckKind, type CheckReading, type MemberContext, type OtherCode } from './types';
+import { N, PA, gov, upScaled, type CheckKind, type CheckReading, type MemberContext, type OtherCode, type StationBound3D } from './types';
 
 function steelOnly(ctx: MemberContext): { skip: string } | null {
   const fam = materialFamilyOf(ctx.material as never, catalogueGradeFamily).family;
@@ -31,6 +31,12 @@ function steelOnly(ctx: MemberContext): { skip: string } | null {
  */
 const shear = (d: GoverningDemand, p?: { Aw: number; AwWeak: number }) =>
   Math.max(Math.abs(d.forces.vz), Math.abs(d.forces.vy) * (p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)) * N;
+/** The bound on `shear`: max is 1-Lipschitz in each argument, so it takes the bounds the same way. */
+const shearBound = (sb: StationBound3D, p?: { Aw: number; AwWeak: number }) =>
+  upScaled(Math.max(sb.shearZ, upScaled(sb.shearY, p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)), N);
+/** The bound on every steel checker's force row: N, My, Mz and the web shear, in N and N·m. */
+const steelBound = (ctx: MemberContext, sb: StationBound3D) =>
+  ({ n: upScaled(sb.axial, N), my: upScaled(sb.momentY, N), mz: upScaled(sb.momentZ, N), vy: shearBound(sb, areasOf(ctx)) });
 /**
  * The two shear areas of each member being checked, once per member: `shear` reads them once per
  * demand, and running the section engine (steelProps) there is what `ec3WebSlenderness` below
@@ -124,6 +130,7 @@ export const AISC360: OtherCode = {
     return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vy: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkSteelMembers(input),
+  certify: { name: 'certify_steel_members', bound: (ctx, _d, _data, sb) => steelBound(ctx, sb) },
   read(r): CheckReading {
     const ratio = num(r.unityRatio);
     // The checker names its governing check "Flexure-Y F2", "Compression E3", …
@@ -197,6 +204,7 @@ export const EC3: OtherCode = {
     return { elementId: ctx.elementId, nEd: d.forces.n * N, myEd: d.forces.my * N, mzEd: d.forces.mz * N, vEd: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkEc3Members(input),
+  certify: { name: 'certify_ec3_members', bound: (ctx, _d, _data, sb) => steelBound(ctx, sb) },
   read(r): CheckReading {
     const parts: Array<[CheckKind, string, number]> = [
       ['compression', '6.3.1', num(r.compressionRatio)], ['tension', '6.2.3', num(r.tensionRatio)],

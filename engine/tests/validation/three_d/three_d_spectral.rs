@@ -378,3 +378,63 @@ fn validation_3d_spectral_portal_frame() {
         );
     }
 }
+
+// ================================================================
+// Static element loads do not enter the modal member forces
+// ================================================================
+//
+// The spectral member forces of a model with distributed member loads
+// equal those of the same model without them (the loads are static, not
+// part of any mode's response).
+
+fn spectral_3d_cantilever(loaded: bool) -> spectral::SpectralResult3D {
+    let n = 6;
+    let loads: Vec<SolverLoad3D> = if loaded {
+        (1..=n)
+            .map(|i| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 1.0, q_xj: 1.0,
+                element_id: i,
+                q_yi: -6.0, q_yj: -6.0,
+                q_zi: -4.0, q_zj: -2.0,
+                a: None, b: None,
+            }))
+            .collect()
+    } else {
+        vec![]
+    };
+    let input = make_3d_beam(n, 5.0, E, NU, A, IY, IZ, J, vec![true; 6], None, loads);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), DENSITY);
+    let modal_res = modal::solve_modal_3d(&input, &densities, 4).unwrap();
+    spectral::solve_spectral_3d(&SpectralInput3D {
+        solver: input,
+        modes: modal_to_spectral_modes(&modal_res),
+        densities,
+        spectrum: flat_spectrum(0.3),
+        direction: "Y".to_string(),
+        rule: Some("SRSS".to_string()),
+        xi: Some(0.05),
+        importance_factor: Some(1.0),
+        reduction_factor: Some(1.0),
+        total_mass: Some(modal_res.total_mass),
+    })
+    .unwrap()
+}
+
+#[test]
+fn validation_3d_spectral_element_loads_do_not_leak() {
+    let comps = |f: &spectral::SpectralElementForce3D| [f.n_max, f.vy_max, f.vz_max, f.mx_max, f.my_max, f.mz_max];
+    let loaded: HashMap<usize, [f64; 6]> =
+        spectral_3d_cantilever(true).element_forces.iter().map(|f| (f.element_id, comps(f))).collect();
+    let bare = spectral_3d_cantilever(false);
+    assert_eq!(loaded.len(), bare.element_forces.len());
+    for f in &bare.element_forces {
+        let (l, b) = (loaded[&f.element_id], comps(f));
+        for k in 0..6 {
+            assert!(
+                (l[k] - b[k]).abs() <= 1e-9 * (1.0 + b[k].abs()),
+                "element {} component {k}: with element loads {:.6e}, without {:.6e}", f.element_id, l[k], b[k]
+            );
+        }
+    }
+}

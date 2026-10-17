@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::certify::real::{branch, Real};
 use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
 
 // ==================== Types ====================
@@ -31,7 +32,7 @@ pub enum BucklingCurve {
 
 impl BucklingCurve {
     /// Imperfection factor alpha per EC3 Table 6.1.
-    fn alpha(self) -> f64 {
+    pub(crate) fn alpha(self) -> f64 {
         match self {
             BucklingCurve::A => 0.21,
             BucklingCurve::B => 0.34,
@@ -221,19 +222,88 @@ fn class_properties(m: &Ec3MemberData) -> ClassProperties {
 }
 
 /// Compute EC3 column buckling reduction factor chi.
-fn compute_chi(lambda_bar: f64, alpha: f64) -> f64 {
-    if lambda_bar <= 0.2 {
-        return 1.0;
-    }
-    let phi = 0.5 * (1.0 + alpha * (lambda_bar - 0.2) + lambda_bar * lambda_bar);
-    let chi = 1.0 / (phi + (phi * phi - lambda_bar * lambda_bar).sqrt());
-    // `chi.min(1.0)` returns 1.0 for a NaN chi, because Rust's f64::min ignores
-    // NaN — so a NaN slenderness silently meant "no buckling reduction", the
-    // most unconservative outcome available. Propagate the NaN instead and let
-    // the caller flag the check.
-    if chi.is_nan() { chi } else { chi.min(1.0) }
+///
+/// Generic over `Real` so the certified check (`certify::design`) evaluates the
+/// same formula in interval arithmetic.
+pub(crate) fn compute_chi<T: Real>(lambda_bar: T, alpha: T) -> T {
+    branch(
+        lambda_bar.le(T::lit(0.2)),
+        || T::exact(1.0),
+        || {
+            let phi = T::lit(0.5) * (T::exact(1.0) + alpha * (lambda_bar - T::lit(0.2)) + lambda_bar * lambda_bar);
+            let chi = T::exact(1.0).dv(phi + (phi.sq() - lambda_bar.sq()).sqrt());
+            // `chi.min(1.0)` returns 1.0 for a NaN chi, because Rust's f64::min ignores
+            // NaN — so a NaN slenderness silently meant "no buckling reduction", the
+            // most unconservative outcome available. Propagate the NaN instead and let
+            // the caller flag the check.
+            chi.min_keep_nan(T::exact(1.0))
+        },
+    )
 }
 
+/// Capacities of an EC3 member (independent of the design forces).
+pub(crate) struct Ec3Capacities<T> {
+    pub npl_rd: T,
+    pub nb_rd: T,
+    pub mb_rd: T,
+    pub mc_z_rd: T,
+    pub vpl_rd: T,
+    pub chi_y: T,
+    pub chi_z: T,
+    pub chi_lt: T,
+}
+
+/// EN 1993-1-1 resistances 6.2.3, 6.3.1, 6.3.2, 6.2.5, 6.2.6.
+pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
+    let e = T::exact(m.e.unwrap_or(210e9));
+    let gamma_m0 = T::exact(m.gamma_m0.unwrap_or(1.0));
+    let gamma_m1 = T::exact(m.gamma_m1.unwrap_or(1.0));
+    let c1 = T::exact(m.c1.unwrap_or(1.0));
+    let g = e.dv(T::exact(2.0) * T::lit(1.3)); // Shear modulus G ≈ E/2.6
+    let fy = T::exact(m.fy);
+    let pi2 = T::pi().sq();
+
+    // Class-dependent section properties (EN 1993-1-1 6.2.5, 6.2.9)
+    let props = class_properties(m);
+    let area = T::exact(props.area);
+    let w_y = T::exact(props.w_y);
+    let w_z = T::exact(props.w_z);
+
+    // Cross-section resistances
+    let npl_rd = (area * fy).dv(gamma_m0);
+
+    // Column buckling (EC3 6.3.1): slenderness about y and z
+    let (lcr_y, lcr_z) = (T::exact(m.lcr_y), T::exact(m.lcr_z));
+    let ncr_y = (pi2 * e * T::exact(m.iy)).dv(lcr_y * lcr_y);
+    let lambda_y = (area * fy).dv(ncr_y).sqrt();
+    let chi_y = compute_chi(lambda_y, T::lit(m.buckling_curve_y.alpha()));
+    let ncr_z = (pi2 * e * T::exact(m.iz)).dv(lcr_z * lcr_z);
+    let lambda_z = (area * fy).dv(ncr_z).sqrt();
+    let chi_z = compute_chi(lambda_z, T::lit(m.buckling_curve_z.alpha()));
+    let chi_min = chi_y.min(chi_z);
+    let nb_rd = (chi_min * area * fy).dv(gamma_m1);
+
+    // Lateral-torsional buckling (EC3 6.3.2): elastic critical moment Mcr
+    // (simplified for doubly-symmetric I-sections)
+    let (lb, iz) = (T::exact(m.lb), T::exact(m.iz));
+    let mcr = (c1 * pi2 * e * iz).dv(lb * lb)
+        * (T::exact(m.iw).dv(iz) + (lb * lb * g * T::exact(m.it)).dv(pi2 * e * iz)).sqrt();
+    let lambda_lt = (w_y * fy).dv(mcr).sqrt();
+    let chi_lt = compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha()));
+    let mb_rd = (chi_lt * w_y * fy).dv(gamma_m1);
+
+    // Weak axis flexure (no LTB)
+    let mc_z_rd = (w_z * fy).dv(gamma_m0);
+
+    // Shear (EC3 6.2.6)
+    let av = match m.av {
+        Some(av) => T::exact(av),
+        None => T::exact(m.a) * T::exact(0.5), // Approximate if not given
+    };
+    let vpl_rd = (av * fy.dv(T::exact(3.0).sqrt())).dv(gamma_m0);
+
+    Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt }
+}
 
 /// Index the force records by id so each member is a hash lookup rather than a
 /// scan of the whole list. The pairing was O(members x forces): fine at 100
@@ -266,39 +336,14 @@ pub fn check_ec3_members(input: &Ec3CheckInput) -> Vec<Ec3CheckResult> {
 }
 
 fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckResult {
-    let e = m.e.unwrap_or(210e9);
-    let gamma_m0 = m.gamma_m0.unwrap_or(1.0);
-    let gamma_m1 = m.gamma_m1.unwrap_or(1.0);
-    let c1 = m.c1.unwrap_or(1.0);
-    let g = e / (2.0 * 1.3); // Shear modulus G ≈ E/2.6
+    let caps: Ec3Capacities<f64> = ec3_capacities(m);
 
     let n_ed = f.n_ed.unwrap_or(0.0);
     let my_ed = f.my_ed.unwrap_or(0.0);
     let mz_ed = f.mz_ed.unwrap_or(0.0);
     let v_ed = f.v_ed.unwrap_or(0.0);
 
-    // ==================== Cross-section resistance ====================
-
-    // Class-dependent section properties (EN 1993-1-1 6.2.5, 6.2.9)
-    let props = class_properties(m);
-
-    // Cross-section resistances
-    let npl_rd = props.area * m.fy / gamma_m0;
-
-    // ==================== Column buckling (EC3 6.3.1) ====================
-
-    // Slenderness about y-axis
-    let ncr_y = std::f64::consts::PI.powi(2) * e * m.iy / (m.lcr_y * m.lcr_y);
-    let lambda_y = (props.area * m.fy / ncr_y).sqrt();
-    let chi_y = compute_chi(lambda_y, m.buckling_curve_y.alpha());
-
-    // Slenderness about z-axis
-    let ncr_z = std::f64::consts::PI.powi(2) * e * m.iz / (m.lcr_z * m.lcr_z);
-    let lambda_z = (props.area * m.fy / ncr_z).sqrt();
-    let chi_z = compute_chi(lambda_z, m.buckling_curve_z.alpha());
-
-    let chi_min = chi_y.min(chi_z);
-    let nb_rd = chi_min * props.area * m.fy / gamma_m1;
+    let Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt } = caps;
 
     let mut ledger = CheckLedger::new();
     ledger.require_finite("Column buckling chi_y", chi_y);
@@ -308,34 +353,14 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         ledger.ratio_if_loaded("Compression 6.3.1", (-n_ed).max(0.0), nb_rd);
     let tension_ratio = ledger.ratio_if_loaded("Tension 6.2.3", n_ed.max(0.0), npl_rd);
 
-    // ==================== Lateral-torsional buckling (EC3 6.3.2) ====================
-
-    // Elastic critical moment Mcr (simplified for doubly-symmetric I-sections)
-    let mcr = c1
-        * std::f64::consts::PI.powi(2)
-        * e
-        * m.iz
-        / (m.lb * m.lb)
-        * ((m.iw / m.iz) + (m.lb * m.lb * g * m.it)
-            / (std::f64::consts::PI.powi(2) * e * m.iz))
-            .sqrt();
-
-    let lambda_lt = (props.w_y * m.fy / mcr).sqrt();
-    let chi_lt = compute_chi(lambda_lt, m.buckling_curve_lt.alpha());
-
-    let mb_rd = chi_lt * props.w_y * m.fy / gamma_m1;
-
     ledger.require_finite("LTB chi_LT", chi_lt);
     let flexure_ratio_y = ledger.ratio_if_loaded("Flexure-y 6.3.2", my_ed.abs(), mb_rd);
 
     // Weak axis flexure (no LTB)
-    let mc_z_rd = props.w_z * m.fy / gamma_m0;
     let flexure_ratio_z = ledger.ratio_if_loaded("Flexure-z 6.2.5", mz_ed.abs(), mc_z_rd);
 
     // ==================== Shear (EC3 6.2.6) ====================
 
-    let av = m.av.unwrap_or(m.a * 0.5); // Approximate if not given
-    let vpl_rd = av * (m.fy / 3.0_f64.sqrt()) / gamma_m0;
     let shear_ratio = ledger.ratio_if_loaded("Shear 6.2.6", v_ed.abs(), vpl_rd);
 
     // ==================== Interaction (EC3 6.3.3, Method 2) ====================

@@ -30,7 +30,7 @@ const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
 
 /// Free DOFs threshold: use sparse solver when n_free >= this.
-pub(crate) const SPARSE_THRESHOLD: usize = 64;
+pub const SPARSE_THRESHOLD: usize = 64;
 
 /// Free-DOF count at which explicitly requested Auto mode tries PCG after
 /// checking stability with unshifted Cholesky. Missing options remain direct.
@@ -797,6 +797,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 
         match num {
             Some((num, regularized, max_perturbation)) => {
+                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
                 // Prescribed-displacement coupling F_f −= K_fr · u_r (K-only)
                 let kfr_ur = if has_prescribed {
                     stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
@@ -825,6 +826,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 });
             }
             None => {
+                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU"));
                 // All shifts failed — dense LU of the dense K_ff (same
                 // behavior as the legacy dense-K_ff LU fallback; K-only decision)
                 let stiff_d = assemble_stiffness_2d(input, &dof_num);
@@ -888,7 +890,10 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         let sym = Rc::new(symbolic_cholesky(&k_ff_sparse));
         match numeric_cholesky(&sym, &k_ff_sparse) {
-            Some(num) => (FactorizedKff::SparseCholesky(num), true, false),
+            Some(num) => {
+                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &k_ff_sparse));
+                (FactorizedKff::SparseCholesky(num), true, false)
+            }
             None => {
                 let mut k_work = k_ff.clone();
                 let piv = lu_factor(&mut k_work, nf)
@@ -899,6 +904,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     } else {
         let mut k_work = k_ff.clone();
         if cholesky_decompose(&mut k_work, nf) {
+            pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
             (FactorizedKff::DenseCholesky(k_work), false, false)
         } else {
             let mut k_work = k_ff.clone();
@@ -907,6 +913,9 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
             (FactorizedKff::DenseLu { lu: k_work, piv }, false, true)
         }
     };
+    if cholesky_failed {
+        pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
+    }
 
     Ok(PreparedStatic2D {
         input: Cow::Borrowed(input),
@@ -1433,6 +1442,10 @@ impl PreparedStatic2D<'_> {
                         dense_lu: std::cell::OnceCell::new(),
                     }
                 });
+                let definiteness = match &direct.num {
+                    Some(num) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
+                    None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU")),
+                };
                 let pcg = if direct.num.is_some() {
                     try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
                 } else {
@@ -1543,6 +1556,7 @@ impl PreparedStatic2D<'_> {
                 // Build structured diagnostics — same contract as the other paths
                 let mut structured = Vec::new();
                 structured.extend(self.pre_solve_diags.iter().cloned());
+                structured.extend(definiteness);
 
                 // Solver path
                 if let Some((iters, pname)) = pcg_meta {
@@ -2267,6 +2281,13 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         match num {
             Some((num, regularized, max_perturbation)) => {
                 if regularized {
+                    pre_solve_diags.push(super::definiteness::not_positive_definite(&format!(
+                        "Cholesky needed a diagonal shift of {max_perturbation:.2e}"
+                    )));
+                } else {
+                    pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
+                }
+                if regularized {
                     solver_diags_base.push(SolverDiagnostic {
                         category: "solver_path".into(),
                         message: format!(
@@ -2314,6 +2335,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                 })
             }
             None => {
+                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU"));
                 // All shifts failed — fall back to dense LU (factorized once
                 // here; the factorization depends only on K, not the loads).
                 solver_diags_base.push(SolverDiagnostic {
@@ -2392,11 +2414,13 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         let (factor, cholesky_failed) = {
             let mut k_work = k_ff.clone();
             if cholesky_decompose(&mut k_work, nf) {
+                pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
                 (FactorizedKff::DenseCholesky(k_work), false)
             } else {
                 let mut k_work = k_ff.clone();
                 let piv = lu_factor(&mut k_work, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+                pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
                 (FactorizedKff::DenseLu { lu: k_work, piv }, true)
             }
         };
@@ -3057,6 +3081,11 @@ impl PreparedStatic3D {
         // timer. Its symbolic/numeric timings are accounted for below, just
         // as on the direct prepared path (without counting them twice).
         let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
+        let definiteness = match &direct.num {
+            Some((num, false, _)) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
+            Some((_, true, shift)) => Some(super::definiteness::not_positive_definite(&format!("Cholesky needed a diagonal shift of {shift:.2e}"))),
+            None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU")),
+        };
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
@@ -3297,6 +3326,7 @@ impl PreparedStatic3D {
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
         structured.extend(self.pre_solve_diags.iter().cloned());
+        structured.extend(definiteness);
 
         // Solver path — report the actual solver that produced the returned result
         if let Some((iters, _, pname)) = pcg_meta {
@@ -3709,27 +3739,29 @@ pub(crate) fn build_reactions_2d(
             }
             my = -kz * ry_disp;
         } else {
-            // Rigid support: reaction from restrained partition
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                if d >= nf {
-                    let idx = d - nf;
-                    rx = reactions_vec[idx];
-                }
-            }
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf {
-                    let idx = d - nf;
-                    rz = reactions_vec[idx];
-                }
-            }
-            if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+            // Rigid support: reaction from the restrained partition. A free
+            // DOF of a non-"spring" support can still carry a spring (e.g. a
+            // rollerX with kx): assemble_stiffness_2d adds its stiffness, so
+            // its force −k·u belongs in the reaction too (as in
+            // build_reactions_3d); dropping it broke global equilibrium.
+            // Inclined rollers keep their rotated-frame handling.
+            let springs = [sup.kx, sup.ky, sup.kz];
+            let mut vals = [0.0f64; 3];
+            for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                     if d >= nf {
-                        let idx = d - nf;
-                        my = reactions_vec[idx];
+                        *val = reactions_vec[d - nf];
+                    } else if sup.support_type != "inclinedRoller" {
+                        let k = springs[i].unwrap_or(0.0);
+                        if k > 0.0 {
+                            *val = -k * u_full[d];
+                        }
                     }
                 }
             }
+            rx = vals[0];
+            rz = vals[1];
+            my = vals[2];
         }
 
         reactions.push(Reaction {
@@ -4472,10 +4504,24 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                 }
             }
 
+            // Axial point loads on the bar (px) reach its nodes by the lever
+            // rule (truss_member_load_2d), so the axial force jumps at the
+            // load: N(0) = EAδ/L + F_i, N(L) = EAδ/L − F_j — as the 3D truss
+            // path does. Reporting EAδ/L at both ends was off by the load
+            // share (found by differential testing against OpenSees).
+            let (mut fa_i, mut fa_j) = (0.0, 0.0);
+            for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
+                if let SolverLoad::PointOnElement(pl) = load {
+                    let px = pl.px.unwrap_or(0.0);
+                    fa_i += px * (1.0 - pl.a / l);
+                    fa_j += px * pl.a / l;
+                }
+            }
+
             forces.push(ElementForces {
                 element_id: elem.id,
-                n_start: n_axial,
-                n_end: n_axial,
+                n_start: n_axial + fa_i,
+                n_end: n_axial - fa_j,
                 v_start: 0.0,
                 v_end: 0.0,
                 m_start: 0.0,
@@ -4527,9 +4573,9 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                         let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                         let mut fef = if is_full {
-                            crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l)
+                            crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l, phi)
                         } else {
-                            crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
+                            crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l, phi)
                         };
 
                         crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
@@ -4552,7 +4598,7 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
-                        let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
+                        let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l, phi);
                         crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
@@ -4818,9 +4864,9 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     let b_param = dl.b.unwrap_or(l);
                     let is_full_fef = (a_param.abs() < 1e-12) && ((b_param - l).abs() < 1e-12);
                     let mut fef12 = if is_full_fef {
-                        element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                        element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
                     } else {
-                        element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
+                        element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l, phi_y, phi_z)
                     };
                     let axial = element::axial_distributed_fef(dl.q_xi, dl.q_xj, a_param, b_param, l);
                     fef12[0] = axial[0];
@@ -4852,13 +4898,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     }
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                    let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                    let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                    let mut fef12 = [0.0; 12];
-                    fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
-                    fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
-                    fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
-                    fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
+                    let mut fef12 = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);

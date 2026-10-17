@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::certify::real::{branch, Real, Tri};
 use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
 
 // ==================== Types ====================
@@ -146,14 +147,14 @@ pub struct SteelCheckResult {
 
 // ==================== AISC 360 Design Checks ====================
 
-const PHI_C: f64 = 0.90; // Compression
-const PHI_T: f64 = 0.90; // Tension (yielding)
-const PHI_TR: f64 = 0.75; // Tension (rupture on the net section)
-const PHI_B: f64 = 0.90; // Flexure
+pub(crate) const PHI_C: f64 = 0.90; // Compression
+pub(crate) const PHI_T: f64 = 0.90; // Tension (yielding)
+pub(crate) const PHI_TR: f64 = 0.75; // Tension (rupture on the net section)
+pub(crate) const PHI_B: f64 = 0.90; // Flexure
 /// AISC G1 general case. The phi_v = 1.00 of G2.1(a) needs h/tw <= 2.24*sqrt(E/Fy),
 /// which cannot be verified from the properties supplied here, so the lower
 /// value is used.
-const PHI_V: f64 = 0.90;
+pub(crate) const PHI_V: f64 = 0.90;
 
 
 /// Index the force records by id so each member is a hash lookup rather than a
@@ -193,14 +194,14 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let eid = member.element_id;
 
     // Available tension strength (AISC D2)
-    let phi_pn_tension = tension_capacity(member);
+    let phi_pn_tension: f64 = tension_capacity(member);
 
     // Available compression strength (AISC E3)
-    let phi_pn_compression = compression_capacity(member);
+    let phi_pn_compression: f64 = compression_capacity(member);
 
     // Available flexural strength (AISC F2 - compact doubly-symmetric I)
-    let phi_mn_y = flexural_capacity_y(member);
-    let phi_mn_z = flexural_capacity_z(member);
+    let phi_mn_y: f64 = flexural_capacity_y(member);
+    let phi_mn_z: f64 = flexural_capacity_z(member);
 
     // Demand ratios
     let n = forces.n;
@@ -222,7 +223,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     }
 
     // AISC G2 shear
-    let phi_vn = shear_capacity(member);
+    let phi_vn: f64 = shear_capacity(member);
     let vy = forces.vy.unwrap_or(0.0).abs();
     let shear_ratio = if phi_vn > 0.0 { vy / phi_vn } else { 0.0 };
 
@@ -275,15 +276,18 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
 /// Rupture is skipped when Fu is not supplied, since there is no basis for it.
 /// Where a member is bolted, rupture routinely governs: the smaller phi (0.75
 /// vs 0.90) and the hole deduction together typically cost 20 %.
-fn tension_capacity(m: &SteelMemberData) -> f64 {
-    let yielding = PHI_T * m.fy * m.ag;
+///
+/// Generic over `Real` so the certified check (`certify::design`) evaluates
+/// the very same formula in interval arithmetic.
+pub(crate) fn tension_capacity<T: Real>(m: &SteelMemberData) -> T {
+    let yielding = T::lit(PHI_T) * T::exact(m.fy) * T::exact(m.ag);
 
     match m.fu {
         Some(fu) if fu > 0.0 => {
             // D3: Ae = An·U
             let an = m.an.unwrap_or(m.ag);
             let u = m.u_factor.unwrap_or(1.0);
-            let rupture = PHI_TR * fu * an * u;
+            let rupture = T::lit(PHI_TR) * T::exact(fu) * T::exact(an) * T::exact(u);
             yielding.min(rupture)
         }
         _ => yielding,
@@ -294,133 +298,155 @@ fn tension_capacity(m: &SteelMemberData) -> f64 {
 ///
 /// Returns 0.0 when the web area is unknown — there is no shear check to
 /// report rather than a capacity to invent.
-fn shear_capacity(m: &SteelMemberData) -> f64 {
+pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     match m.aw {
         Some(aw) if aw > 0.0 => {
             let cv1 = m.cv1.unwrap_or(1.0);
-            PHI_V * 0.6 * m.fy * aw * cv1
+            T::lit(PHI_V) * T::lit(0.6) * T::exact(m.fy) * T::exact(aw) * T::exact(cv1)
         }
-        _ => 0.0,
+        _ => T::exact(0.0),
     }
 }
 
 /// AISC E3: Flexural buckling compression capacity.
-fn compression_capacity(m: &SteelMemberData) -> f64 {
+pub(crate) fn compression_capacity<T: Real>(m: &SteelMemberData) -> T {
     let ky = m.ky.unwrap_or(1.0);
     let kz = m.kz.unwrap_or(1.0);
+    let zero = T::exact(0.0);
 
     // Slenderness ratio about each axis
-    let kl_r_y = if m.ry > 0.0 { ky * m.lby / m.ry } else { 0.0 };
-    let kl_r_z = if m.rz > 0.0 { kz * m.lbz / m.rz } else { 0.0 };
+    let kl_r_y = if m.ry > 0.0 { (T::exact(ky) * T::exact(m.lby)).dv(T::exact(m.ry)) } else { zero };
+    let kl_r_z = if m.rz > 0.0 { (T::exact(kz) * T::exact(m.lbz)).dv(T::exact(m.rz)) } else { zero };
     let kl_r = kl_r_y.max(kl_r_z);
+    let (fy, e) = (T::exact(m.fy), T::exact(m.e));
 
-    if kl_r <= 0.0 { return PHI_C * m.fy * m.ag; }
+    branch(
+        kl_r.le(zero),
+        || T::lit(PHI_C) * fy * T::exact(m.ag),
+        || {
+            // Euler buckling stress
+            let fe = (T::pi() * T::pi() * e).dv(kl_r.sq());
 
-    // Euler buckling stress
-    let fe = std::f64::consts::PI * std::f64::consts::PI * m.e / (kl_r * kl_r);
+            // Critical stress (AISC E3-2, E3-3)
+            let fcr = branch(
+                (kl_r * fy.dv(e).sqrt()).le(T::lit(4.71)),
+                // Inelastic buckling: Fcr = (0.658^(Fy/Fe)) * Fy
+                || T::lit(0.658).powf(fy.dv(fe)) * fy,
+                // Elastic buckling: Fcr = 0.877 * Fe
+                || T::lit(0.877) * fe,
+            );
 
-    // Critical stress (AISC E3-2, E3-3)
-    let fcr = if kl_r * (m.fy / m.e).sqrt() <= 4.71 {
-        // Inelastic buckling: Fcr = (0.658^(Fy/Fe)) * Fy
-        0.658_f64.powf(m.fy / fe) * m.fy
-    } else {
-        // Elastic buckling: Fcr = 0.877 * Fe
-        0.877 * fe
-    };
-
-    PHI_C * fcr * m.ag
+            T::lit(PHI_C) * fcr * T::exact(m.ag)
+        },
+    )
 }
 
 /// AISC F2: Lateral-torsional buckling for doubly-symmetric I-shapes (major axis).
-fn flexural_capacity_y(m: &SteelMemberData) -> f64 {
-    let mp = m.fy * m.zy;
-    let lb = m.lb.unwrap_or(m.lby);
-    let cb = m.cb.unwrap_or(1.0);
-    let _g = m.g.unwrap_or(m.e / 2.6);
+pub(crate) fn flexural_capacity_y<T: Real>(m: &SteelMemberData) -> T {
+    let (fy, e) = (T::exact(m.fy), T::exact(m.e));
+    let mp = fy * T::exact(m.zy);
+    let lb = T::exact(m.lb.unwrap_or(m.lby));
+    let cb = T::exact(m.cb.unwrap_or(1.0));
     let cw = m.cw.unwrap_or(0.0);
+    let zero = T::exact(0.0);
 
-    if lb <= 0.0 || m.iy <= 0.0 {
-        return PHI_B * mp;
+    if m.lb.unwrap_or(m.lby) <= 0.0 || m.iy <= 0.0 {
+        return T::lit(PHI_B) * mp;
     }
 
     // Lp and Lr (AISC F2-5, F2-6)
-    let lp = 1.76 * m.rz * (m.e / m.fy).sqrt();
+    let lp = T::lit(1.76) * T::exact(m.rz) * e.dv(fy).sqrt();
 
     // AISC F2-7: rts² = √(Iy_weak * Cw) / Sx_strong
-    let c = 1.0; // For doubly-symmetric I-shapes
+    let c = T::exact(1.0); // For doubly-symmetric I-shapes
 
     // `ho` is the distance between flange centroids. For a doubly-symmetric
     // I-shape Cw = Iz·ho²/4, so when Cw is supplied ho follows from the section
     // properties already given — no guess needed, and it lands within ~0.3 % of
     // d - tf for rolled shapes. Falling back to a literal 0.3 m (the previous
     // default) applied one section's depth to every section.
-    let ho = if cw > 0.0 && m.iz > 0.0 {
-        Some(2.0 * (cw / m.iz).sqrt())
+    let ho: Option<T> = if cw > 0.0 && m.iz > 0.0 {
+        Some(T::exact(2.0) * T::exact(cw).dv(T::exact(m.iz)).sqrt())
     } else {
-        m.depth
+        m.depth.map(T::exact)
     };
 
     let rts = if m.sy > 1e-20 && cw > 0.0 {
-        let rts_sq = (m.iz * cw).sqrt() / m.sy;
+        let rts_sq = (T::exact(m.iz) * T::exact(cw)).sqrt().dv(T::exact(m.sy));
         rts_sq.sqrt()
     } else {
         // Fallback: rts ≈ bf / (2 * sqrt(3)) ≈ rz for I-shapes
-        m.rz
+        T::exact(m.rz)
     };
 
     // St-Venant torsion term Jc/(Sx·ho), shared by F2-4 and F2-6. Without a
     // usable ho there is no basis for it; dropping it to zero reduces Fcr to
     // the pure-warping lower bound, which is the conservative reading.
     let jc_sh = match ho {
-        Some(ho) if ho > 0.0 && m.sy > 1e-20 => m.j * c / (m.sy * ho),
-        _ => 0.0,
+        Some(ho) if m.sy > 1e-20 => branch(
+            zero.lt(ho),
+            || (T::exact(m.j) * c).dv(T::exact(m.sy) * ho),
+            || zero,
+        ),
+        _ => zero,
     };
 
-    let lr = if rts > 0.0 && m.j > 0.0 && jc_sh > 0.0 {
-        // AISC F2-6: Lr = 1.95 * rts * (E/(0.7*Fy)) * sqrt(Jc/(Sx*ho) + sqrt(...))
-        let ratio_sq = (0.7 * m.fy / m.e).powi(2);
-        1.95 * rts * (m.e / (0.7 * m.fy))
-            * (jc_sh + (jc_sh * jc_sh + 6.76 * ratio_sq).sqrt()).sqrt()
-    } else {
+    let lr = branch(
+        zero.lt(rts).and(Tri::of_bool(m.j > 0.0)).and(zero.lt(jc_sh)),
+        || {
+            // AISC F2-6: Lr = 1.95 * rts * (E/(0.7*Fy)) * sqrt(Jc/(Sx*ho) + sqrt(...))
+            let ratio_sq = (T::lit(0.7) * fy).dv(e).sq();
+            T::lit(1.95) * rts * e.dv(T::lit(0.7) * fy)
+                * (jc_sh + (jc_sh * jc_sh + T::lit(6.76) * ratio_sq).sqrt()).sqrt()
+        },
         // No basis for Lr: treat everything past Lp as elastic LTB rather than
         // inventing a long inelastic plateau (the previous 10·Lp fallback ran
         // the other way).
-        lp
-    };
+        || lp,
+    );
 
-    let mn = if lb <= lp {
-        mp
-    } else if lb <= lr {
-        // Inelastic LTB (AISC F2-2)
-        let mn_ltb = cb * (mp - (mp - 0.7 * m.fy * m.sy) * (lb - lp) / (lr - lp));
-        mn_ltb.min(mp)
-    } else {
-        // Elastic LTB (AISC F2-3, F2-4)
-        let pi2 = std::f64::consts::PI * std::f64::consts::PI;
-        let lb_rts = lb / rts;
-        let fcr = cb * pi2 * m.e / lb_rts.powi(2)
-            * (1.0 + 0.078 * jc_sh * lb_rts.powi(2)).sqrt();
-        (fcr * m.sy).min(mp)
-    };
+    let mn = branch(
+        lb.le(lp),
+        || mp,
+        || {
+            branch(
+                lb.le(lr),
+                || {
+                    // Inelastic LTB (AISC F2-2)
+                    let mn_ltb =
+                        cb * (mp - ((mp - T::lit(0.7) * fy * T::exact(m.sy)) * (lb - lp)).dv(lr - lp));
+                    mn_ltb.min(mp)
+                },
+                || {
+                    // Elastic LTB (AISC F2-3, F2-4)
+                    let pi2 = T::pi() * T::pi();
+                    let lb_rts = lb.dv(rts);
+                    let fcr = (cb * pi2 * e).dv(lb_rts.sq())
+                        * (T::exact(1.0) + T::lit(0.078) * jc_sh * lb_rts.sq()).sqrt();
+                    (fcr * T::exact(m.sy)).min(mp)
+                },
+            )
+        },
+    );
 
-    PHI_B * mn
+    T::lit(PHI_B) * mn
 }
 
 /// AISC F6: Flexural capacity about minor axis (no LTB).
-fn flexural_capacity_z(m: &SteelMemberData) -> f64 {
-    let mp_z = m.fy * m.zz;
-    let my_z = m.fy * m.sz;
-    let mn = mp_z.min(1.6 * my_z); // AISC F6-1
-    PHI_B * mn
+pub(crate) fn flexural_capacity_z<T: Real>(m: &SteelMemberData) -> T {
+    let mp_z = T::exact(m.fy) * T::exact(m.zz);
+    let my_z = T::exact(m.fy) * T::exact(m.sz);
+    let mn = mp_z.min(T::lit(1.6) * my_z); // AISC F6-1
+    T::lit(PHI_B) * mn
 }
 
 /// AISC H1-1: Combined axial and bending interaction.
-fn interaction_h1(pr_pc: f64, mry_mcy: f64, mrz_mcz: f64) -> f64 {
-    if pr_pc >= 0.2 {
+pub(crate) fn interaction_h1<T: Real>(pr_pc: T, mry_mcy: T, mrz_mcz: T) -> T {
+    branch(
+        T::lit(0.2).le(pr_pc),
         // H1-1a: Pr/Pc + (8/9)(Mry/Mcy + Mrz/Mcz) <= 1.0
-        pr_pc + (8.0 / 9.0) * (mry_mcy + mrz_mcz)
-    } else {
+        || pr_pc + T::lit(8.0).dv(T::lit(9.0)) * (mry_mcy + mrz_mcz),
         // H1-1b: Pr/(2*Pc) + (Mry/Mcy + Mrz/Mcz) <= 1.0
-        pr_pc / 2.0 + mry_mcy + mrz_mcz
-    }
+        || pr_pc.dv(T::exact(2.0)) + mry_mcy + mrz_mcz,
+    )
 }

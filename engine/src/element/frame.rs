@@ -144,7 +144,7 @@ impl Hinge3D {
 /// at the given DOF indices. `s` is the sign of the off-diagonal c2 coefficient
 /// (+1 for Z-plane bending, -1 for Y-plane bending — captures the right-hand-rule
 /// sign mismatch between the two planes).
-fn add_bending_block(
+pub(crate) fn add_bending_block(
     k: &mut [f64], n: usize,
     v1: usize, r1: usize, v2: usize, r2: usize,
     e: f64, i: f64, l: f64, l2: f64, l3: f64, phi: f64,
@@ -248,6 +248,22 @@ pub fn frame_local_stiffness_3d(
     k
 }
 
+/// Torsion-warping 4×4 block over [θx1, φ'1, θx2, φ'2] (row-major).
+pub(crate) fn torsion_warping_block(gj: f64, ecw: f64, l: f64, l2: f64, l3: f64) -> [f64; 16] {
+    // Each distinct term computed once: symmetric entries are the same f64 value
+    // by construction. (−x − y and −(x + y) round identically.)
+    let t = gj / l + 12.0 * ecw / l3;
+    let b = 6.0 * ecw / l2;
+    let c = 4.0 * ecw / l;
+    let d = 2.0 * ecw / l;
+    [
+         t,  b, -t,  b,
+         b,  c, -b,  d,
+        -t, -b,  t, -b,
+         b,  d, -b,  c,
+    ]
+}
+
 /// 3D frame local stiffness matrix with warping DOF (14×14).
 /// DOFs: [u1, v1, w1, θx1, θy1, θz1, φ'1, u2, v2, w2, θx2, θy2, θz2, φ'2]
 /// cw: warping constant (m⁶), phi' = rate of twist (warping DOF)
@@ -293,13 +309,7 @@ pub fn frame_local_stiffness_3d_warping(
     // warping torsion. Without this guard the warping block below would
     // silently overwrite the release applied by frame_local_stiffness_3d.
     if !hinge.release_t_start && !hinge.release_t_end {
-        // Torsion-warping 4x4: [θx1, φ'1, θx2, φ'2]
-        let tw = [
-            gj / l + 12.0 * ecw / l3,    6.0 * ecw / l2,     -gj / l - 12.0 * ecw / l3,    6.0 * ecw / l2,
-            6.0 * ecw / l2,               4.0 * ecw / l,      -6.0 * ecw / l2,               2.0 * ecw / l,
-            -gj / l - 12.0 * ecw / l3,   -6.0 * ecw / l2,     gj / l + 12.0 * ecw / l3,    -6.0 * ecw / l2,
-            6.0 * ecw / l2,               2.0 * ecw / l,      -6.0 * ecw / l2,               4.0 * ecw / l,
-        ];
+        let tw = torsion_warping_block(gj, ecw, l, l2, l3);
 
         for i in 0..4 {
             for jj in 0..4 {

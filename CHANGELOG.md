@@ -11,6 +11,48 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
+
+**BREAKING (results): models with Timoshenko members under member loads, plastic analyses,
+HHT-α time histories, spectral member forces, harmonic responses, partial distributed loads,
+2D truss axial point loads and 2D spring rollers solve differently.** Each was found by a
+certificate disagreeing with the solver (`docs/verification/CERTIFY.md`) or by the
+comparison against OpenSees (`tools/opensees/`), and each has a regression test.
+
+- **Timoshenko members used Euler–Bernoulli fixed-end forces.** Members with shear areas
+  assembled a shear-flexible stiffness but loaded it with Euler–Bernoulli fixed-end forces,
+  so point loads, couples, partial and trapezoidal loads gave wrong displacements and end
+  forces (13.6% on a short cantilever). All member-load fixed-end forces now integrate the
+  load against the Timoshenko element's own shape functions; the FEF functions take `phi`
+  explicitly. Validation models 04 and 07 moved (largest maxima change 0.67%, applied loads
+  unchanged). The member deflection curve in the web now includes shear deflection.
+- **Plastic analysis placed hinges only at member ends.** With the peak moment inside a
+  loaded member the collapse factor was overestimated, which is unsafe: a one-element fixed
+  beam under UDL gave 60.28 instead of 37.5 (2D), and a space portal swaying out of plane
+  77.04 instead of 33.33 (3D). Both solvers now search each member's moment diagram for
+  span hinges, close hinges whose rotation reverses, and (3D) no longer read a failed solve
+  as collapse. 3D hinges under biaxial bending can still land 0.4–3.6% below the certified
+  value, on the safe side, and the solver warns.
+- **HHT-α was not HHT-α.** It was Newmark with HHT's β and γ and a load blend: dissipative
+  but first-order accurate. It now integrates the α-weighted equation of motion and is
+  second-order accurate.
+- **Spectral member forces included static member loads.** Every mode's member forces
+  carried the fixed-end forces of the model's distributed, point and thermal loads, and
+  SRSS/CQC combined them as if dynamic (simple beam, q = −20: V_max 25.70 instead of 0.758).
+  Modal forces now come from the inertia response only.
+- **Harmonic responses were truncated silently.** The omitted modes are now added as a
+  static (mode-acceleration) correction, cutting the error against a direct solve from
+  ~7e-5 to ~1e-7 of the peak. `HarmonicResult` reports `method`, `modesUsed`, `nDof`,
+  `truncationRatio` and `warnings`.
+- **Partial distributed loads** were integrated with 20-panel Simpson (~1e-4 relative
+  error); now exact Gauss–Legendre.
+- **2D truss end forces** ignored axial member point loads.
+- **2D roller supports with a spring** on the free DOF left the spring force out of the
+  reaction.
+- **New warning `StiffnessNotPositiveDefinite`** when the factored stiffness is singular or
+  indefinite (LU fallback, a diagonal shift, or a Cholesky pivot at round-off level).
+  Numbers are unchanged; the solver used to return them without comment.
+
 #### Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)
 
 **BREAKING (results): every model with shell elements solves differently.** Four defects,
@@ -293,6 +335,19 @@ Systematic audit and fix of solver correctness issues across elements, constrain
 - **Dead DKT code**: removed unused `ak/bk/ck/dk/ek` arrays from plate.rs
 
 ### Added
+
+#### Certified results (2026-10-15)
+
+After a solve the engine can prove rigorous bounds on how far its answers are from the
+exact solution of the assembled model: interval-arithmetic a posteriori certificates for
+linear static analysis (constraints included), member and shell forces, combinations and
+envelopes, design utilizations, buckling, modal (with proof that no mode below the cutoff
+was missed), spectral, harmonic, P-Delta, plastic collapse (2D and 3D, exact rationals)
+and time integration. Their soundness is proved in Lean (`verify/`), and a verified Lean
+checker re-checks exported certificate bundles. The web shows the certificates beside the
+results. Kani proves the element kernels, interval rounding and sparse index code
+(`docs/verification/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
+under a memory watchdog. See `docs/verification/CERTIFY.md`.
 
 #### Step 4 runtime gates and CI improvements (2026-04-19)
 

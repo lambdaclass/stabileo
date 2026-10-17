@@ -7,6 +7,11 @@
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
+  import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
+  import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import ModalCertificate from '../advanced/ModalCertificate.svelte';
+  import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
+  import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
   import {
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
@@ -1014,7 +1019,7 @@
           — B2 = {formatPDeltaFactor(pdeltaResult.b2)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
-        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{/if}
+        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{:else}<PDeltaCertificate result={resultsStore.pdeltaResult3D} />{/if}
       {/if}
     </div>
 
@@ -1066,6 +1071,7 @@
             </tbody>
           </table>
         </div>
+        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
       {/if}
     </div>
 
@@ -1129,6 +1135,8 @@
         <div class="adv-inline" data-testid="spectral-base-shear">
           Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
+        <SpectralCertificate result={spectralResult.X} label="X" />
+        <SpectralCertificate result={spectralResult.Y} label="Y" />
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>{t('adv.mode')}</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
@@ -1176,6 +1184,7 @@
             </tbody>
           </table>
         </div>
+        <BucklingCertificate certificate={bucklingResult.certificate} />
       {/if}
     </div>
 
@@ -1241,6 +1250,7 @@
           {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}
           {#if harmonicElapsed != null} — {harmonicElapsed >= 1000 ? (harmonicElapsed / 1000).toFixed(2) + ' s' : harmonicElapsed.toFixed(0) + ' ms'} (WASM){/if}
         </div>
+        <HarmonicCertificate result={harmResult} />
         {#if harmResult.responsePoints?.length}
           <details>
             <summary class="adv-steps-toggle">{t('pro.frfCurve')}</summary>

@@ -121,6 +121,12 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci --test kfull_overbuild_gates
 
+      # Result certificates (docs/verification/CERTIFY.md): honesty against a
+      # double-double reference, buckling/modal enclosures, fuzz oracle.
+      - name: Certificate gate
+        working-directory: engine
+        run: cargo nextest run --profile ci --test certify --test properties_2d --test properties_3d
+
   # The remaining ~6700 tests, sharded 2-way. Excludes the named gates above
   # (they run in the `test` job) and the wall-clock timing benchmarks/perf
   # binaries (validated in their dedicated single-threaded gate steps).
@@ -155,7 +161,7 @@ jobs:
 
       - name: Run test suite (shard ${{ matrix.shard }}/2)
         working-directory: engine
-        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - binary(perf_regression_advanced) - binary(perf_regression_gates) - (test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)) - (test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)) - test(/benchmark_.*constraint/) - binary(sparse_shell_gates) - binary(solver_invariants) - binary(solver_ci_coverage) - binary(conditioning_adversarial) - binary(kfull_overbuild_gates)' --partition count:${{ matrix.shard }}/2
+        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - binary(perf_regression_advanced) - binary(perf_regression_gates) - (test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)) - (test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)) - test(/benchmark_.*constraint/) - binary(sparse_shell_gates) - binary(solver_invariants) - binary(solver_ci_coverage) - binary(conditioning_adversarial) - binary(kfull_overbuild_gates) - binary(certify) - binary(properties_2d) - binary(properties_3d)' --partition count:${{ matrix.shard }}/2
         timeout-minutes: 20
 
   # Criterion reports are informational (continue-on-error): they must not gate

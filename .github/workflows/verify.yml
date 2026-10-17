@@ -1,0 +1,139 @@
+name: Verify
+
+# Formal verification: Lean soundness proofs of the result certificate (verify/)
+# and Kani harnesses (engine/src/kani_proofs.rs). Property tests and certificate
+# tests are ordinary engine tests and run in ci.yml's suite.
+#
+# Everything runs in the `verify` Nix dev shell so CI and local builds use the
+# same tools: `nix develop .#verify -c <cmd>`.
+
+on:
+  pull_request:
+    paths:
+      - "verify/**"
+      - "engine/src/**"
+      - "docs/verification/**"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/verify.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tools/elan
+            verify/.lake
+          key: lean-${{ runner.os }}-${{ hashFiles('verify/lean-toolchain', 'verify/lake-manifest.json') }}
+      - name: Fetch Mathlib build cache
+        working-directory: verify
+        run: nix develop ..#verify -c lake exe cache get
+      - name: Build proofs
+        working-directory: verify
+        run: nix develop ..#verify -c lake build
+      - name: No sorry, no extra axioms
+        working-directory: verify
+        run: nix develop ..#verify -c ./scripts/check-axioms.sh
+      # Independent re-check of exported certificate bundles by the verified
+      # Lean checker (certcheck); tampered bundles must be rejected.
+      - name: Certificate bundles
+        working-directory: verify
+        run: nix develop ..#verify -c ./scripts/check-bundles.sh
+
+  kani:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/cache@v4
+        with:
+          path: .tools
+          key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'scripts/kani-setup.sh') }}
+      - name: Install Kani
+        run: nix develop .#verify -c ./scripts/kani-setup.sh
+      # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
+      # per float-heavy harness, and the runner has 16 GB.
+      # Pull requests run the fast tier; the nightly schedule and manual runs
+      # also run harnesses marked `// kani: nightly`.
+      - name: Kani harnesses
+        env:
+          KANI_MEM_GB: 12
+          # The nightly-tier harnesses take up to ~10 min locally, ~2x that on the runner.
+          KANI_TIMEOUT_S: ${{ github.event_name == 'pull_request' && 900 || 2400 }}
+          KANI_TIER: ${{ github.event_name == 'pull_request' && 'fast' || 'all' }}
+        run: nix develop .#verify -c ./scripts/kani-safe.sh
+      - name: Kani report
+        if: always()
+        run: column -t target/kani-report.tsv || true
+
+  # Large-model certificate runs (release, #[ignore]d in the normal suite):
+  # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs.
+  certify-large:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - name: Large certificate tests
+        working-directory: engine
+        run: cargo test --release --test certify --test certify_plastic_3d -- --ignored --nocapture
+
+  # Differential test against OpenSees (an independent FE code): catches
+  # element-matrix, fixed-end-force, axis-convention and reaction bugs that the
+  # certificates cannot (they certify the assembled system, right or wrong).
+  # Fixed fixture set plus random models from a seed that moves daily; the
+  # seed is printed so a failure reproduces with tools/opensees/run.sh.
+  opensees-diff:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install OpenSees
+        run: pip install openseespy numpy
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Compare with OpenSees
+        run: |
+          seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
+          echo "seed-start $seed"
+          python tools/opensees/compare.py --fixtures \
+            --random2d 300 --random3d 300 --rich2d 500 --rich3d 500 \
+            --seed-start "$seed" -j 4 --report opensees-report.json \
+            --dump-dir opensees-mismatches
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: opensees-report
+          path: |
+            opensees-report.json
+            opensees-mismatches/
+          if-no-files-found: ignore

@@ -1,0 +1,15 @@
+# cargo-mutants configuration (https://mutants.rs).
+#
+# Excluded: heuristics that only choose where to look (the λ_min estimate,
+# its start vector and normalization). Soundness never depends on them — a
+# bad estimate only makes a certificate fail, never wrong — so mutants there
+# cannot be caught by soundness tests by design.
+exclude_re = [
+    "estimate_lambda_min",
+    "certify/sparse\\.rs.*normalize",
+    "certify/sparse\\.rs.*\\bdot\\b",
+    # Equivalent mutants: accepting μ = 0 (or ‖ũ‖ = 0 in the relative bound)
+    # yields an infinite bound, which finish() reports as non-finite anyway.
+    "replace > with >= in certify_lambda_min_lower",
+    "replace > with >= in finish",
+]

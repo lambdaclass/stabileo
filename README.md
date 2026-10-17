@@ -117,6 +117,9 @@ several posts embed the real editor on the model they describe. Two to start wit
 - **Interface:** Svelte 5 and TypeScript, Three.js for 3D, KaTeX for the step-by-step equations.
 - **Validation:** checked against analytical solutions, NAFEMS benchmarks, the ANSYS Verification
   Manual, Code_Aster and textbook problems. See [BENCHMARKS.md](docs/BENCHMARKS.md).
+- **Certified results:** after a solve, the engine can prove bounds on how far its answers are from
+  the exact solution, with the checks' soundness proved in Lean. See
+  [CERTIFY.md](docs/verification/CERTIFY.md).
 
 <details>
 <summary><strong>What the engine can solve</strong></summary>

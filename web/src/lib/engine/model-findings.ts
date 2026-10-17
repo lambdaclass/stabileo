@@ -21,7 +21,7 @@ import type { SolverDiagnostic, StructuredDiagnostic } from './types';
 
 const MODEL_PHASES = new Set(['pre_solve', 'constraints']);
 /** Warnings that describe the model rather than the numerics of the solve. */
-const MODEL_CODES = new Set(['excessive_displacement']);
+const MODEL_CODES = new Set(['excessive_displacement', 'stiffness_not_positive_definite']);
 /** Warning-level notes about performance, not correctness. */
 const NOT_A_FINDING = new Set(['sparse_fill_ratio']);
 

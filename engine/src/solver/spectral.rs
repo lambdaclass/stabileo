@@ -95,10 +95,10 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
 
         // Compute element forces for this mode
         let mut u_full = vec![0.0; n];
-        for i in 0..nf {
-            u_full[i] = u_modal[i];
-        }
-        let ef = super::linear::compute_internal_forces_2d(solver_input, &dof_num, &u_full);
+        u_full[..nf].copy_from_slice(&u_modal);
+        // The mode's response to its spectral inertia forces only: no element
+        // loads, whose fixed-end forces are static and must not be combined.
+        let ef = super::linear::compute_internal_forces_2d_with_loads(solver_input, &[], &dof_num, &u_full);
         let forces: Vec<f64> = ef.iter()
             .flat_map(|f| vec![f.n_start.abs().max(f.n_end.abs()),
                               f.v_start.abs().max(f.v_end.abs()),
@@ -126,9 +126,7 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
 
     // Build combined displacement results
     let mut u_combined = vec![0.0; n];
-    for i in 0..nf {
-        u_combined[i] = combined_disps[i];
-    }
+    u_combined[..nf].copy_from_slice(&combined_disps[..nf]);
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_combined);
 
     // Build element force envelopes
@@ -322,8 +320,9 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         modal_disps.push(u_modal.clone());
 
         let mut u_full = vec![0.0; n];
-        for i in 0..nf { u_full[i] = u_modal[i]; }
-        let ef = super::linear::compute_internal_forces_3d(solver_input, &dof_num, &u_full);
+        u_full[..nf].copy_from_slice(&u_modal);
+        // Spectral inertia forces only: no element loads (see the 2D solver).
+        let ef = super::linear::compute_internal_forces_3d_with_loads(solver_input, &[], &dof_num, &u_full);
         let forces: Vec<f64> = ef.iter()
             .flat_map(|f| vec![
                 f.n_start.abs().max(f.n_end.abs()),
@@ -385,7 +384,7 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     };
 
     let mut u_combined = vec![0.0; n];
-    for i in 0..nf { u_combined[i] = combined_disps[i]; }
+    u_combined[..nf].copy_from_slice(&combined_disps[..nf]);
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_combined);
 
     let elem_ids: Vec<usize> = solver_input.elements.values().map(|e| e.id).collect();

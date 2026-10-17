@@ -704,10 +704,10 @@ pub fn assemble_element_loads_2d(
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                 let mut fef = if is_full {
-                    let f = fef_distributed_2d(dl.q_i, dl.q_j, l);
+                    let f = fef_distributed_2d(dl.q_i, dl.q_j, l, phi);
                     f
                 } else {
-                    fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
+                    fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l, phi)
                 };
 
                 // Adjust for hinges
@@ -722,7 +722,7 @@ pub fn assemble_element_loads_2d(
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                 let px = pl.px.unwrap_or(0.0);
                 let mz = pl.my.unwrap_or(0.0);
-                let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
+                let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l, phi);
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
@@ -1761,9 +1761,9 @@ fn assemble_element_loads_3d(
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                 let mut fef = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
                 } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
                 };
                 let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
                 fef[0] = axial[0];
@@ -1775,20 +1775,7 @@ fn assemble_element_loads_3d(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                // Y-direction point load
-                let fef_y = fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                let mut fef = [0.0; 12];
-                fef[1] = fef_y[1];   // fy_i
-                fef[5] = fef_y[2];   // mz_i
-                fef[7] = fef_y[4];   // fy_j
-                fef[11] = fef_y[5];  // mz_j
-
-                // Z-direction point load
-                let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                fef[2] = fef_z[1];    // fz_i
-                fef[4] = -fef_z[2];   // my_i (negated for θy convention)
-                fef[8] = fef_z[4];    // fz_j
-                fef[10] = -fef_z[5];  // my_j
+                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
 
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
@@ -1837,9 +1824,9 @@ fn assemble_element_loads_3d_warping(
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                 let mut fef12 = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
                 } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
                 };
                 let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
                 fef12[0] = axial[0];
@@ -1852,13 +1839,7 @@ fn assemble_element_loads_3d_warping(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let fef_y = fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                let mut fef12 = [0.0; 12];
-                fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
-                fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
-                let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
-                fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
+                let mut fef12 = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
@@ -1908,9 +1889,9 @@ fn assemble_element_loads_3d_mapped(
                 let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                 let mut fef = if is_full {
-                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                    fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
                 } else {
-                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
+                    fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l, phi_y, phi_z)
                 };
                 let axial = crate::element::axial_distributed_fef(dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l), l);
                 fef[0] = axial[0];
@@ -1922,13 +1903,7 @@ fn assemble_element_loads_3d_mapped(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let fef_y = fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                let mut fef = [0.0; 12];
-                fef[1] = fef_y[1]; fef[5] = fef_y[2];
-                fef[7] = fef_y[4]; fef[11] = fef_y[5];
-                let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                fef[2] = fef_z[1]; fef[4] = -fef_z[2];
-                fef[8] = fef_z[4]; fef[10] = -fef_z[5];
+                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {

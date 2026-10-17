@@ -1,4 +1,6 @@
-//! Linear time-history analysis with Newmark-beta and HHT-alpha methods.
+//! Linear time-history analysis with Newmark-beta and HHT-alpha methods
+//! (HHT-α: `M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n`,
+//! α ∈ [−1/3, 0], β = (1−α)²/4, γ = ½ − α; second-order accurate).
 
 use crate::types::*;
 use crate::linalg::*;
@@ -8,6 +10,46 @@ use super::mass_matrix;
 use super::damping;
 use super::constraints::FreeConstraintSystem;
 
+/// The discrete system a time-history run integrated and the full state it
+/// computed, in the solver's reduced (free, constraint-independent) DOF space.
+/// Read by `certify::dynamics`; the matrices are the f64 ones the solver used.
+#[derive(Debug, Clone)]
+pub struct DynamicTrace {
+    pub k: CscMatrix,
+    pub m: CscMatrix,
+    /// Rayleigh coefficients: `C = a0·M + a1·K` (both 0 without damping).
+    pub a0: f64,
+    pub a1: f64,
+    /// Newmark parameters actually used (for HHT-α: `(1−α)²/4`, `½ − α`).
+    pub beta: f64,
+    pub gamma: f64,
+    /// HHT α actually integrated (`½ − γ` exactly), None for plain Newmark:
+    /// `M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n`.
+    pub alpha: Option<f64>,
+    pub dt: f64,
+    /// Raw load vector `f_n` at every step n = 0..=N.
+    pub f: Vec<Vec<f64>>,
+    pub u: Vec<Vec<f64>>,
+    pub v: Vec<Vec<f64>>,
+    pub a: Vec<Vec<f64>>,
+}
+
+impl DynamicTrace {
+    #[allow(clippy::too_many_arguments)]
+    fn start(k: &CscMatrix, m: &CscMatrix, a0: f64, a1: f64, beta: f64, gamma: f64, alpha: Option<f64>, dt: f64) -> Self {
+        DynamicTrace {
+            k: k.clone(), m: m.clone(), a0, a1, beta, gamma, alpha, dt,
+            f: Vec::new(), u: Vec::new(), v: Vec::new(), a: Vec::new(),
+        }
+    }
+    fn push(&mut self, f: &[f64], u: &[f64], v: &[f64], a: &[f64]) {
+        self.f.push(f.to_vec());
+        self.u.push(u.to_vec());
+        self.v.push(v.to_vec());
+        self.a.push(a.to_vec());
+    }
+}
+
 /// Solve a 2D linear time-history analysis.
 ///
 /// Supports Newmark-beta (default: average acceleration) and HHT-alpha methods.
@@ -15,6 +57,22 @@ use super::constraints::FreeConstraintSystem;
 /// at each time step for efficiency.
 pub fn solve_time_history_2d(
     input: &TimeHistoryInput,
+) -> Result<TimeHistoryResult, String> {
+    solve_time_history_2d_inner(input, None)
+}
+
+/// `solve_time_history_2d` that also returns the full discrete trajectory.
+pub fn solve_time_history_2d_traced(
+    input: &TimeHistoryInput,
+) -> Result<(TimeHistoryResult, DynamicTrace), String> {
+    let mut trace = None;
+    let res = solve_time_history_2d_inner(input, Some(&mut trace))?;
+    Ok((res, trace.ok_or("no trace recorded")?))
+}
+
+fn solve_time_history_2d_inner(
+    input: &TimeHistoryInput,
+    mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_2d(&input.solver);
@@ -83,27 +141,21 @@ pub fn solve_time_history_2d(
         return Err("Time step must be positive".into());
     }
 
-    let (beta, gamma) = if let Some(alpha) = input.alpha {
-        // HHT-alpha: alpha should be in [-1/3, 0]
-        let b = (1.0 - alpha) * (1.0 - alpha) / 4.0;
-        let g = 0.5 - alpha;
-        (b, g)
-    } else {
-        (input.beta, input.gamma)
-    };
+    let (beta, gamma, alpha) = scheme_parameters(input.beta, input.gamma, input.alpha);
 
     if beta <= 0.0 {
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness: K_eff = K + gamma/(beta*dt)*C + 1/(beta*dt^2)*M
-    // With C = a0·M + a1·K this folds into a two-term combination over the
-    // union of the K and M patterns.
+    // 6. Form effective stiffness: K_eff = c1·M + (1+α)(K + c2·C), α = 0 for
+    // Newmark. With C = a0·M + a1·K this folds into a two-term combination
+    // over the union of the K and M patterns.
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);         // coefficient for M
     let c2 = gamma / (beta * dt);         // coefficient for C
+    let w = 1.0 + alpha.unwrap_or(0.0);
     let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
-    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
+    let k_eff = CscMatrix::linear_combination(w * (1.0 + c2 * a1), &k_s, c1 + w * c2 * a0, &m_s);
 
     // 7. Factor K_eff once (sparse Cholesky, dense LU fallback with size cap)
     let factored = factor_effective_stiffness(&k_eff)?;
@@ -118,6 +170,11 @@ pub fn solve_time_history_2d(
     let f_0_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    if let Some(t) = trace.as_deref_mut() {
+        let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
+        tr.push(&f_0, &u, &v, &a_vec);
+        *t = Some(tr);
+    }
 
     // 9. Prepare history storage -- track all nodes
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -167,8 +224,8 @@ pub fn solve_time_history_2d(
 
         // Compute effective load (all in ns space)
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
-            beta, gamma, dt, input.alpha,
+            &f_next, &f_prev, &k_s, &m_s, c_s, &u, &v, &a_vec, ns,
+            beta, gamma, dt, alpha,
         );
 
         // Solve K_eff * u_{n+1} = F_eff (ns space)
@@ -193,6 +250,9 @@ pub fn solve_time_history_2d(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        if let Some(Some(t)) = trace.as_deref_mut() {
+            t.push(&f_next, &u, &v, &a_vec);
+        }
         f_prev = f_next;
 
         // Record history — expand to nf for recording
@@ -235,8 +295,8 @@ pub fn solve_time_history_2d(
         &sasm.f, &u_at_peak, nf, n,
     );
 
-    let method_name = if input.alpha.is_some() {
-        format!("HHT-alpha (alpha={:.3})", input.alpha.unwrap())
+    let method_name = if let Some(alpha) = alpha {
+        format!("HHT-alpha (alpha={alpha:.3})")
     } else {
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
@@ -548,9 +608,16 @@ fn assemble_force_record(
 }
 
 /// Compute the effective load vector for the Newmark/HHT step.
+///
+/// HHT-α (Hilber–Hughes–Taylor, α ∈ [−1/3, 0]) solves
+///   M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n
+/// with the Newmark updates; substituting them, the right-hand side is
+///   (1+α) f_{n+1} − α f_n + M(c1 u + c1Δt v + c3 a) + (1+α) C(c2 u + c4 v + c5 a) + α(C v_n + K u_n).
+/// α = None is Newmark (α = 0).
+#[allow(clippy::too_many_arguments)]
 fn compute_effective_load(
     f_next: &[f64], f_prev: &[f64],
-    m: &CscMatrix, c: Option<&CscMatrix>,
+    k: &CscMatrix, m: &CscMatrix, c: Option<&CscMatrix>,
     u: &[f64], v: &[f64], a: &[f64],
     n: usize,
     beta: f64, gamma: f64, dt: f64,
@@ -572,13 +639,16 @@ fn compute_effective_load(
     }
     let m_part = m.sym_mat_vec(&m_contrib);
 
-    // C contribution vector: C * (c2*u + c4*v + c5*a)
+    // C contribution vector: C * ((1+α)(c2*u + c4*v + c5*a) + α v)
     //   c2 = gamma/(beta*dt), c4 = gamma/beta - 1, c5 = dt/2*(gamma/beta - 2)
+    let alp = alpha.unwrap_or(0.0);
+    let w = 1.0 + alp;
     let c_part = match c {
         Some(c) => {
             let mut c_contrib = vec![0.0; n];
             for i in 0..n {
-                c_contrib[i] = gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i];
+                c_contrib[i] = w * (gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i])
+                    + alp * v[i];
             }
             c.sym_mat_vec(&c_contrib)
         }
@@ -586,11 +656,11 @@ fn compute_effective_load(
     };
 
     let mut f_eff = vec![0.0; n];
-
-    if let Some(alp) = alpha {
-        // HHT-alpha: F_eff = (1+alpha)*F_{n+1} - alpha*F_n + M_part + C_part
+    if alpha.is_some() {
+        // HHT-α: the stiffness term of the previous state, α K u_n
+        let ku = k.sym_mat_vec(u);
         for i in 0..n {
-            f_eff[i] = (1.0 + alp) * f_next[i] - alp * f_prev[i] + m_part[i] + c_part[i];
+            f_eff[i] = w * f_next[i] - alp * f_prev[i] + m_part[i] + c_part[i] + alp * ku[i];
         }
     } else {
         // Standard Newmark: F_eff = F_{n+1} + M_part + C_part
@@ -600,6 +670,24 @@ fn compute_effective_load(
     }
 
     f_eff
+}
+
+/// Newmark parameters `(β, γ)` and the HHT `α` the step uses.
+///
+/// HHT-α (Hilber's sign convention, α ∈ [−1/3, 0]): γ = ½ − α rounded, then α
+/// taken back as ½ − γ — exact in f64 (Sterbenz: γ ∈ [½, 5/6]) — so γ = ½ − α
+/// holds exactly for the α actually integrated; β = (1 − α)²/4. These make the
+/// scheme second-order accurate and unconditionally stable, with numerical
+/// damping of the high frequencies growing as α goes to −1/3.
+fn scheme_parameters(beta: f64, gamma: f64, alpha: Option<f64>) -> (f64, f64, Option<f64>) {
+    match alpha {
+        Some(al) => {
+            let g = 0.5 - al;
+            let al = 0.5 - g;
+            ((1.0 - al) * (1.0 - al) / 4.0, g, Some(al))
+        }
+        None => (beta, gamma, None),
+    }
 }
 
 // ============================================================================
@@ -888,6 +976,22 @@ fn compute_reactions_at_state(
 pub fn solve_time_history_3d(
     input: &TimeHistoryInput3D,
 ) -> Result<TimeHistoryResult3D, String> {
+    solve_time_history_3d_inner(input, None)
+}
+
+/// `solve_time_history_3d` that also returns the full discrete trajectory.
+pub fn solve_time_history_3d_traced(
+    input: &TimeHistoryInput3D,
+) -> Result<(TimeHistoryResult3D, DynamicTrace), String> {
+    let mut trace = None;
+    let res = solve_time_history_3d_inner(input, Some(&mut trace))?;
+    Ok((res, trace.ok_or("no trace recorded")?))
+}
+
+fn solve_time_history_3d_inner(
+    input: &TimeHistoryInput3D,
+    mut trace: Option<&mut Option<DynamicTrace>>,
+) -> Result<TimeHistoryResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(&input.solver);
     super::dynamic_validation::validate_densities(&input.densities, &referenced_material_ids)?;
@@ -961,26 +1065,21 @@ pub fn solve_time_history_3d(
         return Err("Time step must be positive".into());
     }
 
-    let (beta, gamma) = if let Some(alpha) = input.alpha {
-        let b = (1.0 - alpha) * (1.0 - alpha) / 4.0;
-        let g = 0.5 - alpha;
-        (b, g)
-    } else {
-        (input.beta, input.gamma)
-    };
+    let (beta, gamma, alpha) = scheme_parameters(input.beta, input.gamma, input.alpha);
 
     if beta <= 0.0 {
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness in reduced space:
-    // K_eff = K + c2·C + c1·M — folds into a two-term combination over the
-    // union of the K and M patterns (C = a0·M + a1·K).
+    // 6. Form effective stiffness: K_eff = c1·M + (1+α)(K + c2·C), α = 0 for
+    // Newmark. With C = a0·M + a1·K this folds into a two-term combination
+    // over the union of the K and M patterns.
     let dt2 = dt * dt;
-    let c1 = 1.0 / (beta * dt2);
-    let c2 = gamma / (beta * dt);
+    let c1 = 1.0 / (beta * dt2);         // coefficient for M
+    let c2 = gamma / (beta * dt);         // coefficient for C
+    let w = 1.0 + alpha.unwrap_or(0.0);
     let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
-    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
+    let k_eff = CscMatrix::linear_combination(w * (1.0 + c2 * a1), &k_s, c1 + w * c2 * a0, &m_s);
 
     // 7. Factor K_eff once (sparse Cholesky; dense LU fallback with size cap)
     let factored = factor_effective_stiffness(&k_eff)?;
@@ -994,6 +1093,11 @@ pub fn solve_time_history_3d(
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    if let Some(t) = trace.as_deref_mut() {
+        let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
+        tr.push(&f_0, &u, &v, &a_vec);
+        *t = Some(tr);
+    }
 
     // 9. Prepare history storage
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -1045,8 +1149,8 @@ pub fn solve_time_history_3d(
         let f_next = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
-            beta, gamma, dt, input.alpha,
+            &f_next, &f_prev, &k_s, &m_s, c_s, &u, &v, &a_vec, ns,
+            beta, gamma, dt, alpha,
         );
 
         let u_new = solve_with_factored(&factored, &f_eff, ns);
@@ -1067,6 +1171,9 @@ pub fn solve_time_history_3d(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        if let Some(Some(t)) = trace.as_deref_mut() {
+            t.push(&f_next, &u, &v, &a_vec);
+        }
         f_prev = f_next;
 
         // Expand and record
@@ -1103,8 +1210,8 @@ pub fn solve_time_history_3d(
         &sasm.f, &u_at_peak, nf, n,
     );
 
-    let method_name = if input.alpha.is_some() {
-        format!("HHT-alpha (alpha={:.3})", input.alpha.unwrap())
+    let method_name = if let Some(alpha) = alpha {
+        format!("HHT-alpha (alpha={alpha:.3})")
     } else {
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
@@ -1633,4 +1740,79 @@ mod tests {
             max_early, max_late
         );
     }
+
+    /// Axial SDOF of the cantilever (tip ux, decoupled from bending) under a
+    /// constant tip force: the HHT-α trajectory and the exact
+    /// u(t) = F/k (1 − cos ωt), with k, m read from the integrated matrices.
+    #[allow(clippy::type_complexity)]
+    fn axial_step_response(alpha: Option<f64>, dt: f64, n_steps: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>, f64, f64) {
+        let f = 1.0;
+        let mut input = make_cantilever();
+        input.alpha = alpha;
+        input.time_step = dt;
+        input.n_steps = n_steps;
+        let load = vec![SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }];
+        input.force_history = Some(vec![
+            TimeForceRecord { time: 0.0, loads: load.clone() },
+            TimeForceRecord { time: 1e3, loads: load },
+        ]);
+        let (res, tr) = solve_time_history_2d_traced(&input).unwrap();
+        let i = tr.f[0].iter().position(|x| *x != 0.0).unwrap();
+        let (kd, md) = (tr.k.to_dense_symmetric(), tr.m.to_dense_symmetric());
+        let n = tr.k.n;
+        for j in 0..n {
+            if j != i {
+                assert_eq!(kd[i * n + j], 0.0);
+                assert_eq!(md[i * n + j], 0.0);
+            }
+        }
+        let (k, m) = (kd[i * n + i], md[i * n + i]);
+        let w = (k / m).sqrt();
+        let h = res.node_histories.iter().find(|h| h.node_id == 2).unwrap();
+        let exact = (0..=n_steps).map(|s| f / k * (1.0 - (w * s as f64 * dt).cos())).collect();
+        (h.ux.clone(), h.vx.clone(), exact, k, m)
+    }
+
+    fn period_of_axial_mode() -> f64 {
+        let (_, tr) = solve_time_history_2d_traced(&make_cantilever()).unwrap();
+        let (kd, md) = (tr.k.to_dense_symmetric(), tr.m.to_dense_symmetric());
+        // ux of node 2 is the first reduced DOF
+        2.0 * std::f64::consts::PI / (kd[0] / md[0]).sqrt()
+    }
+
+    #[test]
+    fn test_hht_alpha_second_order_convergence() {
+        // max error over two periods; halving Δt divides it by ≈ 4
+        let period = period_of_axial_mode();
+        for alpha in [-0.05, -0.1, -0.3] {
+            let err = |div: usize| {
+                let (u, _, ex, _, _) = axial_step_response(Some(alpha), period / div as f64, 2 * div);
+                u.iter().zip(&ex).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max)
+            };
+            let (e1, e2, e3) = (err(40), err(80), err(160));
+            let (r1, r2) = (e1 / e2, e2 / e3);
+            assert!(r1 > 3.6 && r1 < 4.4 && r2 > 3.8 && r2 < 4.2, "α = {alpha}: errors {e1:e} {e2:e} {e3:e}, ratios {r1} {r2}");
+        }
+    }
+
+    #[test]
+    fn test_hht_alpha_damps_high_frequencies() {
+        // Δt 5.3 periods: ωΔt ≈ 33. Average acceleration keeps the oscillation
+        // about the static solution; HHT-α (α < 0) kills it.
+        let period = period_of_axial_mode();
+        // energy of the oscillation about the static solution
+        let amp = |alpha: Option<f64>| {
+            let (u, v, _, k, m) = axial_step_response(alpha, 5.3 * period, 40);
+            let us = 1.0 / k;
+            let e = |s: usize| 0.5 * k * (u[s] - us).powi(2) + 0.5 * m * v[s].powi(2);
+            (e(1), e(u.len() - 1))
+        };
+        let (f0, l0) = amp(None);
+        assert!(l0 > 0.5 * f0, "Newmark: {f0} → {l0}");
+        let (f1, l1) = amp(Some(-0.3));
+        assert!(l1 < 1e-6 * f1, "HHT α = −0.3: {f1} → {l1}");
+        let (f2, l2) = amp(Some(-0.05));
+        assert!(l2 < 0.1 * f2 && l2 > l1, "HHT α = −0.05: {f2} → {l2}");
+    }
+
 }
