@@ -1857,11 +1857,29 @@ fn normalize_and_mesh(
     }
 
     let mut params = MeshParams::default();
-    // Roughly two thousand triangles: J converges at the field's rate rather
-    // than the gradient's, so this is ample and keeps the solve within a few
-    // milliseconds — which matters, because this runs per model section.
+    // At least two thousand triangles, and fine enough across the walls.
+    //
+    // A count alone is not enough: on a thin wall it leaves one or two
+    // triangles through the thickness, and the P1 Prandtl solve — a strict
+    // lower bound on J — then comes out far low. Measured against an
+    // independent quadratic-element solve, a 400x200 I with 2-4 mm plates read
+    // 18.5 % low and a 2 mm channel 23.9 % low at A/2000. The mean wall
+    // thickness 2A/P (exact for a thin wall, P counting every boundary, holes
+    // included) sets a second bound of (2A/P)^2/50 per triangle; the whole is
+    // capped at sixty thousand triangles so a very slender outline stays a
+    // sub-second solve. The result is still a lower bound, now within a few
+    // percent on thin walls (see docs/verification/SECTIONS_CONNECTIONS.md).
     let scaled_area = props.a * scale * scale;
-    params.max_area = max_area.map(|a| a * scale * scale).unwrap_or(scaled_area / 2000.0);
+    let perimeter: f64 = geometry.polygons.iter().map(|p| {
+        let n = p.vertices.len();
+        (0..n).map(|i| {
+            let (a, b) = (p.vertices[i], p.vertices[(i + 1) % n]);
+            ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt()
+        }).sum::<f64>()
+    }).sum::<f64>() * scale;
+    let wall = if perimeter > 0.0 { 2.0 * scaled_area / perimeter } else { f64::INFINITY };
+    let auto = (scaled_area / 2000.0).min(wall * wall / 50.0).max(scaled_area / 60000.0);
+    params.max_area = max_area.map(|a| a * scale * scale).unwrap_or(auto);
 
     let mesh = mesh_section(&scaled, &params).map_err(|e| JsValue::from_str(&e))?;
     Ok((mesh, scale, props))
@@ -2027,7 +2045,7 @@ pub fn analyze_section_shear(json: &str) -> Result<String, JsValue> {
     let res = section::shear::solve_shear(
         &mesh,
         [props.yc * scale, props.zc * scale],
-        ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4) },
+        ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4), iyz: props.iyz * scale.powi(4) },
         SolveStrategy::Sparse,
     )
     .map_err(|e| JsValue::from_str(&e))?;
@@ -2103,7 +2121,7 @@ pub fn analyze_section_shear_field(json: &str) -> Result<String, JsValue> {
     let res = section::shear::solve_shear(
         &mesh,
         [props.yc * scale, props.zc * scale],
-        ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4) },
+        ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4), iyz: props.iyz * scale.powi(4) },
         SolveStrategy::Sparse,
     )
     .map_err(|e| JsValue::from_str(&e))?;
@@ -2180,7 +2198,7 @@ pub fn analyze_section_plastic(json: &str) -> Result<String, JsValue> {
         let c = [props.yc * scale, props.zc * scale];
         let sh = solve_shear(
             &mesh, c,
-            ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4) },
+            ShearInertia { iy: props.iy * scale.powi(4), iz: props.iz * scale.powi(4), iyz: props.iyz * scale.powi(4) },
             section::poisson::SolveStrategy::Sparse,
         )
         .map_err(|e| JsValue::from_str(&format!("shear solve failed on the way to Cw: {e}")))?;

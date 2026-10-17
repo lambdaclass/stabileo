@@ -83,36 +83,40 @@ pub struct ShearResult {
 }
 
 /// Second moments a shear solve needs, about the centroid.
+///
+/// `iyz` is the product of inertia `integral(y z) dA`. It is zero on principal
+/// axes, and it is NOT zero for an angle, a Z, a lipped or unequal section or
+/// any rotated outline — which is exactly where leaving it out goes wrong: a
+/// field driven by `z/Iy` alone then carries a spurious horizontal resultant
+/// `Iyz/Iy`, and the shear centre, the shear areas and the warping constant
+/// computed from it are wrong (an equal angle's Cw came out 24 times too large,
+/// its shear centre 19 mm outside the corner).
 #[derive(Debug, Clone, Copy)]
 pub struct ShearInertia {
     pub iy: f64,
     pub iz: f64,
+    pub iyz: f64,
 }
 
 fn solve_one(
     factored: &super::poisson::FactoredPoisson,
     mesh: &SectionMesh,
     centroid: [f64; 2],
-    inertia: f64,
-    // Which centroidal coordinate drives the bending-stress gradient: 1 for the
-    // vertical `z` (a vertical force), 0 for the horizontal `y`.
-    coord: usize,
+    // The bending-stress gradient per unit force is the linear field
+    // `f = k[0]*(y - yc) + k[1]*(z - zc)`.
+    k: [f64; 2],
 ) -> Result<(ShearField, f64), String> {
-    if !(inertia > 0.0) || !inertia.is_finite() {
-        return Err(format!("shear needs a positive second moment, got {inertia}"));
-    }
     // The solver reads `-laplacian(phi) = f`, and the physics is
-    // `laplacian(phi) = -c/I` with `c` the centroidal coordinate, so `f = c/I`.
-    // Evaluated at each triangle's centroid, which is exact for the linear
-    // source a P1 element sees.
+    // `laplacian(phi) = -d(sigma)/dx`, the gradient of the unsymmetric-bending
+    // stress per unit transverse force. Evaluated at each triangle's centroid,
+    // which is exact for the linear source a P1 element sees.
     let source: Vec<f64> = mesh
         .triangles
         .iter()
         .map(|&t| {
-            let c = (mesh.nodes[t[0]][coord] + mesh.nodes[t[1]][coord] + mesh.nodes[t[2]][coord])
-                / 3.0
-                - centroid[coord];
-            c / inertia
+            let y = (mesh.nodes[t[0]][0] + mesh.nodes[t[1]][0] + mesh.nodes[t[2]][0]) / 3.0 - centroid[0];
+            let z = (mesh.nodes[t[0]][1] + mesh.nodes[t[1]][1] + mesh.nodes[t[2]][1]) / 3.0 - centroid[1];
+            k[0] * y + k[1] * z
         })
         .collect();
 
@@ -185,6 +189,13 @@ pub fn solve_shear(
             return Err(format!("shear needs a positive second moment, got {inertia}"));
         }
     }
+    let det = inertia.iy * inertia.iz - inertia.iyz * inertia.iyz;
+    if !inertia.iyz.is_finite() || !(det > 0.0) {
+        return Err(format!(
+            "shear needs a positive-definite inertia tensor, got Iy={} Iz={} Iyz={}",
+            inertia.iy, inertia.iz, inertia.iyz
+        ));
+    }
     // Both axes solve the SAME pure-Neumann problem — identical mesh, boundary
     // conditions and gauge pin, so identical reduced matrix — with only the
     // source term differing. Factor once and solve twice: the factorization is
@@ -195,9 +206,14 @@ pub fn solve_shear(
     problem.strategy = strategy;
     let factored = super::poisson::factor_poisson(&problem)?;
 
-    // A force along z bends about y, so it is driven by z and divided by Iy.
-    let (vz, r1) = solve_one(&factored, mesh, centroid, inertia.iy, 1)?;
-    let (vy, r2) = solve_one(&factored, mesh, centroid, inertia.iz, 0)?;
+    // Unsymmetric bending: per unit force along z the stress gradient is
+    // (Iz z - Iyz y)/D, and along y it is (Iy y - Iyz z)/D, D = Iy Iz - Iyz^2.
+    // These are the only linear fields whose resultant is exactly the unit
+    // force with no component along the other axis (integral f y and
+    // integral f z come out as 0 and 1); on principal axes they reduce to the
+    // familiar z/Iy and y/Iz.
+    let (vz, r1) = solve_one(&factored, mesh, centroid, [-inertia.iyz / det, inertia.iz / det])?;
+    let (vy, r2) = solve_one(&factored, mesh, centroid, [inertia.iy / det, -inertia.iyz / det])?;
 
     // A unit force along z applied at the centroid twists the section by
     // `torque_about_centroid`; shifting its line of action along y by that
@@ -226,7 +242,7 @@ mod tests {
             modular_ratios: Default::default(),
         })
         .expect("props");
-        (mesh, [props.yc, props.zc], ShearInertia { iy: props.iy, iz: props.iz })
+        (mesh, [props.yc, props.zc], ShearInertia { iy: props.iy, iz: props.iz, iyz: props.iyz })
     }
 
     fn src() -> cat::GeometrySource {
@@ -476,7 +492,7 @@ mod tests {
     fn a_zero_inertia_is_refused_rather_than_dividing_by_it() {
         let g = cat::rectangle(40.0, 60.0).unwrap();
         let (mesh, c, _) = setup(&g, 8.0);
-        let bad = ShearInertia { iy: 0.0, iz: 1.0 };
+        let bad = ShearInertia { iy: 0.0, iz: 1.0, iyz: 0.0 };
         assert!(solve_shear(&mesh, c, bad, SolveStrategy::Sparse).is_err());
     }
 }

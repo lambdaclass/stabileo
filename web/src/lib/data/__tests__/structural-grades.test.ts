@@ -333,11 +333,11 @@ describe('audited against the published standards', () => {
     expect(g('iram-f36').fu).toBe(520);
   });
 
-  it('IRAM grades use E = 210 GPa, as CIRSOC 301 chapter 2 fixes it', () => {
-    // Easy to assume 200 GPa from Argentina adopting AISC's method. CIRSOC
-    // states the European value.
+  it('IRAM grades use E = 200 GPa, as CIRSOC 301-2018 §A.3.5 fixes it', () => {
+    // «(a) Módulo de Elasticidad longitudinal: E = 200000 MPa; (b) … G = 77200 MPa».
+    // 210 GPa was the 1984 edition's value (chapter 2, Tabla 1).
     for (const id of ['iram-f24', 'iram-f26', 'iram-f36']) {
-      expect(g(id).e, id).toBe(210000);
+      expect(g(id).e, id).toBe(200000);
       expect(g(id).rho, id).toBe(78.5); // gamma = 78,5 kN/m³, also from CIRSOC
     }
   });

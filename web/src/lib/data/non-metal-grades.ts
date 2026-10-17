@@ -98,8 +98,12 @@ export interface TimberGrade {
 const eAci = (fck: number) => Math.round(4700 * Math.sqrt(fck));
 /** EN 1992-1-1 table 3.1, from the MEAN strength `fcm = fck + 8`. */
 const eEn = (fck: number) => Math.round(22000 * ((fck + 8) / 10) ** 0.3);
-/** NBR 6118, granite aggregate (alpha_E = 1,0). */
-const eNbr = (fck: number) => Math.round(5600 * Math.sqrt(fck));
+/**
+ * NBR 6118:2014 §8.2.8, granite aggregate (alpha_E = 1,0): the SECANT modulus
+ * Ecs = alpha_i · Eci, alpha_i = 0,8 + 0,2 fck/80 ≤ 1, Eci = 5600 √fck. Ecs is
+ * the one the code prescribes for elastic analysis; this held Eci, 8-18 % stiffer.
+ */
+const eNbr = (fck: number) => Math.round(Math.min(1, 0.8 + 0.2 * fck / 80) * 5600 * Math.sqrt(fck));
 
 const concrete = (
   id: string, designation: string, region: NonMetalRegion, code: string,
@@ -109,12 +113,14 @@ const concrete = (
 export const CONCRETE: ConcreteGrade[] = [
   // ── Argentina, CIRSOC 201 ──
   ...[20, 25, 30, 35, 40, 45, 50].map((f) =>
-    concrete(`cirsoc-h${f}`, `H-${f}`, 'AR', 'CIRSOC 201', f, eAci(f), f >= 40 ? 24.5 : 24)),
+    // Unit weight: CIRSOC 101-2025 Tabla 3.1, «hormigón … armado» 25 kN/m³ (23,5 sin armar).
+    // A frame member is reinforced; this held 24, 4 % light on self-weight.
+    concrete(`cirsoc-h${f}`, `H-${f}`, 'AR', 'CIRSOC 201', f, eAci(f), 25)),
 
   // ── Europe, EN 1992-1-1. The pair is cylinder/cube for the SAME concrete:
   //    the cube test reads higher, it is not a second option. ──
   ...([[20, 25], [25, 30], [30, 37], [35, 45], [40, 50], [45, 55], [50, 60]] as const).map(
-    ([f, cube]) => concrete(`en-c${f}`, `C${f}/${cube}`, 'EU', 'EN 1992-1-1', f, eEn(f), f >= 40 ? 24.5 : 24, cube)),
+    ([f, cube]) => concrete(`en-c${f}`, `C${f}/${cube}`, 'EU', 'EN 1992-1-1', f, eEn(f), 25, cube)),  // EN 1991-1-1 Table A.1, reinforced
 
   // ── United States, ACI 318. Specified in psi, which is why the MPa values
   //    are the odd ones — 4000 psi is 27,6 MPa, not 25. ──
@@ -126,8 +132,8 @@ export const CONCRETE: ConcreteGrade[] = [
   // ── Brazil, NBR 6118. Modulus for granite aggregate; NBR scales it by the
   //    aggregate type, which no other code here does. ──
   ...[20, 25, 30, 35, 40, 45, 50].map((f) =>
-    concrete(`nbr-c${f}`, `C${f}`, 'BR', 'NBR 6118', f, eNbr(f), f >= 40 ? 24.5 : 24,
-      undefined, 'Eci para agregado de granito (αE = 1,0).')),
+    concrete(`nbr-c${f}`, `C${f}`, 'BR', 'NBR 6118', f, eNbr(f), 25,  // NBR 6120: concreto armado 25
+      undefined, 'Ecs (secante) para agregado de granito (αE = 1,0).')),
 ];
 
 // ─────────────────────────────────────────────────────────────────────

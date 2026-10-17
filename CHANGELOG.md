@@ -11,6 +11,67 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Section properties and connections verified against exact forms and published values (2026-10-17)
+
+**BREAKING (results): asymmetric sections wound clockwise, the shear centre, shear areas and
+warping constant of sections with a product of inertia, thin-walled J, bolt bearing, long
+end-loaded welds, and models using the IRAM steels or the concrete/aluminium presets solve or
+check differently.** Each was found by `docs/verification/SECTIONS_CONNECTIONS.md` and has a
+regression test.
+
+- **Product of inertia ignored the winding.** `analyze_section` fixed the sign of `Iy`/`Iz`
+  with `abs()` but not of `Iyz`, so a clockwise outline, or a hole wound clockwise, returned
+  its centroidal product with the wrong sign and mirrored the principal axes of any
+  asymmetric custom or drawn section wound that way. Now corrected by the sign of the signed
+  area; checked exactly (rational arithmetic) on random polygons with holes.
+- **Shear fields ignored the product of inertia (unsafe).** The transverse-shear solve drove
+  the field with `z/Iy` and `y/Iz`, which on non-principal axes carries a spurious resultant
+  `Iyz/Iy` along the other axis. Shear centre, shear areas, shear stresses and the warping
+  constant (whose pole is the shear centre) were wrong for angles, Z and lipped or unequal
+  sections and rotated outlines: an equal angle 100x100x10 had its shear centre 13.8 mm
+  outside the heel and a warping constant 24 times too large. The field now uses the
+  unsymmetric-bending gradient `(Iz z - Iyz y)/D`, and agrees with an independent
+  quadratic-element solution (sectionproperties) to 0.2% on shear centre and Cw.
+- **Saint-Venant J was far low on thin walls.** The section mesh was sized by triangle count
+  alone (A/2000), leaving one or two triangles through a 2-4 mm wall; the P1 Prandtl solve,
+  a strict lower bound, then read 18.5% low on a 400x200 I with 2-4 mm plates and 23.9% low
+  on a 2 mm channel against an independent quadratic-element solve. The mesh now also bounds
+  each triangle by (2A/P)^2/50 (P including holes, capped at 60 000 triangles): those cases
+  read 2.2% and 3.3% low, IPE 300 2.5% (was 3.6%). J stays a lower bound, so the change
+  raises J toward the true value and never above it.
+  The example baselines were re-recorded: member torsion and reaction moments in the steel
+  examples move by up to 0.6% (pro-crane-hangar), everything else by under 1e-6.
+- **Bolt bearing used the end bolt's clear distance for every bolt (unsafe).** CIRSOC 301
+  §J.3.10 takes `Lc = s - dh` for interior bolts; with a generous edge distance the interior
+  bolts are the weaker ones (at `s = 3d` they never reach the `2.4 d t Fu` cap), so both the
+  designed joint (`lib/connection/bolted-joint.ts`) and the PRO-tab calculator
+  (`lib/engine/connection-design.ts`) overstated bearing. The designed joint now sums
+  `min(shear, bearing)` per bolt, end and interior apart, as the clause prescribes; the
+  calculator, which has no layout, takes the smaller of the two `Lc` (interior at the given
+  spacing, or at the 3d minimum when none is given). Checked against the INTI CIRSOC 301-2018
+  worked examples 1 and 5.
+- **End-loaded fillet welds longer than 300w were credited 0.6L (unsafe).** CIRSOC 301 eq.
+  J.2.1 fixes the effective length at 180w beyond 300w; the PRO-tab weld calculator used
+  `beta = 0.6`, which matches only at exactly 300w (67% too much at 500w).
+- **Combined tension and shear divided the required shear stress by phi.** `frv` is the
+  required stress `V/(Ab n)`; the extra phi put the reduced tension of the designed joint
+  20-40% below Tabla J.3.6 at moderate shear (conservative). Now reproduces `806 - 2.5 fv`.
+- **The PRO advanced section panel could print Routh's J.** When the Saint-Venant solve
+  failed it kept the polygon analyser's `j`, Routh's approximation (twice the true J on an I).
+  It now shows no J in that case.
+- **IRAM steels (F-24, F-26, F-36) carried the 1984 elastic constants (unsafe).** E = 210 000
+  and G = 80 769 MPa came from CIRSOC 301:1984; CIRSOC 301-2018 §A.3.5 fixes E = 200 000 and
+  G = 77 200 MPa. Models in these grades were 5% too stiff (deflections and drift low).
+- **Material presets corrected to their standards.** Reinforced-concrete unit weight 25 kN/m³
+  for CIRSOC (CIRSOC 101-2025 Tabla 3.1), EN (EN 1991-1-1 Table A.1) and NBR presets (was 24 or
+  24.5: self-weight 4% low); NBR 6118 concrete uses the secant modulus `Ecs = alpha_i Eci` of
+  §8.2.8 for analysis (was `Eci`, 8-18% stiff); aluminium 5052-H32 130/210 MPa and 6063-T6
+  160/195 MPa per EN 1999-1-1 Tables 3.2a/3.2b (were typical values, up to 50% high on fo).
+- **M5x18.9 weak-axis inertia.** The IRAM table's Iz = 327 cm⁴ disagreed with its own
+  dimensions (outline 363) and with AISC Shapes Database v16.0 (362); now 362 cm⁴. Every
+  catalogue profile is now checked, tabulated against computed from its dimensions, by
+  `catalogue-tabulated-vs-computed.test.ts`.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

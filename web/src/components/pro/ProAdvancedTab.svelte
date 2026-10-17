@@ -928,17 +928,19 @@
       } else {
         vertices = sectionOutline();
       }
-      secResult = analyzeSection({ polygons: [{ vertices }] });
+      // The polygon analyser's `j` is Routh's approximation, not a torsion constant: it read 7 %
+      // high on a solid rectangle and more than double on an I. It is never shown.
+      secResult = { ...analyzeSection({ polygons: [{ vertices }] }), j: null };
       /*
-       * J from the Saint-Venant solve on the section's own mesh. The polygon analyser's J read
-       * 7 % high on a solid rectangle and more than double on an I; the torsion solve agrees
-       * with Roark within its mesh.
+       * J from the Saint-Venant solve on the section's own mesh, a lower bound that agrees with
+       * the exact series and an independent FE solve (engine/tests/section_fe_reference.rs). If
+       * the solve fails J is left blank: falling back to Routh would print an unconservative J.
        */
       try {
         const g = buildSectionGeometry({ kind: 'custom', outer: vertices, holes: [] } as never).geometry;
         const j = analyzeSectionTorsion({ geometry: g }).j;
         if (Number.isFinite(j) && j > 0) secResult = { ...secResult, j };
-      } catch { /* keep the analyser's own value */ }
+      } catch { /* J stays unavailable */ }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, 'Error') });
     }
