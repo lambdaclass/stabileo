@@ -27,6 +27,7 @@ What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
 7. **AI-assisted engineering UX** — guided modeling, result queries, and code/design suggestions built on structured solver outputs
 8. **CRDT collaboration** — later Figma-style real-time multi-user editing on top of a trusted structural core
 9. **Verification as a product surface** — public benchmarks, acceptance models, reproducible runs, and trust signals visible to users rather than hidden in backend engineering
+10. **Certified results** — linear, modal, buckling, P-Delta, spectral, harmonic, time-history and plastic results and the AISC/EC3/EC2 checks carry machine-checkable error bounds (`docs/verification/CERTIFY.md`), re-checkable in Lean; no commercial package proves its answers
 
 ## Product Thesis
 
@@ -59,6 +60,33 @@ ROI order for users:
 5. diagnostics, review, and guidance that reduce failure/debug time
 6. lightweight collaboration that makes review and sharing easier
 7. workflow polish and breadth after the above are solid
+
+## Multipliers
+
+The Product Thesis orders what to build for firms to buy. This section ranks what would make the product an order of magnitude more useful, not incrementally better. Engineers spend most of their time modelling, iterating and documenting, not waiting for a solver, so the multipliers are workflow, not numerics. Each builds on verification: none is worth shipping on results that can be silently wrong.
+
+1. **Drawings / BIM → analytical model.** Import IFC (then Revit via IFC, DWG, PDF plans) and propose the analytical model: structural vs architectural elements, centrelines and surfaces snapped to grids, sections, supports, and loads from room uses (CIRSOC 101). Every inference is listed as an assumption the engineer accepts or fixes, never applied silently; the model sanity review then checks it. Modelling goes from days to minutes; the engineer judges assumptions instead of drafting lines.
+   *Exists:* `web/src/lib/ifc/` (IFC parse and mapping), `web/src/lib/cad/` (DXF plan wizard, opt-in inferences recorded as assumptions), `web/src/lib/ai/` (`build-model`). *Missing:* one guided import → assumptions → sanity review → analyse flow, real-world idealisation (offsets, members that don't meet, walls with openings), loads from room uses, PDF/vision, and a measured corpus of architect files vs engineer-built models. Related: Interoperability in Phase 2, `sketch-to-model` in the AI roadmap.
+
+2. **AI senior-engineer reviewer.** Most real failures are conceptual (load path, ignored stiff elements, drift near the limit, a poor structural system), not arithmetic. A reviewer that reads model and results like a senior engineer scales that judgment to every project. Built on the model sanity review (reactions vs loads, weight per m², period vs code formula, tributary cross-checks, unit and plausibility checks). Related: `review-model`, `pre-solve-diagnostics` in the AI roadmap.
+
+3. **Certified results as the product.** A report where every number comes with an auditable bound lets building authorities and independent checkers review faster and lowers liability. Extend certificates to CIRSOC 201, ACI RC, timber, CFS and the nonlinear solvers; show a verification status (certified / benchmarked / unverified) on every result and check; put provenance in reports.
+
+4. **Real-time design iteration and optimisation.** Instant re-analysis plus automatic search over sections and structural systems, minimising cost, steel, concrete or embodied carbon, every candidate passing certified checks; the engineer picks from a Pareto front. Embodied-carbon reporting from the bill of materials comes with it (increasingly mandatory). Related: Automated design iteration in Phase 4, `section-optimizer`.
+
+5. **Existing-building assessment and retrofit.** Latin America has millions of seismically vulnerable buildings, mostly RC frames to old codes. Model from survey, check against the original and current codes, propose retrofits (jacketing, bracing, walls), prioritise portfolios for cities, insurers and banks. Large and underserved.
+
+6. **Latin American codes done properly** — CIRSOC, NSR-10, NTC, NCh, NBR with clause-level traceability; the large vendors treat them as an afterthought.
+
+7. **Model → permit pipeline** — analysis, design, detailing, drawings, bill of materials and an authority-ready calculation report from one model, without re-entry between tools.
+
+8. **Stabileo as an engine for agents** — model building, analysis, checks and certificates exposed as an API / MCP server, so other tools and AI agents can call certified structural analysis.
+
+9. **Collaboration** — versioned, branchable models, comments on members, engineer/checker approvals (see CRDT collaboration).
+
+10. **Digital twin** — sensor data and model updating after construction or an earthquake (see `beyond_roadmap_opportunities.md` §10).
+
+Order of work: 1–3 first (they remove the largest time sink, catch the errors tests cannot, and are unique), then 4–5.
 
 ## Daily, Weekly, Monthly Priority Lens
 
