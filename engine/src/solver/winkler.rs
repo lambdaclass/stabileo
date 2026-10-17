@@ -102,7 +102,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
     // Constraint reduction
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
     } else {
@@ -146,7 +146,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     let constraint_forces = if let Some(ref fcs) = cs {
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -227,7 +227,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
     // Constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
     let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
     } else {
@@ -270,7 +270,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     let constraint_forces = if let Some(ref fcs) = cs {
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };

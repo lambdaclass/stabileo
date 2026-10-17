@@ -39,7 +39,7 @@ use super::interval::Interval;
 use super::solver::{gather_u_2d, gather_u_3d};
 use super::sparse::certify_lambda_min_lower;
 use crate::linalg::sparse::CscMatrix;
-use crate::solver::constraints::build_constraint_transform;
+use crate::solver::constraints::{build_constraint_transform, inclined_dofs_2d, inclined_dofs_3d};
 use crate::solver::dof::DofNumbering;
 use crate::solver::mass_matrix::{assemble_mass_matrix_2d_sparse, assemble_mass_matrix_3d_sparse};
 use crate::solver::modal::{solve_modal_2d, solve_modal_3d, ModalResult, ModalResult3D};
@@ -134,13 +134,17 @@ pub fn certify_modal_2d(
         None => {
             // The reduced pencil (CᵀKC, CᵀMC) the solver solves, enclosed
             // entrywise; modes read at the independent DOFs.
-            let ct = build_constraint_transform(&input.constraints, &dof_num, Some(&input.nodes), None);
-            let cm = ConstraintMap::from_transform(&ct, nf);
-            let (kr, kv) = reduce_symmetric_enclosed(&k, &cm);
-            let (mr, mv) = reduce_symmetric_enclosed(&m, &cm);
-            let modes_q: Vec<(f64, Vec<f64>)> =
-                modes.iter().map(|(l, p)| (*l, cm.indep_dof.iter().map(|&d| p[d]).collect())).collect();
-            certify_modes_enclosed(&kr, &kv, &mr, &mv, &modes_q)
+            match build_constraint_transform(&input.constraints, &dof_num, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof_num)) {
+                Err(e) => ModalCertificate::uncertified(e),
+                Ok(ct) => {
+                    let cm = ConstraintMap::from_transform(&ct, nf);
+                    let (kr, kv) = reduce_symmetric_enclosed(&k, &cm);
+                    let (mr, mv) = reduce_symmetric_enclosed(&m, &cm);
+                    let modes_q: Vec<(f64, Vec<f64>)> =
+                        modes.iter().map(|(l, p)| (*l, cm.indep_dof.iter().map(|&d| p[d]).collect())).collect();
+                    certify_modes_enclosed(&kr, &kv, &mr, &mv, &modes_q)
+                }
+            }
         }
     };
     Ok(CertifiedModal2D { results, certificate })
@@ -171,13 +175,17 @@ pub fn certify_modal_3d(
         None => {
             // The reduced pencil (CᵀKC, CᵀMC) the solver solves, enclosed
             // entrywise; modes read at the independent DOFs.
-            let ct = build_constraint_transform(&input.constraints, &dof_num, None, Some(&input.nodes));
-            let cm = ConstraintMap::from_transform(&ct, nf);
-            let (kr, kv) = reduce_symmetric_enclosed(&k, &cm);
-            let (mr, mv) = reduce_symmetric_enclosed(&m, &cm);
-            let modes_q: Vec<(f64, Vec<f64>)> =
-                modes.iter().map(|(l, p)| (*l, cm.indep_dof.iter().map(|&d| p[d]).collect())).collect();
-            certify_modes_enclosed(&kr, &kv, &mr, &mv, &modes_q)
+            match build_constraint_transform(&input.constraints, &dof_num, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof_num)) {
+                Err(e) => ModalCertificate::uncertified(e),
+                Ok(ct) => {
+                    let cm = ConstraintMap::from_transform(&ct, nf);
+                    let (kr, kv) = reduce_symmetric_enclosed(&k, &cm);
+                    let (mr, mv) = reduce_symmetric_enclosed(&m, &cm);
+                    let modes_q: Vec<(f64, Vec<f64>)> =
+                        modes.iter().map(|(l, p)| (*l, cm.indep_dof.iter().map(|&d| p[d]).collect())).collect();
+                    certify_modes_enclosed(&kr, &kv, &mr, &mv, &modes_q)
+                }
+            }
         }
     };
     Ok(CertifiedModal3D { results, certificate })

@@ -236,7 +236,19 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     };
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = match FreeConstraintSystem::build_2d(input, &dof_num) {
+        Ok(cs) => cs,
+        Err(reason) => return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
+            is_solvable: false,
+            invalid_input: Some(reason),
+        },
+    };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let k_s = if let Some(ref cs) = cs {
         cs.reduce_matrix(&k_ff)
@@ -671,7 +683,19 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     };
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = match FreeConstraintSystem::build_3d(input, &dof_num) {
+        Ok(cs) => cs,
+        Err(reason) => return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
+            is_solvable: false,
+            invalid_input: Some(reason),
+        },
+    };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let k_s = if let Some(ref cs) = cs {
         cs.reduce_matrix(&k_ff)

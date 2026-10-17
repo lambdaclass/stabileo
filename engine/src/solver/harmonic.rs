@@ -125,7 +125,7 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
     // Assemble K, M, F — sparse first for large models (dense K and M are
     // O(n²) memory and assembly time). Constraints reduce as sparse triple
     // products, so the constrained case stays sparse end to end too.
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     if nf >= super::linear::SPARSE_THRESHOLD {
@@ -284,7 +284,7 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Sparse modal path with sparse mass (avoids the dense n² mass matrix).

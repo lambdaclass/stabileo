@@ -100,7 +100,7 @@ pub fn solve_buckling_2d(
     let n = dof_num.n_total;
 
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
 
     // 5. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD), sparse
     // shift-invert Lanczos in both branches; with constraints, K and -Kg are
@@ -352,7 +352,7 @@ pub fn solve_buckling_3d(
     let n = dof_num.n_total;
 
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
 
     // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
     // Lanczos in both branches; with constraints, K and -Kg are reduced as

@@ -75,7 +75,7 @@ pub fn solve_modal_2d(
     // memory and assembly time. With the sparse constraint transform, the
     // constrained branch no longer needs the dense mass either.
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     let need_dense_mass = nf < SPARSE_THRESHOLD;
     let m_full = if need_dense_mass {
         Some(assemble_mass_matrix_2d(input, &dof_num, densities))
@@ -337,7 +337,7 @@ pub fn solve_modal_3d(
     let sasm = assemble_sparse_3d(input, &dof_num, false);
 
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Mass matrix: sparse CSC (free block). With the sparse constraint

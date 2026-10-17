@@ -35,7 +35,7 @@ use crate::solver::assembly::{
     assemble_2d, assemble_load_vector_2d, assemble_load_vector_3d_dense, assemble_sparse_3d, assemble_stiffness_2d,
     assemble_stiffness_3d, assemble_stiffness_sparse_3d, InclinedTransformData, InclinedTransformData2D,
 };
-use crate::solver::constraints::build_constraint_transform;
+use crate::solver::constraints::{build_constraint_transform, inclined_dofs_2d, inclined_dofs_3d};
 use crate::solver::sparse_assembly::{assemble_load_vector_sparse_3d, assemble_stiffness_sparse_2d};
 use crate::solver::dof::DofNumbering;
 use crate::solver::linear::{expand_curved_beams_3d, solve_2d, solve_3d, SPARSE_THRESHOLD};
@@ -173,10 +173,12 @@ fn certify_constrained_2d(
     if nf == 0 {
         return Certificate::uncertified("constrained model without free DOFs");
     }
-    let cm = ConstraintMap::from_transform(
-        &build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None),
-        nf,
-    );
+    let cm = match build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None,
+        &inclined_dofs_2d(input, dof_num))
+    {
+        Ok(ct) => ConstraintMap::from_transform(&ct, nf),
+        Err(e) => return Certificate::uncertified(e),
+    };
     let sparse_path = nf >= SPARSE_THRESHOLD
         && results.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseCholesky);
     if sparse_path {
@@ -351,10 +353,12 @@ fn certify_general_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> Cer
             Ok(x) => x,
             Err(c) => return c,
         };
-        let cm = ConstraintMap::from_transform(
-            &build_constraint_transform(&input.constraints, &dof_num, None, Some(&input.nodes)),
-            nf,
-        );
+        let cm = match build_constraint_transform(&input.constraints, &dof_num, None, Some(&input.nodes),
+            &inclined_dofs_3d(input, &dof_num))
+        {
+            Ok(ct) => ConstraintMap::from_transform(&ct, nf),
+            Err(e) => return Certificate::uncertified(e),
+        };
         let k = KRef::Sparse { k_ff: &sasm.k_ff, k_full };
         let cert = certify_constrained_system(&k, nf, &sasm.f, &u, &cm);
         return rotate_back(cert, &rots, &u, &u_glob);

@@ -282,7 +282,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Build lookup maps to avoid O(n) linear scans per element
@@ -1225,7 +1225,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Build lookup maps to avoid O(n) linear scans per element

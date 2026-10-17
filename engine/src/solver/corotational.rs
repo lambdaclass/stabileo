@@ -81,7 +81,7 @@ pub fn solve_corotational_2d(
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Get the full external load vector from linear assembly (reference load)
@@ -923,7 +923,7 @@ fn build_final_results(
             }
         }
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+        fcs.constraint_forces(&raw, dof_num)
     } else {
         vec![]
     };
@@ -1154,7 +1154,7 @@ pub fn solve_corotational_3d(
     let left_hand = input.left_hand.unwrap_or(false);
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector from linear assembly
@@ -1868,7 +1868,7 @@ fn build_final_results_3d(
             }
         }
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+        fcs.constraint_forces(&raw, dof_num)
     } else {
         vec![]
     };

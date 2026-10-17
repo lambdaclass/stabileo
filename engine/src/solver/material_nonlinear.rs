@@ -54,7 +54,7 @@ pub fn solve_nonlinear_material_2d(
     let nr = n - nf;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&solver.constraints, &dof_num, &solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Full elastic assembly to obtain the total external load vector.
@@ -330,7 +330,7 @@ pub fn solve_nonlinear_material_2d(
     let constraint_forces = if let Some(ref fcs) = cs {
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -939,7 +939,7 @@ pub fn solve_nonlinear_material_3d(
     let f_total = asm.f.clone();
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_3d(&solver.constraints, &dof_num, &solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
 
     // Prescribed displacements (from settlement supports).
     let mut u_r = vec![0.0; nr];
@@ -1163,7 +1163,7 @@ pub fn solve_nonlinear_material_3d(
     let constraint_forces = if let Some(ref fcs) = cs {
         let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };

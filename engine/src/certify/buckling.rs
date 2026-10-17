@@ -24,7 +24,7 @@ use super::interval::Interval;
 use super::solver::{gather_u_2d, gather_u_3d};
 use super::sparse::certify_lambda_min_lower;
 use crate::linalg::sparse::CscMatrix;
-use crate::solver::constraints::build_constraint_transform;
+use crate::solver::constraints::{build_constraint_transform, inclined_dofs_2d, inclined_dofs_3d};
 use crate::solver::buckling::{
     buckling_system_2d, buckling_system_3d, solve_buckling_2d, solve_buckling_3d, BucklingResult,
     BucklingResult3D,
@@ -82,9 +82,11 @@ pub fn certify_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<Cert
             if input.constraints.is_empty() {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)
             } else {
-                let ct = build_constraint_transform(&input.constraints, &sys.dof_num, Some(&input.nodes), None);
-                let cm = ConstraintMap::from_transform(&ct, sys.dof_num.n_free);
-                certify_constrained_factor(&sys.k_ff, &sys.neg_kg_csc, &cm, mode.load_factor, phi)
+                match build_constraint_transform(&input.constraints, &sys.dof_num, Some(&input.nodes), None, &inclined_dofs_2d(input, &sys.dof_num)) {
+                    Err(e) => BucklingCertificate::uncertified(e),
+                    Ok(ct) => { let cm = ConstraintMap::from_transform(&ct, sys.dof_num.n_free);
+                certify_constrained_factor(&sys.k_ff, &sys.neg_kg_csc, &cm, mode.load_factor, phi) }
+                }
             }
         }
         Err(c) => BucklingCertificate::uncertified(format!("mode shape: {c:?}")),
@@ -103,9 +105,11 @@ pub fn certify_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<Ce
             if input.constraints.is_empty() {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)
             } else {
-                let ct = build_constraint_transform(&input.constraints, &sys.dof_num, None, Some(&input.nodes));
-                let cm = ConstraintMap::from_transform(&ct, sys.dof_num.n_free);
-                certify_constrained_factor(&sys.k_ff, &sys.neg_kg_csc, &cm, mode.load_factor, phi)
+                match build_constraint_transform(&input.constraints, &sys.dof_num, None, Some(&input.nodes), &inclined_dofs_3d(input, &sys.dof_num)) {
+                    Err(e) => BucklingCertificate::uncertified(e),
+                    Ok(ct) => { let cm = ConstraintMap::from_transform(&ct, sys.dof_num.n_free);
+                certify_constrained_factor(&sys.k_ff, &sys.neg_kg_csc, &cm, mode.load_factor, phi) }
+                }
             }
         }
         Err(c) => BucklingCertificate::uncertified(format!("mode shape: {c:?}")),

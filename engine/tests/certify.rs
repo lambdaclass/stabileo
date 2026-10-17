@@ -799,7 +799,7 @@ fn certify_fuzz_oracle() {
 // never rounded — and refined with an f64 LU of CᵀKC as preconditioner.
 
 use dedaliano_engine::solver::assembly::{assemble_2d, assemble_sparse_3d, InclinedTransformData, InclinedTransformData2D};
-use dedaliano_engine::solver::constraints::build_constraint_transform;
+use dedaliano_engine::solver::constraints::{build_constraint_transform, inclined_dofs_2d, inclined_dofs_3d};
 
 struct GenSystem {
     label: String,
@@ -915,7 +915,7 @@ fn gen_2d(label: &str, input: &SolverInput, res: &AnalysisResults) -> GenSystem 
     let (c, c_r, p) = if input.constraints.is_empty() {
         identity_map(nf)
     } else {
-        constraint_map(&build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None), nf)
+        constraint_map(&build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof)).unwrap(), nf)
     };
     GenSystem {
         label: label.into(), k, n, nf, f, c, c_r, p,
@@ -960,7 +960,7 @@ fn gen_3d(label: &str, input: &SolverInput3D, res: &AnalysisResults3D) -> GenSys
     let (c, c_r, p) = if input.constraints.is_empty() {
         identity_map(nf)
     } else {
-        constraint_map(&build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes)), nf)
+        constraint_map(&build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof)).unwrap(), nf)
     };
     GenSystem {
         label: label.into(), k, n, nf, f, c, c_r, p,

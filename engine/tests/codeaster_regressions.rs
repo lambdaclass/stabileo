@@ -81,10 +81,11 @@ fn linear_mpc_on_a_restrained_dof_is_enforced() {
 /// works in the support's rotated frame at that node while the link's
 /// equations are global, so the solve returned displacements that broke the
 /// rigid link (u_s - u_m != theta x r) with no warning (found by
-/// tools/differential/codeaster, aster3d-16). Until the equations are
-/// rotated too, the solver must refuse the model.
+/// tools/differential/codeaster, aster3d-16). The constraint transform is now
+/// built in the support frame: the link and the support both hold (more
+/// cases, and every other analysis, in tests/constraints_inclined_supports.rs).
 #[test]
-fn constraint_on_inclined_support_node_is_refused() {
+fn constraint_on_inclined_support_node_is_enforced() {
     let input: SolverInput3D = serde_json::from_value(json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
                   "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0},
@@ -104,6 +105,20 @@ fn constraint_on_inclined_support_node_is_refused() {
                          "dofs": [0, 1, 2, 3, 4, 5]}]
     }))
     .unwrap();
-    let err = solve_3d(&input).expect_err("constraint on an inclined-support node was solved");
-    assert!(err.contains("inclined"), "unexpected error: {err}");
+    let res = solve_3d(&input).expect("rigid link on an inclined-support node");
+    let d = |id: usize| {
+        let d = res.displacements.iter().find(|d| d.node_id == id).unwrap();
+        [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]
+    };
+    let (m, s) = (d(2), d(3));
+    let r = [0.0, 1.0, 0.5]; // node 3 - node 2
+    let wxr = [m[4] * r[2] - m[5] * r[1], m[5] * r[0] - m[3] * r[2], m[3] * r[1] - m[4] * r[0]];
+    let scale = m.iter().chain(&s).fold(0.0f64, |a, v| a.max(v.abs()));
+    assert!(scale > 1e-9);
+    for k in 0..3 {
+        assert!((s[k] - m[k] - wxr[k]).abs() < 1e-10 * scale, "rigid link translation {k} violated");
+        assert!((s[3 + k] - m[3 + k]).abs() < 1e-10 * scale, "rigid link rotation {k} violated");
+    }
+    let un = 0.6 * m[0] + 0.8 * m[2];
+    assert!(un.abs() < 1e-10 * scale, "inclined support violated: n·u_2 = {un}");
 }

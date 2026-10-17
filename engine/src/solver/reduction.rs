@@ -257,7 +257,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     );
     let f_f_raw: Vec<f64> = f_global[..nf].to_vec();
 
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Constraint reduction stays sparse (C'·K·C triple product, no densification).
@@ -420,7 +420,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     let f_f_raw: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_ff, f_f) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff_raw), cs.reduce_vector(&f_f_raw))
@@ -621,7 +621,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_ff, m_ff) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff_raw), cs.reduce_matrix(&m_ff_raw))
@@ -873,7 +873,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num);
     let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, dof_num, &input.densities);
 
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Constraint reduction stays sparse (C'·K·C and C'·M·C triple products).
@@ -1094,7 +1094,7 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let f_f_raw: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Classify reduced DOFs into boundary and interior
@@ -1276,7 +1276,7 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     let m_csc = super::mass_matrix::assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
 
     // Apply constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Classify reduced DOFs

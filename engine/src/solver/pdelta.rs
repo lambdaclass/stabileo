@@ -224,7 +224,7 @@ pub fn solve_pdelta_2d(input: &SolverInput, max_iter: usize, tolerance: f64) -> 
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     solve_pdelta_2d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
 }
 
@@ -349,7 +349,7 @@ pub fn solve_pdelta_2d_on(
 
     let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
         let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+        cs.constraint_forces(&raw, dof_num)
     });
 
     Ok(PDeltaResult {
@@ -522,7 +522,7 @@ pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -
     let input = &super::linear::expand_curved_beams_3d(input);
     let dof_num = DofNumbering::build_3d(input);
     if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     solve_pdelta_3d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
 }
 
@@ -563,7 +563,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     reactions.sort_by_key(|r| r.node_id);
     let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
         let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+        cs.constraint_forces(&raw, dof_num)
     });
     Ok(PDeltaResult3D {
         results: AnalysisResults3D {
@@ -648,7 +648,7 @@ mod tests {
 
     fn both(input: &SolverInput3D) -> (PDeltaResult3D, PDeltaResult3D) {
         let dof_num = DofNumbering::build_3d(input);
-        let cs = || FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+        let cs = || FreeConstraintSystem::build_3d(input, &dof_num).unwrap();
         (
             solve_pdelta_3d_on(input, &dof_num, cs(), false, 30, 1e-8).unwrap(),
             solve_pdelta_3d_on(input, &dof_num, cs(), true, 30, 1e-8).unwrap(),

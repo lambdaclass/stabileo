@@ -107,7 +107,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     let nf = dof_num.n_free;
 
     // Constraint system (built once before iteration)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -294,7 +294,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -334,7 +334,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // Constraint system (built once before iteration). Use the expanded model:
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
-    let cs = FreeConstraintSystem::build_3d(&expanded_solver.constraints, &dof_num, &expanded_solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&expanded_solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -515,7 +515,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };

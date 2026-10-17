@@ -122,7 +122,7 @@ fn solve_time_history_2d_inner(
 
     // 3b. Constraint reduction: reduce K, M to independent DOF space
     // (sparse triple products — no dense reduced matrices)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs {
         (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))
@@ -1046,7 +1046,7 @@ fn solve_time_history_3d_inner(
     let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, nf, &m_ff);
 
     // 3b. Constraint reduction (sparse triple products — no dense reduced matrices)
-    let cs3 = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
+    let cs3 = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
     let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs3 {
         (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))

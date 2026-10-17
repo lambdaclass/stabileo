@@ -129,7 +129,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -338,7 +338,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -376,7 +376,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs_dc = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs_dc = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -572,7 +572,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };

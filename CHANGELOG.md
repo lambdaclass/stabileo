@@ -11,6 +11,38 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Constraints on inclined-support nodes are built in the support frames (2026-10-17)
+
+**BREAKING (results): models with a constraint (rigid link, diaphragm, equal DOF,
+eccentric connection, linear MPC) on a node with an inclined support, and models whose
+constraint slave sits on a support, solve differently in every analysis.**
+
+- **Constraints at inclined supports.** At an inclined-support node the DOF slots hold
+  the support frame's rotated components (every analysis assembles K, M, Kg and loads
+  there), while constraint equations are written in global components. The constraint
+  transform was built over the slots as if they were global, so the solve enforced the
+  wrong equations and the results violated the constraint with no warning (found by the
+  Code_Aster differential, aster3d-16; #296 made the linear static solvers refuse such
+  models). `build_constraint_transform` now takes the inclined frames
+  (`inclined_dofs_2d/3d`) and rewrites the equations there; `FreeConstraintSystem`
+  is built from the model, so every analysis and the linear, modal and buckling
+  certificates use the same transform. Constraint forces at an inclined node are reported
+  in global components. #296's refusal is replaced by the fix.
+- **A constraint whose slave is held by a support is enforced.** Its equation's dependent
+  DOF is now chosen among the free DOFs after substituting the existing dependencies, so
+  a rigid link whose slave sits on a support makes the support restrain the master.
+  Eliminating the restrained slave instead dropped the equation: the support won and the
+  results broke the constraint, with only an `OverConstrainedDof` warning (still issued).
+- Every equation touching an inclined node or a restrained slave is verified against the
+  built transform; a conflict there (e.g. two rigid links on the same slave, which
+  elsewhere is "last one wins") is refused.
+- Tests: `tests/constraints_inclined_supports.rs`, every constraint type in 2D and 3D
+  (dense and sparse paths) against the support modelled as a linear MPC and against the
+  rigidly turned model, and every analysis that takes constraints. Modal, buckling,
+  harmonic, spectral 2D, Craig–Bampton, time history, fiber, SSI, contact and arc length
+  are ignored until #287 (they mis-handle inclined supports with or without constraints);
+  all pass with it merged.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

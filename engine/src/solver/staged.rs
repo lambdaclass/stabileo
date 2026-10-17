@@ -66,7 +66,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     let nr = n - nf;
 
     // Build constraint system once (shared across all stages)
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&full_solver_input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Track cumulative state
@@ -1279,7 +1279,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let nr = n - nf;
 
     // Build constraint system once (shared across all stages)
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&full_input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Track cumulative state
