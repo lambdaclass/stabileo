@@ -15,6 +15,9 @@
 //!   Ag = 4.19e-3 m²   Sx = 4.75e-4 m³   Zx = 5.44e-4 m³   rx = 0.1407 m
 //!   Iy = 2.91e-6 m⁴   Sy = 4.59e-5 m³   Zy = 7.19e-5 m³   ry = 0.02642 m
 //!   J  = 8.66e-8 m⁴   Cw = 8.43e-8 m⁶   d  = 0.348 m
+//!   bf = 0.127 m, tf = 8.509e-3 m, tw = 5.842e-3 m, h/tw = 53.3 (Manual
+//!   Table 1-1: W14x22 is footnoted "slender for compression" at Fy = 50 ksi).
+//!   Loads at the shear centre, as the F2 hand values below assume.
 //!
 //! Derived once and reused below:
 //!   Lp   = 1.76·ry·sqrt(E/Fy)  = 1.76·0.02642·24.0772       = 1.11957 m
@@ -58,6 +61,12 @@ fn w14x22_data(eid: usize, lby: f64, lbz: f64) -> SteelMemberData {
         e: 200e9,
         g: Some(77e9),
         depth: Some(0.348),
+        flange_slenderness: None,
+        compression_elements: Some(vec![
+            AiscElement { kind: AiscElementKind::RolledFlange, b: 0.127 / 2.0, t: 8.509e-3, count: Some(4.0), kc: None },
+            AiscElement { kind: AiscElementKind::Web, b: 53.3 * 5.842e-3, t: 5.842e-3, count: None, kc: None },
+        ]),
+        load_position: Some(AiscLoadPosition::ShearCentre),
     }
 }
 
@@ -101,19 +110,64 @@ fn steel_elastic_buckling_capacity() {
     close(r.compression_ratio, 150e3 / 182_268.4, "compression ratio");
 }
 
-/// E3, inelastic flexural buckling at Lb = 1 m.
+/// E3 + E7, inelastic flexural buckling at Lb = 1 m, slender web.
 ///   KL/r = max(1/0.1407, 1/0.02642) = 37.850  <  113.40, so E3-2 applies
 ///   Fe   = pi²E/(KL/r)² = 1.97392e12/1_432.62 = 1_377.84 MPa
 ///   Fcr  = 0.658^(Fy/Fe)·Fy = 0.658^0.250392·345e6
-///        = 0.900468·345e6                     = 310.66 MPa
-///   phi·Pn = 0.90·310.66e6·4.19e-3            = 1_171_504 N
+///        = 0.900502·345e6                     = 310.673 MPa
+///   E7.1, web (Table E7.1 case (a): c1 = 0.18, c2 = 1.31):
+///     λr = 1.49·sqrt(E/Fy) = 35.875; λr·sqrt(Fy/Fcr) = 37.805 < h/tw = 53.3: slender
+///     Fel = (c2·λr/λ)²·Fy = (1.31·35.875/53.3)²·345e6  = 268.220 MPa   (E7-5)
+///     sqrt(Fel/Fcr) = 0.929166
+///     be  = h·(1 − 0.18·0.929166)·0.929166 = 0.773763·h                (E7-3)
+///     Ae  = Ag − (h − be)·tw = 4.19e-3 − 0.226237·0.311379·5.842e-3
+///         = 4.19e-3 − 4.1154e-4                = 3.77846e-3 m²
+///   Flanges: λr·sqrt(Fy/Fcr) = 0.56·24.077·1.0538 = 14.21 > bf/2tf = 7.46.
+///   phi·Pn = 0.90·310.673e6·3.77846e-3       = 1_056_480 N
+///   (E3 alone, Ae = Ag: 1_171_517 N — 10.9 % unconservative for this shape.)
 #[test]
 fn steel_inelastic_buckling_capacity() {
     let r = run(1.0, ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, vy: None });
 
-    close(r.phi_pn_compression, 1_171_504.5, "phi·Pn compression (inelastic)");
-    // Stocky: within 10 % of the squash load 0.9·Fy·Ag = 1_300_995 N.
-    assert!(r.phi_pn_compression > 0.89 * 1_300_995.0);
+    close(r.phi_pn_compression, 1_056_479.7, "phi·Pn compression (inelastic, E7)");
+    close(r.ae.unwrap(), 3.778459e-3, "Ae (E7)");
+}
+
+/// E7 needs the elements: without them the compression check is refused,
+/// not evaluated with Ae = Ag.
+#[test]
+fn steel_compression_refused_without_elements() {
+    let mut m = w14x22_data(1, 1.0, 1.0);
+    m.compression_elements = None;
+    let r = check_steel_members(&SteelCheckInput {
+        members: vec![m],
+        forces: vec![ElementDesignForces { element_id: 1, n: -800e3, my: 0.0, mz: None, vy: None }],
+    })
+    .remove(0);
+    assert!(r.unevaluated.iter().any(|u| u.contains("E7")), "{:?}", r.unevaluated);
+    assert!(r.governing_check.contains("incomplete"));
+}
+
+/// A load on the top flange lowers the elastic critical moment: Cb·1.4^(2y/h)
+/// with y = −h/2, i.e. Cb/1.4 (Helwig, Frank & Yura 1997). The default when
+/// the position is not given. At Lb = 4 m (elastic, F2-3) Fcr scales with
+/// Cb: phi·Mn = 70_448.2/1.4 = 50_320.1 N·m. Bottom flange: Cb as given
+/// (the stabilising effect is not credited).
+#[test]
+fn steel_top_flange_load_lowers_ltb() {
+    let at = |pos: Option<AiscLoadPosition>| {
+        let mut m = w14x22_data(1, 4.0, 4.0);
+        m.load_position = pos;
+        check_steel_members(&SteelCheckInput {
+            members: vec![m],
+            forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 50e3, mz: None, vy: None }],
+        })
+        .remove(0)
+        .phi_mn_y
+    };
+    close(at(Some(AiscLoadPosition::TopFlange)), 70_448.2 / 1.4, "top flange");
+    close(at(None), 70_448.2 / 1.4, "default = top flange");
+    close(at(Some(AiscLoadPosition::BottomFlange)), 70_448.2, "bottom flange");
 }
 
 /// F2-2, inelastic lateral-torsional buckling at Lb = 2 m (Lp < Lb < Lr).

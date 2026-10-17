@@ -516,10 +516,15 @@ const GOLDEN_BUCKLING_3D: [f64; 4] = [
     // accuracy claim. It fires on any reordering of floating-point work, which
     // is precisely its job; when it fires, check against the closed form above
     // before recapturing.
-    4.934802201521506e0,
-    9.869604397670097e0,
-    4.441322215148967e1,
-    8.882644430636768e1,
+    //
+    // Recaptured a third time when buckling started reading each member's
+    // axial force from its elongation (EA·δ/L, the exact mean of N) instead of
+    // (N_start + N_end)/2 of the recovered end forces: mode 0 moved 1.9e-10,
+    // now 1.1e-11 from the closed form (mode 1: 1.1e-10).
+    4.934802200597014e0,
+    9.86960440216402e0,
+    4.441322215041605e1,
+    8.882644430536759e1,
 ];
 
 #[test]

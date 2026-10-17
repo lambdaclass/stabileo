@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::limits;
 use crate::error::AppError;
 use crate::providers::traits::{AiRequest, AiResponse, Provider};
 
@@ -40,11 +41,23 @@ pub async fn explain_diagnostic(
     req: ExplainDiagnosticRequest,
     request_id: String,
 ) -> Result<ExplainDiagnosticResponse, AppError> {
-    let locale = req.locale.as_deref().unwrap_or("en");
+    if let Some(msg) = &req.message {
+        limits::check_text("message", msg)?;
+    }
+    if let Some(ctx) = &req.context {
+        limits::check_text("context", ctx)?;
+    }
+    limits::check_list_len("elementIds", req.element_ids.len(), limits::MAX_LIST_LEN)?;
+    limits::check_list_len("nodeIds", req.node_ids.len(), limits::MAX_LIST_LEN)?;
+    let locale = limits::sanitize_locale(req.locale.as_deref());
 
     let system_prompt = build_system_prompt(locale);
 
-    let mut details = format!("Diagnostic code: {}\nSeverity: {}", req.code, req.severity);
+    let mut details = format!(
+        "Diagnostic code: {}\nSeverity: {}",
+        limits::prompt_label(&req.code),
+        limits::prompt_label(&req.severity)
+    );
     if let Some(msg) = &req.message {
         details.push_str(&format!("\nMessage: {msg}"));
     }

@@ -248,7 +248,7 @@ function serviceabilityRows(
   const rows = verifications.map((v) => {
     const Ms = v.Mu / 1.4;
     const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
-      ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
+      ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount, v.fc)
       : undefined;
     return {
       elementId: v.elementId,

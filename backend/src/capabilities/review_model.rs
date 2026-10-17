@@ -1,6 +1,7 @@
 use dedaliano_engine::types::SolverRunArtifact;
 use serde::{Deserialize, Serialize};
 
+use super::limits;
 use crate::error::AppError;
 use crate::providers::traits::{AiRequest, AiResponse, Provider};
 
@@ -53,7 +54,10 @@ pub async fn review_model(
     let artifact_json = serde_json::to_string_pretty(&req.artifact)
         .map_err(|e| AppError::Internal(format!("serialize artifact: {e}")))?;
 
-    let locale = req.locale.as_deref().unwrap_or("en");
+    if let Some(ctx) = &req.context {
+        limits::check_text("context", ctx)?;
+    }
+    let locale = limits::sanitize_locale(req.locale.as_deref());
 
     let system_prompt = build_system_prompt(locale);
 
@@ -62,6 +66,8 @@ pub async fn review_model(
     } else {
         format!("## Solver Run Artifact\n\n```json\n{artifact_json}\n```")
     };
+
+    limits::check_prompt_size(&system_prompt, &user_message)?;
 
     let ai_req = AiRequest {
         system_prompt,

@@ -22,11 +22,12 @@
 
 import { PROFILE_FAMILIES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../../data/steel-profiles';
 import { checkSteelMember, steelGoverningRatio, type SteelMemberDemand, type SteelSegmentDiagram } from '../verification-service';
+import type { MemberEnd } from './tension-connection';
 
 export interface OptimiseMember {
   elementId: number;
   demand: SteelMemberDemand;
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean };
+  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean; tensionEnds?: readonly MemberEnd[] };
   /** The unbraced-segment diagram Cb reads, when the member is a chain. See `checkSteelMember`. */
   segment?: SteelSegmentDiagram;
 }

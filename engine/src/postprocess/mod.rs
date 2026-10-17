@@ -7,6 +7,7 @@ pub mod section_stress;
 pub mod section_stress_3d;
 pub mod steel_check;
 pub mod rc_check;
+pub mod rc_flexure;
 pub mod timber_check;
 pub mod serviceability;
 pub mod connection_check;

@@ -38,13 +38,20 @@ const IPE200 = (over: Partial<SteelDesignParams> = {}): SteelDesignParams => ({
   Iy: 142e-8,    // weak
   h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085,
   L: 4, Lb: 4,
-  J: 0,
+  // IPE 200: J = 6,98 cm⁴. It was 0, which F.2.4c cannot take: X1 = 0 and the LTB check is
+  // now refused (NOT EVALUATED) rather than run on a zero torsional constant.
+  J: 6.98e-8,
+  // F.2.2 (1), the expressions this file's LTB assertions were written against.
+  loadPosition: 'web',
   ...over,
 });
 
 describe('§D — tension', () => {
+  /** Welded through every element, no holes: D.3(1), Ae = An = Ag. */
+  const all = { tensionConnection: { allElementsConnected: true } };
+
   it('yields on the gross section at φ = 0.90', () => {
-    const p = IPE200();
+    const p = IPE200(all);
     const expected = 0.9 * (p.Fy * p.A * 1e6) / 1000;   // kN
     expect(expected).toBeCloseTo(602.775, 3);
     expect(checkSteelTension(p, 100).phiPn).toBeCloseTo(expected, 6);
@@ -52,23 +59,58 @@ describe('§D — tension', () => {
 
   it('and takes the lower of yielding and rupture', () => {
     /*
-     * D2 is the lesser of φ=0.90·Fy·Ag and φ=0.75·Fu·Ae. This checker takes Ae = Ag — no hole
-     * deduction, itself worth knowing — so rupture governs when Fu/Fy < 1.2.
+     * D2 is the lesser of φ=0.90·Fy·Ag and φ=0.75·Fu·Ae; with Ae = Ag (D.3(1), no holes) rupture
+     * governs when Fu/Fy < 1.2.
      */
-    const yieldGoverns = checkSteelTension(IPE200({ Fu: 500 }), 100);
-    const ruptureGoverns = checkSteelTension(IPE200({ Fu: 250 }), 100);
+    const yieldGoverns = checkSteelTension(IPE200({ Fu: 500, ...all }), 100);
+    const ruptureGoverns = checkSteelTension(IPE200({ Fu: 250, ...all }), 100);
     expect(yieldGoverns.phiPn).toBeCloseTo(602.775, 3);
     expect(ruptureGoverns.phiPn).toBeCloseTo(0.75 * (250 * 28.5e-4 * 1e6) / 1000, 6);
     expect(ruptureGoverns.phiPn).toBeLessThan(yieldGoverns.phiPn);
   });
 
   it('reports the ratio against the demand, and fails past it', () => {
-    const ok = checkSteelTension(IPE200(), 300);
+    const ok = checkSteelTension(IPE200(all), 300);
     expect(ok.ratio).toBeCloseTo(300 / ok.phiPn, 9);
     expect(ok.status).toBe('ok');
-    const over = checkSteelTension(IPE200(), 900);
+    const over = checkSteelTension(IPE200(all), 900);
     expect(over.ratio).toBeGreaterThan(1);
     expect(over.status).toBe('fail');
+  });
+
+  it('without the end connection, rupture is NOT EVALUATED — never Ae = Ag by default', () => {
+    const r = checkSteelTension(IPE200(), 100);
+    expect(r.notEvaluated).toBeTruthy();
+    expect(r.status).toBe('fail');
+    expect(r.ratio).toBe(Infinity);
+  });
+
+  /*
+   * D.3 and B.4.2.2 by hand, IPE 200 (Ag = 28,5 cm², Fy = 235, Fu = 360 as the fixture), bolted
+   * through the flanges only: 4 holes of 13 mm nominal (Tabla J.3.3 for M12) in the 8,5 mm
+   * flanges → An = 2850 − 4·(13 + 2)·8,5 = 2340 mm² (the 2 mm of B.4.2.2); x̄ = 25 mm,
+   * L = 150 mm → U = 1 − 25/150 = 0,833 (D.3.2) → Ae = An·U = 1950 mm² (D.3.1);
+   * φPn = 0,75·360·1950·10⁻³ = 526,5 kN < 602,8 kN yielding. With x̄/L = 0,05, U is capped at
+   * 0,9; with A unida/Ag = 0,9 (both flanges of an IPE 200) U is raised to it.
+   */
+  it('An with the 2 mm of B.4.2.2, and U = 1 − x̄/L ≤ 0,9 (D.3.1, D.3.2)', () => {
+    const bolted = (xBar: number, length: number, connectedArea?: number) => IPE200({
+      tensionConnection: { holes: { count: 4, d: 0.013, t: 0.0085 }, xBar, length, ...(connectedArea ? { connectedArea } : {}) },
+    });
+    const r = checkSteelTension(bolted(0.025, 0.15), 100);
+    expect(r.notEvaluated).toBeUndefined();
+    expect(r.phiPn).toBeCloseTo(0.75 * 360 * (2850 - 4 * 15 * 8.5) * (1 - 25 / 150) / 1000, 6);
+    expect(r.phiPn).toBeCloseTo(526.5, 1);
+    expect(checkSteelTension(bolted(0.005, 0.1), 100).phiPn).toBeCloseTo(0.75 * 360 * 2340 * 0.9 / 1000, 6);
+    expect(checkSteelTension(bolted(0.06, 0.1, 0.9 * 28.5e-4), 100).phiPn).toBeCloseTo(0.75 * 360 * 2340 * 0.9 / 1000, 6);
+  });
+
+  it('a plate welded along both edges takes U from L/w (D.3.5), and L < w is refused', () => {
+    const plate = (L: number) => IPE200({ tensionConnection: { plateWeld: { L, w: 0.1 } } });
+    expect(checkSteelTension(plate(0.2), 1).phiPn).toBeCloseTo(Math.min(602.775, 0.75 * 360 * 2850 / 1000), 6);
+    expect(checkSteelTension(plate(0.16), 1).phiPn).toBeCloseTo(Math.min(602.775, 0.75 * 360 * 2850 * 0.87 / 1000), 6);
+    expect(checkSteelTension(plate(0.12), 1).phiPn).toBeCloseTo(0.75 * 360 * 2850 * 0.75 / 1000, 6);
+    expect(checkSteelTension(plate(0.08), 1).notEvaluated).toBeTruthy();
   });
 });
 

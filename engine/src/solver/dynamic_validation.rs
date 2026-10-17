@@ -59,5 +59,12 @@ pub(crate) fn validate_time_params(time_step: f64, n_steps: usize) -> Result<(),
     if n_steps == 0 {
         return Err("n_steps must be >= 1".to_string());
     }
+    if n_steps > MAX_TIME_STEPS {
+        return Err(format!("n_steps must be <= {} (got {})", MAX_TIME_STEPS, n_steps));
+    }
     Ok(())
 }
+
+/// Most time steps one time-history run may take. The count comes from the
+/// model and sizes the stored response history (steps × DOFs).
+pub const MAX_TIME_STEPS: usize = 200_000;

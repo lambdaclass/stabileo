@@ -13,13 +13,13 @@ import { ec3Class, ec3Curves } from '../ec3-classify';
 import { steelProps } from '../steel-props';
 import { steelSectionConstants } from '../../../steel/section-constants';
 
-const IPE300 = { name: 'IPE 300', a: 53.8e-4, iy: 8356e-8, iz: 603.8e-8, h: 0.3, b: 0.15, tw: 0.0071, tf: 0.0107, j: 20.1e-8, shape: 'I' as const };
+const IPE300 = { name: 'IPE 300', profileFamily: 'IPE', a: 53.8e-4, iy: 8356e-8, iz: 603.8e-8, h: 0.3, b: 0.15, tw: 0.0071, tf: 0.0107, j: 20.1e-8, shape: 'I' as const };
 const E = 200_000, FY = 235, L = 4, P = 300;
 
-function column() {
+function column(section: object = IPE300, fy = FY) {
   modelStore.clear();
-  const mat = modelStore.addMaterial({ name: 'S235', e: E, nu: 0.3, rho: 78.5, fy: FY, fu: 360 } as never);
-  const sec = modelStore.addSection(IPE300 as never);
+  const mat = modelStore.addMaterial({ name: 'S', e: E, nu: 0.3, rho: 78.5, fy, fu: 1.5 * fy } as never);
+  const sec = modelStore.addSection(section as never);
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, L);
   const el = modelStore.addElement(a, b, 'frame');
   modelStore.updateElementMaterial(el, mat);
@@ -77,7 +77,9 @@ describe('steel members under other codes', () => {
   it('EN 1993-1-1: the same column reads NEd/Nb,Rd with χ from curve b', () => {
     const p = steelProps(IPE300 as never);
     if ('skip' in p) throw new Error('props');
-    expect(ec3Curves(p)).toEqual({ y: 'a', z: 'b' });
+    expect(ec3Curves(p, true)).toEqual({ y: 'a', z: 'b' });
+    // The same plates not picked from a rolled catalogue are taken as welded, Table 6.2.
+    expect(ec3Curves(p, false)).toEqual({ y: 'b', z: 'c' });
     const run = runOtherCode(EC3, column());
     const row = run.rows[0]!;
     expect(row.status).toBe('checked');
@@ -90,7 +92,7 @@ describe('steel members under other codes', () => {
     if (row.status === 'checked') expect(row.reading.ratio / (P / NbRd)).toBeCloseTo(1, 3);
   });
 
-  it('AISC 360: an unbraced beam reads Mu/φMn with F2-4 lateral-torsional buckling, Cb = 1', () => {
+  it('AISC 360: an unbraced beam reads Mu/φMn with F2-4 lateral-torsional buckling, Cb = 1 with the load on the top flange (Cb/1,4)', () => {
     const L = 8, q = 10;
     const row = runOtherCode(AISC360, beam(L, q)).rows[0]!;
     expect(row.status).toBe('checked');
@@ -104,7 +106,9 @@ describe('steel members under other codes', () => {
     const Lp = 1.76 * p.rz * Math.sqrt(Es / Fy);
     const Lr = 1.95 * rts * (Es / (0.7 * Fy)) * Math.sqrt(jc + Math.sqrt(jc * jc + 6.76 * (0.7 * Fy / Es) ** 2));
     expect(L).toBeGreaterThan(Lr);
-    const Fcr = (Math.PI ** 2 * Es) / (L / rts) ** 2 * Math.sqrt(1 + 0.078 * jc * (L / rts) ** 2);
+    // The app does not know where the load acts: top flange, Cb·1,4^(2y/h) = 1/1,4 (Helwig et al. 1997).
+    const Cb = 1 / 1.4;
+    const Fcr = (Cb * Math.PI ** 2 * Es) / (L / rts) ** 2 * Math.sqrt(1 + 0.078 * jc * (L / rts) ** 2);
     const phiMn = 0.9 * Math.min(Fcr * p.Sy, Fy * p.Zy) / 1e3; // kN·m
     expect(Lp).toBeLessThan(L);
     if (row.status === 'checked') {
@@ -113,19 +117,65 @@ describe('steel members under other codes', () => {
     }
   });
 
-  it('EN 1993-1-1: the same beam reads MEd/Mb,Rd with Mcr for C1 = 1 and χLT from curve a', () => {
+  it('EN 1993-1-1: the same beam reads MEd/Mb,Rd with Mcr for C1 = C2 = 1, load on the top flange, χLT from curve a', () => {
     const L = 8, q = 10;
     const row = runOtherCode(EC3, beam(L, q)).rows[0]!;
+    expect(row.status).toBe('checked');
     const p = steelProps(IPE300 as never);
     if ('skip' in p) throw new Error('props');
     const Es = E * 1e6, G = Es / 2.6, Fy = FY * 1e6;
     const Iw = (IPE300.iz * (IPE300.h - IPE300.tf) ** 2) / 4, It = steelSectionConstants(IPE300 as never).J;
-    const Mcr = ((Math.PI ** 2 * Es * IPE300.iz) / L ** 2) * Math.sqrt(Iw / IPE300.iz + (L * L * G * It) / (Math.PI ** 2 * Es * IPE300.iz));
+    // NCCI SN003b eq. (2): the app does not know where the load acts, so zg = h/2 (top flange).
+    const c2zg = IPE300.h / 2;
+    const Mcr = ((Math.PI ** 2 * Es * IPE300.iz) / L ** 2)
+      * (Math.sqrt(Iw / IPE300.iz + (L * L * G * It) / (Math.PI ** 2 * Es * IPE300.iz) + c2zg ** 2) - c2zg);
     const lam = Math.sqrt((p.Zy * Fy) / Mcr);
     const phi = 0.5 * (1 + 0.21 * (lam - 0.2) + lam * lam);
     const chi = Math.min(1, 1 / (phi + Math.sqrt(phi * phi - lam * lam)));
     const MbRd = (chi * p.Zy * Fy) / 1e3;
     if (row.status === 'checked') expect(row.reading.ratio / (((q * L * L) / 8) / MbRd)).toBeCloseTo(1, 3);
+  });
+
+  it('EN 1993-1-1: a Class 4 welded I column reads NEd/(χ·Aeff·fy), Aeff by EN 1993-1-5 4.4', () => {
+    // 600×300×12×6, S355: flange c/t = 12,25 > 14ε, web c/t = 96 > 42ε.
+    const h = 0.6, b = 0.3, tf = 0.012, tw = 0.006, fy = 355;
+    const a = 2 * b * tf + (h - 2 * tf) * tw;
+    const iy = (b * h ** 3 - (b - tw) * (h - 2 * tf) ** 3) / 12;
+    const iz = (2 * tf * b ** 3) / 12 + ((h - 2 * tf) * tw ** 3) / 12;
+    const sec = { name: 'welded 600', shape: 'I', a, iy, iz, h, b, tw, tf, j: (2 * b * tf ** 3 + (h - 2 * tf) * tw ** 3) / 3 };
+    const p = steelProps(sec as never);
+    if ('skip' in p) throw new Error('props');
+    expect(ec3Class(p, fy, true)).toBe(4);
+    const row = runOtherCode(EC3, column(sec, fy)).rows[0]!;
+    expect(row.status).toBe('checked');
+    // ρ from λp = √(fy/σcr), σcr = kσ·π²E/(12(1−ν²))·(t/c)², E = 200 GPa as the material states.
+    const lp = (c: number, t: number, k: number) => Math.sqrt(fy / ((k * Math.PI ** 2 * E) / (12 * 0.91) * (t / c) ** 2));
+    const lf = lp((b - tw) / 2, tf, 0.43), lw = lp(h - 2 * tf, tw, 4);
+    const rf = lf > 0.748 ? (lf - 0.188) / lf ** 2 : 1, rw = lw > 0.673 ? (lw - 0.22) / lw ** 2 : 1;
+    const aEff = a - 4 * (1 - rf) * ((b - tw) / 2) * tf - (1 - rw) * (h - 2 * tf) * tw;
+    expect(aEff / a).toBeLessThan(0.8);
+    const lam = Math.sqrt((aEff * fy) / ((Math.PI ** 2 * E * iz) / L ** 2));
+    const phi = 0.5 * (1 + 0.49 * (lam - 0.2) + lam * lam); // welded I, tf ≤ 40, z-z: curve c
+    const chi = 1 / (phi + Math.sqrt(phi * phi - lam * lam));
+    if (row.status === 'checked') expect(row.reading.ratio / (P / (chi * aEff * fy * 1e3))).toBeCloseTo(1, 3);
+  });
+
+  it('AISC 360: a welded I column with a slender web is reduced by E7, not checked as E3 alone', () => {
+    const h = 0.6, b = 0.3, tf = 0.012, tw = 0.006, fy = 355;
+    const a = 2 * b * tf + (h - 2 * tf) * tw;
+    const iy = (b * h ** 3 - (b - tw) * (h - 2 * tf) ** 3) / 12;
+    const iz = (2 * tf * b ** 3) / 12 + ((h - 2 * tf) * tw ** 3) / 12;
+    const sec = { name: 'welded 600', shape: 'I', a, iy, iz, h, b, tw, tf, j: (2 * b * tf ** 3 + (h - 2 * tf) * tw ** 3) / 3 };
+    const row = runOtherCode(AISC360, column(sec, fy)).rows[0]!;
+    expect(row.status).toBe('checked');
+    const rz = Math.sqrt(iz / a), Fe = (Math.PI ** 2 * E) / (L / rz) ** 2;
+    const Fcr = fy / Fe <= 2.25 ? 0.658 ** (fy / Fe) * fy : 0.877 * Fe;
+    const e3Only = P / (0.9 * Fcr * 1e3 * a);
+    if (row.status === 'checked') {
+      expect(row.reading.unevaluated).toEqual([]);
+      // h/tw = 96 against λr·√(Fy/Fcr) ≈ 36: the web loses a large part of its width.
+      expect(row.reading.ratio).toBeGreaterThan(1.15 * e3Only);
+    }
   });
 
   it('names what AISC 360 requires and the checker leaves out', () => {

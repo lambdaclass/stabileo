@@ -190,11 +190,52 @@ export function nominalTensionMPa(grade: BoltGrade): number {
  *
  * «la distancia libre, en la dirección de la fuerza, entre el borde del agujero y el borde del
  * agujero adyacente o el borde del material». For the end bolt that is the edge distance less
- * half a hole; the interior bolts get the spacing less a whole hole, which is larger whenever
- * the spacing rule is met, so the end bolt governs and is what this returns.
+ * half a hole, which is what this returns; the interior bolts get the spacing less a whole hole
+ * (`boltGroupBearing`). Neither governs in general: a generous edge distance makes the interior
+ * bolts the weaker ones.
  */
 export function clearDistanceCm(edgeDistanceMm: number, holeDiameterMm: number): number {
   return Math.max(0, (edgeDistanceMm - holeDiameterMm / 2) / 10);
+}
+
+/**
+ * §J.3.10 for a whole group, per bolt — nominal values, kN, before φ.
+ *
+ * `Lc` differs between bolts: the END bolt of each row has `Lc = e − dh/2`, every other bolt
+ * `Lc = s − dh`. Taking the end bolt's for all of them, as this did, is unconservative whenever
+ * `e − dh/2 > s − dh` — routinely, since at the minimum `s = 3d` an interior bolt can never
+ * reach the `2,4 d t Fu` cap (1,2·(3d − dh) < 2,4 d), while a generous edge distance does.
+ *
+ * And the group is summed as the clause says — «la resistencia efectiva de un bulón será la
+ * menor entre la resistencia al corte … o la resistencia al aplastamiento …; para la unión, la
+ * suma» — so `effectiveKN` is Σ min(shear, bearing) over the bolts, which is below the smaller
+ * of the two group totals whenever bearing governs some bolts and shear others.
+ *
+ * `rows` are the lines of bolts parallel to the force; each has one end bolt.
+ */
+export function boltGroupBearing(g: {
+  diameterMm: number; holeMm: number; thicknessMm: number; fuMPa: number;
+  edgeDistanceMm: number; spacingMm: number; count: number; rows: number;
+  deformationConsidered: boolean;
+  /** Nominal shear strength of one bolt, all planes, kN; null when Fnv is not tabulated. */
+  shearPerBoltKN: number | null;
+}): { endKN: number; interiorKN: number; bearingKN: number; effectiveKN: number } {
+  const tCm = g.thicknessMm / 10;
+  const dCm = g.diameterMm / 10;
+  const [a, b] = g.deformationConsidered ? [1.2, 2.4] : [1.5, 3.0];
+  const rn = (lcCm: number) => Math.min(a * lcCm * tCm * g.fuMPa * 0.1, b * dCm * tCm * g.fuMPa * 0.1);
+  const endKN = rn(clearDistanceCm(g.edgeDistanceMm, g.holeMm));
+  const interiorKN = rn(Math.max(0, (g.spacingMm - g.holeMm) / 10));
+  const ends = Math.min(g.count, Math.max(1, Math.round(g.rows)));
+  const inner = g.count - ends;
+  const v = g.shearPerBoltKN ?? Infinity;
+  return {
+    endKN, interiorKN,
+    bearingKN: ends * endKN + inner * interiorKN,
+    effectiveKN: g.shearPerBoltKN === null
+      ? ends * endKN + inner * interiorKN
+      : ends * Math.min(v, endKN) + inner * Math.min(v, interiorKN),
+  };
 }
 
 export function designBoltedJoint(
@@ -269,7 +310,13 @@ export function designBoltedJoint(
   // ── §J.3.7 combined ─────────────────────────────────────────────
   if (fnv !== null && demand.shearKN !== undefined && demand.tensionKN !== undefined) {
     const fnt = nominalTensionMPa(layout.grade);
-    const frv = demand.shearKN / (PHI * ab * 0.1 * planes * layout.count);
+    /*
+     * `frv` is the REQUIRED shear stress, `V / (Ab · planes · n)`, with no φ in it: the φ of
+     * eq. J.3.3 sits under `Fnv` only. Tabla J.3.6 spells the result out — «806 – 2,5 fv» for an
+     * A325 with threads included is 1,3·620 − 620/(0,75·330)·fv — and an extra φ here put the
+     * reduced tension 20–40 % below the table at moderate shear.
+     */
+    const frv = demand.shearKN / (ab * 0.1 * planes * layout.count);
     /*
      * `F'nt = 1,3 Fnt − (Fnt / φ Fnv) frv ≤ Fnt` — the reduced tension strength. Both the
      * expression and the cap come from §J.3.7; the cap matters, because at low shear the
@@ -310,13 +357,15 @@ export function designBoltedJoint(
   } else if (demand.shearKN === undefined) {
     checks.push(none('bearing', 'J.3.10', ['bolted.missing.shearDemand']));
   } else {
-    const tCm = plate.thicknessMm / 10;
-    const dCm = layout.diameterMm / 10;
-    const lc = clearDistanceCm(layout.edgeDistanceMm, hole);
+    const group = boltGroupBearing({
+      diameterMm: layout.diameterMm, holeMm: hole, thicknessMm: plate.thicknessMm, fuMPa: plate.fuMPa,
+      edgeDistanceMm: layout.edgeDistanceMm, spacingMm: layout.spacingMm,
+      count: layout.count, rows: layout.rows,
+      deformationConsidered: layout.deformationConsidered ?? true,
+      shearPerBoltKN: fnv === null ? null : fnv * ab * 0.1 * planes,
+    });
     const deformed = layout.deformationConsidered ?? true;
-    const [a, b] = deformed ? [1.2, 2.4] : [1.5, 3.0];
-    const perBolt = Math.min(a * lc * tCm * plate.fuMPa * 0.1, b * dCm * tCm * plate.fuMPa * 0.1);
-    const cap = PHI * perBolt * layout.count;
+    const cap = PHI * group.effectiveKN;
     checks.push({
       id: 'bearing', state: demand.shearKN <= cap ? 'adequate' : 'exceeded',
       clause: 'J.3.10', capacityKN: cap, demandKN: demand.shearKN,

@@ -1,0 +1,38 @@
+# cargo-mutants configuration (https://mutants.rs).
+#
+# Excluded: heuristics that only choose where to look (the λ_min estimate,
+# its start vector and normalization). Soundness never depends on them — a
+# bad estimate only makes a certificate fail, never wrong — so mutants there
+# cannot be caught by soundness tests by design.
+exclude_re = [
+    "estimate_lambda_min",
+    "certify/sparse\\.rs.*normalize",
+    "certify/sparse\\.rs.*\\bdot\\b",
+    "certify/linear\\.rs.*\\bnormalize\\b",
+    "certify/linear\\.rs.*\\bdot\\b",
+    # Equivalent mutants: accepting μ = 0 (or ‖ũ‖ = 0 in the relative bound)
+    # yields an infinite bound, which finish() reports as non-finite anyway.
+    "replace > with >= in certify_lambda_min_lower",
+    "replace > with >= in finish",
+    # Same for σ: accepting σ = 0 gives the bound ρ/0 = +∞ (or NaN), which
+    # finish() reports as uncertified (tested with σ = 0 in
+    # tests/certify.rs::linear_certificate_rejects_nonpositive_or_infinite_sigma).
+    "replace > with >= in check_sigma",
+    # Performance heuristic of the σ search (stop backing off when the failing
+    # pivot is wider than λ̂): it decides how hard to try, never what is
+    # certified; every σ returned is checked by the interval Cholesky.
+    "replace > with (==|<|>=) in certify_sigma_auto",
+    # The dense size cap MAX_CERTIFY_N is a time limit, not a soundness
+    # condition: certifying at n equal to the cap is equally sound.
+    "replace > with >= in check_inputs",
+    # Accepting a pivot interval with lower end exactly 0: the theorem
+    # (CERTIFY.md) needs S − σI ⪰ 0 only, so a zero last pivot is sound, and a
+    # zero earlier pivot makes the later entries non-finite, which fails.
+    "replace > with >= in shifted_cholesky",
+    # rotated_candidate_{2,3}d: skipping the prescribed value on the first
+    # restrained DOF (d < nf → d <= nf) leaves the solver's own rotated value
+    # there, equal to the prescribed one up to rounding; zeroing |u_n| ≤ 1e-15
+    # vs < 1e-15 is the same threshold.
+    "replace < with <= in rotated_candidate_[23]d",
+    "replace > with >= in rotated_candidate_[23]d",
+]

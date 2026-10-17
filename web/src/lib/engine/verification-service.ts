@@ -33,8 +33,9 @@ import {
 import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
-import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams } from './codes/argentina/cirsoc301';
+import { verifySteelElement, type SteelVerification, type SteelVerificationInput, type SteelDesignParams, type TensionConnection } from './codes/argentina/cirsoc301';
 import { momentGradient, type StationMoment } from './steel/moment-gradient';
+import { memberNetArea, memberEndsFor, type MemberEnd, type TensionSectionInput } from './steel/tension-connection';
 import type { GoverningPerElement3D } from './governing-case';
 import type { CheckStatus, MemberDesignResult, DesignCheckSummary } from './design-check-results';
 import { isDesignedMember, maskAxialDemand } from './design/behaviour-demands';
@@ -435,7 +436,8 @@ export function runSteelVerification(
     const k = { ...(e3.kStrong !== undefined ? { Kx: e3.kStrong } : {}), ...(e3.kWeak !== undefined ? { Ky: e3.kWeak } : {}) };
     const len = lengths?.get(ef.elementId);
     const segment = steelSegmentDiagram(ef.elementId, len, stationDiagrams, model);
-    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(len ?? { L, Lb: L }), ...k }, segment);
+    const tensionEnds = memberEndsFor(ef.elementId, model as never, len?.chain);
+    const v = checkSteelMember(ef.elementId, demand, section as SteelSectionData, material as SteelMaterialData, { ...(len ?? { L, Lb: L }), ...k, tensionEnds }, segment);
     if (v) verifs.push(v);
   }
 
@@ -625,12 +627,41 @@ export function steelGoverningRatio(v: SteelVerification): number {
  * verification runs. When the member sees both compression and tension, both are checked and
  * the worse is returned.
  */
+/**
+ * The model's end connections as the checker's `TensionConnection`: Ae with its steps, or the
+ * reason it is NOT EVALUATED. A missing end says «falta la union extrema», the phrase the checker
+ * already uses for a member with no connection at all.
+ */
+export function resolveTensionEnds(section: TensionSectionInput, ends: readonly MemberEnd[]): TensionConnection {
+  const r = memberNetArea(section, ends);
+  if ('Ae' in r) return { resolved: { Ae: r.Ae, steps: ['§D.3 — Area neta efectiva, de la union extrema del modelo:', ...r.steps] } };
+  if ('missing' in r) {
+    const where = r.missing.map((e) => `barra ${e.elementId} extremo ${e.end.toUpperCase()}`).join(', ');
+    return { refused: `falta la union extrema (${where}): agujeros y coeficiente U de D.3` };
+  }
+  return { refused: `barra ${r.at.elementId} extremo ${r.at.end.toUpperCase()}: ${r.refused.message}` };
+}
+
 export function checkSteelMember(
   elementId: number,
   demand: SteelMemberDemand,
   section: SteelSectionData & { shape?: string },
   material: SteelMaterialData,
-  lengths: { L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean },
+  lengths: {
+    L: number; Lb: number; Kx?: number; Ky?: number; freeEnd?: boolean;
+    /**
+     * The end connection for tension rupture (D.2(b), D.3). The model holds none, so absent —
+     * the usual case — a member in tension is NOT EVALUATED rather than given Ae = Ag.
+     */
+    tensionConnection?: TensionConnection;
+    /**
+     * The member ends whose connection decides rupture (`memberEndsFor`), each with the model's
+     * description or none. Resolved here against THIS section — so a candidate profile in the
+     * optimiser gets its own An and U — into `tensionConnection`. An end without a description
+     * leaves the tension check NOT EVALUATED, as before.
+     */
+    tensionEnds?: readonly MemberEnd[];
+  },
   /**
    * The moment diagram over the unbraced SEGMENT (`steelSegmentDiagram`), when the member is a
    * chain of elements. Absent, `demand.diagram` — the element-local envelope — is read, which
@@ -766,9 +797,20 @@ export function checkSteelMember(
         ...(k.Sy !== undefined ? { Sy: k.Sy } : {}),
       };
     })(),
+    // The section family selects the Table B.4.1 classification (Q of §E.7, §F.2–F.6). A shape it
+    // cannot classify ('C' cold-formed, …) comes back NOT EVALUATED rather than as an I-section.
+    // The load height of F.2.2 is not known here, so the checker's conservative default (top
+    // flange) applies.
+    ...(section.shape !== undefined ? { shape: section.shape } : {}),
+    // Rolled only when picked from a rolled catalogue family. A parametric or declared section
+    // is taken as welded (builtUp): Fr = 114 MPa instead of 69 (F.2.7, F.3, F.4.6a), Table
+    // B.4.1 case 2/12 flanges, and Aw on the web height (G.2.2) — each the conservative side.
+    builtUp: !(section as { profileFamily?: string }).profileFamily,
     // Effective-length factors: stated on the member, or 1,0 (sway-prevented / direct analysis).
     ...(lengths.Kx !== undefined ? { Kx: lengths.Kx } : {}),
     ...(lengths.Ky !== undefined ? { Ky: lengths.Ky } : {}),
+    ...(lengths.tensionConnection ? { tensionConnection: lengths.tensionConnection } : {}),
+    ...(!lengths.tensionConnection && lengths.tensionEnds ? { tensionConnection: resolveTensionEnds(section as TensionSectionInput, lengths.tensionEnds) } : {}),
   };
 
 

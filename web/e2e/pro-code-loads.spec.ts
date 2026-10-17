@@ -70,7 +70,7 @@ test.describe('@smoke the permanent load comes from CIRSOC 101 Tabla 3.1', () =>
   test('§3.1.4 says when the partition allowance is missing', async ({ pro: page }) => {
     await openDialog(page);
     const check = page.getByTestId('dead-partition-check');
-    // The default build-up carries one, on a 2 kN/m² dwelling.
+    // The default build-up carries one, on a 2 kN/m² dwelling, at the §4.3.2 minimum of 0,75.
     await expect(check).toContainText(/incluida|included|inclu/i);
 
     // Take it off and the article speaks up: what is missing shows as nothing at all.
@@ -81,8 +81,8 @@ test.describe('@smoke the permanent load comes from CIRSOC 101 Tabla 3.1', () =>
 
   test('the total is the sum of the rows, to two decimals', async ({ pro: page }) => {
     await openDialog(page);
-    // 1,440 + 0,280 + 0,05 + 0,55 = 2,32 kN/m².
-    await expect(page.getByTestId('dead-total')).toContainText('2.32');
+    // 1,440 + 0,280 + 0,05 + 0,75 (the §4.3.2 partition minimum) = 2,52 kN/m².
+    await expect(page.getByTestId('dead-total')).toContainText('2.52');
   });
 });
 

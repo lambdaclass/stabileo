@@ -497,7 +497,7 @@ fn pdelta_2d_sparse_with_a_constraint_agrees_too() {
         master_node: SEG_BIG / 2 + 1, slave_node: SEG_BIG / 2 + 2, dofs: vec![1],
     }));
     let dof_num = DofNumbering::build_2d(&input);
-    let cs = || dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = || dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
     let dense = pdelta::solve_pdelta_2d_on(&input, &dof_num, cs(), false, 50, 1e-8).unwrap();
     let sparse = pdelta::solve_pdelta_2d_on(&input, &dof_num, cs(), true, 50, 1e-8).unwrap();
     assert!(dense.converged && sparse.converged);

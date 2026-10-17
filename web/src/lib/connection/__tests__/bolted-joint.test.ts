@@ -101,12 +101,16 @@ describe('§J.3.7 — combined tension and shear', () => {
 });
 
 describe('§J.3.10 — plate bearing', () => {
-  it('takes the lesser of the two expressions', () => {
-    const d = designBoltedJoint(layout({ edgeDistanceMm: 40 }), plate, { shearKN: 10 });
+  it('takes the lesser of the two expressions, per bolt, end and interior apart', () => {
+    // A 4 mm plate so bearing, not bolt shear, governs every bolt.
+    const thin = { thicknessMm: 4, fuMPa: 400 };
+    const d = designBoltedJoint(layout({ edgeDistanceMm: 40 }), thin, { shearKN: 10 });
     const hole = d.envelope.standardHoleDiameter.valueMm!;
-    const lc = clearDistanceCm(40, hole);
-    const perBolt = Math.min(1.2 * lc * 1.0 * 400 * 0.1, 2.4 * 2.0 * 1.0 * 400 * 0.1);
-    expect(check(d, 'bearing').capacityKN).toBeCloseTo(0.75 * perBolt * 4, 6);
+    const rn = (lc: number) => Math.min(1.2 * lc * 0.4 * 400 * 0.1, 2.4 * 2.0 * 0.4 * 400 * 0.1);
+    const end = rn(clearDistanceCm(40, hole));
+    const interior = rn((70 - hole) / 10);
+    // Two rows: two end bolts and two interior ones.
+    expect(check(d, 'bearing').capacityKN).toBeCloseTo(0.75 * (2 * end + 2 * interior), 6);
     expect(check(d, 'bearing').clause).toBe('J.3.10');
   });
 
@@ -122,8 +126,9 @@ describe('§J.3.10 — plate bearing', () => {
   });
 
   it('the deformation-allowed case gives more, as the clause says', () => {
-    const strict = designBoltedJoint(layout({ deformationConsidered: true }), plate, { shearKN: 10 });
-    const relaxed = designBoltedJoint(layout({ deformationConsidered: false }), plate, { shearKN: 10 });
+    const thin = { thicknessMm: 4, fuMPa: 400 };
+    const strict = designBoltedJoint(layout({ deformationConsidered: true }), thin, { shearKN: 10 });
+    const relaxed = designBoltedJoint(layout({ deformationConsidered: false }), thin, { shearKN: 10 });
     expect(check(relaxed, 'bearing').capacityKN!)
       .toBeGreaterThan(check(strict, 'bearing').capacityKN!);
   });

@@ -209,3 +209,34 @@ export function boltLayoutEnvelope(input: BoltLayoutInput): BoltLayoutEnvelope {
 /** The diameters Tabla J.3.4 actually tabulates, so a picker offers no size the code does not. */
 export const TABULATED_DIAMETERS_MM: readonly number[] =
   Object.freeze(MIN_EDGE_DISTANCE.map((r) => r.d));
+
+/** The two hole kinds a member's net area is computed for (Tabla J.3.3, first two columns). */
+export type HoleKind = 'standard' | 'oversize';
+
+/**
+ * Tabla J.3.3, «Holgados» column — nominal oversize hole diameter, mm. `>28 → d+8`.
+ * Transcribed beside `STANDARD_HOLE` so the two columns of the one table live together.
+ */
+const OVERSIZE_HOLE: ReadonlyArray<{ d: number; hole: number }> = Object.freeze([
+  { d: 6, hole: 9 }, { d: 7, hole: 10 }, { d: 8, hole: 11 }, { d: 10, hole: 13 },
+  { d: 12, hole: 16 }, { d: 14, hole: 18 }, { d: 16, hole: 20 }, { d: 20, hole: 24 },
+  { d: 22, hole: 28 }, { d: 24, hole: 30 }, { d: 27, hole: 35 },
+]);
+
+/**
+ * The NOMINAL hole of Tabla J.3.3 for a bolt diameter and hole kind, mm, or null when the table
+ * does not give one (a diameter between rows, e.g. 18 mm: never interpolated, never the nearest).
+ *
+ * This is the hole itself. The width a net area deducts is this PLUS 2 mm (§B.4.2.2), which the
+ * net-area code adds — not here, so the two numbers stay distinct.
+ */
+export function nominalHoleMm(d: number, kind: HoleKind): number | null {
+  if (!(d > 0)) return null;
+  const row = rowFor(kind === 'standard' ? STANDARD_HOLE : OVERSIZE_HOLE, d);
+  if (row) return row.hole;
+  if (d > 28) return kind === 'standard' ? d + 3 : d + 8;
+  return null;
+}
+
+/** The diameters Tabla J.3.3 tabulates (metric rows), for a bolt-size picker. */
+export const HOLE_TABLE_DIAMETERS_MM: readonly number[] = Object.freeze(STANDARD_HOLE.map((r) => r.d));

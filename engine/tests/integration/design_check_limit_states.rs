@@ -39,6 +39,9 @@ fn w14x22() -> SteelMemberData {
         e: 200e9,
         g: Some(77e9),
         depth: Some(0.348),
+        flange_slenderness: None,
+        compression_elements: None,
+        load_position: None,
     }
 }
 
@@ -293,13 +296,13 @@ fn aci_shear_skips_the_size_effect_with_minimum_stirrups() {
 ///
 /// L = 2.0, B = 4.0, t = 0.6 -> d = 0.525, column 0.4 x 0.4, P = 1000 kN,
 /// q = 1000/8 = 125 kPa.
+///   φ·vc = 0.75·0.66·λs·ρw^⅓·√28 (Tabla 22.5.5.1 row (c), no stirrups in a footing),
+///          λs = √(2/(1 + 0.004·525)) = 0.803, ρw = 0.0018 (the footing minimum, none given)
 ///   length direction:  a = 1.0 - 0.2 - 0.525 = 0.275 m
 ///                      Vu = 125·4·0.275 = 137.5 kN over bw = B = 4.0 m
-///                      phi·Vc = 0.75·0.17·sqrt(28)·4000·525 = 1_416_800 N
-///                      ratio = 0.0971
 ///   width direction:   a = 2.0 - 0.2 - 0.525 = 1.275 m
-///                      Vu = 125·2·1.275 = 318.75 kN over bw = L = 2.0 m
-///                      phi·Vc = 708_400 N  ->  ratio = 0.4500  <- governs
+///                      Vu = 125·2·1.275 = 318.75 kN over bw = L = 2.0 m  <- governs
+/// (The 0.17·√f'c this used to expect is row (a), which needs Av ≥ Av,min.)
 #[test]
 fn foundation_one_way_shear_checks_both_directions() {
     let results = check_spread_footings(&SpreadFootingInput {
@@ -316,6 +319,7 @@ fn foundation_one_way_shear_checks_both_directions() {
             col_width: 0.40,
             d: None,
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1, p: 1_000_000.0, mx: None, my: None, h: None,
@@ -323,9 +327,12 @@ fn foundation_one_way_shear_checks_both_directions() {
     });
     let r = &results[0];
 
+    let lambda_s = (2.0_f64 / (1.0 + 0.004 * 525.0)).sqrt();
+    let phi_vc_width = 0.75 * 0.66 * lambda_s * 0.0018_f64.cbrt() * 28f64.sqrt() * 2000.0 * 525.0;
+    let expected = 318_750.0 / phi_vc_width;
     assert!(
-        (r.oneway_shear_ratio - 0.45001).abs() < 1e-3,
-        "the width direction governs at 0.4500, got {:.4}",
+        (r.oneway_shear_ratio - expected).abs() < 1e-3 * expected,
+        "the width direction governs at {expected:.4}, got {:.4}",
         r.oneway_shear_ratio
     );
 }

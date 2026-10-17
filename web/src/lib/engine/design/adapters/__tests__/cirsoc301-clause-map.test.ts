@@ -148,12 +148,11 @@ describe('the departures the mapping found are still recorded', () => {
     expect(cb.assumptions.join(' ')).toMatch(/permite adoptar conservadoramente/);
   });
 
-  it('records that Ae is taken equal to Ag', () => {
-    // Rupture with no hole deduction: right for a welded member, optimistic for a bolted one, and
-    // the checker has no connection geometry to deduct from.
+  it('records that Ae comes from the connection, and is refused without it', () => {
+    // Ae = Ag used to be assumed: optimistic for a bolted member. Now An·U from the connection.
     const rupture = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'D.2.2')!;
-    expect(rupture.assumptions.join(' ')).toMatch(/Ae/);
-    expect(rupture.limitations.length).toBeGreaterThan(0);
+    expect(rupture.assumptions.join(' ')).toMatch(/An/);
+    expect(rupture.limitations.join(' ')).toMatch(/NOT EVALUATED/);
   });
 
   it('cites the `a` variant for the inelastic compression branch', () => {
@@ -163,11 +162,11 @@ describe('the departures the mapping found are still recorded', () => {
     expect(inelastic.clause).toBe('E.3.2a');
   });
 
-  it('records that torsional buckling is not covered', () => {
-    // E.4 governs for angles, tees and cruciforms — exactly the sections whose axes M2 already
-    // warns about. Not implemented, so those are checked on the wrong mode.
+  it('records the torsional length E.4 assumes', () => {
+    // E.4 is evaluated now; what remains assumed is kz = 1 over the member length.
     const axial = CIRSOC301_CLAUSE_MAP.find((e) => e.clause === 'E.3.1')!;
-    expect(axial.limitations.join(' ')).toMatch(/E\.4|torsional/);
+    expect(axial.assumptions.join(' ')).toMatch(/E\.4/);
+    expect(axial.assumptions.join(' ')).toMatch(/kz = 1/);
   });
 
   it('and records the Lb assumption on the LTB entries', () => {

@@ -3,7 +3,9 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
-use super::geometric_stiffness::{build_kg_from_forces_2d, build_kg_from_forces_3d, add_plate_geometric_stiffness_3d};
+use super::geometric_stiffness::{
+    emit_geometric_stiffness_2d, emit_geometric_stiffness_3d, KgTriplets,
+};
 use super::constraints::FreeConstraintSystem;
 
 /// Buckling analysis result.
@@ -34,25 +36,35 @@ pub struct ElementBucklingData {
     pub slenderness: f64,
 }
 
-/// Solve 2D buckling analysis.
-/// Solves K·φ = λ·(-Kg)·φ where Kg is from linear axial forces.
-pub fn solve_buckling_2d(
-    input: &SolverInput,
-    num_modes: usize,
-) -> Result<BucklingResult, String> {
-    // Build lookup maps for O(1) access by id
-    let elem_by_id: HashMap<usize, &SolverElement> =
-        input.elements.values().map(|e| (e.id, e)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> =
-        input.materials.values().map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> =
-        input.sections.values().map(|s| (s.id, s)).collect();
+/// The matrices of the 2D linear buckling problem K·φ = λ·(−Kg)·φ: the linear
+/// solution whose axial forces define Kg, the sparse free-DOF K, and −Kg.
+///
+/// Each member's Kg takes its axial force from its elongation in the linear
+/// solution, EA·(δ/L − αΔT) — the mean of N along the member, which is what
+/// the geometric stiffness integrates (∫N·φ'ᵀφ' dx with N constant). The end
+/// average (N_start + N_end)/2 used before is the mean only while N is linear,
+/// so an axial point load or a partial axial load on a member gave the wrong
+/// load factor (3× on a truss in `opensees_differential_regressions`). It is
+/// also the force the P-Delta iteration uses.
+/// Shared by `solve_buckling_2d` and the buckling certificate (public, hidden,
+/// for the assembly-path oracle in tests/assembly_paths.rs). K and Kg are
+/// in the inclined-roller frames of `inclined_transforms_2d` (φ too, until
+/// rotated back with `reverse_inclined_transform_2d`).
+#[doc(hidden)]
+pub struct BucklingSystem2D {
+    pub linear: AnalysisResults,
+    pub dof_num: DofNumbering,
+    pub k_ff: CscMatrix,
+    pub neg_kg_csc: CscMatrix,
+    pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
+}
 
+#[doc(hidden)]
+pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, String> {
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
-    let n = dof_num.n_total;
 
     if nf == 0 {
         return Err("No free DOFs".into());
@@ -68,23 +80,61 @@ pub fn solve_buckling_2d(
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // 3. Build geometric stiffness from linear axial forces (sparse free block;
-    //    the eigensolver below is sparse, so a dense n×n Kg was pure waste).
-    //    Negate it in place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues,
-    //    and nothing reads the un-negated Kg.
+    // 3. Sparse stiffness of the free block (the linear path's K: rotated
+    //    springs, orphan-rotation guard, inclined-roller frames)
+    let SparseAssemblyResult { k_ff, inclined_transforms_2d, .. } = assemble_sparse_2d(input, &dof_num);
+
+    // 4. Build geometric stiffness at the linear solution (sparse free block;
+    //    the eigensolver below is sparse, so a dense n×n Kg was pure waste), in
+    //    the same inclined frames as K: collected over all DOFs when there are
+    //    inclined rollers, then rotated and cut to the free block. Negate it in
+    //    place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing
+    //    reads the un-negated Kg.
     let neg_kg_csc = {
-        let mut kg_csc = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces).into_csc();
+        // Global-axes displacements of the linear solution (its results are
+        // reported in global axes, also at inclined rollers).
+        let mut u = vec![0.0; dof_num.n_total];
+        for d in &linear.displacements {
+            for (i, v) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                    u[dof] = v;
+                }
+            }
+        }
+        let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
+        emit_geometric_stiffness_2d(input, &dof_num, &u, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        if !inclined_transforms_2d.is_empty() {
+            kg = kg.rotate_inclined(&inclined_transforms_2d, nf);
+        }
+        let mut kg_csc = kg.into_csc();
         for v in kg_csc.values.iter_mut() {
             *v = -*v;
         }
         kg_csc
     };
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d })
+}
 
-    // 4. Sparse stiffness of the free block
-    let sasm = assemble_sparse_2d(input, &dof_num);
+/// Solve 2D buckling analysis.
+/// Solves K·φ = λ·(-Kg)·φ where Kg is from linear axial forces.
+pub fn solve_buckling_2d(
+    input: &SolverInput,
+    num_modes: usize,
+) -> Result<BucklingResult, String> {
+    // Build lookup maps for O(1) access by id
+    let elem_by_id: HashMap<usize, &SolverElement> =
+        input.elements.values().map(|e| (e.id, e)).collect();
+    let mat_by_id: HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+    let sec_by_id: HashMap<usize, &SolverSection> =
+        input.sections.values().map(|s| (s.id, s)).collect();
+
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d } = buckling_system_2d(input)?;
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
 
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
 
     // 5. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD), sparse
     // shift-invert Lanczos in both branches; with constraints, K and -Kg are
@@ -92,11 +142,11 @@ pub fn solve_buckling_2d(
     let k_red;
     let kg_red;
     let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
         kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
         (&k_red, &kg_red, cs_ref.n_free_indep)
     } else {
-        (&sasm.k_ff, &neg_kg_csc, nf)
+        (&k_ff, &neg_kg_csc, nf)
     };
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
@@ -122,14 +172,16 @@ pub fn solve_buckling_2d(
         };
 
         let mut u_mode = vec![0.0; n];
-        let mut max_disp = 0.0f64;
-        for i in 0..nf {
-            u_mode[i] = phi_f[i];
-            max_disp = max_disp.max(phi_f[i].abs());
+        u_mode[..nf].copy_from_slice(&phi_f[..nf]);
+        // Back to global axes at inclined rollers before normalizing, so the
+        // max-component scale is the same as an unrotated model's.
+        for it in &inclined_transforms_2d {
+            reverse_inclined_transform_2d(&mut u_mode, &it.dofs, &it.r);
         }
+        let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
-            for i in 0..nf {
-                u_mode[i] /= max_disp;
+            for v in u_mode.iter_mut() {
+                *v /= max_disp;
             }
         }
 
@@ -185,6 +237,102 @@ pub fn solve_buckling_2d(
     })
 }
 
+/// The matrices of the 3D linear buckling problem (see `BucklingSystem2D`),
+/// including surface-element geometric stiffness. K and Kg are in the
+/// inclined-support frames of `inclined_transforms`.
+#[doc(hidden)]
+pub struct BucklingSystem3D {
+    pub linear: AnalysisResults3D,
+    pub dof_num: DofNumbering,
+    pub k_ff: CscMatrix,
+    pub neg_kg_csc: CscMatrix,
+    /// Inclined supports: K and −Kg are in each one's (normal, tangent) frame.
+    pub inclined_transforms: Vec<InclinedTransformData>,
+}
+
+#[doc(hidden)]
+pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, String> {
+    super::feature_gates::refuse_3d(input, "Buckling analysis", &[super::feature_gates::Feature::ShellThermalNonQuad])?;
+    // Curved beams become segments first: `solve_3d` returns the segments' forces, which
+    // the unexpanded model has no elements for (an index panic).
+    let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
+    let input = expanded.as_ref().unwrap_or(input);
+    let linear = super::linear::solve_3d(input)?;
+    let dof_num = DofNumbering::build_3d(input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    if nf == 0 { return Err("No free DOFs".into()); }
+
+    let has_frame_compression = linear.element_forces.iter().any(|ef| {
+        (ef.n_start + ef.n_end) / 2.0 < -1e-6
+    });
+    let has_surfaces = !input.quads.is_empty()
+        || !input.plates.is_empty()
+        || !input.quad9s.is_empty()
+        || !input.solid_shells.is_empty()
+        || !input.curved_shells.is_empty();
+
+    // Bail before assembling anything. The full gate below also asks whether the
+    // assembled -Kg has non-trivial entries, but that question only arises when
+    // there are surfaces to assemble: with no compressed frame and no surface
+    // elements at all, no amount of assembly can change the answer.
+    if !has_frame_compression && !has_surfaces {
+        return Err("No compressed elements — buckling not applicable".into());
+    }
+
+    // K (the linear path's, rotated into the inclined-support frames) first:
+    // Kg is collected over all DOFs when there are inclined supports and
+    // rotated the same way once the surfaces are in.
+    let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
+
+    // The displacement vector of the linear solution, which every member and
+    // surface family reads its prestress from.
+    let mut u_full = vec![0.0; n];
+    for d in &linear.displacements {
+        let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+        for (i, &v) in vals.iter().enumerate() {
+            if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                u_full[dof] = v;
+            }
+        }
+    }
+    let mut kg = KgTriplets::new(if inclined_transforms.is_empty() { nf } else { n });
+    emit_geometric_stiffness_3d(input, &dof_num, &u_full, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+
+    // `emit_geometric_stiffness_3d` includes every shell family's Kg (plates,
+    // MITC4/9, solid and curved shells) off the same u_full since the feature
+    // matrix PR made P-Delta use it; adding them here again doubled the shell
+    // Kg and halved shell buckling factors.
+
+    if !inclined_transforms.is_empty() {
+        kg = kg.rotate_inclined(&inclined_transforms, nf);
+    }
+
+    // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
+    // Kg is not read again, and on a large shell model its values vector is the
+    // single biggest allocation in this function.
+    let neg_kg_csc = {
+        let mut kg_csc = kg.into_csc();
+        for v in kg_csc.values.iter_mut() {
+            *v = -*v;
+        }
+        kg_csc
+    };
+
+    // The rest of the gate, now that -Kg exists: surfaces carry no axial force
+    // to test, so the only way to know they contribute is to look at what they
+    // assembled. `has_surfaces` spans every family including `curved_shells`,
+    // whose Kg is built above like all the others — omitting it here turned away
+    // a model made only of curved shells under pure compression, with a
+    // populated -Kg, as "no compressed elements".
+    let has_shell_kg = has_surfaces && neg_kg_csc.values.iter().any(|&v| v.abs() > 1e-15);
+    if !has_frame_compression && !has_shell_kg {
+        return Err("No compressed elements — buckling not applicable".into());
+    }
+    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms })
+}
+
 /// 3D buckling analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -219,6 +367,10 @@ pub fn solve_buckling_3d(
     input: &SolverInput3D,
     num_modes: usize,
 ) -> Result<BucklingResult3D, String> {
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
+    let input = expanded.as_ref().unwrap_or(input);
     // Build lookup maps for O(1) access by id
     let elem_by_id: HashMap<usize, &SolverElement3D> =
         input.elements.values().map(|e| (e.id, e)).collect();
@@ -227,99 +379,12 @@ pub fn solve_buckling_3d(
     let sec_by_id: HashMap<usize, &SolverSection3D> =
         input.sections.values().map(|s| (s.id, s)).collect();
 
-    let linear = super::linear::solve_3d(input)?;
-    let dof_num = DofNumbering::build_3d(input);
+    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms } = buckling_system_3d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
-    if nf == 0 { return Err("No free DOFs".into()); }
-
-    let has_frame_compression = linear.element_forces.iter().any(|ef| {
-        (ef.n_start + ef.n_end) / 2.0 < -1e-6
-    });
-    let has_surfaces = !input.quads.is_empty()
-        || !input.plates.is_empty()
-        || !input.quad9s.is_empty()
-        || !input.solid_shells.is_empty()
-        || !input.curved_shells.is_empty();
-
-    // Bail before assembling anything. The full gate below also asks whether the
-    // assembled -Kg has non-trivial entries, but that question only arises when
-    // there are surfaces to assemble: with no compressed frame and no surface
-    // elements at all, no amount of assembly can change the answer.
-    if !has_frame_compression && !has_surfaces {
-        return Err("No compressed elements — buckling not applicable".into());
-    }
-
-    let mut kg = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
-
-    if has_surfaces {
-        // Reconstruct the displacement vector from the linear results once, for
-        // every surface family that needs it.
-        let mut u_full = vec![0.0; n];
-        for d in &linear.displacements {
-            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
-            for (i, &v) in vals.iter().enumerate() {
-                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
-                    u_full[dof] = v;
-                }
-            }
-        }
-        if !input.quads.is_empty() {
-            super::geometric_stiffness::add_quad_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg,
-            );
-        }
-        if !input.quad9s.is_empty() {
-            super::geometric_stiffness::add_quad9_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg,
-            );
-        }
-        if !input.solid_shells.is_empty() {
-            super::geometric_stiffness::add_solid_shell_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg,
-            );
-        }
-        if !input.curved_shells.is_empty() {
-            super::geometric_stiffness::add_curved_shell_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg,
-            );
-        }
-        // Plate (DKT triangle) geometric stiffness from membrane stress resultants,
-        // off the same u_full.
-        if !input.plates.is_empty() {
-            add_plate_geometric_stiffness_3d(
-                input, &dof_num, &u_full, &mut kg,
-            );
-        }
-    }
-
-    let sasm = assemble_sparse_3d(input, &dof_num, false);
-
-    // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
-    // Kg is not read again, and on a large shell model its values vector is the
-    // single biggest allocation in this function.
-    let neg_kg_csc = {
-        let mut kg_csc = kg.into_csc();
-        for v in kg_csc.values.iter_mut() {
-            *v = -*v;
-        }
-        kg_csc
-    };
-
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
-
-    // The rest of the gate, now that -Kg exists: surfaces carry no axial force
-    // to test, so the only way to know they contribute is to look at what they
-    // assembled. `has_surfaces` spans every family including `curved_shells`,
-    // whose Kg is built above like all the others — omitting it here turned away
-    // a model made only of curved shells under pure compression, with a
-    // populated -Kg, as "no compressed elements".
-    let has_shell_kg = has_surfaces && neg_kg_csc.values.iter().any(|&v| v.abs() > 1e-15);
-    if !has_frame_compression && !has_shell_kg {
-        return Err("No compressed elements — buckling not applicable".into());
-    }
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
 
     // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
     // Lanczos in both branches; with constraints, K and -Kg are reduced as
@@ -327,11 +392,11 @@ pub fn solve_buckling_3d(
     let k_red;
     let kg_red;
     let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&sasm.k_ff);
+        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
         kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
         (&k_red, &kg_red, cs_ref.n_free_indep)
     } else {
-        (&sasm.k_ff, &neg_kg_csc, nf)
+        (&k_ff, &neg_kg_csc, nf)
     };
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
@@ -355,14 +420,11 @@ pub fn solve_buckling_3d(
             phi_s
         };
 
-        let mut u_mode = vec![0.0; n];
-        let mut max_disp = 0.0f64;
-        for i in 0..nf {
-            u_mode[i] = phi_f[i];
-            max_disp = max_disp.max(phi_f[i].abs());
-        }
+        // Back to global axes at inclined supports before normalizing (as 2D).
+        let mut u_mode = to_global(&phi_f[..nf], n, &inclined_transforms);
+        let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
-            for i in 0..nf { u_mode[i] /= max_disp; }
+            for v in u_mode.iter_mut() { *v /= max_disp; }
         }
         let displacements = super::linear::build_displacements_3d(&dof_num, &u_mode);
         modes.push(BucklingMode3D { load_factor: lambda, displacements });

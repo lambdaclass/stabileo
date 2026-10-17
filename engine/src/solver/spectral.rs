@@ -48,7 +48,6 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     let reduction_factor = input.reduction_factor.unwrap_or(1.0);
 
     let dof_num = DofNumbering::build_2d(solver_input);
-    let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
     // For each mode, compute peak response
@@ -76,29 +75,30 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
         };
         let modal_force = meff * sa;
 
-        // Build modal displacement vector
-        let mut u_modal = vec![0.0; nf];
+        // Modal displacement vector over all DOFs, in global axes like the
+        // mode shapes: at an inclined roller both components move although
+        // only the tangential DOF is free, so restrained slots are kept too
+        // (they are zero everywhere else).
+        let mut u_full = vec![0.0; n];
         for d in &mode.displacements {
             if let Some(&idx) = dof_num.map.get(&(d.node_id, 0)) {
-                if idx < nf { u_modal[idx] = d.ux * participation * sd; }
+                u_full[idx] = d.ux * participation * sd;
             }
             if let Some(&idx) = dof_num.map.get(&(d.node_id, 1)) {
-                if idx < nf { u_modal[idx] = d.uz * participation * sd; }
+                u_full[idx] = d.uz * participation * sd;
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&idx) = dof_num.map.get(&(d.node_id, 2)) {
-                    if idx < nf { u_modal[idx] = d.ry * participation * sd; }
+                    u_full[idx] = d.ry * participation * sd;
                 }
             }
         }
-        modal_disps.push(u_modal.clone());
+        modal_disps.push(u_full.clone());
 
         // Compute element forces for this mode
-        let mut u_full = vec![0.0; n];
-        for i in 0..nf {
-            u_full[i] = u_modal[i];
-        }
-        let ef = super::linear::compute_internal_forces_2d(solver_input, &dof_num, &u_full);
+        // The mode's response to its spectral inertia forces only: no element
+        // loads, whose fixed-end forces are static and must not be combined.
+        let ef = super::linear::compute_internal_forces_2d_with_loads(solver_input, &[], &dof_num, &u_full);
         let forces: Vec<f64> = ef.iter()
             .flat_map(|f| vec![f.n_start.abs().max(f.n_end.abs()),
                               f.v_start.abs().max(f.v_end.abs()),
@@ -120,16 +120,12 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     let n_elems = if modal_forces.is_empty() { 0 } else { modal_forces[0].len() / 3 };
 
     let (combined_disps, combined_forces) = match rule {
-        "SRSS" => combine_srss(&modal_disps, &modal_forces, nf, n_elems),
-        _ => combine_cqc(&modal_disps, &modal_forces, modes, xi, nf, n_elems),
+        "SRSS" => combine_srss(&modal_disps, &modal_forces, n, n_elems),
+        _ => combine_cqc(&modal_disps, &modal_forces, modes, xi, n, n_elems),
     };
 
     // Build combined displacement results
-    let mut u_combined = vec![0.0; n];
-    for i in 0..nf {
-        u_combined[i] = combined_disps[i];
-    }
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_combined);
+    let displacements = super::linear::build_displacements_2d(&dof_num, &combined_disps);
 
     // Build element force envelopes
     let elem_ids: Vec<usize> = solver_input.elements.values().map(|e| e.id).collect();
@@ -181,11 +177,11 @@ fn interpolate_spectrum(spectrum: &DesignSpectrum, period: f64) -> f64 {
 fn combine_srss(
     modal_disps: &[Vec<f64>],
     modal_forces: &[Vec<f64>],
-    nf: usize,
+    n: usize,
     n_elems: usize,
 ) -> (Vec<f64>, Vec<f64>) {
-    let mut disps = vec![0.0; nf];
-    for i in 0..nf {
+    let mut disps = vec![0.0; n];
+    for i in 0..n {
         let sum: f64 = modal_disps.iter().map(|md| md[i] * md[i]).sum();
         disps[i] = sum.sqrt();
     }
@@ -203,7 +199,7 @@ fn combine_cqc(
     modal_forces: &[Vec<f64>],
     modes: &[SpectralModeInput],
     xi: f64,
-    nf: usize,
+    n: usize,
     n_elems: usize,
 ) -> (Vec<f64>, Vec<f64>) {
     let n_modes = modal_disps.len();
@@ -219,8 +215,8 @@ fn combine_cqc(
         }
     }
 
-    let mut disps = vec![0.0; nf];
-    for k in 0..nf {
+    let mut disps = vec![0.0; n];
+    for k in 0..n {
         let mut sum = 0.0;
         for i in 0..n_modes {
             for j in 0..n_modes {
@@ -284,7 +280,6 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     let reduction_factor = input.reduction_factor.unwrap_or(1.0);
 
     let dof_num = DofNumbering::build_3d(solver_input);
-    let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
     let mut modal_disps: Vec<Vec<f64>> = Vec::new();
@@ -310,20 +305,19 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         };
         let modal_force = meff * sa;
 
-        let mut u_modal = vec![0.0; nf];
+        // Over all DOFs in global axes (see the 2D solver).
+        let mut u_full = vec![0.0; n];
         for d in &mode.displacements {
             let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
             for (i, &val) in vals.iter().enumerate() {
                 if let Some(&idx) = dof_num.map.get(&(d.node_id, i)) {
-                    if idx < nf { u_modal[idx] = val * participation * sd; }
+                    u_full[idx] = val * participation * sd;
                 }
             }
         }
-        modal_disps.push(u_modal.clone());
-
-        let mut u_full = vec![0.0; n];
-        for i in 0..nf { u_full[i] = u_modal[i]; }
-        let ef = super::linear::compute_internal_forces_3d(solver_input, &dof_num, &u_full);
+        modal_disps.push(u_full.clone());
+        // Spectral inertia forces only: no element loads (see the 2D solver).
+        let ef = super::linear::compute_internal_forces_3d_with_loads(solver_input, &[], &dof_num, &u_full);
         let forces: Vec<f64> = ef.iter()
             .flat_map(|f| vec![
                 f.n_start.abs().max(f.n_end.abs()),
@@ -346,8 +340,8 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     let n_force_components = n_elems * 6;
     let (combined_disps, combined_forces) = match rule {
         "SRSS" => {
-            let mut disps = vec![0.0; nf];
-            for i in 0..nf {
+            let mut disps = vec![0.0; n];
+            for i in 0..n {
                 disps[i] = modal_disps.iter().map(|md| md[i] * md[i]).sum::<f64>().sqrt();
             }
             let mut forces = vec![0.0; n_force_components];
@@ -368,8 +362,8 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
                     rho[i][j] = if den.abs() > 1e-30 { num / den } else { if i == j { 1.0 } else { 0.0 } };
                 }
             }
-            let mut disps = vec![0.0; nf];
-            for k in 0..nf {
+            let mut disps = vec![0.0; n];
+            for k in 0..n {
                 let mut sum = 0.0;
                 for i in 0..n_modes { for j in 0..n_modes { sum += modal_disps[i][k] * rho[i][j] * modal_disps[j][k]; } }
                 disps[k] = sum.abs().sqrt();
@@ -384,9 +378,7 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         }
     };
 
-    let mut u_combined = vec![0.0; n];
-    for i in 0..nf { u_combined[i] = combined_disps[i]; }
-    let displacements = super::linear::build_displacements_3d(&dof_num, &u_combined);
+    let displacements = super::linear::build_displacements_3d(&dof_num, &combined_disps);
 
     let elem_ids: Vec<usize> = solver_input.elements.values().map(|e| e.id).collect();
     let element_forces: Vec<SpectralElementForce3D> = (0..n_elems)

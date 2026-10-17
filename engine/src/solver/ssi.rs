@@ -16,11 +16,33 @@ use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
-use super::assembly;
+use super::assembly::{self, InclinedFrame};
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse};
+
+/// The soil springs at their current secants as stiffness triplets in the
+/// frames K was assembled in (each unordered pair once). A spring acts along a
+/// global axis, so at an inclined support it is R·k·Rᵀ over the support's
+/// translations, coupling them, not k on the rotated slot of the same index.
+fn spring_triplets<T: InclinedFrame>(
+    springs: &[SoilSpring], spring_k: &[f64], dof_num: &DofNumbering, its: &[T],
+) -> (Vec<usize>, Vec<usize>, Vec<f64>) {
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for (si, spring) in springs.iter().enumerate() {
+        let dir = spring.direction.min(dof_num.dofs_per_node - 1);
+        if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
+            rows.push(d);
+            cols.push(d);
+            vals.push(spring_k[si]);
+        }
+    }
+    for it in its {
+        it.rotate_triplets(&mut rows, &mut cols, &mut vals);
+    }
+    (rows, cols, vals)
+}
 
 /// Soil spring attached to a node along a pile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +119,9 @@ pub struct SpringResult {
 /// Solve a 2D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
+    // The secant solve does not impose prescribed displacements. Inclined
+    // supports are solved in their frames (fix/inclined-supports).
+    super::feature_gates::refuse_2d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -107,7 +132,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     let nf = dof_num.n_free;
 
     // Constraint system (built once before iteration)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -132,6 +157,14 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         )
     } else {
         dense_asm.as_ref().unwrap().f.clone()
+    };
+
+    // K and F are in the inclined-support frames (the same by either
+    // assembler); the springs are rotated into them and the solution back.
+    let its: &[assembly::InclinedTransformData2D] = if let Some(ref s) = sparse_stiff {
+        &s.inclined_transforms_2d
+    } else {
+        &dense_asm.as_ref().unwrap().inclined_transforms_2d
     };
 
     // Base free×free triplets, cached once (sparse path only): each iteration
@@ -163,6 +196,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         .collect();
 
     let mut u_full = vec![0.0; n];
+    let mut u_frame = vec![0.0; nf];
     let mut converged = false;
     let mut total_iters = 0;
 
@@ -182,14 +216,12 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
             let mut rows = base_tr.clone();
             let mut cols = base_tc.clone();
             let mut vals = base_tv.clone();
-            for (si, spring) in input.soil_springs.iter().enumerate() {
-                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                    if d < nf {
-                        rows.push(d);
-                        cols.push(d);
-                        vals.push(spring_k[si]);
-                    }
+            let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+            for t in 0..sr.len() {
+                if sr[t] < nf && sc[t] < nf {
+                    rows.push(sr[t]);
+                    cols.push(sc[t]);
+                    vals.push(sv[t]);
                 }
             }
             let f_f: Vec<f64> = f_global[..nf].to_vec();
@@ -200,10 +232,11 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
             // Assemble: base K + soil springs
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
 
-            for (si, spring) in input.soil_springs.iter().enumerate() {
-                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                    k_global[d * n + d] += spring_k[si];
+            let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+            for t in 0..sr.len() {
+                k_global[sr[t] * n + sc[t]] += sv[t];
+                if sr[t] != sc[t] {
+                    k_global[sc[t] * n + sr[t]] += sv[t];
                 }
             }
 
@@ -236,7 +269,10 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
             u_indep
         };
 
-        for i in 0..nf { u_full[i] = u_f[i]; }
+        // In global axes from here on (soil curves, results); `u_f` stays in
+        // K's frames for the constraint forces.
+        u_full = assembly::to_global(&u_f, n, its);
+        u_frame = u_f;
 
         // Update soil spring stiffnesses
         let mut max_change = 0.0_f64;
@@ -288,13 +324,13 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = if let Some(ref s) = sparse_stiff {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_full[..nf], &f_global[..nf])
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_frame, &f_global[..nf])
         } else {
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
+            fcs.compute_constraint_forces(&k_ff, &u_frame, &f_global[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -320,6 +356,7 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
 /// Solve a 3D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    super::feature_gates::refuse_3d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
 
     // Expand curved beams before DOF numbering and assembly.
     let expanded_solver = super::linear::expand_curved_beams_3d(&input.solver);
@@ -334,7 +371,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // Constraint system (built once before iteration). Use the expanded model:
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
-    let cs = FreeConstraintSystem::build_3d(&expanded_solver.constraints, &dof_num, &expanded_solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&expanded_solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -358,6 +395,13 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         s.f.clone()
     } else {
         dense_asm.as_ref().unwrap().f.clone()
+    };
+
+    // In the inclined-support frames, as in 2D.
+    let its: &[assembly::InclinedTransformData] = if let Some(ref s) = sparse_asm {
+        &s.inclined_transforms
+    } else {
+        &dense_asm.as_ref().unwrap().inclined_transforms
     };
 
     // Base free×free triplets, cached once (sparse path only): each iteration
@@ -388,6 +432,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         .collect();
 
     let mut u_full = vec![0.0; n];
+    let mut u_frame = vec![0.0; nf];
     let mut converged = false;
     let mut total_iters = 0;
 
@@ -407,14 +452,12 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             let mut rows = base_tr.clone();
             let mut cols = base_tc.clone();
             let mut vals = base_tv.clone();
-            for (si, spring) in input.soil_springs.iter().enumerate() {
-                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                    if d < nf {
-                        rows.push(d);
-                        cols.push(d);
-                        vals.push(spring_k[si]);
-                    }
+            let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+            for t in 0..sr.len() {
+                if sr[t] < nf && sc[t] < nf {
+                    rows.push(sr[t]);
+                    cols.push(sc[t]);
+                    vals.push(sv[t]);
                 }
             }
             let f_f: Vec<f64> = f_global[..nf].to_vec();
@@ -424,10 +467,11 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         } else {
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
 
-            for (si, spring) in input.soil_springs.iter().enumerate() {
-                let dir = spring.direction.min(dof_num.dofs_per_node - 1);
-                if let Some(&d) = dof_num.map.get(&(spring.node_id, dir)) {
-                    k_global[d * n + d] += spring_k[si];
+            let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+            for t in 0..sr.len() {
+                k_global[sr[t] * n + sc[t]] += sv[t];
+                if sr[t] != sc[t] {
+                    k_global[sc[t] * n + sr[t]] += sv[t];
                 }
             }
 
@@ -459,7 +503,10 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             u_indep
         };
 
-        for i in 0..nf { u_full[i] = u_f[i]; }
+        // In global axes from here on (soil curves, results); `u_f` stays in
+        // K's frames for the constraint forces.
+        u_full = assembly::to_global(&u_f, n, its);
+        u_frame = u_f;
 
         let mut max_change = 0.0_f64;
 
@@ -509,13 +556,13 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = if let Some(ref s) = sparse_asm {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_full[..nf], &f_global[..nf])
+            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_frame, &f_global[..nf])
         } else {
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_global[..nf])
+            fcs.compute_constraint_forces(&k_ff, &u_frame, &f_global[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };

@@ -19,6 +19,7 @@
   import { peakBaseShear, HHT_ALPHA_RANGE } from '../../../lib/engine/dynamics/requests';
   import { recordSummary } from '../../../lib/engine/dynamics/accelerogram';
   import { timeHistoryView, type TimeHistoryResult3D } from '../../../lib/store/time-history-view.svelte';
+  import TimeHistoryCertificate from '../../advanced/TimeHistoryCertificate.svelte';
   import TimeSeriesChart from './TimeSeriesChart.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import GroundMotionRow from './GroundMotionRow.svelte';
@@ -195,6 +196,7 @@
       {#if result.peakReactions?.length} — {t('pro.thBaseShearAtPeak')} = {fmt(peakBaseShear(result.peakReactions))} kN{/if}
       — {result.nSteps} {t('pro.steps')} ({result.method})
     </div>
+    {#if !stale}<TimeHistoryCertificate {result} />{/if}
     {#if stale}
       <div class="adv-hint">{t('pro.th.stale')}</div>
     {:else}

@@ -280,7 +280,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       // keeps the member's own.
       const sid = plan?.ok ? nextSec++ : e.sectionId;
       const section = plan?.ok ? { ...plan.at((fractions[k]! + fractions[k + 1]!) / 2), id: sid } as Section : model.sections.get(e.sectionId)!;
-      const ei = eiOf(model.materials.get(e.materialId), section);
+      const ei = eiOf(model.materials.get(e.materialId), section, model.analysis);
       const piece: VariablePiece = { id: nextElem++, sectionId: sid, x0: bounds[k]!, x1: bounds[k + 1]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...(ei ? { ei } : {}) };
       pieces.push(piece);
       out.pieces.push({ parent: e, k, n, t0: fractions[k]!, t1: fractions[k + 1]!, piece, section });

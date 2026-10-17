@@ -186,7 +186,7 @@ function memberGeometry(id: number, embed: boolean) {
   return {
     elem,
     pI: projectNodeToScene(nI, embed), pJ: projectNodeToScene(nJ, embed),
-    ei: eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId)),
+    ei: eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId), modelStore.analysis),
     localY,
     roll: (elem.rollAngle ?? 0) + (modelStore.sections.get(elem.sectionId)?.rotation ?? 0),
   };

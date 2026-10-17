@@ -320,6 +320,68 @@ pub struct ConstrainedInput3D {
     pub constraints: Vec<Constraint>,
 }
 
+/// The translations of one inclined-support node in the frame the assembled
+/// K uses there: `ũ = R u_global` over `dofs` (the node's translation DOF
+/// slots, which hold rotated components, the normal one restrained).
+///
+/// Constraint equations are written in global components. Every analysis
+/// assembles K (and M, Kg, loads) in these rotated frames, so the constraint
+/// transform must be built in them too, or the solve enforces the wrong
+/// equations (found by tools/differential/codeaster, aster3d-16).
+#[derive(Debug, Clone)]
+pub struct InclinedDofs {
+    pub node_id: usize,
+    pub dofs: Vec<usize>,
+    /// Rows are the local axes: `r[j][k]` = component k (global) of local axis j.
+    pub r: Vec<Vec<f64>>,
+}
+
+/// The 2D inclined-support frames, mirroring the stiffness assemblers
+/// (`assembly::assemble_stiffness_2d`, `sparse_assembly`): an
+/// `inclinedRoller` with an angle.
+pub fn inclined_dofs_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
+    let mut out = Vec::new();
+    for sup in input.supports.values() {
+        if sup.support_type != "inclinedRoller" { continue; }
+        let Some(theta) = sup.angle else { continue; };
+        if let (Some(&d0), Some(&d1)) = (dof_num.map.get(&(sup.node_id, 0)), dof_num.map.get(&(sup.node_id, 1))) {
+            let r = assembly::inclined_rotation_matrix_2d(theta);
+            out.push(InclinedDofs {
+                node_id: sup.node_id,
+                dofs: vec![d0, d1],
+                r: r.iter().map(|row| row.to_vec()).collect(),
+            });
+        }
+    }
+    out.sort_by_key(|f| f.node_id);
+    out
+}
+
+/// The 3D inclined-support frames, mirroring the stiffness assemblers: an
+/// `isInclined` support with a non-zero normal.
+pub fn inclined_dofs_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
+    let mut out = Vec::new();
+    for sup in input.supports.values() {
+        if !sup.is_inclined.unwrap_or(false) { continue; }
+        let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) else { continue; };
+        if (nx * nx + ny * ny + nz * nz).sqrt() <= 1e-12 { continue; }
+        if let (Some(&d0), Some(&d1), Some(&d2)) = (
+            dof_num.map.get(&(sup.node_id, 0)),
+            dof_num.map.get(&(sup.node_id, 1)),
+            dof_num.map.get(&(sup.node_id, 2)),
+        ) {
+            let r = assembly::inclined_rotation_matrix(nx, ny, nz);
+            out.push(InclinedDofs {
+                node_id: sup.node_id,
+                dofs: vec![d0, d1, d2],
+                r: r.iter().map(|row| row.to_vec()).collect(),
+            });
+        }
+    }
+    out.sort_by_key(|f| f.node_id);
+    out
+}
+
 /// Validate that all node IDs referenced by constraints exist in the model,
 /// and that DOF indices are within the valid range for the analysis type.
 /// `max_dofs_per_node`: 3 for 2D, 6 for 3D.
@@ -529,13 +591,33 @@ pub fn validate_constraints(
             diags.push(StructuredDiagnostic::global(
                 DiagnosticCode::OverConstrainedDof,
                 Severity::Warning,
-                format!("DOF {} (node {}) is both constrained and restrained by a support",
+                format!("DOF {} (node {}) is both constrained and restrained by a support: \
+                    the constraint is enforced through its master DOFs",
                     dep_dof, node_id),
             ).with_dofs(vec![dep_dof]).with_nodes(vec![node_id]).with_phase("constraints"));
         }
     }
 
     diags
+}
+
+/// The term of a linear MPC eliminated as the dependent DOF: the largest
+/// |coefficient| among the terms on *free* DOFs. A restrained DOF must not
+/// be the dependent one: the support keeps it at its prescribed value and the
+/// equation would be dropped, so the results silently violated it (found by
+/// tools/differential/codeaster, aster3d-43: u_3y = 1.76 rx_2 with rx_2
+/// restrained gave u_3y != 0). Only when every term is restrained (the
+/// equation then constrains prescribed values, flagged over-constrained)
+/// does it fall back to the largest coefficient overall.
+fn mpc_dependent_term(mpc: &LinearMPCConstraint, dof_num: &DofNumbering) -> Option<usize> {
+    let largest = |free_only: bool| {
+        mpc.terms.iter().enumerate()
+            .filter(|(_, t)| !free_only || (t.coefficient != 0.0
+                && dof_num.map.get(&(t.node_id, t.dof)).is_some_and(|&g| g < dof_num.n_free)))
+            .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
+            .map(|(i, _)| i)
+    };
+    largest(true).or_else(|| largest(false))
 }
 
 /// Collect dependent DOFs from a single constraint, returning (slave_global, [master_globals]).
@@ -638,10 +720,7 @@ fn collect_dependent_dofs(
             }
         }
         Constraint::LinearMPC(mpc) => {
-            if mpc.terms.is_empty() { return result; }
-            let (dep_idx, _) = mpc.terms.iter().enumerate()
-                .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
-                .unwrap();
+            let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { return result; };
             let dep_term = &mpc.terms[dep_idx];
             if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
                 let masters: Vec<usize> = mpc.terms.iter().enumerate()
@@ -666,7 +745,8 @@ pub fn build_constraint_transform(
     dof_num: &DofNumbering,
     nodes_2d: Option<&HashMap<String, SolverNode>>,
     nodes_3d: Option<&HashMap<String, SolverNode3D>>,
-) -> ConstraintTransform {
+    inclined: &[InclinedDofs],
+) -> Result<ConstraintTransform, String> {
     let n = dof_num.n_total;
 
     // Build O(1) lookup maps: node numeric id -> &Node
@@ -679,7 +759,9 @@ pub fn build_constraint_transform(
 
     // Collect all dependent DOFs and their constraint equations.
     // Each equation: dependent_dof = Σ(coeff * independent_or_master_dof)
-    let mut dep_equations: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
+    // In order: when two constraints make the same DOF dependent the last
+    // one wins (flagged by `validate_constraints`).
+    let mut eqs: Vec<(usize, Vec<(usize, f64)>)> = Vec::new();
 
     for constraint in constraints {
         match constraint {
@@ -770,7 +852,7 @@ pub fn build_constraint_transform(
                         }
 
                         if !terms.is_empty() {
-                            dep_equations.insert(slave_global, terms);
+                            eqs.push((slave_global, terms));
                         }
                     }
                 }
@@ -811,7 +893,7 @@ pub fn build_constraint_transform(
                             }
                         }
                         if !terms.is_empty() {
-                            dep_equations.insert(s_dof, terms);
+                            eqs.push((s_dof, terms));
                         }
                     }
 
@@ -827,7 +909,7 @@ pub fn build_constraint_transform(
                             }
                         }
                         if !terms.is_empty() {
-                            dep_equations.insert(s_dof, terms);
+                            eqs.push((s_dof, terms));
                         }
                     }
                 }
@@ -837,7 +919,7 @@ pub fn build_constraint_transform(
                 for &dof in &eq.dofs {
                     if let Some(&slave_global) = dof_num.map.get(&(eq.slave_node, dof)) {
                         if let Some(&master_global) = dof_num.map.get(&(eq.master_node, dof)) {
-                            dep_equations.insert(slave_global, vec![(master_global, 1.0)]);
+                            eqs.push((slave_global, vec![(master_global, 1.0)]));
                         }
                     }
                 }
@@ -912,7 +994,7 @@ pub fn build_constraint_transform(
                         }
 
                         if !terms.is_empty() {
-                            dep_equations.insert(slave_global, terms);
+                            eqs.push((slave_global, terms));
                         }
                     }
                 }
@@ -921,12 +1003,7 @@ pub fn build_constraint_transform(
             Constraint::LinearMPC(mpc) => {
                 // General MPC: Σ(coeff_i × u_i) = 0
                 // First term with largest coefficient becomes dependent
-                if mpc.terms.is_empty() { continue; }
-
-                // Find term with largest |coefficient|
-                let (dep_idx, _) = mpc.terms.iter().enumerate()
-                    .max_by(|(_, a), (_, b)| a.coefficient.abs().total_cmp(&b.coefficient.abs()))
-                    .unwrap();
+                let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
 
                 let dep_term = &mpc.terms[dep_idx];
                 if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
@@ -938,11 +1015,15 @@ pub fn build_constraint_transform(
                             terms.push((global, -term.coefficient / dep_coeff));
                         }
                     }
-                    dep_equations.insert(dep_global, terms);
+                    eqs.push((dep_global, terms));
                 }
             }
         }
     }
+
+    // Constraint equations are global; at inclined supports the DOF slots
+    // hold rotated components. Rewrite the equations in those frames.
+    let (dep_equations, checks) = equations_in_inclined_frames(eqs, dof_num, inclined)?;
 
     // Build sets
     let dependent_set: HashSet<usize> = dep_equations.keys().copied().collect();
@@ -1033,17 +1114,272 @@ pub fn build_constraint_transform(
         if max_change < 1e-14 { break; }
     }
 
-    ConstraintTransform {
+    // Every equation that touched an inclined-support node or a restrained
+    // slave must hold for every free independent motion: (row · C)[j] = 0. A
+    // conflict (two constraints on one rotated component) or an unresolved
+    // chain would otherwise be solved and reported as if the constraint held.
+    for (node, row) in &checks {
+        let mut acc: HashMap<usize, f64> = HashMap::new();
+        let mut scale = 0.0f64;
+        for &(d, g) in row {
+            for &(j, v) in &rows[d] {
+                *acc.entry(j).or_insert(0.0) += g * v;
+                scale = scale.max((g * v).abs());
+            }
+        }
+        if let Some(bad) = acc.iter()
+            .find(|(&j, v)| independent_dofs[j] < dof_num.n_free && v.abs() > 1e-9 * scale.max(1e-300))
+        {
+            return Err(format!(
+                "A constraint on node {node} cannot be enforced together with its supports \
+                 and the other constraints (conflicting or circular constraints; \
+                 residual {:.3e} on DOF {})",
+                bad.1, independent_dofs[*bad.0]
+            ));
+        }
+    }
+
+    Ok(ConstraintTransform {
         c: SparseTransform::from_rows(n, n_indep, rows),
         n_independent: n_indep,
         n_total: n,
         independent_dofs,
         dependent_dofs: dependent_set,
-    }
+    })
 }
 
-/// Map raw (global_dof, force) pairs to ConstraintForce structs with node_id and dof name.
-pub(super) fn map_dof_forces_to_constraint_forces(
+/// Rewrite global-component constraint equations in the inclined-support
+/// frames K is assembled in, and choose their dependent DOFs there and where
+/// a support holds the slave.
+///
+/// Each equation is `u[s] = Σ a·u[m]` in global components. At an inclined
+/// node the DOF slots hold `ũ = R u`, so a global component is
+/// `u_k = Σ_j R[j][k] ũ_j`:
+/// - a master term on an inclined node is substituted by that combination;
+/// - an equation whose slave is a translation of an inclined node, or a DOF
+///   held by a support, becomes the homogeneous row
+///   `Σ_j R[j][k] ũ_j − Σ a·u[m] = 0` (`u[s] − Σ a·u[m] = 0`). Its dependent
+///   DOF is chosen after substituting every already-dependent DOF (so no
+///   cycle can form): preferably a free rotated DOF of that node, otherwise
+///   any free independent DOF in the row. A rigid link whose slave sits on a
+///   support therefore makes the support restrain the master's motion: one
+///   master DOF becomes dependent. (Eliminating the restrained slave instead
+///   dropped the equation: the support won and the results violated the
+///   constraint, with only an OverConstrainedDof warning.)
+///
+/// Returns the dependency map for the substitution in
+/// `build_constraint_transform` and the rows (with the node they concern)
+/// that the built transform must satisfy. Models with no constraint on an
+/// inclined node and no restrained slave come back unchanged, with no rows to
+/// check.
+fn equations_in_inclined_frames(
+    eqs: Vec<(usize, Vec<(usize, f64)>)>,
+    dof_num: &DofNumbering,
+    inclined: &[InclinedDofs],
+) -> Result<(HashMap<usize, Vec<(usize, f64)>>, Vec<(usize, Vec<(usize, f64)>)>), String> {
+    use std::collections::BTreeMap;
+
+    let nf = dof_num.n_free;
+    // DOF slot → (frame index, translation component).
+    let mut rot: HashMap<usize, (usize, usize)> = HashMap::new();
+    for (fi, f) in inclined.iter().enumerate() {
+        for (k, &d) in f.dofs.iter().enumerate() {
+            rot.insert(d, (fi, k));
+        }
+    }
+    let touches = |s: usize, terms: &[(usize, f64)]| {
+        rot.contains_key(&s) || terms.iter().any(|(m, _)| rot.contains_key(m))
+    };
+    if !eqs.iter().any(|(s, t)| *s >= nf || touches(*s, t)) {
+        return Ok((eqs.into_iter().collect(), Vec::new()));
+    }
+    let node_of: HashMap<usize, usize> = dof_num.map.iter().map(|(&(n, _), &d)| (d, n)).collect();
+
+    // A node with two inclined supports is rotated twice by assembly; refuse
+    // rather than guess which frame its DOFs are in.
+    for (s, t) in &eqs {
+        for d in std::iter::once(s).chain(t.iter().map(|(m, _)| m)) {
+            if let Some(&(fi, _)) = rot.get(d) {
+                let node = inclined[fi].node_id;
+                if inclined.iter().filter(|f| f.node_id == node).count() > 1 {
+                    return Err(format!(
+                        "Constraint on node {node}, which has more than one inclined support: \
+                         not supported"
+                    ));
+                }
+            }
+        }
+    }
+
+    // Global component k at an inclined node, in its rotated DOFs.
+    let global_component = |fi: usize, k: usize| -> Vec<(usize, f64)> {
+        let f = &inclined[fi];
+        f.dofs.iter().enumerate().map(|(j, &d)| (d, f.r[j][k])).collect()
+    };
+    let add = |row: &mut BTreeMap<usize, f64>, d: usize, c: f64| {
+        if let Some(&(fi, k)) = rot.get(&d) {
+            for (dj, rjk) in global_component(fi, k) {
+                *row.entry(dj).or_insert(0.0) += c * rjk;
+            }
+        } else {
+            *row.entry(d).or_insert(0.0) += c;
+        }
+    };
+
+    let mut plain: Vec<(usize, Vec<(usize, f64)>)> = Vec::new();
+    // (DOFs preferred as the dependent one, row = 0)
+    let mut tied: Vec<(Vec<usize>, BTreeMap<usize, f64>)> = Vec::new();
+    let mut checks: Vec<(usize, Vec<(usize, f64)>)> = Vec::new();
+    for (s, terms) in eqs {
+        let touched = touches(s, &terms);
+        let mut rhs = BTreeMap::new();
+        for &(m, a) in &terms {
+            add(&mut rhs, m, a);
+        }
+        if rot.contains_key(&s) || s >= nf {
+            let mut row = BTreeMap::new();
+            add(&mut row, s, 1.0);
+            for (&d, &a) in &rhs {
+                *row.entry(d).or_insert(0.0) -= a;
+            }
+            let own = match rot.get(&s) {
+                Some(&(fi, _)) => inclined[fi].dofs.clone(),
+                None => Vec::new(),
+            };
+            checks.push((node_of.get(&s).copied().unwrap_or(0), row.iter().map(|(&d, &c)| (d, c)).collect()));
+            tied.push((own, row));
+        } else {
+            if touched {
+                let node = terms.iter().find_map(|(m, _)| rot.get(m).map(|&(fi, _)| inclined[fi].node_id))
+                    .unwrap_or(0);
+                let mut row = vec![(s, 1.0)];
+                row.extend(rhs.iter().map(|(&d, &a)| (d, -a)));
+                checks.push((node, row));
+            }
+            plain.push((s, rhs.into_iter().collect()));
+        }
+    }
+
+    let mut dep: HashMap<usize, Vec<(usize, f64)>> = plain.into_iter().collect();
+    if tied.is_empty() {
+        return Ok((dep, checks));
+    }
+
+    // Every dependent DOF in terms of independent DOFs only.
+    let mut resolved: HashMap<usize, BTreeMap<usize, f64>> = HashMap::new();
+    fn resolve(
+        d: usize,
+        dep: &HashMap<usize, Vec<(usize, f64)>>,
+        resolved: &mut HashMap<usize, BTreeMap<usize, f64>>,
+        visiting: &mut HashSet<usize>,
+    ) -> Result<(), String> {
+        if resolved.contains_key(&d) { return Ok(()); }
+        if !visiting.insert(d) {
+            return Err(format!("Circular constraint chain through DOF {d}"));
+        }
+        let mut e = BTreeMap::new();
+        for &(m, a) in &dep[&d] {
+            if dep.contains_key(&m) {
+                resolve(m, dep, resolved, visiting)?;
+                for (&i, &v) in &resolved[&m] {
+                    *e.entry(i).or_insert(0.0) += a * v;
+                }
+            } else {
+                *e.entry(m).or_insert(0.0) += a;
+            }
+        }
+        visiting.remove(&d);
+        resolved.insert(d, e);
+        Ok(())
+    }
+    let mut keys: Vec<usize> = dep.keys().copied().collect();
+    keys.sort_unstable();
+    for d in keys {
+        resolve(d, &dep, &mut resolved, &mut HashSet::new())?;
+    }
+
+    for (own, row) in tied {
+        let mut x: BTreeMap<usize, f64> = BTreeMap::new();
+        for (&d, &c) in &row {
+            if let Some(e) = resolved.get(&d) {
+                for (&i, &v) in e {
+                    *x.entry(i).or_insert(0.0) += c * v;
+                }
+            } else {
+                *x.entry(d).or_insert(0.0) += c;
+            }
+        }
+        let max = x.values().fold(0.0f64, |m, v| m.max(v.abs()));
+        x.retain(|_, v| v.abs() > 1e-12 * max);
+        let free = |d: &usize| *d < nf;
+        let best = |preferred: bool| {
+            x.iter()
+                .filter(|(d, _)| free(d) && (!preferred || own.contains(d)))
+                .max_by(|a, b| a.1.abs().total_cmp(&b.1.abs()))
+                .map(|(&d, &c)| (d, c))
+        };
+        let pivot = match (best(true), best(false)) {
+            (Some(own), Some(any)) if own.1.abs() >= 0.1 * any.1.abs() => Some(own),
+            (_, any) => any,
+        };
+        // No free DOF left: the equation ties prescribed values only (a
+        // restrained slave and fully restrained masters; flagged
+        // OverConstrainedDof by validate_constraints).
+        let Some((p, cp)) = pivot else { continue; };
+        let expr: BTreeMap<usize, f64> = x.iter()
+            .filter(|(&d, _)| d != p)
+            .map(|(&d, &c)| (d, -c / cp))
+            .collect();
+        for e in resolved.values_mut() {
+            if let Some(a) = e.remove(&p) {
+                for (&i, &v) in &expr {
+                    *e.entry(i).or_insert(0.0) += a * v;
+                }
+            }
+        }
+        resolved.insert(p, expr);
+    }
+
+    // Independent-only expressions: the substitution converges in one pass.
+    dep = resolved.into_iter()
+        .map(|(d, e)| (d, e.into_iter().filter(|(_, v)| *v != 0.0).collect()))
+        .collect();
+    Ok((dep, checks))
+}
+
+/// Rotate raw constraint forces on the rotated DOFs of inclined-support
+/// nodes back to global components (same DOF slots, global meaning).
+fn forces_to_global(raw: &[(usize, f64)], inclined: &[InclinedDofs]) -> Vec<(usize, f64)> {
+    if inclined.is_empty() {
+        return raw.to_vec();
+    }
+    let mut out: Vec<(usize, f64)> = Vec::with_capacity(raw.len());
+    let mut done: HashSet<usize> = HashSet::new();
+    for &(d, _) in raw {
+        if done.contains(&d) { continue; }
+        if let Some(f) = inclined.iter().find(|f| f.dofs.contains(&d)) {
+            let local: Vec<f64> = f.dofs.iter()
+                .map(|dj| raw.iter().filter(|(i, _)| i == dj).map(|(_, v)| v).sum())
+                .collect();
+            for (k, &dk) in f.dofs.iter().enumerate() {
+                let g: f64 = (0..f.dofs.len()).map(|j| f.r[j][k] * local[j]).sum();
+                if g.abs() > 1e-15 {
+                    out.push((dk, g));
+                }
+                done.insert(dk);
+            }
+        } else {
+            out.push((d, raw.iter().filter(|(i, _)| *i == d).map(|(_, v)| v).sum()));
+            done.insert(d);
+        }
+    }
+    out
+}
+
+/// Map raw (dof slot, force) pairs to ConstraintForce structs with node_id and
+/// dof name. The forces must already be in global components
+/// (`FreeConstraintSystem::constraint_forces`).
+fn map_dof_forces_to_constraint_forces(
     raw: &[(usize, f64)],
     dof_num: &DofNumbering,
 ) -> Vec<ConstraintForce> {
@@ -1184,10 +1520,11 @@ pub fn solve_constrained_2d_dense(
     }
 
     // Build constraint transform on free DOFs only
+    let inclined = inclined_dofs_2d(&input.solver, &dof_num);
     let ct = build_constraint_transform(
         &input.constraints, &dof_num,
-        Some(&input.solver.nodes), None,
-    );
+        Some(&input.solver.nodes), None, &inclined,
+    )?;
 
     // Partition: free DOFs are 0..nf, restrained are nf..n
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -1212,7 +1549,7 @@ pub fn solve_constrained_2d_dense(
     }
 
     // Extract the free part of C (rows for free DOFs only), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -1253,12 +1590,20 @@ pub fn solve_constrained_2d_dense(
 
     // Solve reduced system
     let mut used_fallback = false;
+    let mut definiteness = None;
     let u_indep = {
+        // `cholesky_solve`, unrolled to inspect the factor's pivots.
         let mut k_work = k_reduced.clone();
-        match cholesky_solve(&mut k_work, &f_reduced, n_free_indep) {
+        match cholesky_decompose(&mut k_work, n_free_indep).then(|| {
+            definiteness = super::definiteness::dense_pivot_check(&k_work, &k_reduced, n_free_indep);
+            back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
+        }) {
             Some(u) => u,
             None => {
                 used_fallback = true;
+                definiteness = Some(super::definiteness::not_positive_definite(
+                    "constrained CᵀKC: Cholesky failed; solved by dense LU",
+                ));
                 let mut k_work = k_reduced;
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
@@ -1309,7 +1654,7 @@ pub fn solve_constrained_2d_dense(
         }
         None => fcs.compute_constraint_forces(&k_ff, &u_f, &f_f),
     };
-    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
+    let constraint_forces = fcs.constraint_forces(&raw_forces, &dof_num);
 
     // A constraint force carried into a RESTRAINED master is not otherwise
     // reflected anywhere: the master's own equilibrium row isn't part of the
@@ -1402,6 +1747,8 @@ pub fn solve_constrained_2d_dense(
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
+    constraint_diags.extend(definiteness);
+
     Ok(AnalysisResults {
         displacements,
         reactions,
@@ -1486,10 +1833,11 @@ fn solve_constrained_2d_sparse(
         return Err(format!("Invalid constraints: {}", d.message));
     }
 
+    let inclined = inclined_dofs_2d(&input.solver, dof_num);
     let ct = build_constraint_transform(
         &input.constraints, dof_num,
-        Some(&input.solver.nodes), None,
-    );
+        Some(&input.solver.nodes), None, &inclined,
+    )?;
 
     let mut f_f: Vec<f64> = f[..nf].to_vec();
 
@@ -1502,7 +1850,7 @@ fn solve_constrained_2d_sparse(
         }
     }
 
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters.
@@ -1536,9 +1884,12 @@ fn solve_constrained_2d_sparse(
 
     // NO diagonal-shift regularization (the 2D contract): a mechanism fails
     // here and is reported by the dense path's LU, as the legacy solver did.
-    let Some(u_indep) = sparse_cholesky_solve_full(&k_reduced, &f_reduced) else {
+    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
+    let Some(num) = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced) else {
         return Ok(None);
     };
+    let definiteness = super::definiteness::sparse_pivot_check(&num, &k_reduced);
+    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
@@ -1591,7 +1942,7 @@ fn solve_constrained_2d_sparse(
         }
         None => fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f),
     };
-    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, dof_num);
+    let constraint_forces = fcs.constraint_forces(&raw_forces, dof_num);
 
     // A constraint force carried into a RESTRAINED master joins its reaction.
     for &(i, g_i) in &raw_forces {
@@ -1641,6 +1992,8 @@ fn solve_constrained_2d_sparse(
             format!("Constrained 2D residual {:.2e} exceeds tolerance", rel_residual),
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
+
+    constraint_diags.extend(definiteness);
 
     Ok(Some(AnalysisResults {
         displacements,
@@ -1757,10 +2110,11 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         return Err(format!("Invalid constraints: {}", d.message));
     }
 
+    let inclined = inclined_dofs_3d(&input.solver, &dof_num);
     let ct = build_constraint_transform(
         &input.constraints, &dof_num,
-        None, Some(&input.solver.nodes),
-    );
+        None, Some(&input.solver.nodes), &inclined,
+    )?;
 
     let mut f_f: Vec<f64> = sasm.f[..nf].to_vec();
 
@@ -1780,7 +2134,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     // Free part of C (rows 0..nf, free-independent columns), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -1820,7 +2174,15 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let f_reduced = fcs.reduce_vector(&f_f);
 
     let mut used_fallback = false;
-    let u_indep = match sparse_cholesky_solve_full(&k_reduced, &f_reduced) {
+    // `sparse_cholesky_solve_full`, unrolled to inspect the factor's pivots.
+    let factor = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_reduced)), &k_reduced);
+    let definiteness = match &factor {
+        Some(num) => super::definiteness::sparse_pivot_check(num, &k_reduced),
+        None => Some(super::definiteness::not_positive_definite(
+            "constrained CᵀKC: Cholesky failed; solved by dense LU",
+        )),
+    };
+    let u_indep = match factor.map(|num| sparse_cholesky_solve(&num, &f_reduced)) {
         Some(u) => u,
         None => {
             used_fallback = true;
@@ -1870,7 +2232,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         }
         None => fcs.compute_constraint_forces_sparse(k_ff, &u_f, &f_f),
     };
-    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
+    let constraint_forces = fcs.constraint_forces(&raw_forces, &dof_num);
 
     // A constraint force carried into a RESTRAINED master is not otherwise
     // reflected anywhere: the master's own equilibrium row isn't part of the
@@ -1956,6 +2318,8 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
+    constraint_diags.extend(definiteness);
+
     Ok(AnalysisResults3D {
         displacements,
         reactions,
@@ -2030,32 +2394,43 @@ pub struct FreeConstraintSystem {
     /// row of an independent DOF. Sniffing it classified those as independent
     /// and dropped their constraint forces from the results entirely.
     dependent: Vec<bool>,
+    /// Inclined-support frames the transform was built in (constraint
+    /// forces there are rotated back to global components).
+    inclined: Vec<InclinedDofs>,
 }
 
 impl FreeConstraintSystem {
     /// Build a constraint system from constraints and DOF numbering.
     /// Returns None if there are no constraints.
-    pub fn build_2d(
-        constraints: &[Constraint],
-        dof_num: &DofNumbering,
-        nodes: &HashMap<String, SolverNode>,
-    ) -> Option<Self> {
-        if constraints.is_empty() { return None; }
-        let nf = dof_num.n_free;
-        let ct = build_constraint_transform(constraints, dof_num, Some(nodes), None);
-        Some(Self::from_transform(&ct, nf))
+    ///
+    /// The transform is built in the inclined-support frames K is assembled
+    /// in; `Err` when a constraint on an inclined-support node cannot be
+    /// enforced there.
+    pub fn build_2d(input: &SolverInput, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        if input.constraints.is_empty() { return Ok(None); }
+        let inclined = inclined_dofs_2d(input, dof_num);
+        let ct = build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None, &inclined)?;
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
     }
 
     /// Build a constraint system for 3D.
-    pub fn build_3d(
-        constraints: &[Constraint],
-        dof_num: &DofNumbering,
-        nodes: &HashMap<String, SolverNode3D>,
-    ) -> Option<Self> {
-        if constraints.is_empty() { return None; }
-        let nf = dof_num.n_free;
-        let ct = build_constraint_transform(constraints, dof_num, None, Some(nodes));
-        Some(Self::from_transform(&ct, nf))
+    pub fn build_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        if input.constraints.is_empty() { return Ok(None); }
+        let inclined = inclined_dofs_3d(input, dof_num);
+        let ct = build_constraint_transform(&input.constraints, dof_num, None, Some(&input.nodes), &inclined)?;
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
+    }
+
+    fn with_inclined(mut self, inclined: Vec<InclinedDofs>) -> Self {
+        self.inclined = inclined;
+        self
+    }
+
+    /// Constraint forces as reported: at an inclined-support node the raw
+    /// forces sit on rotated DOFs, so they are turned back to global
+    /// components (`Rᵀ f`; the restrained normal's share is in the reaction).
+    pub fn constraint_forces(&self, raw: &[(usize, f64)], dof_num: &DofNumbering) -> Vec<ConstraintForce> {
+        map_dof_forces_to_constraint_forces(&forces_to_global(raw, &self.inclined), dof_num)
     }
 
     fn from_transform(ct: &ConstraintTransform, nf: usize) -> Self {
@@ -2093,6 +2468,7 @@ impl FreeConstraintSystem {
             n_free_indep,
             nf,
             dependent,
+            inclined: Vec::new(),
         }
     }
 
@@ -2206,6 +2582,12 @@ impl FreeConstraintSystem {
         let ku = k_ff.sym_mat_vec(u_f);
         let residual: Vec<f64> = (0..self.nf).map(|i| ku[i] - f_f[i]).collect();
         self.collect_dependent_forces(&residual)
+    }
+
+    /// Same, from a residual K_ff·u_f − F_f the caller has already formed
+    /// (a solver whose system is K plus its own terms).
+    pub fn constraint_forces_from_residual(&self, residual: &[f64]) -> Vec<(usize, f64)> {
+        self.collect_dependent_forces(residual)
     }
 
     fn collect_dependent_forces(&self, residual: &[f64]) -> Vec<(usize, f64)> {

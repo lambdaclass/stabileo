@@ -42,7 +42,7 @@
   import { steelStore } from '../../lib/store/steel.svelte';
   import { detectJoints } from '../../lib/engine/connection-design';
   import { modelStore } from '../../lib/store/model.svelte';
-  import { resultsStore } from '../../lib/store';
+  import { resultsStore, uiStore } from '../../lib/store';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { bindingLabel } from '../../lib/codes/roles';
   import { te } from '../../lib/i18n/engine-text';
@@ -51,9 +51,11 @@
   import { assumptionRows, assumptionSourceKey } from '../../lib/engine/steel/workflow-assumptions';
   import { memberLengths } from '../../lib/engine/steel/unbraced-length';
   import ProSteelLbEditor from './ProSteelLbEditor.svelte';
+  import TensionConnectionEditor from './steel/TensionConnectionEditor.svelte';
+  import TensionRuptureTable from './steel/TensionRuptureTable.svelte';
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
-  import { f62Report } from '../../lib/engine/steel/flange-local-buckling';
+  import { f62Report, f62BranchKey } from '../../lib/engine/steel/flange-local-buckling';
   import { structuralGradeSource } from '../../lib/grades/catalogue';
   import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
@@ -185,11 +187,21 @@
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     j: (firstSection as { j?: number } | undefined)?.j,
   }));
+  // Fy selects F.6.2's branch (Table B.4.1b case 14), the same limits the checker applies.
+  const firstMaterial = $derived(
+    sRows.length > 0
+      ? modelStore.model.materials.get(
+          (modelStore.model.elements.get(sRows[0].elementId) as { materialId?: number } | undefined)?.materialId ?? -1,
+        )
+      : undefined,
+  );
   const f62 = $derived(f62Report({
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     b: (firstSection as { b?: number } | undefined)?.b,
     tf: (firstSection as { tf?: number } | undefined)?.tf,
     iMinor: (firstSection as { iz?: number } | undefined)?.iz,
+    fy: (firstMaterial as { fy?: number } | undefined)?.fy,
+    e: (firstMaterial as { e?: number } | undefined)?.e,
   }));
 
   const LIMITATIONS = [
@@ -199,7 +211,7 @@
     { key: 'steel.workflow.limit.flexuralCap', addressed: true },
     { key: 'steel.workflow.blocker.unbracedLength', addressed: false },
     { key: 'steel.workflow.limit.sectionClassification', addressed: false },
-    { key: 'steel.workflow.limit.netArea', addressed: false },
+    { key: 'steel.workflow.limit.netArea', addressed: true },
   ] as const;
 
   // ── 8. Limitations and authority ─────────────────────────────────
@@ -588,6 +600,7 @@
       <p class="line" data-testid="steel-stage-geometry-body">{t('steel.workflow.geometry.lbDetail')}</p>
       <p class="line" data-testid="steel-stage-geometry-chain">{t('steel.workflow.geometry.chain')}</p>
       <ProSteelLbEditor {steelIds} />
+      <TensionConnectionEditor ids={[...uiStore.selectedElements]} />
     </section>
     <section class="sub" data-testid="steel-sub-assumptions" data-state={assumptionState}>
       <h4>
@@ -673,6 +686,7 @@
         {/each}
       </ul>
       <p class="line" data-testid="steel-stage-verification-note">{t('steel.workflow.verification.note')}</p>
+      <TensionRuptureTable {steelIds} />
 
       <!--
         The three clauses this block audited. Each says whether it is available and, when it is not,
@@ -694,6 +708,9 @@
         <dt>{t('steel.workflow.clause.f62')}</dt>
         <dd data-testid="steel-clause-f62">
           {t(f62.reasonKey)}
+          {#if f62.state === 'classified'}
+            <span class="clauses">{t(f62BranchKey(f62.branch))}</span>
+          {/if}
           {#if f62.flangeSlenderness != null}
             <!-- The computable half, shown because a reader with the printed table can finish it. -->
             <span class="clauses">

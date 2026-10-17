@@ -11,8 +11,8 @@ use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
-use super::assembly;
-use super::corotational::{assemble_corotational_public, assemble_corotational_triplets_2d};
+use super::assembly::{self, InclinedFrame, InclinedTransformData2D};
+use super::corotational::{add_spring_contributions, assemble_corotational_public, assemble_corotational_triplets_2d};
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
@@ -119,6 +119,17 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
+    // The co-rotational tangent here carries no prescribed displacements, and
+    // it treats temperature as fixed global forces (see
+    // `solve_corotational_2d`). Connectors are supported (fix/nonlinear-solvers,
+    // shear on a connector with length refused below) and inclined rollers are
+    // solved in their frames (fix/inclined-supports, checked against the
+    // rotated model).
+    super::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
+        super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::ThermalLoads,
+    ])?;
+    crate::element::connector::refuse_for_corotational_2d(&input.solver, "Arc-length analysis")?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -129,7 +140,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -144,7 +155,12 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     // Reference load vector
+    // f_ref, the tangent and `u_full` are in the inclined-roller frames the
+    // restraints are numbered in (`assemble_tangent` rotates); results are
+    // rotated back to global axes.
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let art = assembly::artificial_stiffness_entries(&asm);
+    let its = asm.inclined_transforms_2d;
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s = if let Some(ref cs) = cs {
         cs.reduce_vector(&f_ref)
@@ -170,7 +186,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut step = 0;
     while step < input.max_steps {
         // Predictor: solve K_T * δu_hat = f_ref
-        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
@@ -209,7 +225,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             total_iters += 1;
 
             // Compute residual
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
             let f_int_new = &asm_t.f_int;
 
             let mut residual = vec![0.0; nf];
@@ -320,12 +336,13 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     }
 
     // Build final results using corotational forces (not linear)
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
+    let u_global = assembly::to_global(&u_full[..nf], n, &its);
+    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -338,7 +355,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -366,6 +383,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
+    super::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
+        super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::InclinedSupports, super::feature_gates::Feature::ThermalLoads,
+    ])?;
+    crate::element::connector::refuse_for_corotational_2d(&input.solver, "Displacement-control analysis")?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -376,7 +398,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     let nf = dof_num.n_free;
 
     // Build constraint system (if constraints present)
-    let cs_dc = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs_dc = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -418,7 +440,12 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     }
 
     // Reference load
+    // f_ref, the tangent and `u_full` are in the inclined-roller frames the
+    // restraints are numbered in (`assemble_tangent` rotates); results are
+    // rotated back to global axes.
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
+    let art = assembly::artificial_stiffness_entries(&asm);
+    let its = asm.inclined_transforms_2d;
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
     let f_ref_s_dc = if let Some(ref cs) = cs_dc {
         cs.reduce_vector(&f_ref)
@@ -463,7 +490,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             total_iters += 1;
 
             // Compute tangent stiffness and internal forces
-            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+            let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
             let f_int = &asm_t.f_int;
 
             // Residual
@@ -554,12 +581,13 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
         }
     }
 
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
+    let u_global = assembly::to_global(&u_full[..nf], n, &its);
+    let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
 
     // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs_dc {
-        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, sparse);
+        let asm_final = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
         let raw = if sparse {
             // Unreduced free-block CSC (lower triangle) for K_ff * u_f — the
             // dense final tangent is never built on the sparse path.
@@ -572,7 +600,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             let k_ff = extract_submatrix(&asm_final.k_t, n, &free_idx, &free_idx);
             fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm_final.f_int[..nf])
         };
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -751,33 +779,6 @@ fn solve_with_tangent(factored: &FactoredTangent, rhs: &[f64], nf: usize) -> Res
 // Sparse symbolic factorization cache and tangent conversion helpers now
 // live in `super::sparse_tangent` (shared with corotational and contact).
 
-/// Add spring stiffness from supports to tangent stiffness and internal forces.
-/// `scatter` receives the diagonal stiffness entries: dense `k_t[gi*n+gj]` for
-/// the small-model path, lower-triangle triplets for the sparse path (mirrors
-/// corotational's `add_spring_contributions`).
-fn add_spring_stiffness(
-    input: &SolverInput,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
-) {
-    for sup in input.supports.values() {
-        if sup.support_type != "spring" { continue; }
-        let springs = [(0, sup.kx), (1, sup.ky), (2, sup.kz)];
-        for &(local_dof, k_opt) in &springs {
-            if let Some(k) = k_opt {
-                if k > 0.0 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        scatter(d, d, k);
-                        f_int[d] += k * u_full[d];
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// Co-rotational tangent + internal forces for one Newton iteration: dense n×n
 /// tangent below `SPARSE_THRESHOLD`, lower-triangle (gi >= gj) COO triplets at
 /// or above it — the sparse path never materializes the O(n²) dense tangent.
@@ -792,13 +793,19 @@ struct TangentAssembly {
     trip_vals: Vec<f64>,
 }
 
+/// `u_frame` and the returned tangent and `f_int` are in the inclined-roller
+/// frames `its`; the elements see the displacement in global axes.
 fn assemble_tangent(
     input: &SolverInput,
     dof_num: &DofNumbering,
-    u_full: &[f64],
+    u_frame: &[f64],
+    art: &[(usize, f64)],
     sparse: bool,
+    its: &[InclinedTransformData2D],
 ) -> TangentAssembly {
     let n = dof_num.n_total;
+    let u_global = assembly::to_global(&u_frame[..dof_num.n_free], n, its);
+    let u_full = &u_global[..];
     let mut f_int = vec![0.0; n];
     let mut k_t: Vec<f64> = Vec::new();
     let mut trip_rows: Vec<usize> = Vec::new();
@@ -810,18 +817,30 @@ fn assemble_tangent(
             input, dof_num, u_full, &mut f_int,
             &mut trip_rows, &mut trip_cols, &mut trip_vals,
         );
-        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
-            debug_assert!(gi >= gj, "spring stiffness is diagonal");
-            trip_rows.push(gi);
-            trip_cols.push(gj);
-            trip_vals.push(v);
+        // Springs, connectors and artificial stiffness, shared with the
+        // co-rotational solver (off-diagonal entries included).
+        add_spring_contributions(input, dof_num, u_full, &mut f_int, art, &mut |gi, gj, v| {
+            if gi >= gj {
+                trip_rows.push(gi);
+                trip_cols.push(gj);
+                trip_vals.push(v);
+            }
         });
     } else {
         k_t = vec![0.0; n * n];
         assemble_corotational_public(input, dof_num, u_full, &mut f_int, &mut k_t);
-        add_spring_stiffness(input, dof_num, u_full, &mut f_int, &mut |gi, gj, v| {
+        add_spring_contributions(input, dof_num, u_full, &mut f_int, art, &mut |gi, gj, v| {
             k_t[gi * n + gj] += v;
         });
+    }
+
+    for it in its {
+        if sparse {
+            it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+        } else {
+            it.rotate_dense(&mut k_t, n);
+        }
+        it.rotate(&mut f_int);
     }
 
     TangentAssembly { f_int, k_t, trip_rows, trip_cols, trip_vals }

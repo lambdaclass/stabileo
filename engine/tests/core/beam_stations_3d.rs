@@ -559,6 +559,13 @@ fn test_full_pipeline_solve_to_steel_check_3d() {
             e: E,
             g: None,
             depth: Some(0.203),
+            flange_slenderness: None,
+            // W200x46: bf = 203, tf = 11.0, tw = 7.2, h ≈ 161 mm (E7).
+            compression_elements: Some(vec![
+                AiscElement { kind: AiscElementKind::RolledFlange, b: 0.1015, t: 0.011, count: Some(4.0), kc: None },
+                AiscElement { kind: AiscElementKind::Web, b: 0.161, t: 0.0072, count: None, kc: None },
+            ]),
+            load_position: None,
         }],
         forces: demands,
     };

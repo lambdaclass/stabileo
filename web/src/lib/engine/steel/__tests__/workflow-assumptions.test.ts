@@ -138,12 +138,16 @@ describe('the declared assumptions describe what the app ACTUALLY does', () => {
     expect(CIRSOC301_JS_ASSUMPTIONS).not.toContain('steel.assume.noPlasticMomentCap');
   });
 
+  it('no longer claims Ae = Ag or the absence of §E.4: tension is refused without the connection, and E.4 is evaluated', () => {
+    expect(CIRSOC301_JS_ASSUMPTIONS).not.toContain('steel.assume.netAreaEqualsGross');
+    expect(CIRSOC301_JS_ASSUMPTIONS).not.toContain('steel.assume.noTorsionalBuckling');
+  });
+
   it('still claims the ones that are still true', () => {
     for (const key of [
       'steel.assume.unbracedLengthIsMemberLength',
       'steel.assume.noSectionClassification',
-      'steel.assume.netAreaEqualsGross',
-      'steel.assume.noTorsionalBuckling',
+      'steel.assume.torsionalLengthIsMemberLength',
       'steel.assume.momentGradientIsUnity',
       'steel.assume.torsionalConstantZeroWhenAbsent',
     ]) {

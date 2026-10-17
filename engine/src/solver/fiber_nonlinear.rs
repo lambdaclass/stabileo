@@ -13,7 +13,7 @@ use crate::linalg::*;
 use crate::element::fiber_beam::*;
 use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d, Hinge3D};
 use super::dof::DofNumbering;
-use super::assembly;
+use super::assembly::{self, InclinedFrame};
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse};
 
@@ -79,6 +79,14 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
+    // Fiber members are Euler–Bernoulli and continuous at both ends, and the
+    // tangent has no prescribed displacements. Connectors are supported
+    // (fix/nonlinear-solvers) and inclined supports are solved in their frames
+    // (fix/inclined-supports).
+    super::feature_gates::refuse_2d(&input.solver, "Fiber-nonlinear analysis", &[
+        super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::ShearDeformation, super::feature_gates::Feature::MomentReleases,
+    ])?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -90,12 +98,18 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     let n_ip = input.n_integration_points.max(2).min(7);
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector
+    // The iteration keeps u, f_int and the loads in global axes, where the
+    // element state lives; each Newton step is solved in the inclined-roller
+    // frames the restraints are numbered in: the tangent and the residual are
+    // rotated into them and the correction rotated back.
     let asm = assembly::assemble_2d(&input.solver, &dof_num);
-    let f_total = asm.f.clone();
+    let art = assembly::artificial_stiffness_entries(&asm);
+    let its = asm.inclined_transforms_2d;
+    let f_total = assembly::assemble_load_vector_2d(&input.solver, &input.solver.loads, &dof_num, &[]);
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
@@ -140,8 +154,6 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
             // or above it, as lower-triangle COO triplets that feed the CSC
             // sparse solve directly — no O(n²) dense matrix is ever built.
-            // NOTE: unlike the corotational solver, fiber never rotates the
-            // tangent for inclined supports; both paths preserve that.
             let mut f_int = vec![0.0; n];
             let sparse_tangent = ns >= super::linear::SPARSE_THRESHOLD;
             let mut k_t: Vec<f64> = Vec::new();
@@ -170,7 +182,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 );
 
                 // Add spring contributions
-                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
+                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &art, &mut scatter);
             } else {
                 k_t = vec![0.0; n * n];
                 let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
@@ -187,7 +199,16 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 );
 
                 // Add spring contributions
-                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
+                add_springs(&input.solver, &dof_num, &u_full, &mut f_int, &art, &mut scatter);
+            }
+
+            // Into the inclined-support frames: tangent and residual.
+            for it in &its {
+                if sparse_tangent {
+                    it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+                } else {
+                    it.rotate_dense(&mut k_t, n);
+                }
             }
 
             // Residual
@@ -195,6 +216,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
             }
+            let residual = assembly::to_inclined_free(residual, &its, nf);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
@@ -203,7 +225,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             } else {
                 r_f.clone()
             };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
             let f_check = if let Some(ref cs) = cs {
                 cs.reduce_vector(&f_ext_f)
             } else {
@@ -308,8 +330,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 delta_u_indep
             };
 
-            for i in 0..nf {
-                u_full[i] += delta_u_f[i];
+            let delta_u_g = assembly::to_global(&delta_u_f, n, &its);
+            for i in 0..n {
+                u_full[i] += delta_u_g[i];
             }
         }
 
@@ -366,11 +389,11 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             &input.solver, &input.fiber_sections, &dof_num,
             &u_full, &mut f_int_final, &mut scatter,
         );
-        add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut scatter);
+        add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &art, &mut scatter);
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -571,21 +594,23 @@ fn add_springs(
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
+    art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    for sup in solver.supports.values() {
-        if sup.support_type != "spring" { continue; }
-        let springs = [(0, sup.kx), (1, sup.ky), (2, sup.kz)];
-        for &(local_dof, k_opt) in &springs {
-            if let Some(k) = k_opt {
-                if k > 0.0 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                        scatter(d, d, k);
-                        f_int[d] += k * u_full[d];
-                    }
-                }
-            }
-        }
+    // Shared with the linear assembler (angle, rotational springs on any support).
+    for (i, j, k) in super::assembly::support_spring_entries_2d(solver, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
+    }
+    // Connectors, small displacements as in the linear assembler.
+    for (i, j, k) in crate::element::connector::connector_entries_2d(solver, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
+    }
+    // The linear assembler's artificial stiffness on DOFs nothing else holds.
+    for &(d, k) in art {
+        scatter(d, d, k);
+        f_int[d] += k * u_full[d];
     }
 }
 
@@ -624,6 +649,20 @@ pub struct FiberNonlinearResult3D {
 /// Solve a 3D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
+    // As in 2D, plus warping and shells, which the fiber tangent has no
+    // element for.
+    super::feature_gates::refuse_3d(&input.solver, "Fiber-nonlinear analysis", &[
+        super::feature_gates::Feature::PrescribedDisplacements,
+        super::feature_gates::Feature::ShearDeformation, super::feature_gates::Feature::MomentReleases, super::feature_gates::Feature::Warping, super::feature_gates::Feature::Shells,
+    ])?;
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
+        let mut e = input.clone();
+        e.solver = super::linear::expand_curved_beams_3d(&input.solver);
+        e
+    });
+    let input = expanded.as_ref().unwrap_or(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
     super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
 
@@ -637,11 +676,12 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     let n_ip = input.n_integration_points.max(2).min(7);
 
     // Build constraint system (if constraints present)
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
-    let f_total = asm.f.clone();
+    // Global-axes iteration, steps solved in the inclined-support frames (see 2D).
+    let its = assembly::assemble_stiffness_3d(&input.solver, &dof_num).inclined_transforms;
+    let f_total = assembly::assemble_load_vector_3d_dense(&input.solver, &input.solver.loads, &dof_num, &[]);
 
     // Initialize per-element fiber states
     let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
@@ -710,6 +750,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     &input.solver, &input.fiber_sections, &dof_num,
                     &u_full, &mut f_int, &mut scatter,
                 );
+                add_springs_3d(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
             } else {
                 k_t = vec![0.0; n * n];
                 let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
@@ -723,6 +764,16 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     &input.solver, &input.fiber_sections, &dof_num,
                     &u_full, &mut f_int, &mut scatter,
                 );
+                add_springs_3d(&input.solver, &dof_num, &u_full, &mut f_int, &mut scatter);
+            }
+
+            // Into the inclined-support frames: tangent and residual.
+            for it in &its {
+                if sparse_tangent {
+                    it.rotate_triplets(&mut trip_rows, &mut trip_cols, &mut trip_vals);
+                } else {
+                    it.rotate_dense(&mut k_t, n);
+                }
             }
 
             // Residual
@@ -730,6 +781,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
             }
+            let residual = assembly::to_inclined_free(residual, &its, nf);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
@@ -738,7 +790,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             } else {
                 r_f.clone()
             };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
             let f_check = if let Some(ref cs) = cs {
                 cs.reduce_vector(&f_ext_f)
             } else {
@@ -841,8 +893,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 delta_u_indep
             };
 
-            for i in 0..nf {
-                u_full[i] += delta_u_f[i];
+            let delta_u_g = assembly::to_global(&delta_u_f, n, &its);
+            for i in 0..n {
+                u_full[i] += delta_u_g[i];
             }
         }
 
@@ -895,10 +948,11 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             &input.solver, &input.fiber_sections, &dof_num,
             &u_full, &mut f_int_final, &mut scatter,
         );
+        add_springs_3d(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut scatter);
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
         let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
-        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+        fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
     };
@@ -924,6 +978,25 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         n_increments: input.n_increments,
         fiber_status,
     })
+}
+
+/// Support springs, 3D. The 3D fiber solver had none: a spring support was a
+/// free node, and a beam propped by a spring was solved as a cantilever.
+fn add_springs_3d(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
+) {
+    for (i, j, k) in super::assembly::support_spring_entries_3d(solver, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
+    }
+    for (i, j, k) in crate::element::connector::connector_entries_3d(solver, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
+    }
 }
 
 /// Assemble 3D fiber element contributions.
@@ -1052,11 +1125,23 @@ fn assemble_elastic_elements_3d(
         let dz = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
 
-        let k_local = crate::element::frame_local_stiffness_3d(
-            e_val, sec.a, sec.iy, sec.iz, sec.j, l, g,
-            Hinge3D::from_elem(elem),
-            0.0, 0.0,
-        );
+        // A truss or cable member is axial only. It was assembled here as a
+        // full frame member, so a pin-ended brace carried end moments.
+        let k_local = if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            let k = e_val * sec.a / l;
+            let mut kl = vec![0.0; 144];
+            kl[0] = k;
+            kl[6] = -k;
+            kl[6 * 12] = -k;
+            kl[6 * 12 + 6] = k;
+            kl
+        } else {
+            crate::element::frame_local_stiffness_3d(
+                e_val, sec.a, sec.iy, sec.iz, sec.j, l, g,
+                Hinge3D::from_elem(elem),
+                0.0, 0.0,
+            )
+        };
 
         let (ex, ey, ez) = compute_local_axes_3d(
             node_i.x, node_i.y, node_i.z,

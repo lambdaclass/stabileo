@@ -1147,6 +1147,304 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
     diags
 }
 
+
+// ---------------------------------------------------------------------------
+// Gate: rigid-body motions left free by the supports (3D)
+// ---------------------------------------------------------------------------
+
+/// Warn when the supports and springs leave a rigid-body motion of a
+/// connected part of the structure unrestrained.
+///
+/// Such a structure is a mechanism, but the factorization does not always
+/// show it: the stiffness of a rigid motion is exactly zero, yet rounding in
+/// assembly and elimination leaves its Cholesky pivot anywhere from 1e-14 to
+/// 1e-8 of its diagonal on real models (a ring held on its loaded diameter,
+/// which turns freely about it: 1.5e-14; a plate restrained out of plane with
+/// one pinned corner, which turns freely in its plane: 1.3e-10 on a 3×3 mesh,
+/// 3.4e-8 on 10×10). Regular models with stiff springs or stiff members on
+/// soft supports reach the same pivots (9e-9, 3e-8), so no pivot threshold
+/// separates the two (`definiteness.rs`). This check is geometric and exact:
+/// for each connected part, the six rigid motions (translations, rotations
+/// about its centroid) are restricted to the restrained and spring DOFs, and
+/// the rank of that 6-column matrix must be 6.
+///
+/// Rotational restraints act on the part only through the rotation axes its
+/// elements couple at that node (unreleased frame ends, shells): about the
+/// other axes the node turns independently of the part, so a restraint
+/// counts only in the combinations that axis cannot absorb. Models with constraints, connectors,
+/// inclined supports or unexpanded curved beams are not checked (their
+/// kinematics are not plain node-to-node connections); the factorization
+/// checks still apply to them.
+pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
+    if !input.constraints.is_empty() || !input.connectors.is_empty() || !input.curved_beams.is_empty() {
+        return Vec::new();
+    }
+    if input.supports.values().any(|s| s.is_inclined == Some(true)) {
+        return Vec::new();
+    }
+    let pos: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let mut ids: Vec<usize> = pos.keys().copied().collect();
+    ids.sort_unstable();
+    let index: HashMap<usize, usize> = ids.iter().enumerate().map(|(k, &id)| (id, k)).collect();
+    let mut parent: Vec<usize> = (0..ids.len()).collect();
+    fn find(p: &mut Vec<usize>, mut i: usize) -> usize {
+        while p[i] != i {
+            p[i] = p[p[i]];
+            i = p[i];
+        }
+        i
+    }
+    // rotation axes coupled to the elements at each node
+    let mut axes: HashMap<usize, Vec<[f64; 3]>> = HashMap::new();
+    let mut connected: HashSet<usize> = HashSet::new();
+    let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+        if nodes.iter().any(|n| !index.contains_key(n)) {
+            return false;
+        }
+        let r0 = find(p, index[&nodes[0]]);
+        for n in &nodes[1..] {
+            let r = find(p, index[n]);
+            p[r] = r0;
+        }
+        true
+    };
+    let left_hand = input.left_hand.unwrap_or(false);
+    for e in input.elements.values() {
+        if !link(&mut parent, &[e.node_i, e.node_j]) {
+            return Vec::new();
+        }
+        connected.extend([e.node_i, e.node_j]);
+        if e.elem_type != "frame" {
+            continue;
+        }
+        let (pi, pj) = (pos[&e.node_i], pos[&e.node_j]);
+        let (ex, ey, ez) = crate::element::compute_local_axes_3d(
+            pi[0], pi[1], pi[2], pj[0], pj[1], pj[2], e.local_yx, e.local_yy, e.local_yz, e.roll_angle, left_hand,
+        );
+        for (node, rel) in [
+            (e.node_i, [e.release_t_start, e.release_my_start, e.release_mz_start]),
+            (e.node_j, [e.release_t_end, e.release_my_end, e.release_mz_end]),
+        ] {
+            let a = axes.entry(node).or_default();
+            for (axis, released) in [ex, ey, ez].into_iter().zip(rel) {
+                if !released {
+                    a.push(axis);
+                }
+            }
+        }
+    }
+    let full = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    let shells: Vec<(Vec<usize>, bool)> = input.plates.values().map(|x| (x.nodes.to_vec(), true))
+        .chain(input.quads.values().map(|x| (x.nodes.to_vec(), true)))
+        .chain(input.quad9s.values().map(|x| (x.nodes.to_vec(), true)))
+        .chain(input.curved_shells.values().map(|x| (x.nodes.to_vec(), true)))
+        .chain(input.solid_shells.values().map(|x| (x.nodes.to_vec(), false)))
+        .collect();
+    for (nodes, rotations) in &shells {
+        if !link(&mut parent, nodes) {
+            return Vec::new();
+        }
+        connected.extend(nodes.iter().copied());
+        if *rotations {
+            for n in nodes {
+                axes.entry(*n).or_default().extend(full);
+            }
+        }
+    }
+    // An orthonormal basis of the coupled rotation axes at each node.
+    let span = |v: &[[f64; 3]]| -> Vec<[f64; 3]> {
+        let mut basis: Vec<[f64; 3]> = Vec::new();
+        for a in v {
+            let mut w = *a;
+            for b in &basis {
+                let d = w[0] * b[0] + w[1] * b[1] + w[2] * b[2];
+                for k in 0..3 {
+                    w[k] -= d * b[k];
+                }
+            }
+            let n = (w[0] * w[0] + w[1] * w[1] + w[2] * w[2]).sqrt();
+            if n > 1e-9 {
+                basis.push([w[0] / n, w[1] / n, w[2] / n]);
+            }
+        }
+        basis
+    };
+    // components
+    let mut comps: HashMap<usize, Vec<usize>> = HashMap::new();
+    for &id in &ids {
+        if connected.contains(&id) {
+            let r = find(&mut parent, index[&id]);
+            comps.entry(r).or_default().push(id);
+        }
+    }
+    // restraints per node: [translations, rotations], rigid flag or spring
+    let mut held: HashMap<usize, [bool; 6]> = HashMap::new();
+    for s in input.supports.values() {
+        let h = held.entry(s.node_id).or_insert([false; 6]);
+        let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
+        let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz];
+        for k in 0..6 {
+            h[k] |= flags[k] || springs[k].map_or(false, |v| v > 0.0);
+        }
+    }
+    let mut diags = Vec::new();
+    for nodes in comps.values() {
+        let n = nodes.len() as f64;
+        let mut c = [0.0; 3];
+        for id in nodes {
+            for k in 0..3 {
+                c[k] += pos[id][k] / n;
+            }
+        }
+        let size = nodes.iter()
+            .map(|id| (0..3).map(|k| (pos[id][k] - c[k]).powi(2)).sum::<f64>().sqrt())
+            .fold(0.0f64, f64::max)
+            .max(1e-300);
+        // Rows: restrained DOF components of the six rigid motions
+        // (translation t, rotation θ about c, scaled by the part's size).
+        let mut rows: Vec<[f64; 6]> = Vec::new();
+        for id in nodes {
+            let Some(h) = held.get(id) else { continue };
+            let r = [(pos[id][0] - c[0]) / size, (pos[id][1] - c[1]) / size, (pos[id][2] - c[2]) / size];
+            for k in 0..3 {
+                if h[k] {
+                    // u_k = t_k + (θ × r)_k, (θ × r)_k = Σ_i θ_i (e_i × r)_k
+                    let mut row = [0.0; 6];
+                    row[k] = 1.0;
+                    for i in 0..3 {
+                        let mut e = [0.0; 3];
+                        e[i] = 1.0;
+                        let cr = [e[1] * r[2] - e[2] * r[1], e[2] * r[0] - e[0] * r[2], e[0] * r[1] - e[1] * r[0]];
+                        row[3 + i] = cr[k];
+                    }
+                    rows.push(row);
+                }
+            }
+            // Rotations: the part turns the node by θ only along the axes
+            // its elements couple there (span S); along the complement F the
+            // node turns alone, φ = P_S θ + w, w ∈ F free. The restraints
+            // e_k·φ = 0 (k restrained) constrain θ through every
+            // combination y with yᵀ E F = 0 (E: rows e_k): yᵀ E P_S θ = 0.
+            let basis = span(axes.get(id).map(|v| v.as_slice()).unwrap_or(&[]));
+            let restrained: Vec<usize> = (0..3).filter(|&k| h[3 + k]).collect();
+            if restrained.is_empty() || basis.is_empty() {
+                continue;
+            }
+            let mut comp: Vec<[f64; 3]> = basis.clone();
+            let complement = {
+                let mut f = Vec::new();
+                for e in full {
+                    let before = comp.len();
+                    comp = span(&[comp.clone(), vec![e]].concat());
+                    if comp.len() > before {
+                        f.push(*comp.last().unwrap());
+                    }
+                }
+                f
+            };
+            // G = E F (r × f); y spans the orthogonal complement of range(G) in R^r.
+            let r = restrained.len();
+            let g_cols: Vec<Vec<f64>> = complement.iter().map(|f| restrained.iter().map(|&k| f[k]).collect()).collect();
+            let mut range: Vec<Vec<f64>> = Vec::new();
+            for col in &g_cols {
+                let mut w = col.clone();
+                for b in &range {
+                    let d: f64 = w.iter().zip(b).map(|(x, y)| x * y).sum();
+                    for (x, y) in w.iter_mut().zip(b) {
+                        *x -= d * y;
+                    }
+                }
+                let n = w.iter().map(|x| x * x).sum::<f64>().sqrt();
+                if n > 1e-9 {
+                    range.push(w.iter().map(|x| x / n).collect());
+                }
+            }
+            let mut ys: Vec<Vec<f64>> = Vec::new();
+            for k in 0..r {
+                let mut w = vec![0.0; r];
+                w[k] = 1.0;
+                for b in range.iter().chain(ys.iter()) {
+                    let d: f64 = w.iter().zip(b).map(|(x, y)| x * y).sum();
+                    for (x, y) in w.iter_mut().zip(b) {
+                        *x -= d * y;
+                    }
+                }
+                let n = w.iter().map(|x| x * x).sum::<f64>().sqrt();
+                if n > 1e-9 {
+                    ys.push(w.iter().map(|x| x / n).collect());
+                }
+            }
+            for y in ys {
+                // v = Eᵀ y (a 3-vector), row = P_S v on the θ columns.
+                let mut v = [0.0; 3];
+                for (j, &k) in restrained.iter().enumerate() {
+                    v[k] += y[j];
+                }
+                let mut row = [0.0; 6];
+                for b in &basis {
+                    let d = v[0] * b[0] + v[1] * b[1] + v[2] * b[2];
+                    for k in 0..3 {
+                        row[3 + k] += d * b[k];
+                    }
+                }
+                rows.push(row);
+            }
+        }
+        let rank = rank6(rows);
+        if rank < 6 {
+            let mut ids = nodes.clone();
+            ids.sort_unstable();
+            diags.push(
+                crate::solver::definiteness::not_positive_definite(&format!(
+                    "the supports leave {} rigid-body motion{} of the part containing node {} unrestrained",
+                    6 - rank,
+                    if 6 - rank == 1 { "" } else { "s" },
+                    ids[0]
+                ))
+                .with_phase("pre_solve")
+                .with_nodes(ids),
+            );
+        }
+    }
+    diags
+}
+
+/// Rank of a matrix with 6 columns and entries of order 1 (Gaussian
+/// elimination with full pivoting, relative tolerance 1e-9).
+fn rank6(mut rows: Vec<[f64; 6]>) -> usize {
+    let scale = rows.iter().flat_map(|r| r.iter()).fold(0.0f64, |m, v| m.max(v.abs()));
+    if scale == 0.0 {
+        return 0;
+    }
+    let tol = 1e-9 * scale;
+    let mut cols: Vec<usize> = (0..6).collect();
+    let mut rank = 0;
+    while rank < 6 && rank < rows.len() {
+        let (mut bi, mut bj, mut bv) = (0, 0, 0.0);
+        for (i, r) in rows.iter().enumerate().skip(rank) {
+            for &j in &cols {
+                if r[j].abs() > bv {
+                    (bi, bj, bv) = (i, j, r[j].abs());
+                }
+            }
+        }
+        if bv <= tol {
+            break;
+        }
+        rows.swap(rank, bi);
+        let p = rows[rank];
+        for r in rows.iter_mut().skip(rank + 1) {
+            let f = r[bj] / p[bj];
+            for j in 0..6 {
+                r[j] -= f * p[j];
+            }
+        }
+        cols.retain(|&j| j != bj);
+        rank += 1;
+    }
+    rank
+}
+
 // ---------------------------------------------------------------------------
 // Combined runners
 // ---------------------------------------------------------------------------
@@ -1167,6 +1465,7 @@ pub fn run_pre_solve_gates_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic
     diags.extend(check_near_duplicate_nodes_3d(input));
     diags.extend(check_shell_distortion_3d(input));
     diags.extend(check_suspicious_local_axes_3d(input));
+    diags.extend(check_rigid_body_restraint_3d(input));
     diags
 }
 

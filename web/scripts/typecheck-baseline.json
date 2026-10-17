@@ -1,5 +1,5 @@
 {
-	"total": 450,
+	"total": 448,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -928,12 +928,6 @@
 		{
 			"file": "src/lib/engine/station-design-forces.ts",
 			"code": "TS6133",
-			"message": "'compDia' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6133",
 			"message": "'demands' is declared but its value is never read.",
 			"count": 1
 		},
@@ -941,12 +935,6 @@
 			"file": "src/lib/engine/station-design-forces.ts",
 			"code": "TS6133",
 			"message": "'faceR' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/station-design-forces.ts",
-			"code": "TS6133",
-			"message": "'tensDia' is declared but its value is never read.",
 			"count": 1
 		},
 		{

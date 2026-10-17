@@ -47,6 +47,9 @@ fn steel_member(fy: f64) -> SteelMemberData {
         e: 200e9,
         g: Some(77e9),
         depth: Some(0.348),
+        flange_slenderness: None,
+        compression_elements: None,
+        load_position: None,
     }
 }
 
@@ -193,6 +196,8 @@ fn ec3_nan_slenderness_does_not_become_full_capacity() {
             weff_y: None,
             wpl_z: 125e-6, wel_z: 80.5e-6,
             weff_z: None,
+            e_n_y: None,
+            e_n_z: None,
             iy: 8356e-8, iz: 604e-8, it: 20.1e-8, iw: 126e-9,
             lcr_y: 4.0, lcr_z: 4.0, lb: 4.0,
             section_class: SectionClass::Class1,
@@ -200,7 +205,8 @@ fn ec3_nan_slenderness_does_not_become_full_capacity() {
             buckling_curve_z: BucklingCurve::B,
             buckling_curve_lt: BucklingCurve::B,
             gamma_m0: Some(1.0), gamma_m1: Some(1.0),
-            c1: None, av: None,
+            c1: None, av: None, interaction: None, geometry: None,
+            ltb: Some(Ec3LtbData { load_position: Some(Ec3LoadPosition::ShearCentre), ..Default::default() }),
         }],
         forces: vec![Ec3DesignForces {
             element_id: 1, n_ed: Some(-200e3), my_ed: Some(50e3), mz_ed: None, v_ed: None,
@@ -276,7 +282,7 @@ fn foundation_missing_allowable_pressure_does_not_pass() {
             length: 2.0, width: 2.0, thickness: 0.5, depth: 1.0,
             q_allowable: 0.0,
             gamma_soil: 18_000.0, fc: 28e6,
-            col_length: 0.4, col_width: 0.4, d: None, mu_sliding: None,
+            col_length: 0.4, col_width: 0.4, d: None, mu_sliding: None, rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1, p: 500e3, mx: None, my: None, h: None,

@@ -93,6 +93,39 @@ pub struct WeldSegment {
     pub y2: f64,
     /// Weld leg size (m)
     pub size: f64,
+    /// Whether the segment is an END-LOADED fillet — parallel to the force
+    /// and at the end of a loaded member (AISC 360-22 J2.2b(d); CIRSOC
+    /// 301-2018 §J.2.2(b), eq. J.2.1). Only end-loaded fillets get the
+    /// effective-length reduction β.
+    ///
+    /// `None` is treated as end-loaded: the reduction is the conservative
+    /// side (β ≤ 1), and a segment list cannot tell how the joint is
+    /// loaded. Pass `Some(false)` for welds the code does not discount
+    /// (e.g. web-to-flange welds of a girder, loaded along their length).
+    #[serde(default)]
+    pub end_loaded: Option<bool>,
+}
+
+/// Effective-length factor of an end-loaded fillet weld,
+/// AISC 360-22 J2.2b(d) / CIRSOC 301-2018 §J.2.2(b):
+///
+/// * `l ≤ 100 w`: β = 1;
+/// * `100 w < l ≤ 300 w`: β = 1.2 − 0.002·(l/w) ≤ 1.0   (AISC J2-1, CIRSOC J.2.1);
+/// * `l > 300 w`: the effective length is 180 w, i.e. β = 180 w / l.
+///
+/// Returns 1 for a segment that is not end-loaded or has no size.
+pub fn end_loaded_beta(length: f64, size: f64, end_loaded: bool) -> f64 {
+    if !end_loaded || size <= 0.0 || length <= 0.0 {
+        return 1.0;
+    }
+    let ratio = length / size;
+    if ratio <= 100.0 {
+        1.0
+    } else if ratio <= 300.0 {
+        (1.2 - 0.002 * ratio).min(1.0)
+    } else {
+        180.0 * size / length
+    }
 }
 
 /// Weld group connection data.
@@ -140,8 +173,16 @@ pub struct WeldGroupResult {
     pub phi_fnw: f64,
     /// Total weld length (m)
     pub total_length: f64,
-    /// Total throat area (m²)
+    /// Total EFFECTIVE throat area (m²): Σ 0.707·w·β·l.
     pub total_throat_area: f64,
+    /// Smallest end-loaded length factor β over the segments
+    /// (J2.2b(d)); 1 when no segment is long enough to be reduced.
+    #[serde(default = "one")]
+    pub min_beta: f64,
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 // ==================== Bolt Group Elastic Method ====================
@@ -289,6 +330,12 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     // Throat = 0.707 * leg size for equal-leg fillet welds
     struct SegProps {
         length: f64,
+        /// Effective throat (0.707·w·β): β of J2.2b(d) reduces the
+        /// effective length, which for the elastic method is the same as
+        /// thinning the segment's throat uniformly — its area, centroid
+        /// weight and inertia all scale by β, and the stress computed on
+        /// the reduced area is checked against φ·Fnw unchanged.
+        throat: f64,
         throat_area: f64,
         mid_x: f64,
         mid_y: f64,
@@ -301,12 +348,14 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
             let dx = s.x2 - s.x1;
             let dy = s.y2 - s.y1;
             let length = (dx * dx + dy * dy).sqrt();
-            let throat = 0.707 * s.size;
+            let beta = end_loaded_beta(length, s.size, s.end_loaded.unwrap_or(true));
+            let throat = 0.707 * s.size * beta;
             let throat_area = throat * length;
             let mid_x = (s.x1 + s.x2) / 2.0;
             let mid_y = (s.y1 + s.y2) / 2.0;
             SegProps {
                 length,
+                throat,
                 throat_area,
                 mid_x,
                 mid_y,
@@ -321,6 +370,13 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         weld_cy += sp.throat_area * sp.mid_y;
     }
 
+    let min_beta = group
+        .segments
+        .iter()
+        .zip(&seg_props)
+        .map(|(s, sp)| end_loaded_beta(sp.length, s.size, s.end_loaded.unwrap_or(true)))
+        .fold(1.0_f64, f64::min);
+
     if total_throat_area <= 0.0 {
         return WeldGroupResult {
             connection_id: group.connection_id,
@@ -329,6 +385,7 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
             phi_fnw,
             total_length,
             total_throat_area,
+            min_beta,
         };
     }
 
@@ -339,7 +396,7 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     let mut ip = 0.0_f64;
     for (i, sp) in seg_props.iter().enumerate() {
         let seg = &group.segments[i];
-        let throat = 0.707 * seg.size;
+        let throat = sp.throat;
 
         // Use segment midpoint for simplicity (elastic method approximation)
         let dx = sp.mid_x - weld_cx;
@@ -399,5 +456,6 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         phi_fnw,
         total_length,
         total_throat_area,
+        min_beta,
     }
 }

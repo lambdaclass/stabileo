@@ -81,7 +81,10 @@ pub struct SectionProperties {
     pub ry: f64,
     /// Radius of gyration about Z-axis
     pub rz: f64,
-    /// Approximate torsion constant (St. Venant's J for thin-walled open sections)
+    /// Routh's approximation `A^4 / (4 pi^2 Ip)` — NOT a torsion constant. Exact
+    /// only for a disc or an ellipse; measured 7 % high on a solid rectangle and
+    /// more than twice the Saint-Venant value on an I. Use
+    /// `torsion::solve_torsion` (the `analyze_section_torsion` export) for J.
     pub j: f64,
     /// Bounding box: [y_min, z_min, y_max, z_max]
     pub bbox: [f64; 4],
@@ -315,9 +318,17 @@ fn polygon_inertia_z(verts: &[[f64; 2]], yc: f64, _zc: f64) -> f64 {
 }
 
 /// Product of inertia about the polygon's own centroid.
+///
+/// The edge sum is signed by the winding, like the area. `Iy`/`Iz` are
+/// positive-definite and fixed with `abs()`, but the product can have either
+/// sign, so it is corrected by the sign of the signed area instead: without
+/// that, a clockwise outline — or a hole wound clockwise, the usual convention
+/// for holes — returned its product with the wrong sign, mirroring the
+/// principal axes of every asymmetric custom or drawn section wound that way.
 fn polygon_product_inertia(verts: &[[f64; 2]], yc: f64, zc: f64) -> f64 {
     let n = verts.len();
     let mut iyz = 0.0;
+    let mut area2 = 0.0;
 
     for i in 0..n {
         let j = (i + 1) % n;
@@ -328,9 +339,10 @@ fn polygon_product_inertia(verts: &[[f64; 2]], yc: f64, zc: f64) -> f64 {
         let cross = verts[i][0] * verts[j][1] - verts[j][0] * verts[i][1];
 
         iyz += cross * (yi * zj + 2.0 * yi * zi + 2.0 * yj * zj + yj * zi);
+        area2 += cross;
     }
 
-    iyz / 24.0
+    if area2 < 0.0 { -iyz / 24.0 } else { iyz / 24.0 }
 }
 
 /// Perimeter of a polygon.

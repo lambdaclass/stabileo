@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::linalg::*;
 use std::collections::HashMap;
 use super::dof::DofNumbering;
+use super::assembly::{rotate_inclined_free_block, InclinedTransformData, InclinedTransformData2D};
 
 /// Assemble consistent mass matrix for 2D structure.
 /// densities: materialId → density in kg/m³
@@ -70,7 +71,7 @@ pub fn assemble_mass_matrix_2d(
 
 /// Consistent mass matrix for 2D frame element (6×6 local).
 /// rho_a: mass per unit length (tonnes/m = kN·s²/m²)
-fn frame_consistent_mass(rho_a: f64, l: f64, hinge_start: bool, hinge_end: bool) -> Vec<f64> {
+pub fn frame_consistent_mass(rho_a: f64, l: f64, hinge_start: bool, hinge_end: bool) -> Vec<f64> {
     let m = rho_a * l / 420.0;
     let mut mat = vec![0.0; 36];
 
@@ -116,7 +117,7 @@ fn frame_consistent_mass(rho_a: f64, l: f64, hinge_start: bool, hinge_end: bool)
 }
 
 /// Consistent mass matrix for 2D truss element (4×4 global).
-fn truss_consistent_mass(rho_a: f64, l: f64) -> [f64; 16] {
+pub fn truss_consistent_mass(rho_a: f64, l: f64) -> [f64; 16] {
     let m = rho_a * l / 6.0;
     let mut mat = [0.0; 16];
     // [[2,0,1,0],[0,2,0,1],[1,0,2,0],[0,1,0,2]] * m
@@ -139,7 +140,43 @@ pub fn assemble_mass_matrix_2d_sparse(
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    let nf = dof_num.n_free;
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free)
+}
+
+/// `assemble_mass_matrix_2d_sparse` in the inclined-support frames K was
+/// assembled in, so K and M share one basis (free block).
+pub fn assemble_mass_matrix_2d_sparse_inclined(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData2D],
+) -> CscMatrix {
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free)
+}
+
+/// `assemble_mass_matrix_2d_sparse` (global axes) over the DOFs numbered below
+/// `nf`: the free block, or with `n_total` the whole matrix (the restrained
+/// DOFs' rows are what couples a ground motion's support translations to the
+/// free DOFs).
+pub fn assemble_mass_matrix_2d_sparse_block(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    nf: usize,
+) -> CscMatrix {
+    assemble_mass_matrix_2d_sparse_impl(input, dof_num, densities, &[], nf)
+}
+
+/// The block below `nf`, in the inclined frames `inclined` when not empty.
+fn assemble_mass_matrix_2d_sparse_impl(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData2D],
+    nf: usize,
+) -> CscMatrix {
+    // With inclined supports, keep every DOF until the rotation is applied.
+    let keep = if inclined.is_empty() { nf } else { dof_num.n_total };
     let mut rows: Vec<usize> = Vec::new();
     let mut cols: Vec<usize> = Vec::new();
     let mut vals: Vec<f64> = Vec::new();
@@ -153,7 +190,7 @@ pub fn assemble_mass_matrix_2d_sparse(
             let gi = $dofs[$i];
             let gj = $dofs[$j];
             let v = $v;
-            if gi < nf && gj < nf && v.abs() > 1e-30 {
+            if gi < keep && gj < keep && v.abs() > 1e-30 {
                 rows.push(gi);
                 cols.push(gj);
                 vals.push(v);
@@ -207,6 +244,9 @@ pub fn assemble_mass_matrix_2d_sparse(
         }
     }
 
+    if !inclined.is_empty() {
+        rotate_inclined_free_block(&mut rows, &mut cols, &mut vals, inclined, nf);
+    }
     CscMatrix::from_triplets(nf, &rows, &cols, &vals)
 }
 
@@ -263,8 +303,21 @@ pub fn assemble_mass_matrix_3d(
                 elem.roll_angle, left_hand,
             );
 
-            if dof_num.dofs_per_node >= 7 {
-                // Warping model: embed 12×12 mass into 14-DOF space
+            let has_cw = sec.cw.is_some_and(|cw| cw > 0.0);
+            if has_cw && dof_num.dofs_per_node >= 7 {
+                // Warping member: 14×14 consistent mass, cubic twist as in its stiffness.
+                let m14 = frame_consistent_mass_3d_warping(rho_a, sec.a, sec.iy, sec.iz, sec.cw.unwrap(), l,
+                    crate::element::Hinge3D::from_elem(elem));
+                let t = crate::element::frame_transform_3d_warping(&ex, &ey, &ez);
+                let m_glob = transform_stiffness(&m14, &t, 14);
+                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                for i in 0..14 {
+                    for j in 0..14 {
+                        m_global[elem_dofs[i] * n + elem_dofs[j]] += m_glob[i * 14 + j];
+                    }
+                }
+            } else if dof_num.dofs_per_node >= 7 {
+                // Non-warping member in a warping model: embed 12×12 mass into 14-DOF space
                 let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
                 let m_glob = transform_stiffness(&m_local, &t, 12);
                 let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -274,20 +327,6 @@ pub fn assemble_mass_matrix_3d(
                         let gi = elem_dofs[DOF_MAP_12_TO_14[i]];
                         let gj = elem_dofs[DOF_MAP_12_TO_14[j]];
                         m_global[gi * n + gj] += m_glob[i * 12 + j];
-                    }
-                }
-
-                // Warping mass: lumped polar mass moment at warping DOFs.
-                // For thin-walled open sections, warping inertia ≈ ρ*(Iy+Iz)*L/2 per node.
-                // This is approximate but includes warping participation in modal analysis.
-                if let Some(cw) = sec.cw {
-                    if cw > 0.0 {
-                        let ip = sec.iy + sec.iz; // polar second moment (approx)
-                        let m_warp = density * ip * l / (2.0 * 1000.0); // tonnes·m
-                        let w_dof_i = elem_dofs[6];   // warping DOF node I
-                        let w_dof_j = elem_dofs[13];  // warping DOF node J
-                        m_global[w_dof_i * n + w_dof_i] += m_warp;
-                        m_global[w_dof_j * n + w_dof_j] += m_warp;
                     }
                 }
             } else {
@@ -452,13 +491,49 @@ pub fn assemble_mass_matrix_3d(
 /// (lower triangle) over the free DOFs only (nf×nf block; free DOFs are
 /// numbered first). Same element contributions as `assemble_mass_matrix_3d`:
 /// frame/truss elements, plates, quads, quad9s, solid shells, curved shells,
-/// and warping-DOF lumped masses.
+/// and the consistent torsion-warping mass of warping members.
 pub fn assemble_mass_matrix_3d_sparse(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     densities: &HashMap<String, f64>,
 ) -> CscMatrix {
-    let nf = dof_num.n_free;
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], dof_num.n_free)
+}
+
+/// `assemble_mass_matrix_3d_sparse` in the inclined-support frames K was
+/// assembled in, so K and M share one basis (free block).
+pub fn assemble_mass_matrix_3d_sparse_inclined(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData],
+) -> CscMatrix {
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, inclined, dof_num.n_free)
+}
+
+/// `assemble_mass_matrix_3d_sparse` (global axes) over the DOFs numbered below
+/// `nf`: the free block, or with `n_total` the whole matrix (the restrained
+/// DOFs' rows are what couples a ground motion's support translations to the
+/// free DOFs).
+pub fn assemble_mass_matrix_3d_sparse_block(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    nf: usize,
+) -> CscMatrix {
+    assemble_mass_matrix_3d_sparse_impl(input, dof_num, densities, &[], nf)
+}
+
+/// The block below `nf`, in the inclined frames `inclined` when not empty.
+fn assemble_mass_matrix_3d_sparse_impl(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    densities: &HashMap<String, f64>,
+    inclined: &[InclinedTransformData],
+    nf: usize,
+) -> CscMatrix {
+    // With inclined supports, keep every DOF until the rotation is applied.
+    let keep = if inclined.is_empty() { nf } else { dof_num.n_total };
     let left_hand = input.left_hand.unwrap_or(false);
 
     let mut rows: Vec<usize> = Vec::new();
@@ -477,7 +552,7 @@ pub fn assemble_mass_matrix_3d_sparse(
             let gi = $dofs[$i];
             let gj = $dofs[$j];
             let v = $v;
-            if gi < nf && gj < nf && v.abs() > 1e-30 {
+            if gi < keep && gj < keep && v.abs() > 1e-30 {
                 rows.push(gi);
                 cols.push(gj);
                 vals.push(v);
@@ -522,8 +597,21 @@ pub fn assemble_mass_matrix_3d_sparse(
                 elem.roll_angle, left_hand,
             );
 
-            if dof_num.dofs_per_node >= 7 {
-                // Warping model: embed 12×12 mass into 14-DOF space
+            let has_cw = sec.cw.is_some_and(|cw| cw > 0.0);
+            if has_cw && dof_num.dofs_per_node >= 7 {
+                // Warping member: 14×14 consistent mass, cubic twist as in its stiffness.
+                let m14 = frame_consistent_mass_3d_warping(rho_a, sec.a, sec.iy, sec.iz, sec.cw.unwrap(), l,
+                    crate::element::Hinge3D::from_elem(elem));
+                let t = crate::element::frame_transform_3d_warping(&ex, &ey, &ez);
+                let m_glob = transform_stiffness(&m14, &t, 14);
+                let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+                for i in 0..14 {
+                    for j in 0..=i {
+                        scatter!(elem_dofs, i, j, m_glob[i * 14 + j]);
+                    }
+                }
+            } else if dof_num.dofs_per_node >= 7 {
+                // Non-warping member in a warping model: embed 12×12 mass into 14-DOF space
                 let t = crate::element::frame_transform_3d(&ex, &ey, &ez);
                 let m_glob = transform_stiffness(&m_local, &t, 12);
                 let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -533,16 +621,6 @@ pub fn assemble_mass_matrix_3d_sparse(
                         let gi14 = DOF_MAP_12_TO_14[i];
                         let gj14 = DOF_MAP_12_TO_14[j];
                         scatter!(elem_dofs, gi14, gj14, m_glob[i * 12 + j]);
-                    }
-                }
-
-                // Warping mass: lumped polar mass moment at warping DOFs (diagonal).
-                if let Some(cw) = sec.cw {
-                    if cw > 0.0 {
-                        let ip = sec.iy + sec.iz; // polar second moment (approx)
-                        let m_warp = density * ip * l / (2.0 * 1000.0); // tonnes·m
-                        scatter!(elem_dofs, 6, 6, m_warp);   // warping DOF node I
-                        scatter!(elem_dofs, 13, 13, m_warp); // warping DOF node J
                     }
                 }
             } else {
@@ -681,11 +759,14 @@ pub fn assemble_mass_matrix_3d_sparse(
         }
     }
 
+    if !inclined.is_empty() {
+        rotate_inclined_free_block(&mut rows, &mut cols, &mut vals, inclined, nf);
+    }
     CscMatrix::from_triplets(nf, &rows, &cols, &vals)
 }
 
 /// Consistent mass matrix for 3D frame element (12×12 local).
-fn frame_consistent_mass_3d(rho_a: f64, a: f64, iy: f64, iz: f64, l: f64,
+pub fn frame_consistent_mass_3d(rho_a: f64, a: f64, iy: f64, iz: f64, l: f64,
     hinge: crate::element::Hinge3D) -> Vec<f64> {
     let mut mat = vec![0.0; 144];
 
@@ -761,6 +842,47 @@ fn frame_consistent_mass_3d(rho_a: f64, a: f64, iy: f64, iz: f64, l: f64,
     mat[10 * 12 + 8] = 22.0 * l * m;
     mat[10 * 12 + 10] = 4.0 * l * l * m;
 
+    mat
+}
+
+/// Consistent mass of a warping frame member (14×14 local, DOFs as in
+/// `frame_local_stiffness_3d_warping`). The twist is the cubic Hermite
+/// interpolant of [θx1, φ'1, θx2, φ'2], as in the stiffness, so the torsion
+/// block is the kinetic energy ½∫ρ(Ip·θ̇x² + Cw·θ̇x'²) dx over it:
+/// ρIp·L/420·[156, 22L, 54, −13L; …] + ρCw/(30L)·[36, 3L, −36, 3L; …],
+/// with Ip ≈ Iy + Iz as in the 12×12. The rest is `frame_consistent_mass_3d`;
+/// with any release the member is lumped, translations only, as there.
+/// (The warping DOFs used to get a lumped ρ·Ip·L/2 each — a rotation's inertia
+/// on a rate-of-twist DOF — beside the 12×12's linear-twist torsion mass.)
+pub fn frame_consistent_mass_3d_warping(rho_a: f64, a: f64, iy: f64, iz: f64, cw: f64, l: f64,
+    hinge: crate::element::Hinge3D) -> Vec<f64> {
+    const MAP: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
+    let m12 = frame_consistent_mass_3d(rho_a, a, iy, iz, l, hinge);
+    let mut mat = vec![0.0; 196];
+    for i in 0..12 {
+        for j in 0..12 {
+            mat[MAP[i] * 14 + MAP[j]] = m12[i * 12 + j];
+        }
+    }
+    let lumped = hinge.release_my_start || hinge.release_my_end
+        || hinge.release_mz_start || hinge.release_mz_end
+        || hinge.release_t_start || hinge.release_t_end;
+    if lumped {
+        return mat;
+    }
+    let mi = rho_a * (iy + iz) / a * l / 420.0;
+    let mc = rho_a * cw / a / (30.0 * l);
+    let l2 = l * l;
+    let hermite = [[156.0, 22.0 * l, 54.0, -13.0 * l], [22.0 * l, 4.0 * l2, 13.0 * l, -3.0 * l2],
+                   [54.0, 13.0 * l, 156.0, -22.0 * l], [-13.0 * l, -3.0 * l2, -22.0 * l, 4.0 * l2]];
+    let slope = [[36.0, 3.0 * l, -36.0, 3.0 * l], [3.0 * l, 4.0 * l2, -3.0 * l, -l2],
+                 [-36.0, -3.0 * l, 36.0, -3.0 * l], [3.0 * l, -l2, -3.0 * l, 4.0 * l2]];
+    let idx = [3, 6, 10, 13];
+    for a in 0..4 {
+        for b in 0..4 {
+            mat[idx[a] * 14 + idx[b]] = mi * hermite[a][b] + mc * slope[a][b];
+        }
+    }
     mat
 }
 

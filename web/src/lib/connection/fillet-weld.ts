@@ -34,7 +34,14 @@
 /** How the fillet is laid, which changes the effective throat — §J.2.2(a). */
 export type WeldProcess = 'manual' | 'submergedArc';
 
-/** Whether the weld is loaded along its axis at a member end — §J.2.1's β applies only then. */
+/**
+ * Whether the weld is loaded along its axis at a member end — §J.2.1's β applies only then.
+ *
+ * UNSET IS END-LOADED. The reduction is the conservative side (β ≤ 1), and nothing in the inputs
+ * says how the joint is loaded, so a weld nobody described is discounted. `'other'` is a positive
+ * declaration that the code does not discount this weld (e.g. a web-to-flange weld loaded along
+ * its length). Same default as the engine's weld groups (`end_loaded: None` → end-loaded).
+ */
 export type WeldLoading = 'endLoaded' | 'other';
 
 export interface WeldInput {
@@ -130,12 +137,12 @@ export function effectiveThroatMm(legMm: number, process: WeldProcess = 'manual'
 /**
  * §J.2.1 — effective length of an end-loaded fillet, mm.
  *
- * A long end-loaded fillet does not carry uniformly, so the code discounts it. Applies ONLY to
- * end-loaded welds; anywhere else the effective length is the actual one, and applying β there
- * would understate a weld the code does not discount.
+ * A long end-loaded fillet does not carry uniformly, so the code discounts it. Applies to
+ * end-loaded welds — which is what an undeclared weld is taken to be — and not to a weld
+ * declared `'other'`, whose effective length is the actual one.
  */
 export function effectiveLengthMm(
-  lengthMm: number, legMm: number, loading: WeldLoading = 'other',
+  lengthMm: number, legMm: number, loading: WeldLoading = 'endLoaded',
 ): number {
   if (loading !== 'endLoaded' || legMm <= 0) return lengthMm;
   const ratio = lengthMm / legMm;
@@ -151,7 +158,7 @@ const none = (id: WeldCheck['id'], clause: string, keys: string[]): WeldCheck =>
 export function designFilletWeld(input: WeldInput): WeldDesign {
   const {
     legMm, lengthMm, runs = 1, fexxMPa, thickerPartMm, thinnerPartMm,
-    process = 'manual', loading = 'other', demandKN,
+    process = 'manual', loading = 'endLoaded', demandKN,
   } = input;
 
   if (!(legMm && legMm > 0) || !(lengthMm && lengthMm > 0)) {

@@ -18,6 +18,8 @@ import type { ElementDesignDemands } from './station-design-forces';
 import { verifyElement, classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
 import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
+import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
+import type { RegulationEdition } from '../codes/regulation';
 
 // ─── Input/Output types ─────────────────────────────────────
 
@@ -33,6 +35,8 @@ export interface AutoVerifyOptions {
   rebarFy?: number;    // MPa, default 420
   cover?: number;      // m, default 0.025
   stirrupDia?: number; // mm, default 8
+  /** Edition the engine re-check applies. Default: the edition in force, 2025. */
+  edition?: RegulationEdition;
 }
 
 // ─── Which members this verifier can check, and why not ──────────
@@ -160,6 +164,8 @@ export function autoVerifyFromResults(
     // ─── Force extraction: station-based (preferred) or endpoint fallback ───
     let MzMax: number, MyMax: number, VyAbs: number;
     let NuMax: number, VzMax: number, TuMax: number;
+    // Axial force for shear, + = compression. See where it is set.
+    let NuShear: number;
     // Station-based governing combo refs (richer than endpoint-only governing-case.ts)
     let stationGovCombos: ElementVerification['governingCombos'] | undefined;
 
@@ -186,6 +192,20 @@ export function autoVerifyFromResults(
       const nComp = demandMap.get('N_compression');
       const nTens = demandMap.get('N_tension');
       NuMax = Math.max(nComp?.absValue ?? 0, nTens?.absValue ?? 0);
+      /*
+       * The shear check reads its axial force as + = compression, and compression raises Vc.
+       * `NuMax` is a magnitude: a member in tension was given the compression credit. A member
+       * with any tension demand is checked under that tension (the term that lowers Vc); one
+       * that is only ever compressed takes the compression acting WITH the shear demands,
+       * not the largest compression of some other combination. Solver sign: n < 0 compression.
+       */
+      if ((nTens?.absValue ?? 0) > 0) NuShear = -(nTens!.absValue);
+      else {
+        // Either shear may be the one checked (the axis is picked below): the smaller of the
+        // two compressions, which is right for both.
+        const withShear = [demandMap.get('Vy'), demandMap.get('Vz')].filter((v) => v !== undefined);
+        NuShear = withShear.length > 0 ? Math.max(0, Math.min(...withShear.map((v) => -v!.forces.n))) : 0;
+      }
 
       // Torsion
       const tDemand = demandMap.get('Torsion');
@@ -211,6 +231,9 @@ export function autoVerifyFromResults(
       VyAbs = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
       VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
       NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      // Same rule from the two ends: any tension governs; otherwise the smaller compression.
+      const tension = Math.max(ef.nStart, ef.nEnd, 0);
+      NuShear = tension > 0 ? -tension : Math.min(-ef.nStart, -ef.nEnd);
       TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     }
 
@@ -275,7 +298,7 @@ export function autoVerifyFromResults(
 
     const input: VerificationInput = {
       elementId: ef.elementId, elementType: elemType,
-      Mu: MuMax, Vu: VuMax, Nu: NuMax,
+      Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear,
       // Axis-correct section orientation for the governing beam axis (columns
       // keep their real b/h since they always use Mz).
       b: bFlex, h: hFlex, fc, fy: rebarFy, cover, stirrupDia,
@@ -285,7 +308,11 @@ export function autoVerifyFromResults(
       Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
     };
 
-    const v = verifyElement(input);
+    // The TypeScript designs and checks; the engine re-checks what it settled on, and a pass the
+    // engine does not confirm is a failure (cirsoc201-engine-gate.ts).
+    const v: ElementVerification = engineRecheckElement(verifyElement(input), {
+      edition: options?.edition, stirrupDia, NuShear,
+    });
     v.flexureAxis = flexureAxis;
 
     // Attach governing combo metadata — prefer station-based (richer) over legacy

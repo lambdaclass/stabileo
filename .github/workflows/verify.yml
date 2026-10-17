@@ -1,0 +1,316 @@
+name: Verify
+
+# Formal verification: Lean soundness proofs of the result certificate (verify/)
+# and Kani harnesses (engine/src/kani_proofs.rs). Property tests and certificate
+# tests are ordinary engine tests and run in ci.yml's suite.
+#
+# Everything runs in the `verify` Nix dev shell so CI and local builds use the
+# same tools: `nix develop .#verify -c <cmd>`.
+
+on:
+  pull_request:
+    paths:
+      - "verify/**"
+      - "engine/src/**"
+      - "docs/verification/**"
+      - "tools/symbolic/**"
+      - "engine/tests/symbolic_elements.rs"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/verify.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+# Least privilege: jobs only read the repository.
+permissions:
+  contents: read
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            .tools/elan
+            verify/.lake
+          key: lean-${{ runner.os }}-${{ hashFiles('verify/lean-toolchain', 'verify/lake-manifest.json') }}
+      - name: Fetch Mathlib build cache
+        working-directory: verify
+        run: nix develop ..#verify -c lake exe cache get
+      - name: Build proofs
+        working-directory: verify
+        run: nix develop ..#verify -c lake build
+      - name: No sorry, no extra axioms
+        working-directory: verify
+        run: nix develop ..#verify -c ./scripts/check-axioms.sh
+      # Independent re-check of exported certificate bundles by the verified
+      # Lean checker (certcheck); tampered bundles must be rejected.
+      - name: Certificate bundles
+        working-directory: verify
+        run: nix develop ..#verify -c ./scripts/check-bundles.sh
+
+  # The element matrices derived symbolically (tools/symbolic): regenerating
+  # engine/tests/symbolic_elements.rs must reproduce the committed file. The
+  # generated test itself runs in ci.yml's engine suite.
+  symbolic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install SymPy
+        run: pip install -r tools/symbolic/requirements.txt
+      - name: Generated test is up to date
+        run: python -I tools/symbolic/gen.py --check
+
+  kani:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .tools
+          key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'scripts/kani-setup.sh') }}
+      - name: Install Kani
+        run: nix develop .#verify -c ./scripts/kani-setup.sh
+      # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
+      # per float-heavy harness, and the runner has 16 GB.
+      # Pull requests run the fast tier; the nightly schedule and manual runs
+      # also run harnesses marked `// kani: nightly`.
+      - name: Kani harnesses
+        env:
+          KANI_MEM_GB: 12
+          # The nightly-tier harnesses take up to ~10 min locally, ~2x that on the runner.
+          KANI_TIMEOUT_S: ${{ github.event_name == 'pull_request' && 900 || 2400 }}
+          KANI_TIER: ${{ github.event_name == 'pull_request' && 'fast' || 'all' }}
+        run: nix develop .#verify -c ./scripts/kani-safe.sh
+      - name: Kani report
+        if: always()
+        run: column -t target/kani-report.tsv || true
+
+  # Large-model certificate runs (release, #[ignore]d in the normal suite):
+  # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs,
+  # and runs the large sweep of the cross-path assembly oracle
+  # (docs/verification/ASSEMBLY.md).
+  certify-large:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
+          components: rust-src
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+      - name: Large certificate tests
+        working-directory: engine
+        # The assembly oracle's other ignored tests are minimal reproductions
+        # of open bugs, so only its sweep runs here.
+        run: |
+          cargo test --release --test certify --test certify_plastic_3d -- --ignored --nocapture
+          cargo test --release --test assembly_paths assembly_paths_agree_large -- --ignored --nocapture
+
+  # Differential test against OpenSees (an independent FE code): catches
+  # element-matrix, fixed-end-force, axis-convention and reaction bugs that the
+  # certificates cannot (they certify the assembled system, right or wrong).
+  # Linear static, buckling, modal, P-Delta, time history, plates and shells
+  # (~2 min on 4 cores; tools/opensees/README.md).
+  # Fixed fixture set plus random models from a seed that moves daily; the
+  # seed is printed so a failure reproduces with tools/opensees/run.sh.
+  opensees-diff:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install OpenSees
+        run: pip install openseespy numpy
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Compare with OpenSees
+        run: |
+          seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
+          echo "seed-start $seed"
+          python tools/opensees/compare.py --fixtures \
+            --random2d 300 --random3d 300 --rich2d 500 --rich3d 500 \
+            --buckling2d 300 --buckling3d 300 --modal2d 300 --modal3d 300 \
+            --pdelta2d 300 --pdelta3d 300 --th2d 200 --th3d 200 \
+            --plates 300 --shells 60 \
+            --seed-start "$seed" -j 4 --report opensees-report.json \
+            --dump-dir opensees-mismatches
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: opensees-report
+          path: |
+            opensees-report.json
+            opensees-mismatches/
+          if-no-files-found: ignore
+
+  # Differential test against Code_Aster 18.1 (EDF's FE code): the 3D linear
+  # solver including releases, connectors, constraints, thermal loads and
+  # inclined supports, which the OpenSees job does not translate. conda-forge
+  # code-aster, native on Linux. See tools/differential/codeaster/README.md;
+  # the seed is printed so a failure reproduces locally.
+  codeaster-diff:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Code_Aster (pins as in tools/differential/codeaster/setup.sh)
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: aster
+          create-args: -c conda-forge code-aster=18.1.10 python=3.12
+          cache-environment: true
+          init-shell: bash
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Compare with Code_Aster
+        working-directory: tools/differential/codeaster
+        run: |
+          seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
+          echo "seed-start $seed"
+          ASTER_PYTHON="$(which python)" python run.py --fixtures \
+            --random3d 100 --rich3d 400 --aster3d 400 \
+            --seed-start "$seed" -j 4 --report codeaster-report.json \
+            --dump-dir codeaster-mismatches
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeaster-report
+          path: |
+            tools/differential/codeaster/codeaster-report.json
+            tools/differential/codeaster/codeaster-mismatches/
+          if-no-files-found: ignore
+
+  # Coverage-guided fuzzing of the JSON entry points the WASM layer exposes
+  # (engine/fuzz, docs/verification/FUZZ_MUTANTS.md): no panic, no runaway
+  # work, finite results, consistent certificates. One target per runner,
+  # seeded from the template fixtures; crashing inputs are uploaded.
+  fuzz:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [json_static, json_dynamics, json_plastic, model_certify]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            engine
+            engine/fuzz
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Seed corpus
+        working-directory: engine
+        run: cargo run --release --example fuzz_seeds
+      - name: Build target
+        working-directory: engine
+        run: cargo fuzz build ${{ matrix.target }}
+      - name: Fuzz (30 min)
+        working-directory: engine
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cargo fuzz run ${{ matrix.target }} -- \
+            -max_total_time=1800 -rss_limit_mb=2048 -timeout=60 \
+            -print_final_stats=1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: engine/fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: ignore
+
+  # Mutation testing (cargo-mutants, config .cargo/mutants.toml): every mutant
+  # of the certificate code (engine/src/certify/) and the element kernels
+  # (engine/src/element/) must be caught by the tests, or listed in the config's
+  # exclusions as equivalent. Sharded to fit the runner time limit; each shard
+  # fails on a missed mutant and uploads its report.
+  mutants:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      # engine/.cargo/config.toml links with clang + mold.
+      - name: Install mold linker
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants
+      - name: Mutants (shard ${{ matrix.shard }}/8)
+        run: ./scripts/mutants.sh --shard ${{ matrix.shard }}/8 --jobs 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutants-report-${{ matrix.shard }}
+          path: mutants.out/
+          if-no-files-found: ignore

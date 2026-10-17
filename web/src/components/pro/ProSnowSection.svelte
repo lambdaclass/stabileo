@@ -51,7 +51,7 @@
         </label>
         <label class="al-field"><span class="al-label">{t('autoLoad.snowLocality')}</span>
           <select bind:value={config.locality} data-testid="al-snow-locality">
-            {#each table.rows as r (r.n)}<option value={r.n}>{r.locality} ({r.district}, {r.altitudeM} m) · {r.pg} kN/m²{r.estimated ? ' *' : ''}</option>{/each}
+            {#each table.rows as r (r.n)}<option value={r.n}>{r.locality}{r.heading ? '' : ` (${r.district}, ${r.altitudeM} m)`} · {r.pg} kN/m²{r.estimated ? ' *' : ''}</option>{/each}
           </select>
         </label>
       </div>

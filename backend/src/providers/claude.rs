@@ -70,7 +70,7 @@ impl ClaudeProvider {
         let status = resp.status().as_u16();
         if status != 200 {
             let body = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api { status, body });
+            return Err(ProviderError::api(status, &body));
         }
 
         let parsed: AnthropicResponse = resp

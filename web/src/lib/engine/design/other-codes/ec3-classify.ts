@@ -10,12 +10,15 @@
  *     a wider c can only raise the class number;
  *   · a member with any compression is classified with the web in compression, the stricter row
  *     of Table 5.2, not with the actual stress distribution;
- *   · I and H shapes are read as rolled (the catalogue's IPE, HEB, HEA and W are); curve a0 of
- *     steels above S420 is read as a, the next less favourable;
+ *   · I and H shapes are read as rolled only when picked from a rolled catalogue family
+ *     (`profileFamily`, as the CIRSOC 301 verification reads it); a parametric or declared I is
+ *     taken as welded, whose curves are the less favourable ones. Curve a0 of steels above S420
+ *     is read as a, the next less favourable;
  *   · tubes are read as cold-formed, curve c: the catalogue's are IRAM-IAS U 500-218 and
  *     EN 10219, both cold-formed, and the model does not record a hot-finished one.
  *
- * Class 4 needs effective properties the model does not carry, so it is reported and not checked.
+ * Class 4: the engine computes the effective I or RHS section from the plates (EN 1993-1-5 4.4);
+ * a Class 4 CHS (EN 1993-1-6) is reported and not checked.
  */
 import type { SteelProps } from './steel-props';
 
@@ -41,16 +44,21 @@ export function ec3Class(p: SteelProps, fyMPa: number, compressed: boolean): Ec3
   return Math.max(flange, web) as Ec3Class;
 }
 
-/** Flexural buckling curves about y and z, Table 6.2 (rolled I/H, cold-formed tubes). */
-export function ec3Curves(p: SteelProps): { y: Ec3Curve; z: Ec3Curve } {
+/**
+ * Flexural buckling curves about y and z, Table 6.2: rolled I/H when `rolled`, else welded I
+ * (tf ≤ 40 mm: b/c, above: c/d); tubes cold-formed, c.
+ */
+export function ec3Curves(p: SteelProps, rolled: boolean): { y: Ec3Curve; z: Ec3Curve } {
   if (p.shape !== 'I') return { y: 'c', z: 'c' };
   const tfMm = p.tf * 1000;
+  if (!rolled) return tfMm <= 40 ? { y: 'b', z: 'c' } : { y: 'c', z: 'd' };
   if (p.h / p.b > 1.2) return tfMm <= 40 ? { y: 'a', z: 'b' } : { y: 'b', z: 'c' };
   return tfMm <= 100 ? { y: 'b', z: 'c' } : { y: 'd', z: 'd' };
 }
 
-/** Lateral-torsional buckling curve, Table 6.4 (general case, rolled I). */
-export function ec3CurveLt(p: SteelProps): Ec3Curve {
+/** Lateral-torsional buckling curve, Table 6.4 (general case): rolled I a/b, welded I c/d at h/b = 2. */
+export function ec3CurveLt(p: SteelProps, rolled: boolean): Ec3Curve {
   if (p.shape !== 'I') return 'd';
+  if (!rolled) return p.h / p.b <= 2 ? 'c' : 'd';
   return p.h / p.b <= 2 ? 'a' : 'b';
 }

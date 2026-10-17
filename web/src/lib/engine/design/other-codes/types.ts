@@ -75,7 +75,32 @@ export interface OtherCode {
   /** The engine call. Null when the checker is unavailable or refused the input. */
   run(input: { members: unknown[]; forces: unknown[] }): unknown[] | null;
   read(result: Record<string, unknown>): CheckReading;
+  /**
+   * The certified version of the check (docs/verification/CERTIFY.md, "Certified design checks"),
+   * when the engine has one: its export, and the bound on each force `forces` sends, in the
+   * checker's units, from the combination's certified station bound (kN, kN·m) of the member.
+   */
+  certify?: {
+    name: 'certify_steel_members' | 'certify_ec3_members' | 'certify_ec2_members' | 'certify_rc_members';
+    bound(ctx: MemberContext, d: GoverningDemand, data: Record<string, unknown>, sb: StationBound3D): DemandBound;
+  };
 }
+
+/** A station bound of a certified combination, as `certify_multi_case_3d` returns it. */
+export interface StationBound3D { elementId: number; axial: number; shearY: number; shearZ: number; torsion: number; momentY: number; momentZ: number }
+
+/** Bounds on |exact − computed| of the forces sent to a certified checker, its units. */
+export interface DemandBound { n: number; my: number; mz: number; vy: number }
+
+/**
+ * A member's certified utilization: the exact one lies in [lower, upper] for every governing
+ * demand. `ok` when upper < 1, `fail` when lower > 1, `inconclusive` between; `uncertified`
+ * with why when no enclosure could be had: an i18n key (`otherCodes.cert.*`, `combo` naming the
+ * combination it is about) or the engine's own words.
+ */
+export type MemberCertificate =
+  | { status: 'ok' | 'fail' | 'inconclusive'; lower: number; upper: number }
+  | { status: 'uncertified'; reason: string; combo?: string };
 
 /** One member's outcome under a code. */
 export type OtherCodeRow =
@@ -99,4 +124,7 @@ export const gov = (kind: CheckKind, clause?: string) =>
 
 /** kN → N, kN·m → N·m, MPa → Pa. */
 export const N = 1e3;
+
+/** `bound · k` rounded up past the product's f64 rounding, so a scaled bound stays a bound. */
+export const upScaled = (bound: number, k: number) => bound * k * (1 + 4 * Number.EPSILON);
 export const PA = 1e6;

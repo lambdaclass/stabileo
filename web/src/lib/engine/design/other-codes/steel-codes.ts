@@ -3,7 +3,10 @@
  *
  * Both read the same section (`steel-props.ts`), the member's lengths (`unbraced-length.ts` —
  * the physical member's, or the stated Lb) and its stated effective-length factors. Cb (AISC) and
- * C1 (EC3) are left at 1,0, which both codes permit as the conservative value.
+ * C1 (EC3) are left at 1,0, which both codes permit as the conservative value. The app does not
+ * know where a transverse load acts on the section, so the EC3 Mcr takes it on the top flange
+ * (zg = h/2, C2 = C1), the lowest value; the checker refuses LTB without the section's depth. The
+ * AISC checker likewise takes it on the top flange (Cb/1,4).
  */
 import { checkSteelMembers, checkEc3Members } from '../../wasm-solver';
 import { materialFamilyOf } from '../../steel/material-family';
@@ -12,7 +15,7 @@ import type { GoverningDemand } from '../../station-design-forces';
 import { MOMENT_NOISE_FLOOR } from '../design-axes';
 import { steelProps, type SteelProps } from './steel-props';
 import { ec3Class, ec3Curves, ec3CurveLt } from './ec3-classify';
-import { N, PA, gov, type CheckKind, type CheckReading, type MemberContext, type OtherCode } from './types';
+import { N, PA, gov, upScaled, type CheckKind, type CheckReading, type MemberContext, type OtherCode, type StationBound3D } from './types';
 
 function steelOnly(ctx: MemberContext): { skip: string } | null {
   const fam = materialFamilyOf(ctx.material as never, catalogueGradeFamily).family;
@@ -31,6 +34,12 @@ function steelOnly(ctx: MemberContext): { skip: string } | null {
  */
 const shear = (d: GoverningDemand, p?: { Aw: number; AwWeak: number }) =>
   Math.max(Math.abs(d.forces.vz), Math.abs(d.forces.vy) * (p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)) * N;
+/** The bound on `shear`: max is 1-Lipschitz in each argument, so it takes the bounds the same way. */
+const shearBound = (sb: StationBound3D, p?: { Aw: number; AwWeak: number }) =>
+  upScaled(Math.max(sb.shearZ, upScaled(sb.shearY, p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)), N);
+/** The bound on every steel checker's force row: N, My, Mz and the web shear, in N and N·m. */
+const steelBound = (ctx: MemberContext, sb: StationBound3D) =>
+  ({ n: upScaled(sb.axial, N), my: upScaled(sb.momentY, N), mz: upScaled(sb.momentZ, N), vy: shearBound(sb, areasOf(ctx)) });
 /**
  * The two shear areas of each member being checked, once per member: `shear` reads them once per
  * demand, and running the section engine (steelProps) there is what `ec3WebSlenderness` below
@@ -52,9 +61,10 @@ const sheared = (d: GoverningDemand) => Math.abs(d.forces.vy) + Math.abs(d.force
 
 /**
  * What AISC 360 requires of this shape and the checker does not do. It evaluates F2 (compact
- * doubly symmetric I, yielding and lateral-torsional buckling), F6 yielding, E3 and G2 with
- * Cv1 = 1; so a noncompact flange or web in bending (F3–F5, F7, F8), a slender element in
- * compression (E7) and a web whose Cv1 is below 1 (G2.1b, G4) are named, not checked.
+ * doubly symmetric I, yielding and lateral-torsional buckling), F6 yielding, E3 with the E7
+ * slender-element reduction (from `aiscElements`) and G2 with Cv1 = 1; so a noncompact flange or
+ * web in bending (F3–F5, F7, F8) and a web whose Cv1 is below 1 (G2.1b, G4) are named, not
+ * checked. `compression` is kept for the record; the checker now reduces such a section.
  * Limits from Table B4.1b and B4.1a without the root radius, as `ec3-classify.ts` reads them.
  */
 export function aiscGaps(p: SteelProps, fy: number, E: number): { flexure: boolean; compression: boolean; shear: boolean } {
@@ -79,6 +89,26 @@ export function aiscGaps(p: SteelProps, fy: number, E: number): { flexure: boole
   };
 }
 const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+
+/**
+ * The plate elements the checker's E7 slender-element reduction reads (Table B4.1a): an I's four
+ * flange outstands (rolled case 1 when picked from a rolled catalogue, else welded case 2 with
+ * the kc lower bound) and its web between the flanges (no root radius: the wider, conservative
+ * width); a rectangular tube's walls at width − 3t; a round tube's D/t.
+ */
+export function aiscElements(p: SteelProps, rolled: boolean) {
+  if (p.shape === 'CHS') return [{ kind: 'roundHss', b: p.h, t: p.tw }];
+  if (p.shape === 'RHS') {
+    return [
+      { kind: 'hssWall', b: p.b - 3 * p.tf, t: p.tf, count: 2 },
+      { kind: 'hssWall', b: p.h - 3 * p.tw, t: p.tw, count: 2 },
+    ];
+  }
+  return [
+    { kind: rolled ? 'rolledFlange' : 'weldedFlange', b: p.b / 2, t: p.tf, count: 4 },
+    { kind: 'web', b: p.h - 2 * p.tf, t: p.tw },
+  ];
+}
 
 export const AISC360: OtherCode = {
   id: 'aisc360',
@@ -107,6 +137,7 @@ export const AISC360: OtherCode = {
         j: p.J, cw: p.Cw, lb: ctx.Lb,
         e: E, g: E / (2 * (1 + (ctx.material.nu ?? 0.3))),
         depth: p.h,
+        compressionElements: aiscElements(p, !!(ctx.section as { profileFamily?: string }).profileFamily),
         gaps: aiscGaps(p, ctx.material.fy!, ctx.material.e),
       },
     };
@@ -115,7 +146,6 @@ export const AISC360: OtherCode = {
     const g = data.gaps as ReturnType<typeof aiscGaps>;
     const flags: string[] = [];
     if (g.flexure && bends(d)) flags.push('otherCodes.check.aiscNoncompact');
-    if (g.compression && d.forces.n < 0) flags.push('otherCodes.check.aiscSlender');
     if (g.shear && sheared(d)) flags.push('otherCodes.check.aiscWebShear');
     const { gaps: _g, ...rest } = data;
     return { data: rest, unevaluated: flags };
@@ -124,6 +154,7 @@ export const AISC360: OtherCode = {
     return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vy: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkSteelMembers(input),
+  certify: { name: 'certify_steel_members', bound: (ctx, _d, _data, sb) => steelBound(ctx, sb) },
   read(r): CheckReading {
     const ratio = num(r.unityRatio);
     // The checker names its governing check "Flexure-Y F2", "Compression E3", …
@@ -157,8 +188,12 @@ export const EC3: OtherCode = {
     if ('skip' in p) return p;
     const compressed = ctx.demands.some((d) => d.forces.n < 0);
     const cls = ec3Class(p, ctx.material.fy!, compressed);
-    if (cls === 4) return { skip: 'otherCodes.skip.ec3Class4' };
-    const curves = ec3Curves(p);
+    // Class 4 I and RHS: the checker computes Aeff and Weff from the geometry sent below
+    // (EN 1993-1-5 4.4). A Class 4 CHS is EN 1993-1-6, which it does not implement.
+    if (cls === 4 && p.shape === 'CHS') return { skip: 'otherCodes.skip.ec3Class4' };
+    // Rolled only when picked from a rolled catalogue family, as the CIRSOC 301 verification.
+    const rolled = !!(ctx.section as { profileFamily?: string }).profileFamily;
+    const curves = ec3Curves(p, rolled);
     webAreas.set(ctx, { Aw: p.Aw, AwWeak: p.AwWeak });
     // The web slenderness `at` checks shear buckling against, once per member, not per demand.
     ec3WebSlenderness.set(ctx, p.shape === 'CHS' ? null : (p.shape === 'RHS' ? p.h - 3 * p.tw : p.h - 2 * p.tf) / p.tw);
@@ -171,20 +206,29 @@ export const EC3: OtherCode = {
         iy: p.Iy, iz: p.Iz, it: p.J, iw: p.Cw,
         lcrY: (ctx.kStrong ?? 1) * ctx.L, lcrZ: (ctx.kWeak ?? 1) * ctx.L, lb: ctx.Lb,
         sectionClass: `Class${cls}`,
-        bucklingCurveY: curves.y, bucklingCurveZ: curves.z, bucklingCurveLt: ec3CurveLt(p),
+        bucklingCurveY: curves.y, bucklingCurveZ: curves.z, bucklingCurveLt: ec3CurveLt(p, rolled),
         av: p.Aw,
+        // The depth the default top-flange load height of Mcr is measured from, and the plates
+        // a Class 4 effective section is computed from. r = 0: the root radius is not held, and
+        // the flat widths without it are the larger ones (lower ρ).
+        geometry: p.shape === 'I' ? { shape: 'I', h: p.h, b: p.b, tw: p.tw, tf: p.tf, r: 0 }
+          : p.shape === 'RHS' ? { shape: 'RHS', h: p.h, b: p.b, t: p.tw }
+          : { shape: 'CHS', d: p.h, t: p.tw },
+        // 6.3.3 with Annex B factors: Cmy, Cmz, CmLT are left to the checker's Table B.3 upper
+        // bound 1,0; a hollow section is not susceptible to torsional deformations (Table B.1).
+        interaction: { hollow: p.shape === 'RHS' || p.shape === 'CHS' },
       },
     };
   },
   /*
-   * The checker combines axial force and bending by NEd/Nb,Rd + My,Ed/Mb,Rd + Mz,Ed/Mc,Rd,
-   * without the k factors of 6.3.3 (Annex A or B), which exceed 1 under near-uniform moment; it
-   * does not reduce the moment resistance for shear above 0,5·Vpl,Rd (6.2.8) nor check shear
-   * buckling of the web (6.2.6(6)). Those demands come back incomplete.
+   * The checker combines axial force and bending by 6.3.3, eqs. (6.61)/(6.62) with the Annex B
+   * interaction factors (it used to be a linear sum with every k = 1, unconservative where
+   * Annex B gives k > 1). It does not reduce the moment resistance for shear above
+   * 0,5·Vpl,Rd (6.2.8) nor check shear buckling of the web (6.2.6(6)). Those demands come back
+   * incomplete.
    */
   at(ctx, d, data) {
     const flags: string[] = [];
-    if (d.forces.n < 0 && bends(d)) flags.push('otherCodes.check.ec3Interaction');
     const fy = ctx.material.fy!;
     const vpl = ((data.av as number) * fy * 1e3) / Math.sqrt(3); // kN
     if (bends(d) && shear(d, areasOf(ctx)) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');
@@ -197,6 +241,7 @@ export const EC3: OtherCode = {
     return { elementId: ctx.elementId, nEd: d.forces.n * N, myEd: d.forces.my * N, mzEd: d.forces.mz * N, vEd: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkEc3Members(input),
+  certify: { name: 'certify_ec3_members', bound: (ctx, _d, _data, sb) => steelBound(ctx, sb) },
   read(r): CheckReading {
     const parts: Array<[CheckKind, string, number]> = [
       ['compression', '6.3.1', num(r.compressionRatio)], ['tension', '6.2.3', num(r.tensionRatio)],

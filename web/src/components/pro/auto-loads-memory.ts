@@ -81,14 +81,17 @@ export interface AutoLoadsMemory {
 /*
  * The dead load's default is a real build-up rather than an empty list, because an empty one is a
  * dialog that cannot produce a dead load until the reader has read a table they have not opened
- * yet: 8 cm of cement screed, a ceramic tile, a suspended ceiling, and a plasterboard partition
- * allowance. Every one of those four is a Tabla 3.1 row, and each can be removed.
+ * yet: 8 cm of cement screed, a ceramic tile, a suspended ceiling, and the partition allowance.
+ * The first three are Tabla 3.1 rows. The allowance is the CIRSOC 101-2025 §4.3.2 minimum,
+ * 0,75 kN/m² of floor: no Tabla 3.1 partition row reaches it (they weigh a square metre of wall,
+ * the heaviest 0,65), so a default built from one would fail §4.3.2 on the very dwelling it
+ * opens on. Each row can be removed.
  */
 const defaultDeadRows = (): DeadRow[] => [
   { entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false },
   { entryKey: 'piso_baldosa_ceramica', thickness: 0, onBattens: false, q: 0, isPartition: false },
   { entryKey: 'cielo_acustico', thickness: 0, onBattens: false, q: 0, isPartition: false },
-  { entryKey: 'tab_yeso_doble', thickness: 0, onBattens: false, q: 0, isPartition: true },
+  { entryKey: 'tabiques_minimo_432', thickness: 0, onBattens: false, q: 0, isPartition: true },
 ];
 
 /**

@@ -25,7 +25,8 @@ describe('the modulus depends on the code, not only on the concrete', () => {
     // The single most consequential number in this file.
     expect(byId('cirsoc-h25').e).toBe(23500);
     expect(byId('en-c25').e).toBe(31476);
-    expect(byId('nbr-c25').e).toBe(28000);
+    // NBR 6118 §8.2.8 secant modulus: (0,8 + 0,2·25/80)·5600·√25 = 0,8625 × 28 000.
+    expect(byId('nbr-c25').e).toBe(24150);
   });
 
   it('the spread is largest at low strengths, where most buildings sit', () => {

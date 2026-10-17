@@ -144,7 +144,7 @@ impl Hinge3D {
 /// at the given DOF indices. `s` is the sign of the off-diagonal c2 coefficient
 /// (+1 for Z-plane bending, -1 for Y-plane bending — captures the right-hand-rule
 /// sign mismatch between the two planes).
-fn add_bending_block(
+pub(crate) fn add_bending_block(
     k: &mut [f64], n: usize,
     v1: usize, r1: usize, v2: usize, r2: usize,
     e: f64, i: f64, l: f64, l2: f64, l3: f64, phi: f64,
@@ -248,6 +248,31 @@ pub fn frame_local_stiffness_3d(
     k
 }
 
+/// Torsion-warping 4×4 block over [θx1, φ'1, θx2, φ'2] (row-major).
+///
+/// The twist θx is the cubic Hermite interpolant of the four DOFs and the
+/// block is its strain energy ½∫(G·J·θx'² + E·Cw·θx''²) dx: the St-Venant part
+/// G·J/(30L)·[36, 3L, −36, 3L; 3L, 4L², −3L, −L²; …] plus the warping part
+/// E·Cw/L³·[12, 6L, −12, 6L; …] (Barsoum & Gallagher 1970; McGuire, Gallagher
+/// & Ziemian, Matrix Structural Analysis, 2nd ed., §8.4). The St-Venant part
+/// used to be G·J/L on the twist DOFs alone, the energy of a linear twist
+/// beside the cubic one of the warping part: still convergent, but as h²
+/// instead of h⁴ (10% off for one element of a cantilever with kL ≈ 2.4).
+pub(crate) fn torsion_warping_block(gj: f64, ecw: f64, l: f64, l2: f64, l3: f64) -> [f64; 16] {
+    // Each distinct term computed once: symmetric entries are the same f64 value
+    // by construction. (−x − y and −(x + y) round identically.)
+    let t = 6.0 * gj / (5.0 * l) + 12.0 * ecw / l3;
+    let b = gj / 10.0 + 6.0 * ecw / l2;
+    let c = 2.0 * gj * l / 15.0 + 4.0 * ecw / l;
+    let d = 2.0 * ecw / l - gj * l / 30.0;
+    [
+         t,  b, -t,  b,
+         b,  c, -b,  d,
+        -t, -b,  t, -b,
+         b,  d, -b,  c,
+    ]
+}
+
 /// 3D frame local stiffness matrix with warping DOF (14×14).
 /// DOFs: [u1, v1, w1, θx1, θy1, θz1, φ'1, u2, v2, w2, θx2, θy2, θz2, φ'2]
 /// cw: warping constant (m⁶), phi' = rate of twist (warping DOF)
@@ -271,7 +296,7 @@ pub fn frame_local_stiffness_3d_warping(
     }
 
     // Add warping torsion coupling (DOFs 3,6 for node I and 10,13 for node J)
-    // Warping stiffness submatrix using Hermitian cubic interpolation:
+    // Torsion-warping submatrix of the cubic Hermite twist (torsion_warping_block):
     //   Torsion DOFs: theta_x at DOFs 3 (node I) and 10 (node J)
     //   Warping DOFs: phi' at DOFs 6 (node I) and 13 (node J)
     let l2 = l * l;
@@ -293,13 +318,7 @@ pub fn frame_local_stiffness_3d_warping(
     // warping torsion. Without this guard the warping block below would
     // silently overwrite the release applied by frame_local_stiffness_3d.
     if !hinge.release_t_start && !hinge.release_t_end {
-        // Torsion-warping 4x4: [θx1, φ'1, θx2, φ'2]
-        let tw = [
-            gj / l + 12.0 * ecw / l3,    6.0 * ecw / l2,     -gj / l - 12.0 * ecw / l3,    6.0 * ecw / l2,
-            6.0 * ecw / l2,               4.0 * ecw / l,      -6.0 * ecw / l2,               2.0 * ecw / l,
-            -gj / l - 12.0 * ecw / l3,   -6.0 * ecw / l2,     gj / l + 12.0 * ecw / l3,    -6.0 * ecw / l2,
-            6.0 * ecw / l2,               2.0 * ecw / l,      -6.0 * ecw / l2,               4.0 * ecw / l,
-        ];
+        let tw = torsion_warping_block(gj, ecw, l, l2, l3);
 
         for i in 0..4 {
             for jj in 0..4 {

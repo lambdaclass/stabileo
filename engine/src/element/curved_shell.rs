@@ -1121,7 +1121,12 @@ pub fn curved_shell_geometric_stiffness(
             None => continue,
         };
 
-        let dv = det_j.abs() * w_g * h;
+        // N·· are resultants (force per length), so this is an area integral:
+        // dA = |g1 × g2|·w, and det J = |g1 × g2|·(h/2) for unit directors
+        // (g3 = (h/2)·d). It was det J·w·h = dA·h²/2, which scaled the
+        // geometric stiffness by h²/2: 1/200 at h = 0.1, so a curved-shell
+        // strip buckled at 200 times its Euler load.
+        let dv = det_j.abs() * w_g / (0.5 * h);
 
         // Compute physical derivatives of shape functions
         // ∂N_i/∂x_local1 = projection onto e1 direction

@@ -30,7 +30,7 @@ const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
 
 /// Free DOFs threshold: use sparse solver when n_free >= this.
-pub(crate) const SPARSE_THRESHOLD: usize = 64;
+pub const SPARSE_THRESHOLD: usize = 64;
 
 /// Free-DOF count at which explicitly requested Auto mode tries PCG after
 /// checking stability with unshifted Cholesky. Missing options remain direct.
@@ -626,20 +626,12 @@ pub fn prepare_static_2d_dense_reference(input: &SolverInput) -> Result<Prepared
     prepare_static_2d_impl(input, true)
 }
 
-fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
-    let dof_num = DofNumbering::build_2d(input);
-    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
-    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_2d(input)?;
-
-    let n = dof_num.n_total;
+/// Prescribed displacements of the restrained DOFs (`u_r`, length
+/// `n_total − n_free`), in the inclined-support frames the restrained DOFs
+/// are numbered in.
+pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<f64> {
     let nf = dof_num.n_free;
-
-    // Build prescribed displacement vector u_r for restrained DOFs
-    let nr = n - nf;
-    let mut u_r = vec![0.0; nr];
+    let mut u_r = vec![0.0; dof_num.n_total - nf];
     for sup in input.supports.values() {
         if sup.support_type == "spring" { continue; } // spring DOFs are free
 
@@ -706,6 +698,23 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
             }
         }
     }
+    u_r
+}
+
+fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
+    let dof_num = DofNumbering::build_2d(input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
+
+    // ── Input validation (before assembly) ──
+    validate_input_2d(input)?;
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let nr = n - nf;
+    let u_r = prescribed_displacements_2d(input, &dof_num);
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
@@ -797,6 +806,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
 
         match num {
             Some((num, regularized, max_perturbation)) => {
+                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
                 // Prescribed-displacement coupling F_f −= K_fr · u_r (K-only)
                 let kfr_ur = if has_prescribed {
                     stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
@@ -825,6 +835,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 });
             }
             None => {
+                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU"));
                 // All shifts failed — dense LU of the dense K_ff (same
                 // behavior as the legacy dense-K_ff LU fallback; K-only decision)
                 let stiff_d = assemble_stiffness_2d(input, &dof_num);
@@ -888,7 +899,10 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         let sym = Rc::new(symbolic_cholesky(&k_ff_sparse));
         match numeric_cholesky(&sym, &k_ff_sparse) {
-            Some(num) => (FactorizedKff::SparseCholesky(num), true, false),
+            Some(num) => {
+                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &k_ff_sparse));
+                (FactorizedKff::SparseCholesky(num), true, false)
+            }
             None => {
                 let mut k_work = k_ff.clone();
                 let piv = lu_factor(&mut k_work, nf)
@@ -899,6 +913,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     } else {
         let mut k_work = k_ff.clone();
         if cholesky_decompose(&mut k_work, nf) {
+            pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
             (FactorizedKff::DenseCholesky(k_work), false, false)
         } else {
             let mut k_work = k_ff.clone();
@@ -907,6 +922,9 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
             (FactorizedKff::DenseLu { lu: k_work, piv }, false, true)
         }
     };
+    if cholesky_failed {
+        pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
+    }
 
     Ok(PreparedStatic2D {
         input: Cow::Borrowed(input),
@@ -1433,6 +1451,10 @@ impl PreparedStatic2D<'_> {
                         dense_lu: std::cell::OnceCell::new(),
                     }
                 });
+                let definiteness = match &direct.num {
+                    Some(num) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
+                    None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU")),
+                };
                 let pcg = if direct.num.is_some() {
                     try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
                 } else {
@@ -1543,6 +1565,7 @@ impl PreparedStatic2D<'_> {
                 // Build structured diagnostics — same contract as the other paths
                 let mut structured = Vec::new();
                 structured.extend(self.pre_solve_diags.iter().cloned());
+                structured.extend(definiteness);
 
                 // Solver path
                 if let Some((iters, pname)) = pcg_meta {
@@ -2039,35 +2062,12 @@ struct PcgDirectFallback3D {
 /// Prepare a 3D structure for one or more static solves: curved-beam expansion,
 /// numbering, assembly, and factorization of the free-free stiffness block
 /// happen exactly once here. This is exactly the load-independent part of `solve_3d`.
-pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
-    // Expand curved beams into frame elements before solving
-    let input = expand_curved_beams_3d(input);
-    let n_nodes = input.nodes.len();
-    let n_elements = input.elements.len()
-        + input.plates.len()
-        + input.quads.len()
-        + input.quad9s.len()
-        + input.solid_shells.len()
-        + input.curved_shells.len();
-    let dof_num = DofNumbering::build_3d(&input);
-    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
-    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_3d(&input)?;
-
-    // An element that cannot be integrated over — collapsed, or folded onto
-    // itself — is refused by name, before it fails downstream as "Singular
-    // stiffness matrix — structure is a mechanism". Only those: see
-    // `refuse_broken_elements` for why not every gate `Error`.
-    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
-
-    let n = dof_num.n_total;
+/// Prescribed displacements of the restrained DOFs (`u_r`, length
+/// `n_total − n_free`), in the inclined-support frames the restrained DOFs
+/// are numbered in.
+pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Vec<f64> {
     let nf = dof_num.n_free;
-    let nr = n - nf;
-
-    // Build prescribed displacement vector u_r for restrained DOFs
-    let mut u_r = vec![0.0; nr];
+    let mut u_r = vec![0.0; dof_num.n_total - nf];
     for sup in input.supports.values() {
         // Inclined supports: prescribed translations are given in GLOBAL
         // coords, but the restrained inclined DOF (local_dof 0) lives in the
@@ -2117,6 +2117,38 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             }
         }
     }
+    u_r
+}
+
+pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
+    // Expand curved beams into frame elements before solving
+    let input = expand_curved_beams_3d(input);
+    let n_nodes = input.nodes.len();
+    let n_elements = input.elements.len()
+        + input.plates.len()
+        + input.quads.len()
+        + input.quad9s.len()
+        + input.solid_shells.len()
+        + input.curved_shells.len();
+    let dof_num = DofNumbering::build_3d(&input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
+    validate_solver_options(&input.solver_options, &mut pre_solve_diags);
+
+    // ── Input validation (before assembly) ──
+    validate_input_3d(&input)?;
+
+    // An element that cannot be integrated over — collapsed, or folded onto
+    // itself — is refused by name, before it fails downstream as "Singular
+    // stiffness matrix — structure is a mechanism". Only those: see
+    // `refuse_broken_elements` for why not every gate `Error`.
+    super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let nr = n - nf;
+
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let u_r = prescribed_displacements_3d(&input, &dof_num);
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
@@ -2267,6 +2299,13 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         match num {
             Some((num, regularized, max_perturbation)) => {
                 if regularized {
+                    pre_solve_diags.push(super::definiteness::not_positive_definite(&format!(
+                        "Cholesky needed a diagonal shift of {max_perturbation:.2e}"
+                    )));
+                } else {
+                    pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
+                }
+                if regularized {
                     solver_diags_base.push(SolverDiagnostic {
                         category: "solver_path".into(),
                         message: format!(
@@ -2314,6 +2353,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                 })
             }
             None => {
+                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU"));
                 // All shifts failed — fall back to dense LU (factorized once
                 // here; the factorization depends only on K, not the loads).
                 solver_diags_base.push(SolverDiagnostic {
@@ -2392,11 +2432,13 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         let (factor, cholesky_failed) = {
             let mut k_work = k_ff.clone();
             if cholesky_decompose(&mut k_work, nf) {
+                pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
                 (FactorizedKff::DenseCholesky(k_work), false)
             } else {
                 let mut k_work = k_ff.clone();
                 let piv = lu_factor(&mut k_work, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+                pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
                 (FactorizedKff::DenseLu { lu: k_work, piv }, true)
             }
         };
@@ -3057,6 +3099,11 @@ impl PreparedStatic3D {
         // timer. Its symbolic/numeric timings are accounted for below, just
         // as on the direct prepared path (without counting them twice).
         let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
+        let definiteness = match &direct.num {
+            Some((num, false, _)) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
+            Some((_, true, shift)) => Some(super::definiteness::not_positive_definite(&format!("Cholesky needed a diagonal shift of {shift:.2e}"))),
+            None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU")),
+        };
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
@@ -3297,6 +3344,7 @@ impl PreparedStatic3D {
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
         structured.extend(self.pre_solve_diags.iter().cloned());
+        structured.extend(definiteness);
 
         // Solver path — report the actual solver that produced the returned result
         if let Some((iters, _, pname)) = pcg_meta {
@@ -3672,8 +3720,12 @@ pub(crate) fn build_reactions_2d(
     nf: usize,
     u_full: &[f64],
 ) -> Vec<Reaction> {
-    let mut reactions = Vec::new();
-    for sup in input.supports.values() {
+    let mut reactions: Vec<Reaction> = Vec::new();
+    // Several supports may target one node: its restrained-DOF reactions are
+    // reported once, and the node gets a single entry (spring forces of all
+    // its supports summed, as assembly adds all their stiffnesses).
+    let mut reported = std::collections::HashSet::new();
+    for sup in sorted_supports_2d(input) {
         let mut rx = 0.0;
         let mut rz = 0.0;
         let mut my = 0.0;
@@ -3709,35 +3761,52 @@ pub(crate) fn build_reactions_2d(
             }
             my = -kz * ry_disp;
         } else {
-            // Rigid support: reaction from restrained partition
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                if d >= nf {
-                    let idx = d - nf;
-                    rx = reactions_vec[idx];
-                }
-            }
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf {
-                    let idx = d - nf;
-                    rz = reactions_vec[idx];
-                }
-            }
-            if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+            // Rigid support: reaction from the restrained partition. A free
+            // DOF of a non-"spring" support can still carry a spring (e.g. a
+            // rollerX with kx): assemble_stiffness_2d adds its stiffness, so
+            // its force −k·u belongs in the reaction too (as in
+            // build_reactions_3d); dropping it broke global equilibrium.
+            // Inclined rollers keep their rotated-frame handling.
+            let springs = [sup.kx, sup.ky, sup.kz];
+            let mut vals = [0.0f64; 3];
+            for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                     if d >= nf {
-                        let idx = d - nf;
-                        my = reactions_vec[idx];
+                        if reported.insert(d) {
+                            *val = reactions_vec[d - nf];
+                        }
+                    } else if sup.support_type != "inclinedRoller" {
+                        let k = springs[i].unwrap_or(0.0);
+                        if k > 0.0 {
+                            *val = -k * u_full[d];
+                        }
                     }
                 }
             }
+            rx = vals[0];
+            rz = vals[1];
+            my = vals[2];
         }
 
-        reactions.push(Reaction {
-            node_id: sup.node_id,
-            rx, rz, my,
-        });
+        if let Some(r) = reactions.iter_mut().find(|r| r.node_id == sup.node_id) {
+            r.rx += rx;
+            r.rz += rz;
+            r.my += my;
+        } else {
+            reactions.push(Reaction {
+                node_id: sup.node_id,
+                rx, rz, my,
+            });
+        }
     }
     reactions
+}
+
+/// Supports in id order, so reactions are built deterministically.
+fn sorted_supports_2d(input: &SolverInput) -> Vec<&SolverSupport> {
+    let mut sups: Vec<&SolverSupport> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.id);
+    sups
 }
 
 pub(crate) fn build_reactions_2d_inclined(
@@ -3772,8 +3841,13 @@ pub(crate) fn build_reactions_3d(
     nf: usize,
     u_full: &[f64],
 ) -> Vec<Reaction3D> {
-    let mut reactions = Vec::new();
-    for sup in input.supports.values() {
+    let mut reactions: Vec<Reaction3D> = Vec::new();
+    // As in build_reactions_2d: restrained-DOF reactions once per node, one
+    // entry per node.
+    let mut reported = std::collections::HashSet::new();
+    let mut sups: Vec<&SolverSupport3D> = input.supports.values().collect();
+    sups.sort_by_key(|s| s.node_id);
+    for sup in sups {
         let mut vals = [0.0f64; 6];
 
         // Handle each DOF individually: restrained DOFs from reactions_vec,
@@ -3787,7 +3861,9 @@ pub(crate) fn build_reactions_3d(
             if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                 if d >= nf {
                     // Restrained DOF: reaction from solve
-                    vals[i] = reactions_vec[d - nf];
+                    if reported.insert(d) {
+                        vals[i] = reactions_vec[d - nf];
+                    }
                 } else {
                     // Free DOF: check for spring stiffness
                     let k = spring_stiffs[i].unwrap_or(0.0);
@@ -3802,7 +3878,7 @@ pub(crate) fn build_reactions_3d(
         let bimoment = if dof_num.dofs_per_node >= 7 {
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                 if d >= nf {
-                    Some(reactions_vec[d - nf])
+                    reported.insert(d).then(|| reactions_vec[d - nf])
                 } else {
                     let kw = sup.kw.unwrap_or(0.0);
                     if kw > 0.0 {
@@ -3818,12 +3894,21 @@ pub(crate) fn build_reactions_3d(
             None
         };
 
-        reactions.push(Reaction3D {
-            node_id: sup.node_id,
-            fx: vals[0], fy: vals[1], fz: vals[2],
-            mx: vals[3], my: vals[4], mz: vals[5],
-            bimoment,
-        });
+        if let Some(r) = reactions.iter_mut().find(|r| r.node_id == sup.node_id) {
+            for (x, v) in [&mut r.fx, &mut r.fy, &mut r.fz, &mut r.mx, &mut r.my, &mut r.mz].into_iter().zip(vals) {
+                *x += v;
+            }
+            if let Some(b) = bimoment {
+                r.bimoment = Some(r.bimoment.unwrap_or(0.0) + b);
+            }
+        } else {
+            reactions.push(Reaction3D {
+                node_id: sup.node_id,
+                fx: vals[0], fy: vals[1], fz: vals[2],
+                mx: vals[3], my: vals[4], mz: vals[5],
+                bimoment,
+            });
+        }
     }
     reactions
 }
@@ -3856,6 +3941,59 @@ pub(crate) fn build_reactions_3d_inclined(
 
 // ── Input validation helpers ──
 
+/// Several supports on one node. Plain rigid restraints merge: a DOF is
+/// restrained if any of them restrains it (DofNumbering ORs them in 2D and 3D,
+/// and the node gets one reaction entry). Anything else is ambiguous (which
+/// spring, which settlement, which inclined direction?) and the solver used to
+/// read it differently per path: 2D kept only the highest-id support, so a
+/// `fixed` support followed by a `spring` left the node on the spring alone; 3D
+/// took springs and the inclined flag from one support picked in hash order.
+/// Such a model is rejected with an error naming the node. The web app keeps
+/// one support per node.
+///
+/// `sups` are (node id, support key in the input map, plain rigid restraint?).
+fn reject_ambiguous_shared_supports<'a>(sups: impl Iterator<Item = (usize, &'a str, bool)>) -> Result<(), String> {
+    let mut by_node: std::collections::BTreeMap<usize, Vec<(&str, bool)>> = std::collections::BTreeMap::new();
+    for (node, key, plain) in sups {
+        by_node.entry(node).or_default().push((key, plain));
+    }
+    for (node, mut sups) in by_node {
+        if sups.len() < 2 || sups.iter().all(|&(_, plain)| plain) {
+            continue;
+        }
+        sups.sort();
+        let keys: Vec<&str> = sups.iter().map(|&(k, _)| k).collect();
+        return Err(format!(
+            "Node {node} has several supports ({}) and not all are plain rigid restraints \
+             (springs, prescribed displacements or inclined directions); merge them into a single support",
+            keys.join(", ")
+        ));
+    }
+    Ok(())
+}
+
+fn zero_or_none(v: Option<f64>) -> bool {
+    v.is_none_or(|x| x == 0.0)
+}
+
+/// A 2D support that only restrains DOFs rigidly (no spring, settlement or angle).
+fn plain_rigid_2d(s: &SolverSupport) -> bool {
+    matches!(
+        s.support_type.as_str(),
+        "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ"
+    ) && [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].into_iter().all(zero_or_none)
+}
+
+/// A 3D support that only restrains DOFs rigidly (no spring, settlement or
+/// inclined direction).
+fn plain_rigid_3d(s: &SolverSupport3D) -> bool {
+    !s.is_inclined.unwrap_or(false)
+        && [s.normal_x, s.normal_y, s.normal_z].iter().all(Option::is_none)
+        && [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
+            .into_iter()
+            .all(zero_or_none)
+}
+
 pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
     // 0. Non-finite input rejection (NaN/Inf). Note: JSON cannot carry NaN, so
     // this primarily protects native/Rust API callers and internally-built inputs.
@@ -3881,6 +4019,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
             }
         }
     }
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_2d(s))))?;
     for load in &input.loads {
         let finite = match load {
             SolverLoad::Nodal(l) => l.fx.is_finite() && l.fz.is_finite() && l.my.is_finite(),
@@ -3989,6 +4128,14 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
+    // 8. Connectors: end nodes, finite stiffness, and the DOFs they need.
+    let node_xz: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    crate::element::connector::validate_connectors(
+        &input.connectors,
+        |id| node_xz.get(&id).map(|n| [n.x, n.z, 0.0]),
+        DofNumbering::dofs_per_node_2d(input) >= 3,
+    )?;
+
     Ok(())
 }
 
@@ -4075,6 +4222,18 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
                     sup.kw, sup.normal_x, sup.normal_y, sup.normal_z];
         if vals.into_iter().flatten().any(|v| !v.is_finite()) {
             return Err(format!("Support on node {}: numeric fields must be finite", sup.node_id));
+        }
+    }
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_3d(s))))?;
+    // An inclined support needs its direction: without a non-zero normal it
+    // used to solve silently as an ordinary support with its flags.
+    for s in input.supports.values() {
+        if s.is_inclined.unwrap_or(false) {
+            let n = [s.normal_x, s.normal_y, s.normal_z];
+            let len2: f64 = n.iter().map(|c| c.unwrap_or(0.0).powi(2)).sum();
+            if n.iter().any(Option::is_none) || len2.sqrt() <= 1e-12 {
+                return Err(format!("Support on node {}: an inclined support needs a non-zero normal (normalX, normalY, normalZ)", s.node_id));
+            }
         }
     }
     for load in &input.loads {
@@ -4164,6 +4323,13 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
             return Err(format!("Curved beam {}: section {} does not exist", i, cb.section_id));
         }
     }
+
+    // 1c. Curved-beam sizes: segment counts bounded, new ids representable.
+    crate::element::check_curved_beam_sizes(
+        &input.curved_beams,
+        input.nodes.values().map(|n| n.id).max().unwrap_or(0),
+        input.elements.values().map(|e| e.id).max().unwrap_or(0),
+    )?;
 
     // 2. Referential integrity — support → node
     for sup in input.supports.values() {
@@ -4291,6 +4457,14 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         }
     }
 
+    // 8. Connectors: end nodes, finite stiffness, and the DOFs they need.
+    let node_xyz: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    crate::element::connector::validate_connectors(
+        &input.connectors,
+        |id| node_xyz.get(&id).map(|n| [n.x, n.y, n.z]),
+        DofNumbering::dofs_per_node_3d(input) >= 6,
+    )?;
+
     Ok(())
 }
 
@@ -4406,7 +4580,7 @@ pub(crate) fn compute_internal_forces_2d(
 
 /// `compute_internal_forces_2d` with the load set given explicitly, so
 /// multi-case solves can reuse one structure with per-case loads.
-pub(crate) fn compute_internal_forces_2d_with_loads(
+pub fn compute_internal_forces_2d_with_loads(
     input: &SolverInput,
     loads: &[SolverLoad],
     dof_num: &DofNumbering,
@@ -4472,10 +4646,24 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                 }
             }
 
+            // Axial point loads on the bar (px) reach its nodes by the lever
+            // rule (truss_member_load_2d), so the axial force jumps at the
+            // load: N(0) = EAδ/L + F_i, N(L) = EAδ/L − F_j — as the 3D truss
+            // path does. Reporting EAδ/L at both ends was off by the load
+            // share (found by differential testing against OpenSees).
+            let (mut fa_i, mut fa_j) = (0.0, 0.0);
+            for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
+                if let SolverLoad::PointOnElement(pl) = load {
+                    let px = pl.px.unwrap_or(0.0);
+                    fa_i += px * (1.0 - pl.a / l);
+                    fa_j += px * pl.a / l;
+                }
+            }
+
             forces.push(ElementForces {
                 element_id: elem.id,
-                n_start: n_axial,
-                n_end: n_axial,
+                n_start: n_axial + fa_i,
+                n_end: n_axial - fa_j,
                 v_start: 0.0,
                 v_end: 0.0,
                 m_start: 0.0,
@@ -4527,9 +4715,9 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                         let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
                         let mut fef = if is_full {
-                            crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l)
+                            crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l, phi)
                         } else {
-                            crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
+                            crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l, phi)
                         };
 
                         crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
@@ -4552,7 +4740,7 @@ pub(crate) fn compute_internal_forces_2d_with_loads(
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
-                        let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
+                        let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l, phi);
                         crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
@@ -4613,7 +4801,7 @@ pub(crate) fn compute_internal_forces_3d(
 
 /// `compute_internal_forces_3d` with the load set given explicitly, so
 /// multi-case solves can reuse one structure with per-case loads.
-pub(crate) fn compute_internal_forces_3d_with_loads(
+pub fn compute_internal_forces_3d_with_loads(
     input: &SolverInput3D,
     loads: &[SolverLoad3D],
     dof_num: &DofNumbering,
@@ -4818,9 +5006,9 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     let b_param = dl.b.unwrap_or(l);
                     let is_full_fef = (a_param.abs() < 1e-12) && ((b_param - l).abs() < 1e-12);
                     let mut fef12 = if is_full_fef {
-                        element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
+                        element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l, phi_y, phi_z)
                     } else {
-                        element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
+                        element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l, phi_y, phi_z)
                     };
                     let axial = element::axial_distributed_fef(dl.q_xi, dl.q_xj, a_param, b_param, l);
                     fef12[0] = axial[0];
@@ -4852,13 +5040,7 @@ pub(crate) fn compute_internal_forces_3d_with_loads(
                     }
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                    let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
-                    let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                    let mut fef12 = [0.0; 12];
-                    fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
-                    fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
-                    fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
-                    fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
+                    let mut fef12 = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
@@ -4950,8 +5132,17 @@ pub fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
     let mut result = input.clone();
 
     // Find next available node and element IDs
-    let mut next_node_id = result.nodes.values().map(|n| n.id).max().unwrap_or(0) + 1;
-    let mut next_elem_id = result.elements.values().map(|e| e.id).max().unwrap_or(0) + 1;
+    let max_node_id = result.nodes.values().map(|n| n.id).max().unwrap_or(0);
+    let max_elem_id = result.elements.values().map(|e| e.id).max().unwrap_or(0);
+
+    // Segment counts come from the model file. Beams that are too large to
+    // expand (or whose new ids would overflow) are all left in place, unexpanded,
+    // for `validate_input_3d` to refuse with the same check.
+    if crate::element::check_curved_beam_sizes(&input.curved_beams, max_node_id, max_elem_id).is_err() {
+        return result;
+    }
+    let mut next_node_id = max_node_id + 1;
+    let mut next_elem_id = max_elem_id + 1;
 
     let cb_node_map: std::collections::HashMap<usize, SolverNode3D> =
         result.nodes.values().map(|n| (n.id, n.clone())).collect();

@@ -70,33 +70,33 @@ pub fn solve_modal_2d(
         return Err("No mass assigned — set material densities".into());
     }
 
-    // Assemble M (dense) only for the small-model branch below. The sparse
-    // branches assemble the mass as CSC directly — a dense mass is O(n²)
-    // memory and assembly time. With the sparse constraint transform, the
-    // constrained branch no longer needs the dense mass either.
-    // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-    let need_dense_mass = nf < SPARSE_THRESHOLD;
-    let m_full = if need_dense_mass {
-        Some(assemble_mass_matrix_2d(input, &dof_num, densities))
+    // Constraint transform, if any: K and M reduce as sparse triple products
+    // on the large-model branch, never densifying.
+    let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
+    let free_idx: Vec<usize> = (0..nf).collect();
+
+    // K is assembled in the inclined-roller frames (the same rotations by
+    // either assembler); M, the influence vectors and the mode shapes follow.
+    let sparse = nf >= SPARSE_THRESHOLD;
+    let (k_sparse, k_dense, its) = if sparse {
+        let s = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        (Some(s.k_ff), None, s.inclined_transforms_2d)
     } else {
-        None
+        let s = assemble_stiffness_2d(input, &dof_num);
+        (None, Some(extract_submatrix(&s.k, n, &free_idx, &free_idx)), s.inclined_transforms_2d)
     };
 
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let m_ff = m_full.as_ref().map(|m| extract_submatrix(m, n, &free_idx, &free_idx));
-
-    // Influence vectors: a unit rigid translation along X and along Y.
-    let mut r_x_full = vec![0.0; nf];
-    let mut r_y_full = vec![0.0; nf];
+    // Influence vectors: a unit rigid translation along X and along Y, over
+    // all DOFs in global axes, then in the roller frames on the free DOFs (at
+    // an inclined roller only the tangential component moves).
+    let mut r_x_full = vec![0.0; n];
+    let mut r_y_full = vec![0.0; n];
     for &node_id in &dof_num.node_order {
-        if let Some(&d) = dof_num.map.get(&(node_id, 0)) {
-            if d < nf { r_x_full[d] = 1.0; }
-        }
-        if let Some(&d) = dof_num.map.get(&(node_id, 1)) {
-            if d < nf { r_y_full[d] = 1.0; }
-        }
+        if let Some(&d) = dof_num.map.get(&(node_id, 0)) { r_x_full[d] = 1.0; }
+        if let Some(&d) = dof_num.map.get(&(node_id, 1)) { r_y_full[d] = 1.0; }
     }
+    let r_x_full = to_inclined_free(r_x_full, &its, nf);
+    let r_y_full = to_inclined_free(r_y_full, &its, nf);
 
     // Solve K·φ = λ·M·φ where λ = ω²
     // Large models (constrained or not): triplet sparse assembly + sparse
@@ -105,30 +105,32 @@ pub fn solve_modal_2d(
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     // M·r on the full free space, taken before the mass is reduced.
     let (m_r_x, m_r_y);
-    let (result, ns, m_solve) = if nf >= SPARSE_THRESHOLD {
-        let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+    let (result, ns, m_solve) = if let Some(k_ff) = k_sparse {
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
-        let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(input, &dof_num, densities);
+        let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse_inclined(input, &dof_num, densities, &its);
         m_r_x = m_csc.sym_mat_vec(&r_x_full);
         m_r_y = m_csc.sym_mat_vec(&r_y_full);
         if let Some(ref cs) = cs {
-            let k_solve = cs.reduce_matrix_sparse(&sasm.k_ff);
+            let k_solve = cs.reduce_matrix_sparse(&k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
-            let result = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, num_modes, 0.0)
+            let result = lanczos_generalized_eigen_sparse(&k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_csc);
             (result, nf, Vec::new())
         }
     } else {
-        let asm = assemble_2d(input, &dof_num);
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let m_ff = m_ff.unwrap();
+        // Dense mass only for the small-model branch: a dense mass is O(n²)
+        // memory and assembly time.
+        let k_ff = k_dense.expect("dense K below the sparse threshold");
+        let mut m_full = assemble_mass_matrix_2d(input, &dof_num, densities);
+        rotate_inclined_dense(&mut m_full, n, &its);
+        let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
         m_r_x = mat_vec_sub(&m_ff, &r_x_full, nf);
         m_r_y = mat_vec_sub(&m_ff, &r_y_full, nf);
         let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
@@ -162,7 +164,8 @@ pub fn solve_modal_2d(
     let n_converged = result.values.len();
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
-        if eigenvalue <= 1e-10 || modes.len() >= num_modes {
+        // ∞: a massless direction (lumped-mass rotations), not a mode.
+        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes {
             continue;
         }
 
@@ -203,15 +206,12 @@ pub fn solve_modal_2d(
             phi_s
         };
 
-        // Build mode shape (normalized to max = 1)
-        let mut u_mode = vec![0.0; n];
-        let mut max_disp = 0.0f64;
-        for i in 0..nf {
-            u_mode[i] = phi_f[i];
-            max_disp = max_disp.max(phi_f[i].abs());
-        }
+        // Build mode shape in global axes (inclined rollers rotated back
+        // before normalizing, so the scale is an unrotated model's), max = 1
+        let mut u_mode = to_global(&phi_f[..nf], n, &its);
+        let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
-            for val in u_mode.iter_mut().take(nf) {
+            for val in u_mode.iter_mut() {
                 *val /= max_disp;
             }
         }
@@ -317,7 +317,14 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let input = &super::linear::expand_curved_beams_3d(input);
     super::linear::validate_input_3d(input)?;
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
+    let input = expanded.as_ref().unwrap_or(input);
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(input);
     super::dynamic_validation::validate_densities(densities, &referenced_material_ids)?;
     if num_modes == 0 {
@@ -337,13 +344,15 @@ pub fn solve_modal_3d(
     let sasm = assemble_sparse_3d(input, &dof_num, false);
 
     // Apply constraint transform if present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Mass matrix: sparse CSC (free block). With the sparse constraint
     // transform, the constraint path also stays sparse end to end — K and M
     // reduce as sparse triple products, no dense n² allocation anywhere.
-    let m_sparse_ff = assemble_mass_matrix_3d_sparse(input, &dof_num, densities);
+    // In the inclined-support frames K was assembled in.
+    let its = &sasm.inclined_transforms;
+    let m_sparse_ff = assemble_mass_matrix_3d_sparse_inclined(input, &dof_num, densities, its);
 
     // Reduced-space matrices owned here so both branches can borrow them.
     let k_red;
@@ -360,15 +369,19 @@ pub fn solve_modal_3d(
 
     let num_modes = num_modes.min(ns);
 
-    // Build influence vectors for X, Y, Z translational DOFs
-    let mut r_x_full = vec![0.0; nf];
-    let mut r_y_full = vec![0.0; nf];
-    let mut r_z_full = vec![0.0; nf];
+    // Influence vectors for X, Y, Z translations: over all DOFs in global
+    // axes, then in the inclined-support frames on the free DOFs.
+    let mut r_x_full = vec![0.0; n];
+    let mut r_y_full = vec![0.0; n];
+    let mut r_z_full = vec![0.0; n];
     for &node_id in &dof_num.node_order {
-        if let Some(&d) = dof_num.map.get(&(node_id, 0)) { if d < nf { r_x_full[d] = 1.0; } }
-        if let Some(&d) = dof_num.map.get(&(node_id, 1)) { if d < nf { r_y_full[d] = 1.0; } }
-        if let Some(&d) = dof_num.map.get(&(node_id, 2)) { if d < nf { r_z_full[d] = 1.0; } }
+        if let Some(&d) = dof_num.map.get(&(node_id, 0)) { r_x_full[d] = 1.0; }
+        if let Some(&d) = dof_num.map.get(&(node_id, 1)) { r_y_full[d] = 1.0; }
+        if let Some(&d) = dof_num.map.get(&(node_id, 2)) { r_z_full[d] = 1.0; }
     }
+    let r_x_full = to_inclined_free(r_x_full, its, nf);
+    let r_y_full = to_inclined_free(r_y_full, its, nf);
+    let r_z_full = to_inclined_free(r_z_full, its, nf);
     // L = Cᵀ(M·r), the reduced inertial load — see the 2D solver. Cᵀr also
     // put the eccentricities of a diaphragm's nodes on the master's θz, a
     // torsional participation no rigid translation has.
@@ -386,7 +399,8 @@ pub fn solve_modal_3d(
     let n_converged = result.values.len();
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
-        if eigenvalue <= 1e-10 || modes.len() >= num_modes { continue; }
+        // ∞: a massless direction (lumped-mass rotations), not a mode.
+        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes { continue; }
 
         let omega = eigenvalue.sqrt();
         let freq = omega / (2.0 * std::f64::consts::PI);
@@ -421,14 +435,11 @@ pub fn solve_modal_3d(
             phi_s
         };
 
-        let mut u_mode = vec![0.0; n];
-        let mut max_disp = 0.0f64;
-        for i in 0..nf {
-            u_mode[i] = phi_f[i];
-            max_disp = max_disp.max(phi_f[i].abs());
-        }
+        // Global axes at inclined supports before normalizing (see 2D).
+        let mut u_mode = to_global(&phi_f[..nf], n, its);
+        let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
-            for val in u_mode.iter_mut().take(nf) { *val /= max_disp; }
+            for val in u_mode.iter_mut() { *val /= max_disp; }
         }
         // Same rescaling as the 2D path: Γ must refer to the shape that is published.
         let shape_scale = if max_disp > 1e-20 { max_disp } else { 1.0 };

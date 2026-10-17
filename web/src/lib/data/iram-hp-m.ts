@@ -5,10 +5,10 @@
  * Same shape and same caveat as the W series: parallel flanges with a root
  * fillet, dimensions marked nominal in the source, so the outline does not
  * reproduce the published properties exactly and the gap is declared per
- * profile. HP sits inside 1.3 %; M inside 1.5 % except M5x18.9, whose
- * published Iz its own dimensions do not support (the built outline is 11 %
- * above it, and a hand check of two flanges 127 mm wide and 10.6 mm thick
- * agrees with the outline, not the table).
+ * profile. HP sits inside 1.3 %; M inside 2.2 %. M5x18.9's printed Iz (327)
+ * was one its own dimensions do not support — the built outline is 11 % above
+ * it, a hand check of two 127 x 10.6 mm flanges agrees with the outline, and
+ * AISC v16.0 gives 362 cm⁴ — so the row carries AISC's value.
  *
  * The root radius is solved from the published clear web depth through
  * `hw = d - 2(tf + r)`, as for W — see iram-wf.ts for why that inversion is
@@ -41,5 +41,8 @@ export const IRAM_M: SteelProfile[] = [
   { family: 'M', name: 'M10x9', h: 250, b: 68, a: 17.23, iy: 1602, iz: 28, weight: 13.4, tw: 3.99, tf: 5.23, r: 7.27 },
   { family: 'M', name: 'M10x8', h: 249, b: 68, a: 15.35, iy: 1428, iz: 24.8, weight: 11.9, tw: 3.53, tf: 4.65, r: 7.85 },
   { family: 'M', name: 'M8x6,5', h: 199, b: 58, a: 12.39, iy: 753, iz: 15.4, weight: 9.67, tw: 3.38, tf: 4.72, r: 7.28 },
-  { family: 'M', name: 'M5x18,9', h: 127, b: 127, a: 35.81, iy: 1003, iz: 327, weight: 28.1, tw: 8.03, tf: 10.6, r: 11.63 },
+  // iz: the IRAM table prints 327, which its own dimensions do not support (the outline gives
+  // 363) and the AISC Shapes Database v16.0 does not either (8.70 in⁴ = 362 cm⁴). Corrected to
+  // AISC's value — two independent sources against one apparent misprint.
+  { family: 'M', name: 'M5x18,9', h: 127, b: 127, a: 35.81, iy: 1003, iz: 362, weight: 28.1, tw: 8.03, tf: 10.6, r: 11.63 },
 ];

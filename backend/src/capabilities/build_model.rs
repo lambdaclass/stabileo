@@ -7,6 +7,7 @@ use super::edit_executor;
 use super::generators::execute_action;
 use super::registry;
 use super::validate_snapshot;
+use super::limits;
 use crate::error::AppError;
 use crate::providers::traits::{AiMessage, AiRequest, AiResponse, AiRole, Provider};
 
@@ -105,7 +106,8 @@ pub async fn build_model(
     req: BuildModelRequest,
     request_id: String,
 ) -> Result<BuildModelResponse, AppError> {
-    let locale = req.locale.as_deref().unwrap_or("en");
+    validate_request(&req)?;
+    let locale = limits::sanitize_locale(req.locale.as_deref());
     let analysis_mode = req.analysis_mode.as_deref().unwrap_or("2d");
     let has_model = req.model_context.is_some();
 
@@ -119,6 +121,9 @@ pub async fn build_model(
         req.solver_diagnostics.as_deref(),
     );
 
+    let history: String = ai_messages.iter().map(|m| m.content.as_str()).collect();
+    limits::check_prompt_size(&system_prompt, &history)?;
+
     let ai_req = AiRequest {
         system_prompt,
         user_message: req.description.clone(),
@@ -130,6 +135,41 @@ pub async fn build_model(
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;
     parse_response(ai_resp, request_id, req.current_snapshot.as_ref())
+}
+
+/// Bound the size of everything in the request that is forwarded to the
+/// provider, and refuse analysis modes the prompt and tools do not know.
+fn validate_request(req: &BuildModelRequest) -> Result<(), AppError> {
+    limits::check_text("description", &req.description)?;
+    if let Some(mode) = req.analysis_mode.as_deref() {
+        if !matches!(mode, "2d" | "3d") {
+            return Err(AppError::BadRequest(format!(
+                "analysisMode must be \"2d\" or \"3d\", got {:?}",
+                limits::prompt_label(mode)
+            )));
+        }
+    }
+    if let Some(history) = &req.messages {
+        limits::check_list_len("messages", history.len(), limits::MAX_MESSAGES)?;
+        for m in history {
+            limits::check_text("messages[].content", &m.content)?;
+        }
+    }
+    if let Some(diags) = &req.solver_diagnostics {
+        limits::check_list_len("solverDiagnostics", diags.len(), limits::MAX_MESSAGES)?;
+        for d in diags {
+            limits::check_text("solverDiagnostics[].message", &d.message)?;
+        }
+    }
+    if let Some(ctx) = &req.model_context {
+        limits::check_list_len("modelContext.sections", ctx.sections.len(), limits::MAX_LIST_LEN)?;
+        limits::check_list_len("modelContext.materials", ctx.materials.len(), limits::MAX_LIST_LEN)?;
+        limits::check_list_len("modelContext.supportTypes", ctx.support_types.len(), limits::MAX_LIST_LEN)?;
+        limits::check_list_len("modelContext.elementTypes", ctx.element_types.len(), limits::MAX_LIST_LEN)?;
+        limits::check_list_len("modelContext.floorHeights", ctx.floor_heights.len(), limits::MAX_LIST_LEN)?;
+        limits::check_list_len("modelContext.bayWidths", ctx.bay_widths.len(), limits::MAX_LIST_LEN)?;
+    }
+    Ok(())
 }
 
 /// Build `AiMessage` list from conversation history, solver diagnostics,
@@ -168,7 +208,14 @@ fn build_ai_messages(
         if !diags.is_empty() {
             let diag_text: Vec<String> = diags
                 .iter()
-                .map(|d| format!("- [{}] {}: {}", d.severity, d.code, d.message))
+                .map(|d| {
+                    format!(
+                        "- [{}] {}: {}",
+                        limits::prompt_label(&d.severity),
+                        limits::prompt_label(&d.code),
+                        d.message
+                    )
+                })
                 .collect();
             messages.push(AiMessage {
                 role: AiRole::User,
@@ -193,7 +240,11 @@ fn build_system_prompt(locale: &str, analysis_mode: &str, ctx: Option<&ModelCont
     let capabilities = registry::prompt_text(analysis_mode);
 
     let context_section = if let Some(c) = ctx {
-        let sections: Vec<&str> = c.sections.iter().map(|s| s.name.as_str()).collect();
+        // Section names and support types come from the user's model, which
+        // may be an imported or shared file; they are reduced to plain labels
+        // so they cannot add lines or sections to the system prompt.
+        let sections: Vec<String> = c.sections.iter().map(|s| limits::prompt_label(&s.name)).collect();
+        let support_types: Vec<String> = c.support_types.iter().map(|s| limits::prompt_label(s)).collect();
         format!(
             r#"
 
@@ -221,7 +272,7 @@ Use create tools when the user wants something entirely different."#,
             horizontal_plane = DEFAULT_HORIZONTAL_PLANE_3D,
             gravity = GRAVITY_DIRECTION_3D,
             secs = sections.join(", "),
-            stypes = c.support_types.join(", "),
+            stypes = support_types.join(", "),
             floors = c.floor_heights,
             bays = c.bay_widths,
         )
@@ -378,6 +429,9 @@ pub fn parse_response(
             && snapshot.get("nodes").is_some()
             && snapshot.get("elements").is_some()
         {
+            // The same referential checks as create_model: a snapshot written
+            // by the model is untrusted output, not a model to hand to the UI.
+            validate_snapshot::validate_snapshot(snapshot)?;
             return Ok(BuildModelResponse {
                 snapshot: Some(raw.snapshot),
                 message: raw.interpretation,

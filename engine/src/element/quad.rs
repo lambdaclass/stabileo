@@ -160,6 +160,60 @@ fn project_to_2d(
     pts
 }
 
+/// Warping correction (MacNeal 1978; Taylor 1987, "Finite element analysis of linear
+/// shell problems"). A warped quad's nodes lie off the element's mean plane, on which
+/// the flat MITC4 is formulated, by offsets h_i along ez (±h for the diagonal normal).
+/// Each node is tied to its projection by a rigid link, u_p = u + θ × (−h_i·ez), so in
+/// local axes u_p = u − h_i·θy, v_p = v + h_i·θx. With K ← WᵀKW (and u ← W·u in stress
+/// recovery, f ← Wᵀf for element loads) a rigid motion of the warped nodes is a rigid
+/// motion of the flat element, which it annihilates. Zero on planar quads.
+fn warp_offsets(coords: &[[f64; 3]; 4]) -> [f64; 4] {
+    let (_, _, ez) = quad_local_axes(coords);
+    let c: [f64; 3] = std::array::from_fn(|a| 0.25 * coords.iter().map(|p| p[a]).sum::<f64>());
+    std::array::from_fn(|i| dot3(&sub3(&coords[i], &c), &ez))
+}
+
+/// u ← W·u (local DOFs), see `warp_offsets`.
+fn warp_correct_displacements(coords: &[[f64; 3]; 4], u_local: &[f64; 24]) -> [f64; 24] {
+    let h = warp_offsets(coords);
+    let mut u = *u_local;
+    for i in 0..4 {
+        u[i * 6] -= h[i] * u_local[i * 6 + 4];
+        u[i * 6 + 1] += h[i] * u_local[i * 6 + 3];
+    }
+    u
+}
+
+/// f ← Wᵀ·f (local DOFs), see `warp_offsets`.
+fn warp_correct_forces(coords: &[[f64; 3]; 4], f: &mut [f64]) {
+    let h = warp_offsets(coords);
+    for i in 0..4 {
+        f[i * 6 + 4] -= h[i] * f[i * 6];
+        f[i * 6 + 3] += h[i] * f[i * 6 + 1];
+    }
+}
+
+/// K ← Wᵀ·K·W (local 24×24), see `warp_offsets`.
+fn warp_correct_stiffness(coords: &[[f64; 3]; 4], k: &mut [f64]) {
+    let h = warp_offsets(coords);
+    if h.iter().all(|&v| v == 0.0) {
+        return;
+    }
+    let n = 24;
+    for i in 0..4 {
+        for r in 0..n {
+            k[r * n + i * 6 + 4] -= h[i] * k[r * n + i * 6];
+            k[r * n + i * 6 + 3] += h[i] * k[r * n + i * 6 + 1];
+        }
+    }
+    for i in 0..4 {
+        for c in 0..n {
+            k[(i * 6 + 4) * n + c] -= h[i] * k[(i * 6) * n + c];
+            k[(i * 6 + 3) * n + c] += h[i] * k[(i * 6 + 1) * n + c];
+        }
+    }
+}
+
 /// Compute Jacobian matrix J = [[dx/dxi, dy/dxi], [dx/deta, dy/deta]]
 /// and its inverse and determinant at (xi, eta).
 fn jacobian_2d(
@@ -609,6 +663,7 @@ pub fn mitc4_local_stiffness(
         }
     }
 
+    warp_correct_stiffness(coords, &mut k);
     k
 }
 
@@ -745,6 +800,7 @@ pub fn quad_stresses(
     dt_uniform: f64,
     dt_gradient: f64,
 ) -> QuadStressResult {
+    let u_local = &warp_correct_displacements(coords, u_local);
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
 
@@ -853,6 +909,7 @@ fn quad_shear_rigidity(e: f64, nu: f64, t: f64) -> f64 {
 
 /// Transverse shear forces (Qx, Qy) per unit length at the centroid of a MITC4 quad, local axes.
 pub fn quad_transverse_shear(coords: &[[f64; 3]; 4], u_local: &[f64; 24], e: f64, nu: f64, t: f64) -> [f64; 2] {
+    let u_local = &warp_correct_displacements(coords, u_local);
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
     quad_transverse_shear_at(&pts, u_local, quad_shear_rigidity(e, nu, t), 0.0, 0.0)
@@ -916,6 +973,7 @@ pub fn quad_nodal_von_mises(
     alpha: f64,
     dt_uniform: f64,
 ) -> Vec<f64> {
+    let u_local = &warp_correct_displacements(coords, u_local);
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
     let gauss = gauss_2x2();
@@ -997,6 +1055,7 @@ pub fn quad_stress_at_nodes(
     dt_uniform: f64,
     dt_gradient: f64,
 ) -> Vec<crate::types::QuadNodalStress> {
+    let u_local = &warp_correct_displacements(coords, u_local);
     let (ex, ey, _) = quad_local_axes(coords);
     let pts = project_to_2d(coords, &ex, &ey);
     let gauss = gauss_2x2();
@@ -1166,6 +1225,7 @@ pub fn quad_thermal_load(
         }
     }
 
+    warp_correct_forces(coords, &mut f);
     // Transform from local to global: f_global = T^T * f_local
     // (T is global→local, so T^T maps local→global)
     let t_mat = quad_transform_3d(coords);
@@ -1612,6 +1672,38 @@ mod tests {
             fx_total
         );
         assert!((fx_total - 2.0).abs() < 1e-10, "total force = qn·L: {}", fx_total);
+    }
+
+    /// A rigid rotation of a warped quad leaves no strain: the stress recovery sees
+    /// the same rigid-link-corrected displacements as the stiffness (`warp_offsets`).
+    #[test]
+    fn test_warped_quad_rigid_rotation_is_stress_free() {
+        let coords = [[0.0, 0.0, 0.1], [2.0, 0.2, -0.1], [2.1, 1.8, 0.1], [-0.1, 2.0, -0.1]];
+        let theta = [0.3e-3, -0.7e-3, 0.5e-3];
+        let t_mat = quad_transform_3d(&coords);
+        let mut u_g = [0.0; 24];
+        for i in 0..4 {
+            let x = coords[i];
+            let u = cross3(&theta, &x);
+            u_g[i * 6..i * 6 + 3].copy_from_slice(&u);
+            u_g[i * 6 + 3..i * 6 + 6].copy_from_slice(&theta);
+        }
+        let u_l: [f64; 24] = std::array::from_fn(|r| (0..24).map(|c| t_mat[r * 24 + c] * u_g[c]).sum());
+        let (e, nu, t) = (200e6, 0.3, 0.05);
+        let s = quad_stresses(&coords, &u_l, e, nu, t, 0.0, 0.0, 0.0);
+        let q = quad_transverse_shear(&coords, &u_l, e, nu, t);
+        let mut vals = vec![s.sigma_xx, s.sigma_yy, s.tau_xy, s.mx / t, s.my / t, s.mxy / t, q[0], q[1]];
+        // The warp offsets alternate ±h, an hourglass pattern the centroid cannot see:
+        // the corner recovery is what fails without the correction.
+        for n in quad_stress_at_nodes(&coords, &u_l, e, nu, t, 0.0, 0.0, 0.0) {
+            vals.extend([n.sigma_xx, n.sigma_yy, n.tau_xy, n.mx / t, n.my / t, n.mxy / t]);
+        }
+        vals.extend(quad_nodal_von_mises(&coords, &u_l, e, nu, t, 0.0, 0.0));
+        // Scale: the membrane stress a strain of |θ| would give.
+        let scale = e * 1e-3;
+        for v in vals {
+            assert!(v.abs() < 1e-9 * scale, "rigid rotation of a warped quad gave stress {v:e}");
+        }
     }
 
     /// The magnitude half of the convention, which a flat quad cannot test.

@@ -8,13 +8,18 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { viewState } from '../../lib/store/view-state.svelte';
-  import { fmtQ, fmtCoord, unitQ } from '../../lib/store/display-units.svelte';
+  import { fmtQ, fmtCoord, unitQ, toQ } from '../../lib/store/display-units.svelte';
+  import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
+  import { forceReactionBound } from '../../lib/engine/certificate-read';
+  import type { ReactionBound3D } from '../../lib/engine/wasm-solver';
 
   const node = $derived(viewState.quickInfo && uiStore.selectedNodes.size === 1 && uiStore.selectedElements.size === 0 ? modelStore.nodes.get([...uiStore.selectedNodes][0]!) : undefined);
   const elem = $derived(viewState.quickInfo && uiStore.selectedElements.size === 1 && uiStore.selectMode !== 'shells' ? modelStore.elements.get([...uiStore.selectedElements][0]!) : undefined);
   const r = $derived(resultsStore.results3D);
   const disp = $derived(node && r ? r.displacements.find((d) => d.nodeId === node.id) : undefined);
   const reac = $derived(node && r ? r.reactions.find((d) => d.nodeId === node.id) : undefined);
+  /** The certified bound on the reaction forces shown (the largest of the three), when there is one. */
+  const reacBound = $derived(node && reac ? forceReactionBound(certificateStore.reactionBound<ReactionBound3D>(true, node.id)) : null);
   const support = $derived(node ? [...modelStore.supports.values()].find((s) => s.nodeId === node.id) : undefined);
   const ef = $derived(elem && r ? r.elementForces.find((f) => f.elementId === elem.id) : undefined);
   const length = $derived.by(() => {
@@ -32,7 +37,7 @@
       <div>x, y, z = {fmtCoord(node.x)}; {fmtCoord(node.y)}; {fmtCoord(node.z ?? 0)} {unitQ('length')}</div>
       {#if support}<div>{t('quick.support')}: {support.type}</div>{/if}
       {#if disp}<div>u = {fmtQ(disp.ux, 'displacement')}; {fmtQ(disp.uy, 'displacement')}; {fmtQ(disp.uz, 'displacement')} {unitQ('displacement')}</div>{/if}
-      {#if reac}<div>R = {fmtQ(reac.fx, 'force')}; {fmtQ(reac.fy, 'force')}; {fmtQ(reac.fz, 'force')} {unitQ('force')}</div>{/if}
+      {#if reac}<div>R = {fmtQ(reac.fx, 'force')}; {fmtQ(reac.fy, 'force')}; {fmtQ(reac.fz, 'force')}{reacBound !== null ? ` ± ${formatBound(toQ(reacBound, 'force'))}` : ''} {unitQ('force')}</div>{/if}
     {:else if elem}
       <div class="qi-title">{t('quick.member')} {elem.id} · {elem.type}</div>
       <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtCoord(length)} {unitQ('length')}</div>

@@ -2,10 +2,87 @@
 /// All forces are in local coordinates.
 /// Convention: positive transverse load = positive local y direction.
 
+// ==================== Timoshenko-consistent fixed-end forces ====================
+//
+// A member with shear flexibility (section `asY`/`asZ`) has the shear
+// parameter φ = 12·E·I / (G·As·L²) in its stiffness matrix. Its fixed-end
+// forces must be those of the same (Timoshenko) beam, otherwise the assembled
+// system mixes a shear-flexible K with Euler–Bernoulli loads.
+//
+// By reciprocity, the fixed-end force at end DOF k is the work of the member
+// load on the exact deflected shape of the unloaded member under a unit
+// displacement of DOF k with the other three fixed. For a Timoshenko beam that
+// shape is the "interdependent interpolation" (Reddy 1997; Friedman–Kosmatka
+// 1993), with μ = 1/(1+φ) and ξ = x/L:
+//
+//   N1 = μ(1 − 3ξ² + 2ξ³ + φ(1−ξ))         ψ1 = μ·6(ξ² − ξ)/L
+//   N2 = μL(ξ − 2ξ² + ξ³ + φ(ξ−ξ²)/2)       ψ2 = μ(1 − 4ξ + 3ξ² + φ(1−ξ))
+//   N3 = μ(3ξ² − 2ξ³ + φξ)                  ψ3 = μ·6(ξ − ξ²)/L
+//   N4 = μL(−ξ² + ξ³ − φ(ξ−ξ²)/2)           ψ4 = μ(−2ξ + 3ξ² + φξ)
+//
+// (N = transverse deflection v, ψ = section rotation, the rotational DOF.)
+// A transverse force loads by N, a concentrated couple by ψ. For φ = 0 these
+// are the cubic Hermite functions and ψ = N'. Integrated against a load, the
+// φ terms give the closed form (tools/opensees/README.md)
+//   V' = (V + φ·R)/(1+φ),   M_i' = (M_i + φ/2·(M_i − M_j))/(1+φ),
+//   M_j' = (M_j − φ/2·(M_i − M_j))/(1+φ),
+// with R the simply supported reactions; uniform full-length loads are
+// unchanged (M_i = −M_j, R = V). The unit tests check all of this against an
+// independent force-method solution of the shear-flexible fixed beam.
+
+/// Transverse-deflection shape functions `[N1, N2, N3, N4]` of the exact
+/// two-node Timoshenko element at `x ∈ [0, L]` (cubic Hermite for φ = 0).
+#[inline]
+pub fn timoshenko_deflection_shapes(x: f64, l: f64, phi: f64) -> [f64; 4] {
+    let xi = x / l;
+    let xi2 = xi * xi;
+    let xi3 = xi2 * xi;
+    let mu = 1.0 / (1.0 + phi);
+    let s = xi - xi2;
+    [
+        mu * (1.0 - 3.0 * xi2 + 2.0 * xi3 + phi * (1.0 - xi)),
+        mu * l * (xi - 2.0 * xi2 + xi3 + 0.5 * phi * s),
+        mu * (3.0 * xi2 - 2.0 * xi3 + phi * xi),
+        mu * l * (-xi2 + xi3 - 0.5 * phi * s),
+    ]
+}
+
+/// Section-rotation shape functions `[ψ1, ψ2, ψ3, ψ4]` of the exact two-node
+/// Timoshenko element (the slopes of the Hermite functions for φ = 0).
+#[inline]
+pub fn timoshenko_rotation_shapes(x: f64, l: f64, phi: f64) -> [f64; 4] {
+    let xi = x / l;
+    let xi2 = xi * xi;
+    let mu = 1.0 / (1.0 + phi);
+    [
+        mu * 6.0 * (xi2 - xi) / l,
+        mu * (1.0 - 4.0 * xi + 3.0 * xi2 + phi * (1.0 - xi)),
+        mu * 6.0 * (xi - xi2) / l,
+        mu * (-2.0 * xi + 3.0 * xi2 + phi * xi),
+    ]
+}
+
+/// Shear-flexibility correction of transverse fixed-end forces
+/// `[V_i, M_i, V_j, M_j]` computed for φ = 0 from transverse *forces*
+/// (not couples). Exact: it is the integral of the φ terms of the Timoshenko
+/// shape functions.
+#[inline]
+fn shear_correct(v_i: f64, m_i: f64, v_j: f64, m_j: f64, l: f64, phi: f64) -> [f64; 4] {
+    if phi == 0.0 {
+        return [v_i, m_i, v_j, m_j];
+    }
+    let mu = 1.0 / (1.0 + phi);
+    let r_i = v_i - (m_i + m_j) / l;
+    let r_j = v_j + (m_i + m_j) / l;
+    let dm = 0.5 * phi * (m_i - m_j);
+    [mu * (v_i + phi * r_i), mu * (m_i + dm), mu * (v_j + phi * r_j), mu * (m_j - dm)]
+}
+
 /// Fixed-end forces for full-length trapezoidal distributed load (2D).
-/// qI at node I, qJ at node J, L = element length.
+/// qI at node I, qJ at node J, L = element length, `phi` the Timoshenko
+/// shear parameter of the bending plane (0 for Euler–Bernoulli).
 /// Returns [fx_i, fy_i, mz_i, fx_j, fy_j, mz_j] in local coords.
-pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64) -> [f64; 6] {
+pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64, phi: f64) -> [f64; 6] {
     // Decompose into uniform + triangular
     let q_uniform = q_i;
     let q_tri = q_j - q_i;
@@ -23,70 +100,54 @@ pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64) -> [f64; 6] {
     let vy_j_t = 7.0 * q_tri * l / 20.0;
     let mz_j_t = -q_tri * l * l / 20.0;
 
-    [
-        0.0,
+    let [fy_i, mz_i, fy_j, mz_j] = shear_correct(
         vy_i_u + vy_i_t,
         mz_i_u + mz_i_t,
-        0.0,
         vy_j_u + vy_j_t,
         mz_j_u + mz_j_t,
-    ]
+        l,
+        phi,
+    );
+    [0.0, fy_i, mz_i, 0.0, fy_j, mz_j]
 }
 
 /// Fixed-end forces for partial distributed load (2D).
 /// Load from position a to b on element of length L.
-/// qI at position a, qJ at position b.
-/// Uses Simpson's rule integration (N=20 segments).
-pub fn fef_partial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 6] {
+/// qI at position a, qJ at position b; `phi` the Timoshenko shear parameter.
+///
+/// The integrand (a linear load times the Timoshenko shape functions, cubic
+/// polynomials) is a degree-4 polynomial on [a, b], so 3-point Gauss-Legendre
+/// (exact through degree 5) gives the consistent nodal loads exactly.
+/// (Composite Simpson with 20 panels, used before, is exact only through
+/// degree 3 and left a ~1e-6 relative error, found by differential testing
+/// against OpenSees.)
+pub fn fef_partial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64, phi: f64) -> [f64; 6] {
     if (b - a).abs() < 1e-12 {
         return [0.0; 6];
     }
 
-    let n_seg = 20;
-    let dx = (b - a) / n_seg as f64;
-    let mut fy_i = 0.0;
-    let mut mz_i = 0.0;
-    let mut fy_j = 0.0;
-    let mut mz_j = 0.0;
+    let half = 0.5 * (b - a);
+    let mid = 0.5 * (a + b);
+    let g = (0.6f64).sqrt();
+    let mut f = [0.0; 4];
 
-    for i in 0..=n_seg {
-        let x = a + i as f64 * dx;
-        let t = if (b - a).abs() > 1e-12 {
-            (x - a) / (b - a)
-        } else {
-            0.0
-        };
-        let q = q_i + t * (q_j - q_i);
-
-        // Hermite shape functions for fixed-fixed beam
-        let xi = x / l;
-        let n1 = 1.0 - 3.0 * xi * xi + 2.0 * xi * xi * xi;
-        let n2 = x * (1.0 - xi) * (1.0 - xi);
-        let n3 = 3.0 * xi * xi - 2.0 * xi * xi * xi;
-        let n4 = x * xi * (xi - 1.0);
-
-        // Simpson weight
-        let w = if i == 0 || i == n_seg {
-            1.0
-        } else if i % 2 == 1 {
-            4.0
-        } else {
-            2.0
-        };
-
-        let qw = q * w * dx / 3.0;
-        fy_i += n1 * qw;
-        mz_i += n2 * qw;
-        fy_j += n3 * qw;
-        mz_j += n4 * qw;
+    for (t, w) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
+        let x = mid + half * t;
+        let q = q_i + (t + 1.0) * 0.5 * (q_j - q_i);
+        let n = timoshenko_deflection_shapes(x, l, phi);
+        let qw = q * w * half;
+        for k in 0..4 {
+            f[k] += n[k] * qw;
+        }
     }
 
-    [0.0, fy_i, mz_i, 0.0, fy_j, mz_j]
+    [0.0, f[0], f[1], 0.0, f[2], f[3]]
 }
 
 /// Fixed-end forces for point load on beam (2D).
 /// P = transverse force at distance a from node I.
-/// px = axial force, mz = concentrated moment.
+/// px = axial force, mz = concentrated moment; `phi` the Timoshenko shear
+/// parameter (0 for Euler–Bernoulli).
 /// Returns [fx_i, fy_i, mz_i, fx_j, fy_j, mz_j]
 pub fn fef_point_load_2d(
     p: f64,
@@ -94,41 +155,35 @@ pub fn fef_point_load_2d(
     mz: f64,
     a: f64,
     l: f64,
+    phi: f64,
 ) -> [f64; 6] {
     let b = l - a;
-    let l2 = l * l;
-    let l3 = l2 * l;
 
-    // Transverse point load
-    let fy_i = p * b * b * (3.0 * a + b) / l3;
-    let mz_i = p * a * b * b / l2;
-    let fy_j = p * a * a * (a + 3.0 * b) / l3;
-    let mz_j = -p * a * a * b / l2;
+    // Transverse point load: P·N(a). For φ = 0:
+    // [P b²(3a+b)/L³, P a b²/L², P a²(a+3b)/L³, −P a² b/L²].
+    let n = timoshenko_deflection_shapes(a, l, phi);
 
     // Axial point load (distributed proportionally)
     let fx_i = px * b / l;
     let fx_j = px * a / l;
 
     // Concentrated moment (counter-clockwise positive), as equivalent nodal
-    // loads: the couple does work on the rotation v'(a), so it loads by the
-    // slopes of the Hermite shape functions, M·N'(a). The two moment terms
-    // used to carry the textbook fixed-end REACTION moments,
+    // loads: the couple does work on the section rotation ψ(a), so it loads
+    // by the rotation shape functions, M·ψ(a) (= M·N'(a) for φ = 0). The two
+    // moment terms used to carry the textbook fixed-end REACTION moments,
     // +M·b(2a−b)/L² and +M·a(2b−a)/L² — the negatives of these — while the
     // shear terms were already equivalent loads. The mix broke statics: the
     // vector summed to a moment of 1.88 M about node i instead of M, and a
     // cantilever carrying a 6 kN·m couple reported −11.28 at its wall.
-    let fy_i_m = -6.0 * mz * a * b / l3;
-    let mz_i_m = -mz * b * (2.0 * a - b) / l2;
-    let fy_j_m = 6.0 * mz * a * b / l3;
-    let mz_j_m = -mz * a * (2.0 * b - a) / l2;
+    let psi = timoshenko_rotation_shapes(a, l, phi);
 
     [
         fx_i,
-        fy_i + fy_i_m,
-        mz_i + mz_i_m,
+        p * n[0] + mz * psi[0],
+        p * n[1] + mz * psi[1],
         fx_j,
-        fy_j + fy_j_m,
-        mz_j + mz_j_m,
+        p * n[2] + mz * psi[2],
+        p * n[3] + mz * psi[3],
     ]
 }
 
@@ -281,54 +336,61 @@ pub fn adjust_fef_for_hinges_3d(
     }
 }
 
-/// Fixed-end forces for 3D distributed load.
-/// qYI, qYJ: load in local Y at nodes I, J
-/// qZI, qZJ: load in local Z at nodes I, J
-/// Returns [fx, fy, fz, mx, my, mz] × 2 nodes = 12 values
-pub fn fef_distributed_3d(q_yi: f64, q_yj: f64, q_zi: f64, q_zj: f64, l: f64) -> [f64; 12] {
+/// Place the 2D fixed-end forces of the two bending planes into a 12-vector.
+/// `fy`: load along local y (bends about z, moments → θz);
+/// `fz`: load along local z (bends about y; θy = −dw/dx, so moments flip).
+fn place_bending_planes_3d(fy: &[f64; 6], fz: &[f64; 6]) -> [f64; 12] {
     let mut fef = [0.0; 12];
-
-    // Y-direction (same as 2D transverse)
-    let fy = fef_distributed_2d(q_yi, q_yj, l);
-    fef[1] = fy[1];   // fy_i
-    fef[5] = fy[2];   // mz_i (moment about Z from Y-load)
-    fef[7] = fy[4];   // fy_j
-    fef[11] = fy[5];  // mz_j
-
-    // Z-direction (bending about Y axis, note sign: My = -∫qz·x)
-    let fz = fef_distributed_2d(q_zi, q_zj, l);
-    fef[2] = fz[1];    // fz_i
-    fef[4] = -fz[2];   // my_i (negative because θy = -dw/dx)
-    fef[8] = fz[4];    // fz_j
-    fef[10] = -fz[5];  // my_j
-
-    fef
-}
-
-/// Fixed-end forces for 3D partial distributed load (from position a to b).
-/// Uses Simpson's rule via the 2D partial function for each bending plane.
-pub fn fef_partial_distributed_3d(
-    q_yi: f64, q_yj: f64,
-    q_zi: f64, q_zj: f64,
-    a: f64, b: f64, l: f64,
-) -> [f64; 12] {
-    let mut fef = [0.0; 12];
-
-    // Y-direction
-    let fy = fef_partial_distributed_2d(q_yi, q_yj, a, b, l);
     fef[1] = fy[1];   // fy_i
     fef[5] = fy[2];   // mz_i
     fef[7] = fy[4];   // fy_j
     fef[11] = fy[5];  // mz_j
-
-    // Z-direction (θy = -dw/dx convention)
-    let fz = fef_partial_distributed_2d(q_zi, q_zj, a, b, l);
     fef[2] = fz[1];    // fz_i
-    fef[4] = -fz[2];   // my_i (negated)
+    fef[4] = -fz[2];   // my_i (negative because θy = -dw/dx)
     fef[8] = fz[4];    // fz_j
     fef[10] = -fz[5];  // my_j
-
     fef
+}
+
+/// Fixed-end forces for 3D distributed load.
+/// qYI, qYJ: load in local Y at nodes I, J
+/// qZI, qZJ: load in local Z at nodes I, J
+/// `phi_y` = 12EIy/(G·As_y·L²) governs the local-z load (bending about y);
+/// `phi_z` = 12EIz/(G·As_z·L²) the local-y load (bending about z) — the
+/// pairing of `frame_local_stiffness_3d`.
+/// Returns [fx, fy, fz, mx, my, mz] × 2 nodes = 12 values (axial left zero)
+pub fn fef_distributed_3d(
+    q_yi: f64, q_yj: f64, q_zi: f64, q_zj: f64, l: f64, phi_y: f64, phi_z: f64,
+) -> [f64; 12] {
+    place_bending_planes_3d(
+        &fef_distributed_2d(q_yi, q_yj, l, phi_z),
+        &fef_distributed_2d(q_zi, q_zj, l, phi_y),
+    )
+}
+
+/// Fixed-end forces for 3D partial distributed load (from position a to b).
+/// Uses the (exact) 2D partial function for each bending plane; φ pairing as
+/// in [`fef_distributed_3d`].
+pub fn fef_partial_distributed_3d(
+    q_yi: f64, q_yj: f64,
+    q_zi: f64, q_zj: f64,
+    a: f64, b: f64, l: f64,
+    phi_y: f64, phi_z: f64,
+) -> [f64; 12] {
+    place_bending_planes_3d(
+        &fef_partial_distributed_2d(q_yi, q_yj, a, b, l, phi_z),
+        &fef_partial_distributed_2d(q_zi, q_zj, a, b, l, phi_y),
+    )
+}
+
+/// Fixed-end forces for a 3D transverse point load (py along local y, pz
+/// along local z) at distance a from node I; φ pairing as in
+/// [`fef_distributed_3d`].
+pub fn fef_point_load_3d(py: f64, pz: f64, a: f64, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {
+    place_bending_planes_3d(
+        &fef_point_load_2d(py, 0.0, 0.0, a, l, phi_z),
+        &fef_point_load_2d(pz, 0.0, 0.0, a, l, phi_y),
+    )
 }
 
 /// Fixed-end forces for 3D thermal load.
@@ -368,124 +430,37 @@ pub fn fef_thermal_3d(
     [-fx, 0.0, 0.0, 0.0, -my, -mz, fx, 0.0, 0.0, 0.0, my, mz]
 }
 
-/// Fixed-end forces for distributed torsion on a warping element (14-DOF).
+/// Equivalent nodal loads of a distributed torque on a warping element (14-DOF).
 ///
-/// For a beam with warping torsion, a distributed torque t(x) linearly varying
-/// from t_i at node I to t_j at node J produces non-zero warping DOF FEFs.
+/// The torque t(x) varies linearly from `t_i` at node I to `t_j` at node J.
+/// The loads are the work of t on the element's own twist shapes, the cubic
+/// Hermite functions of [θx1, φ'1, θx2, φ'2] that `torsion_warping_block`
+/// interpolates with:
+///   Mx_i = L(7t_i + 3t_j)/20,   B_i = L²(3t_i + 2t_j)/60,
+///   Mx_j = L(3t_i + 7t_j)/20,   B_j = −L²(2t_i + 3t_j)/60.
+/// (Before, the twist DOFs got the linear-shape split, tL/2 and tL/6 / tL/3,
+/// and the warping DOFs the exact Vlasov bimoments of a uniform torque with
+/// the opposite sign plus a "simplified" triangular term that multiplied its
+/// shape functions by zero — loads consistent with no element. Found by
+/// tests/symbolic_elements.rs; the function had no callers.)
+/// `e`, `cw`, `g`, `j` are kept for the signature: consistent loads do not
+/// depend on the section.
 ///
-/// The warping FEF terms use the parameter k = sqrt(GJ / (E*Cw)).
-/// Returns a 14-element FEF vector.
-///
-/// DOF layout: [ux, uy, uz, rx, ry, rz, φ, ux, uy, uz, rx, ry, rz, φ]
-///
-/// Reference: Vlasov, "Thin-Walled Elastic Beams" (1961)
+/// DOF layout: [ux, uy, uz, rx, ry, rz, φ', ux, uy, uz, rx, ry, rz, φ']
 pub fn fef_distributed_torsion_warping(
     t_i: f64,
     t_j: f64,
     l: f64,
-    e: f64,
-    cw: f64,
-    g: f64,
-    j: f64,
+    _e: f64,
+    _cw: f64,
+    _g: f64,
+    _j: f64,
 ) -> [f64; 14] {
     let mut fef = [0.0; 14];
-
-    if (cw).abs() < 1e-30 {
-        // No warping constant — fall back to St. Venant torsion only
-        let t_uniform = t_i;
-        let t_tri = t_j - t_i;
-        // Uniform: mx_i = tL/2, mx_j = tL/2
-        fef[3] = t_uniform * l / 2.0;
-        fef[10] = t_uniform * l / 2.0;
-        // Triangular: mx_i = tL/6, mx_j = tL/3
-        fef[3] += t_tri * l / 6.0;
-        fef[10] += t_tri * l / 3.0;
-        return fef;
-    }
-
-    let k = (g * j / (e * cw)).sqrt();
-    let kl = k * l;
-
-    // Decompose into uniform (t_i) and triangular (t_j - t_i) components
-    let t_uniform = t_i;
-    let t_tri = t_j - t_i;
-
-    // -- Uniform distributed torsion t_uniform --
-    // St. Venant torsion reactions (same as beam with no warping)
-    fef[3] = t_uniform * l / 2.0;
-    fef[10] = t_uniform * l / 2.0;
-
-    // Warping DOF (bimoment) terms for uniform torque on warping beam:
-    // The bimoment FEF terms: φ_i and φ_j (DOFs 6 and 13)
-    // For uniform torsion on a fixed-fixed warping beam:
-    // B_i = t/(2k²) * [1 - kL·cosh(kL/2) / (2·sinh(kL/2))]  (antisymmetric)
-    if kl > 1e-6 {
-        let half_kl = kl / 2.0;
-        let sh = half_kl.sinh();
-        let ch = half_kl.cosh();
-        // Warping FEF at node I (bimoment ≡ E·Cw·φ'')
-        // In our DOF system, the warping DOF generalized force is the bimoment.
-        let bw_coeff = t_uniform / (k * k);
-        if sh.abs() > 1e-15 {
-            let term = 1.0 - kl * ch / (2.0 * sh);
-            fef[6] = bw_coeff * term;    // Warping DOF at node I
-            fef[13] = -bw_coeff * term;  // Warping DOF at node J (antisymmetric)
-        }
-    }
-
-    // -- Triangular distributed torsion (0 at I, t_tri at J) --
-    // St. Venant: mx_i = t·L/6, mx_j = t·L/3
-    fef[3] += t_tri * l / 6.0;
-    fef[10] += t_tri * l / 3.0;
-
-    // Warping terms for triangular load: more complex, use Simpson integration
-    if kl > 1e-6 && t_tri.abs() > 1e-15 {
-        let n_seg = 20;
-        let dx = l / n_seg as f64;
-        let mut bw_i = 0.0;
-        let mut bw_j = 0.0;
-
-        for i in 0..=n_seg {
-            let x = i as f64 * dx;
-            let xi = x / l;
-            let t_x = t_tri * xi; // linear load at position x
-
-            // Green's function for bimoment on warping beam
-            // Simplified: use beam-on-elastic-foundation analogy
-            // Shape functions for warping DOFs
-            let s_kl = kl.sinh();
-            let _c_kl = kl.cosh();
-
-            let (n_w1, n_w2) = if s_kl.abs() > 1e-15 {
-                let kx = k * x;
-                let klx = k * (l - x);
-                // Warping shape functions (analogous to beam on elastic foundation)
-                let n1 = (klx.sinh() + kl.sinh() - kx.sinh()) / s_kl - 1.0 + xi;
-                let n2 = (kx.sinh()) / s_kl - xi;
-                (n1 * 0.0 + (1.0 - xi), n2 * 0.0 + xi) // Simplified linear distribution
-            } else {
-                (1.0 - xi, xi)
-            };
-
-            // Simpson weight
-            let w = if i == 0 || i == n_seg {
-                1.0
-            } else if i % 2 == 1 {
-                4.0
-            } else {
-                2.0
-            };
-
-            let tw = t_x * w * dx / 3.0;
-            bw_i += n_w1 * tw / (e * cw).max(1e-30);
-            bw_j += n_w2 * tw / (e * cw).max(1e-30);
-        }
-
-        // Scale by E*Cw to get bimoment (force dimension)
-        fef[6] += bw_i * e * cw;
-        fef[13] += bw_j * e * cw;
-    }
-
+    fef[3] = l * (7.0 * t_i + 3.0 * t_j) / 20.0;
+    fef[6] = l * l * (3.0 * t_i + 2.0 * t_j) / 60.0;
+    fef[10] = l * (3.0 * t_i + 7.0 * t_j) / 20.0;
+    fef[13] = -l * l * (2.0 * t_i + 3.0 * t_j) / 60.0;
     fef
 }
 
@@ -512,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_fef_uniform() {
-        let fef = fef_distributed_2d(-10.0, -10.0, 6.0);
+        let fef = fef_distributed_2d(-10.0, -10.0, 6.0, 0.0);
         // V = qL/2 = -10*6/2 = -30, but FEF are reactions → +30
         assert!((fef[1] - (-30.0)).abs() < 1e-6);
         assert!((fef[4] - (-30.0)).abs() < 1e-6);
@@ -521,13 +496,32 @@ mod tests {
         assert!((fef[5] - 30.0).abs() < 1e-6);
     }
 
+    /// The partial-load integration is exact: over [0, L] it reproduces the
+    /// closed-form trapezoid, and split at any c it is additive. (The former
+    /// 20-panel Simpson rule missed the degree-4 term by ~1e-6 relative.)
+    #[test]
+    fn test_fef_partial_is_exact() {
+        let (l, qi, qj) = (7.3, -12.0, 31.0);
+        let full = fef_distributed_2d(qi, qj, l, 0.0);
+        let part = fef_partial_distributed_2d(qi, qj, 0.0, l, l, 0.0);
+        let c = 2.9;
+        let qc = qi + (qj - qi) * c / l;
+        let left = fef_partial_distributed_2d(qi, qc, 0.0, c, l, 0.0);
+        let right = fef_partial_distributed_2d(qc, qj, c, l, l, 0.0);
+        for k in 0..6 {
+            let scale = full[k].abs().max(1.0);
+            assert!((part[k] - full[k]).abs() < 1e-13 * scale, "k={k}: {} vs {}", part[k], full[k]);
+            assert!((left[k] + right[k] - full[k]).abs() < 1e-13 * scale, "k={k}");
+        }
+    }
+
     /// Equivalent loads must be statically equivalent to the couple they
     /// replace: no net force, and a moment of exactly M about node i.
     #[test]
     fn test_fef_point_couple_is_statically_equivalent() {
         let (l, m) = (5.0, 6.0);
         for &a in &[0.0, 1.0, 2.0, 2.5, 4.0, 5.0] {
-            let f = fef_point_load_2d(0.0, 0.0, m, a, l);
+            let f = fef_point_load_2d(0.0, 0.0, m, a, l, 0.0);
             assert!((f[1] + f[4]).abs() < 1e-12, "a = {a}: net force {}", f[1] + f[4]);
             let about_i = f[2] + f[5] + f[4] * l;
             assert!((about_i - m).abs() < 1e-12, "a = {a}: moment about i {about_i}, want {m}");
@@ -537,17 +531,245 @@ mod tests {
     /// At a = 2 on a 5 m bar: M·N'(a) for each Hermite shape function.
     #[test]
     fn test_fef_point_couple_values() {
-        let f = fef_point_load_2d(0.0, 0.0, 6.0, 2.0, 5.0);
+        let f = fef_point_load_2d(0.0, 0.0, 6.0, 2.0, 5.0, 0.0);
         assert!((f[1] - (-1.728)).abs() < 1e-12);
         assert!((f[2] - (-0.72)).abs() < 1e-12);
         assert!((f[4] - 1.728).abs() < 1e-12);
         assert!((f[5] - (-1.92)).abs() < 1e-12);
     }
 
+    // ---------------- Timoshenko: independent force-method reference ----------------
+    //
+    // Fixed-end forces of a shear-flexible beam solved directly (force method),
+    // without the element shape functions: with m = EI·ψ' (sagging), s = m',
+    // s' = q, v' = ψ − s/(G·As), integrate from x = 0:
+    //   m(x) = m0 + s0·x + m_q(x),         m_q(x) = ∫₀ˣ (x − t) q(t) dt
+    //   ψ(L) = θ_i + (m0 L + s0 L²/2 + ∫₀ᴸ m_q)/EI
+    //   v(L) = θ_i L + (m0 L²/2 + s0 L³/6 + ∫₀ᴸ(L − x) m_q)/EI − (s0 L + ∫₀ᴸ s_q)/GAs
+    // where s_q is the shear of the loads alone (a couple steps m but carries
+    // no shear, so for forces ∫₀ᴸ s_q = m_q(L) and for a couple it is 0)
+    // and impose the end conditions (θ_i = 0 or m(0) = 0; v(L) = 0; ψ(L) = 0
+    // or m(L) = 0). The equivalent nodal loads are [−s(0), m(0), s(L), −m(L)].
+
+    #[derive(Clone, Copy)]
+    enum Ld {
+        Point { a: f64, p: f64 },
+        Couple { a: f64, c: f64 },
+        Dist { a: f64, b: f64, qa: f64, qb: f64 },
+    }
+
+    /// Returns (m_q(L), ∫m_q, ∫(L−x)m_q, s_q(L), ∫s_q).
+    fn load_integrals(ld: Ld, l: f64) -> [f64; 5] {
+        match ld {
+            Ld::Point { a, p } => {
+                let b = l - a;
+                [p * b, p * b * b / 2.0, p * b.powi(3) / 6.0, p, p * b]
+            }
+            // A counter-clockwise couple steps the sagging moment down by c.
+            Ld::Couple { a, c } => {
+                let b = l - a;
+                [-c, -c * b, -c * b * b / 2.0, 0.0, 0.0]
+            }
+            Ld::Dist { a, b, qa, qb } => {
+                // Superpose point loads q(t)dt: composite Simpson, 2000 panels.
+                let n = 2000;
+                let h = (b - a) / n as f64;
+                let mut out = [0.0; 5];
+                for k in 0..=n {
+                    let t = a + k as f64 * h;
+                    let w = if k == 0 || k == n { 1.0 } else if k % 2 == 1 { 4.0 } else { 2.0 };
+                    let q = qa + (qb - qa) * (t - a) / (b - a);
+                    let f = load_integrals(Ld::Point { a: t, p: q * w * h / 3.0 }, l);
+                    for i in 0..5 {
+                        out[i] += f[i];
+                    }
+                }
+                out
+            }
+        }
+    }
+
+    /// Equivalent nodal loads [V_i, M_i, V_j, M_j] of the shear-flexible beam
+    /// (EI = 1, φ = 12EI/(G·As·L²)) with optional end releases.
+    fn reference_fef(loads: &[Ld], l: f64, phi: f64, hs: bool, he: bool) -> [f64; 4] {
+        let ei = 1.0;
+        let flex_s = phi * l * l / (12.0 * ei); // 1/(G·As)
+        let mut ig = [0.0; 5];
+        for &ld in loads {
+            let f = load_integrals(ld, l);
+            for i in 0..5 {
+                ig[i] += f[i];
+            }
+        }
+        let [mql, mq1, mq2, sql, isq] = ig;
+        // unknowns x = [θ_i, m0, s0]; rows A x = rhs
+        let r1 = if hs { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], 0.0) };
+        let r2 = ([l, l * l / (2.0 * ei), l.powi(3) / (6.0 * ei) - flex_s * l], -(mq2 / ei - flex_s * isq));
+        let r3 = if he {
+            ([0.0, 1.0, l], -mql)
+        } else {
+            ([1.0, l / ei, l * l / (2.0 * ei)], -mq1 / ei)
+        };
+        let a = [r1.0, r2.0, r3.0];
+        let rhs = [r1.1, r2.1, r3.1];
+        let det = |m: [[f64; 3]; 3]| {
+            m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+        };
+        let d = det(a);
+        let mut x = [0.0; 3];
+        for c in 0..3 {
+            let mut m = a;
+            for r in 0..3 {
+                m[r][c] = rhs[r];
+            }
+            x[c] = det(m) / d;
+        }
+        let (m0, s0) = (x[1], x[2]);
+        let m_l = m0 + s0 * l + mql;
+        [-s0, m0, s0 + sql, -m_l]
+    }
+
+    fn fef_2d_of(ld: Ld, l: f64, phi: f64) -> [f64; 6] {
+        match ld {
+            Ld::Point { a, p } => fef_point_load_2d(p, 0.0, 0.0, a, l, phi),
+            Ld::Couple { a, c } => fef_point_load_2d(0.0, 0.0, c, a, l, phi),
+            Ld::Dist { a, b, qa, qb } if a == 0.0 && b == l => fef_distributed_2d(qa, qb, l, phi),
+            Ld::Dist { a, b, qa, qb } => fef_partial_distributed_2d(qa, qb, a, b, l, phi),
+        }
+    }
+
+    fn sample_loads(l: f64) -> Vec<Ld> {
+        vec![
+            Ld::Point { a: 0.25 * l, p: -10.0 },
+            Ld::Point { a: 0.5 * l, p: 7.0 },
+            Ld::Point { a: 0.9 * l, p: -3.0 },
+            Ld::Couple { a: 0.3 * l, c: 6.0 },
+            Ld::Couple { a: 0.75 * l, c: -4.0 },
+            Ld::Dist { a: 0.0, b: l, qa: -5.0, qb: -5.0 },
+            Ld::Dist { a: 0.0, b: l, qa: -2.0, qb: 9.0 },
+            Ld::Dist { a: 0.2 * l, b: 0.7 * l, qa: -8.0, qb: 3.0 },
+            Ld::Dist { a: 0.0, b: 0.4 * l, qa: 4.0, qb: 4.0 },
+        ]
+    }
+
+    fn assert_close4(got: [f64; 4], want: [f64; 4], scale: f64, ctx: &str) {
+        for k in 0..4 {
+            assert!(
+                (got[k] - want[k]).abs() <= 1e-9 * scale,
+                "{ctx}: k={k} got {:?} want {:?}",
+                got,
+                want
+            );
+        }
+    }
+
+    /// 2D: point loads, couples, full and partial trapezoids, with every
+    /// combination of end releases, for several φ, against the force method.
+    #[test]
+    fn test_timoshenko_fef_2d_matches_force_method() {
+        let l = 3.7;
+        for &phi in &[0.0, 0.05, 0.6, 3.0, 25.0] {
+            for ld in sample_loads(l) {
+                for &(hs, he) in &[(false, false), (true, false), (false, true), (true, true)] {
+                    let mut f = fef_2d_of(ld, l, phi);
+                    adjust_fef_for_hinges(&mut f, l, hs, he, phi);
+                    let want = reference_fef(&[ld], l, phi, hs, he);
+                    let scale = want.iter().fold(1.0f64, |m, v| m.max(v.abs()));
+                    let ctx = format!("phi={phi} hs={hs} he={he}");
+                    assert_close4([f[1], f[2], f[4], f[5]], want, scale, &ctx);
+                }
+            }
+        }
+    }
+
+    /// The shear correction matters: φ = 0 and φ > 0 differ for a point load
+    /// (the bug), but coincide for a uniform full-length load.
+    #[test]
+    fn test_timoshenko_fef_differs_from_eb_except_udl() {
+        let (l, phi) = (2.0, 0.4);
+        let eb = fef_point_load_2d(-10.0, 0.0, 0.0, 0.5, l, 0.0);
+        let ti = fef_point_load_2d(-10.0, 0.0, 0.0, 0.5, l, phi);
+        assert!((eb[2] - ti[2]).abs() > 1e-3);
+        let eb = fef_distributed_2d(-4.0, -4.0, l, 0.0);
+        let ti = fef_distributed_2d(-4.0, -4.0, l, phi);
+        for k in 0..6 {
+            assert!((eb[k] - ti[k]).abs() < 1e-12);
+        }
+    }
+
+    /// The README closed form (EB fixed-end forces + simply supported
+    /// reactions) equals the shape-function integral, for transverse forces.
+    #[test]
+    fn test_timoshenko_readme_formula() {
+        let (l, phi) = (4.2, 1.7);
+        for &a in &[0.3, 1.1, 2.1, 3.9] {
+            let eb = fef_point_load_2d(5.0, 0.0, 0.0, a, l, 0.0);
+            let ti = fef_point_load_2d(5.0, 0.0, 0.0, a, l, phi);
+            let c = shear_correct(eb[1], eb[2], eb[4], eb[5], l, phi);
+            assert_close4([ti[1], ti[2], ti[4], ti[5]], c, 10.0, "readme");
+        }
+    }
+
+    /// 3D: both bending planes with their own φ (local-y load ↔ φ_z, local-z
+    /// load ↔ φ_y; θy = −dw/dx flips the z-plane moments), with releases.
+    #[test]
+    fn test_timoshenko_fef_3d_both_planes_match_force_method() {
+        let l = 2.9;
+        let (phi_y, phi_z) = (1.3, 0.2);
+        let loads_y = sample_loads(l);
+        let loads_z: Vec<Ld> = sample_loads(l)
+            .into_iter()
+            .map(|ld| match ld {
+                Ld::Point { a, p } => Ld::Point { a, p: -0.7 * p + 1.0 },
+                Ld::Dist { a, b, qa, qb } => Ld::Dist { a, b, qa: 0.5 * qb - 1.0, qb: 2.0 * qa },
+                c => c,
+            })
+            .collect();
+        let bools = [false, true];
+        for (ly, lz) in loads_y.iter().zip(&loads_z) {
+            let mut f = match (*ly, *lz) {
+                (Ld::Point { a, p: py }, Ld::Point { p: pz, .. }) => fef_point_load_3d(py, pz, a, l, phi_y, phi_z),
+                (Ld::Dist { a, b, qa: yi, qb: yj }, Ld::Dist { qa: zi, qb: zj, .. }) => {
+                    if a == 0.0 && b == l {
+                        fef_distributed_3d(yi, yj, zi, zj, l, phi_y, phi_z)
+                    } else {
+                        fef_partial_distributed_3d(yi, yj, zi, zj, a, b, l, phi_y, phi_z)
+                    }
+                }
+                _ => continue, // no 3D member couples
+            };
+            let f0 = f;
+            for &mzs in &bools {
+                for &mze in &bools {
+                    for &mys in &bools {
+                        for &mye in &bools {
+                            f = f0;
+                            let h = super::super::frame::Hinge3D {
+                                release_mz_start: mzs,
+                                release_mz_end: mze,
+                                release_my_start: mys,
+                                release_my_end: mye,
+                                ..Default::default()
+                            };
+                            adjust_fef_for_hinges_3d(&mut f, l, h, phi_y, phi_z);
+                            let wy = reference_fef(&[*ly], l, phi_z, mzs, mze);
+                            let wz = reference_fef(&[*lz], l, phi_y, mys, mye);
+                            let sy = wy.iter().fold(1.0f64, |m, v| m.max(v.abs()));
+                            let sz = wz.iter().fold(1.0f64, |m, v| m.max(v.abs()));
+                            assert_close4([f[1], f[5], f[7], f[11]], wy, sy, "y-plane");
+                            assert_close4([f[2], -f[4], f[8], -f[10]], wz, sz, "z-plane");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn test_fef_point_load() {
         // Midspan point load on 6m beam
-        let fef = fef_point_load_2d(-10.0, 0.0, 0.0, 3.0, 6.0);
+        let fef = fef_point_load_2d(-10.0, 0.0, 0.0, 3.0, 6.0, 0.0);
         // V_i = V_j = P/2 = -5
         assert!((fef[1] - (-5.0)).abs() < 1e-6);
         assert!((fef[4] - (-5.0)).abs() < 1e-6);

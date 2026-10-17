@@ -11,11 +11,10 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import '../../store/index';
-import { initSolver, solveModal3D, solveBuckling3D } from '../wasm-solver';
+import { initSolver, solveModal3D, solveBuckling3D, solvePDelta3D } from '../wasm-solver';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
 import { memberMeanArea, variableSectionPlan } from '../../section/variable';
-import { solvePDelta3DCorrected } from '../pdelta-forces';
 import { evaluateDiagramAt } from '../diagrams-3d';
 import { withSectionMass } from '../dynamics/section-mass';
 import { withMassSource } from '../dynamics/mass-source-model';
@@ -134,7 +133,7 @@ describe('a welded I cantilever of variable depth', () => {
     const { b, e } = cantilever();
     modelStore.addNodalLoad3D(b, -50, 0, -P, 0, 0, 0);
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
-    const res = solvePDelta3DCorrected(input);
+    const res = solvePDelta3D(input);
     if (typeof res === 'string') throw new Error(res);
     // The engine's own result has the pieces; what the store publishes does not.
     expect(res.results.elementForces.length).toBe(12);

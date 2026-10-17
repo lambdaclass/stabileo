@@ -198,6 +198,8 @@ export interface ElementVerification {
   };
   /** RC detailing rules per CIRSOC 201 Ch. 12 */
   detailing?: DetailingResult;
+  /** The engine's re-check of this verification (cirsoc201-engine-gate.ts). */
+  engineRecheck?: import('./cirsoc201-engine-gate').EngineRecheck;
   /** Station-based design demands (when available from station-design-forces.ts) */
   stationDemands?: import('../../station-design-forces').ElementDesignDemands;
 }
@@ -1293,6 +1295,13 @@ export interface VerificationInput {
   Mu: number;    // kN·m (max |Mz|)
   Vu: number;    // kN (max |Vy|)
   Nu: number;    // kN (+ = compression)
+  /**
+   * Axial force for the shear check, kN, + = compression, − = tension. Absent → `Nu`.
+   *
+   * Separate because `Nu` above is a magnitude the column checks read as compression, and the
+   * concrete's shear strength goes the other way under tension: §11.3 takes it down, not up.
+   */
+  NuShear?: number;
   b: number;     // m
   h: number;     // m
   fc: number;    // MPa
@@ -1392,7 +1401,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   }
 
   const flexure = checkFlexure(params, designMu);
-  const shear = checkShear(params, input.Vu, input.Nu);
+  const shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu);
   let column: ColumnResult | undefined;
   let biaxial: BiaxialResult | undefined;
   let torsionResult: TorsionResult | undefined;

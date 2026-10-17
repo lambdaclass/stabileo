@@ -85,13 +85,27 @@ describe('§J.2.1 — end-loaded fillets lose effectiveness', () => {
   });
 
   /*
-   * The discount applies ONLY to end-loaded welds. Applying it everywhere would understate a
-   * weld the code does not discount, which is a different error from being unsafe but is still
-   * a wrong number.
+   * The discount does not apply to a weld DECLARED not end-loaded (e.g. a web-to-flange weld
+   * loaded along its length).
    */
-  it('and do not apply anywhere else', () => {
+  it('and do not apply to a weld declared not end-loaded', () => {
     expect(effectiveLengthMm(3000, 6, 'other')).toBe(3000);
-    expect(effectiveLengthMm(3000, 6)).toBe(3000);
+  });
+
+  /*
+   * An undeclared weld is end-loaded: β ≤ 1 is the conservative side and nothing in the inputs
+   * says how the joint is loaded. This was the opposite default before, which credited a long
+   * end-loaded fillet with its full length — up to 3000/1080 = 2,8 × the clause's capacity.
+   * Same default as the engine's weld groups (`end_loaded: None`).
+   */
+  it('an undeclared weld is taken as end-loaded', () => {
+    expect(effectiveLengthMm(3000, 6)).toBe(180 * 6);
+    const d = designFilletWeld({
+      legMm: 6, lengthMm: 1200, runs: 1, fexxMPa: 480,
+      thickerPartMm: 12, thinnerPartMm: 10, demandKN: 100,
+    });
+    expect(d.effectiveLengthMm).toBeCloseTo(0.8 * 1200, 6);
+    expect(check(d, 'strength').noteKeys).toContain('weld.loading.endLoaded');
   });
 });
 

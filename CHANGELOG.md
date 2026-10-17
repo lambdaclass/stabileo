@@ -11,6 +11,765 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Connectors: shear–moment coupling and the model's own DOFs (2026-10-17)
+
+**BREAKING (results): models with a finite-length connector that has shear stiffness, and
+connectors in all-truss 2D models, solve differently.** Zero-length connectors (bearings,
+the web's semi-rigid ends) are unchanged to the bit. Found by the element rigid-body checks
+(`tests/element_rigid_body_modes.rs`); reproductions and analytic checks in
+`tests/connector_k_findings.rs`.
+
+- **A finite-length shear spring did not carry its moment.** The element was
+  [K_ii, −K_ii; −K_ii, K_ii] with K_ii = diag(k_axial, k_shear, k_moment), so rotating the
+  connector rigidly stretched its shear spring by θ·L (a spring to ground), and the shear
+  force it transmitted had no moment arm: a cantilever through a 2 m connector reacted
+  M = 0 instead of −20 under a 10 kN tip load. The shear springs now act at the connector's
+  midpoint through rigid arms, so V·L is split equally between the ends, the element does
+  not depend on which node is i, and its stiffness annihilates every rigid motion in 2D and
+  3D (rank 3 / 6). Each spring is assembled as k·b·bᵀ from its deformation, so K is
+  symmetric positive semidefinite by construction.
+- **Connector assembly assumed 3 (2D) / 6 (3D) DOFs per node.** In an all-truss 2D model
+  (2 per node) the entries landed on the wrong DOFs (k_moment on ux), and with a warping
+  section (7 per node) 3D assembly panicked with an index out of bounds. Every assembly path
+  (dense, sparse, triplet and parallel, 2D and 3D, used by the linear, modal, buckling, P-Δ
+  and time-history solvers) now scatters through the model's DOF numbering. Without rotation
+  DOFs the rotational springs have nothing to act on and are dropped, as rotational support
+  springs are. A finite-length shear spring there is refused with an error naming the
+  connector, since it needs end rotations to carry V·L. So is a connector whose node does
+  not exist (it used to be skipped silently) or whose stiffness is not finite.
+
+#### Every analysis works in the inclined-support frames with K (2026-10-17)
+
+**BREAKING (results): modal, harmonic, spectral, Craig–Bampton, 3D buckling, 3D time
+history, SSI, fiber, arc-length / displacement control and 3D contact results of models with
+an inclined support change, and 2D modal analysis of a frame with truss-only nodes now
+solves.** The stiffness assemblers rotate K (and f) into each inclined support's frame, where
+the restrained normal is a DOF of its own. The analyses that build something beside K kept it
+in global axes, and most reported their solution in the support frames. Each is now checked
+against the same structure turned rigidly so that the support is a plain restraint
+(`tests/inclined_support_analyses.rs`, dense and sparse paths): eigenvalues equal, shapes,
+histories, responses and reactions equal after the rotation.
+
+- **Shared helpers** (`assembly::InclinedFrame`, implemented by the 2D and 3D transform data):
+  `rotate_inclined_free_block` (triplets), `rotate_inclined_dense`, `to_inclined_free`
+  (global vector → free DOFs of the support frames) and `to_global` (back), generalizing the
+  2D ones of the entry below. `assemble_mass_matrix_3d_sparse_inclined` joins the 2D one.
+- **Modal (2D, 3D)**: the mass (sparse and dense) and the X/Y/Z influence vectors are rotated
+  with K, and mode shapes are rotated back before normalization. A rotated portal frame gave
+  6.31 Hz against 5.67 Hz. The modal certificate rotates M and the published modes into K's
+  frames.
+- **Massless DOFs in the eigensolver.** The dense generalized eigensolve (every model up to
+  80 free DOFs, and the fallbacks) factored the mass, so a free DOF without mass — the
+  rotation of a node reached only by trusses, or of a node where every frame is hinged —
+  failed modal analysis with "Eigenvalue decomposition failed" (no inclined support needed).
+  It now solves the reciprocal pencil when M is singular, factoring K as the sparse
+  shift-invert path already did, and keeps the finite eigenpairs: exactly the result of
+  condensing the massless DOFs out statically, with their components in the mode shapes.
+  No artificial mass is added (it would invent modes at a frequency set by its size).
+  Harmonic, Craig–Bampton and the Rayleigh-damping estimates use the same solver.
+- **3D buckling**: K_G is built over all DOFs (surface K_G included), rotated with K and cut
+  to the free block; modes are rotated back before normalization; the certificate rotates
+  the mode into K's frames. A column guided by an inclined support gave 11.4 against 30.9.
+- **3D time history**: the mass, the ground-acceleration influence vectors and the force
+  history are rotated into the support frames and the recorded states back to global axes,
+  as in 2D. Peak reactions come from the linear solver's reaction builder (springs and
+  inclined supports included; springs were reported as zero).
+- **Harmonic (2D, 3D)**: the mass is rotated with K, and the response is read in global axes:
+  the response DOF is a functional of the free DOFs, so a global component at an inclined
+  support is Rᵀ of its tangential DOFs (it was refused as restrained, or read in the support
+  frame).
+- **Spectral (2D, 3D)**: each mode's displacement is built over all DOFs from the global mode
+  shape; the restrained slot was dropped, which at an inclined support holds a real global
+  component, so element forces lost it.
+- **Craig–Bampton (2D dense and sparse, 3D)**: the mass is rotated with K. Boundary DOFs at
+  an inclined support are its tangential DOFs.
+- **SSI (2D, 3D)**: soil springs act along global axes and are rotated (R·k·Rᵀ) into the
+  support frame; displacements are rotated back before the soil curves and the results read
+  them.
+- **Fiber (2D, 3D), arc length and displacement control**: tangent and internal forces were in
+  global axes against loads and restraints in the support frames. Each Newton step is now
+  solved in the support frames, with the correction rotated back.
+- **3D contact**: gap, friction, damping and deactivated-truss corrections are built in global
+  axes and rotated into the support frames; the state and the results are in global axes.
+- Already consistent, now tested: P-Delta, material-nonlinear and Winkler (2D, 3D) and
+  corotational 2D. Staged construction refuses inclined supports.
+
+#### 2D buckling and time integration use the linear path's stiffness (2026-10-17)
+
+**BREAKING (results): 2D buckling and 2D time histories of models with an angled spring, an
+inclined roller, a spring on a restrained DOF, a truss-only node in a frame, or a spring on a
+rigid support's free DOF solve differently.** Both assembled K with `assemble_sparse_2d_ex`,
+a hand-kept copy of the 2D assembler that had drifted from the dense and linear sparse ones
+(`tests/index_exhaustive.rs` pinned four differences).
+
+- **`assemble_sparse_2d_ex` is now `assemble_stiffness_sparse_2d` plus
+  `assemble_load_vector_2d`**, the linear static path's builders, and equals the dense
+  assembler entry for entry on every model of the exhaustive test. It used to ignore a
+  spring's angle (diag(kx, ky) instead of the rotated block), leave springs on restrained
+  DOFs out of the full K (time-history reactions off by k·δ), skip the orphan-rotation guard
+  (a truss-only node in a frame made K singular: buckling and time integration failed), and
+  ignore inclined rollers (the restrained normal was taken as global uz).
+- **Inclined rollers in 2D buckling and time integration.** K, f and the result are in the
+  roller frames the assembler reports (`SparseAssemblyResult::inclined_transforms_2d`); the
+  geometric stiffness, the mass (`assemble_mass_matrix_2d_sparse_inclined`), the ground
+  influence and the force history are rotated into them, and mode shapes and recorded
+  histories rotated back to global axes. Results match the same model rotated so that the
+  roller is a rollerX (`tests/sparse_ex_analysis_regressions.rs`).
+- **2D time-history reactions** come from the linear solver's reaction builder: angled
+  springs, springs on rigid supports and inclined rollers are reported like `solve_2d`'s.
+- The 2D kinematic fast path no longer defers models with inclined rollers or angled springs
+  to the dense analysis: the sparse K is now the same matrix.
+- 2D modal, harmonic and Craig–Bampton, and 3D buckling and time integration still paired a
+  K rotated into the inclined-support frame with an unrotated mass or geometric stiffness:
+  fixed in the entry above. The 3D `assemble_sparse_3d` already shares the linear path's
+  stiffness.
+
+#### Frame element matrices checked against a symbolic derivation (2026-10-17)
+
+**BREAKING (results): 2D buckling and P-Delta of frames with hinged members, and every model
+with warping members (`cw` set) — static, buckling and modal — solve differently.** Found by
+deriving the frame-family element matrices from shape functions and energy in SymPy and comparing
+the Rust kernels exactly (`tools/symbolic/`, `engine/tests/symbolic_elements.rs`,
+`docs/verification/SYMBOLIC.md`); each fix has a regression test.
+
+- **The 2D geometric stiffness ignored hinges.** A hinged rotation kept the fixed-fixed −4PL/30,
+  held only by the solver's artificial rotational stiffness, so a plane frame with a pin-ended
+  member buckled at λ ≈ 1e-6 (a leaning-column frame: 5e-6 instead of 3.75) and P-Delta amplified
+  wrongly. Kg is now condensed for the hinges exactly as in 3D.
+- **The warping torsion block mixed a linear-twist St-Venant term (GJ/L) with the cubic warping
+  term.** It is now the energy of the cubic twist (Barsoum–Gallagher): convergence h⁴ instead of
+  h² (a cantilever’s tip twist with one element: 11% off before, under 2% now).
+- **Warping DOFs carried a lumped ρ·Ip·L/2**, a rotation's inertia on a rate-of-twist DOF.
+  Warping members now use the consistent 14×14 mass of their cubic twist (ρIp and ρCw terms); a
+  fork beam's first torsional frequency was 10.6% low.
+- `fef_distributed_torsion_warping` (no callers) now returns the loads consistent with the
+  warping element.
+- Not fixed, reproduced by an ignored test: the 3D co-rotational solver does not converge on (or
+  converges wrongly for) frames with pin-ended members.
+
+#### Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)
+
+**BREAKING (results): buckling load factors of models with axial point loads or partial /
+trapezoidal axial loads on members change, P-Delta member end forces change, 2D buckling and
+P-Delta of hinged frames change, ground-motion time histories change, and small modal models with massless DOFs now solve.** Found by `tools/opensees/compare.py --buckling2d/3d --modal2d/3d`; each has a
+regression test in `engine/tests/opensees_differential_regressions.rs`.
+
+- **Buckling took each member's axial force as (N_start + N_end)/2.** The geometric
+  stiffness integrates N along the member, so it needs the mean axial force, which the end
+  average is only while N is linear. An axial point load or a partial axial load on a
+  member gave a wrong load factor (3× on a truss braced by a spring). Kg is now built at
+  the linear solution with each member's force read from its elongation, EA·(δ/L − αΔT)
+  — the exact mean, and the same force the P-Delta iteration uses.
+- **P-Delta member end forces left out the geometric stiffness.** Displacements and
+  reactions came from K + Kg, but the end forces were recovered with the elastic K alone,
+  so they balanced neither the joints nor the reactions: a free cantilever tip reported a
+  moment and the base moment was not H·L + P·Δ. End forces are now (K + Kg(N))·u − FEF
+  for frame members; OpenSees agrees to ~1e-10 on 596 random frames. The web app's 3D
+  workaround that added Kg·u to the engine's forces (`pdelta-forces.ts`) is removed, since
+  with the engine fixed it counted the geometric part twice.
+- **Ground motion left out the mass coupled to the supports.** The relative-motion load
+  is −(M·r)_f·a_g with r the rigid-body translation of every DOF, supports included; with
+  a consistent mass the free DOFs are coupled to the supports' translations (M_fr·r_r),
+  and the time history took M_ff·r_f only: a bar on two supports felt half the
+  earthquake, random frames up to ~50 % less in OpenSees' comparison. The influence vector
+  now spans every DOF (the full mass is assembled only when a restrained DOF moves with
+  the ground), in 2D and 3D. Modal participation factors still use M_ff·r_f.
+- **2D buckling and P-Delta used an uncondensed Kg on hinged members.** The elastic
+  stiffness condenses a hinged end's rotation out of the member, but the 2D geometric
+  stiffness kept the consistent matrix on the node's rotation — the Kg of a different
+  member. A portal whose beam is hinged at one end buckled 2.5 % off its own 3D model
+  (which already condensed Kg). The 2D Kg is now condensed with the same elastic map as
+  the 3D one, in buckling, P-Delta, its end forces and the P-Delta certificate's terms.
+- **Modal analysis failed on small models with a massless DOF.** Hinged members (and
+  3D members with any release) get a lumped mass with no rotational inertia, and a node
+  of trusses only has none either; the dense eigensolver used below 80 DOFs
+  Cholesky-factored M and returned "Eigenvalue decomposition failed". A semi-definite M
+  is now solved as the inverse problem M·x = μ·K·x (K definite), massless directions
+  dropped as λ = ∞.
+
+#### Assembly-path fixes found by the cross-path oracle (2026-10-17)
+
+**BREAKING (results): 2D buckling and P-Delta of models with hinges, 3D buckling with inclined
+supports, 3D modal, buckling, harmonic and reduction analyses of models with curved beams, and
+regularized sparse 3D solves solve differently.** Each was found by
+`engine/tests/assembly_paths.rs`, which compares every path that assembles the same K, load
+vector, M or K_G entry by entry (`docs/verification/ASSEMBLY.md`), and each has a regression
+test there.
+
+- **The sparse 3D assemblers took the largest diagonal over the free DOFs only.** The dense
+  assembler takes it over all DOFs, and it scales both the artificial stiffness of warping DOFs
+  no element stiffens and the diagonal shift that regularizes a failed sparse Cholesky, so the
+  two paths disagreed whenever a restrained DOF held the largest diagonal (the usual case: a
+  stiff member into a support). Serial and parallel sparse assembly now track all DOFs.
+- **The 2D geometric stiffness ignored hinges.** All three 2D builders (P-Delta from
+  displacements, buckling from element forces, the P-Delta certificate's affine terms) used the
+  fixed-fixed K_G whatever the hinges, while 3D condenses it for releases: 1.2·P/L instead of
+  P/L in sway and −4·P·L/30 on a hinged rotation nothing else holds. A cantilever bracing a
+  leaning column (hinged at both ends) now buckles at k·h = 3EI/h², as in 3D. The 2D and 3D
+  members share one condensation (`condense_kg_plane`).
+- **3D buckling added K_G in global axes to a K rotated at inclined supports.** The critical
+  factor depended on how the model was oriented: a column guided by an inclined support gave
+  101.5 rotated against 62.1 unrotated. K_G is now rotated into each inclined support's frame
+  with K, and the mode shapes are reported back in global axes (they were left in the
+  support's frame). The buckling certificate rotates the mode before checking it.
+- **3D modal, buckling, harmonic, Guyan and Craig–Bampton analyses ignored curved beams.** They
+  assembled the model without expanding its curved beams into segments (every other 3D solver
+  does, `expand_curved_beams_3d`), so an arch made of a curved beam had no stiffness or mass,
+  and 3D buckling panicked on the segments' element forces. They now expand first, and the
+  modal and harmonic certificates check the expanded model.
+- **The parallel sparse 3D load vector left quad and MITC9 self-weight in local axes.** Only
+  builds with the `parallel` feature were affected (the sequential and dense paths transform it).
+||||||| 46ab0e7f
+#### Tension members: end connections in the model (2026-10-17)
+
+- **CIRSOC 301 tension rupture (Ae = An·U) can now be evaluated in the app.** Each member end
+  can carry its connection (`Element.tensionConnection`): bolted (diameter, standard/oversize
+  hole, bolts per line, lines per connected element, pitch, optional stagger) or welded
+  (longitudinal / transverse / both, weld length), and which elements are connected (all, both
+  flanges, web, tee flange, one angle leg). `engine/steel/tension-connection.ts` computes An
+  (B.4.2.2, nominal hole + 2 mm, s²/4g) and U (D.3(1), D.3(2)(a)–(d), U ≤ 0,9, U ≥ A_conn/Ag)
+  for I/H, channels, tees, angles, back-to-back pairs and plates, and refuses tubes (CIRSOC 302),
+  cold-formed (CIRSOC 303), drawn sections and other built-ups by name. An end left undescribed
+  keeps rupture NOT EVALUATED; Ae = Ag is never assumed. Old models load unchanged.
+- PRO: an "End connection (tension)" card in Specifications › Members and in the steel workflow
+  (presets, apply to the selection, An/U/Ae preview per member, copy a bolt layout designed at
+  the end node), and a tension-members table in the workflow's verification block with the
+  rupture ratio, the calculation with clause references, or "not evaluated — add the end
+  connection". Reverse, split and merge carry the end connections.
+
+#### Further unsafe design-check gaps closed (2026-10-17)
+
+**BREAKING (results): web fillet welds, EC3/AISC lateral-torsional buckling, EC3 Class 4
+members, AISC 360 slender-element columns, CIRSOC 301 T/double-angle/channel columns and
+CIRSOC 301 tension members give lower capacities, or are refused (not evaluated) where the
+inputs needed to compute them safely are absent.**
+
+- **The web fillet weld applied β only to welds marked end-loaded** — the opposite default from
+  the engine's weld groups. `designFilletWeld` (joint designer) now treats an undeclared weld as
+  end-loaded (CIRSOC 301 §J.2.1, the conservative side); `loading: 'other'` opts out, and the
+  joint panel's selector defaults to end-loaded. The Connections tab's quick
+  `checkFilletWeld` credited `0.6 L` above `300 w` instead of the clause's `180 w` (at
+  `L = 600 w`, twice the allowed length); it now caps at `180 w` and takes `endLoaded`
+  (default true).
+- **EC3 Mcr ignored where the load acts** (the zg = 0 expression, NCCI SN003b eq. (3)), which
+  overstates Mcr for the usual gravity load on the top flange. It is now SN003b eq. (2) with
+  the load height zg and C2. `Ec3MemberData` takes optional `geometry` (I/RHS/CHS plate
+  dimensions) and `ltb` (`c2`, `loadPosition`, `zg`); absent, the load is on the **top flange**
+  (zg = +h/2) with C2 = C1 (a lower bound for every transverse-load case of SN003b Table 3.2),
+  and a top-flange load without a depth is refused (not evaluated). The result reports `mcr`.
+  SBE Worked Example A.1 (IPE 330, zg = +165 mm, C2 = 0.454: Mcr = 113.9 kNm; at the shear
+  centre the check gave more than 1.3× that) is a regression test. The web EC3 check sends
+  the section geometry, so its Mcr takes the top-flange load.
+- **EC3 Class 4 members used the gross A and Wel when Aeff/Weff were not given**, and never
+  added ΔM = eN·NEd. A Class 4 section buckles locally before A·fy or Wel·fy, so the stand-in
+  was unconservative by the whole effective-width reduction (a welded I 600×300×12×6 in S355:
+  Aeff = 8330 of A = 10 656 mm², −22 %). Aeff, Weff,y and Weff,z are now computed from
+  `geometry` by EN 1993-1-5 4.3/4.4 (internal and outstand ρ, Tables 4.1/4.2, web ψ from the
+  effective flanges, 4.4(3)) for I and RHS; `aEff`/`weffY`/`weffZ` still override. New
+  `eNY`/`eNZ` give the centroid shift; with geometry it is 0 (doubly symmetric). Without
+  either, the checks that need the missing property are refused and named ("Class 4 Aeff",
+  "Class 4 Weff,y", "Class 4 eN"); a Class 4 CHS (EN 1993-1-6) is refused. Class 3 and 4
+  members in compression also get the cross-section check 6.2.9.2/6.2.9.3
+  (`interactionRatioSection`), which (6.61)/(6.62) can fall below with Cm < 1. Tension
+  yields the gross section (6.2.3) for every class. The result reports `aEff`, `weffY`,
+  `weffZ`. The web EC3 check now checks Class 4 I and RHS members (it skipped them), and takes
+  an I section as **welded** (Table 6.2 curves b/c, Table 6.4 c/d) unless it was picked from a
+  rolled catalogue family — it read every I as rolled (a/b), unconservative for a welded or
+  parametric section.
+- **AISC 360 compression had no slender-element reduction (E7)**: Pn = Fcr·Ag for every section.
+  A W14×22 at Lc = 1 m (h/tw = 53.3, footnoted slender in the Manual) was 10.9 % high, an
+  HSS 12×8×3/16 16 %. `SteelMemberData` takes `compressionElements` (Table B4.1a kind: rolled
+  or welded flange with kc, angle, tee stem, web, HSS wall, other stiffened, round HSS; b, t,
+  count); Ae follows E7-2/E7-3/E7-5 with Table E7.1 c1, c2, and E7-7 for round HSS. **Without
+  `compressionElements` the compression check is refused** (an empty list states that there is
+  no element to reduce); a round HSS with D/t > 0.45E/Fy is refused. The result reports `ae`
+  and names the check "Compression E3/E7".
+- **AISC 360 lateral-torsional buckling ignored the load height.** `loadPosition` (`shearCentre`,
+  `topFlange`, `bottomFlange`); absent, the load is on the **top flange** and Cb is multiplied
+  by 1.4^(2y/h) = 1/1.4 (Helwig, Frank & Yura 1997; SSRC Guide §5.2.3). A bottom-flange load is
+  not credited (Cb as given). Applies to F2-2 and F2-3; not to cantilevers, where the factor is
+  not valid and Cb itself must be given for the case.
+- The web AISC check sends the section's E7 elements (it marked slender columns not evaluated)
+  and its LTB takes the top-flange load.
+- **CIRSOC 301 compression checked flexural buckling only (§E.3/E.7).** §E.4 is now evaluated
+  and Pn is the least of the limit states: E.4.4 torsional buckling for an I (whenever J and Cw
+  are given; refused without them when kz·Lz > ky·L), E.4.2/E.4.3 for a tee without slender
+  elements, E.4.5 flexural-torsional with Fez (E.4.9) for a channel or a slender tee, the Fe
+  going into E.7.2a/E.7.3a with Q. A rolled-flange tee 200×150×12×10 at L = 3 m: φPn =
+  392.8 kN where flexural buckling alone gave 451.8 (+15 %). `SteelDesignParams` takes `Kz`,
+  `Lz` (default 1 and L) and `shearCentreOffset` (default from the thin-walled plates); a tee or
+  channel without J is refused. Closed sections and solid bars are not checked for E.4. The
+  steel workflow's «no torsional buckling» assumption is replaced by the one that remains:
+  kz = 1 over the member length.
+- **CIRSOC 301 tension rupture took Ae = Ag** (no hole deduction, no shear lag), optimistic for
+  every bolted member and for any member connected through some of its elements. `SteelDesignParams`
+  takes `tensionConnection`: `An`, or `holes` (count, nominal d, t, staggers) with the 2 mm of
+  B.4.2.2 and s²t/4g; and U as given, `allElementsConnected` (D.3(1)), `plateWeld` {L, w} (D.3.5
+  table, L < w refused) or `xBar`/`length` (D.3.2, U = 1 − x̄/L ≤ 0.9, not below `connectedArea`/Ag,
+  on Ag when `welded`). **Without it, a member in tension is NOT EVALUATED** — the model holds no
+  hole pattern or connection, so app tension members are now reported not evaluated until the
+  connection can be given (`checkSteelMember`'s `lengths.tensionConnection`). The workflow's
+  «Ae = Ag» assumption is removed (it is a refusal now).
+
+#### Unsafe design-check disagreements closed (2026-10-17)
+
+**BREAKING (results): weld groups with long fillets, CIRSOC 301 slender-element columns,
+CIRSOC 301 noncompact/slender I-girders, CIRSOC 301 lateral-torsional buckling and EC3
+members in compression plus bending give lower capacities.** These were the unsafe
+disagreements left open by the published-example verification
+(`docs/verification/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
+
+- **Weld groups ignored the end-loaded fillet length reduction β** (AISC 360-22 J2.2b(d),
+  CIRSOC 301-2018 §J.2.2(b) eq. J.2.1). AISC Example J.1 (two 27 in. runs of a 3/16 in.
+  fillet, l/w = 144) prints φRn = 206 kips; stabileo gave 225. `WeldSegment` takes an
+  optional `endLoaded`; absent, the segment is treated as end-loaded (the conservative side),
+  `false` opts out. The result reports `minBeta`.
+- **EC3 member interaction was a linear sum with every k = 1**, not EN 1993-1-1 6.3.3. It is
+  now eqs. (6.61)/(6.62) with the **Annex B** ("Method 2") interaction factors kyy, kyz, kzy,
+  kzz (Table B.1, or Table B.2 for open sections with an LTB length). `Ec3MemberData` takes an
+  optional `interaction` with Table B.3's `cmy`, `cmz`, `cmLt` (absent: 1.0, the table's upper
+  bound) and `hollow`; the result reports `kYy`, `kYz`, `kZy`, `kZz` and both equations. A Cm
+  outside [0.4, 1] is refused (not evaluated). Where Annex B gives k > 1 (near-uniform moment,
+  high NEd/Nb,Rd) the old sum was unconservative. SBE Multi-Storey Part 8 Example 2 and the
+  SBE Single-Storey Part 4 Appendix D column are regression tests. The web EC3 check no longer
+  marks the interaction as not evaluated.
+- **CIRSOC 301 compression had no slender-element reduction (§E.7).** Every section was taken
+  as non-slender. Q = Qs·Qa now follows E.7.1/E.7.2 with the Table B.4.1a limits (rolled and
+  welded flanges, angles, tee stems, I/channel webs, welded-box and RHS walls, circular tubes).
+  INTI Ejemplo 10(c), a welded box with b/t = 72, prints Pd = 204.7 kN; the checker gave 237.4
+  (+16 %). `SteelDesignParams` takes `shape` ('I', 'U', 'T', 'box', 'RHS', 'CHS', 'rect') and
+  optionally `hw` and explicit `compressionElements`.
+- **CIRSOC 301 flexure implemented only §F.2 (compact sections).** §F.3 (noncompact/slender
+  flanges), §F.4 (noncompact webs: Rpc, rt, F.4.7/F.4.8) and §F.5 (slender webs: Rpg, F.5.3/F.5.4)
+  are now applied by classification (Table B.4.1b cases 11, 12, 16), and §F.6.2 (minor-axis flange
+  local buckling, case 14). INTI Ejemplo 14 girder V2 prints Md = 286.1 kNm (stabileo: 326.0,
+  +14 %); girder V3 (slender web) prints Md = 771.4 kNm. Both are regression tests.
+- **CIRSOC 301 lateral-torsional buckling used AISC 360-10's form** (rts, Mr = 0.7·Fy·Sx) and
+  had no load height. It now follows F.2.4–F.2.7 (X1, X2, FL = Fy − Fr with Fr = 69 MPa rolled,
+  114 MPa welded) with both load positions; `loadPosition: 'web' | 'topFlange'` selects
+  F.2.4a/F.2.5a/F.2.6a or F.2.4b/F.2.5b/F.2.6b, and **absent it is 'topFlange'**, the lower of the
+  two, because the checker does not know where the load acts. INTI Ejemplo 14 V1 case I-B
+  (top-flange deck, Lb = 5 m) prints Md = 18.39 kNm, and braced at midspan 37.91 kNm.
+- **The CIRSOC 301 checker refuses what it cannot classify.** A shape outside the list above
+  (e.g. cold-formed 'C', which is CIRSOC 303), strong-axis flexure of non-I shapes (§F.7–F.11 not
+  implemented), a circular tube with D/t > 0.45·E/Fy, a girder with aw > 10, LTB beyond Lp
+  without J, or a channel with a slender web come back **not evaluated** (`notEvaluated`, ratio
+  ∞, status fail, diagnostic `VERIF_STEEL_NOT_EVALUATED_*`), never as a pass; H.1 interaction is
+  refused when it would need a refused capacity.
+- **The app's CIRSOC 301 verification takes a section as welded unless it was picked from a rolled
+  catalogue family** (`profileFamily`): Fr = 114 MPa, Table B.4.1 case 2/12 flanges and Aw on the
+  web height, each the conservative side for a parametric or imported section. It now also passes
+  the section's `shape`.
+
+#### Design checks against published worked examples (2026-10-17)
+
+**BREAKING (results): CIRSOC 201 shear, CIRSOC 301 web shear, doubly reinforced ACI 318 / CIRSOC 201 flexure,
+AISC flexure of sections given a flange slenderness, and EC3 strong-axis checks with
+Lb = 0 give different numbers.** Each was found by reproducing a published worked example
+clause by clause (`docs/verification/DESIGN_EXAMPLES.md`,
+`engine/tests/design_worked_examples.rs`), and each example is now a regression test.
+
+- **AISC F3/F6.2 flange local buckling was not implemented.** Every W-shape was treated as
+  having compact flanges, so a noncompact flange kept Mp: AISC Example F.3B (W21×48) gave
+  φbMn = 401 kip-ft against 398. `SteelMemberData` takes an optional `flangeSlenderness`
+  (bf/2tf); when given, F3-1/F3-2 cap the major-axis strength and F6-2/F6-3 the minor-axis
+  one (slender flanges use the clause's lower bound kc = 0.35, as h/tw is not an input).
+- **Doubly reinforced sections were not solved by strain compatibility** (ACI 318 and
+  CIRSOC 201 checks). The neutral axis came from the "A's yields" trial and was never
+  iterated; with As = A's that trial is c = 0 and the singly reinforced moment came back.
+  INTI's CIRSOC 201 Example 2.I.7 prints Mn = 57.40 kNm; stabileo gave 56.21 (ACI) and
+  56.97 (CIRSOC). Both now bisect on c.
+- **CIRSOC 201 shear used ACI 318M's 0.17 for the 1/6 of CIRSOC 201-2005 §11.3.1.1** (and
+  0.66 for the 2/3 of §11.5.7.9): Vc was 1.9% high against INTI Example 3.I. The φ
+  transition now starts at εty = fy/Es (§10.3.3) instead of a fixed 0.002.
+- **CIRSOC 301 web shear (web checker) used AISC 360-10's rule, not CIRSOC 301-2018 §G.2.1.**
+  The Cv = 1 limit was 2.24·√(E/Fy) with kv = 5.34 and there was no elastic branch G.2.5,
+  so a slender web kept the inelastic Cv; Aw was the total depth also for built-up
+  sections. INTI's CIRSOC 301 Example 14 (welded girder V2, h/tw = 138) prints Cv = 0.336
+  and φVn = 130.3 kN; the checker gave 0.536 and 207.8 kN. It now applies G.2.3–G.2.5 with
+  kv = 5, and `SteelDesignParams.builtUp` selects the web height for Aw.
+- **EC3 strong-axis flexure was NaN (unevaluated) for Lb = 0.** Mcr divided by Lb²; a
+  continuously restrained member now takes χLT = 1.
+
+#### Solid shell: assumed strains in the thickness direction; MITC4 warping correction (2026-10-17)
+
+**BREAKING (results): every model with solid-shell (SHB8-ANS) elements whose thickness
+is not along global z, or whose plan is not a parallelogram, and every model with warped
+(non-planar) MITC4 quads, solves differently.** Planar MITC4 quads are unchanged, and so
+are the web's validation and example baselines.
+
+- **The solid shell's assumed strains were global Cartesian components.** Its ANS replaced
+  ε_zz, γ_xz and γ_yz, tied at natural-coordinate points, instead of the covariant
+  components along the element's thickness direction. The stiffness changed by ≈8% under
+  a rigid rotation, a wall or a curved shell got the anti-locking treatment on the wrong
+  strains, and the element failed the patch test on a distorted plan (residual ≈2e-2) and
+  on any tilted mesh. It now ties the covariant E_ζζ (Betsch & Stein 1995; Bischoff & Ramm
+  1997) and transverse shears E_ξζ, E_ηζ (Dvorkin & Bathe 1984) and maps them to Cartesian
+  strains with the contravariant basis. The stiffness is frame invariant to round-off, the
+  MacNeal–Harder patch passes flat and tilted, and a thin cantilever matches beam theory to
+  0.4% from t/L = 1/10 to 1/1000 in any orientation (the old element read 0.03 at
+  t/L = 1/100 once tilted). Benchmarks with thickness off global z moved: Scordelis-Lo
+  0.39/0.51 → 0.95/0.96 (6×6/8×8), twisted beam 0.08/0.25 → 0.67/0.82 (4×1/8×1),
+  hemisphere 1e-4 → 4e-4 (still membrane-locked). The flat Navier plate is unchanged
+  (0.84; Poisson thickness locking, no EAS).
+- **Two solid-shell benchmarks were mis-posed.** The twisted beam applied load case B
+  (tip F_y) but compared against case A's 5.424e-3; it now uses 1.754e-3. The Scordelis-Lo
+  quarter vault had no symmetry condition at midspan and could rotate rigidly (it reported
+  uz ≈ 1e9, with no assertion); it now has ux = 0 there and is held to [0.9, 1.05].
+- **MITC4 on a warped quad did not annihilate rigid rotations.** The flat element is
+  formulated on the quad's mean plane, and the nodes' offsets from it (±h) were ignored, so
+  the rigid-rotation residual grew linearly with the warp. Each node is now tied to its
+  projection by a rigid link (MacNeal; Taylor 1987): K ← WᵀKW, with the same W in the
+  stress recovery and the thermal load. Six zero eigenvalues on any warped quad, and a
+  rigidly rotated warped quad is stress free at its corners. The warped cantilever
+  benchmark moved from 0.38/0.14/0.04 to 0.97/0.96/0.94 of beam theory at 5/10/20% warp;
+  the MITC4 twisted beam moved from 0.0012/0.0011 to 0.0013/0.0013 (24×8, loads A/B).
+
+#### Nonlinear and special solvers answer for the model as given (2026-10-17)
+
+**BREAKING (results).** Tests: `engine/tests/nonlinear_solver_findings.rs`, each against the same
+structure expressed without the feature or an analytical value.
+
+- **2D contact returned the linear solution of the unmodified model.** Slack tension-only braces,
+  closed gaps and node-to-surface contacts changed the status report but not the displacements,
+  reactions or member forces (`linear::solve_2d` of the model as drawn). 2D and 3D contact now
+  solve every iteration on the model in its contact state and report that state: a slack member
+  is removed (the model is reassembled without it; 3D used to keep tension-only *frames* and
+  subtract only trusses) and carries only its own fixed-end forces; reactions and constraint
+  forces are those of the contact state (3D returned none).
+- **Gaps and node-to-surface contacts acted from zero displacement.** The penalty spring of a
+  closed gap now acts from the moment it closes (the opening g0 enters the load as ±k·g0):
+  u = (F + k·g0)/(EA/L + k) on a bar pushed into a gap, where it used to be F/(EA/L + k).
+- **Friction** was a stick spring μ·k at any load, with only the *reported* force clamped to μ·N;
+  a contact now slides (Coulomb force μ·N against the slip) once the stick force exceeds μ·N.
+- **Contact damping** added a spring of stiffness c to ground at the gap nodes (its "velocity"
+  force was always zero); it is now a proximal term that vanishes at a fixed point, and the final
+  state is solved without it.
+- **Inclined supports and prescribed displacements in contact:** the gap corrections are built in
+  global axes and rotated into the support frames, statuses are read in global axes, and support
+  settlements enter the solve (3D refused both; 2D read rotated displacements).
+- **Uplift supports were ignored** (kept as two-way restraints). 2D: a support whose vertical
+  reaction comes out tensile lifts off (pinned → rollerZ, fixed → guidedZ, rollerX → free) and
+  bears again if its node comes back below its seat. 3D uplift supports are refused by name, as
+  are unknown element behaviours, behaviours on missing elements and thermal loads on
+  tension/compression-only members.
+- **3D co-rotational: large rotations, releases, frames out of the XZ/YZ planes.** The member's
+  rigid rotation was the skew part of R (sin θ, not θ: 1% short at 0.25 rad, 36% at 90°), its
+  corotated frame was rebuilt from the chord and a fixed reference vector (a spurious twist, read
+  as torsion, whenever a member bent in a plane neither containing nor normal to that reference),
+  and its end shears balanced the end moments on the undeformed length. A portal whose beam is
+  pinned at both ends settled 1.5% further than the same frame in the 2D solver and, at twice the
+  load, did not converge; the same portal in a vertical plane at 53° to X moved out of its plane.
+  Now: exact rotation vector, frame carried by the mean end rotation, shears on the current chord;
+  planar frames in any vertical plane, with and without releases, match the 2D solver to 1e-6.
+  The tangent's geometric stiffness is condensed for the end releases, as in P-Delta.
+- **3D co-rotational member forces left out the member loads.** End forces were K·d only: a
+  fixed-ended beam under a uniform load reported end moments qL²/12 short and end shears qL/2
+  short, and the diagrams showed no load, although the displacements were right. The fixed-end
+  forces and the load data are now the linear solver's; member forces match it in the
+  small-load limit (uniform, partial, axial and point member loads, with a release).
+- **Unconverged co-rotational solves** returned the iterate they gave up on (no equilibrium state)
+  with reactions taken against the full load, and the Pro panel printed "Not converged" next to
+  its peak displacement. The engine now returns the last converged increment, with reactions
+  and member forces under the load it carries, and a new `loadFactor` (1 when converged); the
+  panel shows only how much of the load reached equilibrium, and no displacements.
+- **Co-rotational solves under small loads did not converge.** The elongation was a difference
+  of two lengths, with a rounding error of order ε·L and so an axial-force residual of order
+  ε·EA (2e-7 kN against a 0.001 kN load): Newton never reached the tolerance and the "answer"
+  was the last iterate, flagged unconverged. The elongation is now computed without
+  cancellation, (2·d0·du + du·du)/(L + L0), in every co-rotational member and connector.
+- **Connectors in the nonlinear solvers** (co-rotational, arc length, displacement control,
+  material- and fiber-nonlinear; 2D and 3D) were refused; they are now part of the tangent and
+  the internal forces. Small-displacement solvers use the linear connector. Co-rotational ones:
+  a zero-length connector is its springs in global axes; a connector with length has its axial
+  spring along the current chord (N = k·(L − L0), with the string stiffness N/L) and, in 2D, its
+  rotational spring on the relative rotation. Shear stiffness on a connector with length (and,
+  in 3D, its torsional and bending stiffness) has no large-displacement definition and is
+  refused by name. Checked at large displacement against a truss bar, a spring support and a
+  rotational spring support.
+- **Connectors in all-truss models (linear and every other path).** The connector matrix was
+  scattered through the node's own DOF list, so with two DOFs per node (three in 3D, or seven
+  with warping) its rows did not line up: a horizontal connector between two free truss nodes
+  pushed the far node vertically. Each local DOF is now mapped to its global DOF by name.
+- **Truss-only nodes in the nonlinear solvers.** A node reached only by trusses (or by members
+  hinged there) in a frame left the 2D co-rotational, arc-length, displacement-control,
+  material- and fiber-nonlinear tangents singular, so they refused a model the linear solver
+  answers; they now carry the linear assembler's artificial stiffness on that rotation (material
+  nonlinear recomputed it for all-hinged nodes only).
+
+#### Every analysis supports a model feature or refuses it by name (2026-10-17)
+
+**BREAKING (results and refusals): several analyses solved a simplified model without a word;
+they now solve the model as given or refuse it with an error that names the feature and where
+it is.** `engine/tests/feature_matrix.rs` runs every (feature, analysis) pair on a small model
+where the feature matters and compares it with the same structure expressed without the
+feature, an analytical value or the linear solution; the result is in
+[`docs/verification/FEATURE_MATRIX.md`](docs/verification/FEATURE_MATRIX.md), and the test fails
+when the file drifts or when a cell is silently ignored or wrong without a branch fixing it.
+
+Now supported (results change):
+- **3D co-rotational: columns and members not along +X.** The rigid-body rotation was subtracted
+  in global axes from rotations in local axes. A vertical cantilever under a lateral load
+  converged to itself folded in half (u_z = −2L) and reported convergence; members along Y and
+  any member with a local-y vector other than +Y were equally wrong. An explicit local y nearly
+  parallel to the member is anchored to the initial frame.
+- **2D buckling and P-Delta with member end releases:** the geometric stiffness is condensed for
+  the release, as in 3D (a beam released into its support buckled 3.2% low).
+- **2D plastic collapse** forms hinges where a rotational spring (on any support type), a
+  constraint or a connector holds the rotation. Dropped there, the member carried more than Mp:
+  a beam on a rotational spring collapsed at 150 instead of 83.3 (unsafe).
+- **Curved-shell buckling:** the geometric stiffness was integrated with dA·h²/2 instead of dA,
+  1/200 at h = 0.1 (a strip buckled at 200 times its Euler load).
+- **3D P-Delta includes shell geometric stiffness** (plates, quads, quad9, solid and curved
+  shells); a compressed wall strip came back as its linear solution. Quad membrane forces for
+  geometric stiffness subtract the free thermal strain.
+- **3D material-nonlinear solves the constraint-reduced system**: rigid links, diaphragms and
+  EqualDOF were not part of the structure it iterated on. In 2D, convergence is measured on the
+  independent DOFs (a model with one constraint never converged).
+- **Timoshenko shear areas** in 2D co-rotational, arc-length/displacement-control and
+  material-nonlinear analyses (solved as Euler–Bernoulli, 22% stiff on a deep cantilever).
+- **Support springs:** the co-rotational, arc-length, material- and fiber-nonlinear and staged
+  2D analyses share the linear assembler's definition (the spring angle was dropped, and a
+  rotational spring on a pinned support in some of them); the 3D fiber analysis had no support
+  springs at all, and assembled truss members as full frames.
+- **Curved beams** are expanded in modal, buckling (which panicked), harmonic, Guyan,
+  Craig–Bampton, material- and fiber-nonlinear 3D analyses.
+- **Influence lines** keep the model's constraints and connectors.
+
+Now refused by name (previously solved without the feature):
+- connectors: staged construction, 3D plastic (the nonlinear solvers that refused them now
+  support them, see "Nonlinear and special solvers" above);
+- prescribed support displacements: co-rotational, arc length, displacement control,
+  fiber-nonlinear, SSI, harmonic (2D and 3D), 3D contact;
+- inclined supports: arc length, displacement control, fiber-nonlinear, SSI (2D and 3D), 3D
+  contact;
+- thermal loads: co-rotational, arc length, displacement control (temperature entered as
+  fixed global forces, 12–24% off on a heated, bent member); thermal loads on plates, quad9 and
+  curved shells in 3D buckling and P-Delta;
+- shear areas, member end releases, warping and shells: fiber-nonlinear; warping: 3D
+  co-rotational; shells: 3D material-nonlinear;
+- constraints and support springs: 3D plastic (its mechanism test accepted every state with
+  constraints and stopped at the first hinge with springs);
+- staged payloads carrying connectors (2D, 3D), solid or curved shells or curved beams (3D),
+  which the staged input has no field for and used to drop.
+
+#### Section properties and connections verified against exact forms and published values (2026-10-17)
+
+**BREAKING (results): asymmetric sections wound clockwise, the shear centre, shear areas and
+warping constant of sections with a product of inertia, thin-walled J, bolt bearing, long
+end-loaded welds, and models using the IRAM steels or the concrete/aluminium presets solve or
+check differently.** Each was found by `docs/verification/SECTIONS_CONNECTIONS.md` and has a
+regression test.
+
+- **Product of inertia ignored the winding.** `analyze_section` fixed the sign of `Iy`/`Iz`
+  with `abs()` but not of `Iyz`, so a clockwise outline, or a hole wound clockwise, returned
+  its centroidal product with the wrong sign and mirrored the principal axes of any
+  asymmetric custom or drawn section wound that way. Now corrected by the sign of the signed
+  area; checked exactly (rational arithmetic) on random polygons with holes.
+- **Shear fields ignored the product of inertia (unsafe).** The transverse-shear solve drove
+  the field with `z/Iy` and `y/Iz`, which on non-principal axes carries a spurious resultant
+  `Iyz/Iy` along the other axis. Shear centre, shear areas, shear stresses and the warping
+  constant (whose pole is the shear centre) were wrong for angles, Z and lipped or unequal
+  sections and rotated outlines: an equal angle 100x100x10 had its shear centre 13.8 mm
+  outside the heel and a warping constant 24 times too large. The field now uses the
+  unsymmetric-bending gradient `(Iz z - Iyz y)/D`, and agrees with an independent
+  quadratic-element solution (sectionproperties) to 0.2% on shear centre and Cw.
+- **Saint-Venant J was far low on thin walls.** The section mesh was sized by triangle count
+  alone (A/2000), leaving one or two triangles through a 2-4 mm wall; the P1 Prandtl solve,
+  a strict lower bound, then read 18.5% low on a 400x200 I with 2-4 mm plates and 23.9% low
+  on a 2 mm channel against an independent quadratic-element solve. The mesh now also bounds
+  each triangle by (2A/P)^2/50 (P including holes, capped at 60 000 triangles): those cases
+  read 2.2% and 3.3% low, IPE 300 2.5% (was 3.6%). J stays a lower bound, so the change
+  raises J toward the true value and never above it.
+  The example baselines were re-recorded: member torsion and reaction moments in the steel
+  examples move by up to 0.6% (pro-crane-hangar), everything else by under 1e-6.
+- **Bolt bearing used the end bolt's clear distance for every bolt (unsafe).** CIRSOC 301
+  §J.3.10 takes `Lc = s - dh` for interior bolts; with a generous edge distance the interior
+  bolts are the weaker ones (at `s = 3d` they never reach the `2.4 d t Fu` cap), so both the
+  designed joint (`lib/connection/bolted-joint.ts`) and the PRO-tab calculator
+  (`lib/engine/connection-design.ts`) overstated bearing. The designed joint now sums
+  `min(shear, bearing)` per bolt, end and interior apart, as the clause prescribes; the
+  calculator, which has no layout, takes the smaller of the two `Lc` (interior at the given
+  spacing, or at the 3d minimum when none is given). Checked against the INTI CIRSOC 301-2018
+  worked examples 1 and 5.
+- **End-loaded fillet welds longer than 300w were credited 0.6L (unsafe).** CIRSOC 301 eq.
+  J.2.1 fixes the effective length at 180w beyond 300w; the PRO-tab weld calculator used
+  `beta = 0.6`, which matches only at exactly 300w (67% too much at 500w).
+- **Combined tension and shear divided the required shear stress by phi.** `frv` is the
+  required stress `V/(Ab n)`; the extra phi put the reduced tension of the designed joint
+  20-40% below Tabla J.3.6 at moderate shear (conservative). Now reproduces `806 - 2.5 fv`.
+- **The PRO advanced section panel could print Routh's J.** When the Saint-Venant solve
+  failed it kept the polygon analyser's `j`, Routh's approximation (twice the true J on an I).
+  It now shows no J in that case.
+- **IRAM steels (F-24, F-26, F-36) carried the 1984 elastic constants (unsafe).** E = 210 000
+  and G = 80 769 MPa came from CIRSOC 301:1984; CIRSOC 301-2018 §A.3.5 fixes E = 200 000 and
+  G = 77 200 MPa. Models in these grades were 5% too stiff (deflections and drift low).
+- **Material presets corrected to their standards.** Reinforced-concrete unit weight 25 kN/m³
+  for CIRSOC (CIRSOC 101-2025 Tabla 3.1), EN (EN 1991-1-1 Table A.1) and NBR presets (was 24 or
+  24.5: self-weight 4% low); NBR 6118 concrete uses the secant modulus `Ecs = alpha_i Eci` of
+  §8.2.8 for analysis (was `Eci`, 8-18% stiff); aluminium 5052-H32 130/210 MPa and 6063-T6
+  160/195 MPa per EN 1999-1-1 Tables 3.2a/3.2b (were typical values, up to 50% high on fo).
+- **M5x18.9 weak-axis inertia.** The IRAM table's Iz = 327 cm⁴ disagreed with its own
+  dimensions (outline 363) and with AISC Shapes Database v16.0 (362); now 362 cm⁴. Every
+  catalogue profile is now checked, tabulated against computed from its dimensions, by
+  `catalogue-tabulated-vs-computed.test.ts`.
+
+#### Loads and combinations verified clause by clause against the CIRSOC texts (2026-10-17)
+
+**BREAKING (results): generated combinations, seismic weights and wind roof pressures change.**
+Every load table and combination rule was re-read from the official texts and checked against
+published worked examples where any exist (`docs/verification/LOADS.md`). The errors found
+were all unsafe, and each has a regression test.
+
+- **Combinations with companion loads not acting were never generated.** CIRSOC 101-2025
+  §2.3.2 requires "investigar los efectos de una o más cargas que no estén actuando". The
+  generator emitted only the printed combinations. A roof without floor live load, under wind,
+  got combination 3 only as 1,2 D + 1,6 Lr + 0,5 W, so roof suction lowered every gravity
+  combination: in the `pro-simple-shed` example the column axial force grew from 44 to 62 kN
+  and the rafter moment from 6.9 to 11.4 kN·m once 1,2 D + 1,6 Lr was generated. Combinations
+  2 to 5 are now also emitted without each subset of their companions (`notActing`, default on).
+  Combinations with the principal load removed are left out because they fall inside the
+  envelope of the rest, and a property test checks that claim over every subset of loads.
+- **The seismic combination took 0,2 S where INPRES-CIRSOC 103 asks for 0,70.** [3.16]
+  combines 1,20 D ± 1,00 E + f1 L + f2 S, and Tabla 3.3 gives f2 = 0,70 for roofs that are
+  horizontal or do not shed snow. Combination 5 now takes the larger of the two codes' factors
+  for L (f1) and for S (f2). f2 is read from the planned roof's C_s, or from the project's
+  `snowRetaining`.
+- **Snow was missing from the seismic weight.** [3.15] weighs each level as
+  Wi = Di + f1·Li + f2·Si, and the levels left out f2·S. With snow planned, the base shear now
+  includes it.
+- **Group Ao with medium irregularity was given the static method.** INPRES-CIRSOC 103
+  Tabla 2.5 allows Ao only line 1a of Tablas 2.3 and 2.4. Such a plan is now refused with its
+  own message, and the modal method is required.
+- **CIRSOC 102 roof pressure coefficients (Fig. 2.4-1, θ ≥ 10°) did not interpolate in h/L
+  and ran past the first row's 0,0\*.** h/L between printed rows was rounded up to the next
+  row, which understated the positive windward Cp (0,2 where the figure gives 0,296 at 25°,
+  h/L 0,26). Past the 0,0\*, the first row was interpolated toward positive values, where
+  note 2 prescribes 0,0 (0,3 instead of 0,0 at 52,5°, h/L 0,5). Pitched-roof wind loads change
+  for h/L other than 0,25, 0,5 or 1,0 and for slopes between 35° and 60°.
+- **By width, every member took the live load reduction of the largest area in the model.**
+  The plan read AT as the largest area any member could carry and applied it to all of them. A
+  6 m edge beam under a 3 m width has KLL·AT = 36 m² < 37 m², which §4.7.2 does not reduce, but
+  it came out 21 % light. Each member now takes its own width × length in plan. Panel mode
+  already did this.
+- **One-way slabs were given the live load reduction.** CIRSOC 101-2025 §4.7.6 reads "Para
+  losas en una sola dirección, las sobrecargas no se podrán reducir excepto en el caso de
+  sobrecargas pesadas". The module followed ASCE 7 and the commentary, which allow the
+  reduction up to 1,5 × the span. It now refuses it up to 5 kN/m².
+- **A partition allowance below 0,75 kN/m² counted** (§4.3.2). It is now reported as missing.
+  Tabla 4.1's 9 and 14 kN concentrated loads for light and heavy manufacturing were added.
+- **CIRSOC 104 Tablas 1.8 and 1.13: Uspallata (0,80 kN/m²) and Villa Reynolds (0,45 kN/m²)
+  added.** The tables print them above their headers, and they were missing, so they could only
+  be read as their departments' 0,3 kN/m². The slippery-roof option now states the §4.1
+  thermal-resistance condition for warm roofs.
+- The companion-snow note now says what the S case is: the balanced roof snow load. Exception
+  2 names the flat-roof load and its commentary admits the sloped one (ps).
+
+#### Constraints on inclined-support nodes are built in the support frames (2026-10-17)
+
+**BREAKING (results): models with a constraint (rigid link, diaphragm, equal DOF,
+eccentric connection, linear MPC) on a node with an inclined support, and models whose
+constraint slave sits on a support, solve differently in every analysis.**
+
+- **Constraints at inclined supports.** At an inclined-support node the DOF slots hold
+  the support frame's rotated components (every analysis assembles K, M, Kg and loads
+  there), while constraint equations are written in global components. The constraint
+  transform was built over the slots as if they were global, so the solve enforced the
+  wrong equations and the results violated the constraint with no warning (found by the
+  Code_Aster differential, aster3d-16; #296 made the linear static solvers refuse such
+  models). `build_constraint_transform` now takes the inclined frames
+  (`inclined_dofs_2d/3d`) and rewrites the equations there; `FreeConstraintSystem`
+  is built from the model, so every analysis and the linear, modal and buckling
+  certificates use the same transform. Constraint forces at an inclined node are reported
+  in global components. #296's refusal is replaced by the fix.
+- **A constraint whose slave is held by a support is enforced.** Its equation's dependent
+  DOF is now chosen among the free DOFs after substituting the existing dependencies, so
+  a rigid link whose slave sits on a support makes the support restrain the master.
+  Eliminating the restrained slave instead dropped the equation: the support won and the
+  results broke the constraint, with only an `OverConstrainedDof` warning (still issued).
+- Every equation touching an inclined node or a restrained slave is verified against the
+  built transform; a conflict there (e.g. two rigid links on the same slave, which
+  elsewhere is "last one wins") is refused.
+- Tests: `tests/constraints_inclined_supports.rs`, every constraint type in 2D and 3D
+  (dense and sparse paths) against the support modelled as a linear MPC and against the
+  rigidly turned model, and every analysis that takes constraints. Modal, buckling,
+  harmonic, spectral 2D, Craig–Bampton, time history, fiber, SSI, contact and arc length
+  are ignored until #287 (they mis-handle inclined supports with or without constraints);
+  all pass with it merged.
+
+#### Fixes found by fuzzing the WASM entry points (2026-10-17)
+
+Found by the cargo-fuzz targets in `engine/fuzz` (`docs/verification/FUZZ_MUTANTS.md`),
+each with a regression test.
+
+- **Several supports on one node double-counted its reaction.** Linear 2D/3D results listed
+  one reaction per support, each with the node's full restrained-DOF reaction, so ΣR was
+  off by the applied load and a *certified* result failed global equilibrium. Each node now
+  has a single reaction entry with its restrained reactions counted once (spring forces of
+  all its supports still add). `tests/duplicate_support_reactions.rs`.
+- **Several supports on one node could silently drop a restraint.** 2D DOF numbering kept
+  only the highest-id support of a node, so `fixed` (id 1) plus `pinned` (id 2) solved as a
+  pinned end; 3D ORed the restraint flags but took springs and the inclined flag from one
+  support picked in hash order. Plain rigid restraints on one node now merge by OR in 2D and
+  3D; any other combination (springs, prescribed displacements, inclined directions) is
+  rejected with an error naming the node. The web app already keeps one support per node.
+  `tests/duplicate_support_reactions.rs`.
+- **A 3D inclined support without a usable normal solved as an ordinary support.**
+  `isInclined: true` with a missing or zero normal fell back to the support's restraint
+  flags. It is now rejected; the web app always sends the normal. Found while triaging
+  surviving mutants of the DOF numbering. `tests/solver_mutation_kills.rs`.
+- **Harmonic certificates reported NaN enclosures for a zero response.** When the target DOF
+  was not excited (or the reported value equalled the candidate), the outward-rounded sum of
+  squares had a lower end of −5e−324 and its interval square root was NaN, so a *certified*
+  result carried NaN amplitude enclosures and error bounds. The modulus now clamps that lower
+  end at 0 (sound: the sum is ≥ 0 exactly). `tests/fuzz_regressions.rs`.
+- **Time-history certificates reported +∞ relative update residuals for a structure at
+  rest.** The subnormal interval residual of exact zeros was divided by max‖u‖ = 0, giving
+  `null` in fields the web reads as numbers. Relative residuals now divide by
+  max(scale, `f64::MIN_POSITIVE`). `tests/fuzz_regressions.rs`.
+
+#### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
+
+**BREAKING (results): models with Timoshenko members under member loads, plastic analyses,
+HHT-α time histories, spectral member forces, harmonic responses, partial distributed loads,
+2D truss axial point loads and 2D spring rollers solve differently.** Each was found by a
+certificate disagreeing with the solver (`docs/verification/CERTIFY.md`) or by the
+comparison against OpenSees (`tools/opensees/`), and each has a regression test.
+
+- **Timoshenko members used Euler–Bernoulli fixed-end forces.** Members with shear areas
+  assembled a shear-flexible stiffness but loaded it with Euler–Bernoulli fixed-end forces,
+  so point loads, couples, partial and trapezoidal loads gave wrong displacements and end
+  forces (13.6% on a short cantilever). All member-load fixed-end forces now integrate the
+  load against the Timoshenko element's own shape functions; the FEF functions take `phi`
+  explicitly. Validation models 04 and 07 moved (largest maxima change 0.67%, applied loads
+  unchanged). The member deflection curve in the web now includes shear deflection.
+- **Plastic analysis placed hinges only at member ends.** With the peak moment inside a
+  loaded member the collapse factor was overestimated, which is unsafe: a one-element fixed
+  beam under UDL gave 60.28 instead of 37.5 (2D), and a space portal swaying out of plane
+  77.04 instead of 33.33 (3D). Both solvers now search each member's moment diagram for
+  span hinges, close hinges whose rotation reverses, and (3D) no longer read a failed solve
+  as collapse. 3D hinges under biaxial bending can still land 0.4–3.6% below the certified
+  value, on the safe side, and the solver warns.
+- **HHT-α was not HHT-α.** It was Newmark with HHT's β and γ and a load blend: dissipative
+  but first-order accurate. It now integrates the α-weighted equation of motion and is
+  second-order accurate.
+- **Spectral member forces included static member loads.** Every mode's member forces
+  carried the fixed-end forces of the model's distributed, point and thermal loads, and
+  SRSS/CQC combined them as if dynamic (simple beam, q = −20: V_max 25.70 instead of 0.758).
+  Modal forces now come from the inertia response only.
+- **Harmonic responses were truncated silently.** The omitted modes are now added as a
+  static (mode-acceleration) correction, cutting the error against a direct solve from
+  ~7e-5 to ~1e-7 of the peak. `HarmonicResult` reports `method`, `modesUsed`, `nDof`,
+  `truncationRatio` and `warnings`.
+- **Partial distributed loads** were integrated with 20-panel Simpson (~1e-4 relative
+  error); now exact Gauss–Legendre.
+- **2D truss end forces** ignored axial member point loads.
+- **2D roller supports with a spring** on the free DOF left the spring force out of the
+  reaction.
+- **New warning `StiffnessNotPositiveDefinite`** when the factored stiffness is singular or
+  indefinite (LU fallback, a diagonal shift, or a Cholesky pivot at round-off level).
+  Numbers are unchanged; the solver used to return them without comment.
+
 #### Shell elements: rigid motions, the DKT triangle, and three sign conventions (2026-09-24)
 
 **BREAKING (results): every model with shell elements solves differently.** Four defects,
@@ -293,6 +1052,19 @@ Systematic audit and fix of solver correctness issues across elements, constrain
 - **Dead DKT code**: removed unused `ak/bk/ck/dk/ek` arrays from plate.rs
 
 ### Added
+
+#### Certified results (2026-10-15)
+
+After a solve the engine can prove rigorous bounds on how far its answers are from the
+exact solution of the assembled model: interval-arithmetic a posteriori certificates for
+linear static analysis (constraints included), member and shell forces, combinations and
+envelopes, design utilizations, buckling, modal (with proof that no mode below the cutoff
+was missed), spectral, harmonic, P-Delta, plastic collapse (2D and 3D, exact rationals)
+and time integration. Their soundness is proved in Lean (`verify/`), and a verified Lean
+checker re-checks exported certificate bundles. The web shows the certificates beside the
+results. Kani proves the element kernels, interval rounding and sparse index code
+(`docs/verification/KANI.md`); `scripts/kani-safe.sh` runs the harnesses one at a time
+under a memory watchdog. See `docs/verification/CERTIFY.md`.
 
 #### Step 4 runtime gates and CI improvements (2026-04-19)
 

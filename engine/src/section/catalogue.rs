@@ -40,6 +40,11 @@ use super::SectionPolygon;
 /// the convergence tests pin the trend.
 pub const DEFAULT_ARC_SEGMENTS: usize = 24;
 
+/// Most segments per arc the geometry builders accept from a caller: far
+/// beyond any convergence need, and small enough that `4 * n` vertices per
+/// circle cannot exhaust memory or overflow.
+pub const MAX_ARC_SEGMENTS: usize = 1_024;
+
 /// How a canonical geometry was produced, carried for provenance and auditing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]

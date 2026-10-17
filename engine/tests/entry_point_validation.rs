@@ -326,7 +326,8 @@ fn plastic_3d_broken_shell_returns_geometry_error() {
 fn plastic_3d_valid_frame_still_forms_a_hinge() {
     use dedaliano_engine::solver::plastic::solve_plastic_3d;
     let result = solve_plastic_3d(&plastic_3d_input(beam_3d())).unwrap();
-    assert!(!result.is_mechanism);
+    // One root hinge turns the cantilever into a mechanism: λ = Mp / (P·L) = 100 / 40.
+    assert!(result.is_mechanism);
     assert!((result.collapse_factor - 2.5).abs() < 1e-8);
     assert_eq!(result.hinges.len(), 1);
 }

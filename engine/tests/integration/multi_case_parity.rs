@@ -255,8 +255,9 @@ fn make_frame_2d_dense() -> SolverInput {
 
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), sup_2d(1, 1, "pinned"));
-    supports.insert("2".to_string(), sup_2d(2, 4, "rollerX"));
-    // Prescribed settlement at node 4 (K_fr·u_r coupling exercised per case)
+    // Prescribed settlement at node 4 (K_fr·u_r coupling exercised per case).
+    // (A second, plain rollerX on node 4 used to sit beside it; the solver now
+    // rejects a settlement sharing a node with another support as ambiguous.)
     let mut s4 = sup_2d(3, 4, "rollerX");
     s4.dz = Some(-0.005);
     supports.insert("3".to_string(), s4);

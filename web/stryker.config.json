@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing of the safety-relevant TypeScript in src/lib/engine. The list is the critical set of docs/verification/TS_ENGINE_LOGIC.md: code clauses still computed in TypeScript, the adapters to the engine, and the gate that gives the engine the last word. Run with `npm run test:mutation` (nightly in .github/workflows/mutation-ts.yml). The WASM build is gitignored, so ignorePatterns re-includes src/lib/wasm for the sandbox.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.mutation.config.ts"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
+  "checkers": [],
+  "mutate": [
+    "src/lib/engine/codes/argentina/cirsoc201-basis.ts",
+    "src/lib/engine/codes/argentina/cirsoc201-beam-kernel.ts",
+    "src/lib/engine/codes/argentina/cirsoc201-engine-gate.ts",
+    "src/lib/engine/codes/argentina/cirsoc301.ts",
+    "src/lib/engine/codes/argentina/serviceability.ts",
+    "src/lib/engine/detailing/foundation-check.ts",
+    "src/lib/engine/detailing/punching-shear.ts",
+    "src/lib/engine/design-check-results.ts",
+    "src/lib/engine/auto-verify.ts",
+    "src/lib/engine/design/candidate-search.ts",
+    "src/lib/engine/design/outcome.ts",
+    "src/lib/codes/cirsoc201/anchorage.ts",
+    "src/lib/codes/cirsoc201/spacing.ts",
+    "src/lib/codes/cirsoc201/transverse-spacing.ts"
+  ],
+  "ignorePatterns": [
+    "e2e",
+    "dist",
+    "reports",
+    ".stryker-tmp",
+    "!src/lib/wasm/**"
+  ],
+  "reporters": [
+    "html",
+    "clear-text",
+    "progress",
+    "json"
+  ],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 75,
+    "break": null
+  },
+  "concurrency": 3,
+  "timeoutMS": 60000,
+  "coverageAnalysis": "perTest",
+  "tempDirName": ".stryker-tmp",
+  "dryRunTimeoutMinutes": 30
+}

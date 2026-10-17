@@ -22,6 +22,7 @@ import { t } from '../i18n';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { loadFixture } from '../templates/load-fixture';
 import { parseWorkbook, type ParseResult } from './parse';
+import { unzipSync } from 'fflate';
 
 export interface ImportOutcome extends ParseResult {
   /** What actually landed in the store, counted after the fact. */
@@ -76,6 +77,47 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
 }
 
 /**
+ * Ceilings for a workbook chosen by the user. A model workbook is a few sheets of numbers —
+ * hundreds of kilobytes for a large building — so these only ever refuse something that was not
+ * written as one: an .xlsx is a zip, and a small zip can declare gigabytes of XML that the
+ * library would inflate in one go.
+ */
+export const MAX_WORKBOOK_BYTES = 50 * 1024 * 1024;
+export const MAX_WORKBOOK_INFLATED_BYTES = 256 * 1024 * 1024;
+export const MAX_WORKBOOK_ENTRIES = 2_000;
+
+export class WorkbookLimitError extends Error {
+  constructor(what: string) {
+    super(`workbook refused: ${what}`);
+    this.name = 'WorkbookLimitError';
+  }
+}
+
+/**
+ * Refuse a zip-based workbook whose central directory declares more than the ceilings, without
+ * inflating anything (the filter rejects every entry). A file that is not a zip (.xls, .csv) is
+ * left to the size check. Declared sizes can lie; this stops the cheap bomb, not a forged one.
+ */
+export function checkWorkbookArchive(bytes: Uint8Array): void {
+  if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return;
+  let entries = 0;
+  let declared = 0;
+  try {
+    unzipSync(bytes, {
+      filter: (f) => {
+        entries++;
+        declared += f.originalSize;
+        return false;
+      },
+    });
+  } catch {
+    return; // not a readable zip: the library will say so itself
+  }
+  if (entries > MAX_WORKBOOK_ENTRIES) throw new WorkbookLimitError('too many entries');
+  if (declared > MAX_WORKBOOK_INFLATED_BYTES) throw new WorkbookLimitError('declared size too large');
+}
+
+/**
  * Everything from a chosen file, including turning it into sheets.
  *
  * The xlsx module is loaded here rather than in `parse.ts` so that the reading
@@ -84,12 +126,18 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
  * workbook at all.
  */
 export async function importExcelFile(file: File): Promise<ImportOutcome | null> {
+  // Refused before the library loads: the caller reports a throw as "unreadable".
+  if (file.size > MAX_WORKBOOK_BYTES) throw new WorkbookLimitError('file too large');
   const { loadXlsxModule } = await import('../export/excel');
   const XLSX = await loadXlsxModule();
   if (!XLSX) return null;
 
-  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-  const sheets: Record<string, unknown[][]> = {};
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  checkWorkbookArchive(bytes);
+  const wb = XLSX.read(bytes, { type: 'array' });
+  // No prototype: sheet names are the file's, and a sheet called `__proto__` assigned into a
+  // plain object would replace that object's prototype instead of adding a key.
+  const sheets: Record<string, unknown[][]> = Object.create(null);
   for (const name of wb.SheetNames) {
     /*
      * `header: 1` gives arrays rather than objects keyed by header, which is

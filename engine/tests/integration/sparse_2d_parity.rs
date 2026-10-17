@@ -16,7 +16,7 @@
 /// tolerance but with different roundoff histories.
 
 use dedaliano_engine::linalg::{extract_submatrix, lanczos_generalized_eigen};
-use dedaliano_engine::solver::assembly::assemble_2d;
+use dedaliano_engine::solver::assembly::{assemble_2d, rotate_inclined_f_2d};
 use dedaliano_engine::solver::dof::DofNumbering;
 use dedaliano_engine::solver::linear::{prepare_static_2d_dense_reference, solve_2d};
 use dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_2d;
@@ -306,7 +306,18 @@ fn parity_modal_2d_frequencies() {
     let n = dof_num.n_total;
     assert!(nf >= 64);
     let asm = assemble_2d(&input, &dof_num);
-    let m_full = assemble_mass_matrix_2d(&input, &dof_num, &densities);
+    let mut m_full = assemble_mass_matrix_2d(&input, &dof_num, &densities);
+    // K is in the inclined roller's frame; the mass has to be too (T·M·Tᵀ).
+    for it in &asm.inclined_transforms_2d {
+        for j in 0..n {
+            let mut col: Vec<f64> = (0..n).map(|i| m_full[i * n + j]).collect();
+            rotate_inclined_f_2d(&mut col, &it.dofs, &it.r);
+            for i in 0..n { m_full[i * n + j] = col[i]; }
+        }
+        for i in 0..n {
+            rotate_inclined_f_2d(&mut m_full[i * n..(i + 1) * n], &it.dofs, &it.r);
+        }
+    }
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
@@ -395,11 +406,13 @@ fn make_truss_connector_model() -> SolverInput {
     supports.insert("1".to_string(), sup_2d(1, 1, "pinned"));
     supports.insert("2".to_string(), sup_2d(2, 2, "rollerX"));
 
-    // Semi-rigid connector across the chords at mid height.
+    // Axial connector across the chords at mid height. A truss model has no
+    // rotation DOFs, so a shear spring on this 4 m connector is refused and
+    // k_moment has nothing to act on (dropped).
     let mut connectors = HashMap::new();
     connectors.insert("1".to_string(), ConnectorElement {
         id: 1, node_i: 17, node_j: 18,
-        k_axial: 5.0e4, k_shear: 2.0e4, k_moment: 1.0e3,
+        k_axial: 5.0e4, k_shear: 0.0, k_moment: 1.0e3,
         k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
     });
 

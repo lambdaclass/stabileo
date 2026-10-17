@@ -1,6 +1,7 @@
 use dedaliano_engine::types::ResultSummary;
 use serde::{Deserialize, Serialize};
 
+use super::limits;
 use crate::error::AppError;
 use crate::providers::traits::{AiRequest, AiResponse, Provider};
 
@@ -43,7 +44,8 @@ pub async fn interpret_results(
     req: InterpretResultsRequest,
     request_id: String,
 ) -> Result<InterpretResultsResponse, AppError> {
-    let locale = req.locale.as_deref().unwrap_or("en");
+    limits::check_text("question", &req.question)?;
+    let locale = limits::sanitize_locale(req.locale.as_deref());
 
     let system_prompt = build_system_prompt(locale);
 
@@ -67,9 +69,11 @@ pub async fn interpret_results(
             user_message.push_str(&format!("- Max span: {s} m\n"));
         }
         if let Some(t) = &info.structure_type {
-            user_message.push_str(&format!("- Structure type: {t}\n"));
+            user_message.push_str(&format!("- Structure type: {}\n", limits::prompt_label(t)));
         }
     }
+
+    limits::check_prompt_size(&system_prompt, &user_message)?;
 
     let ai_req = AiRequest {
         system_prompt,

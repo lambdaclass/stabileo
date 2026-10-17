@@ -67,7 +67,8 @@ const MP_WEAK = Math.min(STEEL.fy * Zy * 1e3, 1.5 * STEEL.fy * Sy * 1e3);   // k
 const PHI = 0.9;
 /** ry from the WEAK inertia, as the fixed mapping gives the checker. */
 const ry = Math.sqrt(IPE200.iz / IPE200.a);
-const LP = 1.76 * ry * Math.sqrt(STEEL.e / STEEL.fy);
+// F.2.5b: no load height reaches the checker, so the top-flange (conservative) expression.
+const LP = 1.59 * ry * Math.sqrt(STEEL.e / STEEL.fy);
 
 const COMBO: LoadCombination = { id: 1, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] };
 
@@ -189,13 +190,13 @@ describe('steel demand axis mapping, through the real solver', () => {
     expect(cb).toBeGreaterThan(1.10);
     expect(cb).toBeLessThan(1.16);
 
-    // F.2-4 with J and Cw, as the checker has them: rts² = √(Iy·Cw)/Sx, c = 1, h₀ = h − tf,
-    // Fcr = Cb·π²·E/(Lb/rts)² · √(1 + 0,078·J·c/(Sx·h₀)·(Lb/rts)²); Mn = min(Fcr·Sx, Mp).
+    // F.2.4b (load on the top flange — the checker's default, as the service does not know the
+    // load height): X1 = (π/Sx)·√(E·G·J·A/2), G = 77 200 MPa (F.2.4c);
+    // Mcr = 1,28·Cb·Sx·X1/(Lb/ry); Mn = min(Mcr, Mp) (F.2.3).
     expect(K.Cw, 'an IPE gets its warping constant').toBeGreaterThan(0);
-    const rts = Math.sqrt(Math.sqrt(IPE200.iz * K.Cw!) / Sx);
-    const lr2 = (L / rts) ** 2;
-    const fcr = (12.5 / 11) * Math.PI ** 2 * STEEL.e / lr2 * Math.sqrt(1 + 0.078 * K.J / (Sx * (h - tf)) * lr2);
-    const mn = Math.min(fcr * Sx * 1e3, MP_STRONG);
+    const X1 = (Math.PI / Sx) * Math.sqrt(STEEL.e * 77200 * K.J * IPE200.a / 2);
+    const mcr = 1.28 * (12.5 / 11) * Sx * X1 / (L / ry);
+    const mn = Math.min(mcr * 1e3, MP_STRONG);
     const expected = M / (PHI * mn);
     expect(verif.flexureZ.ratio).toBeCloseTo(expected, 1);
     expect(verif.flexureZ.ratio).toBeGreaterThan(1);

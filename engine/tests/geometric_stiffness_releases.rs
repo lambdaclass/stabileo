@@ -121,3 +121,113 @@ fn a_member_released_at_one_end_buckles_as_the_pinned_column() {
     assert!((by_node - euler).abs() < 5e-3 * euler, "node-pinned λ {by_node}, Euler {euler}");
     assert!((by_release - euler).abs() < 5e-3 * euler, "release-pinned λ {by_release}, Euler {euler}, node-pinned {by_node}");
 }
+
+// ─── plane frames ───────────────────────────────────────────────────────────
+//
+// The same frame in 2D. The plane geometric stiffness ignored hinges altogether
+// (found by tests/symbolic_elements.rs, which derives the released Kg as
+// Tᵀ·Kg·T over the propped-cantilever shapes): the leaning column kept the
+// fixed-fixed 1.2·P/h in sway and −4·P·h/30 on each hinged rotation, which only
+// the solver's artificial 1e-10·max(diag) rotational stiffness held.
+
+fn plane_frame(id: usize, node_i: usize, node_j: usize, section_id: usize, pin_i: bool, pin_j: bool) -> SolverElement {
+    SolverElement {
+        id, elem_type: "frame".into(), node_i, node_j, material_id: 1, section_id, hinge_start: pin_i, hinge_end: pin_j,
+    }
+}
+
+fn plane_support(id: usize, node_id: usize, support_type: &str) -> SolverSupport {
+    SolverSupport { id, node_id, support_type: support_type.into(), kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None }
+}
+
+fn plane_frame_with_leaning_column(p: f64, lateral: f64) -> SolverInput {
+    let nodes = [(1, 0.0, 0.0), (2, 0.0, H), (3, 6.0, 0.0), (4, 6.0, H)]
+        .into_iter().map(|(id, x, z)| (id.to_string(), SolverNode { id, x, z })).collect();
+    let sections = HashMap::from([
+        ("1".into(), SolverSection { id: 1, a: 0.01, iz: I, as_y: None }),
+        ("2".into(), SolverSection { id: 2, a: 1.0, iz: I, as_y: None }),
+    ]);
+    let elements = HashMap::from([
+        ("1".into(), plane_frame(1, 1, 2, 1, false, false)), // the cantilever
+        ("2".into(), plane_frame(2, 3, 4, 1, true, true)),   // the leaning column
+        ("3".into(), plane_frame(3, 2, 4, 2, true, true)),   // the pin-ended link
+    ]);
+    let supports = HashMap::from([("1".into(), plane_support(1, 1, "fixed")), ("2".into(), plane_support(2, 3, "pinned"))]);
+    let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 })];
+    if lateral != 0.0 {
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }));
+    }
+    SolverInput {
+        solver_options: None, nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
+        sections, elements, supports, loads, constraints: vec![], connectors: HashMap::new(),
+    }
+}
+
+#[test]
+fn plane_leaning_column_amplifies_the_sway_by_its_string_stiffness() {
+    let p = 0.4 * k_sway() * H;
+    let r = pdelta::solve_pdelta_2d(&plane_frame_with_leaning_column(p, 10.0), 50, 1e-10).unwrap();
+    assert!(r.converged && r.is_stable);
+    let ux = |res: &AnalysisResults| res.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+    let b2 = ux(&r.results) / ux(&r.linear_results);
+    let expected = 1.0 / (1.0 - 0.4);
+    assert!((b2 - expected).abs() < 1e-3 * expected, "B2 {b2}, expected {expected} (fixed-fixed Kg: {})", 1.0 / (1.0 - 0.48));
+}
+
+#[test]
+fn plane_leaning_column_buckles_the_frame_at_k_times_h() {
+    let p = 1000.0;
+    let r = buckling::solve_buckling_2d(&plane_frame_with_leaning_column(p, 0.0), 1).unwrap();
+    let lambda = r.modes[0].load_factor;
+    let expected = k_sway() * H / p;
+    assert!((lambda - expected).abs() < 1e-3 * expected, "λ {lambda}, expected {expected}");
+}
+
+/// Fixed foot, head pinned by the release of the top element (four elements, the head on a
+/// roller that leaves it free to turn): Euler's fixed-pinned 20.19·EI/L², as the node-pinned
+/// column (no release) gives.
+#[test]
+fn plane_member_released_at_one_end_buckles_as_the_pinned_column() {
+    let column = |released: bool| {
+        let (n_el, l) = (4, 6.0);
+        let nodes = (0..=n_el).map(|k| ((k + 1).to_string(), SolverNode { id: k + 1, x: 0.0, z: l * k as f64 / n_el as f64 })).collect();
+        let elements = (1..=n_el).map(|k| (k.to_string(), plane_frame(k, k, k + 1, 1, false, released && k == n_el))).collect();
+        SolverInput {
+            solver_options: None, nodes, materials: HashMap::from([("1".into(), SolverMaterial { id: 1, e: E, nu: 0.3 })]),
+            sections: HashMap::from([("1".into(), SolverSection { id: 1, a: 0.01, iz: I, as_y: None })]),
+            elements,
+            supports: HashMap::from([("1".into(), plane_support(1, 1, "fixed")), ("2".into(), plane_support(2, n_el + 1, "rollerY"))]),
+            loads: vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n_el + 1, fx: 0.0, fz: -1000.0, my: 0.0 })],
+            constraints: vec![], connectors: HashMap::new(),
+        }
+    };
+    let euler = 20.19 * E * 1000.0 * I / 36.0 / 1000.0;
+    let by_release = buckling::solve_buckling_2d(&column(true), 1).unwrap().modes[0].load_factor;
+    let by_node = buckling::solve_buckling_2d(&column(false), 1).unwrap().modes[0].load_factor;
+    assert!((by_node - euler).abs() < 5e-3 * euler, "node-pinned λ {by_node}, Euler {euler}");
+    assert!((by_release - euler).abs() < 5e-3 * euler, "release-pinned λ {by_release}, Euler {euler}, node-pinned {by_node}");
+}
+
+/// NOT FIXED — reproduction. The 3D co-rotational solver does not converge on the leaning-column
+/// frame even at a vanishing load (B2 ≈ 376 after 50 iterations at P = 1e-6·k·h), and at
+/// P = 0.2·k·h it converges to B2 = 0.83, less sway than the linear solve (P-Delta: 1.25). Its
+/// tangent also uses the fixed-fixed Kg whatever the releases (`frame_geo_stiffness_3d_local`),
+/// but swapping in the condensed `frame_kg_local_3d` does not change either number: the fault is
+/// in how the co-rotational element treats released ends, not in the geometric stiffness kernel.
+/// Found while checking the Kg kernels symbolically (docs/verification/SYMBOLIC.md).
+#[test]
+#[ignore = "co-rotational 3D with pin-ended members: wrong equilibrium / no convergence"]
+fn corotational_3d_leaning_column_matches_pdelta() {
+    use dedaliano_engine::solver::corotational;
+    for frac in [1e-6, 0.2] {
+        let p = frac * k_sway() * H;
+        let input = frame_with_leaning_column(p, 10.0);
+        let lin = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+        let ux = |res: &AnalysisResults3D| res.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+        let r = corotational::solve_corotational_3d(&input, 50, 1e-8, 10, false).unwrap();
+        let b2 = ux(&r.results) / ux(&lin);
+        let expected = 1.0 / (1.0 - frac);
+        assert!(r.converged, "P = {frac}·k·h: not converged (B2 {b2})");
+        assert!((b2 - expected).abs() < 2e-2 * expected, "P = {frac}·k·h: B2 {b2}, P-Delta {expected}");
+    }
+}

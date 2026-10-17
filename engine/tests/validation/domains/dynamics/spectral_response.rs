@@ -281,3 +281,72 @@ fn validation_spectral_zero_spectrum_zero_response() {
             "Zero spectrum: node {} has nonzero displacement", d.node_id);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 9. Static Element Loads Do Not Enter the Modal Member Forces
+// ═══════════════════════════════════════════════════════════════
+//
+// A response-spectrum analysis combines the responses to the spectral
+// inertia forces alone. Distributed loads on the members (static, not
+// dynamic) must not appear in any mode's member forces: their fixed-end
+// forces would be squared and combined as if they were modal.
+
+fn spectral_ss_beam_forces(q: f64, sa_g: f64) -> SpectralResult {
+    let solver = make_ss_beam_udl(8, 10.0, E, A, IZ, q);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), DENSITY);
+    let modal_res = modal::solve_modal_2d(&solver, &densities, 4).unwrap();
+    let modes: Vec<SpectralModeInput> = modal_res.modes.iter().map(|m| SpectralModeInput {
+        frequency: m.frequency,
+        period: m.period,
+        omega: m.omega,
+        displacements: m.displacements.iter().map(|d| {
+            SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
+        }).collect(),
+        participation_x: m.participation_x,
+        participation_y: m.participation_y,
+        effective_mass_x: m.effective_mass_x,
+        effective_mass_y: m.effective_mass_y,
+    }).collect();
+    spectral::solve_spectral_2d(&SpectralInput {
+        solver,
+        modes,
+        densities,
+        spectrum: flat_spectrum(sa_g),
+        direction: "Y".to_string(),
+        rule: Some("CQC".to_string()),
+        xi: Some(0.05),
+        importance_factor: None,
+        reduction_factor: None,
+        total_mass: Some(modal_res.total_mass),
+    }).unwrap()
+}
+
+#[test]
+fn validation_spectral_element_loads_do_not_leak() {
+    let loaded = spectral_ss_beam_forces(-20.0, 0.3);
+    let bare = spectral_ss_beam_forces(0.0, 0.3);
+    let by_id = |r: &SpectralResult| -> HashMap<usize, [f64; 3]> {
+        r.element_forces.iter().map(|f| (f.element_id, [f.n_max, f.v_max, f.m_max])).collect()
+    };
+    let (fl, fb) = (by_id(&loaded), by_id(&bare));
+    assert_eq!(fl.len(), fb.len());
+    for (id, b) in &fb {
+        let l = fl[id];
+        for k in 0..3 {
+            assert!(
+                (l[k] - b[k]).abs() <= 1e-9 * (1.0 + b[k].abs()),
+                "element {id} component {k}: with element loads {:.6e}, without {:.6e}", l[k], b[k]
+            );
+        }
+    }
+
+    // And with no spectrum, a loaded beam has no spectral member forces at all.
+    let zero = spectral_ss_beam_forces(-20.0, 0.0);
+    for f in &zero.element_forces {
+        assert!(
+            f.n_max.abs() < 1e-12 && f.v_max.abs() < 1e-12 && f.m_max.abs() < 1e-12,
+            "zero spectrum, element {}: N={:.3e} V={:.3e} M={:.3e}", f.element_id, f.n_max, f.v_max, f.m_max
+        );
+    }
+}

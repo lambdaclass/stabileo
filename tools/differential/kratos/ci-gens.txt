@@ -1,0 +1,1 @@
+--gen frame3d 200 --gen rich3d 300 --gen building 100 --gen frame2d 150

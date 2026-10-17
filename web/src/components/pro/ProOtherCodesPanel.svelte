@@ -18,9 +18,14 @@
   import { directAnalysis } from '../../lib/store/direct-analysis.svelte';
   import ProDirectAnalysis from './ProDirectAnalysis.svelte';
   import {
-    OTHER_CODES, otherCode, memberContexts, runOtherCode,
-    type OtherCodeId, type OtherCodeRun, type OtherCodeRow,
+    OTHER_CODES, otherCode, memberContexts, runOtherCode, certifyOtherCode,
+    type OtherCodeId, type OtherCodeRun, type OtherCodeRow, type MemberCertificate,
   } from '../../lib/engine/design/other-codes';
+  import type { MemberContext } from '../../lib/engine/design/other-codes/types';
+  import { certificateStore } from '../../lib/store/certificate.svelte';
+  import { runCertify, hasCertify } from '../../lib/engine/certify-jobs';
+  import { formatEnclosure } from '../../lib/utils/certificate-format';
+  import { untrack } from 'svelte';
 
   const FAMILIES = ['steel', 'coldFormed', 'concrete'] as const;
   const CAP = 200;
@@ -55,12 +60,72 @@
       missing = direct ? [] : active.filter((c) => !forces.has(c.id)).map((c) => c.id);
       const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct });
       run = runOtherCode(code, ctxs);
+      runContexts = ctxs;
       runOf = direct ? directAnalysis.result : resultsStore.perCombo3D;
       ranDirect = direct;
     } catch {
       run = null;
       failed = true;
     }
+  }
+
+  /*
+   * ── Certified utilizations (docs/verification/CERTIFY.md, "Certified design checks") ──
+   *
+   * Once the check is shown and the combinations it read are certified (`certificate.svelte.ts`),
+   * the same members and demands go to the code's certified checker, each force with its certified
+   * bound, in the background: the enclosure of each member's utilization, and whether it is
+   * certified to pass or to fail. Only the linear forces the results on screen hold; the direct
+   * analysis is not certified.
+   */
+  let runContexts: MemberContext[] = [];
+  let certRows = $state<Map<number, MemberCertificate> | null>(null);
+  let certPending = $state(false);
+  let certGeneration = 0;
+  $effect(() => {
+    const r = run, live = !stale && !ranDirect, m = certificateStore.multiState, c = code;
+    untrack(() => {
+      const gen = ++certGeneration;
+      certRows = null;
+      certPending = false;
+      if (!r || !live || m.status === 'idle' || !c.certify || !hasCertify(c.certify.name)) return;
+      certPending = true;
+      if (m.status === 'pending') return; // the combinations are being certified; this effect runs again
+      const ctxs = runContexts;
+      setTimeout(async () => {
+        if (gen !== certGeneration) return;
+        let rows: Map<number, MemberCertificate>;
+        try {
+          rows = await certifyOtherCode(c, ctxs, (comboId, id) => certificateStore.comboStationBound3D(comboId, id), runCertify);
+        } catch {
+          rows = new Map();
+        }
+        if (gen !== certGeneration) return;
+        certRows = rows;
+        certPending = false;
+      }, 250);
+    });
+  });
+
+  const certCounts = $derived.by(() => {
+    const n = { ok: 0, fail: 0, open: 0 };
+    for (const c of certRows?.values() ?? []) {
+      if (c.status === 'ok') n.ok++; else if (c.status === 'fail') n.fail++; else n.open++;
+    }
+    return n;
+  });
+  function certReason(c: Extract<MemberCertificate, { status: 'uncertified' }>): string {
+    return c.reason.startsWith('otherCodes.') ? t(c.reason).replace('{combo}', c.combo ?? '') : c.reason;
+  }
+  function certText(c: MemberCertificate | undefined): string {
+    if (!c) return '—';
+    if (c.status === 'uncertified') return t('otherCodes.cert.not');
+    return `${formatEnclosure(c.lower, c.upper, 4)} ${t(`otherCodes.cert.${c.status}`)}`;
+  }
+  function certTitle(c: MemberCertificate | undefined): string {
+    if (!c) return t('otherCodes.cert.tooltip');
+    if (c.status === 'uncertified') return `${t('otherCodes.cert.not')}: ${certReason(c)}`;
+    return t('otherCodes.cert.tooltip');
   }
 
   function choose(id: OtherCodeId) {
@@ -156,6 +221,13 @@
         <p class="oc-summary" data-testid="other-codes-summary">
           {tp('otherCodes.summary', counts)}
         </p>
+        {#if certPending}
+          <p class="oc-cert pending" data-testid="other-codes-certificate">{t('certificate.pending')}</p>
+        {:else if certRows && certRows.size > 0}
+          <p class="oc-cert" class:ok={certCounts.open === 0} title={t('otherCodes.cert.tooltip')} data-testid="other-codes-certificate">
+            {t('otherCodes.cert.summary').replace('{ok}', String(certCounts.ok)).replace('{fail}', String(certCounts.fail)).replace('{open}', String(certCounts.open))}
+          </p>
+        {/if}
         <table class="oc-table">
           <thead>
             <tr>
@@ -164,6 +236,7 @@
               <th>{t('otherCodes.col.status')}</th>
               <th>{t('otherCodes.col.governs')}</th>
               <th>{t('otherCodes.col.where')}</th>
+              {#if certRows}<th>{t('otherCodes.col.certified')}</th>{/if}
             </tr>
           </thead>
           <tbody>
@@ -175,9 +248,13 @@
                 <td><span class="oc-state {v}">{v === 'pass' ? '✓' : v === 'fail' ? '✗' : '◐'} {t(`otherCodes.status.${v}`)}</span></td>
                 <td>{t(r.reading.governing)}{r.reading.clause ? ` · ${r.reading.clause}` : ''}</td>
                 <td>{r.comboName} · x = {r.stationX.toFixed(2)} m</td>
+                {#if certRows}
+                  {@const cr = certRows.get(r.elementId)}
+                  <td class="oc-cert-cell {cr?.status ?? 'none'}" title={certTitle(cr)} data-testid="other-codes-cert-{r.elementId}">{certText(cr)}</td>
+                {/if}
               </tr>
               {#if v === 'incomplete'}
-                <tr class="oc-missing"><td></td><td colspan="4">{t('otherCodes.missing')} {r.reading.unevaluated.map(label).join(' · ')}</td></tr>
+                <tr class="oc-missing"><td></td><td colspan={certRows ? 5 : 4}>{t('otherCodes.missing')} {r.reading.unevaluated.map(label).join(' · ')}</td></tr>
               {/if}
             {/each}
           </tbody>
@@ -218,5 +295,12 @@
   .oc-state.incomplete { color: var(--st-warn); }
   .oc-missing td { font-size: 0.6rem; color: var(--st-text-3); border-bottom: 1px solid var(--st-hair); }
   .oc-skipped { margin-top: 8px; font-size: 0.64rem; color: var(--st-text-2); }
+  .oc-cert { margin: 0 0 6px; padding: 2px 6px; border: 1px solid var(--st-warn); border-radius: 4px; font-size: 0.64rem; color: var(--st-text-2); cursor: help; }
+  .oc-cert.ok { border-color: var(--st-ok); }
+  .oc-cert.pending { border-color: var(--st-hair); opacity: 0.7; cursor: default; }
+  .oc-cert-cell { font-family: monospace; white-space: nowrap; cursor: help; }
+  .oc-cert-cell.ok { color: var(--st-ok); }
+  .oc-cert-cell.fail { color: var(--st-danger); }
+  .oc-cert-cell.inconclusive, .oc-cert-cell.uncertified { color: var(--st-warn); }
   .oc-skipped ul { margin: 4px 0 0 16px; padding: 0; }
 </style>

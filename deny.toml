@@ -1,0 +1,53 @@
+# cargo-deny policy (https://embarkstudios.github.io/cargo-deny/).
+# Run: cargo deny check   — CI runs it in the `supply-chain` job.
+
+[graph]
+all-features = true
+
+[advisories]
+# Every RustSec advisory (vulnerability, unsound, unmaintained-with-advisory)
+# fails the check unless it is listed here with a reason.
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# Permissive licences, plus the copyleft ones that are compatible with this
+# project's AGPL-3.0 when linked (LGPL is only pulled in on UEFI targets).
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "LGPL-2.1-or-later",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+  "AGPL-3.0-only",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# The workspace crates are `publish = false`; their licence is the repo's.
+ignore = true
+
+[bans]
+# Duplicate versions are reported, not fatal: they come from upstream
+# (windows-sys, getrandom) and are not a security property on their own.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+
+[sources]
+# Only crates.io. A git or alternative-registry dependency must be added here
+# deliberately, so it cannot slip in through a lockfile change.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

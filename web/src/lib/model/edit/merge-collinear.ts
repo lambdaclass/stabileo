@@ -99,6 +99,8 @@ function whyNot(a: Element, b: Element): RefuseReason | null {
   // A semi-rigid end where the two meet is an end condition the merged member would lose.
   const sa = (a as { semiRigid?: { j?: unknown } }).semiRigid, sb = (b as { semiRigid?: { i?: unknown } }).semiRigid;
   if (sa?.j || sb?.i) return 'endConditions';
+  // So is a described tension connection there (a splice): the merged member has no end there.
+  if (a.tensionConnection?.j || b.tensionConnection?.i) return 'endConditions';
   // What the analysis and the design read off the member: the merged one keeps only one of them.
   const same = (x: unknown, y: unknown) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
   const e = (m: Element) => m as { behaviour?: unknown; stiffness?: unknown; kStrong?: unknown; kWeak?: unknown; unbracedLength?: unknown };
@@ -224,6 +226,10 @@ export function mergeCollinear(elementIds: Iterable<number>): MergeReport {
         // The J end is the last segment's, its spring included.
         semiRigid: keep.semiRigid?.i || last.semiRigid?.j
           ? { ...(keep.semiRigid?.i ? { i: keep.semiRigid.i } : {}), ...(last.semiRigid?.j ? { j: last.semiRigid.j } : {}) }
+          : undefined,
+        // The tension connection likewise: end I the first segment's, end J the last's.
+        tensionConnection: keep.tensionConnection?.i || last.tensionConnection?.j
+          ? { ...(keep.tensionConnection?.i ? { i: keep.tensionConnection.i } : {}), ...(last.tensionConnection?.j ? { j: last.tensionConnection.j } : {}) }
           : undefined,
       };
       if (segs.some((e) => e.reinforcement)) report.reinforcementDropped++;

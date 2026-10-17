@@ -10,11 +10,11 @@ import { localizeEngineText } from '../i18n/engine-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, solveStiffnessFactors, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
-import { solvePDelta3DCorrected, amplification } from './pdelta-forces';
+import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -957,6 +957,71 @@ function finalizeSolve2DResults(results: AnalysisResults, prep: Solve2DPreparati
   return results;
 }
 
+/**
+ * The wire input of every plain linear static solve this module returned, keyed by its result,
+ * so the certificate (`store/certificate.svelte.ts`) is computed for exactly what was solved.
+ * Results of any other analysis (non-linear, combinations, …) are never in it.
+ */
+const certifiableInputs = new WeakMap<object, CertifiableInput>();
+export interface CertifiableInput { dim: '2d' | '3d'; wire: () => Record<string, any> }
+
+function certifiable<R extends object>(results: R, dim: '2d' | '3d', wire: () => Record<string, any>): R {
+  certifiableInputs.set(results, { dim, wire });
+  return results;
+}
+
+/** The input a published linear static result was solved from, or null when it cannot be certified. */
+export function certifiableInputOf(results: object): CertifiableInput | null {
+  return certifiableInputs.get(results) ?? null;
+}
+
+/**
+ * The multi-case wire input behind every case and combination result one engine multi-case solve
+ * returned (`certify_multi_case_2d/3d` takes it as it is), with the engine names of each case and
+ * combination by id. Each result object is keyed to it; a result rebuilt afterwards (a settlement
+ * added, a spectral part superposed, helper nodes pruned…) is a new object, and is not certified.
+ */
+export interface CertifiableMultiCase {
+  dim: '2d' | '3d';
+  wire: () => Record<string, any>;
+  caseNames: Map<number, string>;
+  comboNames: Map<number, string>;
+}
+const certifiableMulti = new WeakMap<object, { input: CertifiableMultiCase; id: number }>();
+
+function invert<K, V>(m: Map<K, V>): Map<V, K> {
+  return new Map([...m].map(([k, v]) => [v, k]));
+}
+
+function certifiableMultiCase(perCase: Map<number, object>, perCombo: Map<number, object>, input: CertifiableMultiCase): void {
+  for (const [id, r] of perCase) if (input.caseNames.has(id)) certifiableMulti.set(r, { input, id });
+  for (const [id, r] of perCombo) if (input.comboNames.has(id)) certifiableMulti.set(r, { input, id });
+}
+
+/**
+ * What of a published combination bundle can be certified: the multi-case input, the cases and
+ * combinations (by id) that are still that solve's results, and whether the envelope is (every
+ * combination of it is, and every one is published). Null when none is.
+ */
+export function certifiableMultiCaseOf(
+  perCase: Map<number, object>,
+  perCombo: Map<number, object>,
+): { input: CertifiableMultiCase; cases: Set<number>; combos: Set<number>; envelope: boolean } | null {
+  let input: CertifiableMultiCase | null = null;
+  const own = (id: number, r: object) => {
+    const tag = certifiableMulti.get(r);
+    if (!tag || tag.id !== id) return false;
+    input ??= tag.input;
+    return tag.input === input;
+  };
+  const cases = new Set([...perCase].filter(([id, r]) => own(id, r)).map(([id]) => id));
+  const combos = new Set([...perCombo].filter(([id, r]) => own(id, r)).map(([id]) => id));
+  if (!input) return null;
+  const found: CertifiableMultiCase = input;
+  const envelope = combos.size > 0 && combos.size === perCombo.size && combos.size === found.comboNames.size;
+  return { input: found, cases, combos, envelope };
+}
+
 export function validateAndSolve2D(
   model: ModelData,
   includeSelfWeight = false,
@@ -970,7 +1035,7 @@ export function validateAndSolve2D(
     const results = solveStructure(prep.input);
     const dt = performance.now() - t0;
     console.log(`Estructura resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
-    return finalizeSolve2DResults(results, prep);
+    return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
     return t('svc.solverError').replace('{n}', err.message);
@@ -1070,7 +1135,7 @@ export async function validateAndSolve2DAsync(
     }
     const dt = performance.now() - t0;
     console.log(`Estructura resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
-    const finalResults = finalizeSolve2DResults(results, prep);
+    const finalResults = certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
     solveCacheSet(cacheKey, finalResults);
     return finalResults;
   } catch (err: any) {
@@ -1212,6 +1277,11 @@ function solveCombinations2DCore(
       const id = comboNameToId.get(cr.name);
       if (id != null) perCombo.set(id, cr.results);
     }
+    certifiableMultiCase(perCase, perCombo, {
+      dim: '2d',
+      wire: () => ({ solver: input2DToWireObject(baseInput), loadCases: mcLoadCases, combinations: mcCombinations }),
+      caseNames: invert(caseNameToId), comboNames: invert(comboNameToId),
+    });
 
     console.log(`[solveCombinations2D] WASM multi-case: ${tWasm.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
@@ -2117,7 +2187,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
   try {
     const t0 = performance.now();
     let results: AnalysisResults3D;
-    if (hasNonlinearBehaviour(model)) {
+    const nonlinear = hasNonlinearBehaviour(model);
+    if (nonlinear) {
       const r = solveNonlinear3D(solvableModel(model), input);
       results = { ...r.results, nonlinear: r.report };
     } else {
@@ -2127,7 +2198,8 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
     const mechanism = excitedMechanism3D(results);
     if (mechanism) return mechanism;
-    return finalizeSolve3DResults(results, model);
+    const finalResults = finalizeSolve3DResults(results, model);
+    return nonlinear ? finalResults : certifiable(finalResults, '3d', () => input3DToWireObject(input));
   } catch (err: any) {
     console.error('Solver 3D error:', err);
     return t('svc.solver3dError').replace('{n}', err.message);
@@ -2167,7 +2239,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     console.log(`Estructura 3D resuelta en ${dt.toFixed(1)} ms — ${model.nodes.size} nodos, ${model.elements.size} elementos`);
     const mechanism = excitedMechanism3D(results);
     if (mechanism) return mechanism;
-    const finalResults = finalizeSolve3DResults(results, model);
+    const finalResults = certifiable(finalizeSolve3DResults(results, model), '3d', () => wire);
     solveCacheSet(cacheKey, finalResults);
     return finalResults;
   } catch (err: any) {
@@ -2444,6 +2516,13 @@ function solveCombinations3DCore(
       const id = comboNameToId.get(cr.name);
       if (id != null) perCombo.set(id, cr.results);
     }
+    // The axial shares given back below add the same load-only term to the exact and the computed
+    // forces, so the certificate's bounds on their difference stand.
+    certifiableMultiCase(perCase, perCombo, {
+      dim: '3d',
+      wire: () => ({ solver: input3DToWireObject(baseInput), loadCases: mcLoadCases, combinations: mcCombinations }),
+      caseNames: invert(caseNameToId), comboNames: invert(comboNameToId),
+    });
 
     // The axial part of member loads, given back to the members (`axial-shares.ts`): to each
     // case from its own loads, to each combination with its factors, and the envelope, which
@@ -2613,8 +2692,8 @@ function solveCombinations3DNonlinear(
  * Combinations solved with P-Delta, each on its own factored loads (`analysis.perCombination`).
  *
  * The cases stay linear, since a case on its own is a service picture and not a combination to
- * design for. A settlement goes into each combination once, with its loads. The member forces
- * carry the geometric part (`pdelta-forces.ts`), and whether a second-order equilibrium exists
+ * design for. A settlement goes into each combination once, with its loads. The engine's member
+ * forces carry the geometric part, (K + Kg)·u, and whether a second-order equilibrium exists
  * is read from the displacements rather than from the engine's flag (`direct-analysis.ts`).
  */
 function solveCombinations3DPDelta(
@@ -2664,7 +2743,7 @@ function solveCombinations3DPDelta(
       if (!on) return t('svc.emptyModel');
       if (typeof on === 'string') return on;
       const full = { ...on, loads };
-      const r = solvePDelta3DCorrected(full, 30, 1e-6, false);
+      const r = solvePDelta3D(full, 30, 1e-6);
       const amp = amplification(r);
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
@@ -2880,6 +2959,24 @@ async function solveCombinations3DParallelCore(
     const envelope = computeEnvelope3D(allComboResults);
     if (!envelope) return t('svc.envelopeError3d');
     if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
+    /*
+     * Certified as the multi-case export would solve it: the same cases from the same wire input
+     * (the solve is deterministic), combined by the engine's own `combine_results_3d`, as the
+     * multi-case solve combines them.
+     */
+    certifiableMultiCase(perCase, perCombo, {
+      dim: '3d',
+      wire: () => ({
+        solver: baseWire,
+        loadCases: caseInputs.filter((c) => perCase.has(c.caseId)).map((c) => ({ name: `case#${c.caseId}`, loads: c.input.loads })),
+        combinations: combinations.filter((c) => perCombo.has(c.id)).map((c) => ({
+          name: `combo#${c.id}`,
+          factors: c.factors.filter((x) => perCase.has(x.caseId)).reduce<Record<string, number>>((f, x) => ({ ...f, [`case#${x.caseId}`]: (f[`case#${x.caseId}`] ?? 0) + x.factor }), {}),
+        })),
+      }),
+      caseNames: new Map([...perCase.keys()].map((id) => [id, `case#${id}`])),
+      comboNames: new Map(combinations.filter((c) => perCombo.has(c.id)).map((c) => [c.id, `combo#${c.id}`])),
+    });
 
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);

@@ -44,6 +44,12 @@ export interface BoltInput {
   plateThickness: number; // mm — thinnest connected plate
   plateFu: number;        // MPa — plate ultimate strength
   edgeDistance: number;    // mm — distance from bolt center to nearest edge
+  /**
+   * Centre-to-centre spacing along the force, mm. Optional: when absent and there is more than
+   * one bolt, the interior bolts are taken at the CIRSOC J.3.3 minimum, 3d — the worst spacing
+   * the code admits, so the result cannot overstate bearing.
+   */
+  spacing?: number;
   Vu: number;             // kN — factored shear demand
   Tu: number;             // kN — factored tension demand
 }
@@ -77,7 +83,15 @@ export function checkBoltGroup(input: BoltInput): BoltResult {
   // Tabla J.3.3: the standard hole is d + 2 mm up to M22 and d + 3 mm from M24.
   const holeD = d + (d >= 24 ? 3 : 2);
   const Lc = Math.max(Le - holeD / 2, 0); // clear distance to edge
-  const RnBearingPerBolt = Math.min(1.2 * Lc * t * Fu, 2.4 * d * t * Fu);
+  /*
+   * §J.3.10: an interior bolt's Lc is `s − dh`, not the edge's. Without the layout this does not
+   * know which bolts are interior, so every bolt takes the smaller of the two — conservative.
+   * Using the end bolt's Lc for all of them overstated bearing whenever the edge distance was
+   * generous: at s = 3d an interior bolt never reaches the 2,4 d t Fu cap.
+   */
+  const LcInterior = Math.max((input.spacing ?? 3 * d) - holeD, 0);
+  const LcBolt = n > 1 ? Math.min(Lc, LcInterior) : Lc;
+  const RnBearingPerBolt = Math.min(1.2 * LcBolt * t * Fu, 2.4 * d * t * Fu);
   const phiRnBearing = PHI_BEARING * RnBearingPerBolt * n / 1000; // kN
 
   const ratioShear = Math.abs(Vu) > 0.001 ? Math.abs(Vu) / phiRnShear : 0;
@@ -114,6 +128,12 @@ export interface WeldInput {
   Fexx: number;         // MPa — electrode strength (E70xx = 490 MPa)
   Vu: number;           // kN — factored shear demand on weld
   plateThickness: number; // mm — thickest connected plate (for min size check)
+  /**
+   * Whether the run is an end-loaded fillet (§J.2.1 / AISC J2.2b(d)). Unset is end-loaded —
+   * β ≤ 1 is the conservative side, and the same default as `designFilletWeld` and the engine's
+   * weld groups. Pass `false` only for a weld the code does not discount.
+   */
+  endLoaded?: boolean;
 }
 
 export interface WeldResult {
@@ -128,16 +148,20 @@ export interface WeldResult {
 }
 
 export function checkFilletWeld(input: WeldInput): WeldResult {
-  const { legSize: w, length: L, Fexx, Vu, plateThickness: tp } = input;
+  const { legSize: w, length: L, Fexx, Vu, plateThickness: tp, endLoaded = true } = input;
 
   const throatEff = 0.707 * w;
 
-  // Length reduction factor (β)
+  // End-loaded length reduction (§J.2.1 / AISC J2.2b(d)): β = 1,2 − 0,002 L/w ≤ 1 for
+  // 100 w < L ≤ 300 w, and above 300 w the effective length is 180 w — NOT 0,6 L, which at
+  // L = 600 w would credit 360 w, twice what the clause allows. Applied to the total length
+  // given, which can only make β smaller than per-run (the conservative side).
   const ratio_Lw = L / w;
-  let beta = 1.0;
-  if (ratio_Lw > 300) beta = 0.6;
-  else if (ratio_Lw > 100) beta = 1.2 - 0.002 * ratio_Lw;
-  const Le = beta * L;
+  let Le = L;
+  if (endLoaded && w > 0) {
+    if (ratio_Lw > 300) Le = 180 * w;
+    else if (ratio_Lw > 100) Le = Math.min(1, 1.2 - 0.002 * ratio_Lw) * L;
+  }
 
   const Aw = throatEff * Le; // mm²
   const phiRn = PHI_WELD * 0.6 * Fexx * Aw / 1000; // kN

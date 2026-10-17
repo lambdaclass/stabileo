@@ -236,7 +236,19 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     };
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let cs = match FreeConstraintSystem::build_2d(input, &dof_num) {
+        Ok(cs) => cs,
+        Err(reason) => return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
+            is_solvable: false,
+            invalid_input: Some(reason),
+        },
+    };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let k_s = if let Some(ref cs) = cs {
         cs.reduce_matrix(&k_ff)
@@ -390,20 +402,8 @@ fn fast_solvable_2d(
     nf: usize,
     degree: i32,
 ) -> Option<KinematicResult> {
-    // `assemble_sparse_2d` neither rotates K for an inclined roller nor rotates
-    // a spring's diagonal block the way the dense assembler does
-    // (`assemble_stiffness_2d`), so on either support kind the sparse K_ff is a
-    // different matrix: a slide-along-the-incline mechanism would come out
-    // "solvable". Defer to the dense path, which assembles them properly.
-    for sup in input.supports.values() {
-        if sup.support_type == "inclinedRoller" && sup.angle.is_some() {
-            return None;
-        }
-        if sup.support_type == "spring" && sup.angle.is_some_and(|a| a.abs() > 1e-15) {
-            return None;
-        }
-    }
-
+    // `assemble_sparse_2d` is the linear path's K_ff, the dense free block
+    // entry for entry (rotated springs, inclined-roller frames included).
     let sasm = assemble_sparse_2d(input, dof_num);
     // Largest diagonal entry, for both tolerances below.
     let k = &sasm.k_ff;
@@ -671,7 +671,19 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     };
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let cs = match FreeConstraintSystem::build_3d(input, &dof_num) {
+        Ok(cs) => cs,
+        Err(reason) => return KinematicResult {
+            degree,
+            classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),
+            mechanism_modes: 0,
+            mechanism_nodes: Vec::new(),
+            unconstrained_dofs: Vec::new(),
+            diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
+            is_solvable: false,
+            invalid_input: Some(reason),
+        },
+    };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let k_s = if let Some(ref cs) = cs {
         cs.reduce_matrix(&k_ff)

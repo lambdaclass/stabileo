@@ -11,7 +11,7 @@ import type { Node, Material, Section, Element, Support, Quad } from '../store/m
 import type { AnalysisResults3D } from './types-3d';
 import { formatPDeltaFactor } from './pdelta-result';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
+import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
 import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { ProjectQuantities } from './quantities';
@@ -1208,78 +1208,17 @@ export function generateReportHtml(data: ReportData): string {
     }
 
     // ─── Slab reinforcement ─────────────────────────────────
+    /*
+     * This section used to print slab steel it had made up: q = 10 kN/m² whatever the loads,
+     * Mu = q·L²/10 with L the edge of ONE mesh quad (not the slab's span), f'c = 25 MPa whatever
+     * the material, fy = 420, and "horizontal" judged on the y axis in a Z-up model. None of it
+     * came from the analysis, and a report is what a building is built from. Slab steel is
+     * designed from the analysis moments by the slab design (detailing/slab-design.ts); the
+     * report says so instead of printing a number nobody computed.
+     */
     if (data.quads && data.quads.length > 0) {
-      const nodeMap = new Map(nodes.map(n => [n.id, n]));
-      const matMap = new Map(materials.map(m => [m.id, m]));
-
-      // Find horizontal quads (losas) and compute typical spans
-      const losasFound: Array<{ spanX: number; spanZ: number; thickness: number; fc: number; fy: number }> = [];
-      const seenThicknesses = new Set<number>();
-
-      for (const q of data.quads) {
-        const ns = q.nodes.map(nid => nodeMap.get(nid));
-        if (ns.some(n => !n)) continue;
-        const [p0, p1, , p3] = ns as NonNullable<typeof ns[number]>[];
-        const ax = p1.x - p0.x, ay = p1.y - p0.y, az = (p1.z ?? 0) - (p0.z ?? 0);
-        const bx = p3.x - p0.x, by = p3.y - p0.y, bz = (p3.z ?? 0) - (p0.z ?? 0);
-        const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
-        const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        const yFrac = nLen > 1e-10 ? Math.abs(ny) / nLen : 0;
-        if (yFrac <= 0.7) continue; // skip tabiques
-
-        if (!seenThicknesses.has(q.thickness)) {
-          seenThicknesses.add(q.thickness);
-          const spanA = Math.sqrt(ax * ax + ay * ay + az * az);
-          const spanB = Math.sqrt(bx * bx + by * by + bz * bz);
-          const mat = matMap.get(q.materialId);
-          const fc = mat?.fy ? 25 : 25; // default f'c
-          const fy = 420;
-          losasFound.push({ spanX: spanA, spanZ: spanB, thickness: q.thickness, fc, fy });
-        }
-      }
-
-      if (losasFound.length > 0) {
-        html.push(`<div class="page-break"></div>`);
-        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slabReinforcement'))}</h2>`);
-
-        for (const losa of losasFound) {
-          const ratio = Math.max(losa.spanX, losa.spanZ) / Math.min(losa.spanX, losa.spanZ);
-          const isUnidirectional = ratio > 2;
-
-          html.push(`<h3>${escHtml(tr('report.slabLabel'))} e=${(losa.thickness * 100).toFixed(0)} cm — ${isUnidirectional ? escHtml(tr('report.unidirectional')) : escHtml(tr('report.bidirectional'))} (${losa.spanX.toFixed(2)}×${losa.spanZ.toFixed(2)} m)</h3>`);
-
-          // Simple moment estimate for slab strips (qL²/8 or qL²/10 depending on continuity)
-          const q_design = 10; // kN/m² approx (1.2D + 1.6L for typical slab)
-          const shortSpan = Math.min(losa.spanX, losa.spanZ);
-          const Mu_short = q_design * shortSpan * shortSpan / 10; // kN·m/m (interior span)
-
-          const designX = designSlabReinforcement(Mu_short, losa.thickness, losa.fc, losa.fy, 0.025, 'X');
-          const designZ = isUnidirectional
-            ? designSlabReinforcement(0, losa.thickness, losa.fc, losa.fy, 0.025, 'Z') // min reinforcement only
-            : designSlabReinforcement(Mu_short * 0.8, losa.thickness, losa.fc, losa.fy, 0.025, 'Z');
-
-          html.push(`<div class="step-block">`);
-          html.push(renderStep(`d = ${(losa.thickness * 100).toFixed(0)} - ${(0.025 * 100).toFixed(1)} - 0.5 = ${(designX.d * 100).toFixed(1)} cm`));
-          html.push(renderStep(`As,min = 0.0018·b·h = 0.0018·100·${(losa.thickness * 100).toFixed(0)} = ${designX.AsMin.toFixed(2)} cm²/m`));
-          html.push(renderStep(`Dir. X: As,req = ${designX.AsReq.toFixed(2)} cm²/m → ${designX.bars}`));
-          html.push(renderStep(`Dir. Z: As,req = ${designZ.AsReq.toFixed(2)} cm²/m → ${designZ.bars}`));
-          html.push(`</div>`);
-
-          // Slab plan SVG
-          const slabSvg = generateSlabReinforcementSvg({
-            spanX: losa.spanX,
-            spanZ: losa.spanZ,
-            thickness: losa.thickness,
-            mxDesign: Mu_short,
-            mzDesign: isUnidirectional ? 0 : Mu_short * 0.8,
-            barsX: designX.bars,
-            barsZ: designZ.bars,
-            asxProv: designX.AsProv,
-            aszProv: designZ.AsProv,
-          });
-          html.push(`<div class="svg-container">${slabSvg}</div>`);
-        }
-      }
+      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slabReinforcement'))}</h2>`);
+      html.push(`<p>${escHtml(tr('report.slabNotDesignedHere'))}</p>`);
     }
 
     // Detailing summary (anchorage / splice / spacing)

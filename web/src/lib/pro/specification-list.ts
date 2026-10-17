@@ -45,6 +45,12 @@ export function memberSpecifications(e: Element, t: T, m?: Pick<StructureModel, 
   if (e.unbracedLength !== undefined || e.kStrong !== undefined || e.kWeak !== undefined) {
     spec(t('spec.members.designLengths'), [e.unbracedLength !== undefined ? `Lb ${e.unbracedLength} m` : '', e.kStrong !== undefined ? `K ${e.kStrong}` : '', e.kWeak !== undefined ? `K' ${e.kWeak}` : ''].filter(Boolean).join(' · '));
   }
+  if (e.tensionConnection) {
+    const end = (c: NonNullable<Element['tensionConnection']>['i']) => !c ? '—'
+      : c.kind === 'welded' ? `${t('steel.tc.kind.welded')} · ${t(`steel.tc.connected.${c.connected}`)}`
+        : `${t('steel.tc.kind.bolted')} ${c.lines ?? '?'}×${c.boltsPerLine ?? '?'} M${c.diameterMm ?? '?'} · ${t(`steel.tc.connected.${c.connected}`)}`;
+    spec(t('steel.tc.title'), `I: ${end(e.tensionConnection.i)} · J: ${end(e.tensionConnection.j)}`);
+  }
   return out;
 }
 

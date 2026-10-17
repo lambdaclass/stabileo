@@ -1,0 +1,52 @@
+[package]
+name = "dedaliano-engine-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# Fuzz targets for the engine's JSON entry points (docs/verification/FUZZ_MUTANTS.md).
+# Run with `cargo fuzz run <target>` from engine/.
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+serde = "1.0"
+serde_json = "1.0"
+dedaliano-engine = { path = "..", default-features = false }
+
+# Not part of the engine workspace.
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "json_static"
+path = "fuzz_targets/json_static.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_dynamics"
+path = "fuzz_targets/json_dynamics.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_plastic"
+path = "fuzz_targets/json_plastic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "model_certify"
+path = "fuzz_targets/model_certify.rs"
+test = false
+doc = false
+bench = false

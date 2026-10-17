@@ -264,7 +264,7 @@ one headline number.
 | Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs`, recent drilling/nodal-stress/thermal upgrades | Higher fidelity shell behavior, convergence quality, and more benchmark depth |
 | MITC4 quadrilateral shell element | Strong | `element/quad.rs` with Bathe-Dvorkin (1986) ANS shear tying plus EAS-7 membrane enhancement, integrated through standard input and assembly, nonlinear 3D stress recovery, full nodal stress tensor recovery, shell-quality diagnostics, and Jacobian/warping detection. Scordelis-Lo 84%, Navier plate 93%, buckling 102%, modal 99.9% of reference. | Extreme non-planar shell cases like the pinched hemisphere, Raasch hook, and twisted beam still expose formulation limits |
 | MITC9 9-node quadrilateral shell element | Strong | `element/quad9.rs` with ANS shear tying (Bucalem & Bathe 1993), Hughes-Brezzi drilling stabilization, 3×3 Gauss quadrature, 54 DOFs. Full solver-stack integration: dense+sparse assembly, mass, geometric stiffness, buckling, stress recovery, all load types. Navier plate 2×2: 98%, Scordelis-Lo 2×2: 96%, spherical cap self-convergence 63%→92%→100%. 4 acceptance models (cantilever, mixed beam+slab, cylindrical tank, modal plate). | Curved/non-planar frontier remains weaker than SHB8-ANS; corotational extension |
-| SHB8-ANS 8-node solid-shell element | Strong | `element/solid_shell.rs` with ANS anti-locking, full solver-stack integration, and strong gains on the curved/non-planar frontier. Hemisphere 16×16 improves to ~0.26 of reference, twisted beam improves into ~0.03–0.08 range, and flat-plate behavior remains credible. | Needs broader acceptance/workflow coverage, hardening, and performance maturity |
+| SHB8-ANS 8-node solid-shell element | Strong | `element/solid_shell.rs` with covariant ANS (Dvorkin–Bathe transverse shear, Betsch–Stein thickness strain), frame invariant and patch-test exact on distorted, tilted meshes; full solver-stack integration. Scordelis-Lo 8×8: 96%, twisted beam (load B) 8×1: 82%, thin cantilever free of shear locking to t/L = 1/1000. Still membrane-locked on the hemisphere (~1e-3) and Poisson-thickness-locked on plates (Navier ~84%; no EAS). | Needs broader acceptance/workflow coverage, hardening, and performance maturity |
 | Curved shell element | Strong | `element/curved_shell.rs` with direct curved-geometry formulation, consistent mass, geometric stiffness, pressure/self-weight/thermal/edge loading, stress recovery, and strong hemisphere performance. Hemisphere 8×8: ~0.94, 16×16: ~0.99, hemisphere-hole 16×16: ~1.00, Navier flat plate: ~0.93, Scordelis-Lo: ~0.82. | Twisted beam and Raasch hook remain weaker than ideal; family still needs broader workflow guidance and hardening |
 
 **MITC4 vs MITC9 vs SHB8-ANS vs Curved-Shell Comparison**
@@ -272,12 +272,12 @@ one headline number.
 | Benchmark | MITC4 | MITC9 | SHB8-ANS | Curved shell | Notes |
 |-----------|-------|-------|-------|
 | Navier plate (SS, uniform p) | 4×4: 93% | 2×2: 98%, 4×4: 95% | 81–84% | ~93% | MITC9 is strongest on efficient flat-shell accuracy; curved shell remains credible on flat behavior |
-| Scordelis-Lo barrel vault | 6×6: 84% | 2×2: 96%, 6×6: 85% | — | ~82% | MITC9 is strongest here at low mesh density; curved shell is comparable and acceptable |
+| Scordelis-Lo barrel vault | 6×6: 84% | 2×2: 96%, 6×6: 85% | 6×6: 95%, 8×8: 96% | ~82% | MITC9 is strongest here at low mesh density; curved shell is comparable and acceptable |
 | Spherical cap R/t=100 | 4→8→16: 70→93→99% | 4→8→16: 63→92→100% | — | strong | MITC4, MITC9, and curved shell all perform well in the practical curved-shell zone |
 | Hypar (neg. curvature) | 4→8→16→32: 15→42→76→100% | 4→8→16: 24→57→100% | — | — | MITC9 converges faster on this benchmark family |
-| Twisted beam (MacNeal-Harder) | ~0.2% | ~0.1% | ~3–8% | ~1%+ | Curved shell improves materially over MITC4/MITC9; SHB8-ANS remains better on this frontier |
+| Twisted beam (MacNeal-Harder) | ~0.2% | ~0.1% | load B, 4×1: 67%, 8×1: 82% | ~1%+ | Curved shell improves materially over MITC4/MITC9; SHB8-ANS remains better on this frontier |
 | Raasch hook (150° arc) | ~0.01% | ~0.01% | — | very low but nonzero | Frontier benchmark; keep as an aspirational tracker |
-| Hemisphere | locked / tens× | locked / tens× | ~0.26 | ~0.94–1.00 | Curved shell is the strongest current family on the hemisphere class |
+| Hemisphere | locked / tens× | locked / tens× | locked (~1e-3, membrane) | ~0.94–1.00 | Curved shell is the strongest current family on the hemisphere class |
 | Modal SS plate (f₁) | 8×8: 99.9% | 4×4: 95.8% | — | — | MITC4 and MITC9 are the clearest modal shell options today |
 | Buckling (flat plate) | 8×8: 102% | — | — | — | MITC4 currently has the clearest flat-shell buckling benchmark line |
 

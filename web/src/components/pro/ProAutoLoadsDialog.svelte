@@ -44,7 +44,6 @@
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import { allOptionsForRole, bindingLabel, optionIsAvailable, optionLabel } from '../../lib/codes/roles';
-  import { messageIdentity } from '../../lib/codes/message';
   /*
    * Seismic comes from INPRES-CIRSOC 103 Parte I (2018) now.
    *
@@ -709,7 +708,7 @@
                   <div class="al-error" data-testid="al-case-warnings" role="alert">
                     <strong>{t('autoLoad.caseWarnings')}</strong>
                     <ul class="al-list">
-                      {#each delta.warnings as w (messageIdentity(w))}<li>{te(w)}</li>{/each}
+                      {#each identifyMessages(delta.warnings) as w (w.id)}<li>{te(w.message)}</li>{/each}
                     </ul>
                   </div>
                 {/if}
@@ -764,13 +763,13 @@
               {#if plan.assumptions.length > 0}
                 <div class="al-warn" data-testid="al-assumptions">
                   <strong>{t('autoLoad.assumptions')}</strong>
-                  <ul class="al-list">{#each plan.assumptions as a (messageIdentity(a))}<li>{te(a)}</li>{/each}</ul>
+                  <ul class="al-list">{#each identifyMessages(plan.assumptions) as a (a.id)}<li>{te(a.message)}</li>{/each}</ul>
                 </div>
               {/if}
               {#if plan.unsupportedKeys.length > 0}
                 <div class="al-warn" data-testid="al-unsupported">
                   <strong>{t('autoLoad.notCovered')}</strong>
-                  <ul class="al-list">{#each plan.unsupportedKeys as u (messageIdentity(u))}<li>{te(u)}</li>{/each}</ul>
+                  <ul class="al-list">{#each identifyMessages(plan.unsupportedKeys) as u (u.id)}<li>{te(u.message)}</li>{/each}</ul>
                 </div>
               {/if}
               <details data-testid="al-derivation">

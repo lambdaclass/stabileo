@@ -2,11 +2,17 @@
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
   import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
+  import { incrementalOutcome, convergedPercent } from '../../lib/engine/incremental-outcome';
   import ProUserSpectra from './dynamics/ProUserSpectra.svelte';
   import type { MassSourceReport } from '../../lib/engine/dynamics/mass-source';
   import MassSourcePanel from './dynamics/MassSourcePanel.svelte';
   import TimeHistoryPanel from './dynamics/TimeHistoryPanel.svelte';
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
+  import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
+  import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import ModalCertificate from '../advanced/ModalCertificate.svelte';
+  import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
+  import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
   import {
     densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
@@ -44,8 +50,8 @@
     buildSectionGeometry,
     analyzeSectionTorsion,
   } from '../../lib/engine/wasm-solver';
-  // Member forces with the geometric stiffness the engine leaves out; see `pdelta-forces.ts`.
-  import { solvePDelta3DCorrected as wasmPDelta3D, amplification } from '../../lib/engine/pdelta-forces';
+  import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
+  import { amplification } from '../../lib/engine/pdelta-amplification';
   // The SSI and Winkler wrappers return the engine's answer as is; whoever shows it finishes it.
   import { finishSolve3D } from '../../lib/engine/solve-finish';
   // Every solver below is a WASM export that throws a bare string, which has no
@@ -469,9 +475,13 @@
   // Displacements never sit at the top level: the incremental solvers (corotational, fiber) nest
   // them under `.results`. Pushover gives each step's increment, so the state at collapse is
   // their sum; the last step's alone is only the last increment.
+  // The incremental solve's outcome: an unconverged one shows how far it got, never displacements.
+  const nlOutcome = $derived(nlResult && nlResult.converged != null ? incrementalOutcome(nlResult) : null);
   const nlDisplacements = $derived(
-    nlResult?.results?.displacements
-      ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : [])
+    nlOutcome
+      ? (nlOutcome.kind === 'converged' ? nlOutcome.displacements : [])
+      : (nlResult?.results?.displacements
+        ?? (nlResult?.steps ? pushoverFrames(nlResult).peakDisplacements : []))
   );
 
   function handleNonlinear() {
@@ -923,17 +933,19 @@
       } else {
         vertices = sectionOutline();
       }
-      secResult = analyzeSection({ polygons: [{ vertices }] });
+      // The polygon analyser's `j` is Routh's approximation, not a torsion constant: it read 7 %
+      // high on a solid rectangle and more than double on an I. It is never shown.
+      secResult = { ...analyzeSection({ polygons: [{ vertices }] }), j: null };
       /*
-       * J from the Saint-Venant solve on the section's own mesh. The polygon analyser's J read
-       * 7 % high on a solid rectangle and more than double on an I; the torsion solve agrees
-       * with Roark within its mesh.
+       * J from the Saint-Venant solve on the section's own mesh, a lower bound that agrees with
+       * the exact series and an independent FE solve (engine/tests/section_fe_reference.rs). If
+       * the solve fails J is left blank: falling back to Routh would print an unconservative J.
        */
       try {
         const g = buildSectionGeometry({ kind: 'custom', outer: vertices, holes: [] } as never).geometry;
         const j = analyzeSectionTorsion({ geometry: g }).j;
         if (Number.isFinite(j) && j > 0) secResult = { ...secResult, j };
-      } catch { /* keep the analyser's own value */ }
+      } catch { /* J stays unavailable */ }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, 'Error') });
     }
@@ -1014,7 +1026,7 @@
           — B2 = {formatPDeltaFactor(pdeltaResult.b2)}
           {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
-        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{/if}
+        {#if pdeltaRefused}<p class="adv-refused" role="alert" data-testid="pdelta-refused">{pdeltaRefused}</p>{:else}<PDeltaCertificate result={resultsStore.pdeltaResult3D} />{/if}
       {/if}
     </div>
 
@@ -1066,6 +1078,7 @@
             </tbody>
           </table>
         </div>
+        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
       {/if}
     </div>
 
@@ -1129,6 +1142,8 @@
         <div class="adv-inline" data-testid="spectral-base-shear">
           Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
+        <SpectralCertificate result={spectralResult.X} label="X" />
+        <SpectralCertificate result={spectralResult.Y} label="Y" />
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>{t('adv.mode')}</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
@@ -1176,6 +1191,7 @@
             </tbody>
           </table>
         </div>
+        <BucklingCertificate certificate={bucklingResult.certificate} />
       {/if}
     </div>
 
@@ -1241,6 +1257,7 @@
           {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}
           {#if harmonicElapsed != null} — {harmonicElapsed >= 1000 ? (harmonicElapsed / 1000).toFixed(2) + ' s' : harmonicElapsed.toFixed(0) + ' ms'} (WASM){/if}
         </div>
+        <HarmonicCertificate result={harmResult} />
         {#if harmResult.responsePoints?.length}
           <details>
             <summary class="adv-steps-toggle">{t('pro.frfCurve')}</summary>
@@ -1311,13 +1328,16 @@
           {#if nlResult.collapseFactor != null}λ_c={fmtNum(nlResult.collapseFactor)}{/if}
           {#if nlResult.hinges != null} — {nlResult.hinges.length} {t('pro.hinges')}{/if}
           {#if nlResult.isMechanism != null} — {nlResult.isMechanism ? t('pro.mechanism') : t('pro.stable')}{/if}
-          {#if nlResult.converged != null} — {nlResult.converged ? t('pro.converged') : t('pro.notConverged')}{/if}
+          {#if nlOutcome?.kind === 'converged'} — {t('pro.converged')}{/if}
           {#if nlResult.steps != null} — {nlResult.steps.length} {t('pro.steps')}{/if}
           {#if nlType === 'pushover' && nlAssumed.length > 0}<div class="adv-hint" data-testid="pushover-assumed">{tp('pro.pushoverAssumed', { names: nlAssumed.join(', ') })}</div>{/if}
           {#if nlDisplacements.length}
             — δmax={fmtNum(Math.max(...nlDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0))))} m
           {/if}
         </div>
+        {#if nlOutcome?.kind === 'notConverged'}
+          <p class="adv-refused" role="alert" data-testid="nl-not-converged">{tp('pro.corotNotConverged', { pct: convergedPercent(nlOutcome.loadFactor) })}</p>
+        {/if}
         {#if nlType === 'pushover' && nlResult.steps?.length}
           <PushoverView result={nlResult} modelVersion={nlVersion} target={pushTargetKind === 'none' ? null : { kind: pushTargetKind, value: pushTarget }} />
         {/if}

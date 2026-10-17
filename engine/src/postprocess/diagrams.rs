@@ -71,6 +71,19 @@ fn build_sampling_positions(
     positions.into_iter().map(|k| k as f64 / 1e12).collect()
 }
 
+/// The stations (t ∈ [0, 1]) at which `compute_diagrams_2d` samples diagram
+/// `kind` of one member: a regular grid of 21, plus each point load's position
+/// and its ±1e-6 neighbours (the axial diagram only when it has axial point
+/// loads). The certified gaps between stations (`certify::stations`) use this.
+pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
+    let has_axial_pl = ef.point_loads.iter().any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
+    if kind == "axial" && !has_axial_pl {
+        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
+    } else {
+        build_sampling_positions(ef.length, &ef.point_loads)
+    }
+}
+
 // ==================== Diagram Value At ====================
 
 /// Return the element's point loads sorted by position `a` (stable, ascending).
@@ -264,29 +277,14 @@ pub fn compute_diagrams_2d(
             (0.0, 0.0, ef.length, 0.0)
         };
 
-        // Sort the point loads and build the station list once per element
-        // rather than once per diagram kind: the previous code redid both
-        // three times over, for identical inputs.
         let sorted_pl = sorted_point_loads(ef);
-        let loaded_positions = build_sampling_positions(ef.length, &ef.point_loads);
-        let plain_positions: Vec<f64> =
-            (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect();
-        let has_axial_pl = ef
-            .point_loads
-            .iter()
-            .any(|pl| pl.px.is_some_and(|px| px.abs() > 1e-15));
-
         let geom = (node_ix, node_iy, node_jx, node_jy);
         for (kind, out) in [
             ("moment", &mut moment),
             ("shear", &mut shear),
             ("axial", &mut axial),
         ] {
-            let positions = if kind == "axial" && !has_axial_pl {
-                &plain_positions
-            } else {
-                &loaded_positions
-            };
+            let positions = &diagram_positions_2d(ef, kind);
             out.push(compute_single_diagram(kind, ef, geom, positions, &sorted_pl));
         }
     }
@@ -296,7 +294,136 @@ pub fn compute_diagrams_2d(
 
 // ==================== Deformed Shape ====================
 
-/// Compute deformed shape for a 2D element using Hermite cubic + particular solution.
+/// Transverse deflection of a loaded 2D member, exact for Euler–Bernoulli
+/// (`flex_s = 0`) and Timoshenko (`flex_s = 1/(G·As)`) beams.
+///
+/// With m = EI·ψ' (sagging), s = m', s' = q and v' = ψ − s/(G·As), integrating
+/// from node i gives, for loads with moment m_q and shear s_q of their own
+/// (zero at x = 0):
+///   m(x) = m0 + s0·x + m_q(x)
+///   ψ(x) = θ_i + (m0·x + s0·x²/2 + ∫₀ˣ m_q)/EI
+///   v(x) = v_i + θ_i·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI − (s0·x + m_q(x))/(G·As)
+/// The unknowns (θ_i, m0, s0) follow from the end conditions: θ_i is the node
+/// rotation or, at a hinge, m(0) = 0; v(L) = v_j; ψ(L) = θ_j or, at a hinge,
+/// m(L) = 0. Without shear flexibility the homogeneous part is the cubic
+/// Hermite interpolation; with it, the exact Timoshenko one.
+struct MemberDeflection {
+    ei: f64,
+    flex_s: f64,
+    v_i: f64,
+    theta_i: f64,
+    m0: f64,
+    s0: f64,
+    points: Vec<(f64, f64)>,
+    dist: Vec<(f64, f64, f64, f64)>,
+}
+
+impl MemberDeflection {
+    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt) of the member loads.
+    fn load_terms(&self, x: f64) -> [f64; 3] {
+        let mut out = [0.0; 3];
+        let mut add = |p: f64, d: f64| {
+            if d > 0.0 {
+                out[0] += p * d;
+                out[1] += p * d * d / 2.0;
+                out[2] += p * d * d * d / 6.0;
+            }
+        };
+        for &(a, p) in &self.points {
+            add(p, x - a);
+        }
+        // A linear load against (x − t)^k, k ≤ 3: degree ≤ 4 in t on
+        // [a, min(b, x)], so 3-point Gauss is exact.
+        let g = (0.6f64).sqrt();
+        for &(qi, qj, a, b) in &self.dist {
+            let hi = b.min(x);
+            if hi <= a || b - a < 1e-12 {
+                continue;
+            }
+            let (half, mid) = (0.5 * (hi - a), 0.5 * (hi + a));
+            for (t, w) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
+                let tt = mid + half * t;
+                let q = qi + (qj - qi) * (tt - a) / (b - a);
+                add(q * w * half, x - tt);
+            }
+        }
+        out
+    }
+
+    fn new(
+        l: f64, ei: f64, flex_s: f64,
+        v_i: f64, r_i: f64, v_j: f64, r_j: f64,
+        hinge_start: bool, hinge_end: bool,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>,
+    ) -> Self {
+        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist };
+        let [mql, mq1, mq2] = d.load_terms(l);
+        // Unknowns x = [θ_i, m0, s0].
+        let r1 = if hinge_start { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], r_i) };
+        let r2 = (
+            [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
+            v_j - v_i - mq2 / ei + flex_s * mql,
+        );
+        let r3 = if hinge_end {
+            ([0.0, 1.0, l], -mql)
+        } else {
+            ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei)
+        };
+        let a = [r1.0, r2.0, r3.0];
+        let rhs = [r1.1, r2.1, r3.1];
+        let det = |m: &[[f64; 3]; 3]| {
+            m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+                - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+        };
+        let den = det(&a);
+        if den.abs() > 0.0 && den.is_finite() {
+            let mut x = [0.0; 3];
+            for c in 0..3 {
+                let mut m = a;
+                for r in 0..3 {
+                    m[r][c] = rhs[r];
+                }
+                x[c] = det(&m) / den;
+            }
+            d.theta_i = x[0];
+            d.m0 = x[1];
+            d.s0 = x[2];
+        }
+        d
+    }
+
+    fn v(&self, x: f64) -> f64 {
+        let [mq, _, mq2] = self.load_terms(x);
+        self.v_i
+            + self.theta_i * x
+            + (self.m0 * x * x / 2.0 + self.s0 * x * x * x / 6.0 + mq2) / self.ei
+            - self.flex_s * (self.s0 * x + mq)
+    }
+}
+
+/// The member deflection of `compute_deformed_shape` without member loads, for
+/// unit end values: row k holds `[c0, c1, c2, c3]` with `v(x) = c0 + c1·x + c2·x² +
+/// c3·x³` when the k-th of (v_i, θ_i, v_j, θ_j) is 1 and the others 0. The
+/// deflection is affine in the end values (the unknowns solve a 3×3 system whose
+/// matrix does not depend on them) with exactly these coefficients; the load
+/// terms do not depend on the end values. `certify::deflection` bounds it.
+pub(crate) fn deflection_shape_cubics(
+    l: f64, ei: f64, flex_s: f64, hinge_start: bool, hinge_end: bool,
+) -> [[f64; 4]; 4] {
+    let mut out = [[0.0; 4]; 4];
+    for (k, row) in out.iter_mut().enumerate() {
+        let mut e = [0.0; 4];
+        e[k] = 1.0;
+        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new());
+        *row = [d.v_i, d.theta_i - flex_s * d.s0, d.m0 / (2.0 * d.ei), d.s0 / (6.0 * d.ei)];
+    }
+    out
+}
+
+/// Compute deformed shape for a 2D element: the exact deflection of the
+/// loaded member (Euler–Bernoulli, or Timoshenko when `gas` = G·As is given
+/// together with `ei`), see [`MemberDeflection`].
 pub fn compute_deformed_shape(
     node_ix: f64, node_iy: f64,
     node_jx: f64, node_jy: f64,
@@ -307,6 +434,7 @@ pub fn compute_deformed_shape(
     hinge_start: bool,
     hinge_end: bool,
     ei: Option<f64>,
+    gas: Option<f64>,
     load_qi: Option<f64>,
     load_qj: Option<f64>,
     load_points: &[(f64, f64)], // (a, p)
@@ -322,9 +450,6 @@ pub fn compute_deformed_shape(
     let u_i = u_ix * cos + u_iy * sin;
     let u_j = u_jx * cos + u_jy * sin;
 
-    let l2 = l * l;
-    let l3 = l2 * l;
-
     // Build distributed loads list
     let mut all_dist: Vec<(f64, f64, f64, f64)> = Vec::new();
     if !dist_loads.is_empty() {
@@ -337,129 +462,31 @@ pub fn compute_deformed_shape(
         }
     }
 
-    let has_dist = !all_dist.is_empty();
-    let has_pt = !load_points.is_empty();
+    // Without EI the loads cannot be turned into curvature: the shape is the
+    // (load-free) Hermite interpolation of the end displacements.
     let ei_val = ei.unwrap_or(0.0);
-    let has_loads = ei_val > 1e-6 && (has_dist || has_pt);
-
-    // Compute v''_p at 0 and L
-    let mut vpp_p0 = 0.0;
-    let mut vpp_pl = 0.0;
-
-    if has_loads {
-        for &(qi, qj, a, b) in &all_dist {
-            let is_full = a < 1e-10 && (b - l).abs() < 1e-10;
-            if is_full {
-                vpp_p0 += l2 * (4.0 * qi + qj) / (60.0 * ei_val);
-                vpp_pl += l2 * (qi + 4.0 * qj) / (60.0 * ei_val);
-            } else {
-                // Simpson's rule
-                let n_simp = 20;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let h = span / n_simp as f64;
-                for j in 0..=n_simp {
-                    let t = j as f64 / n_simp as f64;
-                    let x_load = a + t * span;
-                    let q_at = qi + (qj - qi) * t;
-                    let w = if j == 0 || j == n_simp { h / 3.0 }
-                        else if j % 2 == 1 { 4.0 * h / 3.0 }
-                        else { 2.0 * h / 3.0 };
-                    let dp = q_at * w;
-                    if dp.abs() < 1e-15 { continue; }
-                    let bp = l - x_load;
-                    vpp_p0 += dp * x_load * bp * bp / (ei_val * l2);
-                    vpp_pl += dp * x_load * x_load * bp / (ei_val * l2);
-                }
-            }
-        }
-
-        for &(a_pt, p) in load_points {
-            let bp = l - a_pt;
-            vpp_p0 += p * a_pt * bp * bp / (ei_val * l2);
-            vpp_pl += p * a_pt * a_pt * bp / (ei_val * l2);
-        }
-    }
-
-    // Adjust rotations for hinges
-    let dv = v_j - v_i;
-    let mut theta_i = r_iz;
-    let mut theta_j = r_jz;
-
-    if hinge_start && hinge_end {
-        theta_i = dv / l + l * vpp_p0 / 3.0 + l * vpp_pl / 6.0;
-        theta_j = dv / l - l * vpp_p0 / 6.0 - l * vpp_pl / 3.0;
-    } else if hinge_start {
-        theta_i = 3.0 * dv / (2.0 * l) - theta_j / 2.0 + l * vpp_p0 / 4.0;
-    } else if hinge_end {
-        theta_j = 3.0 * dv / (2.0 * l) - theta_i / 2.0 - l * vpp_pl / 4.0;
-    }
+    let has_ei = ei_val > 1e-6;
+    let flex_s = match gas {
+        Some(k) if has_ei && k > 0.0 && k.is_finite() => 1.0 / k,
+        _ => 0.0,
+    };
+    let member = if has_ei {
+        MemberDeflection::new(
+            l, ei_val, flex_s, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end,
+            load_points.to_vec(), all_dist,
+        )
+    } else {
+        MemberDeflection::new(
+            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(),
+        )
+    };
 
     let n_pts = 21;
     let mut points = Vec::with_capacity(n_pts);
 
     for i in 0..n_pts {
         let xi = i as f64 / (n_pts - 1) as f64;
-        let x = xi * l;
-        let xi2 = xi * xi;
-        let xi3 = xi2 * xi;
-
-        // Hermite shape functions
-        let n1 = 1.0 - 3.0 * xi2 + 2.0 * xi3;
-        let n2 = (xi - 2.0 * xi2 + xi3) * l;
-        let n3 = 3.0 * xi2 - 2.0 * xi3;
-        let n4 = (-xi2 + xi3) * l;
-
-        let mut v_local = n1 * v_i + n2 * theta_i + n3 * v_j + n4 * theta_j;
-
-        // Add particular solution
-        if has_loads {
-            let mut vp = 0.0;
-
-            for &(qi, qj, a, b) in &all_dist {
-                let is_full = a < 1e-10 && (b - l).abs() < 1e-10;
-                if is_full {
-                    let lmx = l - x;
-                    let x2lmx2 = x * x * lmx * lmx;
-                    vp += x2lmx2 * (qi / 24.0 + (qj - qi) * (l + x) / (120.0 * l)) / ei_val;
-                } else {
-                    let n_simp = 20;
-                    let span = b - a;
-                    if span < 1e-12 { continue; }
-                    let h = span / n_simp as f64;
-                    for j in 0..=n_simp {
-                        let t = j as f64 / n_simp as f64;
-                        let x_load = a + t * span;
-                        let q_at = qi + (qj - qi) * t;
-                        let w = if j == 0 || j == n_simp { h / 3.0 }
-                            else if j % 2 == 1 { 4.0 * h / 3.0 }
-                            else { 2.0 * h / 3.0 };
-                        let dp = q_at * w;
-                        if dp.abs() < 1e-15 { continue; }
-                        let ap = x_load;
-                        let bp = l - x_load;
-                        if x <= x_load {
-                            vp += dp * bp * bp * x * x * (3.0 * ap * l - x * (3.0 * ap + bp)) / (6.0 * ei_val * l3);
-                        } else {
-                            let lmx = l - x;
-                            vp += dp * ap * ap * lmx * lmx * (3.0 * bp * l - lmx * (3.0 * bp + ap)) / (6.0 * ei_val * l3);
-                        }
-                    }
-                }
-            }
-
-            for &(a_pt, p) in load_points {
-                let bp = l - a_pt;
-                if x <= a_pt {
-                    vp += p * bp * bp * x * x * (3.0 * a_pt * l - x * (3.0 * a_pt + bp)) / (6.0 * ei_val * l3);
-                } else {
-                    let lmx = l - x;
-                    vp += p * a_pt * a_pt * lmx * lmx * (3.0 * bp * l - lmx * (3.0 * bp + a_pt)) / (6.0 * ei_val * l3);
-                }
-            }
-
-            v_local += vp;
-        }
+        let v_local = member.v(xi * l);
 
         // Axial (linear)
         let u_local = u_i + xi * (u_j - u_i);
@@ -478,4 +505,63 @@ pub fn compute_deformed_shape(
     }
 
     points
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shape(
+        ends: [f64; 4], hinges: (bool, bool), ei: f64, gas: Option<f64>,
+        pts: &[(f64, f64)], dist: &[(f64, f64, f64, f64)], l: f64,
+    ) -> Vec<f64> {
+        let [v_i, r_i, v_j, r_j] = ends;
+        compute_deformed_shape(
+            0.0, 0.0, l, 0.0, 0.0, v_i, r_i, 0.0, v_j, r_j, 1.0, l, hinges.0, hinges.1,
+            Some(ei), gas, None, None, pts, dist,
+        )
+        .iter()
+        .map(|p| p.y)
+        .collect()
+    }
+
+    /// Timoshenko cantilever, point load at a: the closed form
+    /// v = P x²(3a − x)/(6EI) + P x/(G·As) for x ≤ a, and
+    /// v = P a²(3x − a)/(6EI) + P a/(G·As) beyond.
+    #[test]
+    fn deformed_shape_timoshenko_cantilever_point_load() {
+        let (l, a, p, ei, gas) = (2.0, 0.5, -10.0, 8.0e4, 6.0e5);
+        let v = |x: f64| {
+            if x <= a { p * x * x * (3.0 * a - x) / (6.0 * ei) + p * x / gas } else { p * a * a * (3.0 * x - a) / (6.0 * ei) + p * a / gas }
+        };
+        let tip = [0.0, 0.0, v(l), p * a * a / (2.0 * ei)];
+        for hinge_end in [false, true] {
+            // With a released end the tip rotation is ignored (m(L) = 0 holds anyway).
+            let mut ends = tip;
+            if hinge_end { ends[3] = 123.0; }
+            let ys = shape(ends, (false, hinge_end), ei, Some(gas), &[(a, p)], &[], l);
+            for (k, y) in ys.iter().enumerate() {
+                let x = l * k as f64 / 20.0;
+                assert!((y - v(x)).abs() < 1e-12, "x={x}: {y} vs {}", v(x));
+            }
+        }
+        // The Euler–Bernoulli shape misses the shear deflection.
+        let eb = shape(tip, (false, false), ei, None, &[(a, p)], &[], l);
+        assert!((eb[5] - v(0.5)).abs() > 1e-6);
+    }
+
+    /// Timoshenko fixed-fixed and simply supported beams under a uniform load,
+    /// expressed as a partial trapezoid split in two:
+    /// v(L/2) = qL⁴/384EI + qL²/8GAs (fixed), 5qL⁴/384EI + qL²/8GAs (pinned).
+    #[test]
+    fn deformed_shape_timoshenko_udl() {
+        let (l, q, ei, gas) = (4.0, -3.0, 2.0e3, 5.0e3);
+        let dist = [(q, q, 0.0, 1.5), (q, q, 1.5, l)];
+        let fixed = shape([0.0; 4], (false, false), ei, Some(gas), &[], &dist, l);
+        let want = q * l.powi(4) / (384.0 * ei) + q * l * l / (8.0 * gas);
+        assert!((fixed[10] - want).abs() < 1e-12 * want.abs().max(1.0), "{} vs {want}", fixed[10]);
+        let pinned = shape([0.0, 7.0, 0.0, -7.0], (true, true), ei, Some(gas), &[], &dist, l);
+        let want = 5.0 * q * l.powi(4) / (384.0 * ei) + q * l * l / (8.0 * gas);
+        assert!((pinned[10] - want).abs() < 1e-12 * want.abs().max(1.0), "{} vs {want}", pinned[10]);
+    }
 }

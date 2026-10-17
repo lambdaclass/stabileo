@@ -1,4 +1,6 @@
-//! Linear time-history analysis with Newmark-beta and HHT-alpha methods.
+//! Linear time-history analysis with Newmark-beta and HHT-alpha methods
+//! (HHT-α: `M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n`,
+//! α ∈ [−1/3, 0], β = (1−α)²/4, γ = ½ − α; second-order accurate).
 
 use crate::types::*;
 use crate::linalg::*;
@@ -8,6 +10,46 @@ use super::mass_matrix;
 use super::damping;
 use super::constraints::FreeConstraintSystem;
 
+/// The discrete system a time-history run integrated and the full state it
+/// computed, in the solver's reduced (free, constraint-independent) DOF space.
+/// Read by `certify::dynamics`; the matrices are the f64 ones the solver used.
+#[derive(Debug, Clone)]
+pub struct DynamicTrace {
+    pub k: CscMatrix,
+    pub m: CscMatrix,
+    /// Rayleigh coefficients: `C = a0·M + a1·K` (both 0 without damping).
+    pub a0: f64,
+    pub a1: f64,
+    /// Newmark parameters actually used (for HHT-α: `(1−α)²/4`, `½ − α`).
+    pub beta: f64,
+    pub gamma: f64,
+    /// HHT α actually integrated (`½ − γ` exactly), None for plain Newmark:
+    /// `M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n`.
+    pub alpha: Option<f64>,
+    pub dt: f64,
+    /// Raw load vector `f_n` at every step n = 0..=N.
+    pub f: Vec<Vec<f64>>,
+    pub u: Vec<Vec<f64>>,
+    pub v: Vec<Vec<f64>>,
+    pub a: Vec<Vec<f64>>,
+}
+
+impl DynamicTrace {
+    #[allow(clippy::too_many_arguments)]
+    fn start(k: &CscMatrix, m: &CscMatrix, a0: f64, a1: f64, beta: f64, gamma: f64, alpha: Option<f64>, dt: f64) -> Self {
+        DynamicTrace {
+            k: k.clone(), m: m.clone(), a0, a1, beta, gamma, alpha, dt,
+            f: Vec::new(), u: Vec::new(), v: Vec::new(), a: Vec::new(),
+        }
+    }
+    fn push(&mut self, f: &[f64], u: &[f64], v: &[f64], a: &[f64]) {
+        self.f.push(f.to_vec());
+        self.u.push(u.to_vec());
+        self.v.push(v.to_vec());
+        self.a.push(a.to_vec());
+    }
+}
+
 /// Solve a 2D linear time-history analysis.
 ///
 /// Supports Newmark-beta (default: average acceleration) and HHT-alpha methods.
@@ -15,6 +57,22 @@ use super::constraints::FreeConstraintSystem;
 /// at each time step for efficiency.
 pub fn solve_time_history_2d(
     input: &TimeHistoryInput,
+) -> Result<TimeHistoryResult, String> {
+    solve_time_history_2d_inner(input, None)
+}
+
+/// `solve_time_history_2d` that also returns the full discrete trajectory.
+pub fn solve_time_history_2d_traced(
+    input: &TimeHistoryInput,
+) -> Result<(TimeHistoryResult, DynamicTrace), String> {
+    let mut trace = None;
+    let res = solve_time_history_2d_inner(input, Some(&mut trace))?;
+    Ok((res, trace.ok_or("no trace recorded")?))
+}
+
+fn solve_time_history_2d_inner(
+    input: &TimeHistoryInput,
+    mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult, String> {
     super::linear::validate_input_2d(&input.solver)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_2d(&input.solver);
@@ -49,22 +107,26 @@ pub fn solve_time_history_2d(
         return Err("No free DOFs -- all nodes are fully restrained".into());
     }
 
-    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static
+    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static.
+    // K and F are in the inclined-roller frames of `its`; M, the ground
+    // influence and the force history are rotated into the same frames, and
+    // the recorded states are rotated back to global axes.
     let sasm = assembly::assemble_sparse_2d_ex(&input.solver, &dof_num, true);
+    let its = &sasm.inclined_transforms_2d;
 
     // 2. Assemble mass matrix M (sparse CSC, free block)
-    let m_ff = mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
+    let m_ff = mass_matrix::assemble_mass_matrix_2d_sparse_inclined(&input.solver, &dof_num, &input.densities, its);
 
     // 3. Free-DOF force vector
     let f_static: Vec<f64> = sasm.f[..nf].to_vec();
 
     // 3a. Precompute the ground-acceleration influence product M*r once —
     // r and M are time-invariant, so it must not be rebuilt per time step.
-    let m_ground_r = build_ground_influence_2d(input, &dof_num, nf, &m_ff);
+    let m_ground_r = build_ground_influence_2d(input, &dof_num, its, &m_ff);
 
     // 3b. Constraint reduction: reduce K, M to independent DOF space
     // (sparse triple products — no dense reduced matrices)
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs {
         (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))
@@ -83,27 +145,21 @@ pub fn solve_time_history_2d(
         return Err("Time step must be positive".into());
     }
 
-    let (beta, gamma) = if let Some(alpha) = input.alpha {
-        // HHT-alpha: alpha should be in [-1/3, 0]
-        let b = (1.0 - alpha) * (1.0 - alpha) / 4.0;
-        let g = 0.5 - alpha;
-        (b, g)
-    } else {
-        (input.beta, input.gamma)
-    };
+    let (beta, gamma, alpha) = scheme_parameters(input.beta, input.gamma, input.alpha);
 
     if beta <= 0.0 {
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness: K_eff = K + gamma/(beta*dt)*C + 1/(beta*dt^2)*M
-    // With C = a0·M + a1·K this folds into a two-term combination over the
-    // union of the K and M patterns.
+    // 6. Form effective stiffness: K_eff = c1·M + (1+α)(K + c2·C), α = 0 for
+    // Newmark. With C = a0·M + a1·K this folds into a two-term combination
+    // over the union of the K and M patterns.
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);         // coefficient for M
     let c2 = gamma / (beta * dt);         // coefficient for C
+    let w = 1.0 + alpha.unwrap_or(0.0);
     let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
-    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
+    let k_eff = CscMatrix::linear_combination(w * (1.0 + c2 * a1), &k_s, c1 + w * c2 * a0, &m_s);
 
     // 7. Factor K_eff once (sparse Cholesky, dense LU fallback with size cap)
     let factored = factor_effective_stiffness(&k_eff)?;
@@ -115,9 +171,14 @@ pub fn solve_time_history_2d(
 
     // Compute initial acceleration from M*a0 = F0 - C*v0 - K*u0
     // Force is computed in nf space then reduced
-    let f_0_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, 0, dt);
+    let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    if let Some(t) = trace.as_deref_mut() {
+        let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
+        tr.push(&f_0, &u, &v, &a_vec);
+        *t = Some(tr);
+    }
 
     // 9. Prepare history storage -- track all nodes
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -148,7 +209,7 @@ pub fn solve_time_history_2d(
     let u_nf = expand(&u);
     let v_nf = expand(&v);
     let a_nf = expand(&a_vec);
-    record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
+    record_state(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), &mut histories);
 
     // Track peak displacement for reaction computation (in nf space)
     let mut peak_disp_norm = 0.0_f64;
@@ -162,13 +223,13 @@ pub fn solve_time_history_2d(
         let t_next = (step + 1) as f64 * dt;
 
         // Compute F_{n+1} in nf space, then reduce to ns
-        let f_next_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, step + 1, dt);
+        let f_next_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, step + 1, dt);
         let f_next = if let Some(ref cs) = cs { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         // Compute effective load (all in ns space)
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
-            beta, gamma, dt, input.alpha,
+            &f_next, &f_prev, &k_s, &m_s, c_s, &u, &v, &a_vec, ns,
+            beta, gamma, dt, alpha,
         );
 
         // Solve K_eff * u_{n+1} = F_eff (ns space)
@@ -193,6 +254,9 @@ pub fn solve_time_history_2d(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        if let Some(Some(t)) = trace.as_deref_mut() {
+            t.push(&f_next, &u, &v, &a_vec);
+        }
         f_prev = f_next;
 
         // Record history — expand to nf for recording
@@ -200,9 +264,9 @@ pub fn solve_time_history_2d(
         let u_nf = expand(&u);
         let v_nf = expand(&v);
         let a_nf = expand(&a_vec);
-        record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
+        record_state(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), &mut histories);
 
-        // Track peak displacement (nf space)
+        // Track peak displacement (nf space; the norm is frame-independent)
         let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
         if disp_norm > peak_disp_norm {
             peak_disp_norm = disp_norm;
@@ -228,15 +292,14 @@ pub fn solve_time_history_2d(
     let peak_displacements = build_peak_displacements(&dof_num, &node_histories);
 
     // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
-    // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
     let peak_reactions = compute_reactions_at_state(
         &input.solver, &dof_num,
         sasm.k_full.as_ref().expect("assemble_sparse_2d_ex with build_k_full"),
-        &sasm.f, &u_at_peak, nf, n,
+        &sasm.f, &u_at_peak, its,
     );
 
-    let method_name = if input.alpha.is_some() {
-        format!("HHT-alpha (alpha={:.3})", input.alpha.unwrap())
+    let method_name = if let Some(alpha) = alpha {
+        format!("HHT-alpha (alpha={alpha:.3})")
     } else {
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
@@ -388,7 +451,7 @@ fn compute_initial_acceleration(
 fn build_ground_influence_2d(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData2D],
     m_ff: &CscMatrix,
 ) -> Option<Vec<f64>> {
     input.ground_accel.as_ref()?;
@@ -399,17 +462,43 @@ fn build_ground_influence_2d(
         _ => 0, // "X" or default
     };
 
-    // Influence vector r (1.0 for DOFs in ground direction)
-    let mut r = vec![0.0; nf];
+    Some(ground_influence(dof_num, local_dof, its, m_ff, || {
+        mass_matrix::assemble_mass_matrix_2d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
+    }))
+}
+
+/// (M·r)_f for the rigid-body translation r along `local_dof` of EVERY node,
+/// restrained ones included: the relative-motion load is −(M·r)_f·a_g, and with
+/// a consistent mass the free DOFs are coupled to the supports' translations
+/// (M_fr·r_r). M_ff·r_f alone missed that part of the inertia — half of it on a
+/// bar on two supports. `m_ff` is the free block in the inclined-support frames
+/// `its` (K's basis); `m_full` assembles the whole mass in global axes and is
+/// only built when some restrained DOF moves with the ground. With
+/// T the inclined rotation, (T·M·Tᵀ)(T·r) = T·(M·r): the full product is taken
+/// in global axes and then rotated, so at an inclined roller only the
+/// tangential component of the inertia is a free load.
+fn ground_influence<T: assembly::InclinedFrame>(
+    dof_num: &DofNumbering,
+    local_dof: usize,
+    its: &[T],
+    m_ff: &CscMatrix,
+    m_full: impl FnOnce() -> CscMatrix,
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let mut r = vec![0.0; dof_num.n_total];
     for &node_id in &dof_num.node_order {
         if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
-            if d < nf {
-                r[d] = 1.0;
-            }
+            r[d] = 1.0;
         }
     }
-
-    Some(m_ff.sym_mat_vec(&r))
+    let mut r_rot = r.clone();
+    for it in its {
+        it.rotate(&mut r_rot);
+    }
+    if r_rot[nf..].iter().all(|&x| x == 0.0) {
+        return m_ff.sym_mat_vec(&r_rot[..nf]);
+    }
+    assembly::to_inclined_free(m_full().sym_mat_vec(&r), its, nf)
 }
 
 /// Compute the external force vector at a given time step.
@@ -419,13 +508,14 @@ fn build_ground_influence_2d(
 fn compute_force_at_step(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData2D],
     m_ground_r: Option<&[f64]>,
     f_static: &[f64],
     step: usize,
     dt: f64,
 ) -> Vec<f64> {
     let t = step as f64 * dt;
+    let nf = dof_num.n_free;
     let mut f = vec![0.0; nf];
 
     // Ground acceleration: F_ground = -M * r * a_g(t)
@@ -440,9 +530,13 @@ fn compute_force_at_step(
         }
     }
 
-    // Force history: interpolate between time records
+    // Force history: interpolate between time records, over all DOFs, and
+    // rotate into the inclined-roller frames before keeping the free block
     if let Some(ref force_history) = input.force_history {
-        let f_interp = interpolate_force_history(force_history, dof_num, nf, t);
+        let mut f_interp = interpolate_force_history(force_history, dof_num, dof_num.n_total, t);
+        for it in its {
+            assembly::rotate_inclined_f_2d(&mut f_interp, &it.dofs, &it.r);
+        }
         for i in 0..nf {
             f[i] += f_interp[i];
         }
@@ -472,10 +566,10 @@ fn interpolate_ground_accel(ground_accel: &[f64], step: usize, _dt: f64) -> f64 
 fn interpolate_force_history(
     force_history: &[TimeForceRecord],
     dof_num: &DofNumbering,
-    nf: usize,
+    n: usize,
     t: f64,
 ) -> Vec<f64> {
-    let mut f = vec![0.0; nf];
+    let mut f = vec![0.0; n];
 
     if force_history.is_empty() {
         return f;
@@ -485,17 +579,17 @@ fn interpolate_force_history(
     if t <= force_history[0].time {
         // At or before first record: use first record scaled by proximity
         if force_history[0].time.abs() < 1e-15 {
-            assemble_force_record(&force_history[0], dof_num, nf, &mut f, 1.0);
+            assemble_force_record(&force_history[0], dof_num, n, &mut f, 1.0);
         } else {
             let frac = t / force_history[0].time;
-            assemble_force_record(&force_history[0], dof_num, nf, &mut f, frac.max(0.0));
+            assemble_force_record(&force_history[0], dof_num, n, &mut f, frac.max(0.0));
         }
         return f;
     }
 
     if t >= force_history.last().unwrap().time {
         // Beyond last record: hold last value
-        assemble_force_record(force_history.last().unwrap(), dof_num, nf, &mut f, 1.0);
+        assemble_force_record(force_history.last().unwrap(), dof_num, n, &mut f, 1.0);
         return f;
     }
 
@@ -506,14 +600,14 @@ fn interpolate_force_history(
         if t >= t0 && t <= t1 {
             let dt_rec = t1 - t0;
             if dt_rec.abs() < 1e-15 {
-                assemble_force_record(&force_history[i], dof_num, nf, &mut f, 1.0);
+                assemble_force_record(&force_history[i], dof_num, n, &mut f, 1.0);
             } else {
                 let alpha = (t - t0) / dt_rec;
-                let mut f0 = vec![0.0; nf];
-                let mut f1 = vec![0.0; nf];
-                assemble_force_record(&force_history[i], dof_num, nf, &mut f0, 1.0);
-                assemble_force_record(&force_history[i + 1], dof_num, nf, &mut f1, 1.0);
-                for j in 0..nf {
+                let mut f0 = vec![0.0; n];
+                let mut f1 = vec![0.0; n];
+                assemble_force_record(&force_history[i], dof_num, n, &mut f0, 1.0);
+                assemble_force_record(&force_history[i + 1], dof_num, n, &mut f1, 1.0);
+                for j in 0..n {
                     f[j] = (1.0 - alpha) * f0[j] + alpha * f1[j];
                 }
             }
@@ -524,33 +618,41 @@ fn interpolate_force_history(
     f
 }
 
-/// Assemble a single TimeForceRecord into the free-DOF force vector with a scale factor.
+/// Assemble a single TimeForceRecord into a force vector of length `n` (only
+/// DOFs below `n` are kept) with a scale factor.
 fn assemble_force_record(
     record: &TimeForceRecord,
     dof_num: &DofNumbering,
-    nf: usize,
+    n: usize,
     f: &mut [f64],
     scale: f64,
 ) {
     for load in &record.loads {
         if let Some(&d) = dof_num.map.get(&(load.node_id, 0)) {
-            if d < nf { f[d] += load.fx * scale; }
+            if d < n { f[d] += load.fx * scale; }
         }
         if let Some(&d) = dof_num.map.get(&(load.node_id, 1)) {
-            if d < nf { f[d] += load.fz * scale; }
+            if d < n { f[d] += load.fz * scale; }
         }
         if dof_num.dofs_per_node >= 3 {
             if let Some(&d) = dof_num.map.get(&(load.node_id, 2)) {
-                if d < nf { f[d] += load.my * scale; }
+                if d < n { f[d] += load.my * scale; }
             }
         }
     }
 }
 
 /// Compute the effective load vector for the Newmark/HHT step.
+///
+/// HHT-α (Hilber–Hughes–Taylor, α ∈ [−1/3, 0]) solves
+///   M a_{n+1} + (1+α)(C v_{n+1} + K u_{n+1}) − α(C v_n + K u_n) = (1+α) f_{n+1} − α f_n
+/// with the Newmark updates; substituting them, the right-hand side is
+///   (1+α) f_{n+1} − α f_n + M(c1 u + c1Δt v + c3 a) + (1+α) C(c2 u + c4 v + c5 a) + α(C v_n + K u_n).
+/// α = None is Newmark (α = 0).
+#[allow(clippy::too_many_arguments)]
 fn compute_effective_load(
     f_next: &[f64], f_prev: &[f64],
-    m: &CscMatrix, c: Option<&CscMatrix>,
+    k: &CscMatrix, m: &CscMatrix, c: Option<&CscMatrix>,
     u: &[f64], v: &[f64], a: &[f64],
     n: usize,
     beta: f64, gamma: f64, dt: f64,
@@ -572,13 +674,16 @@ fn compute_effective_load(
     }
     let m_part = m.sym_mat_vec(&m_contrib);
 
-    // C contribution vector: C * (c2*u + c4*v + c5*a)
+    // C contribution vector: C * ((1+α)(c2*u + c4*v + c5*a) + α v)
     //   c2 = gamma/(beta*dt), c4 = gamma/beta - 1, c5 = dt/2*(gamma/beta - 2)
+    let alp = alpha.unwrap_or(0.0);
+    let w = 1.0 + alp;
     let c_part = match c {
         Some(c) => {
             let mut c_contrib = vec![0.0; n];
             for i in 0..n {
-                c_contrib[i] = gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i];
+                c_contrib[i] = w * (gamma_beta_dt * u[i] + gamma_beta_m1 * v[i] + dt_half_gamma_beta_m2 * a[i])
+                    + alp * v[i];
             }
             c.sym_mat_vec(&c_contrib)
         }
@@ -586,11 +691,11 @@ fn compute_effective_load(
     };
 
     let mut f_eff = vec![0.0; n];
-
-    if let Some(alp) = alpha {
-        // HHT-alpha: F_eff = (1+alpha)*F_{n+1} - alpha*F_n + M_part + C_part
+    if alpha.is_some() {
+        // HHT-α: the stiffness term of the previous state, α K u_n
+        let ku = k.sym_mat_vec(u);
         for i in 0..n {
-            f_eff[i] = (1.0 + alp) * f_next[i] - alp * f_prev[i] + m_part[i] + c_part[i];
+            f_eff[i] = w * f_next[i] - alp * f_prev[i] + m_part[i] + c_part[i] + alp * ku[i];
         }
     } else {
         // Standard Newmark: F_eff = F_{n+1} + M_part + C_part
@@ -600,6 +705,24 @@ fn compute_effective_load(
     }
 
     f_eff
+}
+
+/// Newmark parameters `(β, γ)` and the HHT `α` the step uses.
+///
+/// HHT-α (Hilber's sign convention, α ∈ [−1/3, 0]): γ = ½ − α rounded, then α
+/// taken back as ½ − γ — exact in f64 (Sterbenz: γ ∈ [½, 5/6]) — so γ = ½ − α
+/// holds exactly for the α actually integrated; β = (1 − α)²/4. These make the
+/// scheme second-order accurate and unconditionally stable, with numerical
+/// damping of the high frequencies growing as α goes to −1/3.
+fn scheme_parameters(beta: f64, gamma: f64, alpha: Option<f64>) -> (f64, f64, Option<f64>) {
+    match alpha {
+        Some(al) => {
+            let g = 0.5 - al;
+            let al = 0.5 - g;
+            ((1.0 - al) * (1.0 - al) / 4.0, g, Some(al))
+        }
+        None => (beta, gamma, None),
+    }
 }
 
 // ============================================================================
@@ -710,19 +833,17 @@ struct NodeTimeHistoryBuilder {
     az: Vec<f64>,
 }
 
-/// Record the current state into the history builders.
+/// Record the current state (all-DOF vectors in global axes, see
+/// `assembly::to_global`) into the history builders.
 fn record_state(
     dof_num: &DofNumbering,
     tracked_nodes: &[usize],
     u: &[f64], v: &[f64], a: &[f64],
-    nf: usize,
     histories: &mut [NodeTimeHistoryBuilder],
 ) {
     for (idx, &node_id) in tracked_nodes.iter().enumerate() {
         let get_val = |vec: &[f64], local_dof: usize| -> f64 {
-            dof_num.map.get(&(node_id, local_dof))
-                .map(|&d| if d < nf { vec[d] } else { 0.0 })
-                .unwrap_or(0.0)
+            dof_num.map.get(&(node_id, local_dof)).map(|&d| vec[d]).unwrap_or(0.0)
         };
 
         histories[idx].ux.push(get_val(u, 0));
@@ -810,67 +931,28 @@ fn reactions_vec_from_kfull(k_full: &CscMatrix, f_full: &[f64], u_free: &[f64], 
     reactions_vec
 }
 
-/// Compute reactions at a specific displacement state using the full stiffness matrix.
+/// Reactions at a specific displacement state using the full stiffness matrix,
+/// through the linear solver's reaction builder (rotated springs, springs on
+/// rigid supports, inclined rollers back to global axes). `u_free` is in the
+/// inclined-roller frames K was assembled in.
 fn compute_reactions_at_state(
     solver_input: &SolverInput,
     dof_num: &DofNumbering,
     k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
-    nf: usize,
-    n: usize,
+    its: &[assembly::InclinedTransformData2D],
 ) -> Vec<Reaction> {
-    let nr = n - nf;
-    if nr == 0 {
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
+    if n == nf {
         return Vec::new();
     }
-
-    // Build full displacement vector
-    let mut u_full = vec![0.0; n];
-    for i in 0..nf {
-        u_full[i] = u_free[i];
-    }
-    // Restrained DOFs remain zero (no prescribed displacements in dynamic analysis)
-
+    // Restrained DOFs stay zero (no prescribed displacements in dynamic analysis)
     let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
-
-    let mut reactions = Vec::new();
-    for sup in solver_input.supports.values() {
-        let mut rx = 0.0;
-        let mut rz = 0.0;
-        let mut my = 0.0;
-
-        if sup.support_type == "spring" {
-            // Spring reaction: R = -k * u
-            let ux = dof_num.global_dof(sup.node_id, 0).map(|d| u_full[d]).unwrap_or(0.0);
-            let uz = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
-            let ry_disp = if dof_num.dofs_per_node >= 3 {
-                dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
-            } else { 0.0 };
-
-            rx = -sup.kx.unwrap_or(0.0) * ux;
-            rz = -sup.ky.unwrap_or(0.0) * uz;
-            my = -sup.kz.unwrap_or(0.0) * ry_disp;
-        } else {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                if d >= nf { rx = reactions_vec[d - nf]; }
-            }
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf { rz = reactions_vec[d - nf]; }
-            }
-            if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    if d >= nf { my = reactions_vec[d - nf]; }
-                }
-            }
-        }
-
-        reactions.push(Reaction {
-            node_id: sup.node_id,
-            rx, rz, my,
-        });
-    }
-
+    let u_full = assembly::to_global(u_free, n, its);
+    let mut reactions = super::linear::build_reactions_2d_inclined(
+        solver_input, dof_num, &reactions_vec, &f_full[nf..], nf, &u_full, its,
+    );
     reactions.sort_by_key(|r| r.node_id);
     reactions
 }
@@ -887,6 +969,22 @@ fn compute_reactions_at_state(
 /// back-substitution at each time step for efficiency.
 pub fn solve_time_history_3d(
     input: &TimeHistoryInput3D,
+) -> Result<TimeHistoryResult3D, String> {
+    solve_time_history_3d_inner(input, None)
+}
+
+/// `solve_time_history_3d` that also returns the full discrete trajectory.
+pub fn solve_time_history_3d_traced(
+    input: &TimeHistoryInput3D,
+) -> Result<(TimeHistoryResult3D, DynamicTrace), String> {
+    let mut trace = None;
+    let res = solve_time_history_3d_inner(input, Some(&mut trace))?;
+    Ok((res, trace.ok_or("no trace recorded")?))
+}
+
+fn solve_time_history_3d_inner(
+    input: &TimeHistoryInput3D,
+    mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(&input.solver);
@@ -928,21 +1026,25 @@ pub fn solve_time_history_3d(
         return Err("No free DOFs -- all nodes are fully restrained".into());
     }
 
-    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static
+    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static.
+    // K and F are in the inclined-support frames of `its`; M, the ground
+    // influence and the force history are rotated into the same frames, and
+    // the recorded states are rotated back to global axes (as in 2D).
     let sasm = assembly::assemble_sparse_3d(input_solver, &dof_num, true);
+    let its = &sasm.inclined_transforms;
 
     // 2. Assemble mass matrix M (sparse CSC, free block)
-    let m_ff = mass_matrix::assemble_mass_matrix_3d_sparse(input_solver, &dof_num, &input.densities);
+    let m_ff = mass_matrix::assemble_mass_matrix_3d_sparse_inclined(input_solver, &dof_num, &input.densities, its);
 
     // 3. Free-DOF force vector
     let f_static: Vec<f64> = sasm.f[..nf].to_vec();
 
     // 3a. Precompute the per-direction ground-acceleration influence product
     // M*r once — r and M are time-invariant, so it must not be rebuilt per step.
-    let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, nf, &m_ff);
+    let m_ground_r_3d = build_ground_influence_3d(input, &dof_num, its, &m_ff);
 
     // 3b. Constraint reduction (sparse triple products — no dense reduced matrices)
-    let cs3 = FreeConstraintSystem::build_3d(&input_solver.constraints, &dof_num, &input_solver.nodes);
+    let cs3 = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
     let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, m_s) = if let Some(ref cs) = cs3 {
         (cs.reduce_matrix_sparse(&sasm.k_ff), cs.reduce_matrix_sparse(&m_ff))
@@ -961,26 +1063,21 @@ pub fn solve_time_history_3d(
         return Err("Time step must be positive".into());
     }
 
-    let (beta, gamma) = if let Some(alpha) = input.alpha {
-        let b = (1.0 - alpha) * (1.0 - alpha) / 4.0;
-        let g = 0.5 - alpha;
-        (b, g)
-    } else {
-        (input.beta, input.gamma)
-    };
+    let (beta, gamma, alpha) = scheme_parameters(input.beta, input.gamma, input.alpha);
 
     if beta <= 0.0 {
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness in reduced space:
-    // K_eff = K + c2·C + c1·M — folds into a two-term combination over the
-    // union of the K and M patterns (C = a0·M + a1·K).
+    // 6. Form effective stiffness: K_eff = c1·M + (1+α)(K + c2·C), α = 0 for
+    // Newmark. With C = a0·M + a1·K this folds into a two-term combination
+    // over the union of the K and M patterns.
     let dt2 = dt * dt;
-    let c1 = 1.0 / (beta * dt2);
-    let c2 = gamma / (beta * dt);
+    let c1 = 1.0 / (beta * dt2);         // coefficient for M
+    let c2 = gamma / (beta * dt);         // coefficient for C
+    let w = 1.0 + alpha.unwrap_or(0.0);
     let (a0, a1) = rayleigh.as_ref().map(|(_, a0, a1)| (*a0, *a1)).unwrap_or((0.0, 0.0));
-    let k_eff = CscMatrix::linear_combination(1.0 + c2 * a1, &k_s, c1 + c2 * a0, &m_s);
+    let k_eff = CscMatrix::linear_combination(w * (1.0 + c2 * a1), &k_s, c1 + w * c2 * a0, &m_s);
 
     // 7. Factor K_eff once (sparse Cholesky; dense LU fallback with size cap)
     let factored = factor_effective_stiffness(&k_eff)?;
@@ -991,9 +1088,14 @@ pub fn solve_time_history_3d(
     let mut a_vec = vec![0.0; ns];
 
     // Force computed in nf space, then reduced
-    let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, 0, dt);
+    let f_0_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
+    if let Some(t) = trace.as_deref_mut() {
+        let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
+        tr.push(&f_0, &u, &v, &a_vec);
+        *t = Some(tr);
+    }
 
     // 9. Prepare history storage
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -1030,7 +1132,7 @@ pub fn solve_time_history_3d(
     let u_nf = expand3(&u);
     let v_nf = expand3(&v);
     let a_nf = expand3(&a_vec);
-    record_state_3d(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, dpn, &mut histories);
+    record_state_3d(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), dpn, &mut histories);
 
     let mut peak_disp_norm = 0.0_f64;
     let mut u_at_peak = u_nf;
@@ -1041,12 +1143,12 @@ pub fn solve_time_history_3d(
         let t_next = (step + 1) as f64 * dt;
 
         // Force in nf space, then reduce
-        let f_next_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ground_r_3d, &f_static, step + 1, dt);
+        let f_next_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, step + 1, dt);
         let f_next = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_s, c_s, &u, &v, &a_vec, ns,
-            beta, gamma, dt, input.alpha,
+            &f_next, &f_prev, &k_s, &m_s, c_s, &u, &v, &a_vec, ns,
+            beta, gamma, dt, alpha,
         );
 
         let u_new = solve_with_factored(&factored, &f_eff, ns);
@@ -1067,6 +1169,9 @@ pub fn solve_time_history_3d(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        if let Some(Some(t)) = trace.as_deref_mut() {
+            t.push(&f_next, &u, &v, &a_vec);
+        }
         f_prev = f_next;
 
         // Expand and record
@@ -1074,7 +1179,7 @@ pub fn solve_time_history_3d(
         let u_nf = expand3(&u);
         let v_nf = expand3(&v);
         let a_nf = expand3(&a_vec);
-        record_state_3d(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, dpn, &mut histories);
+        record_state_3d(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), dpn, &mut histories);
 
         let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
         if disp_norm > peak_disp_norm {
@@ -1096,15 +1201,15 @@ pub fn solve_time_history_3d(
 
     let peak_displacements = build_peak_displacements_3d(&node_histories);
 
-    // u_at_peak is in nf space
+    // u_at_peak is in nf space (inclined-support frames)
     let peak_reactions = compute_reactions_at_state_3d(
         input_solver, &dof_num,
         sasm.k_full.as_ref().expect("assemble_sparse_3d with build_k_full"),
-        &sasm.f, &u_at_peak, nf, n,
+        &sasm.f, &u_at_peak, its,
     );
 
-    let method_name = if input.alpha.is_some() {
-        format!("HHT-alpha (alpha={:.3})", input.alpha.unwrap())
+    let method_name = if let Some(alpha) = alpha {
+        format!("HHT-alpha (alpha={alpha:.3})")
     } else {
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
@@ -1130,7 +1235,7 @@ pub fn solve_time_history_3d(
 fn build_ground_influence_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData],
     m_ff: &CscMatrix,
 ) -> [Option<Vec<f64>>; 3] {
     let accel_dirs: [(Option<&Vec<f64>>, usize); 3] = [
@@ -1142,15 +1247,9 @@ fn build_ground_influence_3d(
     let mut out: [Option<Vec<f64>>; 3] = [None, None, None];
     for (slot, (accel_opt, local_dof)) in out.iter_mut().zip(accel_dirs.iter()) {
         if accel_opt.is_some() {
-            let mut r = vec![0.0; nf];
-            for &node_id in &dof_num.node_order {
-                if let Some(&d) = dof_num.map.get(&(node_id, *local_dof)) {
-                    if d < nf {
-                        r[d] = 1.0;
-                    }
-                }
-            }
-            *slot = Some(m_ff.sym_mat_vec(&r));
+            *slot = Some(ground_influence(dof_num, *local_dof, its, m_ff, || {
+                mass_matrix::assemble_mass_matrix_3d_sparse_block(&input.solver, dof_num, &input.densities, dof_num.n_total)
+            }));
         }
     }
     out
@@ -1162,13 +1261,14 @@ fn build_ground_influence_3d(
 fn compute_force_at_step_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData],
     m_ground_r: &[Option<Vec<f64>>; 3],
     f_static: &[f64],
     step: usize,
     dt: f64,
 ) -> Vec<f64> {
     let t = step as f64 * dt;
+    let nf = dof_num.n_free;
     let mut f = vec![0.0; nf];
     let dpn = dof_num.dofs_per_node;
 
@@ -1198,9 +1298,12 @@ fn compute_force_at_step_3d(
         }
     }
 
-    // Force history
+    // Force history: over all DOFs, rotated into the inclined-support frames,
+    // then the free block
     if let Some(ref force_history) = input.force_history {
-        let f_interp = interpolate_force_history_3d(force_history, dof_num, nf, dpn, t);
+        let f_interp = assembly::to_inclined_free(
+            interpolate_force_history_3d(force_history, dof_num, dof_num.n_total, dpn, t), its, nf,
+        );
         for i in 0..nf {
             f[i] += f_interp[i];
         }
@@ -1310,21 +1413,19 @@ struct NodeTimeHistory3DBuilder {
     ax: Vec<f64>, ay: Vec<f64>, az: Vec<f64>,
 }
 
-/// Record current 3D state into history builders.
+/// Record the current 3D state (all-DOF vectors in global axes, see
+/// `assembly::to_global`) into history builders.
 fn record_state_3d(
     dof_num: &DofNumbering,
     tracked_nodes: &[usize],
     u: &[f64], v: &[f64], a: &[f64],
-    nf: usize,
     dpn: usize,
     histories: &mut [NodeTimeHistory3DBuilder],
 ) {
     for (idx, &node_id) in tracked_nodes.iter().enumerate() {
         let get_val = |vec: &[f64], local_dof: usize| -> f64 {
             if local_dof >= dpn { return 0.0; }
-            dof_num.map.get(&(node_id, local_dof))
-                .map(|&d| if d < nf { vec[d] } else { 0.0 })
-                .unwrap_or(0.0)
+            dof_num.map.get(&(node_id, local_dof)).map(|&d| vec[d]).unwrap_or(0.0)
         };
 
         histories[idx].ux.push(get_val(u, 0));
@@ -1360,59 +1461,27 @@ fn build_peak_displacements_3d(
     }).collect()
 }
 
-/// Compute reactions at peak displacement for 3D.
+/// Reactions at the peak displacement for 3D, through the linear solver's
+/// reaction builder (springs, inclined supports back to global axes), as in
+/// 2D. `u_free` is in the inclined-support frames K was assembled in.
 fn compute_reactions_at_state_3d(
     solver_input: &SolverInput3D,
     dof_num: &DofNumbering,
     k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
-    nf: usize,
-    n: usize,
+    its: &[assembly::InclinedTransformData],
 ) -> Vec<Reaction3D> {
-    let nr = n - nf;
-    if nr == 0 {
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
+    if n == nf {
         return Vec::new();
     }
-
-    let mut u_full = vec![0.0; n];
-    for i in 0..nf {
-        u_full[i] = u_free[i];
-    }
-
+    // Restrained DOFs stay zero (no prescribed displacements in dynamic analysis)
     let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
-
-    let dpn = dof_num.dofs_per_node;
-    let mut reactions = Vec::new();
-    for sup in solver_input.supports.values() {
-        let mut fx = 0.0;
-        let mut fy = 0.0;
-        let mut fz = 0.0;
-        let mut mx = 0.0;
-        let mut my = 0.0;
-        let mut mz = 0.0;
-
-        let dof_labels = [
-            (&mut fx, 0), (&mut fy, 1), (&mut fz, 2),
-            (&mut mx, 3), (&mut my, 4), (&mut mz, 5),
-        ];
-
-        for (val, local_dof) in dof_labels {
-            if local_dof >= dpn { continue; }
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
-                if d >= nf {
-                    *val = reactions_vec[d - nf];
-                }
-            }
-        }
-
-        reactions.push(Reaction3D {
-            node_id: sup.node_id,
-            fx, fy, fz, mx, my, mz,
-            bimoment: None,
-        });
-    }
-
+    let u_full = assembly::to_global(u_free, n, its);
+    let mut reactions = super::linear::build_reactions_3d_inclined(
+        solver_input, dof_num, &reactions_vec, &f_full[nf..], nf, &u_full, its,
+    );
     reactions.sort_by_key(|r| r.node_id);
     reactions
 }
@@ -1633,4 +1702,79 @@ mod tests {
             max_early, max_late
         );
     }
+
+    /// Axial SDOF of the cantilever (tip ux, decoupled from bending) under a
+    /// constant tip force: the HHT-α trajectory and the exact
+    /// u(t) = F/k (1 − cos ωt), with k, m read from the integrated matrices.
+    #[allow(clippy::type_complexity)]
+    fn axial_step_response(alpha: Option<f64>, dt: f64, n_steps: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>, f64, f64) {
+        let f = 1.0;
+        let mut input = make_cantilever();
+        input.alpha = alpha;
+        input.time_step = dt;
+        input.n_steps = n_steps;
+        let load = vec![SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }];
+        input.force_history = Some(vec![
+            TimeForceRecord { time: 0.0, loads: load.clone() },
+            TimeForceRecord { time: 1e3, loads: load },
+        ]);
+        let (res, tr) = solve_time_history_2d_traced(&input).unwrap();
+        let i = tr.f[0].iter().position(|x| *x != 0.0).unwrap();
+        let (kd, md) = (tr.k.to_dense_symmetric(), tr.m.to_dense_symmetric());
+        let n = tr.k.n;
+        for j in 0..n {
+            if j != i {
+                assert_eq!(kd[i * n + j], 0.0);
+                assert_eq!(md[i * n + j], 0.0);
+            }
+        }
+        let (k, m) = (kd[i * n + i], md[i * n + i]);
+        let w = (k / m).sqrt();
+        let h = res.node_histories.iter().find(|h| h.node_id == 2).unwrap();
+        let exact = (0..=n_steps).map(|s| f / k * (1.0 - (w * s as f64 * dt).cos())).collect();
+        (h.ux.clone(), h.vx.clone(), exact, k, m)
+    }
+
+    fn period_of_axial_mode() -> f64 {
+        let (_, tr) = solve_time_history_2d_traced(&make_cantilever()).unwrap();
+        let (kd, md) = (tr.k.to_dense_symmetric(), tr.m.to_dense_symmetric());
+        // ux of node 2 is the first reduced DOF
+        2.0 * std::f64::consts::PI / (kd[0] / md[0]).sqrt()
+    }
+
+    #[test]
+    fn test_hht_alpha_second_order_convergence() {
+        // max error over two periods; halving Δt divides it by ≈ 4
+        let period = period_of_axial_mode();
+        for alpha in [-0.05, -0.1, -0.3] {
+            let err = |div: usize| {
+                let (u, _, ex, _, _) = axial_step_response(Some(alpha), period / div as f64, 2 * div);
+                u.iter().zip(&ex).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max)
+            };
+            let (e1, e2, e3) = (err(40), err(80), err(160));
+            let (r1, r2) = (e1 / e2, e2 / e3);
+            assert!(r1 > 3.6 && r1 < 4.4 && r2 > 3.8 && r2 < 4.2, "α = {alpha}: errors {e1:e} {e2:e} {e3:e}, ratios {r1} {r2}");
+        }
+    }
+
+    #[test]
+    fn test_hht_alpha_damps_high_frequencies() {
+        // Δt 5.3 periods: ωΔt ≈ 33. Average acceleration keeps the oscillation
+        // about the static solution; HHT-α (α < 0) kills it.
+        let period = period_of_axial_mode();
+        // energy of the oscillation about the static solution
+        let amp = |alpha: Option<f64>| {
+            let (u, v, _, k, m) = axial_step_response(alpha, 5.3 * period, 40);
+            let us = 1.0 / k;
+            let e = |s: usize| 0.5 * k * (u[s] - us).powi(2) + 0.5 * m * v[s].powi(2);
+            (e(1), e(u.len() - 1))
+        };
+        let (f0, l0) = amp(None);
+        assert!(l0 > 0.5 * f0, "Newmark: {f0} → {l0}");
+        let (f1, l1) = amp(Some(-0.3));
+        assert!(l1 < 1e-6 * f1, "HHT α = −0.3: {f1} → {l1}");
+        let (f2, l2) = amp(Some(-0.05));
+        assert!(l2 < 0.1 * f2 && l2 > l1, "HHT α = −0.05: {f2} → {l2}");
+    }
+
 }

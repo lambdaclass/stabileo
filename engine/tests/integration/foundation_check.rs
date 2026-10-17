@@ -17,6 +17,7 @@ fn foundation_concentric_bearing() {
             col_width: 0.40,
             d: None,
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -56,6 +57,7 @@ fn foundation_eccentric_bearing() {
             col_width: 0.40,
             d: None,
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -104,6 +106,7 @@ fn foundation_bearing_fails() {
             col_width: 0.30,
             d: None,
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -139,6 +142,7 @@ fn foundation_overturning() {
             col_width: 0.50,
             d: None,
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -187,6 +191,7 @@ fn foundation_sliding() {
             col_width: 0.40,
             d: None,
             mu_sliding: Some(0.45),
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -229,6 +234,7 @@ fn foundation_oneway_shear() {
             col_width: 0.40,
             d: Some(0.425), // d = 500 - 75 = 425mm
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -269,6 +275,7 @@ fn foundation_punching_shear() {
             col_width: 0.30,
             d: Some(0.325),
             mu_sliding: None,
+            rho_w: None,
         }],
         forces: vec![SpreadFootingForces {
             footing_id: 1,
@@ -313,6 +320,7 @@ fn foundation_multiple_footings() {
                 col_width: 0.50,
                 d: None,
                 mu_sliding: None,
+                rho_w: None,
             },
             SpreadFootingData {
                 footing_id: 1,
@@ -327,6 +335,7 @@ fn foundation_multiple_footings() {
                 col_width: 0.40,
                 d: None,
                 mu_sliding: None,
+                rho_w: None,
             },
         ],
         forces: vec![
@@ -358,4 +367,27 @@ fn foundation_multiple_footings() {
     assert!(results[0].pass);
     // Footing 3: 800000/6.25 = 128000 < 250000 — passes
     assert!(results[1].pass);
+}
+
+/// Punching carries the size factor λs (CIRSOC 201-2025 Tabla 22.6.5.2 with 22.5.5.1.3).
+/// It was missing: at d = 525 mm the check overstated the footing by 1/0.803 = 25 %.
+#[test]
+fn punching_includes_the_size_factor() {
+    let results = check_spread_footings(&SpreadFootingInput {
+        footings: vec![SpreadFootingData {
+            footing_id: 1, length: 3.0, width: 3.0, thickness: 0.60, depth: 1.0,
+            q_allowable: 1e9, gamma_soil: 18_000.0, fc: 25e6, col_length: 0.40, col_width: 0.40,
+            d: None, mu_sliding: None, rho_w: None,
+        }],
+        forces: vec![SpreadFootingForces { footing_id: 1, p: 1_500_000.0, mx: None, my: None, h: None }],
+    });
+    let r = &results[0];
+    let d = 0.525;
+    let b0 = 4.0 * (0.40 + d);
+    let lambda_s = (2.0_f64 / (1.0 + 0.004 * d * 1000.0)).sqrt();
+    // vc = min(0.33, 0.17·(1 + 2/β), 0.083·(2 + αs·d/b0))·λs·√f'c = 0.33·λs·√f'c here.
+    let phi_vc = 0.75 * 0.33 * lambda_s * 5.0 * (b0 * 1000.0) * (d * 1000.0);
+    let vu = 1_500_000.0 * (1.0 - (0.40 + d) * (0.40 + d) / 9.0);
+    assert!((r.punching_shear_ratio - vu / phi_vc).abs() < 1e-9 * (vu / phi_vc),
+        "punching {} vs {}", r.punching_shear_ratio, vu / phi_vc);
 }

@@ -37,6 +37,24 @@ function reactions(r: { reactions: Array<Record<string, number>> }) {
 beforeEach(() => { historyStore.clear(); modelStore.clear(); });
 
 describe('reverseElement', () => {
+  it('3D: a semi-rigid end spring swaps with its end, so the solution does not move', () => {
+    uiStore.analysisMode = '3d';
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const e = modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.updateSection(modelStore.elements.get(e)!.sectionId, { iy: 0.0001, iz: 0.00001 });
+    // A soft spring at the fixed end: the tip deflection depends on where it sits.
+    modelStore.updateElement(e, { semiRigid: { i: { ky: 500, kz: 500 } } } as never);
+    modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0);
+    const before = spaceResults();
+    modelStore.reverseElement(e);
+    expect(modelStore.elements.get(e)!.semiRigid).toEqual({ j: { ky: 500, kz: 500 } });
+    sameSpaceResults(spaceResults(), before);
+    modelStore.reverseElement(e);
+    expect(modelStore.elements.get(e)!.semiRigid).toEqual({ i: { ky: 500, kz: 500 } });
+  });
+
   it.each([false, true])('3D preserves a section rotation and shared section (explicit Y: %s)', (explicitY) => {
     uiStore.analysisMode = '3d';
     modelStore.clear();

@@ -286,6 +286,10 @@ fn w14x22_without_depth(lb: f64) -> SteelMemberData {
         e: 200e9,
         g: Some(77e9),
         depth: None,
+        flange_slenderness: None,
+        compression_elements: None,
+        // The expected 49.8 kN·m is the F2-4 value at the shear centre.
+        load_position: Some(AiscLoadPosition::ShearCentre),
     }
 }
 

@@ -8,14 +8,22 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Least privilege: jobs only read the repository.
+permissions:
+  contents: read
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Backend tests
         run: cargo test --locked -p dedaliano-backend
 
@@ -23,10 +31,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
           components: clippy, rust-src
 
       # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
@@ -39,7 +50,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
@@ -56,10 +67,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
           components: rust-src
 
       # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
@@ -72,11 +86,13 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: nextest
 
       - name: Shell benchmarks gate
         working-directory: engine
@@ -121,6 +137,12 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci --test kfull_overbuild_gates
 
+      # Result certificates (docs/verification/CERTIFY.md): honesty against a
+      # double-double reference, buckling/modal enclosures, fuzz oracle.
+      - name: Certificate gate
+        working-directory: engine
+        run: cargo nextest run --profile ci --test certify --test properties_2d --test properties_3d
+
   # The remaining ~6700 tests, sharded 2-way. Excludes the named gates above
   # (they run in the `test` job) and the wall-clock timing benchmarks/perf
   # binaries (validated in their dedicated single-threaded gate steps).
@@ -131,10 +153,13 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
           components: rust-src
 
       # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
@@ -147,15 +172,17 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: nextest
 
       - name: Run test suite (shard ${{ matrix.shard }}/2)
         working-directory: engine
-        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - binary(perf_regression_advanced) - binary(perf_regression_gates) - (test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)) - (test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)) - test(/benchmark_.*constraint/) - binary(sparse_shell_gates) - binary(solver_invariants) - binary(solver_ci_coverage) - binary(conditioning_adversarial) - binary(kfull_overbuild_gates)' --partition count:${{ matrix.shard }}/2
+        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - binary(perf_regression_advanced) - binary(perf_regression_gates) - (test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)) - (test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)) - test(/benchmark_.*constraint/) - binary(sparse_shell_gates) - binary(solver_invariants) - binary(solver_ci_coverage) - binary(conditioning_adversarial) - binary(kfull_overbuild_gates) - binary(certify) - binary(properties_2d) - binary(properties_3d)' --partition count:${{ matrix.shard }}/2
         timeout-minutes: 20
 
   # Criterion reports are informational (continue-on-error): they must not gate
@@ -164,10 +191,13 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: nightly
           components: rust-src
 
       # Noninteractive and needrestart-proof: an apt prompt or a stalled mirror
@@ -180,7 +210,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y mold
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
@@ -200,7 +230,7 @@ jobs:
 
       - name: Upload criterion reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: criterion-reports
           path: engine/target/criterion
@@ -219,21 +249,27 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
+      # Pinned release, checksum-verified by install-action (no curl | sh).
       - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: wasm-pack@0.13.1
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
@@ -254,21 +290,27 @@ jobs:
   web-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
+      # Pinned release, checksum-verified by install-action (no curl | sh).
       - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: wasm-pack@0.13.1
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
@@ -330,21 +372,27 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
+      # Pinned release, checksum-verified by install-action (no curl | sh).
       - name: Install wasm-pack
-        run: bash .github/scripts/install-wasm-pack.sh
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: wasm-pack@0.13.1
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
@@ -363,7 +411,7 @@ jobs:
         run: npm ci
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -421,7 +469,7 @@ jobs:
       # Uploaded for diagnostics: on a mismatch this carries the actual/diff images.
       - name: Upload Linux screenshot baselines / diffs
         if: always() && matrix.shard == 1
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: linux-screenshot-baselines
           path: web/e2e/__screenshots__/linux
@@ -440,7 +488,7 @@ jobs:
       # saw. `warn` restores the signal if the paths ever go stale again.
       - name: Upload Playwright artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-artifacts-${{ matrix.shard }}
           path: |

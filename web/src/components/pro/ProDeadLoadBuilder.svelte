@@ -18,7 +18,7 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { te } from '../../lib/i18n/engine-text';
   import {
-    DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
+    DEAD_TABLE_2025, PARTITION_MINIMUM_ENTRY, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
     type DeadGroup,
   } from '../../lib/codes/cirsoc101/dead-loads';
   // A row, as the dialog holds it (`auto-loads-sections.ts`).
@@ -127,7 +127,7 @@
       <option value="">{t('loads.dead.title')}…</option>
       {#each GROUPS as g (g)}
         <optgroup label={t(`loads.dead.group.${g}`)}>
-          {#each DEAD_TABLE_2025.filter((e) => e.group === g) as e (e.key)}
+          {#each [...DEAD_TABLE_2025, PARTITION_MINIMUM_ENTRY].filter((e) => e.group === g) as e (e.key)}
             <option value={e.key}>
               {t(e.labelKey)}
               {#if e.areaKNm2 !== null}— {e.areaKNm2} kN/m²{:else}— {e.volumeKNm3} kN/m³{/if}

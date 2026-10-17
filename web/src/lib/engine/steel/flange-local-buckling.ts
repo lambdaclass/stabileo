@@ -19,9 +19,11 @@
  *   · **`Sy`** — the elastic modulus about the minor axis, «para secciones canal se tomará el módulo
  *     **mínimo**».
  *
- * The fourth is not: **`λpf` and `λrf` are «Tabla B.4.1b, caso 14»**, and Table B.4.1b is an image
- * in the source PDF. So the geometry is available, the formulas are available, and **the branch
- * cannot be selected**.
+ * The fourth is not in the shipped text: **`λpf` and `λrf` are «Tabla B.4.1b, caso 14»**, and
+ * Table B.4.1b is an image in the source PDF. It has since been transcribed from the official PDF
+ * (λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy); see the classification block of `cirsoc301.ts`), so
+ * when the caller gives `fy` the branch IS selected (`classified`). Without `fy` the report is
+ * what it always was: geometry available, branch undetermined.
  *
  * ── What this module therefore does, and does not do ───────────────
  *
@@ -38,8 +40,14 @@
 /** Which of F.6.2's branches applies. `undetermined` is the honest answer today. */
 export type F62Branch = 'notApplicableCompact' | 'nonCompact' | 'slender' | 'undetermined';
 
-/** Why F.6.2 does not yield a capacity for this member. */
+/** Why F.6.2 does not yield a capacity for this member — or `classified` when it does. */
 export type F62State =
+  /**
+   * Fy given: the branch is selected with Table B.4.1b case 14, λpf = 0,38·√(E/Fy) and
+   * λrf = 1,00·√(E/Fy), transcribed from the official PDF (Cap. B p. 22) — the same limits the
+   * CIRSOC 301 checker applies in F.6.2 (`cirsoc301.ts`).
+   */
+  | 'classified'
   /** The section is not one F.6 covers. Nothing is missing; the clause does not reach it. */
   | 'outOfScope'
   /** `bf` or `tf` absent, so even the slenderness cannot be formed. */
@@ -71,6 +79,10 @@ export interface F62Input {
   tf?: number;
   /** Minor-axis inertia, m⁴ — the app's `iz` for a tall section. */
   iMinor?: number;
+  /** Yield strength, MPa. With it the branch is selected (Table B.4.1b case 14). */
+  fy?: number;
+  /** Elastic modulus, MPa (default 200 000 — Table B.4.1b's own E). */
+  e?: number;
 }
 
 /**
@@ -132,6 +144,16 @@ export function f62Report(input: F62Input): F62Report {
    */
   const fcr = 138000 / (lambdaF * lambdaF);
   const sy = iMinor != null && iMinor > 0 && b != null && b > 0 ? iMinor / (b / 2) : null;
+
+  if (input.fy != null && input.fy > 0) {
+    const r = Math.sqrt((input.e ?? 2e5) / input.fy);
+    const branch: F62Branch = lambdaF <= 0.38 * r ? 'notApplicableCompact'
+      : lambdaF <= 1.0 * r ? 'nonCompact' : 'slender';
+    return {
+      state: 'classified', branch, reasonKey: 'steel.f62.classified',
+      flangeSlenderness: lambdaF, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
+    };
+  }
 
   return {
     state: 'classificationUnavailable',

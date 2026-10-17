@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::certify::real::{branch, Real};
 use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
 
 // ==================== Types ====================
@@ -149,78 +150,88 @@ pub fn check_ec2_members(input: &Ec2CheckInput) -> Vec<Ec2CheckResult> {
     results
 }
 
-fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckResult {
-    let gamma_c = m.gamma_c.unwrap_or(1.5);
-    let gamma_s = m.gamma_s.unwrap_or(1.15);
-    let alpha_cc = m.alpha_cc.unwrap_or(1.0);
-    let es = m.es.unwrap_or(200e9);
-    let bw = m.bw.unwrap_or(m.b);
+/// EC2 flexural resistance (6.1, rectangular stress block 3.1.7).
+pub(crate) struct Ec2Flexure<T> {
+    pub m_rd: T,
+    pub z: T,
+    pub x_na: T,
+}
 
+/// EC2 shear resistances (6.2).
+pub(crate) struct Ec2Shear<T> {
+    pub v_rd: T,
+    pub v_rdc: T,
+    pub v_rds: T,
+    pub v_rd_max: T,
+}
+
+fn design_strengths<T: Real>(m: &Ec2MemberData) -> (T, T, T) {
+    let gamma_c = T::exact(m.gamma_c.unwrap_or(1.5));
+    let gamma_s = T::exact(m.gamma_s.unwrap_or(1.15));
+    let alpha_cc = T::exact(m.alpha_cc.unwrap_or(1.0));
     // Design material strengths
-    let fcd = alpha_cc * m.fck / gamma_c;
-    let fyd = m.fyk / gamma_s;
+    let fcd = (alpha_cc * T::exact(m.fck)).dv(gamma_c);
+    let fyd = T::exact(m.fyk).dv(gamma_s);
+    let fck_mpa = T::exact(m.fck).dv(T::exact(1e6));
+    (fcd, fyd, fck_mpa)
+}
 
-    let m_ed = f.m_ed.unwrap_or(0.0).abs();
-    let v_ed = f.v_ed.unwrap_or(0.0).abs();
-
-    // ==================== Flexure (EC2 Sec 6.1) ====================
+/// Flexural resistance. Generic over `Real` so the certified check
+/// (`certify::design`) evaluates the same formula in interval arithmetic.
+pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+    let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
+    let es = T::exact(m.es.unwrap_or(200e9));
+    let (one, fifty) = (T::exact(1.0), T::exact(50.0));
+    let (as_t, b, d) = (T::exact(m.as_tension), T::exact(m.b), T::exact(m.d));
 
     // Using simplified rectangular stress block (EC2 3.1.7)
     // lambda = 0.8 for fck <= 50 MPa, eta = 1.0
-    let fck_mpa = m.fck / 1e6;
-    let lambda = if fck_mpa <= 50.0 {
-        0.8
-    } else {
-        0.8 - (fck_mpa - 50.0) / 400.0
-    };
-    let eta = if fck_mpa <= 50.0 {
-        1.0
-    } else {
-        1.0 - (fck_mpa - 50.0) / 200.0
-    };
+    let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
+    let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
 
     // Singly reinforced: force equilibrium
     // C = eta * fcd * lambda * x * b
     // T = As * fyd
     // C = T => x = As * fyd / (eta * fcd * lambda * b)
-    let x_na = m.as_tension * fyd / (eta * fcd * lambda * m.b);
+    let x_na = (as_t * fyd).dv(eta * fcd * lambda * b);
 
     // Check compression steel contribution
     let (m_rd, z) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
+        let (as_c, d_p) = (T::exact(as_c), T::exact(d_p));
         // Doubly reinforced
         // Check if compression steel yields
-        let epsilon_cu = 0.0035; // EC2 3.1.7
-        let epsilon_sc = epsilon_cu * (1.0 - d_p / x_na);
-        let fsc = if epsilon_sc * es >= fyd {
-            fyd
-        } else {
-            epsilon_sc * es
-        };
+        let epsilon_cu = T::lit(0.0035); // EC2 3.1.7
+        let epsilon_sc = epsilon_cu * (one - d_p.dv(x_na));
+        let fsc = branch(fyd.le(epsilon_sc * es), || fyd, || epsilon_sc * es);
 
         // Recompute x with compression steel
-        let x = (m.as_tension * fyd - as_c * fsc) / (eta * fcd * lambda * m.b);
-        let z_val = m.d - lambda * x / 2.0;
-        let m_c = eta * fcd * lambda * x * m.b * z_val;
-        let m_s = as_c * fsc * (m.d - d_p);
+        let x = (as_t * fyd - as_c * fsc).dv(eta * fcd * lambda * b);
+        let z_val = d - (lambda * x).dv(T::exact(2.0));
+        let m_c = eta * fcd * lambda * x * b * z_val;
+        let m_s = as_c * fsc * (d - d_p);
         (m_c + m_s, z_val)
     } else {
         // Singly reinforced
-        let z_val = m.d - lambda * x_na / 2.0;
-        let m_rd_val = m.as_tension * fyd * z_val;
+        let z_val = d - (lambda * x_na).dv(T::exact(2.0));
+        let m_rd_val = as_t * fyd * z_val;
         (m_rd_val, z_val)
     };
+    Ec2Flexure { m_rd, z, x_na }
+}
 
-    let mut ledger = CheckLedger::new();
-    let flexure_ratio = ledger.ratio("Flexure 6.1", m_ed, m_rd);
-
-    // ==================== Shear (EC2 Sec 6.2) ====================
+/// Shear resistance for axial force `n_ed` (tension-positive).
+pub(crate) fn ec2_shear<T: Real>(m: &Ec2MemberData, n_ed: T) -> Ec2Shear<T> {
+    let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
+    let gamma_c = T::exact(m.gamma_c.unwrap_or(1.5));
+    let (d, bw) = (T::exact(m.d), T::exact(m.bw.unwrap_or(m.b)));
+    let (zero, one, mega) = (T::exact(0.0), T::exact(1.0), T::exact(1e6));
 
     // VRd,c — concrete shear resistance without shear reinforcement (EC2 6.2.2)
-    let d_mm = m.d * 1000.0;
-    let bw_mm = bw * 1000.0;
-    let k_shear = (1.0 + (200.0 / d_mm).sqrt()).min(2.0);
-    let rho_l = (m.as_tension / (bw * m.d)).min(0.02);
-    let c_rdc = 0.18 / gamma_c;
+    let d_mm = d * T::exact(1000.0);
+    let bw_mm = bw * T::exact(1000.0);
+    let k_shear = (one + T::exact(200.0).dv(d_mm).sqrt()).min(T::exact(2.0));
+    let rho_l = T::exact(m.as_tension).dv(bw * d).min(T::lit(0.02));
+    let c_rdc = T::lit(0.18).dv(gamma_c);
 
     // EC2 6.2.2(1) adds k1·sigma_cp, the axial contribution. `n_ed` was
     // accepted and never read, so a column under compression lost the benefit
@@ -228,24 +239,26 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
     // does not have. sigma_cp is compression-positive and capped at 0.2·fcd;
     // `n_ed` is tension-positive here, hence the sign flip.
     const K1_AXIAL: f64 = 0.15;
-    let n_ed = f.n_ed.unwrap_or(0.0);
     let ac = m.b * m.h;
     let sigma_cp_mpa = if ac > 0.0 {
-        ((-n_ed / ac) / 1e6).min(0.2 * fcd / 1e6)
+        ((-n_ed).dv(T::exact(m.b) * T::exact(m.h)).dv(mega)).min((T::lit(0.2) * fcd).dv(mega))
     } else {
-        0.0
+        zero
     };
-    let axial_term = K1_AXIAL * sigma_cp_mpa * bw_mm * d_mm;
+    let axial_term = T::lit(K1_AXIAL) * sigma_cp_mpa * bw_mm * d_mm;
 
-    let v_rdc = c_rdc * k_shear * (100.0 * rho_l * fck_mpa).powf(1.0 / 3.0) * bw_mm * d_mm
+    let v_rdc = c_rdc * k_shear * (T::exact(100.0) * rho_l * fck_mpa).powf(one.dv(T::exact(3.0))) * bw_mm * d_mm
         + axial_term;
 
     // Minimum VRd,c
-    let v_min = 0.035 * k_shear.powf(1.5) * fck_mpa.sqrt() * bw_mm * d_mm + axial_term;
-    let v_rdc = v_rdc.max(v_min).max(0.0);
+    let v_min = T::lit(0.035) * k_shear.powf(T::exact(1.5)) * fck_mpa.sqrt() * bw_mm * d_mm + axial_term;
+    let v_rdc = v_rdc.max(v_min).max(zero);
 
     // VRd,s — shear reinforcement capacity (EC2 6.2.3)
-    let z_shear = m.z.unwrap_or(0.9 * m.d);
+    let z_shear = match m.z {
+        Some(z) => T::exact(z),
+        None => T::lit(0.9) * d,
+    };
     // EC2 6.2.3(2) bounds the strut inclination to 1 <= cot(theta) <= 2.5,
     // i.e. 21.8 deg <= theta <= 45 deg. Working directly in cot(theta) keeps
     // the clamp exact and avoids the singularity at theta = 0, where an
@@ -255,14 +268,14 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
     const COT_THETA_MIN: f64 = 1.0; // theta = 45 deg
     let cot_theta = match m.theta_shear {
         Some(t) if t.is_finite() && t > 0.0 => {
-            (1.0 / t.tan()).clamp(COT_THETA_MIN, COT_THETA_MAX)
+            one.dv(T::exact(t).tan()).max(T::exact(COT_THETA_MIN)).min(T::exact(COT_THETA_MAX))
         }
-        _ => COT_THETA_MAX,
+        _ => T::exact(COT_THETA_MAX),
     };
 
     let v_rds = match (m.asw, m.s_stirrup) {
-        (Some(asw), Some(s)) if s > 0.0 => asw * z_shear * fyd * cot_theta / s,
-        _ => 0.0,
+        (Some(asw), Some(s)) if s > 0.0 => (T::exact(asw) * z_shear * fyd * cot_theta).dv(T::exact(s)),
+        _ => zero,
     };
 
     // VRd,max — maximum strut capacity (EC2 6.2.3(3), Eq. 6.9):
@@ -271,17 +284,27 @@ fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckRe
     // 1.0 for non-prestressed members. It is *not* alpha_cc, which scales the
     // long-term compressive strength and is already inside `fcd` above —
     // reusing it here applied a national-annex 0.85 twice.
-    let alpha_cw = 1.0;
-    let nu1 = 0.6 * (1.0 - fck_mpa / 250.0);
-    let v_rd_max = alpha_cw * nu1 * fcd * bw * z_shear * cot_theta
-        / (1.0 + cot_theta * cot_theta);
+    let alpha_cw = one;
+    let nu1 = T::lit(0.6) * (one - fck_mpa.dv(T::exact(250.0)));
+    let v_rd_max = (alpha_cw * nu1 * fcd * bw * z_shear * cot_theta).dv(one + cot_theta * cot_theta);
 
     // Design shear capacity
-    let v_rd = if v_rds > 0.0 {
-        v_rds.min(v_rd_max)
-    } else {
-        v_rdc
-    };
+    let v_rd = branch(zero.lt(v_rds), || v_rds.min(v_rd_max), || v_rdc);
+    Ec2Shear { v_rd, v_rdc, v_rds, v_rd_max }
+}
+
+fn check_single_ec2_member(m: &Ec2MemberData, f: &Ec2DesignForces) -> Ec2CheckResult {
+    let m_ed = f.m_ed.unwrap_or(0.0).abs();
+    let v_ed = f.v_ed.unwrap_or(0.0).abs();
+
+    // ==================== Flexure (EC2 Sec 6.1) ====================
+    let Ec2Flexure { m_rd, z, x_na } = ec2_flexure::<f64>(m);
+
+    let mut ledger = CheckLedger::new();
+    let flexure_ratio = ledger.ratio("Flexure 6.1", m_ed, m_rd);
+
+    // ==================== Shear (EC2 Sec 6.2) ====================
+    let Ec2Shear { v_rd, v_rdc, v_rds, v_rd_max } = ec2_shear::<f64>(m, f.n_ed.unwrap_or(0.0));
 
     let shear_ratio = ledger.ratio_if_loaded("Shear 6.2", v_ed, v_rd);
 

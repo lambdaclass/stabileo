@@ -1,0 +1,48 @@
+name: Differential
+
+# Differential testing against independent frame programs (tools/differential/):
+# catches element-formulation, fixed-end-force, convention, assembly and
+# singularity-detection bugs that the result certificates cannot (they certify
+# the assembled system, right or wrong). Nightly and on demand; the random
+# seed moves daily and is printed, so a failure reproduces locally with
+# `tools/differential/ci.sh PROGRAM SEED`.
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "seed-start (default: day-based)"
+        required: false
+
+jobs:
+  differential:
+    strategy:
+      fail-fast: false
+      matrix:
+        program: [frame3dd, pynite, mystran, kratos, calculix]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fortran and CMake (Mystran)
+        if: matrix.program == 'mystran'
+        run: sudo apt-get update && sudo apt-get install -y gfortran cmake
+      # CalculiX is built by nix (calculix/setup.sh) with 17-digit output:
+      # distribution builds print 7 digits, a ~5e-7 floor at the tolerance.
+      - uses: cachix/install-nix-action@v31
+        if: matrix.program == 'calculix'
+      - name: Compare
+        run: tools/differential/ci.sh ${{ matrix.program }} ${{ github.event.inputs.seed }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: differential-${{ matrix.program }}
+          path: tools/differential/out/ci/
+          if-no-files-found: ignore

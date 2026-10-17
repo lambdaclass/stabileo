@@ -369,3 +369,65 @@ describe('the unfactored basis after a PRO solve', () => {
     expect(d.max / ((5 * (3 * q + ownWeight) * L ** 4) / (384 * ei().EIy))).toBeCloseTo(1, 6);
   });
 });
+
+describe('a shear-flexible (Timoshenko) member adds its shear deflection', () => {
+  const asY = 0.004, asZ = 0.003;
+  function shearFlexible(on = true) {
+    const e = modelStore.elements.get(beam)!;
+    modelStore.updateSection(e.sectionId, { shearAreas: { basis: 'declared', asY, asZ } });
+    if (!on) modelStore.setAnalysis({ shearDeformation: 'none' });
+  }
+  afterEach(() => { modelStore.setAnalysis({ shearDeformation: undefined }); });
+
+  it('cantilever, tip load in each plane: PL³/3EI + PL/(G·As)', () => {
+    const tip = member('fixed', 'free');
+    shearFlexible();
+    const { EIy, EIz, GAy, GAz } = ei();
+    expect(GAy).toBeGreaterThan(0);
+    // Local z plane (global Z here) with Iy and As,y; local y plane with Iz and As,z.
+    modelStore.addNodalLoad3D(tip, 0, P / 2, -P, 0, 0, 0);
+    const d = solveAndRead();
+    expect(d.maxW / (P * L ** 3 / (3 * EIy) + P * L / GAy!)).toBeCloseTo(1, 8);
+    expect(d.maxV / ((P / 2) * L ** 3 / (3 * EIz) + (P / 2) * L / GAz!)).toBeCloseTo(1, 8);
+  });
+
+  it('the same cantilever with shear deformation turned off reads PL³/3EI', () => {
+    const tip = member('fixed', 'free');
+    shearFlexible(false);
+    expect(ei().GAy).toBeDefined(); // the section has them; the analysis does not take them
+    const e = modelStore.elements.get(beam)!;
+    expect(eiOf(modelStore.materials.get(e.materialId), modelStore.sections.get(e.sectionId), modelStore.analysis)!.GAy).toBeUndefined();
+    modelStore.addNodalLoad3D(tip, 0, 0, -P, 0, 0, 0);
+    const d = solveAndRead();
+    expect(d.maxW / (P * L ** 3 / (3 * ei().EIy))).toBeCloseTo(1, 8);
+  });
+
+  it('simply supported, uniform load: 5qL⁴/384EI + qL²/8GAs at midspan', () => {
+    member('pinned', 'roller');
+    shearFlexible();
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q);
+    const d = solveAndRead();
+    const { EIy, GAy } = ei();
+    expect(d.max / (5 * q * L ** 4 / (384 * EIy) + q * L * L / (8 * GAy!))).toBeCloseTo(1, 9);
+    expect(d.x).toBeCloseTo(L / 2, 9);
+  });
+
+  it('released at both ends between fixed supports, the same', () => {
+    member('fixed', 'fixed');
+    shearFlexible();
+    modelStore.updateElement(beam, { releaseI: { my: true, mz: false, t: false }, releaseJ: { my: true, mz: false, t: false } });
+    modelStore.addDistributedLoad3D(beam, 0, 0, -q, -q);
+    const d = solveAndRead();
+    const { EIy, GAy } = ei();
+    expect(d.max / (5 * q * L ** 4 / (384 * EIy) + q * L * L / (8 * GAy!))).toBeCloseTo(1, 9);
+  });
+
+  it('fixed at both ends, central point load: PL³/192EI + PL/4GAs', () => {
+    member('fixed', 'fixed');
+    shearFlexible();
+    modelStore.addPointLoadOnElement3D(beam, L / 2, 0, -P);
+    const d = solveAndRead();
+    const { EIy, GAy } = ei();
+    expect(d.max / (P * L ** 3 / (192 * EIy) + P * L / (4 * GAy!))).toBeCloseTo(1, 9);
+  });
+});

@@ -148,7 +148,7 @@ mod tests {
         let c = [props.yc, props.zc];
         let sh = solve_shear(
             &mesh, c,
-            ShearInertia { iy: props.iy, iz: props.iz },
+            ShearInertia { iy: props.iy, iz: props.iz, iyz: props.iyz },
             SolveStrategy::Sparse,
         )
         .expect("shear");

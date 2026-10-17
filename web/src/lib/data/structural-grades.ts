@@ -179,12 +179,13 @@ export interface DesignCode {
 
 const EN_STEEL = { e: 210000, nu: 0.3, rho: 78.5 } as const;
 const US_STEEL = { e: 200000, nu: 0.3, rho: 78.5 } as const;
-// CIRSOC 301 chapter 2 fixes E = 210 000 N/mm2, G = 81 000, nu = 0,296 and
-// gamma = 78,5 kN/m3 for the IRAM grades — the European modulus, not the
-// American one, which is easy to assume from Argentina's use of AISC's method.
-// nu is rounded to 0,30 as every table does; the difference is below the
-// precision of anything downstream.
-const IRAM_STEEL = { e: 210000, nu: 0.3, rho: 78.5 } as const;
+// CIRSOC 301-2018 §A.3.5 fixes E = 200 000 MPa, G = 77 200 MPa and nu = 0,30
+// (docs/codes/CIRSOC/markdown/cirsoc-301-2018, capítulo A). This held the
+// 1984 edition's 210 000 / 81 000 (its chapter 2, Tabla 1), which made every
+// IRAM-steel model 5 % too stiff in bending and 4.6 % in shear — unconservative
+// on deflections and drift. G derived as E/(2(1+nu)) = 76 923 sits 0.36 %
+// below the code's 77 200, on the safe side.
+const IRAM_STEEL = { e: 200000, nu: 0.3, rho: 78.5 } as const;
 
 export const HOT_ROLLED: StructuralGrade[] = [
   // ── Argentina — IRAM, the grades CIRSOC 301 is written around ──
@@ -328,7 +329,12 @@ const EN_ALU = { e: 70000, nu: 0.3, rho: 27.0 } as const;
 
 export const ALUMINIUM: StructuralGrade[] = [
   // 5xxx — magnesium alloys: weldable, marine, work-hardened tempers.
-  { id: 'alu-5052-h32', designation: '5052-H32', productStandard: 'EN AW-5052', region: 'EU', family: 'aluminium', ...EN_ALU, fy: 195, fu: 230, verification: 'typical' },
+  {
+    id: 'alu-5052-h32', designation: '5052-H32', productStandard: 'EN AW-5052', region: 'EU', family: 'aluminium', ...EN_ALU,
+    // Table 3.2a, sheet/strip/plate, H22/H32. Held 195/230 — typical values, 50 % above the
+    // characteristic 0,2 % proof stress the code designs with.
+    fy: 130, fu: 210, verification: 'standard', note: 'Chapa, EN 1999-1-1 tabla 3.2a (H22/H32).',
+  },
   {
     id: 'alu-5083-h111', designation: '5083-H111', productStandard: 'EN AW-5083', region: 'EU', family: 'aluminium', ...EN_ALU,
     // Table 3.2b, extruded, O/H111/F/H112, t <= 200. Held 125/275 before the
@@ -349,7 +355,11 @@ export const ALUMINIUM: StructuralGrade[] = [
     fy: 140, fu: 170, verification: 'standard', note: 'Extrusión, t ≤ 15 mm.',
   },
   { id: 'alu-6061-t6', designation: '6061-T6', productStandard: 'EN AW-6061', region: 'EU', family: 'aluminium', ...EN_ALU, fy: 240, fu: 260, verification: 'typical' },
-  { id: 'alu-6063-t6', designation: '6063-T6', productStandard: 'EN AW-6063', region: 'EU', family: 'aluminium', ...EN_ALU, fy: 170, fu: 205, verification: 'typical', note: 'Extrusion.' },
+  {
+    id: 'alu-6063-t6', designation: '6063-T6', productStandard: 'EN AW-6063', region: 'EU', family: 'aluminium', ...EN_ALU,
+    // Table 3.2b, extruded profile/tube/rod, t <= 25. Held 170/205 (typical values).
+    fy: 160, fu: 195, verification: 'standard', note: 'Extrusión, t ≤ 25 mm, EN 1999-1-1 tabla 3.2b.',
+  },
   {
     id: 'alu-6082-t6', designation: '6082-T6', productStandard: 'EN AW-6082', region: 'EU', family: 'aluminium', ...EN_ALU,
     fy: 250, fu: 290, verification: 'standard',

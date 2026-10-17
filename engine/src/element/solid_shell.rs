@@ -1,9 +1,9 @@
 /// SHB8-ANS: 8-node solid-shell element with ANS anti-locking.
 ///
 /// 8-node trilinear hex, 3 DOFs/node (translations only), 24 total DOFs.
-/// Full 2×2×2 Gauss integration. ANS for thickness strain (ε_ζζ) and
-/// transverse shear (ε_ξζ, ε_ηζ) to prevent Poisson thickness locking
-/// and transverse shear locking.
+/// Full 2×2×2 Gauss integration. ANS on the covariant thickness strain (E_ζζ)
+/// and transverse shears (E_ξζ, E_ηζ) to prevent curvature thickness locking
+/// and transverse shear locking; ζ (nodes 1-4 → 5-8) is the thickness direction.
 ///
 /// Node numbering:
 ///     8---7       Top face: 5,6,7,8 (ζ = +1)
@@ -173,98 +173,116 @@ fn physical_derivatives(ji: &[[f64; 3]; 3], dn: &[[f64; 8]; 3]) -> [[f64; 8]; 3]
 
 // ==================== ANS Tying ====================
 
-/// ANS tying point data for thickness strain and transverse shear.
+/// Covariant (convective-frame) strain rows at a point, Voigt order
+/// [E_ξξ, E_ηη, E_ζζ, 2E_ξη, 2E_ηζ, 2E_ξζ], 6×24.
+/// E_kl = ½(g_k·∂u/∂θ_l + g_l·∂u/∂θ_k) with covariant base vectors g_k = ∂X/∂θ_k
+/// (rows of J). These are scalars, so they do not depend on the global frame.
+fn covariant_b_matrix(j: &[[f64; 3]; 3], dn: &[[f64; 8]; 3]) -> [f64; 144] {
+    const PAIRS: [(usize, usize); 6] = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)];
+    let mut b = [0.0; 144];
+    for (r, &(k, l)) in PAIRS.iter().enumerate() {
+        for i in 0..8 {
+            for a in 0..3 {
+                b[r * 24 + i * 3 + a] = if k == l {
+                    dn[k][i] * j[k][a]
+                } else {
+                    dn[l][i] * j[k][a] + dn[k][i] * j[l][a]
+                };
+            }
+        }
+    }
+    b
+}
+
+/// 6×6 map from covariant to Cartesian engineering strains (both Voigt, shear as γ):
+/// ε_ab = Σ E_kl G^k_a G^l_b with the contravariant base vectors G^k = ∂θ_k/∂x
+/// (columns of J⁻¹). Cartesian order [εxx, εyy, εzz, γxy, γyz, γxz].
+fn covariant_to_cartesian(ji: &[[f64; 3]; 3]) -> [f64; 36] {
+    const PAIRS: [(usize, usize); 6] = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)];
+    let g = |k: usize, a: usize| ji[a][k]; // G^k_a
+    let mut t = [0.0; 36];
+    for (r, &(a, b)) in PAIRS.iter().enumerate() {
+        let f = if a == b { 1.0 } else { 2.0 };
+        for (c, &(k, l)) in PAIRS.iter().enumerate() {
+            t[r * 6 + c] = f * if k == l {
+                g(k, a) * g(k, b)
+            } else {
+                0.5 * (g(k, a) * g(l, b) + g(l, a) * g(k, b))
+            };
+        }
+    }
+    t
+}
+
+/// Covariant ANS tying-point rows (each 24 entries).
 ///
-/// Thickness strain ε_ζζ: sampled at 4 mid-surface points (corners in ξ,η at ζ=0).
-/// Transverse shear ε_ξζ: sampled at 2 mid-edge points along η (A: (0,-1,0), B: (0,+1,0)).
-/// Transverse shear ε_ηζ: sampled at 2 mid-edge points along ξ (C: (-1,0,0), D: (+1,0,0)).
+/// Thickness strain E_ζζ: 4 mid-surface corner points (±1, ±1, 0) (Betsch & Stein 1995;
+/// Bischoff & Ramm 1997) — removes curvature thickness locking.
+/// Transverse shear 2E_ξζ: mid-edge points A (0,-1,0), B (0,+1,0); 2E_ηζ: C (-1,0,0),
+/// D (+1,0,0) (Dvorkin & Bathe 1984) — removes transverse shear locking.
+/// Tying covariant components (not global Cartesian ε_zz, γ_xz, γ_yz) is what makes
+/// the element frame invariant and lets the assumed field follow the thickness
+/// direction of a tilted or curved shell.
 struct AnsTyingData {
-    /// B-matrix row for ε_ζζ at 4 tying points (each 24 entries)
     b_zz: [[f64; 24]; 4],
-    /// B-matrix row for γ_xz at 2 tying points A,B
     b_xz: [[f64; 24]; 2],
-    /// B-matrix row for γ_yz at 2 tying points C,D
     b_yz: [[f64; 24]; 2],
 }
 
 /// Pre-compute ANS tying data from element coordinates.
 fn compute_ans_tying(coords: &[[f64; 3]; 8]) -> AnsTyingData {
-    // Thickness strain tying: 4 points at (ξ_i, η_i, 0) for corner ξ,η positions
+    let row = |(xi, eta, zeta): (f64, f64, f64), r: usize| -> [f64; 24] {
+        let dn = shape_derivatives_hex8(xi, eta, zeta);
+        let (j, _, _) = jacobian_3d(coords, &dn);
+        let b = covariant_b_matrix(&j, &dn);
+        std::array::from_fn(|c| b[r * 24 + c])
+    };
     let zz_pts = [(-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0)];
-    let mut b_zz = [[0.0; 24]; 4];
-    for (k, &(xi, eta, zeta)) in zz_pts.iter().enumerate() {
-        let dn = shape_derivatives_hex8(xi, eta, zeta);
-        let (_, ji, _) = jacobian_3d(coords, &dn);
-        let dn_dx = physical_derivatives(&ji, &dn);
-        // ε_ζζ row = row 2 of B-matrix: ∂w/∂z
-        for i in 0..8 {
-            b_zz[k][i * 3 + 2] = dn_dx[2][i];
-        }
+    AnsTyingData {
+        b_zz: zz_pts.map(|p| row(p, 2)),
+        b_xz: [(0.0, -1.0, 0.0), (0.0, 1.0, 0.0)].map(|p| row(p, 5)),
+        b_yz: [(-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)].map(|p| row(p, 4)),
     }
-
-    // Transverse shear ε_ξζ (γ_xz): tying at A=(0,-1,0), B=(0,+1,0)
-    // These are mid-edges in η direction (constant ξ edges)
-    let xz_pts = [(0.0, -1.0, 0.0), (0.0, 1.0, 0.0)];
-    let mut b_xz = [[0.0; 24]; 2];
-    for (k, &(xi, eta, zeta)) in xz_pts.iter().enumerate() {
-        let dn = shape_derivatives_hex8(xi, eta, zeta);
-        let (_, ji, _) = jacobian_3d(coords, &dn);
-        let dn_dx = physical_derivatives(&ji, &dn);
-        // γ_xz row: ∂u/∂z + ∂w/∂x
-        for i in 0..8 {
-            b_xz[k][i * 3]     = dn_dx[2][i]; // ∂u/∂z
-            b_xz[k][i * 3 + 2] = dn_dx[0][i]; // ∂w/∂x
-        }
-    }
-
-    // Transverse shear ε_ηζ (γ_yz): tying at C=(-1,0,0), D=(+1,0,0)
-    let yz_pts = [(-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)];
-    let mut b_yz = [[0.0; 24]; 2];
-    for (k, &(xi, eta, zeta)) in yz_pts.iter().enumerate() {
-        let dn = shape_derivatives_hex8(xi, eta, zeta);
-        let (_, ji, _) = jacobian_3d(coords, &dn);
-        let dn_dx = physical_derivatives(&ji, &dn);
-        // γ_yz row: ∂v/∂z + ∂w/∂y
-        for i in 0..8 {
-            b_yz[k][i * 3 + 1] = dn_dx[2][i]; // ∂v/∂z
-            b_yz[k][i * 3 + 2] = dn_dx[1][i]; // ∂w/∂y
-        }
-    }
-
-    AnsTyingData { b_zz, b_xz, b_yz }
 }
 
-/// Replace ε_ζζ, γ_xz, γ_yz rows of B with ANS-interpolated values.
+/// Replace the E_ζζ, 2E_ηζ, 2E_ξζ rows of the covariant B with ANS-interpolated values.
 fn apply_ans(b: &mut [f64; 144], xi: f64, eta: f64, tying: &AnsTyingData) {
-    // Bilinear interpolation weights for ε_ζζ from 4 corner tying points
+    // Bilinear interpolation for E_ζζ from 4 corner tying points
     let w_zz = [
         0.25 * (1.0 - xi) * (1.0 - eta),
         0.25 * (1.0 + xi) * (1.0 - eta),
         0.25 * (1.0 + xi) * (1.0 + eta),
         0.25 * (1.0 - xi) * (1.0 + eta),
     ];
-
-    // Replace row 2 (ε_ζζ)
+    // Linear in η for 2E_ξζ (A, B); linear in ξ for 2E_ηζ (C, D)
+    let (wa, wb) = (0.5 * (1.0 - eta), 0.5 * (1.0 + eta));
+    let (wc, wd) = (0.5 * (1.0 - xi), 0.5 * (1.0 + xi));
     for col in 0..24 {
-        b[2 * 24 + col] = w_zz[0] * tying.b_zz[0][col]
-                         + w_zz[1] * tying.b_zz[1][col]
-                         + w_zz[2] * tying.b_zz[2][col]
-                         + w_zz[3] * tying.b_zz[3][col];
-    }
-
-    // Linear interpolation for γ_xz from 2 tying points A(η=-1), B(η=+1)
-    let wa = 0.5 * (1.0 - eta);
-    let wb = 0.5 * (1.0 + eta);
-    for col in 0..24 {
+        b[2 * 24 + col] = (0..4).map(|k| w_zz[k] * tying.b_zz[k][col]).sum();
         b[5 * 24 + col] = wa * tying.b_xz[0][col] + wb * tying.b_xz[1][col];
-    }
-
-    // Linear interpolation for γ_yz from 2 tying points C(ξ=-1), D(ξ=+1)
-    let wc = 0.5 * (1.0 - xi);
-    let wd = 0.5 * (1.0 + xi);
-    for col in 0..24 {
         b[4 * 24 + col] = wc * tying.b_yz[0][col] + wd * tying.b_yz[1][col];
     }
+}
+
+/// Cartesian 6×24 B with ANS at a point: B = T(J⁻¹) · B_cov,ANS.
+fn ans_b_matrix(coords: &[[f64; 3]; 8], xi: f64, eta: f64, zeta: f64, tying: &AnsTyingData) -> ([f64; 144], f64) {
+    let dn = shape_derivatives_hex8(xi, eta, zeta);
+    let (j, ji, det_j) = jacobian_3d(coords, &dn);
+    let mut bc = covariant_b_matrix(&j, &dn);
+    apply_ans(&mut bc, xi, eta, tying);
+    let t = covariant_to_cartesian(&ji);
+    let mut b = [0.0; 144];
+    for r in 0..6 {
+        for p in 0..6 {
+            let trp = t[r * 6 + p];
+            if trp != 0.0 {
+                for col in 0..24 {
+                    b[r * 24 + col] += trp * bc[p * 24 + col];
+                }
+            }
+        }
+    }
+    (b, det_j)
 }
 
 // ==================== Stiffness Matrix ====================
@@ -280,11 +298,7 @@ pub fn solid_shell_stiffness(coords: &[[f64; 3]; 8], e: f64, nu: f64) -> Vec<f64
     let gauss = gauss_2x2x2();
 
     for &(xi, eta, zeta, w) in &gauss {
-        let dn = shape_derivatives_hex8(xi, eta, zeta);
-        let (_, ji, det_j) = jacobian_3d(coords, &dn);
-        let dn_dx = physical_derivatives(&ji, &dn);
-        let mut b = build_b_matrix(&dn_dx);
-        apply_ans(&mut b, xi, eta, &tying);
+        let (b, det_j) = ans_b_matrix(coords, xi, eta, zeta, &tying);
         let dv = det_j.abs() * w;
 
         // K += B^T · C · B · dV
@@ -313,15 +327,6 @@ pub fn solid_shell_stiffness(coords: &[[f64; 3]; 8], e: f64, nu: f64) -> Vec<f64
                     k[j * ndof + i] += val;
                 }
             }
-        }
-    }
-
-    // Symmetrize (ANS can introduce slight asymmetry)
-    for i in 0..ndof {
-        for j in (i + 1)..ndof {
-            let avg = 0.5 * (k[i * ndof + j] + k[j * ndof + i]);
-            k[i * ndof + j] = avg;
-            k[j * ndof + i] = avg;
         }
     }
 
@@ -729,6 +734,28 @@ mod tests {
         assert!(ok);
         assert!((min_d - 0.125).abs() < 1e-12); // det = (1/2)³ = 0.125
         assert!((max_d - 0.125).abs() < 1e-12);
+    }
+
+    /// Without ANS, the covariant route T(J⁻¹)·B_cov is the standard Cartesian B.
+    #[test]
+    fn test_covariant_b_matches_cartesian() {
+        let coords = [
+            [0.1, -0.2, 0.0], [2.0, 0.1, 0.3], [2.3, 1.2, 0.2], [-0.1, 0.9, -0.1],
+            [0.2, -0.1, 0.4], [2.1, 0.0, 0.6], [2.2, 1.3, 0.5], [0.0, 1.0, 0.3],
+        ];
+        for &(xi, eta, zeta, _) in &gauss_2x2x2() {
+            let dn = shape_derivatives_hex8(xi, eta, zeta);
+            let (j, ji, _) = jacobian_3d(&coords, &dn);
+            let bc = covariant_b_matrix(&j, &dn);
+            let t = covariant_to_cartesian(&ji);
+            let b = build_b_matrix(&physical_derivatives(&ji, &dn));
+            for r in 0..6 {
+                for col in 0..24 {
+                    let v: f64 = (0..6).map(|p| t[r * 6 + p] * bc[p * 24 + col]).sum();
+                    assert!((v - b[r * 24 + col]).abs() < 1e-12, "B[{r},{col}]: {v} vs {}", b[r * 24 + col]);
+                }
+            }
+        }
     }
 
     #[test]

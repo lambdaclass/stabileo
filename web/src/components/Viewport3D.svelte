@@ -56,6 +56,10 @@
   import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
   import { currentLoadDrawView, isLoadDrawn } from '../lib/viewport3d/load-drawn';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
+  import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
+  import { diagramBound3D } from '../lib/engine/certificate-read';
+  import { toDisplay } from '../lib/utils/units';
+  import type { StationBound3D } from '../lib/engine/wasm-solver';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
   import { createFrameCoalescer } from '../lib/viewport3d/frame-coalesce';
@@ -3533,7 +3537,12 @@
             const val = evaluateDiagramAt(ef, kind, t);
             const formatted = formatDiagramValue3D(val, kind, uiStore.unitSystem);
             const posLabel = `x=${(t * ef.length).toFixed(2)}m`;
-            diagramTooltip = `Elem ${elemId} (${posLabel}): ${formatted}`;
+            // The certified bound holds at every point of an engine member (not a split or combined one).
+            const cert = ef.pieces?.length || ef.combined ? null
+              : diagramBound3D(certificateStore.stationBound<StationBound3D>(true, elemId), kind);
+            const qty = kind === 'momentY' || kind === 'momentZ' || kind === 'torsion' ? 'moment' : 'force';
+            const pm = cert ? ` ± ${formatBound(toDisplay(cert.atPoint, qty, uiStore.unitSystem))}` : '';
+            diagramTooltip = `Elem ${elemId} (${posLabel}): ${formatted}${pm}`;
             break;
           }
         }

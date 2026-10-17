@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::certify::real::{branch, Real};
 use crate::postprocess::check_ledger::{CheckLedger, Unevaluated};
 
 // ==================== Types ====================
@@ -169,39 +170,128 @@ pub fn check_timber_members(input: &TimberCheckInput) -> Vec<TimberCheckResult> 
     results
 }
 
-fn check_single_timber_member(
-    m: &TimberMemberData,
-    f: &TimberDesignForces,
-) -> TimberCheckResult {
-    let cd = m.cd.unwrap_or(1.0);
-    let cm = m.cm.unwrap_or(1.0);
-    let ct = m.ct.unwrap_or(1.0);
-    let ci = m.ci.unwrap_or(1.0);
+/// NDS adjusted design values and section properties for one member.
+pub(crate) struct TimberCapacities<T> {
+    pub fb_prime: T,
+    pub ft_prime: T,
+    pub fc_prime: T,
+    pub fv_prime: T,
+    pub cp: T,
+    pub cl: T,
+    pub area: T,
+    pub s: T,
+}
+
+/// Adjusted design values. Generic over `Real` so the certified check
+/// (`certify::design`) evaluates the same formulas in interval arithmetic.
+pub(crate) fn timber_capacities<T: Real>(m: &TimberMemberData) -> TimberCapacities<T> {
+    let cd = T::exact(m.cd.unwrap_or(1.0));
+    let cm = T::exact(m.cm.unwrap_or(1.0));
+    let ct = T::exact(m.ct.unwrap_or(1.0));
+    let ci = T::exact(m.ci.unwrap_or(1.0));
+    let (b, d) = (T::exact(m.b), T::exact(m.d));
 
     // Section properties
-    let area = m.b * m.d;
-    let s = m.b * m.d * m.d / 6.0; // Section modulus
+    let area = b * d;
+    let s = (b * d * d).dv(T::exact(6.0)); // Section modulus
 
     // Adjusted design values
     let cp = column_stability_factor(m, cd, cm, ct, ci);
     let cl = beam_stability_factor(m, cd, cm, ct, ci);
 
     // Fb' = Fb * CD * CM * Ct * CL * CF * Cfu * Ci * Cr
-    let cf_b = m.cf_bending.unwrap_or(1.0);
-    let cfu = m.cfu.unwrap_or(1.0);
-    let cr = m.cr.unwrap_or(1.0);
-    let fb_prime = m.fb * cd * cm * ct * cl * cf_b * cfu * ci * cr;
+    let cf_b = T::exact(m.cf_bending.unwrap_or(1.0));
+    let cfu = T::exact(m.cfu.unwrap_or(1.0));
+    let cr = T::exact(m.cr.unwrap_or(1.0));
+    let fb_prime = T::exact(m.fb) * cd * cm * ct * cl * cf_b * cfu * ci * cr;
 
     // Ft' = Ft * CD * CM * Ct * CF * Ci
-    let cf_t = m.cf_tension.unwrap_or(1.0);
-    let ft_prime = m.ft * cd * cm * ct * cf_t * ci;
+    let cf_t = T::exact(m.cf_tension.unwrap_or(1.0));
+    let ft_prime = T::exact(m.ft) * cd * cm * ct * cf_t * ci;
 
     // Fc' = Fc * CD * CM * Ct * CP * CF * Ci
-    let cf_c = m.cf_compression.unwrap_or(1.0);
-    let fc_prime = m.fc * cd * cm * ct * cp * cf_c * ci;
+    let cf_c = T::exact(m.cf_compression.unwrap_or(1.0));
+    let fc_prime = T::exact(m.fc) * cd * cm * ct * cp * cf_c * ci;
 
     // Fv' = Fv * CD * CM * Ct * Ci
-    let fv_prime = m.fv * cd * cm * ct * ci;
+    let fv_prime = T::exact(m.fv) * cd * cm * ct * ci;
+
+    TimberCapacities { fb_prime, ft_prime, fc_prime, fv_prime, cp, cl, area, s }
+}
+
+/// NDS 3.9 combined loading for axial force `n` (tension positive), given the
+/// bending and tension ratios. Generic over `Real`.
+pub(crate) fn timber_interaction<T: Real>(
+    m: &TimberMemberData,
+    caps: &TimberCapacities<T>,
+    n: T,
+    bending_ratio: T,
+    tension_ratio: T,
+) -> T {
+    let zero = T::exact(0.0);
+    let one = T::exact(1.0);
+    let cap = T::exact(MAX_REPORTED_RATIO);
+    let compression = || {
+        // NDS 3.9.2: Combined bending and axial compression
+        // (fc/Fc')² + fb / (Fb' * (1 - fc/FcE)) <= 1.0
+        let fc_actual = (-n).dv(caps.area);
+        let e_min = emin_prime::<T>(m, T::exact(m.cm.unwrap_or(1.0)), T::exact(m.ct.unwrap_or(1.0)), T::exact(m.ci.unwrap_or(1.0)));
+        let kce = T::lit(0.822); // NDS Table 3.3.3
+        // NDS 3.9.2 amplifies by FcE1 — buckling *in the plane of bending*.
+        // `m` is strong-axis bending (S = b·d²/6), so this is le1/d1 = le/d,
+        // not the governing le/min(b,d) used for CP.
+        let le_d = T::exact(m.le).dv(T::exact(m.d));
+        let fce = (kce * e_min).dv(le_d * le_d);
+        let fc_ratio = branch(zero.lt(caps.fc_prime), || fc_actual.dv(caps.fc_prime), || zero);
+        // NDS 3.9.2 is only defined while fc < FcE1. Past that the member has
+        // buckled, and dropping the amplification made the check *weakest*
+        // exactly where it should diverge.
+        //
+        // The ratio is saturated rather than left to run away: an amplification
+        // approaching zero sends it to infinity, and "utilisation: 300000" is
+        // not a number anyone can act on — it breaks every bar and table that
+        // renders it, and it does not distinguish "just past" from "far past",
+        // since the divergence swamps the difference either way. Below the cap
+        // the value is exact; at the cap it means "fails", not a magnitude.
+        //
+        // The amplified term is saturated at the cap too, as
+        // fb/max(amp, fb/cap) = min(fb/amp, cap) for amp > 0 and = cap for
+        // amp <= 0 (where it was +inf): the same total after the final min,
+        // since (fc/Fc')² >= 0, and finite, so it has an interval enclosure.
+        //
+        // With no bending there is nothing to amplify, so the member stays
+        // governed by the (fc/Fc')² term — which is already >= 1 here.
+        let amplification = branch(zero.lt(fce), || one - fc_actual.dv(fce), || one);
+        let amplified_bending = branch(
+            bending_ratio.le(zero),
+            || zero,
+            || bending_ratio.dv(amplification.max(bending_ratio.dv(cap))),
+        );
+        (fc_ratio.sq() + amplified_bending).min(cap)
+    };
+    branch(
+        n.lt(zero),
+        compression,
+        || {
+            branch(
+                zero.lt(n),
+                // NDS 3.9.1: Combined bending and axial tension: ft/Ft' + fb/Fb' <= 1.0
+                || tension_ratio + bending_ratio,
+                || bending_ratio,
+            )
+        },
+    )
+}
+
+pub(crate) const TIMBER_CHECK_NAMES: [&str; 5] =
+    ["Bending NDS 3.3", "Compression NDS 3.6", "Tension NDS 3.8", "Shear NDS 3.4", "Interaction NDS 3.9"];
+
+fn check_single_timber_member(
+    m: &TimberMemberData,
+    f: &TimberDesignForces,
+) -> TimberCheckResult {
+    let caps = timber_capacities::<f64>(m);
+    let TimberCapacities { fb_prime, ft_prime, fc_prime, fv_prime, cp, cl, area, s } = caps;
 
     // Actual stresses
     let m_abs = f.m.abs();
@@ -219,79 +309,35 @@ fn check_single_timber_member(
     let mut ledger = CheckLedger::new();
 
     // Bending ratio
-    let bending_ratio = ledger.ratio("Bending NDS 3.3", fb_actual, fb_prime);
+    let bending_ratio = ledger.ratio(TIMBER_CHECK_NAMES[0], fb_actual, fb_prime);
 
     // Compression and tension ratios
     let (compression_ratio, tension_ratio) = if n < 0.0 {
         let fc_actual = (-n) / area;
-        (ledger.ratio("Compression NDS 3.6", fc_actual, fc_prime), 0.0)
+        (ledger.ratio(TIMBER_CHECK_NAMES[1], fc_actual, fc_prime), 0.0)
     } else if n > 0.0 {
         let ft_actual = n / area;
-        (0.0, ledger.ratio("Tension NDS 3.8", ft_actual, ft_prime))
+        (0.0, ledger.ratio(TIMBER_CHECK_NAMES[2], ft_actual, ft_prime))
     } else {
         (0.0, 0.0)
     };
 
     // Shear ratio
-    let shear_ratio = ledger.ratio_if_loaded("Shear NDS 3.4", fv_actual, fv_prime);
+    let shear_ratio = ledger.ratio_if_loaded(TIMBER_CHECK_NAMES[3], fv_actual, fv_prime);
 
     // NDS 3.9: Combined loading interaction
-    let interaction_ratio = if n < 0.0 {
-        // NDS 3.9.2: Combined bending and axial compression
-        // (fc/Fc')² + fb / (Fb' * (1 - fc/FcE)) <= 1.0
-        let fc_actual = (-n) / area;
-        let e_min = emin_prime(m, cm, ct, ci);
-        let kce = 0.822; // NDS Table 3.3.3
-        // NDS 3.9.2 amplifies by FcE1 — buckling *in the plane of bending*.
-        // `m` is strong-axis bending (S = b·d²/6), so this is le1/d1 = le/d,
-        // not the governing le/min(b,d) used for CP.
-        let le_d = m.le / m.d;
-        let fce = kce * e_min / (le_d * le_d);
-        let fc_ratio = if fc_prime > 0.0 {
-            fc_actual / fc_prime
-        } else {
-            0.0
-        };
-        // NDS 3.9.2 is only defined while fc < FcE1. Past that the member has
-        // buckled, and dropping the amplification made the check *weakest*
-        // exactly where it should diverge.
-        //
-        // The ratio is saturated rather than left to run away: an amplification
-        // approaching zero sends it to infinity, and "utilisation: 300000" is
-        // not a number anyone can act on — it breaks every bar and table that
-        // renders it, and it does not distinguish "just past" from "far past",
-        // since the divergence swamps the difference either way. Below the cap
-        // the value is exact; at the cap it means "fails", not a magnitude.
-        //
-        // With no bending there is nothing to amplify, so the member stays
-        // governed by the (fc/Fc')² term — which is already >= 1 here.
-        let amplification = if fce > 0.0 { 1.0 - fc_actual / fce } else { 1.0 };
-        let amplified_bending = if bending_ratio <= 0.0 {
-            0.0
-        } else if amplification > 0.0 {
-            bending_ratio / amplification
-        } else {
-            f64::INFINITY
-        };
-        (fc_ratio * fc_ratio + amplified_bending).min(MAX_REPORTED_RATIO)
-    } else if n > 0.0 {
-        // NDS 3.9.1: Combined bending and axial tension
-        // ft/Ft' + fb/Fb' <= 1.0
-        tension_ratio + bending_ratio
-    } else {
-        bending_ratio
-    };
+    let interaction_ratio = timber_interaction(m, &caps, n, bending_ratio, tension_ratio);
 
     // Governing
     let checks = [
-        (bending_ratio, "Bending NDS 3.3"),
-        (compression_ratio, "Compression NDS 3.6"),
-        (tension_ratio, "Tension NDS 3.8"),
-        (shear_ratio, "Shear NDS 3.4"),
-        (interaction_ratio, "Interaction NDS 3.9"),
+        (bending_ratio, TIMBER_CHECK_NAMES[0]),
+        (compression_ratio, TIMBER_CHECK_NAMES[1]),
+        (tension_ratio, TIMBER_CHECK_NAMES[2]),
+        (shear_ratio, TIMBER_CHECK_NAMES[3]),
+        (interaction_ratio, TIMBER_CHECK_NAMES[4]),
     ];
 
-    let interaction_ratio = ledger.require_finite("Interaction NDS 3.9", interaction_ratio);
+    let interaction_ratio = ledger.require_finite(TIMBER_CHECK_NAMES[4], interaction_ratio);
 
     let (unity_ratio, governing) = ledger.governing(&checks);
     let governing_check = if ledger.all_evaluated() {
@@ -330,11 +376,12 @@ fn check_single_timber_member(
 /// A previous 0.58·E default looks like the bare (1 - 1.645·0.25) = 0.589 term
 /// with the 1.03/1.66 adjustment dropped; it overstates Emin by 59 %, and with
 /// it FcE, FbE, CP and CL.
-fn emin_prime(m: &TimberMemberData, cm: f64, ct: f64, ci: f64) -> f64 {
+fn emin_prime<T: Real>(m: &TimberMemberData, cm: T, ct: T, ci: T) -> T {
     const COV_E_SAWN: f64 = 0.25;
-    let e_min = m
-        .e_min
-        .unwrap_or(m.e * (1.0 - 1.645 * COV_E_SAWN) * 1.03 / 1.66);
+    let e_min = match m.e_min {
+        Some(e) => T::exact(e),
+        None => (T::exact(m.e) * (T::exact(1.0) - T::lit(1.645) * T::lit(COV_E_SAWN)) * T::lit(1.03)).dv(T::lit(1.66)),
+    };
     e_min * cm * ct * ci
 }
 
@@ -342,45 +389,44 @@ fn emin_prime(m: &TimberMemberData, cm: f64, ct: f64, ci: f64) -> f64 {
 /// of le1/d1 and le2/d2. With `le` applied about both axes that is
 /// le/min(b, d) — for the usual b < d section the weak axis controls, and
 /// checking only le/d overstates FcE and so overstates CP.
-fn governing_slenderness(m: &TimberMemberData) -> f64 {
-    let about_d = if m.d > 0.0 { m.le / m.d } else { 0.0 };
-    let about_b = if m.b > 0.0 { m.le / m.b } else { 0.0 };
-    about_d.max(about_b)}
+fn governing_slenderness<T: Real>(m: &TimberMemberData) -> T {
+    let zero = T::exact(0.0);
+    let about_d = if m.d > 0.0 { T::exact(m.le).dv(T::exact(m.d)) } else { zero };
+    let about_b = if m.b > 0.0 { T::exact(m.le).dv(T::exact(m.b)) } else { zero };
+    about_d.max(about_b)
+}
+
+/// `(1 + r)/(2c) − sqrt(((1 + r)/(2c))² − r/c)`, clamped to [0, 1]: the CP
+/// (NDS Eq 3.7-1) and CL (Eq 3.3-6) form.
+fn stability_curve<T: Real>(ratio: T, c: T) -> T {
+    let zero = T::exact(0.0);
+    let term = (T::exact(1.0) + ratio).dv(T::exact(2.0) * c);
+    let v = term - (term.sq() - ratio.dv(c)).max(zero).sqrt();
+    v.max(zero).min(T::exact(1.0))
+}
 
 /// NDS 3.7.1: Column stability factor CP.
-fn column_stability_factor(
-    m: &TimberMemberData,
-    cd: f64,
-    cm: f64,
-    ct: f64,
-    ci: f64,
-) -> f64 {
-    let cf_c = m.cf_compression.unwrap_or(1.0);
-    let kce = 0.822; // NDS Table 3.3.3
+fn column_stability_factor<T: Real>(m: &TimberMemberData, cd: T, cm: T, ct: T, ci: T) -> T {
+    let zero = T::exact(0.0);
+    let one = T::exact(1.0);
+    let cf_c = T::exact(m.cf_compression.unwrap_or(1.0));
+    let kce = T::lit(0.822); // NDS Table 3.3.3
 
     // Fc* = Fc * CD * CM * Ct * CF * Ci (all factors except CP)
-    let fc_star = m.fc * cd * cm * ct * cf_c * ci;
-    if fc_star <= 0.0 {
-        return 1.0;
-    }
-
+    let fc_star = T::exact(m.fc) * cd * cm * ct * cf_c * ci;
     // FcE = KcE * Emin' / (le/d)²
-    let le_d = governing_slenderness(m);
-    if le_d <= 0.0 {
-        return 1.0;
-    }
-
-    let fce = kce * emin_prime(m, cm, ct, ci) / (le_d * le_d);
-
-    // CP using NDS Eq 3.7-1
-    let ratio = fce / fc_star;
-    let c = 0.8; // For sawn lumber (0.9 for glulam)
-
-    // CP = (1+ratio)/(2c) - sqrt(((1+ratio)/(2c))² - ratio/c)
-    let term = (1.0 + ratio) / (2.0 * c);
-    let cp = term - (term * term - ratio / c).max(0.0).sqrt();
-
-    cp.max(0.0).min(1.0)
+    let le_d = governing_slenderness::<T>(m);
+    branch(
+        fc_star.le(zero),
+        || one,
+        || {
+            branch(le_d.le(zero), || one, || {
+                let fce = (kce * emin_prime(m, cm, ct, ci)).dv(le_d * le_d);
+                // CP using NDS Eq 3.7-1, c = 0.8 for sawn lumber (0.9 for glulam)
+                stability_curve(fce.dv(fc_star), T::lit(0.8))
+            })
+        },
+    )
 }
 
 /// NDS Table 3.3.3: effective span length le from the unbraced length lu.
@@ -391,62 +437,50 @@ fn column_stability_factor(
 ///   lu/d < 7          ->  le = 2.06·lu
 ///   7 <= lu/d <= 14.3 ->  le = 1.63·lu + 3d
 ///   lu/d > 14.3       ->  le = 1.84·lu
-fn effective_bending_span(lu: f64, d: f64) -> f64 {
+fn effective_bending_span<T: Real>(lu: f64, d: f64) -> T {
+    let (lu, dd) = (T::exact(lu), T::exact(d));
     if d <= 0.0 {
-        return 2.06 * lu;
+        return T::lit(2.06) * lu;
     }
-    let lu_d = lu / d;
-    if lu_d < 7.0 {
-        2.06 * lu
-    } else if lu_d <= 14.3 {
-        1.63 * lu + 3.0 * d
-    } else {
-        1.84 * lu
-    }
+    let lu_d = lu.dv(dd);
+    branch(
+        lu_d.lt(T::exact(7.0)),
+        || T::lit(2.06) * lu,
+        || branch(lu_d.le(T::lit(14.3)), || T::lit(1.63) * lu + T::exact(3.0) * dd, || T::lit(1.84) * lu),
+    )
 }
 
 /// NDS 3.3.3: Beam stability factor CL.
-fn beam_stability_factor(
-    m: &TimberMemberData,
-    cd: f64,
-    cm: f64,
-    ct: f64,
-    ci: f64,
-) -> f64 {
+fn beam_stability_factor<T: Real>(m: &TimberMemberData, cd: T, cm: T, ct: T, ci: T) -> T {
+    let zero = T::exact(0.0);
+    let one = T::exact(1.0);
     let lu = m.lu.unwrap_or(m.le);
-    let cf_b = m.cf_bending.unwrap_or(1.0);
-    let cr = m.cr.unwrap_or(1.0);
-    let cfu = m.cfu.unwrap_or(1.0);
+    let cf_b = T::exact(m.cf_bending.unwrap_or(1.0));
+    let cr = T::exact(m.cr.unwrap_or(1.0));
+    let cfu = T::exact(m.cfu.unwrap_or(1.0));
 
     if m.d <= m.b {
         // No lateral instability for d <= b (section is not deep)
-        return 1.0;
+        return one;
     }
 
     // Fb* = Fb * CD * CM * Ct * CF * Cfu * Ci * Cr (all except CL)
-    let fb_star = m.fb * cd * cm * ct * cf_b * cfu * ci * cr;
-    if fb_star <= 0.0 {
-        return 1.0;
-    }
+    let fb_star = T::exact(m.fb) * cd * cm * ct * cf_b * cfu * ci * cr;
 
     // Effective span length le for bending (NDS Table 3.3.3). le is always
     // longer than lu — between 1.63x and 2.06x for a single span — so taking
     // le = lu understated RB and overstated both FbE and CL.
-    let le_bend = effective_bending_span(lu, m.d);
+    let le_bend = effective_bending_span::<T>(lu, m.d);
 
     // RB = sqrt(le * d / b²)  — NDS 3.3.3.5
-    let rb_sq = le_bend * m.d / (m.b * m.b);
-    if rb_sq <= 0.0 {
-        return 1.0;
-    }
-
-    // FbE = 1.20 * Emin' / RB²
-    let fbe = 1.20 * emin_prime(m, cm, ct, ci) / rb_sq;
-
-    // CL using NDS Eq 3.3-6 (same form as CP)
-    let ratio = fbe / fb_star;
-    let term = (1.0 + ratio) / 1.9;
-    let cl = term - (term * term - ratio / 0.95).max(0.0).sqrt();
-
-    cl.max(0.0).min(1.0)
+    let rb_sq = (le_bend * T::exact(m.d)).dv(T::exact(m.b).sq());
+    branch(fb_star.le(zero), || one, || {
+        branch(rb_sq.le(zero), || one, || {
+            // FbE = 1.20 * Emin' / RB²
+            let fbe = (T::lit(1.20) * emin_prime(m, cm, ct, ci)).dv(rb_sq);
+            // CL using NDS Eq 3.3-6 (same form as CP): (1+r)/1.9 − sqrt(((1+r)/1.9)² − r/0.95)
+            stability_curve(fbe.dv(fb_star), T::lit(0.95))
+        })
+    })
 }
+

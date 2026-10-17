@@ -111,12 +111,23 @@ pub fn jacobi_eigen(a: &[f64], n: usize, max_iter: usize) -> EigenResult {
 /// where B is symmetric positive definite.
 /// Transform to standard problem via Cholesky: B = L*L^T
 /// C = L^{-1} * A * L^{-T}, solve C*y = λ*y, then x = L^{-T}*y
+///
+/// B only semi-definite (a mass matrix with massless DOFs: the rotations of
+/// lumped-mass members, a node of trusses only) but A definite (a stiffness):
+/// solved as the inverse problem B*x = μ*A*x, λ = 1/μ; the massless
+/// directions are the μ = 0 ones and come last as λ = ∞. Ascending order and
+/// xᵀBx = 1 for the finite ones, as on the definite path.
 pub fn solve_generalized_eigen(
     a: &[f64],
     b: &[f64],
     n: usize,
     max_iter: usize,
 ) -> Option<EigenResult> {
+    generalized_eigen_cholesky(a, b, n, max_iter).or_else(|| solve_generalized_eigen_inverse(a, b, n, max_iter))
+}
+
+/// A*x = λ*B*x through the Cholesky factor of B; None when B is not definite.
+fn generalized_eigen_cholesky(a: &[f64], b: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
     // Cholesky of B
     let mut b_work = b.to_vec();
     if !cholesky_decompose(&mut b_work, n) {
@@ -162,6 +173,46 @@ pub fn solve_generalized_eigen(
     Some(result)
 }
 
+/// `solve_generalized_eigen` for a semi-definite B and a definite A (see there).
+fn solve_generalized_eigen_inverse(a: &[f64], b: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
+    let inv = generalized_eigen_cholesky(b, a, n, max_iter)?;
+    let top = inv.values.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    let mut pairs: Vec<(f64, usize)> = inv
+        .values
+        .iter()
+        .enumerate()
+        .map(|(i, &mu)| (if mu > 1e-12 * top { 1.0 / mu } else { f64::INFINITY }, i))
+        .collect();
+    pairs.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut vectors = vec![0.0; n * n];
+    for (new_col, &(lambda, old_col)) in pairs.iter().enumerate() {
+        // xᵀAx = 1 on the inverse problem, so xᵀBx = μ: rescale to xᵀBx = 1.
+        let scale = if lambda.is_finite() { lambda.sqrt() } else { 1.0 };
+        for row in 0..n {
+            vectors[row * n + new_col] = inv.vectors[row * n + old_col] * scale;
+        }
+    }
+    Some(EigenResult { values: pairs.iter().map(|p| p.0).collect(), vectors })
+}
+
+/// `K x = λ M x` for a positive definite `K` and a positive *semi*definite
+/// mass `M`, smallest eigenvalues first, with the massless (infinite)
+/// eigenvalues dropped, so fewer than `n` values may come back. `None` when
+/// neither `M` nor `K` is positive definite. (#294's entry point; the same
+/// inverse-problem method as `solve_generalized_eigen` and the Lanczos dense
+/// fallback `dense_generalized_eigen_semidefinite`.)
+pub fn solve_generalized_eigen_mass(k: &[f64], m: &[f64], n: usize, max_iter: usize) -> Option<EigenResult> {
+    let r = solve_generalized_eigen(k, m, n, max_iter)?;
+    let kept: Vec<usize> = (0..r.values.len()).filter(|&j| r.values[j].is_finite()).collect();
+    let mut vectors = vec![0.0; n * n];
+    for (col, &j) in kept.iter().enumerate() {
+        for row in 0..n {
+            vectors[row * n + col] = r.vectors[row * n + j];
+        }
+    }
+    Some(EigenResult { values: kept.iter().map(|&j| r.values[j]).collect(), vectors })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +235,21 @@ mod tests {
         assert!((result.values[0] - 1.0).abs() < 1e-10);
         assert!((result.values[1] - 2.0).abs() < 1e-10);
         assert!((result.values[2] - 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn generalized_eigen_with_massless_dof() {
+        // K = [[2,-1],[-1,2]], M = diag(1, 0): the second DOF has no mass.
+        // Condensing it: k* = 2 - 1/2 = 1.5, λ = 1.5 (one finite mode).
+        let k = vec![2.0, -1.0, -1.0, 2.0];
+        let m = vec![1.0, 0.0, 0.0, 0.0];
+        assert!(generalized_eigen_cholesky(&k, &m, 2, 100).is_none());
+        let r = solve_generalized_eigen_mass(&k, &m, 2, 100).unwrap();
+        assert_eq!(r.values.len(), 1);
+        assert!((r.values[0] - 1.5).abs() < 1e-12, "{:?}", r.values);
+        // x = (1, 1/2) scaled to xᵀ M x = 1, K x = λ M x.
+        let (x0, x1) = (r.vectors[0], r.vectors[2]);
+        assert!((x0 * x0 - 1.0).abs() < 1e-12 && (x1 - 0.5 * x0).abs() < 1e-12);
     }
 
     #[test]

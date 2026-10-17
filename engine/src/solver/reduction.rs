@@ -257,7 +257,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     );
     let f_f_raw: Vec<f64> = f_global[..nf].to_vec();
 
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Constraint reduction stays sparse (C'·K·C triple product, no densification).
@@ -420,7 +420,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     let f_f_raw: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_ff, f_f) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff_raw), cs.reduce_vector(&f_f_raw))
@@ -612,8 +612,10 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
 
     let asm = assembly::assemble_2d(&input.solver, dof_num);
 
-    // Build mass matrix
-    let m_full = super::mass_matrix::assemble_mass_matrix_2d(&input.solver, dof_num, &input.densities);
+    // Build mass matrix, in the inclined-roller frames K was assembled in
+    // (boundary DOFs at an inclined roller are its tangential DOF)
+    let mut m_full = super::mass_matrix::assemble_mass_matrix_2d(&input.solver, dof_num, &input.densities);
+    assembly::rotate_inclined_dense(&mut m_full, n, &asm.inclined_transforms_2d);
 
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -621,7 +623,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction if constraints present
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_ff, m_ff) = if let Some(ref cs) = cs {
         (cs.reduce_matrix(&k_ff_raw), cs.reduce_matrix(&m_ff_raw))
@@ -871,9 +873,11 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     let nf = dof_num.n_free;
 
     let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, dof_num);
-    let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, dof_num, &input.densities);
+    let m_csc = super::mass_matrix::assemble_mass_matrix_2d_sparse_inclined(
+        &input.solver, dof_num, &input.densities, &stiff.inclined_transforms_2d,
+    );
 
-    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_2d(&input.solver, dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Constraint reduction stays sparse (C'·K·C and C'·M·C triple products).
@@ -1068,8 +1072,25 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let expanded;
+    let input = if input.solver.curved_beams.is_empty() {
+        input
+    } else {
+        expanded = GuyanInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
+        &expanded
+    };
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_3d(&input.solver)?;
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
+        let mut e = input.clone();
+        e.solver = super::linear::expand_curved_beams_3d(&input.solver);
+        e
+    });
+    let input = expanded.as_ref().unwrap_or(input);
 
     // Same limitation as the 2D path: u_r = 0 is hardcoded in the
     // recovery/reaction path, so prescribed support displacements would be
@@ -1094,7 +1115,7 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let f_f_raw: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Classify reduced DOFs into boundary and interior
@@ -1264,8 +1285,25 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
 
 /// Perform Craig-Bampton reduction on a 3D model.
 pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
+    // Curved beams become segments first, as in `solve_3d`: assembled from the
+    // unexpanded model they were silently left out.
+    let expanded;
+    let input = if input.solver.curved_beams.is_empty() {
+        input
+    } else {
+        expanded = CraigBamptonInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
+        &expanded
+    };
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_3d(&input.solver)?;
+    // Curved beams are expanded into straight members, as every static path
+    // does; left in place they were not part of the model at all.
+    let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
+        let mut e = input.clone();
+        e.solver = super::linear::expand_curved_beams_3d(&input.solver);
+        e
+    });
+    let input = expanded.as_ref().unwrap_or(input);
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     let nf = dof_num.n_free;
@@ -1273,10 +1311,13 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     if nf == 0 { return Err("No free DOFs".into()); }
 
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
-    let m_csc = super::mass_matrix::assemble_mass_matrix_3d_sparse(&input.solver, &dof_num, &input.densities);
+    // In the inclined-support frames K was assembled in.
+    let m_csc = super::mass_matrix::assemble_mass_matrix_3d_sparse_inclined(
+        &input.solver, &dof_num, &input.densities, &sasm.inclined_transforms,
+    );
 
     // Apply constraint reduction
-    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Classify reduced DOFs

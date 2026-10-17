@@ -6,3 +6,5 @@ export function registerColumnCapacityKernel(value: ColumnCapacityKernel | null)
 /** Benchmark/reference switch: keep the same prepared cache while comparing TS and Rust. */
 export function setColumnCapacityKernelEnabled(value: boolean): void { enabled = value; }
 export function getColumnCapacityKernel(): ColumnCapacityKernel | null { return enabled ? kernel : null; }
+/** Whether WASM registered the kernel at all, whatever the benchmark switch says. */
+export function columnCapacityKernelRegistered(): boolean { return kernel !== null; }

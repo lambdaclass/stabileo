@@ -557,9 +557,9 @@ fn test_convergence_stable_problem() {
 fn test_sparse_path_parity_with_dense() {
     // EA/L_total = 200*1000*0.01/24 = 83.333 kN/m; gap: g = 0.001 m, k = 5000 kN/m.
     // P = 500 kN closes the gap (open-state tip disp P*L/EA = 6.0 m >> g).
-    // Closed state (penalty adds k to K with no RHS offset):
-    // u = P/(EA/L + k) = 500/5083.333 = 0.098361 m > g -> stays closed,
-    // gap force = k*(u - g) = 486.8 kN.
+    // Closed state (the penalty acts from the moment of contact):
+    // u = (P + k*g)/(EA/L + k) = 505/5083.333 = 0.099344 m > g -> stays closed,
+    // gap force = k*(u - g) = 491.7 kN.
     let length = 24.0;
     let gap_open = 0.001;
     let gap_k = 5000.0;
@@ -632,7 +632,7 @@ fn test_sparse_path_parity_with_dense() {
 
     // Analytical tip displacement for the closed-gap state.
     let ea_l = 200.0 * 1000.0 * 0.01 / length;
-    let u_exact = load / (ea_l + gap_k);
+    let u_exact = (load + gap_k * gap_open) / (ea_l + gap_k);
     let u_dense = -dense.gap_status[0].displacement;
     let u_sparse = -sparse.gap_status[0].displacement;
     assert!(

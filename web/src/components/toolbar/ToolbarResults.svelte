@@ -3,6 +3,7 @@
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs, activeMapMeasure, showStressMap, hasLiveColourScale, type MapMeasure } from '../../lib/store/result-view';
   import { showDiagram } from '../../lib/store/view-mode';
   import ResultsTable from '../tables/ResultsTable.svelte';
+  import CertificateStatus from '../CertificateStatus.svelte';
   import ResultsViewPicker from './ResultsViewPicker.svelte';
   import { t } from '../../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../../lib/geometry/coordinate-system';
@@ -150,6 +151,7 @@
   {/if}
   {#if showResultsPanel || flat}
     {#if resultsStore.results || resultsStore.results3D || resultsStore.influenceLine}
+      <CertificateStatus />
       {#if !hideDiagrams}
       <div class="diagram-grid">
         <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => showDiagram('none')} title={t('results.noDiagramTooltip')} use:tooltip={'diag-none'}>{t('results.none')}</button>

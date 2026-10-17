@@ -437,12 +437,10 @@ describeCanonical('every profile in the catalogue has exact geometry', () => {
   });
 
   it('the nominal-dimension families stay inside a bounded deviation', () => {
-    // HP tracks its table closely. M has one profile — M5x18.9 — whose
-    // published Iz its own dimensions do not support: two flanges 127 mm wide
-    // and 10.6 mm thick give 363 cm⁴ by hand, and the table says 327. The
-    // outline is right and the table is not, so the deviation is declared
-    // rather than suppressed, and bounded here so it cannot grow unnoticed.
-    for (const [family, bound] of [['HP', 0.02], ['M', 0.12], ['C', 0.07]] as const) {
+    // HP tracks its table closely. M5x18.9's printed Iz (327) disagreed with
+    // its own dimensions by 11 %; it now carries AISC v16.0's 362 cm⁴, which
+    // the outline reproduces, so M is bounded like HP.
+    for (const [family, bound] of [['HP', 0.02], ['M', 0.025], ['C', 0.07]] as const) {
       for (const p of ALL_PROFILES.filter((x) => x.family === family)) {
         const r = resolveCanonicalSection(fromCatalogue(p.name));
         expect(r.state, p.name).toBe('geometry-backed');

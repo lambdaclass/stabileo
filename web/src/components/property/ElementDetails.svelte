@@ -2,6 +2,8 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { computeElementStress } from '../../lib/store/results.svelte';
+  import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
+  import type { ForceBound2D, ForceBound3D } from '../../lib/engine/wasm-solver';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SectionChanger from '../SectionChanger.svelte';
   import PairingNote from './PairingNote.svelte';
@@ -134,6 +136,11 @@
     materialPresetTargetElemId = null;
   }
 </script>
+
+<!-- The certified bound on this force's error (`store/certificate.svelte.ts`), when there is one. -->
+{#snippet pm(bound: number | undefined, q: 'force' | 'moment')}
+  {#if bound !== undefined}<span class="cert-pm" title={t('certificate.tooltip')}> ± {formatBound(dv(bound, q))}</span>{/if}
+{/snippet}
 
 <div class="panel-section">
   <h3>{t('prop.selectedElement')}</h3>
@@ -281,85 +288,87 @@
       {#if showResults}
         {#if is3DMode && resultsStore.results3D}
           {@const forces3D = resultsStore.getElementForces3D(elemId)}
+          {@const fb3 = certificateStore.forceBound<ForceBound3D>(true, elemId)}
           {#if forces3D}
             <h4>{t('prop.internalForces3d')}</h4>
             <div class="property-row">
               <span>N_i:</span>
-              <span>{dv(forces3D.nStart, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.nStart, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.n, 'force')}</span>
             </div>
             <div class="property-row">
               <span>N_j:</span>
-              <span>{dv(forces3D.nEnd, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.nEnd, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.n, 'force')}</span>
             </div>
             <div class="property-row">
               <span>Vy_i:</span>
-              <span>{dv(forces3D.vyStart, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.vyStart, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.vy, 'force')}</span>
             </div>
             <div class="property-row">
               <span>Vy_j:</span>
-              <span>{dv(forces3D.vyEnd, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.vyEnd, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.vy, 'force')}</span>
             </div>
             <div class="property-row">
               <span>Vz_i:</span>
-              <span>{dv(forces3D.vzStart, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.vzStart, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.vz, 'force')}</span>
             </div>
             <div class="property-row">
               <span>Vz_j:</span>
-              <span>{dv(forces3D.vzEnd, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces3D.vzEnd, 'force').toFixed(2)} {ul('force')}{@render pm(fb3?.vz, 'force')}</span>
             </div>
             <h4>{t('prop.moments3d')}</h4>
             <div class="property-row">
               <span>Mx_i:</span>
-              <span>{dv(-forces3D.mxStart, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.mxStart, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mx_j:</span>
-              <span>{dv(-forces3D.mxEnd, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.mxEnd, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>My_i:</span>
-              <span>{dv(-forces3D.myStart, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.myStart, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>My_j:</span>
-              <span>{dv(-forces3D.myEnd, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.myEnd, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mz_i:</span>
-              <span>{dv(-forces3D.mzStart, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.mzStart, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mz_j:</span>
-              <span>{dv(-forces3D.mzEnd, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces3D.mzEnd, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
             </div>
           {/if}
         {:else}
           {@const forces = resultsStore.getElementForces(elemId)}
+          {@const fb2 = certificateStore.forceBound<ForceBound2D>(false, elemId)}
           {#if forces}
             <h4>{t('prop.internalForces')}</h4>
             <div class="property-row">
               <span>M_i:</span>
-              <span>{dv(-forces.mStart, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces.mStart, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>M_j:</span>
-              <span>{dv(-forces.mEnd, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{dv(-forces.mEnd, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>V_i:</span>
-              <span>{dv(forces.vStart, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces.vStart, 'force').toFixed(2)} {ul('force')}{@render pm(fb2?.v, 'force')}</span>
             </div>
             <div class="property-row">
               <span>V_j:</span>
-              <span>{dv(forces.vEnd, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces.vEnd, 'force').toFixed(2)} {ul('force')}{@render pm(fb2?.v, 'force')}</span>
             </div>
             <div class="property-row">
               <span>N_i:</span>
-              <span>{dv(forces.nStart, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces.nStart, 'force').toFixed(2)} {ul('force')}{@render pm(fb2?.n, 'force')}</span>
             </div>
             <div class="property-row">
               <span>N_j:</span>
-              <span>{dv(forces.nEnd, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{dv(forces.nEnd, 'force').toFixed(2)} {ul('force')}{@render pm(fb2?.n, 'force')}</span>
             </div>
 
             {#if sec && mat}
@@ -411,6 +420,7 @@
 />
 
 <style>
+  .cert-pm { opacity: 0.7; font-size: 0.85em; cursor: help; }
   .panel-section {
     display: flex;
     flex-direction: column;

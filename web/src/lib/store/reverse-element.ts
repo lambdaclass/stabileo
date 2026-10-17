@@ -53,6 +53,17 @@ export function reverseElementInModel(model: ReversibleModel, id: number, is3D =
     if (el.jointJ) next.jointI = { dof: [...el.jointJ.dof] as typeof el.jointJ.dof }; else delete next.jointI;
     if (el.jointI) next.jointJ = { dof: [...el.jointI.dof] as typeof el.jointI.dof }; else delete next.jointJ;
   }
+  // A semi-rigid spring belongs to its end and swaps with it, as releases and joints do.
+  if (el.semiRigid) {
+    const sr = el.semiRigid;
+    const next2 = { ...(sr.j ? { i: JSON.parse(JSON.stringify(sr.j)) } : {}), ...(sr.i ? { j: JSON.parse(JSON.stringify(sr.i)) } : {}) };
+    if (next2.i || next2.j) next.semiRigid = next2; else delete next.semiRigid;
+  }
+  // The tension connection is recorded per end, so it swaps with them.
+  if (el.tensionConnection) {
+    const tc = el.tensionConnection;
+    next.tensionConnection = { ...(tc.j ? { i: tc.j } : {}), ...(tc.i ? { j: tc.i } : {}) };
+  }
   // The solver rotates by rollAngle + section.rotation. Compensate on this
   // member so reversing it does not rotate every member sharing the section.
   const sectionRotation = is3D ? (model.sections.get(el.sectionId)?.rotation ?? 0) : 0;

@@ -75,12 +75,13 @@ const results = {
 } as any;
 
 /**
- * Lp = 1,76 ry sqrt(E/Fy), evaluated here from the two candidate inertias.
+ * Lp = 1,59 ry sqrt(E/Fy) (F.2.5b: the service does not know the load height, so the checker
+ * takes the top-flange expressions), evaluated here from the two candidate inertias.
  *
  * Computed rather than tabulated so a change to the section or the steel moves both the
  * expectation and the wrong value with it, instead of leaving a stale literal behind.
  */
-const lpFrom = (i: number) => 1.76 * Math.sqrt(i / IPE200.a) * Math.sqrt(STEEL.e / STEEL.fy);
+const lpFrom = (i: number) => 1.59 * Math.sqrt(i / IPE200.a) * Math.sqrt(STEEL.e / STEEL.fy);
 const LP_WEAK = lpFrom(IPE200.iz);     // ~1,15 m — correct
 const LP_STRONG = lpFrom(IPE200.iy);   // ~4,24 m — what the uncrossed mapping produced
 

@@ -284,7 +284,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
-      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId));
+      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId), modelStore.analysis);
       if (ei) eiMap.set(id, ei);
     }
   }
