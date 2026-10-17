@@ -417,7 +417,7 @@ bound by the scaling's rounding), `certify_steel_multi_case_2d/3d`
 | Check | Status |
 |---|---|
 | AISC 360 (`steel_check`): tension D2 (yield + rupture), compression E3, flexure F2 (LTB) / F6, shear G2, interaction H1 | **certified** |
-| EC3 (`ec3_check`): tension 6.2.3, flexural buckling 6.3.1 (χ curves a–d), LTB 6.3.2, weak-axis flexure 6.2.5, shear 6.2.6, simplified interaction 6.3.3 | **certified** |
+| EC3 (`ec3_check`): tension 6.2.3, flexural buckling 6.3.1 (χ curves a–d), LTB 6.3.2, weak-axis flexure 6.2.5, shear 6.2.6, interaction 6.3.3 (6.61)/(6.62) with Annex B factors | **certified** |
 | EC2 (`ec2_check`): RC flexure 6.1 (rectangular block, singly / doubly reinforced, compression-steel yield branch), shear 6.2 (VRd,c with the NEd axial term over the whole NEd interval, VRd,s, VRd,max) | **certified** |
 | CIRSOC 201 (`cirsoc201_check`), ACI RC (`rc_check`), timber, masonry, CFS, connections, foundations, serviceability | not certified (f64 only) |
 

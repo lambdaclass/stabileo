@@ -602,6 +602,7 @@ const steelEn: Record<string, string> = {
   'steel.e4.gap.shearCentre': 'Shear center: r̄o and H are built from it, and the app cannot place it for this shape.',
   'steel.e4.notImplemented': 'Torsional buckling unavailable. It governs for angles, tees and cruciforms — the very sections whose axes this app already warns about — so the absence is a limitation, not a dismissal.',
   // ─── §F.6.2, flange local buckling in minor-axis bending ───
+  'steel.f62.classified': 'Table B.4.1b case 14: λpf = 0.38·√(E/Fy), λrf = 1.00·√(E/Fy). The branch below is the one the CIRSOC 301 check applies.',
   'steel.f62.outOfScope': 'F.6 covers I sections and channels bent about the minor axis. This section is not one of them.',
   'steel.f62.geometryUnavailable': 'The flange width or thickness is missing, so not even the slenderness λf can be formed.',
   'steel.f62.classificationUnavailable': 'The geometry is there: λf, Sy and Fcr are computed. What cannot be done is selecting the branch, because λpf and λrf are Table B.4.1b case 14, which is an image in the source PDF.',

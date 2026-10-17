@@ -614,6 +614,7 @@ const steelPt: Record<string, string> = {
   'steel.e4.gap.shearCentre': 'Centro de cortante: r̄o e H se constroem sobre ele, e o app não pode localizá-lo para esta forma.',
   'steel.e4.notImplemented': 'Flambagem torcional não disponível. Governa em cantoneiras, tês e cruciformes — justamente as seções cujos eixos este app já adverte — então a ausência é uma limitação, não um descarte.',
   // ─── §F.6.2, flambagem local da mesa em flexão de eixo menor ───
+  'steel.f62.classified': 'Tabela B.4.1b caso 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). O ramo indicado é o que a verificação CIRSOC 301 aplica.',
   'steel.f62.outOfScope': 'A F.6 cobre seções I e perfis U fletidos em torno do eixo menor. Esta seção não é uma delas.',
   'steel.f62.geometryUnavailable': 'Falta a largura ou a espessura da mesa, então nem a esbeltez λf pode ser formada.',
   'steel.f62.classificationUnavailable': 'A geometria está: λf, Sy e Fcr se calculam. O que não se pode é escolher o ramo, porque λpf e λrf são a Tabela B.4.1b caso 14, que é uma imagem no PDF fonte.',

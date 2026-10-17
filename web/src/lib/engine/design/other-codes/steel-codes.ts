@@ -180,18 +180,21 @@ export const EC3: OtherCode = {
         sectionClass: `Class${cls}`,
         bucklingCurveY: curves.y, bucklingCurveZ: curves.z, bucklingCurveLt: ec3CurveLt(p),
         av: p.Aw,
+        // 6.3.3 with Annex B factors: Cmy, Cmz, CmLT are left to the checker's Table B.3 upper
+        // bound 1,0; a hollow section is not susceptible to torsional deformations (Table B.1).
+        interaction: { hollow: p.shape === 'RHS' || p.shape === 'CHS' },
       },
     };
   },
   /*
-   * The checker combines axial force and bending by NEd/Nb,Rd + My,Ed/Mb,Rd + Mz,Ed/Mc,Rd,
-   * without the k factors of 6.3.3 (Annex A or B), which exceed 1 under near-uniform moment; it
-   * does not reduce the moment resistance for shear above 0,5·Vpl,Rd (6.2.8) nor check shear
-   * buckling of the web (6.2.6(6)). Those demands come back incomplete.
+   * The checker combines axial force and bending by 6.3.3, eqs. (6.61)/(6.62) with the Annex B
+   * interaction factors (it used to be a linear sum with every k = 1, unconservative where
+   * Annex B gives k > 1). It does not reduce the moment resistance for shear above
+   * 0,5·Vpl,Rd (6.2.8) nor check shear buckling of the web (6.2.6(6)). Those demands come back
+   * incomplete.
    */
   at(ctx, d, data) {
     const flags: string[] = [];
-    if (d.forces.n < 0 && bends(d)) flags.push('otherCodes.check.ec3Interaction');
     const fy = ctx.material.fy!;
     const vpl = ((data.av as number) * fy * 1e3) / Math.sqrt(3); // kN
     if (bends(d) && shear(d, areasOf(ctx)) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');

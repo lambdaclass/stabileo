@@ -23,7 +23,9 @@ use super::real::{branch, Real};
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use crate::postprocess::ec2_check::{ec2_flexure, ec2_shear, Ec2DesignForces, Ec2Flexure, Ec2MemberData, Ec2Shear};
-use crate::postprocess::ec3_check::{ec3_capacities, Ec3Capacities, Ec3DesignForces, Ec3MemberData};
+use crate::postprocess::ec3_check::{
+    ec3_capacities, ec3_cm_inputs_valid, ec3_interaction, Ec3Capacities, Ec3DesignForces, Ec3MemberData,
+};
 use crate::postprocess::steel_check::{
     compression_capacity, flexural_capacity_y, flexural_capacity_z, interaction_h1, shear_capacity,
     tension_capacity, ElementDesignForces, SteelMemberData,
@@ -289,12 +291,19 @@ pub fn ec3_ratio_enclosures(
     let flex_y = loaded_ratio(EC3_CHECK_NAMES[2], my, caps.mb_rd)?;
     let flex_z = loaded_ratio(EC3_CHECK_NAMES[3], mz, caps.mc_z_rd)?;
     let shear = loaded_ratio(EC3_CHECK_NAMES[4], v, caps.vpl_rd)?;
-    // 6.3.3 (simplified): every capacity used is certified positive wherever
-    // its demand can be non-zero, so the f64 `if cap > 0 { d / cap } else { 0 }`
-    // terms are exactly the ratios above.
+    // 6.3.3, eqs. (6.61)/(6.62) with Annex B factors in compression — the
+    // same `ec3_interaction` the f64 check runs; the linear sum of 6.2.1(7)
+    // in tension. Every capacity used is certified positive wherever its
+    // demand can be non-zero, so the f64 guards are exactly these ratios.
+    if n.lt(zero) != super::real::Tri::False && !ec3_cm_inputs_valid(m) {
+        return Err("Interaction 6.3.3: Cm outside Table B.3's [0.4, 1]".into());
+    }
     let interaction = branch(
         n.lt(zero),
-        || compression + flex_y + flex_z,
+        || {
+            let ([e1, e2], _) = ec3_interaction(m, &caps, -n, my, mz);
+            e1.max(e2)
+        },
         || branch(zero.lt(n), || tension + flex_y + flex_z, || flex_y + flex_z),
     );
     let out = [compression, tension, flex_y, flex_z, shear, interaction];
@@ -809,6 +818,7 @@ mod tests {
             gamma_m1: Some(1.0),
             c1: Some(1.13),
             av: Some(2.568e-3),
+            interaction: None,
         }
     }
 

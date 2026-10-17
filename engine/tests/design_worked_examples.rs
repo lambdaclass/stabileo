@@ -421,6 +421,7 @@ fn ec3_blank(fy: f64) -> Ec3MemberData {
         gamma_m1: Some(1.0),
         c1: None,
         av: None,
+        interaction: None,
     }
 }
 
@@ -533,6 +534,144 @@ fn ec3_p364_ex9_class3_ukc_column() {
     // expression as (6.10) Nc,Rd for Class 1-3.
     let r = ec3_run(m, 3500e3, 0.0, 0.0);
     published(3500e3 / r.tension_ratio / 1e3, 5658.0, THREE_SF, "A·fy/γM0 (6.6 ≡ 6.10)");
+}
+
+/// Annex B factors from the inputs an example prints.
+fn annex_b(plastic: bool, torsional: bool, ly: f64, lz: f64, ny: f64, nz: f64, cmy: f64, cmlt: f64) -> [f64; 4] {
+    annex_b_factors(&AnnexBInput {
+        plastic,
+        torsional,
+        hollow: false,
+        lambda_y: ly,
+        lambda_z: lz,
+        n_y: ny,
+        n_z: nz,
+        cmy,
+        cmz: 1.0,
+        cm_lt: cmlt,
+    })
+}
+
+/// [SBE-MS8] SCI/CTICM, *Steel Buildings in Europe — Multi-Storey Steel
+/// Buildings, Part 8: Design software — Section Capacity* (2010), Appendix A,
+/// Worked Example 2 "Combined axial force and bending moment (N-M
+/// Interaction)", sheets 1–5, pp. 8-18 – 8-22. IPE 450 S355, Class 1,
+/// Ly = Lz = LLT = 1.7 m, NEd = 127 kN, My,Ed = 356 kNm (uniform), Mz,Ed = 0.
+///
+/// Printed: λ̄y = 0.12, χy = 1.0, Nb,y,Rd = 3507 kN; λ̄z = 0.540, χz = 0.865,
+/// Nb,z,Rd = 3034 kN; Mb,Rd = 581 kNm (χLT = 0.961 by 6.3.2.3); Cmy = CmLT
+/// = 1.0; Annex B Table B.2: kyy = min(0.997; 1.029) = 0.997, eq. (6.61) =
+/// 0.647; kzy = max(0.997; 0.994) = 0.997, eq. (6.62) = 0.653.
+///
+/// The factors and both equations are compared through `annex_b_factors`
+/// fed the printed χ, λ̄ and Mb,Rd; the member check is then run on the
+/// printed section, where everything up to the interaction factors matches.
+/// Its (6.61)/(6.62) values do not: stabileo's LTB is the general case
+/// 6.3.2.2 (χLT = 0.86 here), the example's the rolled-section case 6.3.2.3
+/// (0.961) — the documented D10, on the conservative side.
+#[test]
+fn ec3_sbe_ms8_ex2_annex_b_interaction() {
+    let (n, my) = (127.0, 356.0);
+    let [kyy, _, kzy, _] = annex_b(true, true, 0.12, 0.540, n / 3507.0, n / 3034.0, 1.0, 1.0);
+    published(kyy, 0.997, THREE_SF, "kyy (Table B.2)");
+    published(kzy, 0.997, THREE_SF, "kzy (Table B.2, λ̄z ≥ 0.4)");
+    published(n / 3507.0 + kyy * my / 581.0, 0.647, THREE_SF, "eq. (6.61)");
+    published(n / 3034.0 + kzy * my / 581.0, 0.653, THREE_SF, "eq. (6.62)");
+
+    // The member: A, Wpl,y, iy, Iz, It, Iw as printed (Iy = A·iy²).
+    let a = 9880.0;
+    let m = Ec3MemberData {
+        a,
+        wpl_y: 1702e3,
+        iy: a * 185.0 * 185.0,
+        iz: 1676e4,
+        it: 66.9e4,
+        iw: 791e9,
+        lcr_y: 1700.0,
+        lcr_z: 1700.0,
+        lb: 1700.0,
+        buckling_curve_y: BucklingCurve::A,
+        buckling_curve_z: BucklingCurve::B,
+        buckling_curve_lt: BucklingCurve::C,
+        ..ec3_blank(355.0)
+    };
+    let r = ec3_run(m, -n * 1e3, my * 1e6, 0.0);
+    published(r.chi_y, 1.0, THREE_SF, "χy");
+    published(r.chi_z, 0.865, THREE_SF, "χz");
+    published(r.chi_y * a * 355.0 / 1e3, 3507.0, THREE_SF, "Nb,y,Rd");
+    published(r.nb_rd / 1e3, 3034.0, THREE_SF, "Nb,z,Rd");
+    published(r.k_yy, 0.997, THREE_SF, "kyy from the member check");
+    published(r.k_zy, 0.997, THREE_SF, "kzy from the member check");
+    // (6.61)/(6.62) with stabileo's own (6.3.2.2) Mb,Rd.
+    let mb = r.mb_rd / 1e6;
+    published(r.interaction_ratio_y, n / 3507.0 + 0.997 * my / mb, THREE_SF, "(6.61) on 6.3.2.2's Mb,Rd");
+    published(r.interaction_ratio_z, n / 3034.0 + 0.997 * my / mb, THREE_SF, "(6.62) on 6.3.2.2's Mb,Rd");
+    assert!(mb < 581.0, "6.3.2.2 is the conservative side of 6.3.2.3");
+}
+
+/// [SBE-SS4] SCI/CTICM, *Steel Buildings in Europe — Single-Storey Steel
+/// Buildings, Part 4: Detailed Design of Portal Frames* (2010), Appendix D
+/// "Design of portal frame using elastic analysis", column IPE 500 S355,
+/// sheets 17–23 of 44 (pp. 4-97 – 4-103). NEd = 168 kN, Class 1, Table B.2.
+///
+/// Printed, upper segment (1475 mm): λ̄z = 0.448, Nb,z,Rd = 3731 kN,
+/// ψ = 0.721 → CmLT = 0.888, kzy = max(0.996; 0.993) = 0.996,
+/// (6.62) = 168/3731 + 0.996·616/779 = 0.832.
+/// Lower segment (3800 mm): λ̄z = 1.15, Nb,z,Rd = 2092 kN, CmLT = 0.6,
+/// kzy = max(0.974; 0.977) = 0.977, (6.62) = 168/2092 + 0.977·444/640 = 0.758.
+/// In plane: λ̄y = 0.385, Nb,y,Rd = 3937 kN, Cmy = 0.6,
+/// kyy = min(0.605; 0.620) = 0.605, (6.61) = 168/3937 + 0.605·616/640 = 0.625.
+///
+/// The LTB resistances (6.3.2.3) are taken as printed; the test is on the
+/// interaction factors with Cm < 1 and on both branches of Table B.2's kzy.
+#[test]
+fn ec3_sbe_ss4_portal_column_annex_b_factors() {
+    let n = 168.0;
+    let up = annex_b(true, true, 0.0, 0.448, 0.0, n / 3731.0, 1.0, 0.888);
+    published(up[2], 0.996, THREE_SF, "kzy, upper segment");
+    published(n / 3731.0 + up[2] * 616.0 / 779.0, 0.832, THREE_SF, "(6.62), upper segment");
+    let low = annex_b(true, true, 0.0, 1.15, 0.0, n / 2092.0, 1.0, 0.6);
+    published(low[2], 0.977, THREE_SF, "kzy, lower segment (second term governs)");
+    published(n / 2092.0 + low[2] * 444.0 / 640.0, 0.758, THREE_SF, "(6.62), lower segment");
+    let inplane = annex_b(true, true, 0.385, 1.15, n / 3937.0, n / 2092.0, 0.6, 0.6);
+    published(inplane[0], 0.605, THREE_SF, "kyy with Cmy = 0.6");
+    published(n / 3937.0 + inplane[0] * 616.0 / 640.0, 0.625, THREE_SF, "(6.61)");
+}
+
+/// Regression (D11): with the Table B.3 default Cm = 1 (no diagram given) a
+/// slender column has kyy = Cmy·(1 + 0.8·ny) > 1, and the old linear sum
+/// NEd/Nb,Rd + My/Mb,Rd + Mz/Mc,Rd (every k = 1) was below (6.61).
+#[test]
+fn ec3_interaction_k_above_one_is_applied() {
+    let a = 9880.0;
+    let m = Ec3MemberData {
+        a,
+        wpl_y: 1702e3,
+        wpl_z: 276e3,
+        iy: a * 185.0 * 185.0,
+        iz: 1676e4,
+        it: 66.9e4,
+        iw: 791e9,
+        lcr_y: 12_000.0,
+        lcr_z: 1700.0,
+        lb: 1700.0,
+        buckling_curve_y: BucklingCurve::A,
+        buckling_curve_z: BucklingCurve::B,
+        buckling_curve_lt: BucklingCurve::C,
+        ..ec3_blank(355.0)
+    };
+    let r = ec3_run(m.clone(), -1500e3, 150e6, 0.0);
+    assert!(r.k_yy > 1.0, "kyy = {}", r.k_yy);
+    let linear = r.compression_ratio + r.flexure_ratio_y;
+    assert!(r.interaction_ratio > linear, "{} vs old {}", r.interaction_ratio, linear);
+    // A Cm outside Table B.3's [0.4, 1] is refused, not evaluated.
+    let bad = Ec3MemberData {
+        interaction: Some(Ec3InteractionData { cmy: Some(0.2), ..Default::default() }),
+        ..m
+    };
+    let r = ec3_run(bad, -1500e3, 150e6, 0.0);
+    assert!(!r.pass);
+    assert!(!r.unevaluated.is_empty());
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -797,7 +936,7 @@ fn weld_run(segments: Vec<WeldSegment>, fexx: f64, phi: f64, vx: f64, vy: f64, m
 /// because of the 0.5 cm lever arm.
 #[test]
 fn weld_group_inti301_ej3_bracket_elastic_method() {
-    let seg = |x1, y1, x2, y2| WeldSegment { x1, y1, x2, y2, size: 1.0 };
+    let seg = |x1, y1, x2, y2| WeldSegment { x1, y1, x2, y2, size: 1.0, end_loaded: None };
     let segments = vec![seg(1.0, 10.5, 26.0, 10.5), seg(0.5, -10.0, 0.5, 10.0), seg(1.0, -10.5, 26.0, -10.5)];
     let r = weld_run(segments, 48.0, 0.60, 0.0, 130.0, 7309.0);
     published(r.total_length, 70.0, 1e-12, "weld length");
@@ -820,21 +959,37 @@ fn weld_group_inti301_ej3_bracket_elastic_method() {
 /// β = 1.2 − 0.002·144 = 0.912 (J2-1); Rn = 0.912·5.57·2·27 = 274 kips;
 /// φRn = 206 kips against Pu = 200 kips.
 ///
-/// DISCREPANCY (stabileo, unconservative): the weld-group check has no
-/// end-loaded length reduction (J2.2b(d), β), so it gives φRn = 225 kips —
-/// 9.5 % above the example — for any weld longer than 100 legs. Not fixed
-/// here: "end-loaded" is a property of how the joint is loaded, which the
-/// segment list does not carry. (The CIRSOC 301 fillet weld of the web app,
-/// `fillet-weld.ts`, does apply β.)
+/// Regression (D5): the weld-group check had no end-loaded length reduction
+/// (J2.2b(d), β) and gave φRn = 225 kips, 9.5 % above the example. A segment
+/// is now treated as end-loaded unless the caller says otherwise.
 #[test]
-#[ignore = "stabileo bug: weld group ignores the end-loaded fillet length reduction J2.2b(d) (reproduction)"]
-fn weld_group_aisc_j1_end_loaded_repro() {
+fn weld_group_aisc_j1_end_loaded() {
     let size = 3.0 / 16.0;
-    let segments = vec![
-        WeldSegment { x1: 0.0, y1: -4.5, x2: 27.0, y2: -4.5, size },
-        WeldSegment { x1: 0.0, y1: 4.5, x2: 27.0, y2: 4.5, size },
-    ];
-    let r = weld_run(segments, 70.0, 0.75, 200.0, 0.0, 0.0);
-    published(r.phi_fnw * 0.707 * size, 0.75 * 5.57, THREE_SF, "φ·Rn per inch, kds = 1");
-    published(200.0 / r.unity_ratio, 206.0, THREE_SF, "φRn with β = 0.912");
+    let run = |end_loaded| {
+        let segments = vec![
+            WeldSegment { x1: 0.0, y1: -4.5, x2: 27.0, y2: -4.5, size, end_loaded },
+            WeldSegment { x1: 0.0, y1: 4.5, x2: 27.0, y2: 4.5, size, end_loaded },
+        ];
+        weld_run(segments, 70.0, 0.75, 200.0, 0.0, 0.0)
+    };
+    for r in [run(None), run(Some(true))] {
+        published(r.phi_fnw * 0.707 * size, 0.75 * 5.57, THREE_SF, "φ·Rn per inch, kds = 1");
+        published(r.min_beta, 0.912, 1e-12, "β = 1.2 − 0.002·144 (J2-1)");
+        published(200.0 / r.unity_ratio, 206.0, THREE_SF, "φRn with β = 0.912");
+    }
+    // Declared not end-loaded: β does not apply and the full length counts.
+    let r = run(Some(false));
+    assert_eq!(r.min_beta, 1.0);
+    published(200.0 / r.unity_ratio, 0.75 * 5.57 * 54.0, THREE_SF, "φRn without β");
+}
+
+/// J2.2b(d) branches with no example of their own: l ≤ 100 w keeps β = 1,
+/// and l > 300 w caps the effective length at 180 w.
+#[test]
+fn weld_end_loaded_beta_branches() {
+    assert_eq!(end_loaded_beta(100.0, 1.0, true), 1.0);
+    published(end_loaded_beta(200.0, 1.0, true), 0.8, 1e-12, "β at l/w = 200");
+    published(end_loaded_beta(300.0, 1.0, true), 0.6, 1e-12, "β at l/w = 300");
+    published(end_loaded_beta(400.0, 1.0, true) * 400.0, 180.0, 1e-12, "Le = 180 w beyond 300 w");
+    assert_eq!(end_loaded_beta(400.0, 1.0, false), 1.0);
 }

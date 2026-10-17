@@ -38,7 +38,11 @@ const IPE200 = (over: Partial<SteelDesignParams> = {}): SteelDesignParams => ({
   Iy: 142e-8,    // weak
   h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085,
   L: 4, Lb: 4,
-  J: 0,
+  // IPE 200: J = 6,98 cm⁴. It was 0, which F.2.4c cannot take: X1 = 0 and the LTB check is
+  // now refused (NOT EVALUATED) rather than run on a zero torsional constant.
+  J: 6.98e-8,
+  // F.2.2 (1), the expressions this file's LTB assertions were written against.
+  loadPosition: 'web',
   ...over,
 });
 

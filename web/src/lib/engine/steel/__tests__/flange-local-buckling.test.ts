@@ -181,3 +181,20 @@ describe('every key resolves in the three offered languages', () => {
     }
   });
 });
+
+describe('with Fy, the branch is selected by Table B.4.1b case 14', () => {
+  // λpf = 0,38·√(E/Fy) = 11,09 and λrf = 1,00·√(E/Fy) = 29,17 for Fy = 235 MPa.
+  const at = (b: number, tf: number) => f62Report({ shape: 'I', b, tf, iMinor: 1e-6, fy: 235 });
+
+  it('compact below λpf', () => {
+    const r = at(0.2, 0.01); // λf = 10
+    expect(r.state).toBe('classified');
+    expect(r.branch).toBe('notApplicableCompact');
+    expect(r.missingKeys).toEqual([]);
+  });
+
+  it('non-compact between the limits, slender above λrf', () => {
+    expect(at(0.2, 0.005).branch).toBe('nonCompact'); // λf = 20
+    expect(at(0.4, 0.005).branch).toBe('slender');    // λf = 40
+  });
+});

@@ -11,6 +11,56 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Unsafe design-check disagreements closed (2026-10-17)
+
+**BREAKING (results): weld groups with long fillets, CIRSOC 301 slender-element columns,
+CIRSOC 301 noncompact/slender I-girders, CIRSOC 301 lateral-torsional buckling and EC3
+members in compression plus bending give lower capacities.** These were the unsafe
+disagreements left open by the published-example verification
+(`docs/verification/DESIGN_EXAMPLES.md`, D5, D6, D8, D11); each example is now a regression test.
+
+- **Weld groups ignored the end-loaded fillet length reduction β** (AISC 360-22 J2.2b(d),
+  CIRSOC 301-2018 §J.2.2(b) eq. J.2.1). AISC Example J.1 (two 27 in. runs of a 3/16 in.
+  fillet, l/w = 144) prints φRn = 206 kips; stabileo gave 225. `WeldSegment` takes an
+  optional `endLoaded`; absent, the segment is treated as end-loaded (the conservative side),
+  `false` opts out. The result reports `minBeta`.
+- **EC3 member interaction was a linear sum with every k = 1**, not EN 1993-1-1 6.3.3. It is
+  now eqs. (6.61)/(6.62) with the **Annex B** ("Method 2") interaction factors kyy, kyz, kzy,
+  kzz (Table B.1, or Table B.2 for open sections with an LTB length). `Ec3MemberData` takes an
+  optional `interaction` with Table B.3's `cmy`, `cmz`, `cmLt` (absent: 1.0, the table's upper
+  bound) and `hollow`; the result reports `kYy`, `kYz`, `kZy`, `kZz` and both equations. A Cm
+  outside [0.4, 1] is refused (not evaluated). Where Annex B gives k > 1 (near-uniform moment,
+  high NEd/Nb,Rd) the old sum was unconservative. SBE Multi-Storey Part 8 Example 2 and the
+  SBE Single-Storey Part 4 Appendix D column are regression tests. The web EC3 check no longer
+  marks the interaction as not evaluated.
+- **CIRSOC 301 compression had no slender-element reduction (§E.7).** Every section was taken
+  as non-slender. Q = Qs·Qa now follows E.7.1/E.7.2 with the Table B.4.1a limits (rolled and
+  welded flanges, angles, tee stems, I/channel webs, welded-box and RHS walls, circular tubes).
+  INTI Ejemplo 10(c), a welded box with b/t = 72, prints Pd = 204.7 kN; the checker gave 237.4
+  (+16 %). `SteelDesignParams` takes `shape` ('I', 'U', 'T', 'box', 'RHS', 'CHS', 'rect') and
+  optionally `hw` and explicit `compressionElements`.
+- **CIRSOC 301 flexure implemented only §F.2 (compact sections).** §F.3 (noncompact/slender
+  flanges), §F.4 (noncompact webs: Rpc, rt, F.4.7/F.4.8) and §F.5 (slender webs: Rpg, F.5.3/F.5.4)
+  are now applied by classification (Table B.4.1b cases 11, 12, 16), and §F.6.2 (minor-axis flange
+  local buckling, case 14). INTI Ejemplo 14 girder V2 prints Md = 286.1 kNm (stabileo: 326.0,
+  +14 %); girder V3 (slender web) prints Md = 771.4 kNm. Both are regression tests.
+- **CIRSOC 301 lateral-torsional buckling used AISC 360-10's form** (rts, Mr = 0.7·Fy·Sx) and
+  had no load height. It now follows F.2.4–F.2.7 (X1, X2, FL = Fy − Fr with Fr = 69 MPa rolled,
+  114 MPa welded) with both load positions; `loadPosition: 'web' | 'topFlange'` selects
+  F.2.4a/F.2.5a/F.2.6a or F.2.4b/F.2.5b/F.2.6b, and **absent it is 'topFlange'**, the lower of the
+  two, because the checker does not know where the load acts. INTI Ejemplo 14 V1 case I-B
+  (top-flange deck, Lb = 5 m) prints Md = 18.39 kNm, and braced at midspan 37.91 kNm.
+- **The CIRSOC 301 checker refuses what it cannot classify.** A shape outside the list above
+  (e.g. cold-formed 'C', which is CIRSOC 303), strong-axis flexure of non-I shapes (§F.7–F.11 not
+  implemented), a circular tube with D/t > 0.45·E/Fy, a girder with aw > 10, LTB beyond Lp
+  without J, or a channel with a slender web come back **not evaluated** (`notEvaluated`, ratio
+  ∞, status fail, diagnostic `VERIF_STEEL_NOT_EVALUATED_*`), never as a pass; H.1 interaction is
+  refused when it would need a refused capacity.
+- **The app's CIRSOC 301 verification takes a section as welded unless it was picked from a rolled
+  catalogue family** (`profileFamily`): Fr = 114 MPa, Table B.4.1 case 2/12 flanges and Aw on the
+  web height, each the conservative side for a parametric or imported section. It now also passes
+  the section's `shape`.
+
 #### Design checks against published worked examples (2026-10-17)
 
 **BREAKING (results): CIRSOC 201 shear, CIRSOC 301 web shear, doubly reinforced ACI 318 / CIRSOC 201 flexure,

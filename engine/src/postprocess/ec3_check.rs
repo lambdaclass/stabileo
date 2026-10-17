@@ -2,7 +2,8 @@
 //!
 //! Covers cross-section classification, flexural capacity,
 //! compression with column buckling curves (a/b/c/d),
-//! and combined loading interaction (EC3 6.3.3).
+//! and member interaction of compression and bending (EC3 6.3.3, eqs.
+//! (6.61)/(6.62) with the interaction factors of Annex B — "Method 2").
 
 use serde::{Deserialize, Serialize};
 
@@ -113,6 +114,37 @@ pub struct Ec3MemberData {
     /// Shear area Av (m²)
     #[serde(default)]
     pub av: Option<f64>,
+    /// Inputs of the 6.3.3 member interaction (Annex B). Absent: the
+    /// conservative defaults documented on [`Ec3InteractionData`].
+    #[serde(default)]
+    pub interaction: Option<Ec3InteractionData>,
+}
+
+/// Inputs of the EN 1993-1-1 6.3.3 interaction, Annex B ("Method 2").
+///
+/// stabileo uses Annex B, not Annex A, for every member: it needs only the
+/// equivalent uniform moment factors of Table B.3, which the caller can read
+/// off the moment diagram, where Annex A also needs Ncr,T and the elastic
+/// critical moment for uniform bending.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ec3InteractionData {
+    /// Cmy, Table B.3, for the segment between y-y braced points. Absent:
+    /// 1.0, the largest value Table B.3 gives (uniform moment, ψ = 1), so a
+    /// missing diagram can only overstate the interaction.
+    #[serde(default)]
+    pub cmy: Option<f64>,
+    /// Cmz, Table B.3, between z-z braced points. Absent: 1.0 (see `cmy`).
+    #[serde(default)]
+    pub cmz: Option<f64>,
+    /// CmLT, Table B.3, between torsionally braced points. Absent: 1.0.
+    #[serde(default)]
+    pub cm_lt: Option<f64>,
+    /// Closed (hollow) section: not susceptible to torsional deformations
+    /// (Table B.1), and kzz takes the RHS expression. Absent/false: an open
+    /// I- or H-section, Table B.2 whenever the member has an LTB length.
+    #[serde(default)]
+    pub hollow: Option<bool>,
 }
 
 fn default_class1() -> SectionClass {
@@ -161,8 +193,26 @@ pub struct Ec3CheckResult {
     pub flexure_ratio_z: f64,
     /// Shear ratio VEd / Vpl,Rd
     pub shear_ratio: f64,
-    /// Combined interaction ratio (EC3 6.3.3)
+    /// Combined interaction ratio: max of eqs. (6.61) and (6.62) in
+    /// compression (6.3.3, Annex B factors); the linear sum of 6.2.1(7)
+    /// otherwise.
     pub interaction_ratio: f64,
+    /// Eq. (6.61) (0 when the member is not in compression).
+    #[serde(default)]
+    pub interaction_ratio_y: f64,
+    /// Eq. (6.62) (0 when the member is not in compression).
+    #[serde(default)]
+    pub interaction_ratio_z: f64,
+    /// Annex B interaction factors used in (6.61)/(6.62); 0 when the member
+    /// is not in compression.
+    #[serde(default)]
+    pub k_yy: f64,
+    #[serde(default)]
+    pub k_yz: f64,
+    #[serde(default)]
+    pub k_zy: f64,
+    #[serde(default)]
+    pub k_zz: f64,
     /// Column buckling reduction chi_y
     pub chi_y: f64,
     /// Column buckling reduction chi_z
@@ -245,6 +295,14 @@ pub(crate) fn compute_chi<T: Real>(lambda_bar: T, alpha: T) -> T {
 pub(crate) struct Ec3Capacities<T> {
     pub npl_rd: T,
     pub nb_rd: T,
+    /// χy·NRk/γM1 and χz·NRk/γM1, the denominators of (6.61) and (6.62).
+    pub nb_y_rd: T,
+    pub nb_z_rd: T,
+    /// Non-dimensional slendernesses λ̄y, λ̄z (6.3.1.2).
+    pub lambda_y: T,
+    pub lambda_z: T,
+    /// Mz,Rk/γM1, the minor-axis denominator of (6.61)/(6.62).
+    pub mz_rd_m1: T,
     pub mb_rd: T,
     pub mc_z_rd: T,
     pub vpl_rd: T,
@@ -282,6 +340,8 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let chi_z = compute_chi(lambda_z, T::lit(m.buckling_curve_z.alpha()));
     let chi_min = chi_y.min(chi_z);
     let nb_rd = (chi_min * area * fy).dv(gamma_m1);
+    let nb_y_rd = (chi_y * area * fy).dv(gamma_m1);
+    let nb_z_rd = (chi_z * area * fy).dv(gamma_m1);
 
     // Lateral-torsional buckling (EC3 6.3.2): elastic critical moment Mcr
     // (simplified for doubly-symmetric I-sections)
@@ -302,6 +362,7 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
 
     // Weak axis flexure (no LTB)
     let mc_z_rd = (w_z * fy).dv(gamma_m0);
+    let mz_rd_m1 = (w_z * fy).dv(gamma_m1);
 
     // Shear (EC3 6.2.6)
     let av = match m.av {
@@ -310,7 +371,143 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     };
     let vpl_rd = (av * fy.dv(T::exact(3.0).sqrt())).dv(gamma_m0);
 
-    Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt }
+    Ec3Capacities {
+        npl_rd,
+        nb_rd,
+        nb_y_rd,
+        nb_z_rd,
+        lambda_y,
+        lambda_z,
+        mz_rd_m1,
+        mb_rd,
+        mc_z_rd,
+        vpl_rd,
+        chi_y,
+        chi_z,
+        chi_lt,
+    }
+}
+
+/// The scalars Annex B's interaction factors depend on.
+#[derive(Debug, Clone, Copy)]
+pub struct AnnexBInput<T> {
+    /// Class 1 or 2 (plastic) — the left column of Tables B.1/B.2; else Class 3/4.
+    pub plastic: bool,
+    /// Susceptible to torsional deformations: Table B.2 (else Table B.1).
+    pub torsional: bool,
+    /// Rectangular hollow section: kzz takes the RHS expression of Table B.1.
+    pub hollow: bool,
+    pub lambda_y: T,
+    pub lambda_z: T,
+    /// ny = NEd/(χy·NRk/γM1), nz = NEd/(χz·NRk/γM1)
+    pub n_y: T,
+    pub n_z: T,
+    pub cmy: T,
+    pub cmz: T,
+    pub cm_lt: T,
+}
+
+/// Interaction factors (kyy, kyz, kzy, kzz), EN 1993-1-1 Annex B,
+/// Table B.1 (members not susceptible to torsional deformations) and
+/// Table B.2 (members susceptible to torsional deformations).
+///
+/// Table B.1, Class 1/2:
+///   kyy = Cmy·(1 + (λ̄y − 0.2)·ny) ≤ Cmy·(1 + 0.8·ny)
+///   kzz = Cmz·(1 + (2λ̄z − 0.6)·nz) ≤ Cmz·(1 + 1.4·nz)    (I-sections)
+///   kzz = Cmz·(1 + (λ̄z − 0.2)·nz) ≤ Cmz·(1 + 0.8·nz)     (RHS)
+///   kyz = 0.6·kzz,  kzy = 0.6·kyy
+/// Table B.1, Class 3/4:
+///   kyy = Cmy·(1 + 0.6·λ̄y·ny) ≤ Cmy·(1 + 0.6·ny)
+///   kzz = Cmz·(1 + 0.6·λ̄z·nz) ≤ Cmz·(1 + 0.6·nz)
+///   kyz = kzz,  kzy = 0.8·kyy
+/// Table B.2 (kyy, kyz, kzz as Table B.1), kzy:
+///   Class 1/2: [1 − 0.1·λ̄z·nz/(CmLT − 0.25)] ≥ [1 − 0.1·nz/(CmLT − 0.25)],
+///              and for λ̄z < 0.4: kzy = 0.6 + λ̄z ≤ 1 − 0.1·λ̄z·nz/(CmLT − 0.25)
+///   Class 3/4: [1 − 0.05·λ̄z·nz/(CmLT − 0.25)] ≥ [1 − 0.05·nz/(CmLT − 0.25)]
+pub fn annex_b_factors<T: Real>(i: &AnnexBInput<T>) -> [T; 4] {
+    let one = T::exact(1.0);
+    let (ly, lz, ny, nz) = (i.lambda_y, i.lambda_z, i.n_y, i.n_z);
+    let (kyy, kzz) = if i.plastic {
+        let kyy = (i.cmy * (one + (ly - T::lit(0.2)) * ny)).min(i.cmy * (one + T::lit(0.8) * ny));
+        let kzz = if i.hollow {
+            (i.cmz * (one + (lz - T::lit(0.2)) * nz)).min(i.cmz * (one + T::lit(0.8) * nz))
+        } else {
+            (i.cmz * (one + (T::exact(2.0) * lz - T::lit(0.6)) * nz)).min(i.cmz * (one + T::lit(1.4) * nz))
+        };
+        (kyy, kzz)
+    } else {
+        let kyy = (i.cmy * (one + T::lit(0.6) * ly * ny)).min(i.cmy * (one + T::lit(0.6) * ny));
+        let kzz = (i.cmz * (one + T::lit(0.6) * lz * nz)).min(i.cmz * (one + T::lit(0.6) * nz));
+        (kyy, kzz)
+    };
+    let kyz = if i.plastic { T::lit(0.6) * kzz } else { kzz };
+    let kzy = if !i.torsional {
+        if i.plastic { T::lit(0.6) * kyy } else { T::lit(0.8) * kyy }
+    } else {
+        let d = i.cm_lt - T::lit(0.25);
+        if i.plastic {
+            let upper = one - (T::lit(0.1) * lz * nz).dv(d);
+            branch(
+                lz.lt(T::lit(0.4)),
+                || (T::lit(0.6) + lz).min(upper),
+                || upper.max(one - (T::lit(0.1) * nz).dv(d)),
+            )
+        } else {
+            (one - (T::lit(0.05) * lz * nz).dv(d)).max(one - (T::lit(0.05) * nz).dv(d))
+        }
+    };
+    [kyy, kyz, kzy, kzz]
+}
+
+/// Eqs. (6.61), (6.62) and the factors, for a member in compression
+/// (`n` = |NEd| > 0). ΔMy = ΔMz = 0: Class 1–3, and Class 4 of the doubly
+/// symmetric I-sections this check models (eN = 0).
+pub(crate) fn ec3_interaction<T: Real>(
+    m: &Ec3MemberData,
+    caps: &Ec3Capacities<T>,
+    n: T,
+    my: T,
+    mz: T,
+) -> ([T; 2], [T; 4]) {
+    let id = m.interaction.clone().unwrap_or_default();
+    let plastic = matches!(m.section_class, SectionClass::Class1 | SectionClass::Class2);
+    let hollow = id.hollow.unwrap_or(false);
+    // 6.3.3(1)/(4): an open section with an unbraced LTB length is
+    // susceptible to torsional deformations (Table B.2); Lb = 0 (χLT = 1)
+    // is torsionally restrained and a hollow section is not susceptible.
+    let torsional = !hollow && m.lb > 0.0;
+    let k = annex_b_factors(&AnnexBInput {
+        plastic,
+        torsional,
+        hollow,
+        lambda_y: caps.lambda_y,
+        lambda_z: caps.lambda_z,
+        n_y: n.dv(caps.nb_y_rd),
+        n_z: n.dv(caps.nb_z_rd),
+        cmy: T::exact(id.cmy.unwrap_or(1.0)),
+        cmz: T::exact(id.cmz.unwrap_or(1.0)),
+        cm_lt: T::exact(id.cm_lt.unwrap_or(1.0)),
+    });
+    let [kyy, kyz, kzy, kzz] = k;
+    let zero = T::exact(0.0);
+    // A moment term is only formed where there is a moment, so a zero
+    // capacity with zero demand stays 0 instead of 0/0.
+    let my_term = branch(zero.lt(my), || my.dv(caps.mb_rd), || zero);
+    let mz_term = branch(zero.lt(mz), || mz.dv(caps.mz_rd_m1), || zero);
+    let eq_661 = n.dv(caps.nb_y_rd) + kyy * my_term + kyz * mz_term;
+    let eq_662 = n.dv(caps.nb_z_rd) + kzy * my_term + kzz * mz_term;
+    ([eq_661, eq_662], k)
+}
+
+/// Table B.3 bounds the equivalent uniform moment factors: Cm ∈ [0.4, 1].
+/// A value outside is not one Table B.3 can give, and CmLT ≤ 0.25 would
+/// divide by zero or flip the sign of Table B.2's kzy.
+pub(crate) fn ec3_cm_inputs_valid(m: &Ec3MemberData) -> bool {
+    let id = m.interaction.clone().unwrap_or_default();
+    [id.cmy, id.cmz, id.cm_lt].iter().all(|c| match c {
+        Some(c) => c.is_finite() && (0.4..=1.0).contains(c),
+        None => true,
+    })
 }
 
 /// Index the force records by id so each member is a hash lookup rather than a
@@ -351,7 +548,7 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
     let mz_ed = f.mz_ed.unwrap_or(0.0);
     let v_ed = f.v_ed.unwrap_or(0.0);
 
-    let Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt } = caps;
+    let Ec3Capacities { npl_rd, nb_rd, mb_rd, mc_z_rd, vpl_rd, chi_y, chi_z, chi_lt, .. } = caps;
 
     let mut ledger = CheckLedger::new();
     ledger.require_finite("Column buckling chi_y", chi_y);
@@ -371,29 +568,25 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
 
     let shear_ratio = ledger.ratio_if_loaded("Shear 6.2.6", v_ed.abs(), vpl_rd);
 
-    // ==================== Interaction (EC3 6.3.3, Method 2) ====================
+    // ==================== Interaction (EC3 6.3.3, Annex B) ====================
 
-    // Simplified: NEd/(chi*N_Rd) + My,Ed/(chi_LT*My_Rd) + Mz,Ed/Mz_Rd <= 1.0
+    let mut eqs = [0.0_f64; 2];
+    let mut k = [0.0_f64; 4];
     let interaction_ratio = if n_ed < 0.0 {
-        // Compression + biaxial bending
-        let n_ratio = if nb_rd > 0.0 {
-            n_ed.abs() / nb_rd
+        // 6.3.3(4), eqs. (6.61) and (6.62) with the Annex B factors. This was
+        // NEd/Nb,Rd + My/Mb,Rd + Mz/Mc,z,Rd — every k taken as 1 — which is
+        // unconservative wherever Annex B gives k > 1: kyy reaches
+        // Cmy·(1 + 0.8·ny), kzz Cmz·(1 + 1.4·nz).
+        if ec3_cm_inputs_valid(m) {
+            let (e, kk) = ec3_interaction(m, &caps, n_ed.abs(), my_ed.abs(), mz_ed.abs());
+            eqs = e;
+            k = kk;
+            e[0].max(e[1])
         } else {
-            0.0
-        };
-        let my_ratio = if mb_rd > 0.0 {
-            my_ed.abs() / mb_rd
-        } else {
-            0.0
-        };
-        let mz_ratio = if mc_z_rd > 0.0 {
-            mz_ed.abs() / mc_z_rd
-        } else {
-            0.0
-        };
-        n_ratio + my_ratio + mz_ratio
+            f64::NAN // refused below: a Cm outside Table B.3's [0.4, 1]
+        }
     } else if n_ed > 0.0 {
-        // Tension + bending
+        // Tension + bending: the conservative linear sum of 6.2.1(7).
         tension_ratio + flexure_ratio_y + flexure_ratio_z
     } else {
         flexure_ratio_y + flexure_ratio_z
@@ -417,6 +610,12 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         flexure_ratio_z,
         shear_ratio,
         interaction_ratio,
+        interaction_ratio_y: eqs[0],
+        interaction_ratio_z: eqs[1],
+        k_yy: k[0],
+        k_yz: k[1],
+        k_zy: k[2],
+        k_zz: k[3],
         chi_y,
         chi_z,
         chi_lt,

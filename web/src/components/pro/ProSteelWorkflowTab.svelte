@@ -53,7 +53,7 @@
   import ProSteelLbEditor from './ProSteelLbEditor.svelte';
   import { CIRSOC301_CLAUSE_MAP, CIRSOC301_CLAUSES_UNVALIDATED } from '../../lib/engine/design/adapters/cirsoc301-clause-map';
   import { e4Applicability, e4GapKey } from '../../lib/engine/steel/torsional-buckling';
-  import { f62Report } from '../../lib/engine/steel/flange-local-buckling';
+  import { f62Report, f62BranchKey } from '../../lib/engine/steel/flange-local-buckling';
   import { structuralGradeSource } from '../../lib/grades/catalogue';
   import { steelProfileSource } from '../../lib/profiles/catalogue';
   import { CIRSOC301_JS_ASSUMPTIONS } from '../../lib/engine/design/adapters/cirsoc301-capabilities';
@@ -185,11 +185,21 @@
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     j: (firstSection as { j?: number } | undefined)?.j,
   }));
+  // Fy selects F.6.2's branch (Table B.4.1b case 14), the same limits the checker applies.
+  const firstMaterial = $derived(
+    sRows.length > 0
+      ? modelStore.model.materials.get(
+          (modelStore.model.elements.get(sRows[0].elementId) as { materialId?: number } | undefined)?.materialId ?? -1,
+        )
+      : undefined,
+  );
   const f62 = $derived(f62Report({
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     b: (firstSection as { b?: number } | undefined)?.b,
     tf: (firstSection as { tf?: number } | undefined)?.tf,
     iMinor: (firstSection as { iz?: number } | undefined)?.iz,
+    fy: (firstMaterial as { fy?: number } | undefined)?.fy,
+    e: (firstMaterial as { e?: number } | undefined)?.e,
   }));
 
   const LIMITATIONS = [
@@ -694,6 +704,9 @@
         <dt>{t('steel.workflow.clause.f62')}</dt>
         <dd data-testid="steel-clause-f62">
           {t(f62.reasonKey)}
+          {#if f62.state === 'classified'}
+            <span class="clauses">{t(f62BranchKey(f62.branch))}</span>
+          {/if}
           {#if f62.flangeSlenderness != null}
             <!-- The computable half, shown because a reader with the printed table can finish it. -->
             <span class="clauses">

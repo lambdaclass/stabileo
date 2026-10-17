@@ -616,6 +616,7 @@ const steelEs: Record<string, string> = {
   'steel.e4.gap.shearCentre': 'Centro de corte: r̄o y H se construyen sobre él, y la app no puede ubicarlo para esta forma.',
   'steel.e4.notImplemented': 'Pandeo torsional no disponible. Gobierna en ángulos, tes y cruciformes — justamente las secciones cuyos ejes esta app ya advierte — así que la ausencia es una limitación, no un descarte.',
   // ─── §F.6.2, pandeo local del ala en flexión de eje menor ───
+  'steel.f62.classified': 'Tabla B.4.1b caso 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). La rama indicada es la que aplica la verificación CIRSOC 301.',
   'steel.f62.outOfScope': 'F.6 cubre secciones doble te y canales flexadas alrededor del eje menor. Esta sección no es una de ellas.',
   'steel.f62.geometryUnavailable': 'Falta el ancho o el espesor del ala, así que ni la esbeltez λf se puede formar.',
   'steel.f62.classificationUnavailable': 'La geometría está: λf, Sy y Fcr se calculan. Lo que no se puede es elegir la rama, porque λpf y λrf son la Tabla B.4.1b caso 14, que es una imagen en el PDF fuente.',

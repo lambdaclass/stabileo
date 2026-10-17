@@ -39,6 +39,7 @@ fn ipe300(class: SectionClass) -> Ec3MemberData {
         gamma_m1: Some(1.0),
         c1: None,
         av: None,
+        interaction: None,
     }
 }
 

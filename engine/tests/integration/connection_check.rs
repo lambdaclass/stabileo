@@ -163,6 +163,7 @@ fn weld_group_single_weld_direct_shear() {
                 x2: 0.20,
                 y2: 0.0,
                 size: 0.006, // 6mm fillet
+                end_loaded: None,
             }],
             fexx: 482e6, // E70XX
             phi: Some(0.75),
@@ -218,9 +219,9 @@ fn weld_group_c_shape() {
         groups: vec![WeldGroupData {
             connection_id: 1,
             segments: vec![
-                WeldSegment { x1: 0.0, y1: 0.0, x2: 0.0, y2: 0.20, size: 0.008 },
-                WeldSegment { x1: 0.0, y1: 0.20, x2: 0.15, y2: 0.20, size: 0.008 },
-                WeldSegment { x1: 0.15, y1: 0.20, x2: 0.15, y2: 0.0, size: 0.008 },
+                WeldSegment { x1: 0.0, y1: 0.0, x2: 0.0, y2: 0.20, size: 0.008, end_loaded: None },
+                WeldSegment { x1: 0.0, y1: 0.20, x2: 0.15, y2: 0.20, size: 0.008, end_loaded: None },
+                WeldSegment { x1: 0.15, y1: 0.20, x2: 0.15, y2: 0.0, size: 0.008, end_loaded: None },
             ],
             fexx: 482e6,
             phi: Some(0.75),
@@ -252,8 +253,8 @@ fn weld_group_eccentric() {
         groups: vec![WeldGroupData {
             connection_id: 1,
             segments: vec![
-                WeldSegment { x1: 0.0, y1: -0.10, x2: 0.0, y2: 0.10, size: 0.006 },
-                WeldSegment { x1: 0.15, y1: -0.10, x2: 0.15, y2: 0.10, size: 0.006 },
+                WeldSegment { x1: 0.0, y1: -0.10, x2: 0.0, y2: 0.10, size: 0.006, end_loaded: None },
+                WeldSegment { x1: 0.15, y1: -0.10, x2: 0.15, y2: 0.10, size: 0.006, end_loaded: None },
             ],
             fexx: 482e6,
             phi: Some(0.75),
