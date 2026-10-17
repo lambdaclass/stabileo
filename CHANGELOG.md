@@ -11,6 +11,36 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### 2D buckling and time integration use the linear path's stiffness (2026-10-17)
+
+**BREAKING (results): 2D buckling and 2D time histories of models with an angled spring, an
+inclined roller, a spring on a restrained DOF, a truss-only node in a frame, or a spring on a
+rigid support's free DOF solve differently.** Both assembled K with `assemble_sparse_2d_ex`,
+a hand-kept copy of the 2D assembler that had drifted from the dense and linear sparse ones
+(`tests/index_exhaustive.rs` pinned four differences).
+
+- **`assemble_sparse_2d_ex` is now `assemble_stiffness_sparse_2d` plus
+  `assemble_load_vector_2d`**, the linear static path's builders, and equals the dense
+  assembler entry for entry on every model of the exhaustive test. It used to ignore a
+  spring's angle (diag(kx, ky) instead of the rotated block), leave springs on restrained
+  DOFs out of the full K (time-history reactions off by k·δ), skip the orphan-rotation guard
+  (a truss-only node in a frame made K singular: buckling and time integration failed), and
+  ignore inclined rollers (the restrained normal was taken as global uz).
+- **Inclined rollers in 2D buckling and time integration.** K, f and the result are in the
+  roller frames the assembler reports (`SparseAssemblyResult::inclined_transforms_2d`); the
+  geometric stiffness, the mass (`assemble_mass_matrix_2d_sparse_inclined`), the ground
+  influence and the force history are rotated into them, and mode shapes and recorded
+  histories rotated back to global axes. Results match the same model rotated so that the
+  roller is a rollerX (`tests/sparse_ex_analysis_regressions.rs`).
+- **2D time-history reactions** come from the linear solver's reaction builder: angled
+  springs, springs on rigid supports and inclined rollers are reported like `solve_2d`'s.
+- The 2D kinematic fast path no longer defers models with inclined rollers or angled springs
+  to the dense analysis: the sparse K is now the same matrix.
+- Not fixed: 2D modal, harmonic and Craig–Bampton, and 3D buckling and time integration
+  still pair a K rotated into the inclined-support frame with an unrotated mass or
+  geometric stiffness (2D modal and the 3D two pinned by ignored tests). The 3D
+  `assemble_sparse_3d` already shares the linear path's stiffness.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

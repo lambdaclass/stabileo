@@ -310,11 +310,11 @@ fn dof_numbering_3d_exhaustive() {
 
 // ─── sparse vs dense assembly ───────────────────────────────────────────────
 //
-// Three 2D sparse assemblers mirror the dense `assemble_stiffness_2d`:
+// Two 2D sparse assemblers mirror the dense `assemble_stiffness_2d`:
 //   L = sparse_assembly::assemble_stiffness_sparse_2d — linear static path
 //       (nf ≥ 64);
 //   T = assembly::assemble_sparse_2d_ex — time integration, buckling and
-//       kinematic analysis.
+//       kinematic analysis (built on L's stiffness).
 // Both are compared with dense on every combination of member type, hinges
 // and support type (springs with and without an angle, inclined rollers) on a
 // 3-node, 2-member model.
@@ -401,26 +401,12 @@ fn assembly_2d_linear_sparse_matches_dense_exhaustive() {
     assert_eq!(cases, 4 * 16 * 14 * 5 * 14);
 }
 
-/// Model features T handles like dense: no angled spring, no inclined
-/// roller, and no node reached only by trusses in a frame model (dense adds
-/// artificial stiffness to such "orphan" rotation DOFs, T does not).
-fn t_supported(input: &SolverInput) -> bool {
-    let mixed = input.elements.values().any(|e| e.elem_type == "frame") && input.elements.values().any(|e| e.elem_type != "frame");
-    !mixed && input.supports.values().all(|s| {
-        s.support_type != "inclinedRoller"
-            && s.angle.is_none_or(|a| a.abs() <= 1e-15 || s.support_type != "spring")
-    })
-}
-
 /// T (time integration / buckling / kinematic sparse path) equals dense on
-/// K_ff and artificial DOFs where its documented feature set applies.
+/// K_ff, full K and artificial DOFs, on every model (it shares L's stiffness).
 #[test]
 fn assembly_2d_sparse_ex_matches_dense_exhaustive() {
     let mut cases = 0;
     for_each_model(|label, input| {
-        if !t_supported(input) {
-            return;
-        }
         let dn = DofNumbering::build_2d(input);
         let (n, nf) = (dn.n_total, dn.n_free);
         let dense = assemble_stiffness_2d(input, &dn);
@@ -428,21 +414,21 @@ fn assembly_2d_sparse_ex_matches_dense_exhaustive() {
         let tol = 1e-12 * dense.max_diag_k.max(1.0);
         assert_eq!(sp.k_ff.n, nf);
         assert_same(&format!("T k_ff {label}"), &dense_of(&sp.k_ff), nf, &dense.k, n, tol);
+        assert_same(&format!("T k_full {label}"), &dense_of(sp.k_full.as_ref().unwrap()), n, &dense.k, n, tol);
         let (mut a, mut b) = (sp.artificial_dofs.clone(), dense.artificial_dofs.clone());
         a.sort();
         b.sort();
         assert_eq!(a, b, "T artificial {label}");
         cases += 1;
     });
-    assert!(cases > 10_000, "{cases}");
+    assert_eq!(cases, 4 * 16 * 14 * 5 * 14);
 }
 
-/// FINDING: T ignores a spring's `angle`: an angled spring support gives a
-/// diagonal diag(kx, ky) block in K_ff instead of Rᵀ·diag(kx, ky)·R (dense
-/// and the linear sparse path rotate it). Modal/time-history/buckling runs of
-/// a model with an angled spring therefore use a different K than statics.
+/// Regression: T ignored a spring's `angle`, giving a diagonal diag(kx, ky)
+/// block in K_ff instead of Rᵀ·diag(kx, ky)·R (dense and the linear sparse
+/// path rotate it), so time-history and buckling runs of a model with an
+/// angled spring used a different K than statics.
 #[test]
-#[ignore = "FINDING: assemble_sparse_2d_ex ignores the spring angle (dense and the linear sparse path rotate it)"]
 fn assembly_2d_sparse_ex_angled_spring() {
     let o = (None, false, None);
     let input = input_2d_opts(["frame", "frame"], [false; 4], [(Some("fixed"), false, None), (Some("spring"), true, Some(0.6)), o]);
@@ -453,11 +439,10 @@ fn assembly_2d_sparse_ex_angled_spring() {
     assert_same("T angled spring k_ff", &dense_of(&sp.k_ff), nf, &dense.k, n, 1e-9);
 }
 
-/// FINDING: T's full K (`build_k_full`) omits spring constants on restrained
-/// DOFs (dense and L add them to K_rr). With a prescribed displacement on such
-/// a DOF the reaction differs by k·δ between the paths.
+/// Regression: T's full K (`build_k_full`) omitted spring constants on
+/// restrained DOFs (dense and L add them to K_rr). With a prescribed
+/// displacement on such a DOF the reaction differed by k·δ between the paths.
 #[test]
-#[ignore = "FINDING: assemble_sparse_2d_ex k_full omits springs on restrained DOFs (dense and the linear sparse path include them)"]
 fn assembly_2d_sparse_ex_k_full_restrained_spring() {
     let o = (None, false, None);
     let input = input_2d_opts(["frame", "frame"], [false; 4], [(Some("pinned"), true, None), o, (Some("rollerX"), false, None)]);
@@ -468,11 +453,10 @@ fn assembly_2d_sparse_ex_k_full_restrained_spring() {
     assert_same("T k_full", &dense_of(sp.k_full.as_ref().unwrap()), n, &dense.k, n, 1e-9);
 }
 
-/// FINDING: T lacks dense's orphan-rotation guard. In a frame model, a node
-/// reached only by trusses has a free rotation DOF with an all-zero row; dense
-/// (and L) add artificial stiffness there, T leaves K_ff singular.
+/// Regression: T lacked dense's orphan-rotation guard. In a frame model, a
+/// node reached only by trusses has a free rotation DOF with an all-zero row;
+/// dense (and L) add artificial stiffness there, T left K_ff singular.
 #[test]
-#[ignore = "FINDING: assemble_sparse_2d_ex has no orphan-rotation guard (dense and the linear sparse path add artificial stiffness)"]
 fn assembly_2d_sparse_ex_orphan_rotation() {
     let o = (None, false, None);
     let input = input_2d_opts(["frame", "truss"], [false; 4], [(Some("fixed"), false, None), o, (Some("pinned"), false, None)]);
@@ -483,12 +467,11 @@ fn assembly_2d_sparse_ex_orphan_rotation() {
     assert_same("T orphan rotation k_ff", &dense_of(&sp.k_ff), nf, &dense.k, n, 0.0);
 }
 
-/// FINDING: T does not rotate K for an inclined roller, so its K_ff treats the
-/// restrained local DOF as global uz. 2D buckling (`buckling.rs`) and time
-/// integration (`time_integration.rs`) use T with no guard (the kinematic
-/// fast path guards against exactly this and defers to dense).
+/// Regression: T did not rotate K for an inclined roller, so its K_ff treated
+/// the restrained local DOF as global uz, and 2D buckling and time integration
+/// used it with no guard. T now rotates K (and f) like dense and reports the
+/// rotations in `inclined_transforms_2d`.
 #[test]
-#[ignore = "FINDING: assemble_sparse_2d_ex ignores inclined rollers; 2D buckling/time integration use it unguarded"]
 fn assembly_2d_sparse_ex_inclined_roller() {
     let o = (None, false, None);
     let input = input_2d_opts(["frame", "frame"], [false; 4], [(Some("pinned"), false, None), o, (Some("inclinedRoller"), false, Some(0.6))]);

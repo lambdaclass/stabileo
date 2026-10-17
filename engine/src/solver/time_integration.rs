@@ -107,18 +107,22 @@ fn solve_time_history_2d_inner(
         return Err("No free DOFs -- all nodes are fully restrained".into());
     }
 
-    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static
+    // 1. Assemble K (sparse; full-K kept for peak reactions) and F_static.
+    // K and F are in the inclined-roller frames of `its`; M, the ground
+    // influence and the force history are rotated into the same frames, and
+    // the recorded states are rotated back to global axes.
     let sasm = assembly::assemble_sparse_2d_ex(&input.solver, &dof_num, true);
+    let its = &sasm.inclined_transforms_2d;
 
     // 2. Assemble mass matrix M (sparse CSC, free block)
-    let m_ff = mass_matrix::assemble_mass_matrix_2d_sparse(&input.solver, &dof_num, &input.densities);
+    let m_ff = mass_matrix::assemble_mass_matrix_2d_sparse_inclined(&input.solver, &dof_num, &input.densities, its);
 
     // 3. Free-DOF force vector
     let f_static: Vec<f64> = sasm.f[..nf].to_vec();
 
     // 3a. Precompute the ground-acceleration influence product M*r once —
     // r and M are time-invariant, so it must not be rebuilt per time step.
-    let m_ground_r = build_ground_influence_2d(input, &dof_num, nf, &m_ff);
+    let m_ground_r = build_ground_influence_2d(input, &dof_num, its, &m_ff);
 
     // 3b. Constraint reduction: reduce K, M to independent DOF space
     // (sparse triple products — no dense reduced matrices)
@@ -167,7 +171,7 @@ fn solve_time_history_2d_inner(
 
     // Compute initial acceleration from M*a0 = F0 - C*v0 - K*u0
     // Force is computed in nf space then reduced
-    let f_0_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, 0, dt);
+    let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     compute_initial_acceleration(&m_s, c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
     if let Some(t) = trace.as_deref_mut() {
@@ -205,7 +209,7 @@ fn solve_time_history_2d_inner(
     let u_nf = expand(&u);
     let v_nf = expand(&v);
     let a_nf = expand(&a_vec);
-    record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
+    record_state(&dof_num, &tracked_nodes, &to_global_2d(&u_nf, n, its), &to_global_2d(&v_nf, n, its), &to_global_2d(&a_nf, n, its), &mut histories);
 
     // Track peak displacement for reaction computation (in nf space)
     let mut peak_disp_norm = 0.0_f64;
@@ -219,7 +223,7 @@ fn solve_time_history_2d_inner(
         let t_next = (step + 1) as f64 * dt;
 
         // Compute F_{n+1} in nf space, then reduce to ns
-        let f_next_nf = compute_force_at_step(input, &dof_num, nf, m_ground_r.as_deref(), &f_static, step + 1, dt);
+        let f_next_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, step + 1, dt);
         let f_next = if let Some(ref cs) = cs { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         // Compute effective load (all in ns space)
@@ -260,9 +264,9 @@ fn solve_time_history_2d_inner(
         let u_nf = expand(&u);
         let v_nf = expand(&v);
         let a_nf = expand(&a_vec);
-        record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
+        record_state(&dof_num, &tracked_nodes, &to_global_2d(&u_nf, n, its), &to_global_2d(&v_nf, n, its), &to_global_2d(&a_nf, n, its), &mut histories);
 
-        // Track peak displacement (nf space)
+        // Track peak displacement (nf space; the norm is frame-independent)
         let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
         if disp_norm > peak_disp_norm {
             peak_disp_norm = disp_norm;
@@ -288,11 +292,10 @@ fn solve_time_history_2d_inner(
     let peak_displacements = build_peak_displacements(&dof_num, &node_histories);
 
     // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
-    // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
     let peak_reactions = compute_reactions_at_state(
         &input.solver, &dof_num,
         sasm.k_full.as_ref().expect("assemble_sparse_2d_ex with build_k_full"),
-        &sasm.f, &u_at_peak, nf, n,
+        &sasm.f, &u_at_peak, its,
     );
 
     let method_name = if let Some(alpha) = alpha {
@@ -448,7 +451,7 @@ fn compute_initial_acceleration(
 fn build_ground_influence_2d(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData2D],
     m_ff: &CscMatrix,
 ) -> Option<Vec<f64>> {
     input.ground_accel.as_ref()?;
@@ -459,15 +462,19 @@ fn build_ground_influence_2d(
         _ => 0, // "X" or default
     };
 
-    // Influence vector r (1.0 for DOFs in ground direction)
-    let mut r = vec![0.0; nf];
+    // Influence vector r (1.0 for DOFs in ground direction), over all DOFs so
+    // it can be rotated into the inclined-roller frames, then cut to the free
+    // block (at an inclined roller only its tangential component is free).
+    let mut r = vec![0.0; dof_num.n_total];
     for &node_id in &dof_num.node_order {
         if let Some(&d) = dof_num.map.get(&(node_id, local_dof)) {
-            if d < nf {
-                r[d] = 1.0;
-            }
+            r[d] = 1.0;
         }
     }
+    for it in its {
+        assembly::rotate_inclined_f_2d(&mut r, &it.dofs, &it.r);
+    }
+    r.truncate(dof_num.n_free);
 
     Some(m_ff.sym_mat_vec(&r))
 }
@@ -479,13 +486,14 @@ fn build_ground_influence_2d(
 fn compute_force_at_step(
     input: &TimeHistoryInput,
     dof_num: &DofNumbering,
-    nf: usize,
+    its: &[assembly::InclinedTransformData2D],
     m_ground_r: Option<&[f64]>,
     f_static: &[f64],
     step: usize,
     dt: f64,
 ) -> Vec<f64> {
     let t = step as f64 * dt;
+    let nf = dof_num.n_free;
     let mut f = vec![0.0; nf];
 
     // Ground acceleration: F_ground = -M * r * a_g(t)
@@ -500,9 +508,13 @@ fn compute_force_at_step(
         }
     }
 
-    // Force history: interpolate between time records
+    // Force history: interpolate between time records, over all DOFs, and
+    // rotate into the inclined-roller frames before keeping the free block
     if let Some(ref force_history) = input.force_history {
-        let f_interp = interpolate_force_history(force_history, dof_num, nf, t);
+        let mut f_interp = interpolate_force_history(force_history, dof_num, dof_num.n_total, t);
+        for it in its {
+            assembly::rotate_inclined_f_2d(&mut f_interp, &it.dofs, &it.r);
+        }
         for i in 0..nf {
             f[i] += f_interp[i];
         }
@@ -532,10 +544,10 @@ fn interpolate_ground_accel(ground_accel: &[f64], step: usize, _dt: f64) -> f64 
 fn interpolate_force_history(
     force_history: &[TimeForceRecord],
     dof_num: &DofNumbering,
-    nf: usize,
+    n: usize,
     t: f64,
 ) -> Vec<f64> {
-    let mut f = vec![0.0; nf];
+    let mut f = vec![0.0; n];
 
     if force_history.is_empty() {
         return f;
@@ -545,17 +557,17 @@ fn interpolate_force_history(
     if t <= force_history[0].time {
         // At or before first record: use first record scaled by proximity
         if force_history[0].time.abs() < 1e-15 {
-            assemble_force_record(&force_history[0], dof_num, nf, &mut f, 1.0);
+            assemble_force_record(&force_history[0], dof_num, n, &mut f, 1.0);
         } else {
             let frac = t / force_history[0].time;
-            assemble_force_record(&force_history[0], dof_num, nf, &mut f, frac.max(0.0));
+            assemble_force_record(&force_history[0], dof_num, n, &mut f, frac.max(0.0));
         }
         return f;
     }
 
     if t >= force_history.last().unwrap().time {
         // Beyond last record: hold last value
-        assemble_force_record(force_history.last().unwrap(), dof_num, nf, &mut f, 1.0);
+        assemble_force_record(force_history.last().unwrap(), dof_num, n, &mut f, 1.0);
         return f;
     }
 
@@ -566,14 +578,14 @@ fn interpolate_force_history(
         if t >= t0 && t <= t1 {
             let dt_rec = t1 - t0;
             if dt_rec.abs() < 1e-15 {
-                assemble_force_record(&force_history[i], dof_num, nf, &mut f, 1.0);
+                assemble_force_record(&force_history[i], dof_num, n, &mut f, 1.0);
             } else {
                 let alpha = (t - t0) / dt_rec;
-                let mut f0 = vec![0.0; nf];
-                let mut f1 = vec![0.0; nf];
-                assemble_force_record(&force_history[i], dof_num, nf, &mut f0, 1.0);
-                assemble_force_record(&force_history[i + 1], dof_num, nf, &mut f1, 1.0);
-                for j in 0..nf {
+                let mut f0 = vec![0.0; n];
+                let mut f1 = vec![0.0; n];
+                assemble_force_record(&force_history[i], dof_num, n, &mut f0, 1.0);
+                assemble_force_record(&force_history[i + 1], dof_num, n, &mut f1, 1.0);
+                for j in 0..n {
                     f[j] = (1.0 - alpha) * f0[j] + alpha * f1[j];
                 }
             }
@@ -584,24 +596,25 @@ fn interpolate_force_history(
     f
 }
 
-/// Assemble a single TimeForceRecord into the free-DOF force vector with a scale factor.
+/// Assemble a single TimeForceRecord into a force vector of length `n` (only
+/// DOFs below `n` are kept) with a scale factor.
 fn assemble_force_record(
     record: &TimeForceRecord,
     dof_num: &DofNumbering,
-    nf: usize,
+    n: usize,
     f: &mut [f64],
     scale: f64,
 ) {
     for load in &record.loads {
         if let Some(&d) = dof_num.map.get(&(load.node_id, 0)) {
-            if d < nf { f[d] += load.fx * scale; }
+            if d < n { f[d] += load.fx * scale; }
         }
         if let Some(&d) = dof_num.map.get(&(load.node_id, 1)) {
-            if d < nf { f[d] += load.fz * scale; }
+            if d < n { f[d] += load.fz * scale; }
         }
         if dof_num.dofs_per_node >= 3 {
             if let Some(&d) = dof_num.map.get(&(load.node_id, 2)) {
-                if d < nf { f[d] += load.my * scale; }
+                if d < n { f[d] += load.my * scale; }
             }
         }
     }
@@ -798,19 +811,28 @@ struct NodeTimeHistoryBuilder {
     az: Vec<f64>,
 }
 
-/// Record the current state into the history builders.
+/// Free-DOF vector (inclined-roller frames) to an all-DOF vector in global
+/// axes: restrained DOFs zero, inclined rollers rotated back.
+fn to_global_2d(v_free: &[f64], n: usize, its: &[assembly::InclinedTransformData2D]) -> Vec<f64> {
+    let mut g = vec![0.0; n];
+    g[..v_free.len()].copy_from_slice(v_free);
+    for it in its {
+        assembly::reverse_inclined_transform_2d(&mut g, &it.dofs, &it.r);
+    }
+    g
+}
+
+/// Record the current state (all-DOF vectors in global axes, see
+/// `to_global_2d`) into the history builders.
 fn record_state(
     dof_num: &DofNumbering,
     tracked_nodes: &[usize],
     u: &[f64], v: &[f64], a: &[f64],
-    nf: usize,
     histories: &mut [NodeTimeHistoryBuilder],
 ) {
     for (idx, &node_id) in tracked_nodes.iter().enumerate() {
         let get_val = |vec: &[f64], local_dof: usize| -> f64 {
-            dof_num.map.get(&(node_id, local_dof))
-                .map(|&d| if d < nf { vec[d] } else { 0.0 })
-                .unwrap_or(0.0)
+            dof_num.map.get(&(node_id, local_dof)).map(|&d| vec[d]).unwrap_or(0.0)
         };
 
         histories[idx].ux.push(get_val(u, 0));
@@ -898,67 +920,28 @@ fn reactions_vec_from_kfull(k_full: &CscMatrix, f_full: &[f64], u_free: &[f64], 
     reactions_vec
 }
 
-/// Compute reactions at a specific displacement state using the full stiffness matrix.
+/// Reactions at a specific displacement state using the full stiffness matrix,
+/// through the linear solver's reaction builder (rotated springs, springs on
+/// rigid supports, inclined rollers back to global axes). `u_free` is in the
+/// inclined-roller frames K was assembled in.
 fn compute_reactions_at_state(
     solver_input: &SolverInput,
     dof_num: &DofNumbering,
     k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
-    nf: usize,
-    n: usize,
+    its: &[assembly::InclinedTransformData2D],
 ) -> Vec<Reaction> {
-    let nr = n - nf;
-    if nr == 0 {
+    let (n, nf) = (dof_num.n_total, dof_num.n_free);
+    if n == nf {
         return Vec::new();
     }
-
-    // Build full displacement vector
-    let mut u_full = vec![0.0; n];
-    for i in 0..nf {
-        u_full[i] = u_free[i];
-    }
-    // Restrained DOFs remain zero (no prescribed displacements in dynamic analysis)
-
+    // Restrained DOFs stay zero (no prescribed displacements in dynamic analysis)
     let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
-
-    let mut reactions = Vec::new();
-    for sup in solver_input.supports.values() {
-        let mut rx = 0.0;
-        let mut rz = 0.0;
-        let mut my = 0.0;
-
-        if sup.support_type == "spring" {
-            // Spring reaction: R = -k * u
-            let ux = dof_num.global_dof(sup.node_id, 0).map(|d| u_full[d]).unwrap_or(0.0);
-            let uz = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
-            let ry_disp = if dof_num.dofs_per_node >= 3 {
-                dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
-            } else { 0.0 };
-
-            rx = -sup.kx.unwrap_or(0.0) * ux;
-            rz = -sup.ky.unwrap_or(0.0) * uz;
-            my = -sup.kz.unwrap_or(0.0) * ry_disp;
-        } else {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                if d >= nf { rx = reactions_vec[d - nf]; }
-            }
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf { rz = reactions_vec[d - nf]; }
-            }
-            if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    if d >= nf { my = reactions_vec[d - nf]; }
-                }
-            }
-        }
-
-        reactions.push(Reaction {
-            node_id: sup.node_id,
-            rx, rz, my,
-        });
-    }
-
+    let u_full = to_global_2d(u_free, n, its);
+    let mut reactions = super::linear::build_reactions_2d_inclined(
+        solver_input, dof_num, &reactions_vec, &f_full[nf..], nf, &u_full, its,
+    );
     reactions.sort_by_key(|r| r.node_id);
     reactions
 }

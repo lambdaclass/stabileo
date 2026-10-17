@@ -36,12 +36,15 @@ pub struct ElementBucklingData {
 
 /// The matrices of the 2D linear buckling problem K·φ = λ·(−Kg)·φ: the linear
 /// solution whose axial forces define Kg, the sparse free-DOF K, and −Kg.
-/// Shared by `solve_buckling_2d` and the buckling certificate.
+/// Shared by `solve_buckling_2d` and the buckling certificate. K and Kg are
+/// in the inclined-roller frames of `inclined_transforms_2d` (φ too, until
+/// rotated back with `reverse_inclined_transform_2d`).
 pub(crate) struct BucklingSystem2D {
     pub linear: AnalysisResults,
     pub dof_num: DofNumbering,
     pub k_ff: CscMatrix,
     pub neg_kg_csc: CscMatrix,
+    pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
 }
 
 pub(crate) fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, String> {
@@ -64,21 +67,23 @@ pub(crate) fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // 3. Build geometric stiffness from linear axial forces (sparse free block;
-    //    the eigensolver below is sparse, so a dense n×n Kg was pure waste).
-    //    Negate it in place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues,
-    //    and nothing reads the un-negated Kg.
+    // 3. Sparse stiffness of the free block (the linear path's K: rotated
+    //    springs, orphan-rotation guard, inclined-roller frames)
+    let SparseAssemblyResult { k_ff, inclined_transforms_2d, .. } = assemble_sparse_2d(input, &dof_num);
+
+    // 4. Build geometric stiffness from linear axial forces (sparse free block;
+    //    the eigensolver below is sparse, so a dense n×n Kg was pure waste), in
+    //    the same inclined frames as K. Negate it in place — we solve
+    //    K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing reads the
+    //    un-negated Kg.
     let neg_kg_csc = {
-        let mut kg_csc = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces).into_csc();
+        let mut kg_csc = build_kg_from_forces_2d(input, &dof_num, &linear.element_forces, &inclined_transforms_2d).into_csc();
         for v in kg_csc.values.iter_mut() {
             *v = -*v;
         }
         kg_csc
     };
-
-    // 4. Sparse stiffness of the free block
-    let k_ff = assemble_sparse_2d(input, &dof_num).k_ff;
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc })
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d })
 }
 
 /// Solve 2D buckling analysis.
@@ -95,7 +100,7 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         input.sections.values().map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -138,14 +143,16 @@ pub fn solve_buckling_2d(
         };
 
         let mut u_mode = vec![0.0; n];
-        let mut max_disp = 0.0f64;
-        for i in 0..nf {
-            u_mode[i] = phi_f[i];
-            max_disp = max_disp.max(phi_f[i].abs());
+        u_mode[..nf].copy_from_slice(&phi_f[..nf]);
+        // Back to global axes at inclined rollers before normalizing, so the
+        // max-component scale is the same as an unrotated model's.
+        for it in &inclined_transforms_2d {
+            reverse_inclined_transform_2d(&mut u_mode, &it.dofs, &it.r);
         }
+        let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
-            for i in 0..nf {
-                u_mode[i] /= max_disp;
+            for v in u_mode.iter_mut() {
+                *v /= max_disp;
             }
         }
 

@@ -1,6 +1,7 @@
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
+use super::assembly::{rotate_inclined_free_block_2d, InclinedTransformData2D};
 
 /// The expansion coefficient the load assembly uses for frame and truss members.
 const THERMAL_ALPHA: f64 = 12e-6;
@@ -51,6 +52,14 @@ pub struct KgTriplets {
 impl KgTriplets {
     pub fn new(nf: usize) -> Self {
         KgTriplets { nf, rows: Vec::new(), cols: Vec::new(), vals: Vec::new() }
+    }
+
+    /// Collect over all `n` DOFs, rotate into the 2D inclined-roller frames,
+    /// then keep the `nf` free block (see `rotate_inclined_free_block_2d`).
+    fn rotate_inclined_2d(mut self, its: &[InclinedTransformData2D], nf: usize) -> Self {
+        rotate_inclined_free_block_2d(&mut self.rows, &mut self.cols, &mut self.vals, its, nf);
+        self.nf = nf;
+        self
     }
 
     /// Add one contribution. Element matrices are symmetric, so callers emit
@@ -302,12 +311,19 @@ fn add_truss_kg_2d(
 
 /// Build geometric stiffness matrix from element forces (no displacement needed).
 /// Used by buckling analysis which already has element forces from linear solve.
+///
+/// `inclined` are the inclined-roller rotations K was assembled with
+/// (`inclined_transforms_2d`); Kg is rotated the same way so the pair stays
+/// in one frame.
 pub fn build_kg_from_forces_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     element_forces: &[ElementForces],
+    inclined: &[InclinedTransformData2D],
 ) -> KgTriplets {
-    let mut kg = KgTriplets::new(dof_num.n_free);
+    let nf = dof_num.n_free;
+    // With inclined rollers, keep every DOF until the rotation is applied.
+    let mut kg = KgTriplets::new(if inclined.is_empty() { nf } else { dof_num.n_total });
     let elem_by_id: std::collections::HashMap<usize, &SolverElement> = input.elements.values().map(|e| (e.id, e)).collect();
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
 
@@ -382,7 +398,7 @@ pub fn build_kg_from_forces_2d(
             }
         }
     }
-    kg
+    if inclined.is_empty() { kg } else { kg.rotate_inclined_2d(inclined, nf) }
 }
 
 /// Build 3D geometric stiffness matrix from element forces.
