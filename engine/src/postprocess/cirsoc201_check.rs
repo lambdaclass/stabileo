@@ -105,9 +105,15 @@ fn compute_beta1(fc: f64) -> f64 {
     }
 }
 
-/// Compute phi factor based on net tensile strain (CIRSOC 201 9.3).
-fn compute_phi(epsilon_t: f64) -> f64 {
-    let epsilon_ty = 0.002; // fy/Es for 420 MPa steel
+/// Compute phi factor based on net tensile strain (CIRSOC 201-2005 9.3.2,
+/// 10.3.3, 10.3.4): compression-controlled at εt ≤ fy/Es, tension-controlled
+/// at εt ≥ 0.005, linear between.
+///
+/// The compression-controlled limit is fy/Es (10.3.3); the 0.002 used before
+/// is the value 10.3.3 *permits* for fy = 420 MPa only, and was applied to
+/// every grade.
+fn compute_phi(epsilon_t: f64, fy: f64, es: f64) -> f64 {
+    let epsilon_ty = if es > 0.0 { fy / es } else { 0.002 };
     if epsilon_t >= 0.005 {
         0.90 // Tension-controlled
     } else if epsilon_t <= epsilon_ty {
@@ -164,19 +170,13 @@ fn check_single_cirsoc201(
     // Whitney stress block: C = 0.85 * f'c * a * b, T = As * fy
     // a = As * fy / (0.85 * f'c * b)
     let a = m.as_tension * m.fy / (0.85 * m.fc * m.b);
-    let c = a / beta1;
 
-    // Include compression steel if present
+    // Include compression steel if present: neutral axis by strain
+    // compatibility, shared with the ACI check (same 22.2 / 10.2 hypotheses).
     let (a_final, mn) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
-        let epsilon_cu = 0.003;
-        let epsilon_sc = epsilon_cu * (c - d_p) / c;
-        let fsc = (epsilon_sc * es).min(m.fy);
-        let fsc = fsc.max(-m.fy); // Clamp
-
-        // Recompute a with compression steel
-        let a_new = (m.as_tension * m.fy - as_c * fsc) / (0.85 * m.fc * m.b);
-        let _c_new = a_new / beta1;
-
+        let (a_new, _c, fsc) = crate::postprocess::rc_check::doubly_reinforced_equilibrium(
+            m.fc, m.fy, es, m.b, m.as_tension, as_c, d_p, beta1,
+        );
         let mn_c = 0.85 * m.fc * a_new * m.b * (m.d - a_new / 2.0);
         let mn_s = as_c * fsc * (m.d - d_p);
         (a_new, mn_c + mn_s)
@@ -188,19 +188,20 @@ fn check_single_cirsoc201(
     // Net tensile strain for phi
     let c_final = a_final / beta1;
     let epsilon_t = 0.003 * (m.d - c_final) / c_final;
-    let phi = compute_phi(epsilon_t);
+    let phi = compute_phi(epsilon_t, m.fy, es);
 
     let phi_mn = phi * mn;
     let flexure_ratio = if phi_mn > 0.0 { mu / phi_mn } else { 0.0 };
 
     // ==================== Shear (CIRSOC 201 Cap. 11) ====================
 
-    // CIRSOC 201 uses the same empirical formula as ACI 318M
-    // Vc = 0.17 * lambda * sqrt(f'c_MPa) * bw_mm * d_mm (in Newtons)
+    // CIRSOC 201-2005 11.3.1.1: Vc = (1/6)·λ·√f'c·bw·d (MPa, mm → N).
+    // It was 0.17, the ACI 318M rounding of the same term — 2 % above the
+    // CIRSOC text, as INTI's worked example 3.I (Vc = 85.8 kN) shows.
     let fc_mpa = m.fc / 1e6;
     let bw_mm = m.b * 1000.0;
     let d_mm = m.d * 1000.0;
-    let vc = 0.17 * lambda * fc_mpa.sqrt() * bw_mm * d_mm;
+    let vc = lambda * fc_mpa.sqrt() * bw_mm * d_mm / 6.0;
 
     // Vs from stirrups
     let vs = match (m.av, m.s_stirrup) {
@@ -208,8 +209,8 @@ fn check_single_cirsoc201(
         _ => 0.0,
     };
 
-    // Maximum Vs per CIRSOC 201 (same as ACI)
-    let vs_max = 0.66 * fc_mpa.sqrt() * bw_mm * d_mm;
+    // CIRSOC 201-2005 11.5.7.9: Vs <= (2/3)·√f'c·bw·d
+    let vs_max = 2.0 * fc_mpa.sqrt() * bw_mm * d_mm / 3.0;
     let vs = vs.min(vs_max);
 
     let phi_v = 0.75;

@@ -44,6 +44,7 @@ For contributors and for anyone who wants to look inside the engine. In English.
 - [BENCHMARKS.md](BENCHMARKS.md): validation coverage against analytical and reference solutions
 - [verification/CERTIFY.md](verification/CERTIFY.md): result certificates: rigorous error bounds on solver output, proved sound in Lean
 - [verification/KANI.md](verification/KANI.md): Kani proofs of the element kernels, interval rounding and sparse index code, and how to run them safely
+- [verification/DESIGN_EXAMPLES.md](verification/DESIGN_EXAMPLES.md): every design check, clause by clause, against published worked examples (AISC, SCI, JRC, INTI-CIRSOC), with the discrepancies found and their root causes
 
 ### Roadmaps and project state
 

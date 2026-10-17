@@ -342,33 +342,8 @@ fn doubly_reinforced_capacity(
     as_comp: f64,
     d_prime: f64,
 ) -> (f64, f64, f64, f64, f64) {
-    // Assume compression steel yields (verify after)
-    // T = As*fy, C_concrete = 0.85*fc*a*b, C_steel = As'*fy
-    // As*fy = 0.85*fc*a*b + As'*fy
-    // a = (As - As') * fy / (0.85 * fc * b)
-    let a = (m.as_tension - as_comp) * m.fy / (0.85 * m.fc * m.b);
-    let c = a / beta1;
-
-    // Check if compression steel yields
-    let epsilon_s_prime = if c > 0.0 {
-        0.003 * (c - d_prime) / c
-    } else {
-        0.0
-    };
-    let fy_prime = if epsilon_s_prime * es >= m.fy {
-        m.fy
-    } else {
-        epsilon_s_prime * es
-    };
-
-    // Recalculate if compression steel doesn't yield
-    let a = if (fy_prime - m.fy).abs() > 1.0 {
-        // Use actual stress in compression steel
-        (m.as_tension * m.fy - as_comp * fy_prime) / (0.85 * m.fc * m.b)
-    } else {
-        a
-    };
-    let c = a / beta1;
+    let (a, c, fs_prime) =
+        doubly_reinforced_equilibrium(m.fc, m.fy, es, m.b, m.as_tension, as_comp, d_prime, beta1);
 
     let epsilon_t = if c > 0.0 {
         0.003 * (m.d - c) / c
@@ -379,9 +354,62 @@ fn doubly_reinforced_capacity(
     let phi = compute_phi(epsilon_t, m.fy, es);
 
     // Mn = 0.85*fc*a*b*(d - a/2) + As'*fs'*(d - d')
-    let mn =
-        0.85 * m.fc * a * m.b * (m.d - a / 2.0) + as_comp * fy_prime * (m.d - d_prime);
+    let mn = 0.85 * m.fc * a * m.b * (m.d - a / 2.0) + as_comp * fs_prime * (m.d - d_prime);
     (phi * mn, a, c, epsilon_t, phi)
+}
+
+/// Neutral axis of a doubly reinforced rectangular section by strain
+/// compatibility (ACI 318-19 22.2.1, 22.2.2): the depth `c` at which
+/// `As·fy = 0.85·f'c·β1·c·b + As'·fs'(c)`, with `fs' = Es·0.003·(c − d')/c`
+/// clamped to ±fy. Tension steel is taken as yielding, as the strain check on
+/// εt (φ) then confirms or penalises. Returns (a, c, fs').
+///
+/// The previous closed form took c from the "A's yields" assumption and,
+/// when it did not, re-solved `a` with the stress of THAT trial c instead of
+/// iterating: the state it reported satisfied neither compatibility nor the
+/// trial it started from. With As = A's it found c = 0, fs' = 0 and returned
+/// the singly reinforced moment — 2 % below INTI's worked example 2.I.7.
+///
+/// As in that example (and the original code), the concrete displaced by
+/// the compression bars is not deducted.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn doubly_reinforced_equilibrium(
+    fc: f64,
+    fy: f64,
+    es: f64,
+    b: f64,
+    as_tension: f64,
+    as_comp: f64,
+    d_prime: f64,
+    beta1: f64,
+) -> (f64, f64, f64) {
+    let fs_prime_at = |c: f64| {
+        if c > 0.0 {
+            (es * 0.003 * (c - d_prime) / c).clamp(-fy, fy)
+        } else {
+            -fy
+        }
+    };
+    // Net compression minus tension; increasing in c, negative as c -> 0.
+    let residual = |c: f64| 0.85 * fc * beta1 * c * b + as_comp * fs_prime_at(c) - as_tension * fy;
+    let mut lo = 0.0_f64;
+    let mut hi = (d_prime.max(1e-6)) * 2.0;
+    let mut guard = 0;
+    while residual(hi) < 0.0 && guard < 200 {
+        lo = hi;
+        hi *= 2.0;
+        guard += 1;
+    }
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if residual(mid) < 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let c = 0.5 * (lo + hi);
+    (beta1 * c, c, fs_prime_at(c))
 }
 
 /// ACI 318-19: Flexural capacity of T-beam.

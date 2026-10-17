@@ -80,6 +80,13 @@ pub struct SteelMemberData {
     /// Depth of section (for LTB calculation)
     #[serde(default)]
     pub depth: Option<f64>,
+    /// Flange width-to-thickness ratio bf/(2·tf) (AISC Table B4.1b, case 10
+    /// for major-axis and case 13 for minor-axis bending). When given, flange
+    /// local buckling is checked: F3 about the major axis, F6.2 about the
+    /// minor. Absent, the flanges are taken as compact (F2, F6.1), which is
+    /// unconservative for the rolled shapes footnoted [f] in Manual Table 1-1.
+    #[serde(default)]
+    pub flange_slenderness: Option<f64>,
 }
 
 /// Input for steel design check.
@@ -350,8 +357,12 @@ pub(crate) fn flexural_capacity_y<T: Real>(m: &SteelMemberData) -> T {
     let cw = m.cw.unwrap_or(0.0);
     let zero = T::exact(0.0);
 
+    // F3.2: compression flange local buckling. It does not depend on Lb, so
+    // it caps the continuously braced member too.
+    let mn_flb = flange_local_buckling_major(m, mp);
+
     if m.lb.unwrap_or(m.lby) <= 0.0 || m.iy <= 0.0 {
-        return T::lit(PHI_B) * mp;
+        return T::lit(PHI_B) * mp.min(mn_flb);
     }
 
     // Lp and Lr (AISC F2-5, F2-6)
@@ -429,14 +440,61 @@ pub(crate) fn flexural_capacity_y<T: Real>(m: &SteelMemberData) -> T {
         },
     );
 
-    T::lit(PHI_B) * mn
+    T::lit(PHI_B) * mn.min(mn_flb)
 }
 
-/// AISC F6: Flexural capacity about minor axis (no LTB).
+/// Compact (λpf) and noncompact (λrf) flange limits common to F3 and F6:
+/// 0.38·√(E/Fy) and 1.0·√(E/Fy), Table B4.1b cases 10 and 13.
+fn flange_limits(m: &SteelMemberData) -> (f64, f64) {
+    let r = (m.e / m.fy).sqrt();
+    (0.38 * r, 1.0 * r)
+}
+
+/// AISC F3.2, flange local buckling about the major axis. Returns Mp when no
+/// slenderness is given or the flange is compact.
+///
+/// Slender flanges (F3-2) need kc = 4/√(h/tw), and h/tw is not an input: the
+/// lower bound kc = 0.35 of the clause is used, which can only understate Mn.
+fn flange_local_buckling_major<T: Real>(m: &SteelMemberData, mp: T) -> T {
+    let lambda = match m.flange_slenderness {
+        Some(l) if l > 0.0 => l,
+        _ => return mp,
+    };
+    let (lpf, lrf) = flange_limits(m);
+    let (fy, e, sx) = (T::exact(m.fy), T::exact(m.e), T::exact(m.sy));
+    if lambda <= lpf {
+        mp
+    } else if lambda <= lrf {
+        // F3-1
+        mp - ((mp - T::lit(0.7) * fy * sx) * T::exact(lambda - lpf)).dv(T::exact(lrf - lpf))
+    } else {
+        // F3-2 with kc = 0.35
+        (T::lit(0.9) * e * T::lit(0.35) * sx).dv(T::exact(lambda * lambda))
+    }
+}
+
+/// AISC F6: Flexural capacity about minor axis (no LTB; F6.2 flange local
+/// buckling when `flange_slenderness` is given).
 pub(crate) fn flexural_capacity_z<T: Real>(m: &SteelMemberData) -> T {
-    let mp_z = T::exact(m.fy) * T::exact(m.zz);
-    let my_z = T::exact(m.fy) * T::exact(m.sz);
-    let mn = mp_z.min(T::lit(1.6) * my_z); // AISC F6-1
+    let (fy, sy) = (T::exact(m.fy), T::exact(m.sz));
+    let mp_z = fy * T::exact(m.zz);
+    let mp = mp_z.min(T::lit(1.6) * fy * sy); // AISC F6-1
+    // F6.2, flange local buckling, when the flange slenderness is known.
+    let mn = match m.flange_slenderness {
+        Some(lambda) if lambda > 0.0 => {
+            let (lpf, lrf) = flange_limits(m);
+            if lambda <= lpf {
+                mp
+            } else if lambda <= lrf {
+                // F6-2
+                mp - ((mp - T::lit(0.7) * fy * sy) * T::exact(lambda - lpf)).dv(T::exact(lrf - lpf))
+            } else {
+                // F6-3, F6-4: Fcr = 0.69·E/λ²
+                (T::lit(0.69) * T::exact(m.e)).dv(T::exact(lambda * lambda)) * sy
+            }
+        }
+        _ => mp,
+    };
     T::lit(PHI_B) * mn
 }
 

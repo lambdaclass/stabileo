@@ -48,6 +48,11 @@ export interface SteelDesignParams {
    * NO aplica — voladizo con extremo libre, o simple simetria en doble curvatura (§F.1(4)).
    */
   Cb?: number;
+  /**
+   * Seccion armada (soldada) en lugar de laminada. Solo cambia `d` en Aw = d·tw de §G.2.2:
+   * altura del alma en una armada, altura total en una laminada. Ausente => laminada.
+   */
+  builtUp?: boolean;
 }
 
 export interface SteelTensionResult {
@@ -584,40 +589,47 @@ export function checkSteelShear(params: SteelDesignParams, Vu: number): SteelShe
   const { Fy, E, h, tw, tf } = params;
   const phi = 0.90;
 
-  // Area del alma Aw = d·tw (en mm²)
+  // Area del alma Aw = d·tw (G.2.2), con «d = altura total del perfil» en secciones laminadas
+  // y «d = altura del alma» en secciones armadas. Antes siempre la altura total, que en una
+  // viga armada sobrestima Aw en 2·tf/hw (2,4 % en la V2 del Ejemplo 14 de INTI).
   const d_mm = h * 1000;
   const tw_mm = tw * 1000;
   const tf_mm = tf * 1000;
-  const Aw_mm2 = d_mm * tw_mm;
 
   // Altura del alma
   const hw_mm = d_mm - 2 * tf_mm;
+  const Aw_mm2 = (params.builtUp ? hw_mm : d_mm) * tw_mm;
 
   steps.push(`§G — Corte:`);
   steps.push(`  d = ${fmt(d_mm, 1)} mm, tw = ${fmt(tw_mm, 1)} mm`);
   steps.push(`  Aw = d·tw = ${fmt(Aw_mm2, 0)} mm²`);
   steps.push(`  h/tw (alma) = ${fmt(hw_mm / tw_mm, 1)}`);
 
-  // Coeficiente Cv
+  /*
+   * Coeficiente Cv — CIRSOC 301-2018 §G.2.1(a), almas sin rigidizar (kv = 5):
+   *
+   *     h/tw ≤ 1,10 √(kv E/Fyw)                   Cv = 1,0                       (G.2.3)
+   *     1,10 √(kv E/Fyw) < h/tw ≤ 1,37 √(kv E/Fyw)  Cv = 1,10 √(kv E/Fyw)/(h/tw)  (G.2.4)
+   *     h/tw > 1,37 √(kv E/Fyw)                   Cv = 1,51 E kv/((h/tw)² Fyw)    (G.2.5)
+   *
+   * Antes: el limite 2,24 √(E/Fy) y kv = 5,34 de AISC 360-10, y sin la rama elastica G.2.5,
+   * de modo que un alma esbelta conservaba la expresion inelastica. En la viga armada V2 del
+   * Ejemplo 14 de INTI (h/tw = 138) daba Cv = 0,536 contra 0,336: φVn un 60 % del lado inseguro.
+   */
   const htw = hw_mm / tw_mm;
-  const limit = 2.24 * Math.sqrt(E / Fy);
+  const kv = 5;
+  const lim = Math.sqrt(kv * E / Fy);
   let Cv: number;
 
-  if (htw <= limit) {
+  if (htw <= 1.10 * lim) {
     Cv = 1.0;
-    steps.push(`  h/tw = ${fmt(htw, 1)} ≤ 2.24·√(E/Fy) = ${fmt(limit, 1)} → Cv = 1.0`);
+    steps.push(`  h/tw = ${fmt(htw, 1)} ≤ 1,10·√(kv·E/Fy) = ${fmt(1.10 * lim, 1)} → Cv = 1,0  (G.2.3)`);
+  } else if (htw <= 1.37 * lim) {
+    Cv = (1.10 * lim) / htw;
+    steps.push(`  Cv = 1,10·√(kv·E/Fy)/(h/tw) = ${fmt(Cv, 3)}  (G.2.4)`);
   } else {
-    // Para almas esbeltas (poco comun en perfiles laminados)
-    const kv = 5.34; // sin rigidizadores
-    const limit2 = 1.10 * Math.sqrt(kv * E / Fy);
-
-    if (htw <= limit2) {
-      Cv = 1.0;
-      steps.push(`  Cv = 1.0 (alma con rigidez suficiente)`);
-    } else {
-      Cv = (1.10 * Math.sqrt(kv * E / Fy)) / htw;
-      steps.push(`  Alma esbelta: Cv = 1.10·√(kv·E/Fy) / (h/tw) = ${fmt(Cv, 3)}`);
-    }
+    Cv = (1.51 * E * kv) / (htw * htw * Fy);
+    steps.push(`  Alma esbelta: Cv = 1,51·E·kv/((h/tw)²·Fy) = ${fmt(Cv, 3)}  (G.2.5)`);
   }
 
   // Vn = 0.6·Fy·Aw·Cv

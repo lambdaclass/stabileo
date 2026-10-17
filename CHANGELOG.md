@@ -11,6 +11,36 @@ It should capture what changed, not what should be built next.
 
 ### Changed
 
+#### Design checks against published worked examples (2026-10-17)
+
+**BREAKING (results): CIRSOC 201 shear, CIRSOC 301 web shear, doubly reinforced ACI 318 / CIRSOC 201 flexure,
+AISC flexure of sections given a flange slenderness, and EC3 strong-axis checks with
+Lb = 0 give different numbers.** Each was found by reproducing a published worked example
+clause by clause (`docs/verification/DESIGN_EXAMPLES.md`,
+`engine/tests/design_worked_examples.rs`), and each example is now a regression test.
+
+- **AISC F3/F6.2 flange local buckling was not implemented.** Every W-shape was treated as
+  having compact flanges, so a noncompact flange kept Mp: AISC Example F.3B (W21×48) gave
+  φbMn = 401 kip-ft against 398. `SteelMemberData` takes an optional `flangeSlenderness`
+  (bf/2tf); when given, F3-1/F3-2 cap the major-axis strength and F6-2/F6-3 the minor-axis
+  one (slender flanges use the clause's lower bound kc = 0.35, as h/tw is not an input).
+- **Doubly reinforced sections were not solved by strain compatibility** (ACI 318 and
+  CIRSOC 201 checks). The neutral axis came from the "A's yields" trial and was never
+  iterated; with As = A's that trial is c = 0 and the singly reinforced moment came back.
+  INTI's CIRSOC 201 Example 2.I.7 prints Mn = 57.40 kNm; stabileo gave 56.21 (ACI) and
+  56.97 (CIRSOC). Both now bisect on c.
+- **CIRSOC 201 shear used ACI 318M's 0.17 for the 1/6 of CIRSOC 201-2005 §11.3.1.1** (and
+  0.66 for the 2/3 of §11.5.7.9): Vc was 1.9% high against INTI Example 3.I. The φ
+  transition now starts at εty = fy/Es (§10.3.3) instead of a fixed 0.002.
+- **CIRSOC 301 web shear (web checker) used AISC 360-10's rule, not CIRSOC 301-2018 §G.2.1.**
+  The Cv = 1 limit was 2.24·√(E/Fy) with kv = 5.34 and there was no elastic branch G.2.5,
+  so a slender web kept the inelastic Cv; Aw was the total depth also for built-up
+  sections. INTI's CIRSOC 301 Example 14 (welded girder V2, h/tw = 138) prints Cv = 0.336
+  and φVn = 130.3 kN; the checker gave 0.536 and 207.8 kN. It now applies G.2.3–G.2.5 with
+  kv = 5, and `SteelDesignParams.builtUp` selects the web height for Aw.
+- **EC3 strong-axis flexure was NaN (unevaluated) for Lb = 0.** Mcr divided by Lb²; a
+  continuously restrained member now takes χLT = 1.
+
 #### Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)
 
 **BREAKING (results): models with Timoshenko members under member loads, plastic analyses,

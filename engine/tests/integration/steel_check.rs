@@ -58,6 +58,7 @@ fn w14x22_data(eid: usize, lby: f64, lbz: f64) -> SteelMemberData {
         e: 200e9,
         g: Some(77e9),
         depth: Some(0.348),
+        flange_slenderness: None,
     }
 }
 

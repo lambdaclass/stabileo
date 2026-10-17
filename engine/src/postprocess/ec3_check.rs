@@ -285,11 +285,19 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
 
     // Lateral-torsional buckling (EC3 6.3.2): elastic critical moment Mcr
     // (simplified for doubly-symmetric I-sections)
-    let (lb, iz) = (T::exact(m.lb), T::exact(m.iz));
-    let mcr = (c1 * pi2 * e * iz).dv(lb * lb)
-        * (T::exact(m.iw).dv(iz) + (lb * lb * g * T::exact(m.it)).dv(pi2 * e * iz)).sqrt();
-    let lambda_lt = (w_y * fy).dv(mcr).sqrt();
-    let chi_lt = compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha()));
+    // Lb = 0 is a continuously restrained member: there is no LTB and χLT = 1
+    // (6.3.2.2(4) with λLT = 0). Evaluating Mcr there divides by Lb² = 0 and
+    // the 0·∞ that follows made the strong-axis check NaN, i.e. unevaluated,
+    // for exactly the member whose resistance is simplest.
+    let chi_lt = if m.lb <= 0.0 {
+        T::exact(1.0)
+    } else {
+        let (lb, iz) = (T::exact(m.lb), T::exact(m.iz));
+        let mcr = (c1 * pi2 * e * iz).dv(lb * lb)
+            * (T::exact(m.iw).dv(iz) + (lb * lb * g * T::exact(m.it)).dv(pi2 * e * iz)).sqrt();
+        let lambda_lt = (w_y * fy).dv(mcr).sqrt();
+        compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha()))
+    };
     let mb_rd = (chi_lt * w_y * fy).dv(gamma_m1);
 
     // Weak axis flexure (no LTB)

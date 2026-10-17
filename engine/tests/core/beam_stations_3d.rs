@@ -559,6 +559,7 @@ fn test_full_pipeline_solve_to_steel_check_3d() {
             e: E,
             g: None,
             depth: Some(0.203),
+            flange_slenderness: None,
         }],
         forces: demands,
     };

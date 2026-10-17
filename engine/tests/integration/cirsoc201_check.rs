@@ -144,8 +144,8 @@ fn cirsoc201_shear_concrete_only() {
     let results = check_cirsoc201_members(&input);
     let r = &results[0];
 
-    // Vc = 0.17 * 1.0 * sqrt(25) * 300 * 450 = 0.17 * 5.0 * 135000 = 114750 N
-    let expected_vc = 0.17 * 25.0_f64.sqrt() * 300.0 * 450.0;
+    // CIRSOC 201-2005 11.3.1.1: Vc = (1/6)·√f'c·bw·d = 5.0 · 300 · 450 / 6 = 112500 N
+    let expected_vc = 25.0_f64.sqrt() * 300.0 * 450.0 / 6.0;
     assert!(
         (r.vc - expected_vc).abs() / expected_vc < 1e-3,
         "Vc: {:.0} vs {:.0}",
@@ -153,7 +153,7 @@ fn cirsoc201_shear_concrete_only() {
         expected_vc
     );
 
-    // phi*Vn = 0.75 * 114750 = 86063 N
+    // phi*Vn = 0.75 * 112500 = 84375 N
     assert!(r.vs == 0.0);
     assert!(r.shear_ratio < 1.0);
 }
