@@ -6619,7 +6619,7 @@ const es: Record<string, string> = {
   'loadPlan.blocked.occupancyCrossReference': 'Este destino remite al artículo {article} en lugar de dar un valor. Ingresar la carga manualmente.',
   'loadPlan.unsupported.verbatim': '{text}',
   'loadPlan.unsupported.noSeismicMass': 'No se pudo obtener masa sísmica del modelo, de modo que no se generaron fuerzas sísmicas.',
-  'loadPlan.note.windMinimumGoverns': 'En el nivel +{level} m gobierna la carga mínima de viento del artículo 2.1.5 sobre las presiones calculadas.',
+  'loadPlan.note.windMinimumGoverns': 'Viento {dir}: en el nivel +{level} m gobierna la carga mínima de viento del artículo 2.1.5 sobre las presiones calculadas.',
   'autoLoad.appliedRegulations': 'Reglamentos de los que provienen estas cargas',
   'autoLoad.pendingRegulation': 'Hay un cambio de reglamento pendiente. Previsualizar y aplicar para regenerar las cargas.',
   'autoLoad.apply': 'Aplicar',

@@ -3506,7 +3506,7 @@ const pt: Translations = {
   'loadPlan.derivation.seismic': 'Sismo: W = {weight} kN das massas reais por nível, C = {coefficient}, V0 = {baseShear} kN.',
   'loadPlan.derivation.wind': 'Vento {dir}: qh = {qh} N/m², pressão líquida {net} kPa sobre uma frente de {front} m.',
   'loadPlan.derivation.windLevel': 'Vento {dir}, nível {level} m: faixa {z0}–{z1} m, pressão líquida média {net} kPa, força {force} kN.',
-  'loadPlan.note.windMinimumGoverns': 'No nível +{level} m governa a carga mínima de vento do artigo 2.1.5 sobre as pressões calculadas.',
+  'loadPlan.note.windMinimumGoverns': 'Vento {dir}: no nível +{level} m governa a carga mínima de vento do artigo 2.1.5 sobre as pressões calculadas.',
   'loadPlan.unsupported.noSeismicMass': 'Não foi possível obter massa sísmica do modelo, de modo que não foram geradas forças sísmicas.',
   'loadPlan.warning.addedOnTopOfExisting': 'O plano SOMA-SE a {count} caso(s) existente(s) ({cases}) em vez de substituí-los, portanto as suas cargas serão contadas duas vezes. Marque "substituir cargas geradas" para regenerar o que o gerador escreveu; o que foi digitado à mão se mantém.',
   'loadPlan.warning.unmarkedKept': 'Substituir mantém {loads} carga(s) dos casos regenerados ({cases}) e {combinations} combinação(ões) que os usam que o gerador não marcou, e SOMA o plano por cima. Se uma versão anterior as gerou, cada carga e cada combinação serão contadas duas vezes: marque "remover também" abaixo.',

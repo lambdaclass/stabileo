@@ -23,9 +23,11 @@ impl GeminiProvider {
     pub async fn complete(&self, req: AiRequest) -> Result<AiResponse, ProviderError> {
         let start = Instant::now();
 
+        // The key goes in a header, not the `?key=` query parameter: URLs end
+        // up in error messages, logs and proxies.
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-            self.model, self.api_key,
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+            self.model,
         );
 
         let body = GeminiRequest {
@@ -59,6 +61,7 @@ impl GeminiProvider {
         let resp = self
             .client
             .post(&url)
+            .header("x-goog-api-key", &self.api_key)
             .json(&body)
             .send()
             .await?;
@@ -66,7 +69,7 @@ impl GeminiProvider {
         let status = resp.status().as_u16();
         if status != 200 {
             let body = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api { status, body });
+            return Err(ProviderError::api(status, &body));
         }
 
         let parsed: GeminiResponse = resp

@@ -299,8 +299,13 @@ pub struct BeamStationResult3D {
 
 const DEFAULT_NUM_STATIONS: usize = 11;
 
+/// Most stations per member. The count comes from the caller and sizes the
+/// output (members × stations × combinations); a larger request is clamped,
+/// and `num_stations_per_member` reports the count actually used.
+pub const MAX_NUM_STATIONS: usize = 1_001;
+
 pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
-    let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).max(2);
+    let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).clamp(2, MAX_NUM_STATIONS);
 
     // Build element_id → index maps per combination (once)
     let ef_indices: Vec<HashMap<usize, usize>> = input
@@ -400,7 +405,7 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
 // ==================== 3D Extraction ====================
 
 pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult3D {
-    let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).max(2);
+    let n_stations = input.num_stations.unwrap_or(DEFAULT_NUM_STATIONS).clamp(2, MAX_NUM_STATIONS);
 
     let ef_indices: Vec<HashMap<usize, usize>> = input
         .combinations

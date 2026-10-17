@@ -1162,7 +1162,15 @@ pub fn build_section_geometry(json: &str) -> Result<String, JsValue> {
 
     let req: Request = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
-    let segs = |o: Option<usize>| o.unwrap_or(cat::DEFAULT_ARC_SEGMENTS);
+    // The count comes from the caller and sizes every arc's vertex list.
+    let segs = |o: Option<usize>| -> Result<usize, JsValue> {
+        match o.unwrap_or(cat::DEFAULT_ARC_SEGMENTS) {
+            n if n <= cat::MAX_ARC_SEGMENTS => Ok(n),
+            n => Err(JsValue::from_str(&format!(
+                "arcSegments {n} exceeds the maximum of {}", cat::MAX_ARC_SEGMENTS
+            ))),
+        }
+    };
     // A `profileId` is what makes an outline a catalogue profile rather than a
     // shape the user drew; the standard travels with it so provenance survives
     // into the digest.
@@ -1178,8 +1186,8 @@ pub fn build_section_geometry(json: &str) -> Result<String, JsValue> {
 
     let geometry = match req {
         Request::Rect { b, h } => cat::rectangle(b, h),
-        Request::Circle { d, arc_segments } => cat::solid_circle(d, segs(arc_segments)),
-        Request::Chs { d, t, arc_segments } => cat::circular_hollow(d, t, segs(arc_segments)),
+        Request::Circle { d, arc_segments } => cat::solid_circle(d, segs(arc_segments)?),
+        Request::Chs { d, t, arc_segments } => cat::circular_hollow(d, t, segs(arc_segments)?),
         Request::ISection { h, b, tw, tf, root_radius, arc_segments, profile_id, standard } => {
             let source = match profile_id {
                 Some(id) => cat::GeometrySource::Catalogue {
@@ -1188,32 +1196,32 @@ pub fn build_section_geometry(json: &str) -> Result<String, JsValue> {
                 },
                 None => cat::GeometrySource::Parametric { shape: "i".into() },
             };
-            cat::i_section(h, b, tw, tf, root_radius, segs(arc_segments), source)
+            cat::i_section(h, b, tw, tf, root_radius, segs(arc_segments)?, source)
         }
         Request::Ipn { h, b, tw, tf, arc_segments, profile_id, standard } => {
-            cat::ipn_section(h, b, tw, tf, segs(arc_segments),
+            cat::ipn_section(h, b, tw, tf, segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "DIN 1025-1", "ipn"))
         }
         Request::Upn { h, b, tw, tf, arc_segments, profile_id, standard } => {
-            cat::upn_section(h, b, tw, tf, segs(arc_segments),
+            cat::upn_section(h, b, tw, tf, segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "DIN 1025-5", "upn"))
         }
         Request::Tee { h, b, tw, tf, root_radius, toe_radius, arc_segments, profile_id, standard } => {
-            cat::tee_section_filleted(h, b, tw, tf, root_radius, toe_radius, segs(arc_segments),
+            cat::tee_section_filleted(h, b, tw, tf, root_radius, toe_radius, segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "IRAM-IAS U 500-561", "tee"))
         }
         Request::Angle { h, b, t, root_radius, toe_radius, arc_segments, profile_id, standard } => {
-            cat::angle_section_filleted(h, b, t, root_radius, toe_radius, segs(arc_segments),
+            cat::angle_section_filleted(h, b, t, root_radius, toe_radius, segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "EN 10056-1", "angle"))
         }
         Request::Channel { h, b, tw, tf, slope, root_radius, toe_radius, taper_ref,
                            arc_segments, profile_id, standard } => {
             cat::tapered_channel(h, b, tw, tf, slope, root_radius, toe_radius,
-                taper_ref.unwrap_or(tw + (b - tw) / 2.0), segs(arc_segments),
+                taper_ref.unwrap_or(tw + (b - tw) / 2.0), segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "IRAM-IAS U 500-509-4", "channel"))
         }
         Request::Rhs { b, h, t, corner_radius, arc_segments, profile_id, standard } => {
-            cat::rectangular_hollow_rounded(b, h, t, corner_radius, segs(arc_segments),
+            cat::rectangular_hollow_rounded(b, h, t, corner_radius, segs(arc_segments)?,
                 catalogue_source(profile_id, standard, "IRAM-IAS U 500-218", "rhs"))
         }
         Request::Custom { outer, holes } => cat::custom(outer, holes),

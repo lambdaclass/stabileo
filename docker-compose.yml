@@ -4,26 +4,30 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
+    # Loopback only: browsers reach the API through nginx (/api/), which
+    # sets X-Real-IP, so the backend can trust it for rate limiting.
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     env_file:
       - backend/.env
     environment:
       - HOST=0.0.0.0
       - PORT=3001
       - LOG_FORMAT=json
+      - TRUST_PROXY_HEADERS=true
     volumes:
       - web-dist:/app/web-dist
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      # The runtime image has no curl; the binary probes itself.
+      test: ["CMD", "./backend", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
 
   web:
-    image: nginx:alpine
+    image: nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
     ports:
       - "4000:80"
     volumes:

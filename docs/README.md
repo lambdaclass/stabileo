@@ -41,6 +41,8 @@ For contributors and for anyone who wants to look inside the engine. In English.
 ### Verification
 
 - [VERIFICATION.md](VERIFICATION.md): testing philosophy, fuzzing and invariants
+- [security/THREAT_MODEL.md](security/THREAT_MODEL.md): assets, actors and trust boundaries
+- [security/AUDIT.md](security/AUDIT.md): security audit findings and their status
 - [BENCHMARKS.md](BENCHMARKS.md): validation coverage against analytical and reference solutions
 - [verification/CERTIFY.md](verification/CERTIFY.md): result certificates: rigorous error bounds on solver output, proved sound in Lean
 - [verification/KANI.md](verification/KANI.md): Kani proofs of the element kernels, interval rounding and sparse index code, and how to run them safely

@@ -8,7 +8,8 @@ import { emptyDetailingStore } from '../engine/detailing/assembly';
 import { emptyGeotechnical } from '../model/geotechnical';
 import { defaultFootingMatPreferences } from '../model/footing';
 import LZString from 'lz-string';
-import { deflateSync, inflateSync } from 'fflate';
+import { deflateSync } from 'fflate';
+import { inflateBounded } from './bounded-inflate';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { DiagramType } from '../store/results.svelte';
 import { modelStore } from '../store/model.svelte';
@@ -116,6 +117,9 @@ const MAX_URL_SAFE = 16_000;
 // ─── v2 format prefix ─────────────────────────────────────────────────────
 // v2 compressed strings start with "2." so we can tell them apart from v1
 const V2_PREFIX = '2.';
+
+/** Longest legacy (v1, LZ-String) payload still decoded. See `decompressSnapshot`. */
+export const MAX_V1_LINK_CHARS = 20_000;
 
 // ─── ShareMeta defaults ───────────────────────────────────────────────────
 // Only non-default values are serialized → smaller payloads
@@ -648,7 +652,8 @@ function decompressV2(data: string): ModelSnapshot | null {
   try {
     const b64 = data.slice(V2_PREFIX.length);
     const deflated = base64urlToUint8(b64);
-    const bytes = inflateSync(deflated);
+    // Bounded: the payload is whatever the link's author put there (see bounded-inflate.ts).
+    const bytes = inflateBounded(deflated);
     const json = new TextDecoder().decode(bytes);
     const compact = JSON.parse(json);
     if (!Array.isArray(compact.ni)) return null;
@@ -677,6 +682,10 @@ export function decompressSnapshot(data: string): ModelSnapshot | null {
     return decompressV2(data);
   }
   // v1 (legacy LZ-String) — migrate hingeStart/hingeEnd → releaseI.mz/releaseJ.mz
+  // LZ-String's output can grow quadratically in its input and its decoder cannot be stopped
+  // part-way, so the input is capped instead. v1 links were written when the share notice fired
+  // at 2 000 characters; anything far beyond that was not written by the app.
+  if (data.length > MAX_V1_LINK_CHARS) return null;
   try {
     const json = LZString.decompressFromEncodedURIComponent(data);
     if (!json) return null;

@@ -1,3 +1,4 @@
+pub mod app;
 pub mod capabilities;
 pub mod config;
 pub mod error;

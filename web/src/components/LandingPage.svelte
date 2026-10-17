@@ -95,6 +95,8 @@
     for (const el of landingEl.querySelectorAll('.reveal')) observer.observe(el);
 
     const onMessage = (e: MessageEvent) => {
+      // Same origin only: any page that frames or opened this one can post to it.
+      if (e.origin !== window.location.origin) return;
       if (e.data === 'stabileo-enter-app') enterApp();
     };
     window.addEventListener('message', onMessage);

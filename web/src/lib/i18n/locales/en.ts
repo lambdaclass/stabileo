@@ -6626,7 +6626,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.occupancyCrossReference': 'This occupancy refers to article {article} instead of giving a value. Enter the load manually.',
   'loadPlan.unsupported.verbatim': '{text}',
   'loadPlan.unsupported.noSeismicMass': 'No seismic mass could be derived from the model, so no seismic forces were generated.',
-  'loadPlan.note.windMinimumGoverns': 'At level +{level} m the §2.1.5 minimum wind load governs over the computed pressures.',
+  'loadPlan.note.windMinimumGoverns': 'Wind {dir}, at level +{level} m the §2.1.5 minimum wind load governs over the computed pressures.',
   'autoLoad.appliedRegulations': 'Regulations these loads come from',
   'autoLoad.pendingRegulation': 'A regulation change is pending. Preview and apply to regenerate the loads.',
   'autoLoad.apply': 'Apply',

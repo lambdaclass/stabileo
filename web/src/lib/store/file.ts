@@ -283,9 +283,10 @@ export function deserializeProject(text: string): boolean {
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
   if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
-  if (!validateDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
+  if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
+  forgetSessionDemandRevisions(data.snapshot);
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
@@ -354,6 +355,81 @@ export function noteBasicSelfWeightRuleIfNeeded(statesCase: boolean, analysisMod
   const dead = modelStore.model.loadCases.filter((c) => c.type === 'D');
   if (dead.length < 2) return;
   uiStore.toast(t('selfWeight.migratedMany').replaceAll('{case}', dead[0]!.name).replaceAll('{n}', String(dead.length)), 'info');
+}
+
+/**
+ * `validateDedalFile`, but a payload malformed enough to make the checks themselves throw
+ * (a `null` where an element record should be) is refused like any other invalid file rather
+ * than escaping as a TypeError from the middle of a load.
+ */
+function isValidDedalFile(data: unknown): data is DedalFile {
+  try {
+    return validateDedalFile(data);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark every detailing assembly in a snapshot as generated against unknown demands.
+ *
+ * `demandRevision` is a counter of THIS session's solves (`verificationStore.demandRevision`,
+ * starting at 0), and an assembly is "current" when its stamp equals the counter. A stamp read
+ * back from a file, an autosave or a stored session was minted by another session, so equality
+ * with this session's counter is a coincidence — or, for a crafted file, a choice: a project whose
+ * assemblies say `0` opened in a fresh tab passed the staleness gate (and the CAD export behind
+ * it) without anything having been solved. -1 is the value the migration already uses for
+ * "unknown", and the counter never takes it, so the bars read as stale until the model is
+ * solved and detailing regenerated in this session.
+ *
+ * Applied at the load boundaries only. `modelStore.restore()` is also the undo path, where the
+ * stamps were minted by this session and must be kept.
+ */
+export function forgetSessionDemandRevisions(snapshot: unknown): void {
+  const det = (snapshot as { detailing?: { assemblies?: unknown } } | null | undefined)?.detailing;
+  if (!det || !Array.isArray(det.assemblies)) return;
+  for (const a of det.assemblies) {
+    if (a && typeof a === 'object') (a as { demandRevision: number }).demandRevision = -1;
+  }
+}
+
+const SESSION_TAB_MODES = new Set(['2d', '3d', 'pro', 'edu']);
+
+/**
+ * Validate a stored session (a session `.ded` or the localStorage workspace) before any of it
+ * reaches the stores, and stamp it as foreign to this session.
+ *
+ * A single-tab `.ded` has always gone through `validateDedalFile`; a session went straight to
+ * `restoreSession`, so the same file wrapped in `{type:'session', tabs:[…]}` skipped every
+ * structural and referential check. Each tab's snapshot now passes the project gate, and the
+ * undo/redo stacks — also snapshots, restored on Ctrl+Z — are dropped if any entry would not.
+ * Returns null when any tab is refused: half a session is not what was saved.
+ */
+export function acceptSessionTabs(rawTabs: unknown): TabState[] | null {
+  if (!Array.isArray(rawTabs) || rawTabs.length === 0) return null;
+  const tabs: TabState[] = [];
+  for (const raw of rawTabs) {
+    if (!raw || typeof raw !== 'object') return null;
+    const tab = raw as TabState;
+    if (typeof tab.id !== 'string' || typeof tab.name !== 'string') return null;
+    if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
+    const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
+    if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
+    const stacksOk = [tab.undoStack, tab.redoStack].every(
+      (stack) => Array.isArray(stack) && stack.every((snap) => isValidDedalFile(asFile(snap))),
+    );
+    if (!stacksOk) {
+      tab.undoStack = [];
+      tab.redoStack = [];
+      tab.undoKinds = [];
+      tab.redoKinds = [];
+    }
+    for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
+      forgetSessionDemandRevisions(snap);
+    }
+    tabs.push(tab);
+  }
+  return tabs;
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {
@@ -486,9 +562,11 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
   }
 
   if (isSessionFile(data)) {
-    // Session file: restore all tabs
-    tabManager.restoreSession(data.tabs, data.activeTabId);
-    return { type: 'session', count: data.tabs.length };
+    // Session file: restore all tabs — through the same gate a single-tab file passes.
+    const tabs = acceptSessionTabs(data.tabs);
+    if (!tabs) throw new Error(t('file.invalidFormat'));
+    tabManager.restoreSession(tabs, typeof data.activeTabId === 'string' ? data.activeTabId : '');
+    return { type: 'session', count: tabs.length };
   } else if (deserializeProject(text)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };
@@ -654,7 +732,9 @@ export function acceptAutosavePayload(raw: unknown): DedalFile | null {
     migrateSnapshotV1ToV2(data.snapshot as Record<string, unknown>);
     data.version = DEDAL_FILE_VERSION;
   }
-  if (!validateDedalFile(data)) return null;
+  if (!isValidDedalFile(data)) return null;
+  // An autosave is read back by a later page load — a different session (see the helper).
+  forgetSessionDemandRevisions(data.snapshot);
   return data as unknown as DedalFile;
 }
 
@@ -822,7 +902,11 @@ export function loadWorkspaceFromLocalStorage(): DedalSessionFile | null {
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (!isSessionFile(data)) return null;
-    return data;
+    // localStorage is shared by everything served from this origin and survives the session
+    // that wrote it: read back through the same gate as a session file.
+    const tabs = acceptSessionTabs(data.tabs);
+    if (!tabs) return null;
+    return { ...data, tabs };
   } catch {
     return null;
   }

@@ -3,6 +3,47 @@
 
 use crate::types::CurvedBeamInput;
 
+/// Most straight segments one curved beam may be split into. The count comes
+/// from the model file, and the expansion allocates nodes and elements for each
+/// segment, so an unbounded count lets one number exhaust memory.
+pub const MAX_CURVED_BEAM_SEGMENTS: usize = 1_000;
+
+/// Most segments all curved beams of one model may add together.
+pub const MAX_CURVED_BEAM_SEGMENTS_TOTAL: usize = 200_000;
+
+/// Check that `beams` can be expanded: each segment count within
+/// `MAX_CURVED_BEAM_SEGMENTS`, their sum within `MAX_CURVED_BEAM_SEGMENTS_TOTAL`,
+/// and the node and element ids the expansion assigns after `max_node_id` and
+/// `max_elem_id` representable (they would otherwise wrap around and collide
+/// with existing ids).
+pub fn check_curved_beam_sizes(
+    beams: &[CurvedBeamInput],
+    max_node_id: usize,
+    max_elem_id: usize,
+) -> Result<(), String> {
+    let mut total = 0usize;
+    for (i, cb) in beams.iter().enumerate() {
+        if cb.num_segments > MAX_CURVED_BEAM_SEGMENTS {
+            return Err(format!(
+                "Curved beam {}: numSegments {} exceeds the maximum of {}",
+                i, cb.num_segments, MAX_CURVED_BEAM_SEGMENTS
+            ));
+        }
+        total += cb.num_segments.max(1);
+    }
+    if total > MAX_CURVED_BEAM_SEGMENTS_TOTAL {
+        return Err(format!(
+            "Curved beams: {} segments in total exceed the maximum of {}",
+            total, MAX_CURVED_BEAM_SEGMENTS_TOTAL
+        ));
+    }
+    let room = total + 1;
+    if max_node_id.checked_add(room).is_none() || max_elem_id.checked_add(room).is_none() {
+        return Err("Curved beams: node or element ids too large to expand".to_string());
+    }
+    Ok(())
+}
+
 /// Result of expanding a single curved beam into straight segments.
 pub struct CurvedBeamExpansion {
     /// Intermediate nodes created along the arc: (id, x, y, z).

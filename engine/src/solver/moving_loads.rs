@@ -34,6 +34,25 @@ pub struct PathSegment {
     pub sin: f64,
 }
 
+/// Most train positions one moving-load run may solve. The step and the axle
+/// offsets come from the model, and each position is a full solve.
+pub const MAX_MOVING_LOAD_POSITIONS: f64 = 100_000.0;
+
+/// Refuse a step that would never advance the train (zero, negative, NaN, or
+/// infinite) or that would solve more than `MAX_MOVING_LOAD_POSITIONS`
+/// positions over a travel of `travel`: either keeps the solver looping.
+fn check_step(step: f64, travel: f64) -> Result<(), String> {
+    if !(step.is_finite() && step > 0.0) {
+        return Err(format!("Moving loads: step must be a positive finite number, got {step}"));
+    }
+    if !travel.is_finite() || travel / step > MAX_MOVING_LOAD_POSITIONS {
+        return Err(format!(
+            "Moving loads: step {step} over a travel of {travel} needs more than {MAX_MOVING_LOAD_POSITIONS} positions"
+        ));
+    }
+    Ok(())
+}
+
 /// Solve 2D moving loads analysis (envelope computation).
 pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelope, String> {
     let solver_input = &input.solver;
@@ -54,6 +73,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
 
     let total_length: f64 = path.iter().map(|s| s.length).sum();
     let max_offset: f64 = train.axles.iter().map(|a| a.offset).fold(0.0, f64::max);
+    check_step(step, total_length + max_offset)?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope> = HashMap::new();
@@ -328,6 +348,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
 
     let total_length: f64 = path.iter().map(|s| s.length).sum();
     let max_offset: f64 = train.axles.iter().map(|a| a.offset).fold(0.0, f64::max);
+    check_step(step, total_length + max_offset)?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope3D> = HashMap::new();

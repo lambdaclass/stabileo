@@ -206,8 +206,10 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
           const min = profile ? { totalN: force * 1000, governedByMinimum: false, refs: [] } : applyMinimumWindLoad(force * 1000, across * tribH, 0);
           const applied = min.totalN / 1000;
           if (!service && min.governedByMinimum) {
+            // Per direction: the minimum can govern a level in X and in Y, and those are two
+            // findings. Without `dir` they read identically and could not be told apart.
             unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
-              level: round(lv.elevation, 2),
+              dir: dir.toUpperCase(), level: round(lv.elevation, 2),
             }));
             refs.push(...min.refs);
           }

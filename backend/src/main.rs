@@ -1,30 +1,28 @@
-mod capabilities;
-mod config;
-mod error;
-mod middleware;
-mod providers;
-mod routes;
-
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::middleware as axum_mw;
-use axum::routing::{get, post};
-use axum::Router;
-use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use config::{Config, LogFormat};
-use middleware::auth::{require_auth, ApiKey};
-use routes::build_model::build_model_handler;
-use routes::capabilities::capabilities_handler;
-use routes::explain_diagnostic::explain_diagnostic_handler;
-use routes::interpret_results::interpret_results_handler;
-use routes::review_model::{review_model_handler, AppState};
+use dedaliano_backend::app::{build_router, AppOptions};
+use dedaliano_backend::config::{Config, LogFormat};
+use dedaliano_backend::routes::review_model::AppState;
 
 #[tokio::main]
 async fn main() {
+    // `backend healthcheck` probes the running server. The runtime image has
+    // no curl, and the compose healthcheck needs something to call.
+    if std::env::args().nth(1).as_deref() == Some("healthcheck") {
+        let port = std::env::var("PORT").unwrap_or_else(|_| "3001".into());
+        let ok = reqwest::Client::new()
+            .get(format!("http://127.0.0.1:{port}/health"))
+            .timeout(Duration::from_secs(4))
+            .send()
+            .await
+            .is_ok_and(|r| r.status().is_success());
+        std::process::exit(if ok { 0 } else { 1 });
+    }
+
     dotenvy::dotenv().ok();
 
     let config = Config::from_env();
@@ -48,36 +46,19 @@ async fn main() {
         provider_timeout: Duration::from_secs(config.provider_timeout_secs),
     });
 
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(
-            config
-                .allowed_origins
-                .iter()
-                .filter_map(|o| o.parse().ok()),
-        ))
-        .allow_headers([
-            axum::http::header::CONTENT_TYPE,
-            axum::http::header::AUTHORIZATION,
-        ])
-        .allow_methods([axum::http::Method::GET, axum::http::Method::POST]);
-
-    let api_routes = Router::new()
-        .route("/ai/review-model", post(review_model_handler))
-        .route("/ai/explain-diagnostic", post(explain_diagnostic_handler))
-        .route("/ai/build-model", post(build_model_handler))
-        .route("/ai/interpret-results", post(interpret_results_handler))
-        .route("/ai/capabilities", get(capabilities_handler))
-        .layer(axum_mw::from_fn(require_auth));
-
-    let app = Router::new()
-        .route("/health", get(routes::health::health))
-        .nest("/api", api_routes)
-        .layer(cors)
-        .layer(TraceLayer::new_for_http())
-        .layer(axum::Extension(ApiKey(config.dedaliano_api_key.clone())))
-        .with_state(state);
+    let app = build_router(
+        state,
+        AppOptions {
+            api_key: config.dedaliano_api_key,
+            allowed_origins: config.allowed_origins,
+            rate_limit: config.rate_limit,
+            max_body_bytes: config.max_body_bytes,
+        },
+    );
 
     let listener = tokio::net::TcpListener::bind(config.addr).await.unwrap();
     tracing::info!("listening on {}", config.addr);
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .await
+        .unwrap();
 }

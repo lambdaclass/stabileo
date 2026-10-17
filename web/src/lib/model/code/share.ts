@@ -10,7 +10,8 @@
  * break it. A model above the ceiling is not offered a link at all; its code is shared instead,
  * which has no length.
  */
-import { deflateSync, inflateSync, strToU8, strFromU8 } from 'fflate';
+import { deflateSync, strToU8, strFromU8 } from 'fflate';
+import { inflateBounded } from '../../utils/bounded-inflate';
 import { modelToCode, codeToModel, type CodeError } from './format';
 import type { ModelSnapshot } from '../../store/history.svelte';
 
@@ -34,7 +35,8 @@ export function encodeCode(code: string): string {
 }
 
 export function decodeCode(payload: string): string | null {
-  try { return strFromU8(inflateSync(fromB64Url(payload))); } catch { return null; }
+  // Bounded: a link is untrusted input, and an unbounded inflate is a decompression bomb.
+  try { return strFromU8(inflateBounded(fromB64Url(payload))); } catch { return null; }
 }
 
 /** The link for a snapshot, and its length. */

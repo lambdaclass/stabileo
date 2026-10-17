@@ -1,5 +1,8 @@
 use std::net::SocketAddr;
 
+use crate::app::DEFAULT_MAX_BODY_BYTES;
+use crate::middleware::rate_limit::RateLimitConfig;
+
 use crate::providers::claude::ClaudeProvider;
 use crate::providers::gemini::GeminiProvider;
 use crate::providers::openai_compat::OpenAiCompatProvider;
@@ -12,6 +15,45 @@ pub struct Config {
     pub addr: SocketAddr,
     pub allowed_origins: Vec<String>,
     pub log_format: LogFormat,
+    pub rate_limit: RateLimitConfig,
+    pub max_body_bytes: usize,
+}
+
+/// Shortest accepted `DEDALIANO_API_KEY`. An empty key would accept
+/// "Authorization: Bearer " and a short one can be guessed.
+pub const MIN_API_KEY_LEN: usize = 16;
+
+pub fn validate_api_key(key: &str) -> Result<(), String> {
+    if key == "your-api-key-here" {
+        return Err("DEDALIANO_API_KEY is still the .env.example placeholder".into());
+    }
+    if key.trim().len() < MIN_API_KEY_LEN {
+        return Err(format!(
+            "DEDALIANO_API_KEY must be at least {MIN_API_KEY_LEN} characters"
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_api_key;
+
+    #[test]
+    fn api_key_must_be_long_and_not_the_placeholder() {
+        assert!(validate_api_key("").is_err());
+        assert!(validate_api_key("short").is_err());
+        assert!(validate_api_key("                    ").is_err());
+        assert!(validate_api_key("your-api-key-here").is_err());
+        assert!(validate_api_key("f3b1c9e07a5d4c2b8e6f").is_ok());
+    }
+}
+
+fn env_parse<T: std::str::FromStr>(name: &str, default: T) -> T {
+    std::env::var(name)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
 }
 
 pub enum LogFormat {
@@ -47,14 +89,31 @@ impl Config {
             .and_then(|v| v.parse().ok())
             .unwrap_or(90);
 
+        let dedaliano_api_key =
+            std::env::var("DEDALIANO_API_KEY").expect("DEDALIANO_API_KEY must be set");
+        if let Err(e) = validate_api_key(&dedaliano_api_key) {
+            panic!("{e}");
+        }
+
+        let rate_limit = RateLimitConfig {
+            per_minute: env_parse("RATE_LIMIT_PER_MINUTE", 20),
+            max_concurrent: env_parse("MAX_CONCURRENT_AI_REQUESTS", 8),
+            trust_proxy_headers: matches!(
+                std::env::var("TRUST_PROXY_HEADERS").as_deref(),
+                Ok("1" | "true")
+            ),
+        };
+        let max_body_bytes = env_parse("MAX_BODY_BYTES", DEFAULT_MAX_BODY_BYTES);
+
         Self {
-            dedaliano_api_key: std::env::var("DEDALIANO_API_KEY")
-                .expect("DEDALIANO_API_KEY must be set"),
+            dedaliano_api_key,
             provider,
             provider_timeout_secs,
             addr,
             allowed_origins,
             log_format,
+            rate_limit,
+            max_body_bytes,
         }
     }
 }

@@ -4197,6 +4197,13 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         }
     }
 
+    // 1c. Curved-beam sizes: segment counts bounded, new ids representable.
+    crate::element::check_curved_beam_sizes(
+        &input.curved_beams,
+        input.nodes.values().map(|n| n.id).max().unwrap_or(0),
+        input.elements.values().map(|e| e.id).max().unwrap_or(0),
+    )?;
+
     // 2. Referential integrity — support → node
     for sup in input.supports.values() {
         if !node_ids.contains(&sup.node_id) {
@@ -4990,8 +4997,17 @@ pub fn expand_curved_beams_3d(input: &SolverInput3D) -> SolverInput3D {
     let mut result = input.clone();
 
     // Find next available node and element IDs
-    let mut next_node_id = result.nodes.values().map(|n| n.id).max().unwrap_or(0) + 1;
-    let mut next_elem_id = result.elements.values().map(|e| e.id).max().unwrap_or(0) + 1;
+    let max_node_id = result.nodes.values().map(|n| n.id).max().unwrap_or(0);
+    let max_elem_id = result.elements.values().map(|e| e.id).max().unwrap_or(0);
+
+    // Segment counts come from the model file. Beams that are too large to
+    // expand (or whose new ids would overflow) are all left in place, unexpanded,
+    // for `validate_input_3d` to refuse with the same check.
+    if crate::element::check_curved_beam_sizes(&input.curved_beams, max_node_id, max_elem_id).is_err() {
+        return result;
+    }
+    let mut next_node_id = max_node_id + 1;
+    let mut next_elem_id = max_elem_id + 1;
 
     let cb_node_map: std::collections::HashMap<usize, SolverNode3D> =
         result.nodes.values().map(|n| (n.id, n.clone())).collect();

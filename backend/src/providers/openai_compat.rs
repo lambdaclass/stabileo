@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Instant;
 
-use crate::error::ProviderError;
+use crate::error::{truncate_for_log, ProviderError, MAX_LOGGED_PROVIDER_BODY};
 use super::traits::{AiRequest, AiResponse, AiRole, ToolCall};
 
 /// Shared adapter for OpenAI-compatible APIs (OpenAI, DeepSeek, Mistral, Kimi).
@@ -113,12 +113,17 @@ impl OpenAiCompatProvider {
         let status = resp.status().as_u16();
         if status != 200 {
             let body = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api { status, body });
+            return Err(ProviderError::api(status, &body));
         }
 
         let raw_body = resp.text().await?;
         let parsed: ChatResponse = serde_json::from_str(&raw_body)
-            .map_err(|e| ProviderError::Parse(format!("{e}; body: {raw_body}")))?;
+            .map_err(|e| {
+                ProviderError::Parse(format!(
+                    "{e}; body: {}",
+                    truncate_for_log(&raw_body, MAX_LOGGED_PROVIDER_BODY)
+                ))
+            })?;
 
         let choice = parsed
             .choices

@@ -24,7 +24,8 @@
   let isSending = $state(false);
   let submitResult = $state<{ success: boolean; issueNumber?: number; url?: string; error?: string } | null>(null);
 
-  // Turnstile state — turnstileFailed lets users submit even if Turnstile breaks
+  // Turnstile state. The server requires a verified token, so when Turnstile
+  // fails to load the form cannot be submitted (it says so instead).
   let turnstileToken = $state('');
   let turnstileWidgetId = $state<string | null>(null);
   let turnstileFailed = $state(false);
@@ -73,7 +74,7 @@
 
   function renderTurnstile() {
     if (!turnstileContainer || !turnstileWindow.turnstile) {
-      // Turnstile script didn't load — allow submission without it
+      // Turnstile script didn't load — submission is not possible without it
       turnstileFailed = true;
       return;
     }
@@ -88,7 +89,7 @@
         size: 'compact',
       });
     } catch {
-      // Turnstile render failed — allow submission without it
+      // Turnstile render failed — submission is not possible without it
       turnstileFailed = true;
     }
   }
@@ -106,8 +107,8 @@
       uiStore.toast(t('feedback.toastEmptyText'), 'error');
       return;
     }
-    if (!turnstileToken && !turnstileFailed) {
-      uiStore.toast(t('feedback.toastSecurityWait'), 'error');
+    if (!turnstileToken) {
+      uiStore.toast(t(turnstileFailed ? 'feedback.toastError' : 'feedback.toastSecurityWait'), 'error');
       return;
     }
 
@@ -125,7 +126,7 @@
           shareLink: shareLink || undefined,
           mode: uiStore.analysisMode.toUpperCase(),
           browser: navigator.userAgent,
-          turnstileToken: turnstileToken || 'turnstile-bypass',
+          turnstileToken,
         }),
       });
 

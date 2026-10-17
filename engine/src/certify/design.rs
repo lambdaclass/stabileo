@@ -335,6 +335,10 @@ pub fn ec3_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedEc3Demand> {
         .collect()
 }
 
+/// Most stations per element for the demand sets: the count comes from the
+/// caller and multiplies elements × combinations.
+pub const MAX_DEMAND_STATIONS: usize = 1_001;
+
 /// Demand sets for every element at `stations` evenly spaced stations
 /// (t = 0..1) of every combination, with the combination's certified station
 /// bounds (2D: N, M about the major axis, V). Err if any combination is
@@ -344,6 +348,9 @@ pub fn steel_demands_from_combinations_2d(
     out: &CertifiedMultiCase2D,
     stations: usize,
 ) -> Result<Vec<BoundedSteelDemand>, String> {
+    if stations > MAX_DEMAND_STATIONS {
+        return Err(format!("stations {stations} exceeds the maximum of {MAX_DEMAND_STATIONS}"));
+    }
     let stations = stations.max(2);
     let mut demands = Vec::new();
     for (cr, cc) in out.results.combination_results.iter().zip(&out.combinations) {
@@ -380,6 +387,9 @@ pub fn steel_demands_from_combinations_3d(
     out: &CertifiedMultiCase3D,
     stations: usize,
 ) -> Result<Vec<BoundedSteelDemand>, String> {
+    if stations > MAX_DEMAND_STATIONS {
+        return Err(format!("stations {stations} exceeds the maximum of {MAX_DEMAND_STATIONS}"));
+    }
     let stations = stations.max(2);
     let mut demands = Vec::new();
     for (cr, cc) in out.results.combination_results.iter().zip(&out.combinations) {

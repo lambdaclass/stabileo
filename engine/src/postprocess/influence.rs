@@ -46,6 +46,21 @@ pub struct InfluenceLineInput {
 fn default_target_position() -> f64 { 0.5 }
 fn default_n_points() -> usize { 20 }
 
+/// Most sampled points per element. Each point is one solve, and the count
+/// comes from the caller.
+pub const MAX_INFLUENCE_POINTS_PER_ELEMENT: usize = 1_000;
+
+/// Refuse zero points per element (`k / 0` makes every ordinate NaN, returned
+/// as `Ok`) and counts beyond `MAX_INFLUENCE_POINTS_PER_ELEMENT`.
+fn check_n_points(n: usize) -> Result<(), String> {
+    if n == 0 || n > MAX_INFLUENCE_POINTS_PER_ELEMENT {
+        return Err(format!(
+            "nPointsPerElement must be between 1 and {MAX_INFLUENCE_POINTS_PER_ELEMENT}, got {n}"
+        ));
+    }
+    Ok(())
+}
+
 // ==================== Influence Line Computation ====================
 
 /// Compute influence line: move unit load P=1 (downward) across all elements.
@@ -61,6 +76,7 @@ fn default_n_points() -> usize { 20 }
 /// discontinuity set, not a nodal load, and the fixed-end contribution when
 /// the moving load sits on the target element needs separate treatment.
 pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLineResult, String> {
+    check_n_points(input.n_points_per_element)?;
     if input.solver.nodes.len() < 2 {
         return Err("Need at least 2 nodes".into());
     }
@@ -295,6 +311,7 @@ pub struct InfluenceLineInput3D {
 /// Müller-Breslau / adjoint formulation would need one solve per target
 /// quantity instead of one per sampled point.
 pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<InfluenceLineResult3D, String> {
+    check_n_points(input.n_points_per_element)?;
     if input.solver.nodes.len() < 2 {
         return Err("Need at least 2 nodes".into());
     }

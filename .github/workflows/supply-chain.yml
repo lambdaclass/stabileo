@@ -1,0 +1,66 @@
+name: Supply chain
+
+# Dependency advisories, licences and sources. Runs on every change to a
+# manifest or lockfile, and daily, because new advisories land against
+# dependencies that have not changed.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-deny@0.20.2,cargo-audit@0.22.2
+      # Advisories, licences, banned/duplicate crates and allowed sources,
+      # per deny.toml.
+      - name: cargo deny
+        run: cargo deny --locked check
+      # RustSec again through cargo-audit, which also reports yanked crates.
+      - name: cargo audit
+        run: cargo audit --deny warnings
+
+  npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+      # What ships to users: fail on any high or critical advisory.
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+      # Build and test tooling. Reported, and failing on critical only for
+      # packages with a non-breaking fix; see docs/security/AUDIT.md for the
+      # dev-only advisories that wait on a major upgrade.
+      - name: npm audit (all dependencies, report)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+      # The lockfile must resolve every package from the npm registry, except
+      # the explicitly allowed SheetJS tarball (not published to npm).
+      - name: lockfile sources
+        run: |
+          bad=$(grep -oE '"resolved": "[^"]+"' package-lock.json \
+            | grep -vE '"resolved": "https://registry\.npmjs\.org/' \
+            | grep -vE '"resolved": "https://cdn\.sheetjs\.com/xlsx-[0-9.]+/xlsx-[0-9.]+\.tgz"' || true)
+          if [ -n "$bad" ]; then echo "unexpected package sources:"; echo "$bad"; exit 1; fi
