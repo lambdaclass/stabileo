@@ -340,7 +340,17 @@ test.describe('@slow inside the workspace overlay', () => {
 test.describe('@slow the torsion amber, measured where the model raises it', () => {
   test.slow();
 
-  test('the banner and the selection line resolve to the same two tokens',
+  /*
+   * The banner says «torsion here, and nothing in this app checked it». Since beam torsion is
+   * checked by §22.7 with the shear and designed for (6154650fe), the CIRSOC adapter declares
+   * `capabilities.beams.torsion`, and `torsionUnevaluatedMembers` returns none for any beam: the
+   * banner cannot be raised on a CIRSOC model, rc-qa-diagnostic included. Before: the banner on
+   * this model, and its amber pair measured here; after: no banner, and the pair is covered at
+   * source only (`concrete-status-tokens.test.ts`, «the torsion amber is one colour with one
+   * meaning»). Asserted rather than skipped, so the day a model raises it again this fails and
+   * the token checks come back.
+   */
+  test('the banner is not raised: beam torsion is verified, so its tokens are source coverage',
     async ({ pro: page }) => {
       await loadModel(page, 'rc-qa-diagnostic');
       await designAll(page);
@@ -356,46 +366,12 @@ test.describe('@slow the torsion amber, measured where the model raises it', () 
       await openDocumentsStage(page);
       await buildScene(page);
 
-      const banner = page.getByTestId('rebar-torsion-banner');
-      await expect(banner, 'this model must raise the torsion banner').toBeVisible();
-
-      const ws = page.getByTestId('rebar-workspace');
-      const tok = async (n: string) =>
-        resolve(page, await ws.evaluate(
-          (el, name) => getComputedStyle(el).getPropertyValue(name).trim(), n));
-      const [warn, text] = [await tok('--st-warn'), await tok('--st-text')];
-
-      expect(await banner.evaluate((el) => getComputedStyle(el).color),
-        'the banner body is full-contrast text').toBe(text);
-      expect(await banner.evaluate((el) => getComputedStyle(el).borderBottomColor),
-        'and its rule is the warn token').toBe(warn);
-      expect(await banner.locator('strong').first()
-        .evaluate((el) => getComputedStyle(el).color), 'as is its emphasis').toBe(warn);
-
-      // The negatives: the private pair, and the unreinforced orange it used to borrow.
-      for (const gone of ['#f2ddc6', '#ffbe7a', '#d4762a']) {
-        const lit = await resolve(page, gone);
-        expect(await banner.evaluate((el) => getComputedStyle(el).color), gone).not.toBe(lit);
-        expect(await banner.evaluate((el) => getComputedStyle(el).borderBottomColor), gone)
-          .not.toBe(lit);
-      }
-
-      // And the other half of the pair, if a member carrying torsion can be selected.
-      const row = ws.locator('[data-testid^="rebar-element-"]').first();
-      if (await row.count()) await row.click();
-      const sel = page.getByTestId('rebar-sel-torsion');
-      if (await sel.count()) {
-        expect(await sel.evaluate((el) => getComputedStyle(el).color),
-          'SelectionDetails agrees with the banner').toBe(text);
-        expect(await sel.locator('strong').first()
-          .evaluate((el) => getComputedStyle(el).color)).toBe(warn);
-        test.info().annotations.push(
-          { type: 'coverage', description: 'banner AND selection line measured' });
-      } else {
-        test.info().annotations.push({
-          type: 'coverage',
-          description: 'banner measured; the selection line needs a torsioned member selected',
-        });
-      }
+      await expect(page.getByTestId('rebar-workspace')).toBeVisible();
+      await expect(page.getByTestId('rebar-torsion-banner'),
+        'torsion is verified on beams now, so nothing is left unevaluated to announce').toHaveCount(0);
+      test.info().annotations.push({
+        type: 'coverage',
+        description: 'no torsion left unevaluated on a CIRSOC beam: the amber pair is source coverage only',
+      });
     });
 });

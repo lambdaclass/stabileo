@@ -181,21 +181,42 @@ describe('outcome contract invariants', () => {
       .toThrow(/without a reason/);
   });
 
-  it('requires exhaustion AND advice before claiming SECTION_INADEQUATE', () => {
+  /*
+   * SECTION_INADEQUATE is a claim about every arrangement and needs a proof (`section-bounds.ts`).
+   * These two rules said the opposite: an exhausted envelope with a section recommendation had to
+   * read SECTION_INADEQUATE, and SEARCH_EXHAUSTED was forbidden to say the envelope was exhausted.
+   * That is what labelled the flagship's congested beams «section inadequate» with no bound shown.
+   */
+  it('requires a demonstrated insufficiency, with a bound that is exceeded, before claiming SECTION_INADEQUATE', () => {
     expect(() => assertOutcomeInvariants({
       ...base, outcome: 'SECTION_INADEQUATE', limiting: ['flexure'], reasons: [{ key: 'x' }],
-    } as never)).toThrow(/without exhausting the permitted envelope/);
+      searchStats: { ...base.searchStats, envelopeExhausted: true }, sectionAdvice: {},
+    } as never)).toThrow(/without a demonstrated insufficiency/);
     expect(() => assertOutcomeInvariants({
-      ...base, outcome: 'SECTION_INADEQUATE', limiting: ['flexure'], reasons: [{ key: 'x' }],
-      searchStats: { ...base.searchStats, envelopeExhausted: true },
-    } as never)).toThrow(/without a section recommendation/);
+      ...base, outcome: 'SECTION_INADEQUATE', limiting: ['shear'], reasons: [{ key: 'x' }],
+      insufficiency: { bound: 'shearSectionLimit', clause: '22.5.1.2', demand: 100, capacity: 120, unit: 'kN', basis: {} },
+    } as never)).toThrow(/bound holds/);
+    expect(() => assertOutcomeInvariants({
+      ...base, outcome: 'SECTION_INADEQUATE', limiting: ['shear'], reasons: [{ key: 'x' }],
+      insufficiency: { bound: 'shearSectionLimit', clause: '22.5.1.2', demand: 130, capacity: 120, unit: 'kN', basis: {} },
+    } as never)).not.toThrow();
   });
 
-  it('forbids reporting an exhausted envelope as SEARCH_EXHAUSTED', () => {
+  it('reports an exhausted envelope as SEARCH_EXHAUSTED, saying what was exhausted', () => {
+    const exhaustion = { scope: 'implementedAlternatives', limiting: ['flexure'], tried: {}, notImplemented: ['bundledBars'] };
     expect(() => assertOutcomeInvariants({
       ...base, outcome: 'SEARCH_EXHAUSTED', limiting: ['flexure'], reasons: [{ key: 'x' }],
       searchStats: { ...base.searchStats, envelopeExhausted: true },
-    } as never)).toThrow(/must be reported as SECTION_INADEQUATE/);
+    } as never)).toThrow(/without saying what was exhausted/);
+    expect(() => assertOutcomeInvariants({
+      ...base, outcome: 'SEARCH_EXHAUSTED', limiting: ['flexure'], reasons: [{ key: 'x' }], exhaustion,
+      searchStats: { ...base.searchStats, envelopeExhausted: true },
+    } as never)).not.toThrow();
+    // A budget that stopped the search is the other scope, and the two must agree.
+    expect(() => assertOutcomeInvariants({
+      ...base, outcome: 'SEARCH_EXHAUSTED', limiting: ['flexure'], reasons: [{ key: 'x' }], exhaustion,
+      searchStats: { ...base.searchStats, truncated: true },
+    } as never)).toThrow(/disagrees with truncated/);
   });
 
   it('tallies a run without folding failures into the pass count', () => {

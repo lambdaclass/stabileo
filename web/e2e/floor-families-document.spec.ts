@@ -314,12 +314,13 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
       await expect(blockers).not.toContainText('engineer');
       await expect(page.getByTestId('review-record')).toHaveCount(0);
 
-      // And the blocking conditions are visible, so the reason is actionable rather than a
-      // bare refusal. Punching is one of them on this fixture.
+      // Punching is no longer one of the blockers: it carries its unbalanced moment since the
+      // slab and punching work, so every slab-column joint on this fixture reads as evaluated.
       await openFloorFamilies(page);
       await page.getByTestId('floor-family-slabs').click();
       const cells = await page.locator('[data-testid^="slab-punching-P"]').allInnerTexts();
-      expect(cells.some((t) => /not verified/i.test(t))).toBe(true);
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells.some((t) => /not verified/i.test(t))).toBe(false);
     });
 
   test('FD-F editing the footing SUPERSEDES the document, and regeneration issues a new one',

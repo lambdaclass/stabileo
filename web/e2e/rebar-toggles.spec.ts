@@ -280,7 +280,9 @@ test.describe('the rail survives what is put above it', () => {
       await page.setViewportSize({ width: 1280, height: 720 });
       await openWorkspace(page, SMALL);
       await expect(page.getByTestId('rebar-provisional-banner')).toBeVisible();
-      await expect(page.getByTestId('rebar-torsion-banner')).toBeVisible();
+      // The torsion banner said torsion went unchecked. The CIRSOC adapter checks it now
+      // (§22.7), so the banner no longer rises on this fixture; the provisional one still does.
+      await expect(page.getByTestId('rebar-torsion-banner')).toHaveCount(0);
 
       // Every section of the rail, top to bottom, with a real box.
       for (const id of ['rebar-tally', 'rebar-status-panel', 'rebar-layer-column']) {

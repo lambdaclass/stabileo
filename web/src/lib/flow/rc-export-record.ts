@@ -44,7 +44,7 @@ import type { RcRetouchProvenance } from './rc-selection';
  * someone passes in. `preview` is deliberately absent — a preview produces no file and leaves
  * no record; see `RcPreviewTarget`.
  */
-export type ExportKind = 'report' | 'dxf' | 'xlsx';
+export type ExportKind = 'report' | 'dxf' | 'xlsx' | 'sheetsPdf' | 'sheetsDxf';
 
 /**
  * How far a generation got.

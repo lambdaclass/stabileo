@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { wallCheckRows } from '../../design/check-rows-families';
 import {
   SHRINKAGE_RATIO, TWO_WAY_ASPECT_LIMIT, checkSlabOneWayShear, classifySlab,
   designSlabPanel, maxBarSpacing, maxShrinkageSpacing, minimumFlexuralSteel,
@@ -371,22 +372,31 @@ describe('wall axial-flexural interaction', () => {
   });
 });
 
+// Vu = 100 kN, under 0,04·φ·√f'c·Acv = 0,04·0,75·5·0,80 = 120 kN: the minimum is Tabla 11.6.1 (§11.6.1),
+// which the hand values of 'wall design' read. The same wall at 200 kN, past the threshold, is designed by
+// §11.6.2 in 'wall design at Vu = 200 kN' below.
 function wall(over: Partial<WallDesignInput> = {}): WallDesignInput {
   return {
     wallId: 'W1', length: 4, height: 3, thickness: 0.20, cover: 0.025,
     fc: 25, fy: 420, barDiameterMm: 12, edition: '2025',
-    pu: 800, muInPlane: 300, vuInPlane: 200, seismicRequired: false,
+    pu: 800, muInPlane: 300, vuInPlane: 100, seismicRequired: false,
     ...over,
   };
 }
 
 describe('wall design', () => {
-  it('produces two curtains with legal spacing', () => {
+  it('produces the curtains §11.7.2.3 asks for, at legal spacing', () => {
+    // 20 cm: one curtain. ρl = 0,0012·0,20 = 2,4 cm²/m against Ø12 = 1,131 cm²: c/45 (the 45 cm cap).
     const r = designWall(wall());
-    expect(r.verticalSpacing).toBeGreaterThan(0);
+    expect(r.reinforcement.curtains).toBe(1);
+    expect(r.verticalSpacing).toBeCloseTo(0.45, 9);
     expect(r.horizontalSpacing).toBeGreaterThan(0);
     expect(r.verticalSpacing).toBeLessThanOrEqual(maxWallSpacing(0.20, '2025').spacing + 1e-9);
-    expect(r.memo.join(' ')).toMatch(/Dos cortinas/);
+    expect(r.memo.join(' ')).toMatch(/Una cortina/);
+    // 30 cm: two curtains, each carrying half: 2·1,131/(0,0012·0,30·1e4) = 0,628 → c/60, capped at 45.
+    const t = designWall(wall({ thickness: 0.30 }));
+    expect(t.reinforcement.curtains).toBe(2);
+    expect(t.memo.join(' ')).toMatch(/Dos cortinas/);
   });
 
   it('flags a wall thinner than the §11.3.1.1 minimum', () => {
@@ -406,15 +416,27 @@ describe('wall design', () => {
     expect(designWall(wall()).unsupported.join(' ')).not.toMatch(/103 Parte II/);
   });
 
-  it('declares openings and coupling unsupported', () => {
+  it('reinforces its openings (§11.7.5.1) and still declares coupling unsupported', () => {
     const r = designWall(wall({ openings: [{ x: 1, y: 1, w: 1, h: 1 }], coupled: true }));
-    expect(r.unsupported.join(' ')).toMatch(/abertura/);
+    expect(r.reinforcement.openings).toEqual({ count: 2, diameter: 16 });
+    expect(r.checks.find((c) => c.category === 'Openings (§11.7.5)')?.ok).toBe(true);
     expect(r.unsupported.join(' ')).toMatch(/acoplado/);
   });
 
-  it('declares out-of-plane moment unsupported rather than checking only in-plane', () => {
-    const r = designWall(wall({ muOutOfPlane: 12 }));
-    expect(r.unsupported.join(' ')).toMatch(/fuera del plano/);
+  it('checks the bending out of the plane on a metre strip', () => {
+    // No axial load; Ø12 c/45 at mid-thickness: As = 2,513 cm²/m, d = 0,10 m.
+    // a = 2,513e−4·420/(0,85·25) = 4,967 mm; Mn = 2,513e−4·420 000·(0,10 − 0,002483) = 10,292;
+    // εt ≫ 0,005, φ = 0,90: φMn = 9,263 kN·m/m, and 5 kN·m/m uses 0,540 of it.
+    const r = designWall(wall({ pu: 0, muInPlane: 0, muOutOfPlane: 5 }));
+    const c = r.checks.find((x) => x.category === 'Out-of-plane (vertical bars)')!;
+    expect(c.utilization).toBeCloseTo(5 / 9.263, 2);
+    expect(c.ok).toBe(true);
+  });
+
+  it('concentrates bars at the ends when the distributed steel does not carry the in-plane moment', () => {
+    const r = designWall(wall({ muInPlane: 2600 }));
+    expect(r.reinforcement.boundary).toBeDefined();
+    expect(r.axialFlexure.ok).toBe(true);
   });
 
   it('is IMPLEMENTED_PROVISIONAL with a stated promotion path', () => {
@@ -429,3 +451,54 @@ describe('wall design', () => {
     expect(JSON.stringify(designWall(wall()))).toBe(JSON.stringify(designWall(wall())));
   });
 });
+
+/*
+ * The same wall at Vu = 200 kN > 120 kN: §11.6.2 (capitulo-11-tabiques.md:590-608) governs, not Tabla 11.6.1.
+ *   Design: ρt ≥ 0,0025 and ρl ≥ max(0,0025; 0,0025 + 0,5·(2,5 − hw/ℓw)·(ρt − 0,0025)) = 0,0025 at ρt = 0,0025.
+ *   One curtain (t = 0,20 ≤ 0,25), Ø12 = 1,1310 cm²: As = 0,0025·0,20 = 5,0 cm²/m → s = 1,1310/5,0 = 0,2262 m,
+ *   down to 0,225 m (2,5 cm steps), both directions.
+ *   Placed: ρl = ρt = 1,1310e-4/(0,225·0,20) = 0,0025133.
+ *   Check (11.6.2 with the ρt placed): hw/ℓw = 3/4 = 0,75,
+ *     ρl,req = 0,0025 + 0,5·(2,5 − 0,75)·(0,0025133 − 0,0025) = 0,0025116 → 0,0025116/0,0025133 = 0,99934;
+ *     ρt,req = 0,0025 → 0,0025/0,0025133 = 0,99472. Both hold, near the limit (> 0,95): no deficiency.
+ *   Out of the plane, 5 kN·m/m, no axial load, Ø12 c/22,5 at mid-thickness: As = 5,0265 cm²/m, d = 0,10 m,
+ *     a = 5,0265e-4·420/(0,85·25) = 9,935 mm, εt = 0,0227 → φ = 0,90; φMn = 0,9·5,0265e-4·420 000·(0,10 − 0,004967)
+ *     = 18,057 kN·m/m → 5/18,057 = 0,2769 (0,540 at Vu = 100 kN, with Ø12 c/45).
+ *   In the plane, Pu = 800 kN, Mu = 2600 kN·m, 18 bars Ø12 (n = ⌊4/0,225⌋ + 1) over 3,914 m, by strain
+ *     compatibility at φ·Pn = Pu (worked in a script): c = 0,428 m, εt = 0,0247, φ = 0,90, φMn = 2849 kN·m →
+ *     2600/2849 = 0,913: no boundary bars. (At Vu = 100 kN the 9 bars of c/45 give 2206 kN·m, hence the boundary.)
+ */
+describe('wall design at Vu = 200 kN (§11.6.2)', () => {
+  const w200 = (over: Partial<WallDesignInput> = {}) => wall({ vuInPlane: 200, ...over });
+
+  it('designs ρl and ρt to 0,0025, at c/22,5 both ways', () => {
+    const r = designWall(w200());
+    expect([r.ratios.rhoL, r.ratios.rhoT]).toEqual([0.0025, 0.0025]);
+    expect(r.ratios.refs[0]!.clause).toBe('11.6.2');
+    expect([r.verticalSpacing, r.horizontalSpacing]).toEqual([0.225, 0.225]);
+  });
+
+  it('the bars placed meet 11.6.2, at 0,99934 and 0,99472 of it', () => {
+    const r = designWall(w200());
+    const v = r.checks.find((c) => c.category === 'Min vertical ratio')!, h = r.checks.find((c) => c.category === 'Min horizontal ratio')!;
+    expect(v.utilization).toBeCloseTo(0.99934, 4);
+    expect(h.utilization).toBeCloseTo(0.99472, 4);
+    expect([v.ok, h.ok]).toEqual([true, true]);
+    expect(v.description).toContain('(11.6.2)');
+    const rows = wallCheckRows(r).filter((x) => x.title.startsWith('Min '));
+    expect(rows.map((x) => [x.clause, x.status])).toEqual([['11.6.2', 'nearLimit'], ['11.6.2', 'nearLimit']]);
+  });
+
+  it('out of the plane the closer verticals carry 5 kN·m/m at 0,2769', () => {
+    const r = designWall(w200({ pu: 0, muInPlane: 0, muOutOfPlane: 5 }));
+    expect(r.checks.find((x) => x.category === 'Out-of-plane (vertical bars)')!.utilization).toBeCloseTo(0.2769, 3);
+  });
+
+  it('in the plane the distributed steel carries 2600 kN·m: no boundary bars', () => {
+    const r = designWall(w200({ muInPlane: 2600 }));
+    expect(r.reinforcement.boundary).toBeUndefined();
+    expect(r.axialFlexure.ok).toBe(true);
+    expect(r.axialFlexure.utilization).toBeCloseTo(2600 / 2849.1, 2);
+  });
+});
+

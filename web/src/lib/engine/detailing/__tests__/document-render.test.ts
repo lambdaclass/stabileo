@@ -142,6 +142,30 @@ describe('the DXF contains real geometry', () => {
     expect(set.sheets.some((s) => s.name.endsWith('section'))).toBe(true);
   });
 
+  it('is ONE file a CAD program reads whole: one header, one EOF, every sheet', () => {
+    const lines = set.dxf.replace(/\n$/, '').split('\n');
+    // Group code / value pairs, every one of them.
+    expect(lines.length % 2).toBe(0);
+    const pairs = Array.from({ length: lines.length / 2 }, (_, i) => [lines[2 * i]!, lines[2 * i + 1]!]);
+    const count = (code: string, value: string) => pairs.filter(([c, v]) => c === code && v === value).length;
+    expect(count('2', 'HEADER')).toBe(1);
+    expect(count('2', 'ENTITIES')).toBe(1);
+    expect(count('0', 'EOF')).toBe(1);
+    expect(pairs[pairs.length - 1]).toEqual(['0', 'EOF']);
+    // Every sheet's entities are in it: the sum of the sheets' own entity counts.
+    const entities = (dxf: string) => {
+      const l = dxf.replace(/\n$/, '').split('\n');
+      let n = 0, inEnt = false;
+      for (let i = 0; i + 1 < l.length; i += 2) {
+        if (l[i] === '2' && l[i + 1] === 'ENTITIES') { inEnt = true; continue; }
+        if (inEnt && l[i] === '0' && l[i + 1] === 'ENDSEC') inEnt = false;
+        else if (inEnt && l[i] === '0') n++;
+      }
+      return n;
+    };
+    expect(entities(set.dxf)).toBe(set.sheets.reduce((s, x) => s + entities(x.dxf), 0));
+  });
+
   it('is a well-formed DXF with entities, not a stub', () => {
     expect(set.dxf).toContain('SECTION');
     expect(set.dxf).toContain('ENTITIES');

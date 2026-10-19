@@ -13,17 +13,20 @@
  *
  * ── Repair, and its limits ─────────────────────────────────────
  *
- * Step 6 is a bounded ladder, not a solver: try the next-larger layer separation, then
- * the next-smaller bar of equivalent area, then give up. Each rung is re-verified. What
- * cannot be cleared is returned as an unresolved conflict attached to its joint — the
- * rest of the floor still produces drawings, because losing a whole floor's output to
- * one clash in one corner helps nobody.
+ * Step 6 is a bounded ladder, not a solver: translate one layer of a clashing pair away
+ * from the other by a growing margin, then give up. Every candidate move is judged before it
+ * is applied — inside the section, off none of the lever arm the design verified, and clear
+ * of every other bar — and one that fails is not made. What cannot be cleared that way stays
+ * where the generator put it and is returned as an unresolved clash, with every move tried and
+ * why it was refused, attached to its joint and recorded as an open condition: the rest of the
+ * floor still produces drawings, because losing a whole floor's output to one clash in one
+ * corner helps nobody.
  *
  * Pure: no store, no runes. The caller owns persistence.
  */
 
 import type { Point3 } from '../../codes/cirsoc201/bar-geometry';
-import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
+import { samplePath, type BarPath } from '../../codes/cirsoc201/bar-geometry';
 import { minClearSpacingFor } from '../../codes/cirsoc201/spacing';
 import type { ConstructibilityAssessment } from './constructibility';
 import type { EngineMessage } from '../../codes/message';
@@ -39,6 +42,7 @@ import {
 import { classifyPair, type ClassificationContext, type PairClassification } from './classify';
 import type { JointVolume } from './joint-packing';
 import { coordinateJoint, type IncidentBeamAtJoint, type JointCoordination } from './generate-column';
+import type { RepairEnvelope, RepairRejection } from './repair-envelope';
 
 // ─── Inputs ──────────────────────────────────────────────────────
 
@@ -78,6 +82,11 @@ export interface JointInput {
 }
 
 export interface FloorCoordinationInput {
+  /**
+   * The beams' mats already stand at their lines' layers (`joint-layers.ts` `allocateLayers`,
+   * applied by the generator): the joint allocation is recorded, and nothing is moved again.
+   */
+  linesLayered?: boolean;
   assemblyId: string;
   label: string;
   labelKey?: string;
@@ -136,6 +145,14 @@ export interface FloorCoordinationInput {
    * beams, while threading needs the column cage the beam bars have to pass through.
    */
   jointVolumes?: readonly JointVolume[];
+  /**
+   * The section and verified-depth bound of a repair move (`buildRepairEnvelope`).
+   *
+   * Optional only for callers with no members to bound bars by; without it the ladder is
+   * bounded by the clearances alone and can push a bar out of its concrete, which is what it
+   * did on every model before this existed.
+   */
+  repairEnvelope?: RepairEnvelope;
 }
 
 // ─── Repair ──────────────────────────────────────────────────────
@@ -146,20 +163,56 @@ export interface RepairAttempt {
   remaining: number;
 }
 
+/** One candidate move the ladder judged, and why it was refused when it was. */
+export interface RepairCandidate {
+  rung: string;
+  /** The bar whose layer the candidate translates. */
+  moved: string;
+  /** Length of the translation, m. */
+  shift: number;
+  /** Absent when the candidate was accepted. */
+  rejected?: RepairRejection;
+}
+
+/**
+ * A clash the ladder tried to separate and could not without producing invalid geometry.
+ *
+ * Its bars are where the ladder found them: every candidate below was refused, so none was
+ * applied. Carried with the clash rather than summarised, because "unresolved" alone does not
+ * tell an engineer whether the section is too narrow, the design's lever arm is in the way or
+ * the neighbouring bars are.
+ */
+export interface UnresolvedClash {
+  barA: string;
+  barB: string;
+  pairClass?: string;
+  severity: BarConflict['severity'];
+  /** How far short of the rule the pair still is, m. */
+  shortfall: number;
+  elementIds: number[];
+  /** Every candidate tried, in rung order, each with its rejection. */
+  candidates: RepairCandidate[];
+}
+
 export interface RepairResult {
   bars: BarPath[];
   conflicts: BarConflict[];
   attempts: RepairAttempt[];
+  /** The remaining conflicts the ladder attempted, with why each move was refused. */
+  unresolved: UnresolvedClash[];
+  /** Every bar the ladder translated, and by how much in total, m: what a reviewer checks. */
+  moved: Array<{ id: string; offset: Point3 }>;
   trace: string[];
 }
 
 /**
  * Bounded repair ladder.
  *
- * Rung 1 — nudge non-locked bars in a clashing pair apart along the section's minor
- *          axis, by the shortfall plus a margin, and re-test.
- * Rung 2 — same, with a larger margin.
- * Give up — the remaining conflicts are returned honestly.
+ * Each rung walks the conflicts, worst first, and for each translates one bar's layer directly
+ * away from the other bar by the shortfall plus the rung's margin. The side that moves less steel
+ * tries first and the other second, so either can give way, and neither choice reads a bar id.
+ * Every candidate is JUDGED before it is applied (see `repairConflicts`); one that fails is not
+ * a candidate. The ladder stops at the first rung that clears nothing.
  *
  * A locked bar is never moved: the user pinned it, and silently relocating pinned work
  * is the fastest way to lose their trust. When both bars in a pair are locked the
@@ -214,18 +267,90 @@ function separationDirection(movable: BarPath, other: BarPath, at: Point3): Poin
   return { x: p.x / L, y: p.y / L, z: p.z / L };
 }
 
+/**
+ * How far from a moved layer a bar can be and still form a reportable pair with it, m, at the
+ * least. The sweep itself never reports a pair whose surfaces are further apart than its own
+ * bound (`maxReportableClear` in `collision.ts`: 40 mm, 1,5 bar diameters, 67 mm or the
+ * tolerance's clear, plus the placement allowance); the reach is taken at no less than that.
+ */
+const REPAIR_REACH = 0.15;
+
+interface RepairBox { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }
+
+function repairBox(bar: BarPath): RepairBox {
+  const r = bar.diameterMm / 2000;
+  const box = { minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
+  for (const p of samplePath(bar, 0.01)) {
+    if (p.x < box.minX) box.minX = p.x; if (p.x > box.maxX) box.maxX = p.x;
+    if (p.y < box.minY) box.minY = p.y; if (p.y > box.maxY) box.maxY = p.y;
+    if (p.z < box.minZ) box.minZ = p.z; if (p.z > box.maxZ) box.maxZ = p.z;
+  }
+  return { minX: box.minX - r, minY: box.minY - r, minZ: box.minZ - r, maxX: box.maxX + r, maxY: box.maxY + r, maxZ: box.maxZ + r };
+}
+
+function translateBar(bar: BarPath, d: Point3): BarPath {
+  const move = (p: Point3): Point3 => ({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z });
+  return {
+    ...bar,
+    // An arc is its two ends AND its centre: moving the ends alone redraws a hook's bend
+    // about a point the bar has left, and the samples swing through whatever is there.
+    segments: bar.segments.map((sg) => ({
+      ...sg, start: move(sg.start), end: move(sg.end), ...(sg.centre ? { centre: move(sg.centre) } : {}),
+    })),
+  };
+}
+
+const byConflictOrder = (x: BarConflict, y: BarConflict) =>
+  y.shortfall - x.shortfall || x.barA.localeCompare(y.barA) || x.barB.localeCompare(y.barB);
+
+/**
+ * The bounded repair ladder (see the header): every candidate judged before it is applied.
+ *
+ * ── What a candidate has to pass ───────────────────────────────────
+ *
+ * The ladder used to apply every rung's moves blindly and keep whichever rung counted the
+ * fewest conflicts. Two things went wrong with that, both measured: a layer was translated once
+ * per conflict it took part in, so the moves compounded (46 mm up on a top mat with 43 of room),
+ * and nothing bounded a move by the concrete — 28 bars of the 408-member frame and 3 of the
+ * span building at a 0,5 m mesh (measured at f8fb3883) ended outside their section, with their
+ * clashes counted as resolved. Fewer
+ * conflicts is not a better cage when the bars that stopped clashing are in the air.
+ *
+ * Now a candidate translation of a layer is accepted only when:
+ *
+ *   1. every bar of the layer stays inside its section and keeps the effective depth the
+ *      design verified (`envelope`, built by the caller that knows the members — see
+ *      `repair-envelope.ts`);
+ *   2. the targeted pair clears its §25.2 rule; and
+ *   3. no other pair involving the moved bars appears or gets worse — the clearance to every
+ *      other bar is measured on the moved geometry before anything is committed.
+ *
+ * Each accepted move therefore strictly reduces the conflicts and leaves valid geometry, so the
+ * last state IS the best one and there is nothing to roll back. A refused candidate is never
+ * applied: when no rung yields a valid move, the bars stay where the ladder received them and
+ * the clash comes back in `unresolved` with every candidate and its reason.
+ *
+ * Candidates are measured on the moved layer and the bars within `REPAIR_REACH` of it — no
+ * pair further apart can be reportable — which keeps a rung linear in the conflicts instead of
+ * a full sweep per candidate. The session, when there is one, stays the authority on the whole
+ * cage: it is updated once per accepted move.
+ */
 export function repairConflicts(
   bars: readonly BarPath[],
   requiredClearFor: (a: BarPath, b: BarPath) => number,
   tolerances: CollisionTolerances = DEFAULT_TOLERANCES,
   classifyFor?: (a: BarPath, b: BarPath, surfaceClearance: number,
     tangentA?: Point3, tangentB?: Point3) => PairClassification,
-  /** Opt in only for pure pair policies with fixed context throughout the repair. */
-  options: { incremental?: boolean } = {},
+  /**
+   * `incremental`: opt in only for pure pair policies with fixed context throughout the repair.
+   * `envelope`: the section and depth bound of a candidate (`buildRepairEnvelope`); without it
+   * only the clearances bound a move, which is right for bars with no member to bound them by.
+   */
+  options: { incremental?: boolean; envelope?: RepairEnvelope } = {},
 ): RepairResult {
   const attempts: RepairAttempt[] = [];
   const trace: string[] = [];
-  let working = bars.map((b) => ({ ...b, segments: b.segments.map((s) => ({ ...s })) }));
+  const working = bars.map((b) => ({ ...b, segments: b.segments.map((s) => ({ ...s })) }));
 
   const collisionOptions = { tolerances, requiredClearFor, classifyFor };
   // Generic callers retain callback invocation semantics; production opts in with pure policies.
@@ -234,38 +359,150 @@ export function repairConflicts(
     let result = session?.initial ?? detectCollisions(working, collisionOptions);
     const initial = result.conflicts.length;
     if (initial === 0) {
-      return { bars: working, conflicts: [], attempts, trace: ['Sin conflictos.'] };
+      return { bars: working, conflicts: [], attempts, unresolved: [], moved: [], trace: ['Sin conflictos.'] };
     }
     trace.push(`${initial} conflicto(s) detectado(s); se intenta la escalera de reparación.`);
 
-    // Mutations live separately from the snapshots kept for rollback, including the initial one.
-    const byId = new Map(working.map(b => [b.id, { ...b, segments: b.segments.map(s => ({ ...s })) }]));
-    const layers = new Map<string, BarPath[]>();
-    for (const bar of byId.values()) {
+    const index = new Map(working.map((b, i) => [b.id, i]));
+    // The geometry the design verified, which every candidate is judged against.
+    const reference = new Map(bars.map((b) => [b.id, b]));
+    const offset = new Map<string, Point3>();
+    const boxes = working.map(repairBox);
+    const maxDia = working.reduce((m, b) => Math.max(m, b.diameterMm), 0) / 1000;
+    const layers = new Map<string, string[]>();
+    for (const bar of working) {
       if (!bar.layerId || bar.locked) continue;
       const group = layers.get(bar.layerId);
-      if (group) group.push(bar); else layers.set(bar.layerId, [bar]);
+      if (group) group.push(bar.id); else layers.set(bar.layerId, [bar.id]);
     }
+    const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+    let byPair = new Map<string, BarConflict>();
+    let byBar = new Map<string, BarConflict[]>();
+    const reindex = () => {
+      byPair = new Map(result.conflicts.map((c) => [pairKey(c.barA, c.barB), c]));
+      byBar = new Map();
+      for (const c of result.conflicts) {
+        for (const id of [c.barA, c.barB]) {
+          const list = byBar.get(id);
+          if (list) list.push(c); else byBar.set(id, [c]);
+        }
+      }
+    };
+    reindex();
+    const tried = new Map<string, RepairCandidate[]>();
+    const note = (key: string, c: RepairCandidate) => {
+      const list = tried.get(key);
+      if (list) list.push(c); else tried.set(key, [c]);
+    };
 
-    // Four rungs, not two. Moving a bar out of one clash can create another, so a single
-    // pass leaves a long tail; the flagship frame converged from ~4,800 conflicts to a few
-    // hundred over four passes and stopped improving after that. The loop exits early when
-    // a rung stops helping, so a model that coordinates in one pass pays for one pass.
+    /** Judge translating `group` by `delta` to clear `target`; the refusal, or the move's conflicts. */
+    const judge = (group: readonly string[], delta: Point3, target: string)
+      : { rejected: RepairRejection } | { moved: BarPath[]; after: BarConflict[] } => {
+      // ── 1. The section and the verified depth ──
+      if (options.envelope) {
+        for (const id of group) {
+          const o = offset.get(id) ?? { x: 0, y: 0, z: 0 };
+          const rejected = options.envelope.reject(reference.get(id)!,
+            { x: o.x + delta.x, y: o.y + delta.y, z: o.z + delta.z });
+          if (rejected) return { rejected };
+        }
+      }
+      // ── 2–3. The clearances, measured on the moved geometry ──
+      const ids = new Set(group);
+      const moved = group.map((id) => translateBar(working[index.get(id)!], delta));
+      /** The first pair of `found` that refuses the move: the target still short, or any other new or worse. */
+      const refusal = (found: readonly BarConflict[]): RepairRejection | null => {
+        for (const c of found) {
+          // Two bars of the moved layer move together; their clearance is the layer's own.
+          if (ids.has(c.barA) && ids.has(c.barB)) continue;
+          const key = pairKey(c.barA, c.barB);
+          const prev = byPair.get(key);
+          const bar = ids.has(c.barA) ? c.barA : c.barB;
+          const other = bar === c.barA ? c.barB : c.barA;
+          if (key === target || !prev) return { reason: 'clearance', bar, with: other, by: c.shortfall };
+          // Conflicts carry their shortfall to 0,01 mm; a difference under that is the rounding.
+          if (c.shortfall > prev.shortfall + 2e-5) {
+            return { reason: 'clearance', bar, with: other, by: c.shortfall - prev.shortfall };
+          }
+        }
+        return null;
+      };
+      const involving = (cs: readonly BarConflict[]) => cs.filter((c) => ids.has(c.barA) || ids.has(c.barB));
+
+      // The pairs the layer is already in first. Measured on the 408-member frame, nine refusals
+      // in ten are one of them — the layer clashes at both ends, and moving it off one joint
+      // presses it into the other — and these few bars settle it without the neighbourhood.
+      const partners = new Set<string>();
+      for (const id of group) for (const c of byBar.get(id) ?? []) {
+        for (const o of [c.barA, c.barB]) if (!ids.has(o)) partners.add(o);
+      }
+      if (partners.size > 0) {
+        const early = refusal(involving(detectCollisions(
+          [...[...partners].map((id) => working[index.get(id)!]), ...moved], collisionOptions).conflicts));
+        if (early) return { rejected: early };
+      }
+
+      // Then every bar the moved layer can reach: no new pair anywhere along it.
+      const reach = Math.max(REPAIR_REACH, 1.5 * maxDia, tolerances.requiredClear) + tolerances.placement;
+      const box = { minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
+      for (const id of group) {
+        const b = boxes[index.get(id)!];
+        box.minX = Math.min(box.minX, b.minX + Math.min(0, delta.x)); box.maxX = Math.max(box.maxX, b.maxX + Math.max(0, delta.x));
+        box.minY = Math.min(box.minY, b.minY + Math.min(0, delta.y)); box.maxY = Math.max(box.maxY, b.maxY + Math.max(0, delta.y));
+        box.minZ = Math.min(box.minZ, b.minZ + Math.min(0, delta.z)); box.maxZ = Math.max(box.maxZ, b.maxZ + Math.max(0, delta.z));
+      }
+      const near: BarPath[] = [];
+      for (let i = 0; i < working.length; i++) {
+        const b = boxes[i];
+        if (ids.has(working[i].id)) continue;
+        if (b.minX > box.maxX + reach || b.maxX < box.minX - reach || b.minY > box.maxY + reach
+          || b.maxY < box.minY - reach || b.minZ > box.maxZ + reach || b.maxZ < box.minZ - reach) continue;
+        near.push(working[i]);
+      }
+      const after = involving(detectCollisions([...near, ...moved], collisionOptions).conflicts);
+      const late = refusal(after);
+      if (late) return { rejected: late };
+      return { moved, after };
+    };
+
+    // ── Nothing here reads a bar id ──
+    //
+    // Which clash goes first and which bar gives way used to follow the ids: conflicts came in
+    // the collision sweep's order (shortfall, then bar ids as text) and the second bar of each
+    // pair moved. A bar id carries its element's number (`e13-topI-1`), so the cage depended on
+    // how the model was numbered — measured on the 6 m span building, V2's bottom layer moved at
+    // one numbering and V5's top layer at another, from the same forces. Both choices are now
+    // made on what the bars ARE and where they stand: worst clash first, ties by place; the side
+    // that moves less steel (a smaller layer, then a thinner bar) tries first, ties by place.
+    // A rung can only reach the id fallback for two clashes at the same point, or two equal bars
+    // at the same place, where the order cannot change the outcome.
+    const mm = (v: number) => Math.round(v * 10000);
+    const byPoint = (p: Point3, q: Point3) => mm(p.z) - mm(q.z) || mm(p.x) - mm(q.x) || mm(p.y) - mm(q.y);
+    const byPlace = (x: BarConflict, y: BarConflict) => y.shortfall - x.shortfall || byPoint(x.at, y.at)
+      || pairKey(x.barA, x.barB).localeCompare(pairKey(y.barA, y.barB));
+    const groupOf = (bar: BarPath) => (bar.layerId ? (layers.get(bar.layerId) ?? [bar.id]) : [bar.id]);
+    const givingWay = (a: BarPath, b: BarPath): BarPath[] => [a, b].filter((x) => !x.locked).sort((x, y) =>
+      groupOf(x).length - groupOf(y).length || x.diameterMm - y.diameterMm
+      || byPoint(centroid(reference.get(x.id)!), centroid(reference.get(y.id)!)) || x.id.localeCompare(y.id));
+
+    // Four rungs, not two. Moving a bar out of one clash can uncover another, and the flagship
+    // frame kept improving over four passes; the loop exits early when a rung stops helping, so
+    // a model that coordinates in one pass pays for one pass.
     const RUNGS = [
       ['separación mínima', 0.002], ['separación ampliada', 0.006],
       ['separación amplia', 0.012], ['última pasada', 0.020],
     ] as const;
-    // Keep the BEST state seen, not the last one. A rung can make things worse — pushing a
-    // bar out of one clash into two — and committing that would hand the user a cage that
-    // the repair made worse than the raw generation.
-    let best = { bars: working, conflicts: result.conflicts };
 
     for (const [rung, margin] of RUNGS) {
       const before = result.conflicts.length;
-      const changed = new Set<string>();
-      for (const c of result.conflicts) {
-        const a = byId.get(c.barA);
-        const b = byId.get(c.barB);
+      let refused = 0;
+      for (const snapshot of [...result.conflicts].sort(byPlace)) {
+        const key = pairKey(snapshot.barA, snapshot.barB);
+        // A move earlier in this rung may already have cleared it.
+        const c = byPair.get(key);
+        if (!c) continue;
+        const a = working[index.get(c.barA) ?? -1];
+        const b = working[index.get(c.barB) ?? -1];
         if (!a || !b) continue;
         if (a.locked && b.locked) continue;
         // ── A CAGE PIECE IS NOT NUDGEABLE ──
@@ -286,81 +523,86 @@ export function repairConflicts(
         // so shifting the bar off the tie pushes it into the bend on the other side. Measured —
         // holding only the tie still simply moved the same eight conflicts onto the column bars.
         if (a.role === 'transverse' || b.role === 'transverse') continue;
-        // Move whichever is not locked; if neither is, move the second for determinism.
-        const movable = a.locked ? b : b.locked ? a : b;
-        const other = movable === b ? a : b;
-        const shift = c.shortfall + margin;
-        // Push directly AWAY from the other bar, in the plane perpendicular to this bar's
-        // own axis.
-        //
-        // This used to push along global y unconditionally. For a beam running north-south
-        // that is a shift along the bar's OWN axis, which cannot separate anything: the
-        // ladder burned both rungs sliding bars lengthwise and reported the clash
-        // unresolved. Pushing along the true separation direction is both the physically
-        // correct nudge and the one a detailer would make.
-        const dir = separationDirection(movable, other, c.at);
 
-        // ── The rigid-mat invariant ──────────────────────────────────
-        //
-        // A bar is not a free particle. Bars sharing a `layerId` are one physical layer,
-        // placed at a legal §25.2.1 pitch by the candidate and separated from the layer above
-        // by the §25.2.2 clear distance. Nudging ONE of them out of its layer breaks both
-        // rules to fix a third, and the geometry it leaves behind is not a detail anyone can
-        // build.
-        //
-        // That is what happened on the QA fixture: `applyJointLayers` delivered the mat
-        // correctly with 35 mm between layers, and the ladder then lifted three layer-1 bars
-        // 11 mm on their own, leaving 24 mm where §25.2.2 wants 25.
-        //
-        // So the unit of movement is the LAYER, not the bar. Every bar sharing the movable
-        // bar's layer receives the identical translation, and their relative vectors survive
-        // by construction. A bar with no layer identity still moves alone — there is nothing
-        // to keep rigid.
-        const group = movable.layerId
-          ? (layers.get(movable.layerId) ?? [])
-          : [movable];
-        for (const member of group) {
-          const target = byId.get(member.id) ?? member;
-          for (const seg of target.segments) {
-            changed.add(target.id);
-            seg.start = {
-              x: seg.start.x + dir.x * shift,
-              y: seg.start.y + dir.y * shift,
-              z: seg.start.z + dir.z * shift,
-            };
-            seg.end = {
-              x: seg.end.x + dir.x * shift,
-              y: seg.end.y + dir.y * shift,
-              z: seg.end.z + dir.z * shift,
-            };
+        for (const movable of givingWay(a, b)) {
+          const other = movable === b ? a : b;
+          // Push directly AWAY from the other bar, in the plane perpendicular to this bar's
+          // own axis. Pushing along a fixed global axis slides a bar along a beam running that
+          // way, which separates nothing.
+          const away = separationDirection(movable, other, c.at);
+          // Within the room the bar has: the part of "away" that keeps its lever arm. The push
+          // is lengthened so its component along "away" is still the shortfall plus the margin;
+          // a direction left with under a third of it is not a separation but a slide, and is
+          // judged as the original push, which the envelope then refuses for what it is.
+          const kept = options.envelope ? options.envelope.admissible(reference.get(movable.id)!, away) : away;
+          const keptLen = Math.hypot(kept.x, kept.y, kept.z);
+          const cos = keptLen > 1e-9 ? (kept.x * away.x + kept.y * away.y + kept.z * away.z) / keptLen : 0;
+          const dir = cos >= 1 / 3 ? { x: kept.x / keptLen, y: kept.y / keptLen, z: kept.z / keptLen } : away;
+          const shift = (c.shortfall + margin) / (dir === away ? 1 : cos);
+          const delta = { x: dir.x * shift, y: dir.y * shift, z: dir.z * shift };
+
+          // ── The rigid-mat invariant ──────────────────────────────────
+          //
+          // A bar is not a free particle. Bars sharing a `layerId` are one physical layer,
+          // placed at a legal §25.2.1 pitch by the candidate and separated from the layer above
+          // by the §25.2.2 clear distance. Nudging ONE of them out of its layer breaks both
+          // rules to fix a third (measured on the QA fixture: three layer-1 bars lifted 11 mm on
+          // their own, leaving 24 mm where §25.2.2 wants 25). So the unit of movement is the
+          // LAYER: every bar sharing the movable bar's layer receives the identical translation.
+          // A bar with no layer identity moves alone — there is nothing to keep rigid.
+          const group = groupOf(movable);
+          const verdict = judge(group, delta, key);
+          if ('rejected' in verdict) {
+            note(key, { rung, moved: movable.id, shift, rejected: verdict.rejected });
+            refused++;
+            continue;
           }
+          note(key, { rung, moved: movable.id, shift });
+          const changed = new Set(group);
+          group.forEach((id, k) => {
+            const i = index.get(id)!;
+            working[i] = verdict.moved[k];
+            boxes[i] = repairBox(verdict.moved[k]);
+            const o = offset.get(id) ?? { x: 0, y: 0, z: 0 };
+            offset.set(id, { x: o.x + delta.x, y: o.y + delta.y, z: o.z + delta.z });
+          });
+          if (session) {
+            result = session.update(working, changed);
+          } else {
+            const conflicts = [
+              ...result.conflicts.filter((x) => !changed.has(x.barA) && !changed.has(x.barB)),
+              ...verdict.after,
+            ].sort(byConflictOrder);
+            result = { ...result, conflicts, constructible: conflicts.every((x) => x.severity === 'marginal') };
+          }
+          reindex();
+          break;
         }
-      }
-      // Locked bars and cage pieces can leave a rung with no geometry changes. Reuse
-      // its collision result while retaining the same attempt, trace and stop decision.
-      if (changed.size > 0) {
-        working = [...byId.values()].map((b) => ({ ...b, segments: b.segments.map((sg) => ({ ...sg })) }));
-        result = session ? session.update(working, changed) : detectCollisions(working, collisionOptions);
       }
       const cleared = before - result.conflicts.length;
       attempts.push({ rung, cleared, remaining: result.conflicts.length });
       trace.push(
         `Rung "${rung}": ${cleared} resuelto(s), ${result.conflicts.length} pendiente(s).`);
-
-      if (result.conflicts.length < best.conflicts.length) {
-        best = { bars: working, conflicts: result.conflicts };
+      if (refused > 0) {
+        trace.push(`Rung "${rung}": ${refused} movimiento(s) rechazado(s) por salir de la sección, ` +
+          'reducir la altura útil verificada o invadir la separación de otra barra.');
       }
       if (result.conflicts.length === 0) break;
-      // A rung that resolved nothing, or made things worse, will not do better with a
-      // larger margin on the same geometry.
+      // A rung that resolved nothing will not do better with a larger margin on the same
+      // geometry.
       if (cleared <= 0) {
         trace.push(`Rung "${rung}" no mejoró el resultado; se conserva el mejor estado previo.`);
         break;
       }
     }
 
-    working = best.bars;
-    result = { ...result, conflicts: best.conflicts };
+    const unresolved: UnresolvedClash[] = result.conflicts
+      .filter((c) => tried.has(pairKey(c.barA, c.barB)))
+      .map((c) => ({
+        barA: c.barA, barB: c.barB, pairClass: c.pairClass, severity: c.severity,
+        shortfall: c.shortfall, elementIds: [...c.elementIds],
+        candidates: tried.get(pairKey(c.barA, c.barB))!,
+      }));
 
     if (result.conflicts.length > 0) {
       trace.push(
@@ -368,7 +610,8 @@ export function repairConflicts(
         'informan como tales; el resto de la planta sigue produciendo documentación.');
     }
 
-    return { bars: working, conflicts: result.conflicts, attempts, trace };
+    const moved = [...offset].map(([id, o]) => ({ id, offset: o }));
+    return { bars: working, conflicts: result.conflicts, attempts, unresolved, moved, trace };
   } finally { session?.free(); }
 }
 
@@ -406,6 +649,13 @@ export function applyJointLayers(
     if (!at) continue;
     // Half the column's diagonal: the plan radius within which a bar end is "at" the joint.
     const radius = Math.hypot(joint.columnB, joint.columnH) / 2 + 0.05;
+    // The joint's top face, which `topOffset` is measured down from. A beam is laid about its
+    // axis through the node (`generate-beam`: the cage's half depth either side of it), so its
+    // top is the node plus half its depth, and the joint's is the highest of them. This read
+    // the node itself as the top: every top mat on a layer below the outer one went down by
+    // half the beam's depth — 0,28 m on the span fixture's 50 cm beams, 0,36 m on the
+    // flagship's 65 cm ones — to near mid-depth, the whole bar with it.
+    const topFace = at.z + Math.max(0, ...joint.beams.map((b) => b.depth / 2));
 
     for (const alloc of co.layers) {
       if (alloc.layer === 0) continue;   // the outer layer is already where it was placed.
@@ -439,7 +689,8 @@ export function applyJointLayers(
 
       const outermost = Math.max(...mat.flatMap((bar) =>
         bar.segments.flatMap((sg) => [sg.start.z, sg.end.z])));
-      const shift = (at.z - alloc.topOffset) - outermost;
+      // Down only: a mat already below its layer stays where its own cage put it.
+      const shift = Math.min(0, (topFace - alloc.topOffset) - outermost);
       if (Math.abs(shift) < 1e-6) continue;
 
       for (const bar of mat) {
@@ -449,6 +700,7 @@ export function applyJointLayers(
             ...sg,
             start: { ...sg.start, z: sg.start.z + shift },
             end: { ...sg.end, z: sg.end.z + shift },
+            ...(sg.centre ? { centre: { ...sg.centre, z: sg.centre.z + shift } } : {}),
           })),
           source: 'coordinated',
         });
@@ -507,6 +759,25 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
         refs: m.refs,
       });
     }
+    // A bar end that could not be anchored where it ends is an open condition of the member,
+    // read off the bar that records it, so the assembly cannot be built past it.
+    for (const b of m.bars) {
+      for (const side of ['start', 'end'] as const) {
+        const a = b.anchorage?.[side];
+        if (a?.solution !== 'unresolved') continue;
+        const params = {
+          bar: b.id, element: m.elementId, end: side, rule: a.rule,
+          available: Math.round(a.available * 1000) / 1000, required: Math.round(a.required * 1000) / 1000,
+        };
+        unsupported.push({
+          key: 'detailing.anchorage.unresolved',
+          scope: { elementIds: [m.elementId] },
+          message: `${b.id} (${side}): ${params.available} m < ${a.rule} ${params.required} m`,
+          params,
+          refs: m.refs,
+        });
+      }
+    }
     refs.push(...m.refs);
     trace.push(...m.trace);
   }
@@ -548,8 +819,14 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
   }
 
   // ── 4b. Move the bars to the layers the joints just allocated ──
-  const layered = applyJointLayers(
-    allBars, input.joints, jointCoordination, input.nodePositionOf ?? (() => undefined));
+  //
+  // Not where the lines were layered already (`linesLayered`): the generator laid every line's
+  // mats at the elevation its rank asks, whole bars, along the whole line (`joint-layers.ts`).
+  // Moving again here only the bars that END at a joint lowered those and not the ones running
+  // through it, and put two bars of one mat at two heights.
+  const layered = input.linesLayered
+    ? { bars: allBars, moved: 0 }
+    : applyJointLayers(allBars, input.joints, jointCoordination, input.nodePositionOf ?? (() => undefined));
   if (layered.moved > 0) {
     trace.push(`${layered.moved} barra(s) superiores reubicadas a su capa en el nudo.`);
   }
@@ -578,8 +855,37 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
     classifyPair(a, b, classificationContext, surfaceClearance, tangentA, tangentB);
 
   const repair = repairConflicts(
-    layered.bars, requiredClearFor, input.tolerances, classifyFor, { incremental: true });
+    layered.bars, requiredClearFor, input.tolerances, classifyFor,
+    { incremental: true, envelope: input.repairEnvelope });
   trace.push(...repair.trace);
+
+  // ── A clash the ladder could not separate without invalid geometry is an open condition ──
+  //
+  // The conflict itself stays in the conflict list; this records that the repair was tried and
+  // why every move was refused, so the assembly cannot be built past it and the document, the
+  // memoria and the desk can say what stands in the way: the section, the verified depth, or
+  // another bar.
+  for (const u of repair.unresolved) {
+    const why = (r: RepairRejection['reason']) => u.candidates.filter((c) => c.rejected?.reason === r);
+    const mm = (v: number) => Math.round(v * 10000) / 10;
+    const outside = why('outsideSection'), depth = why('depthReduced'), clear = why('clearance');
+    const params = {
+      bar: u.barA, barB: u.barB, element: u.elementIds[0] ?? 0,
+      shortfall: mm(u.shortfall), tried: u.candidates.length,
+      rungs: new Set(u.candidates.map((c) => c.rung)).size,
+      outside: outside.length, outsideBy: mm(Math.max(0, ...outside.map((c) => c.rejected!.by))),
+      depth: depth.length, depthBy: mm(Math.max(0, ...depth.map((c) => c.rejected!.by))),
+      clearance: clear.length,
+    };
+    unsupported.push({
+      key: 'detailing.clash.unresolved',
+      scope: { elementIds: [...u.elementIds] },
+      message: `${u.barA} / ${u.barB}: ${params.shortfall} mm; ${params.tried} movimiento(s) rechazado(s) ` +
+        `(sección ${params.outside}, altura útil ${params.depth}, separación ${params.clearance})`,
+      params,
+      refs: [],
+    });
+  }
 
   // Route unresolved conflicts to their joint where one matches, so the UI can navigate.
   const jointByElement = new Map<number, JointRecord>();

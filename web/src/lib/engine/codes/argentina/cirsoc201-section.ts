@@ -36,7 +36,7 @@ import { getRcSectionKernel } from './rc-section-kernel';
  */
 
 import {
-  EPSILON_CU, ES_MPA, beta1, phiFromStrain, squashLoad, axialCap,
+  EPSILON_CU, ES_MPA, beta1, phiByEdition, squashLoad, axialCap, type Cirsoc201Edition,
 } from './cirsoc201-basis';
 import {
   type Pt, rectPolygon, teePolygon, circlePolygon, compressedZone, polygonArea,
@@ -62,13 +62,20 @@ export interface Bar {
 export type Outline =
   | { kind: 'rect'; b: number; h: number; hole?: { b: number; h: number } }
   | { kind: 'tee'; bf: number; hf: number; bw: number; h: number }
-  | { kind: 'circle'; D: number; Dint?: number };
+  | { kind: 'circle'; D: number; Dint?: number }
+  /** Any outline, its vertices around it, in section coordinates about its centroid (an L column). */
+  | { kind: 'polygon'; outer: Pt[] };
 
 export interface Materials {
   /** MPa. */
   fc: number;
   fy: number;
   confinement?: 'ties' | 'spiral';
+  /**
+   * The edition φ and the axial cap are computed by. Defaults to '2005', the CIRSOC FLEX
+   * calculator's; every design path passes `CIRSOC201_DESIGN_EDITION` ('2025').
+   */
+  edition?: Cirsoc201Edition;
   /**
    * Subtract the concrete a compression bar displaces. DEFAULTS TO ON.
    *
@@ -101,6 +108,8 @@ export function outlineRings(o: Outline): { outer: Pt[]; holes: Pt[][] } {
         outer: circlePolygon(o.D),
         holes: o.Dint && o.Dint > 0 ? [circlePolygon(o.Dint)] : [],
       };
+    case 'polygon':
+      return { outer: o.outer.map((p) => ({ ...p })), holes: [] };
   }
 }
 
@@ -203,10 +212,10 @@ export function sectionPoint(
   }
 
   const epsT = Math.abs(Math.min(epsilonT, 0));
-  const phi = phiFromStrain(epsT, mat.fy, mat.confinement ?? 'ties');
+  const phi = phiByEdition(epsT, mat.fy, mat.confinement ?? 'ties', mat.edition);
 
   const Ast = bars.reduce((s, b) => s + b.area, 0);
-  const cap = axialCap(mat.fc, mat.fy, grossArea(outline), Ast, mat.confinement ?? 'ties');
+  const cap = axialCap(mat.fc, mat.fy, grossArea(outline), Ast, mat.confinement ?? 'ties', mat.edition);
 
   return {
     Pn, Mnx, Mny,
@@ -261,13 +270,13 @@ export function prepareSection(outline: Outline, bars: readonly Bar[], mat: Mate
     mat.deductDisplacedConcrete ?? true,
   ) : null;
   const Ag = Math.abs(polygonArea(outer)) - holes.reduce((s, h) => s + Math.abs(polygonArea(h)), 0);
-  const cap = axialCap(mat.fc, mat.fy, Ag, bars.reduce((s, b) => s + b.area, 0), mat.confinement ?? 'ties');
+  const cap = axialCap(mat.fc, mat.fy, Ag, bars.reduce((s, b) => s + b.area, 0), mat.confinement ?? 'ties', mat.edition);
   const evaluate = (theta: number, depths: number[]): SectionPoint[] => {
     if (!geometry) return depths.map(c => sectionPoint(outline, bars, mat, theta, c));
     const values = geometry.evaluate(Math.cos(theta), Math.sin(theta), Float64Array.from(depths));
     return depths.map((c, i) => {
       const k = i * 5, Pn = values[k], Mnx = values[k + 1], Mny = values[k + 2], epsilonT = values[k + 3];
-      const phi = phiFromStrain(epsilonT, mat.fy, mat.confinement ?? 'ties');
+      const phi = phiByEdition(epsilonT, mat.fy, mat.confinement ?? 'ties', mat.edition);
       return { Pn, Mnx, Mny, phiPn: Math.min(phi * Pn, cap), phiMnx: phi * Mnx, phiMny: phi * Mny, phi, epsilonT, c };
     });
   };

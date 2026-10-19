@@ -12,7 +12,7 @@
  * exactly what would be untestable if these assertions were about styling.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, declareBeamsNotLateral } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -69,6 +69,13 @@ test.describe('@smoke the workflow says where you are', () => {
     // A model but no results: the instruction changes to the thing that is now missing.
     await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needSolve']);
 
+    /*
+     * DISEÑAR completes when the run designs every member. Since 292b87f68 qa-8's undeclared
+     * beams are designed as part of the lateral system and e5 and e6 refuse, so the stage stays
+     * `current` after the run, truthfully. The beams declare their role here, so the run the
+     * strip follows is one that completes.
+     */
+    await declareBeamsNotLateral(page);
     await designAll(page);
     for (const s of ['model', 'codes', 'design'] as const) {
       expect(await stageState(page, s), `${s} is complete after a design run`).toBe('complete');
@@ -93,17 +100,18 @@ test.describe('@smoke the workflow says where you are', () => {
 });
 
 test.describe('@smoke commands are grouped, and none of them is ambiguous', () => {
-  test('the command row is three named groups in pipeline order', async ({ pro: page }) => {
+  test('the command row is two named groups in pipeline order', async ({ pro: page }) => {
+    // The verify group's commands moved to the stage strip; an empty group with a label is gone.
+    await expect(page.getByTestId('cmd-group-verify')).toHaveCount(0);
     for (const [id, key] of [
-      ['cmd-group-verify', 'design.group.verify'],
       ['cmd-group-design', 'design.group.design'],
       ['cmd-group-detailing', 'design.group.detailing'],
     ] as const) {
       await expect(page.getByTestId(id)).toContainText(en[key]);
     }
-    // The regulation is a read-out and sits outside the groups — it is not a fourth command.
+    // The regulation is a read-out and sits outside the groups — it is not a third command.
     const groups = page.locator('[data-testid^="cmd-group-"]');
-    await expect(groups).toHaveCount(3);
+    await expect(groups).toHaveCount(2);
     await expect(groups.filter({ has: page.getByTestId('active-concrete-code') })).toHaveCount(0);
   });
 
@@ -292,7 +300,7 @@ for (const locale of ['en', 'es', 'pt'] as const) {
         await expect(page.getByTestId(id)).toContainText(D[key]);
       }
       await expect(page.getByTestId('rc-stage-next')).toHaveText(D['design.stage.needModel']);
-      await expect(page.getByTestId('cmd-group-verify')).toContainText(D['design.group.verify']);
+      await expect(page.getByTestId('cmd-group-design')).toContainText(D['design.group.design']);
     });
   });
 }

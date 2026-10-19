@@ -18,7 +18,7 @@
  *   db ≤ 16    fy·ψt·ψe·ψg / (2,1·√f'c)·db    fy·ψt·ψe·ψg / (1,4·√f'c)·db
  *   db > 16    fy·ψt·ψe·ψg / (1,7·√f'c)·db    fy·ψt·ψe·ψg / (1,1·√f'c)·db
  *
- * §25.4.2.1(b) — never less than 300 mm.
+ * §25.4.2.1(b) — never less than 300 mm. §25.4.1.4 — √f'c at most 8,3 MPa (`developmentSqrtFc`).
  * §25.5.2.1 Table 25.5.2.1 — Class A = max(1,0·ld, 300 mm), Class B = max(1,3·ld, 300 mm).
  *
  * ψe = 1 always: §25.4.2.4's commentary states epoxy coating is not permitted under this
@@ -46,6 +46,16 @@ export const MIN_LAP_MM = 300;
 
 /** Table 25.4.2.3's diameter break. */
 export const TABLE_25_4_2_3_DIAMETER_BREAK_MM = 16;
+
+/**
+ * §25.4.1.4: «Los valores de √f´c usados para calcular la longitud de anclaje no deben exceder de
+ * 8,3 MPa.» Every development length of §25.4 reads it (ld §25.4.2, ldh §25.4.3, ldc §25.4.9), and
+ * the laps of §25.5 through ld.
+ */
+export const SQRT_FC_DEVELOPMENT_LIMIT_MPA = 8.3;
+export const developmentSqrtFc = (fc: number): number => Math.min(Math.sqrt(fc), SQRT_FC_DEVELOPMENT_LIMIT_MPA);
+const capRef = (fc: number, edition: RegulationEdition): ClauseRef[] => (Math.sqrt(fc) > SQRT_FC_DEVELOPMENT_LIMIT_MPA
+  ? [clause('cirsoc-201', edition, '25.4.1.4', '√f´c no mayor que 8,3 MPa en la longitud de anclaje')] : []);
 
 export type SpliceClass = 'A' | 'B';
 
@@ -140,13 +150,14 @@ export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
     : (large ? 1.1 : 1.4);
 
   // Table 25.4.2.3 is written in mm with f'c in MPa; the result is a multiple of db.
-  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * Math.sqrt(fc)) * db;
+  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
   const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
 
   const refs = [
     clause('cirsoc-201', edition, 'Tabla 25.4.2.3',
       'longitud de anclaje para barras conformadas en tracción'),
     clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'),
+    ...capRef(fc, edition),
   ];
 
   return {
@@ -213,7 +224,7 @@ export function deriveHookedDevelopment(input: HookedDevelopmentInputs): HookedD
   const psiCC = 1.0;  // no concrete-cover credit taken.
   const psiR = 1.0;   // no confinement credit taken.
 
-  const aMm = (0.24 * fy * psiE * psiS * psiCC * psiR) / (lambda * Math.sqrt(fc)) * db;
+  const aMm = (0.24 * fy * psiE * psiS * psiCC * psiR) / (lambda * developmentSqrtFc(fc)) * db;
   const bMm = 8 * db;
   const cMm = 150;
   const ldhMm = Math.max(aMm, bMm, cMm);
@@ -224,7 +235,42 @@ export function deriveHookedDevelopment(input: HookedDevelopmentInputs): HookedD
     computedM: aMm / 1000,
     governedBy,
     refs: [clause('cirsoc-201', edition, '25.4.3.1',
-      'longitud de anclaje de ganchos normales en tracción')],
+      'longitud de anclaje de ganchos normales en tracción'), ...capRef(fc, edition)],
+  };
+}
+
+/**
+ * §25.4.9 — ldc for a deformed bar in compression, the LARGER of (a) and (b) of §25.4.9.1:
+ *
+ *   (a) the larger of (0,24·fy·ψr / (λ·√f'c))·db and 0,043·fy·ψr·db   (§25.4.9.2)
+ *   (b) 200 mm
+ *
+ * «Se permite tomar ψr igual a la unidad» (§25.4.9.3): no confinement credit is taken, as in
+ * `deriveHookedDevelopment`. √f'c is limited to 8,3 MPa (§25.4.1.4). No hook shortens it:
+ * «Los ganchos y las barras conformadas con cabeza no se deben emplear para anclar barras en
+ * compresión» (§25.4.1.2).
+ */
+export interface CompressionDevelopmentResult {
+  /** ldc, in METRES. */
+  ldcM: number;
+  governedBy: 'sqrtFc' | 'fy' | '200mm';
+  refs: ClauseRef[];
+}
+
+export function deriveCompressionDevelopment(input: { diameterMm: number; fy: number; fc: number; lambda?: number; edition: RegulationEdition }): CompressionDevelopmentResult {
+  const { diameterMm: db, fy, fc, edition } = input;
+  const lambda = input.lambda ?? 1.0;
+  const psiR = 1.0;
+  const aMm = (0.24 * fy * psiR) / (lambda * developmentSqrtFc(fc)) * db;
+  const bMm = 0.043 * fy * psiR * db;
+  const ldcMm = Math.max(aMm, bMm, 200);
+  return {
+    ldcM: ldcMm / 1000,
+    governedBy: ldcMm === 200 ? '200mm' : ldcMm === aMm ? 'sqrtFc' : 'fy',
+    refs: [
+      clause('cirsoc-201', edition, '25.4.9.1', 'longitud de anclaje en compresión'),
+      clause('cirsoc-201', edition, '25.4.1.2', 'los ganchos no se deben emplear para anclar barras en compresión'),
+    ],
   };
 }
 

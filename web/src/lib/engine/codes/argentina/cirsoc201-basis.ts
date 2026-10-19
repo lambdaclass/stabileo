@@ -45,23 +45,36 @@ export const PHI_TENSION = 0.90;
 export const PHI_COMPRESSION_TIED = 0.65;
 
 /**
- * φ for a compression-controlled section with a spiral, §9.3.2.2(a).
+ * φ for a compression-controlled section with a spiral, CIRSOC 201-2005 §9.3.2.2(a).
  *
- * 0.70, which is CIRSOC 201-2005's value. ACI 318-08 raised it to 0.75 and
- * that is the number most tables published after 2008 carry — this module
- * had it, and against the INTI-CIRSOC workbook's own worked example it made
- * a 40 cm spiral column come out with 15 % LESS steel than the regulation
- * asks for. Unconservative, and invisible without something to compare to.
+ * 0.70, which is CIRSOC 201-2005's value, and the one the CIRSOC FLEX
+ * workbook computes with: against its own worked example, 0.75 made a 40 cm
+ * spiral column come out with 15 % LESS steel than that workbook asks for.
  *
- * The application declares CIRSOC 201 (`lib/codes/regulation.ts`), so the
- * regulation's number is the one it uses. If ACI is ever offered as an
- * alternative this becomes a function of the selected code rather than a
- * constant, and the ties value below stays 0.65 either way.
+ * CIRSOC 201-2025 Tabla 21.2.2 (a) raised it to 0.75
+ * (`PHI_COMPRESSION_SPIRAL_2025`), and that is the value the design paths
+ * use (`phiByEdition`, `axialCap` with the edition). Ties stay 0.65 in both.
  */
 export const PHI_COMPRESSION_SPIRAL = 0.70;
 
 /** Net tensile strain at which a section is tension-controlled, §10.3.4. */
 export const EPSILON_TENSION_CONTROLLED = 0.005;
+
+/**
+ * Which CIRSOC 201 edition a φ or an axial cap is computed by.
+ *
+ * '2005' is the ramp above (§9.3.2, spiral 0,70, tension-controlled at 0,005), which the CIRSOC
+ * FLEX workbook and its calculator are validated against. '2025' is Tabla 21.2.2 (spiral 0,75,
+ * tension-controlled at εty + 0,003) and Tabla 22.4.2.1, which is what the design verifier
+ * applies and what its check rows are labelled with.
+ */
+export type Cirsoc201Edition = '2005' | '2025';
+
+/** The edition the design paths compute φ and the axial cap by, and label their rows with. */
+export const CIRSOC201_DESIGN_EDITION = '2025' as const satisfies Cirsoc201Edition;
+
+/** φ for a compression-controlled section with a spiral, CIRSOC 201-2025 Tabla 21.2.2 (a). */
+export const PHI_COMPRESSION_SPIRAL_2025 = 0.75;
 
 /**
  * β₁ — the ratio of the equivalent rectangular stress block to the neutral
@@ -107,6 +120,41 @@ export function phiFromStrain(
 }
 
 /**
+ * φ by CIRSOC 201-2025 Tabla 21.2.2, from the net tensile strain εt of the extreme bar: the
+ * compression-controlled value up to εty, 0,90 from εty + 0,003, and a straight line between.
+ * Ties take 0,65 and spirals 0,75 (rows (b) and (a)). εty is fy/Es (21.2.2.1).
+ *
+ * Every design path reads it, through `phiByEdition` with `CIRSOC201_DESIGN_EDITION`: the
+ * rectangular beams and columns directly, and the general section (shaped columns, walls, the
+ * column editor's interaction plot) and the flanged beams through their `edition` argument.
+ * `phiFromStrain` above keeps the 2005 values the CIRSOC FLEX calculator is validated against,
+ * and is what those functions use when no edition is given.
+ */
+export function phiTable2122(epsT: number, fy: number, transverse: 'ties' | 'spiral' = 'ties'): number {
+  const ety = yieldStrain(fy);
+  const phiC = transverse === 'spiral' ? PHI_COMPRESSION_SPIRAL_2025 : PHI_COMPRESSION_TIED;
+  const eps = epsT;
+  if (eps >= ety + 0.003) return PHI_TENSION;
+  if (eps <= ety) return phiC;
+  return phiC + (PHI_TENSION - phiC) * ((eps - ety) / 0.003);
+}
+
+/**
+ * φ by the edition asked for: `phiFromStrain` (2005) or `phiTable2122` (2025). `epsT` is the net
+ * tensile strain of the extreme bar, tension positive.
+ */
+export function phiByEdition(
+  epsT: number, fy: number, confinement: 'ties' | 'spiral' = 'ties', edition: Cirsoc201Edition = '2005',
+): number {
+  return edition === '2025' ? phiTable2122(epsT, fy, confinement) : phiFromStrain(epsT, fy, confinement);
+}
+
+/** The net tensile strain from which a section is tension-controlled, by edition. */
+export function tensionControlledStrain(fy: number, edition: Cirsoc201Edition = '2005'): number {
+  return edition === '2025' ? yieldStrain(fy) + 0.003 : EPSILON_TENSION_CONTROLLED;
+}
+
+/**
  * The nominal squash load: every bar yielding, the whole section in
  * compression, and the concrete the bars occupy not counted twice.
  *
@@ -117,20 +165,55 @@ export function squashLoad(fc: number, fy: number, Ag: number, Ast: number): num
 }
 
 /**
- * §10.3.6's ceiling on design axial load.
+ * The largest fy, MPa, Po may be computed with: CIRSOC 201-2025 §22.4.2.1, "El valor de fy debe
+ * limitarse a un máximo de 500 MPa" (C 22.4.2.1: the concrete reaches its capacity first).
+ */
+export const PO_FY_LIMIT_2025_MPA = 500;
+
+/** The fy Po (22.4.2.2) is computed with: limited by §22.4.2.1 in 2025, as given in 2005. */
+export function squashLoadFy(fy: number, edition: Cirsoc201Edition = '2005'): number {
+  return edition === '2025' ? Math.min(fy, PO_FY_LIMIT_2025_MPA) : fy;
+}
+
+/**
+ * The ceiling on design axial load: §10.3.6 (2005), Tabla 22.4.2.1 (2025).
  *
  * No column is loaded at a truly zero eccentricity, so the code refuses to
  * credit the pure-compression ordinate: 0.80 of it for ties, 0.85 for a
- * spiral, times the compression-controlled φ.
+ * spiral, times the compression-controlled φ of the same edition (spiral
+ * 0.70 in 2005, 0.75 in 2025; ties 0.65 in both). In 2025 the fy in Po is
+ * limited to 500 MPa (§22.4.2.1).
  */
 export function axialCap(
   fc: number, fy: number, Ag: number, Ast: number,
   confinement: 'ties' | 'spiral' = 'ties',
+  edition: Cirsoc201Edition = '2005',
 ): number {
   const spiral = confinement === 'spiral';
-  const phiC = spiral ? PHI_COMPRESSION_SPIRAL : PHI_COMPRESSION_TIED;
-  return phiC * (spiral ? 0.85 : 0.80) * squashLoad(fc, fy, Ag, Ast);
+  const phiC = !spiral ? PHI_COMPRESSION_TIED : edition === '2025' ? PHI_COMPRESSION_SPIRAL_2025 : PHI_COMPRESSION_SPIRAL;
+  return phiC * (spiral ? 0.85 : 0.80) * squashLoad(fc, squashLoadFy(fy, edition), Ag, Ast);
 }
+
+/**
+ * √f'c, MPa, in the concrete's share of one-way shear (Vc) and in torsion's Tth and Tcr: CIRSOC
+ * 201-2025 §22.5.3.1, "Los valores de √f´c usados para calcular Vc, Vci y Vcw para corte en una
+ * dirección no deben exceder 8,3 MPa, excepto en lo permitido en el artículo 22.5.3.2", and
+ * §22.7.2.1, "Los valores de √f´c usados para calcular Tth y Tcr no deben exceder 8,3 MPa".
+ * §22.5.3.2's permission (beams with the minimum web steel may go above it) is not taken: it is
+ * a permission, and staying under the limit is always allowed.
+ */
+export const SQRT_FC_SHEAR_LIMIT_MPA = 8.3;
+export const shearSqrtFc = (fc: number): number => Math.min(Math.sqrt(fc), SQRT_FC_SHEAR_LIMIT_MPA);
+
+/**
+ * fy and fyt, MPa, in Vs and in the transverse and longitudinal steel for torsion: §22.5.3.3 and
+ * §22.7.2.2 send them to the limits of §20.2.1.3, the characteristic yield stress of Tablas 20.2.1
+ * and 20.2.2, which for bars is 420 MPa (AL 220, ADN 420, ADN 420 S); 500 MPa is welded wire
+ * (ATR 500 N, AM 500 N), which no stirrup here is. A 500 MPa bar (§20.2.1.4) is outside those
+ * tables, so its Vs and its torsion steel read 420.
+ */
+export const SHEAR_FY_LIMIT_MPA = 420;
+export const shearFy = (fy: number): number => Math.min(fy, SHEAR_FY_LIMIT_MPA);
 
 /**
  * §10.9.1's bounds on longitudinal steel in a column, as a fraction of Ag.

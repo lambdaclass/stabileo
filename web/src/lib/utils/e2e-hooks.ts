@@ -35,6 +35,7 @@ import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { readCamera } from '../viewport3d/camera-probe';
+import { verificationVisual } from '../three/selection-helpers';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
@@ -91,6 +92,10 @@ export interface StabileoTestHooks {
   modelVersion(): number;
   designRunId(): string | null;
   displayStatus(elementId: number): string;
+  /** The member's verdict and its local status (`member-verdict.ts`). */
+  memberVerdict(elementId: number): { status: string; local: string; holds: string[]; assumptions: string[] };
+  /** What the verification overlay paints and writes for the member (`verificationVisual`). */
+  verificationVisual(elementId: number): { color: number; label: string | null };
   displayRatio(elementId: number): number | null;
   outcome(elementId: number): string | null;
   hasCertificate(elementId: number): boolean;
@@ -556,6 +561,15 @@ export function installE2EHooks(): void {
       return s ? `${s.codeId}:${s.total}:${s.verified}:${s.wallMs.toFixed(0)}` : null;
     },
     displayStatus: (id) => verificationStore.getDisplayStatus(id),
+    memberVerdict: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      return { status: v.status, local: v.local, holds: v.holds.map((h) => h.kind), assumptions: v.assumptions.map((a) => a.key) };
+    },
+    verificationVisual: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      const x = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) });
+      return { color: x.color, label: x.label?.text ?? null };
+    },
     displayRatio: (id) => verificationStore.getDisplayRatio(id),
     outcome: (id) => verificationStore.outcomeFor(id)?.outcome ?? null,
     hasCertificate: (id) => !!verificationStore.outcomeFor(id)?.certificate,

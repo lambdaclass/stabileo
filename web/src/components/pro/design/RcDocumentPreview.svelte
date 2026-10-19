@@ -31,6 +31,7 @@
    * fabricated-progress rule this branch inherited. The build is on an explicit press for the same
    * reason it is not a `$derived`: it is the 1,9 seconds `buildDocumentModel` documents.
    */
+  import { coverForMember, sheetMembers } from '../../../lib/store/detailing-sheet-inputs';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { renderDrawings, renderSchedule } from '../../../lib/engine/detailing/document-render';
   import { retouchedIn } from '../../../lib/store/export-log';
@@ -61,7 +62,7 @@
 
   /** The same options the exports render with, including the document's own hand edits. */
   function opts(doc: DocumentModel) {
-    return { locale: i18n.locale, projectName, retouched: retouchedIn(doc) };
+    return { locale: i18n.locale, projectName, retouched: retouchedIn(doc), members: sheetMembers(), coverOf: coverForMember };
   }
 
   function reset() { sheets = []; table = null; sheetIndex = 0; rowsTotal = 0; }

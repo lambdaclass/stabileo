@@ -27,6 +27,7 @@
   import { validateSoilProfile } from '../../../lib/model/geotechnical';
   import FootingCadHandoffPanel from './FootingCadHandoffPanel.svelte';
   import FootingMatPanel from './FootingMatPanel.svelte';
+  import FootingGeometryFields from './FootingGeometryFields.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
 
@@ -53,18 +54,6 @@
   const selected = $derived(
     selectedId === null ? undefined : modelStore.model.footings.get(selectedId),
   );
-
-  /**
-   * Columns landing on a footing's node, so the reference is chosen from what exists.
-   *
-   * A free-text element id would let a footing point at a beam.
-   */
-  function columnsAt(nodeId: number): number[] {
-    return [...modelStore.model.elements.values()]
-      .filter((e) => e.nodeI === nodeId || e.nodeJ === nodeId)
-      .map((e) => e.id)
-      .sort((a, b) => a - b);
-  }
 
   function addFooting(nodeId: number) {
     selectedId = modelStore.addFooting(nodeId);
@@ -134,121 +123,7 @@
     {#if selected}
       {@const f = selected}
       <div class="editor" data-testid="footing-editor">
-        <div class="grid">
-          <label>{t('footing.ui.name')}
-            <input type="text" value={f.name} data-testid="footing-name"
-                   oninput={(e) => modelStore.updateFooting(f.id, { name: e.currentTarget.value })} />
-          </label>
-          <label>{t('footing.ui.field.B')}
-            <QuantityInput quantity="length" min={0} value={f.B} testid="footing-B"
-                   onchange={(v) => modelStore.updateFooting(f.id, { B: v })} />
-          </label>
-          <label>{t('footing.ui.field.L')}
-            <QuantityInput quantity="length" min={0} value={f.L} testid="footing-L"
-                   onchange={(v) => modelStore.updateFooting(f.id, { L: v })} />
-          </label>
-          <label>{t('footing.ui.field.thickness')}
-            <QuantityInput quantity="length" min={0} value={f.thickness} testid="footing-thickness"
-                   onchange={(v) => modelStore.updateFooting(f.id, { thickness: v })} />
-          </label>
-          <label>{t('footing.ui.field.cover')}
-            <QuantityInput quantity="length" min={0} value={f.cover} testid="footing-cover"
-                   onchange={(v) => modelStore.updateFooting(f.id, { cover: v })} />
-          </label>
-          <label>{t('footing.ui.field.foundingElevation')}
-            <QuantityInput quantity="length" value={f.foundingElevation} testid="footing-elevation"
-                   onchange={(v) => modelStore.updateFooting(f.id, { foundingElevation: v })} />
-          </label>
-          <label>{t('footing.ui.rotation')}
-            <input type="number" step="5" value={f.rotationDeg} data-testid="footing-rotation"
-                   oninput={(e) => modelStore.updateFooting(f.id, { rotationDeg: num(e.currentTarget.value) })} />
-          </label>
-          <label>{t('footing.ui.field.eccentricityB')}
-            <QuantityInput quantity="length" value={f.eccentricityB} testid="footing-ecc-b"
-                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityB: v })} />
-          </label>
-          <label>{t('footing.ui.field.eccentricityL')}
-            <QuantityInput quantity="length" value={f.eccentricityL} testid="footing-ecc-l"
-                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityL: v })} />
-          </label>
-          <label>{t('footing.ui.column')}
-            <select data-testid="footing-column"
-                    onchange={(e) => {
-                      const v = e.currentTarget.value;
-                      modelStore.updateFooting(f.id, {
-                        columnElementId: v === '' ? undefined : Number(v),
-                      });
-                    }}>
-              <option value="" selected={f.columnElementId === undefined}>
-                {t('footing.ui.noColumn')}
-              </option>
-              {#each columnsAt(f.nodeId) as e (e)}
-                <option value={e} selected={f.columnElementId === e}>
-                  {tp('footing.ui.elementOption', { element: e })}
-                </option>
-              {/each}
-            </select>
-          </label>
-          <label>{t('footing.ui.soilProfile')}
-            <select data-testid="footing-soil"
-                    onchange={(e) => {
-                      const v = e.currentTarget.value;
-                      modelStore.updateFooting(f.id, {
-                        soilProfileId: v === '' ? null : Number(v),
-                      });
-                    }}>
-              <option value="" selected={f.soilProfileId === null}>
-                {t('footing.ui.noSoilProfile')}
-              </option>
-              {#each profiles as p (p.id)}
-                <option value={p.id} selected={f.soilProfileId === p.id}>{p.name}</option>
-              {/each}
-            </select>
-          </label>
-        </div>
-
-        <!--
-          The pedestal is optional, so it is opt-in rather than a set of zeroed fields that
-          would fail validation for a footing that simply does not have one.
-        -->
-        <label class="check">
-          <input type="checkbox" checked={f.pedestal !== undefined} data-testid="footing-pedestal-on"
-                 onchange={(e) => modelStore.updateFooting(f.id, {
-                   pedestal: e.currentTarget.checked
-                     ? { B: f.B > 0 ? Math.min(0.5, f.B) : 0.5, L: f.L > 0 ? Math.min(0.5, f.L) : 0.5, height: 0.5 }
-                     : undefined,
-                 })} />
-          {t('footing.ui.hasPedestal')}
-        </label>
-        {#if f.pedestal}
-          {@const p = f.pedestal}
-          <div class="grid">
-            <label>{t('footing.ui.field.pedestalB')}
-              <QuantityInput quantity="length" min={0} value={p.B} testid="footing-pedestal-b"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, B: v } })} />
-            </label>
-            <label>{t('footing.ui.field.pedestalL')}
-              <QuantityInput quantity="length" min={0} value={p.L} testid="footing-pedestal-l"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, L: v } })} />
-            </label>
-            <label>{t('footing.ui.field.pedestalHeight')}
-              <QuantityInput quantity="length" min={0} value={p.height} testid="footing-pedestal-h"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, height: v } })} />
-            </label>
-          </div>
-        {/if}
-
-        {#each [validateFooting(f)] as issues (f.id)}
-          {#if issues.length > 0}
-            <ul class="issues" data-testid="footing-issues">
-              {#each identifyMessages(issues.map((i) => i.message)) as m, ix (m.id)}
-                <li class={issues[ix].severity}>
-                  {tp(m.message.key, m.message.params ?? {})}
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {/each}
+        <FootingGeometryFields footing={f} />
 
 
         <!--

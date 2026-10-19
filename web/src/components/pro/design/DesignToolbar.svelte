@@ -7,6 +7,8 @@
    * accept step mutated every un-detailed member with no undo entry.
    */
   import { t, tp } from '../../../lib/i18n';
+  import VariableSectionNotice from './VariableSectionNotice.svelte';
+  import { isElongatedSection } from '../../../lib/engine/codes/argentina/cirsoc201';
   import { verificationStore, modelStore } from '../../../lib/store';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
@@ -18,15 +20,18 @@
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
   import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
-  import { isVariableMember } from '../../../lib/section/variable';
 
   interface Props {
     selectedCount: number;
     hasResults: boolean;
     hasCombinations: boolean;
     editedCount: number;
+    /** Re-run the code check on the bars as they stand: the stale banner's button. */
+    onCodeCheck: () => void;
     onAutoDesignSelected: () => void;
     onAutoDesignUndesigned: () => void;
+    /** Members with no bars yet: the menu command has nothing to do when there are none. */
+    undesignedCount: number;
     onReviewChanges: () => void;
     onRevertEdits: () => void;
     onShowOrientation: () => void;
@@ -34,7 +39,7 @@
     onOpenDiagnostics: () => void;
   }
   let {
-    selectedCount, hasResults, hasCombinations, editedCount,
+    selectedCount, hasResults, hasCombinations, editedCount, undesignedCount,
     onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
     onReviewChanges, onRevertEdits, onShowOrientation,
     onOpenDiagnostics,
@@ -132,9 +137,11 @@
   // a generating run must not be interrupted by opening the viewer on a half-written document.
   const detailingBusy = $derived(detailingStore.generating);
 
+  /** Columns longer than three times their width: designed with the column rules, and said so. */
+  const elongatedColumns = $derived([...verificationStore.contexts.values()]
+    .filter((c) => c.elementType === 'column' && isElongatedSection(c.section.b, c.section.h)).length);
 
-  /** Members of variable section: analysed, and left out of design (`isDesignedMember`). */
-  const variableCount = $derived([...modelStore.elements.values()].filter((e) => isVariableMember(modelStore.sections, e)).length);
+
 </script>
 
 <div class="toolbar" data-testid="design-toolbar">
@@ -154,26 +161,6 @@
     the strip and the commands name the same stages.
   -->
   <div class="cmd-row">
-    <div class="cmd-group" data-testid="cmd-group-verify">
-      <span class="group-label">{t('design.group.verify')}</span>
-      <div class="group-items">
-        <!--
-          Compute demands lives in the stage strip now — see `RcStageTimeline.svelte`.
-
-          It produced the SOLICITACIONES from inside the stage that consumes them, grouped under
-          "Verify" ahead of "Design". One implementation still: both called `rcComputeDemands`,
-          and there is no copy of it inside any disclosure.
-        -->
-        <!--
-          Required steel moved to the REGLAMENTOS strip — see `RcStageTimeline.svelte`.
-
-          It computes what the code requires and reads no provided bar, so grouping it under
-          "Verify" ahead of "Design" claimed a check that had not happened. One implementation
-          still: both called `rcCodeCheck`.
-        -->
-      </div>
-    </div>
-
     <div class="cmd-group" data-testid="cmd-group-design">
       <span class="group-label">{t('design.group.design')}</span>
       <div class="group-items">
@@ -188,7 +175,7 @@
               onclick={() => (autoMenuOpen = !autoMenuOpen)} disabled={!canDesign}>▾</button>
       {#if autoMenuOpen}
         <div class="menu" role="menu" data-testid="autodesign-menu">
-          <button role="menuitem" data-testid="cmd-autodesign-undesigned"
+          <button role="menuitem" data-testid="cmd-autodesign-undesigned" disabled={undesignedCount === 0}
                   onclick={() => { autoMenuOpen = false; onAutoDesignUndesigned(); }}>
             {t('design.cmd.autoDesignUndesigned')}
           </button>
@@ -291,9 +278,9 @@
 
 
   <!-- ─── Banner stack ─── -->
-  {#if variableCount > 0}
-    <!-- Analysed, not designed: their checks need the methods for non-prismatic members. -->
-    <div class="banner" role="status" data-testid="banner-variable-section">{tp('spec.variable.notDesigned', { n: variableCount })}</div>
+  <VariableSectionNotice />
+  {#if elongatedColumns > 0}
+    <div class="banner banner-info" role="status" data-testid="banner-elongated-columns">{tp('design.banner.elongatedColumns', { n: elongatedColumns })}</div>
   {/if}
   {#if !hasCombinations}
     <div class="banner banner-block" role="alert" data-testid="banner-no-combinations">

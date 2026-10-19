@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { teAt } from '../../../i18n/engine-text';
-import {
+import { noteKey, noteText,
   ELEVATION_X, LAYERS, PLAN, barArcs, buildSchedule, buildTitleBlock, drawElevation,
   drawSection, project, scheduleToAoa, sheetToDxf, sheetToSvg,
 } from '../drawings';
@@ -218,8 +218,8 @@ describe('title block honesty', () => {
       conflicts: [conflict],
       unsupported: [{ key: 'beamTorsion', scope: {}, message: 'torsión no verificada', refs: [] }],
     }));
-    expect(s.notes.join('\n')).toMatch(/NO VERIFICADO — beamTorsion/);
-    expect(s.notes.join('\n')).toMatch(/CONFLICTO SOLAPE/);
+    expect(s.notes.map((n) => noteText(n, 'es')).join('\n')).toMatch(/NO VERIFICADO — beamTorsion/);
+    expect(s.notes.map((n) => noteText(n, 'es')).join('\n')).toMatch(/CONFLICTO SOLAPE/);
   });
 
   it('does not clutter the sheet with marginal conflicts', () => {
@@ -286,7 +286,8 @@ describe('DXF output', () => {
         provisionalAcknowledged: false, acknowledgedProvisional: [],
       },
     });
-    expect(sheetToDxf(elevation(a))).toContain('SUPERSEDED');
+    expect(sheetToDxf(elevation(a))).toContain('REEMPLAZADA');
+    expect(sheetToDxf(elevation(a), [], 'en')).toContain('SUPERSEDED');
   });
 
   it('never emits NaN', () => {
@@ -422,5 +423,19 @@ describe('bar bending schedule', () => {
 
   it('is deterministic', () => {
     expect(JSON.stringify(buildSchedule(marks))).toBe(JSON.stringify(buildSchedule(marks)));
+  });
+});
+
+describe('sheet notes in the document\'s language', () => {
+  it('turns a keyed note, a label:value fact and a plain key into words, in es, en and pt', () => {
+    const keyed = noteKey('detailing.note.conflictsMore', { n: 3 });
+    expect(noteText(keyed, 'es')).toContain('3 conflicto(s) más');
+    expect(noteText(keyed, 'en')).toContain('3 more conflict(s)');
+    expect(noteText(keyed, 'pt')).toContain('mais 3 conflito(s)');
+    expect(noteText('ground.allowable:notStated', 'en')).toBe('Allowable pressure (kPa): not stated');
+    expect(noteText('ground.allowable:notStated', 'pt')).toBe('Tensão admissível (kPa): não declarada');
+    expect(noteText('detailing.note.noBarsMember', 'es')).toBe('Sin armadura en el modelo para este elemento.');
+    // A sentence already in words is left as it is.
+    expect(noteText('Una nota cualquiera.', 'en')).toBe('Una nota cualquiera.');
   });
 });

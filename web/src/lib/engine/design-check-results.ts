@@ -30,7 +30,11 @@ export interface MemberDesignResult {
   codeName: string;           // "CIRSOC 201" | "AISC 360" | etc.
   governingCheck: string;     // name of the check with highest ratio
   utilization: number;        // max ratio across all checks (0–∞, ≤1.0 = pass)
-  status: CheckStatus;
+  /**
+   * `held`: a limit state the member needs was not evaluated, or the verdict depends on a datum
+   * the section does not declare (CIRSOC 301, `cirsoc301-verdict.ts`). Neither a pass nor a failure.
+   */
+  status: CheckStatus | 'held';
   comboName?: string;         // governing combo for the governing check
   checks: CheckDetail[];      // all individual checks
 }
@@ -228,7 +232,7 @@ export function normalizeCirsoc301(verifs: SteelVerification[], sectionNames: Ma
       codeName: 'CIRSOC 301',
       governingCheck: governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus as CheckStatus,
+      status: v.overallStatus,
       comboName: governing.comboName,
       checks,
     };

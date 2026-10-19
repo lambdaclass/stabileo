@@ -233,6 +233,7 @@ export function sheetRows(c: SheetContext): SheetRows {
    */
   const headline = refused || !r ? t('flex.out.checkInputs')
     : r.impossible ? t('flex.out.sectionTooSmall')
+    : r.exhausted ? t('flex.out.noArrangementFits')
     : mode === 'verify' ? `φMn = ${(r.phiMn ?? 0).toFixed(2)} kN·m`
     : `${isBeam ? 'As' : 'Ast'} = ${r.AstCm2.toFixed(3)} cm²`;
 

@@ -292,7 +292,15 @@ describe('the four outcomes are never conflated', () => {
       joints: [joint('J', [1], { 1: [{ at: 0, halfWidth: 0.30 }] })],
     });
     expect(r.outcome).not.toBe('ASSIGNMENT_FOUND');
-    expect(r.assignment.size).toBe(0);
+    // The member no layout of which clears its joint keeps the layout that overlaps least, so
+    // the rest of a floor can be coordinated around it (the 408-member frame had 0 of 2 000-odd
+    // members assigned while one joint anywhere was infeasible). It is not coordinated: it is
+    // reported with its joint, and the layout it keeps still crosses the obstacle. Before, the
+    // whole search was abandoned: assignment 0; now 1, the least-bad layout, reported.
+    expect(r.emptiedDomains).toEqual([{ elementId: 1, jointId: 'J' }]);
+    expect(r.infeasibleJoints.map((j) => j.jointId)).toEqual(['J']);
+    expect(r.assignment.size).toBe(1);
+    expect(candidateClears(r.assignment.get(1)!, 20, [{ at: 0, halfWidth: 0.30 }]).ok).toBe(false);
   });
 });
 

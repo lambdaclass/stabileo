@@ -41,6 +41,7 @@ import type { DocumentModel } from '../../engine/detailing/document-model';
 import { plainDeepCopy } from '../../utils/plain-deep-copy';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
+import { stateSuiteLateral } from '../../store/__tests__/suite-lateral';
 
 interface Built {
   doc: DocumentModel;
@@ -59,6 +60,8 @@ async function build(load: () => void | Promise<void>): Promise<Built> {
   verificationStore.clear();
 
   await load();
+  // The reading of the beams' role in the lateral system this suite was written under (`suite-lateral.ts`).
+  stateSuiteLateral();
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   expect(typeof solved).not.toBe('string');
@@ -167,8 +170,18 @@ describe('the 7-storey building is more than column longitudinals', () => {
     // Every beam is drawn, which was true before and stays true.
     const beamSolids = rolled.scene.solids.filter((s) => s.kind === 'beam');
     expect(beamSolids.length).toBeGreaterThan(50);
-    // A member with a proposal is not a member with nothing.
-    expect(rolled.scene.unreinforcedMembers, 'no beam is left bare').toEqual([]);
+    // A member with a proposal is not a member with nothing. The ones left bare are the beams the
+    // design refuses since it reads the column cages (no layout of their bars passes the 35 cm
+    // columns' bars, or anchors in them where one does): refused with their cause, no steel
+    // invented. Before: none bare; after: those 41, none of them a proposal.
+    const bare = rolled.scene.unreinforcedMembers;
+    expect(bare.length, 'the beams refused on the column cages').toBe(41);
+    for (const id of bare) {
+      const o = verificationStore.outcomeFor(id)!;
+      expect(o.outcome, `member ${id}`).not.toBe('PROVISIONAL_BIAXIAL');
+      expect(o.limiting.some((l) => l === 'congestion' || l === 'anchorage'), `member ${id}`).toBe(true);
+      expect(named, `member ${id}`).not.toContain(id);
+    }
     // And the building as committed names none.
     expect(built.scene.provisionalMembers).toEqual([]);
   }, 240_000);

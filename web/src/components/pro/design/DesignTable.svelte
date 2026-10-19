@@ -105,10 +105,10 @@
         </th>
         <th class="col-check" scope="col">{t('design.table.governing')}</th>
         <th class="col-ratio" scope="col" aria-sort={ariaSort('utilization')}>
-          <button class="sort-btn" onclick={() => onSort('utilization')}>{t('design.table.utilization')}</button>
+          <button class="sort-btn" onclick={() => onSort('utilization')} title={t('verdict.local.ratio')}>{t('design.table.utilization')} <span class="scope">({t('verdict.local.ratio')})</span></button>
         </th>
         <th class="col-status" scope="col" aria-sort={ariaSort('status')}>
-          <button class="sort-btn" onclick={() => onSort('status')}>{t('design.table.status')}</button>
+          <button class="sort-btn" onclick={() => onSort('status')}>{t('verdict.member.title')}</button>
         </th>
         <th class="col-flags" scope="col">{t('design.table.flags')}</th>
         <th class="col-combo" scope="col">{t('design.table.combo')}</th>
@@ -135,6 +135,10 @@
                     onclick={() => { onFocus(row.elementId); onExpand(row.elementId); }}>
               <span class="caret" aria-hidden="true">{expandedId === row.elementId ? '▾' : '▸'}</span>{row.elementId}
             </button>
+            {#if row.span}
+              <span class="span-of" data-testid={`row-span-${row.elementId}`}
+                    title={tp('span.pieceOf', { k: row.span.k, n: row.span.n, span: row.span.label })}>{row.span.label} · {row.span.k}/{row.span.n}</span>
+            {/if}
           </td>
           <td class="col-type">{row.elementType}</td>
           <td class="col-elev" data-testid={`row-elevation-${row.elementId}`}>{row.elevationLabel}</td>
@@ -178,6 +182,7 @@
 </div>
 
 <style>
+  .scope { font-weight: normal; opacity: 0.75; }
     /*
      A floor, not just `min-height: 0`.
      ─────────────────────────────────
@@ -216,6 +221,7 @@
   .row-stale td { color: var(--st-text); }
   .col-chk { width: 22px; }
   .col-id { width: 62px; font-family: monospace; }
+  .span-of { display: block; font-size: 10px; color: var(--st-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .col-type { width: 58px; }
   .col-elev { width: 92px; font-family: monospace; font-size: 0.68rem; }
   .col-ratio { width: 110px; }

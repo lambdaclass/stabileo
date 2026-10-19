@@ -5,25 +5,37 @@
  * same function the UI renders — so a "designed" member cannot have been certified
  * by a different standard than the one the engineer sees.
  *
- * Feasibility vs. exhaustion is decided honestly:
- *   - the whole code-permitted envelope was enumerated  → SECTION_INADEQUATE
- *   - a budget stopped the search first                  → SEARCH_EXHAUSTED (truncated)
- * We never claim infeasibility we did not establish (approved decision O1).
+ * Feasibility vs. exhaustion is decided by the evidence:
+ *   - a bound of the code no reinforcement lifts is exceeded  → SECTION_INADEQUATE, with the proof
+ *     (`section-bounds.ts`: which bound, its clause, its numbers)
+ *   - the generator ran out of the arrangements it implements → SEARCH_EXHAUSTED, scope
+ *     `implementedAlternatives`, with what was tried and what is not implemented
+ *   - a budget stopped the search first                       → SEARCH_EXHAUSTED, scope `budget`
+ * We never claim infeasibility we did not establish (approved decision O1): an enumeration that
+ * came back empty is not a proof, whatever its size.
  *
  * Pure: no store access, no side effects, no timers beyond reading a clock.
  */
 
+import { beamCornerRecord, columnCageDia, type BeamCornerRecord } from './end-support-anchorage';
+
+import { columnBarsOf } from '../detailing/joint-threading';
 import type { DesignCodeAdapter } from './code-adapter';
 import type { MemberContext } from './member-context';
 import type { Candidate, CandidateFeedback } from './candidate-generator';
-import { compareCandidates, compareFailures } from './objective';
+import { compareCandidates, compareFailures, computeCandidateCost, STANDARD_LONG_DIAS } from './objective';
+import type { ProvidedReinforcement } from '../../store/model.svelte';
+import type { ProvidedRebarResult } from '../station-design-forces';
 import { rebarHash } from './rebar-hash';
+import { completeAnchorage } from './anchorage-hooks';
 import {
   assertOutcomeInvariants, tallyRunSummary,
   DESIGN_TARGET_UTILIZATION, UTILIZATION_CONVENTION,
   UTIL_FAIL_THRESHOLD, UTIL_EPSILON,
-  type DesignAttempt, type DesignReason, type DesignRunSummary,
+  type DesignAttempt, type DesignCertificate, type DesignReason, type DesignRunSummary,
   type LimitingConstraint, type MemberDesignOutcome, type SearchStats,
+  type ExhaustionGap, type ExhaustionRecord, type InsufficiencyProof,
+  detailableReinforcement,
 } from './outcome';
 
 export interface SearchBudget {
@@ -149,10 +161,10 @@ export function designMember(
      * Briefly: a beam's reinforcement model has no side-face bars, in the schema, the
      * generator, the geometry, the drawings or the schedule — so a weak-axis check that
      * FAILED would leave the search no knob to turn. Bresler is formulated in 1/Pn and is
-     * unusable at N≈0. Two-way shear on a beam is not implemented. And in this very
-     * population the median torsion (1,33 kN·m) exceeds the median secondary moment
-     * (1,00 kN·m) while torsion is not verified at all, so certifying these members would
-     * move the false pass rather than remove it.
+     * unusable at N≈0. Two-way shear on a beam is not implemented. (When this was audited
+     * torsion was not verified at all, and in this population the median torsion, 1,33 kN·m,
+     * exceeds the median secondary moment, 1,00 kN·m. Torsion is checked now, §22.7 in
+     * `verifyProvidedReinforcement`; the reasons above still stand.)
      */
     if (unsupported.length === 1 && unsupported[0] === 'biaxial' && ctx.elementType !== 'column') {
       const proposal = proposeOnPrimaryAxis(adapter, ctx, opts, base, clock, t0);
@@ -255,21 +267,13 @@ export function designMember(
   // ── 5. Best passing candidate wins ──
   if (passing.length > 0) {
     passing.sort((a, b) => compareCandidates(a, b));
-    const win = passing[0].attempt;
-    const certificate = {
-      verifierId: prov.verifierId,
-      codeId: prov.codeId,
-      codeVersion: prov.codeVersion,
-      analysisRevision: ctx.analysisRevision,
-      demandRevision: ctx.demandRevision,
-      rebarHash: rebarHash(win.candidate),
-      worstUtilization: +win.worstUtilization.toFixed(4),
-      designTarget: DESIGN_TARGET_UTILIZATION,
-      checkCount: win.verdict.strengthCheckCount,
-      checkedAxes: [...win.verdict.checkedAxes],
-      axisBasis: ctx.axes.basis,
-      utilizationConvention: UTILIZATION_CONVENTION,
-    };
+    let win = passing[0].attempt;
+    // A bottom group that anchors into its support only with a hook gets the hook (§25.4.3).
+    const done = completeAnchorage(adapter, ctx, win.candidate, win.verdict,
+      (v) => isPassingVerdict({ ...win, verdict: v, worstUtilization: v.worstUtilization }));
+    if (done.verified) verifierCalls++;
+    if (done.reinf !== win.candidate) win = { ...win, candidate: done.reinf, verdict: done.verdict, worstUtilization: done.verdict.worstUtilization };
+    const certificate = certificateFor(adapter, ctx, win.candidate, win.verdict);
     return finish({
       ...base, outcome: 'VERIFIED',
       accepted: win.candidate, certificate,
@@ -303,26 +307,96 @@ export function designMember(
 
   const advice = envelopeExhausted ? adapter.recommendSection(ctx, limiting) : undefined;
 
-  // The envelope was fully enumerated and nothing fits/verifies → the section, not
-  // the reinforcement, is the limit. Requires a recommendation to be honest.
-  if (envelopeExhausted && advice) {
+  /*
+   * SECTION_INADEQUATE only on a proof: a bound of the code no reinforcement lifts, exceeded
+   * (`section-bounds.ts`). It used to be the envelope run out with a section recommendation to
+   * offer, which is a claim about the arrangements the generator ENUMERATES (finite diameters,
+   * rows, layouts and seats, the first options per region), not about the section: 22 beams of
+   * the flagship frame read «section inadequate» for congestion and anchorage that no bound
+   * proves. Those are SEARCH_EXHAUSTED, with what was tried and what is not implemented.
+   */
+  const proof = adapter.insufficiency?.(ctx) ?? null;
+  if (proof) {
+    const bound: LimitingConstraint = proof.bound === 'shearSectionLimit' ? 'shear'
+      : proof.bound === 'axialCapacityAtMaxSteel' ? 'axialFlexure' : 'barFit';
+    const sectionAdvice = advice ?? adapter.recommendSection(ctx, [bound]);
     return finish({
       ...base, outcome: 'SECTION_INADEQUATE',
       provisional: bestFailure?.attempt,
-      limiting, reasons, sectionAdvice: advice,
-      searchStats: stats(tried, verifierCalls, truncated, true),
+      limiting: limiting.includes(bound) ? limiting : [bound, ...limiting.filter((l) => l !== 'searchBudget')],
+      reasons: [insufficiencyReason(ctx.elementId, proof), ...reasons.filter((r) => r.key !== 'design.reason.searchTruncated')],
+      insufficiency: proof,
+      ...(sectionAdvice ? { sectionAdvice } : {}),
+      searchStats: stats(tried, verifierCalls, truncated, envelopeExhausted),
     });
   }
 
+  const exhaustion = exhaustionOf(adapter, ctx, limiting, tried, truncated);
   return finish({
     ...base, outcome: 'SEARCH_EXHAUSTED',
     provisional: bestFailure?.attempt,
-    limiting, reasons,
+    limiting,
+    reasons: [...reasons, ...exhaustionReasons(ctx.elementId, exhaustion)],
+    exhaustion,
     sectionAdvice: advice ?? undefined,
-    // Never report envelopeExhausted on a SEARCH_EXHAUSTED result: the invariant
-    // guard treats that combination as a contract violation.
-    searchStats: stats(tried, verifierCalls, truncated, false),
+    searchStats: stats(tried, verifierCalls, truncated, envelopeExhausted),
   });
+}
+
+/**
+ * What an exhausted search tried and what it could not: the alternatives the generator enumerates
+ * for this member, and the ones nothing in this app implements, chosen by what limited it.
+ */
+export function exhaustionOf(
+  adapter: DesignCodeAdapter, ctx: MemberContext, limiting: readonly LimitingConstraint[], tried: number, truncated: boolean,
+): ExhaustionRecord {
+  const alt = adapter.alternatives?.(ctx) ?? {
+    longDiametersMm: [...(ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS)], maxRows: 0, optionsRetained: 0,
+    stirrupDiametersMm: [], maxLegs: 0,
+  };
+  const gaps = new Set<ExhaustionGap>();
+  gaps.add('bundledBars');
+  if (ctx.elementType !== 'column') { gaps.add('mixedDiametersInRow'); gaps.add('optionsBeyondRetained'); }
+  if (limiting.includes('anchorage')) { gaps.add('headedBars'); gaps.add('mechanicalAnchorage'); gaps.add('columnCageChange'); }
+  // An undeclared beam is designed as part of the lateral system (§9.7.3.8.2, fy at the face):
+  // declaring its role is an input that can change this verdict, and the outcome says so.
+  if (limiting.includes('anchorage') && ctx.elementType === 'beam' && (ctx.lateral?.role ?? 'undeclared') === 'undeclared') gaps.add('lateralRoleUndeclared');
+  if (limiting.includes('congestion') && ctx.elementType !== 'column') gaps.add('columnCageChange');
+  if (truncated) gaps.add('searchBudget');
+  return {
+    scope: truncated ? 'budget' : 'implementedAlternatives',
+    limiting: [...limiting],
+    tried: { candidates: tried, ...alt, crossingSeatsRetried: false },
+    notImplemented: [...gaps],
+  };
+}
+
+/** The sentence an exhausted search states, and one per alternative it did not try. */
+export function exhaustionReasons(elementId: number, e: ExhaustionRecord): DesignReason[] {
+  return [
+    {
+      key: e.scope === 'budget' ? 'design.reason.exhaustedBudget' : 'design.reason.alternativesExhausted',
+      params: {
+        elementId, tried: e.tried.candidates, limiting: e.limiting.join(', '),
+        diameters: e.tried.longDiametersMm.join(', '), rows: e.tried.maxRows, options: e.tried.optionsRetained,
+        stirrups: e.tried.stirrupDiametersMm.join(', '), legs: e.tried.maxLegs,
+      },
+    },
+    ...(e.tried.crossingSeatsRetried ? [{ key: 'design.reason.crossingSeatsRetried', params: { elementId } }] : []),
+    ...e.notImplemented.filter((g) => g !== 'searchBudget').map((g) => ({ key: `design.gap.${g}` })),
+  ];
+}
+
+/** The proof, as the reason a demonstrated insufficiency states. */
+export function insufficiencyReason(elementId: number, p: InsufficiencyProof): DesignReason {
+  return {
+    key: `design.reason.insufficiency.${p.bound}`,
+    params: {
+      elementId, demand: p.demand, capacity: p.capacity, unit: p.unit, clause: p.clause,
+      ...(p.axis ? { axis: p.axis } : {}),
+      ...Object.fromEntries(Object.entries(p.basis).map(([k, v]) => [k, v])),
+    },
+  };
 }
 
 /**
@@ -460,15 +534,44 @@ export function runDesign(
   const t0 = clock();
   const maxRunMs = opts.maxRunMs ?? DEFAULT_RUN_MS;
   const every = Math.max(1, opts.progressEvery ?? 25);
-  const list = [...contexts].sort((a, b) => a.elementId - b.elementId);
+  // Columns first: a beam's bars hook into the columns' cages (`end-support-anchorage.ts`), so the
+  // beams are designed against the cages just designed, not against a default.
+  const rank = (c: MemberContext) => (c.elementType === 'column' ? 0 : 1);
+  const list = [...contexts].sort((a, b) => rank(a) - rank(b) || a.elementId - b.elementId);
   const outcomes: MemberDesignOutcome[] = [];
   let aborted = false;
+  const cages = new Map<number, number>();
+  const colBars = new Map<number, { count: number; diameterMm: number }>();
+  const corners = new Map<number, BeamCornerRecord>();
+  const absent = new Set<number>();
 
   for (let i = 0; i < list.length; i++) {
     if (opts.signal?.aborted) { aborted = true; break; }
     if (clock() - t0 > maxRunMs) { aborted = true; break; }
     const ctx = list[i];
-    outcomes.push(designMember(adapter, ctx, { budget: opts.budget, clock }));
+    const withCages = ctx.elementType === 'beam' && (cages.size > 0 || corners.size > 0 || absent.size > 0)
+      ? {
+        ...ctx,
+        columnCages: new Map([...(ctx.columnCages ?? []), ...cages]),
+        columnBars: new Map([...(ctx.columnBars ?? []), ...colBars]),
+        beamCorners: new Map([...(ctx.beamCorners ?? []), ...corners]),
+        absentBeams: new Set([...(ctx.absentBeams ?? []), ...absent]),
+      } : ctx;
+    const o = designMember(adapter, withCages, { budget: opts.budget, clock });
+    outcomes.push(o);
+    if (ctx.elementType === 'column') {
+      const dia = columnCageDia(detailableReinforcement(o)?.rebar);
+      if (dia > 0) cages.set(ctx.elementId, dia);
+      const bars = columnBarsOf(detailableReinforcement(o)?.rebar);
+      if (bars) colBars.set(ctx.elementId, bars);
+    } else if (ctx.elementType === 'beam') {
+      const rec = beamCornerRecord(detailableReinforcement(o)?.rebar, ctx.material.stirrupDia);
+      // Every piece of a span holds the span's steel; a refused span holds none.
+      for (const id of ctx.span?.elements ?? [ctx.elementId]) {
+        if (rec) corners.set(id, rec);
+        if (!detailableReinforcement(o)) absent.add(id);
+      }
+    }
     if (opts.onProgress && ((i + 1) % every === 0 || i === list.length - 1)) {
       opts.onProgress({
         done: i + 1, total: list.length,
@@ -478,9 +581,170 @@ export function runDesign(
     }
   }
 
+  /*
+   * The settle runs to its end whatever the clock says. It is what makes a verified beam's
+   * certificate true against the seats the run designed, and its work is bounded by counts (each
+   * member's search budget, no more sweeps than members). Cut by the run's clock, it left beams
+   * VERIFIED against a guess with `aborted` false: on the 408-member flagship a run that crossed
+   * the 20 s mark during the settle verified 357 beams and columns where a complete one verifies
+   * 356, and the repair ladder downstream moved other bars. The clock stops the loop above, where
+   * what it leaves out is counted in `notReached`; a cancellation still stops the settle, and the
+   * run says it was aborted.
+   */
+  if (!settleCrossingSeats(adapter, list, outcomes, cages, colBars, corners, absent, {
+    budget: opts.budget, clock, cancelled: () => !!opts.signal?.aborted,
+  })) aborted = true;
+
   const prov = adapter.provenance();
   return tallyRunSummary(
     prov.codeId, prov.codeVersion, outcomes,
     +(clock() - t0).toFixed(3), aborted, list.length - outcomes.length,
   );
+}
+
+/**
+ * What a beam's supports hold, settled after the run.
+ *
+ * A beam's hooks keep clear of the corner bars of the beams crossing it at a joint, and its bars
+ * lap at a support only where a beam continues the line (`end-support-anchorage.ts`). During the
+ * run a beam not designed yet is read as present, at every seat it could take; a refused beam has
+ * no bars and is read as absent from then on (`absentBeams`). Two things follow:
+ *
+ *   - two beams crossing at a congested joint refuse each other, each reading the other at its
+ *     worst seat, and neither ever gets a seat to read. So every beam refused on its anchorage is
+ *     designed again, reading the other ones as present at their lightest seat (the smallest
+ *     admissible bar on the project's stirrup) — a guess;
+ *   - a beam designed before its neighbour was refused read a line that continues, or a seat,
+ *     that the detailing will not lay.
+ *
+ * So every verified beam is then verified again against what the run actually designed, and one
+ * that no longer passes is designed again, and refused if nothing passes, until a sweep changes
+ * nothing. A refused beam is never brought back in a sweep, so the beams the others were checked
+ * against stay what they were checked as, and what is left verified passes against the designs
+ * the detailing lays: never a guess.
+ */
+function settleCrossingSeats(
+  adapter: DesignCodeAdapter, list: MemberContext[], outcomes: MemberDesignOutcome[],
+  cages: Map<number, number>, colBars: Map<number, { count: number; diameterMm: number }>,
+  corners: Map<number, BeamCornerRecord>, absent: Set<number>,
+  o: { budget?: SearchBudget; clock: Clock; cancelled: () => boolean },
+): boolean {
+  const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
+  const pieces = (c: MemberContext) => c.span?.elements ?? [c.elementId];
+  const record = (i: number) => {
+    const rebar = detailableReinforcement(outcomes[i])?.rebar;
+    const rec = beamCornerRecord(rebar, list[i]!.material.stirrupDia);
+    for (const id of pieces(list[i]!)) {
+      if (rec) corners.set(id, rec); else corners.delete(id);
+      if (rebar) absent.delete(id); else absent.add(id);
+    }
+  };
+  const withSeats = (c: MemberContext, guess?: { seats: ReadonlyMap<number, BeamCornerRecord>; present: ReadonlySet<number> }): MemberContext => ({
+    ...c, columnCages: new Map([...(c.columnCages ?? []), ...cages]),
+    columnBars: new Map([...(c.columnBars ?? []), ...colBars]),
+    beamCorners: new Map([...(c.beamCorners ?? []), ...(guess?.seats ?? []), ...corners]),
+    absentBeams: new Set([...(c.absentBeams ?? []), ...absent].filter((id) => !guess?.present.has(id))),
+  });
+  // 1. The guess: the beams refused on their anchorage, present at their lightest seat.
+  const refused = outcomes.map((x, i) => (refusedOnAnchorage(x) ? i : -1)).filter((i) => i >= 0);
+  const lightest = new Map<number, BeamCornerRecord>();
+  for (const i of refused) {
+    const c = list[i]!;
+    const admissible = c.material.longDiametersMm?.length ? c.material.longDiametersMm : STANDARD_LONG_DIAS;
+    for (const id of pieces(c)) lightest.set(id, { cornerDiasMm: [Math.min(...admissible)], stirrupDiaMm: c.material.stirrupDia });
+  }
+  for (const i of refused) {
+    if (o.cancelled()) return false;
+    const again = designMember(adapter, withSeats(list[i]!, { seats: lightest, present: new Set(lightest.keys()) }), { budget: o.budget, clock: o.clock });
+    if (again.outcome !== 'VERIFIED') {
+      // Tried again with the crossing beams at their lightest seat, and refused again: said so.
+      const x = outcomes[i]!;
+      if (x.exhaustion && !x.exhaustion.tried.crossingSeatsRetried) {
+        const exhaustion = { ...x.exhaustion, tried: { ...x.exhaustion.tried, crossingSeatsRetried: true } };
+        outcomes[i] = { ...x, exhaustion, reasons: [...x.reasons, { key: 'design.reason.crossingSeatsRetried', params: { elementId: x.elementId } }] };
+      }
+      continue;
+    }
+    outcomes[i] = again; record(i);
+    for (const id of pieces(list[i]!)) lightest.delete(id);
+  }
+  // 2 runs whatever happened in 1: a beam designed before the beams crossing it read them at
+  // every seat they could take, and is checked again against the seats they have.
+  // 2. Settle against what was designed.
+  for (let sweep = 0; sweep < list.length; sweep++) {
+    let changed = false;
+    // Every beam's corner seats as designed now (its crossing beams' settled since).
+    for (let i = 0; i < outcomes.length; i++) if (outcomes[i]!.elementType === 'beam') record(i);
+    for (let i = 0; i < outcomes.length; i++) {
+      const x = outcomes[i]!;
+      if (x.elementType !== 'beam' || x.outcome !== 'VERIFIED') continue;
+      const rebar = detailableReinforcement(x)?.rebar;
+      if (!rebar || adapter.verify(withSeats(list[i]!), rebar).overallStatus !== 'fail') continue;
+      if (o.cancelled()) return false;
+      const again = designMember(adapter, withSeats(list[i]!), { budget: o.budget, clock: o.clock });
+      outcomes[i] = again;
+      record(i);
+      /*
+       * A change is a different verdict or different bars. A beam whose bars read `fail` here
+       * only for a hook the search completes (`anchorHook`, `completeAnchorage`) is designed
+       * again to the same bars, VERIFIED: counting that as a change re-ran the sweep up to once
+       * per member (103 835 verifier calls on the 408-member frame, for two such beams).
+       */
+      const before = detailableReinforcement(x)?.rebar, after = detailableReinforcement(again)?.rebar;
+      if (again.outcome !== x.outcome || !before || !after || rebarHash(before) !== rebarHash(after)) changed = true;
+    }
+    if (!changed) return true;
+  }
+  return true;
+}
+
+/** The certificate a passing arrangement gets: the one shape the search and an edit share. */
+export function certificateFor(
+  adapter: DesignCodeAdapter, ctx: MemberContext, reinf: ProvidedReinforcement, verdict: ProvidedRebarResult,
+): DesignCertificate {
+  const prov = adapter.provenance();
+  return {
+    verifierId: prov.verifierId,
+    codeId: prov.codeId,
+    codeVersion: prov.codeVersion,
+    analysisRevision: ctx.analysisRevision,
+    demandRevision: ctx.demandRevision,
+    rebarHash: rebarHash(reinf),
+    worstUtilization: +verdict.worstUtilization.toFixed(4),
+    designTarget: DESIGN_TARGET_UTILIZATION,
+    checkCount: verdict.strengthCheckCount,
+    checkedAxes: [...verdict.checkedAxes],
+    axisBasis: ctx.axes.basis,
+    utilizationConvention: UTILIZATION_CONVENTION,
+  };
+}
+
+/**
+ * The outcome of the bars a member HAS, when someone edited them.
+ *
+ * The detailing, the drawings and the schedule draw what the outcome accepts, and they used to
+ * read the design run's arrangement even after an edit: the table showed one set of bars and the
+ * drawings another. An edit that verifies is accepted with its own certificate. One that fails
+ * has no outcome to draw (null): the member is left out of the drawings, and the design table
+ * already shows its failing checks. No refusal kind fits it, because nothing was searched.
+ */
+export function outcomeFromProvided(
+  adapter: DesignCodeAdapter, ctx: MemberContext, reinf: ProvidedReinforcement, verdict: ProvidedRebarResult,
+): MemberDesignOutcome | null {
+  const attempt: DesignAttempt = {
+    candidate: reinf, verdict, worstUtilization: verdict.worstUtilization,
+    failingCheckCount: verdict.checks.filter((k) => k.status === 'fail').length,
+    governing: null, cost: computeCandidateCost(reinf, { L: ctx.L, layoutIssues: 0, arrangements: 1, spacings: [] }),
+  };
+  if (!isPassingVerdict(attempt)) return null;
+  const prov = adapter.provenance();
+  const o: MemberDesignOutcome = {
+    elementId: ctx.elementId, elementType: ctx.elementType,
+    codeId: prov.codeId, codeVersion: prov.codeVersion, axes: ctx.axes,
+    searchStats: { candidatesTried: 0, verifierCalls: 0, ms: 0, truncated: false, envelopeExhausted: false },
+    outcome: 'VERIFIED', accepted: reinf, certificate: certificateFor(adapter, ctx, reinf, verdict),
+    limiting: [], reasons: [],
+  };
+  assertOutcomeInvariants(o);
+  return o;
 }

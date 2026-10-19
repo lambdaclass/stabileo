@@ -1,12 +1,13 @@
 // CIRSOC 201 — Slab (Losa) Verification & Design
 // Implements reinforcement design for one-way, two-way (crossed), and cantilever slabs
-// per CIRSOC 201-2005. Does NOT modify the solver.
+// per CIRSOC 201; φ by CIRSOC 201-2025 Tabla 21.2.2 (`CIRSOC201_DESIGN_EDITION`). Does NOT modify
+// the solver.
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
 import { REBAR_DB } from './cirsoc201';
 import type { VerifStatus } from './cirsoc201';
-import { beta1, yieldStrain, phiFromStrain } from './cirsoc201-basis';
+import { beta1, yieldStrain, phiByEdition, CIRSOC201_DESIGN_EDITION } from './cirsoc201-basis';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ function computeAsFlexure(
      * spelled out here with 0.0021 — the yield strain of a 420 bar — which
      * is right for that bar and only that one; see `cirsoc201-basis.ts`.
      */
-    phi = phiFromStrain(epsilonT, fy);
+    phi = phiByEdition(epsilonT, fy, 'ties', CIRSOC201_DESIGN_EDITION);
   }
 
   return { As, a, phi };

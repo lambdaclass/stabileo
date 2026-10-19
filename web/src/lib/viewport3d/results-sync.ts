@@ -6,6 +6,7 @@
 //   - DIAGRAM_3D_TYPES (constant)
 //   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
+import { designData } from '../store/design-data';
 import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -19,7 +20,7 @@ import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { viewState, memberLabelText, nodeLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { structureNodes } from '../three/node-scale';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationVisual, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
@@ -580,10 +581,9 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     // construction) and therefore stayed green after a user weakened rebar.
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
-      const ds = verificationStore.getDisplayStatus(id);
-      const state = ds === 'unavailable' ? 'unavailable' : ds === 'stale' ? 'stale' : 'current';
-      const ratio = state === 'unavailable' ? null : verificationStore.getDisplayRatio(id);
-      const c = verificationStateColor(ratio, state);
+      // The colour follows the member's verdict, not its worst local ratio (`verificationVisual`).
+      const v = verificationStore.memberVerdict(id);
+      const c = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).color;
       if (group) setGroupColor(group, c);
       eb.setBaseColor(id, c);
     });
@@ -620,10 +620,9 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   // Same partial-registry trap as the colour maps: in wireframe the labels
   // would appear only on the handful of members that happen to have a group.
   forEachElementVisual(ctx, (id) => {
-    const ds = verificationStore.getDisplayStatus(id);
-    if (ds === 'unavailable') return;
-    const ratio = verificationStore.getDisplayRatio(id);
-    if (ratio === null) return;
+    const v = verificationStore.memberVerdict(id);
+    const label = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label;
+    if (!label) return;
 
     const elem = modelStore.elements.get(id);
     if (!elem) return;
@@ -638,13 +637,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const my = (sceneI.y + sceneJ.y) / 2;
     const mz = (sceneI.z + sceneJ.z) / 2;
 
-    // Colour + glyph carry the state so it is never colour-only (a11y).
-    const status = verificationStore.getStatus(id);
-    const baseColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
-    const textColor = ds === 'stale' ? '#b9b9a8' : baseColor;
-    const glyph = ds === 'stale' ? '⌛ ' : status === 'fail' ? '✗ ' : status === 'warn' ? '⚠ ' : '';
-
-    const sprite = createTextSpriteCached(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
+    // Colour + glyph carry the verdict so it is never colour-only (a11y); ⊘ marks a held member.
+    const sprite = createTextSpriteCached(label.text, label.color, 32);
     sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
     sprite.scale.set(0.45, 0.45, 1);
     group.add(sprite);
@@ -888,7 +882,12 @@ function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  const plates = r3d.plateStresses ?? [], quads = r3d.quadStresses ?? [];
+  const steel = resultsStore.shellContourComponent.startsWith('as');
+  const dd = steel ? designData() : null;
+  // The required-steel components read each shell's depth (thickness less the slab cover) and the project's fy.
+  const basis = (t: number | undefined) => (dd && t ? { steelBasis: { d: t - dd.covers.slab - 0.006, fy: dd.rebarFy } } : {});
+  const plates = (r3d.plateStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.plates.get(s.elementId)?.thickness) } : s));
+  const quads = (r3d.quadStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.quads.get(s.elementId)?.thickness) } : s));
   if (plates.length === 0 && quads.length === 0) return;
   const field = shellContourField(
     { plates, quads },

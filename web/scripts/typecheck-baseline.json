@@ -820,7 +820,7 @@
 		{
 			"file": "src/lib/engine/detailing/__tests__/design-feedback-loop.test.ts",
 			"code": "TS2367",
-			"message": "This comparison appears to be unintentional because the types '\"warn\" | \"fail\"' and '\"ok\"' have no overlap.",
+			"message": "This comparison appears to be unintentional because the types '\"fail\" | \"warn\"' and '\"ok\"' have no overlap.",
 			"count": 1
 		},
 		{

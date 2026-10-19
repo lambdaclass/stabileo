@@ -31,7 +31,7 @@ import {
   type StationForces,
 } from './station-design-forces';
 import { extractBeamStationBuffer3D, extractBeamStationsGrouped3D, isSolverReady } from './wasm-solver';
-import { autoVerifyFromResults, type AutoVerifyModelData } from './auto-verify';
+import { autoVerifyFromResults, type AutoVerifyModelData, type AutoVerifyOptions } from './auto-verify';
 import { classifyElement, type ElementVerification } from './codes/argentina/cirsoc201';
 import {
   checkSteelInteraction, interactionRatios, steelShapeOf, verifyByFlange, withUndeclaredData, worseSteelVerification,
@@ -237,12 +237,13 @@ export function runUnifiedVerification(
   model: AutoVerifyModelData,
   governing: Map<number, GoverningPerElement3D> | null,
   stationDemands?: Map<number, ElementDesignDemands>,
+  options?: AutoVerifyOptions,
 ): ElementVerification[] {
   const { concrete } = autoVerifyFromResults(
     results3D,
     model,
     governing,
-    undefined,
+    options,
     stationDemands,
   );
   return concrete;
@@ -271,8 +272,9 @@ export function runCirsocDesign(
   stationDemands: Map<number, ElementDesignDemands> | undefined,
   sectionNames: Map<number, string>,
   governing: Map<number, GoverningPerElement3D> | null,
+  options?: AutoVerifyOptions,
 ): { normalized: MemberResult[]; concrete: ElementVerification[]; summary: DesignCheckSummary | null } {
-  const concrete = runUnifiedVerification(results3D, model, governing, stationDemands);
+  const concrete = runUnifiedVerification(results3D, model, governing, stationDemands, options);
   const normalized = normalizeCirsoc201(concrete, sectionNames);
 
   // PURE: this function no longer writes to any store. Publishing the code-check
@@ -1182,7 +1184,7 @@ export function getCodeDetail(v: ElementVerification | undefined | null): CodeDe
   }
 
   const interactionParams = v.column ? {
-    b: v.b, h: v.h, fc: v.fc, fy: 420,
+    b: v.b, h: v.h, fc: v.fc, fy: v.fy,
     cover: v.cover + (v.shear.stirrupDia / 2000) + (v.flexure.barDia / 2000),
     AsProv: v.column.AsProv, barCount: v.column.barCount,
     barDia: v.column.barDia ?? v.flexure.barDia,

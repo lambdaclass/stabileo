@@ -20,6 +20,7 @@ import { designRunStore } from '../../store/design-run.svelte';
 import { deserializeProject } from '../../store/file';
 import { isSolverReady } from '../../engine/wasm-solver';
 import type { DetailingAssembly } from '../../engine/detailing/assembly';
+import { stateSuiteLateral } from '../../store/__tests__/suite-lateral';
 
 export const FIXTURE_URL = new URL('../__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url);
 
@@ -51,6 +52,8 @@ export async function runProductionChain(): Promise<ChainOutcome> {
   designRunStore.resetMarks();
 
   expect(deserializeProject(fixtureText()), 'the committed .ded project restores').toBe(true);
+  // The reading of the beams' role in the lateral system this suite was written under (`suite-lateral.ts`).
+  stateSuiteLateral();
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
 
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);

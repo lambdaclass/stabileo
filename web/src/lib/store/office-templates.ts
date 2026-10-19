@@ -2,11 +2,14 @@
  * The office's templates: kept in this browser, exported and imported as files, and applied to
  * the open project as one undo step (`model/office-template.ts`).
  */
+import { designData, setDesignData } from './design-data';
+import { migrateDesignData } from '../model/design-data';
 import type { DrawnSection } from '../section/drawn';
 import { modelStore } from './model.svelte';
 import { regulationsStore } from './regulations.svelte';
 import { templateFrom, planTemplate, parseTemplate, type OfficeTemplate } from '../model/office-template';
 import { REGULATION_ROLES, type RegulationRole, type RoleBinding } from '../codes/roles';
+import { withProjectLateralOnly } from '../model/lateral-system';
 
 const KEY = 'stabileo-office-templates';
 
@@ -29,7 +32,9 @@ export function templateFromProject(name: string): OfficeTemplate {
     materials: m.materials.values(), sections: m.sections.values(),
     loadCases: m.loadCases, combinations: m.combinations,
     combinationRules: m.combinationRules, regulations: m.regulations,
-    deflectionLimits: m.deflectionLimits,
+    // A member's role in the lateral system names this project's members: the template keeps
+    // only the beams' default (`model/lateral-system.ts`).
+    deflectionLimits: m.deflectionLimits, designData: m.designData ? withProjectLateralOnly(m.designData) : m.designData,
   } as never, name);
 }
 
@@ -81,7 +86,7 @@ export function applyTemplate(t: OfficeTemplate): ReturnType<typeof planTemplate
   const plan = planTemplate(t, {
     materials: m.materials.values(), sections: m.sections.values(),
     loadCases: m.loadCases, combinations: m.combinations,
-    combinationRules: m.combinationRules, deflectionLimits: m.deflectionLimits,
+    combinationRules: m.combinationRules, deflectionLimits: m.deflectionLimits, designData: m.designData,
   } as never);
   let regulationChanges: TemplateRegulations = { applied: [], review: [], refused: [] };
   modelStore.batch(() => {
@@ -119,6 +124,11 @@ export function applyTemplate(t: OfficeTemplate): ReturnType<typeof planTemplate
     if (plan.combinationRules.length) modelStore.setCombinationRules([...(m.combinationRules ?? []), ...plan.combinationRules] as never);
     if (plan.regulations) regulationChanges = applyRegulations(plan.regulations);
     if (plan.deflectionLimits) modelStore.setDeflectionLimits(plan.deflectionLimits);
+    // The open project's own members keep the roles they declare; the template brings its default.
+    if (plan.designData) {
+      const next = migrateDesignData(plan.designData), own = designData().lateralSystem?.members;
+      setDesignData(own ? { ...next, lateralSystem: { ...withProjectLateralOnly(next).lateralSystem, members: own } } : withProjectLateralOnly(next));
+    }
   });
   return { ...plan, regulationChanges };
 }

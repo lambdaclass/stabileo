@@ -20,6 +20,8 @@
  *    declared role in the lateral-force-resisting system (`P{id}`, `model/lateral-system.ts`): design.
  */
 import { modelStore } from './model.svelte';
+import { designData } from './design-data';
+import type { ProjectDesignData } from '../model/design-data';
 
 export type GroupRefPlace =
   | 'selfWeight' | 'floorLoad' | 'massWeight' | 'footingWall'
@@ -35,6 +37,7 @@ export interface GroupReference {
 
 const ANALYSIS: ReadonlySet<GroupRefPlace> = new Set(['selfWeight', 'floorLoad', 'massWeight', 'footingWall']);
 
+const keyed = (prefix: string, id: number) => `${prefix}${id}`;
 
 /** Every reference to group `id` in the project. */
 export function groupReferences(id: number): GroupReference[] {
@@ -52,11 +55,39 @@ export function groupReferences(id: number): GroupReference[] {
   }
   for (const f of m.footings.values()) if (f.wallGroupId === id) push('footingWall', `#${f.id}`);
   for (const r of m.deflectionLimits?.rules ?? []) if (r.scope.kind === 'group' && r.scope.groupId === id) push('deflection');
+  const dd = designData();
+  if (dd.specialFloors?.systems?.[keyed('S', id)] !== undefined) push('slabSystem');
+  if (dd.postTension?.panels?.[keyed('S', id)] !== undefined) push('tendons');
+  if (dd.lateralSystem?.members?.[keyed('P', id)] !== undefined) push('lateral');
+  if ((modelStore.designDecisions as { joists?: Record<string, unknown> } | undefined)?.joists?.[keyed('J', id)] !== undefined) push('joist');
   return out;
 }
 
 /** A stored value that could not move because the target already held a different one. */
 export interface DroppedValue { place: GroupRefPlace; fromId: number; toId: number }
+
+/**
+ * Rename the keys of a record that name a moved id. A key the target already holds is not
+ * overwritten: when the two values differ the moved one is reported in `dropped`, so the caller
+ * can say so instead of losing it silently.
+ */
+function moveKeys<T>(rec: Record<string, T> | undefined, prefix: string, map: ReadonlyMap<number, number>, place: GroupRefPlace, dropped: DroppedValue[]): Record<string, T> | undefined {
+  if (!rec) return rec;
+  let changed = false;
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(rec)) {
+    const n = k.startsWith(prefix) ? Number(k.slice(prefix.length)) : NaN;
+    const to = Number.isInteger(n) ? map.get(n) : undefined;
+    if (to !== undefined && to !== n) {
+      changed = true;
+      const nk = keyed(prefix, to);
+      const held = nk in rec ? rec[nk] : out[nk];
+      if (held === undefined) out[nk] = v;
+      else if (JSON.stringify(held) !== JSON.stringify(v)) dropped.push({ place, fromId: n, toId: to });
+    } else if (!(k in out)) out[k] = v;
+  }
+  return changed ? out : rec;
+}
 
 /** The references whose extent is a set of members: they move to a group with exactly those members. */
 export const EXTENT_PLACES: ReadonlySet<GroupRefPlace> = new Set(['selfWeight', 'floorLoad', 'massWeight', 'footingWall', 'deflection']);
@@ -123,6 +154,22 @@ export function remapGroupReferences(
       }),
     });
   }
+
+  const dd = designData();
+  const next: Partial<ProjectDesignData> = {};
+  const sys = want('slabSystem') ? moveKeys(dd.specialFloors?.systems, 'S', map, 'slabSystem', dropped) : dd.specialFloors?.systems;
+  if (sys !== dd.specialFloors?.systems) next.specialFloors = { ...dd.specialFloors, systems: sys };
+  const panels = want('tendons') ? moveKeys(dd.postTension?.panels, 'S', map, 'tendons', dropped) : dd.postTension?.panels;
+  if (panels !== dd.postTension?.panels) next.postTension = { ...dd.postTension, panels };
+  // A physical element's role in the lateral system: its members' own `e{id}` keys do not move.
+  const lateral = want('lateral') ? moveKeys(dd.lateralSystem?.members, 'P', map, 'lateral', dropped) : dd.lateralSystem?.members;
+  if (lateral !== dd.lateralSystem?.members) next.lateralSystem = { ...dd.lateralSystem, members: lateral };
+  const n = Object.keys(next).length;
+  if (n > 0) { modelStore.setDesignData({ ...dd, ...next } as ProjectDesignData); moved += n; }
+
+  const dec = modelStore.designDecisions as ({ joists?: Record<string, unknown> } & Record<string, unknown>) | undefined;
+  const joists = want('joist') ? moveKeys(dec?.joists, 'J', map, 'joist', dropped) : dec?.joists;
+  if (dec && joists !== dec.joists) { modelStore.setDesignDecisions({ ...dec, joists } as never); moved++; }
 
   return { analysis, moved, dropped };
 }

@@ -29,11 +29,19 @@ export type DesignOutcomeKind =
    * projection that renders it must say what it is. See `ProvisionalBasis`.
    */
   | 'PROVISIONAL_BIAXIAL'
-  /** No permitted arrangement can satisfy the checks or physically fit. Exhaustive. */
+  /**
+   * DEMONSTRATED insufficiency: the section exceeds a bound of the code that no reinforcement
+   * can lift (`InsufficiencyProof`: which bound, its clause and its numbers). A claim about
+   * every arrangement, so it needs a proof, never only a search that came back empty.
+   */
   | 'SECTION_INADEQUATE'
   /** Combinations / forces / material / section data absent. Never a pass. */
   | 'DEMAND_UNAVAILABLE'
-  /** Bounded search found nothing; feasibility NOT established. */
+  /**
+   * No arrangement among the ones the search implements verifies; feasibility NOT established.
+   * `exhaustion` says which: the implemented alternatives were run out (and which they were,
+   * and what is not implemented), or a budget stopped the search first.
+   */
   | 'SEARCH_EXHAUSTED'
   /** Selected code or a required check is not implemented for this member. */
   | 'UNSUPPORTED';
@@ -74,6 +82,63 @@ export interface ProvisionalBasis {
   checkedAxes: string[];
 }
 
+/**
+ * A bound of the code that no reinforcement can lift, exceeded by the section: the evidence a
+ * SECTION_INADEQUATE claim needs. `capacity` is an UPPER bound of what any admissible
+ * reinforcement gives (every assumption in the section's favour, `basis`), so demand > capacity
+ * holds for every arrangement, enumerated or not.
+ */
+export interface InsufficiencyProof {
+  bound:
+    /** §22.5.1.2 with Vc at its §22.5.5.1.1 ceiling and the deepest d an admissible bar gives. */
+    | 'shearSectionLimit'
+    /** Tabla 22.4.2.1 with the most steel §10.6.1.1 admits and the spiral's factors. */
+    | 'axialCapacityAtMaxSteel'
+    /** §25.2.1: two of the smallest admissible bars do not fit inside the smallest stirrup. */
+    | 'minimumBarRowDoesNotFit';
+  clause: string;
+  demand: number;
+  capacity: number;
+  unit: string;
+  /** The axis or direction the bound was evaluated on. */
+  axis?: string;
+  combination?: string;
+  /** What `capacity` assumes in the section's favour, so it is an upper bound. */
+  basis: Record<string, number | string>;
+}
+
+/** An alternative the search does not implement, so an exhausted search did not try it. */
+export type ExhaustionGap =
+  | 'bundledBars' | 'mixedDiametersInRow' | 'optionsBeyondRetained'
+  | 'headedBars' | 'mechanicalAnchorage' | 'columnCageChange'
+  /** Refused on its anchorage under the undeclared reading of the lateral system (fy at the face). */
+  | 'lateralRoleUndeclared'
+  | 'searchBudget';
+
+/**
+ * What an exhausted search ran out of: the evidence a SEARCH_EXHAUSTED claim carries.
+ *
+ * `implementedAlternatives` — the generator ran out of the arrangements it enumerates;
+ * `budget` — a candidate or verifier-call budget stopped it first. In neither case was
+ * insufficiency shown: `notImplemented` names what could still exist.
+ */
+export interface ExhaustionRecord {
+  scope: 'implementedAlternatives' | 'budget';
+  limiting: LimitingConstraint[];
+  tried: {
+    candidates: number;
+    longDiametersMm: number[];
+    maxRows: number;
+    /** Options kept per region (beams) or per member (columns) after ordering. */
+    optionsRetained: number;
+    stirrupDiametersMm: number[];
+    maxLegs: number;
+    /** The crossing beams were read at their lightest seat and the member designed again. */
+    crossingSeatsRetried: boolean;
+  };
+  notImplemented: ExhaustionGap[];
+}
+
 export type LimitingConstraint =
   | 'flexure' | 'shear' | 'axialFlexure' | 'biaxial' | 'torsion'
   | 'maxSteel' | 'minSteel' | 'barFit' | 'barSpacing' | 'cover'
@@ -84,13 +149,11 @@ export type LimitingConstraint =
 /** Utilization convention used EVERYWHERE in the design surface: demand / capacity. */
 export const UTILIZATION_CONVENTION = 'demandOverCapacity' as const;
 
-/** Approved thresholds (O4): warn for 0.95 < u <= 1.00, fail above 1.00. */
-export const UTIL_WARN_THRESHOLD = 0.95;
-export const UTIL_FAIL_THRESHOLD = 1.00;
+/** Approved thresholds (O4): warn for 0.95 < u <= 1.00, fail above 1.00. Owned by the contract. */
+import { UTIL_WARN_THRESHOLD, UTIL_FAIL_THRESHOLD, UTIL_EPSILON } from '../../design-contract/status';
+export { UTIL_WARN_THRESHOLD, UTIL_FAIL_THRESHOLD, UTIL_EPSILON };
 /** Design target the search prefers when it costs no extra reinforcement step (O5). */
 export const DESIGN_TARGET_UTILIZATION = 0.95;
-/** Floating-point slack so 1.0000000002 is not a failure. */
-export const UTIL_EPSILON = 1e-6;
 
 export type UtilStatus = 'ok' | 'warn' | 'fail';
 
@@ -213,6 +276,10 @@ export interface MemberDesignOutcome {
   limiting: LimitingConstraint[];
   reasons: DesignReason[];
   sectionAdvice?: SectionRecommendation;
+  /** Present exactly when outcome === 'SECTION_INADEQUATE': the bound and its numbers. */
+  insufficiency?: InsufficiencyProof;
+  /** Present on a SEARCH_EXHAUSTED search: what was tried, what stopped it, what was not tried. */
+  exhaustion?: ExhaustionRecord;
   axes?: DesignAxes;
   searchStats: SearchStats;
 }
@@ -314,15 +381,29 @@ export function assertOutcomeInvariants(o: MemberDesignOutcome): void {
   if (o.provisionalBasis && o.outcome !== 'PROVISIONAL_BIAXIAL') {
     throw new Error(`${where}: ${o.outcome} carries a provisional basis it cannot have earned`);
   }
+  /*
+   * SECTION_INADEQUATE is a claim about EVERY arrangement, so it needs a proof: a bound no
+   * reinforcement lifts, exceeded. Running out of the arrangements the search enumerates is not
+   * one (it was: an exhausted envelope with a section recommendation read as inadequate), and
+   * that is SEARCH_EXHAUSTED with what was tried and what was not.
+   */
   if (o.outcome === 'SECTION_INADEQUATE') {
-    if (!o.searchStats.envelopeExhausted) {
-      throw new Error(`${where}: SECTION_INADEQUATE claimed without exhausting the permitted envelope`);
+    const p = o.insufficiency;
+    if (!p) throw new Error(`${where}: SECTION_INADEQUATE without a demonstrated insufficiency`);
+    if (!(p.demand > p.capacity)) {
+      throw new Error(`${where}: SECTION_INADEQUATE whose bound holds (${p.demand} ≤ ${p.capacity} ${p.unit})`);
     }
-    if (!o.sectionAdvice) throw new Error(`${where}: SECTION_INADEQUATE without a section recommendation`);
+  } else if (o.insufficiency) {
+    throw new Error(`${where}: ${o.outcome} carries an insufficiency proof it does not claim`);
   }
-  if (o.outcome === 'SEARCH_EXHAUSTED' && o.searchStats.envelopeExhausted
-      && !o.limiting.includes('memberOrientationSuspect')) {
-    throw new Error(`${where}: envelope exhausted must be reported as SECTION_INADEQUATE, not SEARCH_EXHAUSTED`);
+  if (o.outcome === 'SEARCH_EXHAUSTED' && !o.limiting.includes('memberOrientationSuspect')) {
+    if (!o.exhaustion) throw new Error(`${where}: SEARCH_EXHAUSTED without saying what was exhausted`);
+    if ((o.exhaustion.scope === 'budget') !== o.searchStats.truncated) {
+      throw new Error(`${where}: exhaustion scope ${o.exhaustion.scope} disagrees with truncated=${o.searchStats.truncated}`);
+    }
+  }
+  if (o.exhaustion && o.outcome !== 'SEARCH_EXHAUSTED') {
+    throw new Error(`${where}: ${o.outcome} carries an exhaustion record`);
   }
 }
 

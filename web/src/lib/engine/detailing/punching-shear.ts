@@ -47,6 +47,7 @@
  * Pure: no store, no runes. All lengths in metres, forces in kN, stresses in MPa.
  */
 
+import { criticalGeometry, designPunchingReinforcement, eccentricShear, openingReduction } from './punching-moment';
 import { clause, type ClauseRef } from '../../codes/regulation';
 
 export type ColumnPosition = 'interior' | 'edge' | 'corner';
@@ -125,15 +126,16 @@ export function criticalSection(
       enclosedArea = bx * hy;
       break;
     case 'edge':
-      // Three sides: the perimeter is truncated at the free edge. The load standing
-      // INSIDE the perimeter is truncated with it — the d/2 strip past the free edge
-      // stands on air, and deducting it would under-state V_u (unconservative).
-      bo = 2 * bx + hy;
+      // Three sides: the perimeter is truncated at the free edge, and the two sides that meet
+      // it run c + d/2 to the edge, not c + d (they were taken at the interior length, which
+      // over-stated bo by d). The load standing INSIDE the perimeter is truncated with it — the
+      // d/2 strip past the free edge stands on air, and deducting it would under-state V_u.
+      bo = 2 * (bx - d / 2) + hy;
       enclosedArea = (bx - d / 2) * hy;
       notes.push('Columna de borde: el perímetro crítico se trunca en el borde libre (tres lados).');
       break;
     case 'corner':
-      bo = bx + hy;
+      bo = (bx - d / 2) + (hy - d / 2);
       // Two free edges: the enclosed area loses the d/2 strip on BOTH sides.
       enclosedArea = (bx - d / 2) * (hy - d / 2);
       notes.push('Columna de esquina: el perímetro crítico se trunca en dos bordes libres (dos lados).');
@@ -343,7 +345,9 @@ export type MomentTransferStatus =
    * every real footing. It is NOT a claim that §8.4.4.2 was satisfied.
    */
   | 'NEGLIGIBLE'
-  /** Transferred, significant, and §8.4.4.2 is not implemented. */
+  /** Transferred, significant, and checked by the eccentric-shear model of §8.4.4.2. */
+  | 'EVALUATED'
+  /** Transferred, significant, and §8.4.4.2 could not be evaluated. */
   | 'UNSUPPORTED_MOMENT_TRANSFER_NOT_EVALUATED'
   /** The caller could not form the moment at all — see `momentTransferNotFormed`. */
   | 'UNSUPPORTED_MOMENT_NOT_FORMED';
@@ -387,20 +391,26 @@ export interface PunchingCheck {
   refs: ClauseRef[];
   /** Present when status is UNSUPPORTED. */
   unsupportedReason?: string;
+  /** §8.4.4.2: the stresses from the direct shear and from each moment, when evaluated. */
+  eccentric?: import('./punching-moment').EccentricShear;
+  /** Stirrups the shear needs where the concrete alone does not carry it (§22.6.6). */
+  reinforcement?: import('./punching-moment').PunchingReinforcement;
+  /** Perimeter lost to openings within 4·h (§22.6.4.3), m. */
+  openingLoss?: number;
 }
 
-/** §8.4.4.2 — the eccentric-shear moment transfer this module does not implement. */
+/** §8.4.4.2 — the eccentric-shear moment transfer, evaluated by `eccentricShear` when the moment is significant. */
 const R_MOMENT_TRANSFER = clause('cirsoc-201', '2025', '8.4.4.2',
   'transferencia de momento por corte excéntrico');
 
 /**
- * Direct two-way shear check, without moment transfer.
+ * Two-way shear check: direct shear, and the moment transfer where the unbalanced moment matters.
  *
- * Moment transfer (γ_v M_sc eccentric shear, §8.4.4.2) is NOT implemented: it needs the
- * section modulus of the critical perimeter and the γ_f / γ_v split, and getting it
- * approximately right would produce a check that passes connections that fail. When an
- * unbalanced moment is present the result is downgraded to UNSUPPORTED rather than
- * reported as a direct-shear pass.
+ * Moment transfer (γ_v M_sc eccentric shear, §8.4.4.2) is evaluated when the unbalanced moment
+ * exceeds `momentTolerance`·V_u·d, or when an opening cuts the perimeter: `eccentricShear` takes
+ * the critical perimeter's Jc and the γ_f / γ_v split and the check reads the stress at the
+ * farthest corner. Below the threshold direct shear governs and the memo says so. A caller that
+ * cannot form the moment (`momentTransferNotFormed`) gets UNSUPPORTED, never a direct-shear pass.
  *
  * ── The refusal that was never reached ─────────────────────────
  *
@@ -427,6 +437,13 @@ export function checkPunchingShear(opts: {
   demand: PunchingDemandInput;
   /** Treat a non-zero unbalanced moment as significant above this fraction of V_u·d. */
   momentTolerance?: number;
+  /** For an edge column, the axis perpendicular to its free edge (default x, along columnB). */
+  edgeAxis?: 'x' | 'y';
+  /** Openings in plan about the column centre, m (§22.6.4.3), and the slab's thickness. */
+  openings?: ReadonlyArray<{ x0: number; y0: number; x1: number; y1: number }>;
+  slabH?: number;
+  /** Yield strength of punching stirrups, MPa; given, a shortfall is designed for. */
+  fyt?: number;
 }): PunchingCheck {
   const critical = criticalSection(opts.columnB, opts.columnH, opts.d, opts.position, opts.shape);
   const demand = derivePunchingDemand(opts.demand, critical);
@@ -480,7 +497,7 @@ export function checkPunchingShear(opts: {
 
   const utilization = phiVc > 0 ? vu / phiVc : Infinity;
 
-  // Moment transfer: refuse rather than approximate.
+  // Moment transfer: significant above `tol`·Vu·d, then evaluated by §8.4.4.2 below.
   const tol = opts.momentTolerance ?? 0.02;
   const threshold = tol * Math.max(demand.Vu * opts.d, 1e-9);
   const momentSignificant = demand.Msc > threshold;
@@ -512,27 +529,47 @@ export function checkPunchingShear(opts: {
     };
   }
 
-  if (momentSignificant) {
+  // Openings within 4·h take their share of the perimeter away (§22.6.4.3).
+  // A circular column as the square of equal area (22.6.4.1.2), as the section above.
+  const eq = opts.shape === 'circular' ? Math.sqrt(Math.PI * (opts.columnB / 2) ** 2) : 0;
+  const gB = eq || opts.columnB, gH = eq || opts.columnH;
+  const geom = criticalGeometry(gB, gH, opts.d, opts.position, opts.edgeAxis);
+  const openingLoss = opts.openings?.length ? openingReduction(geom, opts.openings, opts.slabH ?? opts.d / 0.85, Math.min(opts.columnB, opts.columnH) / 2) : 0;
+  if (openingLoss > 0) memo.push(`Aberturas a menos de 4h de la columna: el perímetro efectivo pierde ${openingLoss.toFixed(3)} m (22.6.4.3).`);
+
+  if (momentSignificant || openingLoss > 0) {
+    // §8.4.4.2: the eccentric-shear model, both moments at the farthest corner.
+    // An edge column whose free edge is not said: both orientations, the worse kept.
+    const axes: Array<'x' | 'y'> = opts.position === 'edge' && !opts.edgeAxis ? ['x', 'y'] : [opts.edgeAxis ?? 'x'];
+    const ecc = axes.map((edgeAxis) => eccentricShear({
+      b: gB, h: gH, d: opts.d, position: opts.position, edgeAxis,
+      Vu: demand.Vu, Mx: opts.demand.unbalancedMomentX ?? 0, My: opts.demand.unbalancedMomentY ?? 0, boReduction: openingLoss,
+    })).reduce((p, q) => (q.vu > p.vu ? q : p));
+    const util = phiVc > 0 ? ecc.vu / phiVc : Infinity;
+    memo.push(
+      `Transferencia de momento por corte excéntrico (8.4.4.2): γv = ${ecc.gammaVx.toFixed(3)} / ${ecc.gammaVy.toFixed(3)}, ` +
+      `Jc = ${ecc.geometry.JcX.toExponential(3)} / ${ecc.geometry.JcY.toExponential(3)} m⁴, Msc al baricentro = ${ecc.MscX.toFixed(1)} / ${ecc.MscY.toFixed(1)} kN·m; ` +
+      `vu = ${ecc.vDirect.toFixed(3)} + ${ecc.vMomentX.toFixed(3)} + ${ecc.vMomentY.toFixed(3)} = ${ecc.vu.toFixed(3)} MPa contra φvc = ${phiVc.toFixed(3)} MPa.`);
+    const reinforcement = util > 1 && opts.fyt ? designPunchingReinforcement({
+      vu: ecc.vu, Vu: demand.Vu, fc: opts.fc, fyt: opts.fyt, b: gB, h: gH, d: opts.d,
+      bo: Math.max(1e-9, ecc.geometry.bo - openingLoss), lambdaS: resistance.lambdaS, position: opts.position,
+    }) : undefined;
+    if (reinforcement) memo.push(reinforcement.overCeiling
+      ? 'vu supera 0,5√f´c: la armadura de punzonado no alcanza; hace falta más espesor, ábaco o columna mayor (22.6.6.2).'
+      : `Armadura de punzonado: ${reinforcement.legs} ramas Ø${reinforcement.legDiameter} por línea, c/${(reinforcement.spacing * 100).toFixed(1)} cm, ${reinforcement.lines} línea(s) hasta ${(reinforcement.extent * 100).toFixed(0)} cm de la cara (22.6.7).`);
+    const passes = util <= 1.0 || (!!reinforcement && !reinforcement.overCeiling);
     return {
-      status: 'UNSUPPORTED',
-      vu, phiVc, utilization,
+      status: passes ? 'OK' : 'FAIL',
+      vu: ecc.vu, phiVc, utilization: util,
       demand, resistance, critical,
       momentTransfer: {
-        status: 'UNSUPPORTED_MOMENT_TRANSFER_NOT_EVALUATED',
+        status: momentSignificant ? 'EVALUATED' : (demand.Msc > 0 ? 'NEGLIGIBLE' : 'NONE'),
         MscX: mscX, MscY: mscY, Msc: demand.Msc,
-        threshold, significant: true,
+        threshold, significant: momentSignificant,
         refs: [R_MOMENT_TRANSFER],
       },
-      memo: [...memo,
-        `Momento no balanceado Msc = ${demand.Msc.toFixed(1)} kN·m transferido al nudo ` +
-        `(componentes ${mscX.toFixed(1)} y ${mscY.toFixed(1)} kN·m), contra un umbral de ` +
-        `significancia de ${threshold.toFixed(1)} kN·m. ` +
-        'La transferencia de momento por corte excéntrico (artículo 8.4.4.2) no está ' +
-        'implementada, y verificar sólo el corte directo daría por aprobado un nudo que ' +
-        'puede no serlo. Punzonado NO VERIFICADO en este nudo.'],
-      refs: [...critical.refs, ...resistance.refs, R_PHI, R_MOMENT_TRANSFER],
-      unsupportedReason:
-        'Transferencia de momento no balanceado no implementada (artículo 8.4.4.2).',
+      memo, refs: [...critical.refs, ...resistance.refs, R_PHI, R_MOMENT_TRANSFER],
+      eccentric: ecc, ...(reinforcement ? { reinforcement } : {}), ...(openingLoss > 0 ? { openingLoss } : {}),
     };
   }
 
@@ -550,8 +587,16 @@ export function checkPunchingShear(opts: {
       'gobierna el corte directo. No es una verificación del artículo 8.4.4.2.');
   }
 
+  const direct = utilization > 1 && opts.fyt ? designPunchingReinforcement({
+    vu, Vu: demand.Vu, fc: opts.fc, fyt: opts.fyt, b: opts.columnB, h: opts.columnH, d: opts.d,
+    bo: critical.bo, lambdaS: resistance.lambdaS, position: opts.position,
+  }) : undefined;
+  if (direct) memo.push(direct.overCeiling
+    ? 'vu supera 0,5√f´c: la armadura de punzonado no alcanza (22.6.6.2).'
+    : `Armadura de punzonado: ${direct.legs} ramas Ø${direct.legDiameter} por línea, c/${(direct.spacing * 100).toFixed(1)} cm, ${direct.lines} línea(s) (22.6.7).`);
   return {
-    status: utilization <= 1.0 ? 'OK' : 'FAIL',
+    status: utilization <= 1.0 || (!!direct && !direct.overCeiling) ? 'OK' : 'FAIL',
+    ...(direct ? { reinforcement: direct } : {}),
     vu, phiVc, utilization,
     demand, resistance, critical,
     momentTransfer: {

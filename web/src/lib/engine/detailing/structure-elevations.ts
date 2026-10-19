@@ -164,7 +164,7 @@ function elevationSheet(
     }
   }
   const notes = [heading, `${ids.size} elementos, ${bars.length} barras`, ...statusNotes([...ids], input.statusOf)];
-  if (bars.length === 0) notes.push('Sin armadura en el modelo para estos elementos.');
+  if (bars.length === 0) notes.push('detailing.note.noBarsMembers');
   return { kind, title: input.title, polylines, circles: [], texts, dimensions: [], notes, extents: extentsOf(polylines) };
 }
 

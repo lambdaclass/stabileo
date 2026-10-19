@@ -66,6 +66,16 @@ export interface LineForLayering {
    */
   maxBottomMm?: number;
   maxTopMm?: number;
+  /**
+   * Where the line's members seat their top and bottom bars, m from the node line, before any
+   * layering: the highest and the lowest centre over the members and the bars each one carries
+   * (`seatedLongitudinalHalfExtents`: the stirrup's own bend decides it, and two members with
+   * different stirrups or bars seat at different heights). Given for every line, the separation
+   * is computed from these instead of from one bar diameter, which assumed every line seats its
+   * bars at the same height and left crossing mats 2 mm into each other where they do not.
+   */
+  topZ?: { hi: number; lo: number };
+  bottomZ?: { hi: number; lo: number };
 }
 
 /** Two lines that cross, and where. */
@@ -173,6 +183,23 @@ export function allocateLayers(input: {
   extraMargin?: number;
   /** Refuse to stack more than this many layers; beyond it the section runs out of depth. */
   maxRanks?: number;
+  /**
+   * How much more than contact a line must lie below (top) and above (bottom) a line of a lower
+   * rank, m, to pass under the hook bends that line turns at the joints they share: the upper
+   * mat's top bars turn down past the node, its bottom bars up, and the arc comes down to the
+   * other mat's corner bar where it crosses it (`run-detailing` `bendClearance`). Absent: none.
+   */
+  bendClearance?: (line: string, other: string) => { drop: number; raise: number } | undefined;
+  /**
+   * The layers inside `other`'s first at the joints the two lines share: their depth below its
+   * top layer (above its bottom one), m, and their bar. A line may lie between them, so a bend's
+   * clearance is taken only where the deeper seat it asks for clears them too; where it does not,
+   * the line stays at contact and the bend's crossing is the joint's to report. Measured on the
+   * 408-member frame: a lower mat dropped 17,6 mm under a Ø12 bend landed on the second top layer
+   * of the beam above it, which it had passed between, and the frame's crossing clashes rose
+   * from 1249 to 2031.
+   */
+  innerLayers?: (line: string, other: string) => { top: ReadonlyArray<{ depth: number; diaMm: number }>; bottom: ReadonlyArray<{ depth: number; diaMm: number }> } | undefined;
 }): LayerAllocation {
   const margin = Math.max(0, input.extraMargin ?? 0);
   const maxRanks = Math.max(1, input.maxRanks ?? 3);
@@ -241,11 +268,51 @@ export function allocateLayers(input: {
     return z;
   };
 
+  // From the seats, where every line gives them: rank by rank, each line clears every line it
+  // crosses on a lower rank, as those already stand. Two crossing bars may touch (§25.2 does
+  // not govern crossings): the centres one radius each apart, plus the project's margin.
+  const seated = input.lines.length > 0 && input.lines.every((l) => l.topZ && l.bottomZ);
+  const dropOf = new Map<string, number>(), raiseOf = new Map<string, number>();
+  if (seated) {
+    const byRank = [...ordered].sort((a, b) => rankOf.get(a.lineId)! - rankOf.get(b.lineId)! || a.lineId.localeCompare(b.lineId));
+    const topMm = (l: LineForLayering) => l.maxTopMm ?? l.maxBarMm;
+    const botMm = (l: LineForLayering) => l.maxBottomMm ?? l.maxBarMm;
+    for (const line of byRank) {
+      let drop = 0, raise = 0, bentDrop = 0, bentRaise = 0;
+      const lower: string[] = [];
+      for (const n of neighbours.get(line.lineId)!) {
+        const other = byId.get(n)!;
+        if (rankOf.get(n)! >= rankOf.get(line.lineId)!) continue;
+        lower.push(n);
+        const bend = input.bendClearance?.(line.lineId, n);
+        const d = (dropOf.get(n) ?? 0) + (topMm(other) + topMm(line)) / 2000 + margin + line.topZ!.hi - other.topZ!.lo;
+        const r = (raiseOf.get(n) ?? 0) + (botMm(other) + botMm(line)) / 2000 + margin + other.bottomZ!.hi - line.bottomZ!.lo;
+        drop = Math.max(drop, d); raise = Math.max(raise, r);
+        bentDrop = Math.max(bentDrop, d + (bend?.drop ?? 0)); bentRaise = Math.max(bentRaise, r + (bend?.raise ?? 0));
+      }
+      // The deeper seat a bend asks for, where it clears every inner layer of the lines above.
+      const gap = (a: { lo: number; hi: number }, b: { lo: number; hi: number }) => Math.max(0, a.lo - b.hi, b.lo - a.hi);
+      const clearsInner = (face: 'top' | 'bottom', moved: number) => lower.every((n) => {
+        const other = byId.get(n)!;
+        const own = face === 'top' ? { lo: line.topZ!.lo - moved, hi: line.topZ!.hi - moved } : { lo: line.bottomZ!.lo + moved, hi: line.bottomZ!.hi + moved };
+        return (input.innerLayers?.(line.lineId, n)?.[face] ?? []).every((k) => {
+          const z = face === 'top' ? -(dropOf.get(n) ?? 0) - k.depth : (raiseOf.get(n) ?? 0) + k.depth;
+          const seat = face === 'top' ? other.topZ! : other.bottomZ!;
+          return gap(own, { lo: seat.lo + z, hi: seat.hi + z }) >= (k.diaMm + (face === 'top' ? topMm(line) : botMm(line))) / 2000 + margin - 1e-9;
+        });
+      });
+      if (bentDrop > drop && clearsInner('top', bentDrop)) drop = bentDrop;
+      if (bentRaise > raise && clearsInner('bottom', bentRaise)) raise = bentRaise;
+      dropOf.set(line.lineId, drop);
+      raiseOf.set(line.lineId, raise);
+    }
+  }
+
   const byLine = new Map<string, LayerAssignment>();
   for (const line of ordered) {
     const rank = rankOf.get(line.lineId)!;
-    const raise = step(rank, line, 'bottom');
-    const drop = step(rank, line, 'top');
+    const raise = seated ? raiseOf.get(line.lineId)! : step(rank, line, 'bottom');
+    const drop = seated ? dropOf.get(line.lineId)! : step(rank, line, 'top');
     byLine.set(line.lineId, {
       lineId: line.lineId, rank,
       bottomRaise: raise,

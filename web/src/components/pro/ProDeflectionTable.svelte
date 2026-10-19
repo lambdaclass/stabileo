@@ -68,7 +68,7 @@
 </div>
 <div class="pro-res-table-wrap">
   <table class="pro-res-table" data-testid="defl-table">
-    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHint')}>{t('defl.limits.rule')}</th><th>%</th>{/if}</tr></thead>
+    <thead><tr><th>{t('pro.elemLabel')}</th><th>L (m)</th><th>δ (mm)</th><th>x (m)</th><th>L/δ</th><th>δy (mm)</th><th>δz (mm)</th>{#if source === 'service'}<th>{t('tables.source')}</th><th title={t('defl.checkHintTable')}>{t('defl.limits.rule')}</th><th>%</th>{/if}</tr></thead>
     <tbody>
       {#each rows.slice(0, ROW_CAP) as r (r.id)}
         <tr onclick={() => pick(r.span)} style="cursor:pointer">

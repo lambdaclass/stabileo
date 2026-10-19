@@ -72,9 +72,10 @@ describe('materialiseLaps — the continuous case', () => {
 
     expect(r.fused).toHaveLength(1);
     expect(r.laps).toHaveLength(0);
-    // Member 2's bar is gone; member 1 holds the through bar.
-    expect(r.barsByMember.get(2)).toHaveLength(0);
-    const through = r.barsByMember.get(1)![0];
+    // Member 1's bar is gone; member 2, whose next joint is the line's next transition, holds
+    // the through bar so that transition can carry it on.
+    expect(r.barsByMember.get(1)).toHaveLength(0);
+    const through = r.barsByMember.get(2)![0];
     expect(through.ownerElementIds).toEqual([1, 2]);
   });
 
@@ -86,7 +87,7 @@ describe('materialiseLaps — the continuous case', () => {
       ]),
       transitions: [transition([0], [0])],
     });
-    const through = r.barsByMember.get(1)![0];
+    const through = r.barsByMember.get(2)![0];
     const xs = through.segments.flatMap((s) => [s.start.x, s.end.x]);
     expect(Math.min(...xs)).toBeCloseTo(0, 6);
     expect(Math.max(...xs)).toBeCloseTo(10, 6);
@@ -100,7 +101,7 @@ describe('materialiseLaps — the continuous case', () => {
       ]),
       transitions: [transition([0], [0])],
     });
-    const through = r.barsByMember.get(1)![0];
+    const through = r.barsByMember.get(2)![0];
     expect(through.startTreatment.kind).toBe('hook');
     expect(through.endTreatment.kind).toBe('hook');
     // Exactly one hook at each end: two straights + two arcs, plus the body.
@@ -115,7 +116,7 @@ describe('materialiseLaps — the continuous case', () => {
       ]),
       transitions: [transition([0], [0])],
     });
-    expect(r.barsByMember.get(1)![0].cuttingLength).toBeCloseTo(10, 6);
+    expect(r.barsByMember.get(2)![0].cuttingLength).toBeCloseTo(10, 6);
   });
 
   it('a fusion invents no steel: total length is unchanged', () => {
@@ -128,6 +129,52 @@ describe('materialiseLaps — the continuous case', () => {
     const after = [...r.barsByMember.values()].flat()
       .reduce((s, b) => s + b.cuttingLength, 0);
     expect(after).toBeCloseTo(before, 6);
+  });
+});
+
+describe('materialiseLaps — bars of different size or steel on one line', () => {
+  /**
+   * Two bars on the same line are one bar only when they are the same bar: a Ø16 of one span
+   * and a Ø12 of the next, or two steels, meet at the joint and are lapped. Fused, the through
+   * bar took the incoming bar's diameter, so a span designed with 2Ø12 (or 2Ø16) was detailed
+   * with the other. §25.5.2.2: bars of different diameter lapped in tension take the larger of
+   * ℓd of the larger bar and the lap of the smaller; the joint's lap is planned at the larger
+   * bar (`run-detailing`, `planSplice`), Class B 1,3·ℓd(Ø16), which is both.
+   */
+  const sized = (id: string, owner: number, x0: number, x1: number, dia: number) => ({
+    ...bar(id, owner, x0, x1, 0), diameterMm: dia,
+  });
+
+  it('a Ø16 meeting a Ø12 on the same line is lapped, each keeping its own diameter', () => {
+    const r = materialiseLaps({
+      barsByMember: new Map([[1, [sized('a', 1, 0, 5, 16)]], [2, [sized('b', 2, 5, 10, 12)]]]),
+      transitions: [transition([0], [0])],
+    });
+    expect(r.fused).toEqual([]);
+    expect(r.laps).toHaveLength(1);
+    expect(r.barsByMember.get(1)!.map((b) => b.diameterMm)).toEqual([16]);
+    expect(r.barsByMember.get(2)!.map((b) => b.diameterMm)).toEqual([12]);
+    const ld16 = development.ldM;
+    const ld12 = deriveDevelopment({ diameterMm: 12, fy: 420, fc: 25, favourableSpacing: true, edition: '2025' }).ldM;
+    expect(r.laps[0]!.lapLength).toBeGreaterThanOrEqual(Math.max(ld16, 1.3 * ld12) - 1e-9);
+  });
+
+  it('two bars of one diameter and two steels are lapped, not fused', () => {
+    const r = materialiseLaps({
+      barsByMember: new Map([[1, [sized('a', 1, 0, 5, 16)]], [2, [sized('b', 2, 5, 10, 16)]]]),
+      transitions: [{ ...transition([0], [0]), sameSteel: false }],
+    });
+    expect(r.fused).toEqual([]);
+    expect(r.laps).toHaveLength(1);
+  });
+
+  it('two bars of one diameter and one steel are still one bar', () => {
+    const r = materialiseLaps({
+      barsByMember: new Map([[1, [sized('a', 1, 0, 5, 16)]], [2, [sized('b', 2, 5, 10, 16)]]]),
+      transitions: [transition([0], [0])],
+    });
+    expect(r.fused).toHaveLength(1);
+    expect(r.laps).toEqual([]);
   });
 });
 

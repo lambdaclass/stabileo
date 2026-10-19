@@ -187,6 +187,32 @@ export interface BarSegment {
   length: number;
 }
 
+/**
+ * How one end of a longitudinal bar is anchored at a support, and what it had to provide there.
+ *
+ * Recorded by the generator that decided it and carried on the bar, so the drawing, the
+ * schedule, the readiness and the audit read the decision off the steel instead of re-deriving
+ * it. `available` and `required` are measured from the support face the bar develops from (for
+ * a lap, the lap interval and the lap length).
+ */
+export interface BarEndAnchorage {
+  /** The support the end sits in: the line ends there, or continues into the next member. */
+  support: 'end' | 'interior';
+  /**
+   * What was adopted. `pending` is the generator's provisional answer at an interior support,
+   * before the line's laps are built; nothing persisted keeps it.
+   */
+  solution: 'straight' | 'hook' | 'lap' | 'unresolved' | 'pending';
+  /** m past the face (or the lap interval). */
+  available: number;
+  /** m the rule asks for; 0 where nothing has to be developed. */
+  required: number;
+  /** ld, ldh, the 150 mm of §9.7.3.8.2, the lap length, or none (no tension to develop). */
+  rule: 'ld' | 'ldh' | '9.7.3.8.2' | 'lap' | 'none';
+  /** Concrete from the bar's outermost point to the support's outer face, m (end supports). */
+  endCover?: number;
+}
+
 export type BarEndTreatment =
   | { kind: 'straight' }
   | { kind: 'hook'; hook: HookGeometry }
@@ -240,6 +266,8 @@ export interface BarPath {
    * site, and one of those joins is eventually forgotten on the sheet that gets issued.
    */
   purpose?: 'stirrupHanger';
+  /** How each end is anchored at a support, when it ends at one (`BarEndAnchorage`). */
+  anchorage?: { start?: BarEndAnchorage; end?: BarEndAnchorage };
   /**
    * Stable physical layer identity, e.g. `e184:bottom:0`.
    *

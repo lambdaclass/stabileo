@@ -34,32 +34,37 @@
  * Pure: no store, no runes. The store command supplies the data and consumes the result.
  */
 
+import { shapedHoops, shapedPlanBars, shapedSpiral } from './shaped-ties';
+import { computeLocalAxes3D } from '../local-axes-3d';
+import { memberReferenceLine, referenceLineNote, type MemberReferenceLine, type OffsetCarrier } from '../member-offsets';
 import { clause, formatClause, type RegulationEdition } from '../../codes/regulation';
 import { anchorageFunctions } from '../../codes/cirsoc201/anchorage';
 import {
-  centrelineRadius, minMandrelDiameter, type BarPath, type Point3,
+  standardHook, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
-import type { MemberContext } from '../design/member-context';
-import { STANDARD_LONG_DIAS } from '../design/objective';
 import {
-  reconcileAcrossTheMember, resolveTopSteel,
-  type TopSteelProvision, type TopSteelPurpose,
-} from './beam-top-steel';
+  bottomHookInboard, columnFacesAlong, faceDevelopment, planSupportEnd, supportRowInto, supportRows, topLayout, topRowInboard, topRowsOf, type SupportCage, type SupportRow,
+} from './support-anchorage';
+import { beamCornerRecord, columnCageDia, crossingSeatsOf, endSupportPlan, isSimpleSupport, supportCageFrom } from '../design/end-support-anchorage';
+import { developsAtFace } from '../../model/lateral-system';
+import type { MemberContext } from '../design/member-context';
 import { detailableReinforcement, isProvisionalOutcome, type MemberDesignOutcome } from '../design/outcome';
 import {
-  generateBeamBars, type BentUpPolicy, type MomentStation, type SupportKind,
+  generateBeamBars, type BentUpPolicy, type SupportKind,
 } from './generate-beam';
 import {
   generateColumnStack, tieSpacing, type ColumnLift, type IncidentBeamAtJoint,
 } from './generate-column';
 import { candidateClears, generateLayoutCandidates, type KeepOut } from './candidates';
+import { beamGroups, envelopeStations, hoggingAtSupports, resolveTopSteelFor } from './beam-groups';
+import { beamLayoutDomain, beamRow, beamSeat as sharedBeamSeat, bendCrossing, columnBarsOf, columnTailPosts, crossingTailPosts, yieldsTo, type TailRow } from './joint-threading';
 import {
   cageKeepOuts, generateColumnCandidates, type ColumnLayoutCandidate,
 } from './column-candidates';
 import {
   coordinate, type CoordinationResult, type JointConstraint, type MemberVariable,
 } from './coordination-search';
-import { DEFAULT_TOLERANCES } from './collision';
+import { DEFAULT_TOLERANCES, minSurfaceClearance } from './collision';
 import { ColumnBarIndex } from './column-bar-index';
 import { planSplice, transitionExists } from './splice';
 import { classifyPair } from './classify';
@@ -82,14 +87,21 @@ import {
   type LayerAllocation, type LineCrossing, type LineForLayering,
 } from './joint-layers';
 import { prescribedTolerances } from '../../codes/cirsoc201/placement';
-import { deriveDevelopment } from '../../codes/cirsoc201/anchorage';
-import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
 import {
-  buildColumnTieSet, seatedLongitudinalHalfExtents, stirrupStationCount, stirrupStations, StirrupClosureCache,
+  barFace, checkColumnLapSection, checkIntegritySplice, checkLapPair, isPerimeterBeam, lineLapDevelopment,
+  type LapMember, type PlanBeam, type SectionBar,
+} from './splice-checks';
+import { minClearSpacingColumn, minClearSpacingInLayer } from '../../codes/cirsoc201/spacing';
+import {
+  buildColumnTieSet, seatedLongitudinalHalfExtents, setSpread, stirrupStationCount, stirrupStations, StirrupClosureCache,
   unbracedBarReport,
 } from '../../codes/cirsoc201/transverse-cage';
 import { coordinateFloor, type FloorCoordinationResult, type JointInput, type MemberBars } from './coordinate-floor';
-import { evaluateState, reviewRank, type DetailingAssembly } from './assembly';
+import { buildRepairEnvelope, type EnvelopeMember } from './repair-envelope';
+import { evaluateState, reviewRank, type DetailingAssembly, type UnsupportedCondition } from './assembly';
+import { collapseSpans, expandSpans, spansIn } from './span-detailing';
+import { computeBeamCriticalSections } from '../station-design-forces';
+import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { deriveMaturity } from '../../codes/maturity';
 
 // ─── Inputs ──────────────────────────────────────────────────────
@@ -105,6 +117,16 @@ export interface DetailingModelElement {
   id: number;
   nodeI: number;
   nodeJ: number;
+  /**
+   * The member's declared insertion (`Element.offset`) and the axes it is resolved on. The
+   * analysis puts the member's axis at node + offset (`member-offsets.ts`), and the bars are laid
+   * round that axis (`memberLine`). Absent, the model declares none and the axis is taken through
+   * the nodes — said as an assumption in each member's trace.
+   */
+  offset?: OffsetCarrier['offset'];
+  sectionId?: number;
+  rollAngle?: number;
+  localYx?: number; localYy?: number; localYz?: number;
 }
 
 export interface RunDetailingInput {
@@ -113,6 +135,8 @@ export interface RunDetailingInput {
   outcomes: ReadonlyMap<number, MemberDesignOutcome>;
   nodes: ReadonlyMap<number, DetailingModelNode>;
   elements: ReadonlyMap<number, DetailingModelElement>;
+  /** Section rotations, for a `local` insertion offset on a rotated section. Absent: none. */
+  sections?: ReadonlyMap<number, { rotation?: number }>;
   edition: RegulationEdition;
   /** Who is accountable for the result. */
   verifierId: string;
@@ -154,6 +178,20 @@ export interface RunDetailingInput {
     elementId: number,
     depthLoss: { bottomRaise: number; topLower: number; depthTolerance: number },
   ) => 'ok' | 'warn' | 'fail';
+  /**
+   * Whether a member fails its serviceability check (deflection, §24.2.2), as the verifier holds
+   * it (`verificationStore.serviceabilityFails`). `reverify` is strength at the final geometry,
+   * which is what the design–detailing loop repairs against; the constructibility gate's
+   * `allMembersReverified` and `certificatesMatchGeometry` claim the member conforms, so they
+   * read this as well. Absent, nothing fails it.
+   */
+  serviceabilityFails?: (elementId: number) => boolean;
+  /**
+   * Whether the member's floor joins its slab to a column at one node (`design/analysis-validity.ts`):
+   * its steel was checked against forces whose split between beams and columns the model does not
+   * establish, so it does not conform either, for the same two conditions. Absent, nothing is.
+   */
+  loadSplitNotEstablished?: (elementId: number) => boolean;
   /** Bars the user pinned; they survive regeneration untouched. */
   lockedBars?: BarPath[];
   /**
@@ -164,6 +202,8 @@ export interface RunDetailingInput {
    * generated. The app must not adopt a fabrication decision on the user's behalf.
    */
   bentUp?: BentUpPolicy;
+  /** Cut points a person set in the frame editor, per beam, in its own sense (`generate-beam` `cuts`). */
+  memberCuts?: ReadonlyMap<number, { bottomFrom?: number; bottomTo?: number; bottomShort?: number; topI?: number; topJ?: number }>;
   /** Members whose bars belong to the lateral-force-resisting system. */
   lateralSystem?: ReadonlySet<number>;
   /**
@@ -365,32 +405,6 @@ function isColumnLike(i: DetailingModelNode, j: DetailingModelNode): boolean {
   return dz / L > 0.7;
 }
 
-/**
- * Envelope stations for a beam, from the per-combo station forces.
- *
- * The generators need sagging, hogging and shear envelopes at each x. Taking the max over
- * combos at each station is exactly what "envelope" means, and it is what the curtailment
- * rules in §9.7.3 are written against.
- */
-function envelopeStations(ctx: MemberContext): MomentStation[] {
-  const sr = ctx.stations;
-  if (!sr || sr.comboResults.length === 0) return [];
-  const byX = new Map<number, MomentStation>();
-  for (const combo of sr.comboResults) {
-    for (const st of combo.stations) {
-      const key = Math.round(st.x * 1e6) / 1e6;
-      const cur = byX.get(key) ?? { x: key, mPos: 0, mNeg: 0, v: 0 };
-      // Local-y bending is the strong axis for a horizontal member under gravity.
-      const m = st.my;
-      cur.mPos = Math.max(cur.mPos, m > 0 ? m : 0);
-      cur.mNeg = Math.max(cur.mNeg, m < 0 ? -m : 0);
-      cur.v = Math.max(cur.v, Math.abs(st.vz), Math.abs(st.vy));
-      byX.set(key, cur);
-    }
-  }
-  return [...byX.values()].sort((a, b) => a.x - b.x);
-}
-
 /** How many frame members meet at a node — 1 means a simple support, more is continuity. */
 function supportKindAt(
   nodeId: number, self: number, elements: ReadonlyMap<number, DetailingModelElement>,
@@ -404,115 +418,8 @@ function supportKindAt(
   return others >= 2 ? 'continuous' : 'simple';
 }
 
-/**
- * Peak hogging moment at each end of a member, kN·m, from its own envelope.
- *
- * The FIRST and LAST station rather than a region sweep, matching what `generateBeamBars`
- * already calls `peakNegI` / `peakNegJ`. Two readings of "does this support hog" that disagree
- * would put a hanger pair on a face the generator then curtails hogging steel into.
- */
-function hoggingAtSupports(ctx: MemberContext): { start: number; end: number } {
-  const st = envelopeStations(ctx);
-  if (st.length === 0) return { start: 0, end: 0 };
-  return {
-    start: Math.max(st[0].mNeg, 0),
-    end: Math.max(st[st.length - 1].mNeg, 0),
-  };
-}
-
-interface BeamGroupOptions {
-  ctx: MemberContext;
-  edition: RegulationEdition;
-  maxAggregateSizeMm: number;
-  hogging: { start: number; end: number };
-}
-
-/** The top-steel provision at each support. One derivation, two readers. */
-function resolveTopSteelFor(
-  accepted: NonNullable<MemberDesignOutcome['accepted']>,
-  opts: BeamGroupOptions,
-): { start: TopSteelProvision; end: TopSteelProvision } {
-  const g = (x?: { count: number; diameter: number }) =>
-    x && x.count > 0 ? { count: x.count, diameterMm: x.diameter } : undefined;
-  const r = accepted.regions;
-  const common = {
-    b: opts.ctx.section.b,
-    cover: opts.ctx.material.cover,
-    stirrupDiaMm: opts.ctx.material.stirrupDia,
-    maxAggregateSizeMm: opts.maxAggregateSizeMm,
-    availableDiametersMm: STANDARD_LONG_DIAS,
-    edition: opts.edition,
-  };
-  const start = resolveTopSteel({
-    ...common,
-    designed: g(r?.topStart) ?? g(accepted.top),
-    hoggingMoment: opts.hogging.start,
-  });
-  const end = resolveTopSteel({
-    ...common,
-    designed: g(r?.topEnd) ?? g(accepted.top),
-    hoggingMoment: opts.hogging.end,
-  });
-  return reconcileAcrossTheMember(start, end);
-}
-
-
-/**
- * The three longitudinal groups a beam is detailed from, and what each top group IS.
- *
- * ── The line this replaces, and why it was wrong ───────────────────
- *
- *     if (!bottom || !topStart || !topEnd) return null;
- *
- * All three or nothing. A beam whose envelope never hogs is designed with bottom steel and no
- * top groups — `bottomSpan=2Ø20`, `topStart=—`, `topEnd=—` in the design's own candidate — and
- * that gate discarded the bottom bars the design DID produce, along with the entire stirrup
- * cage, which is generated in the same call. Sixty-three of the 7-storey building's 119 beams
- * reached the viewport with no steel of their own at all; the transverse bars they appeared to
- * have were the JOINT ties of the columns they frame into, which claim the beam ids too.
- *
- * The missing group is now RESOLVED rather than demanded — see `./beam-top-steel.ts`
- * for the clauses and, more importantly, for the one number none of them fixes. The bottom group
- * is still demanded: a beam with no bottom steel has nothing this function can build a beam from.
- */
-function beamGroups(
-  accepted: NonNullable<MemberDesignOutcome['accepted']>,
-  opts: BeamGroupOptions,
-): {
-  bottom: { count: number; diameterMm: number };
-  topStart: { count: number; diameterMm: number };
-  topEnd: { count: number; diameterMm: number };
-  topPurpose: { start: TopSteelPurpose; end: TopSteelPurpose };
-  /** The full provisions, for the trace, the refs and the blocked reasons. */
-  provisions: { start: TopSteelProvision; end: TopSteelProvision };
-} | null {
-  const g = (x?: { count: number; diameter: number }) =>
-    x && x.count > 0 ? { count: x.count, diameterMm: x.diameter } : null;
-  const r = accepted.regions;
-  const bottom = g(r?.bottomSpan) ?? g(accepted.bottom);
-  if (!bottom) return null;
-
-  const { start, end } = resolveTopSteelFor(accepted, opts);
-  if (!start.group || !end.group) return null;
-  return {
-    bottom, topStart: start.group, topEnd: end.group,
-    topPurpose: { start: start.purpose, end: end.purpose },
-    provisions: { start, end },
-  };
-}
-
-function columnBars(accepted: NonNullable<MemberDesignOutcome['accepted']>):
-  { count: number; diameterMm: number } | null {
-  const c = accepted.column;
-  if (c && 'totalBars' in c && typeof (c as { totalBars?: number }).totalBars === 'number') {
-    const t = c as unknown as { totalBars: number; diameter?: number; barDiameter?: number };
-    const d = t.diameter ?? t.barDiameter;
-    if (t.totalBars > 0 && d) return { count: t.totalBars, diameterMm: d };
-  }
-  const l = accepted.longitudinal;
-  if (l && l.count > 0) return { count: l.count, diameterMm: l.diameter };
-  return null;
-}
+/** A designed column's bars (`joint-threading.ts`): one reading for the design and the detailing. */
+const columnBars = (accepted: NonNullable<MemberDesignOutcome['accepted']>) => columnBarsOf(accepted as never);
 
 // ─── The run ─────────────────────────────────────────────────────
 
@@ -614,6 +521,19 @@ export interface FinalGeometryRecord {
   layerCentroids: number[];
 }
 
+/** Plan distance from a node to a segment, m: does a bar reach the support at the node. */
+function distanceToSegmentPlan(n: { x: number; y: number }, a: Point3, b: Point3): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const L2 = dx * dx + dy * dy;
+  const t = L2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((n.x - a.x) * dx + (n.y - a.y) * dy) / L2));
+  return Math.hypot(a.x + t * dx - n.x, a.y + t * dy - n.y);
+}
+
+/** A member's part in a lap (`splice-checks.ts`): depth, concrete, steel, cover and stirrup. */
+const lapMemberOf = (c: MemberContext): LapMember => ({
+  h: c.section.h, fc: c.material.fc, fy: c.material.fy, cover: c.material.cover, stirrupDiaMm: c.material.stirrupDia,
+});
+
 /**
  * Generate and coordinate detailing for every verified member, grouped into one assembly
  * per storey level.
@@ -621,8 +541,41 @@ export interface FinalGeometryRecord {
  * Grouping by level is what "coordinate the floor" means physically: bars clash with the
  * bars they share a pour with, and a column stack spans levels but is coordinated at each
  * joint it passes through.
+ *
+ * A beam the analysis cut into pieces is detailed once, as its span, and its pieces are given
+ * back afterwards (`span-detailing.ts`); the readiness is the pieces' own.
  */
 export function runDetailing(input: RunDetailingInput): RunDetailingResult {
+  const spans = spansIn(input.contexts);
+  if (spans.spans.size === 0) return detailMembers(input);
+  return expandSpans(detailMembers(collapseSpans(input, spans)), input, spans, detailingReadiness(input));
+}
+
+/**
+ * Every beam's context with the stirrup diameter its design verified.
+ *
+ * `material.stirrupDia` is the project's default and is what the whole beam pipeline seats bars
+ * against: the coordination's corner seats, the free width, the top-steel resolver, the
+ * generator's cage. The design chooses its own stirrups (Ø6 c/12,5 on the span fixture's beams),
+ * and a cage laid at the default (Ø8) is not the one verified; seating the bars for Ø8 inside Ø6
+ * stirrups also leaves the bends without their bars (§25.7.1.2). So the detailing reads the
+ * designed diameter wherever it reads the stirrup's.
+ */
+function withDesignedStirrups(input: RunDetailingInput): RunDetailingInput {
+  let contexts: Map<number, MemberContext> | null = null;
+  for (const [id, ctx] of input.contexts) {
+    if (ctx.elementType !== 'beam') continue;
+    const r = detailableReinforcement(input.outcomes.get(id))?.rebar;
+    const d = Math.max(r?.regions?.stirrupsSupport?.diameter ?? 0, r?.regions?.stirrupsSpan?.diameter ?? 0, r?.stirrups?.diameter ?? 0);
+    if (!(d > 0) || d === ctx.material.stirrupDia) continue;
+    contexts ??= new Map(input.contexts);
+    contexts.set(id, { ...ctx, material: { ...ctx.material, stirrupDia: d } });
+  }
+  return contexts ? { ...input, contexts } : input;
+}
+
+function detailMembers(raw: RunDetailingInput): RunDetailingResult {
+  const input = withDesignedStirrups(raw);
   const closureCache = new StirrupClosureCache();
   const readiness = detailingReadiness(input);
   const skipped: Array<{ elementId: number; key: string }> = [];
@@ -658,6 +611,47 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     (ctx.elementType === 'column' ? columns : beams).push(id);
   }
 
+  /**
+   * A member's reference line: its nodes plus its declared insertion offset, as the analysis
+   * took it (`memberReferenceLine`). Every position this pass derives from a member — a beam's
+   * bar elevations, a column's cage centre, the joint band the beams make, the faces a beam's
+   * bars end against — is read off this, not off the nodes: a top-flush beam's axis sits half its
+   * depth under the node, and bars laid round the node were half a depth above the concrete the
+   * forces were computed on. Where the model declares nothing the line runs through the nodes,
+   * and the member's trace says that this was assumed (`referenceLineNote`).
+   */
+  const lineCache = new Map<number, MemberReferenceLine | null>();
+  const memberLine = (id: number): MemberReferenceLine | null => {
+    if (lineCache.has(id)) return lineCache.get(id)!;
+    const el = input.elements.get(id);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    const line = el && a && b ? memberReferenceLine(el, a, b, input.sections) : null;
+    lineCache.set(id, line);
+    return line;
+  };
+  /** Node to axis of a member at one of its nodes, m (zero where it declares no insertion). */
+  const axisOffsetAt = (id: number, nodeId: number): Point3 => {
+    const el = input.elements.get(id), line = memberLine(id);
+    if (!el || !line) return { x: 0, y: 0, z: 0 };
+    return nodeId === el.nodeI ? line.offsetI : line.offsetJ;
+  };
+  /**
+   * Keep-outs measured across beam `id` from the NODE line (`(p − node)·t`), re-measured from
+   * the beam's axis at that node, which is what its slots are measured from. The identity where
+   * the beam declares no insertion across its plan.
+   */
+  const onAxis = (id: number, nodeId: number, t: { x: number; y: number }, keeps: KeepOut[]): KeepOut[] => {
+    const o = axisOffsetAt(id, nodeId);
+    const shift = o.x * t.x + o.y * t.y;
+    return Math.abs(shift) < 1e-12 ? keeps : keeps.map((k) => ({ ...k, at: k.at - shift }));
+  };
+  /** The inverse: slot positions across beam `id`, from its axis, re-measured from the node line. */
+  const nodeLine = (id: number, nodeId: number, t: { x: number; y: number }, across: number[]): number[] => {
+    const o = axisOffsetAt(id, nodeId);
+    const shift = o.x * t.x + o.y * t.y;
+    return Math.abs(shift) < 1e-12 ? across : across.map((a) => a + shift);
+  };
+
   // ── Column stacks: columns sharing a plan position, ordered bottom to top ──
   const stacks = new Map<string, ColumnLift[]>();
   for (const id of columns) {
@@ -674,18 +668,34 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     }
     const [lo, hi] = Z(nI) <= Z(nJ) ? [nI, nJ] : [nJ, nI];
     // Plan position to the millimetre: a column that shifts less than that is the same stack.
+    // The stack is the NODE line, the column line the joints are made on; a lift whose
+    // insertion moves its axis off it is the same stack with an offset (§10.7.4), not another.
     const key = `${Math.round(lo.x * 1000)}:${Math.round(lo.y * 1000)}`;
     const list = stacks.get(key) ?? [];
+    // The cage stands on the column's axis: the node plus its declared insertion (a column
+    // placed by a face or a corner has its axis half a side off the node). Its elevations stay
+    // the nodes': the floors the joints are made at.
+    const off = axisOffsetAt(id, lo.id);
     list.push({
       elementId: id, baseZ: Z(lo), topZ: Z(hi),
       b: ctx.section.b, h: ctx.section.h,
-      centre: { x: lo.x, y: lo.y },
-      bars, tieDia: ctx.material.stirrupDia, cover: ctx.material.cover,
+      centre: { x: lo.x + off.x, y: lo.y + off.y },
+      nodePlan: { x: lo.x, y: lo.y },
+      // A shaped column draws the ties its design chose; a rectangular one keeps the project's
+      // stirrup, which its joint cages and the threading search are coordinated against.
+      ...(accepted?.tieZones ? { endZone: { length: accepted.tieZones.endLength, spacing: accepted.tieZones.endSpacing } } : {}),
+      bars, tieDia: ctx.shape ? (accepted?.stirrups?.diameter ?? accepted?.shaped?.spiral?.diameter ?? ctx.material.stirrupDia) : ctx.material.stirrupDia, cover: ctx.material.cover,
     });
     stacks.set(key, list);
   }
 
   const memberBarsById = new Map<number, MemberBars>();
+  /** A column's horizontal local axes, which carry its section's x and y into plan. */
+  const columnFrame = (id: number) => {
+    const el = input.elements.get(id)!, a = input.nodes.get(el.nodeI)!, b = input.nodes.get(el.nodeJ)!;
+    const ax = computeLocalAxes3D({ id: a.id, x: a.x, y: a.y, z: Z(a) }, { id: b.id, x: b.x, y: b.y, z: Z(b) }, undefined, (el as { rollAngle?: number }).rollAngle);
+    return { ey: ax.ey, ez: ax.ez };
+  };
 
   /**
    * Lap lookup for the classifier, installed once `materialiseLaps` has run.
@@ -725,6 +735,37 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
    * withholds the claim instead of being absent from it.
    */
   const unsupportedRun: Array<{ key: string; params: Record<string, unknown> }> = [];
+
+  /**
+   * The open §25.5 conditions of the column stacks' laps (`splice-checks.ts`), scoped to the
+   * upper lift, where the lap stands. Filed with that lift's assembly once it is built: the two
+   * lifts of a lap are in different storeys' assemblies, so no collision check sees the pair.
+   */
+  const columnLapOpen: UnsupportedCondition[] = [];
+  /** The project binds seismic design, so INPRES-CIRSOC 103-II's lap locations apply. */
+  const lapContext = { edition: input.edition, seismic: input.bentUp?.seismicDesign === 'required' };
+  /**
+   * One open condition per clause, joint and member, counting the pairs it holds and carrying
+   * the worst pair's numbers: a column floor of 8 coincident pairs is one condition with
+   * `pairs: 8`, not eight.
+   */
+  const collapseLapConditions = (list: readonly UnsupportedCondition[]): UnsupportedCondition[] => {
+    const worse = (c: UnsupportedCondition) => {
+      const p = c.params ?? {};
+      const k = c.key.split('.').pop();
+      return k === 'short' ? -Number(p.overlap) : k === 'pitch' ? Number(p.offset)
+        : k === 'spacing' ? -Number(p.clear) : k === 'unarranged' ? -Number(p.offset) : 0;
+    };
+    const by = new Map<string, UnsupportedCondition>();
+    for (const c of list) {
+      const k = `${c.key}|${c.params?.joint ?? ''}|${(c.scope.elementIds ?? []).join(',')}`;
+      const seen = by.get(k);
+      if (!seen) { by.set(k, { ...c, params: { ...c.params, pairs: 1 } }); continue; }
+      const pairs = Number(seen.params?.pairs ?? 1) + 1;
+      by.set(k, worse(c) > worse(seen) ? { ...c, params: { ...c.params, pairs } } : { ...seen, params: { ...seen.params, pairs } });
+    }
+    return [...by.values()];
+  };
 
   /**
    * Does a column's top lift need tension development at the roof?
@@ -782,11 +823,19 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     edition: input.edition,
     maxAggregateSizeMm: input.maxAggregateSizeMm,
     memberKindOf: (id) => input.contexts.get(id)?.elementType,
-    layerOf: (barId) => barLayers.get(barId),
+    layerOf: layerOfBar,
     isLapPair: (x, y) => lapLookup?.(x, y),
   }, surface, ta, tb);
   /** Layer index per bar, reported by the generators, for the §25.2.2 classification. */
   const barLayers = new Map<string, number>();
+  /**
+   * A bar's layer, the generator's. A bar the line fused through a joint (`a+b`,
+   * `lap-materialize.ts`) is the first bar's: it lies in that bar's layer. It used to have none,
+   * and two layers of one member 25 mm apart (§25.2.2) were held to the in-layer 26,7 mm.
+   */
+  function layerOfBar(barId: string): number | undefined {
+    return barLayers.get(barId) ?? barLayers.get(barId.split('+')[0]!);
+  }
 
   /**
    * One reading of each beam's support hogging, shared by every site that resolves its groups.
@@ -817,6 +866,258 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       }
       : undefined;
   };
+  // ── Where each beam's bars end in its supports (`support-anchorage.ts`) ──
+  //
+  // The plan the design verified each end against, built here from the same inputs the design
+  // adapter reads: the column's face (half its smaller side), whether the line continues, the
+  // project's cover and tie diameter, the default cage, and the design's own bars in its own
+  // rows (`supportRows`). The generator lays the bars by it, and the coordination keeps the
+  // crossing beams' bars off the hooks it places.
+
+  /**
+   * The widest column at a node, and where its faces stand along beam `id`, m from the beam's
+   * axis end: half its smaller side either way of the column's axis (`columnFacesAlong`), the
+   * axis being the node plus the column's declared insertion, read against the beam's own. A
+   * column centred on the node gives `face` = half its smaller side and no `far`, as always.
+   */
+  function supportFacesAt(nodeId: number, id: number): { face: number; far?: number } {
+    let half = 0, widest: number | undefined;
+    for (const cid of columns) {
+      const cEl = input.elements.get(cid);
+      if (!cEl || (cEl.nodeI !== nodeId && cEl.nodeJ !== nodeId)) continue;
+      const cCtx = input.contexts.get(cid);
+      if (!cCtx) continue;
+      const h = Math.min(cCtx.section.b, cCtx.section.h) / 2;
+      if (h > half) { half = h; widest = cid; }
+    }
+    const el = input.elements.get(id), line = memberLine(id);
+    if (widest === undefined || !el || !line) return { face: half };
+    const u = unit(line.i, line.j);
+    const w = nodeId === el.nodeI ? u : { x: -u.x, y: -u.y, z: -u.z };
+    const c = axisOffsetAt(widest, nodeId), o = axisOffsetAt(id, nodeId);
+    return columnFacesAlong(half, { x: c.x - o.x, y: c.y - o.y, z: 0 }, w);
+  }
+  /** Node to the near face of the widest column at a node, along beam `id`, m. */
+  function supportFaceAt(nodeId: number, id: number): number {
+    return supportFacesAt(nodeId, id).face;
+  }
+
+  /**
+   * Whether the line continues past `nodeId`: another detailed beam frames in there along the
+   * same axis (the coordination's `collinear` test, |cos| > 0,7). Its bars end in the line's
+   * laps; elsewhere they end, anchored, in the column.
+   */
+  function lineContinuesAt(id: number, nodeId: number): boolean {
+    const el = input.elements.get(id);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    if (!el || !a || !b) return false;
+    const u = unit(nodePoint(a), nodePoint(b));
+    return beams.some((other) => {
+      if (other === id) return false;
+      const o = input.elements.get(other);
+      if (!o || (o.nodeI !== nodeId && o.nodeJ !== nodeId)) return false;
+      const p = input.nodes.get(o.nodeI), q = input.nodes.get(o.nodeJ);
+      if (!p || !q) return false;
+      const v = unit(nodePoint(p), nodePoint(q));
+      return Math.abs(u.x * v.x + u.y * v.y + u.z * v.z) > 0.7;
+    });
+  }
+
+  /**
+   * The beams crossing `id` at a node: every beam framing in there off its axis, detailed or not.
+   * One without a design is read at every seat it could take (`crossingSeatsOf`), as the design
+   * read it: a beam is a beam of the joint whether or not its bars are designed yet.
+   */
+  function crossingBeamsAt(id: number, nodeId: number): number[] {
+    const el = input.elements.get(id);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    if (!el || !a || !b) return [];
+    const u = unit(nodePoint(a), nodePoint(b));
+    const allBeams = [...raw.contexts.values()].filter((c) => c.elementType === 'beam').map((c) => c.elementId);
+    return allBeams.filter((other) => {
+      if (other === id) return false;
+      const o = input.elements.get(other);
+      if (!o || (o.nodeI !== nodeId && o.nodeJ !== nodeId)) return false;
+      const p = input.nodes.get(o.nodeI), q = input.nodes.get(o.nodeJ);
+      if (!p || !q) return false;
+      const v = unit(nodePoint(p), nodePoint(q));
+      return Math.abs(u.x * v.x + u.y * v.y + u.z * v.z) <= 0.7;
+    });
+  }
+
+  /**
+   * Whether a member's positive steel develops fy at the face (§9.7.3.8.2), as the detailing was
+   * told or the design read it: declared part of the lateral system, or not declared
+   * (`developsAtFace`, the verifier's own reading in `supportInputOf`).
+   */
+  function lateralOf(id: number): boolean {
+    return (input.lateralSystem?.has(id) ?? false) || developsAtFace(raw.contexts.get(id)?.lateral);
+  }
+
+  /** A beam's two supports, its design rows at each and the plan of every bar end there. */
+  function supportPlanOf(id: number) {
+    const el = input.elements.get(id);
+    // The design's own context (`raw`): the stirrup diameter the design verified ld with, not the
+    // one `withDesignedStirrups` seats the cage on.
+    const ctx = raw.contexts.get(id);
+    const rebar = detailableReinforcement(input.outcomes.get(id))?.rebar;
+    if (!el || !ctx || !rebar) return null;
+    const cageAt = (nodeId: number): SupportCage => {
+      // The columns' designed cages, as the design read them (`MemberContext.columnCages`); the
+      // default where a column at the node has none.
+      // Every column at the node, designed or not: one without a design leaves the default.
+      const dias = [...raw.contexts.values()].filter((c) => c.elementType === 'column').map((c) => c.elementId)
+        .filter((cid) => { const c = input.elements.get(cid); return !!c && (c.nodeI === nodeId || c.nodeJ === nodeId); })
+        .map((cid) => columnCageDia(detailableReinforcement(input.outcomes.get(cid))?.rebar));
+      // The crossing beams' corner seats at the joint, from their designs (`crossingSeatsOf`).
+      const crossing = crossingBeamsAt(id, nodeId).flatMap((other) => {
+        const oc = raw.contexts.get(other);
+        if (!oc) return [];
+        const rec = beamCornerRecord(detailableReinforcement(input.outcomes.get(other))?.rebar, oc.material.stirrupDia);
+        // A crossing beam that ends here hooks its top bars down here too, as the design reads
+        // it (`beamSupportCage`): their tails are parallel to this beam's.
+        // Where both end here, the one that gives way clears the other's corner by the parallel
+        // clear (`yieldsTo`), as the design reads it.
+        const oe = input.elements.get(other)!;
+        const dirOf = (e: DetailingModelElement) => { const p = input.nodes.get(e.nodeI)!, q = input.nodes.get(e.nodeJ)!; return { x: q.x - p.x, y: q.y - p.y }; };
+        const hooks = lineContinuesAt(other, nodeId) || lineContinuesAt(id, nodeId) || !yieldsTo(dirOf(el), dirOf(oe)) ? undefined
+          : { clear: minClearSpacingInLayer(input.edition, { barDiameterMm: 0, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear };
+        return crossingSeatsOf(other, { b: oc.section.b, h: oc.section.h }, {
+          cover: ctx.material.cover, tieDiaMm: ctx.material.stirrupDia,
+          ...(ctx.material.longDiametersMm ? { admissibleDiametersMm: ctx.material.longDiametersMm } : {}),
+          ...(rec ? { beamCorners: new Map([[other, rec]]) } : {}),
+        }, hooks);
+      });
+      return supportCageFrom({
+        ...supportFacesAt(nodeId, id), continues: lineContinuesAt(id, nodeId), cover: ctx.material.cover, tieDiaMm: ctx.material.stirrupDia,
+        designedBarDiaMm: dias.length && dias.every((d) => d > 0) ? Math.max(...dias) : 0,
+        ...(ctx.material.longDiametersMm ? { admissibleDiametersMm: ctx.material.longDiametersMm } : {}),
+        crossing,
+      });
+    };
+    const cages = { I: cageAt(el.nodeI), J: cageAt(el.nodeJ) };
+    const simple = isSimpleSupport(cages.I) || isSimpleSupport(cages.J);
+    const groupsB = rebar.regions?.bottomGroups ?? [];
+    // The seat the cage is laid on: `input` carries the design's stirrups (`withDesignedStirrups`).
+    const seatCtx = input.contexts.get(id) ?? ctx;
+    const lateral = lateralOf(id);
+    const section = { b: ctx.section.b, h: ctx.section.h, cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia, fc: ctx.material.fc, fy: ctx.material.fy };
+    // The top layers the coordination may lay, decided as the design decided them
+    // (`endSupportPlan`): the extra layer only where every bar anchors in it.
+    const seat = { stirrupDiaMm: seatCtx.material.stirrupDia, maxAggregateSizeMm: input.maxAggregateSizeMm };
+    const { maxTopLayers } = endSupportPlan({ rebar, section, cages: { start: cages.I, end: cages.J }, edition: input.edition, lateralSystem: lateral, seat });
+    const { slots } = topLayout(rebar, { b: section.b, cover: section.cover, stirrupDiaMm: seat.stirrupDiaMm, edition: input.edition, maxAggregateSizeMm: seat.maxAggregateSizeMm });
+    const rows = {
+      I: supportRows(rebar, 'start', { simple, slots, layers: maxTopLayers, lateralSystem: lateral, bottomHookRequested: groupsB.some((g) => g.anchorageStart === 'hook'), pitch: { edition: input.edition, maxAggregateSizeMm: seat.maxAggregateSizeMm } }),
+      J: supportRows(rebar, 'end', { simple, slots, layers: maxTopLayers, lateralSystem: lateral, bottomHookRequested: groupsB.some((g) => g.anchorageEnd === 'hook'), pitch: { edition: input.edition, maxAggregateSizeMm: seat.maxAggregateSizeMm } }),
+    };
+    // Nested tails stand side by side: §25.2.1's clear (`end-support-anchorage` `verdictsIn`).
+    const nestClear = (d: number) => minClearSpacingInLayer(input.edition, { barDiameterMm: d, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear;
+    const topRowsAt = (side: 'I' | 'J') => topRowsOf(rows[side]);
+    const plan = (side: 'I' | 'J', bar: { position: 'top' | 'bottom'; diameterMm: number; need: 'develop' | 'embed' | 'none'; hook: 'allowed' | 'requested'; inboard: number; rowStep?: number }) => {
+      const dev = faceDevelopment(rebar, section, bar.position === 'bottom' ? 'bottom' : side === 'I' ? 'topStart' : 'topEnd', bar.diameterMm, input.edition);
+      const outerAcross = seatedLongitudinalHalfExtents(section.b, section.h, section.cover, seat.stirrupDiaMm, bar.diameterMm).corner.halfAcross;
+      return planSupportEnd(cages[side], { ...bar, outerAcross, ld: dev.ld, ldh: dev.ldh, ldc: dev.ldc, stress: 'tension' });
+    };
+
+    /**
+     * The hooks this beam turns down (or up) in a support, as the generator will place them:
+     * their tails' distance past the node, m, and diameter.
+     */
+    const hookTails = (side: 'I' | 'J'): TailRow[] => {
+      const out: TailRow[] = [];
+      const tops = rows[side].filter((r) => r.position === 'top');
+      const topDia = Math.max(0, ...tops.map((r) => r.diameterMm));
+      // Every row's hooks, as its plan nests them (`rowStep`). The outer row's alone left the
+      // tails of the rows inside it out of the crossing beams' way, and the crossing bars ran
+      // through them (the 408-member frame: 709 top-to-top crossing clashes, 221 with them).
+      for (const r of rows[side]) {
+        const inboard = r.position === 'top' ? topRowInboard(r.row, r.diameterMm, nestClear(r.diameterMm))
+          : r.hook === 'requested' ? bottomHookInboard(topRowsAt(side), topDia, nestClear(Math.max(topDia, r.diameterMm))) : 0;
+        const p = plan(side, { position: r.position, diameterMm: r.diameterMm, need: r.need, hook: r.hook === 'requested' ? 'requested' : 'allowed', inboard, ...(r.position === 'top' ? { rowStep: r.diameterMm / 1000 + nestClear(r.diameterMm) } : {}) });
+        if (!p?.hook) continue;
+        const rr = standardHook(r.diameterMm, 90, 'longitudinal').centrelineRadius;
+        out.push({ at: p.along + rr, diameterMm: r.diameterMm, row: r.row, position: r.position, count: r.count });
+      }
+      return out;
+    };
+    return { cages, rows, simple, plan, topRowsAt: { I: topRowsAt('I'), J: topRowsAt('J') }, hookTails, maxTopLayers };
+  }
+  /**
+   * The hooks other beams turn into a support, as keep-outs across `id`: each crossing beam's
+   * hook tails stand at a known distance past the node (`supportPlanOf`), on a line across that
+   * beam, so along `id` they are posts its bars must thread past, as past the column's bars.
+   */
+  function crossingHookTails(id: number, nodeId: number, t: { x: number; y: number }, placement: number, clearedAtMm: number): KeepOut[] {
+    const el = input.elements.get(id);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    if (!el || !a || !b) return [];
+    const u = unit(nodePoint(a), nodePoint(b));
+    const out: KeepOut[] = [];
+    for (const other of beams) {
+      if (other === id) continue;
+      const o = input.elements.get(other);
+      if (!o || (o.nodeI !== nodeId && o.nodeJ !== nodeId)) continue;
+      const p = input.nodes.get(o.nodeI), q = input.nodes.get(o.nodeJ);
+      if (!p || !q) continue;
+      const v = unit(nodePoint(p), nodePoint(q));
+      if (Math.abs(u.x * v.x + u.y * v.y + u.z * v.z) > 0.7) continue;
+      const plan = supportPlanOf(other);
+      if (!plan) continue;
+      const side = o.nodeI === nodeId ? 'I' : 'J';
+      // The other beam's outward direction at this node, onto `id`'s transverse axis.
+      const k = (side === 'I' ? -1 : 1) * (v.x * t.x + v.y * t.y);
+      const theirs = plan.hookTails(side);
+      if (theirs.length === 0) continue;
+      // Where this beam ends here too, its own tails stand beside those, as the design reads
+      // them (`crossingTailPosts`, `jointThreading`).
+      const ownSide = el.nodeI === nodeId ? 'I' : 'J';
+      const ours = lineContinuesAt(id, nodeId) ? undefined : supportPlanOf(id)?.hookTails(ownSide);
+      const oc = input.contexts.get(other)!;
+      const theirSeat = Math.max(0, ...theirs.filter((x) => x.position === 'top').map((x) =>
+        seatedLongitudinalHalfExtents(oc.section.b, oc.section.h, oc.material.cover, oc.material.stirrupDia, x.diameterMm).corner.halfAcross));
+      const own = input.contexts.get(id)!;
+      const ourDia = Math.max(0, ...(ours ?? []).filter((x) => x.position === 'top').map((x) => x.diameterMm));
+      const ourSeat = ourDia > 0 ? seatedLongitudinalHalfExtents(own.section.b, own.section.h, own.material.cover, own.material.stirrupDia, ourDia).corner.halfAcross : 0;
+      out.push(...crossingTailPosts({
+        theirs, k, theirSeat, ...(ours ? { ours } : {}), ourSeat, gives: yieldsTo({ x: u.x, y: u.y }, { x: v.x, y: v.y }), placement, clearedAtMm,
+        ourTopMm: ourTopOf(id) || clearedAtMm,
+        clear: minClearSpacingInLayer(input.edition, { barDiameterMm: 0, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear,
+      }));
+    }
+    return out;
+  }
+
+
+
+  /** A beam's top bar, mm (its larger top group's). */
+  function ourTopOf(id: number): number {
+    const accepted = detailableReinforcement(input.outcomes.get(id))?.rebar;
+    const o = groupOptsFor(id);
+    const g = accepted && o ? beamGroups(accepted, o) : null;
+    return g ? Math.max(g.topStart.diameterMm, g.topEnd.diameterMm) : 0;
+  }
+
+  /** This beam's own tails beside the column's bars where it ends at the node (`columnTailPosts`). */
+  function ownTailsByColumn(id: number, nodeId: number, t: { x: number; y: number }, placement: number, clearedAtMm: number): KeepOut[] {
+    const el = input.elements.get(id), n = input.nodes.get(nodeId);
+    if (!el || !n || lineContinuesAt(id, nodeId)) return [];
+    const ours = supportPlanOf(id)?.hookTails(el.nodeI === nodeId ? 'I' : 'J');
+    if (!ours?.length) return [];
+    const a = input.nodes.get(el.nodeI)!, b = input.nodes.get(el.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const out = el.nodeI === nodeId ? { x: -(b.x - a.x) / L, y: -(b.y - a.y) / L } : { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+    const near = columnBarsNear(n, Z(n) + axisOffsetAt(id, nodeId).z);
+    return columnTailPosts({
+      bars: near.map((c) => ({ along: (c.x - n.x) * out.x + (c.y - n.y) * out.y, across: (c.x - n.x) * t.x + (c.y - n.y) * t.y, diameterMm: c.diameterMm })),
+      plan: near.map((c) => ({ x: c.x - n.x, y: c.y - n.y, diameterMm: c.diameterMm })),
+      u: { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, t,
+      // The joint's ties are the column's (`run-detailing` joint pass: the column's tie bar).
+      ours, placement, clearedAtMm, tieDiaMm: Math.max(0, ...columns.filter((cid) => { const c = input.elements.get(cid); return !!c && (c.nodeI === nodeId || c.nodeJ === nodeId); })
+        .map((cid) => input.contexts.get(cid)?.material.stirrupDia ?? 0)) || 8,
+      clear: (d) => minClearSpacingColumn(input.edition, { barDiameterMm: d, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear,
+    });
+  }
 
   /**
    * Column bars whose line passes through a node's plan position and elevation.
@@ -830,8 +1131,21 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     [...memberBarsById.values()].filter((mb) => input.contexts.get(mb.elementId)?.elementType === 'column'),
   );
 
-  function columnBarsNear(n: DetailingModelNode) {
-    const found = columnBarsIndex().query(n, Z(n), 1.0);
+  /**
+   * `level`: the elevation the beam's bars cross the column at — its axis there, the node plus
+   * its declared insertion. At the node it was, which for a top-flush beam is its top face: a
+   * roof column's bars stop a cover below it, so none was found, the threading saw an empty
+   * cage and laid the beam's top bars through the column's.
+   */
+  function columnBarsNear(n: DetailingModelNode, level: number = Z(n)) {
+    // The column's LONGITUDINAL bars only. A tie is a horizontal ring: its first point is a
+    // hook tail, not a vertical bar standing there, and a tie whose plane lies within 2 cm of
+    // the node passed the level filter and was read as a bar the beams had to thread past.
+    // That phantom (at ±37 and 62 mm across on the fixture's 30 cm columns) emptied every
+    // layout of the beams framing in, the floor's search came back exhausted, and with no
+    // assignment no collinear joint got its splice: the top bars of two spans stopped at the
+    // column, neither fused nor lapped.
+    const found = columnBarsIndex().query(n, level, 1.0).filter((b) => b.role === 'longitudinal');
 
     // ── Deduplicate by PHYSICAL POSITION, not by owning member ──
     //
@@ -880,16 +1194,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
    */
   const beamSeat = (ctx: {
     section: { b: number; h: number }; material: { cover: number; stirrupDia: number };
-  }, barDiaMm: number) => {
-    const seat = seatedLongitudinalHalfExtents(
-      ctx.section.b, ctx.section.h, ctx.material.cover, ctx.material.stirrupDia, barDiaMm);
-    const r = centrelineRadius(
-      minMandrelDiameter(ctx.material.stirrupDia, 'transverse').value, ctx.material.stirrupDia);
-    return {
-      cornerSeatAcross: seat.corner.halfAcross,
-      cornerSeatTolerance: r + barDiaMm / 2000,
-    };
-  };
+  }, barDiaMm: number) => sharedBeamSeat(ctx.section, ctx.material.cover, ctx.material.stirrupDia, barDiaMm);
 
   const cageFor = new Map<string, ColumnLayoutCandidate>();
   /** The ordinary drawing — what is actually built, until an alternative earns its place. */
@@ -918,7 +1223,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       return liftsRaw.some((lift) => [bel.nodeI, bel.nodeJ].some((nid) => {
         const n = input.nodes.get(nid);
         return n !== undefined
-          && Math.hypot(n.x - lift.centre.x, n.y - lift.centre.y) < 0.6
+          && Math.hypot(n.x - (lift.nodePlan ?? lift.centre).x, n.y - (lift.nodePlan ?? lift.centre).y) < 0.6
           && (Math.abs(Z(n) - lift.topZ) < 0.05 || Math.abs(Z(n) - lift.baseZ) < 0.05);
       }));
     });
@@ -1020,10 +1325,13 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       edition: input.edition,
     } as never);
 
-    // Beam depth at the joint above each lift, for the splice-free zone.
-    const beamDepthAtTop = new Map<number, number>();
-    lifts.forEach((lift, i) => {
-      let depth = 0;
+    // The joint above each lift (and below the first): the band the beams framing in make, each
+    // on its own axis — the node plus its declared insertion (`memberLine`). A top-flush beam's
+    // axis is h/2 under the node and its band [node − h, node]; centred, node ± h/2 (`jointBand`).
+    // The band is handed over only where an insertion moves it, so a model that declares none
+    // gets the joint it always had, to the bit.
+    const jointAt = (z: number, at: { x: number; y: number }) => {
+      let depth = 0, lo = Infinity, hi = -Infinity, moved = false;
       for (const bId of beams) {
         const bEl = input.elements.get(bId);
         const bCtx = input.contexts.get(bId);
@@ -1031,14 +1339,52 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         for (const nid of [bEl.nodeI, bEl.nodeJ]) {
           const n = input.nodes.get(nid);
           if (!n) continue;
-          if (Math.abs(Z(n) - lift.topZ) < 0.05
-            && Math.hypot(n.x - lift.centre.x, n.y - lift.centre.y) < 0.6) {
+          if (Math.abs(Z(n) - z) < 0.05
+            && Math.hypot(n.x - at.x, n.y - at.y) < 0.6) {
             depth = Math.max(depth, bCtx.section.h);
+            const dz = axisOffsetAt(bId, nid).z;
+            if (Math.abs(dz) > 1e-9) moved = true;
+            lo = Math.min(lo, Z(n) + dz - bCtx.section.h / 2);
+            hi = Math.max(hi, Z(n) + dz + bCtx.section.h / 2);
           }
         }
       }
-      if (depth > 0) beamDepthAtTop.set(i, depth);
+      return { depth, band: moved && depth > 0 ? { lo, hi } : undefined };
+    };
+    const beamDepthAtTop = new Map<number, number>();
+    const jointAtTop = new Map<number, { lo: number; hi: number }>();
+    lifts.forEach((lift, i) => {
+      const j = jointAt(lift.topZ, lift.nodePlan ?? lift.centre);
+      if (j.depth > 0) beamDepthAtTop.set(i, j.band ? j.band.hi - j.band.lo : j.depth);
+      if (j.band) jointAtTop.set(i, j.band);
     });
+    const atBase = jointAt(lifts[0].baseZ, lifts[0].nodePlan ?? lifts[0].centre);
+    const beamDepthAtBase = (atBase.band ? atBase.band.hi - atBase.band.lo : atBase.depth) || undefined;
+    const jointAtBase = atBase.band;
+    /**
+     * How far inside the clear height a column tie stops short of a joint at `z`. A beam's
+     * outer bars lie at least its cover and stirrup inside its face, and a tie beside them keeps
+     * the column-bar clear distance (§25.2.3) plus its own radius: measured on qa-8, the lift's
+     * top tie at the soffit of the 550 mm beams came 32,8 mm from their bottom bars, of 40.
+     */
+    const matGap = (z: number, centre: { x: number; y: number }, tieDiaMm: number) => {
+      const longDia = Math.max(...lifts.map((l) => l.bars.diameterMm));
+      const clear = minClearSpacingColumn(input.edition, { barDiameterMm: longDia, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear;
+      let gap = 0;
+      for (const bId of beams) {
+        const bEl = input.elements.get(bId), bCtx = input.contexts.get(bId);
+        if (!bEl || !bCtx) continue;
+        const at = [bEl.nodeI, bEl.nodeJ].some((nid) => {
+          const n = input.nodes.get(nid);
+          return !!n && Math.abs(Z(n) - z) < 0.05 && Math.hypot(n.x - centre.x, n.y - centre.y) < 0.6;
+        });
+        if (at) gap = Math.max(gap, clear + tieDiaMm / 2000 - bCtx.material.cover - bCtx.material.stirrupDia / 1000);
+      }
+      // The set's crossties stand a bar apart along the column about the station (`setNudge`): one
+      // per interior line, two lines per four bars beyond the corners.
+      const pieces = 1 + Math.max(0, Math.round((Math.max(...lifts.map((l) => l.bars.count)) - 4) / 2));
+      return gap > 0 ? gap + setSpread(pieces, tieDiaMm) / 2 : 0;
+    };
 
     const gen = generateColumnStack({
       stackId, lifts,
@@ -1054,8 +1400,12 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // 8 mm clear, against the 40 mm the article requires — an illegal cage, drawn without
       // complaint, which then blocked every beam framing into that joint. It is the reason
       // 120 beams were reported impossible to thread.
-      barPositions: conventionalCage.get(stackId)?.slots.map((sl) => ({ x: sl.dx, y: sl.dy })),
-      beamDepthAtTop,
+      // A circular, T or L column keeps its bars on its own outline.
+      barPositions: first.shape
+        ? shapedPlanBars(first.shape, lifts[0].bars.count, lifts[0].bars.diameterMm, lifts[0].cover, lifts[0].tieDia, columnFrame(lifts[0].elementId))
+        : conventionalCage.get(stackId)?.slots.map((sl) => ({ x: sl.dx, y: sl.dy })),
+      beamDepthAtTop, beamDepthAtBase,
+      ...(jointAtTop.size ? { jointAtTop } : {}), ...(jointAtBase ? { jointAtBase } : {}),
       // ── §25.4.1.2: a hook anchors tension, never compression ──
       //
       // This was hardcoded `true`, so every roof column bar got a 90° hook whatever it
@@ -1068,6 +1418,42 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // enough to open tension on a face. Both are checked; either one calls for a hook.
       roofTermination: topLiftNeedsTension(lifts),
     });
+
+    // ── The stack's laps, as built (§25.5, `splice-checks.ts`) ──
+    //
+    // At each floor the upper lift's bars start where the lower lift's run on a lap length past
+    // it. Both sets are read off `gen.bars` as one plan section: each upper bar paired with the
+    // nearest bar from below, the pair checked (contact or not, its length, its bar size, its
+    // steel) and every other bar of the section measured against it (§25.2.3). The certified cage
+    // puts both lifts' bars on the same plan points, so a pair shares a centreline: neither the
+    // crank of §10.7.4.1 nor a side-by-side arrangement is modelled, and that is reported.
+    {
+      const sectionBars: Array<SectionBar & { bar: BarPath }> = [];
+      for (const bar of gen.bars) {
+        if (bar.role !== 'longitudinal' || bar.segments.length === 0) continue;
+        const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
+        const s0 = bar.segments[0]!.start;
+        const owner = bar.ownerElementIds[bar.ownerElementIds.length - 1] ?? nearestLiftTo(bar, lifts);
+        sectionBars.push({ id: bar.id, x: s0.x, y: s0.y, diameterMm: bar.diameterMm, zMin: Math.min(...zs), zMax: Math.max(...zs), elementId: owner, bar });
+      }
+      for (let li = 1; li < lifts.length; li++) {
+        const ups = sectionBars.filter((b) => b.elementId === lifts[li]!.elementId && b.bar.ownerElementIds.length === 1);
+        if (ups.length === 0) continue;
+        const floorZ = Math.min(...ups.map((b) => b.zMin));
+        const lo = input.contexts.get(lifts[li - 1]!.elementId), up = input.contexts.get(lifts[li]!.elementId);
+        if (!lo || !up) continue;
+        const r = checkColumnLapSection({ floorZ, bars: sectionBars, maxAggregateSizeMm: input.maxAggregateSizeMm, ctx: lapContext });
+        const found = [...r.conditions];
+        for (const p of r.pairs) {
+          const a = sectionBars.find((b) => b.id === p.lower.id)!.bar, b = sectionBars.find((x) => x.id === p.upper.id)!.bar;
+          found.push(...checkLapPair({
+            kind: 'column', joint: `z${floorZ.toFixed(2)}`, a, b, elementIds: [lifts[li]!.elementId],
+            members: [lapMemberOf(lo), lapMemberOf(up)], ctx: lapContext,
+          }));
+        }
+        columnLapOpen.push(...collapseLapConditions(found));
+      }
+    }
 
     // ── Attribute each bar to the lift that owns it ──
     //
@@ -1127,12 +1513,29 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
          * ties to `topZ` would put two independently generated cages in the same band, and
          * the collision checker would be right to report every one of those pairs.
          */
-        const clearTop = zone.to - (beamDepthAtTop.get(liftIndex) ?? 0);
-        const height = clearTop - zone.from;
+        // The zones run the clear height already (`generateColumnStack`): soffit to floor. The
+        // tie at either end stands beside the joint's outer beam mat, so it keeps the clear
+        // distance the joint's own ties keep from it (`keepClearOf` below).
+        const from = zone.from + (zone.from > lift.baseZ + 1e-6 ? matGap(lift.baseZ, lift.nodePlan ?? lift.centre, lift.tieDia) : 0);
+        const clearTop = zone.to - (zone.to < lift.topZ - 1e-6 ? matGap(lift.topZ, lift.nodePlan ?? lift.centre, lift.tieDia) : 0);
+        const height = clearTop - from;
         if (!(height > 0)) continue;
 
         const ctx = input.contexts.get(lift.elementId);
         if (!ctx) continue;
+
+        // A shaped column: hoops on its own outline, or its spiral (`shaped-ties.ts`).
+        if (ctx.shape) {
+          const spiral = detailableReinforcement(input.outcomes.get(lift.elementId))?.rebar?.shaped?.spiral;
+          const frame = columnFrame(lift.elementId);
+          if (spiral && ctx.shape.kind === 'circle') {
+            bars.push(shapedSpiral({ D: ctx.shape.D, cover: lift.cover, diaMm: spiral.diameter, pitch: spiral.pitch, frame, centre: lift.centre, from: from, to: clearTop, elementId: lift.elementId, id: `col-${lift.elementId}-spiral` }));
+          } else {
+            const st = stirrupStations({ from: 0, to: height, spacing: zone.spacing, nextZoneStartsAtEnd: false });
+            bars.push(...shapedHoops({ shape: ctx.shape, cover: lift.cover, tieDiaMm: zone.diameterMm, frame, centre: lift.centre, zs: st.map((z) => from + z), elementId: lift.elementId, idPrefix: `col-${lift.elementId}` }));
+          }
+          continue;
+        }
 
         /**
          * The bars this tie can grip, in the tie's own frame.
@@ -1171,8 +1574,8 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
             // As at the joint: `legs` does not decide a column cage. The builder reads the
             // bars that are there and braces every interior line that carries one.
             legs: 2,
-            longitudinalBars: cageAt(zone.from + stations[si]),
-            origin: { x: lift.centre.x, y: lift.centre.y, z: zone.from },
+            longitudinalBars: cageAt(from + stations[si]),
+            origin: { x: lift.centre.x, y: lift.centre.y, z: from },
             axis: { x: 0, y: 0, z: 1 },
             up: { x: 1, y: 0, z: 0 },
             across: { x: 0, y: 1, z: 0 },
@@ -1199,7 +1602,10 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
           : liftUnsupported,
         maturity: stackMaturity,
         refs: stackRefs,
-        trace: lift.elementId === lifts[0].elementId ? gen.trace : [],
+        trace: [
+          ...(lift.elementId === lifts[0].elementId ? gen.trace : []),
+          ...(memberLine(lift.elementId) ? [referenceLineNote(memberLine(lift.elementId)!)] : []),
+        ],
       });
       if (bars.length === 0) {
         skipped.push({ elementId: lift.elementId, key: 'detailing.skip.liftProducedNoBars' });
@@ -1230,9 +1636,10 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
   } {
     const placement = DEFAULT_TOLERANCES.placement;
     const members: MemberVariable[] = [];
+    const domainArgsOf = new Map<number, Parameters<typeof beamLayoutDomain>[0]>();
     const perBeam = new Map<number, {
       dia: number; count: number; t: { x: number; y: number };
-      botDia: number; topDia: number;
+      botDia: number; topDia: number; topMinDia: number;
     }>();
 
     for (const id of beams) {
@@ -1251,19 +1658,25 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // Must match `transverseAxis(axis, up)` in the generator, which is axis × up.
       const t = { x: dy / L, y: -dx / L };
 
-      // The widest group governs: one arrangement serves the whole member.
-      const count = Math.max(groups.bottom.count, groups.topStart.count, groups.topEnd.count);
-      const dia = Math.max(
-        groups.bottom.diameterMm, groups.topStart.diameterMm, groups.topEnd.diameterMm);
-      const clearWidth = Math.max(0.02,
-        ctx.section.b - 2 * (ctx.material.cover + ctx.material.stirrupDia / 1000));
+      // The widest group governs: one arrangement serves the whole member. Its rows are laid at
+      // the WIDEST group's own bar (`rowDia`), and its clearances against the joints read the
+      // member's largest (`dia`). Laid at the largest bar of any group, a row of 7Ø10 top bars in
+      // a beam whose bottom is Ø12 did not fit one row and split into two the design never had;
+      // the hooks of the second row then nested inside the first's and lost the length the
+      // design verified (`support-anchorage.ts`).
+      const row = beamRow(groups);
+      const { count, dia } = row;
 
+      // Slots are measured from the beam's AXIS (`generateBeamBars` lays them round `origin`),
+      // and the axis is the node plus the declared insertion: a beam placed by its face in plan
+      // has its axis off the node, so a column bar on the node line is off its centreline.
+      const axisI = memberLine(id)?.i ?? nodePoint(nI);
       const lockedAcross = (input.lockedBars ?? [])
         .filter((b) => b.ownerElementIds.includes(id))
         .map((b) => {
           const p = b.segments[0]?.start;
           if (!p) return null;
-          return (p.x - nI.x) * t.x + (p.y - nI.y) * t.y;
+          return (p.x - axisI.x) * t.x + (p.y - axisI.y) * t.y;
         })
         .filter((x): x is number => x !== null);
 
@@ -1272,28 +1685,33 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // and the generator needs to see them all to offer a channel-aware alternative.
       const endObstacles: KeepOut[] = [];
       for (const n of [nI, nJ]) {
-        for (const c of columnBarsNear(n)) {
-          endObstacles.push({
+        const here: KeepOut[] = [];
+        for (const c of columnBarsNear(n, Z(n) + axisOffsetAt(id, n.id).z)) {
+          here.push({
             at: (c.x - n.x) * t.x + (c.y - n.y) * t.y,
             halfWidth: c.diameterMm / 2000 + placement,
           });
         }
+        here.push(...crossingHookTails(id, n.id, t, placement, dia), ...ownTailsByColumn(id, n.id, t, placement, dia));
+        endObstacles.push(...onAxis(id, n.id, t, here));
       }
 
-      const domain = generateLayoutCandidates({
-        count, diameterMm: dia, clearWidth, edition: input.edition,
-        maxAggregateSizeMm: input.maxAggregateSizeMm, memberKind: 'beam',
-        placementTolerance: placement,
-        lockedAcross: lockedAcross.length > 0 ? lockedAcross : undefined,
-        obstacles: endObstacles.length > 0 ? endObstacles : undefined,
-        ...beamSeat(ctx, dia),
-      });
+      // The layouts the design's threading check reads too (`joint-threading.ts`), with the
+      // extra layer only where the design found every bar anchoring in it (`endSupportPlan`).
+      const domainArgs = {
+        row, section: ctx.section, cover: ctx.material.cover, stirrupDiaMm: ctx.material.stirrupDia,
+        edition: input.edition, maxAggregateSizeMm: input.maxAggregateSizeMm, placement,
+        obstacles: endObstacles, lockedAcross, maxTopLayers: supportPlanOf(id)?.maxTopLayers,
+      };
+      const domain = beamLayoutDomain(domainArgs);
       if (domain.length === 0) continue;
+      domainArgsOf.set(id, domainArgs);
 
       perBeam.set(id, {
         dia, count, t,
         botDia: groups.bottom.diameterMm,
         topDia: Math.max(groups.topStart.diameterMm, groups.topEnd.diameterMm),
+        topMinDia: [groups.topStart.diameterMm, groups.topEnd.diameterMm].filter((d) => d > 0).reduce((a, d) => Math.min(a, d), groups.topStart.diameterMm || groups.topEnd.diameterMm),
       });
       members.push({ elementId: id, domain, diameterMm: dia, neighbours: [] });
     }
@@ -1311,8 +1729,9 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     for (const [nodeId, ids] of [...byNode.entries()].sort((a, b) => a[0] - b[0])) {
       const n = input.nodes.get(nodeId);
       if (!n) continue;
-      const cage = columnBarsNear(n);
-      if (cage.length === 0 && ids.length < 2) continue;
+      // Each beam reads the cage at its own bars' elevation (`columnBarsNear` `level`).
+      const cageOf = new Map(ids.map((id) => [id, columnBarsNear(n, Z(n) + axisOffsetAt(id, nodeId).z)]));
+      if ([...cageOf.values()].every((c) => c.length === 0) && ids.length < 2) continue;
 
       const keepOutsFor = new Map<number, KeepOut[]>();
       for (const id of ids) {
@@ -1325,10 +1744,10 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         //
         // What a crossing genuinely needs is not to INTERPENETRATE, with the placement
         // tolerance as the guard.
-        keepOutsFor.set(id, cage.map((c) => ({
+        keepOutsFor.set(id, onAxis(id, nodeId, info.t, [...cageOf.get(id)!.map((c) => ({
           at: (c.x - n.x) * info.t.x + (c.y - n.y) * info.t.y,
           halfWidth: c.diameterMm / 2000 + placement,
-        })));
+        })), ...crossingHookTails(id, nodeId, info.t, placement, info.dia), ...ownTailsByColumn(id, nodeId, info.t, placement, info.dia)]));
       }
       joints.push({
         jointId: `n${nodeId}`,
@@ -1342,14 +1761,17 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
           if (!ia || !ib) return false;
           const ctxA = input.contexts.get(aId);
           if (!ctxA) return false;
-          const dev = deriveDevelopment({
-            diameterMm: Math.max(ia.dia, ib.dia),
-            fy: ctxA.material.fy, fc: ctxA.material.fc,
-            favourableSpacing: true, edition: input.edition,
-          });
+          // ψt = 1,3 as for every beam bar the detailing develops (§25.4.2.5): the lap a joint
+          // plans carries its top mat, where the bars have more than 300 mm of concrete below.
+          // Read from BOTH members, f'c and fy too (`lineLapDevelopment`): the lap lies in the
+          // outgoing one, which the incoming member's depth and materials do not describe.
+          const ctxB = input.contexts.get(bId);
+          const dev = lineLapDevelopment(lapMemberOf(ctxA), ctxB && lapMemberOf(ctxB), Math.max(ia.dia, ib.dia), input.edition);
+          // Each layout's slots are measured from its own beam's axis; two beams on one line
+          // placed off the node by different amounts across it lap from the node line.
           return transitionExists(
-            aLayout.slots.map((sl) => sl.across),
-            bLayout.slots.map((sl) => sl.across),
+            nodeLine(aId, nodeId, ia.t, aLayout.slots.map((sl) => sl.across)),
+            nodeLine(bId, nodeId, ib.t, bLayout.slots.map((sl) => sl.across)),
             Math.max(ia.dia, ib.dia), dev,
             {
               // Provided/required at a support is routinely ≥ 2 for the continuing steel,
@@ -1495,6 +1917,29 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       });
     }
 
+    /**
+     * Where a line's members seat their bars, from the node line: each member's top and bottom
+     * bars in its own stirrup's bends (`seatedLongitudinalHalfExtents`, as the generator lays
+     * them) about its own axis — the node plus its declared insertion, so a top-flush beam seats
+     * h/2 lower than a centred one —, highest and lowest over the line.
+     */
+    const seatsOf = (ids: readonly number[]): Pick<LineForLayering, 'topZ' | 'bottomZ'> => {
+      const tops: number[] = [], bots: number[] = [];
+      for (const id of ids) {
+        const c = input.contexts.get(id), pb = perBeam.get(id);
+        if (!c || !pb) continue;
+        const ln = memberLine(id);
+        const dzs = ln ? [...new Set([ln.offsetI.z, ln.offsetJ.z])] : [0];
+        const seat = (d: number) => seatedLongitudinalHalfExtents(c.section.b, c.section.h, c.material.cover, c.material.stirrupDia, d).corner.halfUp;
+        for (const dz of dzs) {
+          for (const d of new Set([pb.topDia, pb.topMinDia].filter((x) => x > 0))) tops.push(dz + seat(d));
+          if (pb.botDia > 0) bots.push(dz - seat(pb.botDia));
+        }
+      }
+      return tops.length && bots.length
+        ? { topZ: { hi: Math.max(...tops), lo: Math.min(...tops) }, bottomZ: { hi: Math.max(...bots), lo: Math.min(...bots) } }
+        : {};
+    };
     const linesForLayering: LineForLayering[] = [];
     for (const [root, ids] of lineMembers) {
       const dir = perBeam.get(ids[0])?.t;
@@ -1507,6 +1952,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         maxBarMm: Math.max(...ids.map((id) => perBeam.get(id)?.dia ?? 0), 0),
         maxBottomMm: Math.max(...ids.map((id) => perBeam.get(id)?.botDia ?? 0), 0),
         maxTopMm: Math.max(...ids.map((id) => perBeam.get(id)?.topDia ?? 0), 0),
+        ...seatsOf(ids),
       });
     }
     const lineOfMember = new Map<number, string>();
@@ -1551,10 +1997,69 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         return out;
       })(),
     };
+    /**
+     * How far a line must pass under (top) or over (bottom) the hook bends of a crossing line at
+     * the joints where that one ends, beyond contact (`allocateLayers` `bendClearance`).
+     *
+     * A hooked bar turns down (top) or up (bottom) past the node on a bend of centreline radius
+     * `r` ending at its tail plane `at`. The crossing line's corner bar, `a` along it from the
+     * node, crosses that bend where `a` lies on the arc: to clear it by the two radii it must lie
+     * `r − √((r − ρ)² − (a − at + r)²)` from the run, more than the contact the ranks give. Where
+     * the corner reaches the tail itself no depth clears it, and the joint's posts read it. Read
+     * from the corner seat because the corner cannot move; a slot inside it threads the bend's
+     * keep-out (`bendCrossing`). Measured on the span fixture at 40×40, undeclared: the lower
+     * mat's top corner bar 13 mm below the upper's run passed through its Ø16 bend by 2,9 mm.
+     */
+    const bendExtra = new Map<string, { drop: number; raise: number }>();
+    // The layers inside each line's first, at the joints it shares with each crossing line: a
+    // line moved off a bend must not land on them (`allocateLayers` `innerLayers`).
+    const innerOf = new Map<string, { top: Array<{ depth: number; diaMm: number }>; bottom: Array<{ depth: number; diaMm: number }> }>();
+    for (const j of joints) {
+      const nodeId = Number(j.jointId.slice(1));
+      for (const x of j.elementIds) for (const y of j.elementIds) {
+        if (x === y || j.relation(x, y) !== 'crossing') continue;
+        const lx = lineOfMember.get(x), ly = lineOfMember.get(y);
+        const xc = input.contexts.get(x), info = perBeam.get(x), yEl = input.elements.get(y);
+        if (!lx || !ly || !xc || !info || !yEl) continue;
+        const yPlan = supportPlanOf(y);
+        {
+          // The generator steps layer k inside the one above it by the clear owed to the larger
+          // bar of the two (`supportRowInto`, `stackedLayerDepth`).
+          const inner = innerOf.get(`${lx}|${ly}`) ?? { top: [], bottom: [] };
+          const yRows = yPlan?.rows[yEl.nodeI === nodeId ? 'I' : 'J'] ?? [];
+          const yc = input.contexts.get(y);
+          const ySeat = (dMm: number) => yc
+            ? -seatedLongitudinalHalfExtents(yc.section.b, yc.section.h, yc.material.cover, yc.material.stirrupDia, dMm).corner.halfUp
+            : dMm / 2000;
+          for (const r of yRows) {
+            if (r.row > 0) inner[r.position].push({ depth: supportRowInto(yRows, r.position, r.row, r.diameterMm, ySeat, input.edition), diaMm: r.diameterMm });
+          }
+          innerOf.set(`${lx}|${ly}`, inner);
+        }
+        for (const t of yPlan?.hookTails(yEl.nodeI === nodeId ? 'I' : 'J') ?? []) {
+          if (t.row !== 0) continue;
+          const xDia = t.position === 'top' ? info.topDia : info.botDia;
+          if (!(xDia > 0)) continue;
+          const a = seatedLongitudinalHalfExtents(xc.section.b, xc.section.h, xc.material.cover, xc.material.stirrupDia, xDia).corner.halfAcross;
+          const r = standardHook(t.diameterMm, 90, 'longitudinal').centrelineRadius;
+          const rho = (t.diameterMm + xDia) / 2000;
+          const w = a - (t.at - r);
+          if (w <= 0 || w >= r - rho) continue;
+          const extra = Math.max(0, r - Math.sqrt((r - rho) ** 2 - w * w) - rho);
+          if (!(extra > 0)) continue;
+          const key = `${lx}|${ly}`;
+          const e = bendExtra.get(key) ?? { drop: 0, raise: 0 };
+          if (t.position === 'top') e.drop = Math.max(e.drop, extra); else e.raise = Math.max(e.raise, extra);
+          bendExtra.set(key, e);
+        }
+      }
+    }
     layerAllocation = allocateLayers({
       lines: linesForLayering, crossings,
       edition: input.edition,
       extraMargin: input.spacingMargin ?? 0,
+      bendClearance: (line, other) => bendExtra.get(`${line}|${other}`),
+      innerLayers: (line, other) => innerOf.get(`${line}|${other}`),
     });
     for (const [id, lineId] of lineOfMember) {
       const la = layerAllocation.byLine.get(lineId);
@@ -1564,6 +2069,75 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       }
     }
 
+    // ── The hook bends of the mats above, now that the ranks are known ──
+    //
+    // A crossing beam that ends here turns its top bars down past the node: each row's bend
+    // sweeps from its run down to its tail, between `at − r` and `at` past the node, across this
+    // beam. A layer of this beam's top steel lying below that row's run passes under the bend and
+    // through it; one above passes over. So a layer below keeps off the bend, and only one below:
+    // the ranks (`layerDropOf`) and the rows' own depths decide which. Measured on qa-8: the lower
+    // mat's bar ran through the upper beam's corner bend by 2,6 mm. Read before the ranks, as a
+    // keep-out of every layer, it would bar both beams from the band each other's bends sweep.
+    {
+      // From the node line, each beam's rows on its own axis (the node plus its declared
+      // insertion): a top-flush beam's rows stand h/2 lower than a centred one's. Its rows at
+      // that support stepped as the generator lays them (`supportRowInto`).
+      const rowsAt = new Map<string, readonly SupportRow[]>();
+      const zTop = (id: number, dMm: number, layer: number, nodeId: number) => {
+        const c = input.contexts.get(id)!;
+        const halfUp = (d: number) => seatedLongitudinalHalfExtents(c.section.b, c.section.h, c.material.cover, c.material.stirrupDia, d).corner.halfUp;
+        const key = `${id}|${nodeId}`;
+        let rows = rowsAt.get(key);
+        if (!rows) {
+          const el = input.elements.get(id);
+          rows = (el ? supportPlanOf(id)?.rows[el.nodeI === nodeId ? 'I' : 'J'] : undefined) ?? [];
+          rowsAt.set(key, rows);
+        }
+        return axisOffsetAt(id, nodeId).z + halfUp(dMm)
+          - (layerDropOf.get(id) ?? 0) - supportRowInto(rows, 'top', layer, dMm, (d) => -halfUp(d), input.edition);
+      };
+      const extra = new Map<number, KeepOut[]>();
+      for (const j of joints) {
+        const nodeId = Number(j.jointId.slice(1));
+        for (const id of j.elementIds) {
+          const info = perBeam.get(id);
+          const el = input.elements.get(id);
+          if (!info || !el || info.topDia <= 0) continue;
+          const posts: KeepOut[] = [];
+          for (const other of j.elementIds) {
+            if (other === id || j.relation(id, other) !== 'crossing') continue;
+            const o = input.elements.get(other)!;
+            const v = unit(nodePoint(input.nodes.get(o.nodeI)!), nodePoint(input.nodes.get(o.nodeJ)!));
+            const side = o.nodeI === nodeId ? 'I' : 'J';
+            const k = (side === 'I' ? -1 : 1) * (v.x * info.t.x + v.y * info.t.y);
+            for (const t of supportPlanOf(other)?.hookTails(side) ?? []) {
+              if (t.position !== 'top') continue;
+              const r = standardHook(t.diameterMm, 90, 'longitudinal').centrelineRadius;
+              const zRow = zTop(other, t.diameterMm, t.row, nodeId);
+              const contact = (t.diameterMm + info.topDia) / 2000;
+              for (const layer of [0, 1, 2]) {
+                const delta = zRow - zTop(id, info.topDia, layer, nodeId);
+                if (delta < contact - 1e-9) continue;
+                const band = bendCrossing(t.at, r, contact, delta);
+                if (band) posts.push({ at: ((band.lo + band.hi) / 2) * k, halfWidth: (band.hi - band.lo) / 2 - info.dia / 2000 + placement, layers: [layer] });
+              }
+            }
+          }
+          if (posts.length === 0) continue;
+          const onOurs = onAxis(id, nodeId, info.t, posts);
+          j.keepOutsFor.set(id, [...(j.keepOutsFor.get(id) ?? []), ...onOurs]);
+          extra.set(id, [...(extra.get(id) ?? []), ...onOurs]);
+        }
+      }
+      // The layouts are laid again with them, so the threaded rows step over the bends too.
+      for (const m of members) {
+        const more = extra.get(m.elementId);
+        const args = domainArgsOf.get(m.elementId);
+        if (!more || !args) continue;
+        const again = beamLayoutDomain({ ...args, obstacles: [...args.obstacles, ...more] });
+        if (again.length > 0) m.domain = again;
+      }
+    }
     const result = coordinate({ members, joints });
     const slots = new Map<number, number[]>();
     // The layer travels with the position. A candidate arranged in two layers repeats its
@@ -1592,8 +2166,14 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       for (let i = 0; i + 1 < ordered.length; i++) {
         const aId = ordered[i];
         const bId = ordered[i + 1];
-        const la = result.assignment.get(aId);
-        const lb = result.assignment.get(bId);
+        // The layouts the transition is planned against: the assignment's, or, where the floor's
+        // search closed no assignment, each member's own first layout — the one its generator
+        // lays without one. A support's splice does not depend on whether the bars thread the
+        // column: that clash is the collision check's to report, and a line left with no lap
+        // because a joint elsewhere had no layout is a bar with nothing to develop in.
+        const unassigned = (id: number) => members.find((x) => x.elementId === id)?.domain[0];
+        const la = result.assignment.get(aId) ?? unassigned(aId);
+        const lb = result.assignment.get(bId) ?? unassigned(bId);
         const ia = perBeam.get(aId);
         const ib = perBeam.get(bId);
         const ctxA = input.contexts.get(aId);
@@ -1610,14 +2190,13 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         const jn = input.nodes.get(shared);
         if (!jn) continue;
 
-        const dev = deriveDevelopment({
-          diameterMm: Math.max(ia.dia, ib.dia),
-          fy: ctxA.material.fy, fc: ctxA.material.fc,
-          favourableSpacing: true, edition: input.edition,
-        });
+        // The lap runs from the joint into the OUTGOING member: its ψt, f'c and fy are read from
+        // both (`lineLapDevelopment`). From the incoming one alone, a 30 cm beam lapping into a
+        // 50 cm one planned its top bars at ψt = 1,0.
+        const dev = lineLapDevelopment(lapMemberOf(ctxA), lapMemberOf(ctxB), Math.max(ia.dia, ib.dia), input.edition);
         const attempt = planSplice({
-          from: la.slots.map((sl) => sl.across),
-          to: lb.slots.map((sl) => sl.across),
+          from: nodeLine(aId, shared, ia.t, la.slots.map((sl) => sl.across)),
+          to: nodeLine(bId, shared, ib.t, lb.slots.map((sl) => sl.across)),
           diameterMm: Math.max(ia.dia, ib.dia),
           development: dev,
           areaRatio: 1.0,
@@ -1641,10 +2220,12 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
           jointId: `n${shared}`,
           fromElementId: aId,
           toElementId: bId,
-          jointPoint: { x: jn.x, y: jn.y, z: Z(jn) },
+          // On the `from` member's axis at the joint, where its bars are (`memberLine`).
+          jointPoint: (() => { const o = axisOffsetAt(aId, shared); return { x: jn.x + o.x, y: jn.y + o.y, z: Z(jn) + o.z }; })(),
           axis: { x: raw.x / rl, y: raw.y / rl, z: 0 },
           across: { x: ia.t.x, y: ia.t.y, z: 0 },
           schedule: attempt.schedule,
+          sameSteel: ctxA.material.fy === ctxB.material.fy,
         });
       }
     }
@@ -1675,16 +2256,101 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
    * radius rather than an assumed axis. Neither is a substitute for modelling the
    * orientation; both are honest about not having it.
    */
-  const supportFaceOffset = (nodeId: number): number => {
-    let half = 0;
+  const supportFaceOffset = (nodeId: number, id: number): number => supportFaceAt(nodeId, id);
+  /**
+   * How far inside the support face a beam's first stirrup stands (`stirrupInsetI`): its legs
+   * clear of the column's face bars by the column's clear distance, those bars a cover, a tie
+   * and half a bar inside the face. Nothing where no designed column stands at the node.
+   */
+  const stirrupInsetAt = (nodeId: number, stirrupDiaMm: number): number => {
+    let inset = 0;
     for (const cid of columns) {
-      const cEl = input.elements.get(cid);
-      if (!cEl || (cEl.nodeI !== nodeId && cEl.nodeJ !== nodeId)) continue;
-      const cCtx = input.contexts.get(cid);
-      if (!cCtx) continue;
-      half = Math.max(half, Math.min(cCtx.section.b, cCtx.section.h) / 2);
+      const c = input.elements.get(cid);
+      if (!c || (c.nodeI !== nodeId && c.nodeJ !== nodeId)) continue;
+      const cctx = input.contexts.get(cid);
+      const bars = columnBars(detailableReinforcement(input.outcomes.get(cid))?.rebar as never);
+      if (!cctx || !bars) continue;
+      const clear = minClearSpacingColumn(input.edition, { barDiameterMm: bars.diameterMm, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear;
+      // Half the stirrup, and half again for its closing tails, which stand that far out of its
+      // plane (`buildClosedStirrup`'s `gap`).
+      inset = Math.max(inset, stirrupDiaMm / 1000 + clear - cctx.material.cover - cctx.material.stirrupDia / 1000);
     }
-    return half;
+    return inset;
+  };
+
+  /**
+   * Whether the line continues past `nodeId`: another detailed beam frames in there along the
+   * same axis (the coordination's `collinear` test, |cos| > 0,7). Its bars end in the line's
+   * laps; elsewhere they end, anchored, in the column.
+   */
+  /**
+   * Longitudinal beam bars whose run lies outside the section: across or up from the member's
+   * axis farther than a bar of that diameter seated in the stirrup can be (b/2 or h/2, less the
+   * cover, the stirrup and half the bar; 2 mm of placement allowance). Read at the run's middle,
+   * the straight that is the bar — a hook's tail belongs to the support it turns into.
+   */
+  const coverViolations = (bars: readonly BarPath[]): UnsupportedCondition[] => {
+    const out: UnsupportedCondition[] = [];
+    for (const bar of bars) {
+      if (bar.role !== 'longitudinal') continue;
+      const owner = bar.ownerElementIds.find((id) => input.contexts.get(id)?.elementType === 'beam');
+      const ctx = owner !== undefined ? input.contexts.get(owner) : undefined;
+      const el = owner !== undefined ? input.elements.get(owner) : undefined;
+      const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+      if (!ctx || !el || !a || !b || !bar.ownerElementIds.every((id) => input.contexts.get(id)?.elementType === 'beam')) continue;
+      const run = bar.segments.filter((sg) => sg.kind === 'straight')
+        .sort((p, q) => Math.hypot(q.end.x - q.start.x, q.end.y - q.start.y, q.end.z - q.start.z)
+          - Math.hypot(p.end.x - p.start.x, p.end.y - p.start.y, p.end.z - p.start.z))[0];
+      if (!run) continue;
+      const m = { x: (run.start.x + run.end.x) / 2, y: (run.start.y + run.end.y) / 2, z: (run.start.z + run.end.z) / 2 };
+      // From the member's axis, the node plus its declared insertion (`memberLine`): the section
+      // the bar must lie in is round that, not round the node.
+      const ln = memberLine(owner!);
+      const pa = ln?.i ?? nodePoint(a), pb = ln?.j ?? nodePoint(b);
+      const u = unit(pa, pb);
+      const t = { x: u.y, y: -u.x };
+      const tl = Math.hypot(t.x, t.y) || 1;
+      const across = Math.abs(((m.x - pa.x) * t.x + (m.y - pa.y) * t.y) / tl);
+      const up = Math.abs(m.z - pa.z);
+      const seat = (half: number) => half - ctx.material.cover - ctx.material.stirrupDia / 1000 - bar.diameterMm / 2000 + 0.002;
+      const maxAcross = seat(ctx.section.b / 2), maxUp = seat(ctx.section.h / 2);
+      if (across <= maxAcross + 1e-9 && up <= maxUp + 1e-9) continue;
+      const params = {
+        bar: bar.id, element: owner!, across: Math.round(across * 1000) / 1000, up: Math.round(up * 1000) / 1000,
+        maxAcross: Math.round(maxAcross * 1000) / 1000, maxUp: Math.round(maxUp * 1000) / 1000,
+      };
+      out.push({
+        key: 'detailing.cover.violated', scope: { elementIds: [owner!] },
+        message: `${bar.id}: |${params.across}| > ${params.maxAcross} m / |${params.up}| > ${params.maxUp} m`,
+        params, refs: [],
+      });
+    }
+    return out;
+  };
+
+
+  /**
+   * The stirrups the design verified for a beam, by region, with the verifier's regions: from
+   * each node to the critical section d past the face (`computeBeamCriticalSections` on the
+   * member's own model slice, as `verifyProvidedReinforcement` reads it), or `regionT` of the
+   * length where there is no geometry.
+   */
+  const designedStirrupsOf = (id: number, rebar: ProvidedReinforcement | undefined) => {
+    const ctx = input.contexts.get(id);
+    const support = rebar?.regions?.stirrupsSupport ?? rebar?.stirrups;
+    const span = rebar?.regions?.stirrupsSpan ?? rebar?.stirrups;
+    if (!ctx || !support || !span) return undefined;
+    const md = ctx.modelData;
+    const cs = ctx.criticalSections ?? (md?.nodes && md.elements && md.sections && md.supports ? computeBeamCriticalSections(
+      id, md.nodes, md.elements as never, md.sections as never, md.supports as never,
+      { b: ctx.section.b, h: ctx.section.h, cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia },
+    ) ?? undefined : undefined);
+    const t = rebar?.regions?.regionT ?? 0.25;
+    return {
+      support, span,
+      regionI: (cs ? cs.start.tCritShear : t) * ctx.L,
+      regionJ: (cs ? cs.end.tCritShear : t) * ctx.L,
+    };
   };
 
   // ── Beams ──
@@ -1753,6 +2419,8 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       edition: input.edition,
     } as never);
 
+    const designedStirrups = designedStirrupsOf(id, accepted);
+    const supportPlan = supportPlanOf(id);
     const gen = generateBeamBars({
       closureCache,
       elementId: id,
@@ -1763,28 +2431,49 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       d: depthAfterRaise(
         ctx.section.h - ctx.material.cover - ctx.material.stirrupDia / 1000,
         layerRaiseOf.get(id) ?? 0),
-      cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
+      // The bars seat in the stirrups that are laid: the designed ones.
+      cover: ctx.material.cover,
+      stirrupDia: designedStirrups
+        ? Math.max(designedStirrups.support.diameter, designedStirrups.span.diameter) : ctx.material.stirrupDia,
       fc: ctx.material.fc, fy: ctx.material.fy,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,
       stations,
+      // Every bar end by the plan the design verified (`supportPlanOf`).
+      ...(supportPlan ? {
+        supportEnd: supportPlan.plan, topRowsAt: supportPlan.topRowsAt,
+        simpleSupport: supportPlan.simple,
+      } : {}),
+      ...(designedStirrups ? { designedStirrups } : {}),
       supportI: supportKindAt(el.nodeI, id, input.elements),
       supportJ: supportKindAt(el.nodeJ, id, input.elements),
       vn: Math.max(...stations.map((s) => s.v), 1),
       bottom: groups.bottom, topStart: groups.topStart, topEnd: groups.topEnd,
       topPurpose: groups.topPurpose,
-      lateralSystem: input.lateralSystem?.has(id) ?? false,
+      lateralSystem: lateralOf(id),
+      ...(lateralOf(id) && !(input.lateralSystem?.has(id) ?? false) && (raw.contexts.get(id)?.lateral?.role ?? 'undeclared') === 'undeclared' ? { lateralAssumed: true } : {}),
       ld: anchor.ld,
-      origin: nodePoint(nI),
-      axis: unit(nodePoint(nI), nodePoint(nJ)),
+      // The member's axis as the analysis took it: the nodes plus the declared insertion
+      // (`memberLine`). Laid round the nodes, a top-flush beam's top bars stood h/2 above its
+      // top face — above the slab it is flush with.
+      origin: memberLine(id)?.i ?? nodePoint(nI),
+      axis: memberLine(id) ? unit(memberLine(id)!.i, memberLine(id)!.j) : unit(nodePoint(nI), nodePoint(nJ)),
       up: { x: 0, y: 0, z: 1 },
-      supportFaceI: supportFaceOffset(el.nodeI),
-      supportFaceJ: supportFaceOffset(el.nodeJ),
+      supportFaceI: supportFaceOffset(el.nodeI, id),
+      supportFaceJ: supportFaceOffset(el.nodeJ, id),
+      stirrupInsetI: stirrupInsetAt(el.nodeI, ctx.material.stirrupDia),
+      stirrupInsetJ: stirrupInsetAt(el.nodeJ, ctx.material.stirrupDia),
       transverseSlots: layoutChoice.slots.get(id),
       transverseLayers: layoutChoice.slotLayers.get(id),
       layerRaise: layerRaiseOf.get(id) ?? 0,
       layerDrop: layerDropOf.get(id) ?? 0,
       bentUp: input.bentUp ?? { seismicDesign: 'unstated', optOut: false },
+      ...(accepted?.regions?.skin ? { skin: accepted.regions.skin } : {}),
+      ...(input.memberCuts?.get(id) ? { cuts: input.memberCuts.get(id) } : {}),
+      ...(accepted?.regions?.bottomGroups?.some((g) => g.anchorageStart === 'hook' || g.anchorageEnd === 'hook') ? { bottomHooks: {
+        start: accepted.regions.bottomGroups.some((g) => g.anchorageStart === 'hook'),
+        end: accepted.regions.bottomGroups.some((g) => g.anchorageEnd === 'hook'),
+      } } : {}),
     } as never);
 
     for (const [barId, layer] of Object.entries(gen.barLayers)) barLayers.set(barId, layer);
@@ -1841,6 +2530,9 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
           ? [`Apoyo i: ${groups.provisions.start.note}`] : []),
         ...(groups.topPurpose.end === 'stirrupHanger'
           ? [`Apoyo j: ${groups.provisions.end.note}`] : []),
+        // Where the bars were laid from: the declared insertion, or the assumption that the
+        // axis runs through the nodes.
+        ...(memberLine(id) ? [referenceLineNote(memberLine(id)!)] : []),
       ],
     });
   }
@@ -1860,6 +2552,24 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     if (mb) mb.bars = bars;
   }
   columnIndex = null; // Laps replaced geometry: subsequent queries need its new bounds.
+
+  // ── The ends the laps did not take ──
+  //
+  // A bar the generator left `pending` at a support where the line continues was neither fused
+  // nor lapped: its partner across the joint did not exist (the two sides carry different
+  // counts) or the joint got no transition. It ends at the column's far face, so it has the
+  // column's depth past the near face to develop in. Straight when that is enough; otherwise
+  // it is not resolved, and says so.
+  for (const mb of memberBarsById.values()) {
+    mb.bars = mb.bars.map((bar) => {
+      const a = bar.anchorage;
+      if (!a || (a.start?.solution !== 'pending' && a.end?.solution !== 'pending')) return bar;
+      const settle = (r: typeof a.start) => r && r.solution === 'pending'
+        ? { ...r, solution: r.available >= r.required - 1e-9 ? 'straight' as const : 'unresolved' as const } : r;
+      const start = settle(a.start), end = settle(a.end);
+      return { ...bar, anchorage: { ...(start ? { start } : {}), ...(end ? { end } : {}) } };
+    });
+  }
   const laps = lapIndex(materialised.laps);
   lapLookup = (aId: string, bId: string) => {
     const lap = lapBetween(laps, aId, bId);
@@ -2002,14 +2712,30 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     const top = Z(nI) >= Z(nJ) ? nI : nJ;
 
     // Joint depth is the deepest beam framing in: the joint is as deep as the members that
-    // form it, and a tie above the shallowest beam's soffit is still inside the joint.
-    let depth = 0;
+    // form it, and a tie above the shallowest beam's soffit is still inside the joint. Each
+    // beam stands on its own axis — the node plus its declared insertion — so the joint is the
+    // band from the lowest soffit to the highest top face, [node − h, node] for top-flush beams;
+    // node ± depth/2 is that band only where they are centred on the node.
+    let depth = 0, jointLo = Infinity, jointHi = -Infinity;
     for (const bid of beams) {
       const bEl = input.elements.get(bid);
       if (!bEl || (bEl.nodeI !== top.id && bEl.nodeJ !== top.id)) continue;
-      depth = Math.max(depth, input.contexts.get(bid)?.section.h ?? 0);
+      const h = input.contexts.get(bid)?.section.h ?? 0;
+      depth = Math.max(depth, h);
+      if (h > 0) {
+        const dz = axisOffsetAt(bid, top.id).z;
+        jointLo = Math.min(jointLo, Z(top) + dz - h / 2);
+        jointHi = Math.max(jointHi, Z(top) + dz + h / 2);
+      }
     }
     if (depth <= 0) continue;   // a column with no beam at its top has no joint.
+    const centred = Math.abs(jointLo - (Z(top) - depth / 2)) < 1e-9 && Math.abs(jointHi - (Z(top) + depth / 2)) < 1e-9;
+    // Kept exactly node ± depth/2 where it is, so a model that declares no insertion is unchanged.
+    if (centred) { jointLo = Z(top) - depth / 2; jointHi = Z(top) + depth / 2; }
+    const jointMid = centred ? Z(top) : (jointLo + jointHi) / 2;
+    // The cage is the column's: round its axis, the node plus its declared insertion.
+    const colOff = axisOffsetAt(cid, top.id);
+    const cageCentre = { x: top.x + colOff.x, y: top.y + colOff.y };
 
     const cAccepted = detailableReinforcement(input.outcomes.get(cid))?.rebar;
     const longDia = (cAccepted ? columnBars(cAccepted)?.diameterMm : undefined)
@@ -2045,14 +2771,16 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       }
     }
     const columnBarExtent = jointBarExtents;
-    const plan = columnBarsAtLevel(Z(top), { x: top.x, y: top.y });
+    // Read at the middle of the joint, where the ties go: at the node, a top-flush joint's top
+    // face, a roof column's bars (stopped a cover below it) were not found and the ties held none.
+    const plan = columnBarsAtLevel(jointMid, cageCentre);
     const cageBarsAt = (z: number) => plan
       .filter((p) => {
         const e = columnBarExtent.get(p.id);
         return e === undefined || (e.lo <= z + 0.002 && e.hi >= z - 0.002);
       })
       .map((p) => ({ id: p.id, across: p.dy, up: p.dx, diameterMm: p.diameterMm }));
-    const cageBars = cageBarsAt(Z(top));
+    const cageBars = cageBarsAt(jointMid);
 
     // ── The band a joint tie can actually occupy ──
     //
@@ -2070,8 +2798,8 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       return !!bEl && (bEl.nodeI === top.id || bEl.nodeJ === top.id);
     });
     const tieR = cCtx.material.stirrupDia / 2000;
-    let bandLo = Z(top) - depth / 2;
-    let bandHi = Z(top) + depth / 2;
+    let bandLo = jointLo;
+    let bandHi = jointHi;
     /**
      * Squeeze the band away from one obstructing elevation.
      *
@@ -2090,13 +2818,19 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // the node splits the band in two and leaves neither half usable — measured, both joints
       // of the feasible frame reported no room at all when the tier-0 tail, sitting exactly at
       // the node, was read as a floor for the tails beneath it.
-      if (from === 'roofHook' || zc >= Z(top)) bandHi = Math.min(bandHi, zc - keepOut);
+      if (from === 'roofHook' || zc >= jointMid) bandHi = Math.min(bandHi, zc - keepOut);
       else bandLo = Math.max(bandLo, zc + keepOut);
     };
     for (const bid of incidentBeams) {
       for (const bar of memberBarsById.get(bid)?.bars ?? []) {
         if (bar.role !== 'longitudinal') continue;
-        const zs = bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
+        // The mat is where the bar's RUN lies: its longest straight segment. The midpoint of all
+        // its elevations put a bar hooked down into the column halfway down its own tail, and the
+        // band then admitted ties at the elevation of the mat itself.
+        const run = bar.segments.filter((sg) => sg.kind === 'straight')
+          .sort((p, q) => Math.hypot(q.end.x - q.start.x, q.end.y - q.start.y, q.end.z - q.start.z)
+            - Math.hypot(p.end.x - p.start.x, p.end.y - p.start.y, p.end.z - p.start.z))[0];
+        const zs = run ? [run.start.z, run.end.z] : bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
         keepClearOf((Math.min(...zs) + Math.max(...zs)) / 2, bar.diameterMm, 'mat');
       }
     }
@@ -2117,7 +2851,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         // Horizontal within the joint: a run whose ends share an elevation but not a position.
         if (Math.abs(sg.end.z - sg.start.z) > 1e-6) continue;
         if (Math.hypot(sg.end.x - sg.start.x, sg.end.y - sg.start.y) < 1e-9) continue;
-        if (sg.start.z < Z(top) - depth / 2 || sg.start.z > Z(top) + depth / 2) continue;
+        if (sg.start.z < jointLo || sg.start.z > jointHi) continue;
         keepClearOf(sg.start.z, bar.diameterMm, 'roofHook');
       }
     }
@@ -2153,13 +2887,24 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       (memberBarsById.get(bid)?.bars ?? []).filter((b) => b.role === 'longitudinal'));
     const jointOwners = [...new Set([cid, ...incidentBeams])].sort((x, y) => x - y);
     let built = 0;
-    for (let si = 0; si < stations.length; si++) {
-      const set = buildColumnTieSet({
+    /**
+     * The joint's tie set at a station, its centreline crossties on the side that runs through
+     * fewest of the beams' bars. A crosstie on the cage's centreline may pass on either side of
+     * the bars it grips (`buildCrosstie` `centreSides`), and the search reads it on the positive
+     * one (`columnTailPosts`): where that side runs through a beam's hook tail, which stands on a
+     * plane across the crosstie no slot of that beam can move, the other side is taken where it
+     * runs through fewer. Measured on the span fixture at 40×40, its beams' role not declared:
+     * the end beams' bottom tails stood 22 mm past the node and the crosstie's shaft at 20 mm,
+     * 5,7 mm into each of them; on the other side it touched none. Chosen by the bars as laid,
+     * a flip only ever removes an interpenetration of the tie: the search's slots are untouched.
+     */
+    const tieSetAt = (station: number, si: number) => {
+      const build = (centreSides?: { across: 1 | -1; up: 1 | -1 }) => buildColumnTieSet({
         closureCache,
         elementId: cid,
         cageId: `joint-${top.id}:cage`,
         zoneId,
-        station: stations[si],
+        station,
         b: cCtx.section.b, h: cCtx.section.h,
         cover: cCtx.material.cover, stirrupDiaMm: cCtx.material.stirrupDia,
         // `legs` is not what decides a COLUMN cage. `buildColumnTieSet` reads the bars that
@@ -2168,14 +2913,41 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         // cannot give: measured, the mid-face bars of an 8-bar cage sit 140,7 mm clear of the
         // nearest supported bar against the 120 mm (b) allows.
         legs: 2,
-        longitudinalBars: cageBarsAt(from + stations[si]),
-        origin: { x: top.x, y: top.y, z: from },
+        longitudinalBars: cageBarsAt(from + station),
+        origin: { x: cageCentre.x, y: cageCentre.y, z: from },
         axis: { x: 0, y: 0, z: 1 },
         up: { x: 1, y: 0, z: 0 },
         across: { x: 0, y: 1, z: 0 },
         hookOrientation: si % 2 === 0 ? 'a' : 'b',
         maxAggregateSizeMm: input.maxAggregateSizeMm,
+        ...(centreSides ? { centreSides } : {}),
       });
+      const first = build();
+      if (first.unsupported.length > 0 || throughBars.length === 0) return first;
+      // Interpenetrations of the crossties (every piece but the perimeter tie) with the beams'
+      // bars, and how deep: fewer first, then shallower.
+      const cost = (set: ReturnType<typeof build>) => {
+        let n = 0, depth = 0;
+        for (const piece of set.pieces.slice(1)) {
+          for (const bar of throughBars) {
+            const c = minSurfaceClearance(piece.path, bar).clearance;
+            if (c < -1e-4) { n++; depth -= c; }
+          }
+        }
+        return { n, depth };
+      };
+      let best = first, bestCost = cost(first);
+      if (bestCost.n === 0) return first;
+      for (const sides of [{ across: -1, up: 1 }, { across: 1, up: -1 }, { across: -1, up: -1 }] as const) {
+        const alt = build(sides);
+        if (alt.unsupported.length > 0) continue;
+        const c = cost(alt);
+        if (c.n < bestCost.n || (c.n === bestCost.n && c.depth < bestCost.depth - 1e-9)) { best = alt; bestCost = c; }
+      }
+      return best;
+    };
+    for (let si = 0; si < stations.length; si++) {
+      const set = tieSetAt(stations[si], si);
       if (set.unsupported.length > 0) {
         cMb.unsupported.push(...set.unsupported.map((r) => formatClause(r)));
         continue;
@@ -2236,6 +3008,84 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
   /** Spacing assessments that failed, across the run. Zero until the gate is wired. */
   const spacingFailures = { codeLegal: 0, placementRobust: 0 };
 
+  /**
+   * What a repair move may not leave: each beam's and column's section, by its real width and
+   * height, cover, stirrup and the bar's own radius, and the effective depth the members were
+   * reverified at above (`repair-envelope.ts`). Built once: the members do not change per level.
+   */
+  const repairEnvelope = buildRepairEnvelope([...input.contexts.values()].flatMap((ctx): EnvelopeMember[] => {
+    if (ctx.elementType !== 'beam' && ctx.elementType !== 'column') return [];
+    const el = input.elements.get(ctx.elementId);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    if (!el || !a || !b) return [];
+    return [{
+      elementId: ctx.elementId, kind: ctx.elementType, start: nodePoint(a), end: nodePoint(b),
+      b: ctx.section.b, h: ctx.section.h, cover: ctx.material.cover, stirrupDiaMm: ctx.material.stirrupDia,
+    }];
+  }));
+
+  /** Every beam in plan, for §9.7.7.1's perimeter test. */
+  const planBeams: PlanBeam[] = beams.flatMap((id) => {
+    const el = input.elements.get(id);
+    const a = el && input.nodes.get(el.nodeI), b = el && input.nodes.get(el.nodeJ);
+    return el && a && b ? [{ id, a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, z: (Z(a) + Z(b)) / 2 }] : [];
+  });
+  /**
+   * The open §25.5 conditions of one assembly's beam laps, measured on its FINAL bars — after the
+   * joint layering and the repair ladder, which move the bars the materialiser lapped.
+   *
+   * Each lap is checked as built (`checkLapPair`); at each joint where top bars lap, §9.7.7.5(b)
+   * asks whether the integrity steel of a perimeter beam is spliced there (`checkIntegritySplice`).
+   * A bar a fusion later absorbed is found by the ids it is made of (`a+b` holds `a`).
+   */
+  const lapConditionsOf = (bars: readonly BarPath[], elementIds: readonly number[]): UnsupportedCondition[] => {
+    const own = new Set(elementIds);
+    const byId = new Map(bars.map((b) => [b.id, b]));
+    const byPart = new Map<string, BarPath>();
+    for (const b of bars) for (const part of b.id.split('+')) byPart.set(part, b);
+    const current = (id: string) => byId.get(id) ?? byPart.get(id.split('+')[0]!);
+    const found: UnsupportedCondition[] = [];
+    const topLapsAt = new Map<string, { from: number; to: number; n: number }>();
+    for (const lap of materialised.laps) {
+      if (lap.fromElementId === undefined || lap.toElementId === undefined || !own.has(lap.fromElementId)) continue;
+      const a = current(lap.fromBarId), b = current(lap.toBarId);
+      const ca = input.contexts.get(lap.fromElementId), cb = input.contexts.get(lap.toElementId);
+      if (!a || !b || !ca || !cb) continue;
+      found.push(...checkLapPair({
+        kind: 'beam', joint: lap.jointId, a, b, elementIds: [lap.fromElementId, lap.toElementId],
+        members: [lapMemberOf(ca), lapMemberOf(cb)], ctx: lapContext,
+      }));
+      if (barFace(a) === 'top' && barFace(b) === 'top') {
+        const t = topLapsAt.get(lap.jointId) ?? { from: lap.fromElementId, to: lap.toElementId, n: 0 };
+        t.n++;
+        topLapsAt.set(lap.jointId, t);
+      }
+    }
+    for (const [jointId, t] of topLapsAt) {
+      const node = input.nodes.get(Number(jointId.slice(1)));
+      if (!node) continue;
+      const perimeter = [t.from, t.to].some((id) => {
+        const pb = planBeams.find((p) => p.id === id);
+        return pb ? isPerimeterBeam(pb, planBeams) : true;
+      });
+      // The top bars of the two members that reach the support, and those of them that run
+      // through it as one bar (owned by both).
+      const reaching = bars.filter((b) => b.role === 'longitudinal' && barFace(b) === 'top'
+        && (b.ownerElementIds.includes(t.from) || b.ownerElementIds.includes(t.to))
+        && b.segments.some((sg) => sg.kind === 'straight' && distanceToSegmentPlan(node, sg.start, sg.end) <= 0.35));
+      const continuous = reaching.filter((b) => b.ownerElementIds.includes(t.from) && b.ownerElementIds.includes(t.to));
+      found.push(...checkIntegritySplice({
+        joint: jointId, elementIds: [t.from, t.to], perimeter, topLaps: t.n, continuousTop: continuous,
+        topAtSupport: [t.from, t.to].map((id) => reaching.filter((b) => b.ownerElementIds.includes(id))),
+        edition: input.edition,
+      }));
+    }
+    return [
+      ...collapseLapConditions(found),
+      ...columnLapOpen.filter((c) => (c.scope.elementIds ?? []).every((id) => own.has(id))),
+    ];
+  };
+
   const assemblies: DetailingAssembly[] = [];
   const coordination: FloorCoordinationResult[] = [];
 
@@ -2244,6 +3094,8 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
     const joints = buildJoints(level, beams, columns, input);
 
     const result = coordinateFloor({
+      // The generator laid every beam line at its rank (`allocateLayers`, `layerDrop`).
+      linesLayered: true,
       assemblyId: `level-${level.toFixed(2)}`,
       // The label is data, not prose: the UI renders `detailing.assembly.level` with it.
       label: level.toFixed(2),
@@ -2286,7 +3138,8 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         };
       }),
       memberKindOf: (id) => input.contexts.get(id)?.elementType,
-      layerOf: (barId) => barLayers.get(barId),
+      repairEnvelope,
+      layerOf: layerOfBar,
       // Materialised laps are a detail, not a defect. Before materialisation this is
       // undefined and every pair is judged by plain clear spacing, which is correct.
       isLapPair: (a, b) => lapLookup?.(a, b),
@@ -2295,6 +3148,20 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
         return n ? { x: n.x, y: n.y, z: Z(n) } : undefined;
       },
     });
+    // ── Every beam bar inside its section's concrete ──
+    //
+    // The repair ladder used to push bars out of their section (28 on the 408-member frame);
+    // it is now bounded by `repairEnvelope` and cannot, and a clash it cannot separate inside
+    // the section is `detailing.clash.unresolved`. This check stays as the guard on everything
+    // else that places a bar — the generators, the joint layering, a bar the user pinned — none
+    // of which the ladder's bound covers. It reads the final bars, so whatever put a bar outside
+    // its cage, the bar is recorded, naming where it is and where it may be.
+    result.assembly.unsupported.push(...coverViolations(result.assembly.bars));
+    // ── Every lap the assembly holds, as built (§25.5) ──
+    //
+    // The beams' laps on the final bars, and the column laps that stand in this storey (scoped to
+    // the upper lift). An open condition here withholds CONSTRUCTIBLE through `noUnsupportedRule`.
+    result.assembly.unsupported.push(...lapConditionsOf(result.assembly.bars, elementIds));
     // ── The thirteen conditions, measured on what coordination ACTUALLY produced ──
     //
     // Second pass on purpose. The conflict count is an output of coordination, so a gate
@@ -2346,9 +3213,10 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       materialisedTransversePieces: result.assembly.bars
         .filter((bar) => bar.role === 'transverse').length,
       prohibitedConflicts: prohibited,
+      // Re-verified and conforming: strength at the final geometry, and serviceability.
       reverifiedMembers: elementIds.filter((e) => {
         const v = reverification.get(e);
-        return v === 'ok' || v === 'warn';
+        return (v === 'ok' || v === 'warn') && !input.serviceabilityFails?.(e) && !input.loadSplitNotEstablished?.(e);
       }).length,
       // A certificate describes the geometry it was checked against.
       //
@@ -2364,7 +3232,7 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
       // all is a mismatch rather than a silent pass.
       certificateHashMatches: elementIds.filter((e) => {
         const v = reverification.get(e);
-        return v === 'ok' || v === 'warn';
+        return (v === 'ok' || v === 'warn') && !input.serviceabilityFails?.(e) && !input.loadSplitNotEstablished?.(e);
       }).length,
       /**
        * Beam lines and column stacks contain no slabs, walls or footings.

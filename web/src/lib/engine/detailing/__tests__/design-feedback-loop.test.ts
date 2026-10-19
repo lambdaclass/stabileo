@@ -37,10 +37,24 @@ interface Harness {
 
 let cachedHarness: Harness | null = null;
 
-/** The real chain: solve → design → detail. Nothing seeded. */
+/**
+ * The real chain: solve → design → detail. Nothing seeded but the beams' stirrup bar.
+ *
+ * The beams are offered Ø8 stirrups only. With the default Ø6, CIRSOC 201-2025 §9.6.3.1 asks
+ * Av,min wherever Vu > φ·0,085·√f'c·bw·d, and Ø6 2 ramas reach it only at 225 mm on these
+ * 300 mm webs (Av,min = 0,35·300·225/420 = 0,56 cm² ≤ 0,57), so the design closes the spacing
+ * to 225 mm from the start and nothing fails at the final geometry: the loop has nothing to do
+ * (`fixture-acceptance.test.ts` records that). Ø8 meets Av,min at 250 mm (1,01 cm²), so the
+ * search spends the table's nominal limit again and coordination moves it under: the scenario
+ * this file exists to test, with the same limits (24,8 and 24,3 cm), the same final
+ * utilisations (1,008 and 1,030) and the same repair (250 → 225 mm).
+ */
 function harness(): Harness {
   if (cachedHarness) return cachedHarness;
-  const solved = solveFixture(frame as never);
+  const raw = solveFixture(frame as never);
+  const contexts = new Map([...raw.contexts].map(([id, c]) => [id, c.elementType === 'beam'
+    ? { ...c, material: { ...c.material, stirrupDia: 8, stirrupDiametersMm: [8] } } : c]));
+  const solved = { ...raw, contexts };
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
   let calls = 0;
   const detail = (outcomes: ReadonlyMap<number, MemberDesignOutcome>) => {
@@ -106,12 +120,18 @@ function loop(): DesignFeedbackLoopResult {
  * amounts and repair to different utilizations:
  *   5, 6 — no joint-layer movement, only Table 26.6.2.1(a)'s 15 mm → d = 497, d/2 = 248,5
  *   7, 8 — 12 mm bottom raise + 10 mm top drop + 15 mm            → d = 485, d/2 = 242,5
+ *
+ * The raise is now 11,7 mm, not 12,0: the layer allocation separates the crossing bottom mats
+ * from where each beam's bars sit in its own stirrup's bends (`seatsOf`, the corner seats), not
+ * from its face, and the two seats differ by 0,29 mm. Less depth lost, so 7 and 8 fail at their
+ * final geometry by a hair less (before: hash b12.0/t10.0/d15.0, utilization 1,031; after:
+ * b11.7/t10.0/d15.0, 1,030), and still on the same check.
  */
 const REPAIRED = [5, 6, 7, 8];
 /** The two pairs, and the geometry each actually lost. */
 const PAIRS = {
-  noLayerMovement: { ids: [5, 6], hash: 'b0.0/t0.0/d15.0', sMaxCm: 24.8, util: 1.008 },
-  layerMoved: { ids: [7, 8], hash: 'b12.0/t10.0/d15.0', sMaxCm: 24.3, util: 1.031 },
+  noLayerMovement: { ids: [5, 6], hash: 'b0.0/t0.0/d15.0', sMaxCm: 24.8, util: 1.008, raise: 0 },
+  layerMoved: { ids: [7, 8], hash: 'b11.7/t10.0/d15.0', sMaxCm: 24.3, util: 1.030, raise: 0.0117071 },
 } as const;
 const pairOf = (id: number) =>
   PAIRS.noLayerMovement.ids.includes(id as never) ? PAIRS.noLayerMovement : PAIRS.layerMoved;
@@ -127,8 +147,9 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     for (const fb of it1.feedback) {
       const pair = pairOf(fb.elementId);
       const fails = fb.failedChecks.filter((c) => c.status === 'fail');
-      // 7 and 8 lose enough depth to fail at BOTH ends and in the span; 5 and 6 only in the
-      // span, because their support region was already detailed at 225 mm.
+      // With Ø8 stirrups (see the harness) every region of the four is detailed at 250 mm, so
+      // all fail at both the supports and the span. (With Ø6, before §9.6.3.1 was checked, the
+      // supports of 5 and 6 were already at 225 mm and only their span failed.)
       expect(fails.length).toBeGreaterThan(0);
       expect(fails.map((c) => c.category)).toContain('Shear Span (Vz) s,max');
       for (const c of fails) {
@@ -146,7 +167,7 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     // raise on them would be asserting a coordination that did not happen.
     for (const fb of loop().iterations[0].feedback) {
       const moved = PAIRS.layerMoved.ids.includes(fb.elementId as never);
-      expect(fb.finalGeometry.bottomRaise).toBeCloseTo(moved ? 0.012 : 0, 6);
+      expect(fb.finalGeometry.bottomRaise).toBeCloseTo(moved ? PAIRS.layerMoved.raise : 0, 6);
       expect(fb.finalGeometry.topLower).toBeCloseTo(moved ? 0.010 : 0, 6);
       // The tolerance applies whether or not anything moved.
       expect(fb.finalGeometry.depthTolerance).toBeCloseTo(0.015, 6);
@@ -160,7 +181,7 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
   it('the arithmetic behind each failure, from the table', () => {
     // d/2 is row 1 of Table 9.7.6.2.2, whose 400 mm cap does not govern at this depth.
     // 5, 6: 512 − 15      = 497 → 248,5 mm; 250/248,5 = 1,006 → reported 1,008
-    // 7, 8: 512 − 12 − 15 = 485 → 242,5 mm; 250/242,5 = 1,031
+    // 7, 8: 512 − 12 − 15 = 485 → 242,5 mm; 250/242,5 = 1,031 (the run raises 11,7 mm: 1,030)
     expect(250 / 248.5).toBeCloseTo(1.006, 3);
     expect(250 / 242.5).toBeCloseTo(1.031, 3);
     // The old rule permitted 300 mm in all four span regions. Both real limits are below it.
@@ -183,8 +204,8 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     for (const r of loop().iterations[0].repairs) {
       expect(r.kind).toBe('FINAL_GEOMETRY_VERIFIED');
       const prev = before.get(r.elementId)!.accepted!;
-      // Every region ends up at 225 mm, and the SPAN region is the one that had to move on
-      // all four members. On 5 and 6 the support was already there.
+      // Every region ends up at 225 mm; the span moved on all four members (and, with Ø8,
+      // the supports too, which the assertion above already covers).
       expect(r.accepted!.regions!.stirrupsSpan!.spacing).toBeCloseTo(0.225, 6);
       expect(r.accepted!.regions!.stirrupsSupport!.spacing).toBeCloseTo(0.225, 6);
       expect(prev.regions!.stirrupsSpan!.spacing).toBeCloseTo(0.250, 6);
@@ -206,7 +227,8 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
     //
     // 7 and 8 land at 0,883 and 5 and 6 at 0,910 — all four inside the target. Neither number
     // comes from the maximum-spacing rule: both are the member's SHEAR utilisation at its
-    // support, already detailed at 225 mm before the repair.
+    // support, at 225 mm after the repair (with Ø6 it was already there before; the numbers
+    // are the same with Ø8, whose shear strength is not what governs either).
     //
     // 5 and 6 read 0,922 rather than the 0,993 recorded before Diego's PR #78 review
     // (e20707a9). That review made the shear check take axial force compression-positive, so a
@@ -389,7 +411,7 @@ describe('certificates describe the geometry that exists', () => {
       expect(r.certificate!.rebarHash).toBe(rebarHash(r.accepted!));
       seen.add(r.certificate!.finalGeometryHash);
     }
-    expect([...seen].sort()).toEqual(['b0.0/t0.0/d15.0', 'b12.0/t10.0/d15.0']);
+    expect([...seen].sort()).toEqual(['b0.0/t0.0/d15.0', PAIRS.layerMoved.hash]);
   });
 
   it('the published outcome carries the final-geometry certificate alongside the nominal one', () => {
@@ -454,7 +476,7 @@ describe('locked reinforcement is a hard constraint', () => {
     expect(l.unrepaired.map((u) => u.elementId)).toEqual([7, 8]);
     for (const u of l.unrepaired) {
       expect(u.kind).toBe('LOCKED_REINFORCEMENT_PREVENTS_REPAIR');
-      expect(u.finalUtilization).toBeCloseTo(1.031, 3);
+      expect(u.finalUtilization).toBeCloseTo(PAIRS.layerMoved.util, 3);
     }
     // The pinned steel is untouched and the honest verdict is preserved.
     for (const id of [7, 8]) {

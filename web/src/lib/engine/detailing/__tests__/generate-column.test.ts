@@ -138,9 +138,11 @@ describe('§10.7.4.2 — separate dowels at an offset face', () => {
     const lap = s.lapSplice(0.25 === 0 ? 20 : 20);   // Ø20 upper bars
     for (const d of dowels) {
       const zs = d.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
-      // One lap below the transition and one above: it splices to both lifts.
-      expect(Math.min(...zs)).toBeCloseTo(3 - lap, 6);
-      expect(Math.max(...zs)).toBeCloseTo(3 + lap, 6);
+      // One lap below the floor and one above: it splices to both lifts. The floor is the top
+      // of the joint, the node + half the 0,60 m beam: 3,30 m. It was 3,00 m, the node read as
+      // the top of the floor, which put the dowel's lap half inside the beams.
+      expect(Math.min(...zs)).toBeCloseTo(3.3 - lap, 6);
+      expect(Math.max(...zs)).toBeCloseTo(3.3 + lap, 6);
       // A dowel IS the splice between the two lifts. Filing it under one would leave the
       // other's assembly missing steel that physically crosses it.
       expect(d.ownerElementIds.sort()).toEqual([100, 101]);
@@ -212,7 +214,9 @@ describe('splices', () => {
     const s = planSplices(stack(three));
     // Two upper lifts x two stagger groups.
     expect(s).toHaveLength(4);
-    expect(s[0].from).toBeCloseTo(3, 9);
+    // On the floor: the node at 3 m + half the 0,60 m beam centred on it. It was 3,00 m, the
+    // node read as the top of the floor, so the lap started at mid-depth of the beams.
+    expect(s[0].from).toBeCloseTo(3.3, 9);
   });
 
   it('staggers half the bars by one lap length', () => {
@@ -235,7 +239,7 @@ describe('splices', () => {
   });
 });
 
-describe('§10.7.6.2 tie spacing', () => {
+describe('column tie spacing, art. 25.7.2.1', () => {
   it('takes the least of 16 d_b, 48 d_be and the least column dimension', () => {
     // 16 × 20 = 320; 48 × 8 = 384; 400 -> 16 d_b governs.
     const r = tieSpacing(20, 8, 0.40, '2025');
@@ -254,8 +258,9 @@ describe('§10.7.6.2 tie spacing', () => {
   });
 
   it('cites the right clause per edition', () => {
-    expect(tieSpacing(20, 8, 0.4, '2025').refs[0].clause).toBe('10.7.6.2');
-    expect(tieSpacing(20, 8, 0.4, '2005').refs[0].clause).toBe('7.10.5');
+    // 10.7.6.2 is the lateral support of the bars; the spacing limit is 25.7.2.1(b).
+    expect(tieSpacing(20, 8, 0.4, '2025').refs[0].clause).toBe('25.7.2.1');
+    expect(tieSpacing(20, 8, 0.4, '2005').refs[0].clause).toBe('7.10.5.2');
   });
 });
 
@@ -271,9 +276,12 @@ describe('column stack generation', () => {
     const g = generateColumnStack(stack(three));
     const lower = g.bars.find((b) => b.id.includes('-L0-'))!;
     const top = g.bars.find((b) => b.id.includes('-L2-'))!;
-    // Lower lift: 3 m + lap (0.05 × 20 = 1.0 m).
-    expect(lower.cuttingLength).toBeCloseTo(4.0, 6);
-    expect(top.cuttingLength).toBeCloseTo(3.0, 6);
+    // Lower lift: from the base to the top of the joint (3 m + 0,30 m, half the 0,60 m beam
+    // centred on the node) plus the lap (0.05 × 20 = 1.0 m): 4,30 m. The top lift stands on
+    // the floor at 6,30 m and rises to the roof beam's top less the cover, 9,30 − 0,025 m:
+    // 2,975 m. They were 4,0 and 3,0 m with the node read as the top of each floor.
+    expect(lower.cuttingLength).toBeCloseTo(4.3, 6);
+    expect(top.cuttingLength).toBeCloseTo(2.975, 6);
   });
 
   it('places four corner bars plus face bars, inside the cover', () => {
@@ -450,5 +458,24 @@ describe('joint coordination', () => {
       ...base, columnAbove: true, beams: [beam(2, Y), beam(1, X)],
     });
     expect(JSON.stringify(run())).toBe(JSON.stringify(run()));
+  });
+});
+
+describe('denser end zones (project option)', () => {
+  it('splits each lift into its two end zones and the middle, the top one under the beams', () => {
+    // 40×40, 8Ø20, Ø8: s = min(16·20, 48·8, 400) = 320 mm; the ends at 150 mm over 0,50 m.
+    // The clear height ends at the soffit of the 0,60 m beam centred on the node at 3 m: 2,70 m.
+    // It was [1,9; 3] with the clear top at 2,40 m (the node read as the top of the floor) and
+    // the top zone running on into the joint to 3 m.
+    const g = generateColumnStack(stack([lift({ endZone: { length: 0.5, spacing: 0.15 } }, 0)]));
+    expect(g.ties.map((z) => [z.from, +z.to.toFixed(3), z.spacing])).toEqual([
+      [0, 0.5, 0.15], [0.5, 2.2, tieSpacing(20, 8, 0.4, '2025').spacing], [2.2, 2.7, 0.15],
+    ]);
+  });
+
+  it('a lift too short for both zones is all dense', () => {
+    const g = generateColumnStack(stack([lift({ endZone: { length: 1.5, spacing: 0.15 } }, 0)]));
+    expect(g.ties).toHaveLength(1);
+    expect(g.ties[0]!.spacing).toBe(0.15);
   });
 });

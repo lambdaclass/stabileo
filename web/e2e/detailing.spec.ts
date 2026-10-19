@@ -19,7 +19,7 @@
  * changing an upstream input after reviewing, not by writing `state: 'SUPERSEDED'`.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, declareBeamsNotLateral } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 type Json = Record<string, unknown>;
@@ -46,8 +46,10 @@ async function openPanel(page: Page) {
  *
  * Returns the number of assemblies the real pipeline produced.
  */
-async function generateDetailing(page: Page): Promise<number> {
+async function generateDetailing(page: Page, opts: { beamsNotLateral?: boolean } = {}): Promise<number> {
   await loadModel(page, 'rc-design-qa-8');
+  // A level that reaches CONSTRUCTIBLE needs qa-8's beams declared (`declareBeamsNotLateral`).
+  if (opts.beamsNotLateral) await declareBeamsNotLateral(page);
   await designAll(page);          // upstream setup — PR15's own journeys cover this path
   await openPanel(page);
 
@@ -279,15 +281,27 @@ test.describe('@smoke the review gate on generated work', () => {
       await openDocuments(page);
       await page.getByTestId('review-engineer').fill('Ing. Bauti');
       await acknowledgeAll(page);
-      await page.getByTestId('review-submit').click();
-      await expect(page.getByTestId('review-error')).toBeVisible();
+      /*
+       * The refusal comes BEFORE the click now: `review-submit` is disabled with the store's own
+       * reason beside it (`h1c-documents-flow.spec.ts`), so there is no click to answer with
+       * `review-error`. This reached its body only once qa-8's level stopped at COORDINATED
+       * (292b87f68: e5 and e6 refuse under the undeclared lateral reading); before, it skipped
+       * as «coordinated cleanly» and the click it made had never been run against the gate.
+       */
+      await expect(page.getByTestId('review-submit')).toBeDisabled();
+      await expect(page.getByTestId('review-blockers')).toContainText(/constructible/i);
       // And the state did NOT advance.
       await expect(page.getByTestId('assembly-state')).toHaveText(state);
     });
 
   test('D9b — a review IS recorded against the revision when nothing blocks it',
     async ({ pro: page }) => {
-      await generateDetailing(page);
+      /*
+       * A constructible level: qa-8's beams declared not part of the lateral system. Undeclared
+       * (292b87f68) e5 and e6 refuse, the level stops at COORDINATED and this skipped as «no
+       * constructible assembly», the mirror of D9, which now runs on that level.
+       */
+      await generateDetailing(page, { beamsNotLateral: true });
       const all = await assemblies(page);
       const idx = all.findIndex((a) => a.state === 'CONSTRUCTIBLE');
       test.skip(idx < 0, 'this model produced no constructible assembly');
@@ -332,7 +346,12 @@ test.describe('@smoke the review gate on generated work', () => {
 
   test('D19 — regenerating clears a review that no longer describes the bars',
     async ({ pro: page }) => {
-      await generateDetailing(page);
+      /*
+       * A constructible level: qa-8's beams declared not part of the lateral system. Undeclared
+       * (292b87f68) e5 and e6 refuse, the level stops at COORDINATED and this skipped as «no
+       * constructible assembly», the mirror of D9, which now runs on that level.
+       */
+      await generateDetailing(page, { beamsNotLateral: true });
       const all = await assemblies(page);
       const idx = all.findIndex((a) => a.state === 'CONSTRUCTIBLE');
       test.skip(idx < 0, 'this model produced no constructible assembly');
@@ -372,11 +391,25 @@ test.describe('@smoke the panel is honest about generated results', () => {
   test('D17 — a clean assembly says so rather than showing an empty list', async ({ pro: page }) => {
     await generateDetailing(page);
     await firstAssembly(page).click();
-    const conflicts = (await assemblies(page))[0].conflicts as unknown[];
-    if (conflicts.length === 0) {
-      await expect(page.getByTestId('no-conflicts')).toBeVisible();
-    } else {
+    const first = (await assemblies(page))[0];
+    const conflicts = first.conflicts as unknown[];
+    /*
+     * «Clean» is no conflict, no state blocker and no unsupported condition
+     * (`DetailingProblems`), not only no conflict. This read the conflicts alone, which was the
+     * same answer while qa-8's level reached CONSTRUCTIBLE. Since 292b87f68 its beams e5 and e6
+     * refuse under the undeclared lateral reading, so the level holds `selectedScopeDetailed`
+     * as a blocker with no conflict open: before, «no conflicts»; after, the blocker, counted
+     * and named, and no all-clear beside it.
+     */
+    const blocked = await page.getByTestId('state-blockers').count() > 0
+      || (first.unsupported as unknown[]).length > 0;
+    if (conflicts.length > 0) {
       await expect(page.getByTestId('conflict-nav')).toBeVisible();
+    } else if (blocked) {
+      await expect(page.getByTestId('no-conflicts')).toHaveCount(0);
+      await expect(page.getByTestId('problems-summary')).toContainText(/blocking|warning/);
+    } else {
+      await expect(page.getByTestId('no-conflicts')).toBeVisible();
     }
   });
 

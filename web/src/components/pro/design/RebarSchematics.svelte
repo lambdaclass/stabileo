@@ -29,6 +29,8 @@
     const stirDia = stir?.diameter ?? ctx.material.stirrupDia;
 
     if (ctx.elementType === 'column') {
+      // A circular, T or L column draws its own section in its editor.
+      if (ctx.shape) return null;
       const col = resolveColumnReinf(p.column, p.longitudinal);
       if (!col) return null;
       const layout = computeColumnLayout(col.totalCount, col.cornerDia, ctx.section.b, ctx.section.h,
@@ -39,8 +41,18 @@
     const top = resolveLayers(reg?.topStartLayers, reg?.topStart ?? p.top);
     const topEnd = resolveLayers(reg?.topEndLayers, reg?.topEnd ?? p.top);
     const bot = resolveLayers(reg?.bottomSpanLayers, reg?.bottomSpan ?? p.bottom);
+    // Skin bars (§9.7.2.3): against the side legs, evenly between the bottom and top rows.
+    const skin: Array<{ x: number; y: number; diameter: number }> = [];
+    if (reg?.skin && reg.skin.spacing > 0) {
+      const edge = cover + stirDia / 1000, db = reg.skin.diameter / 1000;
+      const lo = edge + 0.02, hi = h - edge - 0.02, rows = Math.max(0, Math.ceil((hi - lo) / reg.skin.spacing - 1e-9) - 1);
+      for (let i = 1; i <= rows; i++) {
+        const y = lo + ((hi - lo) * i) / (rows + 1);
+        skin.push({ x: edge + db / 2, y, diameter: reg.skin.diameter }, { x: b - edge - db / 2, y, diameter: reg.skin.diameter });
+      }
+    }
     return {
-      kind: 'beam' as const, b, h, cover, stirDia,
+      kind: 'beam' as const, b, h, cover, stirDia, skin,
       regions: [
         { label: t('design.batch.fieldTopStart'), layout: computeSectionLayout(top, bot, b, h, cover, stirDia), tension: 'top' as const },
         { label: t('design.batch.fieldBottomSpan'), layout: computeSectionLayout(top, bot, b, h, cover, stirDia), tension: 'bottom' as const },
@@ -78,6 +90,10 @@
                         r={Math.max((bar.diameter / 2000) * sc, 2.2)}
                         fill={isTens ? 'var(--st-ok)' : 'var(--st-warn)'}
                         stroke={isTens ? 'var(--st-ok)' : 'var(--st-warn)'} stroke-width="0.5" />
+              {/each}
+              {#each view.skin as bar}
+                <circle cx={7 + bar.x * sc} cy={7 + (L.sectionHeight - bar.y) * sc}
+                        r={Math.max((bar.diameter / 2000) * sc, 1.8)} fill="var(--st-text-2)" />
               {/each}
             </svg>
             <div class="legend">

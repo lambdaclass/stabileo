@@ -381,11 +381,11 @@ export function drawColumnDetail(
     `Elemento ${elementId} — corte en z = ${atZ.toFixed(2)} m`,
     `${longitudinals} longitudinal(es), ${transverse} pieza(s) transversal(es)`,
   ];
-  if (status && status !== 'MODELLED') notes.push(`Estado: ${status}`);
+  if (status && status !== 'MODELLED') notes.push(`status:${status}`);
   if (bars.length === 0) {
     // Said rather than shown as an empty box: a column with no steel on its own detail sheet
     // is the sheet a reader most needs a sentence on.
-    notes.push('Sin armadura en el modelo para este elemento.');
+    notes.push('detailing.note.noBarsMember');
   }
 
   return {

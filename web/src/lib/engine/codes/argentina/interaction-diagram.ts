@@ -1,6 +1,6 @@
 import {
-  beta1, phiFromStrain, yieldStrain,
-  EPSILON_CU, ES_MPA, PHI_TENSION, PHI_COMPRESSION_TIED,
+  beta1, phiFromStrain, phiTable2122, yieldStrain, squashLoadFy,
+  EPSILON_CU, ES_MPA, PHI_TENSION, PHI_COMPRESSION_TIED, type Cirsoc201Edition,
 } from './cirsoc201-basis';
 // P-M Interaction Diagram Generator
 // Generates point-by-point interaction diagrams for reinforced concrete sections
@@ -41,6 +41,11 @@ export interface DiagramParams {
   barCount: number;
   barDia: number; // mm
   nPoints?: number; // default 40
+  /**
+   * The edition φ is computed by: '2005' (the default, §9.3.2) or '2025' (Tabla 21.2.2), which
+   * is what the design verifier's detail passes so its diagram agrees with its verification.
+   */
+  edition?: Cirsoc201Edition;
 }
 
 
@@ -74,7 +79,8 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
    */
   const Ag = b * h;
   const Ast = AsProv * 1e-4;
-  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + fy_kPa * Ast;
+  // 2025 limits the fy in Po to 500 MPa (§22.4.2.1).
+  const Pn0 = 0.85 * fc_kPa * (Ag - Ast) + squashLoadFy(fy, params.edition) * 1000 * Ast;
   const phiPnMax = PHI_COMPRESSION_TIED * 0.80 * Pn0;
 
   const points: InteractionPoint[] = [];
@@ -126,8 +132,9 @@ export function generateInteractionDiagram(params: DiagramParams): InteractionDi
     const Pn = Cc + CsPrime - Ts; // kN (+ = compression)
     const Mn = Cc * (h / 2 - aEff / 2) + CsPrime * (h / 2 - dPrime) + Ts * (d - h / 2); // kN·m
 
-    // Determine φ based on strain in tension steel — the one ramp, tied section
-    const phi = phiFromStrain(Math.abs(eps), fy);
+    // Determine φ based on strain in tension steel — the one ramp, tied section. Tabla 21.2.2
+    // reads the net TENSILE strain, so a compressed tension face is compression-controlled.
+    const phi = params.edition === '2025' ? phiTable2122(eps, fy) : phiFromStrain(Math.abs(eps), fy);
 
     // Max axial: φPn ≤ 0.80·φC·Pn0 (§10.3.6) — a ceiling, not a factor
     const phiPn = Math.min(phi * Pn, phiPnMax);

@@ -51,7 +51,7 @@
     /** What stands between this assembly and the next review state. */
     stateBlockers: string[];
     /** Cases the detailing engine did not cover — warnings, not blockers. */
-    unsupported: { message: string }[];
+    unsupported: { key?: string; message: string; params?: Record<string, string | number> }[];
     /** The state name the blockers are blocking, already translated. */
     stateLabel: string;
     onSelectConflict: (i: number) => void;
@@ -227,7 +227,7 @@
     <div class="group group-warn" data-testid="unsupported-list">
       <span class="group-title">{t('detailing.unsupported')}</span>
       <ul class="plain">
-        {#each unsupported as u, i (i)}<li>{u.message}</li>{/each}
+        {#each unsupported as u, i (i)}<li>{u.params && u.key ? tp(u.key, u.params.end === 'start' || u.params.end === 'end' ? { ...u.params, end: t(`detailing.anchorage.side.${u.params.end}`) } : u.params) : u.message}</li>{/each}
       </ul>
     </div>
   {/if}

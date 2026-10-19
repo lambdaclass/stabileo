@@ -59,11 +59,17 @@ describe('engine re-check gate', () => {
     const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2025' });
     expect(g.engineRecheck.ductilityRatio!).toBeGreaterThan(1);
     expect(g.flexure.status).toBe('fail');
-    // Its εt, with the bars it chose, is 2,6 ‰: below the 2005 floor of 4 ‰ (10.3.5) as well.
-    // The TypeScript reported the εt of the REQUIRED steel (2,9 ‰) and checked neither.
+    /*
+     * The designer sizes with CIRSOC 201-2025 (`CIRSOC201_DESIGN_EDITION`): it picks 3 Ø32, whose
+     * εt with the bars as laid is 5,0 ‰ by the engine, under the 2025 εty + 0,003 = 5,1 ‰ and so
+     * refused above. Read against 2005 the same bars clear its 4 ‰ floor (10.3.5): the edition
+     * decides, which is why the app's gate reads the edition the designer used (auto-verify.ts).
+     * Main's designer sized in 2005 and chose bars with εt = 2,6 ‰, below both floors; that case
+     * no longer arises from this designer.
+     */
     const g05 = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2005' });
-    expect(g05.engineRecheck.disagreements).toContain('ductility');
-    expect(g05.engineRecheck.ductilityRatio!).toBeCloseTo(0.004 / 0.00255, 2);
+    expect(g05.engineRecheck.disagreements).not.toContain('ductility');
+    expect(g05.engineRecheck.ductilityRatio!).toBeCloseTo(0.798, 2);
   });
 
   it('a column is re-checked under the tension it also sees', () => {

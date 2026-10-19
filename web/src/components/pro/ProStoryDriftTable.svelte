@@ -30,7 +30,7 @@
       if (!r) return [];
       const out = seismicDrifts({
         nodes: modelStore.nodes, elements: modelStore.elements.values(),
-        displacements: r.displacements, cd, group, condition, embedded2D,
+        displacements: r.displacements, cd, group, condition, embedded2D, levels: modelStore.grid?.levels,
       });
       return out ? [{ caseId: c.id, name: c.name, ...out }] : [];
     });
@@ -73,7 +73,7 @@
             {#each tb.stories as s (s.level)}
               {@const worst = Math.max(s.ratioX, s.ratioY)}
               <tr onclick={() => pick([s.columnX, s.columnY])} style="cursor:pointer">
-                <td class="col-num">{s.level.toFixed(2)}</td>
+                <td class="col-num">{s.levelName ? `${s.levelName} (${s.level.toFixed(2)})` : s.level.toFixed(2)}</td>
                 <td class="col-num">{s.height.toFixed(2)}</td>
                 <td class="col-num">{pct(s.ratioX)}</td>
                 <td class="col-num">{pct(s.ratioY)}</td>

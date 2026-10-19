@@ -25,7 +25,7 @@
   import { designRunStore } from '../../lib/store/design-run.svelte';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
   import { t, tp } from '../../lib/i18n';
-  import { clearReinforcement, revertReinforcement } from '../../lib/store/rebar-edit';
+  import { revertReinforcement } from '../../lib/store/rebar-edit';
   import {
     groupByElevation, groupByPlane, groupByFrameLine, groupByConnectivity,
     groupBySection, groupByMaterial, groupByKind, sectionOptions, materialOptions,
@@ -45,6 +45,7 @@
   import DesignTable from './design/DesignTable.svelte';
   import RebarEditorBeam from './design/RebarEditorBeam.svelte';
   import RebarEditorColumn from './design/RebarEditorColumn.svelte';
+  import RebarEditorShapedColumn from './design/RebarEditorShapedColumn.svelte';
   import RebarSchematics from './design/RebarSchematics.svelte';
   import VerificationDetail from './design/VerificationDetail.svelte';
   import BatchEditDialog from './design/BatchEditDialog.svelte';
@@ -59,7 +60,7 @@
    * screen: same testids, same disabled logic, same store effects, same arming.
    */
   import {
-    rcAutoDesignSelected,
+    rcAutoDesignSelected, rcCodeCheck,
   } from '../../lib/flow/rc-commands';
 
   // ─── View state (survives edits — nothing here is reset by a rebar write) ──
@@ -161,6 +162,7 @@
           && !designRunStore.manualOverrides.has(id),
         sloped: slopedIds.has(id),
         provided: pv,
+        ...(ctx.span ? { span: { label: ctx.span.label ?? ctx.span.key, k: ctx.span.index + 1, n: ctx.span.elements.length } } : {}),
       });
     }
     return out;
@@ -267,8 +269,8 @@
     selectIds(groupByKind(md, kind), t(kind === 'beam' ? 'design.group.kindBeam' : 'design.group.kindColumn'));
   }
 
-  function gotoNextFailing() {
-    const id = nextFailingId(rows, focusedId);
+  function gotoNextFailing(step: 1 | -1 = 1) {
+    const id = nextFailingId(rows, focusedId, step);
     if (id === null) return;
     focusRow(id);
     expandedId = id;
@@ -298,6 +300,9 @@
   function revertAllEdits() {
     revertReinforcement([...designRunStore.manualOverrides]);
   }
+  /** Members the design run covers that have no bars yet. */
+  const undesignedIds = $derived([...verificationStore.contexts.keys()].filter((id) => !modelStore.elements.get(id)?.reinforcement));
+  const undesignedCount = $derived(undesignedIds.length);
 </script>
 
 <div class="design-tab" data-testid="pro-design-tab">
@@ -311,11 +316,14 @@
     selectedCount={batchSelection.length}
     {hasResults} {hasCombinations}
     editedCount={designRunStore.manualOverrides.size}
+    onCodeCheck={() => rcCodeCheck()}
     onAutoDesignSelected={() => rcAutoDesignSelected(batchSelection)}
+    {undesignedCount}
     onAutoDesignUndesigned={() => {
+      // Only the members with no bars: with none left there is nothing to do, and the menu says so.
+      if (undesignedIds.length === 0) return;
       diagnosticsWarning.arm();
-      const ids = [...verificationStore.contexts.keys()].filter(id => !modelStore.elements.get(id)?.reinforcement);
-      designRunStore.autoDesign(ids.length > 0 ? ids : [...verificationStore.contexts.keys()]);
+      designRunStore.autoDesign(undesignedIds);
     }}
     onOpenDiagnostics={() => (uiStore.proActiveTab = 'diagnostics')}
     onReviewChanges={() => (showChanged = true)}
@@ -367,7 +375,8 @@
       </span>
       <button class="act" data-testid="batch-open" disabled={batchSelection.length === 0}
               onclick={() => (showBatch = true)}>{t('design.batch.open')}</button>
-      <button class="act" data-testid="next-failing" onclick={gotoNextFailing}>
+      <button class="act" data-testid="prev-failing" onclick={() => gotoNextFailing(-1)} title={t('design.nav.prevFailing')}>‹</button>
+      <button class="act" data-testid="next-failing" onclick={() => gotoNextFailing(1)}>
         ⤢ {t('design.nav.nextFailing')}
       </button>
       <button class="act" data-testid="review-changes" onclick={() => (showChanged = !showChanged)}>
@@ -390,15 +399,16 @@
           <div class="detail-wrap">
             <div class="detail-head">
               {#if row.hasReinforcement}
+                <!-- Labelled «revert», and it used to clear the bars: it goes back to the proposal now. -->
                 <button class="act act-sm" data-testid={`clear-rebar-${row.elementId}`}
-                        onclick={() => clearReinforcement(row.elementId)}>{t('design.changed.revertOne')}</button>
+                        onclick={() => revertReinforcement([row.elementId])}>{t('design.changed.revertOne')}</button>
               {:else}
                 <button class="act act-sm" data-testid={`design-one-${row.elementId}`}
                         onclick={() => designRunStore.designOne(row.elementId)}>{t('design.cmd.autoDesign')}</button>
               {/if}
             </div>
             {#if ctx.elementType === 'column'}
-              <RebarEditorColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />
+              {#if ctx.shape}<RebarEditorShapedColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />{:else}<RebarEditorColumn elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />{/if}
             {:else}
               <RebarEditorBeam elementId={row.elementId} {ctx} version={verificationStore.providedRevision} />
             {/if}

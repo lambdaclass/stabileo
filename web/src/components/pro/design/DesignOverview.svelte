@@ -33,6 +33,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
+  import { projectVerdict, projectVerdictLines } from '../../../lib/store/member-verdict';
 
   interface Props {
     /** Open the Project Regulations stage and put the caret in its selector. */
@@ -41,6 +42,8 @@
   const { onOpenRegulations }: Props = $props();
 
   const counts = $derived(verificationStore.providedSummary);
+  const project = $derived.by(() => { void counts; return projectVerdict(); });
+  const projectLines = $derived(projectVerdictLines(project, tp));
   const run = $derived(verificationStore.runSummary);
 
   const concreteBinding = $derived(regulationsStore.binding('concrete'));
@@ -210,6 +213,22 @@
           <span class="label">{t('design.counts.verified')}</span>
         </li>
       </ul>
+      <!--
+        The counts above are the members' VERDICTS (`member-verdict.ts`): a member whose local
+        checks pass and that is held (slab-column point joint, a detailing condition open, its
+        deflection, a refusal, seismic checks only as a substitute) is counted with what does not
+        verify or was not verified, never with «verificadas». How many of those passed their local
+        checks is said apart, and the project's verdict under it, with each reason and its count.
+      -->
+      {#if counts.held > 0}
+        <p class="held" data-testid="summary-count-held"><span class="n">{counts.held}</span> {t('verdict.counts.held')}</p>
+      {/if}
+      <div class="project-verdict" data-testid="project-verdict" data-state={project.state}>
+        <strong>{t('verdict.project.title')}:</strong> <span data-testid="project-verdict-state">{projectLines.state}</span>
+        {#if projectLines.reasons.length}
+          <ul class="pv-reasons" data-testid="project-verdict-reasons">{#each projectLines.reasons as r (r)}<li>{r}</li>{/each}</ul>
+        {/if}
+      </div>
 
       {#if runRows.length > 0 || run?.aborted || (run?.notReached ?? 0) > 0}
         <ul class="rows run-rows" data-testid="design-run-outcomes">
@@ -265,6 +284,10 @@
 </div>
 
 <style>
+  .held { margin: 4px 0 0; font-size: 0.72rem; color: var(--st-text-2); }
+  .project-verdict { margin-top: 6px; font-size: 0.74rem; }
+  .pv-reasons { margin: 2px 0 0 1rem; padding: 0; font-size: 0.7rem; color: var(--st-text-2); }
+
   .overview { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.1rem 0 0.2rem; }
 
   .code-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }

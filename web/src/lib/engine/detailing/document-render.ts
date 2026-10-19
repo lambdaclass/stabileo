@@ -19,12 +19,15 @@
  * Pure: no store, no runes, no DOM, no file system. The caller turns these into files.
  */
 
-import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, sheetToSvg,
+import { assemblyProjection, memberElevationSheet, memberSectionSheet, preferredStation } from './member-sheets';
+import { teAt } from '../../i18n/engine-text';
+import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, combineDxfSheets, sheetToSvg,
   drawElevation, drawSection, barArcs, type Sheet, type Projection } from './drawings';
 import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-model';
+import { isDraftOnlyIssue } from './document-model';
 import { DESIGN_FAMILIES, type DesignFamily } from '../design/design-families';
 import { footingPlanCentre, type FloorFamilyDesignRecord } from './family-record';
-import type { SceneModel } from './scene-model';
+import type { MemberGeometry, SceneModel } from './scene-model';
 import type { ElementStatus } from './element-status';
 import type { RcRetouchProvenance } from '../../flow/rc-selection';
 import {
@@ -113,6 +116,14 @@ export interface RenderOptions {
   retouched?: RcRetouchProvenance;
   /** Elevations to cut horizontal sections at, m. */
   sectionElevations?: readonly number[];
+  /**
+   * The members' real geometry. With it the elevation and the section are drawn from the
+   * concrete, with their dimensions, along the assembly's own direction (`member-sheets.ts`),
+   * the same sheets the panel previews. Without it the section has no outline and says so.
+   */
+  members?: readonly MemberGeometry[];
+  /** Specified cover per member, m, for the dimensions and the cover line. */
+  coverOf?: (elementId: number) => number | undefined;
   /** Commercial stock length for the schedule, m. */
   stockLength?: number;
   /** Steel density, kg/m³, for the mass column. */
@@ -130,12 +141,12 @@ const DEFAULTS = { stockLength: 12, steelDensity: 7850 };
  */
 function positionLabel(
   position: 'interior' | 'edge' | 'corner' | null,
-  L: (es: string, en: string) => string,
+  L: (es: string, en: string, pt: string) => string,
 ): string {
   switch (position) {
-    case 'interior': return L('interior', 'interior');
-    case 'edge': return L('de borde', 'edge');
-    case 'corner': return L('de esquina', 'corner');
+    case 'interior': return L('interior', 'interior', 'interior');
+    case 'edge': return L('de borde', 'edge', 'de borda');
+    case 'corner': return L('de esquina', 'corner', 'de canto');
     default: return '—';
   }
 }
@@ -257,14 +268,28 @@ export function readinessBanner(doc: DocumentModel, locale: string): string {
       case 'FOR_REVIEW':
         return es ? 'PARA REVISIÓN — NO APTO PARA CONSTRUCCIÓN'
           : 'FOR REVIEW — NOT FOR CONSTRUCTION';
+      case 'OUTDATED':
+        return es
+          ? 'DESACTUALIZADO: EL MODELO CAMBIÓ DESPUÉS DEL DETALLADO — NO APTO PARA CONSTRUCCIÓN'
+          : 'OUT OF DATE: THE MODEL CHANGED AFTER THE DETAILING — NOT FOR CONSTRUCTION';
       case 'SUPERSEDED':
         return es
           ? `REEMPLAZADO POR LA REVISIÓN ${doc.supersededBy ?? '?'} — NO APTO PARA CONSTRUCCIÓN`
           : `SUPERSEDED BY REVISION ${doc.supersededBy ?? '?'} — NOT FOR CONSTRUCTION`;
-      default:
+      default: {
+        // The members' floors join the slab to the columns at one node (`analysis-validity.ts`):
+        // said first, it is the claim the draft withholds, the split of the slab's load between
+        // beams and columns, with the share the mesh sent straight into the columns.
+        const held = doc.slabColumnJoint?.verdict === 'pointJoint' ? doc.slabColumnJoint.pointJoints : [];
+        const worst = held.reduce((w, m) => ((m.params.share ?? 0) > (w?.params.share ?? -1) ? m : w), held[0]);
+        const pc = (v: number | undefined) => String(v ?? '?').replace('.', es ? ',' : '.');
+        const joint = !worst ? '' : es
+          ? `UNIÓN LOSA-COLUMNA EN UN SOLO NUDO EN ${held.length} MIEMBRO(S): REPARTO DE LA CARGA DE LA LOSA ENTRE VIGAS Y COLUMNAS NO ESTABLECIDO (CON ESTA MALLA VA DIRECTO A LAS COLUMNAS EL ${pc(worst.params.share)} %) — `
+          : `SLAB JOINED TO THE COLUMNS AT ONE NODE FOR ${held.length} MEMBER(S): SPLIT OF THE SLAB'S LOAD BETWEEN BEAMS AND COLUMNS NOT ESTABLISHED (THIS MESH SENDS ${pc(worst.params.share)} % STRAIGHT INTO THE COLUMNS) — `;
         return es
-          ? `BORRADOR DE REVISIÓN — ${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
-          : `REVIEW DRAFT — ${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
+          ? `BORRADOR DE REVISIÓN — ${joint}${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN`
+          : `REVIEW DRAFT — ${joint}${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
+      }
     }
   })();
   return `${state} — ${scope}`;
@@ -289,8 +314,10 @@ export function renderReportHtml(
   translate: (key: string, params?: Record<string, unknown>) => string,
 ): string {
   const es = opts.locale.startsWith('es');
-  const L = (a: string, b: string) => (es ? a : b);
-  const draft = doc.readiness === 'REVIEW_DRAFT' || doc.readiness === 'SUPERSEDED';
+  const pt = opts.locale.startsWith('pt');
+  // Spanish, English and Portuguese, each in its own words: Portuguese used to get the English.
+  const L = (a: string, b: string, c: string) => (es ? a : pt ? c : b);
+  const draft = doc.readiness === 'REVIEW_DRAFT' || doc.readiness === 'SUPERSEDED' || doc.readiness === 'OUTDATED';
 
   const rows: string[] = [];
 
@@ -330,7 +357,9 @@ export function renderReportHtml(
         + 'verifica ninguna comprobación de esta aplicación.',
         `PROVISIONAL PROPOSAL — NOT VALID FOR CONSTRUCTION. ${provisionalAll.length} member(s) `
         + 'carry reinforcement from their primary-axis design; their secondary axis is not '
-        + 'evaluated by any check in this application.'))
+        + 'evaluated by any check in this application.',
+      `PROPOSTA PROVISÓRIA — NÃO VÁLIDA PARA CONSTRUÇÃO. ${provisionalAll.length} elemento(s) levam armadura do dimensionamento de seu eixo principal; seu eixo secundário não é avaliado por nenhuma verificação deste aplicativo.`,
+    ))
       + '</p>');
   }
 
@@ -351,12 +380,13 @@ export function renderReportHtml(
       + esc(L(
         `TORSIÓN NO EVALUADA — función en desarrollo. ${torsionAll.length} elemento(s) reciben `
         + 'torsión según el análisis y ninguna comprobación de esta aplicación la verifica. La '
-        + 'armadura de este documento NO contempla torsión: no usar como verificación final. '
-        + 'Se corregirá en PR21.',
+        + 'armadura de este documento NO contempla torsión: no usar como verificación final.',
         `TORSION NOT EVALUATED — feature in development. ${torsionAll.length} member(s) carry `
         + 'torsion according to the analysis and no check in this application verifies it. The '
         + 'reinforcement in this document does NOT account for torsion: do not use as a final '
-        + 'verification. To be addressed in PR21.'))
+        + 'verification.',
+      `TORÇÃO NÃO AVALIADA — função em desenvolvimento. ${torsionAll.length} elemento(s) recebem torção segundo a análise e nenhuma verificação deste aplicativo a verifica. A armadura deste documento NÃO considera a torção: não usar como verificação final.`,
+    ))
       + '</p>');
   }
 
@@ -387,27 +417,29 @@ export function renderReportHtml(
         + 'envelope hogging moment, so their top bars satisfy §25.7.1.2 (every stirrup bend must '
         + 'contain a longitudinal bar) and are NOT load-resisting reinforcement: no hogging '
         + 'capacity was verified for them and none is attributed. The regulation does not fix '
-        + 'their diameter and the one chosen is this application\'s convention, stated as such.'))
+        + 'their diameter and the one chosen is this application\'s convention, stated as such.',
+      `ARMADURA SUPERIOR DE MONTAGEM — ${hangerAll.length} elemento(s). Nenhum de seus apoios tem momento negativo de envoltória, de modo que suas barras superiores atendem ao §25.7.1.2 (cada dobra do estribo deve conter uma barra longitudinal) e NÃO são armadura resistente: não se verificou nem se atribui a elas capacidade a momento negativo. O regulamento não fixa seu diâmetro; o escolhido é um critério deste aplicativo, declarado como tal.`,
+    ))
       + '</p>');
   }
 
   // ── Revision block ──
-  rows.push(`<h2>${L('Revisión', 'Revision')}</h2><table><tbody>`);
-  rows.push(`<tr><th>${L('Revisión', 'Revision')}</th><td>${doc.revision.number}</td></tr>`);
-  rows.push(`<tr><th>${L('Fecha', 'Date')}</th><td>${esc(doc.revision.at)}</td></tr>`);
-  rows.push(`<tr><th>${L('Autor', 'Author')}</th><td>${esc(doc.revision.author)}</td></tr>`);
-  rows.push(`<tr><th>${L('Rev. de armado', 'Detailing rev.')}</th><td>${doc.revision.detailingRevision}</td></tr>`);
-  rows.push(`<tr><th>${L('Rev. de solicitaciones', 'Demand rev.')}</th><td>${doc.revision.demandRevision}</td></tr>`);
-  rows.push(`<tr><th>${L('Madurez', 'Maturity')}</th><td>${esc(doc.maturity)}</td></tr>`);
+  rows.push(`<h2>${L('Revisión', 'Revision', 'Revisão')}</h2><table><tbody>`);
+  rows.push(`<tr><th>${L('Revisión', 'Revision', 'Revisão')}</th><td>${doc.revision.number}</td></tr>`);
+  rows.push(`<tr><th>${L('Fecha', 'Date', 'Data')}</th><td>${esc(doc.revision.at)}</td></tr>`);
+  rows.push(`<tr><th>${L('Autor', 'Author', 'Autor')}</th><td>${esc(doc.revision.author)}</td></tr>`);
+  rows.push(`<tr><th>${L('Rev. de armado', 'Detailing rev.', 'Rev. de armação')}</th><td>${doc.revision.detailingRevision}</td></tr>`);
+  rows.push(`<tr><th>${L('Rev. de solicitaciones', 'Demand rev.', 'Rev. de solicitações')}</th><td>${doc.revision.demandRevision}</td></tr>`);
+  rows.push(`<tr><th>${L('Madurez', 'Maturity', 'Maturidade')}</th><td>${esc(doc.maturity)}</td></tr>`);
   rows.push('</tbody></table>');
 
   // ── Regulations, with editions, exactly as verified ──
-  rows.push(`<h2>${L('Reglamentos', 'Regulations')}</h2><ul>`);
+  rows.push(`<h2>${L('Reglamentos', 'Regulations', 'Regulamentos')}</h2><ul>`);
   for (const r of doc.regulations) rows.push(`<li>${esc(r.id)} — ${esc(r.edition)}</li>`);
   rows.push('</ul>');
 
   if (doc.refs.length > 0) {
-    rows.push(`<h3>${L('Artículos aplicados', 'Clauses applied')}</h3><ul class="clauses">`);
+    rows.push(`<h3>${L('Artículos aplicados', 'Clauses applied', 'Artigos aplicados')}</h3><ul class="clauses">`);
     for (const r of doc.refs) {
       rows.push(`<li>${esc(r.regulation)} ${esc(r.edition)} §${esc(r.clause)}</li>`);
     }
@@ -415,28 +447,43 @@ export function renderReportHtml(
   }
 
   // ── Certificates ──
-  rows.push(`<h2>${L('Certificados de verificación', 'Verification certificates')}</h2>`);
+  rows.push(`<h2>${L('Certificados de verificación', 'Verification certificates', 'Certificados de verificação')}</h2>`);
   rows.push(`<table><thead><tr>`
-    + `<th>${L('Elemento', 'Member')}</th><th>${L('Verificador', 'Verifier')}</th>`
-    + `<th>${L('Estado', 'Status')}</th><th>${L('Coincide con la geometría', 'Matches geometry')}</th>`
+    + `<th>${L('Elemento', 'Member', 'Elemento')}</th><th>${L('Verificador', 'Verifier', 'Verificador')}</th>`
+    + `<th>${L('Comprobaciones locales de la sección', 'Local checks of the section', 'Verificações locais da seção')}</th><th>${L('Coincide con la geometría', 'Matches geometry', 'Coincide com a geometria')}</th>`
+    + `<th>${L('Retenido por', 'Held by', 'Retido por')}</th>`
     + `</tr></thead><tbody>`);
+  /*
+   * A certificate's status is the section's LOCAL checks (`member-verdict.ts`): `ok` there is never
+   * the member's verdict. What the document knows holds the member beside it (its analysis not
+   * validated, a condition the detailing left open on it) is stated in its own column.
+   */
+  const openOn = new Map<number, number>();
+  for (const a of doc.assemblies) for (const u of a.source?.unsupported ?? []) {
+    if (isDraftOnlyIssue(u.key)) for (const id of u.scope?.elementIds ?? []) openOn.set(id, (openOn.get(id) ?? 0) + 1);
+  }
   for (const c of doc.certificates) {
+    const held = [
+      ...(c.loadSplit === 'notEstablished' ? [L('unión losa-columna en un solo nudo', 'slab-column point joint', 'ligação laje-pilar em um só nó')] : []),
+      ...(openOn.has(c.elementId) ? [L(`${openOn.get(c.elementId)} condición(es) del detallado abierta(s)`, `${openOn.get(c.elementId)} detailing condition(s) open`, `${openOn.get(c.elementId)} condição(ões) do detalhamento em aberto`)] : []),
+    ];
     // The provisional label goes in the STATUS cell, beside the verdict, not in a column of
     // its own at the far right where the eye does not go.
     const status = c.provisional
-      ? `${esc(c.status)} — ${esc(L('PROVISIONAL, sin certificar', 'PROVISIONAL, uncertified'))}`
+      ? `${esc(c.status)} — ${esc(L('PROVISIONAL, sin certificar', 'PROVISIONAL, uncertified', 'PROVISÓRIO, sem certificar'))}`
       : esc(c.status);
     rows.push(`<tr class="${c.provisional ? 'provisional' : ''}"><td>${c.elementId}</td>`
       + `<td>${esc(c.verifierId)}</td>`
       + `<td>${status}</td>`
-      + `<td class="${c.matches && !c.provisional ? 'ok' : 'bad'}">`
-      + `${c.matches ? L('Sí', 'Yes') : L('No', 'No')}</td></tr>`);
+      + `<td class="${c.matches && !c.provisional && held.length === 0 ? 'ok' : 'bad'}">`
+      + `${c.matches ? L('Sí', 'Yes', 'Sim') : L('No', 'No', 'Não')}</td>`
+      + `<td class="${held.length ? 'bad' : ''}">${held.length ? esc(held.join('; ')) : '—'}</td></tr>`);
   }
   rows.push('</tbody></table>');
 
   // ── Provisional proposals, member by member ──
   if (provisionalAll.length > 0) {
-    rows.push(`<h2>${L('Propuestas provisionales', 'Provisional proposals')}</h2>`);
+    rows.push(`<h2>${L('Propuestas provisionales', 'Provisional proposals', 'Propostas provisórias')}</h2>`);
     rows.push(`<p>${esc(L(
       'Estos elementos NO están verificados en su eje secundario y no pueden presentarse como '
       + 'documentación final. La armadura mostrada proviene del diseño del eje principal, con la '
@@ -445,18 +492,22 @@ export function renderReportHtml(
       'These members are NOT verified about their secondary axis and may not be presented as '
       + 'final documentation. The reinforcement shown comes from the primary-axis design, using '
       + 'the ordinary search and verifier; no capacity was assumed for the unchecked axis and no '
-      + 'threshold was relaxed.'))}</p>`);
+      + 'threshold was relaxed.',
+      'Estes elementos NÃO estão verificados em seu eixo secundário e não podem ser apresentados como documentação final. A armadura mostrada vem do dimensionamento do eixo principal, com a busca e o verificador habituais; não se supôs capacidade para o eixo não verificado nem se relaxou nenhum limite.',
+    ))}</p>`);
     rows.push(`<table><thead><tr>`
-      + `<th>${L('Elemento', 'Member')}</th>`
-      + `<th>${L('Conjunto', 'Assembly')}</th>`
-      + `<th>${L('Barras', 'Bars')}</th>`
-      + `<th>${L('Estado', 'Status')}</th></tr></thead><tbody>`);
+      + `<th>${L('Elemento', 'Member', 'Elemento')}</th>`
+      + `<th>${L('Conjunto', 'Assembly', 'Conjunto')}</th>`
+      + `<th>${L('Barras', 'Bars', 'Barras')}</th>`
+      + `<th>${L('Estado', 'Status', 'Estado')}</th></tr></thead><tbody>`);
     for (const a of doc.assemblies) {
       for (const id of a.source.provisionalMembers ?? []) {
         const bars = a.bars.filter((b) => b.ownerElementIds.includes(id)).length;
         rows.push(`<tr><td>${id}</td><td>${esc(a.id)}</td><td>${bars}</td>`
           + `<td class="bad">${esc(L('PROVISIONAL — eje secundario sin verificar',
-            'PROVISIONAL — secondary axis unverified'))}</td></tr>`);
+            'PROVISIONAL — secondary axis unverified',
+      'PROVISÓRIO — eixo secundário não verificado',
+    ))}</td></tr>`);
       }
     }
     rows.push('</tbody></table>');
@@ -464,31 +515,34 @@ export function renderReportHtml(
 
   // ── Unevaluated torsion, member by member ──
   if (torsionAll.length > 0) {
-    rows.push(`<h2>${L('Torsión no evaluada', 'Torsion not evaluated')}</h2>`);
+    rows.push(`<h2>${L('Torsión no evaluada', 'Torsion not evaluated', 'Torção não avaliada')}</h2>`);
     rows.push(`<p>${esc(L(
       'El análisis reporta torsión en estos elementos. Ninguna comprobación de esta aplicación '
       + 'verifica torsión — el adaptador de código en uso lo declara explícitamente — de modo '
       + 'que la armadura mostrada resuelve flexión y corte y NO contempla torsión. La geometría '
       + 'y la armadura son las que el diseño produjo; lo que falta es la verificación. '
       + 'Verificar la torsión por fuera de esta aplicación antes de emitir. Función en '
-      + 'desarrollo: se corregirá en PR21.',
+      + 'desarrollo.',
       'The analysis reports torsion in these members. No check in this application verifies '
       + 'torsion — the code adapter in use declares so explicitly — so the reinforcement shown '
       + 'resolves flexure and shear and does NOT account for torsion. The geometry and the '
       + 'reinforcement are what the design produced; what is missing is the verification. Verify '
-      + 'torsion outside this application before issuing. Feature in development: to be '
-      + 'addressed in PR21.'))}</p>`);
+      + 'torsion outside this application before issuing. Feature in development.',
+      'A análise reporta torção nestes elementos. Nenhuma verificação deste aplicativo verifica torção — o adaptador de norma em uso o declara explicitamente —, de modo que a armadura mostrada resolve flexão e cortante e NÃO considera a torção. A geometria e a armadura são as que o dimensionamento produziu; o que falta é a verificação. Verifique a torção fora deste aplicativo antes de emitir. Função em desenvolvimento.',
+    ))}</p>`);
     rows.push('<table><thead><tr>'
-      + `<th>${L('Elemento', 'Member')}</th>`
-      + `<th>${L('Conjunto', 'Assembly')}</th>`
-      + `<th>${L('Barras', 'Bars')}</th>`
-      + `<th>${L('Estado', 'Status')}</th></tr></thead><tbody>`);
+      + `<th>${L('Elemento', 'Member', 'Elemento')}</th>`
+      + `<th>${L('Conjunto', 'Assembly', 'Conjunto')}</th>`
+      + `<th>${L('Barras', 'Bars', 'Barras')}</th>`
+      + `<th>${L('Estado', 'Status', 'Estado')}</th></tr></thead><tbody>`);
     for (const a of doc.assemblies) {
       for (const id of a.source.torsionUnevaluatedMembers ?? []) {
         const bars = a.bars.filter((b) => b.ownerElementIds.includes(id)).length;
         rows.push(`<tr><td>${id}</td><td>${esc(a.id)}</td><td>${bars}</td>`
           + `<td class="bad">${esc(L('TORSIÓN NO EVALUADA — en desarrollo',
-            'TORSION NOT EVALUATED — in development'))}</td></tr>`);
+            'TORSION NOT EVALUATED — in development',
+      'TORÇÃO NÃO AVALIADA — em desenvolvimento',
+    ))}</td></tr>`);
       }
     }
     rows.push('</tbody></table>');
@@ -496,7 +550,7 @@ export function renderReportHtml(
 
   // ── Top assembly reinforcement, member by member ──
   if (hangerAll.length > 0) {
-    rows.push(`<h2>${L('Armadura superior de armado', 'Top assembly reinforcement')}</h2>`);
+    rows.push(`<h2>${L('Armadura superior de armado', 'Top assembly reinforcement', 'Armadura superior de montagem')}</h2>`);
     rows.push(`<p>${esc(L(
       'La cara superior de estos elementos no es una cara traccionada: el análisis no requiere '
       + 'armadura de tracción en ella, de modo que 9.6.1.2 no la alcanza — 9.6.1.1 la circunscribe '
@@ -518,15 +572,17 @@ export function renderReportHtml(
       + 'integrity. NONE of those clauses fixes the diameter. The one below was chosen by this '
       + 'application as the smallest in the project series that fits two per row and is not '
       + 'thinner than the stirrup, and it does not represent an area the regulation requires. It '
-      + 'may not be presented as reinforcement resisting a hogging moment.'))}</p>`);
+      + 'may not be presented as reinforcement resisting a hogging moment.',
+      'A face superior destes elementos não é uma face tracionada: a análise não exige armadura de tração ali, de modo que o §9.6.1.2 não a alcança — o §9.6.1.1 o restringe às seções onde a análise SIM a exige. O que governa é o §25.7.1.2: entre as extremidades ancoradas, cada dobra de um estribo fechado deve conter uma barra longitudinal, e se o estribo fosse em U seu gancho se fecha em torno de uma barra longitudinal (§25.7.1.3(a)). Isso dá duas barras, e o §9.7.7.1(b) chega ao mesmo mínimo de duas barras contínuas para a integridade estrutural. NENHUM desses artigos fixa o diâmetro. O indicado abaixo foi escolhido por este aplicativo como o menor da série do projeto que cabe com duas por camada e não é mais fino que o estribo, e não representa uma área exigida pelo regulamento. Não pode ser apresentado como armadura que resiste a momento negativo.',
+    ))}</p>`);
     rows.push('<table><thead><tr>'
-      + `<th>${L('Elemento', 'Member')}</th>`
-      + `<th>${L('Conjunto', 'Assembly')}</th>`
-      + `<th>${L('Marca', 'Mark')}</th>`
-      + `<th>${L('Barras', 'Bars')}</th>`
-      + `<th>${L('Ø (mm)', 'Ø (mm)')}</th>`
-      + `<th>${L('Largo (m)', 'Length (m)')}</th>`
-      + `<th>${L('Estado', 'Status')}</th></tr></thead><tbody>`);
+      + `<th>${L('Elemento', 'Member', 'Elemento')}</th>`
+      + `<th>${L('Conjunto', 'Assembly', 'Conjunto')}</th>`
+      + `<th>${L('Marca', 'Mark', 'Marca')}</th>`
+      + `<th>${L('Barras', 'Bars', 'Barras')}</th>`
+      + `<th>${L('Ø (mm)', 'Ø (mm)', 'Ø (mm)')}</th>`
+      + `<th>${L('Largo (m)', 'Length (m)', 'Comprimento (m)')}</th>`
+      + `<th>${L('Estado', 'Status', 'Estado')}</th></tr></thead><tbody>`);
     for (const a of doc.assemblies) {
       const markOf = new Map<string, string>();
       for (const m of a.source.marks) for (const bid of m.barIds) markOf.set(bid, m.mark);
@@ -545,7 +601,9 @@ export function renderReportHtml(
           + `<td>${[...new Set(bars.map((b) => b.diameterMm))].join(', ')}</td>`
           + `<td>${bars[0].cuttingLength.toFixed(2)}</td>`
           + `<td class="bad">${esc(L('ARMADO (25.7.1.2) — Ø sin cláusula, no resistente',
-            'ASSEMBLY (§25.7.1.2) — Ø has no clause, not load-resisting'))}</td></tr>`);
+            'ASSEMBLY (§25.7.1.2) — Ø has no clause, not load-resisting',
+      'MONTAGEM (§25.7.1.2) — Ø sem artigo, não resistente',
+    ))}</td></tr>`);
       }
     }
     rows.push('</tbody></table>');
@@ -554,16 +612,16 @@ export function renderReportHtml(
   // ── Assemblies: beam lines and column stacks ──
   for (const a of doc.assemblies) {
     rows.push(`<h2>${esc(translate(a.label.key, a.label.params))}</h2>`);
-    rows.push(`<p>${L('Estado', 'State')}: <strong>${esc(a.state)}</strong> · `
-      + `${L('Elementos', 'Members')}: ${a.elementIds.join(', ')} · `
-      + `${L('Barras', 'Bars')}: ${a.bars.length} · `
-      + `${L('Capas', 'Layers')}: ${a.layers.length}</p>`);
+    rows.push(`<p>${L('Estado', 'State', 'Estado')}: <strong>${esc(a.state)}</strong> · `
+      + `${L('Elementos', 'Members', 'Elementos')}: ${a.elementIds.join(', ')} · `
+      + `${L('Barras', 'Bars', 'Barras')}: ${a.bars.length} · `
+      + `${L('Capas', 'Layers', 'Camadas')}: ${a.layers.length}</p>`);
 
     if (a.laps.length > 0) {
-      rows.push(`<h3>${L('Empalmes físicos', 'Physical laps')}</h3><table><thead><tr>`
-        + `<th>${L('Nudo', 'Joint')}</th><th>${L('Barras', 'Bars')}</th>`
-        + `<th>${L('Tipo', 'Kind')}</th><th>${L('Clase', 'Class')}</th>`
-        + `<th>${L('Longitud (mm)', 'Length (mm)')}</th></tr></thead><tbody>`);
+      rows.push(`<h3>${L('Empalmes físicos', 'Physical laps', 'Emendas físicas')}</h3><table><thead><tr>`
+        + `<th>${L('Nudo', 'Joint', 'Nó')}</th><th>${L('Barras', 'Bars', 'Barras')}</th>`
+        + `<th>${L('Tipo', 'Kind', 'Tipo')}</th><th>${L('Clase', 'Class', 'Classe')}</th>`
+        + `<th>${L('Longitud (mm)', 'Length (mm)', 'Comprimento (mm)')}</th></tr></thead><tbody>`);
       for (const l of a.laps) {
         rows.push(`<tr><td>${esc(l.jointId)}</td>`
           + `<td>${esc(l.fromBarId)} / ${esc(l.toBarId)}</td>`
@@ -574,15 +632,15 @@ export function renderReportHtml(
     }
 
     if (a.fusions.length > 0) {
-      rows.push(`<h3>${L('Barras continuas a través de nudos', 'Bars continuous through joints')}</h3><ul>`);
+      rows.push(`<h3>${L('Barras continuas a través de nudos', 'Bars continuous through joints', 'Barras contínuas através dos nós')}</h3><ul>`);
       for (const f of a.fusions) {
-        rows.push(`<li>${esc(f.barId)} — ${L('elementos', 'members')} ${f.ownerElementIds.join(', ')}</li>`);
+        rows.push(`<li>${esc(f.barId)} — ${L('elementos', 'members', 'elementos')} ${f.ownerElementIds.join(', ')}</li>`);
       }
       rows.push('</ul>');
     }
 
     if (a.constructibility) {
-      rows.push(`<h3>${L('Condiciones de constructibilidad', 'Constructibility conditions')}</h3><ul class="conds">`);
+      rows.push(`<h3>${L('Condiciones de constructibilidad', 'Constructibility conditions', 'Condições de construtibilidade')}</h3><ul class="conds">`);
       for (const c of a.constructibility.conditions) {
         rows.push(`<li class="${c.passed ? 'ok' : 'bad'}">${esc(c.condition)}: `
           + `${esc(translate(c.detail.key, c.detail.params))}</li>`);
@@ -615,7 +673,7 @@ export function renderReportHtml(
     const inv = buildConflictInventory(doc.openConflicts);
     const blocking = blockingCount(inv);
 
-    rows.push(`<h2 class="bad">${L('Conflictos de constructibilidad', 'Constructibility conflicts')} `
+    rows.push(`<h2 class="bad">${L('Conflictos de constructibilidad', 'Constructibility conflicts', 'Conflitos de construtibilidade')} `
       + `(${inv.total})</h2>`);
     rows.push(`<p>${esc(L(
       'El armado que sigue FUE GENERADO y está dibujado: la geometría existe. Lo que estos '
@@ -625,40 +683,44 @@ export function renderReportHtml(
       'The reinforcement below WAS GENERATED and is drawn: the geometry exists. What these '
       + 'conflicts report is that as it stands it is not constructible without review — not '
       + 'that steel is missing. A conflict hides no element and blocks no drawing; it blocks '
-      + 'issue.'))}</p>`);
+      + 'issue.',
+      'A armadura abaixo FOI GERADA e está desenhada: a geometria existe. O que estes conflitos reportam é que, como está, não é construível sem revisão — não que falte aço. Um conflito não oculta nenhum elemento nem bloqueia nenhum desenho; bloqueia a emissão.',
+    ))}</p>`);
     rows.push(`<p class="bad"><strong>${esc(L(
       `${blocking} de ${inv.total} son bloqueantes (interpenetración o separación real). `
       + 'RESULTADO NO APTO PARA EMISIÓN FINAL.',
       `${blocking} of ${inv.total} are blocking (interpenetration or a real spacing shortfall). `
-      + 'RESULT NOT VALID FOR FINAL ISSUE.'))}</strong></p>`);
+      + 'RESULT NOT VALID FOR FINAL ISSUE.',
+      `${blocking} de ${inv.total} são bloqueantes (interpenetração ou falta real de espaçamento). RESULTADO NÃO VÁLIDO PARA EMISSÃO FINAL.`,
+    ))}</strong></p>`);
 
-    rows.push(`<h3>${L('Inventario por categoría', 'Inventory by category')}</h3>`);
+    rows.push(`<h3>${L('Inventario por categoría', 'Inventory by category', 'Inventário por categoria')}</h3>`);
     rows.push(`<table><thead><tr>`
-      + `<th>${L('Categoría', 'Category')}</th><th>${L('Cantidad', 'Count')}</th>`
-      + `<th>${L('Barras', 'Bars')}</th><th>${L('Elementos', 'Members')}</th>`
-      + `<th>${L('Déficit mediano (mm)', 'Median shortfall (mm)')}</th>`
-      + `<th>${L('Peor (mm)', 'Worst (mm)')}</th>`
-      + `<th>${L('Bloqueante', 'Blocking')}</th>`
-      + `<th>${L('Clases de par', 'Pair classes')}</th></tr></thead><tbody>`);
+      + `<th>${L('Categoría', 'Category', 'Categoria')}</th><th>${L('Cantidad', 'Count', 'Quantidade')}</th>`
+      + `<th>${L('Barras', 'Bars', 'Barras')}</th><th>${L('Elementos', 'Members', 'Elementos')}</th>`
+      + `<th>${L('Déficit mediano (mm)', 'Median shortfall (mm)', 'Déficit mediano (mm)')}</th>`
+      + `<th>${L('Peor (mm)', 'Worst (mm)', 'Pior (mm)')}</th>`
+      + `<th>${L('Bloqueante', 'Blocking', 'Bloqueante')}</th>`
+      + `<th>${L('Clases de par', 'Pair classes', 'Classes de par')}</th></tr></thead><tbody>`);
     for (const c of inv.summary) {
       const isBlocking = inv.blocking.includes(c.category);
       rows.push(`<tr class="${isBlocking ? 'bad' : ''}"><td>${esc(c.category)}</td>`
         + `<td>${c.count}</td><td>${c.bars}</td><td>${c.members}</td>`
         + `<td>${(c.medianShortfall * 1000).toFixed(1)}</td>`
         + `<td>${(c.worstShortfall * 1000).toFixed(1)}</td>`
-        + `<td>${isBlocking ? L('Sí', 'Yes') : L('No', 'No')}</td>`
+        + `<td>${isBlocking ? L('Sí', 'Yes', 'Sim') : L('No', 'No', 'Não')}</td>`
         + `<td>${esc(c.byPairClass.map((k) => `${k.pairClass} ×${k.count}`).join(', '))}</td></tr>`);
     }
     rows.push('</tbody></table>');
 
-    rows.push(`<h3>${L('Detalle, conflicto por conflicto', 'Detail, conflict by conflict')}</h3>`);
+    rows.push(`<h3>${L('Detalle, conflicto por conflicto', 'Detail, conflict by conflict', 'Detalhe, conflito por conflito')}</h3>`);
     rows.push(`<table><thead><tr>`
-      + `<th>${L('Conjunto', 'Assembly')}</th><th>${L('Elementos', 'Members')}</th>`
-      + `<th>${L('Barra A', 'Bar A')}</th><th>${L('Barra B', 'Bar B')}</th>`
-      + `<th>${L('Clase', 'Class')}</th><th>${L('Severidad', 'Severity')}</th>`
-      + `<th>${L('Categoría', 'Category')}</th>`
-      + `<th>${L('Medido (mm)', 'Measured (mm)')}</th><th>${L('Requerido (mm)', 'Required (mm)')}</th>`
-      + `<th>${L('Acción sugerida', 'Suggested action')}</th></tr></thead><tbody>`);
+      + `<th>${L('Conjunto', 'Assembly', 'Conjunto')}</th><th>${L('Elementos', 'Members', 'Elementos')}</th>`
+      + `<th>${L('Barra A', 'Bar A', 'Barra A')}</th><th>${L('Barra B', 'Bar B', 'Barra B')}</th>`
+      + `<th>${L('Clase', 'Class', 'Classe')}</th><th>${L('Severidad', 'Severity', 'Severidade')}</th>`
+      + `<th>${L('Categoría', 'Category', 'Categoria')}</th>`
+      + `<th>${L('Medido (mm)', 'Measured (mm)', 'Medido (mm)')}</th><th>${L('Requerido (mm)', 'Required (mm)', 'Exigido (mm)')}</th>`
+      + `<th>${L('Acción sugerida', 'Suggested action', 'Ação sugerida')}</th></tr></thead><tbody>`);
     for (let i = 0; i < doc.openConflicts.length; i++) {
       const c = doc.openConflicts[i];
       // Both bars stay named and separately addressable, which is the traceability
@@ -674,7 +736,7 @@ export function renderReportHtml(
   }
 
   if (doc.assumptions.length > 0) {
-    rows.push(`<h2>${L('Hipótesis', 'Assumptions')}</h2><ul>`);
+    rows.push(`<h2>${L('Hipótesis', 'Assumptions', 'Hipóteses')}</h2><ul>`);
     for (const a of doc.assumptions) rows.push(`<li>${esc(translate(a.key, a.params))}</li>`);
     rows.push('</ul>');
   }
@@ -703,6 +765,14 @@ function n(v: number | null | undefined, digits = 1): string {
 }
 
 /**
+ * A check's utilization, or N.E. (not evaluated, as the memoria prints it) when the check is
+ * UNSUPPORTED: those carry `utilization: 0`, which printed as (0.00), a pass nobody computed.
+ */
+function util(c: { status: string; utilization: number }): string {
+  return c.status === 'UNSUPPORTED' ? 'N.E.' : n(c.utilization, 2);
+}
+
+/**
  * The slab, wall and footing sections of the report.
  *
  * ── Projection, never recalculation ────────────────────────────────
@@ -721,7 +791,7 @@ function n(v: number | null | undefined, digits = 1): string {
  */
 function familySections(
   a: DocumentAssembly,
-  L: (es: string, en: string) => string,
+  L: (es: string, en: string, pt: string) => string,
   translate: (key: string, params?: Record<string, unknown>) => string,
 ): string[] {
   if (a.families.length === 0) return [];
@@ -730,11 +800,11 @@ function familySections(
     a.familyCertificates.find((c) => c.ownerId === ownerId);
 
   // ── The certificate table: one row per family member, with WHY it does or does not apply ──
-  rows.push(`<h3>${L('Certificados de familia', 'Family certificates')}</h3>`);
+  rows.push(`<h3>${L('Certificados de familia', 'Family certificates', 'Certificados de família')}</h3>`);
   rows.push('<table><thead><tr>'
-    + `<th>${L('Familia', 'Family')}</th><th>${L('Elemento', 'Member')}</th>`
-    + `<th>${L('Estado', 'Status')}</th><th>${L('Madurez', 'Maturity')}</th>`
-    + `<th>${L('Vigencia', 'Applies')}</th></tr></thead><tbody>`);
+    + `<th>${L('Familia', 'Family', 'Família')}</th><th>${L('Elemento', 'Member', 'Elemento')}</th>`
+    + `<th>${L('Estado', 'Status', 'Estado')}</th><th>${L('Madurez', 'Maturity', 'Maturidade')}</th>`
+    + `<th>${L('Vigencia', 'Applies', 'Aplica')}</th></tr></thead><tbody>`);
   for (const c of a.familyCertificates) {
     rows.push(`<tr><td>${esc(c.family)}</td><td>${esc(c.ownerId)}</td>`
       + `<td>${esc(c.certificate.status)}</td><td>${esc(c.certificate.maturity)}</td>`
@@ -747,28 +817,28 @@ function familySections(
   for (const r of a.families) {
     const cert = certOf(r.ownerId);
     rows.push(`<h3>${esc(r.ownerId)} — ${esc(r.family)}</h3>`);
-    rows.push(`<p>${L('Estado del registro', 'Record status')}: <strong>${esc(r.status)}</strong>`
-      + ` · ${L('Madurez', 'Maturity')}: ${esc(r.maturity)}`
-      + ` · ${L('Edición', 'Edition')}: ${esc(r.edition)}`
-      + ` · ${L('Rev. análisis/cargas/reglamento/entidad', 'Rev. analysis/loads/regulation/entity')}: `
+    rows.push(`<p>${L('Estado del registro', 'Record status', 'Estado do registro')}: <strong>${esc(r.status)}</strong>`
+      + ` · ${L('Madurez', 'Maturity', 'Maturidade')}: ${esc(r.maturity)}`
+      + ` · ${L('Edición', 'Edition', 'Edição')}: ${esc(r.edition)}`
+      + ` · ${L('Rev. análisis/cargas/reglamento/entidad', 'Rev. analysis/loads/regulation/entity', 'Rev. análise/cargas/regulamento/entidade')}: `
       + `${r.revisions.analysis}/${r.revisions.loads}/${r.revisions.regulation}/${r.revisions.entity}`
-      + (cert ? ` · ${L('Certificado', 'Certificate')}: ${esc(cert.freshness)}` : '')
+      + (cert ? ` · ${L('Certificado', 'Certificate', 'Certificado')}: ${esc(cert.freshness)}` : '')
       + '</p>');
 
     if (r.governingCombinations.length > 0) {
-      rows.push(`<p>${L('Combinaciones gobernantes', 'Governing combinations')}: `
+      rows.push(`<p>${L('Combinaciones gobernantes', 'Governing combinations', 'Combinações determinantes')}: `
         + `${esc(r.governingCombinations.join(', '))}</p>`);
     }
 
     // ── Checks: every one the record carries, passing or not ──
     rows.push('<table><thead><tr>'
-      + `<th>${L('Verificación', 'Check')}</th><th>${L('Estado', 'Status')}</th>`
-      + `<th>${L('Utilización', 'Utilisation')}</th><th>${L('Combinación', 'Combination')}</th>`
+      + `<th>${L('Verificación', 'Check', 'Verificação')}</th><th>${L('Estado', 'Status', 'Estado')}</th>`
+      + `<th>${L('Utilización', 'Utilisation', 'Utilização')}</th><th>${L('Combinación', 'Combination', 'Combinação')}</th>`
       + '</tr></thead><tbody>');
     for (const c of r.checks) {
       rows.push(`<tr><td>${esc(c.key)}</td>`
         + `<td class="${c.status === 'OK' ? 'ok' : 'bad'}">${esc(c.status)}</td>`
-        + `<td>${c.utilization === null ? '—' : n(c.utilization, 2)}</td>`
+        + `<td>${c.utilization === null ? '—' : c.status === 'UNSUPPORTED' ? 'N.E.' : n(c.utilization, 2)}</td>`
         + `<td>${esc(c.governingCombination ?? '—')}</td></tr>`);
     }
     rows.push('</tbody></table>');
@@ -780,12 +850,12 @@ function familySections(
     // Unsupported conditions and assumptions, in SEPARATE blocks. A limitation and a
     // hypothesis are different things and mixing them buries the one that matters.
     if (r.unsupported.length > 0) {
-      rows.push(`<h4 class="bad">${L('No verificado', 'Not verified')}</h4><ul>`);
+      rows.push(`<h4 class="bad">${L('No verificado', 'Not verified', 'Não verificado')}</h4><ul>`);
       for (const m of r.unsupported) rows.push(`<li>${esc(translate(m.key, m.params))}</li>`);
       rows.push('</ul>');
     }
     if (r.assumptions.length > 0) {
-      rows.push(`<h4>${L('Hipótesis', 'Assumptions')}</h4><ul>`);
+      rows.push(`<h4>${L('Hipótesis', 'Assumptions', 'Hipóteses')}</h4><ul>`);
       for (const m of r.assumptions) rows.push(`<li>${esc(translate(m.key, m.params))}</li>`);
       rows.push('</ul>');
     }
@@ -799,134 +869,140 @@ function kv(label: string, value: string): string {
 
 function footingDetail(
   r: Extract<FloorFamilyDesignRecord, { family: 'footing' }>,
-  L: (es: string, en: string) => string,
+  L: (es: string, en: string, pt: string) => string,
 ): string[] {
   const g = r.geometry;
   const out: string[] = ['<table><tbody>'];
-  out.push(kv(L('Dimensiones B × L × h', 'Dimensions B × L × h'),
+  out.push(kv(L('Dimensiones B × L × h', 'Dimensions B × L × h', 'Dimensões B × L × h'),
     `${n(g.B, 2)} × ${n(g.L, 2)} × ${n(g.thickness, 2)} m`));
-  out.push(kv(L('Altura útil d', 'Effective depth d'), `${n(g.d, 3)} m`));
-  out.push(kv(L('Recubrimiento', 'Cover'), `${n(g.cover * 1000, 0)} mm`));
-  out.push(kv(L('Cota de fundación', 'Founding level'), `${n(g.foundingElevation, 2)} m`));
-  out.push(kv(L('Excentricidad de planta', 'Plan eccentricity'),
+  out.push(kv(L('Altura útil d', 'Effective depth d', 'Altura útil d'), `${n(g.d, 3)} m`));
+  out.push(kv(L('Recubrimiento', 'Cover', 'Cobrimento'), `${n(g.cover * 1000, 0)} mm`));
+  out.push(kv(L('Cota de fundación', 'Founding level', 'Cota de fundação'), `${n(g.foundingElevation, 2)} m`));
+  out.push(kv(L('Excentricidad de planta', 'Plan eccentricity', 'Excentricidade em planta'),
     `${n(g.eccentricityB, 3)} / ${n(g.eccentricityL, 3)} m`));
-  out.push(kv(L('Rotación', 'Rotation'), `${n(g.rotationDeg, 1)}°`));
-  out.push(kv(L('Columna soportada', 'Supported column'),
+  out.push(kv(L('Rotación', 'Rotation', 'Rotação'), `${n(g.rotationDeg, 1)}°`));
+  out.push(kv(L('Columna soportada', 'Supported column', 'Pilar apoiado'),
     r.support.columnElementId === null
-      ? L('no identificada', 'not identified')
+      ? L('no identificada', 'not identified', 'não identificado')
       : `#${r.support.columnElementId} — ${n(r.support.columnB, 2)} × ${n(r.support.columnH, 2)} m`));
-  out.push(kv(L('Nudo', 'Node'), `#${r.support.nodeId}`));
+  out.push(kv(L('Nudo', 'Node', 'Nó'), `#${r.support.nodeId}`));
   out.push('</tbody></table>');
 
   // ── The ground, with its PROVENANCE. Bearing pressure has no regulatory source. ──
-  out.push(`<h4>${L('Condiciones del terreno', 'Ground conditions')}</h4>`);
+  out.push(`<h4>${L('Condiciones del terreno', 'Ground conditions', 'Condições do terreno')}</h4>`);
   if (!r.ground) {
     out.push(`<p class="bad">${L(
       'No se resolvió ningún perfil de suelo para esta zapata, por lo que no hay tensión admisible contra la cual verificarla.',
-      'No soil profile resolved for this footing, so there is no allowable pressure to check it against.')}</p>`);
+      'No soil profile resolved for this footing, so there is no allowable pressure to check it against.',
+      'Nenhum perfil de solo resolvido para esta sapata, então não há tensão admissível para verificá-la.',
+    )}</p>`);
   } else {
     out.push('<table><tbody>');
-    out.push(kv(L('Estrato', 'Stratum'), esc(r.ground.name)));
-    out.push(kv(L('Tensión admisible', 'Allowable pressure'),
+    out.push(kv(L('Estrato', 'Stratum', 'Estrato'), esc(r.ground.name)));
+    out.push(kv(L('Tensión admisible', 'Allowable pressure', 'Tensão admissível'),
       r.ground.allowableBearingKPa === null
-        ? L('NO DECLARADA', 'NOT STATED')
+        ? L('NO DECLARADA', 'NOT STATED', 'NÃO DECLARADA')
         : `${n(r.ground.allowableBearingKPa, 1)} kPa`));
     // Printed on every document that relies on it: an assumed value must never read as a
     // measured one, and this figure comes from a geotechnical study rather than a code.
-    out.push(kv(L('Procedencia', 'Provenance'),
+    out.push(kv(L('Procedencia', 'Provenance', 'Procedência'),
       `${esc(r.ground.source)}${r.ground.reference ? ` — ${esc(r.ground.reference)}` : ''}`));
-    out.push(kv(L('Peso unitario', 'Unit weight'),
+    out.push(kv(L('Peso unitario', 'Unit weight', 'Peso específico'),
       r.ground.unitWeightKNm3 === null ? '—' : `${n(r.ground.unitWeightKNm3, 1)} kN/m³`));
-    out.push(kv(L('Napa', 'Groundwater'),
+    out.push(kv(L('Napa', 'Groundwater', 'Lençol freático'),
       r.ground.groundwaterDepthM === null ? '—' : `${n(r.ground.groundwaterDepthM, 2)} m`));
     out.push('</tbody></table>');
   }
 
   // ── The reaction the footing was designed for ──
-  out.push(`<h4>${L('Reacción de diseño', 'Design reaction')}</h4>`);
+  out.push(`<h4>${L('Reacción de diseño', 'Design reaction', 'Reação de cálculo')}</h4>`);
   if (!r.demand) {
     out.push(`<p class="bad">${L('No se resolvió ninguna reacción en este nudo.',
-      'No reaction was resolved at this node.')}</p>`);
+      'No reaction was resolved at this node.',
+      'Nenhuma reação foi resolvida neste nó.',
+    )}</p>`);
   } else {
     out.push('<table><tbody>');
-    out.push(kv(L('Combinación gobernante', 'Governing combination'),
+    out.push(kv(L('Combinación gobernante', 'Governing combination', 'Combinação determinante'),
       esc(r.demand.governingCombination)));
-    out.push(kv(L('N mayorado', 'Factored N'), `${n(r.demand.factoredAxial, 1)} kN`));
-    out.push(kv(L('N de servicio', 'Service N'), `${n(r.demand.serviceAxial, 1)} kN`));
-    out.push(kv(L('Momentos de servicio MB / ML', 'Service moments MB / ML'),
+    out.push(kv(L('N mayorado', 'Factored N', 'N majorado'), `${n(r.demand.factoredAxial, 1)} kN`));
+    out.push(kv(L('N de servicio', 'Service N', 'N de serviço'), `${n(r.demand.serviceAxial, 1)} kN`));
+    out.push(kv(L('Momentos de servicio MB / ML', 'Service moments MB / ML', 'Momentos de serviço MB / ML'),
       `${n(r.demand.serviceMomentB, 1)} / ${n(r.demand.serviceMomentL, 1)} kN·m`));
-    out.push(kv(L('Casos sumados para servicio', 'Cases summed for service'),
+    out.push(kv(L('Casos sumados para servicio', 'Cases summed for service', 'Casos somados para serviço'),
       r.demand.serviceCaseTypes.length > 0
         ? esc(r.demand.serviceCaseTypes.join(' + '))
-        : L('ninguno', 'none')));
+        : L('ninguno', 'none', 'nenhum')));
     out.push('</tbody></table>');
     // Every combination that was offered, so the choice of governing is auditable rather
     // than asserted.
-    out.push(`<p>${L('Combinaciones consideradas', 'Combinations considered')}: `
+    out.push(`<p>${L('Combinaciones consideradas', 'Combinations considered', 'Combinações consideradas')}: `
       + esc(r.demand.considered
         .map((c) => `${c.combinationName} (Fz ${c.fz.toFixed(0)} kN)`).join('; ')) + '</p>');
   }
 
   // ── The checks, with their numbers ──
-  out.push(`<h4>${L('Resultados', 'Results')}</h4><table><tbody>`);
-  out.push(kv(L('Presión de contacto qmax / qmin', 'Contact pressure qmax / qmin'),
+  out.push(`<h4>${L('Resultados', 'Results', 'Resultados')}</h4><table><tbody>`);
+  out.push(kv(L('Presión de contacto qmax / qmin', 'Contact pressure qmax / qmin', 'Pressão de contato qmax / qmin'),
     r.bearing ? `${n(r.bearing.qMax, 1)} / ${n(r.bearing.qMin, 1)} kPa` : '—'));
-  out.push(kv(L('Excentricidad eB / eL', 'Eccentricity eB / eL'),
+  out.push(kv(L('Excentricidad eB / eL', 'Eccentricity eB / eL', 'Excentricidade eB / eL'),
     r.bearing ? `${n(r.bearing.eB, 3)} / ${n(r.bearing.eL, 3)} m` : '—'));
-  out.push(kv(L('Contacto parcial', 'Partial contact'),
-    r.bearing ? (r.bearing.uplift ? L('SÍ — base despegada', 'YES — base lifts off')
-      : L('no', 'no')) : '—'));
-  out.push(kv(L('Capacidad portante', 'Bearing'),
+  out.push(kv(L('Contacto parcial', 'Partial contact', 'Contato parcial'),
+    r.bearing ? (r.bearing.uplift ? L('SÍ — base despegada', 'YES — base lifts off', 'SIM — a base descola')
+      : L('no', 'no', 'não')) : '—'));
+  out.push(kv(L('Capacidad portante', 'Bearing', 'Tensão no solo'),
     r.bearing
       ? `${n(r.bearing.qMax, 1)} / ${n(r.bearing.allowable, 1)} kPa `
-        + `(${n(r.bearing.utilization, 2)})`
+        + `(${util(r.bearing)})`
       : '—'));
-  out.push(kv(L('Flexión Mu en la cara', 'Flexure Mu at the face'),
+  out.push(kv(L('Flexión Mu en la cara', 'Flexure Mu at the face', 'Flexão Mu na face'),
     r.flexure ? `${n(r.flexure.Mu, 1)} kN·m` : '—'));
-  out.push(kv(L('Corte en una dirección Vu / φVc', 'One-way shear Vu / φVc'),
+  out.push(kv(L('Corte en una dirección Vu / φVc', 'One-way shear Vu / φVc', 'Cortante em uma direção Vu / φVc'),
     r.oneWayShear
       ? `${n(r.oneWayShear.Vu, 1)} / ${n(r.oneWayShear.phiVc, 1)} kN `
-        + `(${n(r.oneWayShear.utilization, 2)})`
+        + `(${util(r.oneWayShear)})`
       : '—'));
   if (r.punching) {
-    out.push(kv(L('Punzonado Vu / φVc', 'Punching Vu / φVc'),
+    out.push(kv(L('Punzonado Vu / φVc', 'Punching Vu / φVc', 'Punção Vu / φVc'),
       `${n(r.punching.Vu, 1)} / ${n(r.punching.phiVc, 1)} kN `
-      + `(${n(r.punching.utilization, 2)})`));
-    out.push(kv(L('Perímetro crítico', 'Critical perimeter'),
+      + `(${util(r.punching)})`));
+    out.push(kv(L('Perímetro crítico', 'Critical perimeter', 'Perímetro crítico'),
       `${esc(positionLabel(r.punching.position, L))} — `
-      + `${r.punching.truncatedSides} ${L('cara(s) truncada(s)', 'truncated side(s)')}`));
+      + `${r.punching.truncatedSides} ${L('cara(s) truncada(s)', 'truncated side(s)', 'lado(s) truncado(s)')}`));
     // The equilibrium residual: N_u − (V_u + q_u·A_enclosed) must be zero, and printing it
     // is how a reader confirms the free body the record describes is the one that was solved.
-    out.push(kv(L('Residuo de equilibrio', 'Equilibrium residual'),
+    out.push(kv(L('Residuo de equilibrio', 'Equilibrium residual', 'Resíduo de equilíbrio'),
       r.punching.equilibriumResidual === null
-        ? L('no medido', 'not measured')
+        ? L('no medido', 'not measured', 'não medido')
         : `${n(r.punching.equilibriumResidual, 3)} kN`));
   } else {
-    out.push(kv(L('Punzonado', 'Punching'), '—'));
+    out.push(kv(L('Punzonado', 'Punching', 'Punção'), '—'));
   }
   out.push('</tbody></table>');
 
   // ── Dowels and starter ties ──
-  out.push(`<h4>${L('Pelos y estribos de arranque', 'Dowels and starter ties')}</h4>`);
+  out.push(`<h4>${L('Pelos y estribos de arranque', 'Dowels and starter ties', 'Arranques e estribos de arranque')}</h4>`);
   if (!r.dowels) {
     out.push(`<p>${L('No se generaron pelos: la columna no tiene barras resueltas.',
-      'No dowels generated: the column has no resolved bars.')}</p>`);
+      'No dowels generated: the column has no resolved bars.',
+      'Nenhum arranque gerado: o pilar não tem barras resolvidas.',
+    )}</p>`);
   } else {
     out.push('<table><tbody>');
-    out.push(kv(L('Pelos', 'Dowels'),
+    out.push(kv(L('Pelos', 'Dowels', 'Arranques'),
       `${r.dowels.count} Ø${r.dowels.diameterMm} mm`));
-    out.push(kv(L('Anclaje en zapata ld', 'Development in footing ld'),
+    out.push(kv(L('Anclaje en zapata ld', 'Development in footing ld', 'Ancoragem na sapata ld'),
       `${n(r.dowels.ldFooting * 1000, 0)} mm`));
-    out.push(kv(L('Empalme sobre zapata', 'Lap above footing'),
+    out.push(kv(L('Empalme sobre zapata', 'Lap above footing', 'Emenda acima da sapata'),
       `${n(r.dowels.lapAbove * 1000, 0)} mm`));
-    out.push(kv(L('Remate inferior', 'Bottom treatment'),
+    out.push(kv(L('Remate inferior', 'Bottom treatment', 'Tratamento inferior'),
       r.dowels.hooked
-        ? L('gancho a 90° sobre la parrilla inferior', '90° hook over the bottom mat')
-        : L('recto', 'straight')));
-    out.push(kv(L('Estribos de arranque', 'Starter ties'),
+        ? L('gancho a 90° sobre la parrilla inferior', '90° hook over the bottom mat', 'gancho de 90° sobre a malha inferior')
+        : L('recto', 'straight', 'reto')));
+    out.push(kv(L('Estribos de arranque', 'Starter ties', 'Estribos de arranque'),
       r.starterTies
         ? `${r.starterTies.pieces} × Ø${r.starterTies.diameterMm} mm`
-        : L('ninguno', 'none')));
+        : L('ninguno', 'none', 'nenhum')));
     out.push('</tbody></table>');
   }
   return out;
@@ -934,15 +1010,15 @@ function footingDetail(
 
 function slabDetail(
   r: Extract<FloorFamilyDesignRecord, { family: 'slab' }>,
-  L: (es: string, en: string) => string,
+  L: (es: string, en: string, pt: string) => string,
 ): string[] {
   const g = r.geometry;
   const out: string[] = ['<table><tbody>'];
-  out.push(kv(L('Paño lx × ly × h', 'Panel lx × ly × h'),
+  out.push(kv(L('Paño lx × ly × h', 'Panel lx × ly × h', 'Painel lx × ly × h'),
     `${n(g.lx, 2)} × ${n(g.ly, 2)} × ${n(g.thickness, 3)} m`));
-  out.push(kv(L('Comportamiento', 'Behaviour'), esc(g.behaviour)));
-  out.push(kv(L('Bordes apoyados', 'Supported edges'), String(g.supportedSides)));
-  out.push(kv(L('Recubrimiento', 'Cover'), `${n(g.cover * 1000, 0)} mm`));
+  out.push(kv(L('Comportamiento', 'Behaviour', 'Comportamento'), esc(g.behaviour)));
+  out.push(kv(L('Bordes apoyados', 'Supported edges', 'Bordas apoiadas'), String(g.supportedSides)));
+  out.push(kv(L('Recubrimiento', 'Cover', 'Cobrimento'), `${n(g.cover * 1000, 0)} mm`));
   out.push('</tbody></table>');
 
   // ── Raw plate moments AND the Wood-Armer transform, side by side ──
@@ -950,11 +1026,11 @@ function slabDetail(
   // Both, because `mxy` is the field a naive slab design discards and discarding it
   // under-reinforces a twisted panel. Printing only the transformed pair would make the
   // transformation unauditable; printing both lets a reviewer check it.
-  out.push(`<h4>${L('Solicitaciones y Wood-Armer', 'Demands and Wood-Armer')}</h4>`);
+  out.push(`<h4>${L('Solicitaciones y Wood-Armer', 'Demands and Wood-Armer', 'Solicitações e Wood-Armer')}</h4>`);
   out.push('<table><thead><tr>'
-    + `<th>${L('Región', 'Region')}</th><th>mx</th><th>my</th><th>mxy</th>`
-    + `<th>${L('m inf. x', 'm bot. x')}</th><th>${L('m inf. y', 'm bot. y')}</th>`
-    + `<th>${L('m sup. x', 'm top x')}</th><th>${L('m sup. y', 'm top y')}</th>`
+    + `<th>${L('Región', 'Region', 'Região')}</th><th>mx</th><th>my</th><th>mxy</th>`
+    + `<th>${L('m inf. x', 'm bot. x', 'm inf. x')}</th><th>${L('m inf. y', 'm bot. y', 'm inf. y')}</th>`
+    + `<th>${L('m sup. x', 'm top x', 'm sup. x')}</th><th>${L('m sup. y', 'm top y', 'm sup. y')}</th>`
     + `<th>qu</th></tr></thead><tbody>`);
   for (const d of r.demands) {
     out.push(`<tr><td>${esc(d.region)}</td>`
@@ -964,15 +1040,17 @@ function slabDetail(
       + `<td>${n(d.qu, 2)}</td></tr>`);
   }
   out.push(`</tbody></table><p class="note">${L(
-    'Momentos en kN·m/m; qu en kPa.', 'Moments in kN·m/m; qu in kPa.')}</p>`);
+    'Momentos en kN·m/m; qu en kPa.', 'Moments in kN·m/m; qu in kPa.',
+      'Momentos em kN·m/m; qu em kPa.',
+    )}</p>`);
 
   if (r.reinforcement.length > 0) {
-    out.push(`<h4>${L('Armadura por región', 'Reinforcement by region')}</h4>`);
+    out.push(`<h4>${L('Armadura por región', 'Reinforcement by region', 'Armadura por região')}</h4>`);
     out.push('<table><thead><tr>'
-      + `<th>${L('Cara', 'Face')}</th><th>${L('Dirección', 'Direction')}</th>`
-      + `<th>Ø</th><th>${L('Separación', 'Spacing')}</th>`
-      + `<th>As req.</th><th>As prov.</th><th>${L('Gobierna', 'Governed by')}</th>`
-      + `<th>${L('Barras', 'Bars')}</th></tr></thead><tbody>`);
+      + `<th>${L('Cara', 'Face', 'Face')}</th><th>${L('Dirección', 'Direction', 'Direção')}</th>`
+      + `<th>Ø</th><th>${L('Separación', 'Spacing', 'Espaçamento')}</th>`
+      + `<th>As req.</th><th>As prov.</th><th>${L('Gobierna', 'Governed by', 'Governado por')}</th>`
+      + `<th>${L('Barras', 'Bars', 'Barras')}</th></tr></thead><tbody>`);
     for (const z of r.reinforcement) {
       out.push(`<tr><td>${esc(z.face)}</td><td>${esc(z.direction)}</td>`
         + `<td>${z.diameterMm}</td><td>${n(z.spacing * 1000, 0)} mm</td>`
@@ -980,33 +1058,37 @@ function slabDetail(
         + `<td>${esc(z.governedBy)}</td><td>${z.barIds.length}</td></tr>`);
     }
     out.push(`</tbody></table><p class="note">${L(
-      'As en mm²/m.', 'As in mm²/m.')}</p>`);
+      'As en mm²/m.', 'As in mm²/m.',
+      'As em mm²/m.',
+    )}</p>`);
   }
 
   out.push('<table><tbody>');
-  out.push(kv(L('Corte en una dirección Vu / φVc', 'One-way shear Vu / φVc'),
+  out.push(kv(L('Corte en una dirección Vu / φVc', 'One-way shear Vu / φVc', 'Cortante em uma direção Vu / φVc'),
     r.oneWayShear
       ? `${n(r.oneWayShear.Vu, 1)} / ${n(r.oneWayShear.phiVc, 1)} kN/m `
-        + `(${n(r.oneWayShear.utilization, 2)})`
+        + `(${util(r.oneWayShear)})`
       : '—'));
   out.push('</tbody></table>');
 
   // Punching per supported column. An EMPTY list is a measured "this panel supports no
   // column", and it is said out loud so it cannot be read as an omitted check.
-  out.push(`<h4>${L('Punzonado losa-columna', 'Slab-column punching')}</h4>`);
+  out.push(`<h4>${L('Punzonado losa-columna', 'Slab-column punching', 'Punção laje-pilar')}</h4>`);
   if (r.punching.length === 0) {
     out.push(`<p>${L(
       'Este paño no soporta ninguna columna, por lo que no hay nudo de punzonado que verificar.',
-      'This panel supports no column, so there is no punching joint to check.')}</p>`);
+      'This panel supports no column, so there is no punching joint to check.',
+      'Este painel não apoia nenhum pilar, então não há nó de punção para verificar.',
+    )}</p>`);
   } else {
     out.push('<table><thead><tr>'
-      + `<th>${L('Columna', 'Column')}</th><th>${L('Nudo', 'Node')}</th>`
-      + `<th>${L('Estado', 'Status')}</th>`
-      + `<th>${L('Posición', 'Position')}</th><th>bo</th>`
+      + `<th>${L('Columna', 'Column', 'Pilar')}</th><th>${L('Nudo', 'Node', 'Nó')}</th>`
+      + `<th>${L('Estado', 'Status', 'Estado')}</th>`
+      + `<th>${L('Posición', 'Position', 'Posição')}</th><th>bo</th>`
       + `<th>N inf.</th><th>N sup.</th><th>Vu</th><th>φVc</th>`
-      + `<th>${L('Rel.', 'Util.')}</th>`
-      + `<th>${L('Combinación', 'Combination')}</th>`
-      + `<th>${L('Residuo', 'Residual')}</th></tr></thead><tbody>`);
+      + `<th>${L('Rel.', 'Util.', 'Util.')}</th>`
+      + `<th>${L('Combinación', 'Combination', 'Combinação')}</th>`
+      + `<th>${L('Residuo', 'Residual', 'Resíduo')}</th></tr></thead><tbody>`);
     for (const p of r.punching) {
       // An unverified joint prints an em dash for every quantity nobody measured. A 0 here
       // would read as a demand somebody computed and found to be nothing.
@@ -1037,7 +1119,9 @@ function slabDetail(
       + 'part of the axial step that crosses the critical perimeter: ΔN − (load delivered '
       + 'directly by beams and at the joint) − qu·A enclosed. The residual is the closure of '
       + 'that free body; a joint that cannot establish it is reported as NOT verified rather '
-      + 'than as passing.')}</p>`);
+      + 'than as passing.',
+      'N em kN, compressão positiva, lido na extremidade do pilar que encontra o nó. Vu é a parte do salto de axial que atravessa o perímetro crítico: ΔN − (carga entregue diretamente por vigas e no nó) − qu·A interna. O resíduo é o fechamento desse corpo livre; um nó que não consegue estabelecê-lo é reportado como NÃO verificado, e não como aprovado.',
+    )}</p>`);
 
     // ── Every combination considered, per joint ──────────────────────
     //
@@ -1046,14 +1130,16 @@ function slabDetail(
     const withContributions = r.punching.filter((p) => (p.contributions?.length ?? 0) > 0);
     if (withContributions.length > 0) {
       out.push(`<h4>${L('Punzonado — combinaciones consideradas',
-        'Punching — combinations considered')}</h4>`);
+        'Punching — combinations considered',
+      'Punção — combinações consideradas',
+    )}</h4>`);
       out.push('<table><thead><tr>'
-        + `<th>${L('Nudo', 'Node')}</th><th>${L('Combinación', 'Combination')}</th>`
+        + `<th>${L('Nudo', 'Node', 'Nó')}</th><th>${L('Combinación', 'Combination', 'Combinação')}</th>`
         + `<th>N inf.</th><th>N sup.</th><th>ΔN</th>`
-        + `<th>${L('Directa', 'Direct')}</th><th>qu·A</th>`
-        + `<th>${L('M no bal.', 'Unbal. M')}</th>`
-        + `<th>Vu</th><th>${L('Rel.', 'Util.')}</th>`
-        + `<th>${L('Residuo', 'Residual')}</th></tr></thead><tbody>`);
+        + `<th>${L('Directa', 'Direct', 'Direta')}</th><th>qu·A</th>`
+        + `<th>${L('M no bal.', 'Unbal. M', 'M desequil.')}</th>`
+        + `<th>Vu</th><th>${L('Rel.', 'Util.', 'Util.')}</th>`
+        + `<th>${L('Residuo', 'Residual', 'Resíduo')}</th></tr></thead><tbody>`);
       for (const p of withContributions) {
         for (const c of p.contributions ?? []) {
           const governs = c.combinationName === p.governingCombination;
@@ -1076,7 +1162,9 @@ function slabDetail(
         + '(borde de piso), no una fuerza faltante.',
         '★ marks the governing combination. Forces in kN, moments in kN·m. A row with an em '
         + 'dash for N below or N above has that face of the free body open (a storey '
-        + 'boundary), not a missing force.')}</p>`);
+        + 'boundary), not a missing force.',
+      '★ marca a combinação determinante. Forças em kN, momentos em kN·m. Uma linha com travessão em N abaixo ou N acima tem essa face do corpo livre aberta (um limite de pavimento), não uma força faltante.',
+    )}</p>`);
     }
   }
   return out;
@@ -1084,21 +1172,21 @@ function slabDetail(
 
 function wallDetail(
   r: Extract<FloorFamilyDesignRecord, { family: 'wall' }>,
-  L: (es: string, en: string) => string,
+  L: (es: string, en: string, pt: string) => string,
 ): string[] {
   const g = r.geometry;
   const out: string[] = ['<table><tbody>'];
-  out.push(kv(L('Longitud × altura × espesor', 'Length × height × thickness'),
+  out.push(kv(L('Longitud × altura × espesor', 'Length × height × thickness', 'Comprimento × altura × espessura'),
     `${n(g.length, 2)} × ${n(g.height, 2)} × ${n(g.thickness, 3)} m`));
-  out.push(kv(L('Cortinas', 'Curtains'), String(r.reinforcement.curtains)));
-  out.push(kv(L('Recubrimiento', 'Cover'), `${n(g.cover * 1000, 0)} mm`));
+  out.push(kv(L('Cortinas', 'Curtains', 'Malhas'), String(r.reinforcement.curtains)));
+  out.push(kv(L('Recubrimiento', 'Cover', 'Cobrimento'), `${n(g.cover * 1000, 0)} mm`));
   out.push('</tbody></table>');
 
-  out.push(`<h4>${L('Solicitaciones', 'Demands')}</h4>`);
+  out.push(`<h4>${L('Solicitaciones', 'Demands', 'Solicitações')}</h4>`);
   out.push('<table><thead><tr>'
-    + `<th>${L('Elemento', 'Member')}</th><th>σxx</th><th>σyy</th><th>τxy</th>`
+    + `<th>${L('Elemento', 'Member', 'Elemento')}</th><th>σxx</th><th>σyy</th><th>τxy</th>`
     + `<th>Pu</th><th>Mu</th><th>Vu</th>`
-    + `<th>${L('Origen del momento', 'Moment source')}</th></tr></thead><tbody>`);
+    + `<th>${L('Origen del momento', 'Moment source', 'Origem do momento')}</th></tr></thead><tbody>`);
   for (const d of r.demands) {
     out.push(`<tr><td>#${d.elementId}</td>`
       + `<td>${n(d.sigmaXx, 0)}</td><td>${n(d.sigmaYy, 0)}</td><td>${n(d.tauXy, 0)}</td>`
@@ -1106,45 +1194,51 @@ function wallDetail(
       // A membrane-only resolution gives ZERO in-plane moment, which is not a wall's real
       // demand. Named on the row rather than left for the reader to infer from a zero.
       + `<td class="${d.fromMembraneOnly ? 'bad' : ''}">${d.fromMembraneOnly
-        ? L('sólo membrana — Mu no resuelto', 'membrane only — Mu unresolved')
-        : L('fuerzas de elemento', 'element forces')}</td></tr>`);
+        ? L('sólo membrana — Mu no resuelto', 'membrane only — Mu unresolved', 'só membrana — Mu não resolvido')
+        : L('fuerzas de elemento', 'element forces', 'forças dos elementos')}</td></tr>`);
   }
   out.push(`</tbody></table><p class="note">${L(
     'Tensiones en kPa; Pu y Vu en kN; Mu en kN·m.',
-    'Stresses in kPa; Pu and Vu in kN; Mu in kN·m.')}</p>`);
+    'Stresses in kPa; Pu and Vu in kN; Mu in kN·m.',
+      'Tensões em kPa; Pu e Vu em kN; Mu em kN·m.',
+    )}</p>`);
 
-  out.push(`<h4>${L('Resultados', 'Results')}</h4><table><tbody>`);
-  out.push(kv(L('Axial-flexión Pu / φMn', 'Axial-flexure Pu / φMn'),
+  out.push(`<h4>${L('Resultados', 'Results', 'Resultados')}</h4><table><tbody>`);
+  out.push(kv(L('Axial-flexión Pu / φMn', 'Axial-flexure Pu / φMn', 'Flexo-compressão Pu / φMn'),
     `${n(r.axialFlexure.pu, 1)} kN / ${n(r.axialFlexure.phiMn, 1)} kN·m `
-    + `(${n(r.axialFlexure.utilization, 2)})`));
-  out.push(kv(L('Corte en el plano Vu / φVn', 'In-plane shear Vu / φVn'),
+    + `(${util(r.axialFlexure)})`));
+  out.push(kv(L('Corte en el plano Vu / φVn', 'In-plane shear Vu / φVn', 'Cortante no plano Vu / φVn'),
     `${n(r.inPlaneShear.Vu, 1)} / ${n(r.inPlaneShear.phiVn, 1)} kN `
-    + `(${n(r.inPlaneShear.utilization, 2)})`));
+    + `(${util(r.inPlaneShear)})`));
   // §11.5.4.6: above the ceiling the wall fails by web crushing and horizontal steel does
   // not help. Stating it separately is what stops the report recommending a remedy that
   // would not work.
   out.push(kv(L('Techo de aplastamiento del alma (11.5.4.6)',
-    'Web-crushing ceiling (11.5.4.6)'),
+    'Web-crushing ceiling (11.5.4.6)',
+      'Limite de esmagamento da alma (11.5.4.6)',
+    ),
   `${n(r.inPlaneShear.webCrushingLimit, 1)} kN — `
     + (r.inPlaneShear.webCrushingGoverns
       ? L('GOBIERNA: agregar armadura horizontal no ayuda',
-        'GOVERNS: adding horizontal steel does not help')
-      : L('no gobierna', 'does not govern'))));
-  out.push(kv(L('Vertical', 'Vertical'),
+        'GOVERNS: adding horizontal steel does not help',
+      'GOVERNA: acrescentar aço horizontal não ajuda',
+    )
+      : L('no gobierna', 'does not govern', 'não governa'))));
+  out.push(kv(L('Vertical', 'Vertical', 'Vertical'),
     `Ø${r.reinforcement.verticalDiameterMm} c/${n(r.reinforcement.verticalSpacing * 1000, 0)} mm `
     + `(ρ ${n(r.reinforcement.rhoVertical, 4)}, ${esc(r.reinforcement.verticalGovernedBy)})`));
-  out.push(kv(L('Horizontal', 'Horizontal'),
+  out.push(kv(L('Horizontal', 'Horizontal', 'Horizontal'),
     `Ø${r.reinforcement.horizontalDiameterMm} c/${n(r.reinforcement.horizontalSpacing * 1000, 0)} mm `
     + `(ρ ${n(r.reinforcement.rhoHorizontal, 4)}, ${esc(r.reinforcement.horizontalGovernedBy)})`));
-  out.push(kv(L('Barras físicas', 'Physical bars'), String(r.reinforcement.barIds.length)));
-  out.push(kv(L('Elemento de borde', 'Boundary element'),
+  out.push(kv(L('Barras físicas', 'Physical bars', 'Barras físicas'), String(r.reinforcement.barIds.length)));
+  out.push(kv(L('Elemento de borde', 'Boundary element', 'Elemento de borda'),
     r.boundaryElement === null
-      ? L('no evaluado', 'not evaluated')
+      ? L('no evaluado', 'not evaluated', 'não avaliado')
       : r.boundaryElement.required
         ? (r.boundaryElement.detailing
-          ? `${L('requerido', 'required')} — ${n(r.boundaryElement.detailing.lengthM, 2)} m`
-          : L('REQUERIDO — despiece NO implementado', 'REQUIRED — detailing NOT implemented'))
-        : L('no requerido', 'not required')));
+          ? `${L('requerido', 'required', 'exigido')} — ${n(r.boundaryElement.detailing.lengthM, 2)} m`
+          : L('REQUERIDO — despiece NO implementado', 'REQUIRED — detailing NOT implemented', 'EXIGIDO — detalhamento NÃO implementado'))
+        : L('no requerido', 'not required', 'não exigido')));
   out.push('</tbody></table>');
   return out;
 }
@@ -1152,7 +1246,9 @@ function wallDetail(
 // ─── DXF ───
 
 export interface DrawingSet {
-  sheets: Array<{ name: string; sheet: Sheet; dxf: string; svg: string }>;
+  /** `caption`: what the drawing shows, short and in the set's language (the sheet set's caption
+   *  and index). The sheet's own `title` keeps the project and the readiness banner. */
+  sheets: Array<{ name: string; caption?: string; sheet: Sheet; dxf: string; svg: string }>;
   /** All sheets concatenated into one DXF. */
   dxf: string;
   /**
@@ -1274,6 +1370,7 @@ export function renderDrawings(doc: DocumentModel, opts: RenderOptions): Drawing
             : { right: { x: 0, y: 1, z: 0 }, up: { x: 0, y: 0, z: 1 }, origin: { x: 0, y: 0, z: 0 } };
         sheets.push({
           name: `${a.id}-${rec.geometry.name}-${kind}`,
+          caption: teAt({ key: 'drawing.cap.of', params: { what: rec.geometry.name, kind: { key: `drawing.cap.kind.${kind}` } } }, opts.locale),
           sheet,
           dxf: sheetToDxf(sheet, own.flatMap((b) => barArcs(b, proj)), opts.locale),
           svg: sheetToSvg(sheet, 900, opts.locale),
@@ -1310,6 +1407,7 @@ export function renderDrawings(doc: DocumentModel, opts: RenderOptions): Drawing
           };
           sheets.push({
             name: `${a.id}-${rec.geometry.panelId}-${kind}`,
+            caption: teAt({ key: 'drawing.cap.of', params: { what: rec.geometry.panelId, kind: { key: `drawing.cap.kind.${kind}` } } }, opts.locale),
             sheet,
             dxf: sheetToDxf(sheet, own.flatMap((b) => barArcs(b, proj)), opts.locale),
             svg: sheetToSvg(sheet, 900, opts.locale),
@@ -1340,6 +1438,7 @@ export function renderDrawings(doc: DocumentModel, opts: RenderOptions): Drawing
           : { right: along, up: across, origin: { ...g.start } };
         sheets.push({
           name: `${a.id}-${g.wallId}-${kind}`,
+          caption: teAt({ key: 'drawing.cap.of', params: { what: g.wallId, kind: { key: `drawing.cap.kind.${kind}` } } }, opts.locale),
           sheet,
           dxf: sheetToDxf(sheet, own.flatMap((b) => barArcs(b, proj)), opts.locale),
           svg: sheetToSvg(sheet, 900, opts.locale),
@@ -1361,7 +1460,8 @@ export function renderDrawings(doc: DocumentModel, opts: RenderOptions): Drawing
 
   return {
     sheets,
-    dxf: sheets.map((s) => s.dxf).join('\n'),
+    // One file a CAD program reads whole: one header, every sheet, one EOF.
+    dxf: combineDxfSheets(sheets),
     coverage: {
       ...coverageOf(doc, sheets),
       missingSheetKinds: opts.scene
@@ -1378,13 +1478,15 @@ function structureSheets(
 ): DrawingSet['sheets'] {
   const statusOf = opts.statusOf ?? (() => undefined);
   const out: DrawingSet['sheets'] = [];
-  const emit = (name: string, sheet: Sheet) => {
+  const emit = (name: string, sheet: Sheet, caption: string) => {
     out.push({
-      name, sheet,
+      name, caption, sheet,
       dxf: sheetToDxf(sheet, [], opts.locale),
       svg: sheetToSvg(sheet, 1200, opts.locale),
     });
   };
+  // The label in the set's language: these were written in Spanish whatever the locale.
+  const cap = (key: string, params?: Record<string, string>) => teAt({ key: `drawing.cap.${key}`, ...(params ? { params } : {}) }, opts.locale);
   const titleFor = (label: string) => buildTitleBlock({
     sheetNumber: `R${doc.revision.number}-${nextN()}`,
     title: `${opts.projectName} — ${label} — ${readinessBanner(doc, opts.locale)}`,
@@ -1392,13 +1494,15 @@ function structureSheets(
     clauses: doc.refs,
   });
 
+  const general = cap('generalPlan');
   emit('structure-general-plan',
-    drawGeneralPlan({ scene, title: titleFor('Planta general'), statusOf }));
+    drawGeneralPlan({ scene, title: titleFor(general), statusOf }), general);
 
   const levels = levelsOf(scene);
   for (const level of levels) {
+    const c = cap('levelPlan', { z: level.z.toFixed(2) });
     emit(`structure-level-${level.z.toFixed(2)}-plan`,
-      drawLevelPlan({ scene, title: titleFor(`Planta +${level.z.toFixed(2)}`), statusOf, level }));
+      drawLevelPlan({ scene, title: titleFor(c), statusOf, level }), c);
   }
 
   /**
@@ -1409,26 +1513,31 @@ function structureSheets(
    */
   const cuts = opts.sectionElevations ?? levels.map((l) => l.z - 0.5);
   for (const z of cuts) {
+    const c = cap('horizontalSection', { z: z.toFixed(2) });
     emit(`structure-section-z${z.toFixed(2)}`,
-      drawHorizontalSection({ scene, title: titleFor(`Corte z=${z.toFixed(2)}`), statusOf, atZ: z }));
+      drawHorizontalSection({ scene, title: titleFor(c), statusOf, atZ: z }), c);
   }
 
   for (const s of scene.solids) {
     if (s.kind !== 'column' || s.elementIds.length === 0) continue;
     const id = s.elementIds[0];
+    const c = cap('column', { id: String(id) });
     emit(`structure-column-${id}-detail`,
-      drawColumnDetail({ scene, title: titleFor(`Columna ${id}`), statusOf, elementId: id }));
+      drawColumnDetail({ scene, title: titleFor(c), statusOf, elementId: id }), c);
   }
 
   // Across assemblies, from the same bars: frame lines, column stacks and joints.
   for (const line of frameLines(scene)) {
-    emit(`structure-${line.id}-elevation`, drawFrameElevation({ scene, title: titleFor(`Pórtico ${line.id}`), statusOf, line }));
+    const c = cap('frame', { id: line.id });
+    emit(`structure-${line.id}-elevation`, drawFrameElevation({ scene, title: titleFor(c), statusOf, line }), c);
   }
   for (const stack of columnStacks(scene)) {
-    emit(`structure-${stack.id}-elevation`, drawColumnStack({ scene, title: titleFor(`Columna apilada ${stack.id}`), statusOf, stack }));
+    const c = cap('stack', { id: stack.id });
+    emit(`structure-${stack.id}-elevation`, drawColumnStack({ scene, title: titleFor(c), statusOf, stack }), c);
   }
   for (const joint of joints(scene)) {
-    emit(`structure-${joint.id}-detail`, drawJointDetail({ scene, title: titleFor(`Nudo ${joint.id}`), statusOf, joint }));
+    const c = cap('joint', { id: joint.id });
+    emit(`structure-${joint.id}-detail`, drawJointDetail({ scene, title: titleFor(c), statusOf, joint }), c);
   }
 
   return out;
@@ -1488,6 +1597,7 @@ function elevationAndSection(
   doc: DocumentModel, a: DocumentAssembly, opts: RenderOptions, nextN: () => number,
 ): DrawingSet['sheets'] {
   const sheets: DrawingSet['sheets'] = [];
+  if (opts.members) return memberSheets(doc, a, opts, opts.members, nextN);
   {
     // Sheet numbers come from the CALLER's running counter, so an elevation, a section and a
     // footing plan in the same document never share a number.
@@ -1509,13 +1619,6 @@ function elevationAndSection(
       (p.x - s0.x) * right.x + (p.y - s0.y) * right.y;
     const zs = xs.map((p) => p.z);
     const us = xs.map(proj1);
-    const outline = [
-      { x: Math.min(...us), y: Math.min(...zs) },
-      { x: Math.max(...us), y: Math.min(...zs) },
-      { x: Math.max(...us), y: Math.max(...zs) },
-      { x: Math.min(...us), y: Math.max(...zs) },
-    ];
-
     const notes = [
       readinessBanner(doc, opts.locale),
       ...doc.openConflicts
@@ -1565,16 +1668,20 @@ function elevationAndSection(
     const arcs = a.bars.flatMap((b) => barArcs(b, projection));
     sheets.push({
       name: `${a.id}-elevation`,
+      caption: teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.elevation' } } }, opts.locale),
       sheet: elevation,
       dxf: sheetToDxf(elevation, arcs, opts.locale),
       svg: sheetToSvg(elevation, 1200, opts.locale),
     });
 
     n += 1;
+    // Without the members' geometry the concrete at the cut is not known: the steel box above
+    // is a plan-view frame, and drawn here it stood in another plane than the bars.
     const section = drawSection({
       assembly: a.source,
       atX: (Math.min(...us) + Math.max(...us)) / 2,
-      outline,
+      outline: [],
+      extraNotes: [teAt({ key: 'detailing.sheet.noOutline', params: { x: ((Math.min(...us) + Math.max(...us)) / 2).toFixed(2) } }, opts.locale)],
       projection,
       clauses: doc.refs,
       sheetNumber: `R${doc.revision.number}-${n}`,
@@ -1590,6 +1697,7 @@ function elevationAndSection(
     const sectionArcs = a.bars.flatMap((b) => barArcs(b, projection));
     sheets.push({
       name: `${a.id}-section`,
+      caption: teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.section' } } }, opts.locale),
       sheet: section,
       dxf: sheetToDxf(section, sectionArcs, opts.locale),
       svg: sheetToSvg(section, 800, opts.locale),
@@ -1633,7 +1741,9 @@ export function renderSchedule(
   doc: DocumentModel, opts: RenderOptions,
 ): Array<{ name: string; aoa: (string | number)[][] }> {
   const es = opts.locale.startsWith('es');
-  const L = (a: string, b: string) => (es ? a : b);
+  const pt = opts.locale.startsWith('pt');
+  // Spanish, English and Portuguese, each in its own words: Portuguese used to get the English.
+  const L = (a: string, b: string, c: string) => (es ? a : pt ? c : b);
   const density = opts.steelDensity ?? DEFAULTS.steelDensity;
   const out: Array<{ name: string; aoa: (string | number)[][] }> = [];
 
@@ -1672,11 +1782,11 @@ export function renderSchedule(
     const torsionMembers = new Set(a.source.torsionUnevaluatedMembers ?? []);
     if (header >= 0) {
       aoa[header] = [...aoa[header],
-        L('Masa (kg)', 'Mass (kg)'), L('Elementos', 'Members'), L('Capa', 'Layer'),
+        L('Masa (kg)', 'Mass (kg)', 'Massa (kg)'), L('Elementos', 'Members', 'Elementos'), L('Capa', 'Layer', 'Camada'),
         // A column, not a footnote. A schedule is read row by row by somebody ordering
         // steel, and a warning that lives only in the note block is a warning that is not
         // beside the bar they are about to order.
-        L('Estado', 'Status')];
+        L('Estado', 'Status', 'Estado')];
       for (let i = 0; i < marks.length; i++) {
         const row = aoa[header + 1 + i];
         if (!row) break;
@@ -1699,10 +1809,10 @@ export function renderSchedule(
         // row that reported only the first would let the second reach site unnoticed.
         const status = [
           provisional
-            ? L('PROVISIONAL — no apto para emisión', 'PROVISIONAL — not for issue')
+            ? L('PROVISIONAL — no apto para emisión', 'PROVISIONAL — not for issue', 'PROVISÓRIO — não emitir')
             : '',
           torsion
-            ? L('TORSIÓN NO EVALUADA', 'TORSION NOT EVALUATED')
+            ? L('TORSIÓN NO EVALUADA', 'TORSION NOT EVALUATED', 'TORÇÃO NÃO AVALIADA')
             : '',
         ].filter(Boolean).join(' · ');
         aoa[header + 1 + i] = [...row,
@@ -1727,7 +1837,9 @@ export function renderSchedule(
         `PROPUESTA PROVISIONAL — NO APTO PARA EMISIÓN CONSTRUCTIVA. ${provisionalMembers.length} `
         + `elemento(s): ${provisionalMembers.join(', ')}. Eje secundario sin verificar.`,
         `PROVISIONAL PROPOSAL — NOT VALID FOR CONSTRUCTION. ${provisionalMembers.length} `
-        + `member(s): ${provisionalMembers.join(', ')}. Secondary axis unverified.`)]);
+        + `member(s): ${provisionalMembers.join(', ')}. Secondary axis unverified.`,
+      `PROPOSTA PROVISÓRIA — NÃO VÁLIDA PARA CONSTRUÇÃO. ${provisionalMembers.length} elemento(s): ${provisionalMembers.join(', ')}. Eixo secundário não verificado.`,
+    )]);
     }
     if (torsionMembers.size > 0) {
       // After the provisional line when both are present, so the strongest statement — "not
@@ -1736,19 +1848,21 @@ export function renderSchedule(
       aoa.splice(provisionalMembers.length > 0 ? 2 : 1, 0, [L(
         `TORSIÓN NO EVALUADA — función en desarrollo. ${ids.length} elemento(s): `
         + `${ids.join(', ')}. Esta armadura no contempla torsión; no usar como verificación `
-        + 'final. Se corregirá en PR21.',
+        + 'final.',
         `TORSION NOT EVALUATED — feature in development. ${ids.length} member(s): `
         + `${ids.join(', ')}. This reinforcement does not account for torsion; do not use as a `
-        + 'final verification. To be addressed in PR21.')]);
+        + 'final verification.',
+      `TORÇÃO NÃO AVALIADA — função em desenvolvimento. ${ids.length} elemento(s): ${ids.join(', ')}. Esta armadura não considera a torção; não usar como verificação final.`,
+    )]);
     }
 
     // Laps get their own block: the fabricator has to know a bar is spliced, not merely
     // that two bars exist.
     if (a.laps.length > 0) {
       aoa.push([]);
-      aoa.push([L('EMPALMES', 'LAPS')]);
-      aoa.push([L('Nudo', 'Joint'), L('Desde', 'From'), L('Hasta', 'To'),
-        L('Tipo', 'Kind'), L('Clase', 'Class'), L('Longitud (mm)', 'Length (mm)')]);
+      aoa.push([L('EMPALMES', 'LAPS', 'EMENDAS')]);
+      aoa.push([L('Nudo', 'Joint', 'Nó'), L('Desde', 'From', 'De'), L('Hasta', 'To', 'Até'),
+        L('Tipo', 'Kind', 'Tipo'), L('Clase', 'Class', 'Classe'), L('Longitud (mm)', 'Length (mm)', 'Comprimento (mm)')]);
       for (const l of a.laps) {
         aoa.push([l.jointId, l.fromBarId, l.toBarId, l.kind, l.spliceClass,
           Math.round(l.lapLength * 1000)]);
@@ -1764,12 +1878,12 @@ export function renderSchedule(
     // record each mark belongs to, and whether its certificate still applies.
     if (a.families.length > 0) {
       aoa.push([]);
-      aoa.push([L('FAMILIAS DE PISO', 'FLOOR FAMILIES')]);
-      aoa.push([L('Familia', 'Family'), L('Elemento', 'Member'), L('Estado', 'Status'),
-        L('Madurez', 'Maturity'), L('Certificado', 'Certificate'),
-        L('Vigencia', 'Applies'), L('Marcas', 'Marks'), L('Barras', 'Bars'),
-        L('Rev. análisis', 'Rev. analysis'), L('Rev. cargas', 'Rev. loads'),
-        L('Rev. reglamento', 'Rev. regulation'), L('Rev. entidad', 'Rev. entity')]);
+      aoa.push([L('FAMILIAS DE PISO', 'FLOOR FAMILIES', 'FAMÍLIAS DE PISO')]);
+      aoa.push([L('Familia', 'Family', 'Família'), L('Elemento', 'Member', 'Elemento'), L('Estado', 'Status', 'Estado'),
+        L('Madurez', 'Maturity', 'Maturidade'), L('Certificado', 'Certificate', 'Certificado'),
+        L('Vigencia', 'Applies', 'Aplica'), L('Marcas', 'Marks', 'Marcas'), L('Barras', 'Bars', 'Barras'),
+        L('Rev. análisis', 'Rev. analysis', 'Rev. análise'), L('Rev. cargas', 'Rev. loads', 'Rev. cargas'),
+        L('Rev. reglamento', 'Rev. regulation', 'Rev. regulamento'), L('Rev. entidad', 'Rev. entity', 'Rev. entidade')]);
       for (const r of a.families) {
         const cert = a.familyCertificates.find((c) => c.ownerId === r.ownerId);
         aoa.push([r.family, r.ownerId, r.status, r.maturity,
@@ -1783,13 +1897,13 @@ export function renderSchedule(
       // does. A schedule that lists quantities without their verification state is how a
       // fabricator comes to build an unverified footing.
       aoa.push([]);
-      aoa.push([L('VERIFICACIONES POR FAMILIA', 'FAMILY CHECKS')]);
-      aoa.push([L('Elemento', 'Member'), L('Verificación', 'Check'), L('Estado', 'Status'),
-        L('Utilización', 'Utilisation'), L('Combinación', 'Combination')]);
+      aoa.push([L('VERIFICACIONES POR FAMILIA', 'FAMILY CHECKS', 'VERIFICAÇÕES DE FAMÍLIA')]);
+      aoa.push([L('Elemento', 'Member', 'Elemento'), L('Verificación', 'Check', 'Verificação'), L('Estado', 'Status', 'Estado'),
+        L('Utilización', 'Utilisation', 'Utilização'), L('Combinación', 'Combination', 'Combinação')]);
       for (const r of a.families) {
         for (const c of r.checks) {
           aoa.push([r.ownerId, c.key, c.status,
-            c.utilization === null ? '' : Math.round(c.utilization * 1000) / 1000,
+            c.utilization === null ? '' : c.status === 'UNSUPPORTED' ? 'N.E.' : Math.round(c.utilization * 1000) / 1000,
             c.governingCombination ?? '']);
         }
       }
@@ -1799,16 +1913,16 @@ export function renderSchedule(
       const footings = a.families.filter((r) => r.family === 'footing');
       if (footings.length > 0) {
         aoa.push([]);
-        aoa.push([L('ZAPATAS', 'FOOTINGS')]);
-        aoa.push([L('Zapata', 'Footing'), 'B (m)', 'L (m)', 'h (m)', 'd (m)',
-          L('Cota', 'Level'), L('Estrato', 'Stratum'),
-          L('q adm (kPa)', 'q allow (kPa)'), L('Procedencia', 'Provenance'),
-          L('Referencia', 'Reference'), L('Combinación', 'Combination'),
-          L('Nu (kN)', 'Nu (kN)'), L('N serv (kN)', 'N serv (kN)'),
-          L('qmax (kPa)', 'qmax (kPa)'), L('Contacto parcial', 'Partial contact'),
-          L('Mu (kN·m)', 'Mu (kN·m)'), L('Util. corte', 'Shear util.'),
-          L('Util. punzonado', 'Punching util.'), L('Residuo equil. (kN)', 'Equil. residual (kN)'),
-          L('Pelos', 'Dowels'), L('Estribos arranque', 'Starter ties')]);
+        aoa.push([L('ZAPATAS', 'FOOTINGS', 'SAPATAS')]);
+        aoa.push([L('Zapata', 'Footing', 'Sapata'), 'B (m)', 'L (m)', 'h (m)', 'd (m)',
+          L('Cota', 'Level', 'Nível'), L('Estrato', 'Stratum', 'Estrato'),
+          L('q adm (kPa)', 'q allow (kPa)', 'q adm (kPa)'), L('Procedencia', 'Provenance', 'Procedência'),
+          L('Referencia', 'Reference', 'Referência'), L('Combinación', 'Combination', 'Combinação'),
+          L('Nu (kN)', 'Nu (kN)', 'Nu (kN)'), L('N serv (kN)', 'N serv (kN)', 'N serv (kN)'),
+          L('qmax (kPa)', 'qmax (kPa)', 'qmax (kPa)'), L('Contacto parcial', 'Partial contact', 'Contato parcial'),
+          L('Mu (kN·m)', 'Mu (kN·m)', 'Mu (kN·m)'), L('Util. corte', 'Shear util.', 'Util. cortante'),
+          L('Util. punzonado', 'Punching util.', 'Util. punção'), L('Residuo equil. (kN)', 'Equil. residual (kN)', 'Resíduo de equil. (kN)'),
+          L('Pelos', 'Dowels', 'Arranques'), L('Estribos arranque', 'Starter ties', 'Estribos de arranque')]);
         for (const r of footings) {
           if (r.family !== 'footing') continue;
           const g = r.geometry;
@@ -1822,10 +1936,11 @@ export function renderSchedule(
             r.demand?.governingCombination ?? '',
             r.demand?.factoredAxial ?? '', r.demand?.serviceAxial ?? '',
             r.bearing?.qMax ?? '',
-            r.bearing ? (r.bearing.uplift ? L('SÍ', 'YES') : L('no', 'no')) : '',
+            r.bearing ? (r.bearing.uplift ? L('SÍ', 'YES', 'SIM') : L('no', 'no', 'não')) : '',
             r.flexure?.Mu ?? '',
-            r.oneWayShear?.utilization ?? '',
-            r.punching?.utilization ?? '',
+            // N.E., never 0, for a check that was not evaluated (UNSUPPORTED carries utilization 0).
+            r.oneWayShear ? (r.oneWayShear.status === 'UNSUPPORTED' ? 'N.E.' : r.oneWayShear.utilization) : '',
+            r.punching ? (r.punching.status === 'UNSUPPORTED' ? 'N.E.' : r.punching.utilization) : '',
             r.punching?.equilibriumResidual ?? '',
             r.dowels ? `${r.dowels.count} Ø${r.dowels.diameterMm}` : '',
             r.starterTies ? `${r.starterTies.pieces} Ø${r.starterTies.diameterMm}` : '',
@@ -1842,15 +1957,15 @@ export function renderSchedule(
         r.family === 'slab' ? r.punching.map((p) => ({ ownerId: r.ownerId, p })) : []);
       if (slabJoints.length > 0) {
         aoa.push([]);
-        aoa.push([L('PUNZONADO LOSA-COLUMNA', 'SLAB-COLUMN PUNCHING')]);
-        aoa.push([L('Paño', 'Panel'), L('Nudo', 'Node'), L('Columna', 'Column'),
-          L('Col. inferior', 'Col. below'), L('Col. superior', 'Col. above'),
-          L('Estado', 'Status'), L('Posición', 'Position'), L('Ángulo losa (°)', 'Slab angle (°)'),
-          L('Lados truncados', 'Truncated sides'), 'bo (m)', 'd (m)',
-          L('A encerrada (m²)', 'A enclosed (m²)'),
-          L('N inf. (kN)', 'N below (kN)'), L('N sup. (kN)', 'N above (kN)'),
-          L('Vu (kN)', 'Vu (kN)'), L('φVc (kN)', 'φVc (kN)'), L('Utilización', 'Utilisation'),
-          L('Combinación', 'Combination'), L('Residuo equil. (kN)', 'Equil. residual (kN)')]);
+        aoa.push([L('PUNZONADO LOSA-COLUMNA', 'SLAB-COLUMN PUNCHING', 'PUNÇÃO LAJE-PILAR')]);
+        aoa.push([L('Paño', 'Panel', 'Painel'), L('Nudo', 'Node', 'Nó'), L('Columna', 'Column', 'Pilar'),
+          L('Col. inferior', 'Col. below', 'Pilar abaixo'), L('Col. superior', 'Col. above', 'Pilar acima'),
+          L('Estado', 'Status', 'Estado'), L('Posición', 'Position', 'Posição'), L('Ángulo losa (°)', 'Slab angle (°)', 'Ângulo da laje (°)'),
+          L('Lados truncados', 'Truncated sides', 'Lados truncados'), 'bo (m)', 'd (m)',
+          L('A encerrada (m²)', 'A enclosed (m²)', 'A interna (m²)'),
+          L('N inf. (kN)', 'N below (kN)', 'N abaixo (kN)'), L('N sup. (kN)', 'N above (kN)', 'N acima (kN)'),
+          L('Vu (kN)', 'Vu (kN)', 'Vu (kN)'), L('φVc (kN)', 'φVc (kN)', 'φVc (kN)'), L('Utilización', 'Utilisation', 'Utilização'),
+          L('Combinación', 'Combination', 'Combinação'), L('Residuo equil. (kN)', 'Equil. residual (kN)', 'Resíduo de equil. (kN)')]);
         for (const { ownerId, p } of slabJoints) {
           // Blank, never zero, for every quantity an unverified joint did not produce — the
           // same rule the allowable bearing pressure follows one block up.
@@ -1877,22 +1992,22 @@ export function renderSchedule(
         r.unsupported.map((m) => [r.ownerId, m.key] as (string | number)[]));
       if (notVerified.length > 0) {
         aoa.push([]);
-        aoa.push([L('NO VERIFICADO', 'NOT VERIFIED')]);
-        aoa.push([L('Elemento', 'Member'), L('Condición', 'Condition')]);
+        aoa.push([L('NO VERIFICADO', 'NOT VERIFIED', 'NÃO VERIFICADO')]);
+        aoa.push([L('Elemento', 'Member', 'Elemento'), L('Condición', 'Condition', 'Condição')]);
         aoa.push(...notVerified);
       }
     }
 
     aoa.push([]);
-    aoa.push([L('Revisión', 'Revision'), doc.revision.number,
-      L('Madurez', 'Maturity'), doc.maturity,
-      L('Estado', 'Readiness'), doc.readiness]);
+    aoa.push([L('Revisión', 'Revision', 'Revisão'), doc.revision.number,
+      L('Madurez', 'Maturity', 'Maturidade'), doc.maturity,
+      L('Estado', 'Readiness', 'Prontidão'), doc.readiness]);
 
     if (doc.openConflicts.length > 0) {
       aoa.push([]);
       aoa.push([readinessBanner(doc, opts.locale)]);
-      aoa.push([L('Conjunto', 'Assembly'), L('Barras', 'Bars'), L('Clase', 'Class'),
-        L('Medido (mm)', 'Measured (mm)'), L('Requerido (mm)', 'Required (mm)')]);
+      aoa.push([L('Conjunto', 'Assembly', 'Conjunto'), L('Barras', 'Bars', 'Barras'), L('Clase', 'Class', 'Classe'),
+        L('Medido (mm)', 'Measured (mm)', 'Medido (mm)'), L('Requerido (mm)', 'Required (mm)', 'Exigido (mm)')]);
       for (const c of doc.openConflicts.filter((x) => x.assemblyId === a.id)) {
         aoa.push([c.assemblyId, `${c.barIds[0]} / ${c.barIds[1]}`, c.pairClass,
           Math.round(c.clearance * 1000), Math.round(c.required * 1000)]);
@@ -1902,5 +2017,47 @@ export function renderSchedule(
     out.push({ name: a.id.slice(0, 31), aoa });
   }
 
+  return out;
+}
+
+/** Elevation and section of one assembly, from the members' real geometry. */
+function memberSheets(
+  doc: DocumentModel, a: DocumentAssembly, opts: RenderOptions,
+  members: readonly MemberGeometry[], nextN: () => number,
+): DrawingSet['sheets'] {
+  const projection = assemblyProjection(a.source);
+  const notes = [
+    readinessBanner(doc, opts.locale),
+    ...doc.openConflicts.filter((c) => c.assemblyId === a.id).map((c) => conflictNote(c, opts.locale)),
+  ];
+  const retouch = retouchNote(opts.retouched, opts.locale);
+  const sheetNotes = [scopeStatement(doc, opts.locale), ...(retouch ? [retouch] : [])];
+  const common = { assembly: a.source, members, projection, coverOf: opts.coverOf, clauses: doc.refs };
+  const elevation = memberElevationSheet({
+    ...common, extraNotes: sheetNotes,
+    sheetNumber: `R${doc.revision.number}-${nextN()}`,
+    title: `${opts.projectName} — ${notes.join(' | ')}`,
+  });
+  const out: DrawingSet['sheets'] = [{
+    name: `${a.id}-elevation`, sheet: elevation,
+    caption: teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.elevation' } } }, opts.locale),
+    dxf: sheetToDxf(elevation, a.bars.flatMap((b) => barArcs(b, projection)), opts.locale),
+    svg: sheetToSvg(elevation, 1200, opts.locale),
+  }];
+  const station = preferredStation(common);
+  if (station !== null) {
+    const section = memberSectionSheet({
+      ...common, station,
+      noOutlineNote: teAt({ key: 'detailing.sheet.noOutline', params: { x: station.toFixed(2) } }, opts.locale),
+      sheetNumber: `R${doc.revision.number}-${nextN()}`,
+      title: `${opts.projectName} — ${readinessBanner(doc, opts.locale)}`,
+    });
+    out.push({
+      name: `${a.id}-section`, sheet: section,
+      caption: teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.section' } } }, opts.locale),
+      dxf: sheetToDxf(section, a.bars.flatMap((b) => barArcs(b, projection)), opts.locale),
+      svg: sheetToSvg(section, 800, opts.locale),
+    });
+  }
   return out;
 }

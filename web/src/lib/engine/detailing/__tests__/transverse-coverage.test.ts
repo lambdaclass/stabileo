@@ -114,8 +114,19 @@ const FIXTURES: Array<{
     // search certifies a slightly different arrangement for beams 5–8 (u 0,899 → 0,896), and
     // with it the same missing bar line leaves the envelope partially exhausted instead of
     // assigned with the leg off a bar; §25.3.5(d) is still the clause it names.
-    fullyRestrained: false, clashFree: false, outcome: 'PARTIAL_ENVELOPE_EXHAUSTED',
-    why: 'a 300 mm web in row 2 needs a third leg and the certified steel offers two bar lines',
+    //
+    // Since the support moments are taken at the column face (§9.4.2.1) the top steel over the
+    // supports is lighter, and the coordinator assigns the envelope again, the leg still off a
+    // bar and §25.3.5(d) still named: the outcome follows the certified arrangement, the
+    // shortfall does not.
+    //
+    // Since the beam rows are laid threaded between the columns' bars per layer (`candidates.ts`)
+    // and the crossties choose the side their hooks clear (`buildCrosstie`), every interior leg of the coordinated cage
+    // lands on a bar line: every bend witnessed (before: fewer than required; after: 1 192 of
+    // 1 192), nothing unsupported. It is not clash-free: 43 prohibited overlaps remain, the
+    // crossties' 135° tails turned into the core against the top bars beside them and the
+    // stirrup's top leg, reported.
+    fullyRestrained: true, clashFree: false, outcome: 'ASSIGNMENT_FOUND',
   },
   {
     name: 'rc-design-frame', data: rcFrame,

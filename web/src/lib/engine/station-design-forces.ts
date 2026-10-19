@@ -18,19 +18,30 @@ import { evaluateBeamSection } from './codes/argentina/cirsoc201-beam-kernel';
  *   - Torsion diagram is linear interpolation (no interior load effects)
  */
 
+import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
+import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
+import { checkTorsion2025 } from '../codes/cirsoc201/torsion';
+import { phiByEdition, squashLoadFy, tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
+
+/** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
+const poFy_kPa = (fy: number) => squashLoadFy(fy, CIRSOC201_DESIGN_EDITION) * 1000;
+import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
+import { memberOffsetAt, type OffsetCarrier } from './member-offsets';
+import { checkShapedColumn, grossAreaOf, type ColumnShape } from './design/shaped-column';
+import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { seatedLongitudinalHalfExtents } from '../codes/cirsoc201/transverse-cage';
 import type { AnalysisResults3D } from './types-3d';
 import type { ProvidedReinforcement, RebarGroup, RebarLayer, StirrupDef, BeamRegions, BeamContinuity, LongBarGroup, ColumnReinforcement } from '../store/model.svelte';
 import type { Node, Element, Section, Support } from '../store/model.svelte';
 import {
-  minClearBetweenLayers, minClearSpacingColumn, minClearSpacingInLayer,
+  layerClearBetween, minClearBetweenLayers, minClearSpacingColumn, minClearSpacingInLayer, stackedLayerDepth,
 } from '../codes/cirsoc201/spacing';
 import {
   checkTransverseSpacing, transverseSpacingForDemand, transverseSpacingIsSupported,
   requiredVsForTable, type TransverseSpacingLimits,
 } from '../codes/cirsoc201/transverse-spacing';
 import type { RegulationEdition } from '../codes/regulation';
-import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../codes/cirsoc201/anchorage';
+import { deriveDevelopment, deriveCompressionDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../codes/cirsoc201/anchorage';
 import { REBAR_DB, classifyElement, slenderMinimumMoment } from './codes/argentina/cirsoc201';
 // Axis resolution + the shared utilization convention. Both modules import only
 // TYPES from this file, so there is no runtime import cycle.
@@ -102,8 +113,18 @@ interface EndGeometry {
   tCritShear: number;
   /** How the face was determined */
   source: 'column' | 'wall' | 'support' | 'default';
-  /** Half-depth of the connected support element (m), or 0 if unknown */
+  /**
+   * The beam's axis end to the support's face along the beam (m), or 0 if unknown: half the
+   * support's extent where it is centred on the node, more or less where the model declares an
+   * insertion that moves the column's axis off the beam's.
+   */
   halfDepth: number;
+  /**
+   * Present where a declared insertion offset (`Element.offset`) moved the face off half the
+   * support's extent: the column's axis stands `shift` m along the beam, into the span, from the
+   * beam's axis end. Absent, both are on the node — the centroidal convention, assumed.
+   */
+  insertion?: { shift: number };
 }
 
 /** Computed beam critical section geometry for both ends. */
@@ -131,8 +152,8 @@ export interface BeamCriticalSections {
 export function computeBeamCriticalSections(
   elemId: number,
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>,
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>,
-  sections: Map<number, { id: number; b?: number; h?: number }>,
+  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string } & OffsetCarrier>,
+  sections: Map<number, { id: number; b?: number; h?: number; rotation?: number }>,
   supports: Map<number, { nodeId: number; type: string }>,
   beamSection: { b: number; h: number; cover: number; stirrupDia: number },
 ): BeamCriticalSections | null {
@@ -159,6 +180,7 @@ export function computeBeamCriticalSections(
     // Find connected vertical elements (columns/walls) at this node
     let bestHalfDepth = 0;
     let bestSource: EndGeometry['source'] = hasSupport ? 'support' : 'default';
+    let bestId: number | undefined;
 
     for (const [, el] of elements) {
       if (el.id === elemId) continue;
@@ -170,23 +192,48 @@ export function computeBeamCriticalSections(
       const sec = sections.get(el.sectionId);
       const elType = classifyElement(cNI.x, cNI.y, cNI.z ?? 0, cNJ.x, cNJ.y, cNJ.z ?? 0, sec?.b, sec?.h);
       if (elType === 'column' || elType === 'wall') {
-        // Use the column/wall section dimension in the beam direction
-        // For a column: the dimension perpendicular to the beam axis
-        // Approximation: use max(b, h) / 2 as the half-depth from centerline to face
+        // The column's extent along the beam: h lies along its local z and b along its local y
+        // (`design-axes.ts`), so the face sits (|u·ez|·h + |u·ey|·b)/2 from its centreline. A
+        // column whose axes cannot be read falls back to max(b, h)/2.
         const colB = sec?.b ?? 0;
         const colH = sec?.h ?? 0;
-        const halfD = Math.max(colB, colH) / 2;
+        let halfD = Math.max(colB, colH) / 2;
+        try {
+          const ea = el as { rollAngle?: number; localYx?: number; localYy?: number; localYz?: number };
+          const localY = ea.localYx !== undefined && ea.localYy !== undefined && ea.localYz !== undefined
+            ? { x: ea.localYx, y: ea.localYy, z: ea.localYz } : undefined;
+          const ax = computeLocalAxes3D(
+            { id: cNI.id, x: cNI.x, y: cNI.y, z: cNI.z ?? 0 }, { id: cNJ.id, x: cNJ.x, y: cNJ.y, z: cNJ.z ?? 0 },
+            localY, memberRoll(el as never, sections as never));
+          const ux = dx / L, uy = dy / L, uz = dz / L;
+          const along = (v: number[]) => Math.abs(ux * v[0]! + uy * v[1]! + uz * v[2]!);
+          const extent = (along(ax.ez) * colH + along(ax.ey) * colB) / 2;
+          if (extent > 0) halfD = extent;
+        } catch { /* keep the fallback */ }
         if (halfD > bestHalfDepth) {
           bestHalfDepth = halfD;
           bestSource = elType;
+          bestId = el.id;
         }
       }
     }
 
     if (bestHalfDepth > 0) {
-      const tFace = bestHalfDepth / L;
+      // The face from the beam's axis end, each member on its declared insertion: a column placed
+      // by its face (`Element.offset`) has its axis half a side off the node, and the face the
+      // moment is read at moves with it — a whole side into the span, or onto the node.
+      const into = nodeId === elem!.nodeI ? { x: dx / L, y: dy / L, z: dz / L } : { x: -dx / L, y: -dy / L, z: -dz / L };
+      const cOff = bestId !== undefined ? memberOffsetAt(elements.get(bestId)!, nodeId, nodes, sections) : { x: 0, y: 0, z: 0 };
+      const bOff = memberOffsetAt(elem!, nodeId, nodes, sections);
+      const shift = (cOff.x - bOff.x) * into.x + (cOff.y - bOff.y) * into.y;
+      const moved = Math.abs(shift) > 1e-9;
+      const face = moved ? Math.max(0, bestHalfDepth + shift) : bestHalfDepth;
+      const tFace = face / L;
       const tCritShear = tFace + d / L; // critical section at d from face
-      return { tFace: +tFace.toFixed(4), tCritShear: Math.min(+tCritShear.toFixed(4), 0.4), source: bestSource, halfDepth: bestHalfDepth };
+      return {
+        tFace: +tFace.toFixed(4), tCritShear: Math.min(+tCritShear.toFixed(4), 0.4), source: bestSource, halfDepth: face,
+        ...(moved ? { insertion: { shift: +shift.toFixed(6) } } : {}),
+      };
     }
 
     // Fallback: no column found — use default
@@ -336,31 +383,65 @@ export function layersTotalArea(layers: RebarLayer[]): number {
 }
 
 /**
+ * The continuous top pair a face's support group counts in its outer layer (§25.7.1.2): two bars
+ * run support to support at the larger of the two supports' top diameters (`generate-beam`,
+ * `supportRows`), so at the support of the smaller bars two of its outer-layer bars are the pair's.
+ */
+export interface OuterPair { diameterMm: number; count: number }
+
+/** The pair a top face's layers share with the other support's (`OuterPair`). None without top steel. */
+export function topOuterPair(own: readonly RebarLayer[], other: readonly RebarLayer[]): OuterPair | undefined {
+  if (own.length === 0) return undefined;
+  const diameterMm = Math.max(0, ...own.map((l) => l.diameter), ...other.map((l) => l.diameter));
+  return diameterMm > 0 ? { diameterMm, count: 2 } : undefined;
+}
+
+/**
+ * The diameters each layer of a face holds as built: its own bars, and in the outer layer the
+ * continuous pair's (`OuterPair`). What `stackedLayerDepth` steps by.
+ */
+export function faceRowDiameters(layers: readonly RebarLayer[], pair?: OuterPair): number[][] {
+  const rows: number[][] = [];
+  for (const l of layers) (rows[l.row] ??= []).push(l.diameter);
+  if (pair && pair.diameterMm > 0) (rows[0] ??= []).push(pair.diameterMm);
+  for (let k = 0; k < rows.length; k++) rows[k] ??= [];
+  return rows;
+}
+
+/**
  * Compute the centroid distance of bar layers from a face.
  *
- * Each row's centroid from face = cover + stirrupDia + barDia/2 + row × verticalGap
- * where verticalGap = max(maxBarDia, 25mm) + maxBarDia (center-to-center).
+ * Layer 0's bars at cover + stirrupDia + barDia/2; every deeper layer stepped inside the one above
+ * it by the clear distance owed to the larger bar of the two (`stackedLayerDepth`, the stepping the
+ * detailing lays the bars by). With `pair`, two of the outer layer's bars are the continuous pair
+ * and stand at its seat, and the layer below steps from the pair when it is the larger bar: a
+ * second Ø10 layer under a Ø12 pair is 36 mm below the pair's centre (6 + 25 + 5), not 35 mm below
+ * the Ø10 bars' (5 + 25 + 5), which put it 1,7 mm into the pair's clear distance as built.
  *
- * Returns the area-weighted centroid distance from the face (m).
- * This gives the accurate d or d' for the layer group.
+ * Returns the area-weighted centroid distance from the face (m), weighted by the bars the layers
+ * declare (the pair's larger area is not counted).
  *
  * @param layers Sorted bar layers (row 0 = outermost)
  * @param cover Clear cover (m)
  * @param stirrupDia Stirrup diameter (mm)
  */
-export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: number): number {
+export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: number, pair?: OuterPair): number {
   if (layers.length === 0) return cover + (stirrupDia / 1000) + 0.008;
   const stirDia_m = stirrupDia / 1000;
+  const seat = (dMm: number) => cover + stirDia_m + dMm / 2000;
+  const rows = faceRowDiameters(layers, pair);
+  let pairLeft = pair && pair.diameterMm > 0 ? pair.count : 0;
   let sumAd = 0;
   let sumA = 0;
   for (const layer of layers) {
-    const barDia_m = layer.diameter / 1000;
-    // Min vertical clear gap between rows: max(barDia, 25mm) per CIRSOC 201 §7.6
-    const vertGap = Math.max(layer.diameter, 25) / 1000;
-    // Distance from face to this row centroid
-    const distFromFace = cover + stirDia_m + barDia_m / 2 + layer.row * (barDia_m + vertGap);
     const area = rebarGroupArea(layer);
-    sumAd += area * distFromFace;
+    const perBar = layer.count > 0 ? area / layer.count : 0;
+    // The pair's bars of this layer, at the pair's own seat.
+    const asPair = layer.row === 0 ? Math.min(pairLeft, layer.count) : 0;
+    pairLeft -= asPair;
+    if (asPair > 0) sumAd += perBar * asPair * seat(pair!.diameterMm);
+    const distFromFace = stackedLayerDepth(rows, layer.row, layer.diameter, seat);
+    sumAd += perBar * (layer.count - asPair) * distFromFace;
     sumA += area;
   }
   return sumA > 0 ? sumAd / sumA : cover + stirDia_m + 0.008;
@@ -391,6 +472,24 @@ export function resolveBarGroups(
 }
 
 /**
+ * One anchorage verdict of `continuingGroupsInto`. `required` is the length the bars are held
+ * to as they are provided — ld straight (§25.4.2), ldh hooked (§25.4.3), ldc in compression
+ * (§25.4.9) — and `available` the length they have, both in m. `evaluable` is false when either
+ * is missing or the available length is nil: then there is no ratio to state. A `needsHook`
+ * verdict is a straight bar short of ld that a hook would complete: as provided it does not
+ * develop, so its ratio is ld over the length available (above 1).
+ */
+export interface AnchorageIssue {
+  msg: string;
+  severity: 'fail' | 'warn' | 'ok';
+  group?: number;
+  needsHook?: boolean;
+  required: number;
+  available: number;
+  evaluable: boolean;
+}
+
+/**
  * Compute total area and layers of bar groups that continue into an adjacent region
  * and are adequately anchored.
  *
@@ -408,11 +507,21 @@ export function continuingGroupsInto(
   regionLength: number,
   fc: number, fy: number,
   conditions: DevelopmentConditions = {},
-): { layers: RebarLayer[]; area: number; groups: LongBarGroup[]; anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> } {
+  /**
+   * `stress: 'compression'` holds the bars to ldc (§25.4.9) and credits no hook (§25.4.1.2).
+   * `countHookable: false` leaves out a straight group a hook would complete, for a use whose
+   * anchorage no row reports: nothing asks for that hook, so the steel is not there.
+   * `reach` is where the bars end past the region's node, m, straight and hooked
+   * (`end-support-anchorage.ts` `bottomReach`): the length available runs to that end, not to the
+   * node. Absent, to the node.
+   */
+  opts: { stress?: 'tension' | 'compression'; countHookable?: boolean; reach?: { straight: number; hooked: number } } = {},
+): { layers: RebarLayer[]; area: number; groups: LongBarGroup[]; anchorageIssues: AnchorageIssue[] } {
   const continuing: LongBarGroup[] = [];
-  const anchorageIssues: Array<{ msg: string; severity: 'fail' | 'warn' | 'ok' }> = [];
+  const anchorageIssues: AnchorageIssue[] = [];
+  const compression = opts.stress === 'compression';
 
-  for (const g of groups) {
+  for (const [gi, g] of groups.entries()) {
     const continues = direction === 'start' ? (g.continueStart !== false) : (g.continueEnd !== false);
     if (!continues) continue;
 
@@ -420,26 +529,52 @@ export function continuingGroupsInto(
     if (maxDia === 0) continue;
     const ld = requiredLd(maxDia, fc, fy, conditions);
     const ldh = requiredLdh(maxDia, fc, fy);
-    const avail = (direction === 'start' ? g.extensionStart : g.extensionEnd) ?? regionLength;
+    const given = direction === 'start' ? g.extensionStart : g.extensionEnd;
     const anchorType = direction === 'start' ? g.anchorageStart : g.anchorageEnd;
+    const availStraight = given ?? regionLength + (opts.reach?.straight ?? 0);
+    const availHooked = given ?? regionLength + (opts.reach?.hooked ?? 0);
+    const avail = anchorType === 'hook' ? availHooked : availStraight;
+    if (compression) {
+      // «Los ganchos y las barras conformadas con cabeza no se deben emplear para anclar barras
+      // en compresión» (§25.4.1.2): ldc whatever the end, and no hook to ask for.
+      const ldc = deriveCompressionDevelopment({ diameterMm: maxDia, fy, fc, edition: '2025' }).ldcM;
+      if (!(avail > 0) || !Number.isFinite(avail) || !(ldc > 0) || !Number.isFinite(ldc)) {
+        anchorageIssues.push({ msg: `${g.label ?? 'group'}: compression anchorage not evaluated (§25.4.9) — avail ${Number.isFinite(avail) ? (avail * 100).toFixed(0) : '?'}cm`, severity: 'fail', required: ldc, available: avail, evaluable: false });
+      } else if (avail >= ldc - 0.001) {
+        continuing.push(g);
+      } else {
+        anchorageIssues.push({ msg: `${g.label ?? 'group'}: insufficient in compression: avail ${(avail * 100).toFixed(0)}cm < ldc=${(ldc * 100).toFixed(0)}cm (§25.4.9)`, severity: 'fail', required: ldc, available: avail, evaluable: true });
+      }
+      continue;
+    }
     const effectiveLd = anchorType === 'hook' ? ldh : ld;
 
-    if (avail >= effectiveLd - 0.001) {
+    if (!(avail > 0) || !Number.isFinite(avail) || !(effectiveLd > 0) || !Number.isFinite(effectiveLd)) {
+      // No length into the region, or no length the bars need: there is no ratio to state, and
+      // the group is not counted. Reported as not evaluated, never as a pass or a sized failure.
+      anchorageIssues.push({
+        msg: `${g.label ?? 'group'}: anchorage not evaluated (§25.4.2) — avail ${Number.isFinite(avail) ? (avail * 100).toFixed(0) : '?'}cm, ${anchorType === 'hook' ? 'ldh' : 'ld'}=${Number.isFinite(effectiveLd) ? (effectiveLd * 100).toFixed(0) : '?'}cm`,
+        severity: 'fail', required: effectiveLd, available: avail, evaluable: false,
+      });
+    } else if (avail >= effectiveLd - 0.001) {
       continuing.push(g);
       // Explicitly anchored with hook — note it but it's OK
       if (anchorType === 'hook') {
-        anchorageIssues.push({ msg: `${g.label ?? 'group'}: hooked (ldh=${(ldh*100).toFixed(0)}cm, avail ${(avail*100).toFixed(0)}cm)`, severity: 'ok' });
+        anchorageIssues.push({ msg: `${g.label ?? 'group'}: hooked (ldh=${(ldh*100).toFixed(0)}cm, avail ${(avail*100).toFixed(0)}cm)`, severity: 'ok', required: ldh, available: avail, evaluable: true });
       }
-    } else if (anchorType !== 'hook' && avail >= ldh - 0.001) {
-      // Would work with a hook — warn but still count the steel
-      continuing.push(g);
-      anchorageIssues.push({ msg: `${g.label ?? 'group'}: needs hook (avail ${(avail*100).toFixed(0)}cm < ld=${(ld*100).toFixed(0)}cm, ldh=${(ldh*100).toFixed(0)}cm OK)`, severity: 'warn' });
+    } else if (anchorType !== 'hook' && availHooked >= ldh - 0.001) {
+      // Would work with a hook (§25.4.3): the steel is counted, and the row asks for the hook
+      // (`anchorHook`), which the design then adds. Until the bars carry it they are straight
+      // and short of ld: the row's requirement is ld, and it does not pass (`concreteCheckRows`).
+      if (opts.countHookable !== false) continuing.push(g);
+      anchorageIssues.push({ msg: `${g.label ?? 'group'}: needs hook (avail ${(avail*100).toFixed(0)}cm < ld=${(ld*100).toFixed(0)}cm, ldh=${(ldh*100).toFixed(0)}cm OK at ${(availHooked*100).toFixed(0)}cm)`, severity: 'warn', group: gi, needsHook: true, required: ld, available: avail, evaluable: true });
     } else {
-      // Truly insufficient — bar group NOT counted
+      // Truly insufficient — bar group NOT counted. Held to the anchorage it has: ld straight
+      // (§25.4.2), ldh hooked (§25.4.3).
       const hookNote = anchorType === 'hook'
         ? `even with hook: avail ${(avail*100).toFixed(0)}cm < ldh=${(ldh*100).toFixed(0)}cm`
         : `avail ${(avail*100).toFixed(0)}cm < ld=${(ld*100).toFixed(0)}cm (ldh=${(ldh*100).toFixed(0)}cm)`;
-      anchorageIssues.push({ msg: `${g.label ?? 'group'}: insufficient ${hookNote}`, severity: 'fail' });
+      anchorageIssues.push({ msg: `${g.label ?? 'group'}: insufficient ${hookNote}`, severity: 'fail', required: effectiveLd, available: avail, evaluable: true });
     }
   }
 
@@ -522,11 +657,12 @@ export function favourableRowHolds(
   });
 }
 
-/** Required hooked development length per CIRSOC 201 §12.5. */
+/**
+ * Required hooked development length, CIRSOC 201-2025 §25.4.3.1 with √f'c ≤ 8,3 MPa (§25.4.1.4):
+ * `deriveHookedDevelopment`, the one implementation. It carried its own copy of (a) without the cap.
+ */
 export function requiredLdh(barDia: number, fc: number, fy: number): number {
-  const db = barDia / 1000;
-  const ldhCalc = (0.24 * fy * db) / Math.sqrt(fc);
-  return Math.max(ldhCalc, 8 * db, 0.15); // min 8db or 150mm per §12.5.1
+  return deriveHookedDevelopment({ diameterMm: barDia, fy, fc, edition: '2025' }).ldhM;
 }
 
 /** Result of checking bar anchorage at a region transition. */
@@ -763,9 +899,8 @@ export function computeFaceLayout(
       bars.push({ face, row: layer.row, index: i, diameter: layer.diameter, x, y: 0 /* set below */ });
     }
 
-    // Y position from face
-    const vertGap = Math.max(layer.diameter, 25) / 1000;
-    const distFromFace = cover + stirDia_m + barDia_m / 2 + layer.row * (barDia_m + vertGap);
+    // Y position from face: the layers stepped as the design's depth and the detailing step them.
+    const distFromFace = stackedLayerDepth(faceRowDiameters(layers), layer.row, layer.diameter, (dMm) => cover + stirDia_m + dMm / 2000, rule.edition);
     const area = rebarGroupArea(layer);
     sumAd += area * distFromFace;
     sumA += area;
@@ -842,7 +977,7 @@ export function computeSectionLayout(
       const prevDia = prevRow[0].diameter / 1000;
       const currDia = currRow[0].diameter / 1000;
       const vertClear = vertDist - prevDia / 2 - currDia / 2;
-      const minVertClear = Math.max(currDia, prevDia, minClearBetweenLayers(rule.edition).minClear);
+      const minVertClear = layerClearBetween(rule.edition, prevRow[0].diameter, currRow[0].diameter);
       if (vertClear < minVertClear - 0.001) {
         issues.push({
           type: 'vertical', face: fl.face, row: rowNums[i],
@@ -1177,6 +1312,8 @@ export interface ProvidedRebarCheck {
   /** True for a check that could not be evaluated because reinforcement is absent.
    *  Reported as a FAILURE (never skipped) so missing steel cannot hide. */
   missingReinforcement?: boolean;
+  /** An anchorage a standard hook would complete: which face's group, toward which end. */
+  anchorHook?: { face: 'bottom' | 'topStart'; toward: 'start' | 'end'; group: number };
 }
 
 /** Full provided-reinforcement verification result for one element. */
@@ -1195,6 +1332,53 @@ export interface ProvidedRebarResult {
   checkedAxes: string[];
   /** Number of strength checks evaluated (fit/anchorage excluded). */
   strengthCheckCount: number;
+  /**
+   * A beam's bars at its supports, row by row, as the detailing will lay them
+   * (`engine/design/end-support-anchorage.ts`): set by the design adapter.
+   */
+  supportAnchorage?: import('./design/end-support-anchorage').SupportAnchorageVerdict[];
+  /** Whether the beam's bars pass the column cages at its joints (`joint-threading-check.ts`). */
+  jointThreading?: import('./design/joint-threading-check').JointThreadingVerdict[];
+  /**
+   * Shear regions of a shallow beam (h ≤ 250 mm) where CIRSOC 201-2025 §9.6.3.1 asks for Av,min
+   * (Vu > φVc) and the stirrups give less. The engine's checker exempts every such beam
+   * unconditionally (`min_shear_missing`), so no check row can carry it yet: the member is HELD
+   * on it (`verificationStore.memberHolds`), neither approved nor failed, until the engine applies
+   * the clause.
+   */
+  shallowMinShear?: ShallowMinShearHold[];
+}
+
+/** One shear region held on §9.6.3.1 (see `ProvidedRebarResult.shallowMinShear`). */
+export interface ShallowMinShearHold {
+  region: string;
+  /** kN, the worst tuple of the region (largest Vu/φVc). */
+  Vu: number; phiVc: number;
+  /** cm², at the stirrup spacing `spacing` (m); Av,min as the engine computes it (§9.6.3.4). */
+  Av: number; AvMin: number; spacing: number;
+  /** Section depth, m. */
+  h: number;
+  comboName?: string;
+}
+
+/** Tabla 9.6.3.1, «De poca altura»: h ≤ 250 mm. */
+export const SHALLOW_BEAM_MAX_H = 0.25;
+
+/**
+ * A layout issue as a check row: the clear distance required over the one the bars have, the
+ * cover for `cover` (c,mín/c, §20.5.1.3) and the clear spacing otherwise (s,mín/s, §25.2). It was
+ * 1.5 for every issue, a number nobody computed. Bars that touch or leave the envelope have no
+ * clear distance to divide by: ∞, a failure with no ratio.
+ */
+function layoutIssueCheck(issue: SpacingIssue): ProvidedRebarCheck {
+  return {
+    category: `Layout: ${issue.type}`, demandCategory: null,
+    demand: +(issue.required * 100).toFixed(1), capacity: +(issue.actual * 100).toFixed(1),
+    ratio: issue.actual > 0 ? +(issue.required / issue.actual).toFixed(3) : Number.POSITIVE_INFINITY,
+    status: 'fail', unit: 'cm', method: 'capacity', tuplesChecked: 0,
+    description: issue.description,
+    limiting: issue.type === 'cover' ? 'cover' : 'congestion',
+  };
 }
 
 // ─── CIRSOC 201 Capacity Recalculation (from provided reinforcement) ───
@@ -1293,7 +1477,7 @@ export function computeShearCapacity(
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
   /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
   opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {},
-): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean } {
+): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; AvMin?: number } {
   const phi = 0.75;
   const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
   const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
@@ -1314,6 +1498,8 @@ export function computeShearCapacity(
     phiVc: +(phi * r.Vc / 1e3).toFixed(2),
     VsProv: +(r.Vs / 1e3).toFixed(2),
     phi, avBelowMin: r.avBelowMin, capped: r.vsCapped, evaluated: true,
+    // cm² at the spacing given, Av,min of §9.6.3.4 as the engine reads it (edition, fyt).
+    AvMin: r.AvMin * 1e4,
   };
 }
 
@@ -1380,8 +1566,8 @@ function columnCapacity(
   const rhoPercent = +(AsProv_cm2 / (Ag * 1e4) * 100).toFixed(2);
   const rhoOk = rhoPercent >= 0.99 && rhoPercent <= 8.01;
 
-  // Pure axial capacity
-  const phiPn = 0.65 * 0.80 * (0.85 * fc_kPa * (Ag - As_m2) + fy_kPa * As_m2);
+  // Pure axial capacity, Tabla 22.4.2.1 (a), fy in Po ≤ 500 MPa (§22.4.2.1)
+  const phiPn = 0.65 * 0.80 * (0.85 * fc_kPa * (Ag - As_m2) + poFy_kPa(fy) * As_m2);
 
   let phiMn: number;
   let geometryAware = false;
@@ -1415,8 +1601,9 @@ function columnCapacity(
       // Tension beyond what the yielded bars carry
       ratio = +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else if (MuAbs < 0.01) {
+      // capacity/demand here: a section with no axial capacity is 0 (utilization ∞), never 999.
       ratio = Nu >= 0
-        ? (phiPn > 0.01 ? +(phiPn / Math.max(NuAbs, 1e-9)).toFixed(3) : 999)
+        ? (phiPn > 0.01 ? +(phiPn / Math.max(NuAbs, 1e-9)).toFixed(3) : 0)
         : +(Math.abs(phiPtMax) / NuAbs).toFixed(3);
     } else {
       // Direct: capacity/demand for moment at this axial load
@@ -1429,6 +1616,8 @@ function columnCapacity(
     if (MuAbs < 0.01) interactionDemand = NuAbs / phiPn;
     else if (NuAbs < 0.01) interactionDemand = MuAbs / phiMn;
     else interactionDemand = (NuAbs / phiPn) + (MuAbs / phiMn);
+    // 999 only for a demand of about zero, which the caller skips anyway: a capacity of zero
+    // makes the demand term infinite and the ratio 0, a failure.
     ratio = interactionDemand > 0.001 ? +(1 / interactionDemand).toFixed(3) : 999;
   }
 
@@ -1457,7 +1646,7 @@ function columnSectionData(As: number, b: number, h: number, fc: number, fy: num
   const sectionDepth = axis === 'z' ? h : b;
   const fc_kPa = fc * 1000, fy_kPa = fy * 1000, As_m2 = As * 1e-4;
   return { sectionDepth, sectionWidth: axis === 'z' ? b : h, fc_kPa, fy_kPa, fy, b1: beta1(fc),
-    phiPn: 0.65 * 0.80 * (0.85 * fc_kPa * (b * h - As_m2) + fy_kPa * As_m2),
+    phiPn: 0.65 * 0.80 * (0.85 * fc_kPa * (b * h - As_m2) + poFy_kPa(fy) * As_m2),
     barData: bars.map(bar => {
       const spec = REBAR_DB.find(r => r.diameter === bar.diameter);
       return { d: sectionDepth - (axis === 'z' ? bar.y : bar.x),
@@ -1529,9 +1718,7 @@ function solveColumnSectionReference(data: ColumnSectionData, Nu: number): Colum
    *
    * φ follows CIRSOC 201-2025 Tabla 21.2.2: 0,65 up to εty, 0,90 from εty + 0,003.
    */
-  const epsY = fy / 200000;
-  const epsTC = epsY + 0.003;
-  const phiOf = (epsT: number) => epsT >= epsTC ? 0.9 : epsT >= epsY ? 0.65 + 0.25 * (epsT - epsY) / (epsTC - epsY) : 0.65;
+  const phiOf = (epsT: number) => phiByEdition(epsT, fy, 'ties', CIRSOC201_DESIGN_EDITION);
   const phiN = (c: number) => { const f = sectionForces(c); return phiOf(f.epsTmax) * f.N; };
   let cLow = 0.001;
   let cHigh = sectionDepth * 5;
@@ -1600,6 +1787,8 @@ function biaxialCapacity(
   ratio: number; rhoPercent: number; rhoOk: boolean;
   method: 'bresler'; geometryAware: boolean; strainCompatible: boolean;
   status: 'ok' | 'warn' | 'fail';
+  /** False when no capacity was computed for these moments: the ratio is then 0 (utilization ∞). */
+  evaluated: boolean;
 } {
   const fc_kPa = fc * 1000;
   const fy_kPa = fy * 1000;
@@ -1609,7 +1798,7 @@ function biaxialCapacity(
   const rhoPercent = +(AsProv_cm2 / (Ag * 1e4) * 100).toFixed(2);
   const rhoOk = rhoPercent >= 0.99 && rhoPercent <= 8.01;
 
-  const Pn0 = 0.85 * fc_kPa * (Ag - As_m2) + fy_kPa * As_m2;
+  const Pn0 = 0.85 * fc_kPa * (Ag - As_m2) + poFy_kPa(fy) * As_m2;
   const phiPn0 = 0.65 * 0.80 * Pn0;
 
   let phiPnx: number;
@@ -1638,13 +1827,20 @@ function biaxialCapacity(
       const demand = (Muz > 0.01 ? Muz / Math.max(capZ.phiMn, 1e-9) : 0) + (Muy > 0.01 ? Muy / Math.max(capY.phiMn, 1e-9) : 0);
       const axial = Nu < -0.01 ? 1 / Math.max(capZ.ratio, 1e-9) : 0;
       const d = Math.max(demand, axial);
+      // 999 only when both moments and the tension are about zero: nothing to carry. A φMn of
+      // zero is floored at 1e-9 above, so it makes the demand huge and the ratio about 0.
       const ratio = d > 1e-6 ? +(1 / d).toFixed(3) : 999;
       let status: 'ok' | 'warn' | 'fail' = 'ok';
       if (!rhoOk) status = 'fail'; else if (ratio < 1.0) status = 'fail'; else if (ratio < 1.18) status = 'warn';
-      return { phiPn: +phiPn0.toFixed(1), phiPn0: +phiPn0.toFixed(1), phiPnx: 0, phiPny: 0, ratio, rhoPercent, rhoOk, method: 'bresler', geometryAware, strainCompatible, status };
+      return { phiPn: +phiPn0.toFixed(1), phiPn0: +phiPn0.toFixed(1), phiPnx: 0, phiPny: 0, ratio, rhoPercent, rhoOk, method: 'bresler', geometryAware, strainCompatible, status, evaluated: true };
     }
-    phiPnx = (Muz > 0.01 && capZ.phiMn > 0.01) ? Nu * (capZ.phiMn / Muz) : phiPn0;
-    phiPny = (Muy > 0.01 && capY.phiMn > 0.01) ? Nu * (capY.phiMn / Muy) : phiPn0;
+    /*
+     * φPnx = Nu·φMn/Mu on each axis. With no moment on an axis the load is concentric about it
+     * and φPn0 is its capacity. A moment the section cannot carry at this Nu (φMn ≈ 0) is a
+     * capacity of zero: it used to take φPn0, the squash load, and pass.
+     */
+    phiPnx = Muz > 0.01 ? (capZ.phiMn > 0.01 ? Nu * (capZ.phiMn / Muz) : 0) : phiPn0;
+    phiPny = Muy > 0.01 ? (capY.phiMn > 0.01 ? Nu * (capY.phiMn / Muy) : 0) : phiPn0;
     // Clamp to phiPn0
     phiPnx = Math.min(phiPnx, phiPn0);
     phiPny = Math.min(phiPny, phiPn0);
@@ -1655,19 +1851,29 @@ function biaxialCapacity(
     phiPny = estimateUniaxialCapacityLocal(fc_kPa, fy_kPa, h, dz, Ag, As_m2, Muy, Nu);
   }
 
-  // Bresler reciprocal
+  /*
+   * Without a bar layout the uniaxial estimate is a compression method: at Nu ≤ 0 it returns the
+   * squash load whatever the moments, and Bresler's reciprocal load does not apply (§22.4). No
+   * capacity was computed for the moments, so the check is not evaluated, and never a pass.
+   */
+  const evaluated = !(bars && bars.length >= 4) ? Nu > 0.01 : true;
+
+  // Bresler reciprocal. The reciprocal is positive whenever each uniaxial φPn is at most φPn0;
+  // a non-positive one can only come from estimates above φPn0, which φPn0 caps.
   let phiPn: number;
   if (phiPnx > 0 && phiPny > 0 && phiPn0 > 0) {
     const reciprocal = 1 / phiPnx + 1 / phiPny - 1 / phiPn0;
     phiPn = reciprocal > 0 ? 1 / reciprocal : phiPn0;
   } else {
-    phiPn = Math.min(phiPnx || phiPn0, phiPny || phiPn0);
+    // An axis with no capacity at this eccentricity: the section has none either.
+    phiPn = 0;
   }
 
-  // Ratio: capacity/demand (≥1 = OK), consistent with uniaxial convention
-  const ratio = Nu > 0.01 && phiPn > 0.01 ? +(phiPn / Nu).toFixed(3) : 999;
+  // Ratio: capacity/demand (≥1 = OK), consistent with uniaxial convention. Not evaluated, or no
+  // capacity, is 0: the caller inverts it to an infinite utilization. It was 999, a pass.
+  const ratio = evaluated && Nu > 0.01 && phiPn > 0.01 ? +(phiPn / Nu).toFixed(3) : 0;
   let status: 'ok' | 'warn' | 'fail' = 'ok';
-  if (!rhoOk) status = 'fail';
+  if (!rhoOk || !evaluated) status = 'fail';
   else if (ratio < 1.0) status = 'fail';
   else if (ratio < 1.18) status = 'warn';
 
@@ -1675,7 +1881,7 @@ function biaxialCapacity(
     phiPn: +phiPn.toFixed(1), phiPn0: +phiPn0.toFixed(1),
     phiPnx: +phiPnx.toFixed(1), phiPny: +phiPny.toFixed(1),
     ratio: +ratio, rhoPercent, rhoOk,
-    method: 'bresler', geometryAware, strainCompatible, status,
+    method: 'bresler', geometryAware, strainCompatible, status, evaluated,
   };
 }
 
@@ -1744,11 +1950,12 @@ function estimateUniaxialCapacityLocal(
   bw: number, d: number, Ag: number, As_m2: number,
   Mu: number, Nu: number,
 ): number {
-  if (Nu < 0.01) return 0.65 * 0.80 * (0.85 * fc_kPa * Ag + fy_kPa * As_m2);
+  const fyPo_kPa = poFy_kPa(fy_kPa / 1000);
+  if (Nu < 0.01) return 0.65 * 0.80 * (0.85 * fc_kPa * Ag + fyPo_kPa * As_m2);
   const e = Mu / Nu;
   const eb = 0.4 * d;
   if (e <= eb) {
-    const Pn0 = 0.85 * fc_kPa * (Ag - As_m2) + fy_kPa * As_m2;
+    const Pn0 = 0.85 * fc_kPa * (Ag - As_m2) + fyPo_kPa * As_m2;
     const Pb = 0.85 * fc_kPa * bw * 0.6 * d + As_m2 * fy_kPa * 0.5;
     const t = e / eb;
     return 0.65 * ((1 - t) * Pn0 * 0.80 + t * Pb);
@@ -1796,7 +2003,7 @@ export function verifyProvidedReinforcement(
     shear?: { AvOverS: number; AvOverSMin: number; d?: number; phiVc?: number };
     column?: { AsTotal: number };
   },
-  section?: { b: number; h: number; fc: number; fy: number; cover: number; stirrupDia: number },
+  section?: { b: number; h: number; fc: number; fy: number; cover: number; stirrupDia: number; flange?: { bf: number; hf: number } },
   stationResult?: ElementStationResult,
   modelData?: {
     nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -1809,6 +2016,8 @@ export function verifyProvidedReinforcement(
     axes?: DesignAxes;
     /** Slenderness moment magnifier for columns (>= 1). Default 1 (short column). */
     slenderDeltaNs?: number;
+    /** A column section that is not a rectangle: checked on its own outline. */
+    shape?: ColumnShape;
     /**
      * Edition + aggregate size governing minimum clear spacing and Table 9.7.6.2.2.
      * Defaults to `DEFAULT_SPACING_RULE` — the edition IN FORCE, not the legacy one.
@@ -1824,6 +2033,11 @@ export function verifyProvidedReinforcement(
      * or not anything moved.
      */
     finalGeometry?: { bottomRaise?: number; topLower?: number; depthTolerance?: number };
+    /**
+     * Where the bottom bars end in each end support, m past the node, straight and hooked, as the
+     * detailing lays them (`end-support-anchorage.ts` `bottomReach`). Absent, at the node.
+     */
+    bottomReach?: { start?: { straight: number; hooked: number }; end?: { straight: number; hooked: number } };
   },
 ): ProvidedRebarResult {
   const spacingRule = options?.spacingRule ?? DEFAULT_SPACING_RULE;
@@ -1836,6 +2050,7 @@ export function verifyProvidedReinforcement(
 
   const checks: ProvidedRebarCheck[] = [];
   const checkedAxes = new Set<string>();
+  const shallowMinShear: ShallowMinShearHold[] = [];
 
   const axes: DesignAxes = options?.axes
     ?? resolveDesignAxes(elementType, { b: section?.b ?? 0.3, h: section?.h ?? 0.6 }, demands);
@@ -1881,14 +2096,36 @@ export function verifyProvidedReinforcement(
     ) ?? undefined;
   }
 
+  /*
+   * A beam cast with its slab bends as a T or an L when its top is in compression: the block
+   * sits in the flange while it fits (the rectangle of width bf, compression steel included),
+   * and spreads into the web past it (`flangedCapacity`, strain compatibility). Elsewhere, and
+   * about the other axis, it is the web's rectangle.
+   */
+  const flange = section?.flange && elementType === 'beam' && axes.flexure === 'My' && section.flange.bf > section.b ? section.flange : undefined;
+  /*
+   * The rectangular section by the engine's kernel (`computeFlexureCapacity`), in the edition of
+   * the adapter that runs this check (`spacingRule.edition`, the same one its candidate search
+   * designs with); a T whose stress block passes below the flange by `flangedCapacity`.
+   */
+  const flexCap = (As: number, d: number, Ac: number, dp: number, topInCompression: boolean): ReturnType<typeof computeFlexureCapacity> => {
+    const sec = section!;
+    const kernel = { h: sec.h, edition: spacingRule.edition };
+    if (!flange || !topInCompression) return computeFlexureCapacity(As, sec.b, d, sec.fc, sec.fy, Ac, dp, 0, 0, kernel);
+    const wide = computeFlexureCapacity(As, flange.bf, d, sec.fc, sec.fy, Ac, dp, 0, 0, kernel);
+    if (!wide || wide.a <= flange.hf) return wide;
+    const t = flangedCapacity({ fc: sec.fc, fy: sec.fy, h: d + sec.cover + sec.stirrupDia / 1000 + 0.008, cover: sec.cover, stirrupDia: sec.stirrupDia } as never, { bf: flange.bf, hf: flange.hf, bw: sec.b }, As, spacingRule.edition === '2005' ? '2005' : '2025');
+    return { ...wide, phiMn: t.phiMn, a: t.a, c: t.c, phi: t.phi, epsilonT: t.epsilonT, isDoubly: false, compYields: false };
+  };
+
   // Collect ALL force tuples from station × combo results for sweeping
-  type Tuple = { n: number; vy: number; vz: number; my: number; mz: number; comboName: string; comboId: number; stationX: number; stationT: number };
+  type Tuple = { n: number; vy: number; vz: number; my: number; mz: number; tq: number; comboName: string; comboId: number; stationX: number; stationT: number };
   const allTuples: Tuple[] = [];
   if (stationResult) {
     for (const cr of stationResult.comboResults) {
       for (const s of cr.stations) {
         allTuples.push({
-          n: s.n, vy: s.vy, vz: s.vz, my: s.my, mz: s.mz,
+          n: s.n, vy: s.vy, vz: s.vz, my: s.my, mz: s.mz, tq: s.torsion ?? 0,
           comboName: cr.comboName, comboId: cr.comboId,
           stationX: s.x, stationT: s.t,
         });
@@ -1951,10 +2188,12 @@ export function verifyProvidedReinforcement(
     const topShift = (adj?.topLower ?? 0) + (adj?.depthTolerance ?? 0);
     const bottomCentroid =
       layerCentroid(bottomLayers, section.cover, section.stirrupDia) + bottomShift;
+    // A support's top layers hold the continuous pair, at the larger of the two supports' bars,
+    // and a second layer steps from it as the detailing lays it (`layerCentroid`).
     const topStartCentroid =
-      layerCentroid(topStartLayers, section.cover, section.stirrupDia) + topShift;
+      layerCentroid(topStartLayers, section.cover, section.stirrupDia, topOuterPair(topStartLayers, topEndLayers)) + topShift;
     const topEndCentroid =
-      layerCentroid(topEndLayers, section.cover, section.stirrupDia) + topShift;
+      layerCentroid(topEndLayers, section.cover, section.stirrupDia, topOuterPair(topEndLayers, topStartLayers)) + topShift;
 
     const dBottom = section.h - bottomCentroid;
     const dTopStart = section.h - topStartCentroid;
@@ -1975,6 +2214,37 @@ export function verifyProvidedReinforcement(
     const startTuples = hasTuples ? allTuples.filter(t => t.stationT <= tStartEnd) : [];
     const spanTuples = hasTuples ? allTuples.filter(t => t.stationT > tStartEnd && t.stationT < tEndStart) : [];
     const endTuples = hasTuples ? allTuples.filter(t => t.stationT >= tEndStart) : [];
+    /*
+     * §9.4.2.1: a beam built with its column takes its support moments at the column's face. The
+     * stations inside the column are dropped from the support regions' flexure and each combination
+     * gets one at the face, interpolated between the stations either side of it. A support with no
+     * column or wall under it (a node support) keeps the moment at the node.
+     */
+    const faceOf = (side: 'start' | 'end') => {
+      const g = critSections?.[side];
+      return g && (g.source === 'column' || g.source === 'wall') && g.tFace > 0 ? g.tFace : 0;
+    };
+    const atT = (t: number): Tuple[] => {
+      const out: Tuple[] = [];
+      const byCombo = new Map<number, Tuple[]>();
+      for (const x of allTuples) byCombo.set(x.comboId, [...(byCombo.get(x.comboId) ?? []), x]);
+      for (const ts of byCombo.values()) {
+        const sorted = [...ts].sort((p, q) => p.stationT - q.stationT);
+        const hi = sorted.findIndex((x) => x.stationT >= t - 1e-9);
+        if (hi < 0) continue;
+        const b = sorted[hi]!, a = sorted[Math.max(0, hi - 1)]!;
+        const w = b.stationT - a.stationT > 1e-9 ? (t - a.stationT) / (b.stationT - a.stationT) : 0;
+        const lerp = (k: 'n' | 'vy' | 'vz' | 'my' | 'mz' | 'tq') => a[k] + (b[k] - a[k]) * w;
+        out.push({ n: lerp('n'), vy: lerp('vy'), vz: lerp('vz'), my: lerp('my'), mz: lerp('mz'), tq: lerp('tq'),
+          comboName: b.comboName, comboId: b.comboId, stationX: a.stationX + (b.stationX - a.stationX) * w, stationT: t });
+      }
+      return out;
+    };
+    const faceStart = faceOf('start'), faceEnd = faceOf('end');
+    const startFlexTuples = hasTuples && faceStart > 0 && faceStart < tStartEnd
+      ? [...atT(faceStart), ...startTuples.filter((t) => t.stationT > faceStart + 1e-9)] : startTuples;
+    const endFlexTuples = hasTuples && faceEnd > 0 && 1 - faceEnd > tEndStart
+      ? [...endTuples.filter((t) => t.stationT < 1 - faceEnd - 1e-9), ...atT(1 - faceEnd)] : endTuples;
 
     // ── Resolve bar groups (partial curtailment or legacy continuity) ──
     const cont = reg?.continuity;
@@ -2010,23 +2280,54 @@ export function verifyProvidedReinforcement(
     const topStartDev = topDev(topStartLayers, dTopStart);
     const topEndDev = topDev(topEndLayers, dTopEnd);
 
-    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy, bottomDev);
-    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy, bottomDev);
-    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy, topStartDev);
+    const reach = options?.bottomReach;
+    const botIntoStartResult = continuingGroupsInto(bottomGroups, 'start', startRegLen, section.fc, section.fy, bottomDev, reach?.start ? { reach: reach.start } : {});
+    const botIntoEndResult = continuingGroupsInto(bottomGroups, 'end', endRegLen, section.fc, section.fy, bottomDev, reach?.end ? { reach: reach.end } : {});
+    /*
+     * The top bars from the start support reach the span in two roles. Under sagging they are
+     * the compression steel of the span (ldc, §25.4.9, no hook: §25.4.1.2): that verdict is the
+     * one reported. Under hogging in the span (the opposite-sign sweep) they are tension steel:
+     * held to ld, and a group only a hook would complete is not counted, since no row asks for a
+     * hook on a top bar in the span.
+     */
+    const topIntoSpanCompression = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy, topStartDev, { stress: 'compression' });
+    const topIntoSpanResult = continuingGroupsInto(topStartGroups, 'end', spanHalfLen, section.fc, section.fy, topStartDev, { countHookable: false });
     // End-side top continuation into the span: used by the opposite-sign sweep
     // below (hogging demand in the span). Its anchorage issues are intentionally
     // not merged — the anchorage report above keeps its previous coverage.
-    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy, topEndDev);
+    const topEndIntoSpanResult = continuingGroupsInto(topEndGroups, 'start', spanHalfLen, section.fc, section.fy, topEndDev, { countHookable: false });
 
-    const allAnchIssues = [...botIntoStartResult.anchorageIssues, ...botIntoEndResult.anchorageIssues, ...topIntoSpanResult.anchorageIssues];
+    const allAnchIssues = [
+      ...botIntoStartResult.anchorageIssues.map((i) => ({ ...i, face: 'bottom' as const, toward: 'start' as const })),
+      ...botIntoEndResult.anchorageIssues.map((i) => ({ ...i, face: 'bottom' as const, toward: 'end' as const })),
+      ...topIntoSpanCompression.anchorageIssues.map((i) => ({ ...i, face: 'topStart' as const, toward: 'end' as const })),
+    ];
     for (const issue of allAnchIssues) {
       if (issue.severity === 'ok') continue;
+      /*
+       * The ratio is the required length over the available one, for the anchorage the bars
+       * are counted with (`AnchorageIssue.required`). It was 1.5 for every failure and 0.98 for
+       * every hook asked, whatever the lengths: a number nobody computed, read as a result.
+       * Nothing to divide by is a provision not evaluated, with no ratio, and never a pass.
+       */
+      if (!issue.evaluable) {
+        checks.push({
+          category: 'Anchorage', demandCategory: null,
+          status: 'fail', ratio: Number.POSITIVE_INFINITY,
+          unit: 'm', method: 'capacity', tuplesChecked: 0,
+          description: issue.msg, comboName: undefined, stationX: undefined,
+          limiting: 'unsupportedCheck',
+        });
+        continue;
+      }
       checks.push({
         category: 'Anchorage', demandCategory: null,
-        status: issue.severity, ratio: issue.severity === 'fail' ? 1.5 : 0.98,
+        demand: +issue.required.toFixed(3), capacity: +issue.available.toFixed(3),
+        status: issue.severity, ratio: +(issue.required / issue.available).toFixed(3),
         unit: 'm', method: 'capacity', tuplesChecked: 0,
         description: issue.msg, comboName: undefined, stationX: undefined,
         limiting: 'anchorage',
+        ...(issue.needsHook && issue.group !== undefined ? { anchorHook: { face: issue.face, toward: issue.toward, group: issue.group } } : {}),
       });
     }
 
@@ -2039,22 +2340,22 @@ export function verifyProvidedReinforcement(
     }> = [
       {
         label: `Bottom Span (${axisLabel(axes.flexure, '+')})`,
-        layers: bottomLayers, d: dBottom, dPrime: dPrimeFromTop, compArea: topIntoSpanResult.area,
+        layers: bottomLayers, d: dBottom, dPrime: dPrimeFromTop, compArea: topIntoSpanCompression.area,
         tuples: spanTuples, sign: 1, range: [tStartEnd, tEndStart],
-        groupsCont: topStartGroups.length > 0 && topIntoSpanResult.groups.length < topStartGroups.length
-          ? ` [${topIntoSpanResult.groups.length}/${topStartGroups.length} top groups cont.]` : '',
+        groupsCont: topStartGroups.length > 0 && topIntoSpanCompression.groups.length < topStartGroups.length
+          ? ` [${topIntoSpanCompression.groups.length}/${topStartGroups.length} top groups cont.]` : '',
       },
       {
         label: `Top Start (${axisLabel(axes.flexure, '-')})`,
         layers: topStartLayers, d: dTopStart, dPrime: dPrimeFromBottom, compArea: botIntoStartResult.area,
-        tuples: startTuples, sign: -1, range: [0, tStartEnd],
+        tuples: startFlexTuples, sign: -1, range: [0, tStartEnd],
         groupsCont: bottomGroups.length > 0 && botIntoStartResult.groups.length < bottomGroups.length
           ? ` [${botIntoStartResult.groups.length}/${bottomGroups.length} bot groups cont.]` : '',
       },
       {
         label: `Top End (${axisLabel(axes.flexure, '-')})`,
         layers: topEndLayers, d: dTopEnd, dPrime: dPrimeFromBottom, compArea: botIntoEndResult.area,
-        tuples: endTuples, sign: -1, range: [tEndStart, 1],
+        tuples: endFlexTuples, sign: -1, range: [tEndStart, 1],
         groupsCont: bottomGroups.length > 0 && botIntoEndResult.groups.length < bottomGroups.length
           ? ` [${botIntoEndResult.groups.length}/${bottomGroups.length} bot groups cont.]` : '',
       },
@@ -2090,8 +2391,7 @@ export function verifyProvidedReinforcement(
       }
 
       const tensArea = layersTotalArea(rs.layers);
-      const cap = computeFlexureCapacity(tensArea, section.b, rs.d, section.fc, section.fy, rs.compArea, rs.dPrime, 0, 0,
-        { h: section.h, edition: spacingRule.edition });
+      const cap = flexCap(tensArea, rs.d, rs.compArea, rs.dPrime, rs.sign === 1);
       if (!cap) {
         pushStrength({
           category: rs.label, demandCategory: rs.sign === 1 ? axes.sagCategory : axes.hogCategory,
@@ -2119,6 +2419,27 @@ export function verifyProvidedReinforcement(
       });
       pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, cap,
         worstDemand.comboName, worstDemand.stationX);
+
+      // ── §9.6.1: the minimum top steel at a support that hogs, on the web. §9.6.1.3 waives it where
+      // the bars give a third more than the moment asks; As,req ≈ As·Mu/φMn, which Mn's concavity
+      // in As makes an upper bound, so the waiver is never taken larger than it is. ──
+      if (rs.sign === -1 && autoDesign.flexure) {
+        const rhoMin = Math.max(0.25 * Math.sqrt(section.fc) / section.fy, 1.4 / section.fy);
+        const AsMin = rhoMin * section.b * rs.d * 1e4;
+        const AsReq = cap.phiMn > 1e-6 ? tensArea * worstDemand.Mu / cap.phiMn : Number.POSITIVE_INFINITY;
+        const AsMinEff = Math.min(AsMin, (4 / 3) * AsReq);
+        if (AsMinEff > 0.01) {
+          pushStrength({
+            category: `${rs.label} As,min §9.6.1`, demandCategory: null,
+            required: +AsMinEff.toFixed(2), provided: +tensArea.toFixed(2),
+            utilization: tensArea > 1e-6 ? AsMinEff / tensArea : Number.POSITIVE_INFINITY,
+            unit: 'cm²', method: 'area', tuplesChecked: 0, regionRange: rs.range,
+            description: `As,min = ${AsMin.toFixed(2)} cm² (ρmin=${(rhoMin * 100).toFixed(3)}%)`
+              + `${AsMinEff < AsMin - 1e-9 ? `, ${(4 / 3).toFixed(2)}·As,req = ${AsMinEff.toFixed(2)} cm² governs (§9.6.1.3)` : ''}, provided ${tensArea.toFixed(2)} cm²`,
+            limiting: 'minSteel',
+          });
+        }
+      }
 
       // ── §24.3.2: the bars next to this region's tension face, spaced for crack control ──
       const stirMm = (rs.sign === 1 ? stirSpan : stirSupport)?.diameter ?? section.stirrupDia;
@@ -2163,7 +2484,7 @@ export function verifyProvidedReinforcement(
       {
         // Sagging at the start region → bottom steel continuing into the start.
         label: `Bottom Start (${axisLabel(axes.flexure, '+')})`,
-        tuples: startTuples, sign: 1, range: [0, tStartEnd],
+        tuples: startFlexTuples, sign: 1, range: [0, tStartEnd],
         tensArea: botIntoStartResult.area,
         d: dBottom,
         compArea: layersTotalArea(topStartLayers), dPrime: topStartCentroid,
@@ -2172,7 +2493,7 @@ export function verifyProvidedReinforcement(
       {
         // Sagging at the end region → bottom steel continuing into the end.
         label: `Bottom End (${axisLabel(axes.flexure, '+')})`,
-        tuples: endTuples, sign: 1, range: [tEndStart, 1],
+        tuples: endFlexTuples, sign: 1, range: [tEndStart, 1],
         tensArea: botIntoEndResult.area,
         d: dBottom,
         compArea: layersTotalArea(topEndLayers), dPrime: topEndCentroid,
@@ -2208,8 +2529,7 @@ export function verifyProvidedReinforcement(
         continue;
       }
 
-      const cap = computeFlexureCapacity(os.tensArea, section.b, os.d, section.fc, section.fy, os.compArea, os.dPrime, 0, 0,
-        { h: section.h, edition: spacingRule.edition });
+      const cap = flexCap(os.tensArea, os.d, os.compArea, os.dPrime, os.face === 'bottom');
       if (!cap) {
         pushStrength({
           category: os.label, demandCategory: demandCat,
@@ -2235,12 +2555,29 @@ export function verifyProvidedReinforcement(
       pushDuctility(os.label, demandCat, os.range, cap, worstDemand.comboName, worstDemand.stationX);
     }
 
+    // ── Skin reinforcement of a deep beam (§9.7.2.3): both side faces, spaced by §24.3.2 ──
+    if (elementType === 'beam' && skinRequired(section.h)) {
+      const sMax = skinMaxSpacing(spacingRule.edition, section.fy, section.cover, section.stirrupDia);
+      const skin = (provided.regions as { skin?: { diameter: number; spacing: number } } | undefined)?.skin;
+      pushStrength({
+        category: 'Skin (§9.7.2.3)', demandCategory: null,
+        required: +(sMax * 100).toFixed(1), provided: skin ? +(skin.spacing * 100).toFixed(1) : 0,
+        utilization: skin ? skin.spacing / sMax : Number.POSITIVE_INFINITY,
+        unit: 'cm', method: 'area', tuplesChecked: 0,
+        description: skin
+          ? `piel Ø${skin.diameter} c/${(skin.spacing * 100).toFixed(1)} cm en ambas caras, máx. ${(sMax * 100).toFixed(1)} cm (h = ${(section.h * 100).toFixed(0)} cm > 90 cm)`
+          : `h = ${(section.h * 100).toFixed(0)} cm > 90 cm: falta la armadura de piel en las caras laterales`,
+        limiting: 'barSpacing', ...(skin ? {} : { missingReinforcement: true }),
+      });
+    }
+
     // ─── Minimum flexural steel (CIRSOC 201 §10.5) on the tension face in span ───
     if (bottomLayers.length > 0 && autoDesign.flexure) {
       const rhoMin = Math.max(0.25 * Math.sqrt(section.fc) / section.fy, 1.4 / section.fy);
       const AsMin = rhoMin * section.b * dBottom * 1e4;
       const AsProv = layersTotalArea(bottomLayers);
       if (AsMin > 0.01) {
+
         pushStrength({
           category: 'Min steel (span)', demandCategory: null,
           required: +AsMin.toFixed(2), provided: +AsProv.toFixed(2),
@@ -2252,13 +2589,16 @@ export function verifyProvidedReinforcement(
       }
     }
 
-    // ─── Maximum flexural steel (tension-controlled envelope) ───
+    // ─── Maximum flexural steel: tension-controlled, CIRSOC 201-2025 §9.3.3.1 with Tabla 21.2.2 ───
+    // εt ≥ εty + 0,003 (0,0051 with ADN 420, 0,0055 with 500), the limit the sizing path applies;
+    // it read 0,005, 2005's limit, which with fy = 500 let 6 % more steel through.
     if (bottomLayers.length > 0) {
       const b1 = beta1(section.fc);
-      const cAtEt5 = dBottom * 0.003 / (0.003 + 0.005);
-      const AsMaxSingly = 0.85 * section.fc * section.b * (b1 * cAtEt5) / section.fy * 1e4;
+      const etc = tensionControlledStrain(section.fy, CIRSOC201_DESIGN_EDITION);
+      const cAtEtc = dBottom * 0.003 / (0.003 + etc);
+      const AsMaxSingly = 0.85 * section.fc * section.b * (b1 * cAtEtc) / section.fy * 1e4;
       const AsProv = layersTotalArea(bottomLayers);
-      const compArea = topIntoSpanResult.area;
+      const compArea = topIntoSpanCompression.area;
       // Doubly reinforced sections may exceed the singly-reinforced envelope by the
       // compression-steel contribution.
       const AsMaxEff = AsMaxSingly + compArea;
@@ -2268,7 +2608,7 @@ export function verifyProvidedReinforcement(
           required: +AsMaxEff.toFixed(2), provided: +AsProv.toFixed(2),
           utilization: AsProv / AsMaxEff,
           unit: 'cm²', method: 'area', tuplesChecked: 0,
-          description: `As,max = ${AsMaxEff.toFixed(2)} cm² (εt≥5‰ envelope${compArea > 0.01 ? ' + comp. steel' : ''}), provided ${AsProv.toFixed(2)} cm²`,
+          description: `As,max = ${AsMaxEff.toFixed(2)} cm² (εt≥${(etc * 1000).toFixed(2)}‰ envelope${compArea > 0.01 ? ' + comp. steel' : ''}), provided ${AsProv.toFixed(2)} cm²`,
           limiting: 'maxSteel',
         });
       }
@@ -2284,8 +2624,25 @@ export function verifyProvidedReinforcement(
       { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
       { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
     ];
+    /*
+     * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt
+     * from Av,min only where Vu ≤ φVc; where Vu > φVc «se debe colocar al menos Av,min». The
+     * engine's checker exempts it everywhere (`min_shear_missing` returns False for h ≤ 0,25 m),
+     * so a region where Vu > φVc with Av < Av,min is not approved here: it is held (below).
+     */
+    const shallowBeam = elementType === 'beam' && section.h <= SHALLOW_BEAM_MAX_H + 1e-9;
+    /*
+     * §9.6.3.1 on every other beam: Av,min «en todas las secciones donde Vu > φ·0,085·λ·√f'c·bw·d»
+     * (2025; 2005 §11.5.6.1: Vu > φVc/2), Av,min of §9.6.3.4 (2025: max(0,062·√f'c, 0,35)·bw·s/fyt,
+     * as the engine computes it with the project's fyt). An evaluated check: failing, with its row.
+     */
+    const minShearThreshold = (phiVc: number) => (spacingRule.edition === '2005'
+      ? 0.5 * phiVc
+      : 0.75 * 0.085 * shearSqrtFc(section.fc) * section.b * d * 1000);
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
+      let held: ShallowMinShearHold | null = null;
+      let minShort: { Vu: number; threshold: number; AvMin: number; comboName: string; stationX: number } | null = null;
       let count = 0;
       let peakVu = 0; let peakCombo = ''; let peakX = 0;
       for (const t of ss.tuples) {
@@ -2302,6 +2659,36 @@ export function verifyProvidedReinforcement(
           { Ag: section.b * section.h, rhoW: ss.rhoW, h: section.h, edition: spacingRule.edition });
         const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
         if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
+        if (shallowBeam && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
+          && (!held || Vu / Math.max(cap.phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
+          held = {
+            region: ss.label, Vu: +Vu.toFixed(2), phiVc: cap.phiVc,
+            Av: +(ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2)).toFixed(3),
+            AvMin: +(cap.AvMin ?? 0).toFixed(3), spacing: ss.stir.spacing, h: section.h, comboName: t.comboName,
+          };
+        }
+        if (elementType === 'beam' && !shallowBeam && cap.evaluated && cap.avBelowMin) {
+          const threshold = minShearThreshold(cap.phiVc);
+          if (Vu > threshold + 1e-9 && (!minShort || Vu - threshold > minShort.Vu - minShort.threshold)) {
+            minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, comboName: t.comboName, stationX: t.stationX };
+          }
+        }
+      }
+      if (held) shallowMinShear.push(held);
+      if (minShort && ss.stir) {
+        const av = ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2);
+        const clause = spacingRule.edition === '2005' ? '§11.5.6.1' : '§9.6.3.1';
+        const rule = spacingRule.edition === '2005' ? 'φVc/2' : 'φ·0,085·√f\'c·bw·d';
+        pushStrength({
+          category: `${ss.label} Av,min ${clause}`, demandCategory: null,
+          demand: +minShort.AvMin.toFixed(3), capacity: +av.toFixed(3),
+          utilization: av > 0 ? minShort.AvMin / av : Number.POSITIVE_INFINITY,
+          unit: 'cm²', method: 'area', tuplesChecked: count, regionRange: ss.range,
+          description: `Vu = ${minShort.Vu.toFixed(1)} kN > ${rule} = ${minShort.threshold.toFixed(1)} kN: Av,min required (${clause}); `
+            + `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} gives Av = ${av.toFixed(2)} cm² < Av,min = ${minShort.AvMin.toFixed(2)} cm² (${spacingRule.edition === '2005' ? '§11.5.6.3' : '§9.6.3.4'}, fyt = ${section.fy} MPa)`,
+          comboName: minShort.comboName, stationX: minShort.stationX,
+          limiting: 'shear',
+        });
       }
       if (count === 0) continue;
       checkedAxes.add(axes.shear);
@@ -2323,12 +2710,98 @@ export function verifyProvidedReinforcement(
         demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
         utilization: worst.ratio,
         unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`,
+        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
+          + (section.fy > shearFy(section.fy) ? `; Vs with fyt = ${shearFy(section.fy)} MPa (§22.5.3.3)` : '')
+          + (Math.sqrt(section.fc) > shearSqrtFc(section.fc) ? `; Vc with √f'c = ${shearSqrtFc(section.fc)} MPa (§22.5.3.1)` : ''),
         comboName: worst.comboName, stationX: worst.stationX,
         limiting: 'shear',
       });
 
+      // ── Torsion §22.7, with the shear it acts with, on the stirrups of this region ──
+      //
+      // A beam only: a column's ties are checked by their own rules. Below φ·Tth it is
+      // neglected and says nothing; above it, the cross-section, the closed stirrups and the
+      // longitudinal steel torsion adds are checked at the worst tuple of the region.
+      if (elementType === 'beam') {
+        // ── The longitudinal steel torsion adds (§22.7.6.1, §9.5.4.3, §9.6.4.3) ──
+        //
+        // CIRSOC 201-2025 asks it at every section where torsion is not negligible: §9.5.4.1 and
+        // §22.7.1.1 neglect it below φ·Tth, §9.6.4.1 puts the minimum «en todas las secciones donde
+        // Tu ≥ φTth», and §9.5.4.3 adds the torsion steel «a la necesaria para Vu, Mu y Pu que actúan
+        // en combinación con la torsión», section by section (C 9.5.4.3: «el acero longitudinal
+        // requerido se evalúa en varias ubicaciones»). So each tuple at or above φ·Tth is read with its
+        // own Mu and its own Tu: Al = (At/s)·ph·(fyt/fy) (θ = 45°) and Al,min of §9.6.4.3, the lesser of
+        // (a) and (b), i.e. with At/s not under 0,175·bw/fyt; At/s is the one the tuple requires (the
+        // torsion share of a stirrup that also carries shear is not set apart by the text, and the
+        // required one gives the larger minimum). √f'c is not capped there (§22.7.2.1 caps Tth and
+        // Tcr only); fy, fyt ≤ 420 MPa (§22.7.2.2, in `checkTorsion2025`).
+        //
+        // Face by face, against the bars at the tuple's station: Al is spread along the perimeter of
+        // the stirrups (§9.7.5.1, C 9.5.4.4), so with the side shares carried by the corner bars each
+        // face takes (x1 + y1)/ph = 1/2 of it. The face the tuple's own Mu puts in tension takes its
+        // flexural steel besides (§9.5.4.3); the other face takes its half alone (§9.5.4.5's reduction
+        // there, Mu/(0,9·d·fy), is a permission not taken). In a support zone the faces are the top
+        // bars of that end and the bottom bars that reach it; along the span the bottom bars and the
+        // top bars that continue into it. The worst of those tuples governs. (Reading only the tuples
+        // that tie on the stirrup ratio left out a smaller Tu above φ·Tth, whose Al,min is larger.)
+        const facesAt = (t: Tuple) => (t.stationT <= tStartEnd
+          ? { top: layersTotalArea(topStartLayers), bottom: botIntoStartResult.area }
+          : t.stationT >= tEndStart
+            ? { top: layersTotalArea(topEndLayers), bottom: botIntoEndResult.area }
+            : { top: topIntoSpanArea, bottom: layersTotalArea(bottomLayers) });
+        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple) => {
+          const AlReq = Math.max(r.Al, r.AlMin);
+          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * d);
+          const f = facesAt(t), sag = M(t) >= 0;
+          const tension = (sag ? f.bottom : f.top) / 1e4, other = (sag ? f.top : f.bottom) / 1e4;
+          const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
+          const uC = other > 0 ? (AlReq / 2) / other : Number.POSITIVE_INFINITY;
+          const onTension = uT >= uC;
+          return {
+            AlReq, AsFlex, face: (onTension === sag ? 'bottom' : 'top') as 'top' | 'bottom',
+            required: onTension ? AsFlex + AlReq / 2 : AlReq / 2, provided: onTension ? tension : other, u: Math.max(uT, uC),
+          };
+        };
+        const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
+        for (const t of ss.tuples) {
+          if (Math.abs(t.tq) < 0.01) continue;
+          const r = checkTorsion2025({ b: section.b, h: section.h, d, cover: section.cover, stirrupDiaMm: ss.stir.diameter, fc: section.fc, fy: section.fy, fyt: section.fy, Vu: V(t), Tu: t.tq, stirrup: ss.stir });
+          if (!r.neglect) evaluated.push({ r, t });
+        }
+        let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
+        for (const x of evaluated) if (!tw || x.r.ratio > tw.r.ratio) tw = x;
+        let lw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple; need: ReturnType<typeof longitudinalNeed> } | null = null;
+        for (const x of evaluated) {
+          const need = longitudinalNeed(x.r, x.t);
+          if (!lw || need.u > lw.need.u) lw = { ...x, need };
+        }
+        if (tw && lw) {
+          const tr = tw.r;
+          pushStrength({
+            category: `${ss.label.replace('Shear', 'Torsion')}`, demandCategory: null,
+            demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
+            utilization: tr.ratio,
+            unit: 'kN·m', method: 'capacity', tuplesChecked: ss.tuples.length, regionRange: ss.range,
+            description: `§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²`,
+            comboName: tw.t.comboName, stationX: tw.t.stationX,
+            limiting: 'torsion',
+          });
+          const { AlReq, AsFlex, required, provided, face, u } = lw.need;
+          pushStrength({
+            category: `${ss.label.replace('Shear', 'Torsion Al')}`, demandCategory: null,
+            required: +(required * 1e4).toFixed(2), provided: +(provided * 1e4).toFixed(2),
+            utilization: u,
+            unit: 'cm²', method: 'area', tuplesChecked: evaluated.length, regionRange: ss.range,
+            description: `Al=${(AlReq * 1e4).toFixed(2)} cm² (${lw.r.AlMin >= lw.r.Al ? `Al,min §9.6.4.3` : '§22.7.6.1'}, Tu=${Math.abs(lw.t.tq).toFixed(1)} ≥ φTth=${lw.r.phiTth.toFixed(1)} kN·m) sobre As de flexión ≈ ${(AsFlex * 1e4).toFixed(2)} cm²; cara ${face === 'top' ? 'superior' : 'inferior'}: ${(required * 1e4).toFixed(2)} de ${(provided * 1e4).toFixed(2)} cm² (Al/2 por cara)`,
+            comboName: lw.t.comboName, stationX: lw.t.stationX,
+            limiting: 'torsion',
+          });
+          checkedAxes.add('T');
+        }
+      }
+
       // ── Table 9.7.6.2.2: both columns of the row, along AND across ──
+      // (the skin of a deep beam is checked once, after the regions; see below)
       //
       // The across-width column was previously not checked at all. It is the requirement
       // that forces crossties into wide members and into any member in row 2 whose web is
@@ -2391,10 +2864,12 @@ export function verifyProvidedReinforcement(
         if (!rf.fits) {
           checks.push({
             category: `Fit: ${fs.label} r${rf.row}`, demandCategory: null,
-            required: rf.maxBarsInRow, provided: rf.count,
-            ratio: rf.maxBarsInRow > 0 ? +(rf.count / rf.maxBarsInRow).toFixed(2) : 99,
+            // Width the row needs over the width it has (§25.2.1). It was count/max, and 99 when
+            // not one bar fits: a sentinel printed as a utilization. No width at all is ∞.
+            demand: +(rf.requiredWidth * 100).toFixed(1), capacity: +(rf.availableWidth * 100).toFixed(1),
+            ratio: rf.availableWidth > 0 ? +(rf.requiredWidth / rf.availableWidth).toFixed(3) : Number.POSITIVE_INFINITY,
             status: 'fail',
-            unit: 'bars', method: 'capacity', tuplesChecked: 0,
+            unit: 'cm', method: 'capacity', tuplesChecked: 0,
             description: `${rf.count}Ø${rf.diameter} need ${(rf.requiredWidth * 100).toFixed(1)}cm, avail ${(rf.availableWidth * 100).toFixed(1)}cm — max ${rf.maxBarsInRow} bars/row`,
             limiting: 'barFit',
           });
@@ -2408,17 +2883,30 @@ export function verifyProvidedReinforcement(
       const layout = computeSectionLayout(topStartLayers, bottomLayers, section.b, section.h, section.cover, stirDiaEff, spacingRule);
       for (const issue of layout.issues) {
         if (issue.type === 'horizontal') continue; // already reported by checkRowFit
-        checks.push({
-          category: `Layout: ${issue.type}`, demandCategory: null,
-          ratio: 1.5, status: 'fail', unit: '—', method: 'capacity', tuplesChecked: 0,
-          description: issue.description,
-          limiting: issue.type === 'cover' ? 'cover' : 'congestion',
-        });
+        checks.push(layoutIssueCheck(issue));
       }
     }
   }
 
-  if (elementType === 'column' && section) {
+  if (elementType === 'column' && section && options?.shape) {
+    // A circular, T or L column: its own outline, through the general section engine.
+    const sh = options.shape;
+    const ties = provided.stirrups;
+    const sMaxTie = ties && provided.shaped
+      ? columnTieSpacing(spacingRule.edition, provided.shaped.diameter, ties.diameter, sh.kind === 'circle' ? sh.D : Math.min(sh.kind === 'tee' ? sh.bw : sh.tw, sh.kind === 'tee' ? sh.hf : sh.tf)).spacing
+      : 0.3;
+    const shaped = checkShapedColumn({
+      shape: sh, bars: provided.shaped, ties, fc: section.fc, fy: section.fy, cover: section.cover,
+      tuples: hasTuples ? allTuples : [], magnifier: deltaNs, maxTieSpacing: sMaxTie,
+      shearCapacity: (bw, d, Nu) => ties ? computeShearCapacity(ties.diameter, ties.legs, ties.spacing, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn
+        : computeShearCapacity(0, 0, 1, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn,
+    });
+    for (const c of shaped) {
+      pushStrength({ ...c, demandCategory: c.limiting === 'shear' ? (c.category.includes('Vy') ? 'Vy' : 'Vz') : c.limiting === 'biaxial' ? 'N_compression' : null, method: c.demand !== undefined ? 'capacity' : 'area', tuplesChecked: c.limiting === 'biaxial' ? allTuples.length : 0 } as never);
+    }
+    if (shaped.some((c) => c.limiting === 'biaxial')) { checkedAxes.add(axes.flexure); checkedAxes.add(axes.secondaryFlexure); checkedAxes.add('N'); }
+    if (shaped.some((c) => c.limiting === 'shear')) { checkedAxes.add(axes.shear); checkedAxes.add(axes.secondaryShear); }
+  } else if (elementType === 'column' && section) {
     const colResolved = resolveColumnReinf(provided.column, provided.longitudinal);
     const colLayout = colResolved
       ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, section.stirrupDia, provided.column, spacingRule)
@@ -2452,7 +2940,7 @@ export function verifyProvidedReinforcement(
       let worst: {
         util: number; phiMn: number; Nu: number; Mprim: number; Msec: number; phiPn: number;
         biaxial: boolean; geo: boolean; sc: boolean; comboName: string; stationX: number; cN?: number;
-        minMoment: boolean;
+        minMoment: boolean; unevaluated?: boolean;
       } | null = null;
       let count = 0;
       // Plan the same demand cases once, in their original order. Batch only
@@ -2503,6 +2991,7 @@ export function verifyProvidedReinforcement(
           // computeColumnCapacity / computeBiaxialCapacity return capacity/demand;
           // invert to the demand/capacity convention used across the design surface.
           let util: number; let phiPn: number; let phiMn = 0; let geo = false; let sc = false; let cN: number | undefined;
+          let unevaluated = false;
           if (isBiax) {
             // The section arrives flex-rotated (b=bFlex, h=hFlex): the PRIMARY axis
             // always bends over depth h, the SECONDARY axis over depth b — same
@@ -2517,6 +3006,7 @@ export function verifyProvidedReinforcement(
             const muy = Msec;
             const cap = capacity.biaxial(Nu, muy, muz);
             util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
+            unevaluated = !cap.evaluated;
             phiPn = cap.phiPn; geo = cap.geometryAware; sc = cap.strainCompatible;
           } else {
             const Mu = Math.max(Mprim, Msec);
@@ -2530,8 +3020,9 @@ export function verifyProvidedReinforcement(
             util = cap.ratio > 1e-6 ? 1 / cap.ratio : Number.POSITIVE_INFINITY;
             phiPn = cap.phiPn; phiMn = cap.phiMn; geo = cap.geometryAware; sc = cap.strainCompatible; cN = cap.cNeutral;
           }
-          if (!worst || util > worst.util) {
-            worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN, minMoment };
+          // A computed failure outranks a tuple that could not be evaluated at the same utilization.
+          if (!worst || util > worst.util || (util === worst.util && worst.unevaluated && !unevaluated)) {
+            worst = { util, phiMn, Nu, Mprim, Msec, phiPn, biaxial: isBiax, geo, sc, comboName: t.comboName, stationX: t.stationX, cN, minMoment, unevaluated };
           }
         }
       }
@@ -2545,7 +3036,18 @@ export function verifyProvidedReinforcement(
         const geoTag = worst.sc ? ' [strain-compat]' : worst.geo ? ' [bar-geom]' : '';
         const slenderTag = deltaNs > 1.0001 ? ` [δns=${deltaNs.toFixed(3)}${worst.minMoment ? ', M2,min' : ''}]` : '';
         const Mu = Math.max(worst.Mprim, worst.Msec);
-        pushStrength({
+        if (worst.unevaluated) {
+          // No capacity computed for these moments (`biaxialCapacity.evaluated`): not evaluated,
+          // no ratio, and never a pass.
+          pushStrength({
+            category: methodLabel, demandCategory: 'N_compression',
+            utilization: Number.POSITIVE_INFINITY,
+            unit: 'kN', method: 'capacity', tuplesChecked: count,
+            description: `Bresler not evaluated (§22.4): no bar layout, Nu=${worst.Nu.toFixed(0)} kN ≤ 0 with Mu=${Mu.toFixed(1)} kN·m`,
+            comboName: worst.comboName, stationX: worst.stationX,
+            limiting: 'unsupportedCheck',
+          });
+        } else pushStrength({
           category: methodLabel, demandCategory: 'N_compression',
           demand: +worst.Nu.toFixed(1),
           capacity: +(worst.sc && !worst.biaxial ? worst.phiMn : worst.phiPn).toFixed(1),
@@ -2583,14 +3085,7 @@ export function verifyProvidedReinforcement(
 
       // ─── Congestion from the actual bar layout ───
       if (colLayout) {
-        for (const issue of colLayout.issues) {
-          checks.push({
-            category: `Layout: ${issue.type}`, demandCategory: null,
-            ratio: 1.5, status: 'fail', unit: '—', method: 'capacity', tuplesChecked: 0,
-            description: issue.description,
-            limiting: issue.type === 'cover' ? 'cover' : 'congestion',
-          });
-        }
+        for (const issue of colLayout.issues) checks.push(layoutIssueCheck(issue));
       }
     }
 
@@ -2617,9 +3112,14 @@ export function verifyProvidedReinforcement(
           count++;
           if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
           if (!provided.stirrups) continue;
+          // Inside an end zone the denser ties carry the shear.
+          const z = provided.tieZones;
+          const Lc = stationResult?.length ?? 0;
+          const atEnd = !!z && Lc > 0 && (t.stationX <= z.endLength + 1e-6 || t.stationX >= Lc - z.endLength - 1e-6);
+          const sTie = atEnd ? Math.min(z!.endSpacing, provided.stirrups.spacing) : provided.stirrups.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, provided.stirrups.spacing, ts.width, ts.dTie, section.fc, section.fy, -t.n,
+          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
@@ -2649,19 +3149,16 @@ export function verifyProvidedReinforcement(
         });
       }
 
-      // ─── CIRSOC 201 §7.10.5 tie spacing limit: min(12 dB, 48 de, min(b,h)) ───
+      // ─── Column tie spacing, by the edition's rule (`columnTieSpacing`) ───
       if (provided.stirrups && colResolved) {
-        const sMax = Math.min(
-          12 * colResolved.cornerDia / 1000,
-          48 * provided.stirrups.diameter / 1000,
-          Math.min(section.b, section.h),
-        );
+        const tie = columnTieSpacing(spacingRule.edition, colResolved.cornerDia, provided.stirrups.diameter, Math.min(section.b, section.h));
+        const sMax = tie.spacing;
         pushStrength({
           category: 'Tie spacing', demandCategory: null,
           required: +(sMax * 100).toFixed(1), provided: +(provided.stirrups.spacing * 100).toFixed(1),
           utilization: provided.stirrups.spacing / sMax,
           unit: 'cm', method: 'area', tuplesChecked: 0,
-          description: `s = ${(provided.stirrups.spacing * 100).toFixed(0)} cm, s,max = min(12dB, 48de, min(b,h)) = ${(sMax * 100).toFixed(0)} cm`,
+          description: `s = ${(provided.stirrups.spacing * 100).toFixed(0)} cm, s,max = min(${tie.barFactor}dB, 48de, min(b,h)) = ${(sMax * 100).toFixed(0)} cm`,
           limiting: 'tieSpacing',
         });
       }
@@ -2672,8 +3169,10 @@ export function verifyProvidedReinforcement(
   const worstUtilization = strengthChecks.reduce(
     (m, c) => (Number.isFinite(c.ratio) ? Math.max(m, c.ratio) : Number.POSITIVE_INFINITY), 0);
 
+  // A hook asked for (`anchorHook`) is a row kept at 'warn' so the search may still complete it
+  // (`completeAnchorage`); the bars as provided do not develop, so the member does not pass.
   const overallStatus = checks.length === 0 ? 'none'
-    : checks.some(c => c.status === 'fail') ? 'fail'
+    : checks.some(c => c.status === 'fail' || c.anchorHook) ? 'fail'
     : checks.some(c => c.status === 'warn') ? 'warn'
     : 'ok';
 
@@ -2683,6 +3182,7 @@ export function verifyProvidedReinforcement(
     worstUtilization,
     checkedAxes: [...checkedAxes],
     strengthCheckCount: strengthChecks.length,
+    ...(shallowMinShear.length ? { shallowMinShear } : {}),
   };
 }
 

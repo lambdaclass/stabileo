@@ -22,7 +22,8 @@
  */
 
 import {
-  beta1, phiFromStrain, EPSILON_CU, ES_MPA, yieldStrain, minFlexuralSteelCm2,
+  beta1, phiFromStrain, phiByEdition, tensionControlledStrain, EPSILON_CU, ES_MPA, yieldStrain, minFlexuralSteelCm2,
+  type Cirsoc201Edition,
 } from './cirsoc201-basis';
 import type { ConcreteDesignParams } from './cirsoc201';
 import type { FlangedGeometry } from './cirsoc201-flanged';
@@ -182,11 +183,15 @@ export function rectCapacity(
  * The same for a flanged section, using the block depth the flanged module
  * derives — which is where the two-case split lives, so this file does not
  * repeat it.
+ *
+ * `edition` picks φ: '2005' (the calculator's, the default) or '2025', Tabla
+ * 21.2.2, which the beam verifier passes (`CIRSOC201_DESIGN_EDITION`).
  */
 export function flangedCapacity(
   params: ConcreteDesignParams,
   geom: FlangedGeometry,
   AsCm2: number,
+  edition: Cirsoc201Edition = '2005',
 ): Capacity & { withinFlange: boolean } {
   const { fc, fy, h, cover, stirrupDia } = params;
   const { bf, hf, bw } = geom;
@@ -212,7 +217,7 @@ export function flangedCapacity(
   };
   const { fs, a, c, epsilonT } = steelStressAtEquilibrium(d, b1, fy_kPa, Es_kPa, blockDepth);
   const withinFlange = (As * fs) / (alpha1 * fc_kPa * bf) <= hf;
-  const phi = phiFromStrain(epsilonT, fy);
+  const phi = phiByEdition(epsilonT, fy, 'ties', edition);
 
   /*
    * The moment about the tension steel, taking each piece of the compression
@@ -255,7 +260,7 @@ export function flangedCapacity(
   return {
     a, c, epsilonT, phi, fs: fs / 1000, Mn, phiMn: phi * Mn,
     AsMin, belowMinimum: AsCm2 < AsMin,
-    tensionControlled: epsilonT >= 0.005,
+    tensionControlled: epsilonT >= tensionControlledStrain(fy, edition),
     exceedsPracticalMax,
     withinFlange, steps,
   };

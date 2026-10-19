@@ -24,6 +24,7 @@
  * Pure: no store, no runes.
  */
 
+import type { SlabBand } from '../../design-contract/reinforcement';
 import {
   buildStraightBarWithHooks, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
@@ -138,6 +139,41 @@ export function generateSlabBars(
         start, end,
         axis: layer.direction === 'x' ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 },
         hookNormal: { x: 0, y: 0, z: isTop ? -1 : 1 },
+        ownerElementIds: panel.elementIds, edition,
+      }));
+    }
+  }
+  return bars;
+}
+
+/**
+ * A panel's bands of extra bars (`slab-panel.ts`): each over its plan rectangle, along its
+ * direction, on its face, in the layer just inside the base mat (one clear bar diameter in), so a
+ * band and the base never occupy the same point. Hooked where the band says.
+ */
+export function generateBandBars(
+  panel: SlabPanelGeometry, bands: readonly SlabBand[], baseDiameterMm: (face: 'top' | 'bottom', dir: 'x' | 'y') => number,
+  edition: RegulationEdition,
+): BarPath[] {
+  const bars: BarPath[] = [];
+  const halfT = panel.thickness / 2;
+  for (const b of bands) {
+    const isTop = b.face === 'top';
+    const d = b.diameter / 1000, dBase = baseDiameterMm(b.face, b.dir) / 1000;
+    const inset = panel.cover + dBase + (b.dir === 'y' ? dBase : 0) + d + d / 2;
+    const z = panel.origin.z + (isTop ? halfT - inset : -halfT + inset);
+    const [a0, a1] = b.dir === 'x' ? [b.x0, b.x1] : [b.y0, b.y1];
+    const [c0, c1] = b.dir === 'x' ? [b.y0, b.y1] : [b.x0, b.x1];
+    const n = Math.max(1, Math.floor((c1 - c0) / b.spacing));
+    for (let i = 0; i < n; i++) {
+      const c = c0 + (i + 0.5) * b.spacing;
+      const start: Point3 = b.dir === 'x' ? { x: a0, y: c, z } : { x: c, y: a0, z };
+      const end: Point3 = b.dir === 'x' ? { x: a1, y: c, z } : { x: c, y: a1, z };
+      bars.push(buildStraightBarWithHooks({
+        id: `${b.id}-${i}`, diameterMm: b.diameter, role: 'longitudinal', start, end,
+        axis: b.dir === 'x' ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 },
+        hookNormal: { x: 0, y: 0, z: isTop ? -1 : 1 },
+        startHook: b.hookStart ? 90 : undefined, endHook: b.hookEnd ? 90 : undefined,
         ownerElementIds: panel.elementIds, edition,
       }));
     }
@@ -414,7 +450,12 @@ export function buildFloorAssembly(input: FloorAssemblyInput): FloorAssemblyResu
   for (const f of input.footings) for (const id of f.elementIds) memberKinds.set(id, 'column');
 
   for (const s of input.slabs) {
-    const panelBars = generateSlabBars(s.geometry, s.design.layers, input.edition);
+    const baseBars = generateSlabBars(s.geometry, s.design.layers, input.edition);
+    const bandBars = s.design.panel ? generateBandBars(s.geometry, s.design.panel.reinforcement.bands, (face, dir) => {
+      const b = s.design.panel!.reinforcement.base[`${face}${dir.toUpperCase()}` as 'topX'];
+      return b?.diameter ?? 0;
+    }, input.edition) : [];
+    const panelBars = [...baseBars, ...bandBars];
     bars.push(...panelBars);
     if (s.record) {
       // Each reinforcement region gains the bar ids generated for it. Matched by the id

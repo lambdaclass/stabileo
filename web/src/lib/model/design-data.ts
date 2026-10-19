@@ -9,6 +9,8 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
+import { migrateSeismicDesign } from './seismic-design';
+import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
@@ -41,6 +43,22 @@ export interface ProjectDesignData {
    * lo = max(largest side, clear height/6, 450 mm) at half the spacing. Absent: off.
    */
   columnEndZones?: boolean;
+  /** The project's own joist types (its makers' sheets, or geometric definitions). */
+  joistTypes?: import('../engine/joists/library').JoistType[];
+  /** Ribbed, hollow-core and composite-deck systems, drop panels and capitals, pile steel (`store/special-floors.ts`). */
+  specialFloors?: import('./special-floors').SpecialFloorsData;
+  /** Parametric stairs and the post-tensioned slabs' tendons (`store/stairs-pt.ts`). */
+  stairs?: import('./stairs-pt').StairEntry[];
+  postTension?: import('./stairs-pt').PostTensionData;
+  /** How a seismic project designs its concrete (`seismic-design.ts`). Absent: the defaults. */
+  seismic?: import('./seismic-design').SeismicDesignSettings;
+  /**
+   * Which members are part of the lateral-force-resisting system (`lateral-system.ts`): by
+   * physical element, by member, and the default for the beams. Absent: nothing declared.
+   */
+  lateralSystem?: import('./lateral-system').LateralSystemData;
+  /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
+  slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
 
 /** Every diameter the bar table knows, mm. */
@@ -113,6 +131,15 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
+    ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
+    ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
+    // The seismic roles fixed by hand are the lateral-system declaration under its older name:
+    // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
+    ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),
+    ...((lateral) => (lateral ? { lateralSystem: lateral } : {}))(migrateLateralSystem(e.lateralSystem, (e.seismic as { roles?: Record<string, unknown> } | undefined)?.roles)),
+    ...(e.specialFloors && typeof e.specialFloors === 'object' ? { specialFloors: e.specialFloors as ProjectDesignData['specialFloors'] } : {}),
+    ...(Array.isArray(e.stairs) ? { stairs: (e.stairs as Array<{ id?: unknown }>).filter((x) => typeof x?.id === 'string') as ProjectDesignData['stairs'] } : {}),
+    ...(e.postTension && typeof e.postTension === 'object' ? { postTension: e.postTension as ProjectDesignData['postTension'] } : {}),
   };
 }
 

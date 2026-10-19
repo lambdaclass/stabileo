@@ -1,14 +1,12 @@
 /**
  * Honest, geometry-derived member grouping.
  *
- * The model carries NO storeys, floors, grid lines or user groups — only node
- * coordinates (Z is up) and connectivity. Everything here is therefore DERIVED, and
- * the UI labels it as such ("Elevation band L3 +10.20 m", not "Storey 3"). Where the
- * geometry cannot support a grouping honestly the group is refused with a reason
- * rather than guessed.
- *
- * Persisted user groups are explicitly deferred (they would need a new schema in
- * ModelSnapshot, .ded I/O, share links and tab capture).
+ * The model does carry named levels and grid axes (`lib/model/grid.ts`) and user groups
+ * (`model.groups`), but design does not read them yet: everything here is DERIVED from node
+ * coordinates (Z is up) and connectivity, and the UI labels it as such ("Elevation band L3
+ * +10.20 m", not "Storey 3"). Where the geometry cannot support a grouping honestly the group
+ * is refused with a reason rather than guessed. Reading the levels and groups is the physical
+ * members' work.
  *
  * Pure: no store access, no side effects.
  */

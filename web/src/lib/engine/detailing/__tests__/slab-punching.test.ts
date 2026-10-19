@@ -429,17 +429,15 @@ describe('what it refuses, and why each refusal is not a pass', () => {
       .toContain('detailing.slabPunching.oppositeRuns');
   });
 
-  it('refuses a joint transferring an unbalanced moment, per §8.4.4.2', () => {
+  it('checks a joint transferring an unbalanced moment by its eccentric shear (§8.4.4.2)', () => {
+    const plain = checkSlabJointPunching(punchInput());
     const r = checkSlabJointPunching(punchInput({
       joint: joint({ forces: [force({ unbalancedMomentX: 80, unbalancedMomentY: 0 })] }),
     }));
-    // UNSUPPORTED, not FAIL: no capacity comparison was made for the eccentric shear, so
-    // reporting a failure would claim a check nobody performed.
-    expect(r.status).toBe('UNSUPPORTED');
-    expect(r.maturity).toBe('UNSUPPORTED');
-    expect(r.unsupported.map((m) => m.key))
-      .toContain('detailing.slabPunching.momentTransfer');
-    // The moment is retained, so the reader can see how far from negligible it was.
+    expect(r.status).not.toBe('UNSUPPORTED');
+    expect(r.unsupported.map((m) => m.key)).not.toContain('detailing.slabPunching.momentTransfer');
+    // The moment's share raises the governing stress over the same joint without it.
+    expect(r.utilization).toBeGreaterThan(plain.utilization);
     expect(r.contributions[0].unbalancedMoment).toBeCloseTo(80, 6);
   });
 

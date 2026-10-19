@@ -3149,6 +3149,7 @@ const tr: Translations = {
   'autoLoad.windTribWidth': 'Yükleme genişliği',
 
   // ─── PR15: RC Design surface ───────────────────────────────────────────
+  'design.banner.elongatedColumns': "{n} column(s) have one side more than three times the other: they are designed with the column rules. If they act as walls, model them with plates.",
   'design.cmd.computeDemands': 'Talepleri hesapla',
   'design.cmd.codeCheck': 'Yönetmelik kontrolü çalıştır',
   'design.cmd.requiredSteel': "Compute required steel",
@@ -3258,6 +3259,19 @@ const tr: Translations = {
   'design.reason.orientationSuspect': 'Eleman {elementId}: kuvvet yönü şüpheli, bu nedenle hiçbir tasarım onaylanamaz.',
   'design.reason.bestCandidateFails': 'Eleman {elementId}: en iyi aday {failing} sağlamayan kontrol ile {utilization} kullanım oranına ulaşıyor; belirleyici sınır: {governing}.',
   'design.reason.searchTruncated': 'Eleman {elementId}: arama {tried} adaydan sonra durdu — imkânsızlık KANITLANMADI.',
+  'design.gap.lateralRoleUndeclared': 'The beam\'s role in the lateral-force-resisting system is not declared, so it was designed as part of it, with fy developed at the support face (§9.7.3.8.2). Declaring it as not part of that system could change this anchorage verdict.',
+  'design.reason.alternativesExhausted': 'Element {elementId}: none of the arrangements the search implements verifies ({tried} candidates: bars Ø{diameters} mm in up to {rows} rows, the first {options} options per region, stirrups Ø{stirrups} mm with up to {legs} legs). Limiting: {limiting}. This does not show that the section cannot be reinforced.',
+  'design.reason.exhaustedBudget': 'Element {elementId}: the budget stopped the search after {tried} candidates (bars Ø{diameters} mm in up to {rows} rows, stirrups Ø{stirrups} mm). Limiting: {limiting}.',
+  'design.reason.crossingSeatsRetried': 'Element {elementId}: designed again with the crossing beams at their lightest seat, and refused again.',
+  'design.gap.bundledBars': 'Not tried: bundled bars (§25.6), which this app does not implement.',
+  'design.gap.mixedDiametersInRow': 'Not tried: rows mixing two diameters.',
+  'design.gap.optionsBeyondRetained': 'Not tried: arrangements beyond the options kept per region after ordering.',
+  'design.gap.headedBars': 'Not tried: headed bars (§25.4.4), which can develop where a hook does not fit.',
+  'design.gap.mechanicalAnchorage': 'Not tried: mechanically anchored bars (§25.4.5).',
+  'design.gap.columnCageChange': 'Not tried: changing the bars of the column cages, which the design takes as designed.',
+  'design.reason.insufficiency.shearSectionLimit': 'Element {elementId}: Vu = {demand} {unit} on {axis} exceeds φ·(Vc + 0,66·√f′c·bw·d) = {capacity} {unit} (§22.5.1.2) with Vc at its ceiling 0,42·√f′c·bw·d (§22.5.5.1.1), bw = {bw} m and the deepest d an admissible bar gives, {dMax} m. No reinforcement raises this limit: the section is inadequate.',
+  'design.reason.insufficiency.axialCapacityAtMaxSteel': 'Element {elementId}: Pu = {demand} {unit} exceeds {capacity} {unit}, the axial strength of Tabla 22.4.2.1 with the most steel §10.6.1.1 admits (ρ = {rho}) and the factors of a spiral (φ = {phi}, {poFactor}·Po). No reinforcement raises this limit: the section is inadequate.',
+  'design.reason.insufficiency.minimumBarRowDoesNotFit': 'Element {elementId}: two Ø{barDiameterMm} bars with their minimum clear spacing need {demand} {unit}, and inside the smallest stirrup (Ø{stirrupDiameterMm}) there are {capacity} {unit} (§{clause}). No admissible bar arrangement fits: the section is inadequate.',
   'design.reason.noCandidate': 'Eleman {elementId}: izin verilen hiçbir aday üretilemedi.',
 
   'design.advice.title': 'Ön kesit önerisi',
@@ -3294,6 +3308,7 @@ const tr: Translations = {
   'design.sort.status': 'Durum',
   'design.sort.elevation': 'Kot',
   'design.sort.section': 'Kesit',
+  'design.nav.prevFailing': 'Previous failing',
   'design.nav.nextFailing': 'Sonraki sağlamayan eleman',
 
   'design.group.label': 'Grupla',
@@ -3402,6 +3417,7 @@ const tr: Translations = {
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': '{code} bu model için hiçbir elemanı kontrol etmedi.',
+  'design.error.allLocked': 'Every member chosen is locked: there is nothing to design.',
   'design.error.emptySelection': 'Tasarlamak için en az bir eleman seçin.',
 
   // ─── PR20 i18n pass: design.* keys, English pending translation ───
@@ -3423,6 +3439,10 @@ const tr: Translations = {
   'design.editor.addRow': 'add row',
   'design.editor.removeRow': 'remove row',
   'design.editor.doesNotFit': 'does not fit in the clear width',
+  'design.editor.faceBottom': 'Bottom',
+  'design.editor.faceTop': 'Top',
+  'design.editor.faceLeft': 'Left',
+  'design.editor.faceRight': 'Right',
   'design.editor.cornerDiameter': 'corner diameter',
   'design.editor.faceDiameter': 'face diameter',
   'design.editor.cornerShort': 'corner Ø',
@@ -3439,7 +3459,6 @@ const tr: Translations = {
   'design.families.subtitle': 'Designs the families you tick, across the whole building — including slabs and walls, which "Design all" above does not touch.',
   'design.group.design': 'Design',
   'design.group.detailing': 'Detail',
-  'design.group.verify': 'Verify',
   'design.stage.allDone': 'Every stage is complete. Review the states, then export.',
   'design.stage.check': 'Code check',
   'design.stage.codes': 'Codes',

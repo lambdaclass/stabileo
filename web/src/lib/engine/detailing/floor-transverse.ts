@@ -324,6 +324,8 @@ export interface WallGeometry {
   thickness: number;
   cover: number;
   elementIds: number[];
+  /** Openings, along the wall from its start and up from its base, m. */
+  openings?: Array<{ offset: number; width: number; sill: number; height: number }>;
 }
 
 /**
@@ -347,7 +349,9 @@ export function generateWallBars(
   barDiameterMm: number, edition: RegulationEdition,
 ): BarPath[] {
   const bars: BarPath[] = [];
-  const d = barDiameterMm / 1000;
+  const r = design.reinforcement;
+  const vDia = r?.vertical.diameter ?? barDiameterMm, hDia = r?.horizontal.diameter ?? barDiameterMm;
+  const dv = vDia / 1000, dh = hDia / 1000;
 
   const dx = geometry.end.x - geometry.start.x;
   const dy = geometry.end.y - geometry.start.y;
@@ -360,57 +364,75 @@ export function generateWallBars(
   const nx = -uy;
   const ny = ux;
 
-  const curtains = wallCurtains(geometry.thickness);
+  const curtains = r?.curtains ?? wallCurtains(geometry.thickness);
   // Horizontal bars sit OUTSIDE the verticals: they are the outer curtain in a wall, which
   // is what gives the verticals their cover and lets the horizontals be tied to them.
   const halfT = geometry.thickness / 2;
   const offsets = curtains === 2
-    ? [-(halfT - geometry.cover - d / 2), halfT - geometry.cover - d / 2]
+    ? [-(halfT - geometry.cover - dh / 2), halfT - geometry.cover - dh / 2]
     : [0];
 
   const ANCHOR = 0.15;
+  const openings = geometry.openings ?? [];
+  const z0 = geometry.start.z;
+  const at = (s: number, off: number, z: number): Point3 => ({ x: geometry.start.x + ux * s + nx * off, y: geometry.start.y + uy * s + ny * off, z });
+  const push = (id: string, dia: number, a: Point3, b: Point3, axis: Point3, hookNormal: Point3) => bars.push(buildStraightBarWithHooks({
+    id, diameterMm: dia, role: 'longitudinal', start: a, end: b, axis, hookNormal, ownerElementIds: geometry.elementIds, edition,
+  }));
+  /** The pieces of [lo, hi] left outside the openings that cross a line. */
+  const cut = (lo: number, hi: number, holes: Array<[number, number]>): Array<[number, number]> => {
+    let parts: Array<[number, number]> = [[lo, hi]];
+    for (const [a, b] of holes) parts = parts.flatMap(([p, q]) => (b <= p || a >= q ? [[p, q]] : [[p, Math.min(q, a)], [Math.max(p, b), q]].filter(([u, v]) => v - u > 0.05) as Array<[number, number]>));
+    return parts;
+  };
 
   for (const [c, off] of offsets.entries()) {
-    // ── Vertical (longitudinal) reinforcement ──
+    // ── Vertical (longitudinal) reinforcement, cut at the openings ──
+    const vOff = off - Math.sign(off || 1) * (dv + dh) / 2;
     const nV = Math.max(1, Math.floor(length / design.verticalSpacing));
     for (let i = 0; i < nV; i++) {
       const s = (i + 0.5) * design.verticalSpacing;
-      // Verticals tuck one diameter inside the horizontals on the same curtain.
-      const vOff = off - Math.sign(off || 1) * d;
-      const x = geometry.start.x + ux * s + nx * vOff;
-      const y = geometry.start.y + uy * s + ny * vOff;
-      bars.push(buildStraightBarWithHooks({
-        id: `${geometry.wallId}-v${c}-${i}`,
-        diameterMm: barDiameterMm, role: 'longitudinal',
-        start: { x, y, z: geometry.start.z - ANCHOR },
-        end: { x, y, z: geometry.start.z + geometry.height },
-        axis: { x: 0, y: 0, z: 1 },
-        hookNormal: { x: nx, y: ny, z: 0 },
-        ownerElementIds: geometry.elementIds, edition,
-      }));
+      const holes = openings.filter((o) => s > o.offset && s < o.offset + o.width).map((o) => [z0 + o.sill, z0 + o.sill + o.height] as [number, number]);
+      cut(z0 - ANCHOR, z0 + geometry.height, holes).forEach(([a, b], k) => push(
+        `${geometry.wallId}-v${c}-${i}${k ? `-${k}` : ''}`, vDia, at(s, vOff, a), at(s, vOff, b), { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 }));
     }
 
-    // ── Horizontal (distributed shear) reinforcement ──
+    // ── Horizontal (distributed shear) reinforcement, cut at the openings ──
     const nH = Math.max(1, Math.floor(geometry.height / design.horizontalSpacing));
     for (let j = 0; j < nH; j++) {
-      const z = geometry.start.z + (j + 0.5) * design.horizontalSpacing;
-      bars.push(buildStraightBarWithHooks({
-        id: `${geometry.wallId}-h${c}-${j}`,
-        diameterMm: barDiameterMm, role: 'longitudinal',
-        start: {
-          x: geometry.start.x - ux * ANCHOR + nx * off,
-          y: geometry.start.y - uy * ANCHOR + ny * off,
-          z,
-        },
-        end: {
-          x: geometry.start.x + ux * (length + ANCHOR) + nx * off,
-          y: geometry.start.y + uy * (length + ANCHOR) + ny * off,
-          z,
-        },
-        axis: { x: ux, y: uy, z: 0 },
-        hookNormal: { x: 0, y: 0, z: -1 },
-        ownerElementIds: geometry.elementIds, edition,
-      }));
+      const z = z0 + (j + 0.5) * design.horizontalSpacing;
+      const holes = openings.filter((o) => z > z0 + o.sill && z < z0 + o.sill + o.height).map((o) => [o.offset, o.offset + o.width] as [number, number]);
+      cut(-ANCHOR, length + ANCHOR, holes).forEach(([a, b], k) => push(
+        `${geometry.wallId}-h${c}-${j}${k ? `-${k}` : ''}`, hDia, at(a, off, z), at(b, off, z), { x: ux, y: uy, z: 0 }, { x: 0, y: 0, z: -1 }));
+    }
+
+    // ── Boundary bars at both ends ──
+    if (r?.boundary && r.boundary.count > 0) {
+      const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);
+      const per = Math.ceil(r.boundary.count / curtains);
+      const edge = geometry.cover + dh + dv / 2;
+      for (const [e, s0] of [[0, edge], [1, length - edge]] as const) for (let i = 0; i < per; i++) {
+        const s = e === 0 ? s0 + (i + 1) * pitch : s0 - (i + 1) * pitch;
+        push(`${geometry.wallId}-b${e}${c}-${i}`, r.boundary.diameter, at(s, vOff, z0 - ANCHOR), at(s, vOff, z0 + geometry.height), { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 });
+      }
+    }
+
+    // ── Bars beside each opening (§11.7.5.1), a development length past its corners ──
+    if (r?.openings && r.openings.count > 0) {
+      const od = r.openings.diameter, ld = 40 * od / 1000, gap = Math.max(0.05, 2 * od / 1000);
+      openings.forEach((o, k) => {
+        const per = Math.max(1, Math.ceil(r.openings!.count / curtains));
+        for (let i = 0; i < per; i++) {
+          const zb = Math.max(z0, z0 + o.sill - ld), zt = Math.min(z0 + geometry.height, z0 + o.sill + o.height + ld);
+          for (const [side, s] of [['l', o.offset - (i + 1) * gap], ['r', o.offset + o.width + (i + 1) * gap]] as const) {
+            if (s > 0 && s < length) push(`${geometry.wallId}-o${k}${side}${c}-${i}`, od, at(s, vOff, zb), at(s, vOff, zt), { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 });
+          }
+          const sa = Math.max(0, o.offset - ld), sb = Math.min(length, o.offset + o.width + ld);
+          const rows: Array<['t' | 'u', number]> = [['t', z0 + o.sill + o.height + (i + 1) * gap]];
+          if (o.sill > 0) rows.push(['u', z0 + o.sill - (i + 1) * gap]);
+          for (const [side, z] of rows) if (z > z0 && z < z0 + geometry.height) push(`${geometry.wallId}-o${k}${side}${c}-${i}`, od, at(sa, off, z), at(sb, off, z), { x: ux, y: uy, z: 0 }, { x: 0, y: 0, z: -1 });
+        }
+      });
     }
   }
 

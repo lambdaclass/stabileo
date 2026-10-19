@@ -34,6 +34,7 @@ const STORE = 'lib/store/detailing.svelte.ts';
 const STORE_LAYER = [
   STORE,
   'lib/store/detailing-project-inputs.ts',
+  'lib/store/detailing-certificates.ts',
 ];
 
 function storeLayer() { return STORE_LAYER.map(read).join('\n'); }

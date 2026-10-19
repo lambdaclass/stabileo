@@ -592,3 +592,21 @@ export async function clickStage(page: Page, stage: string): Promise<void> {
 export async function ribbonCmd(page: Page, id: string): Promise<void> {
   await page.getByTestId(`pr-cmd-${id}`).click();
 }
+
+/**
+ * Declare the beams NOT part of the lateral-force-resisting system, through the design data
+ * panel, and come back to the design table. Call it after `loadModel` and before designing.
+ *
+ * Since 292b87f68 a beam that declares no role is designed as part of the system (§9.7.3.8.2:
+ * its bottom bars develop fy at the column face), and on that reading the frame fixtures refuse
+ * beams of their own: `rc-design-qa-8` e5 and e6, `pro-edificio-7p` all 119 beams,
+ * `rc-qa-diagnostic` five (SEARCH_EXHAUSTED, on that anchorage). A spec whose subject needs a
+ * design that converges (a converged claim, a constructible level, a provisional proposal on a
+ * beam) declares the role, which is the statement a user of these frames makes, and says so.
+ */
+export async function declareBeamsNotLateral(page: Page): Promise<void> {
+  await openClassicDesign(page);
+  await page.getByTestId('pr-cmd-designData').click();
+  await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  await page.getByTestId('pr-cmd-design').click();
+}

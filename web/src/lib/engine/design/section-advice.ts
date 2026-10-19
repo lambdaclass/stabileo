@@ -18,6 +18,7 @@
 
 import type { MemberContext } from './member-context';
 import type { LimitingConstraint, SectionRecommendation, DesignReason } from './outcome';
+import { shearSqrtFc } from '../codes/argentina/cirsoc201-basis';
 
 /** Standard dimensional increment (m). */
 export const SECTION_STEP = 0.05;
@@ -53,7 +54,8 @@ function screenBeamShear(Vu: number, b: number, h: number, fc: number, cover: nu
   const d = h - cover - stirrupDia / 1000 - 0.010;
   if (d <= 0 || b <= 0) return Number.POSITIVE_INFINITY;
   // Vs is capped at (2/3)√f'c·bw·d, so φVn,max = φ(Vc + Vs,max).
-  const Vc = (1 / 6) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000;
+  // Vc with √f'c ≤ 8,3 MPa (CIRSOC 201-2025 §22.5.3.1); the section limit Vs,max reads √f'c as is.
+  const Vc = (1 / 6) * shearSqrtFc(fc) * (b * 1000) * (d * 1000) / 1000;
   const VsMax = (2 / 3) * Math.sqrt(fc) * (b * 1000) * (d * 1000) / 1000;
   const phiVn = 0.75 * (Vc + VsMax);
   return phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;

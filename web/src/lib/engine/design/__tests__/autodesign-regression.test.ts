@@ -26,6 +26,34 @@
  * weight now bends each beam about its strong axis and adds nothing lateral, so nine BEAM-Y
  * members fall under the 10% threshold (0.104–0.125 before, 0.080–0.097 after) and are
  * designed and verified. The other 13 stay above it.
+ *
+ * AFTER the design read the column cages (`joint-threading-check.ts`): 373/408 VERIFIED, 13
+ * PROVISIONAL_BIAXIAL, 22 SECTION_INADEQUATE on congestion. No layout of those 22 beams' bars
+ * passes the bars of the columns at their joints (anchorage with it in 13: the layouts that pass
+ * need a second top row the column cannot develop). They were certified before while the
+ * detailing laid them through the columns' bars; now they refuse, never a certificate, the best
+ * failing candidate retained as a proposal (35 retained: 13 + 22).
+ *
+ * AFTER refusals were split by their evidence (`section-bounds.ts`): the same 22, now
+ * SEARCH_EXHAUSTED. «No layout passes» meant no layout the search ENUMERATES (its diameters, up
+ * to three rows, the first 40 options per region, the cages as designed); no bound of the code
+ * shows that no reinforcement could, so SECTION_INADEQUATE was a claim without a proof.
+ *
+ * AFTER the verifier checks the ductility of a flexural member (CIRSOC 201-2025 §9.3.3.1,
+ * εt ≥ εty + 0,003; it came with the beam check moved into the engine): 379/408 VERIFIED, 13
+ * PROVISIONAL_BIAXIAL, 16 SEARCH_EXHAUSTED. Over-reinforced candidates are now rejected for
+ * maxSteel before the joint stage, and the search reaches, for beams 169–172, 197 and 198, an
+ * arrangement that passes every check AND threads the column cages; each carries a certificate.
+ * Measured by switching off only that check: 373/22 come back, member by member the earlier
+ * digest except utilization moves on 162, 163, 173, 192, 195, 254 and 257. No member lost a
+ * certificate. A check added, not one relaxed: the six were an exhausted search, not a proof.
+ *
+ * AFTER the verifier checks the minimum shear reinforcement on beams deeper than 250 mm
+ * (CIRSOC 201-2025 §9.6.3.1: Av,min of §9.6.3.4 wherever Vu > φ·0,085·√f'c·bw·d) and the
+ * generator stops offering stirrups under it: 383/408 VERIFIED, 13 PROVISIONAL_BIAXIAL,
+ * 12 SEARCH_EXHAUSTED. Beams 165–168 reach an arrangement that threads the cages once the options
+ * under Av,min no longer fill the first ones per region (`rc-baseline-digest.test.ts` lists the
+ * member-by-member comparison). A check added: no member lost a certificate.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -57,19 +85,21 @@ describe('flagship 408-member RC frame designs completely', () => {
     // threshold; this verifier only checks the primary axis for beams, so it
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
-    expect(s.verified).toBe(395);
+    expect(s.verified).toBe(383);   // 379 until §9.6.3.1 (header)
+    // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
+    // 22 until the ductility check (header).
     expect(s.sectionInadequate).toBe(0);
+    expect(s.searchExhausted).toBe(12);   // 16 until §9.6.3.1 (header)
     expect(s.demandUnavailable).toBe(0);
     /**
-     * PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
+     * The 13 biaxial beams: PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
      *
-     * `SEARCH_EXHAUSTED` would claim the envelope was explored and invite a section change
-     * that cannot help. `UNSUPPORTED` was accurate about the CHECK and produced no geometry
-     * at all, which is indistinguishable on screen from steel that went missing. These
-     * now carry their primary-axis design as an explicit proposal — same threshold, same
-     * verifier, nothing assumed for the axis nobody checks.
+     * `SEARCH_EXHAUSTED` would claim the implemented alternatives were tried and found wanting,
+     * and invite a change that cannot help. `UNSUPPORTED` was accurate about the CHECK and
+     * produced no geometry at all, which is indistinguishable on screen from steel that went
+     * missing. These now carry their primary-axis design as an explicit proposal — same
+     * threshold, same verifier, nothing assumed for the axis nobody checks.
      */
-    expect(s.searchExhausted).toBe(0);
     expect(s.unsupported).toBe(0);
     expect(s.provisionalBiaxial).toBe(13);
     /**
@@ -79,13 +109,28 @@ describe('flagship 408-member RC frame designs completely', () => {
      * short. A biaxial proposal is a member whose primary axis PASSED. Merging the two
      * counters would let a failing member inherit a proposal's treatment.
      */
-    expect(s.provisionalRetained).toBe(13);
+    // 13 + 12 since the minimum shear reinforcement of §9.6.3.1 (header); 13 + 16 = 29 since the
+    // ductility check, 13 + 22 = 35 before.
+    expect(s.provisionalRetained).toBe(25);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
     let worst = 0;
     let refused = 0;
+    let congested = 0;
     for (const [id, o] of s.outcomes) {
+      if (o.outcome === 'SEARCH_EXHAUSTED') {
+        // Refused because no layout of its bars the search enumerates passes the columns' bars
+        // at its joints: never a certificate, the reason stated, and no claim on the section.
+        expect(o.elementType, `element ${id}`).toBe('beam');
+        expect(o.limiting, `element ${id}`).toContain('congestion');
+        expect(o.insufficiency, `element ${id} proof`).toBeUndefined();
+        expect(o.exhaustion?.scope, `element ${id} exhaustion`).toBe('implementedAlternatives');
+        expect(o.certificate, `element ${id} certificate`).toBeUndefined();
+        expect(o.accepted, `element ${id} accepted rebar`).toBeUndefined();
+        congested++;
+        continue;
+      }
       if (o.outcome !== 'VERIFIED') {
         // The refused members must be exactly the honest-refusal case: never a
         // certificate, always a reason, and the biaxial constraint recorded.
@@ -111,6 +156,7 @@ describe('flagship 408-member RC frame designs completely', () => {
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
     expect(refused).toBe(13);
+    expect(congested).toBe(12);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

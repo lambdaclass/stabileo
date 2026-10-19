@@ -18,6 +18,7 @@ import { isSolverReady } from '../../engine/wasm-solver';
 import type { DesignFamily, DesignRunReport } from '../../engine/design/design-families';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
+import { stateSuiteLateral } from '../../store/__tests__/suite-lateral';
 
 /** Load and solve, ready for a design run. */
 export async function ready(example: string, variant?: Variant) {
@@ -28,6 +29,8 @@ export async function ready(example: string, variant?: Variant) {
   verificationStore.clear();
   await modelStore.loadExample(example);
   if (variant) applyVariant(variant);
+  // The reading of the beams' role in the lateral system these suites were written under.
+  stateSuiteLateral();
   expect(isSolverReady()).toBe(true);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };

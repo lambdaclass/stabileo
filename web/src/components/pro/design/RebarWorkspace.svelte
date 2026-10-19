@@ -437,7 +437,9 @@
   .workspace {
     position: fixed;
     inset: 0;
-    z-index: 900;
+    /* Above design's full-screen sheet (900, phone), which opens it on a member: the view opened
+       last is the one on top, and its Escape returns to design. */
+    z-index: 910;
     display: flex;
     flex-direction: column;
     background: var(--st-bg);

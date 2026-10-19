@@ -26,6 +26,7 @@
  */
 
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
+import type { CheckRow } from '../../design-contract/check-row';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
 import type { BarConflict } from './collision';
@@ -166,6 +167,11 @@ export interface UnsupportedCondition {
   scope: { elementIds?: number[]; jointIds?: string[] };
   /** Shown verbatim to the user and printed on the drawing. */
   message: string;
+  /**
+   * When set, `key` is an i18n key and these are its parameters: the boundary renders the
+   * condition in the reader's language and `message` is only the language-neutral fallback.
+   */
+  params?: Record<string, string | number>;
   refs: ClauseRef[];
 }
 
@@ -557,6 +563,44 @@ export interface DetailingStore {
    * the word "Project". See `title-block-config.ts`.
    */
   titleBlock?: RcTitleBlockConfig;
+  /**
+   * The design fingerprint of the model the assemblies were generated from
+   * (`store/design-fingerprint.ts`). Absent on detailing made before it existed: such a
+   * project cannot say whether its bars are current, and is not called out of date for it.
+   */
+  modelFingerprint?: string;
+  /**
+   * The document revision, kept with the project so it does not start over at 1 in every
+   * session: an export record from an earlier session is compared against the real one.
+   */
+  documentRevision?: number;
+  /** The revision the last document was built at; a change after it moves the revision on. */
+  documentBuiltRevision?: number;
+  /** The last floor design's slab and wall check rows, with the fingerprint they hold for (`store/floor-readings.ts`). */
+  floorReadings?: FloorReadings;
+  /**
+   * The design's refusals (SECTION_INADEQUATE, SEARCH_EXHAUSTED, UNSUPPORTED), with the
+   * fingerprint of the model they were reached on (`store/design-refusals.ts`). A verified member
+   * comes back from its saved bars; a refused one has none, and its verdict and reason were lost
+   * on every reopen.
+   */
+  designRefusals?: DesignRefusals;
+}
+
+/** The refused outcomes, as JSON text (non-finite numbers kept), with the fingerprint they hold for. */
+export interface DesignRefusals {
+  fingerprint: string;
+  /** `encodeOutcomes` of `store/design-refusals.ts`. */
+  outcomes: string;
+}
+
+/** What the memoria reads of a floor design, kept with the project. */
+export interface FloorReadings {
+  fingerprint: string;
+  slabs: Array<{ panelId: string; behaviour: string; aspect: number; rows: CheckRow[]; notes: string[] }>;
+  walls: Array<{ wallId: string; verticalSpacing: number; horizontalSpacing: number; rows: CheckRow[]; notes: string[] }>;
+  /** The footings' rows, with the footing inputs' own fingerprint (`footingRunFingerprint`), which the design one does not cover. */
+  footings?: { fingerprint: string; outcomes: Array<{ footingId: number; name: string; rows: CheckRow[]; notes: EngineMessage[] }> };
 }
 
 export function emptyDetailingStore(): DetailingStore {
@@ -681,9 +725,26 @@ export function migrateDetailingStore(raw: unknown): DetailingMigration {
       version: DETAILING_SCHEMA_VERSION,
       assemblies,
       ...(titleBlock && Object.keys(titleBlock).length > 0 ? { titleBlock } : {}),
+      ...persistedStamps(src),
     },
     notices,
   };
+}
+
+/** The fingerprint and the document revision, carried over only when they are well formed. */
+function persistedStamps(src: object): Pick<DetailingStore, 'modelFingerprint' | 'documentRevision' | 'documentBuiltRevision' | 'floorReadings' | 'designRefusals'> {
+  const r = src as { modelFingerprint?: unknown; documentRevision?: unknown; documentBuiltRevision?: unknown };
+  const rev = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : undefined);
+  const out: Pick<DetailingStore, 'modelFingerprint' | 'documentRevision' | 'documentBuiltRevision' | 'floorReadings' | 'designRefusals'> = {};
+  if (typeof r.modelFingerprint === 'string' && /^[0-9a-f]{16}$/.test(r.modelFingerprint)) out.modelFingerprint = r.modelFingerprint;
+  if (rev(r.documentRevision) !== undefined) out.documentRevision = rev(r.documentRevision);
+  if (rev(r.documentBuiltRevision) !== undefined) out.documentBuiltRevision = rev(r.documentBuiltRevision);
+  const fr = (src as { floorReadings?: { fingerprint?: unknown; slabs?: unknown; walls?: unknown } }).floorReadings;
+  if (fr && typeof fr.fingerprint === 'string' && Array.isArray(fr.slabs) && Array.isArray(fr.walls)) out.floorReadings = fr as FloorReadings;
+  // The refusals ride through like the floor rows: well formed or absent, never invented.
+  const dr = (src as { designRefusals?: { fingerprint?: unknown; outcomes?: unknown } }).designRefusals;
+  if (dr && typeof dr.fingerprint === 'string' && typeof dr.outcomes === 'string') out.designRefusals = { fingerprint: dr.fingerprint, outcomes: dr.outcomes };
+  return out;
 }
 
 /**

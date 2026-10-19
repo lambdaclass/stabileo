@@ -31,10 +31,12 @@
  * Pure: no store, no runes.
  */
 
+import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import {
   buildStraightBarWithHooks, standardHook, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
 import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
+import { deriveCompressionDevelopment } from '../../codes/cirsoc201/anchorage';
 import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import { clause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 import { computeColumnLayout } from '../station-design-forces';
@@ -50,13 +52,23 @@ export interface ColumnLift {
   topZ: number;
   b: number;
   h: number;
-  /** Plan centre of the column at this lift. Moves when the section is offset. */
+  /**
+   * Plan centre of the column at this lift: its axis, the node plus the insertion offset the
+   * model declares. Moves when the section is offset.
+   */
   centre: { x: number; y: number };
+  /**
+   * Plan position of the lift's nodes, where its joints are made. Differs from `centre` where
+   * the model declares an insertion (a column placed by a face or a corner). Absent: `centre`.
+   */
+  nodePlan?: { x: number; y: number };
   /** Longitudinal bars chosen for this lift. */
   bars: { count: number; diameterMm: number };
   /** Tie diameter, mm. */
   tieDia: number;
   cover: number;
+  /** Denser ties at both ends of the lift (the design's `tieZones`): length from each end and spacing, m. */
+  endZone?: { length: number; spacing: number };
 }
 
 export interface ColumnStackInput {
@@ -69,8 +81,27 @@ export interface ColumnStackInput {
   edition: RegulationEdition;
   /** Lap-splice length for a bar of the given diameter, m. */
   lapSplice: (diameterMm: number) => number;
-  /** Depth of the beams framing in at each level, m, keyed by lift index (the joint above). */
+  /**
+   * Depth of the deepest beam framing in at each level, m, keyed by lift index (the joint above).
+   *
+   * Alone, it says the beams lie centred on the node — the centroidal convention, which holds
+   * only where the model declares no insertion — and the joint spans the node ± half that depth
+   * (`jointBand`). Reading the node as the top of the floor put the upper lift's bars, its
+   * splices and the lower lift's ties in the beams' own half of the joint below the node.
+   */
   beamDepthAtTop: Map<number, number>;
+  /** Depth of the deepest beam framing in at the lowest lift's base (a ground beam), m. */
+  beamDepthAtBase?: number;
+  /**
+   * The joint each level's beams actually make, m, keyed like `beamDepthAtTop`: from the lowest
+   * soffit to the highest top face of the beams framing in, each read on its own axis — the
+   * node plus its declared insertion (`member-offsets.ts` `memberReferenceLine`). A top-flush
+   * beam makes the band [node − h, node], not node ± h/2. Given, `jointBand` reads it; absent,
+   * the depths above centred on the node.
+   */
+  jointAtTop?: Map<number, { lo: number; hi: number }>;
+  /** The joint at the lowest lift's base, as `jointAtTop`. */
+  jointAtBase?: { lo: number; hi: number };
   /**
    * Does the top lift's steel need TENSION development at the roof?
    *
@@ -248,6 +279,23 @@ export function faceOffsets(
   };
 }
 
+/**
+ * The joint a lift meets at its top (`at: 'top'`) or its base: the band the beams framing in
+ * there make on their own axes (`jointAtTop`), else the node ± half the deepest of them, and
+ * nothing where no beam does. The base of a lift above the first is the joint at the top of the
+ * lift below.
+ */
+export function jointBand(input: Pick<ColumnStackInput, 'lifts' | 'beamDepthAtTop' | 'beamDepthAtBase' | 'jointAtTop' | 'jointAtBase'>, i: number, at: 'top' | 'base'): { lo: number; hi: number } {
+  const lift = input.lifts[i];
+  const band = at === 'top' ? input.jointAtTop?.get(i)
+    : i > 0 ? input.jointAtTop?.get(i - 1) : input.jointAtBase;
+  if (band) return { lo: band.lo, hi: band.hi };
+  const z = at === 'top' ? lift.topZ : lift.baseZ;
+  const depth = at === 'top' ? input.beamDepthAtTop.get(i) ?? 0
+    : i > 0 ? input.beamDepthAtTop.get(i - 1) ?? 0 : input.beamDepthAtBase ?? 0;
+  return { lo: z - depth / 2, hi: z + depth / 2 };
+}
+
 /** Detect what changes between consecutive lifts. */
 export function detectTransitions(input: ColumnStackInput): ColumnTransition[] {
   const out: ColumnTransition[] = [];
@@ -360,15 +408,17 @@ export function planSplices(input: ColumnStackInput): SpliceZone[] {
 
   for (let i = 1; i < input.lifts.length; i++) {
     const lift = input.lifts[i];
-    const lap = input.lapSplice(lift.bars.diameterMm);
+    // The lap the bars below run up into this lift (§25.5.2.2, as `generateColumnStack` lays it).
+    const lap = input.lapSplice(Math.max(lift.bars.diameterMm, input.lifts[i - 1]!.bars.diameterMm));
     const half = Math.floor(lift.bars.count / 2);
-    // Group 0 starts at the lift base; group 1 starts one lap higher.
+    // Group 0 starts on the floor, at the top of the joint below; group 1 one lap higher.
+    const floor = jointBand(input, i, 'base').hi;
     out.push({
-      liftIndex: i, from: lift.baseZ, to: lift.baseZ + lap,
+      liftIndex: i, from: floor, to: floor + lap,
       diameterMm: lift.bars.diameterMm, barCount: half, staggerGroup: 0, refs: [ref],
     });
     out.push({
-      liftIndex: i, from: lift.baseZ + lap, to: lift.baseZ + 2 * lap,
+      liftIndex: i, from: floor + lap, to: floor + 2 * lap,
       diameterMm: lift.bars.diameterMm, barCount: lift.bars.count - half,
       staggerGroup: 1, refs: [ref],
     });
@@ -376,22 +426,14 @@ export function planSplices(input: ColumnStackInput): SpliceZone[] {
   return out;
 }
 
-/** §10.7.6.2 — tie spacing: least of 16·d_b(long), 48·d_b(tie), least column dimension. */
+/** Column tie spacing, by the one rule of `columnTieSpacing` (25.7.2.1 in 2025, 7.10.5.2 in 2005). */
 export function tieSpacing(
   longDiameterMm: number, tieDiameterMm: number, leastDimension: number,
   edition: RegulationEdition,
-): { spacing: number; governedBy: '16db' | '48dbe' | 'leastDimension'; refs: ClauseRef[] } {
-  const a = 16 * longDiameterMm / 1000;
-  const b = 48 * tieDiameterMm / 1000;
-  const cands: Array<[number, '16db' | '48dbe' | 'leastDimension']> =
-    [[a, '16db'], [b, '48dbe'], [leastDimension, 'leastDimension']];
-  cands.sort((x, y) => x[0] - y[0]);
-  return {
-    spacing: cands[0][0],
-    governedBy: cands[0][1],
-    refs: [clause('cirsoc-201', edition, edition === '2025' ? '10.7.6.2' : '7.10.5',
-      'separación de la armadura transversal')],
-  };
+): { spacing: number; governedBy: '16db' | '12db' | '48dbe' | 'leastDimension'; refs: ClauseRef[] } {
+  const r = columnTieSpacing(edition, longDiameterMm, tieDiameterMm, leastDimension);
+  const governedBy = r.governedBy === 'longBar' ? (r.barFactor === 12 ? '12db' : '16db') : r.governedBy === 'tie' ? '48dbe' : 'leastDimension';
+  return { spacing: r.spacing, governedBy, refs: [r.ref] };
 }
 
 /**
@@ -458,7 +500,10 @@ export function liftBarPositions(
   // first `count`, so a longer list silently added bars the design never called for; and it
   // never checked for repeats, so a list carrying a position twice put two bars on one point
   // — which reads downstream as a bar interpenetrating itself, not as the missing bar it is.
-  const chosen = chosenPositions?.slice(0, lift.bars.count) ?? null;
+  // Exactly this lift's count: the arrangement is chosen for one lift (`run-detailing` reads the
+  // stack's lowest), and the first `count` positions of a larger cage are not a cage — a 16-bar
+  // lift above a 28-bar one took 16 of the 28 positions, every face bar on one side of the column.
+  const chosen = chosenPositions && chosenPositions.length === lift.bars.count ? chosenPositions : null;
   const distinct = chosen !== null
     && chosen.length === lift.bars.count
     && new Set(chosen.map((p) => `${Math.round(p.x * 1e5)}:${Math.round(p.y * 1e5)}`)).size
@@ -505,8 +550,11 @@ function emitDowels(
   if (!lo || !hi || !t.faces) return [];
 
   const out: BarPath[] = [];
-  const lap = input.lapSplice(hi.bars.diameterMm);
+  // The dowel laps the upper bars above and the lower ones below: §25.5.2.2 on the larger.
+  const lap = input.lapSplice(Math.max(hi.bars.diameterMm, lo.bars.diameterMm));
   const upper = liftBarPositions(hi, input.barPositions);
+  // The floor the upper lift stands on: the top of the joint, where its bars start.
+  const floor = jointBand(input, t.liftIndex, 'top').hi;
   // §25.5.1.3 — the transverse pitch a non-contact lap may have.
   const maxPitch = Math.min(lap / 5, MAX_NONCONTACT_PITCH_MM / 1000);
 
@@ -524,8 +572,8 @@ function emitDowels(
         diameterMm: hi.bars.diameterMm,
         role: 'longitudinal',
         // Straight through the transition: one lap below it and one lap above.
-        start: { x: hi.centre.x + p.x, y: hi.centre.y + p.y, z: t.z - lap },
-        end: { x: hi.centre.x + p.x, y: hi.centre.y + p.y, z: t.z + lap },
+        start: { x: hi.centre.x + p.x, y: hi.centre.y + p.y, z: floor - lap },
+        end: { x: hi.centre.x + p.x, y: hi.centre.y + p.y, z: floor + lap },
         axis: { x: 0, y: 0, z: 1 },
         hookNormal: { x: 1, y: 0, z: 0 },
         // A dowel is owned by BOTH lifts: it is the splice between them, and filing it under
@@ -682,23 +730,33 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
         `${(spacing.minClear * 1000).toFixed(0)} mm requerida.`);
     }
 
-    // Bars run the lift height, plus the lap above unless this is the top lift.
+    // Bars stand on the floor below (the top of its joint; the lift's base at the first lift)
+    // and run through the joint above, plus the lap above it unless this is the top lift.
     const isTop = i === input.lifts.length - 1;
-    const lap = input.lapSplice(lift.bars.diameterMm);
-    const topZ = isTop ? lift.topZ : lift.topZ + lap;
+    // §25.5.2.2: bars of two sizes lap the larger of ℓd of the larger bar and ℓst of the smaller.
+    // The lap is the lower bars running on past the floor, and it was the lower bar's own ℓst: a
+    // Ø16 lift under a Ø20 one ran up 759,5 mm against the 902,1 mm of ℓd(Ø20). Class B on the
+    // larger of the two (`lapSplice` is monotonic in db) covers both terms.
+    const lap = input.lapSplice(isTop ? lift.bars.diameterMm
+      : Math.max(lift.bars.diameterMm, input.lifts[i + 1]!.bars.diameterMm));
+    const below = jointBand(input, i, 'base');
+    const above = jointBand(input, i, 'top');
+    const baseZ = i > 0 ? below.hi : lift.baseZ;
     // §25.4.1.2 — a hook may anchor a bar in tension, never one in compression.
     const roofHook = isTop && input.roofTermination ? 90 : undefined;
+    // At the roof a straight bar rises to the beams' top cover; a hooked one turns at the middle
+    // of the joint, where its tail lies between the beams' bottom and top mats — the node only
+    // where the beams are centred on it (a top-flush beam's joint is centred h/2 under it).
+    const topZ = !isTop ? above.hi + lap
+      : above.hi === above.lo ? lift.topZ : roofHook ? (above.lo + above.hi) / 2 : above.hi - lift.cover;
 
     // §25.4.9: compression development, ldc = max(0,24·fy/√f'c·db, 0,043·fy·db, 200 mm).
     // Checked against what the joint above actually offers, so a shortfall is reported
     // rather than silently swapped for a hook the code will not credit.
     if (isTop && !input.roofTermination) {
-      const db = lift.bars.diameterMm / 1000;
-      const ldc = Math.max(
-        0.24 * input.fy / Math.sqrt(input.fc) * db,
-        0.043 * input.fy * db,
-        0.200);
-      const available = input.beamDepthAtTop.get(i) ?? 0;
+      const ldc = deriveCompressionDevelopment({ diameterMm: lift.bars.diameterMm, fy: input.fy, fc: input.fc, edition: input.edition }).ldcM;
+      // Embedded from the joint's soffit to where the bar ends.
+      const available = above.hi > above.lo ? topZ - above.lo : 0;
       refs.push(clause('cirsoc-201', input.edition, '25.4.9.1',
         'longitud de anclaje en compresión'));
       refs.push(clause('cirsoc-201', input.edition, '25.4.1.2',
@@ -729,7 +787,7 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
         ? face.tier * (lift.bars.diameterMm / 1000
           + hookTierGap(lift.bars.diameterMm, input.edition, input.maxAggregateSizeMm ?? 19))
         : 0;
-      const start: Point3 = { x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: lift.baseZ };
+      const start: Point3 = { x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: baseZ };
       const end: Point3 = {
         x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: topZ - tierLift,
       };
@@ -747,10 +805,25 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
 
     const ts = tieSpacing(lift.bars.diameterMm, lift.tieDia, Math.min(lift.b, lift.h), input.edition);
     refs.push(...ts.refs);
-    ties.push({
-      liftIndex: i, from: lift.baseZ, to: lift.topZ,
-      spacing: ts.spacing, diameterMm: lift.tieDia,
-    });
+    const ez = lift.endZone;
+    // The ties run the clear height, soffit of the joint above to the floor of the one below:
+    // each joint has its own cage (`run-detailing`). The end zones run in from both.
+    const clearBase = below.hi;
+    const clearTop = above.lo;
+    if (ez && ez.length > 0 && clearTop - clearBase > 2 * ez.length + 1e-6) {
+      const sp = Math.min(ez.spacing, ts.spacing);
+      ties.push(
+        { liftIndex: i, from: clearBase, to: clearBase + ez.length, spacing: sp, diameterMm: lift.tieDia },
+        { liftIndex: i, from: clearBase + ez.length, to: clearTop - ez.length, spacing: ts.spacing, diameterMm: lift.tieDia },
+        { liftIndex: i, from: clearTop - ez.length, to: clearTop, spacing: sp, diameterMm: lift.tieDia },
+      );
+      trace.push(`Tramo ${i}: estribos densificados cada ${(sp * 1000).toFixed(0)} mm en ${(ez.length * 1000).toFixed(0)} mm desde cada extremo (opción del proyecto).`);
+    } else {
+      ties.push({
+        liftIndex: i, from: clearBase, to: clearTop,
+        spacing: ez ? Math.min(ez.spacing, ts.spacing) : ts.spacing, diameterMm: lift.tieDia,
+      });
+    }
     trace.push(
       `Tramo ${i}: ${lift.bars.count}Ø${lift.bars.diameterMm}, estribos Ø${lift.tieDia} cada ` +
       `${(ts.spacing * 1000).toFixed(0)} mm (gobierna ${ts.governedBy}).`);

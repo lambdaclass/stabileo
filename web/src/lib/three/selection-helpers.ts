@@ -317,6 +317,40 @@ export function desaturateTowardGray(hex: number, amount = 0.55): number {
   return (mix(r) << 16) | (mix(g) << 8) | mix(b);
 }
 
+/**
+ * What the viewport paints and writes for a member under the verification overlay, from the
+ * member's VERDICT (`verificationStore.memberVerdict`) and its worst LOCAL ratio.
+ *
+ * The colour follows the verdict, never the ratio alone: a member whose local checks pass and
+ * that a hold fails (a detailing condition open, its deflection) is painted as failing, one a
+ * hold leaves not verified (its analysis, its seismic checks, a refusal) grey. A held member's
+ * label keeps its local ratio behind ⊘, in grey, so the number is never read as a pass.
+ */
+export interface VerificationVisual { color: number; label: { text: string; color: string } | null }
+export function verificationVisual(v: {
+  status: 'ok' | 'warn' | 'fail' | 'provisional' | 'unavailable' | 'stale';
+  local: 'ok' | 'warn' | 'fail' | 'provisional' | 'unavailable' | 'stale';
+  ratio: number | null;
+}): VerificationVisual {
+  const r = v.ratio;
+  const held = (v.local === 'ok' || v.local === 'warn') && v.status !== v.local;
+  if (v.status === 'unavailable') {
+    return { color: VERIFICATION_UNAVAILABLE_COLOR, label: held && r !== null ? { text: `⊘ ${r.toFixed(2)}`, color: '#9a9a9a' } : null };
+  }
+  if (v.status === 'stale') {
+    return { color: desaturateTowardGray(verificationColor(r)), label: r !== null ? { text: `⌛ ${r.toFixed(2)}`, color: '#b9b9a8' } : null };
+  }
+  if (v.status === 'fail' && held) {
+    return { color: 0xee2222, label: r !== null ? { text: `✗ ⊘ ${r.toFixed(2)}`, color: '#ff4444' } : null };
+  }
+  const color = verificationColor(r);
+  if (r === null) return { color, label: null };
+  // A proposal reads as the verifier reads its steel: refused (`verificationStore.getStatus`).
+  if (v.status === 'fail' || v.status === 'provisional') return { color, label: { text: `✗ ${r.toFixed(2)}`, color: '#ff4444' } };
+  if (v.status === 'warn') return { color, label: { text: `⚠ ${r.toFixed(2)}`, color: '#ffaa00' } };
+  return { color, label: { text: r.toFixed(2), color: '#44ff88' } };
+}
+
 /** Three-state verification colour for the viewport overlay. */
 export function verificationStateColor(
   ratio: number | null,

@@ -28,10 +28,20 @@
  * members; here it is held on the ordinary path.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage } from './fixtures';
+import {
+  test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage, declareBeamsNotLateral,
+} from './fixtures';
 import type { Page } from '@playwright/test';
 
 const notice = (page: Page) => page.getByTestId('detailing-convergence');
+
+/*
+ * CONVERGES. The specs that read a CONVERGED claim declare qa-8's beams not part of the lateral
+ * system first (`declareBeamsNotLateral`). Since 292b87f68 an undeclared beam is designed as part
+ * of it, and e5 and e6 then refuse (SEARCH_EXHAUSTED on the anchorage of their bottom bars, fy at
+ * the column face): the claim read «incomplete», which is true of that reading (the incomplete
+ * claim is `h1e-refused-state`'s subject). Declared, all eight verify and the claim converges.
+ */
 
 /** Open DETALLE. Direct child only: the stage contains nested disclosures of its own. */
 async function openDetailing(page: Page) {
@@ -59,6 +69,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
 
@@ -86,6 +97,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
     await expect(notice(page)).toHaveAttribute('data-state', 'converged');
@@ -146,6 +158,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
     await expect(notice(page)).toHaveAttribute('data-state', 'converged');
@@ -201,6 +214,7 @@ test.describe('the claim holds its layout and its three languages', () => {
       { pro: page },
     ) => {
       await loadModel(page, 'rc-design-qa-8');
+      await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
       await designAll(page);
       await openDetailing(page);
       await setAppLanguage(page, locale);

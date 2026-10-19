@@ -20,11 +20,13 @@
  * has its own assertion below.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { noteText } from '../drawings';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   TORSION_NOTICE_FLOOR, torsionUnevaluatedMembers, type TorsionNoticeInput,
 } from '../torsion-notice';
 import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
+import { cirsoc201Adapter2025 } from '../../design/adapters/cirsoc201-adapter';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../document-render';
 import type { SceneModel } from '../scene-model';
@@ -117,12 +119,20 @@ const NOT_EVALUATED = /TORSIÓN NO EVALUADA/i;
 // A whole-building test: 30 s rather than Vitest's 5 s default, for the reason set out in
 // `provisional-projections.test.ts` — under a full-suite pool these were failing on
 // contention with every assertion passing.
+const caps = cirsoc201Adapter2025.capabilities.beams as { torsion: boolean };
+const torsionFlag = { set: (v: boolean) => { caps.torsion = v; } };
+afterAll(() => torsionFlag.set(true));
+
 describe('unevaluated torsion, across every projection', { timeout: 30_000 }, () => {
   let scene: SceneModel;
   let doc: DocumentModel;
   let flagged: number[];
 
   beforeAll(async () => {
+    // The CIRSOC adapter verifies torsion (§22.7) now, so the warning no longer shows for it.
+    // What this checks is the warning itself, on every projection, for an adapter that does
+    // not: the flag is turned off for the duration of the test and restored after.
+    torsionFlag.set(false);
     // With five beams turned about their axis, so the building also carries provisional
     // proposals and the two warnings can be checked side by side (see `ROLLED_BEAMS`).
     const w = await workspaceScene('pro-edificio-7p', ROLLED_BEAMS);
@@ -192,11 +202,11 @@ describe('unevaluated torsion, across every projection', { timeout: 30_000 }, ()
       const mine = drawings.sheets.filter((s) => s.name.includes(a.id));
       expect(mine.length, `assembly ${a.id} produced sheets`).toBeGreaterThan(0);
       for (const s of mine) {
-        expect(s.sheet.notes.some((n) => NOT_EVALUATED.test(n)),
+        expect(s.sheet.notes.some((n) => NOT_EVALUATED.test(noteText(n, 'es'))),
           `sheet ${s.name} carries the torsion note`).toBe(true);
         // Near the top: note order is read order, and this sits with the other statements
         // about what the sheet may and may not be used for.
-        expect(s.sheet.notes.slice(0, 2).some((n) => NOT_EVALUATED.test(n)),
+        expect(s.sheet.notes.slice(0, 2).some((n) => NOT_EVALUATED.test(noteText(n, 'es'))),
           `sheet ${s.name} states it early`).toBe(true);
       }
     }
@@ -217,7 +227,7 @@ describe('unevaluated torsion, across every projection', { timeout: 30_000 }, ()
     const html = renderReportHtml(doc, RENDER, (k) => k);
     expect(html).toMatch(NOT_EVALUATED);
     expect(html).toContain('Torsión no evaluada');
-    expect(html, 'and says it is unfinished rather than a verdict').toContain('PR21');
+    expect(html, 'and says it is unfinished rather than a verdict').toContain('en desarrollo');
     for (const id of flagged) {
       expect(html, `member ${id} is listed in the report`).toMatch(new RegExp(`<td>${id}</td>`));
     }

@@ -169,11 +169,9 @@ test.describe('@slow the drawing follows the assemblies', () => {
    * what is DRAWN comes from them, so the sheet's title block must carry the revision the
    * assembly carries — not one cached from before the edit.
    *
-   * What this deliberately does NOT assert is that the regenerated steel differs from the
-   * steel before the edit. It does not, and that is the app's design rather than a defect:
-   * `runDetailing` details from the DESIGN outcomes, so a regeneration reproduces the designed
-   * arrangement. The app's answer to "keep my arrangement through a regeneration" is the pin —
-   * `lockedBars`, objective 6 — and `detailing.spec.ts` D21 pins exactly that.
+   * The regenerated steel is the edited steel: an edited member is detailed from the bars it
+   * HAS (`designOutcomeMap`, `outcomeFromProvided`), and an edit that does not verify is not
+   * drawn. `rebar-review-fixes.test.ts` pins that a regeneration after an edit draws the edit.
    */
   test('E6 — the sheet carries the revision the assembly carries', async ({ pro: page }) => {
     const ids = await detailed(page);

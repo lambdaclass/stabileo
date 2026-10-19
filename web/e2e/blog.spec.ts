@@ -310,6 +310,10 @@ test.describe('@smoke blog', () => {
 
     const embed = page.locator('.post-embed');
     await embed.scrollIntoViewIfNeeded();
+    // The numbers read back below are the ones the caption quotes.
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('D/C = 0,90');
+    expect(caption).toContain('gobernados por el corte en el tramo');
     await embed.locator('.post-embed-start').click();
 
     const app = page.frameLocator('.post-embed iframe');
@@ -325,12 +329,17 @@ test.describe('@smoke blog', () => {
     await expect(app.getByTestId('cmd-design-all')).toBeEnabled({ timeout: 60_000 });
     await app.getByTestId('cmd-design-all').click();
 
-    // Verified, not "sin verificar", and at the utilisation the caption quotes.
+    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
+    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
+    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
+    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
+    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
     const table = app.locator('body');
-    await expect(table).toContainText('0.89', { timeout: 90_000 });
-    await expect(table).toContainText('0.87');
-    // Both rows are governed by the anchorage of the bars, which names no combination.
-    await expect(table).toContainText('Anchorage');
+    for (const id of [1, 2]) {
+      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
+      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
+      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+    }
     await expect(table).not.toContainText('sin armadura');
   });
 

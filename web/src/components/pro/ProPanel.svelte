@@ -47,6 +47,8 @@
   import ProGroupsPanel from './ProGroupsPanel.svelte';
   import ProPhysicalPanel from './ProPhysicalPanel.svelte';
   import ProBuildingPanel from './ProBuildingPanel.svelte';
+  import ProFoundationModelPanel from './ProFoundationModelPanel.svelte';
+  import ProDesignDataPanel from './ProDesignDataPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
   import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
@@ -346,6 +348,10 @@
           <ProPhysicalPanel />
         {:else if activeTab === 'building'}
           <ProBuildingPanel />
+        {:else if activeTab === 'foundations'}
+          <ProFoundationModelPanel />
+        {:else if activeTab === 'designData'}
+          <ProDesignDataPanel />
         {:else if activeTab === 'code'}
           <ProCodePanel />
         {:else if activeTab === 'view'}

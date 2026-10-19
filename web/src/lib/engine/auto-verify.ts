@@ -12,6 +12,7 @@
  * This is a pure function: no store reads, no side effects.
  */
 
+import { concreteFc } from '../model/design-data';
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { GoverningPerElement3D } from './governing-case';
 import type { ElementDesignDemands } from './station-design-forces';
@@ -19,7 +20,7 @@ import { verifyElement, classifyElement, computeJointPsiFromModel } from './code
 import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
 import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
-import type { RegulationEdition } from '../codes/regulation';
+import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 // ─── Input/Output types ─────────────────────────────────────
 
@@ -34,9 +35,9 @@ export interface AutoVerifyModelData {
 export interface AutoVerifyOptions {
   rebarFy?: number;    // MPa, default 420
   cover?: number;      // m, default 0.025
+  /** The clear cover of a column, m; absent: `cover`. */
+  columnCover?: number;
   stirrupDia?: number; // mm, default 8
-  /** Edition the engine re-check applies. Default: the edition in force, 2025. */
-  edition?: RegulationEdition;
 }
 
 // ─── Which members this verifier can check, and why not ──────────
@@ -69,7 +70,7 @@ export function rcCheckability(
   if (!section) return 'noSection';
   const material = model.materials.get(elem.materialId);
   if (!material) return 'noMaterial';
-  const fc = material.fy;
+  const fc = concreteFc(material);
   if (!fc || fc > CONCRETE_FY_CEILING) return 'notConcrete';
   if (!section.b || !section.h) return 'noRectangle';
   return 'checkable';
@@ -153,8 +154,8 @@ export function autoVerifyFromResults(
     const section = model.sections.get(elem.sectionId) as
       { id: number; name: string; b: number; h: number };
     const material = model.materials.get(elem.materialId) as
-      { id: number; name: string; fy: number };
-    const fc = material.fy;
+      { id: number; name: string; fy: number; fc?: number };
+    const fc = concreteFc(material)!;
 
     const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -301,7 +302,7 @@ export function autoVerifyFromResults(
       Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear,
       // Axis-correct section orientation for the governing beam axis (columns
       // keep their real b/h since they always use Mz).
-      b: bFlex, h: hFlex, fc, fy: rebarFy, cover, stirrupDia,
+      b: bFlex, h: hFlex, fc, fy: rebarFy, cover: isVertical ? options?.columnCover ?? cover : cover, stirrupDia,
       Muy: isVertical ? MuyMax : undefined,
       Vz: VzMax > 0.01 ? VzMax : undefined,
       Tu: TuMax > 0.001 ? TuMax : undefined,
@@ -309,9 +310,11 @@ export function autoVerifyFromResults(
     };
 
     // The TypeScript designs and checks; the engine re-checks what it settled on, and a pass the
-    // engine does not confirm is a failure (cirsoc201-engine-gate.ts).
+    // engine does not confirm is a failure (cirsoc201-engine-gate.ts). The re-check reads the
+    // edition the designer sized with (`CIRSOC201_DESIGN_EDITION`), never another one: a gate in
+    // 2025 over a 2005 design, or the other way round, would confirm or refuse a different design.
     const v: ElementVerification = engineRecheckElement(verifyElement(input), {
-      edition: options?.edition, stirrupDia, NuShear,
+      edition: CIRSOC201_DESIGN_EDITION, stirrupDia, NuShear,
     });
     v.flexureAxis = flexureAxis;
 

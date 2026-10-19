@@ -12,6 +12,7 @@
  * Pure: no store access, no side effects.
  */
 
+import { regroupBars } from './rebar-groups';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
 import { resolveLayers, resolveColumnReinf } from '../station-design-forces';
 import type { DesignCodeAdapter } from './code-adapter';
@@ -194,9 +195,11 @@ export function applyPatch(
       }
       reg[rs.layersKey] = layers;
       reg[rs.key] = { count, diameter };
-      // Keep the group form consistent with the flat layers so the two cannot diverge.
+      // The cut groups follow the new layers, so the two cannot diverge and the cut-offs are kept.
       const groupsKey = rs.key === 'bottomSpan' ? 'bottomGroups' : rs.key === 'topStart' ? 'topStartGroups' : 'topEndGroups';
-      if (reg[groupsKey]) delete reg[groupsKey];
+      const regrouped = regroupBars(reg[groupsKey], layers);
+      if (regrouped) reg[groupsKey] = regrouped;
+      else delete reg[groupsKey];
       if (beforeCount !== count || beforeDia !== diameter) {
         changes.push({ field: rs.label, before: fmtLayers(beforeLayers), after: fmtLayers(layers) });
       }
@@ -260,7 +263,7 @@ export function applyPatch(
         spacing: patch.ties.spacing ?? before?.spacing ?? 0.15,
       };
       const cornerDia = next.column?.cornerDia ?? beforeCol?.cornerDia ?? 16;
-      const sMax = maxTieSpacing(cornerDia, merged.diameter, b, h);
+      const sMax = maxTieSpacing(cornerDia, merged.diameter, b, h, ctx.codeEdition);
       if (merged.spacing < COLUMN_LIMITS.minSpacing - 1e-9) {
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.spacingTooSmall', params: { field: 'ties', spacing: merged.spacing } });
       } else if (merged.spacing > sMax + 1e-9) {

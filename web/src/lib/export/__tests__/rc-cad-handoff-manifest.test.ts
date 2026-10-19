@@ -71,11 +71,10 @@ describe('envelope and provenance', () => {
   it('names its subject and the production certificate it was built under', () => {
     expect(doc.subject).toMatchObject({ kind: 'footing', entityId: FOOTING_ID, name: 'Z1' });
     expect(doc.subject.elementIds).toEqual([COLUMN_ELEMENT_ID]);
-    // UNSUPPORTED, and it is the honest propagation of two production limitations rather than a
-    // regression: punching with unbalanced moment transfer is not implemented and the footing's
-    // top reinforcement was never evaluated, so the family certificate cannot claim
-    // IMPLEMENTED_PROVISIONAL. `statuses` carries each of those separately.
-    expect(doc.certificate.maturity).toBe('UNSUPPORTED');
+    // IMPLEMENTED_PROVISIONAL since punching with unbalanced moment transfer is checked
+    // (§8.4.4.2): it was the limitation that held the family certificate at UNSUPPORTED. The
+    // footing's top reinforcement is still not evaluated, and `statuses` says so on its own.
+    expect(doc.certificate.maturity).toBe('IMPLEMENTED_PROVISIONAL');
     expect(doc.certificate.verifierId).toBe('cirsoc201.provided.v2.2025');
     expect(doc.certificate.codeEdition).toBe('2025');
   });
@@ -554,13 +553,13 @@ describe('unsupported conditions', () => {
     expect(doc.unsupported.map((x) => x.code))
       .not.toContain('FOOTING_MAT_GEOMETRY_NOT_MODELED');
 
-    // The top, which genuinely was not evaluated, and the punching limitation beside it.
+    // The top, which genuinely was not evaluated; the punching moment, which now is.
     const top = doc.unsupported.find((x) => x.code === CODE_V2_TOP_NOT_EVALUATED);
     expect(top, 'the top-reinforcement condition is present').toBeTruthy();
     expect(doc.statuses.topReinforcement).toBe('NOT_EVALUATED');
     expect(doc.unsupported.map((x) => x.code))
-      .toContain(CODE_V2_PUNCHING_MOMENT_UNSUPPORTED);
-    expect(doc.statuses.punchingMomentTransfer).toBe('UNSUPPORTED');
+      .not.toContain(CODE_V2_PUNCHING_MOMENT_UNSUPPORTED);
+    expect(doc.statuses.punchingMomentTransfer).toBe('EVALUATED');
 
     // And the four spacing failures, as a coded condition rather than only as findings.
     expect(doc.unsupported.map((x) => x.code)).toContain(CODE_V2_MAT_STARTER_SPACING);

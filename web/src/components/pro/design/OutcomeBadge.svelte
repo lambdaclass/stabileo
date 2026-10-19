@@ -14,8 +14,14 @@
     outcome?: DesignOutcomeKind;
     flag?: 'edited' | 'auto' | 'provisional' | 'noRebar' | 'certified' | 'sloped';
     compact?: boolean;
+    /**
+     * `local`: the badge marks ONE check row of the section, and says so in its words ("local
+     * check met"), so a ✓ on a row is never read as the member's verdict (`member-verdict.ts`).
+     */
+    scope?: 'member' | 'local';
   }
-  let { status, outcome, flag, compact = false }: Props = $props();
+  let { status, outcome, flag, compact = false, scope = 'member' }: Props = $props();
+  const statusWord = (s: DisplayStatus) => t(scope === 'local' ? `verdict.local.${s}` : `design.status.${s}`);
 
   const STATUS_GLYPH: Record<DisplayStatus, string> = {
     // `◐` for a proposal: half-filled, which is what it is — one axis designed and verified,
@@ -38,11 +44,11 @@
 </script>
 
 {#if status}
-  <span class="badge badge-{status}" data-testid="status-badge" data-status={status}
-        title={t(`design.status.${status}`)}>
+  <span class="badge badge-{status}" data-testid="status-badge" data-status={status} data-scope={scope}
+        title={statusWord(status)}>
     <span aria-hidden="true">{STATUS_GLYPH[status]}</span>
-    {#if !compact}<span class="badge-text">{t(`design.status.${status}`)}</span>{/if}
-    <span class="sr-only">{t(`design.status.${status}`)}</span>
+    {#if !compact}<span class="badge-text">{statusWord(status)}</span>{/if}
+    <span class="sr-only">{statusWord(status)}</span>
   </span>
 {/if}
 

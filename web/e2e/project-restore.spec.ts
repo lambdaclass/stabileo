@@ -48,7 +48,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { turnRolledBeams } from './fixtures';
+import { turnRolledBeams, declareBeamsNotLateral } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -423,6 +423,14 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
     .toBeGreaterThan(0);
   // Five beams turned, so the design carries the provisional state step 10 asserts on.
   await turnRolledBeams(page);
+  /*
+   * And the beams declared not part of the lateral system, saved with the project. Undeclared,
+   * since 292b87f68 they are designed as part of it (fy developed at the column face) and all
+   * 119 refuse on that anchorage, the five turned ones with them: step 10 found no PROVISIONAL
+   * row, because a refused beam proposes nothing. The declaration travels through the autosave
+   * and the restore with the rest of the design data.
+   */
+  await declareBeamsNotLateral(page);
 
   // The autosave is written by the app's own 30 s timer. Waited for rather than faked: the
   // defect lived in what that timer wrote and in what the banner did with it.
@@ -499,7 +507,12 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   // its own, so step 1 turns five beams 20° (`ROLLED_BEAMS`), which bend biaxially for a real
   // reason. Their proposals are reported, not hidden, their cause is stated once rather than
   // once per member, and the sheet-level consequence is on screen.
-  await expect(page.getByTestId('rebar-status-MODELLED'), 'the other beams are modelled').toBeVisible();
+  // The other members' local checks pass, and none of them is MODELLED: the building's slab mesh
+  // sends its load straight into the columns, so the analysis of all 203 is not validated
+  // (`analysis-validity.ts`) and their verdict holds them (`member-verdict.ts`). They read HELD,
+  // never as finished work.
+  await expect(page.getByTestId('rebar-status-HELD'), 'the other members are held by their analysis').toBeVisible();
+  await expect(page.getByTestId('rebar-status-MODELLED'), 'and none reads as modelled while held').toHaveCount(0);
   const provisional = page.getByTestId('rebar-status-PROVISIONAL');
   await expect(provisional, 'provisional members keep their own row').toBeVisible();
   const cause = page.getByTestId('rebar-status-cause-PROVISIONAL');

@@ -26,14 +26,20 @@
 
 import { modelStore } from './model.svelte';
 import { verificationStore } from './verification.svelte';
+import { currentSlabColumnJoint } from './analysis-validity-store';
+import { collectCertificates } from './detailing-certificates';
+export { collectCertificates };
 import { regulationsStore } from './regulations.svelte';
 import { getDesignCode } from '../engine/design/code-adapter';
+import { designOutcomeMap } from './design-outcome-map';
+export { designOutcomeMap };
 import { DAGG_ASSUMED_MM } from '../codes/project-code-settings';
 import type { RegulationEdition } from '../codes/regulation';
-import type { MemberDesignOutcome } from '../engine/design/outcome';
 import type { BentUpPolicy } from '../engine/detailing/generate-beam';
-import { DEFAULT_COVER, DEFAULT_REBAR_FY } from '../engine/design/member-context';
-import { rebarHash } from '../engine/design/rebar-hash';
+import { materialFamilyOf } from '../engine/steel/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
+import { concreteFc } from '../model/design-data';
+import { designData } from './design-data';
 import { designRunStore } from './design-run.svelte';
 import type { DesignFamily } from '../engine/design/design-families';
 import { detailingReadiness, type DetailingReadiness } from '../engine/detailing/run-detailing';
@@ -42,20 +48,12 @@ import {
 } from '../flow/rc-selection';
 import type { RcDocumentableMember } from '../flow/rc-document-scope';
 import {
-  buildDocumentModel, type CertificateEntry, type DocumentModel,
+  buildDocumentModel, type DocumentModel,
 } from '../engine/detailing/document-model';
 import { narrowDocument } from '../engine/detailing/document-narrow';
 import type { DetailingAssembly } from '../engine/detailing/assembly';
 import type { LapInterval } from '../engine/detailing/lap-materialize';
 
-export function designOutcomeMap(): ReadonlyMap<number, MemberDesignOutcome> {
-  const out = new Map<number, MemberDesignOutcome>();
-  for (const id of verificationStore.contexts.keys()) {
-    const o = verificationStore.outcomeFor(id);
-    if (o) out.set(id, o);
-  }
-  return out;
-}
 
 
 /** The concrete edition currently bound to the `concrete` role. */
@@ -79,9 +77,9 @@ export function buildProjectDocument(input: {
   author: string;
   at: string;
   /** The documentation narrowing, when there is one. Null or absent is the whole set. */
-  scope?: RcDocumentationScope | null;
+  scope?: RcDocumentationScope | null; outdated?: boolean; // outdated: the model changed after the assemblies
 }): DocumentModel {
-  const whole = buildDocumentModel({
+  const whole = buildDocumentModel({ ...(input.outdated ? { outdated: true } : {}),
     seriesId: 'detailing',
     revision: {
       number: input.revisionNumber,
@@ -117,6 +115,8 @@ export function buildProjectDocument(input: {
      * this set" is a true claim that will be taken as a false one.
      */
     convergence: currentReadiness().convergence,
+    // Whether a floor's slab is joined to its columns at one node (`analysis-validity.ts`).
+    slabColumnJoint: currentSlabColumnJoint(),
   });
   /*
    * Built over EVERYTHING, then narrowed. Never built over the subset.
@@ -337,14 +337,16 @@ export function resolveSpacingMargin(): number {
 
 
 /**
- * Distributed wall bar diameter, mm.
- *
- * §11.6.1's relaxed ratios are available only to Ø16 and smaller, and Ø12 is what a
- * distributed curtain is normally drawn with. It is a starting size the design then checks,
- * not a result: `designWall` reports the ratios and spacings that follow from it.
+ * Distributed wall bar diameter, mm: the project's (Ø12 unless it says otherwise). §11.6.1's
+ * relaxed ratios are available only to Ø16 and smaller. A starting size the design then checks.
  */
-export const DEFAULT_WALL_BAR_DIA_MM = 12;
+export const wallBarDiameterMm = (): number => designData().wallBarDiaMm;
 
+/** A member a person locked against a redesign: the detailing repair loop leaves its bars. */
+export const isLockedMember = (id: number): boolean => !!modelStore.designDecisions?.locked?.includes(id);
+export { writeRepaired } from './design-decisions';
+export { savedMemberCuts } from './beam-line-store';
+export { wallInputs } from './wall-inputs'; export { slabInputs } from './slab-inputs';
 
 // The footing bottom-mat diameter used to live here, as
 // `const DEFAULT_FOOTING_BAR_DIA_MM = 16`. It set the effective depth of every footing check
@@ -376,14 +378,17 @@ export const CONCRETE_REGULATION_ID = 'cirsoc-201';
  */
 export function resolveConcreteProperties(): { fc: number; fy: number; cover: number } {
   let fc = Infinity;
+  // Only the concretes: a steel's yield or a timber's strength is not an f'c.
   for (const m of modelStore.model.materials.values()) {
-    const v = (m as { fy?: number }).fy;
+    if (materialFamilyOf(m, catalogueGradeFamily).family !== 'concrete') continue;
+    const v = concreteFc(m);
     if (typeof v === 'number' && v > 0) fc = Math.min(fc, v);
   }
+  const d = designData();
   return {
     fc: Number.isFinite(fc) ? fc : 0,
-    fy: DEFAULT_REBAR_FY,
-    cover: DEFAULT_COVER,
+    fy: d.rebarFy,
+    cover: d.covers.slab,
   };
 }
 
@@ -431,49 +436,6 @@ export function bentUpPolicy(): BentUpPolicy {
   };
 }
 
-
-/**
- * The per-member verification certificate every document carries.
- *
- * ── Why it is a reading and not a store method ─────────────────────
- *
- * It answers one question per element — what was certified, what is there now, and whether the
- * two are the same claim — out of `verificationStore`, and holds nothing. That is what this
- * file is for, and moving it here is what keeps `detailing.svelte.ts` inside the 800-line
- * ceiling `detailing-store-ceiling.test.ts` enforces.
- *
- * The `verifierId` comes from the ASSEMBLY that owns the member, not from the project: it is
- * the identity of the verifier that actually ran for that steel.
- */
-export function collectCertificates(
-  assemblies: readonly {
-    elementIds: number[]; provenance: { verifierId: string };
-  }[],
-): CertificateEntry[] {
-  const out: CertificateEntry[] = [];
-  for (const a of assemblies) {
-    for (const id of a.elementIds) {
-      const reinf = verificationStore.reinforcementFor(id);
-      const result = verificationStore.providedFor(id);
-      const current = reinf ? rebarHash(reinf) : '';
-      const certified = verificationStore.certifiedHashFor(id);
-      out.push({
-        elementId: id,
-        certifiedHash: certified,
-        currentHash: current,
-        // Empty on either side means the question was never answered, which is not a match.
-        // Silence is not agreement.
-        matches: certified !== '' && current !== '' && certified === current,
-        verifierId: a.provenance.verifierId,
-        status: result?.overallStatus === 'ok' ? 'ok'
-          : result?.overallStatus === 'warn' ? 'warn'
-            : result?.overallStatus === 'fail' ? 'fail' : 'notRun',
-        provisional: verificationStore.outcomeFor(id)?.outcome === 'PROVISIONAL_BIAXIAL',
-      });
-    }
-  }
-  return out;
-}
 
 /**
  * What a regeneration is about to do to this project's hand edits.

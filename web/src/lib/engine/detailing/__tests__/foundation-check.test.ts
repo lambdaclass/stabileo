@@ -219,7 +219,9 @@ describe('factored moments — trapezoidal pressure in strength checks', () => {
     // punching demand is unaffected by the factored moment.
     const uniform = checkFooting(footing());
     const withMoment = checkFooting(footing({ factoredMomentB: 125 }));
-    expect(withMoment.punching!.utilization).toBeCloseTo(uniform.punching!.utilization, 9);
+    // The DEMAND is unchanged; the moment then adds its eccentric shear (§8.4.4.2) on top.
+    expect(withMoment.punching!.demand.Vu).toBeCloseTo(uniform.punching!.demand.Vu, 9);
+    expect(withMoment.punching!.eccentric!.vDirect).toBeCloseTo(uniform.punching!.vu, 9);
   });
 });
 
@@ -522,18 +524,15 @@ describe('punching moment transfer', () => {
     expect(mt.Msc).toBeGreaterThan(0.9 * 125);
   });
 
-  it('cannot produce an OK punching result once the moment is significant', () => {
+  it('checks the punching with its moment once the moment is significant (§8.4.4.2)', () => {
+    const plain = checkFooting(footing());
     const r = checkFooting(footing({ factoredMomentB: 125 }));
-    expect(r.punching!.momentTransfer.status)
-      .toBe('UNSUPPORTED_MOMENT_TRANSFER_NOT_EVALUATED');
+    expect(r.punching!.momentTransfer.status).toBe('EVALUATED');
     expect(r.punching!.momentTransfer.significant).toBe(true);
-    expect(r.punching!.status).toBe('UNSUPPORTED');
-    // The whole footing, not only the punching row: a footing whose punching could not be
-    // verified is not a verified footing.
-    expect(r.status).toBe('UNSUPPORTED');
-    expect(r.unsupported.join(' ')).toMatch(/8\.4\.4\.2/);
-    // The direct-shear numbers survive for the report; what is refused is the VERDICT.
-    expect(r.punching!.utilization).toBeGreaterThan(0);
+    expect(r.punching!.status).not.toBe('UNSUPPORTED');
+    // The moment's eccentric shear raises the stress over the direct shear alone.
+    expect(r.punching!.utilization).toBeGreaterThan(plain.punching!.utilization);
+    expect(r.unsupported.join(' ')).not.toMatch(/8\.4\.4\.2/);
   });
 
   it('reports the moment a plan eccentricity alone transfers, and names the tolerance', () => {

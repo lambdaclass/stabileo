@@ -80,6 +80,16 @@ export interface LayoutCandidate {
    * claim, rather than an unchecked one.
    */
   bendWitnesses: BendWitness[];
+  /**
+   * Whether a closed stirrup can close on this row: false when an upper layer stands on both
+   * seats, directly over both corner bars. A 135° closing hook (§25.7.1.3(a)) wraps a corner
+   * bar and drives its tail diagonally into the core, through the bar standing on it: measured
+   * on qa-8, a row of 4 slots in two full layers left every corner of every stirrup so
+   * covered, and each closing tail crossed an upper-layer bar by 3,1 mm (44 overlaps). The row
+   * serves both faces, so with both seats covered no corner is left. Absent where the caller
+   * stated no seats.
+   */
+  closable?: boolean;
 }
 
 /** One bend of the closed stirrup, and the bar seated in it. */
@@ -133,6 +143,10 @@ export interface CandidateRequest {
    * clears every joint the member passes through.
    */
   obstacles?: readonly KeepOut[];
+  /** The obstacles the channel rows read, when not all of them (those of every layer). */
+  channelObstacles?: readonly KeepOut[];
+  /** The bar the obstacles are cleared at, mm, when larger than the row's (the member's largest). */
+  obstacleDiameterMm?: number;
   /**
    * Where the outermost row's bars must sit for the stirrup bends to contain them, m from
    * the section centreline — §25.7.1.2 and §25.7.1.3(a).
@@ -281,8 +295,17 @@ export function generateLayoutCandidates(req: CandidateRequest): LayoutCandidate
   // representative is what leaves a joint with an empty domain.
   if (req.cornerSeatAcross !== undefined && req.cornerSeatAcross > 0) {
     const seat = req.cornerSeatAcross;
+    // The first row as even as the layers allow, and fuller ones up to what the seats hold:
+    // a fuller first row keeps the upper layer off the corners, where the stirrup closes
+    // (`closable`), and is the split a design of rows lays (6 + 2 rather than 4 + 4).
+    const firsts: Array<[number, number]> = [];
     for (const layers of layerOptions) {
-      const inFirst = Math.min(Math.ceil(req.count / layers), req.count);
+      for (let n = Math.min(Math.ceil(req.count / layers), req.count); n <= req.count - (layers - 1); n++) {
+        if (n > Math.ceil(req.count / layers) && (layers < 2 || n < 2 || (2 * seat) / (n - 1) - d < spacing.minClear - 1e-9)) break;
+        firsts.push([layers, n]);
+      }
+    }
+    for (const [layers, inFirst] of firsts) {
       if (inFirst < 2) continue;
       const seatPitch = (2 * seat) / (inFirst - 1);
       // The seats are fixed by the cage, so a row that cannot hold this many bars between
@@ -321,8 +344,9 @@ export function generateLayoutCandidates(req: CandidateRequest): LayoutCandidate
   // simpler drawing and the easier cage to build. But when obstacles split the section into
   // separate gaps, a contiguous row can be impossible while the section has ample room, and
   // the only arrangement that works is one distributed across the gaps.
-  if (req.obstacles && req.obstacles.length > 0) {
-    const channels = freeChannelsOf(req.clearWidth / 2, req.obstacles);
+  const channelObstacles = req.channelObstacles ?? req.obstacles;
+  if (channelObstacles && channelObstacles.length > 0) {
+    const channels = freeChannelsOf(req.clearWidth / 2, channelObstacles);
     for (const layers of layerOptions) {
       const base = Math.ceil(req.count / layers);
       const positions = placeAcrossChannels(channels, base, d, pitch);
@@ -345,10 +369,72 @@ export function generateLayoutCandidates(req: CandidateRequest): LayoutCandidate
     }
   }
 
+  // ── Seated rows threaded between the obstacles ──
+  //
+  // The corner seats are fixed by the cage and the obstacles by the joints, and the channel rows
+  // above centre their bars in the gaps, so they seat a corner only by chance. Here the first
+  // layer stands on both seats and packs its bars from one seat to the other at the pitch,
+  // stepping over each obstacle of that layer, as a detailer threads a row; the upper layers
+  // take the positions under them that their own obstacles leave, the most central first, so
+  // they stay off the corners the stirrups close on (`closable`). Obstacles of one layer only
+  // (`KeepOut.layers`: a crossing beam's tail beside one row) bar that layer alone.
+  if (req.cornerSeatAcross !== undefined && req.cornerSeatAcross > 0 && req.obstacles && req.obstacles.length > 0) {
+    const seat = req.cornerSeatAcross;
+    const tol = req.cornerSeatTolerance ?? 0;
+    const of = (m: number) => req.obstacles!.filter((k) => !k.layers || k.layers.includes(m));
+    // Cleared at the bar the joints read (`candidateClears` with the member's largest bar).
+    const dk = Math.max(d, (req.obstacleDiameterMm ?? 0) / 1000);
+    const blockedBy = (p: number, obs: readonly KeepOut[]) => obs.find((k) => Math.abs(p - k.at) < dk / 2 + k.halfWidth - 1e-12);
+    const obs0 = of(0);
+    // The seat itself, or the nearest free position the bend still holds.
+    const seatAt = (side: 1 | -1): number | null => {
+      for (let off = 0; off <= tol + 1e-12; off += 0.0005) {
+        const p = side * (seat - off);
+        if (!blockedBy(p, obs0)) return p;
+      }
+      return null;
+    };
+    const lo = seatAt(-1), hi = seatAt(1);
+    if (lo !== null && hi !== null) {
+      const packed = [lo];
+      let p = lo + pitch;
+      while (p <= hi - pitch + 1e-12) {
+        const k = blockedBy(p, obs0);
+        if (k) { p = k.at + dk / 2 + k.halfWidth + 1e-9; continue; }
+        packed.push(p);
+        p += pitch;
+      }
+      packed.push(hi);
+      for (const layers of layerOptions) {
+        for (let n = Math.min(Math.ceil(req.count / layers), req.count); n <= req.count - (layers - 1); n++) {
+          if (n < 2 || n > packed.length) continue;
+          // `n` of the packed positions, both seats kept, the rest spread by index.
+          const pick = Array.from({ length: n }, (_, j) => packed[Math.round((j * (packed.length - 1)) / (n - 1))]!);
+          if (new Set(pick).size !== n) continue;
+          const slots: CandidateSlot[] = pick.map((across) => ({ across, layer: 0 }));
+          let placed = n;
+          const perUpper = layers > 1 ? Math.ceil((req.count - n) / (layers - 1)) : 0;
+          let ok = true;
+          for (let layer = 1; layer < layers && placed < req.count; layer++) {
+            const take = Math.min(perUpper, req.count - placed);
+            const free = pick.filter((x) => !blockedBy(x, of(layer))).sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
+            if (free.length < take) { ok = false; break; }
+            for (const across of free.slice(0, take)) slots.push({ across, layer });
+            placed += take;
+          }
+          if (!ok || slots.length !== req.count) continue;
+          const c = finalise(slots, d, req, spacing.minClear, layers, refs, 'thr');
+          if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); }
+        }
+      }
+    }
+  }
+
   // Best-first and fully deterministic: fewest layers, then least congested, then most
   // centred, then narrowest, then id.
   return out.sort((a, b) =>
     a.layers - b.layers
+    || Number(a.closable === false) - Number(b.closable === false)
     || a.maxPerLayer - b.maxPerLayer
     || centrality(a) - centrality(b)
     || a.halfSpan - b.halfSpan
@@ -434,8 +520,12 @@ function finalise(
   const bendWitnesses = witnessSeats(slots, req);
   if (bendWitnesses.some((w) => w.filledBy === null)) return null;
 
+  const tol = req.cornerSeatTolerance ?? 0;
+  const seat = req.cornerSeatAcross;
+  const covered = (side: number) => slots.some((x) => x.layer > 0 && Math.abs(x.across - side * seat!) <= tol + 1e-12);
   return {
     bendWitnesses,
+    ...(seat !== undefined && seat > 0 ? { closable: !(covered(-1) && covered(1)) } : {}),
     id: `${tag}L${layers}:${slots.map((s) =>
       `${s.layer}@${Math.round(s.across * 10000)}`).join(',')}`,
     slots, layers,
@@ -459,6 +549,8 @@ function centrality(c: LayoutCandidate): number {
 export interface KeepOut {
   at: number;
   halfWidth: number;
+  /** The layers it bars, when not every one: a hook tail beside one row's tails only. */
+  layers?: readonly number[];
 }
 
 /** A free gap between obstacles, in the member's transverse coordinate. */
@@ -539,8 +631,10 @@ export function candidateClears(
   let worst = 0;
   for (const slot of candidate.slots) {
     for (const k of keepOuts) {
+      if (k.layers && !k.layers.includes(slot.layer)) continue;
       const gap = Math.abs(slot.across - k.at) - half - k.halfWidth;
-      if (gap < 0) worst = Math.min(worst, gap);
+      // A bar exactly at a keep-out's edge (a tail plane set at the clear from a seat) clears it.
+      if (gap < -1e-9) worst = Math.min(worst, gap);
     }
   }
   return { ok: worst >= 0, worstOverlap: worst };

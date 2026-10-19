@@ -19,6 +19,7 @@
    * reason each one has none. A user who never opens the workspace still has to know they
    * exist — that was the original defect and closing the overlay must not bring it back.
    */
+  import { coverForMember, sheetMembers } from '../../../lib/store/detailing-sheet-inputs';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { buildOutcomeSummaries } from '../../../lib/store/element-status-join';
   import { modelStore } from '../../../lib/store/model.svelte';
@@ -90,6 +91,7 @@
     if (!doc || assemblyIds.length === 0) return;
     const set = renderDrawings(doc, {
       locale: i18n.locale, projectName: t('detailing.doc.project'),
+      members: sheetMembers(), coverOf: coverForMember,
     });
     ondownload(`detailing-rev${doc.revision.number}-3d.dxf`, 'application/dxf', set.dxf);
   }

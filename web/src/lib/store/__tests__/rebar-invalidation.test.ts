@@ -23,6 +23,8 @@ import { computeStationDemands } from '../../engine/verification-service';
 import { buildAllMemberContexts, buildCriticalSectionMap, type ContextModelData } from '../../engine/design/member-context';
 import * as wasmSolver from '../../engine/wasm-solver';
 import type { ProvidedReinforcement } from '../model.svelte';
+import { stateSuiteLateral } from './suite-lateral';
+import { lateralResolver } from '../lateral-system';
 
 beforeAll(async () => {
   // history.svelte.ts wires modelStore._setHistoryPush from a queueMicrotask.
@@ -34,6 +36,9 @@ const REBAR: ProvidedReinforcement = {
   regions: {
     bottomSpanLayers: [{ count: 4, diameter: 20, row: 0 }],
     bottomSpan: { count: 4, diameter: 20 },
+    // Hooked into the supports: 71 cm reach there, short of the 90 cm a straight Ø20 needs (ld)
+    // and past its 37 cm hooked (ldh). Straight, they are a hook asked for, which does not pass.
+    bottomGroups: [{ layers: [{ count: 4, diameter: 20, row: 0 }], label: 'all', continueStart: true, continueEnd: true, anchorageStart: 'hook', anchorageEnd: 'hook' }],
     topStartLayers: [{ count: 3, diameter: 20, row: 0 }],
     topStart: { count: 3, diameter: 20 },
     topEndLayers: [{ count: 3, diameter: 20, row: 0 }],
@@ -70,6 +75,8 @@ function setup() {
     combinations: qa8.combinations as never,
     nextId: { node: 100, material: 10, section: 10, element: 100, support: 10, load: 100 },
   } as never);
+  // The reading of the beams' role in the lateral system this suite was written under (`suite-lateral.ts`).
+  stateSuiteLateral();
 
   const md = modelData();
   const combo = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
@@ -87,6 +94,8 @@ function setup() {
     analysisRevision: verificationStore.analysisRevision,
     demandRevision: verificationStore.demandRevision + 1,
     solveGeneration: verificationStore.solveGeneration,
+    // The project's declaration of the lateral system, as `computeDemands` reads it.
+    lateralOf: lateralResolver(),
   }));
   return [...verificationStore.contexts.keys()].sort((a, b) => a - b);
 }
@@ -287,18 +296,27 @@ describe('reinforcement edits preserve analysis state', () => {
     expect(snapEntry.reinforcement.regions.bottomSpanLayers[0].count).toBe(snapCount);
   });
 
-  it('9. revert clears reinforcement in one step and drops the edited mark', () => {
+  it('9. revert goes back to the proposal in one step; with none it erases nothing', () => {
     commitManual(ids[0], REBAR);
     expect(designRunStore.manualOverrides.has(ids[0])).toBe(true);
+    // No design ever proposed for this member: its bars stay, and so does the edit mark.
     revertReinforcement([ids[0]]);
-    expect(modelStore.elements.get(ids[0])!.reinforcement).toBeUndefined();
-    expect(designRunStore.manualOverrides.has(ids[0])).toBe(false);
+    expect(modelStore.elements.get(ids[0])!.reinforcement).toBeTruthy();
+    expect(designRunStore.manualOverrides.has(ids[0])).toBe(true);
   });
 
   it('10. display status is provided-first: weakening rebar turns the member red', () => {
     const beam = ids.find(id => verificationStore.contextFor(id)!.elementType === 'beam')!;
     expect(verificationStore.getDisplayStatus(beam)).toBe('unavailable');   // no rebar
-    commitManual(beam, REBAR);
+    // REBAR's 3Ø20 top bars do not hook into these 40 cm columns (ℓdh 36,8 cm against 28,4 cm with
+    // the columns read at their default Ø32 cage, `end-support-anchorage.ts`); a member that passes
+    // carries the same steel as 8Ø12, whose ℓdh is 22,1 cm.
+    const anchoring: ProvidedReinforcement = { regions: {
+      ...REBAR.regions!,
+      topStartLayers: [{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }], topStart: { count: 8, diameter: 12 },
+      topEndLayers: [{ count: 4, diameter: 12, row: 0 }, { count: 4, diameter: 12, row: 1 }], topEnd: { count: 8, diameter: 12 },
+    } };
+    commitManual(beam, anchoring);
     const good = verificationStore.getDisplayStatus(beam);
     expect(['ok', 'warn']).toContain(good);
     setRegionLayers(beam, 'bottomSpanLayers', [{ count: 2, diameter: 10, row: 0 }]);

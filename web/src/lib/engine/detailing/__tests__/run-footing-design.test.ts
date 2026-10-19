@@ -92,6 +92,26 @@ describe('runFootingDesign — the production path', () => {
     expect(o.check!.bearing.qMax).toBeGreaterThan(0);
   });
 
+  it('checks every combination, and the worst one governs even with less axial', () => {
+    // 1.2D + 1.6L carries the most axial; 1.2D + W carries less, with a moment the punching
+    // check now carries as eccentric shear (8.4.4.2). Only the largest vertical used to be
+    // read, so the footing came out checked on gravity alone with the wind case never looked at.
+    const r = run({ reactions: new Map([[10, reactions({
+      factored: [
+        { combinationId: 1, combinationName: '1.2D + 1.6L', fz: -900, mx: 0, my: 0 },
+        { combinationId: 3, combinationName: '1.2D + W', fz: -800, mx: 0, my: 180 },
+      ],
+    })]]) });
+    const o = r.outcomes[0];
+    expect(o.governingCombination).toBe('1.2D + W');
+    expect(o.check!.punching!.momentTransfer.status).toBe('EVALUATED');
+    // Gravity alone still checks.
+    const alone = run({ reactions: new Map([[10, reactions({
+      factored: [{ combinationId: 1, combinationName: '1.2D + 1.6L', fz: -900, mx: 0, my: 0 }],
+    })]]) }).outcomes[0];
+    expect(alone.check!.status).not.toBe('UNSUPPORTED');
+  });
+
   it('produces an assembly entry grouped by founding level', () => {
     const r = run();
     expect([...r.entriesByLevel.keys()]).toEqual([-1.2]);
@@ -299,9 +319,12 @@ describe('the gate — a footing cannot be verified without its inputs', () => {
     expect(keys).toContain('footing.run.noServiceCases');
   });
 
-  it('refuses a rotated footing rather than mis-assigning its eccentricity', () => {
-    expect(notVerified({ footings: [footing({ rotationDeg: 30 })] }))
-      .toContain('footing.run.rotationNotResolved');
+  it('takes a rotated footing through the general path, its moments turned with it', () => {
+    const o = run({ footings: [footing({ rotationDeg: 30 })] }).outcomes[0]!;
+    expect(o.general).toBeDefined();
+    // (400 + 200 service + 25·0,5·4 weight) / 4 m².
+    expect(o.check!.bearing.qMax).toBeCloseTo(162.5, 6);
+    expect(o.entry!.matBars.length).toBeGreaterThan(0);
   });
 
   it('refuses a footing with no column, because its punching is unchecked', () => {
@@ -448,5 +471,54 @@ describe('readiness accounts for footings, not only shells', () => {
     const r = floorDesignReadiness({ shells: [{ id: 1 }], stresses: [], footings: [] });
     expect(r.ready).toBe(false);
     expect(r.reasons.map((m) => m.key)).toContain('detailing.floorRun.notSolved');
+  });
+});
+
+describe('the general path inside the run', () => {
+  const two = new Map([[10, { x: 0, y: 0, z: -1.2 }], [11, { x: 4, y: 0, z: -1.2 }]]);
+  it('checks a combined footing under two columns and lays both mats', () => {
+    const r = run({
+      footings: [footing({ kind: 'combined', B: 6, L: 2, thickness: 0.6, eccentricityB: 2, supportedNodeIds: [11] })],
+      nodes: two, columnAt: () => column({ elementId: 4 }),
+      reactions: new Map([[10, reactions()], [11, reactions()]]),
+    });
+    const o = r.outcomes[0]!;
+    expect(o.check).not.toBeNull();
+    expect(o.general!.kind).toBe('combined');
+    // Between the columns the top is in tension: the top mat exists.
+    expect(o.general!.mats.topX).not.toBeNull();
+    expect(o.record.checks.map((c) => c.key)).toEqual(['bearing', 'oneWayShear', 'punching', 'flexure', 'overturning']);
+    expect(keysOf(o.unsupported)).toContain('footing.general.startersNotModeled');
+    expect([...r.entriesByLevel.values()].flat()).toHaveLength(1);
+  });
+
+  it('takes an isolated footing whose base lifts in part to the rigid base', () => {
+    const big = reactions({
+      factored: [{ combinationId: 1, combinationName: '1.2D + W', fz: -600, mx: 0, my: 300 }],
+      cases: [{ caseId: 1, caseType: 'D', fz: -600, mx: 0, my: 300 }],
+    });
+    const o = run({ footings: [footing({ B: 2.4, L: 2.4 })], reactions: new Map([[10, big]]) }).outcomes[0]!;
+    expect(o.general).toBeDefined();
+    const rigid = 'rigid' in o.general!.result ? o.general!.result.rigid : null;
+    // e = 300 / (600 + 25·0,5·2,4²) = 0,446 m past B/6 = 0,40 m: 3·(1,2 − 0,446)/2,4 of the base bears.
+    expect(rigid!.service.contact).toBeCloseTo((3 * (1.2 - 300 / 672)) / 2.4, 1);
+    expect(o.check!.bearing.uplift).toBe(true);
+  });
+
+  it('checks a pile cap on its piles, with their capacity from the strata', () => {
+    const p = profile({ strata: [{ name: 'Limo', thickness: 20, shaftFrictionKPa: 30, tipResistanceKPa: 2000 }] });
+    const o = run({
+      geotechnical: geo(p),
+      footings: [footing({ kind: 'pileCap', B: 2.3, L: 2.3, thickness: 0.9, piles: { count: 4, diameter: 0.4, length: 12, spacing: 1.5 } })],
+    }).outcomes[0]!;
+    expect(o.general).toBeDefined();
+    expect('cap' in o.general!.result).toBe(true);
+    // 30·π·0,4·12 + 2000·π·0,2² = 452,4 + 251,3 kN per pile.
+    expect(o.record.bearing!.allowable).toBeCloseTo(703.7, 1);
+    expect(keysOf(o.assumptions)).toContain('footing.assumption.pileBearing');
+  });
+
+  it('still refuses a mat', () => {
+    expect(keysOf(run({ footings: [footing({ kind: 'mat' })] }).outcomes[0]!.unsupported)).toContain('footing.run.kindNotImplemented');
   });
 });

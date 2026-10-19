@@ -85,6 +85,7 @@ import { minClearSpacingInLayer } from '../../codes/cirsoc201/spacing';
 import { crackControlMaxSpacing } from '../../codes/cirsoc201/crack-control';
 import { barMass } from '../../codes/cirsoc201/bar-geometry';
 import { checkFlexure } from '../codes/argentina/cirsoc201';
+import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
 import type {
   FootingBottomMatLayerOrder, FootingLayerOrderPreference,
 } from '../../model/footing';
@@ -973,9 +974,11 @@ function designDirection(
   // the designed depth differed by a bar diameter and the steel was under-computed. The φMn
   // closure in `footing-flexure.test.ts` is what caught it — a test that had recomputed the
   // module's own quadratic would have agreed with the mistake.
+  // Sized by CIRSOC 201-2025 (`CIRSOC201_DESIGN_EDITION`): a footing is a slab here (13.3.3.1 →
+  // Chapters 7 and 8), and 8.3.3.1 requires it tension-controlled, εt ≥ εty + 0,003.
   const flex = checkFlexure(
     { fc: input.fc, fy: input.fy, cover, b: W, h: thickness, stirrupDia: barsBelowMm },
-    Mu, 0, { barDiameterMm: diameterMm },
+    Mu, 0, { barDiameterMm: diameterMm, edition: CIRSOC201_DESIGN_EDITION },
   );
   // The two must agree by construction. If a future edit to either expression breaks that, this
   // throws in development instead of silently designing at a depth nobody reported.
