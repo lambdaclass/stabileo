@@ -7,7 +7,7 @@
 use dedaliano_engine::solver::{linear, modal, staged, time_integration};
 use dedaliano_engine::types::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 mod fuzz_models;
 use fuzz_models::{random_2d_model, random_3d_model};
@@ -50,6 +50,14 @@ fn assert_finite_3d(results: &AnalysisResults3D, seed: u64) {
     }
 }
 
+/// Most random models are rejected (mechanisms, bad input); only the solved
+/// ones exercise the solver's numerics. The generated models change with the
+/// `rand` version, so guard against a sweep silently shrinking to a handful
+/// of solved models. Floors are ~75% of the counts under rand 0.8 and 0.10.
+fn assert_solved_floor(name: &str, ok: u64, floor: u64) {
+    assert!(ok >= floor, "{name}: only {ok} models solved (floor {floor}); the generator lost coverage");
+}
+
 // ==================== Main fuzz tests ====================
 
 #[test]
@@ -82,6 +90,7 @@ fn fuzz_2d_crash_free_10k() {
         "fuzz_2d_crash_free_10k: {} ok, {} err out of 10000",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_2d_crash_free_10k", ok_count, 1200);
 }
 
 #[test]
@@ -115,6 +124,7 @@ fn fuzz_3d_crash_free_2k() {
         "fuzz_3d_crash_free_2k: {} ok, {} err out of 2000",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_3d_crash_free_2k", ok_count, 320);
 }
 
 // ==================== Known tricky seeds / regression pins ====================
@@ -208,6 +218,7 @@ fn fuzz_2d_all_truss_1k() {
         "fuzz_2d_all_truss_1k: {} ok, {} err out of 1000",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_2d_all_truss_1k", ok_count, 120);
 }
 
 /// Extreme stiffness range: tests numerical conditioning.
@@ -223,7 +234,7 @@ fn fuzz_2d_extreme_stiffness_1k() {
         // Assign extreme stiffness values to materials
         for mat in input.materials.values_mut() {
             // Very wide range: 1.0 to 1e12
-            mat.e = 10f64.powf(rng.gen_range(0.0..12.0));
+            mat.e = 10f64.powf(rng.random_range(0.0..12.0));
         }
         let result = std::panic::catch_unwind(|| linear::solve_2d(&input));
         match result {
@@ -242,6 +253,7 @@ fn fuzz_2d_extreme_stiffness_1k() {
         "fuzz_2d_extreme_stiffness_1k: {} ok, {} err out of 1000",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_2d_extreme_stiffness_1k", ok_count, 110);
 }
 
 /// Hinged-at-both-ends frames: tests the hinge release path.
@@ -277,6 +289,7 @@ fn fuzz_2d_double_hinge_500() {
         "fuzz_2d_double_hinge_500: {} ok, {} err out of 500",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_2d_double_hinge_500", ok_count, 25);
 }
 
 /// Mixed frame/truss with distributed + point loads: broad coverage of load types.
@@ -293,21 +306,21 @@ fn fuzz_2d_mixed_loads_1k() {
         // Add extra loads of every type
         let elem_ids: Vec<usize> = input.elements.values().map(|e| e.id).collect();
         if !elem_ids.is_empty() {
-            let eid = elem_ids[rng.gen_range(0..elem_ids.len())];
+            let eid = elem_ids[rng.random_range(0..elem_ids.len())];
             input.loads.push(SolverLoad::Distributed(SolverDistributedLoad {
                 element_id: eid,
-                q_i: rng.gen_range(-200.0..200.0),
-                q_j: rng.gen_range(-200.0..200.0),
+                q_i: rng.random_range(-200.0..200.0),
+                q_j: rng.random_range(-200.0..200.0),
                 a: None,
                 b: None,
             }));
-            let eid2 = elem_ids[rng.gen_range(0..elem_ids.len())];
+            let eid2 = elem_ids[rng.random_range(0..elem_ids.len())];
             input.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: eid2,
-                a: rng.gen_range(0.05..0.95),
-                p: rng.gen_range(-300.0..300.0),
-                px: Some(rng.gen_range(-100.0..100.0)),
-                my: Some(rng.gen_range(-50.0..50.0)),
+                a: rng.random_range(0.05..0.95),
+                p: rng.random_range(-300.0..300.0),
+                px: Some(rng.random_range(-100.0..100.0)),
+                my: Some(rng.random_range(-50.0..50.0)),
             }));
         }
 
@@ -328,6 +341,7 @@ fn fuzz_2d_mixed_loads_1k() {
         "fuzz_2d_mixed_loads_1k: {} ok, {} err out of 1000",
         ok_count, err_count
     );
+    assert_solved_floor("fuzz_2d_mixed_loads_1k", ok_count, 115);
 }
 
 // ==================== Modal, Time-History, Staged Fuzz Tests ====================
@@ -355,6 +369,7 @@ fn fuzz_modal_2d_crash_free_2k() {
         }
     }
     eprintln!("fuzz_modal_2d: {} ok, {} err", ok_count, err_count);
+    assert_solved_floor("fuzz_modal_2d", ok_count, 165);
 }
 
 #[test]

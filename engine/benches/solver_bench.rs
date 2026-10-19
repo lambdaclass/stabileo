@@ -1282,7 +1282,7 @@ fn bench_multi_case(c: &mut Criterion) {
                         connectors: HashMap::new(),
 
                         solver_options: None,                    };
-                    criterion::black_box(linear::solve_3d(&case_input).unwrap());
+                    std::hint::black_box(linear::solve_3d(&case_input).unwrap());
                 }
             });
         });
@@ -1290,7 +1290,7 @@ fn bench_multi_case(c: &mut Criterion) {
         // New: prepared multi-case (assemble + factorize once, rebuild only f per case)
         group.bench_with_input(BenchmarkId::new("prepared_multi_case", n_cases), &input, |b, input| {
             b.iter(|| {
-                criterion::black_box(
+                std::hint::black_box(
                     dedaliano_engine::solver::load_cases::solve_multi_case_3d(input).unwrap(),
                 );
             });
@@ -1335,7 +1335,7 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
                     let loads = moving_loads_at_position_2d(solver, &train, &path, pos, total_length);
                     let mut mi = solver.clone();
                     mi.loads = loads;
-                    criterion::black_box(linear::solve_2d(&mi).unwrap());
+                    std::hint::black_box(linear::solve_2d(&mi).unwrap());
                     pos += step;
                 }
             });
@@ -1377,7 +1377,7 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
                         let loads = influence_unit_loads_2d(elem, t * l, t, cos_theta, sin_theta);
                         let mut trial = base.clone();
                         trial.loads = loads;
-                        criterion::black_box(linear::solve_2d(&trial).unwrap());
+                        std::hint::black_box(linear::solve_2d(&trial).unwrap());
                     }
                 }
             });
@@ -1411,7 +1411,7 @@ fn bench_sparse_2d_assembly(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("dense_legacy", &label), &input, |b, input| {
             b.iter(|| {
                 let prepared = linear::prepare_static_2d_dense_reference(input).unwrap();
-                criterion::black_box(prepared.solve_loads(&input.loads).unwrap());
+                std::hint::black_box(prepared.solve_loads(&input.loads).unwrap());
             });
         });
 

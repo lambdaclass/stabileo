@@ -228,7 +228,7 @@ mod tests {
     /// (kani_proofs::compute_local_axes_3d_default_finite) stubs.
     #[test]
     fn local_axes_helper_contracts() {
-        use rand::{Rng, SeedableRng};
+        use rand::{RngExt, SeedableRng};
         let check = |d: [f64; 3]| {
             let ex = unit_direction(d[0], d[1], d[2]);
             assert!(ex.iter().all(|x| x.is_finite() && x.abs() <= 1.0 + 1e-12), "{d:?} → {ex:?}");
@@ -260,7 +260,7 @@ mod tests {
         for _ in 0..200_000 {
             let mut d = [0.0; 3];
             for x in d.iter_mut() {
-                *x = if rng.gen_bool(0.2) { 0.0 } else { rng.gen_range(-1e3..1e3) * 10f64.powi(-rng.gen_range(0..7)) };
+                *x = if rng.random_bool(0.2) { 0.0 } else { rng.random_range(-1e3..1e3) * 10f64.powi(-rng.random_range(0..7)) };
             }
             if d.iter().any(|x| x.abs() >= 1e-3) {
                 check(d);

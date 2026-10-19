@@ -32,8 +32,10 @@ const WEB_ROOT = resolve(__dirname, '../../../..');
 
 /** Strings that exist ONLY inside the hook module.
  *  (Deliberately not `orientationSuspectCount` — that is a real verificationStore
- *  getter the design toolbar uses, so it legitimately ships in production.) */
-const HOOK_MARKERS = ['__stabileoActions', 'canvasInkRatio', 'e2eQueryEnabled'];
+ *  getter the design toolbar uses, so it legitimately ships in production.)
+ *  Property names, not function names: the minifier keeps the keys of the `__stabileo`
+ *  object but renames module-local functions (Vite 8 / Rolldown renames `e2eQueryEnabled`). */
+const HOOK_MARKERS = ['__stabileoActions', 'canvasInkRatio', 'entityData'];
 const OUT_OFF = '.dist-hookgate-off';
 const OUT_ON = '.dist-hookgate-on';
 

@@ -9,7 +9,7 @@ import { resolve } from 'path';
  * This lets CI run `npm run build` without `wasm-pack build` first.
  */
 function wasmStubPlugin(): Plugin {
-  const wasmGlue = resolve(__dirname, 'src/lib/wasm/dedaliano_engine.js');
+  const wasmGlue = resolve(import.meta.dirname, 'src/lib/wasm/dedaliano_engine.js');
   return {
     name: 'wasm-stub',
     resolveId(id) {
@@ -70,7 +70,7 @@ const PRODUCTION_BUILD_TESTS = [
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
   try {
-    return execSync('git rev-parse --short=12 HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync('git rev-parse --short=12 HEAD', { cwd: import.meta.dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   } catch {
     return 'dev';
   }

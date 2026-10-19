@@ -1,14 +1,35 @@
 //! Random structural model generators shared by the fuzz tests
 //! (fuzz_crash_free.rs, certify.rs) and the assembly-path oracle
-//! (assembly_paths.rs). `random_2d_model`/`random_3d_model` are kept stable
-//! (other tests pin seeds against them); the `_rich` generators exercise
-//! every feature the assemblers branch on.
+//! (assembly_paths.rs). The `_rich` generators exercise every feature the
+//! assemblers branch on.
+//!
+//! The generated models depend on the `rand` version (`StdRng` and the
+//! `random_range` samplers are not value-stable across releases), so a test
+//! that needs one *specific* model must not pin a seed: freeze the model under
+//! tests/fixtures/fuzz-pinned/ and load it (see `pinned_npd_2d`).
 #![allow(dead_code)]
 
 use dedaliano_engine::types::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use std::collections::HashMap;
+
+// ==================== Frozen models ====================
+
+fn pinned(name: &str) -> String {
+    let p = format!("{}/tests/fixtures/fuzz-pinned/{name}", env!("CARGO_MANIFEST_DIR"));
+    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("{p}: {e}"))
+}
+
+/// 2D fuzz model (rand 0.8, seed 86) whose stiffness is not positive definite.
+pub fn pinned_npd_2d() -> SolverInput {
+    serde_json::from_str(&pinned("npd-2d-seed86.json")).unwrap()
+}
+
+/// 3D fuzz model (rand 0.8, seed 100_031): Cholesky fails, dense LU answers.
+pub fn pinned_npd_3d() -> SolverInput3D {
+    serde_json::from_str(&pinned("npd-3d-seed100031.json")).unwrap()
+}
 
 // ==================== 2D Random Model Generator ====================
 
@@ -16,11 +37,11 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     let mut rng = StdRng::seed_from_u64(seed);
 
     // 2-20 nodes
-    let n_nodes = rng.gen_range(2..=20);
+    let n_nodes = rng.random_range(2..=20);
     let mut nodes_map = HashMap::new();
     for i in 1..=n_nodes {
-        let x = rng.gen_range(-100.0..100.0);
-        let z = rng.gen_range(-100.0..100.0);
+        let x = rng.random_range(-100.0..100.0);
+        let z = rng.random_range(-100.0..100.0);
         nodes_map.insert(
             i.to_string(),
             SolverNode {
@@ -32,11 +53,11 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     // 1-3 materials
-    let n_mats = rng.gen_range(1..=3);
+    let n_mats = rng.random_range(1..=3);
     let mut mats_map = HashMap::new();
     for i in 1..=n_mats {
-        let e = 10f64.powf(rng.gen_range(3.0..9.0)); // 1e3..1e9
-        let nu = rng.gen_range(0.1..0.45);
+        let e = 10f64.powf(rng.random_range(3.0..9.0)); // 1e3..1e9
+        let nu = rng.random_range(0.1..0.45);
         mats_map.insert(
             i.to_string(),
             SolverMaterial { id: i, e, nu },
@@ -44,11 +65,11 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     // 1-3 sections
-    let n_secs = rng.gen_range(1..=3);
+    let n_secs = rng.random_range(1..=3);
     let mut secs_map = HashMap::new();
     for i in 1..=n_secs {
-        let a = 10f64.powf(rng.gen_range(-4.0..0.0)); // 1e-4..1.0
-        let iz = 10f64.powf(rng.gen_range(-8.0..-2.0)); // 1e-8..1e-2
+        let a = 10f64.powf(rng.random_range(-4.0..0.0)); // 1e-4..1.0
+        let iz = 10f64.powf(rng.random_range(-8.0..-2.0)); // 1e-8..1e-2
         secs_map.insert(
             i.to_string(),
             SolverSection {
@@ -61,12 +82,12 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     // 1-10 elements connecting random node pairs (no zero-length)
-    let n_elems = rng.gen_range(1..=10.min(n_nodes * (n_nodes - 1) / 2).max(1));
+    let n_elems = rng.random_range(1..=10.min(n_nodes * (n_nodes - 1) / 2).max(1));
     let mut elems_map = HashMap::new();
     let elem_types = ["frame", "truss"];
     for i in 1..=n_elems {
-        let mut ni = rng.gen_range(1..=n_nodes);
-        let mut nj = rng.gen_range(1..=n_nodes);
+        let mut ni = rng.random_range(1..=n_nodes);
+        let mut nj = rng.random_range(1..=n_nodes);
         // Avoid self-loop; also avoid coincident nodes
         let mut attempts = 0;
         while attempts < 20 {
@@ -78,9 +99,9 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
                     break;
                 }
             }
-            nj = rng.gen_range(1..=n_nodes);
+            nj = rng.random_range(1..=n_nodes);
             if ni == nj {
-                ni = rng.gen_range(1..=n_nodes);
+                ni = rng.random_range(1..=n_nodes);
             }
             attempts += 1;
         }
@@ -89,11 +110,11 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
             continue;
         }
 
-        let elem_type = elem_types[rng.gen_range(0..2)];
-        let mat_id = rng.gen_range(1..=n_mats);
-        let sec_id = rng.gen_range(1..=n_secs);
-        let hinge_start = elem_type == "frame" && rng.gen_bool(0.15);
-        let hinge_end = elem_type == "frame" && rng.gen_bool(0.15);
+        let elem_type = elem_types[rng.random_range(0..2)];
+        let mat_id = rng.random_range(1..=n_mats);
+        let sec_id = rng.random_range(1..=n_secs);
+        let hinge_start = elem_type == "frame" && rng.random_bool(0.15);
+        let hinge_end = elem_type == "frame" && rng.random_bool(0.15);
 
         elems_map.insert(
             i.to_string(),
@@ -141,7 +162,7 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     let mut sups_map = HashMap::new();
 
     // First support: always fixed or pinned on node 1 to ensure stability
-    let first_type = if rng.gen_bool(0.5) { "fixed" } else { "pinned" };
+    let first_type = if rng.random_bool(0.5) { "fixed" } else { "pinned" };
     sups_map.insert(
         "1".to_string(),
         SolverSupport {
@@ -154,10 +175,10 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     );
 
     // Additional random supports
-    let n_extra_sups = rng.gen_range(0..=3.min(n_nodes - 1));
+    let n_extra_sups = rng.random_range(0..=3.min(n_nodes - 1));
     for i in 0..n_extra_sups {
-        let node_id = rng.gen_range(2..=n_nodes);
-        let sup_type = support_types[rng.gen_range(0..support_types.len())];
+        let node_id = rng.random_range(2..=n_nodes);
+        let sup_type = support_types[rng.random_range(0..support_types.len())];
         let sup_id = i + 2;
         sups_map.insert(
             sup_id.to_string(),
@@ -172,52 +193,52 @@ pub fn random_2d_model(seed: u64) -> SolverInput {
     }
 
     // Loads: 1-5 random loads
-    let n_loads = rng.gen_range(1..=5);
+    let n_loads = rng.random_range(1..=5);
     let mut loads = Vec::new();
     let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
 
     for _ in 0..n_loads {
-        let load_kind = rng.gen_range(0..3);
+        let load_kind = rng.random_range(0..3);
         match load_kind {
             0 => {
                 // Nodal load
-                let node_id = rng.gen_range(1..=n_nodes);
+                let node_id = rng.random_range(1..=n_nodes);
                 loads.push(SolverLoad::Nodal(SolverNodalLoad {
                     node_id,
-                    fx: rng.gen_range(-1000.0..1000.0),
-                    fz: rng.gen_range(-1000.0..1000.0),
-                    my: rng.gen_range(-500.0..500.0),
+                    fx: rng.random_range(-1000.0..1000.0),
+                    fz: rng.random_range(-1000.0..1000.0),
+                    my: rng.random_range(-500.0..500.0),
                 }));
             }
             1 if !elem_ids.is_empty() => {
                 // Distributed load
-                let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
+                let elem_id = elem_ids[rng.random_range(0..elem_ids.len())];
                 loads.push(SolverLoad::Distributed(SolverDistributedLoad {
                     element_id: elem_id,
-                    q_i: rng.gen_range(-100.0..100.0),
-                    q_j: rng.gen_range(-100.0..100.0),
+                    q_i: rng.random_range(-100.0..100.0),
+                    q_j: rng.random_range(-100.0..100.0),
                     a: None,
                     b: None,
                 }));
             }
             2 if !elem_ids.is_empty() => {
                 // Point load on element
-                let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
+                let elem_id = elem_ids[rng.random_range(0..elem_ids.len())];
                 loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                     element_id: elem_id,
-                    a: rng.gen_range(0.1..0.9),
-                    p: rng.gen_range(-500.0..500.0),
+                    a: rng.random_range(0.1..0.9),
+                    p: rng.random_range(-500.0..500.0),
                     px: None,
                     my: None,
                 }));
             }
             _ => {
                 // Fallback: nodal load
-                let node_id = rng.gen_range(1..=n_nodes);
+                let node_id = rng.random_range(1..=n_nodes);
                 loads.push(SolverLoad::Nodal(SolverNodalLoad {
                     node_id,
-                    fx: rng.gen_range(-1000.0..1000.0),
-                    fz: rng.gen_range(-1000.0..1000.0),
+                    fx: rng.random_range(-1000.0..1000.0),
+                    fz: rng.random_range(-1000.0..1000.0),
                     my: 0.0,
                 }));
             }
@@ -243,26 +264,26 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     let mut rng = StdRng::seed_from_u64(seed);
 
     // 2-15 nodes
-    let n_nodes = rng.gen_range(2..=15);
+    let n_nodes = rng.random_range(2..=15);
     let mut nodes_map = HashMap::new();
     for i in 1..=n_nodes {
         nodes_map.insert(
             i.to_string(),
             SolverNode3D {
                 id: i,
-                x: rng.gen_range(-50.0..50.0),
-                y: rng.gen_range(-50.0..50.0),
-                z: rng.gen_range(-50.0..50.0),
+                x: rng.random_range(-50.0..50.0),
+                y: rng.random_range(-50.0..50.0),
+                z: rng.random_range(-50.0..50.0),
             },
         );
     }
 
     // 1-3 materials
-    let n_mats = rng.gen_range(1..=3);
+    let n_mats = rng.random_range(1..=3);
     let mut mats_map = HashMap::new();
     for i in 1..=n_mats {
-        let e = 10f64.powf(rng.gen_range(3.0..9.0));
-        let nu = rng.gen_range(0.1..0.45);
+        let e = 10f64.powf(rng.random_range(3.0..9.0));
+        let nu = rng.random_range(0.1..0.45);
         mats_map.insert(
             i.to_string(),
             SolverMaterial { id: i, e, nu },
@@ -270,13 +291,13 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     }
 
     // 1-3 sections
-    let n_secs = rng.gen_range(1..=3);
+    let n_secs = rng.random_range(1..=3);
     let mut secs_map = HashMap::new();
     for i in 1..=n_secs {
-        let a = 10f64.powf(rng.gen_range(-4.0..0.0));
-        let iy = 10f64.powf(rng.gen_range(-8.0..-2.0));
-        let iz = 10f64.powf(rng.gen_range(-8.0..-2.0));
-        let j = 10f64.powf(rng.gen_range(-8.0..-2.0));
+        let a = 10f64.powf(rng.random_range(-4.0..0.0));
+        let iy = 10f64.powf(rng.random_range(-8.0..-2.0));
+        let iz = 10f64.powf(rng.random_range(-8.0..-2.0));
+        let j = 10f64.powf(rng.random_range(-8.0..-2.0));
         secs_map.insert(
             i.to_string(),
             SolverSection3D {
@@ -294,11 +315,11 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     }
 
     // 1-8 frame elements connecting random node pairs
-    let n_elems = rng.gen_range(1..=8.min(n_nodes * (n_nodes - 1) / 2).max(1));
+    let n_elems = rng.random_range(1..=8.min(n_nodes * (n_nodes - 1) / 2).max(1));
     let mut elems_map = HashMap::new();
     for i in 1..=n_elems {
-        let mut ni = rng.gen_range(1..=n_nodes);
-        let mut nj = rng.gen_range(1..=n_nodes);
+        let mut ni = rng.random_range(1..=n_nodes);
+        let mut nj = rng.random_range(1..=n_nodes);
         let mut attempts = 0;
         while attempts < 20 {
             if ni != nj {
@@ -312,9 +333,9 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
                     break;
                 }
             }
-            nj = rng.gen_range(1..=n_nodes);
+            nj = rng.random_range(1..=n_nodes);
             if ni == nj {
-                ni = rng.gen_range(1..=n_nodes);
+                ni = rng.random_range(1..=n_nodes);
             }
             attempts += 1;
         }
@@ -322,8 +343,8 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
             continue;
         }
 
-        let mat_id = rng.gen_range(1..=n_mats);
-        let sec_id = rng.gen_range(1..=n_secs);
+        let mat_id = rng.random_range(1..=n_mats);
+        let sec_id = rng.random_range(1..=n_secs);
 
         elems_map.insert(
             i.to_string(),
@@ -334,10 +355,10 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
                 node_j: nj,
                 material_id: mat_id,
                 section_id: sec_id,
-                release_my_start: rng.gen_bool(0.1),
-                release_my_end: rng.gen_bool(0.1),
-                release_mz_start: rng.gen_bool(0.1),
-                release_mz_end: rng.gen_bool(0.1),
+                release_my_start: rng.random_bool(0.1),
+                release_my_end: rng.random_bool(0.1),
+                release_mz_start: rng.random_bool(0.1),
+                release_mz_end: rng.random_bool(0.1),
                 release_t_start: false,
                 release_t_end: false,
                 local_yx: None,
@@ -399,20 +420,20 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     );
 
     // Additional random supports
-    let n_extra_sups = rng.gen_range(0..=2.min(n_nodes - 1));
+    let n_extra_sups = rng.random_range(0..=2.min(n_nodes - 1));
     for i in 0..n_extra_sups {
-        let node_id = rng.gen_range(2..=n_nodes);
+        let node_id = rng.random_range(2..=n_nodes);
         let sup_id = i + 2;
         sups_map.insert(
             sup_id.to_string(),
             SolverSupport3D {
                 node_id,
-                rx: rng.gen_bool(0.6),
-                ry: rng.gen_bool(0.6),
-                rz: rng.gen_bool(0.6),
-                rrx: rng.gen_bool(0.4),
-                rry: rng.gen_bool(0.4),
-                rrz: rng.gen_bool(0.4),
+                rx: rng.random_bool(0.6),
+                ry: rng.random_bool(0.6),
+                rz: rng.random_bool(0.6),
+                rrx: rng.random_bool(0.4),
+                rry: rng.random_bool(0.4),
+                rrz: rng.random_bool(0.4),
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
                 dx: None, dy: None, dz: None,
@@ -424,55 +445,55 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
     }
 
     // Loads: 1-4 random nodal and distributed loads
-    let n_loads = rng.gen_range(1..=4);
+    let n_loads = rng.random_range(1..=4);
     let mut loads = Vec::new();
     let elem_ids: Vec<usize> = elems_map.values().map(|e| e.id).collect();
 
     for _ in 0..n_loads {
-        let load_kind = rng.gen_range(0..3);
+        let load_kind = rng.random_range(0..3);
         match load_kind {
             0 => {
-                let node_id = rng.gen_range(1..=n_nodes);
+                let node_id = rng.random_range(1..=n_nodes);
                 loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
                     node_id,
-                    fx: rng.gen_range(-500.0..500.0),
-                    fy: rng.gen_range(-500.0..500.0),
-                    fz: rng.gen_range(-500.0..500.0),
-                    mx: rng.gen_range(-200.0..200.0),
-                    my: rng.gen_range(-200.0..200.0),
-                    mz: rng.gen_range(-200.0..200.0),
+                    fx: rng.random_range(-500.0..500.0),
+                    fy: rng.random_range(-500.0..500.0),
+                    fz: rng.random_range(-500.0..500.0),
+                    mx: rng.random_range(-200.0..200.0),
+                    my: rng.random_range(-200.0..200.0),
+                    mz: rng.random_range(-200.0..200.0),
                     bw: None,
                 }));
             }
             1 if !elem_ids.is_empty() => {
-                let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
+                let elem_id = elem_ids[rng.random_range(0..elem_ids.len())];
                 loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
                     q_xi: 0.0, q_xj: 0.0,
                     element_id: elem_id,
-                    q_yi: rng.gen_range(-100.0..100.0),
-                    q_yj: rng.gen_range(-100.0..100.0),
-                    q_zi: rng.gen_range(-100.0..100.0),
-                    q_zj: rng.gen_range(-100.0..100.0),
+                    q_yi: rng.random_range(-100.0..100.0),
+                    q_yj: rng.random_range(-100.0..100.0),
+                    q_zi: rng.random_range(-100.0..100.0),
+                    q_zj: rng.random_range(-100.0..100.0),
                     a: None,
                     b: None,
                 }));
             }
             2 if !elem_ids.is_empty() => {
-                let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
+                let elem_id = elem_ids[rng.random_range(0..elem_ids.len())];
                 loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
                     element_id: elem_id,
-                    a: rng.gen_range(0.1..0.9),
-                    py: rng.gen_range(-500.0..500.0),
-                    pz: rng.gen_range(-500.0..500.0),
+                    a: rng.random_range(0.1..0.9),
+                    py: rng.random_range(-500.0..500.0),
+                    pz: rng.random_range(-500.0..500.0),
                 }));
             }
             _ => {
-                let node_id = rng.gen_range(1..=n_nodes);
+                let node_id = rng.random_range(1..=n_nodes);
                 loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
                     node_id,
-                    fx: rng.gen_range(-500.0..500.0),
-                    fy: rng.gen_range(-500.0..500.0),
-                    fz: rng.gen_range(-500.0..500.0),
+                    fx: rng.random_range(-500.0..500.0),
+                    fy: rng.random_range(-500.0..500.0),
+                    fz: rng.random_range(-500.0..500.0),
                     mx: 0.0, my: 0.0, mz: 0.0,
                     bw: None,
                 }));
@@ -510,35 +531,35 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
 // overrides, and in 3D every surface element family.
 
 fn spring_k(rng: &mut StdRng) -> f64 {
-    10f64.powf(rng.gen_range(2.0..5.0))
+    10f64.powf(rng.random_range(2.0..5.0))
 }
 
 fn small_disp(rng: &mut StdRng) -> f64 {
-    rng.gen_range(-0.01..0.01)
+    rng.random_range(-0.01..0.01)
 }
 
 /// Spanning tree over `1..=n` plus a few extra edges, without duplicates.
 fn random_edges(rng: &mut StdRng, n: usize) -> Vec<(usize, usize)> {
     let mut edges: Vec<(usize, usize)> = Vec::new();
     for j in 2..=n {
-        edges.push((rng.gen_range(1..j), j));
+        edges.push((rng.random_range(1..j), j));
     }
-    for _ in 0..rng.gen_range(0..=n / 2) {
-        let a = rng.gen_range(1..=n);
-        let b = rng.gen_range(1..=n);
+    for _ in 0..rng.random_range(0..=n / 2) {
+        let a = rng.random_range(1..=n);
+        let b = rng.random_range(1..=n);
         if a != b && !edges.iter().any(|&(p, q)| (p == a && q == b) || (p == b && q == a)) {
             edges.push((a, b));
         }
     }
     // Random orientation, so node_i > node_j happens too.
-    edges.into_iter().map(|(a, b)| if rng.gen_bool(0.5) { (a, b) } else { (b, a) }).collect()
+    edges.into_iter().map(|(a, b)| if rng.random_bool(0.5) { (a, b) } else { (b, a) }).collect()
 }
 
 fn random_densities(rng: &mut StdRng, n_mats: usize) -> HashMap<String, f64> {
     let mut d = HashMap::new();
     for i in 1..=n_mats {
-        if rng.gen_bool(0.9) {
-            d.insert(i.to_string(), rng.gen_range(1000.0..8000.0));
+        if rng.random_bool(0.9) {
+            d.insert(i.to_string(), rng.random_range(1000.0..8000.0));
         }
     }
     d
@@ -548,12 +569,12 @@ fn random_densities(rng: &mut StdRng, n_mats: usize) -> HashMap<String, f64> {
 /// densities for the mass matrix.
 pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
-    let truss_only = rng.gen_bool(0.12);
+    let truss_only = rng.random_bool(0.12);
 
-    let n_nodes = rng.gen_range(3..=10);
+    let n_nodes = rng.random_range(3..=10);
     let mut pts: Vec<(f64, f64)> = Vec::new();
     while pts.len() < n_nodes {
-        let p = (rng.gen_range(-8.0..8.0), rng.gen_range(-8.0..8.0));
+        let p = (rng.random_range(-8.0..8.0), rng.random_range(-8.0..8.0));
         if pts.iter().all(|q| ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt() > 0.5) {
             pts.push(p);
         }
@@ -563,34 +584,34 @@ pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
         nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x, z });
     }
 
-    let n_mats = rng.gen_range(1..=2);
+    let n_mats = rng.random_range(1..=2);
     let mut materials = HashMap::new();
     for i in 1..=n_mats {
-        let e = 10f64.powf(rng.gen_range(4.0..5.5));
-        materials.insert(i.to_string(), SolverMaterial { id: i, e, nu: rng.gen_range(0.15..0.4) });
+        let e = 10f64.powf(rng.random_range(4.0..5.5));
+        materials.insert(i.to_string(), SolverMaterial { id: i, e, nu: rng.random_range(0.15..0.4) });
     }
-    let n_secs = rng.gen_range(1..=2);
+    let n_secs = rng.random_range(1..=2);
     let mut sections = HashMap::new();
     for i in 1..=n_secs {
-        let a = 10f64.powf(rng.gen_range(-3.0..-1.0));
-        let iz = 10f64.powf(rng.gen_range(-6.0..-3.0));
-        let as_y = if rng.gen_bool(0.5) { Some(a * rng.gen_range(0.4..0.9)) } else { None };
+        let a = 10f64.powf(rng.random_range(-3.0..-1.0));
+        let iz = 10f64.powf(rng.random_range(-6.0..-3.0));
+        let as_y = if rng.random_bool(0.5) { Some(a * rng.random_range(0.4..0.9)) } else { None };
         sections.insert(i.to_string(), SolverSection { id: i, a, iz, as_y });
     }
 
     let mut elements = HashMap::new();
     for (k, (ni, nj)) in random_edges(&mut rng, n_nodes).into_iter().enumerate() {
         let id = k + 1;
-        let frame = !truss_only && rng.gen_bool(0.75);
+        let frame = !truss_only && rng.random_bool(0.75);
         elements.insert(id.to_string(), SolverElement {
             id,
             elem_type: if frame { "frame" } else { "truss" }.to_string(),
             node_i: ni,
             node_j: nj,
-            material_id: rng.gen_range(1..=n_mats),
-            section_id: rng.gen_range(1..=n_secs),
-            hinge_start: frame && rng.gen_bool(0.15),
-            hinge_end: frame && rng.gen_bool(0.15),
+            material_id: rng.random_range(1..=n_mats),
+            section_id: rng.random_range(1..=n_secs),
+            hinge_start: frame && rng.random_bool(0.15),
+            hinge_end: frame && rng.random_bool(0.15),
         });
     }
 
@@ -600,37 +621,37 @@ pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
         kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     };
     let mut first = blank(1, 1, if truss_only { "pinned" } else { "fixed" });
-    if rng.gen_bool(0.2) {
+    if rng.random_bool(0.2) {
         first.dz = Some(small_disp(&mut rng));
     }
     supports.insert("1".to_string(), first);
     let kinds = ["pinned", "rollerX", "rollerZ", "guidedX", "guidedZ", "spring", "spring", "inclinedRoller"];
     for node in 2..=n_nodes {
-        if !rng.gen_bool(0.35) {
+        if !rng.random_bool(0.35) {
             continue;
         }
         let id = supports.len() + 1;
-        let kind = kinds[rng.gen_range(0..kinds.len())];
+        let kind = kinds[rng.random_range(0..kinds.len())];
         let mut s = blank(id, node, kind);
         match kind {
             "spring" => {
-                if rng.gen_bool(0.6) { s.kx = Some(spring_k(&mut rng)); }
-                if rng.gen_bool(0.6) { s.ky = Some(spring_k(&mut rng)); }
-                if rng.gen_bool(0.5) { s.kz = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.6) { s.kx = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.6) { s.ky = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.5) { s.kz = Some(spring_k(&mut rng)); }
                 if s.kx.is_none() && s.ky.is_none() && s.kz.is_none() { s.ky = Some(spring_k(&mut rng)); }
-                if rng.gen_bool(0.5) { s.angle = Some(rng.gen_range(-3.1..3.1)); }
+                if rng.random_bool(0.5) { s.angle = Some(rng.random_range(-3.1..3.1)); }
             }
             _ => {
-                if kind == "inclinedRoller" && rng.gen_bool(0.9) {
-                    s.angle = Some(rng.gen_range(-3.1..3.1));
+                if kind == "inclinedRoller" && rng.random_bool(0.9) {
+                    s.angle = Some(rng.random_range(-3.1..3.1));
                 }
                 // Springs on a non-spring support: on whichever DOF they land,
                 // restrained or not.
-                if rng.gen_bool(0.2) { s.kx = Some(spring_k(&mut rng)); }
-                if rng.gen_bool(0.2) { s.ky = Some(spring_k(&mut rng)); }
-                if rng.gen_bool(0.3) { s.dx = Some(small_disp(&mut rng)); }
-                if rng.gen_bool(0.3) { s.dz = Some(small_disp(&mut rng)); }
-                if rng.gen_bool(0.2) { s.dry = Some(small_disp(&mut rng)); }
+                if rng.random_bool(0.2) { s.kx = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.2) { s.ky = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.3) { s.dx = Some(small_disp(&mut rng)); }
+                if rng.random_bool(0.3) { s.dz = Some(small_disp(&mut rng)); }
+                if rng.random_bool(0.2) { s.dry = Some(small_disp(&mut rng)); }
             }
         }
         supports.insert(id.to_string(), s);
@@ -645,43 +666,43 @@ pub fn random_2d_model_rich(seed: u64) -> (SolverInput, HashMap<String, f64>) {
         v
     };
     let mut loads = Vec::new();
-    for _ in 0..rng.gen_range(2..=6) {
-        let (eid, l) = elem_list[rng.gen_range(0..elem_list.len())];
-        match rng.gen_range(0..4) {
+    for _ in 0..rng.random_range(2..=6) {
+        let (eid, l) = elem_list[rng.random_range(0..elem_list.len())];
+        match rng.random_range(0..4) {
             0 => loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: rng.gen_range(1..=n_nodes),
-                fx: rng.gen_range(-50.0..50.0),
-                fz: rng.gen_range(-50.0..50.0),
-                my: rng.gen_range(-20.0..20.0),
+                node_id: rng.random_range(1..=n_nodes),
+                fx: rng.random_range(-50.0..50.0),
+                fz: rng.random_range(-50.0..50.0),
+                my: rng.random_range(-20.0..20.0),
             })),
             1 => {
-                let (a, b) = if rng.gen_bool(0.4) {
-                    let a = rng.gen_range(0.0..0.8) * l;
-                    (Some(a), Some(a + rng.gen_range(0.1..1.0) * (l - a)))
+                let (a, b) = if rng.random_bool(0.4) {
+                    let a = rng.random_range(0.0..0.8) * l;
+                    (Some(a), Some(a + rng.random_range(0.1..1.0) * (l - a)))
                 } else {
                     (None, None)
                 };
                 loads.push(SolverLoad::Distributed(SolverDistributedLoad {
-                    element_id: eid, q_i: rng.gen_range(-20.0..20.0), q_j: rng.gen_range(-20.0..20.0), a, b,
+                    element_id: eid, q_i: rng.random_range(-20.0..20.0), q_j: rng.random_range(-20.0..20.0), a, b,
                 }));
             }
             2 => loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: eid,
-                a: rng.gen_range(0.0..1.0) * l,
-                p: rng.gen_range(-50.0..50.0),
-                px: if rng.gen_bool(0.5) { Some(rng.gen_range(-50.0..50.0)) } else { None },
-                my: if rng.gen_bool(0.3) { Some(rng.gen_range(-20.0..20.0)) } else { None },
+                a: rng.random_range(0.0..1.0) * l,
+                p: rng.random_range(-50.0..50.0),
+                px: if rng.random_bool(0.5) { Some(rng.random_range(-50.0..50.0)) } else { None },
+                my: if rng.random_bool(0.3) { Some(rng.random_range(-20.0..20.0)) } else { None },
             })),
             _ => loads.push(SolverLoad::Thermal(SolverThermalLoad {
-                element_id: eid, dt_uniform: rng.gen_range(-40.0..40.0), dt_gradient: rng.gen_range(-20.0..20.0),
+                element_id: eid, dt_uniform: rng.random_range(-40.0..40.0), dt_gradient: rng.random_range(-20.0..20.0),
             })),
         }
     }
 
     let mut connectors = HashMap::new();
-    if rng.gen_bool(0.25) {
-        let a = rng.gen_range(1..=n_nodes);
-        let b = rng.gen_range(1..=n_nodes);
+    if rng.random_bool(0.25) {
+        let a = rng.random_range(1..=n_nodes);
+        let b = rng.random_range(1..=n_nodes);
         if a != b {
             connectors.insert("1".to_string(), ConnectorElement {
                 id: 1, node_i: a, node_j: b,
@@ -715,22 +736,22 @@ pub fn add_random_constraints_2d(input: &mut SolverInput, seed: u64) {
     let mut rng = StdRng::seed_from_u64(seed ^ 0xC0457);
     let mut free = unsupported_nodes(input.nodes.values().map(|n| n.id), input.supports.values().map(|s| s.node_id));
     let rot = input.elements.values().any(|e| e.elem_type == "frame");
-    for _ in 0..rng.gen_range(1..=2) {
+    for _ in 0..rng.random_range(1..=2) {
         if free.len() < 2 {
             return;
         }
-        let master = free.remove(rng.gen_range(0..free.len()));
-        let slave = free.remove(rng.gen_range(0..free.len()));
-        let c = match rng.gen_range(0..3) {
+        let master = free.remove(rng.random_range(0..free.len()));
+        let slave = free.remove(rng.random_range(0..free.len()));
+        let c = match rng.random_range(0..3) {
             0 => {
-                let mut dofs: Vec<usize> = (0..if rot { 3 } else { 2 }).filter(|_| rng.gen_bool(0.6)).collect();
+                let mut dofs: Vec<usize> = (0..if rot { 3 } else { 2 }).filter(|_| rng.random_bool(0.6)).collect();
                 if dofs.is_empty() { dofs.push(0); }
                 Constraint::EqualDOF(EqualDOFConstraint { master_node: master, slave_node: slave, dofs })
             }
             1 if rot => Constraint::RigidLink(RigidLinkConstraint { master_node: master, slave_node: slave, dofs: vec![] }),
             _ => Constraint::LinearMPC(LinearMPCConstraint { terms: vec![
                 MPCTerm { node_id: slave, dof: 1, coefficient: 1.0 },
-                MPCTerm { node_id: master, dof: 1, coefficient: -rng.gen_range(0.5..2.0) },
+                MPCTerm { node_id: master, dof: 1, coefficient: -rng.random_range(0.5..2.0) },
             ] }),
         };
         input.constraints.push(c);
@@ -748,7 +769,7 @@ fn cross3(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
 
 fn random_unit3(rng: &mut StdRng) -> [f64; 3] {
     loop {
-        let v: [f64; 3] = [rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)];
+        let v: [f64; 3] = [rng.random_range(-1.0..1.0), rng.random_range(-1.0..1.0), rng.random_range(-1.0..1.0)];
         let m = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
         if m > 0.2 && m <= 1.0 {
             return unit3(v);
@@ -771,7 +792,7 @@ fn blank_support_3d(node_id: usize) -> SolverSupport3D {
 /// prescribed displacements, every load type), and per-material densities.
 pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) {
     let mut rng = StdRng::seed_from_u64(seed);
-    let warping = rng.gen_bool(0.2);
+    let warping = rng.random_bool(0.2);
 
     let mut nodes: HashMap<String, SolverNode3D> = HashMap::new();
     let mut add_node = |nodes: &mut HashMap<String, SolverNode3D>, p: [f64; 3]| -> usize {
@@ -779,10 +800,10 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
         nodes.insert(id.to_string(), SolverNode3D { id, x: p[0], y: p[1], z: p[2] });
         id
     };
-    let n_frame_nodes = rng.gen_range(2..=7);
+    let n_frame_nodes = rng.random_range(2..=7);
     let mut pts: Vec<[f64; 3]> = Vec::new();
     while pts.len() < n_frame_nodes {
-        let p = [rng.gen_range(-6.0..6.0), rng.gen_range(-6.0..6.0), rng.gen_range(-6.0..6.0)];
+        let p = [rng.random_range(-6.0..6.0), rng.random_range(-6.0..6.0), rng.random_range(-6.0..6.0)];
         if pts.iter().all(|q| ((p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2)).sqrt() > 0.5) {
             pts.push(p);
         }
@@ -791,39 +812,39 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
         add_node(&mut nodes, p);
     }
 
-    let n_mats = rng.gen_range(1..=2);
+    let n_mats = rng.random_range(1..=2);
     let mut materials = HashMap::new();
     for i in 1..=n_mats {
-        let e = 10f64.powf(rng.gen_range(4.0..5.5));
-        materials.insert(i.to_string(), SolverMaterial { id: i, e, nu: rng.gen_range(0.15..0.4) });
+        let e = 10f64.powf(rng.random_range(4.0..5.5));
+        materials.insert(i.to_string(), SolverMaterial { id: i, e, nu: rng.random_range(0.15..0.4) });
     }
-    let n_secs = rng.gen_range(1..=2);
+    let n_secs = rng.random_range(1..=2);
     let mut sections = HashMap::new();
     for i in 1..=n_secs {
-        let a = 10f64.powf(rng.gen_range(-3.0..-1.0));
+        let a = 10f64.powf(rng.random_range(-3.0..-1.0));
         sections.insert(i.to_string(), SolverSection3D {
             id: i, name: None, a,
-            iy: 10f64.powf(rng.gen_range(-6.0..-3.0)),
-            iz: 10f64.powf(rng.gen_range(-6.0..-3.0)),
-            j: 10f64.powf(rng.gen_range(-6.0..-3.0)),
+            iy: 10f64.powf(rng.random_range(-6.0..-3.0)),
+            iz: 10f64.powf(rng.random_range(-6.0..-3.0)),
+            j: 10f64.powf(rng.random_range(-6.0..-3.0)),
             // With warping on, section 1 carries it and any other does not
             // (a non-warping element in a 7-DOF model).
-            cw: if warping && i == 1 { Some(10f64.powf(rng.gen_range(-8.0..-5.0))) } else { None },
-            as_y: if rng.gen_bool(0.4) { Some(a * rng.gen_range(0.4..0.9)) } else { None },
-            as_z: if rng.gen_bool(0.4) { Some(a * rng.gen_range(0.4..0.9)) } else { None },
+            cw: if warping && i == 1 { Some(10f64.powf(rng.random_range(-8.0..-5.0))) } else { None },
+            as_y: if rng.random_bool(0.4) { Some(a * rng.random_range(0.4..0.9)) } else { None },
+            as_z: if rng.random_bool(0.4) { Some(a * rng.random_range(0.4..0.9)) } else { None },
         });
     }
 
     let mut elements = HashMap::new();
     for (k, (ni, nj)) in random_edges(&mut rng, n_frame_nodes).into_iter().enumerate() {
         let id = k + 1;
-        let frame = rng.gen_bool(0.75);
+        let frame = rng.random_bool(0.75);
         let dir = {
             let (a, b) = (pts[ni - 1], pts[nj - 1]);
             unit3([b[0] - a[0], b[1] - a[1], b[2] - a[2]])
         };
         let (mut lyx, mut lyy, mut lyz) = (None, None, None);
-        if frame && rng.gen_bool(0.3) {
+        if frame && rng.random_bool(0.3) {
             let v = random_unit3(&mut rng);
             let c = cross3(dir, v);
             if (c[0] * c[0] + c[1] * c[1] + c[2] * c[2]).sqrt() > 0.3 {
@@ -835,16 +856,16 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
             elem_type: if frame { "frame" } else { "truss" }.to_string(),
             node_i: ni,
             node_j: nj,
-            material_id: rng.gen_range(1..=n_mats),
-            section_id: rng.gen_range(1..=n_secs),
-            release_my_start: frame && rng.gen_bool(0.1),
-            release_my_end: frame && rng.gen_bool(0.1),
-            release_mz_start: frame && rng.gen_bool(0.1),
-            release_mz_end: frame && rng.gen_bool(0.1),
-            release_t_start: frame && rng.gen_bool(0.05),
+            material_id: rng.random_range(1..=n_mats),
+            section_id: rng.random_range(1..=n_secs),
+            release_my_start: frame && rng.random_bool(0.1),
+            release_my_end: frame && rng.random_bool(0.1),
+            release_mz_start: frame && rng.random_bool(0.1),
+            release_mz_end: frame && rng.random_bool(0.1),
+            release_t_start: frame && rng.random_bool(0.05),
             release_t_end: false,
             local_yx: lyx, local_yy: lyy, local_yz: lyz,
-            roll_angle: if frame && rng.gen_bool(0.3) { Some(rng.gen_range(-180.0..180.0)) } else { None },
+            roll_angle: if frame && rng.random_bool(0.3) { Some(rng.random_range(-180.0..180.0)) } else { None },
         });
     }
 
@@ -856,19 +877,19 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
     let mut solid_shells = HashMap::new();
     let mut curved_shells = HashMap::new();
     for family in 0..5 {
-        if !rng.gen_bool(0.3) {
+        if !rng.random_bool(0.3) {
             continue;
         }
         let u = random_unit3(&mut rng);
         let v = unit3(cross3(cross3(u, random_unit3(&mut rng)), u));
         let nrm = cross3(u, v);
-        let (sa, sb) = (rng.gen_range(1.0..3.0), rng.gen_range(1.0..3.0));
-        let shared = rng.gen_bool(0.5);
-        let origin_id = if shared { rng.gen_range(1..=n_frame_nodes) } else { 0 };
+        let (sa, sb) = (rng.random_range(1.0..3.0), rng.random_range(1.0..3.0));
+        let shared = rng.random_bool(0.5);
+        let origin_id = if shared { rng.random_range(1..=n_frame_nodes) } else { 0 };
         let o = if shared {
             pts[origin_id - 1]
         } else {
-            [rng.gen_range(-6.0..6.0), rng.gen_range(-6.0..6.0), rng.gen_range(-6.0..6.0)]
+            [rng.random_range(-6.0..6.0), rng.random_range(-6.0..6.0), rng.random_range(-6.0..6.0)]
         };
         let at = |s: f64, t: f64, w: f64| [
             o[0] + s * sa * u[0] + t * sb * v[0] + w * nrm[0],
@@ -878,8 +899,8 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
         let first = |nodes: &mut HashMap<String, SolverNode3D>, add: &mut dyn FnMut(&mut HashMap<String, SolverNode3D>, [f64; 3]) -> usize| {
             if shared { origin_id } else { add(nodes, at(0.0, 0.0, 0.0)) }
         };
-        let mat = rng.gen_range(1..=n_mats);
-        let thick = rng.gen_range(0.05..0.3);
+        let mat = rng.random_range(1..=n_mats);
+        let thick = rng.random_range(0.05..0.3);
         match family {
             0 => {
                 let n0 = first(&mut nodes, &mut add_node);
@@ -890,7 +911,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
                 plates.insert("2".to_string(), SolverPlateElement { id: 2, nodes: [n0, n2, n3], material_id: mat, thickness: thick });
             }
             1 => {
-                let warp = if rng.gen_bool(0.3) { 0.05 * sa.min(sb) } else { 0.0 };
+                let warp = if rng.random_bool(0.3) { 0.05 * sa.min(sb) } else { 0.0 };
                 let n0 = first(&mut nodes, &mut add_node);
                 let n1 = add_node(&mut nodes, at(1.0, 0.0, 0.0));
                 let n2 = add_node(&mut nodes, at(1.0, 1.0, warp));
@@ -918,7 +939,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
                 solid_shells.insert("1".to_string(), SolverSolidShellElement { id: 1, nodes: ns, material_id: mat });
             }
             _ => {
-                let bulge = rng.gen_range(0.0..0.3);
+                let bulge = rng.random_range(0.0..0.3);
                 let n0 = first(&mut nodes, &mut add_node);
                 let n1 = add_node(&mut nodes, at(1.0, 0.0, bulge));
                 let n2 = add_node(&mut nodes, at(1.0, 1.0, bulge));
@@ -933,33 +954,33 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
     let mut s1 = blank_support_3d(1);
     s1.rx = true; s1.ry = true; s1.rz = true; s1.rrx = true; s1.rry = true; s1.rrz = true;
     if warping { s1.rw = Some(true); }
-    if rng.gen_bool(0.2) { s1.dz = Some(small_disp(&mut rng)); }
+    if rng.random_bool(0.2) { s1.dz = Some(small_disp(&mut rng)); }
     supports.insert("1".to_string(), s1);
     for node in 2..=n_nodes {
-        if !rng.gen_bool(0.3) {
+        if !rng.random_bool(0.3) {
             continue;
         }
         let mut s = blank_support_3d(node);
-        if rng.gen_bool(0.15) {
+        if rng.random_bool(0.15) {
             let nv = random_unit3(&mut rng);
             s.is_inclined = Some(true);
             s.normal_x = Some(nv[0]); s.normal_y = Some(nv[1]); s.normal_z = Some(nv[2]);
-            s.rrx = rng.gen_bool(0.3); s.rry = rng.gen_bool(0.3); s.rrz = rng.gen_bool(0.3);
+            s.rrx = rng.random_bool(0.3); s.rry = rng.random_bool(0.3); s.rrz = rng.random_bool(0.3);
         } else {
-            s.rx = rng.gen_bool(0.5); s.ry = rng.gen_bool(0.5); s.rz = rng.gen_bool(0.5);
-            s.rrx = rng.gen_bool(0.3); s.rry = rng.gen_bool(0.3); s.rrz = rng.gen_bool(0.3);
-            if warping { s.rw = Some(rng.gen_bool(0.3)); }
+            s.rx = rng.random_bool(0.5); s.ry = rng.random_bool(0.5); s.rz = rng.random_bool(0.5);
+            s.rrx = rng.random_bool(0.3); s.rry = rng.random_bool(0.3); s.rrz = rng.random_bool(0.3);
+            if warping { s.rw = Some(rng.random_bool(0.3)); }
             let ks = [&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz];
             for k in ks {
-                if rng.gen_bool(0.15) { *k = Some(spring_k(&mut rng)); }
+                if rng.random_bool(0.15) { *k = Some(spring_k(&mut rng)); }
             }
-            if warping && rng.gen_bool(0.2) { s.kw = Some(spring_k(&mut rng)); }
-            if s.rx && rng.gen_bool(0.3) { s.dx = Some(small_disp(&mut rng)); }
-            if s.ry && rng.gen_bool(0.3) { s.dy = Some(small_disp(&mut rng)); }
-            if s.rz && rng.gen_bool(0.3) { s.dz = Some(small_disp(&mut rng)); }
-            if s.rrx && rng.gen_bool(0.2) { s.drx = Some(small_disp(&mut rng)); }
-            if s.rry && rng.gen_bool(0.2) { s.dry = Some(small_disp(&mut rng)); }
-            if s.rrz && rng.gen_bool(0.2) { s.drz = Some(small_disp(&mut rng)); }
+            if warping && rng.random_bool(0.2) { s.kw = Some(spring_k(&mut rng)); }
+            if s.rx && rng.random_bool(0.3) { s.dx = Some(small_disp(&mut rng)); }
+            if s.ry && rng.random_bool(0.3) { s.dy = Some(small_disp(&mut rng)); }
+            if s.rz && rng.random_bool(0.3) { s.dz = Some(small_disp(&mut rng)); }
+            if s.rrx && rng.random_bool(0.2) { s.drx = Some(small_disp(&mut rng)); }
+            if s.rry && rng.random_bool(0.2) { s.dry = Some(small_disp(&mut rng)); }
+            if s.rrz && rng.random_bool(0.2) { s.drz = Some(small_disp(&mut rng)); }
         }
         supports.insert(node.to_string(), s);
     }
@@ -973,24 +994,24 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
         v
     };
     let mut loads = Vec::new();
-    let q = |rng: &mut StdRng| rng.gen_range(-20.0..20.0);
-    for _ in 0..rng.gen_range(2..=6) {
-        let (eid, l) = elem_list[rng.gen_range(0..elem_list.len())];
-        match rng.gen_range(0..5) {
+    let q = |rng: &mut StdRng| rng.random_range(-20.0..20.0);
+    for _ in 0..rng.random_range(2..=6) {
+        let (eid, l) = elem_list[rng.random_range(0..elem_list.len())];
+        match rng.random_range(0..5) {
             0 => loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-                node_id: rng.gen_range(1..=n_nodes),
+                node_id: rng.random_range(1..=n_nodes),
                 fx: q(&mut rng), fy: q(&mut rng), fz: q(&mut rng),
                 mx: q(&mut rng), my: q(&mut rng), mz: q(&mut rng),
-                bw: if warping && rng.gen_bool(0.3) { Some(q(&mut rng)) } else { None },
+                bw: if warping && rng.random_bool(0.3) { Some(q(&mut rng)) } else { None },
             })),
             1 => {
-                let (a, b) = if rng.gen_bool(0.4) {
-                    let a = rng.gen_range(0.0..0.8) * l;
-                    (Some(a), Some(a + rng.gen_range(0.1..1.0) * (l - a)))
+                let (a, b) = if rng.random_bool(0.4) {
+                    let a = rng.random_range(0.0..0.8) * l;
+                    (Some(a), Some(a + rng.random_range(0.1..1.0) * (l - a)))
                 } else {
                     (None, None)
                 };
-                let axial = rng.gen_bool(0.4);
+                let axial = rng.random_bool(0.4);
                 loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D {
                     element_id: eid,
                     q_xi: if axial { q(&mut rng) } else { 0.0 },
@@ -1000,26 +1021,26 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
                 }));
             }
             2 => loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
-                element_id: eid, a: rng.gen_range(0.0..1.0) * l, py: q(&mut rng), pz: q(&mut rng),
+                element_id: eid, a: rng.random_range(0.0..1.0) * l, py: q(&mut rng), pz: q(&mut rng),
             })),
             3 => loads.push(SolverLoad3D::Thermal(SolverThermalLoad3D {
-                element_id: eid, dt_uniform: rng.gen_range(-40.0..40.0),
-                dt_gradient_y: rng.gen_range(-20.0..20.0), dt_gradient_z: rng.gen_range(-20.0..20.0),
+                element_id: eid, dt_uniform: rng.random_range(-40.0..40.0),
+                dt_gradient_y: rng.random_range(-20.0..20.0), dt_gradient_z: rng.random_range(-20.0..20.0),
             })),
             _ if warping => loads.push(SolverLoad3D::Bimoment(SolverBimomentLoad {
-                node_id: rng.gen_range(1..=n_nodes), bimoment: q(&mut rng),
+                node_id: rng.random_range(1..=n_nodes), bimoment: q(&mut rng),
             })),
             _ => {}
         }
     }
     let pl = |rng: &mut StdRng| SolverPlateThermalLoad {
-        element_id: 1, dt_uniform: rng.gen_range(-30.0..30.0), dt_gradient: rng.gen_range(-10.0..10.0),
-        alpha: if rng.gen_bool(0.5) { Some(1e-5) } else { None },
+        element_id: 1, dt_uniform: rng.random_range(-30.0..30.0), dt_gradient: rng.random_range(-10.0..10.0),
+        alpha: if rng.random_bool(0.5) { Some(1e-5) } else { None },
     };
     let sw = |rng: &mut StdRng| SolverQuadSelfWeightLoad {
-        element_id: 1, density: rng.gen_range(1000.0..3000.0), gx: q(rng) / 2.0, gy: q(rng) / 2.0, gz: -9.81,
+        element_id: 1, density: rng.random_range(1000.0..3000.0), gx: q(rng) / 2.0, gy: q(rng) / 2.0, gz: -9.81,
     };
-    let edge = |rng: &mut StdRng| SolverQuadEdgeLoad { element_id: 1, edge: rng.gen_range(0..4), qn: q(rng), qt: q(rng) };
+    let edge = |rng: &mut StdRng| SolverQuadEdgeLoad { element_id: 1, edge: rng.random_range(0..4), qn: q(rng), qt: q(rng) };
     if !plates.is_empty() {
         loads.push(SolverLoad3D::Pressure(SolverPressureLoad { element_id: 2, pressure: q(&mut rng) }));
         loads.push(SolverLoad3D::PlateThermal(pl(&mut rng)));
@@ -1039,7 +1060,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
     if !solid_shells.is_empty() {
         loads.push(SolverLoad3D::SolidShellPressure(SolverPressureLoad { element_id: 1, pressure: q(&mut rng) }));
         loads.push(SolverLoad3D::SolidShellSelfWeight(SolverSolidShellSelfWeightLoad {
-            element_id: 1, density: rng.gen_range(1000.0..3000.0), gx: 0.0, gy: 0.0, gz: -9.81,
+            element_id: 1, density: rng.random_range(1000.0..3000.0), gx: 0.0, gy: 0.0, gz: -9.81,
         }));
     }
     if !curved_shells.is_empty() {
@@ -1050,9 +1071,9 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
     }
 
     let mut connectors = HashMap::new();
-    if rng.gen_bool(0.25) {
-        let a = rng.gen_range(1..=n_nodes);
-        let b = rng.gen_range(1..=n_nodes);
+    if rng.random_bool(0.25) {
+        let a = rng.random_range(1..=n_nodes);
+        let b = rng.random_range(1..=n_nodes);
         if a != b {
             connectors.insert("1".to_string(), ConnectorElement {
                 id: 1, node_i: a, node_j: b,
@@ -1066,7 +1087,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
     let input = SolverInput3D {
         solver_options: None, nodes, materials, sections, elements, supports, loads,
         constraints: vec![],
-        left_hand: if rng.gen_bool(0.2) { Some(true) } else { None },
+        left_hand: if rng.random_bool(0.2) { Some(true) } else { None },
         plates, quads, quad9s, solid_shells, curved_shells,
         curved_beams: vec![],
         connectors,
@@ -1078,15 +1099,15 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
 pub fn add_random_constraints_3d(input: &mut SolverInput3D, seed: u64) {
     let mut rng = StdRng::seed_from_u64(seed ^ 0xC0457);
     let mut free = unsupported_nodes(input.nodes.values().map(|n| n.id), input.supports.values().map(|s| s.node_id));
-    for _ in 0..rng.gen_range(1..=2) {
+    for _ in 0..rng.random_range(1..=2) {
         if free.len() < 2 {
             return;
         }
-        let master = free.remove(rng.gen_range(0..free.len()));
-        let slave = free.remove(rng.gen_range(0..free.len()));
-        let c = match rng.gen_range(0..4) {
+        let master = free.remove(rng.random_range(0..free.len()));
+        let slave = free.remove(rng.random_range(0..free.len()));
+        let c = match rng.random_range(0..4) {
             0 => {
-                let mut dofs: Vec<usize> = (0..6).filter(|_| rng.gen_bool(0.5)).collect();
+                let mut dofs: Vec<usize> = (0..6).filter(|_| rng.random_bool(0.5)).collect();
                 if dofs.is_empty() { dofs.push(2); }
                 Constraint::EqualDOF(EqualDOFConstraint { master_node: master, slave_node: slave, dofs })
             }
@@ -1094,7 +1115,7 @@ pub fn add_random_constraints_3d(input: &mut SolverInput3D, seed: u64) {
             2 => Constraint::Diaphragm(DiaphragmConstraint { master_node: master, slave_nodes: vec![slave], plane: "XY".into() }),
             _ => Constraint::LinearMPC(LinearMPCConstraint { terms: vec![
                 MPCTerm { node_id: slave, dof: 2, coefficient: 1.0 },
-                MPCTerm { node_id: master, dof: 0, coefficient: -rng.gen_range(0.5..2.0) },
+                MPCTerm { node_id: master, dof: 0, coefficient: -rng.random_range(0.5..2.0) },
             ] }),
         };
         input.constraints.push(c);

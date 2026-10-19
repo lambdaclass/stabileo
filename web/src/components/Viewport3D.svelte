@@ -4389,6 +4389,9 @@
     display: block;
     width: 100% !important;
     height: 100% !important;
+    /* The wrapper's cursor (the cross while drawing, grab/grabbing over a node) is the one shown.
+       OrbitControls (three 0.186) writes an inline `cursor: auto` on its canvas, which hid it. */
+    cursor: inherit !important;
   }
   .inset-frame {
     position: absolute;

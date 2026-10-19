@@ -787,7 +787,8 @@ fn certify_fuzz_oracle() {
         }
     }
     eprintln!("fuzz: {solved} solved, {cert} certified, {unc} uncertified: {reasons:?}");
-    assert!(cert > 0);
+    // 85 (rand 0.8) / 81 (rand 0.10) certified: catch a sweep that silently shrinks.
+    assert!(cert >= 60, "only {cert} fuzz models certified");
 }
 
 // ───────────────────────── constraints and inclined supports ─────────────────────────
@@ -1315,7 +1316,7 @@ fn full_results_bounds_only_when_certified() {
     assert_eq!(full.shell_bounds.len(), shell.quads.len());
     assert!(full.shell_bounds.iter().all(|b| b.mx > 0.0 && b.qx.is_some()));
     // A non-positive-definite model the solver still answers: no bounds at all.
-    let bad = fuzz_models::random_3d_model(100_031);
+    let bad = fuzz_models::pinned_npd_3d();
     let full = certify_linear_3d_full(&bad).unwrap();
     assert!(!full.certificate.is_certified());
     assert!(full.force_bounds.is_empty() && full.shell_bounds.is_empty());

@@ -747,7 +747,7 @@ mod tests {
         seed: u64,
     ) -> (usize, Vec<usize>, Vec<usize>, Vec<f64>) {
         use rand::rngs::StdRng;
-        use rand::{Rng, SeedableRng};
+        use rand::{RngExt, SeedableRng};
 
         let mut rng = StdRng::seed_from_u64(seed);
         let mut rows = Vec::new();
@@ -756,7 +756,7 @@ mod tests {
         let mut diag = vec![1.0f64; n];
         for i in 0..n {
             for j in (i + 1)..n {
-                if rng.gen::<f64>() < prob {
+                if rng.random::<f64>() < prob {
                     rows.push(j);
                     cols.push(i);
                     vals.push(-1.0);

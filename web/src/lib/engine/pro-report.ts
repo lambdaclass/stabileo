@@ -466,7 +466,7 @@ export function generateReportHtml(data: ReportData): string {
 <head>
 <meta charset="UTF-8">
 <title>${escHtml(interp(tr('report.docTitle'), { name: projectName }))}</title>
-<style>${katexCss.replace(/url\(fonts\//g, 'url(https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts/')}</style>
+<style>${katexCss.replace(/url\(fonts\//g, `url(https://cdn.jsdelivr.net/npm/katex@${katex.version}/dist/fonts/`)}</style>
 <style>${REPORT_CSS}</style>
 </head>
 <body>
