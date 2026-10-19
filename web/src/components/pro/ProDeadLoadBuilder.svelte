@@ -18,7 +18,7 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { te } from '../../lib/i18n/engine-text';
   import {
-    DEAD_TABLE_2025, PARTITION_MINIMUM_ENTRY, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
+    DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
     type DeadGroup,
   } from '../../lib/codes/cirsoc101/dead-loads';
   // A row, as the dialog holds it (`auto-loads-sections.ts`).
@@ -28,8 +28,13 @@
     rows: DeadRow[];
     /** The unreduced Lo of the chosen occupancy, for the §3.1.4 check. */
     liveLo: number;
+    /**
+     * The §4.3.2 partition live load the floor takes, kN/m² (0: none). It is a live load and is
+     * entered with the live load; here it only counts toward what §3.1.4 asks for.
+     */
+    liveAllowance?: number;
   }
-  let { rows = $bindable(), liveLo }: Props = $props();
+  let { rows = $bindable(), liveLo, liveAllowance = 0 }: Props = $props();
 
   const GROUPS: DeadGroup[] = ['ceiling', 'roof', 'concrete', 'floor', 'partition', 'glazing'];
 
@@ -53,7 +58,7 @@
   const partitionQ = $derived(
     rows.reduce((s, row, i) => s + (row.isPartition ? resolved[i].q : 0), 0),
   );
-  const partition = $derived(checkPartitionAllowance(liveLo, partitionQ));
+  const partition = $derived(checkPartitionAllowance(liveLo, partitionQ, liveAllowance));
   /** Typed rows are assumptions and the panel says so once, not per row. */
   const anyAssumed = $derived(rows.some((r) => r.entryKey === null));
 
@@ -127,7 +132,7 @@
       <option value="">{t('loads.dead.title')}…</option>
       {#each GROUPS as g (g)}
         <optgroup label={t(`loads.dead.group.${g}`)}>
-          {#each [...DEAD_TABLE_2025, PARTITION_MINIMUM_ENTRY].filter((e) => e.group === g) as e (e.key)}
+          {#each DEAD_TABLE_2025.filter((e) => e.group === g) as e (e.key)}
             <option value={e.key}>
               {t(e.labelKey)}
               {#if e.areaKNm2 !== null}— {e.areaKNm2} kN/m²{:else}— {e.volumeKNm3} kN/m³{/if}
@@ -149,7 +154,8 @@
   <!--
     §3.1.4 requires the weight of interior partitions to be provided for whether or not
     they are drawn, unless the live load is over 4 kN/m². A build-up missing it shows up
-    as nothing at all, which is why it is checked rather than looked for.
+    as nothing at all, which is why it is checked rather than looked for. The §4.3.2
+    partition live load, set in the live pane, counts toward it.
   -->
   <div class="dl-part-check" class:warn={partition.missing} data-testid="dead-partition-check">
     {te(partition.message)}

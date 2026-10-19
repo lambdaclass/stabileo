@@ -10,7 +10,7 @@
  * These journeys use visible controls only. Nothing seeds a regulation store.
  */
 
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, openClassicDesign } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -18,7 +18,7 @@ async function openDesign(page: Page) {
   // By testid throughout: this journey runs in both languages. The PRO bar is a
   // two-level ribbon now — the stage, then its command — so the label-matching
   // that the old dropdown forced is no longer needed at all.
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
   await expect(page.getByTestId('design-toolbar')).toBeVisible();
 }

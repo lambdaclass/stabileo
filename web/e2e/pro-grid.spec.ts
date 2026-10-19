@@ -21,10 +21,12 @@ test.describe('@smoke structural grid', () => {
     await expect(page.getByTestId('grid-axis-B')).toBeVisible();
     await expect(page.getByTestId('grid-level-N2')).toBeVisible();
 
+    // Columns and beams between axes are placed in Building.
     // 3 × 2 intersections, two storeys: 12 columns, 2 × (4 + 3) beams.
+    await page.getByTestId('grid-open-building').click();
     await expect(page.getByTestId('grid-frame-create')).toContainText('26');
     await page.getByTestId('grid-frame-create').click();
-    await expect(page.getByTestId('grid-frame-report')).toContainText('26');
+    await expect(page.getByTestId('building-result')).toContainText('26');
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());
     expect((await census()).elements).toBe(26);
     expect((await census()).nodes).toBe(18);
@@ -32,6 +34,7 @@ test.describe('@smoke structural grid', () => {
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
     expect((await census()).elements).toBe(0);
     // The grid itself is still there: it was a step of its own.
+    await page.getByTestId('pr-cmd-grid').click();
     await expect(page.getByTestId('grid-axis-3')).toBeVisible();
 
     await page.getByTestId('grid-activate-N1').check();
@@ -47,6 +50,7 @@ test.describe('@smoke structural grid', () => {
     await page.getByTestId('grid-generate-y').click();
     await page.getByTestId('grid-heights').fill('3');
     await page.getByTestId('grid-generate-levels').click();
+    await page.getByTestId('grid-open-building').click();
     await page.getByTestId('grid-frame-create').click();
 
     await page.getByTestId('pr-cmd-loads').click();

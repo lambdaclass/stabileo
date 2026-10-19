@@ -21,7 +21,7 @@ import { WIND_DIRECTIONS, type WindCaseSet, type WindDirection } from '../../lib
 import { defaultSnowConfig, type SnowConfig } from '../../lib/engine/loads/snow-config';
 import { loadCodeFor } from '../../lib/codes/families';
 import type { ProjectRegulations, RegulationRole } from '../../lib/codes/roles';
-import type { ElementKind } from '../../lib/codes/cirsoc101/live-loads';
+import { PARTITION_LIVE_MINIMUM_KNM2, type ElementKind } from '../../lib/codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../lib/codes/cirsoc102/wind';
 import type { SeismicZone, SiteClass, DestinationGroup, OccupancyProbability } from '../../lib/codes/cirsoc103/spectrum';
 import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
@@ -44,6 +44,8 @@ export interface AutoLoadsMemory {
   reductionElementKind: ElementKind;
   floorsSupported: number;
   deadRows: DeadRow[];
+  /** The §4.3.2 partition live load: on, and its value in kN/m² of floor. */
+  partitionLive: PartitionLiveSetting;
   gravityMode: GravityMode;
   gravitySlab: 'twoWay' | 'oneWay';
   gravitySpan: 'x' | 'y';
@@ -78,21 +80,29 @@ export interface AutoLoadsMemory {
   seismicDirectionZ: boolean;
 }
 
+/** The §4.3.2 partition live load as the dialog holds it. */
+export interface PartitionLiveSetting { on: boolean; q: number }
+
+/** The dead row older projects saved for the §4.3.2 minimum, when it was loaded as dead. */
+export const LEGACY_PARTITION_DEAD_ROW = 'tabiques_minimo_432';
+
 /*
  * The dead load's default is a real build-up rather than an empty list, because an empty one is a
  * dialog that cannot produce a dead load until the reader has read a table they have not opened
- * yet: 8 cm of cement screed, a ceramic tile, a suspended ceiling, and the partition allowance.
- * The first three are Tabla 3.1 rows. The allowance is the CIRSOC 101-2025 §4.3.2 minimum,
- * 0,75 kN/m² of floor: no Tabla 3.1 partition row reaches it (they weigh a square metre of wall,
- * the heaviest 0,65), so a default built from one would fail §4.3.2 on the very dwelling it
- * opens on. Each row can be removed.
+ * yet: 8 cm of cement screed, a ceramic tile and a suspended ceiling, all Tabla 3.1 rows. Each row
+ * can be removed.
+ *
+ * The partition allowance is not among them. It is the CIRSOC 101-2025 §4.3.2 minimum, 0,75 kN/m²
+ * of floor, a live load ("sobrecarga de repartición", chapter 4), and starts on in the live pane
+ * (`partitionLive`). It was the fourth dead row here, which took it into 1,2 D instead of 1,6 L.
  */
 const defaultDeadRows = (): DeadRow[] => [
   { entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false },
   { entryKey: 'piso_baldosa_ceramica', thickness: 0, onBattens: false, q: 0, isPartition: false },
   { entryKey: 'cielo_acustico', thickness: 0, onBattens: false, q: 0, isPartition: false },
-  { entryKey: 'tabiques_minimo_432', thickness: 0, onBattens: false, q: 0, isPartition: true },
 ];
+
+const defaultPartitionLive = (): PartitionLiveSetting => ({ on: true, q: PARTITION_LIVE_MINIMUM_KNM2 });
 
 /**
  * The dialog with nothing saved: the app's defaults, and the bound wind and seismic codes' own
@@ -108,7 +118,7 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
   return {
     genCombos: true, comboSet: 'ultimate', comboSource: 'regulation', bothSenses: true, patternsInCompanions: false,
     selectedOccupancy: 'vivienda', tributaryWidth: 3.0, applyLiveReduction: true, reductionElementKind: 'interiorBeam', floorsSupported: 1,
-    deadRows: defaultDeadRows(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x',
+    deadRows: defaultDeadRows(), partitionLive: defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x',
     roofCfg: defaultRoofConfig(), livePatterns: 'all', special: defaultSpecialLoads(),
     enableWind: false,
     windV: wind?.basicSpeed ?? 45, windExposure: (wind?.exposure ?? 'B') as Exposure, windEnclosure: (wind?.enclosure ?? 'enclosed') as Enclosure,
@@ -171,7 +181,19 @@ export function autoLoadsMemory(roles: ProjectRegulations, available: { wind: bo
     if (typeof loads.reductionElementKind === 'string') m.reductionElementKind = loads.reductionElementKind as ElementKind;
     if (typeof loads.floorsSupported === 'number') m.floorsSupported = loads.floorsSupported;
     const d = loads.dialog as Rec | undefined;
-    if (d?.deadRows) m.deadRows = d.deadRows;
+    if (d?.deadRows) {
+      /*
+       * A project saved while the §4.3.2 minimum was a dead row: the row leaves the dead load and
+       * the allowance comes back as the live load it is, at the value the row had. One saved
+       * without the row had the allowance taken off by its author, so it stays off.
+       */
+      const rows = d.deadRows as DeadRow[];
+      const legacy = rows.some((r) => r.entryKey === LEGACY_PARTITION_DEAD_ROW);
+      m.deadRows = rows.filter((r) => r.entryKey !== LEGACY_PARTITION_DEAD_ROW);
+      m.partitionLive = d.partitionLive
+        ? { on: !!d.partitionLive.on, q: typeof d.partitionLive.q === 'number' ? d.partitionLive.q : PARTITION_LIVE_MINIMUM_KNM2 }
+        : { on: legacy, q: PARTITION_LIVE_MINIMUM_KNM2 };
+    }
     if (d?.gravityMode) m.gravityMode = d.gravityMode;
     if (d?.gravitySlab) m.gravitySlab = d.gravitySlab;
     if (d?.gravitySpan) m.gravitySpan = d.gravitySpan;

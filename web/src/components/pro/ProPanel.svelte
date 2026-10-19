@@ -45,6 +45,8 @@
   import ProGridPanel from './ProGridPanel.svelte';
   import ProEditPanel from './ProEditPanel.svelte';
   import ProGroupsPanel from './ProGroupsPanel.svelte';
+  import ProPhysicalPanel from './ProPhysicalPanel.svelte';
+  import ProBuildingPanel from './ProBuildingPanel.svelte';
   import ProCodePanel from './ProCodePanel.svelte';
   import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
@@ -89,7 +91,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -340,6 +342,10 @@
           <ProEditPanel />
         {:else if activeTab === 'groups'}
           <ProGroupsPanel />
+        {:else if activeTab === 'physical'}
+          <ProPhysicalPanel />
+        {:else if activeTab === 'building'}
+          <ProBuildingPanel />
         {:else if activeTab === 'code'}
           <ProCodePanel />
         {:else if activeTab === 'view'}

@@ -21,7 +21,7 @@ import { registerLoadCodes } from '../../../lib/codes/families';
 import { CIRSOC102_WIND } from '../../../lib/codes/families/cirsoc';
 import { autoLoadsDefaults, autoLoadsMemory, type AutoLoadsMemory } from '../auto-loads-memory';
 import { findDeadEntry, deadComponentLoad, checkPartitionAllowance } from '../../../lib/codes/cirsoc101/dead-loads';
-import { findOccupancy } from '../../../lib/codes/cirsoc101/live-loads';
+import { findOccupancy, partitionLiveAllowance, PARTITION_LIVE_MINIMUM_KNM2 } from '../../../lib/codes/cirsoc101/live-loads';
 
 const dialog = readFileSync(join(process.cwd(), 'src/components/pro/ProAutoLoadsDialog.svelte'), 'utf8');
 const BOTH = { wind: true, seismic: true };
@@ -113,15 +113,49 @@ describe('with nothing saved, the dialog starts from the defaults whole', () => 
     expect(autoLoadsMemory(regulationsStore.roles, BOTH)).toEqual(autoLoadsDefaults(regulationsStore.roles));
   });
 
-  it('the default build-up satisfies §3.1.4 and the §4.3.2 minimum on its own default occupancy', () => {
+  // Changed expectation: the §4.3.2 minimum was the fourth dead row (0,75 kN/m² in D). CIRSOC
+  // 101-2025 §4.3.2 is in chapter 4 and calls it "sobrecarga de repartición", a live load, so the
+  // default build-up has three dead rows and the allowance is on in the live pane instead.
+  it('the default satisfies §3.1.4 and the §4.3.2 minimum on its own default occupancy, with the allowance as live', () => {
     const d = autoLoadsDefaults(regulationsStore.roles);
-    const partitionQ = d.deadRows
-      .filter((r) => r.isPartition)
-      .reduce((s, r) => s + deadComponentLoad(findDeadEntry(r.entryKey!)!, { thicknessM: r.thickness }).qKNm2, 0);
+    expect(d.deadRows.map((r) => r.entryKey)).toEqual(['contrapiso_cemento', 'piso_baldosa_ceramica', 'cielo_acustico']);
+    expect(d.deadRows.some((r) => r.isPartition)).toBe(false);
+    expect(d.partitionLive).toEqual({ on: true, q: PARTITION_LIVE_MINIMUM_KNM2 });
     const lo = findOccupancy(d.selectedOccupancy)!.uniformKNm2!;
-    const check = checkPartitionAllowance(lo, partitionQ);
+    const live = partitionLiveAllowance(lo, d.partitionLive.q).qKNm2;
+    expect(live).toBe(0.75);
+    const check = checkPartitionAllowance(lo, 0, live);
     expect(check.missing, check.message.key).toBe(false);
-    expect(check.message.key).toBe('loads.cirsoc101.dead.partitionIncluded');
+    expect(check.message.key).toBe('loads.cirsoc101.dead.partitionIncludedLive');
+    // 1,44 + 0,28 + 0,05: the dead total no longer carries the partition minimum.
+    const dead = d.deadRows.reduce((s, r) => s + deadComponentLoad(findDeadEntry(r.entryKey!)!, { thicknessM: r.thickness }).qKNm2, 0);
+    expect(dead).toBeCloseTo(1.77, 9);
+  });
+
+  it('a project saved with the §4.3.2 minimum as a dead row reopens with it as live', () => {
+    regulationsStore.configureRole('loads', {
+      occupancyKey: 'vivienda',
+      dialog: { deadRows: [
+        { entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false },
+        { entryKey: 'tabiques_minimo_432', thickness: 0, onBattens: false, q: 0, isPartition: true },
+      ] },
+    }, true);
+    const m = autoLoadsMemory(regulationsStore.roles, BOTH);
+    expect(m.deadRows.map((r) => r.entryKey)).toEqual(['contrapiso_cemento']);
+    expect(m.partitionLive).toEqual({ on: true, q: 0.75 });
+  });
+
+  it('a project saved without it, by its author, keeps it off; a saved setting is restored as saved', () => {
+    regulationsStore.configureRole('loads', {
+      occupancyKey: 'vivienda',
+      dialog: { deadRows: [{ entryKey: 'contrapiso_cemento', thickness: 0.08, onBattens: false, q: 0, isPartition: false }] },
+    }, true);
+    expect(autoLoadsMemory(regulationsStore.roles, BOTH).partitionLive.on).toBe(false);
+    regulationsStore.configureRole('loads', {
+      occupancyKey: 'vivienda',
+      dialog: { deadRows: [], partitionLive: { on: true, q: 1.0 } },
+    }, true);
+    expect(autoLoadsMemory(regulationsStore.roles, BOTH).partitionLive).toEqual({ on: true, q: 1.0 });
   });
 
   it('another project opened after one with saved settings starts from the defaults, not from it', () => {
@@ -132,7 +166,7 @@ describe('with nothing saved, the dialog starts from the defaults whole', () => 
     const b = autoLoadsMemory(regulationsStore.roles, BOTH);
     expect(b).toEqual(autoLoadsDefaults(regulationsStore.roles));
     expect([b.deadRows.length, b.special.soil.on, b.windDyn.n1Source, b.windDirs.length, b.snowCfg.enabled, b.comboSource, b.enableWind])
-      .toEqual([4, false, 'modal', 4, false, 'regulation', false]);
+      .toEqual([3, false, 'modal', 4, false, 'regulation', false]);
   });
 
   it('the bound wind code\'s own starting values stand in for the app\'s', () => {

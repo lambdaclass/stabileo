@@ -14,14 +14,14 @@
  * itself one of the five gaps.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, openClassicDesign, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
 
 async function openJoints(page: Page) {
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-connections').click();
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
@@ -36,7 +36,7 @@ async function openSection(page: Page, testid: string) {
 /** Replace the concrete fixture with a generated steel truss. */
 async function generateSteel(page: Page) {
   await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-generators').click();
+  await ribbonCmd(page, 'generators');
   await pickGenerator(page, 'truss');
   await insertGenerated(page);
   await expect(page.getByTestId('gen-out-result')).toBeVisible();

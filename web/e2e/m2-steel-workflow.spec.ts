@@ -16,7 +16,7 @@
  * — rather than duplicated beside it or gone.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, openClassicDesign, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
@@ -36,7 +36,7 @@ const SUBS = ['grade', 'section', 'geometry', 'assumptions', 'verification'];
 
 async function openSteelTab(page: Page): Promise<void> {
   await page.goto(PRO_URL);
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-steel').click();
   await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
 }
@@ -227,7 +227,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   /** A truss puts several metallic members in the model, each with its own row. */
   async function generateTruss(page: Page): Promise<void> {
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
     await pickGenerator(page, 'truss');
     await pickGenerator(page, 'truss');
@@ -238,7 +238,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('the grade stage lists a row per member, with its own state', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     await page.getByTestId('steel-sub-grade').click();
 
@@ -261,7 +261,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
      */
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     await page.getByTestId('steel-sub-grade').click();
 
@@ -276,7 +276,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('and says what is missing together with why it matters', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     await page.getByTestId('steel-sub-grade').click();
 
@@ -289,7 +289,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('the section stage names the origin and what is absent, per member', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     await page.getByTestId('steel-sub-section').click();
 
@@ -305,7 +305,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('and no row state ever reads as a pass', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     // The per-member tables live inside stage 3 now; grade and section are sub-sections of it.
     await page.getByTestId('steel-stage-sections').click();
@@ -322,13 +322,13 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
   async function trussThenSteel(page: Page): Promise<void> {
     await page.goto(PRO_URL);
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await expect(page.getByTestId('pro-generators-panel')).toBeVisible();
     await pickGenerator(page, 'truss');
     await pickGenerator(page, 'truss');
     await insertGenerated(page);
     await expect(page.getByTestId('gen-out-result')).toBeVisible();
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
   }
 
@@ -430,7 +430,7 @@ test.describe('it is not a second, disconnected application', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-sections').click();
     await expect(page.getByTestId('pro-steel-workflow')).toHaveCount(0);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
   });

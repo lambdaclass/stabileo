@@ -19,7 +19,7 @@
  * are asserted exactly. Frame times on a shared machine measure the machine, so they are logged.
  */
 
-import { test, expect, PRO_URL, loadModel, solveModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 interface JointScene {
@@ -58,7 +58,7 @@ async function openSolvedShed(page: Page): Promise<void> {
 }
 
 async function openJointPanel(page: Page): Promise<void> {
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-connections').click();
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
@@ -325,7 +325,7 @@ test.describe('@smoke M3 — the path to the joint viewer is reachable', () => {
 
     // The two controls that make the path explicit, both visible before they are used.
     await expect(page.getByTestId('pr-stage-design')).toBeVisible();
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await expect(page.getByTestId('pr-cmd-connections')).toBeVisible();
     await page.getByTestId('pr-cmd-connections').click();
     await expect(page.getByTestId('conn-sec-joints')).toBeVisible();

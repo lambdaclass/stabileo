@@ -71,6 +71,11 @@ export interface SectionFields {
    */
   drawn?: import('./drawn').DrawnSection;
   profileFamily?: string;
+  /**
+   * Written as `undefined` by every choice: rolled or welded is declared about one section, and a
+   * declaration about the section replaced must not describe its replacement.
+   */
+  fabrication?: 'rolled' | 'welded';
   a?: number;
   iy?: number;
   iz?: number;
@@ -130,7 +135,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       rotation: 0,
       drawn,
       // Nothing of a previous make-up may survive: each of these would describe another section.
-      built: undefined, composition: undefined, tl: undefined, shearAreas: undefined,
+      built: undefined, composition: undefined, tl: undefined, shearAreas: undefined, fabrication: undefined,
       shape: d?.shape, tw: d?.tw, tf: d?.tf, t: d?.t,
       profileFamily: d?.profileName ? findProfileFamily(d.profileName) : undefined,
       a: props.a, iy: props.iy, iz: props.iz,
@@ -169,7 +174,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
       name: built.name,
       // A template's record and its lip would otherwise stay, and the section reopen as the
       // template it no longer is.
-      drawn: undefined, built: undefined, tl: undefined, shearAreas: undefined,
+      drawn: undefined, built: undefined, tl: undefined, shearAreas: undefined, fabrication: undefined,
       rotation: resolveRotationDeg(spec, autoDeg),
       composition: specToComposition(spec, resolved.name),
       profileFamily: resolved.family,
@@ -207,7 +212,7 @@ export function toSectionFields(choice: SectionChoice, autoDeg: number): Section
    */
   return {
     name,
-    drawn: undefined, composition: undefined, profileFamily: undefined, shearAreas: undefined,
+    drawn: undefined, composition: undefined, profileFamily: undefined, shearAreas: undefined, fabrication: undefined,
     rotation: rotationDeg === 'auto' ? autoDeg : rotationDeg,
     built: { shapeType, params },
     a: props.a,

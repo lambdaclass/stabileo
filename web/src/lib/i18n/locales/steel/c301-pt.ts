@@ -87,6 +87,10 @@ const c301Pt: Record<string, string> = {
   'c301.g.cvElastic': '  Alma esbelta: Cv = 1,51·E·kv/((h/tw)²·Fy) = {Cv}  (G.2.5)',
   'c301.g.angle': '  Aba de cantoneira (G.4): b = {b} mm, t = {t} mm, Aw = {Aw} mm², b/t = {bt}, limite {lim} → Cv = {Cv}  (kv = 1,2)',
   'c301.g.vn': '  Vn = 0,6·Fy·Aw·Cv = 0,6·{Fy}·{Aw}·{Cv} = {Vn} kN; φVn = 0,90·Vn = {phiVn} kN',
+  'c301.word.positive': 'positivo',
+  'c301.word.negative': 'negativo',
+  'c301.word.top': 'superior',
+  'c301.word.bottom': 'inferior',
 
   'c301.h.title': '§H.1 — Interação:',
   'c301.h.axialCompression': '  Resistência axial (compressão): φPn = {phiPn} kN',

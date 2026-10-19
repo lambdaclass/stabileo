@@ -11,7 +11,7 @@
  * finds becomes assertions in H1-B..E, in the files those phases touch.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -176,7 +176,7 @@ const probe = (page: Page, sel: string) =>
 async function toDesignStage(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
 }
 

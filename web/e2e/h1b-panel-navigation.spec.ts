@@ -9,13 +9,13 @@
  * quietly asserted away. See the last describe.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function design(page: Page, model = 'rc-design-qa-8') {
   await loadModel(page, model);
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
 }
 
@@ -140,7 +140,7 @@ test.describe('@slow focus and Escape', () => {
        *
        * Recorded so that "improving" it later is a decision rather than a drift.
        */
-      await page.getByTestId('pr-stage-design').click();
+      await openClassicDesign(page);
       expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')))
         .toBe('pr-stage-design');
 

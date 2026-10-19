@@ -27,7 +27,7 @@
  * same set.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Every text node in the subtree, with its computed ratio against its real ground. */
@@ -115,7 +115,7 @@ const ALLOWED_BELOW_AA = new Set([
 async function design(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
   // The regulations panel holds nine of the migrated sites, and it is the one this pass
   // prioritised. Open it if it is behind a disclosure.

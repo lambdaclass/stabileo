@@ -13,7 +13,7 @@
  * log so a regression is visible.
  */
 
-import { test, expect, PRO_URL, loadModel, solveModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function jointMeshes(page: Page): Promise<number> {
@@ -64,7 +64,7 @@ async function openSolvedShed(page: Page): Promise<number> {
 }
 
 async function openJointPanel(page: Page): Promise<void> {
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-connections').click();
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }

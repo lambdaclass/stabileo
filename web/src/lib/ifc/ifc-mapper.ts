@@ -13,13 +13,41 @@ export interface IfcMember {
   start: { x: number; y: number; z: number };
   end: { x: number; y: number; z: number };
   profileName?: string;
+  /** The profile's own dimensions, m, when it is a rectangle or a circle. */
+  profileDims?: { shape: 'rect'; b: number; h: number } | { shape: 'circle'; d: number };
   materialName?: string;
+  /** The IFC class it was read from (IfcBeam, IfcColumnStandardCase, …). */
+  ifcClass?: string;
+  /** The name of the storey that contains it. */
+  storey?: string;
+  /** The object's IFC GlobalId: what a later version of the file is compared by. */
+  globalId?: string;
 }
+
+/**
+ * A slab or a wall: its mid-surface as a planar polygon through world points, m, and its
+ * thickness. A slab's outline is its profile; a wall's is the centre line of its footprint swept
+ * up its height.
+ */
+export interface IfcSurface {
+  id: number;
+  type: 'slab' | 'wall';
+  name: string;
+  outline: Array<{ x: number; y: number; z: number }>;
+  thickness: number;
+  materialName?: string;
+  ifcClass?: string;
+  storey?: string;
+  globalId?: string;
+}
+
+/** A storey of the file: its name and elevation, m. */
+export interface IfcStorey { name: string; elevation: number }
 
 export interface IfcMappingResult {
   nodes: Array<{ id: number; x: number; y: number; z: number }>;
-  /** Each element with the index of its material and section in the lists below. */
-  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss'; material: number; section: number }>;
+  /** Each element with the index of its material and section in the lists below, and the member it was. */
+  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss'; material: number; section: number; member: number }>;
   materials: Array<{ name: string; e: number; nu: number; rho: number }>;
   sections: Array<{
     name: string; a: number; iz: number;
@@ -49,7 +77,7 @@ export interface IfcMapperOptions {
 const STEEL = { e: 200000, nu: 0.3, rho: 78.5 };
 const TIMBER = { e: 12000, nu: 0.3, rho: 5.0 };
 const ALUMINIUM = { e: 70000, nu: 0.33, rho: 27.0 };
-const CONCRETE = { e: 30000, nu: 0.2, rho: 25.0 };
+export const CONCRETE = { e: 30000, nu: 0.2, rho: 25.0 };
 /** An Argentine grade (H-30) names f'c, and E = 4700·√f'c as in CIRSOC 201. */
 function concreteOfFc(fc: number) { return { e: Math.round(4700 * Math.sqrt(fc)), nu: 0.2, rho: 25.0 }; }
 
@@ -77,7 +105,7 @@ const MATERIAL_DEFAULTS: Record<string, { e: number; nu: number; rho: number }> 
   aluminum: { e: 70000,  nu: 0.33, rho: 27.0 },
 };
 
-function materialFor(name: string): { e: number; nu: number; rho: number } | null {
+export function materialFor(name: string): { e: number; nu: number; rho: number } | null {
   const plain = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const key = plain.replace(/[\s_-]/g, '');
   // An H-grade names f'c, which is the better answer than a family default.
@@ -163,6 +191,10 @@ export function mapIfcToModel(
 
   const sections: IfcMappingResult['sections'] = [];
   const sectionIndex = new Map<string, number>();
+  /** The dimensions the file gave a profile of this name, from the first member that has them. */
+  const dimsOf = (name: string) => members.find((m) => m.profileName === name && m.profileDims)?.profileDims;
+  /** Saint-Venant's constant of a solid rectangle. */
+  const torsionRect = (b: number, h: number) => { const [s1, l1] = b < h ? [b, h] : [h, b]; return l1 * s1 ** 3 * (1 / 3 - 0.21 * (s1 / l1) * (1 - (s1 / l1) ** 4 / 12)); };
   for (const name of profileNames) {
     sectionIndex.set(name, sections.length);
     /*
@@ -189,6 +221,15 @@ export function mapIfcToModel(
         t: sec.t,
         shape: sec.shape,
       });
+    } else if (dimsOf(name)) {
+      // The profile's own rectangle or circle, as the file draws it.
+      const d = dimsOf(name)!;
+      if (d.shape === 'rect') {
+        sections.push({ name, a: d.b * d.h, iz: d.b * d.h ** 3 / 12, iy: d.h * d.b ** 3 / 12, j: torsionRect(d.b, d.h), h: d.h, b: d.b, shape: 'rect' });
+      } else {
+        const r = d.d / 2;
+        sections.push({ name, a: Math.PI * r * r, iz: Math.PI * r ** 4 / 4, iy: Math.PI * r ** 4 / 4, j: Math.PI * r ** 4 / 2, h: d.d, b: d.d, shape: 'generic' });
+      }
     } else {
       // Try to extract dimensions from name (e.g., "200x100x5")
       const dims = name.match(/(\d+)[xX×](\d+)(?:[xX×](\d+))?/);
@@ -238,6 +279,7 @@ export function mapIfcToModel(
     nodeI: p.nodeI, nodeJ: p.nodeJ, type: p.type,
     material: p.member.materialName !== undefined ? materialIndex.get(p.member.materialName) ?? 0 : 0,
     section: p.member.profileName !== undefined ? sectionIndex.get(p.member.profileName) ?? 0 : 0,
+    member: p.member.id,
   }));
 
   return { nodes, elements, materials, sections, warnings };

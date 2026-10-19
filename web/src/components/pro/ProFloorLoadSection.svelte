@@ -15,9 +15,12 @@
   import { expandDefinition, zoneChanged, type FloorLoadDef, type FloorTarget, type DefinitionModel } from '../../lib/model/loads/floor-definitions';
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { physicalGroups } from '../../lib/store/physical';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
+  /** The slabs placed or recognised (`model/physical`): a load on one goes onto its shells. */
+  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -44,10 +47,17 @@
   const targets = $derived<Array<{ key: string; label: string }>>([
     ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name })),
     ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name })),
+    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t('physical.kind.slab')} · ${g.name}` })),
     ...zones.map((g) => ({ key: `zone:${g.id}`, label: `${t('loadZone.zone')} · ${g.name}` })),
     { key: 'sel', label: t('floorLoad.selection') },
     { key: 'range', label: t('floorLoad.range') },
   ]);
+  // A slab is loaded on its own shells.
+  let lastTarget = '';
+  $effect(() => {
+    if (targetKey !== lastTarget && slabs.some((g) => `g:${g.id}` === targetKey)) distribution = 'slab';
+    lastTarget = targetKey;
+  });
   $effect(() => {
     if (!targets.some((x) => x.key === targetKey)) targetKey = targets[0]?.key ?? 'sel';
     const cases = modelStore.model.loadCases;

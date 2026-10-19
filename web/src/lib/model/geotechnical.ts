@@ -97,8 +97,16 @@ export interface SoilProfile {
    * recorded rather than acted on until then, so the assumption is at least visible.
    */
   groundwaterDepthM: number | null;
+  /**
+   * The strata below the founding level, top down, for piles: each its thickness and the
+   * allowable shaft friction and tip resistance a pile gets in it, kPa, as the soil report
+   * states them. Absent: no strata stated, and a pile's capacity cannot be estimated.
+   */
+  strata?: SoilStratum[];
   provenance: GeotechnicalProvenance;
 }
+
+export interface SoilStratum { name: string; thickness: number; shaftFrictionKPa: number; tipResistanceKPa: number }
 
 export interface ProjectGeotechnical {
   version: number;
@@ -320,6 +328,12 @@ export function migrateGeotechnical(raw: unknown): GeotechnicalMigration {
       unitWeightKNm3: num(e.unitWeightKNm3),
       subgradeModulusKNm3: num(e.subgradeModulusKNm3),
       groundwaterDepthM: num(e.groundwaterDepthM),
+      ...(Array.isArray(e.strata) ? { strata: (e.strata as Array<Record<string, unknown>>).filter((x) => x && typeof x === 'object').map((x) => ({
+        name: typeof x.name === 'string' ? x.name : '',
+        thickness: Number(x.thickness) > 0 ? Number(x.thickness) : 0,
+        shaftFrictionKPa: Number(x.shaftFrictionKPa) >= 0 ? Number(x.shaftFrictionKPa) : 0,
+        tipResistanceKPa: Number(x.tipResistanceKPa) >= 0 ? Number(x.tipResistanceKPa) : 0,
+      })) } : {}),
       provenance: { source, reference },
     });
   }

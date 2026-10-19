@@ -1,7 +1,7 @@
 /**
  * PRO 10/10: tapered members from the edit panel, and the shed generator's tapered columns.
  */
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, openClassicDesign } from './fixtures';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -30,7 +30,7 @@ test.describe('@smoke PRO direct analysis', () => {
       window.__stabileoActions.combineCases('1.0 todos');
       await window.__stabileoActions.solve();
     });
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-otherCodes').click();
     await page.getByTestId('other-codes-source-direct').click();
     await expect(page.getByTestId('other-codes-run')).toBeDisabled();
@@ -67,7 +67,7 @@ test.describe('@smoke PRO direct analysis', () => {
     await page.getByTestId('pp-open-file').setInputFiles({
       name: 'direct.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)),
     });
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-otherCodes').click();
     await page.getByTestId('other-codes-source-direct').click();
     await page.getByTestId('direct-run').click();
@@ -88,7 +88,7 @@ test.describe('@smoke PRO optimiser criteria', () => {
     await page.getByTestId('pp-gallery').locator('[data-example="pipe-rack"] .pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-steel').click();
     const opt = page.getByTestId('steel-optimise');
     await opt.scrollIntoViewIfNeeded();

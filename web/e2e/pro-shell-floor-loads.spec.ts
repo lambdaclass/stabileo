@@ -60,6 +60,7 @@ test.describe('@smoke PRO loads on shells and floors', () => {
     await page.getByTestId('grid-generate-y').click();
     await page.getByTestId('grid-heights').fill('3');
     await page.getByTestId('grid-generate-levels').click();
+    await page.getByTestId('grid-open-building').click();
     await page.getByTestId('grid-frame-create').click();
 
     // A zone over the first bay at the level: the four corner nodes, in order.

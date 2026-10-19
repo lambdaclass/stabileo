@@ -72,6 +72,10 @@ export interface ModelSnapshot {
   analysis?: import('../engine/analysis-settings').AnalysisSettings;
   projectInfo?: import('../model/project-info').ProjectInfo;
   notes?: import('../model/annotations').ViewNote[];
+  /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
+  underlays?: import('../model/underlay').Underlay[];
+  designData?: import('../model/design-data').ProjectDesignData;
+  designDecisions?: import('../design-contract/decisions').StoredDecisions;
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
   /** Named camera views. Absent: none saved. */
@@ -150,8 +154,11 @@ const MAX_HISTORY = 50;
  *  - 'views': a named-view save/rename/remove — undo/redo goes through the
  *    silent `modelStore.restoreViewsOnly()` path: only `model.views` is
  *    restored, no modelVersion bump, no mutation hook, so the solve survives.
+ *  - 'design': a physical element's kind or grouping, a group's name — undo/redo goes through
+ *    `modelStore.restoreDesignOnly()`: groups and design data only; the solve survives and the
+ *    design is invalidated.
  */
-export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation' | 'views';
+export type SnapshotKind = 'structural' | 'reinforcement' | 'foundation' | 'views' | 'design';
 
 /**
  * The selection when an entry was pushed, so an undo puts back what was selected before the edit
@@ -239,6 +246,8 @@ function createHistoryStore() {
         modelStore.restoreFoundationOnly(prev);
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(prev);
+      } else if (kind === 'design') {
+        modelStore.restoreDesignOnly(prev);
       } else {
         modelStore.restore(prev);
       }
@@ -261,6 +270,8 @@ function createHistoryStore() {
         modelStore.restoreFoundationOnly(next);
       } else if (kind === 'views') {
         modelStore.restoreViewsOnly(next);
+      } else if (kind === 'design') {
+        modelStore.restoreDesignOnly(next);
       } else {
         modelStore.restore(next);
       }

@@ -8,8 +8,9 @@ import { describe, it, expect } from 'vitest';
 import {
   DEAD_TABLE_2025, findDeadEntry, deadComponentLoad, checkPartitionAllowance,
   BATTEN_DEDUCTION_KNM2, PARTITION_EXEMPTION_LKNM2,
-  PARTITION_MINIMUM_ENTRY, PARTITION_MINIMUM_KNM2,
+  PARTITION_MINIMUM_KNM2,
 } from '../dead-loads';
+import { PARTITION_LIVE_MINIMUM_KNM2 } from '../live-loads';
 
 describe('Tabla 3.1 — the catalogue', () => {
   it('carries the six groups the table prints, and nothing invented', () => {
@@ -108,14 +109,19 @@ describe('§3.1.4 — the partition allowance', () => {
     expect(r.message.key).toBe('loads.cirsoc101.dead.partitionMissing');
   });
 
-  it('the §4.3.2 allowance row is the printed minimum, cited to §4.3.2, and not a Tabla 3.1 row', () => {
-    const e = findDeadEntry('tabiques_minimo_432')!;
-    expect(e).toBe(PARTITION_MINIMUM_ENTRY);
-    expect(e.group).toBe('partition');
-    expect(deadComponentLoad(e).qKNm2).toBe(PARTITION_MINIMUM_KNM2);
-    expect(e.refs.map((r) => r.clause)).toEqual(['4.3.2']);
-    expect(DEAD_TABLE_2025).not.toContain(e);
-    expect(checkPartitionAllowance(2.0, deadComponentLoad(e).qKNm2).missing).toBe(false);
+  // Changed expectation: this catalogue carried the §4.3.2 minimum as a dead row
+  // (`tabiques_minimo_432`, 0,75 kN/m²). §4.3.2 is a live load ("sobrecarga de repartición",
+  // chapter 4), now `partitionLiveAllowance` in live-loads.ts; the row is gone from this catalogue.
+  it('the §4.3.2 minimum is no longer a dead row; as live it satisfies the check', () => {
+    expect(findDeadEntry('tabiques_minimo_432')).toBeUndefined();
+    expect(PARTITION_MINIMUM_KNM2).toBe(PARTITION_LIVE_MINIMUM_KNM2);
+    const live = checkPartitionAllowance(2.0, 0, PARTITION_LIVE_MINIMUM_KNM2);
+    expect(live.missing).toBe(false);
+    expect(live.message.key).toBe('loads.cirsoc101.dead.partitionIncludedLive');
+    expect(live.refs.map((r) => r.clause)).toEqual(['3.1.4', '4.3.2']);
+    // Known partitions in the dead load and the live allowance count together toward the minimum.
+    expect(checkPartitionAllowance(2.0, 0.35, 0.3).missing).toBe(true);
+    expect(checkPartitionAllowance(2.0, 0.35, 0.4).missing).toBe(false);
     // No Tabla 3.1 partition row (a weight per m² of wall) reaches the floor minimum.
     for (const t of DEAD_TABLE_2025.filter((x) => x.group === 'partition')) {
       expect(t.areaKNm2!, t.key).toBeLessThan(PARTITION_MINIMUM_KNM2);

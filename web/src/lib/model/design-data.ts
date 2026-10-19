@@ -1,0 +1,127 @@
+/**
+ * The project's design data: what used to be fixed in the code and is now the project's to
+ * state, in one place. The reinforcing steel and its yield strength, the stirrup diameter the
+ * depth arithmetic assumes, the clear cover by kind of element, the bar diameters the design may
+ * choose from, and the diameter of a wall's bars.
+ *
+ * The defaults are the values the code used, so a project that states nothing designs as it did.
+ * The exposure of each kind of element is recorded with its cover, and the minimum cover of
+ * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
+ * every cover to it.
+ */
+import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
+
+export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
+export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
+
+/**
+ * Exposure as the cover table reads it: not exposed to weather nor in contact with the ground,
+ * exposed to weather or in contact with the ground, or cast against and permanently in contact
+ * with the ground.
+ */
+export type Exposure = 'interior' | 'exterior' | 'ground';
+
+export interface ProjectDesignData {
+  version: 1;
+  /** Reinforcing steel: its name and its specified yield strength, MPa. */
+  rebarGrade: string;
+  rebarFy: number;
+  /** The stirrup or tie diameter the cover-to-centroid arithmetic assumes, mm. */
+  stirrupDiaMm: number;
+  /** Clear cover to the outermost bar, m, by kind of element. */
+  covers: Record<DesignKind, number>;
+  exposure: Record<DesignKind, Exposure>;
+  /** Diameters the design may choose from, mm. */
+  longDiametersMm: number[];
+  stirrupDiametersMm: number[];
+  /** The diameter of a wall's vertical and horizontal bars, mm. */
+  wallBarDiaMm: number;
+  /**
+   * Denser ties at both ends of every column, also where no seismic rule asks for them: over
+   * lo = max(largest side, clear height/6, 450 mm) at half the spacing. Absent: off.
+   */
+  columnEndZones?: boolean;
+}
+
+/** Every diameter the bar table knows, mm. */
+export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
+
+export function defaultDesignData(): ProjectDesignData {
+  return {
+    version: 1,
+    rebarGrade: 'ADN 420', rebarFy: 420,
+    stirrupDiaMm: 8,
+    covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 },
+    exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
+    longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
+    stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
+    wallBarDiaMm: 12,
+  };
+}
+
+/**
+ * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete
+ * that is not prestressed, for a kind of element, its exposure and the largest bar it holds.
+ */
+export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {
+  if (exposure === 'ground' || kind === 'footing') return 0.075;
+  if (exposure === 'exterior') return largestBarMm >= 19 ? 0.05 : 0.04;
+  // Not exposed: slabs and walls by bar size; beams and columns 40 mm to their stirrups and ties.
+  if (kind === 'slab' || kind === 'wall') return largestBarMm >= 43 ? 0.04 : 0.02;
+  return 0.04;
+}
+
+/** The largest bar a kind of element may take under these data, mm. */
+export const largestBar = (d: ProjectDesignData, kind: DesignKind): number =>
+  kind === 'wall' ? d.wallBarDiaMm : Math.max(0, ...d.longDiametersMm);
+
+/** The kinds whose stated cover is under the table's minimum for their exposure. */
+export function coversUnderMinimum(d: ProjectDesignData): Array<{ kind: DesignKind; cover: number; minimum: number }> {
+  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))
+    .filter((x) => x.cover < x.minimum - 1e-9);
+}
+
+/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */
+export function withCirsocCovers(d: ProjectDesignData): ProjectDesignData {
+  const covers = { ...d.covers };
+  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));
+  return { ...d, covers };
+}
+
+/** Read any stored shape, including none; what it does not state is the default. */
+export function migrateDesignData(raw: unknown): ProjectDesignData {
+  const def = defaultDesignData();
+  if (!raw || typeof raw !== 'object') return def;
+  const e = raw as Record<string, unknown>;
+  const pos = (v: unknown, fb: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fb);
+  const known = (list: unknown, fb: number[]) => {
+    const l = Array.isArray(list) ? [...new Set(list.filter((x): x is number => BAR_DIAMETERS_MM.includes(x as number)))].sort((a, b) => a - b) : [];
+    return l.length ? l : fb;
+  };
+  const byKind = <T>(v: unknown, fb: Record<DesignKind, T>, ok: (x: unknown) => x is T): Record<DesignKind, T> => {
+    const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+    return Object.fromEntries(DESIGN_KINDS.map((k) => [k, ok(o[k]) ? o[k] : fb[k]])) as Record<DesignKind, T>;
+  };
+  return {
+    version: 1,
+    rebarGrade: typeof e.rebarGrade === 'string' && e.rebarGrade ? e.rebarGrade : def.rebarGrade,
+    rebarFy: pos(e.rebarFy, def.rebarFy),
+    stirrupDiaMm: BAR_DIAMETERS_MM.includes(e.stirrupDiaMm as number) ? (e.stirrupDiaMm as number) : def.stirrupDiaMm,
+    covers: byKind(e.covers, def.covers, (x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0),
+    exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
+    longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
+    stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
+    wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
+    ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
+  };
+}
+
+/** The steel grades offered, with their yield strength, MPa. */
+export const REBAR_GRADES: ReadonlyArray<{ name: string; fy: number }> = [
+  { name: 'ADN 420', fy: 420 }, { name: 'ADN 500', fy: 500 }, { name: 'AL 220', fy: 220 },
+];
+
+/** f'c of a concrete material: its own `fc` when stated, else the `fy` older projects kept it in. */
+export function concreteFc(m: { fc?: number; fy?: number } | undefined): number | undefined {
+  return m?.fc ?? m?.fy;
+}

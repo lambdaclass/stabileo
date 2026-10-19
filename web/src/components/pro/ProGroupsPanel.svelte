@@ -30,7 +30,8 @@
   let renaming = $state<number | null>(null);
   let renameText = $state('');
 
-  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad').sort((a, b) => a.id - b.id));
+  // Physical elements have their own panel (`ProPhysicalPanel`): a building has hundreds.
+  const groups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad' && g.kind !== 'physicalMember').sort((a, b) => a.id - b.id));
 
   /** The selection, by family, read against the model. */
   const selection = $derived.by((): GroupMembers => {

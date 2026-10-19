@@ -13,7 +13,7 @@
  *   R5  a load-regulation change silently relabelling existing results
  */
 
-import { test, expect, loadModel, solveModel, alSection } from './fixtures';
+import { test, expect, loadModel, solveModel, alSection, clickStage } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -26,7 +26,7 @@ type Page = import('@playwright/test').Page;
  * stable testid does the whole job and the label matching goes away.
  */
 async function openProTab(page: Page, stage: string, cmd: string) {
-  await page.getByTestId(`pr-stage-${stage}`).click();
+  await clickStage(page, stage);
   await page.getByTestId(`pr-cmd-${cmd}`).click();
 }
 

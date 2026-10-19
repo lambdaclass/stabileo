@@ -16,7 +16,7 @@
  * because that assertion is true throughout every failure mode they cover.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
@@ -32,8 +32,8 @@ import type { Page } from '@playwright/test';
 const STAGE_OF = { generators: 'model', steel: 'design' } as const;
 
 async function openTab(page: Page, tab: 'generators' | 'steel'): Promise<void> {
-  await page.getByTestId(`pr-stage-${STAGE_OF[tab]}`).click();
-  await page.getByTestId(`pr-cmd-${tab}`).click();
+  await clickStage(page, STAGE_OF[tab]);
+  await ribbonCmd(page, tab);
 }
 
 async function modelCounts(page: Page): Promise<{ elements: number }> {

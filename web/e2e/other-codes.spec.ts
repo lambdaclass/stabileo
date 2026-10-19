@@ -5,13 +5,13 @@
  * Numbers are pinned against the codes' closed forms in `other-codes/__tests__`; this is about
  * what the panel shows and when.
  */
-import { test, expect } from './fixtures';
+import { test, expect, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
 async function openPanel(page: Page) {
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-otherCodes').click();
   await expect(page.getByTestId('other-codes-panel')).toBeVisible();
 }

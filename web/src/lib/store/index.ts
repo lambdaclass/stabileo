@@ -51,6 +51,16 @@ modelStore._setOnMutation(() => {
   scheduleDefinedLoadsSync();
 });
 
+/*
+ * A design-only edit: a physical element's kind, typology or grouping, a group's name. The solve
+ * survives it, because the analysis reads none of it; the design does not, because member kinds,
+ * flange widths and slab panels come from it. The verdicts and the retained member contexts are
+ * dropped (they are rebuilt from the kept results by computing the demands again).
+ */
+modelStore._setOnDesignChange(() => {
+  verificationStore.invalidateAnalysis();
+});
+
 // A reinforcement transaction is NOT a model mutation: forces are unaffected, so
 // results and retained demand data survive. Only the affected elements' cached
 // provided-reinforcement verification is dropped, so they re-verify immediately from

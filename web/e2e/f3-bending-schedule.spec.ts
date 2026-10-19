@@ -16,7 +16,7 @@
  * why, and that a reader who cannot see the picture is told the same thing it says.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -167,7 +167,7 @@ test.describe('@slow a real building’s ties are drawn, not refused', () => {
     const { designAll, loadModel } = await import('./fixtures');
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-design').click();
     const d = page.getByTestId('detailing-disclosure');
     if (await d.getAttribute('open') === null) await d.locator('> summary').click();

@@ -109,6 +109,8 @@ export interface TestHooks {
   sceneCacheStats(): { hits: number; misses: number };
   /** Every autosave revision currently stored in IndexedDB, newest first. */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
+  /** The project as File → Save writes it, as JSON text. */
+  serializeProject(): string;
   /** The family census of the newest readable stored project, plus how it was read. */
   autosaveStored(): Promise<{
     revision: number | null;
@@ -574,4 +576,19 @@ export async function setAppLanguage(page: Page, code: string): Promise<void> {
 /** What the header picker is showing, as a language code. */
 export function appLanguage(page: Page): Promise<string | null> {
   return page.getByTestId('lang-select').getAttribute('data-value');
+}
+
+/** The Design stage, on its concrete or steel workflow screen. */
+export async function openClassicDesign(page: Page): Promise<void> {
+  await page.getByTestId('pr-stage-design').click();
+}
+
+/** A ribbon stage by name. */
+export async function clickStage(page: Page, stage: string): Promise<void> {
+  await page.getByTestId(`pr-stage-${stage}`).click();
+}
+
+/** A ribbon command by its id. */
+export async function ribbonCmd(page: Page, id: string): Promise<void> {
+  await page.getByTestId(`pr-cmd-${id}`).click();
 }

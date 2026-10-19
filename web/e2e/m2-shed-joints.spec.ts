@@ -18,13 +18,13 @@
  * user actually opens.
  */
 
-import { test, expect, PRO_URL, loadModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openShedConnections(page: Page): Promise<void> {
   await page.goto(PRO_URL);
   await loadModel(page, '3d-nave-industrial');
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-connections').click();
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
@@ -85,7 +85,7 @@ test.describe('an empty list says which emptiness it is', () => {
    */
   test('an empty model says there are no joints', async ({ page }) => {
     await page.goto(PRO_URL);
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-connections').click();
     await expect(page.getByTestId('conn-no-joints')).toBeVisible();
     await expect(page.getByTestId('conn-none-metallic')).toHaveCount(0);
@@ -98,7 +98,7 @@ test.describe('an empty list says which emptiness it is', () => {
   test('a concrete model says its joints could not be shown, and why', async ({ page }) => {
     await page.goto(PRO_URL);
     await loadModel(page, 'pro-edificio-7p');
-    await page.getByTestId('pr-stage-design').click();
+    await openClassicDesign(page);
     await page.getByTestId('pr-cmd-connections').click();
     const blocked = page.getByTestId('conn-none-metallic');
     await expect(blocked).toBeVisible();

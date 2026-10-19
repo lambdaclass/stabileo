@@ -177,6 +177,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'view', labelKey: 'view.title', icon: 'eye', tab: 'view' },
             { id: 'grid', labelKey: 'grid.title', icon: 'grid', tab: 'grid' },
             { id: 'groups', labelKey: 'groups.title', icon: 'groups', tab: 'groups' },
+            { id: 'physical', labelKey: 'physical.title', icon: 'physical', tab: 'physical' },
           ],
         },
         /*
@@ -191,6 +192,7 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
             { id: 'nodes', labelKey: 'pro.tabNodes', icon: 'node', tab: 'nodes' },
             { id: 'elements', labelKey: 'pro.tabElements', icon: 'element', tab: 'elements' },
             { id: 'shells', labelKey: 'pro.tabShells', icon: 'shell', tab: 'shells' },
+            { id: 'building', labelKey: 'building.title', icon: 'building', tab: 'building' },
             { id: 'transform', labelKey: 'transform.title', icon: 'transform', tab: 'transform' },
             { id: 'edit', labelKey: 'edit.title', icon: 'edit', tab: 'edit' },
             {
@@ -461,7 +463,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Settings is reached from the header corner, like the AI drawer. */
     settings: '',
     nodes: 'model', elements: 'model', shells: 'model', materials: 'model', sections: 'model',
-    grid: 'model', generators: 'model', transform: 'model', edit: 'model', groups: 'model', code: 'model', view: 'model',
+    grid: 'model', generators: 'model', transform: 'model', edit: 'model', groups: 'model', physical: 'model', building: 'model', code: 'model', view: 'model',
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', specifications: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',

@@ -7,6 +7,8 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
 import { imposedRefusal } from '../engine/solver-service';
+import { modelHasMemberOffsets } from '../engine/member-offsets';
+import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
 import type { MassSourceReport } from '../engine/dynamics/mass-source';
 
@@ -24,6 +26,15 @@ export function centerlineInput(opts: { uncut?: boolean; caseDisplacements?: boo
   // A jointed model would solve as rigid on the centerline: refused, as Solve's advanced paths do.
   if (modelStore.hasSlidingJoints()) throw new Error(t('advanced.slidingUnsupported'));
   if (modelStore.hasJoint3D()) throw new Error(t('advanced.jointsUnsupported'));
+  // A declared insertion (member offset) or shell offset would be solved on the node lines here,
+  // since this input is built without the helper nodes and rigid arms that carry them: centred
+  // results presented as the model's. Refused, as the joints are; the static solve and the
+  // combinations expand them (`member-offsets.ts`), and the engine's eigen solvers do take
+  // eccentric constraints, but this chain (mass source, spectral cases, histories) has not been
+  // carried through helper nodes, so it says so instead of answering for a model it did not solve.
+  if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) {
+    throw new Error(t('advanced.offsetsUnsupported'));
+  }
   // A case's imposed displacement on a direction no support holds is refused by node, as the
   // linear solve refuses it; the input builder could only drop it without a word.
   if (opts.caseDisplacements) {

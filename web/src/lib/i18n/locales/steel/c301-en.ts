@@ -87,6 +87,10 @@ const c301En: Record<string, string> = {
   'c301.g.cvElastic': '  Slender web: Cv = 1.51·E·kv/((h/tw)²·Fy) = {Cv}  (G.2.5)',
   'c301.g.angle': '  Angle leg (G.4): b = {b} mm, t = {t} mm, Aw = {Aw} mm², b/t = {bt}, limit {lim} → Cv = {Cv}  (kv = 1.2)',
   'c301.g.vn': '  Vn = 0.6·Fy·Aw·Cv = 0.6·{Fy}·{Aw}·{Cv} = {Vn} kN; φVn = 0.90·Vn = {phiVn} kN',
+  'c301.word.positive': 'Positive',
+  'c301.word.negative': 'Negative',
+  'c301.word.top': 'top',
+  'c301.word.bottom': 'bottom',
 
   'c301.h.title': '§H.1 — Interaction:',
   'c301.h.axialCompression': '  Axial strength (compression): φPn = {phiPn} kN',

@@ -13,14 +13,14 @@
  * with different words, and that a count which is not known is not printed as zero.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
 
 /** Reach Design → the floors stage, through the ribbon a user has. */
 async function openFloors(page: Page) {
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
   const section = page.getByTestId('floor-families');
   /*

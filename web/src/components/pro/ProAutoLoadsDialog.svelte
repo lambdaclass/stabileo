@@ -11,7 +11,7 @@
   import {
     buildLoadPlan, describePlanDelta, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
-  import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
+  import { OCCUPANCY_TABLE_2025, PARTITION_LIVE_MINIMUM_KNM2, partitionLiveAllowance } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder from './ProDeadLoadBuilder.svelte';
   import type { ComboSource, DeadRow, GravityMode } from './auto-loads-sections';
@@ -110,6 +110,13 @@
   let selectedOccupancy = $state(start.selectedOccupancy);
   const occupancyEntry = $derived(OCCUPANCY_TABLE_2025.find(o => o.key === selectedOccupancy));
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
+  /*
+   * §4.3.2 — the partition live load ("sobrecarga de repartición"), 0,75 kN/m² of floor at least.
+   * A live load, entered here with Lo; it was a dead row of the build-up. The weight of known
+   * partitions stays in the dead load (§3.1.4).
+   */
+  let partitionLive = $state(start.partitionLive);
+  const partitionAllowance = $derived(partitionLiveAllowance(occupancyQ, partitionLive.on ? partitionLive.q : 0));
   // §4.7.2 reduction inputs — a real code feature the legacy path did not have at all.
   let applyLiveReduction = $state(start.applyLiveReduction);
   let reductionElementKind = $state<ElementKind>(start.reductionElementKind);
@@ -364,6 +371,7 @@
       model: modelSlice(),
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       occupancyKey: selectedOccupancy,
+      partitionLive: partitionLive.on ? partitionLive.q : 0,
       tributaryWidth,
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
       patterns: livePatterns,
@@ -443,7 +451,7 @@
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
       // The dialog's own state, to start from next time (`restoreFromRoles`).
-      dialog: $state.snapshot({ deadRows, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
+      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
     }, true);
     if (enableWind) {
       regulationsStore.configureRole('wind', {
@@ -481,7 +489,7 @@
     selectedOccupancy = m.selectedOccupancy; tributaryWidth = m.tributaryWidth;
     applyLiveReduction = m.applyLiveReduction; reductionElementKind = m.reductionElementKind;
     floorsSupported = m.floorsSupported;
-    deadRows = m.deadRows; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
+    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
     roofCfg = m.roofCfg; livePatterns = m.livePatterns; special = m.special;
     enableWind = m.enableWind; windV = m.windV; windExposure = m.windExposure; windEnclosure = m.windEnclosure;
     windAltitude = m.windAltitude; windKzt = m.windKzt; windKztSurveyed = m.windKztSurveyed;
@@ -615,7 +623,7 @@
     ] },
     { titleKey: 'autoLoad.nav.actions', items: [
       { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: aq(totalDead) },
-      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ) },
+      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ + partitionAllowance.qKNm2) },
       { id: 'roof', symbol: 'Lr', labelKey: 'autoLoad.roof.title', on: roofCfg.enabled,
         status: !roofCfg.enabled ? null : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
       { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}` : null },
@@ -733,6 +741,9 @@
               {/if}
               <p><strong>{t('autoLoad.designLive')}:</strong> {aq(plan.factors.liveReduced.value)}
                 ({tp('autoLoad.fromTableLo', { lo: plan.factors.occupancy.value.toFixed(2) })})</p>
+              {#if plan.factors.partitionLive && plan.factors.partitionLive.value > 0}
+                <p data-testid="al-partition-live-plan">{tp('autoLoad.live.partitionInPlan', { q: aq(plan.factors.partitionLive.value) })}</p>
+              {/if}
               {#if plan.factors.baseShear}
                 <p data-testid="al-base-shear">{tp('autoLoad.baseShear', {
                   w: (plan.factors.seismicWeight?.value ?? 0).toFixed(1),
@@ -810,14 +821,14 @@
               <span class="al-sec-value" data-testid="dead-total">{aq(totalDead)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-dead-section">
-              <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} /></div>
+              <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} liveAllowance={partitionAllowance.qKNm2} /></div>
             </div>
 
           {:else if section === 'live'}
             <div class="al-pane-head">
               <h3><span class="al-head-sym">L</span>{t('autoLoad.liveLoads')}</h3>
               <span class="al-sec-code">{codeHead('loads', 'live')}</span>
-              <span class="al-sec-value">{aq(occupancyQ)}</span>
+              <span class="al-sec-value" data-testid="live-total">{aq(occupancyQ + partitionAllowance.qKNm2)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
@@ -828,6 +839,19 @@
                     {/each}
                   </select>
                 </label>
+                <div class="al-sub" data-testid="al-partition-live">
+                  <span class="al-sub-title">{t('autoLoad.live.partitionTitle')}</span>
+                  <label class="al-check">
+                    <input type="checkbox" bind:checked={partitionLive.on} data-testid="al-partition-live-on" />
+                    {t('autoLoad.live.partitionOn')}
+                  </label>
+                  {#if partitionLive.on}
+                    <label class="al-field"><span class="al-label">{t('autoLoad.live.partitionValue')}</span>
+                      <QuantityInput bind:value={partitionLive.q} quantity="areaLoad" min={PARTITION_LIVE_MINIMUM_KNM2} testid="al-partition-live-q" wrap="al-unit-field" />
+                    </label>
+                  {/if}
+                  <p class="al-hint" data-testid="al-partition-live-note">{te(partitionAllowance.message)}</p>
+                </div>
                 <div class="al-sub">
                   <span class="al-sub-title">{t('autoLoad.live.reductionTitle')}</span>
                   <label class="al-check">

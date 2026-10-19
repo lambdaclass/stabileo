@@ -16,6 +16,9 @@
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { syncUnderlays } from '../lib/three/underlay-3d';
+  import { syncFootings } from '../lib/three/footings-3d';
+  import { snapToUnderlays } from '../lib/model/underlay';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
   import { editPreview } from '../lib/store/edit-preview.svelte';
@@ -86,7 +89,8 @@
   let perspCamera: THREE.PerspectiveCamera;
   let orthoCamera: THREE.OrthographicCamera;
   let controls: OrbitControls;
-  let animFrameId: number;
+  /** Drops the render loop's pending frame; assigned once the loop exists. */
+  let cancelRenderLoop: () => void = () => {};
   let initialized = false;
 
   // ─── Invalidation-based rendering ───────────────────────────
@@ -754,24 +758,28 @@
     }
 
     /*
-     * One frame pending at most. While the loop renders continuously it reschedules itself, and
-     * `needsRender` is false between frames, so an invalidate then used to start a second chain
-     * beside it: every effect that fired during an animation added one, and the scene was drawn
-     * that many times per frame.
+     * At most ONE frame is ever pending, whoever asks for it.
+     *
+     * `renderOnce` clears `needsRender` on entry, and inside the same frame
+     * `controls.update()` fires `change` whenever the camera moved, which
+     * invalidates again. With two independent schedulers (here and the
+     * "keep looping" request at the end of `renderOnce`) every frame that both
+     * moved the camera and needed to continue queued TWO next frames, so a held
+     * arrow key doubled the number of render chains on every tick: 2^n renders
+     * of the scene per display frame after n frames, each one turning the camera
+     * another step. Measured in viewport-perf.spec: 8192 renders in one half-second
+     * keyboard-orbit window on the 24-member tower (65536 at 4x CPU throttling),
+     * the main thread blocked up to 59 s in a GL call while the GPU process
+     * drained the backlog, and input stalled behind it. The coalescer drops a
+     * second request while one is pending, so the loop is one chain by
+     * construction.
      */
-    let framePending = false;
-    function scheduleFrame() {
-      if (framePending) return;
-      framePending = true;
-      animFrameId = requestAnimationFrame(renderOnce);
-    }
+    const frame = createFrameCoalescer<void>(() => renderOnce());
 
-    /** Mark the scene as needing a re-render. Schedules a frame if one isn't pending. */
+    /** Mark the scene as needing a re-render and make sure a frame is pending. */
     function _invalidate() {
-      if (!needsRender) {
-        needsRender = true;
-        scheduleFrame();
-      }
+      needsRender = true;
+      frame.schedule();
     }
     // Expose invalidate to the outer scope for use in $effect blocks
     invalidate = _invalidate;
@@ -826,7 +834,6 @@
     }
 
     function renderOnce() {
-      framePending = false;
       if (!needsRender && !needsContinuous()) return;
       needsRender = false;
 
@@ -968,9 +975,10 @@
         }
       }
 
-      // Keep looping if continuous rendering is needed
+      // Keep looping if continuous rendering is needed (a no-op when an
+      // invalidate during this frame already queued the next one).
       if (needsContinuous() || needsRender) {
-        scheduleFrame();
+        frame.schedule();
       } else if (perfHud.on) {
         // The loop is about to STOP. This viewport renders on demand, so the next
         // frame may be seconds away — and without this, that idle gap would be
@@ -987,7 +995,8 @@
       }
     }
     // Kick off the first frame
-    scheduleFrame();
+    frame.schedule();
+    cancelRenderLoop = () => frame.cancel();
 
     // When OrbitControls interaction ends, allow damping frames to settle
     // During camera manipulation, drop to pixelRatio=1 so the GPU pushes ~4× fewer
@@ -1181,7 +1190,7 @@
       ghost?.dispose(); ghost = null; ghostFragment = null;
       previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
-      cancelAnimationFrame(animFrameId);
+      cancelRenderLoop();
       ro.disconnect();
       /*
        * The context is released, not just the renderer's own objects.
@@ -1839,6 +1848,26 @@
     invalidate();
   });
 
+  // The footings, at their founding levels (PRO).
+  let footingsGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.model.footings.values() : [];
+    const nodes = modelStore.nodes;
+    if (!scene) return;
+    footingsGroup = syncFootings(scene, footingsGroup, list, nodes);
+    invalidate();
+  });
+
+  // The background drawings, each at its level (PRO).
+  let underlaysGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.underlays : [];
+    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    if (!scene) return;
+    underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
+    invalidate();
+  });
+
   // The structural grid, drawn on the active level (PRO).
   function syncStructGrid() {
     const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
@@ -2075,6 +2104,12 @@
    * grid when one is within a few pixels (PRO, horizontal plane), else to the drawing grid.
    */
   function snapToStructure(pos: THREE.Vector3): { x: number; y: number; z: number; label?: string } {
+    // A point of the background drawing on this level, when one is within a few pixels.
+    if (uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' && modelStore.underlays.length > 0 && camera && container) {
+      const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
+      const hit = snapToUnderlays(modelStore.underlays, pos.x, pos.y, tol, uiStore.nodeCreateZ);
+      if (hit) return { x: hit.x, y: hit.y, z: uiStore.nodeCreateZ, label: t('underlay.point') };
+    }
     const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
     if (grid && camera && container) {
       const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;

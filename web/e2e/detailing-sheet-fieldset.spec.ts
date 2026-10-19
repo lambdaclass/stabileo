@@ -16,7 +16,7 @@
  * approximation passes a screenshot and fails this.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, openClassicDesign } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -51,7 +51,7 @@ async function openDetailing(page: Page) {
   // an empty model can never satisfy.
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await page.getByTestId('pr-stage-design').click();
+  await openClassicDesign(page);
   await page.getByTestId('pr-cmd-design').click();
   // By its disclosure's own testid. A text match on /detailing/ picks up the ribbon's
   // "3-D detailing" command, which is DISABLED on a fresh model, and waits for it forever.

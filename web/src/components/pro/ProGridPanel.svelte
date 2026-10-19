@@ -1,22 +1,20 @@
 <script lang="ts">
   /**
    * The structural grid and the levels: typed as bays and storey heights, or read off the model;
-   * edited axis by axis; the level to work on; and columns and beams laid between axes.
+   * edited axis by axis; and the level to work on. What is built on it is placed in Building.
    *
    * Every change is one undo step and none touches the analysis (`modelStore.setGrid`).
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
-    axesFromBays, axesOf, frameBetweenAxes, gridFromModel, gridIssues, levelsFromHeights,
+    axesFromBays, axesOf, gridFromModel, gridIssues, levelsFromHeights,
     parseBays, sortedLevels, fmt, type AxisNaming, type GridAxis, type Level, type StructuralGrid,
   } from '../../lib/model/grid';
-  import { fragmentFromMembers } from '../../lib/model/edit/fragment';
-  import { insertFragment } from '../../lib/model/edit/transformed-copy';
-  import { IDENTITY } from '../../lib/model/edit/affine';
   import { toDisplay, fromDisplay, unitLabel } from '../../lib/utils/units';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import UnderlayCard from './building/UnderlayCard.svelte';
 
   const grid = $derived<StructuralGrid>(modelStore.grid ?? { axes: [], levels: [] });
   const xs = $derived(axesOf(grid, 'x'));
@@ -82,46 +80,6 @@
   function readFromModel() {
     const g = gridFromModel(modelStore.nodes.values(), modelStore.elements.values());
     setGrid(g);
-  }
-
-  // ── Columns and beams between axes ──
-  const sections = $derived([...modelStore.sections.values()]);
-  const materials = $derived([...modelStore.materials.values()]);
-  let fx0 = $state(''), fx1 = $state(''), fy0 = $state(''), fy1 = $state(''), fl0 = $state(''), fl1 = $state('');
-  let colSec = $state<number | null>(null), beamXSec = $state<number | null>(null), beamYSec = $state<number | null>(null);
-  let matId = $state<number | null>(null);
-  let wantCols = $state(true), wantBX = $state(true), wantBY = $state(true);
-  let lastReport = $state<string | null>(null);
-
-  // Default the ranges to the whole grid, and keep them valid as the grid changes.
-  $effect(() => {
-    const pick = (cur: string, list: { id: string }[], end: 'first' | 'last') =>
-      list.some((a) => a.id === cur) ? cur : (end === 'first' ? list[0]?.id : list[list.length - 1]?.id) ?? '';
-    fx0 = pick(fx0, xs, 'first'); fx1 = pick(fx1, xs, 'last');
-    fy0 = pick(fy0, ys, 'first'); fy1 = pick(fy1, ys, 'last');
-    fl0 = pick(fl0, levels, 'first'); fl1 = pick(fl1, levels, 'last');
-    if (colSec === null || !modelStore.sections.has(colSec)) colSec = sections[0]?.id ?? null;
-    if (beamXSec === null || !modelStore.sections.has(beamXSec)) beamXSec = sections[0]?.id ?? null;
-    if (beamYSec === null || !modelStore.sections.has(beamYSec)) beamYSec = sections[0]?.id ?? null;
-    if (matId === null || !modelStore.materials.has(matId)) matId = materials[0]?.id ?? null;
-  });
-
-  const layout = $derived.by(() => {
-    if (matId === null) return null;
-    const m = matId;
-    return frameBetweenAxes(grid, {
-      x: [fx0, fx1], y: [fy0, fy1], levels: [fl0, fl1],
-      columns: wantCols && colSec !== null ? { sectionId: colSec, materialId: m } : null,
-      beamsX: wantBX && beamXSec !== null ? { sectionId: beamXSec, materialId: m } : null,
-      beamsY: wantBY && beamYSec !== null ? { sectionId: beamYSec, materialId: m } : null,
-    });
-  });
-
-  function createFrame() {
-    if (!layout) return;
-    const r = insertFragment(fragmentFromMembers(layout.nodes, layout.members), [{ A: IDENTITY, t: [0, 0, 0] }]);
-    uiStore.setSelection(new Set(r.nodes), new Set(r.elements), false);
-    lastReport = tp('grid.frameCreated', { members: r.elements.length, nodes: r.nodes.length, welded: r.welded, duplicates: r.duplicates });
   }
 
   const issueText = (i: string) => {
@@ -221,41 +179,12 @@
     {#each issues as i (i)}<p class="pk-hint gr-warn">{issueText(i)}</p>{/each}
   </section>
 
+  <UnderlayCard />
+
   {#if xs.length > 0 && ys.length > 0 && levels.length > 0}
-    <section class="pk-card" data-testid="grid-frame">
-      <h4 class="pk-heading">{t('grid.frameTitle')}</h4>
-      <p class="pk-hint">{t('grid.frameHint')}</p>
-      <div class="gr-grid">
-        <span>{t('grid.dir.x')}</span>
-        <select bind:value={fx0}>{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-        <select bind:value={fx1}>{#each xs as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-        <span>{t('grid.dir.y')}</span>
-        <select bind:value={fy0}>{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-        <select bind:value={fy1}>{#each ys as a (a.id)}<option value={a.id}>{a.name}</option>{/each}</select>
-        <span>{t('grid.levelsTitle')}</span>
-        <select bind:value={fl0}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-        <select bind:value={fl1}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-      </div>
-      <div class="gr-grid">
-        <label class="gr-check"><input type="checkbox" bind:checked={wantCols} /> {t('grid.columns')}</label>
-        <select bind:value={colSec} disabled={!wantCols} data-testid="grid-col-section">{#each sections as s (s.id)}<option value={s.id}>{s.name}</option>{/each}</select>
-        <span></span>
-        <label class="gr-check"><input type="checkbox" bind:checked={wantBX} /> {t('grid.beamsX')}</label>
-        <select bind:value={beamXSec} disabled={!wantBX}>{#each sections as s (s.id)}<option value={s.id}>{s.name}</option>{/each}</select>
-        <span></span>
-        <label class="gr-check"><input type="checkbox" bind:checked={wantBY} /> {t('grid.beamsY')}</label>
-        <select bind:value={beamYSec} disabled={!wantBY}>{#each sections as s (s.id)}<option value={s.id}>{s.name}</option>{/each}</select>
-        <span></span>
-        <span>{t('grid.material')}</span>
-        <select bind:value={matId}>{#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
-        <span></span>
-      </div>
-      <div class="pk-row">
-        <button class="pk-btn pk-btn-primary" disabled={!layout} onclick={createFrame} data-testid="grid-frame-create">
-          {layout ? tp('grid.frameCreate', { n: layout.members.length }) : t('grid.frameNothing')}
-        </button>
-      </div>
-      {#if lastReport}<p class="pk-hint" data-testid="grid-frame-report">{lastReport}</p>{/if}
+    <section class="pk-card">
+      <p class="pk-hint">{t('building.fromGrid')}</p>
+      <button class="pk-btn" onclick={() => (uiStore.proActiveTab = 'building')} data-testid="grid-open-building">{t('building.open')}</button>
     </section>
   {/if}
 </div>
@@ -281,7 +210,6 @@
   .gr-table :global(input.gr-num) { text-align: right; font-family: var(--st-mono); }
   .gr-active td { background: var(--st-surface-3); }
   .gr-check { display: flex; gap: 6px; align-items: center; font-size: 0.66rem; }
-  .gr-grid { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 4px 6px; align-items: center; font-size: 0.66rem; margin: 4px 0; }
   .gr-warn { color: var(--st-warn); }
   :global(.gr .gr-del) { min-height: 20px; padding: 0 0.45rem; }
 </style>
