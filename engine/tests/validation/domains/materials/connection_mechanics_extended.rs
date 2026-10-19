@@ -34,9 +34,11 @@ const IZ: f64 = 1e-4;
 //
 // A simply-supported beam of length L with a point load P at midspan.
 // Case A: Continuous beam -> M_mid = PL/4
-// Case B: Internal hinge at midspan -> beam becomes a mechanism
-//         for midspan loading, so we place the hinge at L/3.
-//         With hinge at L/3, moment is zero at the hinge location.
+// Case B: an internal hinge anywhere in a pinned–roller beam makes it a
+//         mechanism (the two parts fold at the hinge): refused by name.
+// Case C: fixed at the left end, the hinged beam (hinge at L/3) stands; the
+//         moment is zero at the hinge, and it deflects more than the same
+//         beam without the hinge.
 //
 // Reference: Hibbeler, "Structural Analysis", Ch. 3
 
@@ -89,7 +91,20 @@ fn validation_hinge_releases_moment_at_joint() {
             node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
-    let res_b = linear::solve_2d(&input_b).unwrap();
+    let err = linear::solve_2d(&input_b).unwrap_err();
+    assert!(err.contains("Structure is a mechanism") && err.contains("node 3"), "{err}");
+    let fix_left = |mut input: SolverInput| {
+        for s in input.supports.values_mut() {
+            if s.node_id == 1 {
+                s.support_type = "fixed".into();
+            }
+        }
+        input
+    };
+    let res_b = linear::solve_2d(&fix_left(input_b)).unwrap();
+    // the reference for the deflection: the same fixed–roller beam, continuous
+    let res_a = linear::solve_2d(&fix_left(input_a.clone())).unwrap();
+    let mid_a = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
     // At the hinge (node 3): moment must be zero in both adjacent elements
     let ef2 = res_b.element_forces.iter().find(|e| e.element_id == 2).unwrap();

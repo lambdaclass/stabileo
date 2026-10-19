@@ -271,6 +271,16 @@ fn validation_sfd_internal_hinge() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         loads,
     );
+    // Pinned–roller with a midspan hinge is a mechanism: refused, naming it.
+    let err = linear::solve_2d(&input).unwrap_err();
+    assert!(err.contains("Structure is a mechanism") && err.contains(&format!("node {}", mid + 1)), "{err}");
+    // Fixed at the left end it stands.
+    let mut input = input;
+    for s in input.supports.values_mut() {
+        if s.node_id == 1 {
+            s.support_type = "fixed".into();
+        }
+    }
     let results = linear::solve_2d(&input).unwrap();
 
     // At hinge location, moment should be zero

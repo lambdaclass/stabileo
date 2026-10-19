@@ -450,6 +450,9 @@ pub struct PreparedStatic2D<'a> {
     pre_solve_diags: Vec<StructuredDiagnostic>,
     artificial_dofs: Vec<usize>,
     inclined_transforms_2d: Vec<InclinedTransformData2D>,
+    /// The exact mechanism check (passed): what it knows about rotations
+    /// nothing resists and unconnected nodes, for the per-case load check.
+    mechanisms: super::mechanism::MechanismCheck,
     path: PreparedPath2D,
 }
 
@@ -702,12 +705,26 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
 }
 
 fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
+    // A factorization that fails on a mechanism reports the free motions.
+    prepare_static_2d_inner(input, force_dense)
+        .map_err(|e| super::mechanism::check_2d(input, &[]).explain_failure(e))
+}
+
+fn prepare_static_2d_inner(input: &SolverInput, force_dense: bool) -> Result<PreparedStatic2D<'_>, String> {
     let dof_num = DofNumbering::build_2d(input);
     let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
     validate_solver_options(&input.solver_options, &mut pre_solve_diags);
 
     // ── Input validation (before assembly) ──
     validate_input_2d(input)?;
+
+    // A mechanism is refused by name, before a factorization that may or
+    // may not notice it (`mechanism.rs`).
+    // Loads that act on a free motion are refused per case (`solve_loads`);
+    // otherwise the results carry the warning naming it.
+    let mechanisms = super::mechanism::check_2d(input, &[]);
+    pre_solve_diags.extend(mechanisms.diagnostic());
+    mechanisms.refuse_unheld_rotations()?;
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -743,7 +760,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
             pre_solve_diags,
             artificial_dofs: stiff.artificial_dofs,
             inclined_transforms_2d: stiff.inclined_transforms_2d,
-            path: PreparedPath2D::FullyRestrained { ku_full },
+                        mechanisms: mechanisms.clone(),
+path: PreparedPath2D::FullyRestrained { ku_full },
         });
     }
 
@@ -778,7 +796,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 pre_solve_diags,
                 artificial_dofs: stiff.artificial_dofs,
                 inclined_transforms_2d: stiff.inclined_transforms_2d,
-                path: PreparedPath2D::Pcg(Box::new(PreparedPcg2D {
+                                mechanisms: mechanisms.clone(),
+path: PreparedPath2D::Pcg(Box::new(PreparedPcg2D {
                     k_ff: stiff.k_ff,
                     k_full: stiff.k_full,
                     kfr_ur,
@@ -823,7 +842,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     pre_solve_diags,
                     artificial_dofs: stiff.artificial_dofs,
                     inclined_transforms_2d: stiff.inclined_transforms_2d,
-                    path: PreparedPath2D::Sparse(Box::new(PreparedSparse2D {
+                                        mechanisms: mechanisms.clone(),
+path: PreparedPath2D::Sparse(Box::new(PreparedSparse2D {
                         k_ff: stiff.k_ff,
                         k_full: stiff.k_full,
                         num,
@@ -861,7 +881,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     pre_solve_diags,
                     artificial_dofs: stiff_d.artificial_dofs,
                     inclined_transforms_2d: stiff_d.inclined_transforms_2d,
-                    path: PreparedPath2D::SparseDenseLu(Box::new(PreparedSparseDenseLu2D {
+                                        mechanisms: mechanisms.clone(),
+path: PreparedPath2D::SparseDenseLu(Box::new(PreparedSparseDenseLu2D {
                         k_ff,
                         k_rf,
                         k_fr_ur,
@@ -936,7 +957,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         pre_solve_diags,
         artificial_dofs: stiff.artificial_dofs,
         inclined_transforms_2d: stiff.inclined_transforms_2d,
-        path: PreparedPath2D::Solve(Box::new(PreparedSolve2D {
+                mechanisms: mechanisms.clone(),
+path: PreparedPath2D::Solve(Box::new(PreparedSolve2D {
             k_ff, k_rf, k_fr_ur, k_rr_ur, factor, used_sparse, cholesky_failed, cond_report,
         })),
     })
@@ -955,6 +977,7 @@ impl PreparedStatic2D<'_> {
             pre_solve_diags: self.pre_solve_diags,
             artificial_dofs: self.artificial_dofs,
             inclined_transforms_2d: self.inclined_transforms_2d,
+            mechanisms: self.mechanisms,
             path: self.path,
         }
     }
@@ -965,7 +988,12 @@ impl PreparedStatic2D<'_> {
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         // Per-case load validation (the structure was validated in prepare)
         validate_loads_2d(&self.input, loads)?;
+        self.mechanisms.refuse_unresisted_loads_2d(loads)?;
+        self.mechanisms.refuse_if_loaded_2d(&self.input, loads, self.u_r.iter().any(|v| *v != 0.0))?;
+        self.solve_loads_inner(loads).map_err(|e| self.mechanisms.explain_failure(e))
+    }
 
+    fn solve_loads_inner(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         let input = &*self.input;
         let dof_num = &self.dof_num;
         let (n, nf, nr) = (self.n, self.nf, self.nr);
@@ -1937,6 +1965,8 @@ pub struct PreparedStatic3D {
     /// Free DOFs held only by artificial stiffness (orphan rotations and
     /// warping): a load on one would never reach the structure.
     orphan_dofs: std::collections::HashSet<usize>,
+    /// The exact mechanism check (passed), for the per-case load check.
+    mechanisms: super::mechanism::MechanismCheck,
     path: PreparedPath3D,
 }
 
@@ -2124,6 +2154,11 @@ pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNu
 }
 
 pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
+    // A factorization that fails on a mechanism reports the free motions.
+    prepare_static_3d_inner(input).map_err(|e| super::mechanism::check_3d(input, &[]).explain_failure(e))
+}
+
+fn prepare_static_3d_inner(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let n_nodes = input.nodes.len();
@@ -2134,7 +2169,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         + input.solid_shells.len()
         + input.curved_shells.len();
     let dof_num = DofNumbering::build_3d(&input);
-    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d_except_mechanisms(&input);
     validate_solver_options(&input.solver_options, &mut pre_solve_diags);
 
     // ── Input validation (before assembly) ──
@@ -2145,6 +2180,14 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     // stiffness matrix — structure is a mechanism". Only those: see
     // `refuse_broken_elements` for why not every gate `Error`.
     super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
+
+    // A mechanism is refused by name, before a factorization that may or
+    // may not notice it (`mechanism.rs`).
+    // Loads that act on a free motion are refused per case (`solve_loads`);
+    // otherwise the results carry the warning naming it.
+    let mechanisms = super::mechanism::check_3d(&input, &[]);
+    pre_solve_diags.extend(mechanisms.diagnostic());
+    mechanisms.refuse_unheld_rotations()?;
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -2182,7 +2225,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             u_r,
             pre_solve_diags,
             orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
-            path: PreparedPath3D::FullyRestrained(FullyRestrained3D {
+                        mechanisms: mechanisms.clone(),
+path: PreparedPath3D::FullyRestrained(FullyRestrained3D {
                 ku_full,
                 diagnostics: stiff.diagnostics,
                 inclined_transforms: stiff.inclined_transforms,
@@ -2241,7 +2285,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                 u_r,
                 pre_solve_diags,
                 orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
-                path: PreparedPath3D::Pcg(PcgPrepared3D {
+                                mechanisms: mechanisms.clone(),
+path: PreparedPath3D::Pcg(PcgPrepared3D {
                     k_ff: stiff.k_ff,
                     k_full: stiff.k_full.unwrap(),
                     max_diag_k: stiff.max_diag_k,
@@ -2337,7 +2382,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     u_r,
                     pre_solve_diags,
                     orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
-                    path: PreparedPath3D::Sparse(SparsePrepared3D {
+                                        mechanisms: mechanisms.clone(),
+path: PreparedPath3D::Sparse(SparsePrepared3D {
                         k_ff: stiff.k_ff,
                         k_full: stiff.k_full.unwrap(),
                         num,
@@ -2388,7 +2434,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     u_r,
                     pre_solve_diags,
                     orphan_dofs: stiff_d.artificial_dofs.iter().copied().collect(),
-                    path: PreparedPath3D::SparseDenseLu(SparseDenseLuPrepared3D {
+                                        mechanisms: mechanisms.clone(),
+path: PreparedPath3D::SparseDenseLu(SparseDenseLuPrepared3D {
                         k_full: stiff.k_full.unwrap(),
                         lu: k_ff_d,
                         piv,
@@ -2461,7 +2508,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             u_r,
             pre_solve_diags,
             orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
-            path: PreparedPath3D::Dense(DensePrepared3D {
+                        mechanisms: mechanisms.clone(),
+path: PreparedPath3D::Dense(DensePrepared3D {
                 k_ff,
                 k_rf,
                 k_fr_ur,
@@ -2485,6 +2533,8 @@ impl PreparedStatic3D {
         // Per-case load validation (the structure was validated in prepare)
         validate_loads_3d(&self.input, loads)?;
         self.refuse_loads_on_orphan_dofs(loads)?;
+        self.mechanisms.refuse_unresisted_loads_3d(loads)?;
+        self.mechanisms.refuse_if_loaded_3d(&self.input, loads, self.u_r.iter().any(|v| *v != 0.0))?;
         match &self.path {
             PreparedPath3D::FullyRestrained(p) => self.solve_loads_fully_restrained(loads, p),
             PreparedPath3D::Dense(p) => self.solve_loads_dense(loads, p),
@@ -2492,6 +2542,7 @@ impl PreparedStatic3D {
             PreparedPath3D::Pcg(p) => self.solve_loads_pcg(loads, p),
             PreparedPath3D::SparseDenseLu(p) => self.solve_loads_sparse_dense_lu(loads, p),
         }
+        .map_err(|e| self.mechanisms.explain_failure(e))
     }
 
     fn refuse_loads_on_orphan_dofs(&self, loads: &[SolverLoad3D]) -> Result<(), String> {

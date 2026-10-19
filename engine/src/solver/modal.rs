@@ -54,6 +54,9 @@ pub fn solve_modal_2d(
     super::linear::validate_input_2d(input)?;
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_2d(input);
     super::dynamic_validation::validate_densities(densities, &referenced_material_ids)?;
+    // A mechanism has zero-frequency modes the eigensolver does not report
+    // (it returned fewer modes than requested, silently: #338). Refused by name.
+    super::mechanism::check_2d(input, &input.constraints).refusal()?;
     if num_modes == 0 {
         return Err("num_modes must be >= 1".to_string());
     }
@@ -327,6 +330,9 @@ pub fn solve_modal_3d(
     let input = expanded.as_ref().unwrap_or(input);
     let referenced_material_ids = super::dynamic_validation::referenced_material_ids_3d(input);
     super::dynamic_validation::validate_densities(densities, &referenced_material_ids)?;
+    // A mechanism has zero-frequency modes the eigensolver does not report
+    // (it returned fewer modes than requested, silently: #338). Refused by name.
+    super::mechanism::check_3d(input, &input.constraints).refusal()?;
     if num_modes == 0 {
         return Err("num_modes must be >= 1".to_string());
     }

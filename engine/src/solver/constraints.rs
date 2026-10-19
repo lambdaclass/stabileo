@@ -735,20 +735,17 @@ fn collect_dependent_dofs(
     result
 }
 
-/// Build the constraint transformation matrix C.
-///
-/// C maps independent DOFs to full DOFs: u_full = C * u_indep.
-/// For unconstrained DOFs: C[i, j] = 1 where j is the independent index of DOF i.
-/// For constrained (dependent) DOFs: C[i, :] expresses the dependency.
-pub fn build_constraint_transform(
+/// The constraint equations in global components, before the inclined-support
+/// rewrite: each is `u[dependent] = Σ coeff · u[master]` over the global DOF
+/// indices of `dof_num` (free and restrained alike). Shared by
+/// `build_constraint_transform` and the exact mechanism check
+/// (`mechanism.rs`), so both see exactly the same kinematics.
+pub(crate) fn constraint_equations(
     constraints: &[Constraint],
     dof_num: &DofNumbering,
     nodes_2d: Option<&HashMap<String, SolverNode>>,
     nodes_3d: Option<&HashMap<String, SolverNode3D>>,
-    inclined: &[InclinedDofs],
-) -> Result<ConstraintTransform, String> {
-    let n = dof_num.n_total;
-
+) -> Vec<(usize, Vec<(usize, f64)>)> {
     // Build O(1) lookup maps: node numeric id -> &Node
     let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| {
         nodes.values().map(|n| (n.id, n)).collect()
@@ -1020,6 +1017,23 @@ pub fn build_constraint_transform(
             }
         }
     }
+    eqs
+}
+
+/// Build the constraint transformation matrix C.
+///
+/// C maps independent DOFs to full DOFs: u_full = C * u_indep.
+/// For unconstrained DOFs: C[i, j] = 1 where j is the independent index of DOF i.
+/// For constrained (dependent) DOFs: C[i, :] expresses the dependency.
+pub fn build_constraint_transform(
+    constraints: &[Constraint],
+    dof_num: &DofNumbering,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    inclined: &[InclinedDofs],
+) -> Result<ConstraintTransform, String> {
+    let n = dof_num.n_total;
+    let eqs = constraint_equations(constraints, dof_num, nodes_2d, nodes_3d);
 
     // Constraint equations are global; at inclined supports the DOF slots
     // hold rotated components. Rewrite the equations in those frames.
@@ -1419,6 +1433,19 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     // Constraint referential integrity
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
     validate_constraint_refs(&input.constraints, &node_ids, 3)?;
+
+    // A mechanism — constraints included — is refused by name (`mechanism.rs`).
+    let mechanisms = super::mechanism::check_2d(&input.solver, &input.constraints);
+    mechanisms.refuse_unresisted_loads_2d(&input.solver.loads)?;
+    mechanisms.refuse_unheld_rotations()?;
+    let prescribed = input.solver.supports.values().any(|s| [s.dx, s.dz, s.dry].iter().any(|d| d.is_some_and(|v| v != 0.0)));
+    mechanisms.refuse_if_loaded_2d(&input.solver, &input.solver.loads, prescribed)?;
+    let mut result = solve_constrained_2d_inner(input).map_err(|e| mechanisms.explain_failure(e))?;
+    result.structured_diagnostics.extend(mechanisms.diagnostic());
+    Ok(result)
+}
+
+fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -2027,6 +2054,15 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
     validate_constraint_refs(&input.constraints, &node_ids, 6)?;
 
+    // A mechanism — constraints included — is refused by name (`mechanism.rs`).
+    let mechanisms = super::mechanism::check_3d(&input.solver, &input.constraints);
+    mechanisms.refuse_unresisted_loads_3d(&input.solver.loads)?;
+    mechanisms.refuse_unheld_rotations()?;
+    let prescribed = input.solver.supports.values().any(|s| {
+        [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz].iter().any(|d| d.is_some_and(|v| v != 0.0))
+    });
+    mechanisms.refuse_if_loaded_3d(&input.solver, &input.solver.loads, prescribed)?;
+
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -2320,6 +2356,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 
     constraint_diags.extend(definiteness);
 
+    constraint_diags.extend(mechanisms.diagnostic());
     Ok(AnalysisResults3D {
         displacements,
         reactions,

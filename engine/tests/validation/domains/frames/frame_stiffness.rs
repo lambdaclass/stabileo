@@ -223,16 +223,15 @@ fn validation_frame_beam_internal_hinge() {
 
     let input_hinge = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);
-    let res_hinge = linear::solve_2d(&input_hinge).unwrap();
-    let mid_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
-
-    // With hinge, beam is a mechanism for moment → much larger deflection
-    // Actually SS beam with midspan hinge + point load at hinge = mechanism.
-    // The solver should still give a result (maybe very large).
-    // At minimum, deflection with hinge should be >= without hinge.
-    assert!(mid_hinge >= mid_cont * 0.99,
-        "Hinge should increase deflection: hinged={:.6e}, continuous={:.6e}",
-        mid_hinge, mid_cont);
+    // A simply supported beam with a midspan hinge is a mechanism (it folds at
+    // the hinge under the load there). It used to be "solved" — artificial
+    // stiffness on the hinge rotation turned it into a beam on a 1e-10
+    // spring with an enormous deflection. Now it is refused, naming the
+    // hinge node: infinitely more flexible than the continuous beam.
+    let err = linear::solve_2d(&input_hinge).unwrap_err();
+    assert!(err.contains("Structure is a mechanism") && err.contains("node 2") && err.contains("The loads act on it"),
+        "{err}");
+    assert!(mid_cont > 0.0);
 }
 
 // ================================================================

@@ -272,6 +272,18 @@ fn validation_bce_internal_hinge_zero_moment() {
 
     let input = make_input(nodes_vec, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems_vec, sups_vec, loads);
+    // Pinned–roller with a hinge at midspan is a mechanism (the two halves
+    // fold at the hinge): refused, naming the hinge node.
+    let err = linear::solve_2d(&input).unwrap_err();
+    assert!(err.contains("Structure is a mechanism") && err.contains(&format!("node {}", hinge_elem + 1)), "{err}");
+    // Fixed at the left end it stands (a cantilever carrying a simply
+    // supported span at the hinge).
+    let mut input = input;
+    for s in input.supports.values_mut() {
+        if s.node_id == 1 {
+            s.support_type = "fixed".into();
+        }
+    }
     let results = linear::solve_2d(&input).unwrap();
 
     // At the hinge node (midspan), bending moment must be zero.

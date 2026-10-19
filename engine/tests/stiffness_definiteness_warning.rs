@@ -18,15 +18,18 @@ fn warned(d: &[StructuredDiagnostic]) -> bool {
 
 /// Fuzz models the certificate checker found non-positive-definite: 2D seed 86
 /// (Cholesky "succeeds" with a 2e-16 pivot ratio) and 3D seed 31 (Cholesky
-/// fails, dense LU returns results).
+/// fails, dense LU used to return results). The 3D model is a mechanism
+/// (node 3 is free in two directions) with a rotation of node 4 nothing
+/// stiffens about a skew axis: the exact check (mechanism.rs) now refuses it
+/// by name before any factorization.
 #[test]
 fn non_positive_definite_fuzz_models_are_warned() {
     let res = solve_2d(&fuzz_models::random_2d_model(86)).expect("solver returns results");
     assert!(warned(&res.structured_diagnostics), "{:?}", res.structured_diagnostics);
-    let res = solve_3d(&fuzz_models::random_3d_model(100_031)).expect("solver returns results");
-    assert!(warned(&res.structured_diagnostics), "{:?}", res.structured_diagnostics);
     let d = res.structured_diagnostics.iter().find(|x| x.code == DiagnosticCode::StiffnessNotPositiveDefinite).unwrap();
     assert!(d.message.contains("singular or indefinite") && d.message.contains("meaningless"), "{}", d.message);
+    let e = solve_3d(&fuzz_models::random_3d_model(100_031)).expect_err("mechanism refused");
+    assert!(e.contains("Rotation not stiffened at node 4") && e.contains("Structure is a mechanism") && e.contains("node 3"), "{e}");
 }
 
 /// Constrained solver: pinned columns tied at the top still sway. The reduced

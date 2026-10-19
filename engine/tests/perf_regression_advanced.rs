@@ -73,12 +73,15 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     }
     boundary.sort();
     boundary.dedup();
+    // The corner (nx, 0) is also held along y: with the pinned corner alone
+    // the plate was free to turn in its own plane (a mechanism, now refused
+    // by modal analysis and flagged by the static solvers).
     for &n in &boundary {
         supports.insert(
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
@@ -188,12 +191,15 @@ fn make_plate_3d_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
     }
     boundary.sort();
     boundary.dedup();
+    // The corner (nx, 0) is also held along y: with the pinned corner alone
+    // the plate was free to turn in its own plane (a mechanism, now refused
+    // by modal analysis and flagged by the static solvers).
     for &n in &boundary {
         supports.insert(
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,

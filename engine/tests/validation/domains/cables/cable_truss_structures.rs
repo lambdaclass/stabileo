@@ -323,7 +323,7 @@ fn validation_truss_missing_diagonal_load_path() {
         (5, 0.0, h),   (6, panel_w, h),   (7, 2.0*panel_w, h),   (8, 3.0*panel_w, h),
     ];
 
-    let make_truss_ef = |include_diag_panel2: bool| -> Vec<f64> {
+    let make_truss_ef = |include_diag_panel2: bool| -> Result<Vec<f64>, String> {
         let mut elems = vec![
             (1,  "truss", 1, 2, 1, 1, false, false), // bottom chord
             (2,  "truss", 2, 3, 1, 1, false, false),
@@ -350,24 +350,25 @@ fn validation_truss_missing_diagonal_load_path() {
             nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ_T)],
             elems, sups, loads,
         );
-        let results = linear::solve_2d(&input).unwrap();
-        vec![
+        linear::solve_2d(&input).map(|results| vec![
             results.element_forces.iter().find(|e| e.element_id == 11).unwrap().n_start.abs(),
             results.element_forces.iter().find(|e| e.element_id == 13).unwrap().n_start.abs(),
-        ]
+        ])
     };
 
-    let with_diag = make_truss_ef(true);
-    let without_diag = make_truss_ef(false);
+    let with_diag = make_truss_ef(true).unwrap();
+    assert!(with_diag[0] > 0.0 && with_diag[1] > 0.0);
 
-    // Without the center diagonal, the panel 1 and panel 3 diagonals must
-    // carry more force to redistribute the shear
-    let sum_with = with_diag[0] + with_diag[1];
-    let sum_without = without_diag[0] + without_diag[1];
+    // Without the center diagonal there is no load path for the shear in
+    // panel 2: the pin-jointed rectangle 2-3-7-6 shears freely, a mechanism
+    // the load at node 6 acts on. The old expectation (the neighbouring
+    // diagonals "redistribute" it) read the answer of a singular system;
+    // the model is now refused, naming the panel.
+    let err = make_truss_ef(false).unwrap_err();
     assert!(
-        sum_without > sum_with * 0.8,
-        "Missing diagonal: adjacent diagonals carry redistributed load: {:.4} vs {:.4}",
-        sum_without, sum_with
+        err.contains("Structure is a mechanism") && err.contains("The loads act on it")
+            && ["node 2", "node 3", "node 6", "node 7"].iter().all(|n| err.contains(n)),
+        "{err}"
     );
 }
 

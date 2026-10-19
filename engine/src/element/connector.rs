@@ -41,7 +41,8 @@ fn add_spring(out: &mut [f64], n: usize, k: f64, b: &[f64]) {
     }
 }
 
-/// Build the 2D connector element stiffness matrix (6×6 for frame-DOF nodes).
+/// The springs of a 2D connector: (stiffness, compatibility row) over
+/// [ux_i, uz_i, θ_i, ux_j, uz_j, θ_j].
 ///
 /// The connector acts along the line between nodes i and j, `l` apart. If the
 /// nodes coincide (zero-length), it acts in the global coordinate system.
@@ -50,14 +51,14 @@ fn add_spring(out: &mut [f64], n: usize, k: f64, b: &[f64]) {
 ///   k_axial  — along the connector axis
 ///   k_shear  — perpendicular to axis (in-plane), at `CONNECTOR_SHEAR_POSITION`
 ///   k_moment — rotational spring about Z
-pub fn connector_stiffness_2d(
+pub fn connector_springs_2d(
     k_axial: f64,
     k_shear: f64,
     k_moment: f64,
     cos: f64,
     sin: f64,
     l: f64,
-) -> [f64; 36] {
+) -> [(f64, [f64; 6]); 3] {
     let (c, s) = (cos, sin);
     let a = CONNECTOR_SHEAR_POSITION;
 
@@ -67,17 +68,30 @@ pub fn connector_stiffness_2d(
     let axial = [-c, -s, 0.0, c, s, 0.0];
     let shear = [s, -c, -a * l, -s, c, -(1.0 - a) * l];
     let moment = [0.0, 0.0, -1.0, 0.0, 0.0, 1.0];
+    [(k_axial, axial), (k_shear, shear), (k_moment, moment)]
+}
 
+/// Build the 2D connector element stiffness matrix (6×6 for frame-DOF nodes):
+/// Σ k·b·bᵀ over [`connector_springs_2d`].
+pub fn connector_stiffness_2d(
+    k_axial: f64,
+    k_shear: f64,
+    k_moment: f64,
+    cos: f64,
+    sin: f64,
+    l: f64,
+) -> [f64; 36] {
     let mut k = [0.0; 36];
-    add_spring(&mut k, 6, k_axial, &axial);
-    add_spring(&mut k, 6, k_shear, &shear);
-    add_spring(&mut k, 6, k_moment, &moment);
+    for (ks, b) in connector_springs_2d(k_axial, k_shear, k_moment, cos, sin, l) {
+        add_spring(&mut k, 6, ks, &b);
+    }
     k
 }
 
-/// Build the 3D connector element stiffness matrix (12×12 for 6-DOF nodes),
-/// nodes `l` apart along `dir`.
-pub fn connector_stiffness_3d(
+/// The springs of a 3D connector, nodes `l` apart along `dir`: (stiffness,
+/// compatibility row) over [u_i, θ_i, u_j, θ_j].
+#[allow(clippy::too_many_arguments)]
+pub fn connector_springs_3d(
     k_axial: f64,
     k_shear_y: f64,
     k_shear_z: f64,
@@ -86,7 +100,7 @@ pub fn connector_stiffness_3d(
     k_bend_z: f64,
     dir: [f64; 3],  // unit direction from node_i to node_j (or [1,0,0] for zero-length)
     l: f64,
-) -> [f64; 144] {
+) -> [(f64, [f64; 12]); 6] {
     // Build local-to-global rotation from direction vector
     // Local x = dir, local y and z are perpendicular
     let (lx, ly, lz) = (dir[0], dir[1], dir[2]);
@@ -145,14 +159,56 @@ pub fn connector_stiffness_3d(
         b
     };
 
+    [
+        (k_axial, trans(ex, [0.0; 3])),
+        (k_shear_y, trans(ey, ez.map(|v| -v))),
+        (k_shear_z, trans(ez, ey)),
+        (k_torsion, rot(ex)),
+        (k_bend_y, rot(ey)),
+        (k_bend_z, rot(ez)),
+    ]
+}
+
+/// Build the 3D connector element stiffness matrix (12×12 for 6-DOF nodes):
+/// Σ k·b·bᵀ over [`connector_springs_3d`].
+#[allow(clippy::too_many_arguments)]
+pub fn connector_stiffness_3d(
+    k_axial: f64,
+    k_shear_y: f64,
+    k_shear_z: f64,
+    k_torsion: f64,
+    k_bend_y: f64,
+    k_bend_z: f64,
+    dir: [f64; 3],
+    l: f64,
+) -> [f64; 144] {
     let mut k = [0.0; 144];
-    add_spring(&mut k, 12, k_axial, &trans(ex, [0.0; 3]));
-    add_spring(&mut k, 12, k_shear_y, &trans(ey, ez.map(|v| -v)));
-    add_spring(&mut k, 12, k_shear_z, &trans(ez, ey));
-    add_spring(&mut k, 12, k_torsion, &rot(ex));
-    add_spring(&mut k, 12, k_bend_y, &rot(ey));
-    add_spring(&mut k, 12, k_bend_z, &rot(ez));
+    for (ks, b) in connector_springs_3d(k_axial, k_shear_y, k_shear_z, k_torsion, k_bend_y, k_bend_z, dir, l) {
+        add_spring(&mut k, 12, ks, &b);
+    }
     k
+}
+
+/// The springs of one 2D connector (3 DOFs per node, [ux, uz, θ]).
+pub fn connector_element_springs_2d(conn: &ConnectorElement, ni: &SolverNode, nj: &SolverNode) -> [(f64, [f64; 6]); 3] {
+    let dx = nj.x - ni.x;
+    let dy = nj.z - ni.z;
+    let l = (dx * dx + dy * dy).sqrt();
+    let (cos, sin, l) = if l > ZERO_LENGTH { (dx / l, dy / l, l) } else { (1.0, 0.0, 0.0) };
+    connector_springs_2d(conn.k_axial, conn.k_shear, conn.k_moment, cos, sin, l)
+}
+
+/// The springs of one 3D connector (6 DOFs per node, [u, θ]).
+pub fn connector_element_springs_3d(conn: &ConnectorElement, ni: &SolverNode3D, nj: &SolverNode3D) -> [(f64, [f64; 12]); 6] {
+    let dx = nj.x - ni.x;
+    let dy = nj.y - ni.y;
+    let dz = nj.z - ni.z;
+    let l = (dx * dx + dy * dy + dz * dz).sqrt();
+    let (dir, l) = if l > ZERO_LENGTH { ([dx / l, dy / l, dz / l], l) } else { ([1.0, 0.0, 0.0], 0.0) };
+    connector_springs_3d(
+        conn.k_axial, conn.k_shear, conn.k_shear_z,
+        conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir, l,
+    )
 }
 
 /// Global stiffness of one 2D connector (3 DOFs per node, [ux, uz, θ]).

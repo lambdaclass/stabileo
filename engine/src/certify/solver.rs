@@ -242,6 +242,9 @@ pub fn certify_results_2d(input: &SolverInput, results: &AnalysisResults) -> Cer
     if let Err(e) = finite::check_input(input).and_then(|()| finite::check_results(results)) {
         return Certificate::uncertified(e);
     }
+    if let Some(why) = crate::solver::mechanism::check_2d(input, &input.constraints).uncertifiable() {
+        return Certificate::uncertified(why);
+    }
     let mut c = if needs_general_2d(input) {
         certify_general_2d(input, results)
     } else {
@@ -417,6 +420,10 @@ fn guard_cases(out: &mut [Certificate], bad: Vec<Option<String>>) {
 
 fn load_cases_2d(input: &SolverInput, cases: &[(&[SolverLoad], &AnalysisResults)]) -> Vec<Certificate> {
     let all = |c: Certificate| vec![c; cases.len()];
+    // A mechanism's (regularized) answer is not the model's: never certified.
+    if let Some(why) = crate::solver::mechanism::check_2d(input, &input.constraints).uncertifiable() {
+        return all(Certificate::uncertified(why));
+    }
     if needs_general_2d(input) {
         // Constraints / inclined supports: per case through the general path.
         return cases
@@ -484,6 +491,9 @@ pub(super) fn gather_u_2d(dof_num: &DofNumbering, displacements: &[Displacement]
 pub fn certify_results_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> Certificate {
     if let Err(e) = finite::check_input(input).and_then(|()| finite::check_results(results)) {
         return Certificate::uncertified(e);
+    }
+    if let Some(why) = crate::solver::mechanism::check_3d(input, &input.constraints).uncertifiable() {
+        return Certificate::uncertified(why);
     }
     let expanded = expand_curved_beams_3d(input);
     let mut c = if needs_general_3d(&expanded) {
@@ -621,6 +631,10 @@ fn load_cases_3d(
     cases: &[(&[SolverLoad3D], &AnalysisResults3D)],
 ) -> Vec<Certificate> {
     let all = |c: Certificate| vec![c; cases.len()];
+    // A mechanism's (regularized) answer is not the model's: never certified.
+    if let Some(why) = crate::solver::mechanism::check_3d(input, &input.constraints).uncertifiable() {
+        return all(Certificate::uncertified(why));
+    }
     if needs_general_3d(&expand_curved_beams_3d(input)) {
         return cases
             .iter()

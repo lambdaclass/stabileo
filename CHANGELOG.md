@@ -51,6 +51,27 @@ changed with a link to the notes.
 
 ### Changed
 
+#### Mechanisms refused by an exact kinematic check, in 2D and 3D (2026-10-18)
+
+**BREAKING (behaviour): a model that is a mechanism is refused by the linear static solvers
+(2D, 3D, constrained) and by modal analysis**, with the free motions named ("Structure is a
+mechanism: … node 9 can move freely …"), instead of being solved with a warning, solved
+silently, or (modal) returning fewer modes than requested (#338).
+
+- `engine/src/solver/mechanism.rs`: every element, support, spring, connector and constraint
+  contributes the conditions its energy vanishes under; their rank is computed modulo two
+  61-bit primes (exact rational arithmetic), so a model passes with certainty and a mechanism
+  is confirmed twice. Rigid parts are contracted, released frames eliminate their rigid motion
+  locally, local axes are built exactly orthogonal (round-off in f64 axes cannot hide or
+  invent coupling). Covers 2D (new), constraints, connectors and inclined supports (skipped
+  before), and local mechanisms: hinge chains, dangling hinged members, truss nodes free out
+  of plane, members spinning about their axis.
+- A rotation of a single node nothing couples to (only trusses, or every member released) is
+  not a mechanism; a nodal moment on it is refused (in 2D a small one used to be lost), as is
+  a load on a node connected to nothing.
+- Verified: on 4 200 differential-generator models and 600 random models the free motions
+  found equal the zero eigenvalues of the assembled stiffness; no fixture is flagged.
+
 #### CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)
 
 **BREAKING (results): steel members bent about both axes without axial force are now checked by
