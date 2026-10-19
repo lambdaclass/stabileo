@@ -58,6 +58,7 @@ export function groupReferences(id: number): GroupReference[] {
   const dd = designData();
   if (dd.specialFloors?.systems?.[keyed('S', id)] !== undefined) push('slabSystem');
   if (dd.postTension?.panels?.[keyed('S', id)] !== undefined) push('tendons');
+  if (dd.specialElements?.masonry?.[keyed('W', id)] !== undefined) push('masonry');
   if (dd.lateralSystem?.members?.[keyed('P', id)] !== undefined) push('lateral');
   if ((modelStore.designDecisions as { joists?: Record<string, unknown> } | undefined)?.joists?.[keyed('J', id)] !== undefined) push('joist');
   return out;
@@ -161,6 +162,8 @@ export function remapGroupReferences(
   if (sys !== dd.specialFloors?.systems) next.specialFloors = { ...dd.specialFloors, systems: sys };
   const panels = want('tendons') ? moveKeys(dd.postTension?.panels, 'S', map, 'tendons', dropped) : dd.postTension?.panels;
   if (panels !== dd.postTension?.panels) next.postTension = { ...dd.postTension, panels };
+  const masonry = want('masonry') ? moveKeys(dd.specialElements?.masonry, 'W', map, 'masonry', dropped) : dd.specialElements?.masonry;
+  if (masonry !== dd.specialElements?.masonry) next.specialElements = { ...dd.specialElements, masonry };
   // A physical element's role in the lateral system: its members' own `e{id}` keys do not move.
   const lateral = want('lateral') ? moveKeys(dd.lateralSystem?.members, 'P', map, 'lateral', dropped) : dd.lateralSystem?.members;
   if (lateral !== dd.lateralSystem?.members) next.lateralSystem = { ...dd.lateralSystem, members: lateral };

@@ -11,6 +11,7 @@
    * belongs to the results it was made from: when those change the table says so rather than
    * showing numbers for a model that has moved on.
    */
+  import VariableSectionNotice from './design/VariableSectionNotice.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
   import { t, tp } from '../../lib/i18n';
@@ -163,6 +164,7 @@
 </script>
 
 <div class="oc" data-testid="other-codes-panel">
+  <VariableSectionNotice testid="other-codes-variable-section" />
   <section class="pk-card">
     <h4 class="pk-heading">{t('otherCodes.pick')}</h4>
     {#each FAMILIES as fam (fam)}
@@ -228,6 +230,8 @@
             {t('otherCodes.cert.summary').replace('{ok}', String(certCounts.ok)).replace('{fail}', String(certCounts.fail)).replace('{open}', String(certCounts.open))}
           </p>
         {/if}
+        <!-- A comparison under another code: its ✓ is that code's local checks, never the member's verdict. -->
+        <p class="pk-hint" data-testid="other-codes-scope">{t('verdict.otherCodes.scope')}</p>
         <table class="oc-table">
           <thead>
             <tr>
@@ -245,7 +249,7 @@
               <tr class="oc-row {v}" onclick={() => select(r.elementId)} data-testid="other-codes-row-{r.elementId}">
                 <td class="num">{r.elementId}</td>
                 <td class="num">{ratioText(r.reading.ratio)}</td>
-                <td><span class="oc-state {v}">{v === 'pass' ? '✓' : v === 'fail' ? '✗' : '◐'} {t(`otherCodes.status.${v}`)}</span></td>
+                <td><span class="oc-state {v}">{v === 'pass' ? '✓' : v === 'fail' ? '✗' : '◐'} {t(v === 'pass' ? 'verdict.otherCodes.pass' : `otherCodes.status.${v}`)}</span></td>
                 <td>{t(r.reading.governing)}{r.reading.clause ? ` · ${r.reading.clause}` : ''}</td>
                 <td>{r.comboName} · x = {r.stationX.toFixed(2)} m</td>
                 {#if certRows}

@@ -101,6 +101,8 @@ export interface Material {
    * reads this should warn about its absence.
    */
   gradeId?: string;
+  /** Timber reference design values, MPa: the material is timber and is designed by CIRSOC 601. */
+  timber?: import('../engine/design/materials/timber').TimberReference;
   /**
    * Maximum nominal coarse-aggregate size, mm, or null when the project has not stated it.
    *
@@ -441,6 +443,8 @@ export interface Element extends Element3DMetadata {
    * reading would pass (`cirsoc301-verdict.ts`).
    */
   steelLoadHeight?: 'web' | 'topFlange';
+  /** A steel-concrete member (filled or encased column, beam under a slab): AISC 360-10 Chapter I. */
+  composite?: import('../engine/design/materials/composite').CompositeSpec;
 }
 
 /** A camera the user named: where it stands and what it looks at, in scene coordinates. */
@@ -1671,6 +1675,31 @@ function createModelStore() {
      * elements, so an in-place edit could previously corrupt an undo snapshot that
      * shared the same `reinforcement` object.
      */
+    /**
+     * A design-only attribute of an element (its composite definition): undoable, and the solve
+     * survives it, as with reinforcement — it changes how the member is checked, not its stiffness.
+     */
+    setElementDesign(elemId: number, patch: { composite?: Element['composite'] }): void {
+      const elem = model.elements.get(elemId);
+      if (!elem) return;
+      _pushUndoSilent?.();
+      const plain = { ...($state.snapshot(elem) as Element), ...JSON.parse(JSON.stringify(patch)) } as Element;
+      if ('composite' in patch && patch.composite === undefined) delete plain.composite;
+      model.elements.set(elemId, plain);
+      model.elements = new Map(model.elements);
+    },
+
+    /** The timber reference values of a material: design data, the analysis reads E, not these. */
+    setMaterialDesign(materialId: number, patch: { timber?: Material['timber'] }): void {
+      const mat = model.materials.get(materialId);
+      if (!mat) return;
+      _pushUndoSilent?.();
+      const plain = { ...($state.snapshot(mat) as Material), ...JSON.parse(JSON.stringify(patch)) } as Material;
+      if ('timber' in patch && patch.timber === undefined) delete plain.timber;
+      model.materials.set(materialId, plain);
+      model.materials = new Map(model.materials);
+    },
+
     reinforcementTransaction(
       fn: (api: {
         setReinforcement(elemId: number, r: ProvidedReinforcement | undefined): void;

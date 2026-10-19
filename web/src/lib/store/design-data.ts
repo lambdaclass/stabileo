@@ -25,10 +25,10 @@ export function patchDesignData(patch: Partial<ProjectDesignData>): void {
 
 /**
  * Change the parts of the design data that only their own checks read (the special slabs, the
- * stairs, the post-tensioning). Undone like any other
+ * stairs, the post-tensioning, the fire settings, the particular elements). Undone like any other
  * change, but the design the rest of the project holds stays: no cover, steel or code moved.
  */
-export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension'>>): void {
+export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes'>>): void {
   modelStore.setDesignData({ ...designData(), ...patch });
 }
 

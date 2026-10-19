@@ -50,6 +50,14 @@ export interface ProjectDesignData {
   /** Parametric stairs and the post-tensioned slabs' tendons (`store/stairs-pt.ts`). */
   stairs?: import('./stairs-pt').StairEntry[];
   postTension?: import('./stairs-pt').PostTensionData;
+  /** Fire rating and how each material meets it (`store/fire.ts`). */
+  fire?: import('./special-elements').FireSettings;
+  /** Corbels, coupling beams, beam openings, masonry walls, infills and connections (`store/special-elements.ts`). */
+  specialElements?: import('./special-elements').SpecialElementsData;
+  /** The foreign codes the project also designs to, by material (`store/foreign-design.ts`). */
+  foreignCodes?: import('./foreign-codes').ForeignCodes;
+  /** Service condition and temperature of the timber members (CIRSOC 601 CM and Ct). */
+  timber?: import('../engine/design/materials/timber').TimberSettings;
   /** How a seismic project designs its concrete (`seismic-design.ts`). Absent: the defaults. */
   seismic?: import('./seismic-design').SeismicDesignSettings;
   /**
@@ -137,9 +145,13 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),
     ...((lateral) => (lateral ? { lateralSystem: lateral } : {}))(migrateLateralSystem(e.lateralSystem, (e.seismic as { roles?: Record<string, unknown> } | undefined)?.roles)),
+    ...(e.timber && typeof e.timber === 'object' ? { timber: e.timber as ProjectDesignData['timber'] } : {}),
     ...(e.specialFloors && typeof e.specialFloors === 'object' ? { specialFloors: e.specialFloors as ProjectDesignData['specialFloors'] } : {}),
     ...(Array.isArray(e.stairs) ? { stairs: (e.stairs as Array<{ id?: unknown }>).filter((x) => typeof x?.id === 'string') as ProjectDesignData['stairs'] } : {}),
     ...(e.postTension && typeof e.postTension === 'object' ? { postTension: e.postTension as ProjectDesignData['postTension'] } : {}),
+    ...(e.fire && typeof e.fire === 'object' ? { fire: e.fire as ProjectDesignData['fire'] } : {}),
+    ...(e.specialElements && typeof e.specialElements === 'object' ? { specialElements: e.specialElements as ProjectDesignData['specialElements'] } : {}),
+    ...(e.foreignCodes && typeof e.foreignCodes === 'object' ? { foreignCodes: e.foreignCodes as ProjectDesignData['foreignCodes'] } : {}),
   };
 }
 

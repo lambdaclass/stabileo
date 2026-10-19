@@ -19,6 +19,8 @@
  *   - autoVerifyFromResults is the JS orchestrator (Phase 3 replaces with WASM call)
  */
 
+import { materialFamilyOf } from './steel/material-family';
+import { catalogueGradeFamily } from './steel/grade-family';
 import type { AnalysisResults3D, BeamStationInput3D, GroupedBeamStationResult3D, MemberStationGroup3D } from './types-3d';
 import { decodeStationBuffer } from './station-buffer';
 import { steelSectionConstants } from './steel/section-constants';
@@ -408,6 +410,7 @@ export function steelInputCompleteness(model: AutoVerifyModelData): SteelInputCo
     const material = model.materials.get(elem.materialId);
     if (!section || !material) continue;
     if (!material.fy || material.fy <= 80) continue;  // concrete, not steel
+    if (materialFamilyOf(material as never, catalogueGradeFamily).family !== 'steel' || (elem as { composite?: unknown }).composite) continue;
     const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
     if (gaps.length > 0) out.push({ elementId: elem.id, gaps });
   }
@@ -443,6 +446,8 @@ export function runSteelVerification(
     const material = model.materials.get(elem.materialId);
     if (!section || !material) continue;
     if (!material.fy || material.fy <= 80) continue; // RC, not steel
+    // Aluminium, timber and composite members have checkers of their own (`design/materials`).
+    if (materialFamilyOf(material as never, catalogueGradeFamily).family !== 'steel' || (elem as { composite?: unknown }).composite) continue;
 
     const nI = model.nodes.get(elem.nodeI);
     const nJ = model.nodes.get(elem.nodeJ);

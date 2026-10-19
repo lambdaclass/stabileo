@@ -85,7 +85,7 @@ export interface ColdFormedSpec {
   tMm: number;
 }
 
-/** Steel mass density, kg/m³. Same value `engine/bar-marks.ts` uses. */
+/** Steel mass density, kg/m³. Same value the bar marks use (`markMassKg`). */
 const STEEL_DENSITY = 7850;
 
 /**
