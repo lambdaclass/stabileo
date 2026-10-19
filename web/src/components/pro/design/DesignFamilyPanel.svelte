@@ -21,7 +21,7 @@
   import { verificationStore } from '../../../lib/store';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
-  import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
+  import { openRebar3DView } from '../../../lib/store/rebar-open';
   import {
     DESIGN_FAMILIES, availableDesignFamilies, totalsOf,
     type DesignFamily, type DesignRunReport,
@@ -31,9 +31,8 @@
     /** Whether the upstream commands can run at all. */
     canDesign: boolean;
     /** Build the document so the 3-D view and the exports have one to project. */
-    onView3d: () => void;
   }
-  const { canDesign, onView3d }: Props = $props();
+  const { canDesign }: Props = $props();
 
   /**
    * The selection, defaulting to everything except foundations.
@@ -224,26 +223,18 @@
 <section class="families" data-testid="design-families">
   <h4>{t('design.families.title')}</h4>
   <!--
-    What this runs, and how it differs from the command above.
-
-    Both buttons used to read "Design all". They are not the same command: the one on the command
-    row designs the FRAME, this one designs whichever families are ticked here — including slabs,
-    walls and, if asked, foundations. Two identical labels for two different scopes is the
-    ambiguity this subtitle and the button's new wording remove.
+    What these boxes decide: the families «Size…» covers when it sizes every member. They are the
+    same selection its dialog shows (`designRunStore.familySelection`), not a second command.
   -->
   <p class="subtitle" data-testid="design-families-subtitle">{t('design.families.subtitle')}</p>
 
   <!--
-    What each of the three commands covers, side by side.
-
-    Three buttons in this tab start a design, they have different scopes, and nothing said so:
-    `Design all` on the command row, `Design the ticked families` here, and
-    `Size and detail floors` in its own section. A user who has to discover the difference by
-    pressing them is running structural design to find out what a button does.
+    What each of the two commands that start a design covers, side by side: «Size…», with its
+    scope chosen in its dialog, and the floor pass in its own section, which also produces the
+    floors' bar lists. There were three, two of them with different scopes under one name.
   -->
   <dl class="scopes" data-testid="design-families-scopes">
     <div><dt>{t('design.families.scope.allTitle')}</dt><dd>{t('design.families.scope.all')}</dd></div>
-    <div><dt>{t('design.families.scope.pickedTitle')}</dt><dd>{t('design.families.scope.picked')}</dd></div>
     <div><dt>{t('design.families.scope.floorsTitle')}</dt><dd>{t('design.families.scope.floors')}</dd></div>
   </dl>
 
@@ -356,9 +347,9 @@
           data-testid="design-result-view-3d"
           disabled={detailingStore.assemblies.length === 0
             && (detailingStore.document?.assemblies.length ?? 0) === 0}
-          onclick={() => { onView3d(); rebarWorkspace.openWorkspace(); }}
+          onclick={() => openRebar3DView()}
         >
-          {t('detailing.scene.openWorkspace')}
+          {t('desk.rebar3d')}
         </button>
       </div>
     </div>

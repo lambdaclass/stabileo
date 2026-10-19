@@ -34,7 +34,7 @@
  * identity, and never the prose.
  */
 
-import { test, expect, openBasicProjectPanel, openClassicDesign } from './fixtures';
+import { test, expect, openBasicProjectPanel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -87,9 +87,8 @@ async function openProject(page: Page) {
  * what made this journey unrunnable rather than failing.
  */
 async function openDesignTab(page: Page) {
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-design').click();
-  await expect(page.getByTestId('cmd-design-all')).toBeVisible({ timeout: 30_000 });
+  await designPlace(page, 'list');
+  await expect(page.getByTestId('cmd-autodesign')).toBeVisible({ timeout: 30_000 });
 }
 
 /**
@@ -136,7 +135,9 @@ async function runProductionChainFromUi(page: Page) {
     .poll(() => page.evaluate(() => window.__stabileo.baselineRevision()), { timeout: 180_000 })
     .toBeGreaterThan(0);
 
-  await page.getByTestId('cmd-design-all').click();
+  // «Size…», the one design command, over every member.
+  await page.getByTestId('cmd-autodesign').click();
+  await page.getByTestId('desk-run').click();
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.runCounts()?.verified ?? 0), { timeout: 180_000 })
     .toBeGreaterThan(0);

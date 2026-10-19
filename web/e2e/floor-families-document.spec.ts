@@ -30,7 +30,7 @@
  * standing at slab nodes, so punching genuinely applies — and seven fixed supports to found.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const SHELLS = 'rc-qa-diagnostic-shells';
@@ -128,16 +128,15 @@ async function designFloor(page: Page) {
 // ─── Documents ──────────────────────────────────────────────────
 
 async function openDetailingPanel(page: Page) {
-  await ensureOpen(page, 'detailing-disclosure');
   /**
    * The exports and the professional review moved OUT of the detailing panel.
    *
-   * They are a stage of the workflow now — `documents-disclosure` — rather than the tail of the
+   * They are a step of design now (Document, interface A) rather than the tail of the
    * coordinated-detailing panel, so reaching `doc-report`, `doc-dxf`, `doc-xlsx` and the review
-   * controls means opening that disclosure too. Every assertion in this file is unchanged; only
+   * controls means going to that place. Every assertion in this file is unchanged; only
    * which container holds the controls is.
    */
-  await ensureOpen(page, 'documents-disclosure');
+  await designPlace(page, 'documents');
   await expect(page.getByTestId('documents')).toBeVisible();
 }
 

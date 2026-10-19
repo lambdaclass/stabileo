@@ -13,6 +13,7 @@
   import { runSolve } from '../lib/actions/solve';
   import { TOOL_KEYS, TOOL_DATA_TAB, OPEN_PANEL_EVENT, type OpenPanelRequest } from '../lib/tool-keys';
   import { t } from '../lib/i18n';
+  import { overlayWasOpenAtKeydown } from '../lib/utils/modal-overlay';
 
   /**
    * Every keyboard shortcut in Basic, in the one place that is always mounted.
@@ -190,12 +191,29 @@
   }
   const modelSelected = () => uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0;
 
+  /*
+   * ── An overlay keeps its keys ─────────────────────────────────────
+   * The design desk, the 3-D reinforcement workspace and every `aria-modal` dialog cover the
+   * model, and this handler listens on the window, so their keys reached it: Delete with the desk
+   * open deleted the members still selected behind it, and the Escape that closed the desk also
+   * cleared the model selection. While one is open the shortcuts that edit the model or its
+   * selection stand down (the overlay's own Escape still closes it). See `modal-overlay.ts` for
+   * why the question is asked of the moment the key went down.
+   */
+  /** The shortcuts that change the model or its selection — the ones an overlay silences. */
+  function editsModel(e: KeyboardEvent, key: string): boolean {
+    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Escape') return true;
+    if ((e.ctrlKey || e.metaKey) && (key === 'A' || key === 'X' || key === 'V')) return true;
+    return !e.ctrlKey && !e.metaKey && !e.altKey && tools.some((tl) => tl.key === key);
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
     if ((e.target as HTMLElement).isContentEditable) return;
 
     const key = e.key.toUpperCase();
+    if (overlayWasOpenAtKeydown() && editsModel(e, key)) return;
 
     // Alt + letter: labels and the magnifier. Read from `code`, not `key` — on a Mac Alt turns
     // the letter into a symbol (Alt+N is "˜"). PRO and 3-D only, where these labels exist.

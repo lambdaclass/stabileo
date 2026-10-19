@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  RC_STAGES, RC_STAGE_DISCLOSURES, currentRcStage, rcModelReadiness, rcStageDisclosure,
+  RC_STAGES, RC_STAGE_PLACES, currentRcStage, rcModelReadiness, rcStagePlace,
   rcStageTodoKey, rcStages,
   type RcFlowReadings,
 } from '../rc-stages';
@@ -49,31 +49,31 @@ describe('one stage, one destination', () => {
    * previous strip un-navigable: clicking `demands`, `check` or `design` all scrolled to the
    * same element, so the strip could not tell the user where they had just been sent.
    */
-  it('no two stages own the same disclosure', () => {
-    expect(new Set(RC_STAGE_DISCLOSURES).size).toBe(RC_STAGES.length);
+  it('no two stages own the same place', () => {
+    expect(new Set(RC_STAGE_PLACES).size).toBe(RC_STAGES.length);
   });
 
-  it('every stage id resolves to its own disclosure, and nothing else does', () => {
-    for (const s of RC_STAGES) expect(rcStageDisclosure(s.id)).toBe(s.disclosure);
+  it('every stage id resolves to its own place, and nothing else does', () => {
+    for (const s of RC_STAGES) expect(rcStagePlace(s.id)).toBe(s.place);
     // The ids the OLD strip drew with no destination of their own. They must not resolve.
     for (const orphan of ['demands', 'check', 'floors']) {
-      expect(rcStageDisclosure(orphan), `${orphan} is not a stage`).toBeNull();
+      expect(rcStagePlace(orphan), `${orphan} is not a stage`).toBeNull();
     }
   });
 
   /*
-   * The disclosures are named as strings here and mounted in a Svelte file that this project's
-   * unit environment cannot render. Asserting against the source is weaker than asserting
-   * against the DOM and stronger than asserting nothing: it catches a testid renamed on one
-   * side only, which is precisely how the two lists drifted apart the first time. The E2E
-   * suite asserts they are real elements.
+   * The places are named as strings here and drawn in Svelte files that this project's unit
+   * environment cannot render. Asserting against the source is weaker than asserting against the
+   * DOM and stronger than asserting nothing: it catches a place renamed on one side only, which is
+   * precisely how the two lists drifted apart the first time. The E2E suite opens each of them.
    */
-  it('each disclosure exists in the tab that mounts them', () => {
+  it('each place is drawn by the desk and reached from its rail', () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const tab = readFileSync(
-      resolve(here, '../../../components/pro/ProRcWorkflowTab.svelte'), 'utf8');
-    for (const d of RC_STAGE_DISCLOSURES) {
-      expect(tab, `${d} is not mounted`).toContain(d);
+    const desk = readFileSync(resolve(here, '../../../components/pro/desk/DesignDesk.svelte'), 'utf8');
+    const rail = readFileSync(resolve(here, '../../../components/pro/desk/DeskRail.svelte'), 'utf8');
+    for (const p of RC_STAGE_PLACES) {
+      expect(desk, `${p} is not drawn`).toMatch(new RegExp(`deskUi\\.tab === '${p}'`));
+      expect(rail, `${p} has no rail entry`).toContain(`go('${p}')`);
     }
   });
 });

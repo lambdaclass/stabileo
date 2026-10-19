@@ -21,7 +21,7 @@
  * the state reaches the row, that the reason reaches the reader, and that the keys survive at a
  * secondary level instead of being dropped.
  */
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -86,9 +86,9 @@ async function seed(page: Page, assemblies: Json[]) {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
 }
 
 async function openBars(page: Page) {

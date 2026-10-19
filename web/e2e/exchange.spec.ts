@@ -4,7 +4,7 @@
  * each physical member as CSV; the project workbook. The file itself is pinned in
  * `lib/ifc/__tests__/ifc-writer.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import { readFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -13,7 +13,7 @@ test.describe('@slow exchange', () => {
   test('IFC with bars, read back; forces by physical member; the workbook', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await designPlace(page, 'detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);

@@ -30,7 +30,7 @@
  * rather than through the test process, and why a page of one's own is not a shared page.
  */
 
-import { designAll, loadModel, openDocumentsStage } from './fixtures';
+import { designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 import {
   test, expect, openPreparedWorkspace, readTally, readPieces,
 } from './prepared-building';
@@ -57,7 +57,7 @@ async function openWorkspace(
 ) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -65,7 +65,7 @@ async function openWorkspace(
     .toBeGreaterThan(0);
 
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
     await floors.click();

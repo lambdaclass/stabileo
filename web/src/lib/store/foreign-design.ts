@@ -26,7 +26,7 @@ import { resultsStore } from './results.svelte';
 import { activeCombinations, activePerCombo3D } from './active-results';
 import { verificationStore } from './verification.svelte';
 import { regulationsStore } from './regulations.svelte';
-import { designData, patchOwnDesignData } from './design-data';
+import { designData, patchOwnDesignData, otherCodesDesignData } from './design-data';
 import { catalogueProfileOf } from './steel-optimise.svelte';
 import { modelStoreyStability } from './storey-sway';
 import { concreteCheckRows, steelCheckRows } from '../engine/design/check-rows';
@@ -111,7 +111,7 @@ function contexts(omitted?: Array<{ elementId: number; reasonKey: string }>): Me
   const perCombo = activePerCombo3D();
   if (!perCombo.size && !resultsStore.results3D) return [];
   const combos = activeCombinations().filter((c) => perCombo.has(c.id));
-  return memberContexts(modelStore.model as never, perCombo, combos, undefined, omitted ? { omitted } : {});
+  return memberContexts(modelStore.model as never, perCombo, combos, undefined, { ...(omitted ? { omitted } : {}), designData: otherCodesDesignData() });
 }
 
 /**

@@ -5,7 +5,7 @@
  * rc-design-visual.spec.ts and are non-blocking on this first landing.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, openClassicDesign } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll } from './fixtures';
 
 const QA = 'rc-design-qa-8';
 const FLAGSHIP = 'rc-design-frame';
@@ -62,6 +62,8 @@ test.describe('@smoke RC design workflow', () => {
     await expect.poll(() => page.evaluate((id) => window.__stabileo.displayRatio(id), beam)).toBeGreaterThan(1);
     const after = await page.evaluate(() => window.__stabileo.counts());
     expect(after.fail).toBeGreaterThan(before.fail);
+    // The summary is the project's status, the first place of design (interface A).
+    await designPlace(page, 'prepare');
     await expect(page.getByTestId('summary-count-fail')).toContainText(String(after.fail));
   });
 
@@ -246,15 +248,14 @@ test.describe('@smoke RC design workflow', () => {
       .map((id) => [id, window.__stabileo.outcome(id)]), ids);
     expect(undeclared, 'undeclared, the two beams that cannot anchor fy at the face').toEqual([[5, 'SEARCH_EXHAUSTED'], [6, 'SEARCH_EXHAUSTED']]);
 
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-designData').click();
+    await designPlace(page, 'designData');
     await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
     const runBefore = await page.evaluate(() => window.__stabileo.designRunId());
     await page.evaluate(() => window.__stabileoActions.designAll());
     await expect.poll(() => page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runBefore);
     await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0)).toBe(ids.length);
     // Back from the design data to the design table, where the certificate is read below.
-    await page.getByTestId('pr-cmd-design').click();
+    await designPlace(page, 'list');
 
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
     expect(counts.verified).toBe(ids.length);
@@ -409,7 +410,7 @@ test.describe('@slow RC design at scale', () => {
     await solveModel(page);
 
     const runIdBefore = await page.evaluate(() => window.__stabileo.designRunId());
-    await page.getByTestId('cmd-design-all').click();
+    await sizeAll(page);
     await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0), { timeout: 180_000 })
       .toBe(408);
     expect(await page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runIdBefore);
@@ -608,6 +609,8 @@ test.describe('@slow RC design at scale', () => {
       expect(perMember.find((x) => x.id === p.id)!.display, `member ${p.id} display status`)
         .toBe('provisional');
     }
+    // The counts are the project's status, the first place of design.
+    await designPlace(page, 'prepare');
     await expect(page.getByTestId('summary-count-verified')).toContainText(String(display.ok));
     await expect(page.getByTestId('summary-count-warn')).toContainText(String(display.warn));
     await expect(page.getByTestId('summary-count-fail')).toContainText(String(display.fail));
@@ -626,10 +629,12 @@ test.describe('@slow RC design at scale', () => {
     await expect(page.getByTestId('summary-count-provisional'))
       .toContainText(String(display.provisional));
 
-    // Auto-design selected is the default scope; all-un-designed is explicit.
+    // The list's «Size…» opens the one dialog; what has no bars yet is an explicit scope in it.
+    await designPlace(page, 'list');
     await expect(page.getByTestId('cmd-autodesign')).toBeVisible();
-    await page.getByTestId('cmd-autodesign-menu').click();
-    await expect(page.getByTestId('cmd-autodesign-undesigned')).toBeVisible();
+    await page.getByTestId('cmd-autodesign').click();
+    await expect(page.getByTestId('desk-run-scope-undesigned')).toBeVisible();
+    await page.getByTestId('desk-run-cancel').click();
   });
 
   test('B16 — the batch dialog is usable at a narrow viewport', async ({ pro: page }) => {

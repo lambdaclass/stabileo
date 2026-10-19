@@ -39,6 +39,11 @@ export function memberContexts(
     unitK?: boolean;
     /** Collects the members left out before any code sees them, with why (i18n key). */
     omitted?: Array<{ elementId: number; reasonKey: string }>;
+    /**
+     * The project's design data the concrete checks read: the clear cover of beams and columns
+     * (m) and the bar steel's fy (MPa). Without it they read the CIRSOC design's defaults.
+     */
+    designData?: { cover: { beam: number; column: number }; rebarFy: number };
   } = {},
 ): MemberContext[] {
   const { demands, stations } = computeStationDemands(perCombo, combinations, model as never);
@@ -78,6 +83,7 @@ export function memberContexts(
       }),
       demands: d.demands,
       tuples,
+      ...(opts.designData ? { cover: kind === 'beam' ? opts.designData.cover.beam : opts.designData.cover.column, rebarFy: opts.designData.rebarFy } : {}),
     });
   }
   return out;

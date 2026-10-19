@@ -534,9 +534,8 @@ export { expect };
  * of describing it, and would undo the point of making Documents a stage.
  */
 export async function openDocumentsStage(page: Page): Promise<void> {
-  const d = page.getByTestId('documents-disclosure');
-  if (await d.count() === 0) return;
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  if (await page.getByTestId('documents-stage').isVisible()) return;
+  await designPlace(page, 'documents');
 }
 
 /**
@@ -578,19 +577,93 @@ export function appLanguage(page: Page): Promise<string | null> {
   return page.getByTestId('lang-select').getAttribute('data-value');
 }
 
-/** The Design stage, on its concrete or steel workflow screen. */
+/**
+ * The Design stage is one workspace: the desk, docked around the viewer. `openDeskStage` lands on
+ * it, on the place it was left. The screens the stage used to open beside the viewer (the
+ * concrete workflow with its member table and its detailing, the steel profiles, the steel
+ * connections, the design data, the check under other codes) are places of the desk now, reached
+ * with `designPlace`, which presses the step the place belongs to and then its rail entry, as a
+ * person does.
+ */
+export async function openDeskStage(page: Page): Promise<void> {
+  if (!(await page.getByTestId('design-desk').isVisible())) await page.getByTestId('pr-stage-design').click();
+  await expect(page.getByTestId('design-desk')).toBeVisible();
+}
+
+/** The places of design and the step each belongs to (`stepOf` in `design-desk-ui.svelte.ts`). */
+const PLACE: Record<string, { step: string; rail: string }> = {
+  prepare: { step: 'prepare', rail: 'desk-rail-prepare' },
+  designData: { step: 'prepare', rail: 'desk-rail-designData' },
+  plan: { step: 'size', rail: 'desk-tab-plan' },
+  levels: { step: 'size', rail: 'desk-tab-levels' },
+  list: { step: 'size', rail: 'desk-rail-list' },
+  steel: { step: 'size', rail: 'desk-rail-steel' },
+  connections: { step: 'size', rail: 'desk-rail-connections' },
+  codes: { step: 'size', rail: 'desk-rail-codes' },
+  detailing: { step: 'detail', rail: 'desk-rail-detailing' },
+  documents: { step: 'document', rail: 'desk-rail-documents' },
+};
+export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
+
+/**
+ * Go to a place of design, entering design first when it is not on screen. `otherCodes` is «Other
+ * code» in its independent-check mode (the ribbon's former «Check members»), `foreignCodes` in its
+ * equivalences mode (the desk's former «Foreign codes»).
+ */
+export async function designPlace(page: Page, place: DesignPlace): Promise<void> {
+  await openDeskStage(page);
+  const key = place === 'otherCodes' || place === 'foreignCodes' ? 'codes' : place;
+  const p = PLACE[key]!;
+  const rail = page.getByTestId(p.rail);
+  if (!(await rail.isVisible())) await page.getByTestId(`desk-step-${p.step}`).click();
+  await rail.click();
+  if (place === 'otherCodes') await page.getByTestId('codes-mode-verify').click();
+  if (place === 'foreignCodes') await page.getByTestId('codes-mode-memoria').click();
+}
+
+/** Kept for the specs written against the classic screens: design on screen, on the member list. */
 export async function openClassicDesign(page: Page): Promise<void> {
-  await page.getByTestId('pr-stage-design').click();
+  await designPlace(page, 'list');
 }
 
-/** A ribbon stage by name. */
-export async function clickStage(page: Page, stage: string): Promise<void> {
-  await page.getByTestId(`pr-stage-${stage}`).click();
+/** «Size…» over every member, from the top of the Design stage, keeping what was edited by hand. */
+export async function sizeAll(page: Page): Promise<void> {
+  await openDeskStage(page);
+  if (!(await page.getByTestId('desk-design').isVisible())) await page.getByTestId('desk-step-size').click();
+  await page.getByTestId('desk-design').click();
+  await page.getByTestId('desk-run-scope-all').check();
+  await page.getByTestId('desk-run').click();
 }
 
-/** A ribbon command by its id. */
-export async function ribbonCmd(page: Page, id: string): Promise<void> {
-  await page.getByTestId(`pr-cmd-${id}`).click();
+/** Generate the coordinated detailing, from the Detail step at the top of the Design stage. */
+export async function generateDetailing(page: Page): Promise<void> {
+  await designPlace(page, 'detailing');
+  await page.getByTestId('cmd-generate-detailing').click();
+}
+
+/**
+ * Open the 3-D reinforcement view from where design is: the member list's toolbar holds
+ * `cmd-open-3d`, the Detail step's rail `desk-rail-3d`; both are `openRebar3DView`.
+ */
+export async function open3D(page: Page): Promise<void> {
+  const list = page.getByTestId('cmd-open-3d');
+  if (await list.isVisible()) { await list.click(); return; }
+  await designPlace(page, 'detailing');
+  await page.getByTestId('desk-rail-3d').click();
+}
+
+/** The floor pass (slabs, walls, foundations), a sub-step under the member list, opened. */
+export async function openFloorPass(page: Page): Promise<void> {
+  await designPlace(page, 'list');
+  const d = page.getByTestId('floor-families-disclosure');
+  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await expect(d).toHaveAttribute('open', '');
+}
+
+/** Leave design for the model stage, by the stage bar (the desktop has no close of its own). */
+export async function leaveDesign(page: Page): Promise<void> {
+  await page.getByTestId('pr-stage-model').click();
+  await expect(page.getByTestId('design-desk')).toBeHidden();
 }
 
 /**
@@ -605,8 +678,63 @@ export async function ribbonCmd(page: Page, id: string): Promise<void> {
  * beam) declares the role, which is the statement a user of these frames makes, and says so.
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-designData').click();
+  await designPlace(page, 'designData');
   await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
+}
+
+/**
+ * The desk's views: the piece editors are under «Piece» and what is pending under «Pending», in
+ * the Size step, with the specialties in its menu; the project's surfaces are in the menu at the
+ * foot of every step.
+ */
+const DESK_MENU: Record<string, string> = {
+  frame: 'desk-mode-piece', column: 'desk-mode-piece', wall: 'desk-mode-piece', slab: 'desk-mode-piece', joist: 'desk-mode-piece',
+  special: 'desk-mode-piece', pt: 'desk-mode-piece', stairs: 'desk-mode-piece', footing: 'desk-mode-piece', joint: 'desk-mode-piece',
+  elements: 'desk-mode-piece', geometry: 'desk-mode-pending', report: 'desk-mode-pending',
+  seismic: 'desk-menu-specialties', fire: 'desk-menu-specialties', materials: 'desk-menu-specialties',
+  budget: 'desk-menu-project', collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
+};
+const PROJECT_SURFACES = ['budget', 'collab', 'arch', 'site'];
+export async function deskTab(page: Page, tab: string): Promise<void> {
+  if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
+  if (tab === 'documents') { await designPlace(page, 'documents'); return; }
+  if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
+  const target = page.getByTestId(`desk-tab-${tab}`);
+  if (await target.isVisible()) { await target.click(); return; }
+  if (!PROJECT_SURFACES.includes(tab) && !(await page.getByTestId('desk-mode-piece').isVisible())) await page.getByTestId('desk-step-size').click();
+  if (!(await target.isVisible()) && DESK_MENU[tab]) await page.getByTestId(DESK_MENU[tab]!).click();
+  await target.click();
+}
+
+/**
+ * A ribbon stage by name. The Design stage is the desk; a spec that went on to a ribbon command
+ * of that stage now goes to its place with `designPlace`.
+ */
+export async function clickStage(page: Page, stage: string): Promise<void> {
+  await page.getByTestId(`pr-stage-${stage}`).click();
+}
+
+/**
+ * The model ribbon's tools for building and design (the building constructor, the foundations,
+ * the physical elements, the generators) are behind «More tools» (`ProGroup.menu`), opened on
+ * demand. Every other command is on the ribbon itself. This presses a ribbon command wherever it
+ * lives, opening that menu first when the command is inside it.
+ */
+export const MORE_TOOLS = ['building', 'foundations', 'physical', 'generators'] as const;
+/*
+ * The Design stage's commands are places of the desk (interface A); the ribbon draws them only
+ * while the desk is not on screen. A spec that pressed one goes to its place instead.
+ */
+const DESIGN_CMD: Record<string, DesignPlace> = {
+  design: 'list', designList: 'list', designData: 'designData', designPrepare: 'prepare', steel: 'steel',
+  connections: 'connections', otherCodes: 'otherCodes', detailing: 'detailing', documents: 'documents',
+};
+export async function ribbonCmd(page: Page, id: string): Promise<void> {
+  if (DESIGN_CMD[id] && !(await page.getByTestId(`pr-cmd-${id}`).isVisible())) { await designPlace(page, DESIGN_CMD[id]!); return; }
+  const cmd = page.getByTestId(`pr-cmd-${id}`);
+  if ((MORE_TOOLS as readonly string[]).includes(id) && !(await cmd.isVisible())) {
+    await page.getByTestId('pr-more-moreTools').click();
+  }
+  await cmd.click();
 }

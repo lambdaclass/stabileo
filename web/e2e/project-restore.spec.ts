@@ -48,7 +48,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { turnRolledBeams, declareBeamsNotLateral } from './fixtures';
+import { turnRolledBeams, declareBeamsNotLateral, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -318,9 +318,9 @@ async function openViewer(page: Page, step: string) {
    * `pro` fixture, so pulling in a fixtures helper here would give it a dependency it does not
    * otherwise have. Two lines are cheaper than that.
    */
-  const docs = page.getByTestId('documents-disclosure');
+  await designPlace(page, 'documents');
+  const docs = page.getByTestId('desk-canvas');
   if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
-    await docs.locator('> summary').click();
   }
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
@@ -463,7 +463,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   expect(runCounts.verified, 'members were verified').toBeGreaterThan(0);
   await assertClean(page, w, 'design all');
 
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -472,7 +472,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 180_000 })
     .toBeGreaterThan(0);
 
-  await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+  await openFloorPass(page);
   const floors = page.getByTestId('floor-design-run');
   await expect(floors).toBeEnabled();
   await floors.click();
@@ -583,7 +583,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
     { timeout: 180_000 }).toBeGreaterThan(0);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const regenerate = page.getByTestId('cmd-generate-detailing');
   await expect(regenerate).toBeEnabled();
   await regenerate.click();

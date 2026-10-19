@@ -14,7 +14,7 @@
  * uses. Nothing here goes through a test hook.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -50,9 +50,9 @@ async function detailed(page: Page): Promise<number[]> {
  * timeout rather than an assertion failure.
  */
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeAttached();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 /** Change one beam's bottom-bar count through the real control. Returns the member. */
@@ -60,6 +60,8 @@ async function editABeam(page: Page, ids: number[]): Promise<number> {
   const beam = await page.evaluate(
     (list) => list.find((id) => window.__stabileo.rebarSummary(id).startsWith('b')) ?? list[0],
     ids);
+  // The bars are edited in the member list's inline editor.
+  await designPlace(page, 'list');
   await page.getByTestId('filter-all').click();
   await page.getByTestId(`row-expand-${beam}`).click();
   const count = page.getByTestId(`count-bottomSpanLayers-0-${beam}`);

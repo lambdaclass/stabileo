@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { selectAndFrame } from '../../../lib/pro/design-navigation';
   /**
    * Coordinated detailing workflow.
    *
@@ -22,7 +23,6 @@
   import RcEditNotice from './RcEditNotice.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
-  import { uiStore } from '../../../lib/store';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
@@ -57,8 +57,9 @@
    * rest of the app already listens to — the design table scrolls to it, the 3-D scene isolates
    * it — so the conflict list gets that behaviour by routing rather than by reimplementing it.
    */
+  /** Select the member a row names and frame it in the model viewer. */
   function goToMember(elementId: number) {
-    uiStore.selectElement(elementId);
+    selectAndFrame([elementId]);
   }
 
   /**

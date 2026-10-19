@@ -45,7 +45,7 @@
  * search enumerates a far larger envelope when nothing fits at all.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, openClassicDesign } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Hooks = {
@@ -61,8 +61,7 @@ const REFUSAL = 'SECTION_INADEQUATE';
 
 /** The beams declared not part of the lateral-force-resisting system, through the design data. */
 async function beamsNotLateral(page: Page) {
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-designData').click();
+  await designPlace(page, 'designData');
   await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
 }
 
@@ -74,8 +73,7 @@ async function withRefusedMembers(page: Page) {
     (window as unknown as Hooks).__stabileoActions.updateSection(id as number, d);
   }, [STARVED_SECTION, STARVED] as const);
   await designAll(page);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
 }
 
 const outcomes = (page: Page) => page.evaluate(() => {
@@ -95,8 +93,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
     await loadModel(page, 'rc-design-qa-8');
     await beamsNotLateral(page);
     await designAll(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-design').click();
+    await designPlace(page, 'list');
     const before = await outcomes(page);
     expect(before.VERIFIED, 'the untouched fixture verifies everything').toBeGreaterThan(0);
     expect((before.SEARCH_EXHAUSTED ?? 0) + (before.SECTION_INADEQUATE ?? 0), 'and refuses nothing').toBe(0);
@@ -105,8 +102,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
       (window as unknown as Hooks).__stabileoActions.updateSection(id as number, d);
     }, [STARVED_SECTION, STARVED] as const);
     await designAll(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-design').click();
+    await designPlace(page, 'list');
 
     const after = await outcomes(page);
     expect(after[REFUSAL] ?? 0, 'a starved beam is refused').toBeGreaterThan(0);
@@ -118,7 +114,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
   test('the rail says REFUSED, and gives the remedy the refusal calls for',
     async ({ pro: page }) => {
       await withRefusedMembers(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled();
       await generate.click();
@@ -174,7 +170,7 @@ test.describe('@slow the design refuses, and the app says so', () => {
   test('the member loses its steel, and the unreinforced block names it',
     async ({ pro: page }) => {
       await withRefusedMembers(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled();
       await generate.click();
@@ -243,7 +239,7 @@ test.describe('@slow a refusal is never dressed as a result', () => {
   test('the drawing is offered, and is not offered as construction documentation',
     async ({ pro: page }) => {
       await withRefusedMembers(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
 
       /*
        * The two halves of the rule, on the one fixture in the suite that reaches the state it

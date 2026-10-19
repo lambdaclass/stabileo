@@ -26,10 +26,8 @@
    * They are not chips on a saturated background; the emphasis is weight and order.
    */
   import { t, tp } from '../../../lib/i18n';
-  import { te } from '../../../lib/i18n/engine-text';
   import { verificationStore } from '../../../lib/store';
-  import { regulationsStore } from '../../../lib/store/regulations.svelte';
-  import { bindingLabel } from '../../../lib/codes/roles';
+  import ActiveConcreteCode from './ActiveConcreteCode.svelte';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
@@ -46,12 +44,6 @@
   const projectLines = $derived(projectVerdictLines(project, tp));
   const run = $derived(verificationStore.runSummary);
 
-  const concreteBinding = $derived(regulationsStore.binding('concrete'));
-  const concreteProblem = $derived(regulationsStore.concreteDesignProblem());
-  const concreteReady = $derived(regulationsStore.concreteDesignCode() !== null);
-  // The same labeller Project Regulations uses, so the read-out and the selector can never print
-  // the regulation differently.
-  const concreteLabel = $derived(te(bindingLabel(concreteBinding)));
 
   // ─── View 3-D model ─────────────────────────────────────────────
   //
@@ -141,19 +133,7 @@
 
 <div class="overview" data-testid="design-overview">
   <!-- ── The regulation the numbers below were produced under ────── -->
-  <div class="code-line">
-    <span class="code-indicator" data-testid="active-concrete-code" class:unbound={!concreteReady}>
-      <span class="code-role">{t('design.code.role')}</span>
-      <span class="code-name">{concreteLabel}</span>
-    </span>
-    {#if !concreteReady && concreteProblem}
-      <span class="code-gate" role="alert" data-testid="concrete-code-gate">
-        {te(concreteProblem)}
-        <button type="button" class="code-gate-link" data-testid="goto-project-regulations"
-                onclick={onOpenRegulations}>{t('design.code.openRegulations')}</button>
-      </span>
-    {/if}
-  </div>
+  <ActiveConcreteCode {onOpenRegulations} />
 
   <!-- ── What the members are ─────────────────────────────────────── -->
   <div class="counts" data-testid="design-counts" aria-live="polite">
@@ -265,7 +245,7 @@
       aria-busy={opening3d ? 'true' : undefined}
     >
       <span aria-hidden="true">◫</span>
-      {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
+      {opening3d ? t('detailing.scene.opening') : t('desk.rebar3d')}
       {#if canOpen3d}
         <span class="n3d" data-testid="overview-open-3d-count">{assemblyCount}</span>
       {/if}
@@ -290,18 +270,6 @@
 
   .overview { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.1rem 0 0.2rem; }
 
-  .code-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
-  .code-indicator { display: inline-flex; align-items: baseline; gap: 0.35rem; font-size: 0.72rem; }
-  .code-role { color: var(--st-text-2); }
-  .code-name { font-weight: 600; color: var(--st-text); }
-  .code-indicator.unbound .code-name { color: var(--st-warn); }
-  .code-gate { font-size: 0.68rem; color: var(--st-warn); display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
-  .code-gate-link {
-    background: none; border: 0; padding: 0;
-    color: var(--st-interactive); text-decoration: underline; cursor: pointer;
-    font-size: inherit;
-  }
-  .code-gate-link:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
 
   .total { margin: 0 0 0.2rem; font-size: 0.75rem; font-weight: 600; color: var(--st-text); }
   .empty { margin: 0; font-size: 0.7rem; color: var(--st-text-2); }

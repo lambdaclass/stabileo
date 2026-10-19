@@ -18,6 +18,7 @@
  */
 
 import { test, expect, openPreparedWorkspace } from './prepared-building';
+import { open3D } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /*
@@ -128,7 +129,7 @@ test.describe('@slow the standing notices, on the building that carries both', (
 
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('rebar-workspace')).toBeHidden();
-    await page.getByTestId('cmd-open-3d').click();
+    await open3D(page);
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
 
     /**

@@ -29,7 +29,7 @@
  * carries the cases that need their own page: reopening, reloading, isolation, picking.
  */
 
-import { test, expect, designAll, loadModel, SOLID_FAMILIES, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, SOLID_FAMILIES, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 import type { RebarSceneCensus } from './fixtures';
 
 type Page = import('@playwright/test').Page;
@@ -53,14 +53,14 @@ async function assemblyCount(page: Page): Promise<number> {
 async function openWorkspace(page: Page, example: string, withFloors = false) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
   await expect.poll(() => assemblyCount(page), { timeout: 60_000 }).toBeGreaterThan(0);
 
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
     await floors.click();
@@ -429,7 +429,7 @@ test.describe('what the switches survive', () => {
        */
       await page.evaluate(() => window.__stabileoActions.openDesignTab());
       await designAll(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled({ timeout: 60_000 });
       await generate.click();

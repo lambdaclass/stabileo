@@ -29,7 +29,7 @@
  * and the 7-storey building costs minutes to set up.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -39,7 +39,7 @@ const SMALL = 'rc-qa-diagnostic';
 async function openWorkspace(page: Page) {
   await loadModel(page, SMALL);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -51,8 +51,8 @@ async function openWorkspace(page: Page) {
   const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
   // `doc-3d` moved into the Documents stage, which is collapsed by default. The control that
   // opens the workspace is still the one focus must return to, which is what this file asserts.
-  const docs = page.getByTestId('documents-disclosure');
-  if (await docs.getAttribute('open') === null) await docs.locator('> summary').click();
+  await designPlace(page, 'documents');
+  const docs = page.getByTestId('desk-canvas');
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
   await expect

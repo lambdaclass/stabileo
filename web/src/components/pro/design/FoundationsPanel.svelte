@@ -50,9 +50,14 @@
       .sort((a, b) => a - b),
   );
 
+  /*
+   * The footing being edited. With none chosen, the first: the panel is a place of design now and
+   * is mounted again each time it is shown, and a return that showed no footing at all read as if
+   * the one being edited had gone.
+   */
   let selectedId = $state<number | null>(null);
   const selected = $derived(
-    selectedId === null ? undefined : modelStore.model.footings.get(selectedId),
+    selectedId === null ? modelStore.model.footings.values().next().value : modelStore.model.footings.get(selectedId),
   );
 
   function addFooting(nodeId: number) {
@@ -102,8 +107,8 @@
         {#each footings as f (f.id)}
           {@const issues = validateFooting(f).filter((i) => i.severity === 'blocking')}
           <li>
-            <button role="option" aria-selected={f.id === selectedId}
-                    class:selected={f.id === selectedId}
+            <button role="option" aria-selected={f.id === selected?.id}
+                    class:selected={f.id === selected?.id}
                     data-testid={`footing-${f.id}`}
                     onclick={() => (selectedId = f.id)}>
               <span class="label">{f.name || tp('footing.ui.unnamed', { id: f.id })}</span>

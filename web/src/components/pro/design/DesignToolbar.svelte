@@ -15,11 +15,12 @@
   import { te } from '../../../lib/i18n/engine-text';
   import { bindingLabel } from '../../../lib/codes/roles';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
-  import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { diagnosticsWarning } from '../../../lib/store/diagnostics-warning.svelte';
-  import { canOpenRebar3D, openRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
+  import { canOpenRebar3D, rebar3DAssemblyCount } from '../../../lib/store/rebar-open';
   import OutcomeBadge from './OutcomeBadge.svelte';
-  import { rcCancelRun, rcOpenRebar3D } from '../../../lib/flow/rc-commands';
+  import { rcCancelRun } from '../../../lib/flow/rc-commands';
+  import { deskUi } from '../../../lib/store/design-desk-ui.svelte';
+  import { openRebar3DView } from '../../../lib/store/rebar-open';
 
   interface Props {
     selectedCount: number;
@@ -28,10 +29,6 @@
     editedCount: number;
     /** Re-run the code check on the bars as they stand: the stale banner's button. */
     onCodeCheck: () => void;
-    onAutoDesignSelected: () => void;
-    onAutoDesignUndesigned: () => void;
-    /** Members with no bars yet: the menu command has nothing to do when there are none. */
-    undesignedCount: number;
     onReviewChanges: () => void;
     onRevertEdits: () => void;
     onShowOrientation: () => void;
@@ -39,8 +36,8 @@
     onOpenDiagnostics: () => void;
   }
   let {
-    selectedCount, hasResults, hasCombinations, editedCount, undesignedCount,
-    onCodeCheck, onAutoDesignSelected, onAutoDesignUndesigned,
+    selectedCount, hasResults, hasCombinations, editedCount,
+    onCodeCheck,
     onReviewChanges, onRevertEdits, onShowOrientation,
     onOpenDiagnostics,
   }: Props = $props();
@@ -60,7 +57,6 @@
       families: scope.map((f) => t(`design.families.${f}`)).join(', '),
     }));
 
-  let autoMenuOpen = $state(false);
 
   // ─── Ver modelo 3D ──────────────────────────────────────────────
   let opening3d = $state(false);
@@ -96,10 +92,7 @@
     opening3d = true;
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     try {
-      const res = rcOpenRebar3D(
-        detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-        new Date().toISOString(),
-      );
+      const res = openRebar3DView();
       if (!res.ok) open3dError = t('detailing.doc.noCoordinated');
     } finally {
       opening3d = false;
@@ -164,30 +157,18 @@
     <div class="cmd-group" data-testid="cmd-group-design">
       <span class="group-label">{t('design.group.design')}</span>
       <div class="group-items">
-    <div class="split">
-      <button class="cmd cmd-primary" data-testid="cmd-autodesign" onclick={onAutoDesignSelected}
-              disabled={!canDesign || selectedCount === 0}>
-        {t('design.cmd.autoDesignSelected')}{selectedCount > 0 ? ` (${selectedCount})` : ''}
-      </button>
-      <button class="cmd cmd-caret" data-testid="cmd-autodesign-menu"
-              aria-haspopup="menu" aria-expanded={autoMenuOpen}
-              aria-label={t('design.cmd.autoDesign')}
-              onclick={() => (autoMenuOpen = !autoMenuOpen)} disabled={!canDesign}>▾</button>
-      {#if autoMenuOpen}
-        <div class="menu" role="menu" data-testid="autodesign-menu">
-          <button role="menuitem" data-testid="cmd-autodesign-undesigned" disabled={undesignedCount === 0}
-                  onclick={() => { autoMenuOpen = false; onAutoDesignUndesigned(); }}>
-            {t('design.cmd.autoDesignUndesigned')}
-          </button>
-        </div>
-      {/if}
-    </div>
-
     <!--
-      The design command and its scope moved to the DISEÑAR strip — `RcStageTimeline.svelte`.
-
-      Same action, same testids, one implementation. Nothing here draws them any more.
+      «Size…», the same command as the one at the top of the Design stage: it opens the one
+      dialog, here with the rows ticked as its scope when there are any. «Design selected» and
+      «design all the undesigned» were two more design commands with their own rule for the
+      edited members; they are scopes of this one now (`rcDesign`).
     -->
+    <button class="cmd cmd-primary" data-testid="cmd-autodesign"
+            onclick={() => (deskUi.ask = { scope: selectedCount > 0 ? 'selection' : 'all', fromList: true })}
+            disabled={!canDesign} title={scopeText}>
+      {t('desk.size')}{selectedCount > 0 ? ` (${selectedCount})` : ''}
+    </button>
+
       </div>
     </div>
 
@@ -195,13 +176,11 @@
       <span class="group-label">{t('design.group.detailing')}</span>
       <div class="group-items">
         <!--
-          The detailing command moved to the DETALLE strip — see `RcStageTimeline.svelte`.
-
-          It could not be reached with DISEÑAR closed, and navigating to DETALLE by the strip is
-          precisely what closes it. `detailing-prerequisites` and the auto-detailing preference
-          went with it: they are what explain why the command refuses, and left behind they would
-          have turned a disabled command into a riddle. Same action, same testids, one
-          implementation — nothing here draws them any more.
+          The detailing command is at the top of the Design stage, in the Detail step
+          (`DeskProcessBar.svelte`), with `detailing-prerequisites` and the auto-detailing
+          preference beside the coordinated detailing (`DeskDetailing.svelte`): they are what
+          explain why the command refuses. Same action, same testids, one implementation —
+          nothing here draws them.
         -->
 
     <!--
@@ -231,7 +210,7 @@
       title={canOpen3d ? '' : t('detailing.scene.openBlocked')}
     >
       <span aria-hidden="true">◫</span>
-      {opening3d ? t('detailing.scene.opening') : t('detailing.scene.openMain')}
+      {opening3d ? t('detailing.scene.opening') : t('desk.rebar3d')}
       {#if canOpen3d}
         <span class="cmd-3d-count" data-testid="cmd-open-3d-count">{assemblyCount}</span>
       {/if}
@@ -373,15 +352,6 @@
   .cmd:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .cmd-primary { background: var(--st-surface-3); border-color: var(--st-info); color: var(--st-text); }
   .cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }
-  .split { position: relative; display: flex; }
-  .cmd-caret { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 6px; }
-  .split .cmd-primary { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 40; margin-top: 2px;
-    background: var(--st-surface-3); border: 1px solid var(--st-info); border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5); min-width: 220px; }
-  .menu button { display: block; width: 100%; text-align: left; padding: 6px 10px;
-    background: none; border:  1px solid var(--st-hair); color: var(--st-text); font-size: 0.75rem; cursor: pointer; }
-  .menu button:hover { background: var(--st-surface-3); }
 
   .progress { display: flex; align-items: center; gap: 8px; }
   .progress-bar { flex: 1; height: 5px; background: var(--st-surface-3); border-radius: 3px; overflow: hidden; }

@@ -14,15 +14,14 @@
  * itself one of the five gaps.
  */
 
-import { test, expect, openClassicDesign, ribbonCmd } from './fixtures';
+import { test, expect, ribbonCmd, designPlace } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
 
 async function openJoints(page: Page) {
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-connections').click();
+  await designPlace(page, 'connections');
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
 

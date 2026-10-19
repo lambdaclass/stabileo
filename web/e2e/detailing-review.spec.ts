@@ -23,7 +23,7 @@
  * for the wrong reason. `seedDetailing` puts known conflicts, known members and known warnings on
  * screen, so every assertion below is about the panel rather than about the model.
  */
-import { test, expect, setAppLanguage } from './fixtures';
+import { test, expect, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -78,9 +78,9 @@ async function seed(page: Page, assemblies: Json[]) {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
 }
 
 /**

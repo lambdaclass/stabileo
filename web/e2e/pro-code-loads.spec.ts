@@ -1,4 +1,4 @@
-import { test, expect, loadModel, alSection, openClassicDesign } from './fixtures';
+import { test, expect, loadModel, alSection, designPlace } from './fixtures';
 
 /**
  * The code-backed load generator, on the two halves that were not code-backed.
@@ -19,12 +19,8 @@ import { test, expect, loadModel, alSection, openClassicDesign } from './fixture
  */
 async function openWithSeismic(page: import('@playwright/test').Page) {
   await loadModel(page, 'rc-design-qa-8');
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-design').click();
-  await expect(page.getByTestId('design-toolbar')).toBeVisible();
-  /* The roles live in a collapsed disclosure inside the design panel. */
-  const d = page.locator('details').filter({ hasText: 'Project regulations' }).first();
-  await d.locator('summary').first().click();
+  /* The roles live in the project regulations, beside the design data (Prepare › Design data). */
+  await designPlace(page, 'designData');
   await expect(page.getByTestId('project-regulations')).toBeVisible();
   await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
   await page.getByTestId('pending-review-in-loads').click();

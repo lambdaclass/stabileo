@@ -28,6 +28,7 @@
  * query flag is present, so production pages never expose it.
  */
 
+import { openDeskAt } from '../pro/design-navigation';
 import { viewportCanvas } from './viewport-canvas';
 import { drawState } from '../store/draw-state.svelte';
 import { projectWorld } from '../viewport3d/camera-probe';
@@ -868,7 +869,8 @@ export function installE2EHooks(): void {
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
     solve: async () => { await runGlobalSolve(); },
-    openDesignTab: () => { uiStore.proActiveTab = 'design'; },
+    // Design, on the member list: the screen the RC specs were written against.
+    openDesignTab: () => { openDeskAt('list'); },
     computeDemands: () => designRunStore.computeDemands(),
     codeCheck: () => designRunStore.runCodeCheck(),
     autoDesign: (ids: number[]) => designRunStore.autoDesign(ids),

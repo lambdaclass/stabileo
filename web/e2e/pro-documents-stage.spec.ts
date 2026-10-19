@@ -19,7 +19,7 @@
  * measured as document order; that a disabled `Issue for construction` says what it is waiting
  * for in TEXT; and that the stage explains itself when there is nothing to build from.
  */
-import { test, expect, setAppLanguage } from './fixtures';
+import { test, expect, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -63,8 +63,8 @@ async function seed(page: Page, assemblies: Json[]) {
 }
 
 async function openDocuments(page: Page) {
-  const d = page.getByTestId('documents-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await designPlace(page, 'documents');
+  const d = page.getByTestId('desk-canvas');
 }
 
 /** Where a testid sits in the stage's reading order. */
@@ -81,12 +81,12 @@ test.describe('@smoke Documents is a stage of the panel', () => {
   test('E1 — it is a top-level section, not a tail of the detailing panel', async (
     { pro: page },
   ) => {
-    const section = page.getByTestId('documents-disclosure');
+    await designPlace(page, 'documents');
+    const section = page.getByTestId('desk-canvas');
     await expect(section).toBeVisible();
-    // A direct child of the column, like every other stage.
-    const isStage = await page.evaluate(() =>
-      !!document.querySelector('.rc-workflow > [data-testid="documents-disclosure"]'));
-    expect(isStage, 'Documents sits beside the other stages').toBe(true);
+    // A step of its own at the top of the Design stage, like the others (interface A).
+    await expect(page.getByTestId('desk-step-document')).toHaveAttribute('data-open', 'true');
+    await expect(page.getByTestId('desk-rail-documents')).toHaveClass(/on/);
     // And it is no longer inside the detailing panel.
     await expect(page.getByTestId('detailing-workflow').getByTestId('documents-stage'))
       .toHaveCount(0);
@@ -159,7 +159,9 @@ test.describe('the Documents stage speaks the three languages', () => {
   ] as const) {
     test(`E7 ${locale} — the stage is named in the interface's language`, async ({ pro: page }) => {
       await setAppLanguage(page, locale);
-      await expect(page.getByTestId('documents-disclosure')).toContainText(title);
+      await expect(page.getByTestId('desk-step-document')).toContainText(title === 'Documents' ? 'Document' : 'Documentar');
+      await designPlace(page, 'documents');
+      await expect(page.getByTestId('desk-rail-documents')).toContainText(title);
     });
   }
 });

@@ -27,7 +27,7 @@
  * same set.
  */
 
-import { test, expect, designAll, loadModel, openClassicDesign } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Every text node in the subtree, with its computed ratio against its real ground. */
@@ -115,8 +115,7 @@ const ALLOWED_BELOW_AA = new Set([
 async function design(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
   // The regulations panel holds nine of the migrated sites, and it is the one this pass
   // prioritised. Open it if it is behind a disclosure.
   const regs = page.getByTestId('regs-disclosure');
@@ -133,8 +132,13 @@ for (const locale of ['en', 'es', 'pt'] as const) {
 
       test('no copy in the design panel sits under AA', async ({ pro: page }) => {
         await design(page);
-        const found = await audit(page, '.pro-panel');
-        expect(found, 'the panel must be on screen').not.toBeNull();
+        // Interface A: the classic panel's copy is in two places of design, the member list and
+        // the design data with the regulations; the canvas under the viewer shows each in turn.
+        const list = await audit(page, '.dd-canvas-body');
+        await designPlace(page, 'designData');
+        const data = await audit(page, '.dd-canvas-body');
+        const found = list && data ? [...list, ...data] : null;
+        expect(found, 'the places must be on screen').not.toBeNull();
         expect(found!.length, 'text was actually measured').toBeGreaterThan(20);
 
         const under = found!
@@ -187,12 +191,15 @@ test.describe('@slow the migrated selectors, by name', () => {
         '.qty-hint',
       ];
       const seen: string[] = [];
-      for (const sel of SELECTORS) {
-        const el = page.locator(`.pro-panel ${sel}`).first();
-        if (!(await el.count())) continue;
-        seen.push(sel);
-        expect(await el.evaluate((n) => getComputedStyle(n).color), `${sel} migrated`)
-          .toBe(want);
+      for (const place of ['list', 'designData'] as const) {
+        await designPlace(page, place);
+        for (const sel of SELECTORS) {
+          const el = page.locator(`.dd-canvas-body ${sel}`).first();
+          if (!(await el.count())) continue;
+          if (!seen.includes(sel)) seen.push(sel);
+          expect(await el.evaluate((n) => getComputedStyle(n).color), `${sel} migrated`)
+            .toBe(want);
+        }
       }
       expect(seen.length, 'at least some migrated selectors are on screen')
         .toBeGreaterThan(0);
@@ -202,7 +209,7 @@ test.describe('@slow the migrated selectors, by name', () => {
 
   test('and the caret is still the inactive token, on purpose', async ({ pro: page }) => {
     await design(page);
-    const caret = page.locator('.pro-panel .caret').first();
+    const caret = page.locator('.dd-canvas-body .caret').first();
     if (!(await caret.count())) {
       test.info().annotations.push(
         { type: 'coverage', description: 'no caret on screen — asserted at source only' });

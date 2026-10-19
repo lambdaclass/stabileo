@@ -16,7 +16,7 @@
  * it, and that the read-only half has no control that could edit it.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -55,9 +55,9 @@ async function ready(page: Page) {
   await page.evaluate((a) => {
     (window.__stabileoActions as unknown as { seedDetailing(x: unknown): void }).seedDetailing(a);
   }, [assembly()]);
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
   await expect(page.getByTestId('rotulo')).toBeVisible();
 }
 

@@ -29,7 +29,7 @@
  * faked, and no engine or solver change was made to manufacture one.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, openClassicDesign } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Hooks = {
@@ -44,13 +44,12 @@ async function generate(page: Page, model: string, opts: { beamsNotLateral?: boo
   await loadModel(page, model);
   if (opts.beamsNotLateral) {
     // The beams declared not part of the lateral-force-resisting system, through the design data.
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-designData').click();
+    await designPlace(page, 'designData');
     await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
   }
   await designAll(page);
-  if (opts.beamsNotLateral) await page.getByTestId('pr-cmd-design').click();
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  if (opts.beamsNotLateral) await designPlace(page, 'list');
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();

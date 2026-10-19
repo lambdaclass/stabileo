@@ -284,7 +284,8 @@ test.describe('@smoke blog', () => {
      * post now names the button for what it does and keeps the explanation.
      */
     expect(caption).toContain('Calcular acero requerido');
-    expect(caption).toContain('Diseñar todo');
+    // «Size…» is the one design command of interface A (it was «Diseñar todo»).
+    expect(caption).toContain('Dimensionar…');
 
     await embed.locator('.post-embed-start').click();
     await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
@@ -326,8 +327,9 @@ test.describe('@smoke blog', () => {
     await app.getByTestId('cmd-compute-demands').click();
     await expect(app.getByTestId('cmd-code-check')).toBeEnabled({ timeout: 60_000 });
     await app.getByTestId('cmd-code-check').click();
-    await expect(app.getByTestId('cmd-design-all')).toBeEnabled({ timeout: 60_000 });
-    await app.getByTestId('cmd-design-all').click();
+    await expect(app.getByTestId('cmd-autodesign')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-autodesign').click();
+    await app.getByTestId('desk-run').click();
 
     // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
     // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They

@@ -13,7 +13,7 @@
  * numbers are printed so a regression is visible in the log.
  */
 
-import { test, expect, PRO_URL, loadModel, openClassicDesign } from './fixtures';
+import { test, expect, PRO_URL, loadModel, designPlace } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -44,8 +44,7 @@ async function openShed(page: Page): Promise<void> {
 
 async function openShedConnections(page: Page): Promise<void> {
   await openShed(page);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-connections').click();
+  await designPlace(page, 'connections');
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
 
@@ -173,8 +172,7 @@ test.describe('nothing is certified by being drawn', () => {
 
   test('an empty model shows an empty state, not a joint', async ({ page }) => {
     await page.goto(PRO_URL);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-connections').click();
+    await designPlace(page, 'connections');
     await expect(page.getByTestId('conn-no-joints')).toBeVisible();
     await expect(page.locator('.conn-joint-row')).toHaveCount(0);
   });

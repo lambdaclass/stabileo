@@ -10,8 +10,9 @@
  *     bottom bars, which are the faces across its depth;
  *   · a face in tension with no bars under a moment fails, with that as the reason.
  *
- * The rebar grade and the cover are the ones the CIRSOC design assumes when the model states
- * none (`member-context.ts`), so both codes read the same bars at the same depths.
+ * The rebar grade and the cover are the project's (its design data, `MemberContext.cover` and
+ * `rebarFy`), and the ones the CIRSOC design assumes when it states none (`member-context.ts`),
+ * so both codes read the same bars at the same depths as the CIRSOC design.
  *
  * EN 1992 here: the engine's flexure ignores the axial force (it enters shear only), so vertical
  * members are not checked and a beam demand with an axial force above 0,1·fcd·Ac comes back
@@ -60,8 +61,8 @@ function barsAt(ctx: MemberContext, d: StationTuple, data: Record<string, unknow
   const sec = { b: ctx.section.b!, h: ctx.section.h! };
   const axis = data.axis as 'My' | 'Mz', shearAxis = data.shearAxis as 'Vy' | 'Vz';
   const at = ctx.kind === 'beam'
-    ? beamBarsAt(r, sec, DEFAULT_COVER, d, axis, shearAxis)
-    : columnBarsAt(r, sec, DEFAULT_COVER, d, axis, shearAxis);
+    ? beamBarsAt(r, sec, ctx.cover ?? DEFAULT_COVER, d, axis, shearAxis)
+    : columnBarsAt(r, sec, ctx.cover ?? DEFAULT_COVER, d, axis, shearAxis);
   if (!at || (at.asTension <= 0 && Math.abs(at.M) > MOMENT_NOISE_FLOOR)) {
     return { reading: { ratio: Number.POSITIVE_INFINITY, ...gov('noTensionSteel'), pass: false, unevaluated: [] } };
   }
@@ -96,7 +97,7 @@ export const ACI318: OtherCode = {
     return {
       data: {
         ...shape(ctx, at),
-        fc: concreteFc(ctx.material as never)! * PA, fy: DEFAULT_REBAR_FY * PA,
+        fc: concreteFc(ctx.material as never)! * PA, fy: (ctx.rebarFy ?? DEFAULT_REBAR_FY) * PA,
         sectionType: 'rectangular',
         ...(at.av !== undefined ? { av: at.av, sStirrup: at.s } : {}),
       },
@@ -146,7 +147,7 @@ export const EC2: OtherCode = {
     return {
       data: {
         ...shape(ctx, at),
-        fck: fck * PA, fyk: DEFAULT_REBAR_FY * PA,
+        fck: fck * PA, fyk: (ctx.rebarFy ?? DEFAULT_REBAR_FY) * PA,
         ...(at.av !== undefined ? { asw: at.av, sStirrup: at.s } : {}),
       },
       ...(Math.abs(d.forces.n) > nLimit ? { unevaluated: ['otherCodes.check.ec2Axial'] } : {}),

@@ -51,3 +51,14 @@ export function verifyOptions() {
   const d = designData();
   return { rebarFy: d.rebarFy, cover: d.covers.beam, columnCover: d.covers.column, stirrupDia: d.stirrupDiaMm };
 }
+
+/**
+ * What the checks under other codes take from it: the cover of beams and of columns and the bar
+ * steel's fy. They read the CIRSOC design's defaults (25 mm, 420 MPa) whatever the project
+ * stated, so a project with 40 mm of cover and ADN 500 was checked under ACI 318 and EN 1992 with
+ * other bars at other depths than the ones it designs with.
+ */
+export function otherCodesDesignData(): { cover: { beam: number; column: number }; rebarFy: number } {
+  const d = designData();
+  return { cover: { beam: d.covers.beam, column: d.covers.column }, rebarFy: d.rebarFy };
+}

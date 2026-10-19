@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { frameSelection } from '../../lib/pro/design-navigation';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, i18n } from '../../lib/i18n';
   import type { SolverDiagnostic } from '../../lib/engine/types';
@@ -122,7 +123,9 @@
     if (!sel) return;
     // Plate and quad ids are not frame ids: they go to the shell selection.
     uiStore.setSelection(new Set(sel.nodes), new Set(sel.elements), false, new Set(sel.shells));
-    window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+    // Framed on what the row names, from where the camera looks: fitting the whole model put the
+    // finding back among everything else.
+    frameSelection();
   }
 
   /**

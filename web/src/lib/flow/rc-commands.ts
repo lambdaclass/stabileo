@@ -32,7 +32,8 @@ import { designRunStore } from '../store/design-run.svelte';
 import { detailingStore } from '../store/detailing.svelte';
 import { diagnosticsWarning } from '../store/diagnostics-warning.svelte';
 import { openRebar3D, type OpenRebar3DResult } from '../store/rebar-open';
-import type { DesignFamily } from '../engine/design/design-families';
+import { designEverything, designMembers, undesignedMembers, type DeskReport } from '../store/design-desk';
+import type { RunScope } from '../store/design-desk-ui.svelte';
 
 /**
  * Derive the station demands.
@@ -57,33 +58,32 @@ export function rcCodeCheck(): void {
   designRunStore.runCodeCheck();
 }
 
-/** Design the members the user has selected in the table. */
-export function rcAutoDesignSelected(elementIds: readonly number[]): void {
-  diagnosticsWarning.arm();
-  designRunStore.autoDesign([...elementIds]);
-}
-
-/** Design only the members that carry no reinforcement yet. */
-export function rcAutoDesignUndesigned(elementIds: readonly number[]): void {
-  diagnosticsWarning.arm();
-  designRunStore.autoDesign([...elementIds]);
-}
-
 /**
- * Run the design over the scope the selector shows.
- *
- * The scope comes from the store rather than from an argument, because it is the same fact the
- * read-out beside the button renders — passing it in would let a caller run a scope the screen
- * never showed.
+ * «Size…»: the ONE design command, from every button that starts a design (the top of the Design
+ * stage, the member list's toolbar, a test hook). It used to be three: «Design all» in the classic
+ * strip designed over the members a person had edited, with a verifier written into the button
+ * and no steel check; «Design selected» did the same over the selection; the desk's «Design» kept
+ * the edited ones and checked the steel. The same name ran different things. Now the scope is a
+ * choice the command shows (everything, the selection, what has no bars yet), the edited members
+ * are kept unless the person chose to overwrite them (`autoDesign`'s rule), the verifier is the
+ * project's (`resolveVerifierId`), and the steel check runs when asked.
  */
-export function rcDesignScope(verifierId: string): ReturnType<typeof designRunStore.designFamilies> {
-  diagnosticsWarning.arm();
-  return designRunStore.designFamilies(designRunStore.familySelection, { verifierId });
+export interface DesignCommand {
+  scope: RunScope;
+  /** The members of a `selection` run. */
+  ids?: readonly number[];
+  /** Members a person edited and did not lock: kept, unless the person chose to overwrite them. */
+  edited?: 'keep' | 'overwrite';
+  /** Check the steel members (CIRSOC 301) and the other materials after the concrete. */
+  steel: boolean;
 }
 
-/** The families the next run will cover. Exposed so a caller can report the scope it ran. */
-export function rcDesignScopeFamilies(): readonly DesignFamily[] {
-  return designRunStore.familySelection;
+export function rcDesign(c: DesignCommand): DeskReport {
+  diagnosticsWarning.arm();
+  const edited = c.edited ?? 'keep';
+  if (c.scope === 'all') return designEverything({ edited, steel: c.steel });
+  const ids = c.scope === 'selection' ? [...(c.ids ?? [])] : undesignedMembers();
+  return designMembers(ids, { edited, steel: c.steel });
 }
 
 /**

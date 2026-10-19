@@ -4,7 +4,7 @@
  * language switched, and both downloads recorded in the export log. The composition, the formats
  * and the three writers are pinned in `lib/sheets/__tests__/sheets.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, openClassicDesign } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, designPlace } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -13,8 +13,8 @@ test.describe('@slow sheets', () => {
   test('the drawings on numbered sheets, revised, in another language, downloaded', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    const d = page.getByTestId('detailing-disclosure');
-    await d.locator('> summary').click();
+    await designPlace(page, 'detailing');
+    const d = page.getByTestId('desk-detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
@@ -86,12 +86,11 @@ test.describe('@slow sheets', () => {
   test('a steel building without detailing: framing, anchors and a sheet per joint', async ({ pro: page }) => {
     await loadModel(page, '3d-nave-industrial');
     await solveModel(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-connections').click();
+    await designPlace(page, 'connections');
     const overview = page.getByTestId('joints-overview');
     await overview.getByTestId('joints-propose-all').click();
     await expect(overview.getByTestId('joints-note')).toContainText(/\d/);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     const stage = page.getByTestId('steel-stage-documents');
     if (await stage.getAttribute('open') === null) await stage.locator('> summary').click();
     const panel = stage.getByTestId('sheets-panel');

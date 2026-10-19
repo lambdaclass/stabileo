@@ -16,7 +16,7 @@
  * — rather than duplicated beside it or gone.
  */
 
-import { test, expect, PRO_URL, openClassicDesign, ribbonCmd } from './fixtures';
+import { test, expect, PRO_URL, ribbonCmd, designPlace } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
@@ -36,8 +36,7 @@ const SUBS = ['grade', 'section', 'geometry', 'assumptions', 'verification'];
 
 async function openSteelTab(page: Page): Promise<void> {
   await page.goto(PRO_URL);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-steel').click();
+  await designPlace(page, 'steel');
   await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
 }
 
@@ -238,8 +237,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('the grade stage lists a row per member, with its own state', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     await page.getByTestId('steel-sub-grade').click();
 
     const rows = page.locator('[data-testid^="steel-grade-row-"]');
@@ -261,8 +259,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
      */
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     await page.getByTestId('steel-sub-grade').click();
 
     const cells = page.locator('[data-testid^="steel-grade-designation-"]');
@@ -276,8 +273,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('and says what is missing together with why it matters', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     await page.getByTestId('steel-sub-grade').click();
 
     const why = page.locator('[data-testid^="steel-grade-missing-"]').first();
@@ -289,8 +285,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('the section stage names the origin and what is absent, per member', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     await page.getByTestId('steel-sub-section').click();
 
     const rows = page.locator('[data-testid^="steel-section-row-"]');
@@ -305,8 +300,7 @@ test.describe('stages 2 and 3 show detail per member, not a counter', () => {
   test('and no row state ever reads as a pass', async ({ page }) => {
     await page.goto(PRO_URL);
     await generateTruss(page);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     // The per-member tables live inside stage 3 now; grade and section are sub-sections of it.
     await page.getByTestId('steel-stage-sections').click();
     const states = await page.locator('[data-testid^="steel-grade-row-"], [data-testid^="steel-section-row-"]')
@@ -328,8 +322,7 @@ test.describe('stages 5 and 7 have content, and none of it is a result', () => {
     await pickGenerator(page, 'truss');
     await insertGenerated(page);
     await expect(page.getByTestId('gen-out-result')).toBeVisible();
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
   }
 
   test('stage 5 shows Lb per member, with its source', async ({ page }) => {
@@ -421,7 +414,9 @@ test.describe('it is not a second, disconnected application', () => {
     // A screen that replaces the app rather than living in it would show up here.
     await openSteelTab(page);
     await expect(page.getByTestId('pr-stage-design')).toBeVisible();
-    await expect(page.getByTestId('pr-cmd-steel')).toBeVisible();
+    // Interface A: the stage's own bar and the rail entry that opened it are on screen.
+    await expect(page.getByTestId('desk-process')).toBeVisible();
+    await expect(page.getByTestId('desk-rail-steel')).toHaveClass(/on/);
   });
 
   test('and the other PRO tabs still work after visiting it', async ({ page }) => {
@@ -430,8 +425,7 @@ test.describe('it is not a second, disconnected application', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-sections').click();
     await expect(page.getByTestId('pro-steel-workflow')).toHaveCount(0);
-    await openClassicDesign(page);
-    await page.getByTestId('pr-cmd-steel').click();
+    await designPlace(page, 'steel');
     await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
   });
 });

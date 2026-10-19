@@ -18,7 +18,7 @@
  * fired; it says nothing about whether the file has a bar in it.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 type Json = Record<string, unknown>;
@@ -29,9 +29,9 @@ function assemblies(page: Page): Promise<Json[]> {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
   return d;
 }
 

@@ -21,7 +21,7 @@
  * array and a hard-coded box, and that what comes out reaches the screen.
  */
 
-import { test, expect, designAll, loadModel, openClassicDesign } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 900 } });
@@ -30,13 +30,10 @@ test.use({ viewport: { width: 1280, height: 900 } });
 async function openDetailing(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-design').click();
-  const disclosure = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'list');
+  await designPlace(page, 'detailing');
+  const disclosure = page.getByTestId('desk-detailing');
   await expect(disclosure).toBeAttached();
-  if (await disclosure.getAttribute('open') === null) {
-    await disclosure.locator('> summary').click();
-  }
   await expect(page.getByTestId('sheet-preview')).toBeVisible({ timeout: 30_000 });
 }
 

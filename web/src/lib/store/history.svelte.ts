@@ -5,7 +5,7 @@ import type { ProjectCodeSettings } from '../codes/project-code-settings';
 // Undo/Redo history store using full model snapshots
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { pruneStaleSelection } from './selection-prune';
+import { pruneDeletedMembers, pruneStaleSelection } from './selection-prune';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
@@ -185,7 +185,7 @@ function createHistoryStore() {
   let selection: SelectionAccess | null = null;
   const selNow = () => selection?.get() ?? null;
   // The supports and loads selected are not part of the entry; whatever the step took away is let go.
-  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); pruneStaleSelection(); };
+  const selRestore = (s: SelectionState | null) => { if (s && selection) selection.set(s); pruneStaleSelection(); pruneDeletedMembers(); };
 
   const store = {
     get canUndo() { return undoStack.length > 0; },

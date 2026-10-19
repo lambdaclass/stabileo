@@ -29,8 +29,7 @@
  */
 
 import {
-  test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage, declareBeamsNotLateral,
-} from './fixtures';
+  test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage, declareBeamsNotLateral, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const notice = (page: Page) => page.getByTestId('detailing-convergence');
@@ -45,9 +44,9 @@ const notice = (page: Page) => page.getByTestId('detailing-convergence');
 
 /** Open DETALLE. Direct child only: the stage contains nested disclosures of its own. */
 async function openDetailing(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 test.describe('@smoke the strip states what the next run will produce', () => {
@@ -110,7 +109,10 @@ test.describe('@smoke the strip states what the next run will produce', () => {
      * out-of-scope line. A global denominator would have reported this as INCOMPLETE — a
      * complete piece of work declared unfinished for something nobody asked for.
      */
+    // The families are chosen on the member list (interface A); the claim is read on the detailing.
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-beam').uncheck();
+    await openDetailing(page);
 
     const n = notice(page);
     await expect(n).toHaveAttribute('data-state', 'converged');
@@ -120,7 +122,9 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     await expect(out).toContainText('beams');
 
     // And putting it back re-opens the denominator rather than leaving a narrowed claim behind.
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-beam').check();
+    await openDetailing(page);
     await expect(page.getByTestId('detailing-convergence-out-of-scope')).toHaveCount(0);
     await expect(notice(page)).toContainText('beams');
   });
@@ -128,9 +132,9 @@ test.describe('@smoke the strip states what the next run will produce', () => {
   test('DC-F selecting nothing is not a vacuous success', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await openDetailing(page);
-
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-none').click();
+    await openDetailing(page);
     const n = notice(page);
     await expect(n).toHaveAttribute('data-state', 'empty_scope');
     // "Converged over no families" would read as success and mean nothing was done. The command

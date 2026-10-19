@@ -11,6 +11,7 @@ import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
 import { storedRefusal } from './design-refusals';
 import { detailingStore } from './detailing.svelte';
+import { designRunStore } from './design-run.svelte';
 import { deflectionChecks } from './serviceability';
 import { seismicState } from './seismic-design.svelte';
 import { seismicMemberCheckRows } from '../engine/design/check-rows-families';
@@ -22,6 +23,11 @@ import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
 import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads';
 import { viewVisibility } from './view-state.svelte';
+import { deskUi } from './design-desk-ui.svelte';
+import { otherCodesRun } from './other-codes-run.svelte';
+import { designDrafts } from './design-drafts.svelte';
+import { rebarWorkspace } from './rebar-workspace.svelte';
+import { pruneDeletedMembers } from './selection-prune';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -45,12 +51,36 @@ modelStore._setOnNewProject(() => {
   uiStore.selfWeightCaseId = null;
   // The last floor and footing runs were the previous project's; its own are in its file.
   detailingStore.forgetRuns();
+  /*
+   * Which members a person edited by hand was the previous project's too: kept, it marked the new
+   * project's members with the same ids as edited, and «Size…» keeps edited members unless told
+   * otherwise. A file or a tab then adopts its own (`hydrateProjectProvenance`, after this).
+   */
+  designRunStore.resetMarks();
+  // Another project in this tab: design stays on the place it was (a new tab starts from the plan).
+  forgetDesignView(true);
 });
+
+/*
+ * Design's view of a project (its level, filter, editor, drafts) and the 3-D reinforcement
+ * view's selection belong to that project. A new project or another tab starts from nothing;
+ * a tab switch then restores the tab's own (`tabs.svelte.ts`).
+ */
+function forgetDesignView(keepPlace = false): void {
+  deskUi.reset(keepPlace);
+  otherCodesRun.reset();
+  designDrafts.clear();
+  rebarWorkspace.reset();
+  rebarWorkspace.close();
+}
+uiStore.onSessionReset(() => forgetDesignView());
 
 // An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
 modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 
 modelStore._setOnMutation(() => {
+  // A deleted member leaves every selection, once the edit that deletes it has run.
+  queueMicrotask(pruneDeletedMembers);
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
   /*
@@ -72,7 +102,7 @@ modelStore._setOnMutation(() => {
  * current document is retired, as on a structural edit.
  */
 modelStore._setOnDesignChange(() => {
-  verificationStore.invalidateAnalysis();
+  verificationStore.invalidateAnalysis('design');
   detailingStore.supersedeDocuments();
 });
 

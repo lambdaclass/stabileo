@@ -30,11 +30,8 @@
  * living away from the command it gates.
  */
 
-import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../store';
-import { detailingStore } from '../store/detailing.svelte';
-import { detailingAuthor } from '../store/detailing-author.svelte';
-import { canOpenRebar3D, openRebar3D } from '../store/rebar-open';
-import { t } from '../i18n';
+import { modelStore, resultsStore, uiStore, tabManager } from '../store';
+import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../store/rebar-open';
 import { buildProStages, PRO_TAB_STAGE, type ProCmd } from './stages';
 
 void tabManager;
@@ -72,18 +69,9 @@ export function createPhoneShell(deps: PhoneShellDeps) {
      * grid's Rebar-3D command lands on the same operation the ribbon's does — three ways in,
      * one thing that happens.
      */
-    onRebar3D: () => openRebar3D({
-      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-      at: new Date().toISOString(),
-    }),
+    onRebar3D: () => { openRebar3DView(); },
     canRebar3D: () => canOpenRebar3D(),
-    rebar3DMissingSteps: () => {
-      const steps: string[] = [];
-      if (resultsStore.results3D == null && resultsStore.results == null) steps.push('proRibbon.need.solve');
-      if (verificationStore.providedSummary.total === 0) steps.push('proRibbon.need.design');
-      if (detailingStore.assemblies.length === 0) steps.push('proRibbon.need.detailing');
-      return steps;
-    },
+    rebar3DMissingSteps,
   }));
 
   /*

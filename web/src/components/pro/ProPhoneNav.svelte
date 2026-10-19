@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { openDeskAt } from '../../lib/pro/design-navigation';
+  import { stageEntryTab } from '../../lib/pro/stage-memory.svelte';
   /**
    * The phone panel's pinned head: the two pills, and the stage list one of them opens.
    *
@@ -129,7 +131,7 @@
               class="pm-stage-item"
               class:active={shell.stage?.id === st.id}
               data-testid="pm-stage-{st.id}"
-              onclick={() => { uiStore.proActiveTab = st.home; shell.stageMenuOpen = false; }}
+              onclick={() => { shell.stageMenuOpen = false; if (st.id === 'design') openDeskAt(); else uiStore.proActiveTab = stageEntryTab(st.id, st.home); }}
             >{t(st.labelKey)}</button>
           {/each}
         </div>

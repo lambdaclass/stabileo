@@ -161,7 +161,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each provided.checks as c (c.category)}
+        {#each provided.checks as c, ci (`${c.category}-${ci}`)}
           <tr class="chk chk-{c.status}" data-testid={`check-${c.category.replace(/\W+/g, '-')}`}>
             <td>{c.category}{c.missingReinforcement ? ' ⚠' : ''}</td>
             <td class="num">{c.demand !== undefined ? `${fmt(c.demand)} ${c.unit}` : fmt(c.required)}</td>
@@ -191,7 +191,7 @@
       <table class="checks">
         <thead><tr><th scope="col">{t('design.detail.category')}</th><th scope="col">{t('design.detail.value')}</th><th scope="col">{t('design.detail.station')}</th><th scope="col">{t('design.table.combo')}</th></tr></thead>
         <tbody>
-          {#each demands as d (d.category)}
+          {#each demands as d, di (`${d.category}-${di}`)}
             <tr>
               <td class="mono">{d.category}</td>
               <td class="num">{d.value.toFixed(1)}</td>

@@ -24,7 +24,7 @@
  * else does.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, declareBeamsNotLateral } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, declareBeamsNotLateral, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -40,7 +40,7 @@ async function toDocuments(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await declareBeamsNotLateral(page);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();

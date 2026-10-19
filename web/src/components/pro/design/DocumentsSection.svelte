@@ -347,7 +347,7 @@
               onclick={() => runExport((d) => exportDetailingXlsx(d, exportCtx()))}>
         {t('detailing.doc.xlsx')}
       </button>
-      <button data-testid="doc-3d" onclick={open3d}>{t('detailing.scene.open')}</button>
+      <button data-testid="doc-3d" onclick={open3d}>{t('desk.rebar3d')}</button>
       <MemoriaButton />
     </div>
 

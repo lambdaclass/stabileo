@@ -21,7 +21,7 @@
  * overlay panels need the scene built, so they run once, at the same width.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
@@ -54,7 +54,7 @@ const resolvedOn = async (page: Page, testid: string, name: string) =>
 async function openScenePanel(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -354,7 +354,7 @@ test.describe('@slow the torsion amber, measured where the model raises it', () 
     async ({ pro: page }) => {
       await loadModel(page, 'rc-qa-diagnostic');
       await designAll(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled();
       await generate.click();

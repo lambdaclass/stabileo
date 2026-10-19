@@ -17,7 +17,7 @@
  * reaches the document itself rather than only the panel.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -33,9 +33,9 @@ test.use({ viewport: { width: 1400, height: 900 } });
 async function documents(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -119,14 +119,15 @@ test.describe('@slow a record outlives the revision it came from', () => {
 
     // Any change that retires the document moves the revision on. Pinning a bar is the
     // smallest one that does, and it is a real user gesture.
-    const d = page.getByTestId('detailing-disclosure');
-    if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+    await designPlace(page, 'detailing');
     await page.getByTestId('bar-list').locator('> summary').click();
     const lock = page.locator('[data-testid^="barlock-"]').first();
     test.skip(await lock.count() === 0, 'no bar to pin on this assembly');
     await lock.click();
 
     // Rebuilding the document is what advances the revision the record is compared against.
+    // The documents are their own place of design (interface A), so the record is read there.
+    await designPlace(page, 'documents');
     await page.getByTestId('doc-report').click().catch(() => { /* the print window may block */ });
     await expect.poll(async () =>
       page.getByTestId('export-record-stale-1').isVisible().catch(() => false)

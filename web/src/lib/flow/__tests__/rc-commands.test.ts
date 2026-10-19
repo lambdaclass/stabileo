@@ -14,8 +14,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  rcAutoDesignSelected, rcCancelRun, rcCodeCheck, rcComputeDemands, rcDesignScope,
-  rcDesignScopeFamilies, rcGenerateDetailing,
+  rcCancelRun, rcCodeCheck, rcComputeDemands, rcDesign, rcGenerateDetailing,
 } from '../rc-commands';
 import { designRunStore } from '../../store/design-run.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -32,7 +31,8 @@ describe('every design command arms the diagnostics warning', () => {
   it.each([
     ['computeDemands', () => rcComputeDemands(), 'computeDemands'],
     ['codeCheck', () => rcCodeCheck(), 'runCodeCheck'],
-    ['autoDesignSelected', () => rcAutoDesignSelected([1, 2]), 'autoDesign'],
+    ['design (selection)', () => rcDesign({ scope: 'selection', ids: [1, 2], steel: false }), 'autoDesign'],
+    ['design (undesigned)', () => rcDesign({ scope: 'undesigned', steel: false }), 'autoDesign'],
   ])('%s arms, then calls %s', (_label, run, method) => {
     const arm = vi.spyOn(diagnosticsWarning, 'arm');
     const call = vi.spyOn(designRunStore, method as 'computeDemands').mockReturnValue(
@@ -44,23 +44,36 @@ describe('every design command arms the diagnostics warning', () => {
     expect(arm.mock.invocationCallOrder[0]).toBeLessThan(call.mock.invocationCallOrder[0]);
   });
 
-  it('the scoped design arms too, and runs the scope the store holds', () => {
+  it('the whole design arms too, and runs the families the store holds', () => {
     const arm = vi.spyOn(diagnosticsWarning, 'arm');
     const call = vi.spyOn(designRunStore, 'designFamilies').mockReturnValue(null as never);
     designRunStore.setFamilySelection(['beam']);
-    rcDesignScope('v1');
+    rcDesign({ scope: 'all', steel: false });
     expect(arm).toHaveBeenCalled();
-    expect(call.mock.calls[0][0], 'it ran the stored scope, not an argument')
+    expect(call.mock.calls[0][0], 'it ran the stored families, not an argument')
       .toEqual(['beam']);
   });
 
   /*
-   * The scope comes from the store and not from a parameter, so a caller cannot run a scope the
-   * read-out beside the button never showed.
+   * One rule for the members a person edited, whatever the scope: kept unless the caller says to
+   * overwrite. «Design all» in the classic strip overwrote them and the desk's «Design» kept
+   * them, under the same name.
    */
-  it('exposes the scope it would run', () => {
-    designRunStore.setFamilySelection(['column', 'beam']);
-    expect(rcDesignScopeFamilies()).toEqual(['column', 'beam']);
+  it.each(['all', 'selection', 'undesigned'] as const)('a %s run keeps the edited members unless told to overwrite', (scope) => {
+    const families = vi.spyOn(designRunStore, 'designFamilies').mockReturnValue(null as never);
+    const auto = vi.spyOn(designRunStore, 'autoDesign').mockReturnValue({ ok: true } as never);
+    const edited = () => (scope === 'all' ? families.mock.calls.at(-1)![1] : auto.mock.calls.at(-1)![1])?.edited;
+    rcDesign({ scope, ids: [1], steel: false });
+    expect(edited()).toBe('keep');
+    rcDesign({ scope, ids: [1], steel: false, edited: 'overwrite' });
+    expect(edited()).toBe('overwrite');
+  });
+
+  /* The verifier is the project's: no design command writes one into its button any more. */
+  it('runs with the project\'s verifier, not one of its own', () => {
+    const families = vi.spyOn(designRunStore, 'designFamilies').mockReturnValue(null as never);
+    rcDesign({ scope: 'all', steel: false });
+    expect(families.mock.calls[0]![1]?.verifierId).toBeUndefined();
   });
 });
 

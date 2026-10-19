@@ -57,7 +57,7 @@ describe('design decisions', () => {
     expect(decisionState(id)).toBe('proposed');
   });
 
-  it('a locked member is left by a redesign; an edited one is kept when asked', () => {
+  it('a locked member is left by a redesign; an edited one is kept unless overwriting is asked for', () => {
     const [a, b] = [...modelStore.elements.values()].filter((e) => e.reinforcement?.regions).map((e) => e.id);
     for (const id of [a!, b!]) { const { r } = weaker(id); r.regions.bottomSpanLayers = [{ count: 2, diameter: 10, row: 0 }]; commitManual(id, r); }
     setLocked([a!], true);
@@ -65,7 +65,11 @@ describe('design decisions', () => {
     const hashA = rebarHash(bars(a!)), hashB = rebarHash(bars(b!));
     expect(designRunStore.autoDesign([a!, b!], { edited: 'keep' }).ok).toBe(false); // both left: nothing to design
     expect(designRunStore.lastSkipped).toEqual({ locked: 1, edited: 1 });
-    expect(designRunStore.autoDesign([a!, b!]).ok).toBe(true);
+    // Kept is the rule when nothing is said: no design command overwrites a person's bars unasked.
+    expect(designRunStore.autoDesign([a!, b!]).ok).toBe(false);
+    expect(designRunStore.lastSkipped).toEqual({ locked: 1, edited: 1 });
+    expect(rebarHash(bars(b!))).toBe(hashB);
+    expect(designRunStore.autoDesign([a!, b!], { edited: 'overwrite' }).ok).toBe(true);
     expect(rebarHash(bars(a!))).toBe(hashA);
     expect(rebarHash(bars(b!))).not.toBe(hashB);
     // A lock is one undo step of its own.

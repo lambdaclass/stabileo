@@ -47,7 +47,7 @@
  * several times its real cost, and a ceiling tuned to that is either a flake or meaningless.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -120,7 +120,7 @@ async function closeWorkspace(page: Page) {
 }
 
 async function generateDetailing(page: Page) {
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const gen = page.getByTestId('cmd-generate-detailing');
   await expect(gen).toBeEnabled();
   await gen.click();
@@ -130,7 +130,7 @@ async function generateDetailing(page: Page) {
 }
 
 async function runFloorDesign(page: Page) {
-  await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+  await openFloorPass(page);
   const run = page.getByTestId('floor-design-run');
   await expect(run).toBeEnabled();
   await run.click();

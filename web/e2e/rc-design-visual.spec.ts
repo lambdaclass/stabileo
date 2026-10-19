@@ -27,6 +27,9 @@ test.describe('@slow visual baselines (non-blocking)', () => {
     await page.evaluate(() => window.__stabileoActions.designAll());
     await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.verified ?? 0)).toBeGreaterThan(0);
 
+    // The baseline was taken with the viewer at the model's width: the model stage, not the
+    // viewer docked between design's rail and sheet (interface A).
+    await page.getByTestId('pr-stage-model').click();
     const legend = page.getByTestId('overlay-legend');
     await expect(legend).toBeVisible();
     /*

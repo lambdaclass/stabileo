@@ -192,6 +192,24 @@ function createVerificationStore() {
   // ── Design outcomes (VERIFIED / SECTION_INADEQUATE / …) ──
   let runSummary = $state<DesignRunSummary | null>(null);
 
+  /*
+   * ── Out of date, and why ──
+   *
+   * A model change clears the analysis, and with it every member context and verdict. A member
+   * that had been checked then read «not checked», as if nobody had designed it, and design's
+   * list emptied: nothing said the design it holds no longer matches the model. The members that
+   * had a design read against the old analysis are kept here, with what changed, until a new
+   * analysis gives them a context again (`setDemandData`) or a new steel check a verdict.
+   */
+  let outOfDate = $state<Set<number>>(new Set());
+  let outOfDateReason = $state<'model' | 'design' | null>(null);
+  /**
+   * The members design listed without a design of their own (never checked, or missing data) when
+   * a change cleared the analysis. Kept listed «not checked» beside the out-of-date ones, so the
+   * list does not lose part of the structure until the next analysis gives them a context again.
+   */
+  let stillListed = $state<Set<number>>(new Set());
+
   // ── Provided-verification memo cache (NOT reactive: keyed, rebuilt on demand) ──
   const providedCache = new Map<number, { key: string; result: ProvidedRebarResult }>();
   /** Bumped whenever the cache is invalidated, so $derived consumers recompute. */
@@ -416,7 +434,16 @@ function createVerificationStore() {
      * verification. Replaces the old unconditional `clear()` in the mutation hook —
      * unconditional so the revision counter can never silently fail to advance.
      */
-    invalidateAnalysis() {
+    invalidateAnalysis(reason: 'model' | 'design' = 'model') {
+      const was = new Set(outOfDate);
+      for (const id of contexts.keys()) if (reinforcementProvider?.(id)) was.add(id);
+      for (const id of steelMap.keys()) was.add(id);
+      const listed = new Set(stillListed);
+      for (const id of contexts.keys()) if (!was.has(id)) listed.add(id);
+      for (const id of was) listed.delete(id);
+      outOfDate = was;
+      stillListed = listed;
+      if (was.size > 0) outOfDateReason = reason;
       analysisRevision++;
       contexts = new Map();
       orientationIssues = [];
@@ -460,12 +487,33 @@ function createVerificationStore() {
     // ── Retained demand ──
     /** Publish freshly computed member contexts (station demands + geometry). */
     setDemandData(next: Map<number, MemberContext>, issues: OrientationIssue[] = []) {
+      if (outOfDate.size > 0) {
+        const left = new Set([...outOfDate].filter((id) => !next.has(id) && !steelMap.has(id)));
+        outOfDate = left;
+        if (left.size === 0) outOfDateReason = null;
+      }
+      if (stillListed.size > 0) stillListed = new Set([...stillListed].filter((id) => !next.has(id)));
       contexts = next;
       orientationIssues = issues;
       demandRevision++;
       dropCache();
     },
     get contexts() { return contexts; },
+    /** Members whose design was read against an analysis a change has since cleared. */
+    get outOfDate(): ReadonlySet<number> { return outOfDate; },
+    /** Members listed without a design when the analysis was cleared; read «not checked». */
+    get stillListed(): ReadonlySet<number> { return stillListed; },
+    /** What cleared it: a change to the structure, or to what design reads of it. */
+    get outOfDateReason() { return outOfDateReason; },
+    /** A member stops being out of date: it has a verdict against the analysis in force. */
+    _settleOutOfDate(ids: Iterable<number>) {
+      if (outOfDate.size === 0) return;
+      const left = new Set(outOfDate);
+      for (const id of ids) left.delete(id);
+      if (left.size === outOfDate.size) return;
+      outOfDate = left;
+      if (left.size === 0) outOfDateReason = null;
+    },
     contextFor(elementId: number): MemberContext | undefined { return contexts.get(elementId); },
     hasDemandFor(elementId: number): boolean { return contexts.has(elementId); },
     get orientationIssues() { return orientationIssues; },
@@ -488,6 +536,7 @@ function createVerificationStore() {
       concreteVerifs = concrete;
       steelVerifs = steel;
       rebuildLegacyMaps();
+      if (steel.length) this._settleOutOfDate(steel.map((v) => v.elementId));
       designResults = normalized;
       designSummary = summary;
       rebuildDesignMap();
@@ -497,6 +546,7 @@ function createVerificationStore() {
     setSteel(verifs: SteelVerification[]) {
       steelVerifs = verifs;
       rebuildLegacyMaps();
+      this._settleOutOfDate(verifs.map((v) => v.elementId));
     },
     /** Set unified design-check results (multi-code baseline). */
     setDesignResults(results: MemberDesignResult[], summary: DesignCheckSummary) {
@@ -573,7 +623,8 @@ function createVerificationStore() {
       const steel = steelMap.get(elementId);
       if (steel) return steelMemberStatus(steel);
       const reinf = reinforcementProvider?.(elementId);
-      if (!contexts.has(elementId)) return 'unavailable';
+      // Designed against an analysis a change cleared: out of date, not «never checked».
+      if (!contexts.has(elementId)) return outOfDate.has(elementId) ? 'stale' : 'unavailable';
       if (!reinf) return 'unavailable';
       const pv = providedFor(elementId);
       if (!pv || pv.strengthCheckCount === 0) return 'unavailable';
@@ -792,6 +843,9 @@ function createVerificationStore() {
       orientationIssues = [];
       runSummary = null;
       baselineRevision = 0;
+      outOfDate = new Set();
+      outOfDateReason = null;
+      stillListed = new Set();
       dropCache();
     },
   };

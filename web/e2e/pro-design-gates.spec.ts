@@ -29,20 +29,26 @@
  * All three run on a fresh page or on the small QA model, so this file adds seconds, not minutes.
  */
 
-import { test, expect, loadModel, solveModel, designAll } from './fixtures';
+import { test, expect, loadModel, solveModel, designAll, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
-/** The commands on the design bar, in the order the pipeline runs them. */
+/**
+ * The design commands, in the order the pipeline runs them, with the place each is pressed in
+ * (interface A): the member list holds the demands, the required steel, its «Size…» and the 3-D
+ * view; the top of the stage holds «Size…» while sizing and «Generate detailing» while detailing.
+ */
 const COMMANDS = [
-  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'cmd-design-all',
-  'cmd-generate-detailing', 'cmd-open-3d',
+  'cmd-compute-demands', 'cmd-code-check', 'cmd-autodesign', 'desk-design', 'cmd-open-3d',
 ] as const;
+const DETAIL_COMMANDS = ['cmd-generate-detailing'] as const;
 
 test.describe('@smoke a command that cannot run says so', () => {
   test('with nothing solved, the tab states what it needs instead of showing an empty table',
     async ({ pro: page }) => {
-      // The design tab is active and the project is empty: this is what a PRO user sees first.
+      // A frame loaded and nothing solved, on the member list.
+      await loadModel(page, 'rc-design-qa-8');
+      await designPlace(page, 'list');
       await expect(page.getByTestId('design-placeholder-solve')).toBeVisible();
       await expect(page.getByTestId('design-table')).toHaveCount(0);
 
@@ -54,12 +60,17 @@ test.describe('@smoke a command that cannot run says so', () => {
       for (const id of COMMANDS) {
         await expect(page.getByTestId(id), `${id} is disabled with nothing solved`).toBeDisabled();
       }
+      await designPlace(page, 'detailing');
+      for (const id of DETAIL_COMMANDS) {
+        await expect(page.getByTestId(id), `${id} is disabled with nothing solved`).toBeDisabled();
+      }
     });
 
   test('solved but not verified, the tab asks for the demands rather than for a solve',
     async ({ pro: page }) => {
       await loadModel(page, 'rc-design-qa-8');
       await solveModel(page);
+      await designPlace(page, 'list');
 
       // The placeholder CHANGES. Both states exist and they are different sentences — which is
       // the whole point of having two of them.
@@ -69,6 +80,7 @@ test.describe('@smoke a command that cannot run says so', () => {
       // Computing demands is now the one command that is available, which is what makes the
       // placeholder's instruction followable.
       await expect(page.getByTestId('cmd-compute-demands')).toBeEnabled();
+      await designPlace(page, 'detailing');
       await expect(page.getByTestId('cmd-generate-detailing')).toBeDisabled();
     });
 
@@ -76,6 +88,7 @@ test.describe('@smoke a command that cannot run says so', () => {
     async ({ pro: page }) => {
       await loadModel(page, 'rc-design-qa-8');
       await solveModel(page);
+      await designPlace(page, 'detailing');
 
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeDisabled();
@@ -101,6 +114,8 @@ test.describe('@smoke a command that cannot run says so', () => {
 
   test('the 3-D command refuses with a reason until a document exists',
     async ({ pro: page }) => {
+      await loadModel(page, 'rc-design-qa-8');
+      await designPlace(page, 'list');
       const open3d = page.getByTestId('cmd-open-3d');
       await expect(open3d).toBeDisabled();
       // Disabled, not hidden — a command that vanishes teaches nobody what it needs.
@@ -130,7 +145,7 @@ test.describe('@smoke at 1280×720 no enabled command is out of reach', () => {
     });
   }
 
-  test('every enabled command is hit-testable with all three disclosures open',
+  test('every enabled command is hit-testable in the places it is pressed in',
     async ({ pro: page }) => {
       test.setTimeout(180_000);
       // A designed model, because the defect was an ENABLED button out of reach. A disabled one
@@ -138,11 +153,10 @@ test.describe('@smoke at 1280×720 no enabled command is out of reach', () => {
       await loadModel(page, 'rc-design-qa-8');
       await designAll(page);
 
-      for (const id of ['code-settings-disclosure', 'detailing-disclosure',
-        'floor-families-disclosure']) {
-        await page.getByTestId(id).locator('> summary').click();
-        await expect(page.getByTestId(id)).toHaveAttribute('open', '');
-      }
+      // The member list with the floor pass open under it: the canvas at its fullest.
+      await designPlace(page, 'list');
+      await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+      await expect(page.getByTestId('floor-families-disclosure')).toHaveAttribute('open', '');
 
       /**
        * The toasts, waited out rather than ignored.
@@ -157,15 +171,19 @@ test.describe('@smoke at 1280×720 no enabled command is out of reach', () => {
       await expect.poll(() => page.locator('[class*=toast]').count(), { timeout: 60_000 }).toBe(0);
 
       const checked: string[] = [];
-      for (const id of [...COMMANDS, 'floor-design-run',
-        'batch-open', 'next-failing', 'review-changes']) {
-        const el = page.getByTestId(id);
-        if (await el.count() === 0) continue;
-        if (await el.isDisabled()) continue;
-        expect(await hitTestable(page, id),
-          `${id} is enabled and a click at its own centre lands on it`).toBe(true);
-        checked.push(id);
-      }
+      const sweep = async (ids: readonly string[]) => {
+        for (const id of ids) {
+          const el = page.getByTestId(id);
+          if (await el.count() === 0) continue;
+          if (await el.isDisabled()) continue;
+          expect(await hitTestable(page, id),
+            `${id} is enabled and a click at its own centre lands on it`).toBe(true);
+          checked.push(id);
+        }
+      };
+      await sweep([...COMMANDS, 'floor-design-run', 'batch-open', 'next-failing', 'review-changes']);
+      await designPlace(page, 'detailing');
+      await sweep(DETAIL_COMMANDS);
 
       // A loop that checked nothing would pass. Name what it actually reached.
       // eslint-disable-next-line no-console

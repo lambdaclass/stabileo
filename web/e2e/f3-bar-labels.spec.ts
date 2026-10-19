@@ -7,7 +7,7 @@
  * is negative: whatever leads the row, it is not that.
  */
 
-import { test, expect, loadModel, designAll } from './fixtures';
+import { test, expect, loadModel, designAll, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openBarList(page: Page) {
@@ -20,7 +20,7 @@ async function openBarList(page: Page) {
    * command. Opening the section leaves DISEÑAR open, which is how `h1e-refused-state` already
    * reaches it. Where the pipeline commands belong is a real question and it is F3b's.
    */
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();

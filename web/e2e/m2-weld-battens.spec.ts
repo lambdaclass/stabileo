@@ -11,7 +11,7 @@
  * Everything here drives the real controls on the real shed.
  */
 
-import { test, expect, PRO_URL, loadModel, solveModel, openClassicDesign } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -25,8 +25,7 @@ async function openJoint(page: Page, solved = true): Promise<void> {
   await page.goto(PRO_URL);
   await loadModel(page, '3d-nave-industrial');
   if (solved) await solveModel(page);
-  await openClassicDesign(page);
-  await page.getByTestId('pr-cmd-connections').click();
+  await designPlace(page, 'connections');
   await page.locator('.conn-joint-row').first().click();
   await expect(page.getByTestId('joint-design')).toBeVisible();
 }

@@ -14,7 +14,7 @@
  * produces the stated outcome.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -42,9 +42,9 @@ function sheet(page: Page) {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeAttached();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 /** A designed, coordinated project with the detailing panel open. */
@@ -65,6 +65,8 @@ async function editABeam(page: Page, ids: number[]): Promise<number> {
   const beam = await page.evaluate(
     (list) => list.find((id) => window.__stabileo.rebarSummary(id).startsWith('b')) ?? list[0],
     ids);
+  // The bars are edited in the member list's inline editor.
+  await designPlace(page, 'list');
   await page.getByTestId('filter-all').click();
   await page.getByTestId(`row-expand-${beam}`).click();
   const count = page.getByTestId(`count-bottomSpanLayers-0-${beam}`);
@@ -313,7 +315,7 @@ for (const vp of [
       }
 
       // And the panel itself does not start scrolling sideways because of them.
-      const panelOver = await page.locator('.rc-workflow').evaluate(
+      const panelOver = await page.locator('.dd-canvas-body').evaluate(
         (el) => el.scrollWidth - el.clientWidth);
       expect(panelOver, `the panel at ${vp.width}`).toBeLessThanOrEqual(1);
     });
@@ -332,7 +334,9 @@ for (const locale of ['en', 'es', 'pt'] as const) {
       await page.getByTestId('doc-dxf').click();
       await expect(page.getByTestId('export-record-0')).toBeVisible();
 
-      for (const id of ['rotulo', 'export-log']) {
+      // The title block is filled in on the detailing; the emission log is with the documents.
+      for (const id of ['export-log', 'rotulo']) {
+        if (id === 'rotulo') await openPanel(page);
         const text = await page.getByTestId(id).innerText();
         expect(text.length, `${id} says something`).toBeGreaterThan(10);
         expect(text, `${id} has no raw key`).not.toMatch(/\bdetailing\.[a-z]/i);

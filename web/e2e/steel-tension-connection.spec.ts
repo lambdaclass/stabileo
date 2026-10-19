@@ -3,7 +3,7 @@
  * EVALUATED until its ends are described; "Add the end connection" selects it, the editor
  * previews An, U and Ae, Apply writes both ends, and the rupture ratio appears.
  */
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 
 test.use({ viewport: { width: 1400, height: 1000 } });
 
@@ -34,7 +34,7 @@ test('a tension member is not evaluated until its end connection is described', 
   await expect.poll(() => page.evaluate(() => { const c = window.__stabileo.modelCensus(); return `${c.nodes}/${c.elements}/${c.loads}`; })).toBe("2/1/1");
   await page.evaluate(async () => { await window.__stabileoActions.solve(); });
   await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-steel').click();
+  await designPlace(page, 'steel');
   await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
 
   const row = page.getByTestId('tc-result-1');

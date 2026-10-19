@@ -181,14 +181,16 @@
   .dd-inline { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); }
   .dd-inline input { width: 4.5rem; font-size: 0.72rem; }
   .dd-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
-  .dd-table th { text-align: left; font-weight: 500; color: var(--st-text-3); padding: 2px 4px; }
+  .dd-table th { text-align: left; font-weight: 500; color: var(--st-text-2); padding: 2px 4px; }
   .dd-table td { padding: 2px 4px; border-top: 1px solid var(--st-hair); }
   .dd-table input { width: 3.6rem; font-size: 0.7rem; }
   .dd-num { font-variant-numeric: tabular-nums; color: var(--st-text-2); }
   .dd-under td { color: var(--st-warn); }
   .dd-warn { color: var(--st-warn); }
   .dd-sub { font-size: 0.66rem; font-weight: 600; color: var(--st-text-2); margin-top: 4px; }
+  /* Read as working copy in its own place of design, so its hints meet AA (--st-text-2). */
+  .dd :global(.pk-hint:not(.dd-warn)) { color: var(--st-text-2); }
   .dd-chips { display: flex; flex-wrap: wrap; gap: 3px; margin: 3px 0 6px; }
-  .dd-chip { font-size: 0.66rem; padding: 1px 7px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text-3); border-radius: 10px; cursor: pointer; }
+  .dd-chip { font-size: 0.66rem; padding: 1px 7px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text-2); border-radius: 10px; cursor: pointer; }
   .dd-chip.on { border-color: var(--st-accent); color: var(--st-text); background: var(--st-surface-3); }
 </style>

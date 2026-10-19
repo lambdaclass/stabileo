@@ -314,7 +314,9 @@ function createDesignRunStore() {
     elementIds: Iterable<number>,
     /**
      * `edited`: what to do with members a person edited and did not lock, keep their bars or
-     * design over them. Locked members are never redesigned.
+     * design over them. Kept unless the caller says to overwrite: one rule for every design
+     * command, so no button designs over a person's bars without asking. Locked members are
+     * never redesigned.
      */
     opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
   ): CommandResult {
@@ -330,7 +332,7 @@ function createDesignRunStore() {
     const ctxOf = (id: number) => verificationStore.contextFor(id);
     const asked = withSpanPieces(elementIds, ctxOf);
     const locked = lockedNow();
-    const keepEdited = opts.edited === 'keep';
+    const keepEdited = opts.edited !== 'overwrite';
     lastSkipped = {
       locked: asked.filter((id) => locked.has(id)).length,
       edited: keepEdited ? asked.filter((id) => !locked.has(id) && manualOverrides.has(id)).length : 0,
