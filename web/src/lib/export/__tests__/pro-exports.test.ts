@@ -174,7 +174,7 @@ describe('the figures of a model with shells', () => {
 describe('the report', () => {
   const config = (over: Partial<ReportConfig> = {}): ReportConfig => ({
     companyName: '', companyLogo: null,
-    sections: { modelData: true, results: true, verification: false, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true, figures: false },
+    sections: { modelData: true, results: true, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true, figures: false },
     ...over,
   });
 

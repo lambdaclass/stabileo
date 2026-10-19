@@ -182,8 +182,6 @@
     showReportDialog = false;
     void exportReportAs({
       config,
-      // The report prints the Design panel's verification (`reportDesignChecks`), not a design of its own.
-      verifications: [],
       advancedResults: advancedResultsRef,
       t,
       figureOptions,

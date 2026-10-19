@@ -96,7 +96,7 @@ export function deflectionSectionHtml(rows: readonly DeflectionReportRow[], tr: 
   for (const r of rows) {
     out.push(`<tr><td>${esc(r.span)}${r.cantilever ? ' ⌐' : ''}</td><td class="num">${r.L.toFixed(2)}</td><td class="num">${(r.delta * 1000).toFixed(2)}</td><td>${esc(r.limit)}</td><td>${esc(r.direction)}</td><td class="num">${(r.ratio * 100).toFixed(0)}</td><td class="${r.status === 'ok' ? 'status-ok' : r.status === 'fail' ? 'status-fail' : 'status-warn'}">${r.status === 'ok' ? '✓' : r.status === 'fail' ? '✗' : '⚠'}</td></tr>`);
   }
-  out.push(`</tbody></table><p class="note">${esc(tr('defl.checkHint'))}</p>`);
+  out.push(`</tbody></table><p class="note">${esc(tr('defl.checkHintTable'))}</p>`);
   return out;
 }
 

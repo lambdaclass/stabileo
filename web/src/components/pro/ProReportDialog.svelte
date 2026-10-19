@@ -20,6 +20,7 @@
   import type { FigureView } from '../../lib/export/view-figure';
   import type { InkStyle } from '../../lib/export/paper-ink';
   import { SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey } from '../../lib/engine/shell-stress';
+  import { reportStoryDrifts } from '../../lib/engine/pro-report-inputs';
   import { reportFigures } from '../../lib/store/report-figures.svelte';
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
@@ -58,11 +59,13 @@
   let companyName = $state(saved.companyName ?? '');
   let companyLogo = $state<string | null>(saved.companyLogo ?? null);
   let sec = $state<Sections>({
-    modelData: true, results: true, verification: false, advancedAnalysis: true, storyDrift: false,
+    modelData: true, results: true, advancedAnalysis: true, storyDrift: true,
     diagnostics: true, quantities: true, loads: true, envelope: true, statics: true, deflections: true, figures: true,
     ...(saved.sections ?? {}),
-    // Never offered here: a code check is reported from the design, and story drift was never implemented.
+    // Never offered here: a code check is a design output, reported by the memoria (Documents).
   });
+  // The CIRSOC 103 drift check runs when the seismic settings and a solved seismic case exist.
+  const hasDrift = $derived(open && (reportStoryDrifts().drifts?.length ?? 0) > 0);
   let parts = $state<Record<ReportPart, boolean>>({
     nodes: true, materials: true, sections: true, members: true, supports: true, shells: true, combinations: true, ...(saved.parts ?? {}),
   });
@@ -128,8 +131,9 @@
   const SUMMARIES = [
     { id: 'envelope', key: 'report.env.title' }, { id: 'statics', key: 'proExport.sheet.Statics' }, { id: 'deflections', key: 'defl.title' },
   ] as const;
-  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics';
+  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics' | 'storyDrift';
   const otherItems = $derived([
+    { id: 'storyDrift', label: t('report.secDrift'), disabled: !hasDrift, hint: hasDrift ? undefined : t('report.noData') },
     { id: 'quantities', label: t('report.secQuantities'), disabled: !hasQuantities },
     { id: 'diagnostics', label: t('report.secDiagnostics'), disabled: !hasDiagnostics, hint: hasDiagnostics ? undefined : t('proReport.noneFound') },
   ]);
@@ -153,6 +157,7 @@
     if (sec.advancedAnalysis && hasAdvanced) out.push(t('proReport.partAdvanced'));
     if (sec.quantities && hasQuantities) out.push(t('proReport.partQuantities'));
     if (sec.diagnostics && hasDiagnostics) out.push(t('proReport.partDiagnostics'));
+    if (sec.storyDrift && hasDrift) out.push(t('report.secDrift'));
     return out.join(' · ') || '—';
   });
   const figuresSummary = $derived([
@@ -171,12 +176,13 @@
       hasProjectInfo,
       advancedPicked: { ...advancedPicked },
       sections: {
-        ...$state.snapshot(sec), verification: false, storyDrift: false, parts: $state.snapshot(parts),
+        ...$state.snapshot(sec), parts: $state.snapshot(parts),
         // The model's section goes when any of its tables does; what has no data is not asked for.
         modelData: partsShown.some((p) => partOn(p.id)),
         advancedAnalysis: sec.advancedAnalysis && hasAdvanced,
         quantities: sec.quantities && hasQuantities,
         diagnostics: sec.diagnostics && hasDiagnostics,
+        storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
     }, $state.snapshot(figs));

@@ -6,7 +6,7 @@
  * It was, and the 600-line ceiling on that component is what said it should
  * not be. The panel is a layout shell: which tab is showing, how wide it is,
  * what the header says. Assembling a report — drawing its figures, gathering
- * verifications and advanced results — is a job, and a job in a layout shell is
+ * advanced results — is a job, and a job in a layout shell is
  * how a layout shell stops being one.
  *
  * The report is the printable document only: the same data as a spreadsheet is
@@ -33,14 +33,9 @@ import type { InkStyle } from '../export/paper-ink';
 import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
-import { verificationStore } from '../store/verification.svelte';
-import { activePerCombo3D, activeCombinations } from '../store/active-results';
-import { computeStationDemands, runUnifiedVerification } from '../engine/verification-service';
-import type { ElementVerification } from '../engine/codes/argentina/cirsoc201';
 
 export interface ReportExportInputs {
   config: ReportConfig;
-  verifications: ReportData['verifications'];
   advancedResults: Record<string, unknown>;
   t: (key: string) => string;
   /** How the figures are drawn; without it the report captures the screen for the model. */
@@ -86,35 +81,15 @@ async function screenshotWithNumbers(): Promise<string | undefined> {
 }
 
 /**
- * The concrete design as the Design panel verified it, member by member, for the report.
- *
- * The report used to re-design every member with the older checker: bars of its own choosing,
- * a linear P-M interaction, fy 420, 25 mm cover and Ø8 stirrups hard-wired, 2005 clause
- * numbers, so the document described a different design from the panel's. It now prints what
- * the panel checked: the member's own reinforcement against the adapter the project binds.
+ * The printable report. The design is not a section of it: what the desk designed and checked
+ * goes in the memoria (`lib/report/memoria`), the one document that states it.
  */
-export function reportDesignChecks(): NonNullable<ReportData['designChecks']> {
-  const out: NonNullable<ReportData['designChecks']> = [];
-  for (const [id, ctx] of verificationStore.contexts) {
-    const pv = verificationStore.providedFor(id);
-    if (!pv || !pv.hasProvided) continue;
-    const gov = [...pv.checks].sort((a, b) => b.ratio - a.ratio)[0];
-    out.push({
-      elementId: id, elementType: pv.elementType, section: ctx.section.name,
-      status: pv.overallStatus, worstUtilization: pv.worstUtilization, checks: pv.strengthCheckCount,
-      ...(gov ? { governing: gov.category, demand: gov.demand, capacity: gov.capacity, unit: gov.unit, comboName: gov.comboName } : {}),
-    });
-  }
-  return out.sort((a, b) => a.elementId - b.elementId);
-}
-
 export async function exportReportAs(input: ReportExportInputs): Promise<void> {
   const figures = input.figureOptions ? reportResultFigures(input.config, input.figureOptions) : {};
   // The model's figure is drawn; a capture of the screen only when it cannot be.
   const capture = input.config.sections?.modelData !== false && !figures.model;
   const data = buildProReportData({
     config: input.config,
-    verifications: [],
     advancedResults: Object.keys(input.advancedResults).length > 0
       ? input.advancedResults as ReportData['advancedResults']
       : undefined,
@@ -123,7 +98,6 @@ export async function exportReportAs(input: ReportExportInputs): Promise<void> {
   });
   if (!data) return;
   data.resultFigures = figures;
-  data.designChecks = reportDesignChecks();
   openReport(data);
 }
 
@@ -157,21 +131,4 @@ export function reportResultFigures(config: ReportConfig, c: ReportFigureChoices
   if (wants('forces')) out.forces = many(['moment', 'shear', 'axial']);
   if (wants('shells') && modelStore.plates.size + modelStore.quads.size > 0) out.shells = many(['shellMap']);
   return out;
-}
-
-/**
- * The concrete verification the report prints, against the model as it is now.
- *
- * Always re-run, not taken from the verification tab: a prior run may describe a since-edited
- * model. And kept to the report: it used to be written to `verificationStore`, replacing the
- * tab's own results — the ones its colour map draws — with this pass.
- */
-export function reportVerification(): ElementVerification[] {
-  const results = resultsStore.results3D;
-  if (!results) return [];
-  const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
-  const stationData = resultsStore.hasCombinations3D
-    ? computeStationDemands(activePerCombo3D(), activeCombinations(), md)
-    : undefined;
-  return runUnifiedVerification(results, md, resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null, stationData?.demands);
 }

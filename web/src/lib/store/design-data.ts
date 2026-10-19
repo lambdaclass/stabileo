@@ -28,7 +28,7 @@ export function patchDesignData(patch: Partial<ProjectDesignData>): void {
  * stairs, the post-tensioning, the fire settings, the particular elements). Undone like any other
  * change, but the design the rest of the project holds stays: no cover, steel or code moved.
  */
-export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes'>>): void {
+export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site'>>): void {
   modelStore.setDesignData({ ...designData(), ...patch });
 }
 

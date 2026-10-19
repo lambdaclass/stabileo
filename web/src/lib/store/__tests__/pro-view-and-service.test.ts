@@ -13,7 +13,7 @@ import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { deflectionChecks, LONG_TERM_FACTOR } from '../serviceability';
-import { buildProReportData } from '../../engine/pro-report-inputs';
+import { deflectionCheckRows } from '../memoria-inputs';
 import { eiOf } from '../../engine/member-deflection';
 import { modelToCode, codeToModel } from '../../model/code/format';
 
@@ -180,26 +180,17 @@ describe('one deflection check for concrete and steel', () => {
     expect(steel.check.limit).toBeCloseTo(6 / 360, 12);
   });
 
-  it('the report states a steel beam’s deflection, with no concrete verification to hang it on', () => {
-    // The report's verification set is concrete-only (`reportVerification`); a steel-only model
-    // hands it nothing, and its serviceability section still owes the reader the deflection.
+  it('the memoria states a steel beam’s deflection, with no concrete verification to hang it on', () => {
+    // A steel-only model has no concrete design, and the memoria still owes the reader the deflection.
     const s = beam({ e: 200000, fy: 250 });
     const el = modelStore.elements.get(s)!;
     const EI = eiOf(modelStore.materials.get(el.materialId), modelStore.sections.get(el.sectionId) as never)!.EIy;
-    const data = buildProReportData({
-      config: {
-        companyName: '', companyLogo: null, projectAddress: '', engineerName: '', revision: '',
-        sections: { modelData: true, results: true, verification: true, advancedAnalysis: true, storyDrift: true, diagnostics: true, quantities: true, loads: true },
-      },
-      verifications: [],
-      t: (k: string) => k,
-    });
-    const row = data?.serviceability?.find((r2) => r2.elementId === s);
-    expect(row?.deflection).toBeDefined();
+    const row = deflectionCheckRows().get(s)!;
+    expect(row.code).toBe('cirsoc-301');
     // Simply supported, q = 5 over L = 6: 5qL⁴/384EI, no long-term factor for steel.
     const delta = (5 * 5 * 6 ** 4) / (384 * EI);
-    expect(row!.deflection!.spanOverDelta).toBeCloseTo(6 / delta, 3);
-    expect(row!.deflection!.limitDivisor).toBe(360);
+    expect(row.inputs.find((i) => i.symbol === 'L/δ')!.value).toBe(Math.round(6 / delta));
+    expect(row.formula).toBe('δ ≤ L/360');
   });
 
 });

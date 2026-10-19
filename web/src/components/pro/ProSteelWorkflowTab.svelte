@@ -1,5 +1,8 @@
 <script lang="ts">
   import VariableSectionNotice from './design/VariableSectionNotice.svelte';
+  import SheetsPanel from './design/SheetsPanel.svelte';
+  import MemoriaButton from './design/MemoriaButton.svelte';
+  import ExchangePanel from './design/ExchangePanel.svelte';
   import ProSteelOptimise from './ProSteelOptimise.svelte';
   /**
    * Flujo de diseño metálico — the whole workflow, including the part that cannot happen.
@@ -807,6 +810,10 @@
     bind:open={documentsOpen}
   >
     <p class="line" data-testid="steel-stage-documents-body">{t('steel.workflow.documents.body')}</p>
+    <!-- The framing, anchor and joint drawings read the model and the joints: no detailing. -->
+    <MemoriaButton />
+    <SheetsPanel resolve={() => null} projectName={modelStore.model.detailing?.titleBlock?.project || t('detailing.doc.project')} />
+    <ExchangePanel projectName={modelStore.model.detailing?.titleBlock?.project || modelStore.model.name} />
   </StageSection>
 
   <!--

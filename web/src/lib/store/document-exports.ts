@@ -21,6 +21,7 @@ import { i18n, tp } from '../i18n';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../engine/detailing/document-render';
 import { exportToExcel } from '../export/excel';
 import { retouchedIn, withExportLog } from './export-log';
+import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
 import type { DocumentModel } from '../engine/detailing/document-model';
 
 /** Hand a blob to the browser under a name. The browser then loses sight of it — see
@@ -69,6 +70,7 @@ export function exportDetailingDxf(doc: DocumentModel, ctx: ExportContext): void
   withExportLog({ kind: 'dxf', doc, filename, at: ctx.at }, () => {
     const set = renderDrawings(doc, {
       locale: i18n.locale, projectName: ctx.projectName, retouched: retouchedIn(doc),
+      members: sheetMembers(), coverOf: coverForMember,
     });
     downloadBlob(filename, 'application/dxf', set.dxf);
   });

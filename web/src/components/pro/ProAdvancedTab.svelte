@@ -69,6 +69,7 @@
   import { collapseVariableResults, variableExpansionFor } from '../../lib/engine/variable-members';
   import QuantityInput from './loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { siteData, stagesForAnalysis } from '../../lib/store/site.svelte';
   // Wind loads moved to ProAutoLoadsDialog
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
@@ -1495,6 +1496,7 @@
       <div class="adv-panel">
         <p class="adv-hint" data-testid="staged-engine-note">{t('adv.stagedNote')}</p>
         <button class="adv-btn-sm" onclick={addStage}>{t('pro.addStage')}</button>
+        {#if siteData().phases.length}<button class="adv-btn-sm" onclick={() => (stages = stagesForAnalysis())} data-testid="stages-from-phases">{t('site.ui.stagesFromPhases')}</button>{/if}
         {#each stages as stage, i}
           <div class="adv-stage-card">
             <div class="adv-stage-header">

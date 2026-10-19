@@ -16,7 +16,7 @@ import { staticsRows } from './statics-rows';
 import { unstableCombinations } from './active-results';
 import { elementStationDeflections } from './service-deflection';
 import { downloadBlob } from './file';
-import { t } from '../i18n';
+import { i18n, t } from '../i18n';
 import { buildSolverInput3D } from '../engine/solver-service';
 import { sectionStressModel } from '../engine/member-stresses';
 import { toCsv } from '../engine/result-tables';
@@ -28,6 +28,8 @@ import { combinationKind, type WorkbookSource } from '../export/workbook-results
 import { fitsInXlsx, safeText, type WorkbookSheet } from '../export/workbook-cells';
 import { specificationRows } from '../pro/specification-list';
 import { APP_VERSION, BUILD_COMMIT } from '../build-info';
+import { designSheets, physicalForceRows } from './design-exchange';
+import { detailingStore } from './detailing.svelte';
 
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
@@ -65,21 +67,36 @@ function workbookSources(pick: SourcePick = {}): WorkbookSource[] {
 /** The workbook's sheets for the project as it stands. Exported for the tests. */
 /**
  * What a caller can narrow: the model's sheets, the results', sheets of its own, which sheets by
- * name (`sheets`) and which solved sets (`sources`).
+ * name (`sheets`), which solved sets (`sources`) and the design sheets (`design`: elements,
+ * checks and verdict; absent, they go in).
  */
 export interface WorkbookOptions {
   model?: boolean; results?: boolean; extra?: readonly WorkbookSheet[];
-  sheets?: ReadonlySet<string>; sources?: SourcePick;
+  sheets?: ReadonlySet<string>; sources?: SourcePick; design?: boolean;
+}
+
+/**
+ * The design sheets, stamped when they describe an earlier model.
+ *
+ * The memoria, the IFC, the sheets and the exchange say it on screen (`OutdatedNotice`, from
+ * `detailingStore.modelStale`); a workbook leaves the app, so the stamp goes in the file: a first
+ * row on each design sheet, above its header, naming why and when the file was exported.
+ */
+export function stampOutdatedDesign(sheets: readonly WorkbookSheet[], exported: string, stale = detailingStore.modelStale): WorkbookSheet[] {
+  if (!stale) return [...sheets];
+  const stamp = safeText(t('outdated.workbookStamp').replace('{time}', exported));
+  return sheets.map((s) => ({ ...s, rows: [[stamp], ...s.rows] }));
 }
 
 export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptions = {}): WorkbookSheet[] {
   const model = workbookModel();
+  const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
     model,
     solved: buildSolverInput3D(model, false, false, { expandMemberOffsets: false }),
     projectName: modelStore.model.name,
     projectInfo: modelStore.projectInfo,
-    meta: { exported: new Date().toISOString(), commit: `${APP_VERSION} (${BUILD_COMMIT})` },
+    meta: { exported, commit: `${APP_VERSION} (${BUILD_COMMIT})` },
     results: {
       sources: workbookSources(opts.sources),
       stations,
@@ -98,7 +115,14 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
     include: { model: opts.model, results: opts.results, sheets: opts.sheets },
     // The model's specifications, grouped by value as Specifications › List shows them; the
     // fields themselves are already in the Members, Supports and Quads sheets.
-    extra: [...(opts.model === false ? [] : [specificationsSheet()]), ...(opts.extra ?? [])],
+    extra: [
+      ...(opts.model === false ? [] : [specificationsSheet()]),
+      // The design as it stands: decisions and results per element, every check, and the forces
+      // of each physical member along it.
+      ...(opts.design === false ? [] : stampOutdatedDesign(designSheets(t, i18n.locale), exported)),
+      ...(opts.results === false || !resultsStore.results3D ? [] : [{ name: 'Physical member forces', rows: physicalForceRows() }]),
+      ...(opts.extra ?? []),
+    ],
   };
   return projectWorkbookSheets(input);
 }

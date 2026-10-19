@@ -1,4 +1,8 @@
 <script lang="ts">
+  import OutdatedNotice from './OutdatedNotice.svelte';
+  import RecheckNotice from './RecheckNotice.svelte';
+  /** In the desk the header already offers «Solve and check»; the classic screen shows it here. */
+  let { recheck = true }: { recheck?: boolean } = $props();
   /**
    * Documents and professional review — stage 6, not a footnote of stage 5.
    *
@@ -40,6 +44,9 @@
   import RcExportLog from './RcExportLog.svelte';
   import RcDocumentScope from './RcDocumentScope.svelte';
   import RcDocumentPreview from './RcDocumentPreview.svelte';
+  import SheetsPanel from './SheetsPanel.svelte';
+  import MemoriaButton from './MemoriaButton.svelte';
+  import ExchangePanel from './ExchangePanel.svelte';
   import ProQuantitiesCard from './ProQuantitiesCard.svelte';
   import {
     downloadBlob, exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
@@ -91,12 +98,12 @@
    * nothing selected. A single "nothing to export" would send half the users to Diseñar and the
    * other half to a checkbox, and only one of them would be right.
    */
-  function currentDoc() {
+  function currentDoc(quiet = false) {
     docError = null;
     const scope = scopeNow();
     const blocked = documentScopeBlocker(scope);
     if (blocked) {
-      docError = t(`detailing.doc.select.${blocked}`);
+      if (!quiet) docError = t(`detailing.doc.select.${blocked}`);
       return null;
     }
     const doc = detailingStore.buildDocument({
@@ -106,7 +113,7 @@
       // `DocumentModel.selection`.
       scope: scope.whole ? null : { elements: scope.elements, families: scope.families },
     });
-    if (!doc) docError = t('detailing.doc.noCoordinated');
+    if (!doc && !quiet) docError = t('detailing.doc.noCoordinated');
     return doc;
   }
 
@@ -235,10 +242,16 @@
 {#if !selected}
   <!-- Not a blank stage: the reason there is nothing to export, and where to get one. -->
   <p class="empty" data-testid="documents-empty">{t('detailing.doc.emptyStage')}</p>
+  <!-- The plans that read the model alone (formwork, schedules, steel) need no detailing. -->
+  <SheetsPanel resolve={() => null} projectName={projectName()} />
+  <MemoriaButton />
+  <ExchangePanel projectName={projectName()} />
 {:else}
 <div class="documents-stage" data-testid="documents-stage">
   <section class="documents" data-testid="documents" aria-labelledby="documents-title">
     <h3 id="documents-title">{t('detailing.doc.title')}</h3>
+    <OutdatedNotice what="detailing" testid="documents-outdated" />
+    {#if recheck}<RecheckNotice />{/if}
 
     <!--
       What this stage is, and what Detalle is — on the screen and not only in this file's header.
@@ -335,6 +348,7 @@
         {t('detailing.doc.xlsx')}
       </button>
       <button data-testid="doc-3d" onclick={open3d}>{t('detailing.scene.open')}</button>
+      <MemoriaButton />
     </div>
 
     {#if docError}
@@ -345,6 +359,10 @@
 
     <!-- The drawing and the schedule before they leave, from the same document instance. -->
     <RcDocumentPreview resolve={currentDoc} projectName={projectName()} />
+
+    <!-- The same drawings composed onto numbered sheets with the title block and the index. -->
+    <SheetsPanel resolve={() => currentDoc(true)} projectName={projectName()} />
+    <ExchangePanel projectName={projectName()} />
 
     <!--
       What has left this project, and whether it still corresponds.

@@ -23,6 +23,18 @@ export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'w
  */
 export type Exposure = 'interior' | 'exterior' | 'ground';
 
+export interface LoadBasis {
+  /** ISO time the plan was applied. */
+  at: string;
+  generatedBy?: string;
+  factors: Record<string, import('../codes/regulation').ProvenancedValue<number>>;
+  levels: Array<Omit<import('../engine/loads/load-plan').LevelMass, 'nodeIds'>>;
+  seismic?: import('../engine/loads/load-plan').LoadPlan['seismic'];
+  derivation: import('../codes/message').EngineMessage[];
+  assumptions: import('../codes/message').EngineMessage[];
+  refs: import('../codes/regulation').ClauseRef[];
+}
+
 export interface ProjectDesignData {
   version: 1;
   /** Reinforcing steel: its name and its specified yield strength, MPa. */
@@ -45,6 +57,13 @@ export interface ProjectDesignData {
   columnEndZones?: boolean;
   /** The project's own joist types (its makers' sheets, or geometric definitions). */
   joistTypes?: import('../engine/joists/library').JoistType[];
+  /** The sheet set: format, numbering, the documents' language and the revisions per sheet. */
+  /**
+   * The basis of the loads the last applied plan wrote: its provenanced factors, the weight by
+   * level, the seismic derivation, the assumptions and the clauses. Kept so the memoria's actions
+   * chapter can justify the loads after the dialog that computed them is closed.
+   */
+  loadBasis?: LoadBasis;
   /** Ribbed, hollow-core and composite-deck systems, drop panels and capitals, pile steel (`store/special-floors.ts`). */
   specialFloors?: import('./special-floors').SpecialFloorsData;
   /** Parametric stairs and the post-tensioned slabs' tendons (`store/stairs-pt.ts`). */
@@ -56,8 +75,17 @@ export interface ProjectDesignData {
   specialElements?: import('./special-elements').SpecialElementsData;
   /** The foreign codes the project also designs to, by material (`store/foreign-design.ts`). */
   foreignCodes?: import('./foreign-codes').ForeignCodes;
+  /** The price bases, the one in use and the summary shares of the budget (`store/budget.ts`). */
+  budget?: { bases: import('../engine/budget/budget').PriceBase[]; activeBaseId?: string; shares?: import('../engine/budget/budget').SummaryShares };
+  /** Models of other disciplines linked to the project, and the versions published (`store/federation.svelte.ts`). */
+  federation?: { links: import('../engine/federation/linked').LinkedModel[]; versions: import('../engine/federation/versions').PublishedVersion[] };
+  /** Constructions, walls and partitions, rooms (`store/architecture.ts`). */
+  /** Construction phases and what each builds (`store/site.svelte.ts`). */
+  site?: import('../engine/site/phases').SiteData;
+  architecture?: { constructions: import('../engine/architecture/architecture').Construction[]; walls: import('../engine/architecture/architecture').ArchWall[]; rooms: import('../engine/architecture/architecture').Room[] };
   /** Service condition and temperature of the timber members (CIRSOC 601 CM and Ct). */
   timber?: import('../engine/design/materials/timber').TimberSettings;
+  sheets?: { format: import('../sheets/formats').SheetFormat; prefix: string; start: number; language?: string; kinds?: string[]; revisions?: Record<string, { code: string; date?: string; note?: string }> };
   /** How a seismic project designs its concrete (`seismic-design.ts`). Absent: the defaults. */
   seismic?: import('./seismic-design').SeismicDesignSettings;
   /**
@@ -145,6 +173,8 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),
     ...((lateral) => (lateral ? { lateralSystem: lateral } : {}))(migrateLateralSystem(e.lateralSystem, (e.seismic as { roles?: Record<string, unknown> } | undefined)?.roles)),
+    ...(e.sheets && typeof e.sheets === 'object' ? { sheets: e.sheets as ProjectDesignData['sheets'] } : {}),
+    ...(e.loadBasis && typeof e.loadBasis === 'object' ? { loadBasis: e.loadBasis as LoadBasis } : {}),
     ...(e.timber && typeof e.timber === 'object' ? { timber: e.timber as ProjectDesignData['timber'] } : {}),
     ...(e.specialFloors && typeof e.specialFloors === 'object' ? { specialFloors: e.specialFloors as ProjectDesignData['specialFloors'] } : {}),
     ...(Array.isArray(e.stairs) ? { stairs: (e.stairs as Array<{ id?: unknown }>).filter((x) => typeof x?.id === 'string') as ProjectDesignData['stairs'] } : {}),
@@ -152,6 +182,10 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(e.fire && typeof e.fire === 'object' ? { fire: e.fire as ProjectDesignData['fire'] } : {}),
     ...(e.specialElements && typeof e.specialElements === 'object' ? { specialElements: e.specialElements as ProjectDesignData['specialElements'] } : {}),
     ...(e.foreignCodes && typeof e.foreignCodes === 'object' ? { foreignCodes: e.foreignCodes as ProjectDesignData['foreignCodes'] } : {}),
+    ...(e.site && typeof e.site === 'object' && Array.isArray((e.site as { phases?: unknown }).phases) ? { site: e.site as ProjectDesignData['site'] } : {}),
+    ...(e.architecture && typeof e.architecture === 'object' && Array.isArray((e.architecture as { walls?: unknown }).walls) ? { architecture: e.architecture as ProjectDesignData['architecture'] } : {}),
+    ...(e.federation && typeof e.federation === 'object' && Array.isArray((e.federation as { links?: unknown }).links) ? { federation: e.federation as ProjectDesignData['federation'] } : {}),
+    ...(e.budget && typeof e.budget === 'object' && Array.isArray((e.budget as { bases?: unknown }).bases) ? { budget: e.budget as ProjectDesignData['budget'] } : {}),
   };
 }
 

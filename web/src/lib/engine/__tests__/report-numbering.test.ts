@@ -8,7 +8,7 @@ import en from '../../i18n/locales/en';
 
 const config = {
   companyName: '', companyLogo: null, projectAddress: '', engineerName: '', revision: '1',
-  sections: { modelData: true, results: true, verification: false, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true },
+  sections: { modelData: true, results: true, advancedAnalysis: false, storyDrift: false, diagnostics: false, quantities: false, loads: true },
 } as ReportConfig;
 
 const data = {
@@ -18,7 +18,6 @@ const data = {
   combinations: [{ id: 1, name: 'U1', factors: [{ caseId: 1, caseName: 'Dead', factor: 1.25 }, { caseId: 2, caseName: 'Live', factor: 1 }] }],
   loadCount: 1,
   results: { displacements: [], reactions: [], elementForces: [] },
-  verifications: [],
   config,
   t: (k: string) => (en as Record<string, string>)[k] ?? k,
 } as unknown as ReportData;
@@ -51,17 +50,12 @@ describe('report numbering', () => {
   });
 });
 
-describe('the design section', () => {
-  it('prints the Design panel\'s checks, and says so when there are none', () => {
-    const none = generateReportHtml({ ...data, config: { ...config, sections: { ...config.sections, verification: true } } });
-    expect(none).toContain(en['report.design.none']);
-    const html = generateReportHtml({
-      ...data, config: { ...config, sections: { ...config.sections, verification: true } },
-      designChecks: [{ elementId: 7, elementType: 'beam', section: 'V 20×50', status: 'ok', worstUtilization: 0.84, checks: 6, governing: 'Bottom Span (My+)', demand: 80.2, capacity: 95.5, unit: 'kN·m', comboName: 'U2' }],
-    } as never);
-    expect(html).toContain('V 20×50');
-    expect(html).toContain('0.840');
-    expect(html).toContain('Bottom Span (My+)');
-    expect(html).not.toContain(en['report.design.none']);
+describe('the design is not in this report', () => {
+  const html = generateReportHtml(data);
+  it('prints no design section, and numbers its contents as printed', () => {
+    expect(html).not.toContain('id="sec-design');
+    // The memoria de cálculo carries the checks (`lib/report/memoria`).
+    const toc = [...html.matchAll(/<div class="toc-entry"><a href="#[^"]+">(\d+)\. /g)].map((m) => +m[1]!);
+    expect(toc).toEqual(toc.map((_, i) => i + 1));
   });
 });
