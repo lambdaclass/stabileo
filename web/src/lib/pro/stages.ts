@@ -374,9 +374,9 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
                * today shows the metallic inventory. Deliberately NOT a second button beside
                * the old "Metallic structures" one: that button became this one.
                *
-               * Its label says `design`, and the panel it opens says in its own banner that
-               * it verifies nothing. That is the honest pairing: the command names the place,
-               * the surface states its maturity. See `steel.panel.experimentalBanner`.
+               * Its label says `design`, and the panel it opens states its maturity in its own
+               * banner: the inventory verifies nothing, while the profile optimiser below it does
+               * check each candidate. See `steel.panel.experimentalBanner`.
                */
               id: 'steel',
               labelKey: 'proRibbon.cmdSteelProfiles',

@@ -177,6 +177,18 @@ export interface Section {
    */
   profileFamily?: string;
   /**
+   * Whether the section is rolled or welded, as the user declares it. Absent: not declared.
+   *
+   * CIRSOC 301 reads it in the flange's residual stress (Fr = 69 or 114 MPa, F.2.7), in the
+   * flange cases of Tabla B.4.1 (1/2, 11/12) and in F.3.2a/b. It is never inferred from
+   * `profileFamily` or from a drawing: a family names how a profile is usually made, not how
+   * this one is. Undeclared, the steel check evaluates both and holds the member when the two
+   * verdicts differ (`engine/codes/argentina/cirsoc301-verdict.ts`).
+   *
+   * Like `profileFamily`, a share link does not carry it (`utils/url-sharing.ts`).
+   */
+  fabrication?: 'rolled' | 'welded';
+  /**
    * How a PARAMETRIC section was built: which template, and the numbers typed into it.
    *
    * ── What it is not ────────────────────────────────────────────────
@@ -416,6 +428,19 @@ export interface Element extends Element3DMetadata {
    * Absent: the angle's compression check is NOT EVALUATED, by name.
    */
   angleCompression?: import('../engine/steel/angle-section').AngleCompressionInput;
+  /**
+   * Steel bracing beyond `unbracedLength`: the points where each flange is held, m from the
+   * member's start (the top flange for sagging, the bottom one for hogging), and the unbraced
+   * lengths for flexural buckling about each axis. Absent: deduced as before.
+   */
+  bracing?: import('../engine/steel/unbraced-length').SteelBracing;
+  /**
+   * Where the transverse load acts on a steel I or channel, for CIRSOC 301 F.2.2: on the web or
+   * the bottom flange (F.2.4a…F.2.6a) or on the top flange (F.2.4b…F.2.6b). Absent: not declared,
+   * and the check reads the top flange, the lower capacity, holding the member where only the other
+   * reading would pass (`cirsoc301-verdict.ts`).
+   */
+  steelLoadHeight?: 'web' | 'topFlange';
 }
 
 /** A camera the user named: where it stands and what it looks at, in scene coordinates. */

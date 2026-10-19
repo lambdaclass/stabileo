@@ -1,4 +1,7 @@
 <script lang="ts">
+  import JointTypologyPanel from './connections/JointTypologyPanel.svelte';
+  import JointsOverview from './connections/JointsOverview.svelte';
+  import VariableSectionNotice from './design/VariableSectionNotice.svelte';
   import { untrack } from 'svelte';
   import { jointDesignStore } from '../../lib/store/joint-design.svelte';
   import { jointStateKey } from '../../lib/connection/joint-design';
@@ -451,6 +454,7 @@
     can see the assumptions can review it — the same bargain `steel.panel.experimentalBanner`
     strikes. It is not a verification, and this panel must never read as one.
   -->
+  <VariableSectionNotice testid="conn-variable-section" />
   <div class="conn-banner" role="note" data-testid="conn-experimental-banner">
     {t('conn.experimentalBanner')}
   </div>
@@ -507,6 +511,7 @@
     bind:open={openJoints}
   >
     <p class="conn-explain" data-testid="conn-joints-what">{t('conn.joints.what')}</p>
+    <JointsOverview onselect={(id) => { selectedJointId = id; }} />
     <!--
       The filter says so. A list shorter than the model's joint count, with no explanation, is
       the kind of thing a user discovers at the worst possible moment.
@@ -631,6 +636,7 @@
 
       <!-- ── The design: the governing demand, the choices, and the verdicts ── -->
       {#if design}
+        <JointTypologyPanel nodeId={selectedJoint.nodeId} elementIds={selectedJoint.elementIds} />
         <section class="jd" data-testid="joint-design">
           <header class="jd-head">
             <span class="jd-title">{t('conn.design.title')}</span>

@@ -51,6 +51,7 @@
   import { nodeRadiusFor, diagonalOf, structureNodes } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { buildJointMeshes } from '../lib/three/joint-meshes';
+  import { buildTypologyMeshes } from '../lib/three/joint-typology-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
@@ -501,6 +502,19 @@
       ? { x: b.x - a.x, y: b.y - a.y, z: ((b as { z?: number }).z ?? 0) - ((a as { z?: number }).z ?? 0) }
       : { x: 1, y: 0, z: 0 };
 
+    // A joint with a typology draws its parts (plates, bolts, fillets, stiffeners, anchors).
+    if (design.typology?.parts.length) {
+      const built = buildTypologyMeshes(design.typology.parts, nodeId);
+      for (const mesh of built.meshes) jointsParent.add(mesh);
+      nodesInstanced.suppress(nodeId);
+      jointBoundingRadiusM = built.boundingRadiusM;
+      jointCentreM = built.centreM;
+      uiStore.jointSceneEmptyReasons = [];
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = built.meshes.length;
+      (window as unknown as { __jointScene?: unknown }).__jointScene = { typology: design.typology.kind, parts: design.typology.parts.map((p) => p.kind) };
+      invalidate();
+      return;
+    }
     const layout = jointSceneLayout(design, axis);
     /*
      * Why nothing is drawn, published rather than swallowed.

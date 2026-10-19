@@ -43,6 +43,12 @@ const IPE200 = (over: Partial<SteelDesignParams> = {}): SteelDesignParams => ({
   J: 6.98e-8,
   // F.2.2 (1), the expressions this file's LTB assertions were written against.
   loadPosition: 'web',
+  /*
+   * The shape: without it the checker does not take the section for an I and leaves the flexure
+   * not evaluated. Rolled, declared: these benchmarks are the rolled IPE 200's.
+   */
+  shape: 'I',
+  builtUp: false,
   ...over,
 });
 
@@ -81,7 +87,13 @@ describe('§D — tension', () => {
   it('without the end connection, rupture is NOT EVALUATED — never Ae = Ag by default', () => {
     const r = checkSteelTension(IPE200(), 100);
     expect(r.notEvaluated).toBeTruthy();
-    expect(r.status).toBe('fail');
+    /*
+     * Held, not failed (changed with the design stack's verdict, `cirsoc301-verdict.ts`): a limit
+     * state not evaluated is never a pass, and never a failure either, since no capacity was
+     * computed to fail against. The engine's ratio stays non-finite inside, so nothing that reads
+     * the ratio alone takes it for a pass.
+     */
+    expect(r.status).toBe('held');
     expect(r.ratio).toBe(Infinity);
   });
 
@@ -286,14 +298,19 @@ describe('F.2.1 and F.6.1 — the 1,5·My cap, now applied', () => {
     expect(r.Mp).toBeLessThanOrEqual(cap + 1e-9);
   });
 
-  it('and says that F.6.2 — flange local buckling — is not implemented', () => {
+  it('applies F.6.2 — flange local buckling — when the section says what it is', () => {
     /*
-     * Correct: there is no lateral-torsional buckling about the minor axis. But F.6.2 DOES define a
-     * flange-local-buckling limit state for that case, and it is not implemented — declared in the
-     * steps rather than left as an absence a reader would have to notice.
+     * An IPE 200 has a compact flange: F.6.2 does not apply, and the steps say so. A 300 × 300
+     * with a 12 mm flange in Fy 345: b/t = 150/12 = 12,5 between λp = 0,38·√(E/Fy) = 9,15 and
+     * λr = 1,0·√(E/Fy) = 24,08 (Tabla B.4.1b, caso 14), so
+     *   Mn = Mp − (Mp − 0,7·Fy·Sy)·(12,5 − 9,15)/(24,08 − 9,15).
      */
-    const r = checkSteelFlexure(IPE200(), 5, 'weak');
-    expect(r.steps.join(' ')).toContain('F.6.2');
+    expect(checkSteelFlexure({ ...IPE200(), shape: 'I' }, 5, 'weak').steps.join(' ')).toContain('ala compacta, F.6.2 no se aplica');
+    const p = { ...IPE200({ h: 0.3, b: 0.3, tf: 0.012, tw: 0.008 }), Fy: 345, shape: 'I' as const };
+    const r = checkSteelFlexure(p, 5, 'weak');
+    const Sy = p.Iy / (p.b / 2), lp = 0.38 * Math.sqrt(200000 / 345), lr = Math.sqrt(200000 / 345);
+    expect(r.Mn).toBeCloseTo(r.Mp - (r.Mp - 0.7 * 345 * Sy * 1000) * ((12.5 - lp) / (lr - lp)), 6);
+    expect(r.Mn).toBeLessThan(r.Mp);
   });
 });
 
@@ -368,5 +385,19 @@ describe('the whole element, and what it still must not claim', () => {
     expect(a.flexureZ.phiMn).toBe(b.flexureZ.phiMn);
     expect(a.shear.phiVn).toBe(b.shear.phiVn);
     expect(a.overallStatus).toBe(b.overallStatus);
+  });
+});
+
+describe('status thresholds, the same as the rest of the design surface', () => {
+  // φPn for yield of the gross section, in kN. Every element connected (D.3(1), Ae = An = Ag):
+  // rupture, 0,75·Fu·Ag, does not govern; without a connection tension is not evaluated (D.2(b)).
+  const phiPn = 0.9 * IPE200().Fy * IPE200().A * 1e3;
+  const connected = { ...IPE200(), tensionConnection: { allElementsConnected: true } };
+  it.each([
+    [0.9, 'ok'],
+    [0.97, 'warn'],
+    [1.03, 'fail'],
+  ] as const)('a ratio of %s reads %s', (ratio, status) => {
+    expect(checkSteelTension(connected, ratio * phiPn).status).toBe(status);
   });
 });

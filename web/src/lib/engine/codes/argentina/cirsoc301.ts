@@ -14,6 +14,20 @@
  * No engine, no verdict: when the kernel is not registered every check FAILS with
  * «el motor de cálculo no está cargado», and `engine.available` is false.
  *
+ * What the app adds around the engine, none of it a second statement of a clause the engine has:
+ *   · per-axis buckling lengths (`Lx`, `Ly`), sent as K·Lx/L and K·Ly/L since the engine buckles
+ *     K·L about each axis;
+ *   · a Lb per flange (`LbNeg`): the member is checked once per moment sign with the flange that
+ *     sign compresses, and the worse reading is the member's;
+ *   · §G.6, shear along the weak axis on the flanges of an I or a channel
+ *     (`cirsoc301-weak-shear.ts`), which the engine does not have;
+ *   · the near-limit band of every design surface (`utilizationStatus`): a pass above 0,95 reads
+ *     `warn`, still a pass; a failure is the engine's;
+ *   · the verdict (`cirsoc301-verdict.ts`): a check the engine refuses under load is `held`, never
+ *     `ok` and never a failure with an infinite ratio; and the readings over a datum the member does
+ *     not state (rolled or welded, `builtUp`; the load height, `loadPosition`), each justified there.
+ *     A shape the section does not state is not taken as an I: the engine refuses it by name.
+ *
  * Unidades: kN, m, MPa (N/mm²).
  */
 
@@ -22,6 +36,68 @@ import type { VerifStatus } from './cirsoc201';
 import type { EngineMessage } from '../../../codes/message';
 import steelEs from '../../../i18n/locales/steel/es';
 import { engineCheckMembers, type EngineCheck, type EngineMemberResult } from './cirsoc301-kernel';
+import { weakAxisShear } from './cirsoc301-weak-shear';
+import { utilizationStatus } from '../../design/outcome';
+import {
+  combineFabrication, combineLoadHeight, fabricationMatters, loadHeightMatters, steelNotEvaluated, steelResultLine, steelVerdict,
+  worseSteel,
+} from './cirsoc301-verdict';
+
+/**
+ * A member check's verdict: the three words of a ratio, or `held` when a limit state it needs was
+ * not evaluated, or its verdict depends on a datum the member does not state
+ * (`cirsoc301-verdict.ts`). `held` is never a pass and never a failure.
+ */
+export type SteelStatus = VerifStatus | 'held';
+
+/** A limit state a check did not evaluate under load: the engine's refusal, with its clause. */
+export interface SteelNotEvaluated {
+  /** The clause of the check refused (the engine's: 'E.4', 'F', 'D.2(b)', …). */
+  clause: string;
+  /** The engine's refusal message key (`c301.refuse.*`) and its parameters. */
+  key: string;
+  params?: EngineMessage['params'];
+  /**
+   * Whether the capacity reported is still an upper bound of the true one. The engine refuses a
+   * check whole, reporting no capacity, so this is false: a refused check never proves a failure.
+   */
+  upperBound: boolean;
+}
+
+/** A limit state left out, with the check it belongs to. */
+export interface SteelCheckNotEvaluated extends SteelNotEvaluated {
+  check: 'tension' | 'compression' | 'flexureZ' | 'flexureY' | 'shear' | 'shearWeak' | 'interaction';
+}
+
+/**
+ * Whether the section is rolled or welded, and where that came from. `declared`: the section says
+ * so. `undeclared`: it does not, and the member was read as both (`combineFabrication`).
+ */
+export type SteelFabrication =
+  | { basis: 'declared'; welded: boolean }
+  | {
+      basis: 'undeclared';
+      rolled: { status: SteelStatus; ratio: number };
+      welded: { status: SteelStatus; ratio: number };
+      /** Which reading the reported checks are. */
+      governs: 'rolled' | 'welded';
+      /** True when the two verdicts differ: the member is held until the section declares it. */
+      dependsOnIt: boolean;
+    };
+
+/**
+ * Where the transverse load acts for F.2.2, and where that came from. `undeclared`: read on the top
+ * flange, and on the web only where the top-flange reading fails (`combineLoadHeight`).
+ */
+export type SteelLoadHeight =
+  | { basis: 'declared'; position: 'web' | 'topFlange' }
+  | {
+      basis: 'undeclared';
+      top: { status: SteelStatus; ratio: number };
+      web?: { status: SteelStatus; ratio: number };
+      /** True when the verdict depends on it: held until the member declares where the load acts. */
+      dependsOnIt: boolean;
+    };
 
 // ---------------------------------------------------------------------------
 // Types & Interfaces
@@ -50,6 +126,17 @@ export interface SteelDesignParams {
   Lb: number;    // longitud no arriostrada para pandeo lateral-torsional (m)
   Kx?: number;   // factor de longitud efectiva, eje fuerte (default 1.0)
   Ky?: number;   // factor de longitud efectiva, eje debil (default 1.0)
+  /**
+   * Longitudes de pandeo flexional por eje (m), cuando la barra las declara (arriostramiento por
+   * eje). Ausentes => L. El motor pandea K·L: se le envia K·Lx/L y K·Ly/L.
+   */
+  Lx?: number;
+  Ly?: number;
+  /**
+   * Lb del ala que comprimen los momentos negativos (la inferior), m. Ausente => `Lb` para los dos
+   * signos. Con ella y el momento por signo (`MuzPos`, `MuzNeg`), cada signo con su ala.
+   */
+  LbNeg?: number;
   J?: number;    // constante torsional (m⁴)
   Cw?: number;   // constante de alabeo (m⁶)
   /**
@@ -170,7 +257,7 @@ export interface SteelTensionResult {
   Pu: number;      // demanda (kN)
   phiPn: number;   // capacidad (kN)
   ratio: number;
-  status: VerifStatus;
+  status: SteelStatus;
   steps: string[];
   /** Why the check could not be evaluated (no connection for D.2(b)). */
   notEvaluated?: string;
@@ -191,7 +278,7 @@ export interface SteelCompressionResult {
   /** Factor de reduccion por elementos esbeltos Q = Qs·Qa (§E.7); 1 sin elementos esbeltos. */
   Q: number;
   ratio: number;
-  status: VerifStatus;
+  status: SteelStatus;
   steps: string[];
   /** Presente cuando la resistencia no se pudo evaluar: el motivo. Nunca es un «verifica». */
   notEvaluated?: string;
@@ -213,7 +300,7 @@ export interface SteelFlexureResult {
   /** Seccion del Capitulo F aplicada: 'F.2' … 'F.6'. */
   clause?: string;
   ratio: number;
-  status: VerifStatus;
+  status: SteelStatus;
   steps: string[];
   /** Presente cuando la resistencia no se pudo evaluar: el motivo. Nunca es un «verifica». */
   notEvaluated?: string;
@@ -226,11 +313,13 @@ export interface SteelFlexureResult {
 }
 
 export interface SteelShearResult {
+  /** The axis the shear acts along: 'strong' on the web (G.2), 'weak' on the flanges (G.6). */
+  axis?: 'strong' | 'weak';
   Vu: number;
   phiVn: number;
   Cv: number;
   ratio: number;
-  status: VerifStatus;
+  status: SteelStatus;
   steps: string[];
   /** The calculation as the engine reports it, one localisable message per line (`c301.*`). */
   messages: EngineMessage[];
@@ -244,7 +333,7 @@ export interface SteelInteractionResult {
   equation: 'H1-1a' | 'H1-1b';
   value: number;   // <= 1.0 verifica
   ratio: number;
-  status: VerifStatus;
+  status: SteelStatus;
   steps: string[];
   /** Presente cuando una capacidad que la interaccion usa no se pudo evaluar. */
   notEvaluated?: string;
@@ -262,6 +351,11 @@ export interface SteelVerificationInput {
   Muy: number;   // kN·m (momento eje debil)
   Muz: number;   // kN·m (momento eje fuerte)
   Vu: number;    // kN
+  /** Shear along the weak axis, on the flanges of an I or a channel (G.6), kN. Absent: none. */
+  VuWeak?: number;
+  /** Strong-axis moment by sign, kN·m, when each flange has its own unbraced length (`LbNeg`). */
+  MuzPos?: number;
+  MuzNeg?: number;
   params: SteelDesignParams;
 }
 
@@ -275,8 +369,22 @@ export interface SteelVerification {
   flexureZ: SteelFlexureResult;   // eje fuerte
   flexureY?: SteelFlexureResult;  // eje debil
   shear: SteelShearResult;
+  /** §G.6 on the flanges (I, channel), when the member carries weak-axis shear. */
+  shearWeak?: SteelShearResult;
   interaction?: SteelInteractionResult;
-  overallStatus: VerifStatus;
+  overallStatus: SteelStatus;
+  /** The limit states the checks left out under load, each with its check (`steelNotEvaluated`). */
+  notEvaluated?: SteelCheckNotEvaluated[];
+  /** Rolled or welded: declared, or read both ways (`combineFabrication`). Absent where it does not matter. */
+  fabrication?: SteelFabrication;
+  /** The load height of F.2.2: declared, or read as `combineLoadHeight` says. Absent where it does not matter. */
+  loadHeight?: SteelLoadHeight;
+  /**
+   * The exact engine inputs the verdict rests on, one per reading of an undeclared datum (the
+   * per-flange Lb aside, which the caller pairs with each demand's sign). The engine gate certifies
+   * a pass on every one of them (`cirsoc301-engine-gate.ts`).
+   */
+  inputs?: SteelDesignParams[];
   diagnostics?: SolverDiagnostic[];
   steps: string[];
   /** Governing combination per force component (from combo-driven verification). */
@@ -289,6 +397,8 @@ export interface SteelVerification {
     flexure?: { comboId: number; comboName: string };
     shear?: { comboId: number; comboName: string };
     axial?: { comboId: number; comboName: string };
+    /** The combination and station whose forces, acting together, govern H.1. */
+    interaction?: { comboId: number; comboName: string; t: number };
   };
 }
 
@@ -366,13 +476,35 @@ export function steelShapeOf(shape: string | undefined): SteelShape | null {
   }
 }
 
-/** The input the engine reads: the params themselves, with the resolved Ae's messages as steps. */
-function engineMember(elementId: number, p: SteelDesignParams): object {
+/**
+ * The input the engine reads: the params themselves, with the resolved Ae's messages as steps, and
+ * the per-axis lengths as effective-length factors (the engine buckles K·L about each axis, so
+ * K·Lx/L about the strong one is K·Lx exactly).
+ */
+export function engineMember(elementId: number, p: SteelDesignParams): object {
   const tc = p.tensionConnection;
   const tensionConnection = tc?.resolved
     ? { ...tc, resolved: { Ae: tc.resolved.Ae, steps: tc.resolved.steps, messages: tc.resolved.messages ?? [] } }
     : tc;
-  return { ...p, elementId, ...(tensionConnection ? { tensionConnection } : {}) };
+  const { Lx, Ly, LbNeg: _lbNeg, ...rest } = p;
+  // A tee's web is d − tf tall, and that is the h of kc (Tabla B.4.1, E.7.1(b)); the engine's
+  // default clear height, h − 2·tf, is a doubly flanged section's and would overstate kc.
+  if (p.shape === 'T' && p.hw === undefined && p.h > 0 && p.tf > 0) (rest as SteelDesignParams).hw = p.h - p.tf;
+  const axisK = p.L > 0 ? {
+    ...(Lx !== undefined ? { Kx: (p.Kx ?? 1) * Lx / p.L } : {}),
+    ...(Ly !== undefined ? { Ky: (p.Ky ?? 1) * Ly / p.L } : {}),
+  } : {};
+  return { ...rest, ...axisK, elementId, ...(tensionConnection ? { tensionConnection } : {}) };
+}
+
+/** The step that says how per-axis lengths reached the engine, when the member declares them. */
+function lengthsStep(p: SteelDesignParams): EngineMessage[] {
+  if (p.Lx === undefined && p.Ly === undefined) return [];
+  const Lx = p.Lx ?? p.L, Ly = p.Ly ?? p.L;
+  return [{ key: 'c301.lengthsPerAxis', params: {
+    Lx: fmtNum(Lx), Ly: fmtNum(Ly), L: fmtNum(p.L),
+    kx: fmtNum((p.Kx ?? 1) * Lx / p.L), ky: fmtNum((p.Ky ?? 1) * Ly / p.L),
+  } }];
 }
 
 const UNAVAILABLE: EngineMessage = { key: 'c301.refuse.engineUnavailable' };
@@ -384,7 +516,7 @@ function run(p: SteelDesignParams, f: { Nu: number; Muz: number; Muy: number; Vu
 }
 
 interface Common {
-  ratio: number; status: VerifStatus; steps: string[]; messages: EngineMessage[];
+  ratio: number; status: SteelStatus; steps: string[]; messages: EngineMessage[];
   clauseRef?: string; notEvaluated?: string; notEvaluatedMessage?: EngineMessage;
 }
 
@@ -393,7 +525,9 @@ function common(c: EngineCheck): Common {
   const ne = c.notEvaluated ? localisable(c.notEvaluated) : undefined;
   return {
     ratio: c.ratio,
-    status: c.pass ? 'ok' : 'fail',
+    // The engine decides pass or fail; a pass near the limit reads `warn` as on every surface. A
+    // check it refused under load is held: no capacity was computed, so nothing passes or fails.
+    status: ne && c.demand > 0 ? 'held' : c.pass ? (utilizationStatus(c.ratio) === 'warn' ? 'warn' : 'ok') : 'fail',
     steps: messages.map(renderEs),
     messages,
     clauseRef: c.clause,
@@ -491,6 +625,15 @@ export function checkSteelShear(params: SteelDesignParams, Vu: number): SteelShe
   return shearOf(r.shear);
 }
 
+/** §G.6 on the flanges of an I or a channel, for the weak-axis shear the member carries. */
+function weakShearOf(p: SteelDesignParams, VuWeak: number | undefined): SteelShearResult | undefined {
+  const shape = steelShapeOf(p.shape);
+  if (VuWeak === undefined || Math.abs(VuWeak) <= 1e-6 || (shape !== 'I' && shape !== 'U') || !(p.b > 0 && p.tf > 0)) return undefined;
+  const w = weakAxisShear({ Fy: p.Fy, E: p.E, b: p.b, tf: p.tf, shape }, VuWeak);
+  const status: VerifStatus = w.ratio <= 1 ? (utilizationStatus(w.ratio) === 'warn' ? 'warn' : 'ok') : 'fail';
+  return { axis: 'weak', Vu: w.Vu, phiVn: w.phiVn, Cv: w.Cv, ratio: w.ratio, status, steps: w.messages.map(renderEs), messages: w.messages, clauseRef: 'G.6' };
+}
+
 function interactionOf(c: EngineCheck): SteelInteractionResult {
   const equation = c.clause === 'H.1.1a' ? 'H1-1a' : 'H1-1b';
   return { equation, value: c.ratio, ...common(c) };
@@ -498,7 +641,9 @@ function interactionOf(c: EngineCheck): SteelInteractionResult {
 
 /** H.1 for the given demand (Pu + compression). */
 export function checkSteelInteraction(params: SteelDesignParams, Pu: number, Mux: number, Muy: number): SteelInteractionResult {
-  const r = run(params, { Nu: Pu, Muz: Mux, Muy, Vu: 0 });
+  // A Lb per flange: the sign of the strong-axis moment says which flange it compresses.
+  const p = params.LbNeg !== undefined ? { ...params, Lb: Mux < 0 ? params.LbNeg : params.Lb, LbNeg: undefined } : params;
+  const r = run(p, { Nu: Pu, Muz: Mux, Muy, Vu: 0 });
   if (!r) return { equation: 'H1-1b', value: Infinity, ...unavailable() };
   if (r.interaction) return interactionOf(r.interaction);
   // H.1 does not apply (one moment, no axial force): H.1.1b reduces to that flexure ratio.
@@ -506,21 +651,97 @@ export function checkSteelInteraction(params: SteelDesignParams, Pu: number, Mux
   return { equation: 'H1-1b', value: f.ratio, ...common(f) };
 }
 
+/**
+ * H.1 for many demands in one engine call and without the calculation: the ratio of each, as
+ * `checkSteelInteraction` reads it (the flexure ratio where H.1 does not apply; Infinity for a
+ * check the engine did not evaluate). Null when the engine is not available. For a search over
+ * the combinations and stations of a member; the governing one is then read with its steps.
+ */
+export function interactionRatios(cases: ReadonlyArray<{ params: SteelDesignParams; Pu: number; Mux: number; Muy: number }>): number[] | null {
+  if (cases.length === 0) return [];
+  const members = cases.map((c, k) => {
+    const p = c.params.LbNeg !== undefined ? { ...c.params, Lb: c.Mux < 0 ? c.params.LbNeg : c.params.Lb, LbNeg: undefined } : c.params;
+    return engineMember(k + 1, p);
+  });
+  const out = engineCheckMembers(members, cases.map((c, k) => ({ elementId: k + 1, Nu: c.Pu, Muz: c.Mux, Muy: c.Muy, Vu: 0 })), { steps: false });
+  if (!out) return null;
+  const byId = new Map(out.map((r) => [r.elementId, r]));
+  return cases.map((c, k) => {
+    const r = byId.get(k + 1);
+    if (!r) return Infinity;
+    const x = r.interaction ?? (r.flexureWeak && Math.abs(c.Muy) > 0 ? r.flexureWeak : r.flexureStrong);
+    return x.notEvaluated ? Infinity : x.ratio;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Verificacion completa de un elemento
 // ---------------------------------------------------------------------------
 
+/** The worse of two verifications of one member: by verdict (a failure, a hold, the passes), then by ratio. */
+export const worseSteelVerification = (a: SteelVerification, b: SteelVerification): SteelVerification => worseSteel(a, b);
+
+/**
+ * The data the member does not state, settled: a shape not given is not taken as an I (the engine
+ * refuses `'undeclared'` by name), and `builtUp` / `loadPosition` are read as `cirsoc301-verdict.ts`
+ * says when absent. `each(params)` reads the member with every datum definite.
+ */
+export function withUndeclaredData(params: SteelDesignParams, each: (p: SteelDesignParams) => SteelVerification): SteelVerification {
+  const p = params.shape === undefined ? { ...params, shape: 'undeclared' } : params;
+  const byLoad = (q: SteelDesignParams): SteelVerification => {
+    if (q.loadPosition !== undefined || !loadHeightMatters(q.shape)) {
+      const v = each(q);
+      return q.loadPosition !== undefined && loadHeightMatters(q.shape) ? { ...v, loadHeight: { basis: 'declared', position: q.loadPosition } } : v;
+    }
+    const top = each({ ...q, loadPosition: 'topFlange' });
+    return combineLoadHeight(top, top.overallStatus === 'fail' ? each({ ...q, loadPosition: 'web' }) : undefined);
+  };
+  if (p.builtUp !== undefined || !fabricationMatters(p.shape)) {
+    const v = byLoad(p);
+    return p.builtUp !== undefined && fabricationMatters(p.shape) ? { ...v, fabrication: { basis: 'declared', welded: p.builtUp } } : v;
+  }
+  return combineFabrication(byLoad({ ...p, builtUp: false }), byLoad({ ...p, builtUp: true }));
+}
+
 /**
  * The whole member. `opts.trace: false` skips the calculation (no `steps`, no `messages`): for a
  * search that screens many candidates and reports only the verdict.
+ *
+ * With a Lb per flange (`params.LbNeg`) and the moment by sign, the member is checked twice, each
+ * sign of the strong-axis moment with the flange it compresses (the top one, `Lb`, for positive
+ * moments; the bottom one, `LbNeg`, for negative), and the worse reading is the member's. Each run
+ * is a whole check of the member under that moment, so its interaction reads the flexural
+ * capacity of the flange that moment compresses.
  */
 export function verifySteelElement(input: SteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
-  const { elementId, Nu, Muy, Muz, Vu, params } = input;
+  return withUndeclaredData(input.params, (params) => verifyByFlange({ ...input, params }, opts));
+}
+
+/** The member with every datum stated: once, or once per flange with its own Lb. */
+export function verifyByFlange(input: SteelVerificationInput, opts: { trace?: boolean } = {}): SteelVerification {
+  const p = input.params;
+  if (p.LbNeg === undefined || (input.MuzPos === undefined && input.MuzNeg === undefined)) {
+    // Without the moment by sign, the longer of the two flange lengths serves both signs.
+    const Lb = p.LbNeg !== undefined ? Math.max(p.Lb, p.LbNeg) : p.Lb;
+    return verifyOnce(input, { ...p, Lb, LbNeg: undefined }, opts);
+  }
+  const flange = (sign: 'positive' | 'negative', Lb: number): EngineMessage => ({
+    key: 'c301.flangeLb',
+    params: { sign: { key: `c301.word.${sign}` }, flange: { key: `c301.word.${sign === 'positive' ? 'top' : 'bottom'}` }, Lb: fmtNum(Lb) },
+  });
+  const pos = verifyOnce({ ...input, Muz: input.MuzPos ?? 0 }, { ...p, LbNeg: undefined }, opts, flange('positive', p.Lb));
+  const neg = verifyOnce({ ...input, Muz: input.MuzNeg ?? 0 }, { ...p, Lb: p.LbNeg, LbNeg: undefined }, opts, flange('negative', p.LbNeg));
+  return { ...worseSteelVerification(pos, neg), Muz: input.Muz, inputs: [{ ...p, LbNeg: undefined }] };
+}
+
+function verifyOnce(input: SteelVerificationInput, params: SteelDesignParams, opts: { trace?: boolean }, note?: EngineMessage): SteelVerification {
+  const { elementId, Nu, Muy, Muz, Vu } = input;
   const r = run(params, { Nu, Muz, Muy, Vu }, elementId, opts.trace ?? true);
 
   const header = [
     `=== Verificacion CIRSOC 301 — Elemento ${elementId} ===`,
     `Solicitaciones: Nu=${Nu.toFixed(2)} kN, Muz=${Muz.toFixed(2)} kN·m, Muy=${Muy.toFixed(2)} kN·m, Vu=${Vu.toFixed(2)} kN`,
+    ...[...lengthsStep(params), ...(note ? [note] : [])].map(renderEs),
     '',
   ];
 
@@ -540,6 +761,7 @@ export function verifySteelElement(input: SteelVerificationInput, opts: { trace?
       diagnostics: [diag],
       steps: [...header, ...u.steps],
       engine: { available: false, pass: false, unityRatio: Infinity, governingCheck: 'none', unevaluated: ['engine'] },
+      inputs: [params],
     };
   }
 
@@ -547,15 +769,24 @@ export function verifySteelElement(input: SteelVerificationInput, opts: { trace?
   const compression = r.compression && compressionOf(r.compression);
   const flexureZ = flexureOf(r.flexureStrong);
   const flexureY = r.flexureWeak && flexureOf(r.flexureWeak);
-  const shear = shearOf(r.shear);
+  const shear: SteelShearResult = { ...shearOf(r.shear), axis: 'strong' };
   const interaction = r.interaction && interactionOf(r.interaction);
+  const shearWeak = weakShearOf(params, input.VuWeak);
 
   const steps = [...header];
-  for (const c of [tension, compression, flexureZ, flexureY, shear, interaction]) {
+  for (const c of [tension, compression, flexureZ, flexureY, shear, shearWeak, interaction]) {
     if (c) steps.push(...c.steps, '');
   }
-  const overallStatus: VerifStatus = r.pass ? 'ok' : 'fail';
-  steps.push(`=== Resultado global: ${overallStatus.toUpperCase()} ===`);
+  // The verdict of the checks (`steelVerdict`): a proven failure, a hold where a check was refused
+  // under load, else the passes by band. §G.6 (app-side) can only lower it.
+  const parts = { tension, compression, flexureZ, flexureY, shear, shearWeak, interaction };
+  const overallStatus = steelVerdict(parts);
+  const notEvaluated = steelNotEvaluated(parts);
+  if (notEvaluated.length) {
+    const word: Record<string, string> = { tension: 'tracción', compression: 'compresión', flexureZ: 'flexión, eje fuerte', flexureY: 'flexión, eje débil', shear: 'corte', shearWeak: 'corte, eje débil', interaction: 'interacción' };
+    steps.push(`Estados límite no evaluados: ${notEvaluated.map((n) => `${n.clause || '—'} (${word[n.check]})`).join(', ')}. El miembro no se da por verificado.`);
+  }
+  steps.push(steelResultLine(overallStatus));
 
   const diags: SolverDiagnostic[] = [];
   const checks: { name: string; result?: Common }[] = [
@@ -564,12 +795,13 @@ export function verifySteelElement(input: SteelVerificationInput, opts: { trace?
     { name: 'FLEXURE_Z', result: flexureZ },
     { name: 'FLEXURE_Y', result: flexureY },
     { name: 'SHEAR', result: shear },
+    { name: 'SHEAR_WEAK', result: shearWeak },
     { name: 'INTERACTION', result: interaction },
   ];
   for (const check of checks) {
     if (!check.result) continue;
     const { status, ratio, notEvaluated } = check.result;
-    if (notEvaluated && ratio > 0) {
+    if (notEvaluated && status === 'held') {
       diags.push({
         severity: 'error', code: `VERIF_STEEL_NOT_EVALUATED_${check.name}`,
         message: `Steel ${check.name.toLowerCase().replace('_', ' ')} check not evaluated: ${notEvaluated}`,
@@ -586,10 +818,12 @@ export function verifySteelElement(input: SteelVerificationInput, opts: { trace?
 
   return {
     elementId, Nu, Muy, Muz, Vu,
-    tension, compression, flexureZ, flexureY, shear, interaction,
+    tension, compression, flexureZ, flexureY, shear, ...(shearWeak ? { shearWeak } : {}), interaction,
     overallStatus,
+    ...(notEvaluated.length ? { notEvaluated } : {}),
     diagnostics: diags.length > 0 ? diags : undefined,
     steps,
     engine: { available: true, pass: r.pass, unityRatio: r.unityRatio, governingCheck: r.governingCheck, unevaluated: r.unevaluated },
+    inputs: [params],
   };
 }

@@ -30,6 +30,7 @@ import type { MemberContext } from '../engine/design/member-context';
 import { regulationsStore } from './regulations.svelte';
 import type { DesignRunSummary, MemberDesignOutcome } from '../engine/design/outcome';
 import { utilizationStatus } from '../engine/design/outcome';
+import { steelMemberStatus, steelUtilization } from '../engine/steel/steel-utilization';
 import { rebarHash } from '../engine/design/rebar-hash';
 import { getDesignCode, type DesignCodeId } from '../engine/design/code-adapter';
 import type { OrientationIssue } from '../engine/design/orientation-diagnostic';
@@ -416,6 +417,10 @@ function createVerificationStore() {
      */
     getDisplayStatus(elementId: number): DisplayStatus {
       void providedRevision;
+      // A steel member: its CIRSOC 301 verdict, when one ran against this analysis. A limit state
+      // it left out reads «not evaluated» (`unavailable`), whatever the ratios that did run say.
+      const steel = steelMap.get(elementId);
+      if (steel) return steelMemberStatus(steel);
       const reinf = reinforcementProvider?.(elementId);
       if (!contexts.has(elementId)) return 'unavailable';
       if (!reinf) return 'unavailable';
@@ -478,6 +483,10 @@ function createVerificationStore() {
      */
     getDisplayRatio(elementId: number): number | null {
       void providedRevision;
+      const steel = steelMap.get(elementId);
+      // A held steel member has no utilisation to show: the ratios that ran leave a limit state
+      // out, or differ with a datum the section does not declare.
+      if (steel) { const u = steelUtilization(steel); return steel.overallStatus !== 'held' && Number.isFinite(u) ? u : null; }
       const pv = providedFor(elementId);
       if (pv && pv.strengthCheckCount > 0) {
         return Number.isFinite(pv.worstUtilization) ? pv.worstUtilization : null;
@@ -549,7 +558,8 @@ function createVerificationStore() {
       const cv = concreteMap.get(elementId);
       if (cv) return cv.overallStatus;
       const sv = steelMap.get(elementId);
-      if (sv) return sv.overallStatus;
+      // A held steel verdict is neither of the three words: no baseline status.
+      if (sv) return sv.overallStatus === 'held' ? null : sv.overallStatus;
       return null;
     },
 

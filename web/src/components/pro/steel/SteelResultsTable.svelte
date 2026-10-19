@@ -65,7 +65,9 @@
       add('shear', v.shear, kN(v.shear.Vu), kN(v.shear.phiVn));
       add('interaction', v.interaction, v.interaction ? v.interaction.value.toFixed(3) : '', '1.000');
       const gov = checks.reduce((a, b) => (b.ratio > a.ratio ? b : a), checks[0]!);
-      const status: Status = checks.some((c) => c.status === 'notEvaluated') ? 'notEvaluated' : v.overallStatus === 'fail' ? 'fail' : 'pass';
+      // A held member (a limit state not evaluated, or a datum it does not state) is not a pass.
+      const status: Status = v.overallStatus === 'fail' ? 'fail'
+        : checks.some((c) => c.status === 'notEvaluated') || v.overallStatus === 'held' ? 'notEvaluated' : 'pass';
       const rc = v.engineRecheck;
       out.push({
         id: m.elementId, section: sec.name, ratio: gov.ratio, governing: gov.key, status,
