@@ -33,6 +33,10 @@ export const stairEntries = (): StairEntry[] => designData().stairs ?? [];
 export function saveStair(s: StairEntry): void {
   patchOwnDesignData({ stairs: [...stairEntries().filter((x) => x.id !== s.id), s] });
 }
+/** Every stair at once, one undo step (a batch over them). */
+export function saveStairs(all: StairEntry[]): void {
+  patchOwnDesignData({ stairs: all });
+}
 export function removeStair(id: string): void {
   patchOwnDesignData({ stairs: stairEntries().filter((x) => x.id !== id) });
 }
@@ -51,7 +55,7 @@ export interface StairCheck { entry: StairEntry; design: StairDesign; rows: Chec
 export function stairChecks(): StairCheck[] {
   const dd = designData(), c = concreteOf();
   return stairEntries().map((entry) => {
-    const design = stairDesign(entry, { fc: c.fc, fy: dd.rebarFy, cover: dd.covers.slab, barDia: 12, distDia: 8, density: c.density });
+    const design = stairDesign(entry, { fc: c.fc, fy: dd.rebarFy, cover: dd.covers.slab, barDia: entry.barDia ?? 12, distDia: entry.distDia ?? 8, density: c.density });
     return { entry, design, rows: design.rows, status: statusOf(design.rows) };
   });
 }

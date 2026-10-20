@@ -34,6 +34,7 @@ import { diagnosticsWarning } from '../store/diagnostics-warning.svelte';
 import { openRebar3D, type OpenRebar3DResult } from '../store/rebar-open';
 import { designEverything, designMembers, undesignedMembers, type DeskReport } from '../store/design-desk';
 import type { RunScope } from '../store/design-desk-ui.svelte';
+import { designWithResizing, type ResizeHooks } from '../store/design-resize';
 
 /**
  * Derive the station demands.
@@ -84,6 +85,19 @@ export function rcDesign(c: DesignCommand): DeskReport {
   if (c.scope === 'all') return designEverything({ edited, steel: c.steel });
   const ids = c.scope === 'selection' ? [...(c.ids ?? [])] : undesignedMembers();
   return designMembers(ids, { edited, steel: c.steel });
+}
+
+/**
+ * «Size…» over every member, iterating until it verifies: where no reinforcement verifies a
+ * member, its section grows and the structure is solved and designed again (`design-resize.ts`).
+ * Sizing a member is finding bars that verify; leaving it «not verified» was not sizing it. A
+ * selection, or the members with no bars, run once: their sections are not this run's to change.
+ */
+export async function rcSize(c: DesignCommand & { resize: boolean }, hooks: ResizeHooks = {}): Promise<DeskReport> {
+  diagnosticsWarning.arm();
+  if (c.scope !== 'all' || !c.resize) return rcDesign(c);
+  const run = await designWithResizing({ edited: c.edited ?? 'keep', steel: c.steel }, hooks);
+  return { ...run.report, resized: { changes: run.changes, rounds: run.rounds, stopped: run.stopped } };
 }
 
 /**

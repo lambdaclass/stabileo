@@ -7,6 +7,8 @@
 <script lang="ts">
   import OutdatedNotice from './OutdatedNotice.svelte';
   import RecheckNotice from './RecheckNotice.svelte';
+  import ReportFormats from '../export/ReportFormats.svelte';
+  import { downloadReport } from '../../../lib/export/report-download';
   import { t, tp, i18n, OFFERED_LOCALES } from '../../../lib/i18n';
   import { teAt } from '../../../lib/i18n/engine-text';
   import { memoriaInput } from '../../../lib/store/memoria-inputs';
@@ -91,8 +93,8 @@
           {/each}
         </ul>
         <div class="actions">
-          <button data-testid="memoria-print" onclick={print}>{t('memo.ui.print')}</button>
-          <button data-testid="memoria-html" onclick={download}>{t('memo.ui.html')}</button>
+          <ReportFormats prefix="memoria" ids={{ pdf: 'memoria-print', html: 'memoria-html' }}
+            run={(f) => (f === 'pdf' ? print() : f === 'html' ? download() : void downloadReport(f, { title: t('memo.ui.title'), html, stem: `memoria-${input.project.date}` }))} />
         </div>
       </aside>
       <section class="preview">

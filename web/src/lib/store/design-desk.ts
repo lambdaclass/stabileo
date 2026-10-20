@@ -5,6 +5,7 @@
  * the final report: by level, how many members verify, warn, fail or could not be checked, and
  * which do not verify, each with the codes of its notices.
  */
+import type { ResizeChange, ResizeRun } from './design-resize';
 import { materialCheckState, runMaterialChecks, type MaterialMemberResult, type OtherMaterialFamily } from './material-check.svelte';
 import { modelStore } from './model.svelte';
 import { designRunStore } from './design-run.svelte';
@@ -43,6 +44,8 @@ export interface DeskReport {
   steel: number | null;
   skipped: { locked: number; edited: number };
   levels: LevelReport[];
+  /** The sections a sizing run enlarged, and why it stopped (`design-resize.ts`). */
+  resized?: { changes: ResizeChange[]; rounds: number; stopped: ResizeRun['stopped'] };
 }
 
 const STATUSES: DisplayStatus[] = ['ok', 'warn', 'fail', 'provisional', 'unavailable', 'stale'];
@@ -64,6 +67,11 @@ export function deskMembers(): DeskMember[] {
   const incomplete = new Set(steelInputCompleteness({ elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports } as never).map((g) => g.elementId));
   if (verificationStore.steelMap.size > 0 || incomplete.size > 0) for (const id of incomplete) { steel.add(id); }
   for (const id of steel) ids.add(id);
+  // One row per design member: a span's pieces are one beam, listed under the piece it is designed under.
+  for (const id of [...ids]) {
+    const sp = verificationStore.contextFor(id)?.span;
+    if (sp && sp.representative !== id && ids.has(sp.representative)) ids.delete(id);
+  }
   // The other materials: their own checker's result (`material-check.svelte.ts`).
   const other = materialCheckState.results;
   for (const id of other.keys()) { ids.add(id); steel.delete(id); }

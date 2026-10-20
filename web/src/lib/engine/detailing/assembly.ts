@@ -644,6 +644,14 @@ export function migrateDetailingStore(raw: unknown): DetailingMigration {
       id: cand.id,
       kind: cand.kind === 'columnStack' ? 'columnStack' : 'beamLine',
       label: typeof cand.label === 'string' ? cand.label : cand.id,
+      // The label as the UI renders it (key and its values): without them a restored assembly
+      // (an undo, a reopened project) fell back to the bare level, «3.50» for «Nivel 3.50».
+      ...(typeof cand.labelKey === 'string' ? { labelKey: cand.labelKey } : {}),
+      ...(cand.labelParams && typeof cand.labelParams === 'object' ? { labelParams: cand.labelParams } : {}),
+      // The gate's verdict and the reasons a state was held: kept so a reopened project (and an
+      // undo) says why an assembly is not constructible without coordinating it again.
+      ...(cand.constructibility && typeof cand.constructibility === 'object' ? { constructibility: cand.constructibility } : {}),
+      ...(Array.isArray(cand.stateBlockers) ? { stateBlockers: cand.stateBlockers.filter((x): x is string => typeof x === 'string') } : {}),
       elementIds: cand.elementIds.filter((x): x is number => typeof x === 'number'),
       bars: Array.isArray(cand.bars) ? cand.bars : [],
       marks: Array.isArray(cand.marks) ? cand.marks : [],

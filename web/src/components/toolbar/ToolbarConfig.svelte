@@ -372,6 +372,7 @@
               <option value="wireframe">{t('config.wireframe')}</option>
               <option value="solid">{t('config.solid')}</option>
               <option value="sections">{t('config.sections')}</option>
+              <option value="physical">{t('config.physical')}</option>
             </select>
             </HelpTip>
           </div>

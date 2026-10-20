@@ -223,6 +223,9 @@ function endpointsAt(
     // The `from` member's bar arrives from behind the joint; the `to` member's leaves ahead.
     const far = endIsJointSide ? aStart : aEnd;
     if (side === 'from' ? far > 0 : far < 0) continue;
+    // A bar a person drew ends where it was drawn: only an end left to the line (`pending`, a bar
+    // drawn running through this joint) is the planner's to fuse or lap (`line-bars.ts`).
+    if (bar.source === 'manual' && (endIsJointSide ? bar.anchorage?.end : bar.anchorage?.start)?.solution !== 'pending') continue;
     const p = endIsJointSide ? seg.end : seg.start;
     out.push({ bar, body, endIsJointSide, across: acrossOf(p, t), level: p.z });
   }

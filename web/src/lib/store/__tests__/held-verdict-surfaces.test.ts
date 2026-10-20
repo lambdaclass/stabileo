@@ -257,8 +257,10 @@ describe('(a) the span building on 40×40 columns at 6 m: its slab joined to the
   }, 600_000);
 
   it('every design member is held by its analysis, and no surface reads it or the project as approved', () => {
-    // 26 design members (14 spans, 12 columns), every one held by its analysis, 6 also by the detailing.
-    expect(kinds(r)).toEqual({ analysis: 26, detailing: 6 });
+    // 26 design members (14 spans, 12 columns), every one held by its analysis. Six were held by
+    // the detailing too, their lifts' laps on one centreline, until the lower bars were cranked
+    // (§10.7.4.1, `splice-span-fixture.test.ts`).
+    expect(kinds(r)).toEqual({ analysis: 26 });
     expect(r.held.size).toBe(r.counts.total);
     expect(r.violations).toEqual([]);
     expect([r.counts.ok, r.counts.warn]).toEqual([0, 0]);
@@ -304,7 +306,7 @@ describe('(b) qa-8, the beams\' lateral role not declared: two refused, the othe
   });
 });
 
-describe('(c) the span building with no slab: the upper column lifts hold an open splice condition', () => {
+describe('(c) the span building with no slab: a member held by the detailing alone', () => {
   let r: Reading;
   let lifts: number[] = [];
   beforeAll(() => {
@@ -316,14 +318,14 @@ describe('(c) the span building with no slab: the upper column lifts hold an ope
     show('C', r);
   }, 600_000);
 
-  it('the lifts are held by the detailing alone, and no surface reads them or the project as approved', () => {
-    // The six upper column lifts hold their lap open (`splice-checks.ts`); one more member another
-    // detailing condition. Nine before the layers were stepped from the largest bar above them
-    // (`stackedLayerDepth`): beam e20's second top row sat 5,1 mm inside the clear distance it owed
-    // the continuous pair through e20/e25, two unresolved clashes that held both beams.
-    expect(lifts).toHaveLength(6);
-    expect(lifts.every((id) => r.held.get(id)?.has('detailing'))).toBe(true);
-    expect(kinds(r)).toEqual({ detailing: 7 });
+  it('it is held by the detailing alone, and no surface reads it or the project as approved', () => {
+    // One member holds a detailing condition. Seven before the lower column lifts were cranked
+    // (§10.7.4.1): the six upper lifts held their laps open, each pair on one centreline
+    // (`splice-span-fixture.test.ts`). Nine before the layers were stepped from the largest bar
+    // above them (`stackedLayerDepth`): beam e20's second top row sat 5,1 mm inside the clear
+    // distance it owed the continuous pair through e20/e25, two unresolved clashes that held both.
+    expect(lifts).toEqual([]);
+    expect(kinds(r)).toEqual({ detailing: 1 });
     expect([...r.held.values()].some((k) => k.has('analysis'))).toBe(false);
     expect(r.violations).toEqual([]);
     expect(r.localOkHeld).toBeGreaterThan(0);

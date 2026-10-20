@@ -22,7 +22,7 @@
 import { assemblyProjection, memberElevationSheet, memberSectionSheet, preferredStation } from './member-sheets';
 import { teAt } from '../../i18n/engine-text';
 import { buildTitleBlock, buildSchedule, scheduleToAoa, sheetToDxf, combineDxfSheets, sheetToSvg,
-  drawElevation, drawSection, barArcs, type Sheet, type Projection } from './drawings';
+  drawElevation, drawSection, barArcs, project, type Sheet, type Projection } from './drawings';
 import type { DocumentAssembly, DocumentModel, OpenConflict } from './document-model';
 import { isDraftOnlyIssue } from './document-model';
 import { DESIGN_FAMILIES, type DesignFamily } from '../design/design-families';
@@ -97,6 +97,11 @@ export interface RenderOptions {
   scene?: SceneModel;
   /** Design status per member, for the notes those sheets carry. */
   statusOf?: (elementId: number) => ElementStatus | undefined;
+  /**
+   * A member's name as the project names it (`member-names.ts`: a column «C3 · N2», a beam's
+   * span «V3-1»); absent, its element number.
+   */
+  memberName?: (elementId: number) => string;
   /**
    * Which of this document's members were retouched by hand, and whether that is knowable.
    *
@@ -1521,7 +1526,7 @@ function structureSheets(
   for (const s of scene.solids) {
     if (s.kind !== 'column' || s.elementIds.length === 0) continue;
     const id = s.elementIds[0];
-    const c = cap('column', { id: String(id) });
+    const c = cap('column', { id: opts.memberName?.(id) ?? String(id) });
     emit(`structure-column-${id}-detail`,
       drawColumnDetail({ scene, title: titleFor(c), statusOf, elementId: id }), c);
   }
@@ -2044,20 +2049,34 @@ function memberSheets(
     dxf: sheetToDxf(elevation, a.bars.flatMap((b) => barArcs(b, projection)), opts.locale),
     svg: sheetToSvg(elevation, 1200, opts.locale),
   }];
-  const station = preferredStation(common);
-  if (station !== null) {
+  // One section per cut a person placed on the line; without any, the middle of the longest member.
+  const cuts = placedCuts(doc, a, projection);
+  const fallback = preferredStation(common);
+  const stations = cuts.length ? cuts : fallback !== null ? [{ label: '', u: fallback }] : [];
+  for (const { label, u: station } of stations) {
     const section = memberSectionSheet({
       ...common, station,
       noOutlineNote: teAt({ key: 'detailing.sheet.noOutline', params: { x: station.toFixed(2) } }, opts.locale),
       sheetNumber: `R${doc.revision.number}-${nextN()}`,
-      title: `${opts.projectName} — ${readinessBanner(doc, opts.locale)}`,
+      title: `${opts.projectName} — ${readinessBanner(doc, opts.locale)}${label ? ` | ${teAt({ key: 'drawing.cap.cut', params: { label } }, opts.locale)}` : ''}`,
     });
     out.push({
-      name: `${a.id}-section`, sheet: section,
-      caption: teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.section' } } }, opts.locale),
+      name: label ? `${a.id}-section-${label}` : `${a.id}-section`, sheet: section,
+      caption: label
+        ? teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.cut', params: { label } } } }, opts.locale)
+        : teAt({ key: 'drawing.cap.of', params: { what: a.label, kind: { key: 'drawing.cap.kind.section' } } }, opts.locale),
       dxf: sheetToDxf(section, a.bars.flatMap((b) => barArcs(b, projection)), opts.locale),
       svg: sheetToSvg(section, 800, opts.locale),
     });
   }
   return out;
+}
+
+/** The cuts placed on the beam lines this assembly holds, as stations along its projection. */
+function placedCuts(doc: DocumentModel, a: DocumentAssembly, projection: Projection): Array<{ label: string; u: number }> {
+  const ids = new Set(a.source.elementIds ?? []);
+  return (doc.sectionCuts ?? [])
+    .filter((c) => c.elementIds.some((id) => ids.has(id)))
+    .map((c) => ({ label: c.label, u: project(c.at, projection).x }))
+    .sort((p, q) => p.u - q.u);
 }

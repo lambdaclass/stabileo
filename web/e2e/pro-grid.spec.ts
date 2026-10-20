@@ -3,7 +3,7 @@
  * between axes as one undo step, and a grid read off an example. The arithmetic is pinned in
  * `model/__tests__/grid.test.ts`; this checks the panel drives it.
  */
-import { test, expect } from './fixtures';
+import { test, expect, placeFrameFromGrid } from './fixtures';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -21,16 +21,23 @@ test.describe('@smoke structural grid', () => {
     await expect(page.getByTestId('grid-axis-B')).toBeVisible();
     await expect(page.getByTestId('grid-level-N2')).toBeVisible();
 
-    // Columns and beams between axes are placed in Building.
-    // 3 × 2 intersections, two storeys: 12 columns, 2 × (4 + 3) beams.
+    // Columns and beams between axes are placed in Building, each from its tool.
+    // 3 × 2 intersections, two storeys: 12 columns, then 2 × (4 + 3) beams.
     await page.getByTestId('grid-open-building').click();
-    await expect(page.getByTestId('grid-frame-create')).toContainText('26');
-    await page.getByTestId('grid-frame-create').click();
-    await expect(page.getByTestId('building-result')).toContainText('26');
+    await expect(page.getByTestId('building-columns-place')).toContainText('12');
+    await page.getByTestId('building-columns-place').click();
+    await expect(page.getByTestId('building-result')).toContainText('12');
+    await page.getByTestId('building-tab-beams').click();
+    await expect(page.getByTestId('building-beams-place')).toContainText('14');
+    await page.getByTestId('building-beams-place').click();
+    await expect(page.getByTestId('building-result')).toContainText('14');
     const census = () => page.evaluate(() => window.__stabileo.modelCensus());
     expect((await census()).elements).toBe(26);
     expect((await census()).nodes).toBe(18);
 
+    // Two placements, two steps back.
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    expect((await census()).elements).toBe(12);
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
     expect((await census()).elements).toBe(0);
     // The grid itself is still there: it was a step of its own.
@@ -51,7 +58,7 @@ test.describe('@smoke structural grid', () => {
     await page.getByTestId('grid-heights').fill('3');
     await page.getByTestId('grid-generate-levels').click();
     await page.getByTestId('grid-open-building').click();
-    await page.getByTestId('grid-frame-create').click();
+    await placeFrameFromGrid(page);
 
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('load-tab-floor').click();

@@ -36,10 +36,24 @@ describe('takeoff and budget', () => {
 
     const items = workItems();
     const sum = (code: string) => items.filter((i) => i.code === code).reduce((s, i) => s + i.quantity, 0);
-    // Four columns 0,4 × 0,4 × 3 m and four beams 0,3 × 0,6 over 6 and 5 m.
-    expect(sum('HOR.COLUMN.H-30')).toBeCloseTo(4 * 0.16 * 3, 9);
-    expect(sum('HOR.BEAM.H-30')).toBeCloseTo(0.18 * (6 + 6 + 5 + 5), 9);
-    expect(sum('ENC.BEAM')).toBeCloseTo((0.3 + 2 * 0.6) * 22, 9);
+    /*
+     * Four columns 0,4 × 0,4 to the roof at 3 m and four beams 0,3 × 0,6 centred on it, over 6 and
+     * 5 m, measured as built (`physical-frame.ts`): each column to the beams' soffit at 2,7 m, each
+     * joint once (the column's footprint over the beams' depth), each beam between the column faces.
+     * Node to node said 4·0,16·3 = 1,92 and 0,18·22 = 3,96, 5,88 m³ in all, counting each corner
+     * 0,4·0,4·0,3 twice under the node and leaving the column's top beside the beams empty.
+     */
+    expect(sum('HOR.COLUMN.H-30')).toBeCloseTo(4 * 0.16 * 2.7, 9);
+    expect(sum('HOR.JOINT.H-30')).toBeCloseTo(4 * 0.4 * 0.4 * 0.6, 9);
+    expect(sum('HOR.BEAM.H-30')).toBeCloseTo(0.18 * (5.6 + 5.6 + 4.6 + 4.6), 9);
+    // The union: columns to 3,3 m and the beams between them.
+    expect(sum('HOR.COLUMN.H-30') + sum('HOR.JOINT.H-30') + sum('HOR.BEAM.H-30')).toBeCloseTo(4 * 0.16 * 3.3 + 0.18 * 20.4, 9);
+    // Beams: soffit and two sides over their clear spans. Columns: their perimeter to the soffit.
+    // Joints: each corner's two outer faces 0,4 wide and the 0,05 + 0,05 of each inner face beside
+    // the beam, 0,6 deep; no soffit (the column is under all of it).
+    expect(sum('ENC.BEAM')).toBeCloseTo((0.3 + 2 * 0.6) * 20.4, 9);
+    expect(sum('ENC.COLUMN')).toBeCloseTo(4 * 1.6 * 2.7, 9);
+    expect(sum('ENC.JOINT')).toBeCloseTo(4 * (0.4 + 0.4 + 0.1 + 0.1) * 0.6, 9);
     expect(sum('HOR.STAIR')).toBeGreaterThan(0.5);
     expect(items.some((i) => i.code.startsWith('ACE.D') && i.byLevel.E1)).toBe(true);
 

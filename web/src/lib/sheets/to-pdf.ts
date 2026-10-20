@@ -5,15 +5,18 @@
  * (1 mm = 72/25,4 pt). No dependency: the file is a handful of objects and one content stream each.
  */
 import { dimensionGeometry, type Primitive } from './primitives';
-import { aciRgb, layerDef } from './layers';
+import { aciRgb, layerDef, type LayerStyle } from './layers';
 
 const PT = 72 / 25.4;
 const f = (n: number) => (Math.round(n * 1000) / 1000).toString();
 
-/** WinAnsi bytes for a string; characters outside it become «?». */
+/** Signs the sheets write that WinAnsi lacks, spelled with the ones it has. */
+const SPELLED: Record<string, string> = { '≥': '>=', '≤': '<=', 'ℓ': 'l', '→': '->', '≈': '~', '√': 'sqrt', 'φ': 'phi', '∅': 'Ø' };
+
+/** WinAnsi bytes for a string; characters outside it become their spelling above, or «?». */
 function winAnsi(s: string): number[] {
   const out: number[] = [];
-  for (const ch of s) {
+  for (const ch of [...s].map((x) => SPELLED[x] ?? x).join('')) {
     const c = ch.codePointAt(0)!;
     if (c < 128 || (c >= 160 && c <= 255)) out.push(c);
     else if (c === 0x2019) out.push(0x92); else if (c === 0x2013) out.push(0x96); else if (c === 0x2014) out.push(0x97);
@@ -23,10 +26,10 @@ function winAnsi(s: string): number[] {
 }
 const pdfString = (s: string) => '(' + String.fromCharCode(...winAnsi(s)).replace(/([\\()])/g, '\\$1') + ')';
 
-function pageContent(ps: readonly Primitive[]): string {
+function pageContent(ps: readonly Primitive[], layerOf: LayerStyle): string {
   const out: string[] = ['1 J 1 j'];
   const stroke = (layer: string) => {
-    const d = layerDef(layer), [r, g, b] = aciRgb(d.color);
+    const d = layerOf(layer), [r, g, b] = aciRgb(d.color);
     out.push(`${f(r / 255)} ${f(g / 255)} ${f(b / 255)} RG ${f(r / 255)} ${f(g / 255)} ${f(b / 255)} rg ${f(d.weight * PT)} w ${d.dashed ? '[3 2] 0 d' : '[] 0 d'}`);
   };
   const M = (x: number, y: number) => `${f(x * PT)} ${f(y * PT)}`;
@@ -73,7 +76,7 @@ function pageContent(ps: readonly Primitive[]): string {
 }
 
 /** A PDF of one or more pages, each `[widthMm, heightMm, primitives]`; with a title for the reader. */
-export function sheetsToPdf(pages: ReadonlyArray<{ width: number; height: number; primitives: readonly Primitive[] }>, title = ''): Uint8Array {
+export function sheetsToPdf(pages: ReadonlyArray<{ width: number; height: number; primitives: readonly Primitive[] }>, title = '', layerOf: LayerStyle = layerDef): Uint8Array {
   const objs: string[] = [];
   const add = (s: string) => { objs.push(s); return objs.length; };
   const font = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
@@ -81,7 +84,7 @@ export function sheetsToPdf(pages: ReadonlyArray<{ width: number; height: number
   const pagesId = objs.length + pages.length * 2 + 1;
   const kids: number[] = [];
   for (const p of pages) {
-    const content = pageContent(p.primitives);
+    const content = pageContent(p.primitives, layerOf);
     const c = add(`<< /Length ${latin1Length(content)} >>\nstream\n${content}\nendstream`);
     kids.push(add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${f(p.width * PT)} ${f(p.height * PT)}] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${c} 0 R >>`));
   }

@@ -3,7 +3,10 @@
  * physical groups (or, without them, from the shells by level and by plane), footings, the bars of
  * the detailing, the parts of the designed steel joints, and the design state of each element as
  * properties. Decisions stated once:
- *  · a slab's outline is the hull of its shells (an L-shaped slab exports as its hull);
+ *  · the concrete of a reinforced-concrete frame is the concrete as built (`ifc-physical.ts`):
+ *    members cut at their joints, each joint in the body of the member it is attributed to, and
+ *    slabs net of the frame, with the column's top against the slab as the project chose;
+ *  · a slab that geometry does not cover (an inclined one) is the hull of its shells;
  *  · a wall is its base line swept up its height, at its shells' thickness;
  *  · a section the IFC profiles cannot name is written as the rectangle b × h, or as the square of
  *    its area when it has no b and h.
@@ -24,6 +27,9 @@ import { writeIfc, type IfcExportInput, type ProfileSpec, type V3 } from '../ifc
 import { verificationStore } from './verification.svelte';
 import type { SpanRef } from '../engine/design/design-spans';
 import { memberOffsetAt } from '../engine/member-offsets';
+import { projectPhysicalFrame } from './physical-frame';
+import { ifcPhysicalBodies } from './ifc-physical';
+import { designData } from './design-data';
 
 /** The `LateralSystem` property of a beam, by the reading its design used (`model/lateral-system.ts`). */
 const IFC_LATERAL: Record<'lateral' | 'gravity' | 'undeclared', string> = {
@@ -128,6 +134,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
    * A beam the slab mesh cut into pieces is one beam per span, as it was designed and detailed
    * (`design-spans.ts`): one IfcBeam from the span's first node to its last, not one per piece.
    */
+  const bodies = ifcPhysicalBodies(projectPhysicalFrame(), designData().exchange?.ifcColumnTop ?? 'slabTop');
   const spanOf = new Map<number, SpanRef>();
   for (const c of verificationStore.contexts.values()) if (c.span) spanOf.set(c.elementId, c.span);
   const members: IfcExportInput['members'] = [];
@@ -147,7 +154,13 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     const a = axisAt(na, sp ? sp.start : e.nodeI), b = axisAt(nb, sp ? sp.end : e.nodeJ);
     const s = m.sections.get(e.sectionId);
     const vertical = Math.hypot(b[0] - a[0], b[1] - a[1]) < TOL, level = Math.abs(b[2] - a[2]) < TOL;
+    // Cut at the joints where every piece of it was cut; the joints it owns in its body.
+    const piece = sp ? sp.elements : [e.id];
+    const segments = piece.map((id) => bodies.segment(id));
+    const prisms = piece.flatMap((id) => bodies.prisms(id));
     members.push({
+      ...(segments.every((g) => g) ? { segments: segments as Array<{ a: V3; b: V3 }> } : {}),
+      ...(prisms.length ? { prisms } : {}),
       id: sp ? sp.key : String(e.id), kind: vertical ? 'column' : level ? 'beam' : 'member', name: sp?.label ?? (e.name || `${vertical ? 'C' : level ? 'V' : 'D'}${e.id}`),
       a, b, profile: profileOfSection(s), ...(s?.name ? { profileName: s.name } : {}),
       ...((e as { rollAngle?: number }).rollAngle ? { rollDeg: (e as { rollAngle?: number }).rollAngle } : {}),
@@ -191,7 +204,11 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     const t = gr.t ?? ss[0]!.t, material = m.materials.get(ss[0]!.mat)?.name;
     if (gr.kind === 'slab') {
       const z = pts.reduce((a, p) => a + p[2], 0) / pts.length;
-      slabs.push({ id: `slab-${gr.name}`, name: gr.name, outline: hull(pts).map((p) => [p[0], p[1], z] as V3), thickness: t, ...(material ? { material } : {}) });
+      const net = gr.keys.map((k) => bodies.slab(k));
+      slabs.push({
+        id: `slab-${gr.name}`, name: gr.name, outline: hull(pts).map((p) => [p[0], p[1], z] as V3), thickness: t, ...(material ? { material } : {}),
+        ...(net.every((x) => x) ? { prisms: net.flatMap((x) => x!) } : {}),
+      });
     } else {
       const z0 = Math.min(...pts.map((p) => p[2])), z1 = Math.max(...pts.map((p) => p[2]));
       let a = pts[0]!, b = pts[0]!, d = -1;

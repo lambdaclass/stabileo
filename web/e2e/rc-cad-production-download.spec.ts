@@ -137,6 +137,7 @@ async function runProductionChainFromUi(page: Page) {
 
   // «Size…», the one design command, over every member.
   await page.getByTestId('cmd-autodesign').click();
+  await page.getByTestId('desk-run-resize').setChecked(false);
   await page.getByTestId('desk-run').click();
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.runCounts()?.verified ?? 0), { timeout: 180_000 })

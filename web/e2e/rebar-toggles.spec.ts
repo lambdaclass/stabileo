@@ -254,8 +254,8 @@ test.describe('a family switch reaches the scene', () => {
         await setSwitch(page, id, true);
       }
       // A counter that did not move cannot be explained away as a fast machine. Visibility is a
-      // flag on a mesh, and eighteen clicks must cost eighteen flags.
-      expect(await counters(page), 'eighteen switch clicks changed nothing structural')
+      // flag on a mesh, and every click must cost one flag.
+      expect(await counters(page), 'twenty switch clicks changed nothing structural')
         .toEqual(before);
     });
 });

@@ -33,7 +33,7 @@
 
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import {
-  buildStraightBarWithHooks, standardHook, type BarPath, type Point3,
+  buildStraightBarWithHooks, standardHook, straightSegment, developedLength, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
 import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
 import { deriveCompressionDevelopment } from '../../codes/cirsoc201/anchorage';
@@ -682,6 +682,28 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
     }
   }
 
+  /**
+   * The crank of lift `lo`'s bar `k` under lift `hi`, toward the section's centre until the two
+   * stand in contact: where both lifts share their centre and bar `k` of the one above stands
+   * closer to it than two bars in contact (on its plan point, or a few mm off where the
+   * diameters differ).
+   */
+  const crankBetween = (lo: number, hi: number, k: number): { dx: number; dy: number; off: number } | null => {
+    const a = input.lifts[lo], b = input.lifts[hi];
+    if (!a || !b || Math.hypot(b.centre.x - a.centre.x, b.centre.y - a.centre.y) > 1e-6) return null;
+    const lowerAt = liftBarPositions(a, input.barPositions).positions;
+    const upperAt = liftBarPositions(b, input.barPositions).positions;
+    if (k >= Math.min(lowerAt.length, upperAt.length, b.bars.count, a.bars.count)) return null;
+    const p = lowerAt[k]!, q = upperAt[k]!;
+    const off = (a.bars.diameterMm + b.bars.diameterMm) / 2000;
+    if (Math.hypot(q.x - p.x, q.y - p.y) >= off - 1e-4) return null;
+    const r = Math.hypot(p.x, p.y);
+    if (r < 1e-6) return null;
+    // Inward past the upper bar, wherever it stands along that line, by the two bars in contact.
+    const ux = -p.x / r, uy = -p.y / r;
+    const by = Math.max(off, (q.x - p.x) * ux + (q.y - p.y) * uy + off);
+    return { dx: ux * by, dy: uy * by, off: by };
+  };
   for (let i = 0; i < input.lifts.length; i++) {
     const lift = input.lifts[i];
     const spacing = minClearSpacingColumn(input.edition, {
@@ -778,8 +800,46 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
       trace.push('Terminación en cubierta: las barras longitudinales rematan con gancho a 90°.');
     }
 
+    // ── §10.7.4.1: the lap above, the lower bars cranked into contact with the upper ones ──
+    //
+    // Where the lift above puts a bar on the same plan point, the two cannot share a centreline:
+    // the lower bar is cranked inward, toward the section's centre, by the distance of two bars
+    // in contact, at the code's steepest slope (1 in 6). It runs straight through the joint, on
+    // the plan point the beams' bars were threaded past, and bends above it, at the foot of the
+    // column above; the upper bar starts where the bend ends, and the two run side by side in
+    // contact for the lap (§25.5.1.2). The column's ties hold the bend (§10.7.4.1, within 150
+    // mm). Drawn straight, both bars sat on one axis and every lap was reported unarranged; bent
+    // inside the joint, the cranked bars crossed the beams' bars there.
+    /** Where this lift's bar `k` starts: above the bend of the bar below it, where that one is cranked. */
+    const raiseOf = (k: number) => { const c = i > 0 ? crankBetween(i - 1, i, k) : null; return c ? 6 * c.off : 0; };
+    let cranked = 0;
+
     for (let k = 0; k < Math.min(positions.length, lift.bars.count); k++) {
       const p = positions[k];
+      const crank = crankBetween(i, i + 1, k);
+      if (crank) {
+        const x0 = lift.centre.x + p.x, y0 = lift.centre.y + p.y;
+        const zStart = above.hi;
+        const zEnd = zStart + 6 * crank.off;
+        // The lap runs from the end of the bend, where the upper bar starts.
+        const zTop = zEnd + lap;
+        const zBase = baseZ + raiseOf(k);
+        if (zStart > zBase + 1e-6 && zTop > zEnd + 1e-6) {
+          const a: Point3 = { x: x0, y: y0, z: zBase };
+          const b: Point3 = { x: x0, y: y0, z: zStart };
+          const c: Point3 = { x: x0 + crank.dx, y: y0 + crank.dy, z: zEnd };
+          const d: Point3 = { x: x0 + crank.dx, y: y0 + crank.dy, z: zTop };
+          const segments = [straightSegment(a, b), straightSegment(b, c), straightSegment(c, d)];
+          bars.push({
+            id: `${input.stackId}-L${i}-v${k}`, diameterMm: lift.bars.diameterMm, role: 'longitudinal',
+            segments, startTreatment: { kind: 'straight' }, endTreatment: { kind: 'straight' },
+            cuttingLength: developedLength(segments), ownerElementIds: [lift.elementId],
+            source: 'generated', locked: false, refs: [],
+          });
+          cranked++;
+          continue;
+        }
+      }
       const face = roofHook ? faceOf(p, halfB, halfH) : null;
       // Each face's hooks get their own elevation, so extensions that run along the same
       // axis never share a plane. See `faceOf` and `HOOK_TIER_GAP`.
@@ -787,7 +847,7 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
         ? face.tier * (lift.bars.diameterMm / 1000
           + hookTierGap(lift.bars.diameterMm, input.edition, input.maxAggregateSizeMm ?? 19))
         : 0;
-      const start: Point3 = { x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: baseZ };
+      const start: Point3 = { x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: baseZ + raiseOf(k) };
       const end: Point3 = {
         x: lift.centre.x + p.x, y: lift.centre.y + p.y, z: topZ - tierLift,
       };
@@ -801,6 +861,11 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
         endHook: roofHook,
         ownerElementIds: [lift.elementId], edition: input.edition,
       }));
+    }
+
+    if (cranked > 0) {
+      refs.push(clause('cirsoc-201', input.edition, '10.7.4.1', 'barras acodadas: pendiente no mayor que 1 en 6'));
+      trace.push(`Tramo ${i}: ${cranked} barra(s) acodada(s) sobre el nudo superior, en contacto con las del tramo de arriba en el empalme.`);
     }
 
     const ts = tieSpacing(lift.bars.diameterMm, lift.tieDia, Math.min(lift.b, lift.h), input.edition);

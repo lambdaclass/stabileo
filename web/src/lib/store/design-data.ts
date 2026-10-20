@@ -28,7 +28,7 @@ export function patchDesignData(patch: Partial<ProjectDesignData>): void {
  * stairs, the post-tensioning, the fire settings, the particular elements). Undone like any other
  * change, but the design the rest of the project holds stays: no cover, steel or code moved.
  */
-export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site'>>): void {
+export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site' | 'frameToleranceMm'>>): void {
   modelStore.setDesignData({ ...designData(), ...patch });
 }
 
@@ -39,7 +39,7 @@ export const coverOf = (kind: DesignKind): number => designData().covers[kind];
 export function designContextOptions() {
   const d = designData();
   return {
-    coverFor: (kind: 'beam' | 'column') => d.covers[kind],
+    coverFor: (kind: 'beam' | 'column', elementId?: number) => (elementId !== undefined ? d.coverByElement?.[String(elementId)] : undefined) ?? d.covers[kind],
     stirrupDia: d.stirrupDiaMm, rebarFy: d.rebarFy,
     longDiametersMm: d.longDiametersMm, stirrupDiametersMm: d.stirrupDiametersMm,
     columnEndZones: d.columnEndZones === true,
@@ -61,4 +61,16 @@ export function verifyOptions() {
 export function otherCodesDesignData(): { cover: { beam: number; column: number }; rebarFy: number } {
   const d = designData();
   return { cover: { beam: d.covers.beam, column: d.covers.column }, rebarFy: d.rebarFy };
+}
+
+/**
+ * Set (or, with null, clear) the cover of each of these members, m: one change that retires the
+ * design they fed, as any cover change does, so each is checked again with its own.
+ */
+export function setMemberCovers(ids: readonly number[], cover: number | null): void {
+  const d = designData();
+  const by = { ...(d.coverByElement ?? {}) };
+  for (const id of ids) { if (cover === null) delete by[String(id)]; else by[String(id)] = cover; }
+  const { coverByElement: _old, ...rest } = d;
+  setDesignData(Object.keys(by).length ? { ...rest, coverByElement: by } : rest);
 }

@@ -26,6 +26,7 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-preview')).toContainText(/tributary area/i);
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names).toEqual(expect.arrayContaining(['Roof live']));
     const after = await page.evaluate(() => window.__stabileo.modelCensus());
@@ -45,6 +46,7 @@ test.describe('@smoke area loads by tributary area, the roof apart', () => {
     await page.getByTestId('al-roof-occupancy').selectOption('azotea_privada');
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names).not.toContain('Roof live');
   });
@@ -68,6 +70,7 @@ test.describe('@smoke the seismic action: modal method, vertical component, tors
     await expect(page.getByTestId('al-preview')).toContainText(/Modal response spectrum along X/);
     await expect(page.getByTestId('al-preview')).toContainText(/Vertical component/);
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
   });
@@ -86,6 +89,7 @@ test.describe('@smoke wind on other structures and the cladding table', () => {
     await expect(page.getByTestId('al-cladding')).toHaveCount(0);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names.some((n) => /free roof, case A/.test(n))).toBe(true);
   });
@@ -99,6 +103,7 @@ test.describe('@smoke T, H and F from the dialog', () => {
     await page.getByTestId('al-thermal-dt').fill('25');
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names).toContain('Temperature');
     expect(names).toContain('Temperature (−ΔT)');

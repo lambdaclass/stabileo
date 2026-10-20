@@ -29,7 +29,7 @@
  * to achieve.
  */
 
-import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../engine/detailing/scene-model';
+import { MEMBER_SOLID_KINDS, type SceneSolidKind } from '../engine/detailing/scene-model';
 
 /**
  * The three groups the detailing stage lists elements under, per §3 of the scope.
@@ -56,6 +56,7 @@ export function rcGroupOf(kind: SceneSolidKind): RcElementGroup {
   switch (kind) {
     case 'beam':
     case 'column':
+    case 'joint':
       return 'linear';
     case 'slab':
     case 'wall':
@@ -66,9 +67,9 @@ export function rcGroupOf(kind: SceneSolidKind): RcElementGroup {
   }
 }
 
-/** The families in a group, in scene order so the list and the layer switches agree. */
+/** The member families in a group (`MEMBER_SOLID_KINDS`), in scene order so the list and the layer switches agree. */
 export function rcFamiliesIn(group: RcElementGroup): SceneSolidKind[] {
-  return SCENE_SOLID_KINDS.filter((k) => rcGroupOf(k) === group);
+  return MEMBER_SOLID_KINDS.filter((k) => rcGroupOf(k) === group);
 }
 
 /**

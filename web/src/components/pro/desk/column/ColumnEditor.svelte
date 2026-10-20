@@ -19,6 +19,10 @@
   import RebarEditorColumn from '../../design/RebarEditorColumn.svelte';
   import RebarEditorShapedColumn from '../../design/RebarEditorShapedColumn.svelte';
   import ColumnInteraction from './ColumnInteraction.svelte';
+  import ColumnLaps from './ColumnLaps.svelte';
+  import ColumnShape from './ColumnShape.svelte';
+  import { checkLabel } from '../../../../lib/engine/design/check-clauses';
+  import { planColumnName } from '../../../../lib/store/work-drawings';
 
   let { memberId }: { memberId: number | null } = $props();
   const rev = $derived(verificationStore.providedRevision);
@@ -65,6 +69,14 @@
     return sort === 'ratio' ? [...shown].sort((a, b) => b.worst - a.worst) : shown;
   });
   let note = $state<string | null>(null);
+
+  // ── Names and groups, as the column schedule reads them ──
+  const nameOf = $derived.by(() => { void rev; void modelStore.elements; return planColumnName(); });
+  const label = (s: { x: number; y: number }) => nameOf(s.x, s.y) ?? `(${s.x.toFixed(2)}, ${s.y.toFixed(2)})`;
+  /** Whether two stacks hold the same bars and ties lift by lift (the schedule draws them as one). */
+  const sameBars = (a: { lifts: Array<{ id: number }> }, b: { lifts: Array<{ id: number }> }) =>
+    a.lifts.length === b.lifts.length && a.lifts.every((l, i) => barsText(l.id) === barsText(b.lifts[i]!.id) && tieText(l.id) === tieText(b.lifts[i]!.id));
+  const longDia = $derived(breakdown.find((b) => b.what === 'long')?.diameter);
 </script>
 
 <div class="ce" data-testid="column-editor">
@@ -77,7 +89,7 @@
     <ul>
       {#each stacks as { s, worst } (s.key)}
         <li><button class:on={here?.stack.key === s.key} onclick={() => (deskUi.selected = s.lifts[0]!.id)}>
-          ({s.x.toFixed(2)}, {s.y.toFixed(2)}) · {s.lifts.length} · <span class:bad={worst > 1}>{worst.toFixed(2)}</span>
+          {label(s)} · {s.lifts.length} · <span class:bad={worst > 1}>{worst.toFixed(2)}</span>
         </button></li>
       {/each}
     </ul>
@@ -89,11 +101,19 @@
       <p class="ce-hint">{t('colEd.pick')}</p>
     {:else}
       <header class="ce-head">
-        <h4>{tp('colEd.title', { x: here.stack.x.toFixed(2), y: here.stack.y.toFixed(2), n: here.stack.lifts.length })}</h4>
+        <h4>{label(here.stack)} · {tp('colEd.title', { x: here.stack.x.toFixed(2), y: here.stack.y.toFixed(2), n: here.stack.lifts.length })}</h4>
+        {#if here.repeats.length}
+          {@const same = here.repeats.filter((r) => sameBars(here.stack, r))}
+          <span class="ce-group" data-testid="column-group">{[here.stack, ...here.repeats].map(label).join(' = ')}</span>
+          <span class="ce-hint">{same.length === here.repeats.length ? t('colEd.groupSame') : tp('colEd.groupDiffers', { n: here.repeats.length - same.length })}</span>
+        {/if}
         {#if here.repeats.length}
           <button class="ce-btn" onclick={() => { note = tp('desk.equalized', { n: equalizeStack(memberId!).length }); }} data-testid="column-equalize">{tp('colEd.equalize', { n: here.repeats.length })}</button>
         {/if}
       </header>
+      {#if ctx && lift !== null}
+        <ColumnShape columnId={lift} b={ctx.section.b} h={ctx.section.h} circle={ctx.shape?.kind === 'circle'} onDone={(n) => (note = n)} />
+      {/if}
       <table class="ce-table" data-testid="column-table">
         <thead><tr><th>{t('desk.level')}</th><th>z</th><th>{t('colEd.section')}</th><th>{t('colEd.bars')}</th><th>{t('colEd.ties')}</th><th>ρ</th><th>u</th></tr></thead>
         <tbody>
@@ -115,8 +135,9 @@
           <div>
             <h5>{tp('colEd.lift', { level: levelAt(here.stack.lifts.find((x) => x.id === lift)!.zHi), id: lift })}</h5>
             {#if ctx.shape}<RebarEditorShapedColumn elementId={lift} {ctx} version={rev} />{:else}<RebarEditorColumn elementId={lift} {ctx} version={rev} />{/if}
+            {#if longDia}<ColumnLaps columnId={lift} diameter={longDia} fc={ctx.material.fc} fy={ctx.material.fy} groupSize={1 + here.repeats.length} />{/if}
             {#if failing.length}
-              <ul class="ce-fail" data-testid="column-failing">{#each failing as c}<li class="st-{c.status}">{c.category} · {c.ratio.toFixed(2)}</li>{/each}</ul>
+              <ul class="ce-fail" data-testid="column-failing">{#each failing as c}<li class="st-{c.status}">{checkLabel(c, 'column')} · {c.ratio.toFixed(2)}</li>{/each}</ul>
             {:else}<p class="ce-hint">{t('colEd.allChecks')}</p>{/if}
             {#if breakdown.length}
               <table class="ce-table ce-bd" data-testid="column-breakdown">
@@ -151,6 +172,7 @@
   .ce-cols { display: grid; grid-template-columns: minmax(19rem, 1fr) minmax(0, 20rem); gap: 10px; margin-top: 8px; }
   .ce-cols h5 { margin: 0 0 4px; font-size: 0.74rem; }
   .ce-hint { color: var(--st-text-3); }
+  .ce-group { font-weight: 600; color: var(--st-text); }
   .ce-fail { margin: 6px 0; padding-left: 16px; }
   .ce-bd { margin-top: 8px; }
   @media (max-width: 1000px) { .ce { grid-template-columns: 1fr; } .ce-cols { grid-template-columns: 1fr; } }

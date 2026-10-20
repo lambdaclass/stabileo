@@ -249,6 +249,8 @@ function labelTexture(text: string, color: string, fontSize: number, strip = fal
 }
 
 /** Like createTextSprite but with a shared cached texture (see above). */
+const labelMaterials = new Map<string, THREE.SpriteMaterial>();
+
 export function createTextSpriteCached(
   text: string,
   color: string = '#ffffff',
@@ -269,9 +271,18 @@ export function createTextSpriteCached(
   screenSized = false,
 ): THREE.Sprite {
   const texture = labelTexture(text, color, fontSize, screenSized);
-  const mat = withLabelScale(new THREE.SpriteMaterial({
-    map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
-  }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
+  // One material per label texture, shared and kept: a view that rebuilds its labels on every
+  // edit (the load arrows) would otherwise free the last label material, which makes WebGL drop
+  // the label program and compile it again on the next frame.
+  const key = `${texture.uuid}|${screenSized ? 's' : 'w'}`;
+  let mat = labelMaterials.get(key);
+  if (!mat) {
+    mat = withLabelScale(new THREE.SpriteMaterial({
+      map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
+    }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
+    mat.userData.shared = true;
+    labelMaterials.set(key, mat);
+  }
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.userData.sharedTexture = true;
@@ -411,7 +422,7 @@ export function disposeObject(obj: THREE.Object3D): void {
       if (!child.userData?.sharedTexture) {
         (child.material as THREE.SpriteMaterial).map?.dispose();
       }
-      child.material.dispose();
+      disposeIfPrivate(child.material);
     }
   });
 }

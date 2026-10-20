@@ -322,6 +322,21 @@
     : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
+  /**
+   * What the dialog is doing while it works, step by step, so the reader sees it is working and
+   * which step it is on. The modal analyses of the wind and the earthquake take seconds on a
+   * building; the steps yield a frame between them so the panel paints, and Cancel stops at the
+   * next step (`working.cancelled`).
+   */
+  let working = $state<{ label: string; step: number; total: number; cancelled: boolean } | null>(null);
+  const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+  /** Show a step and let it paint; false when the reader cancelled in the meantime. */
+  async function stepTo(label: string, step: number, total: number): Promise<boolean> {
+    if (working?.cancelled) return false;
+    working = { label, step, total, cancelled: false };
+    await nextFrame();
+    return !(working as { cancelled: boolean } | null)?.cancelled;
+  }
 
   // A preview describes the model it was built against. Kept across a close, it came back on
   // reopening, after any edit to the model, and Apply would commit it: closing drops it.
@@ -506,35 +521,46 @@
     windModal = null;
   }
 
-  /** Step 1 — build the preview. Pure; the model is untouched. */
-  function handlePreview() {
+  /** Step 1 — build the preview. Pure; the model is untouched. Shown step by step (`working`). */
+  async function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
-    let p = buildLoadPlan(planInput());
     const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
     const seismicModes = enableSeismic && seismicMethod.method === 'modal';
-    // A member's design live-load reduction does not reduce the mass that moves with the
-    // floor. Both modal methods must use Lo at the stated participation.
-    const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
-      ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
-    // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
-    if (windModes && p.outcome === 'READY') {
-      const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
-      if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
-      windModal = f;
-      p = buildLoadPlan(planInput());
+    const total = 2 + (windModes ? 1 : 0) + (seismicModes ? 1 : 0);
+    let at = 1;
+    working = null;
+    try {
+      if (!(await stepTo(t('autoLoad.work.plan'), at++, total))) return;
+      let p = buildLoadPlan(planInput());
+      // A member's design live-load reduction does not reduce the mass that moves with the
+      // floor. Both modal methods must use Lo at the stated participation.
+      const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
+        ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
+      // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
+      if (windModes && p.outcome === 'READY') {
+        if (!(await stepTo(t('autoLoad.work.windModes'), at++, total))) return;
+        const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
+        if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
+        windModal = f;
+        p = buildLoadPlan(planInput());
+      }
+      if (seismicModes && p.outcome === 'READY') {
+        if (!(await stepTo(t('autoLoad.work.seismicModes'), at++, total))) return;
+        const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
+        if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
+        const base = planInput();
+        p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
+      }
+      if (!(await stepTo(t('autoLoad.work.compare'), total, total))) return;
+      plan = p;
+      planGust = p.factors.windGust;
+      // The flag has to go in: the same plan produces a different model depending on it, and
+      // reporting the plan's own counts as "after" was the defect the audit caught.
+      delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
+    } finally {
+      working = null;
     }
-    if (seismicModes && p.outcome === 'READY') {
-      const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
-      if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
-      const base = planInput();
-      p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
-    }
-    plan = p;
-    planGust = p.factors.windGust;
-    // The flag has to go in: the same plan produces a different model depending on it, and
-    // reporting the plan's own counts as "after" was the defect the audit caught.
-    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
   }
 
   /**
@@ -579,8 +605,8 @@
     });
   });
 
-  /** Step 2 — commit the previewed plan and invalidate downstream. */
-  function handleApply() {
+  /** Step 2 — commit the previewed plan and invalidate downstream; said while it runs and until it is drawn. */
+  async function handleApply() {
     const p = plan;
     if (!p || p.outcome !== 'READY') return;
     if (delta && (delta.replaceExisting !== clearExisting || delta.alsoUnmarked !== alsoUnmarked)) {
@@ -590,6 +616,8 @@
       return;
     }
     applyError = null;
+    const count = p.distributed.length + p.nodal.length + p.surface.length + p.thermal.length;
+    if (!(await stepTo(tp('autoLoad.work.apply', { n: count }), 1, 2))) { working = null; return; }
 
     applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
 
@@ -600,6 +628,10 @@
       regulationsStore.noteChange('loadEdit');
     }
 
+    // The viewer draws the new loads on the next frame: the dialog says so until it has.
+    working = { label: t('autoLoad.work.draw'), step: 2, total: 2, cancelled: false };
+    await nextFrame();
+    working = null;
     uiStore.toast(t('autoLoad.applied'), 'success');
     plan = null;
     delta = null;
@@ -1166,13 +1198,21 @@
       {#if applyError}
         <p class="al-error" role="alert" data-testid="al-apply-error">{applyError}</p>
       {/if}
-      <button class="al-btn al-btn-secondary" onclick={onclose} data-testid="al-cancel">{t('report.cancel')}</button>
-      {#if !plan}
-        <button class="al-btn al-btn-primary" onclick={handlePreview} data-testid="al-preview-btn">{t('autoLoad.preview')}</button>
+      {#if working}
+        <span class="al-working" role="status" aria-live="polite" data-testid="al-working">
+          <span class="al-spinner" aria-hidden="true"></span>
+          {tp('autoLoad.work.step', { step: working.step, total: working.total })} · {working.label}
+        </span>
+        <button class="al-btn al-btn-secondary" onclick={() => { if (working) working = { ...working, cancelled: true }; }} data-testid="al-working-cancel">{t('autoLoad.work.cancel')}</button>
       {:else}
-        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; }} data-testid="al-back">{t('autoLoad.back')}</button>
+        <button class="al-btn al-btn-secondary" onclick={onclose} data-testid="al-cancel">{t('report.cancel')}</button>
+      {/if}
+      {#if !plan}
+        <button class="al-btn al-btn-primary" onclick={handlePreview} disabled={!!working} data-testid="al-preview-btn">{t('autoLoad.preview')}</button>
+      {:else}
+        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; }} disabled={!!working} data-testid="al-back">{t('autoLoad.back')}</button>
         <button class="al-btn al-btn-primary" onclick={handleApply}
-                disabled={plan.outcome !== 'READY'} data-testid="al-apply">{t('autoLoad.apply')}</button>
+                disabled={plan.outcome !== 'READY' || !!working} data-testid="al-apply">{t('autoLoad.apply')}</button>
       {/if}
     </div>
   </div>
@@ -1314,6 +1354,10 @@
   .al-summary { margin-right: auto; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
   .al-chip { font-family: var(--st-mono); font-size: 0.64rem; padding: 1px 6px; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text-2); }
   .al-footer > .al-error { max-width: 40%; }
+  .al-working { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-size: 0.72rem; color: var(--st-text-2); }
+  .al-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--st-hair-strong); border-top-color: var(--st-text); animation: al-spin 0.8s linear infinite; }
+  @keyframes al-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .al-spinner { animation: none; } }
   .al-btn { height: 30px; padding: 0 16px; border-radius: var(--st-radius); font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
   .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent, #fff); }
   .al-btn-primary:hover:not(:disabled) { background: var(--st-accent-hover, var(--st-accent)); }

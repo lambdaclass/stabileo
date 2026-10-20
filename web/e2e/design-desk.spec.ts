@@ -15,6 +15,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.getByTestId('design-desk')).toBeVisible();
     await page.getByTestId('desk-design').click();
     await expect(page.getByTestId('desk-run-options')).toBeVisible();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
 
@@ -28,6 +29,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.locator('[data-testid^="desk-row-"]')).toHaveCount(1);
 
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toContainText(/1 locked|1 bloqueados/);
 
@@ -48,6 +50,7 @@ test.describe('@smoke design desk', () => {
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
 
@@ -91,6 +94,7 @@ test.describe('@smoke design desk', () => {
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
     const rows = page.locator('[data-testid^="desk-row-"]');
@@ -135,6 +139,7 @@ test.describe('@smoke design desk', () => {
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toContainText(/steel members calculated|barras de acero calculadas/, { timeout: 120_000 });
     await page.getByTestId('desk-filter-steel').click();
@@ -171,6 +176,7 @@ test.describe('@smoke design desk', () => {
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toContainText(/steel members calculated|barras de acero calculadas/, { timeout: 120_000 });
     await page.getByTestId('desk-filter-steel').click();

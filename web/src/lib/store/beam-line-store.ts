@@ -10,10 +10,12 @@ import { verificationStore } from './verification.svelte';
 import { storedDecisions } from './design-decisions';
 import { framesOf, modelBeamLines, copyFrame } from './frame-equalize';
 import { rebarHash } from '../engine/design/rebar-hash';
-import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, type LineMember, type MemberCuts } from '../engine/design/beam-line';
+import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, type LineMember, type MemberCuts } from '../engine/design/beam-line';
+import { lineLaps, linePieces, type LineBarPiece, type LineLap, type LineStirrupPiece } from '../engine/detailing/line-bars';
 import { mirrorReinforcement, type BeamLine } from '../engine/design/repeated-frames';
 import { lineKey, type BeamLineReinforcement } from '../design-contract/beam-line';
 import { designLength, withSpanPieces } from './design-spans-store';
+import { lineAxis } from './line-axis';
 import type { ProvidedReinforcement } from '../design-contract/reinforcement';
 import type { ProvidedRebarResult } from '../engine/station-design-forces';
 
@@ -45,22 +47,89 @@ function projected(line: BeamLine, model: BeamLineReinforcement): Map<number, Pr
 
 const hashes = (ids: readonly number[]) => Object.fromEntries(ids.map((id) => [String(id), rebarHash(modelStore.elements.get(id)?.reinforcement)]));
 
-/** The saved line of these members, when none of them changed since it was saved. */
-function storedLine(line: BeamLine): BeamLineReinforcement | null {
-  const l = storedDecisions().lines?.[lineKey(line.members)];
-  if (!l || !l.memberHashes) return null;
-  const now = hashes(line.members);
-  return line.members.every((id) => l.memberHashes![String(id)] === now[String(id)]) ? l : null;
+/**
+ * Why a saved line no longer stands for its members:
+ * - `redesigned`: a member's bars changed since the line was saved (a design run, an edit
+ *   elsewhere); the line's geometry still fits, so it can be taken up again as a draft;
+ * - `geometry`: a member's length changed (a node moved, a span was split or joined); positions
+ *   along the line no longer mean the same, and no length is rescaled to make them fit.
+ */
+export type LineStaleness = 'redesigned' | 'geometry';
+
+export interface StaleLine {
+  key: string;
+  label: string;
+  members: number[];
+  reason: LineStaleness;
+  /** The members that changed: redesigned, or whose length moved. */
+  changed: Array<{ id: number; was?: number; now?: number }>;
+  record: BeamLineReinforcement;
 }
 
-export interface OpenLine { line: BeamLine; model: BeamLineReinforcement; saved: boolean }
+const LENGTH_TOL = 1e-3;
+
+/** Whether a saved line still stands for its members, and if not, why. */
+function stalenessOf(line: BeamLine, rec: BeamLineReinforcement): Pick<StaleLine, 'reason' | 'changed'> | null {
+  const ms = lineMembers(line);
+  const moved = ms.map((m, i) => ({ id: m.id, was: rec.lengths[i], now: m.L })).filter((x) => x.was === undefined || Math.abs(x.was - x.now) > LENGTH_TOL);
+  if (rec.lengths.length !== ms.length || moved.length) return { reason: 'geometry', changed: moved };
+  const now = hashes(line.members);
+  const redesigned = line.members.filter((id) => rec.memberHashes?.[String(id)] !== now[String(id)]).map((id) => ({ id }));
+  return redesigned.length ? { reason: 'redesigned', changed: redesigned } : null;
+}
+
+/** The saved line of these members, when none of them changed since it was saved: bars nor lengths. */
+function storedLine(line: BeamLine): BeamLineReinforcement | null {
+  const l = storedDecisions().lines?.[lineKey(line.members)];
+  return l && !stalenessOf(line, l) ? l : null;
+}
+
+/**
+ * The saved lines that no longer stand for their members, with why: they are not applied (the
+ * frame editor and the detailing read the members instead) and are shown, so a person decides
+ * whether to take one up again or let it go. A saved line whose members no longer form a line
+ * (a member deleted or renumbered) is not listed: it cannot be opened, and it is dropped with
+ * the next save of that line's members.
+ */
+export function staleLines(): StaleLine[] {
+  const lines = storedDecisions().lines ?? {};
+  if (!Object.keys(lines).length) return [];
+  const out: StaleLine[] = [];
+  for (const l of modelBeamLines()) {
+    const key = lineKey(l.members), rec = lines[key];
+    if (!rec) continue;
+    const st = stalenessOf(l, rec);
+    if (st) out.push({ key, label: l.label, members: [...l.members], record: rec, ...st });
+  }
+  return out;
+}
+
+/** Let a saved line go: the members keep their bars, the line is read from them. One undo step. */
+export function discardLine(key: string): void {
+  const d = storedDecisions();
+  if (!d.lines?.[key]) return;
+  const { [key]: _gone, ...rest } = d.lines;
+  modelStore.reinforcementTransaction((api) => api.setDecisions({ ...d, lines: rest }));
+}
+
+export interface OpenLine {
+  line: BeamLine;
+  model: BeamLineReinforcement;
+  saved: boolean;
+  /** A saved line that no longer stands for the members: not applied, offered. */
+  stale?: StaleLine;
+}
 
 /** The line a member is on, with its reinforcement as a line. */
 export function openLine(memberId: number): OpenLine | null {
   const f = framesOf(memberId);
   if (!f) return null;
   const saved = storedLine(f.line);
-  return { line: f.line, model: saved ? clone(saved) : lineFromMembers(lineMembers(f.line)), saved: !!saved };
+  const stale = saved ? undefined : staleLines().find((x) => x.key === lineKey(f.line.members));
+  return {
+    line: f.line, model: saved ? clone(saved) : lineFromMembers(lineMembers(f.line)), saved: !!saved,
+    ...(stale ? { stale } : {}),
+  };
 }
 
 /** Check a draft line without writing it: each member's verdict on its projected regions. */
@@ -127,6 +196,51 @@ export function savedMemberCuts(): Map<number, MemberCuts> {
         ...(c.topJ !== undefined ? { topI: L - c.topJ } : {}),
         ...(c.topI !== undefined ? { topJ: L - c.topI } : {}),
       });
+    }
+  }
+  return out;
+}
+
+/**
+ * Every saved line that still stands for its members, as the detailing lays it: each member's
+ * bars and stirrups exactly as drawn (`line-bars.ts`), and each drawn lap with the member that
+ * holds its middle. A stale line gives nothing: its members are detailed from their own bars.
+ */
+export function savedLinePieces(): {
+  pieces: Map<number, { bars: LineBarPiece[]; stirrups: LineStirrupPiece[] }>;
+  laps: Array<{ owner: number; lap: LineLap }>;
+} {
+  const pieces = new Map<number, { bars: LineBarPiece[]; stirrups: LineStirrupPiece[] }>();
+  const laps: Array<{ owner: number; lap: LineLap }> = [];
+  if (!Object.keys(storedDecisions().lines ?? {}).length) return { pieces, laps };
+  for (const l of modelBeamLines()) {
+    const saved = storedLine(l);
+    if (!saved) continue;
+    for (const [id, p] of linePieces(saved, l.forward)) pieces.set(id, p);
+    const X = memberOffsets(saved);
+    for (const lap of lineLaps(saved)) {
+      const mid = (lap.from + lap.to) / 2;
+      const k = Math.max(0, X.findIndex((x, i) => mid >= x - 1e-9 && mid <= x + saved.lengths[i]! + 1e-9));
+      laps.push({ owner: saved.members[k]!, lap });
+    }
+  }
+  return { pieces, laps };
+}
+
+/** The cross-sections placed on saved lines, each at its point in the model (`DocumentModel.sectionCuts`). */
+export function savedSectionCuts(): NonNullable<import('../engine/detailing/document-model').DocumentModel['sectionCuts']> {
+  const out: NonNullable<import('../engine/detailing/document-model').DocumentModel['sectionCuts']> = [];
+  if (!Object.keys(storedDecisions().lines ?? {}).length) return out;
+  for (const l of modelBeamLines()) {
+    const saved = storedLine(l);
+    if (!saved?.cuts?.length) continue;
+    const axis = lineAxis(l);
+    if (!axis) continue;
+    const X = memberOffsets(saved);
+    for (const c of saved.cuts) {
+      const k = Math.max(0, X.findIndex((x, i) => c.x >= x - 1e-9 && c.x <= x + saved.lengths[i]! + 1e-9));
+      const at = { x: axis.start.x + axis.dir.x * c.x, y: axis.start.y + axis.dir.y * c.x, z: axis.start.z + axis.dir.z * c.x };
+      out.push({ elementIds: [saved.members[k]!], label: c.label, at });
     }
   }
   return out;

@@ -131,13 +131,14 @@ test.describe('@smoke one «Size…»', () => {
     await count.press('Enter');
     await page.getByTestId('frame-save').click();
     await expect(page.getByTestId('desk-decision')).toHaveText(/edited|editad/i);
-    const id = Number((await page.getByTestId('desk-inspector').locator('h4').innerText()).split('·')[0]!.trim());
+    const id = Number(await page.getByTestId('desk-inspector').locator('h4[data-member-id]').getAttribute('data-member-id'));
     const before = await page.evaluate((e) => JSON.stringify(window.__stabileo.reinforcement(e)), id);
     await openDeskStage(page);
     await page.getByTestId('desk-step-size').click();
     await page.getByTestId('desk-design').click();
     await expect(page.getByTestId('desk-keep-edited')).toBeChecked();
     await page.getByTestId('desk-overwrite-edited').check();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     // Asked once more, naming how many; nothing ran yet.
     await expect(page.getByTestId('desk-run-confirm')).toBeVisible();

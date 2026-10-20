@@ -33,6 +33,12 @@ function axisOf(s: SceneSolid): Axis {
   return { start, end: { x: start.x + s.extrude.x, y: start.y + s.extrude.y, z: start.z + s.extrude.z }, dir: { x: s.extrude.x / L, y: s.extrude.y / L, z: s.extrude.z / L }, length: L };
 }
 const isLevel = (a: Axis) => Math.abs(a.dir.z) < 0.1;
+/** The centre of a solid's swept volume. */
+function centreOf(s: SceneSolid): P3 {
+  const n = s.base.length;
+  const c = { x: s.base.reduce((a, p) => a + p.x, 0) / n, y: s.base.reduce((a, p) => a + p.y, 0) / n, z: s.base.reduce((a, p) => a + p.z, 0) / n };
+  return { x: c.x + s.extrude.x / 2, y: c.y + s.extrude.y / 2, z: c.z + s.extrude.z / 2 };
+}
 const isVertical = (a: Axis) => Math.abs(a.dir.z) > 0.9;
 
 /** The vertical plane through `origin` along plan direction `dir`, as a projection. */
@@ -65,10 +71,12 @@ export function frameLines(scene: SceneModel): FrameLine[] {
   const out = [...lines.values()].filter((l) => l.solids.length >= 2);
   for (const l of out) {
     for (const s of scene.solids) {
-      if (s.kind !== 'column') continue;
-      const a = axisOf(s);
-      if (!isVertical(a)) continue;
-      const off = Math.abs((a.start.x - l.origin.x) * -l.dir.y + (a.start.y - l.origin.y) * l.dir.x);
+      if (s.kind !== 'column' && s.kind !== 'joint') continue;
+      // A column by its axis; a joint by its centre, which stands on the line it closes.
+      const a = s.kind === 'column' ? axisOf(s) : null;
+      if (a && !isVertical(a)) continue;
+      const at = a ? a.start : centreOf(s);
+      const off = Math.abs((at.x - l.origin.x) * -l.dir.y + (at.y - l.origin.y) * l.dir.x);
       if (off < 0.3) l.solids.push(s);
     }
   }
@@ -86,7 +94,15 @@ export function columnStacks(scene: SceneModel): ColumnStack[] {
     st.solids.push(s);
     stacks.set(key, st);
   }
-  return [...stacks.values()].filter((s) => s.solids.length >= 2)
+  // The joints between the lifts, so the stack is drawn as the concrete continues through them.
+  for (const s of scene.solids) {
+    if (s.kind !== 'joint') continue;
+    const m = centreOf(s);
+    let best: ColumnStack | null = null, d = 0.3;
+    for (const st of stacks.values()) { const e = Math.hypot(st.at.x - m.x, st.at.y - m.y); if (e < d) { d = e; best = st; } }
+    best?.solids.push(s);
+  }
+  return [...stacks.values()].filter((s) => s.solids.filter((x) => x.kind === 'column').length >= 2)
     .map((s) => ({ ...s, solids: s.solids.sort((p, q) => axisOf(p).start.z - axisOf(q).start.z) }));
 }
 
@@ -103,6 +119,12 @@ export function joints(scene: SceneModel): Joint[] {
       const key = `${Math.round(end.x / 0.05)}:${Math.round(end.y / 0.05)}:${Math.round(end.z / 0.05)}`;
       const j = out.get(key) ?? { id: `joint-${out.size + 1}`, at: end, dir: { x: near[0]!.a.dir.x, y: near[0]!.a.dir.y }, solids: [] };
       for (const s of [c, ...near.map((b) => b.s)]) if (!j.solids.includes(s)) j.solids.push(s);
+      // The joint's own concrete, where the scene draws it apart from the members it joins.
+      for (const s of scene.solids) {
+        if (s.kind !== 'joint' || j.solids.includes(s)) continue;
+        const m = centreOf(s);
+        if (Math.hypot(m.x - end.x, m.y - end.y) < 0.8 && Math.abs(m.z - end.z) < 1) j.solids.push(s);
+      }
       out.set(key, j);
     }
   }

@@ -4,10 +4,16 @@
    * each face by row with their marks and hooks, the stirrup zones, each span's length, and under
    * it the steel the moments ask for against the steel the bars give, face by face. Clicking a bar
    * or a zone selects it; clicking elsewhere sets the point the check reads.
+   *
+   * The moment diagram goes on the beam or in a band below it, the envelope or one combination,
+   * and optionally shifted by d (§9.7.3.3), drawn under the plain one so the shift reads as the
+   * reason a bar runs on. The last band is the stirrups: the Av/s the shear, the torsion or both
+   * ask (with or without the minimum) against the Av/s the zones give.
    */
   import type { BeamLineReinforcement } from '../../../../lib/design-contract/beam-line';
   import { areaAt, memberOffsets } from '../../../../lib/engine/design/beam-line';
-  import type { DemandPoint } from '../../../../lib/engine/design/beam-line-demand';
+  import { transverseAt, type DemandPoint, type TransversePoint } from '../../../../lib/engine/design/beam-line-demand';
+  import type { LineOpening } from '../../../../lib/store/line-openings';
   import { t } from '../../../../lib/i18n';
 
   interface Props {
@@ -22,8 +28,18 @@
     onBar: (id: string, additive: boolean) => void;
     onZone: (id: string) => void;
     onPoint: (x: number) => void;
+    /** The demand shifted by d, drawn with the plain one when given. */
+    shifted?: DemandPoint[] | null;
+    /** Where the moment diagram goes: on the beam or in its own band below. */
+    lawOn?: 'beam' | 'below';
+    transverse?: TransversePoint[];
+    tMode?: 'shear' | 'torsion' | 'both';
+    tMin?: boolean;
+    /** Web openings placed on the line's members. */
+    holes?: LineOpening[];
   }
-  let { line, faces, demand, selectedBar, secondBar, selectedZone, pointX, failing, onBar, onZone, onPoint }: Props = $props();
+  let { line, faces, demand, selectedBar, secondBar, selectedZone, pointX, failing, onBar, onZone, onPoint,
+    shifted = null, lawOn = 'below', transverse = [], tMode = 'both', tMin = true, holes = [] }: Props = $props();
 
   const W = 960, M = 40, TOP = 40, H = 110;
   const total = $derived(line.lengths.reduce((s, l) => s + l, 0));
@@ -39,6 +55,38 @@
   const dimY = zoneY + 38;
   const diaTop = dimY + 26, diaH = 120;
   const mid = $derived(diaTop + diaH / 2);
+  const lawTop = diaTop + diaH + 14, lawH = 110;
+  const lawMid = $derived(lawOn === 'beam' ? TOP + H / 2 : lawTop + lawH / 2);
+  const lawHalf = $derived(lawOn === 'beam' ? H / 2 - 4 : lawH / 2 - 6);
+  const tTop = $derived(lawOn === 'beam' ? diaTop + diaH + 14 : lawTop + lawH + 14), tH = 90;
+  const height = $derived(transverse.length ? tTop + tH + 10 : (lawOn === 'beam' ? diaTop + diaH + 10 : lawTop + lawH + 10));
+
+  // ── The moment diagram: sagging below the axis, hogging above, as the tension side reads ──
+  const mMax = $derived(Math.max(1e-6, ...[...demand, ...(shifted ?? [])].map((d) => Math.max(d.mPos, d.mNeg))));
+  const my = (m: number) => (m / mMax) * lawHalf;
+  const law = (pts: readonly DemandPoint[], face: 'pos' | 'neg') =>
+    path(pts.map((d) => [X(d.x), lawMid + (face === 'pos' ? my(d.mPos) : -my(d.mNeg))]));
+  const lawPos = $derived(law(demand, 'pos')), lawNeg = $derived(law(demand, 'neg'));
+  const shPos = $derived(shifted ? law(shifted, 'pos') : ''), shNeg = $derived(shifted ? law(shifted, 'neg') : '');
+
+  // ── Stirrups: asked against given, cm²/m ──
+  const tNeed = (p: TransversePoint) => Math.max(tMode === 'shear' ? p.shear : tMode === 'torsion' ? p.torsion : p.shear + p.torsion, tMin ? p.min : 0);
+  const tSamples = $derived.by(() => {
+    const xs = new Set<number>(transverse.map((p) => p.x));
+    for (const z of line.stirrups) { xs.add(z.from); xs.add(z.to); }
+    return [...xs].filter((x) => x >= 0 && x <= total).sort((a, b) => a - b);
+  });
+  const tMax = $derived(Math.max(1e-6, ...transverse.map(tNeed), ...tSamples.map((x) => transverseAt(line.stirrups, x))));
+  const ty = (v: number) => tTop + tH - 4 - (v / tMax) * (tH - 14);
+  const tNeedPath = $derived(path(transverse.map((p) => [X(p.x), ty(tNeed(p))])));
+  const tGivePath = $derived.by(() => {
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i < tSamples.length - 1; i++) {
+      const a = tSamples[i]!, b = tSamples[i + 1]!, v = ty(transverseAt(line.stirrups, (a + b) / 2));
+      pts.push([X(a), v], [X(b), v]);
+    }
+    return path(pts);
+  });
 
   // ── Needed against provided ──
   const samples = $derived.by(() => {
@@ -72,7 +120,7 @@
   }
 </script>
 
-<svg class="fe" viewBox="0 0 {W} {diaTop + diaH + 10}" role="img" aria-label={t('frameEd.elevation')} data-testid="frame-elevation" onclick={background}>
+<svg class="fe" viewBox="0 0 {W} {height}" role="img" aria-label={t('frameEd.elevation')} data-testid="frame-elevation" onclick={background}>
   <!-- Beam outline and columns -->
   <rect x={X(0)} y={TOP} width={total * sx} height={H} class="fe-beam" />
   {#each line.members as id, i (id)}
@@ -122,8 +170,45 @@
   <path d={giveTop} class="fe-give" /><path d={giveBottom} class="fe-give" />
   <path d={needTop} class="fe-need" /><path d={needBottom} class="fe-need" />
 
+  <!-- Web openings -->
+  {#each holes as o (o.entry.id)}
+    {@const hh = Math.max(4, o.hShare * H)}
+    <rect x={X(o.from)} y={TOP + H / 2 - o.offShare * H - hh / 2} width={Math.max(2, (o.to - o.from) * sx)} height={hh}
+      class="fe-hole" class:fe-fail={o.status === 'fail'} data-testid="frame-hole-{o.entry.id}" />
+  {/each}
+
+  <!-- Cross-sections placed on the line -->
+  {#each line.cuts ?? [] as c (c.id)}
+    <g class="fe-cut" data-testid="frame-cut-{c.label}">
+      <line x1={X(c.x)} y1={TOP - 12} x2={X(c.x)} y2={TOP + H + 12} />
+      <text x={X(c.x)} y={TOP - 14} text-anchor="middle">{c.label}</text>
+      <text x={X(c.x)} y={TOP + H + 22} text-anchor="middle">{c.label}</text>
+    </g>
+  {/each}
+
+  <!-- Moment diagram -->
+  <g data-testid="frame-law" data-on={lawOn}>
+    {#if lawOn === 'below'}
+      <line x1={X(0)} y1={lawMid} x2={X(total)} y2={lawMid} class="fe-axis" />
+      <text x={4} y={lawTop + 10} class="fe-dimt">Mu</text>
+    {/if}
+    {#if shifted}<path d={shPos} class="fe-shift" data-testid="frame-law-shifted" /><path d={shNeg} class="fe-shift" />{/if}
+    <path d={lawPos} class="fe-law" /><path d={lawNeg} class="fe-law" />
+    <text x={W - 4} y={lawMid - lawHalf + 9} text-anchor="end" class="fe-dimt">{mMax.toFixed(1)} kN·m</text>
+  </g>
+
+  <!-- Stirrups: asked against given -->
+  {#if transverse.length}
+    <g data-testid="frame-transverse" data-mode={tMode}>
+      <line x1={X(0)} y1={tTop + tH - 4} x2={X(total)} y2={tTop + tH - 4} class="fe-axis" />
+      <text x={4} y={tTop + 10} class="fe-dimt">Av/s</text>
+      <text x={W - 4} y={tTop + 10} text-anchor="end" class="fe-dimt">{tMax.toFixed(1)} cm²/m</text>
+      <path d={tGivePath} class="fe-give" /><path d={tNeedPath} class="fe-need" />
+    </g>
+  {/if}
+
   {#if pointX !== null}
-    <line x1={X(pointX)} y1={TOP - 24} x2={X(pointX)} y2={diaTop + diaH} class="fe-point" />
+    <line x1={X(pointX)} y1={TOP - 24} x2={X(pointX)} y2={height - 6} class="fe-point" />
   {/if}
 </svg>
 
@@ -145,6 +230,12 @@
   .fe-axis { stroke: var(--st-hair-strong); stroke-width: 0.7; }
   .fe-need { fill: none; stroke: var(--st-danger); stroke-width: 1.2; stroke-dasharray: 3 2; }
   .fe-give { fill: none; stroke: var(--st-ok); stroke-width: 1.4; }
+  .fe-hole { fill: var(--st-surface); stroke: var(--st-text-2); stroke-width: 1; }
+  .fe-hole.fe-fail { stroke: var(--st-danger); stroke-width: 1.6; }
+  .fe-cut line { stroke: var(--st-text); stroke-width: 1.2; stroke-dasharray: 8 3 2 3; }
+  .fe-cut text { font-size: 10px; font-weight: 600; fill: var(--st-text); }
+  .fe-law { fill: none; stroke: var(--st-value); stroke-width: 1.3; }
+  .fe-shift { fill: none; stroke: var(--st-warn); stroke-width: 1.1; stroke-dasharray: 5 3; }
   .fe-point { stroke: var(--st-accent); stroke-width: 1; stroke-dasharray: 4 3; }
   .fe:focus-visible, .fe-bar:focus-visible, .fe-zone:focus-visible { outline: 2px solid var(--st-value); }
 </style>

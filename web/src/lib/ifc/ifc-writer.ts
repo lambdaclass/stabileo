@@ -22,13 +22,25 @@ export type ProfileSpec =
 
 export type PropValue = string | number;
 
+/**
+ * Concrete as a plan polygon swept up from `z0` by `depth`, world X and Y, m: a joint's part, or a
+ * slab net of the frame. The outer ring counter-clockwise, holes clockwise, no repeated point.
+ */
+export interface IfcPrismItem { z0: number; depth: number; outer: Array<[number, number]>; holes?: Array<Array<[number, number]>> }
+
 export interface IfcExportInput {
   project: { name: string; site?: string; time: string; app: string };
   /** Properties of the building as designed (the project's design verdict), on the IfcBuilding. */
   buildingProps?: Record<string, PropValue>;
   storeys: Array<{ name: string; z: number }>;
-  members: Array<{ id: string; kind: 'column' | 'beam' | 'member'; name: string; a: V3; b: V3; profile: ProfileSpec; profileName?: string; rollDeg?: number; material?: string; props?: Record<string, PropValue> }>;
-  slabs: Array<{ id: string; name: string; outline: V3[]; thickness: number; material?: string; props?: Record<string, PropValue> }>;
+  /**
+   * `a` to `b` is the member's axis, its placement and its profile's sweep. With `segments` the
+   * body is those pieces of the axis instead (a span cut at the joints along it), each swept with
+   * the profile; `prisms` are the joints the member owns, added to its body.
+   */
+  members: Array<{ id: string; kind: 'column' | 'beam' | 'member'; name: string; a: V3; b: V3; profile: ProfileSpec; profileName?: string; rollDeg?: number; material?: string; props?: Record<string, PropValue>; segments?: Array<{ a: V3; b: V3 }>; prisms?: IfcPrismItem[] }>;
+  /** With `prisms`, the body is those (the slab net of the frame); without, the outline swept up its thickness. */
+  slabs: Array<{ id: string; name: string; outline: V3[]; thickness: number; material?: string; props?: Record<string, PropValue>; prisms?: IfcPrismItem[] }>;
   walls: Array<{ id: string; name: string; a: V3; b: V3; height: number; thickness: number; material?: string; props?: Record<string, PropValue> }>;
   footings: Array<{ id: string; name: string; centre: V3; B: number; L: number; thickness: number; rotDeg: number; material?: string; props?: Record<string, PropValue> }>;
   bars: Array<{ id: string; mark: string; diameter: number; points: V3[]; role: 'main' | 'ligature'; assembly: string; length: number }>;
@@ -163,12 +175,34 @@ export function writeIfc(i: IfcExportInput): string {
     }
   };
 
+  /**
+   * A world plan polygon swept up world Z, inside a placement whose origin is `o` and axes `X, Y, Z`:
+   * the item's own position states world X and Z in the placement's axes, at the height `z0`.
+   */
+  const prismIn = (q: IfcPrismItem, o: V3, X: V3, Y: V3, Zl: V3) => {
+    const local = (v: V3): V3 => [dot(v, X), dot(v, Y), dot(v, Zl)];
+    const ring = (r: Array<[number, number]>) => s.add(`IFCPOLYLINE((${[...r, r[0]!].map(([x, y]) => pt2(x, y)).join(',')}))`);
+    const prof = q.holes?.length
+      ? s.add(`IFCARBITRARYPROFILEDEFWITHVOIDS(.AREA.,$,${ring(q.outer)},(${q.holes.map(ring).join(',')}))`)
+      : s.add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${ring(q.outer)})`);
+    return extrude(prof, q.depth, ax3(local(sub([0, 0, q.z0], o)), local([0, 0, 1]), local([1, 0, 0])));
+  };
+
   // ── Members
   for (const m of i.members) {
     const axis = sub(m.b, m.a), L = len(axis);
-    if (L < 1e-6) continue;
-    const z = unit(axis), x = memberRefDirection(z, m.rollDeg);
-    const solid = extrude(profileOf(m.profile, m.profileName), L);
+    if (L < 1e-6 && !m.segments?.length && !m.prisms?.length) continue;
+    const z = L < 1e-6 ? [0, 0, 1] as V3 : unit(axis), x = memberRefDirection(z, m.rollDeg), y = cross(z, x);
+    const local = (v: V3): V3 => [dot(v, x), dot(v, y), dot(v, z)];
+    const items = m.segments
+      ? m.segments.filter((g) => len(sub(g.b, g.a)) > 1e-6).map((g) => {
+        const gz = unit(sub(g.b, g.a)), gx = memberRefDirection(gz, m.rollDeg);
+        return extrude(profileOf(m.profile, m.profileName), len(sub(g.b, g.a)), ax3(local(sub(g.a, m.a)), local(gz), local(gx)));
+      })
+      : [extrude(profileOf(m.profile, m.profileName), L)];
+    for (const q of m.prisms ?? []) items.push(prismIn(q, m.a, x, y, z));
+    if (items.length === 0) continue;
+    const solid = items.join(',');
     const cls = m.kind === 'column' ? 'IFCCOLUMN' : m.kind === 'beam' ? 'IFCBEAM' : 'IFCMEMBER';
     const pre = m.kind === 'column' ? '.COLUMN.' : m.kind === 'beam' ? '.BEAM.' : '.BRACE.';
     const el = s.add(`${cls}(${str(guid(`m:${m.id}`))},$,${str(m.name)},$,$,${place(m.a, z, x)},${shape([solid])},${str(m.id)},${pre})`);
@@ -180,10 +214,14 @@ export function writeIfc(i: IfcExportInput): string {
   for (const sl of i.slabs) {
     if (sl.outline.length < 3) continue;
     const zMid = sl.outline.reduce((a, p) => a + p[2], 0) / sl.outline.length, z0 = zMid - sl.thickness / 2;
-    const ring = sl.outline.map((p) => pt2(p[0], p[1]));
-    const poly = s.add(`IFCPOLYLINE((${[...ring, ring[0]].join(',')}))`);
-    const prof = s.add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${poly})`);
-    const el = s.add(`IFCSLAB(${str(guid(`s:${sl.id}`))},$,${str(sl.name)},$,$,${place([0, 0, z0])},${shape([extrude(prof, sl.thickness)])},${str(sl.id)},.FLOOR.)`);
+    let items: string[];
+    if (sl.prisms?.length) items = sl.prisms.map((q) => prismIn(q, [0, 0, z0], [1, 0, 0], [0, 1, 0], [0, 0, 1]));
+    else {
+      const ring = sl.outline.map((p) => pt2(p[0], p[1]));
+      const poly = s.add(`IFCPOLYLINE((${[...ring, ring[0]].join(',')}))`);
+      items = [extrude(s.add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${poly})`), sl.thickness)];
+    }
+    const el = s.add(`IFCSLAB(${str(guid(`s:${sl.id}`))},$,${str(sl.name)},$,$,${place([0, 0, z0])},${shape(items)},${str(sl.id)},.FLOOR.)`);
     contained[storeyOf(z0)]!.push(el); withMaterial(el, sl.material);
     if (sl.props) psets.push([el, sl.props, sl.id]);
   }

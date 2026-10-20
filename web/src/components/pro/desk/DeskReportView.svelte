@@ -43,6 +43,23 @@
       {#if deskUi.report.steel !== null}{tp('desk.steelChecked', { n: deskUi.report.steel })}{/if}
     </p>
   {/if}
+  {#if deskUi.report?.resized}
+    {@const z = deskUi.report.resized}
+    <section class="dr-level" data-testid="desk-report-resized">
+      {#if z.changes.length}
+        <h5>{tp('desk.resized.title', { n: z.changes.length })}</h5>
+        <ul>
+          {#each z.changes as c, i (i)}
+            <li><button onclick={() => { deskUi.selected = c.elementIds[0] ?? null; deskUi.tab = 'plan'; }}>{c.member}</button>
+              <span>{tp('desk.resized.row', { from: `${Math.round(c.from.b * 100)}×${Math.round(c.from.h * 100)}`, to: `${Math.round(c.to.b * 100)}×${Math.round(c.to.h * 100)}` })}</span>
+              <span class="dr-codes">{t(`desk.resized.reason.${c.reason}`)} · {tp('desk.resized.round', { n: c.round })}</span></li>
+          {/each}
+        </ul>
+        <p class="dr-sub">{t('desk.resized.undo')}</p>
+      {/if}
+      <p class="dr-counts" data-testid="desk-report-resized-stopped">{tp(`desk.resized.stopped.${z.stopped}`, { n: z.rounds })}</p>
+    </section>
+  {/if}
   {#if joints.length}
     <section class="dr-level" data-testid="desk-report-joints">
       <h5>{t('desk.joints')}</h5>

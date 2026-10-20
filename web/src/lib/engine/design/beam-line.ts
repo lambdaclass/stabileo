@@ -151,6 +151,53 @@ function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
 
 const covers = (b: { from: number; to: number }, x: number) => b.from <= x + EPS && b.to >= x - EPS;
 
+/** A lap a person drew: two bars of one face and row, one ending inside the other. */
+export interface LineLap {
+  face: 'top' | 'bottom';
+  row: number;
+  a: string;
+  b: string;
+  /** Along the line, m. */
+  from: number;
+  to: number;
+  length: number;
+  diameterMm: number;
+  count: number;
+}
+
+/** Every overlap of two bars of one face and row along the line where one ends inside the other. */
+export function lineLaps(line: Pick<BeamLineReinforcement, 'bars'>): LineLap[] {
+  const out: LineLap[] = [];
+  const bars = [...line.bars].sort((p, q) => p.from - q.from || p.id.localeCompare(q.id));
+  for (let i = 0; i < bars.length; i++) for (let j = i + 1; j < bars.length; j++) {
+    const p = bars[i]!, q = bars[j]!;
+    if (p.face !== q.face || p.row !== q.row) continue;
+    const from = Math.max(p.from, q.from), to = Math.min(p.to, q.to);
+    if (to - from < EPS) continue;
+    // Two bars running side by side over the same stretch are one row's bars, not a lap.
+    const staggered = (p.from < q.from - EPS && p.to < q.to - EPS) || (q.from < p.from - EPS && q.to < p.to - EPS);
+    if (!staggered) continue;
+    out.push({ face: p.face, row: p.row, a: p.id, b: q.id, from, to, length: to - from, diameterMm: Math.max(p.diameter, q.diameter), count: Math.min(p.count, q.count) });
+  }
+  return out;
+}
+
+/**
+ * The bars of a face that carry the section at x. Where two bars lap, the force passes from one to
+ * the other along the lap: at a station inside it the pair carries what one of them does, not both.
+ * Counted twice, a section at a lap read twice its steel, and the fit of the row twice its bars.
+ * Of each lapped pair over x the one ending first is left out (the other runs on past the lap).
+ */
+export function barsCarrying(line: Pick<BeamLineReinforcement, 'bars'>, face: 'top' | 'bottom', x: number): BeamLineBar[] {
+  const here = line.bars.filter((b) => b.face === face && covers(b, x));
+  const drop = new Set<string>();
+  for (const l of lineLaps({ bars: here })) {
+    const a = here.find((b) => b.id === l.a)!, b = here.find((q) => q.id === l.b)!;
+    drop.add(a.to <= b.to ? a.id : b.id);
+  }
+  return here.filter((b) => !drop.has(b.id));
+}
+
 /** Rows of bars as the verifier's layers: one per row and diameter. */
 function layersOf(bs: readonly BeamLineBar[]): RebarLayer[] {
   const by = new Map<string, RebarLayer>();
@@ -177,7 +224,7 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     const regions: NonNullable<ProvidedReinforcement['regions']> = {};
 
     // ── Bottom: the bars over the middle of the span region ──
-    const bottom = line.bars.filter((x) => x.face === 'bottom' && covers(x, mid));
+    const bottom = barsCarrying(line, 'bottom', mid);
     if (bottom.length) {
       const layers = layersOf(bottom);
       regions.bottomSpanLayers = layers;
@@ -199,7 +246,7 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     // ── Top: the bars over each support face ──
     const topSide = (side: 'start' | 'end') => {
       const p = side === 'start' ? pS : pE;
-      const bs = line.bars.filter((x) => x.face === 'top' && covers(x, p));
+      const bs = barsCarrying(line, 'top', p);
       if (!bs.length) return;
       const layers = layersOf(bs);
       const groups: LongBarGroup[] = bs.map((x) => {
@@ -351,7 +398,7 @@ export function equalizeZones(line: BeamLineReinforcement, ids: readonly string[
 
 /** Area of a face's bars at x, cm². */
 export function areaAt(line: BeamLineReinforcement, face: 'top' | 'bottom', x: number): number {
-  return line.bars.filter((b) => b.face === face && covers(b, x)).reduce((s, b) => s + b.count * Math.PI * b.diameter ** 2 / 400, 0);
+  return barsCarrying(line, face, x).reduce((s, b) => s + b.count * Math.PI * b.diameter ** 2 / 400, 0);
 }
 
 /** Where each member starts along the line. */
@@ -394,4 +441,22 @@ export function uniteSpans(line: BeamLineReinforcement, i0: number, i1: number):
 /** Forget a predefined span (the bars stay as they are). */
 export function splitSpans(line: BeamLineReinforcement, index: number): BeamLineReinforcement {
   return { ...line, spans: (line.spans ?? []).filter((s) => !s.includes(index)) };
+}
+
+/** Place a cross-section at x along the line, lettered with the first letter no cut holds. */
+export function addCut(line: BeamLineReinforcement, x: number): BeamLineReinforcement {
+  const total = line.lengths.reduce((a, l) => a + l, 0);
+  const at = Math.max(0, Math.min(total, Math.round(x * 100) / 100));
+  const used = new Set((line.cuts ?? []).map((c) => c.label));
+  let label = '';
+  for (let i = 0; !label || used.has(label); i++) label = i < 26 ? String.fromCharCode(65 + i) : `${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26)}`;
+  const id = `c${Date.now().toString(36)}${(line.cuts ?? []).length}`;
+  return { ...line, cuts: [...(line.cuts ?? []), { id, x: at, label }].sort((p, q) => p.x - q.x) };
+}
+
+/** Take a cross-section off the line. */
+export function removeCut(line: BeamLineReinforcement, id: string): BeamLineReinforcement {
+  const cuts = (line.cuts ?? []).filter((c) => c.id !== id);
+  const { cuts: _old, ...rest } = line;
+  return cuts.length ? { ...rest, cuts } : rest;
 }

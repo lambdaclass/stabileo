@@ -236,7 +236,8 @@ export interface BuildContextOptions {
   solveGeneration?: number;
   cover?: number;
   /** The clear cover for a kind of member, from the project's design data; wins over `cover`. */
-  coverFor?: (kind: 'beam' | 'column') => number;
+  /** Cover for a kind of member, m; given the element id, a cover set for that member replaces its kind's. */
+  coverFor?: (kind: 'beam' | 'column', elementId?: number) => number;
   stirrupDia?: number;
   rebarFy?: number;
   /** The diameters the project lets the design choose from, mm. */
@@ -325,7 +326,7 @@ export function buildMemberContext(
   if (!demands || demands.demands.length === 0) blocking.push('missingDemand');
   if (!stations || stations.comboResults.length === 0) blocking.push('missingCombinations');
 
-  const cover = opts.coverFor?.(elementType === 'column' ? 'column' : 'beam') ?? opts.cover ?? DEFAULT_COVER;
+  const cover = opts.coverFor?.(elementType === 'column' ? 'column' : 'beam', elementId) ?? opts.cover ?? DEFAULT_COVER;
   const stirrupDia = opts.stirrupDia ?? DEFAULT_STIRRUP_DIA;
   const fy = opts.rebarFy ?? DEFAULT_REBAR_FY;
   const codeEdition = opts.codeEdition ?? DEFAULT_CODE_EDITION;

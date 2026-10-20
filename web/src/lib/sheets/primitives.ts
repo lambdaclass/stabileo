@@ -8,13 +8,14 @@
  */
 export type LayerName = string;
 
+/** `dia`: the bar diameter a primitive draws or names, mm, for colour by diameter (`display.ts`). */
 export type Primitive =
-  | { kind: 'line'; layer: LayerName; a: P; b: P; dash?: boolean }
-  | { kind: 'polyline'; layer: LayerName; points: P[]; closed?: boolean; fill?: boolean }
-  | { kind: 'circle'; layer: LayerName; c: P; r: number; fill?: boolean }
-  | { kind: 'arc'; layer: LayerName; c: P; r: number; start: number; end: number }
-  | { kind: 'text'; layer: LayerName; at: P; text: string; height: number; align?: 'left' | 'center' | 'right'; rotation?: number }
-  | { kind: 'dimension'; layer: LayerName; a: P; b: P; offset: number; text?: string; height?: number };
+  | { kind: 'line'; layer: LayerName; a: P; b: P; dash?: boolean; dia?: number }
+  | { kind: 'polyline'; layer: LayerName; points: P[]; closed?: boolean; fill?: boolean; dia?: number }
+  | { kind: 'circle'; layer: LayerName; c: P; r: number; fill?: boolean; dia?: number }
+  | { kind: 'arc'; layer: LayerName; c: P; r: number; start: number; end: number; dia?: number }
+  | { kind: 'text'; layer: LayerName; at: P; text: string; height: number; align?: 'left' | 'center' | 'right'; rotation?: number; dia?: number }
+  | { kind: 'dimension'; layer: LayerName; a: P; b: P; offset: number; text?: string; height?: number; dia?: number };
 
 export type P = { x: number; y: number };
 

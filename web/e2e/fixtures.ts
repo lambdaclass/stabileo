@@ -26,11 +26,11 @@ export async function alSection(page: import('@playwright/test').Page, id: 'regu
  *
  * Restated here rather than imported: `e2e/` is compiled by Playwright, not by the app's Vite
  * pipeline, and reaching into `src/lib/three` from a spec would drag Three.js into the test
- * process to read six strings. `rebar-toggles.spec.ts` asserts that this list matches the
+ * process to read seven strings. `rebar-toggles.spec.ts` asserts that this list matches the
  * renderer's own, so a family added on one side cannot go unnoticed on the other.
  */
 export const SOLID_FAMILIES = [
-  'column', 'beam', 'slab', 'wall', 'footing', 'pedestal',
+  'column', 'beam', 'joint', 'slab', 'wall', 'footing', 'pedestal',
 ] as const;
 
 export type SolidFamily = typeof SOLID_FAMILIES[number];
@@ -276,6 +276,29 @@ export async function turnRolledBeams(page: Page): Promise<void> {
 }
 
 /** Load a fixture and wait for the model to settle. */
+/**
+ * Columns at every intersection of the grid, then beams along its axes, through the Building
+ * panel's column and beam tools (one placement each, as a person does it). `levelTo` stops both at
+ * a level. Leaves the Building panel on its beams tool.
+ */
+export async function placeFrameFromGrid(page: Page, opts: { levelTo?: string } = {}): Promise<void> {
+  await page.getByTestId('building-tab-columns').click();
+  if (opts.levelTo) await page.getByTestId('building-level-to').selectOption({ label: opts.levelTo });
+  await page.getByTestId('building-columns-place').click();
+  await expect(page.getByTestId('building-result')).toBeVisible();
+  await page.getByTestId('building-tab-beams').click();
+  if (opts.levelTo) await page.getByTestId('building-level-to').selectOption({ label: opts.levelTo });
+  await page.getByTestId('building-beams-place').click();
+  await expect(page.getByTestId('building-result')).toBeVisible();
+}
+
+/** Slabs in every bay, from the Building panel's slab tool. */
+export async function placeSlabsFromGrid(page: Page): Promise<void> {
+  await page.getByTestId('building-tab-slabs').click();
+  await page.getByTestId('building-place-slabs').click();
+  await expect(page.getByTestId('building-result')).toBeVisible();
+}
+
 export async function loadModel(page: Page, name: string): Promise<number[]> {
   await withCrashGuard(page, page.evaluate(async (n) => {
     await window.__stabileoActions.loadExample(n);
@@ -533,6 +556,20 @@ export { expect };
  * the one line that says so. Opening the stage by default would have hidden the problem instead
  * of describing it, and would undo the point of making Documents a stage.
  */
+/**
+ * The drawings place of design, its set laid out on arrival; `setup` also opens the set's
+ * configuration (format, kinds, entries, display, title block, details), which folds below the
+ * sheets there.
+ */
+export async function openSheetsPlace(page: Page, opts: { setup?: boolean } = {}): Promise<void> {
+  if (!(await page.getByTestId('sheets-panel').isVisible())) await designPlace(page, 'sheets');
+  await expect(page.getByTestId('sheets-build')).toBeEnabled({ timeout: 120_000 });
+  if (opts.setup) {
+    const setup = page.getByTestId('sheets-setup');
+    if (!(await setup.evaluate((d) => (d as HTMLDetailsElement).open))) await setup.locator('> summary').click();
+  }
+}
+
 export async function openDocumentsStage(page: Page): Promise<void> {
   if (await page.getByTestId('documents-stage').isVisible()) return;
   await designPlace(page, 'documents');
@@ -602,6 +639,8 @@ const PLACE: Record<string, { step: string; rail: string }> = {
   codes: { step: 'size', rail: 'desk-rail-codes' },
   detailing: { step: 'detail', rail: 'desk-rail-detailing' },
   documents: { step: 'document', rail: 'desk-rail-documents' },
+  sheets: { step: 'document', rail: 'desk-rail-sheets' },
+  listings: { step: 'document', rail: 'desk-rail-listings' },
 };
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
 
@@ -627,11 +666,17 @@ export async function openClassicDesign(page: Page): Promise<void> {
 }
 
 /** «Size…» over every member, from the top of the Design stage, keeping what was edited by hand. */
-export async function sizeAll(page: Page): Promise<void> {
+/**
+ * «Size…» over every member, in one pass: the sections kept, as the specs that read a design's
+ * counts were written. Enlarging the sections until every member verifies is the dialog's default
+ * and is pinned in `design-resize.test.ts`; on the 408-member frame its rounds outlast a spec.
+ */
+export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise<void> {
   await openDeskStage(page);
   if (!(await page.getByTestId('desk-design').isVisible())) await page.getByTestId('desk-step-size').click();
   await page.getByTestId('desk-design').click();
   await page.getByTestId('desk-run-scope-all').check();
+  await page.getByTestId('desk-run-resize').setChecked(o.resize ?? false);
   await page.getByTestId('desk-run').click();
 }
 

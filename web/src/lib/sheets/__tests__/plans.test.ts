@@ -132,7 +132,8 @@ describe('construction drawings', () => {
 
   it('details: hooks from the code tables, drawn with the project bar', async () => {
     const ds = constructionDetails({ bar: 16, tie: 8, cover: 25 }, tr);
-    expect(ds.map((d) => d.key)).toEqual(['detail-hooks', 'detail-tie', 'detail-lap', 'detail-starters', 'detail-slab-edge', 'detail-joint']);
+    // In the catalogue's order: general, slabs, beams, joints, foundations.
+    expect(ds.map((d) => d.key)).toEqual(['detail-hooks', 'detail-lap', 'detail-slab-edge', 'detail-tie', 'detail-joint', 'detail-starters']);
     // Ø16 at 90°: tail 12·db = 192, mandrel 6·db = 96.
     expect(texts(ds[0]!.primitives)).toContain('plan.detail.hookAt 90 16 96');
     expect(ds[0]!.primitives.some((p) => p.kind === 'dimension' && p.text === '192')).toBe(true);

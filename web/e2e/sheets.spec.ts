@@ -4,7 +4,7 @@
  * language switched, and both downloads recorded in the export log. The composition, the formats
  * and the three writers are pinned in `lib/sheets/__tests__/sheets.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, designPlace, openSheetsPlace } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -19,7 +19,7 @@ test.describe('@slow sheets', () => {
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] })
         .detailingAssemblies().length), { timeout: 30_000 }).toBeGreaterThan(0);
-    await openDocumentsStage(page);
+    await openSheetsPlace(page, { setup: true });
 
     const panel = page.getByTestId('sheets-panel');
     await panel.scrollIntoViewIfNeeded();

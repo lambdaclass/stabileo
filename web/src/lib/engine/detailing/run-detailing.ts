@@ -43,8 +43,9 @@ import {
   standardHook, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
 import {
-  bottomHookInboard, columnFacesAlong, faceDevelopment, planSupportEnd, supportRowInto, supportRows, topLayout, topRowInboard, topRowsOf, type SupportCage, type SupportRow,
+  bottomHookInboard, faceDevelopment, planSupportEnd, supportRowInto, supportRows, topLayout, topRowInboard, topRowsOf, type SupportCage, type SupportRow,
 } from './support-anchorage';
+import { jointBandOf, supportFacesAt as supportFacesOf, type BandBeam, type FaceColumn } from '../physical/support-faces';
 import { beamCornerRecord, columnCageDia, crossingSeatsOf, endSupportPlan, isSimpleSupport, supportCageFrom } from '../design/end-support-anchorage';
 import { developsAtFace } from '../../model/lateral-system';
 import type { MemberContext } from '../design/member-context';
@@ -81,6 +82,7 @@ import { DEFAULT_DESIGN_FAMILIES, type DesignFamily } from '../design/design-fam
 import { noFloorFamilies } from './family-record';
 import { envelopeIsComplete } from './coordination-search';
 import { materialiseLaps, lapIndex, lapBetween, type PlannedTransition, type LapInterval } from './lap-materialize';
+import type { LineBarPiece, LineLap, LineStirrupPiece } from './line-bars';
 import type { EngineMessage } from '../../codes/message';
 import {
   allocateLayers, depthAfterRaise,
@@ -204,6 +206,17 @@ export interface RunDetailingInput {
   bentUp?: BentUpPolicy;
   /** Cut points a person set in the frame editor, per beam, in its own sense (`generate-beam` `cuts`). */
   memberCuts?: ReadonlyMap<number, { bottomFrom?: number; bottomTo?: number; bottomShort?: number; topI?: number; topJ?: number }>;
+  /**
+   * A saved beam line's bars and stirrups per member, exactly as drawn (`line-bars.ts`). Given
+   * for a member, they are laid as drawn and its cut points are not read.
+   */
+  linePieces?: ReadonlyMap<number, { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }>;
+  /** The laps saved lines draw, each with the member that holds its middle (`lineLaps`). */
+  lineLaps?: ReadonlyArray<{ owner: number; lap: LineLap }>;
+  /** Lap length of column bars a person set, m, by column element id (`StoredDecisions.columnLaps`). */
+  columnLaps?: ReadonlyMap<number, number>;
+  /** Web openings by member, along it from its i node, m (`generate-beam` `webOpenings`). */
+  webOpenings?: ReadonlyMap<number, ReadonlyArray<{ from: number; to: number }>>;
   /** Members whose bars belong to the lateral-force-resisting system. */
   lateralSystem?: ReadonlySet<number>;
   /**
@@ -688,6 +701,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     });
     stacks.set(key, list);
   }
+  /** Laps a saved line draws inside a member, as each member's generator laid them. */
+  const drawnLaps: Array<{ elementId: number; fromBarId: string; toBarId: string; from: Point3; to: Point3; offset: number }> = [];
 
   const memberBarsById = new Map<number, MemberBars>();
   /** A column's horizontal local axes, which carry its section's x and y into plan. */
@@ -881,21 +896,19 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
    * column centred on the node gives `face` = half its smaller side and no `far`, as always.
    */
   function supportFacesAt(nodeId: number, id: number): { face: number; far?: number } {
-    let half = 0, widest: number | undefined;
+    const at: FaceColumn[] = [];
     for (const cid of columns) {
       const cEl = input.elements.get(cid);
       if (!cEl || (cEl.nodeI !== nodeId && cEl.nodeJ !== nodeId)) continue;
       const cCtx = input.contexts.get(cid);
       if (!cCtx) continue;
-      const h = Math.min(cCtx.section.b, cCtx.section.h) / 2;
-      if (h > half) { half = h; widest = cid; }
+      at.push({ b: cCtx.section.b, h: cCtx.section.h, offset: axisOffsetAt(cid, nodeId) });
     }
     const el = input.elements.get(id), line = memberLine(id);
-    if (widest === undefined || !el || !line) return { face: half };
+    if (!el || !line) return { face: at.reduce((m, c) => Math.max(m, Math.min(c.b, c.h) / 2), 0) };
     const u = unit(line.i, line.j);
     const w = nodeId === el.nodeI ? u : { x: -u.x, y: -u.y, z: -u.z };
-    const c = axisOffsetAt(widest, nodeId), o = axisOffsetAt(id, nodeId);
-    return columnFacesAlong(half, { x: c.x - o.x, y: c.y - o.y, z: 0 }, w);
+    return supportFacesOf(at, axisOffsetAt(id, nodeId), w);
   }
   /** Node to the near face of the widest column at a node, along beam `id`, m. */
   function supportFaceAt(nodeId: number, id: number): number {
@@ -1014,10 +1027,13 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     // Nested tails stand side by side: §25.2.1's clear (`end-support-anchorage` `verdictsIn`).
     const nestClear = (d: number) => minClearSpacingInLayer(input.edition, { barDiameterMm: d, maxAggregateSizeMm: input.maxAggregateSizeMm }).minClear;
     const topRowsAt = (side: 'I' | 'J') => topRowsOf(rows[side]);
-    const plan = (side: 'I' | 'J', bar: { position: 'top' | 'bottom'; diameterMm: number; need: 'develop' | 'embed' | 'none'; hook: 'allowed' | 'requested'; inboard: number; rowStep?: number }) => {
+    const plan = (side: 'I' | 'J', bar: { position: 'top' | 'bottom'; diameterMm: number; need: 'develop' | 'embed' | 'none'; hook: 'allowed' | 'requested'; inboard: number; rowStep?: number; endsHere?: boolean }) => {
       const dev = faceDevelopment(rebar, section, bar.position === 'bottom' ? 'bottom' : side === 'I' ? 'topStart' : 'topEnd', bar.diameterMm, input.edition);
       const outerAcross = seatedLongitudinalHalfExtents(section.b, section.h, section.cover, seat.stirrupDiaMm, bar.diameterMm).corner.halfAcross;
-      return planSupportEnd(cages[side], { ...bar, outerAcross, ld: dev.ld, ldh: dev.ldh, ldc: dev.ldc, stress: 'tension' });
+      // A bar drawn to end at this support ends here, anchored in the column, whether or not the
+      // line continues past it: no lap of the line takes it (`lineBars`).
+      const cage = bar.endsHere ? { ...cages[side], continues: false } : cages[side];
+      return planSupportEnd(cage, { ...bar, outerAcross, ld: dev.ld, ldh: dev.ldh, ldc: dev.ldc, stress: 'tension' });
     };
 
     /**
@@ -1331,7 +1347,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     // The band is handed over only where an insertion moves it, so a model that declares none
     // gets the joint it always had, to the bit.
     const jointAt = (z: number, at: { x: number; y: number }) => {
-      let depth = 0, lo = Infinity, hi = -Infinity, moved = false;
+      const framing: BandBeam[] = [];
       for (const bId of beams) {
         const bEl = input.elements.get(bId);
         const bCtx = input.contexts.get(bId);
@@ -1341,15 +1357,12 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
           if (!n) continue;
           if (Math.abs(Z(n) - z) < 0.05
             && Math.hypot(n.x - at.x, n.y - at.y) < 0.6) {
-            depth = Math.max(depth, bCtx.section.h);
-            const dz = axisOffsetAt(bId, nid).z;
-            if (Math.abs(dz) > 1e-9) moved = true;
-            lo = Math.min(lo, Z(n) + dz - bCtx.section.h / 2);
-            hi = Math.max(hi, Z(n) + dz + bCtx.section.h / 2);
+            framing.push({ nodeZ: Z(n), dz: axisOffsetAt(bId, nid).z, h: bCtx.section.h });
           }
         }
       }
-      return { depth, band: moved && depth > 0 ? { lo, hi } : undefined };
+      const band = jointBandOf(framing);
+      return { depth: band?.depth ?? 0, band: band?.moved ? { lo: band.lo, hi: band.hi } : undefined };
     };
     const beamDepthAtTop = new Map<number, number>();
     const jointAtTop = new Map<number, { lo: number; hi: number }>();
@@ -1391,7 +1404,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       fc: first.material.fc, fy: first.material.fy,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,
-      lapSplice: anchor.lapSplice,
+      // A lap a person set for the stack replaces the code's; the splice check below measures it.
+      lapSplice: ((set) => (set !== undefined ? () => set : anchor.lapSplice))(lifts.map((l) => input.columnLaps?.get(l.elementId)).find((v) => v !== undefined)),
       // The cage from `column-candidates`, which distributes the non-corner bars around
       // ALL FOUR faces and validates §25.2.3 before returning.
       //
@@ -2469,7 +2483,10 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       layerDrop: layerDropOf.get(id) ?? 0,
       bentUp: input.bentUp ?? { seismicDesign: 'unstated', optOut: false },
       ...(accepted?.regions?.skin ? { skin: accepted.regions.skin } : {}),
-      ...(input.memberCuts?.get(id) ? { cuts: input.memberCuts.get(id) } : {}),
+      ...(input.webOpenings?.get(id)?.length ? { webOpenings: input.webOpenings.get(id)! } : {}),
+      ...(input.linePieces?.get(id)?.bars.length
+        ? { lineBars: input.linePieces.get(id)!.bars, lineStirrups: input.linePieces.get(id)!.stirrups }
+        : input.memberCuts?.get(id) ? { cuts: input.memberCuts.get(id) } : {}),
       ...(accepted?.regions?.bottomGroups?.some((g) => g.anchorageStart === 'hook' || g.anchorageEnd === 'hook') ? { bottomHooks: {
         start: accepted.regions.bottomGroups.some((g) => g.anchorageStart === 'hook'),
         end: accepted.regions.bottomGroups.some((g) => g.anchorageEnd === 'hook'),
@@ -2477,6 +2494,18 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     } as never);
 
     for (const [barId, layer] of Object.entries(gen.barLayers)) barLayers.set(barId, layer);
+    for (const l of gen.drawnLaps) drawnLaps.push({ ...l, elementId: id });
+    // The laps the saved line draws with their middle in this member, against the splice length the
+    // larger bar needs (§25.5.2), measured on the whole line where the whole overlap is.
+    for (const { lap } of (input.lineLaps ?? []).filter((x) => x.owner === id)) {
+      const need = anchor.lapSplice(lap.diameterMm);
+      const where = `${lap.count}Ø${lap.diameterMm} ${lap.face === 'top' ? 'superiores' : 'inferiores'}, x = ${lap.from.toFixed(2)}–${lap.to.toFixed(2)} m de la línea`;
+      if (lap.length < need - 1e-3) {
+        gen.unsupported.push(`Solape dibujado de ${where}: ${lap.length.toFixed(2)} m, menor que la longitud de empalme ℓst = ${need.toFixed(2)} m (25.5.2).`);
+      } else {
+        gen.trace.push(`Solape dibujado de ${where}: ${lap.length.toFixed(2)} m, cubre ℓst = ${need.toFixed(2)} m (25.5.2).`);
+      }
+    }
 
     // ── The transverse cage joins the assembly ──
     //
@@ -2568,6 +2597,24 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         ? { ...r, solution: r.available >= r.required - 1e-9 ? 'straight' as const : 'unresolved' as const } : r;
       const start = settle(a.start), end = settle(a.end);
       return { ...bar, anchorage: { ...(start ? { start } : {}), ...(end ? { end } : {}) } };
+    });
+  }
+  // The laps a saved line draws, declared as laps: the pair is intended, and the collision check
+  // reads it as one (`isLapPair`). A pair farther apart than §25.5.1.3 allows is said so.
+  for (const d of drawnLaps) {
+    const bar = memberBarsById.get(d.elementId)?.bars.find((b) => b.id === d.fromBarId);
+    const db = (bar?.diameterMm ?? 0) / 1000;
+    const len = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y, d.to.z - d.from.z);
+    const maxOffset = Math.min(len / 5, 0.15);
+    const contact = d.offset <= db + 0.002;
+    if (!contact && d.offset > maxOffset + 1e-6) {
+      memberBarsById.get(d.elementId)?.unsupported.push(`Solape dibujado de ${d.fromBarId} y ${d.toBarId}: barras a ${(d.offset * 1000).toFixed(0)} mm entre ejes, más que ${(maxOffset * 1000).toFixed(0)} mm (25.5.1.3).`);
+    }
+    materialised.laps.push({
+      jointId: `drawn:e${d.elementId}`, fromElementId: d.elementId, toElementId: d.elementId,
+      fromBarId: d.fromBarId, toBarId: d.toBarId, from: d.from, to: d.to, lapLength: len,
+      kind: contact ? 'contactLap' : 'nonContactLap', spliceClass: 'B', offset: d.offset,
+      maxOffset: contact ? Infinity : maxOffset, refs: [clause('cirsoc-201', input.edition, '25.5.1.3', 'empalmes por yuxtaposición sin contacto')],
     });
   }
   const laps = lapIndex(materialised.laps);

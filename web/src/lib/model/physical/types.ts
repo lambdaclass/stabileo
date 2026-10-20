@@ -33,6 +33,12 @@ export interface PhysicalData {
   retains?: { gradeZ: number; gamma: number; k: number; surcharge: number; side?: { x: number; y: number } };
   /** A wall's openings, along its length from its start and up from its level, m. */
   openings?: Array<{ offset: number; width: number; sill: number; height: number }>;
+  /**
+   * A slab placed as one shell per panel and meshed at `size` (m) by the first solve
+   * (`model/building/deferred-slabs.ts`). `meshed` once it was; `panel` is the panel's four
+   * corner nodes, to put it back to one shell.
+   */
+  meshAtSolve?: { size: number; meshed: boolean; panel: number[] };
 }
 
 export interface PhysicalDraft extends PhysicalData {

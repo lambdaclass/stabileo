@@ -15,6 +15,7 @@ import { loadedSegment } from '../model/loads/load-stretch';
 import { colourCategory, categoryHex, firstGroupIndex } from '../viewport/element-colour';
 import { viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../store/view-state.svelte';
 import * as THREE from 'three';
+import { physicalLayersOf, projectPhysicalFrame } from '../store/physical-frame';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { memberLoadAxes } from '../model/member-load-axes';
 import { transverseSign } from '../engine/transverse-sign-2d';
@@ -215,6 +216,15 @@ export function syncElements(ctx: SceneSyncContext): void {
   }
 
   const groupOf = groupIndex();
+  // The concrete as built: each member's solid and the joints attributed to it. In the physical
+  // mode, and in the sections mode too for the concrete the frame cuts: swept from node to node,
+  // two beams meeting at a corner overlapped in one quarter and left the outer one empty.
+  const physical = (renderMode === 'physical' || renderMode === 'sections') && !project2D ? projectPhysicalFrame() : null;
+  const physicalOf = (id: number) => (physical ? physicalLayersOf(physical, id) : undefined);
+  const physicalKey = (id: number) => {
+    const ls = physicalOf(id);
+    return ls ? ls.map((l) => `${l.z0.toFixed(4)}:${l.z1.toFixed(4)}:${l.polygons.map((p) => p.outer.map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).join(';')).join('/')}`).join('|') : '';
+  };
   // Signature captures everything that forces a rebuild of the element mesh:
   // endpoint positions, type, hinges, section geometry, roll, render mode.
   for (const [id, elem] of storeElements) {
@@ -301,7 +311,8 @@ export function syncElements(ctx: SceneSyncContext): void {
         `|vs:${variableKey(elem)}` +
         `|${elem.rollAngle ?? ''}:${elem.localYx ?? ''}:${elem.localYy ?? ''}:${elem.localYz ?? ''}|${leftHand ? 'L' : 'R'}` +
         `|off:${elem.offset ? JSON.stringify(elem.offset) : ''}` +
-        `|jnt:${jointKey}`;
+        `|jnt:${jointKey}` +
+        (physical ? `|ph:${physicalKey(id)}` : '');
 
     const existing = ctx.elementGroups.get(id);
     if (existing && existing.userData.elementSig === signature) continue;
@@ -369,6 +380,7 @@ export function syncElements(ctx: SceneSyncContext): void {
         renderMode,
         localAxes,
         ...variableDrawing(elem, sec),
+        ...(physical ? { physicalLayers: physicalOf(id) } : {}),
       },
     );
     // Basic 3D internal-joint glyph: a small orange octahedron at each released
@@ -505,6 +517,12 @@ export function syncShells(ctx: SceneSyncContext): void {
   };
 
   const seen = new Set<string>();
+  // The physical mode's slabs, net of the frame; a shell it does not cover is drawn as in 'sections'.
+  const physical = renderMode === 'physical' && !project2D ? projectPhysicalFrame() : null;
+  const netKey = (key: string) => {
+    const s = physical?.slab.get(key);
+    return s ? `|ph:${s.volume.toFixed(9)}:${s.layers.length}` : '';
+  };
 
   // In 'sections' (rendered) mode, draw an offset shell at its analytical
   // offset location (like member offsets). The offset is genuine-3D only, so
@@ -514,7 +532,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     pts: Array<{ x: number; y: number; z: number }>,
     offset: import('../model/element-3d-metadata').ShellOffset | undefined,
   ): Array<{ x: number; y: number; z: number }> => {
-    if (renderMode !== 'sections' || project2D || !offset) return pts;
+    if ((renderMode !== 'sections' && renderMode !== 'physical') || project2D || !offset) return pts;
     const v = resolveShellOffsetGlobal(offset, pts);
     if (!v) return pts;
     return pts.map(p => ({ x: p.x + v.x, y: p.y + v.y, z: p.z + v.z }));
@@ -526,7 +544,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, plate.offset);
-    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes], plate.thickness, plate.materialId);
+    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes], plate.thickness, plate.materialId) + netKey(key);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -539,6 +557,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     }
     const group = createPlateMesh(n0, n1, n2, id, {
       renderMode, thickness: plate.thickness, faceColor: shellColorForMaterial(plate.materialId),
+      ...(physical?.slab.get(key) ? { physicalLayers: physical.slab.get(key)!.layers } : {}),
     });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
@@ -552,7 +571,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2, n3] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, quad.offset);
-    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes], quad.thickness, quad.materialId);
+    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes], quad.thickness, quad.materialId) + netKey(key);
 
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) {
@@ -565,6 +584,7 @@ export function syncShells(ctx: SceneSyncContext): void {
     }
     const group = createQuadMesh(n0, n1, n2, n3, id, {
       renderMode, thickness: quad.thickness, faceColor: shellColorForMaterial(quad.materialId),
+      ...(physical?.slab.get(key) ? { physicalLayers: physical.slab.get(key)!.layers } : {}),
     });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);

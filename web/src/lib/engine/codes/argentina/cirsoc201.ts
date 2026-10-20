@@ -102,6 +102,8 @@ export interface ShearResult {
   Vs: number;          // steel contribution required (kN)
   AvOverS: number;     // required Av/s (cm²/m)
   AvOverSMin: number;  // minimum Av/s (cm²/m)
+  /** Av/s the shear asks before the minimum applies (cm²/m). */
+  AvOverSReq?: number;
   spacing: number;     // proposed stirrup spacing (m)
   stirrupDia: number;  // mm
   stirrupLegs: number;
@@ -766,6 +768,7 @@ export function checkShear(params: ConcreteDesignParams, Vu: number, Nu: number 
   return {
     Vu: VuAbs, d, phiVc, Vs: VsReq,
     AvOverS: AvOverSDesign,
+    AvOverSReq: AvOverS,
     AvOverSMin: AvOverSMinCm2m,
     spacing, stirrupDia: stirrupBar.diameter, stirrupLegs: legs,
     phiVn, ratio, status, steps,

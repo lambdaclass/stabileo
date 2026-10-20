@@ -17,11 +17,19 @@
   import { framesOf } from '../../../../lib/store/frame-equalize';
   import { lineKey, type BeamLineReinforcement } from '../../../../lib/design-contract/beam-line';
   import type { BeamLine } from '../../../../lib/engine/design/repeated-frames';
-  import { areaAt, memberOffsets } from '../../../../lib/engine/design/beam-line';
-  import { lineDemand } from '../../../../lib/engine/design/beam-line-demand';
+  import { addCut, areaAt, memberOffsets, removeCut } from '../../../../lib/engine/design/beam-line';
+  import { lineCombos, lineDemand, lineTransverseDemand, shiftedDemand } from '../../../../lib/engine/design/beam-line-demand';
   import { computeFlexureCapacity, requiredLd } from '../../../../lib/engine/station-design-forces';
   import FrameElevation from './FrameElevation.svelte';
   import FramePanel from './FramePanel.svelte';
+  import StaleLinesNotice from './StaleLinesNotice.svelte';
+  import FrameOpenings from './FrameOpenings.svelte';
+  import { checkLabel } from '../../../../lib/engine/design/check-clauses';
+  import FrameHangers from './FrameHangers.svelte';
+  import { lineHangers } from '../../../../lib/store/line-hangers';
+  import { lineOpenings, memberAtLine } from '../../../../lib/store/line-openings';
+  import { openingChecks } from '../../../../lib/store/special-elements';
+  import type { StaleLine } from '../../../../lib/store/beam-line-store';
   import { designDrafts } from '../../../../lib/store/design-drafts.svelte';
 
   let { memberId }: { memberId: number } = $props();
@@ -34,11 +42,13 @@
   let selBar = $state<string | null>(null), selBar2 = $state<string | null>(null), selZone = $state<string | null>(null);
   let pointX = $state<number | null>(null);
   let note = $state<string | null>(null);
+  /** A saved line the members no longer match: not applied, offered (`StaleLinesNotice`). */
+  let stale = $state<StaleLine | null>(null);
 
   /** Open the member's line: its kept draft when there is one, else what the members hold. */
   function load() {
     const o = openLine(memberId);
-    line = o?.line ?? null; draft = o?.model ?? null; saved = o?.saved ?? false;
+    line = o?.line ?? null; draft = o?.model ?? null; saved = o?.saved ?? false; stale = o?.stale ?? null;
     dirty = false; undo = []; selBar = selBar2 = selZone = null; pointX = null; note = null;
     const kept = line ? designDrafts.frame(lineKey(line.members)) : undefined;
     if (kept) { draft = kept.draft; undo = kept.undo; dirty = true; note = t('frameEd.draftRestored'); }
@@ -60,10 +70,31 @@
   const verdicts = $derived(line && draft ? checkDraft(line, draft) : new Map());
   const failing = $derived(new Set([...verdicts].filter(([, v]) => v.checks.some((c: { status: string }) => c.status === 'fail')).map(([id]) => id as number)));
   const worst = $derived(Math.max(0, ...[...verdicts.values()].map((v) => v.worstUtilization ?? 0)));
-  const demand = $derived.by(() => {
+  // What the diagrams show: the envelope or one combination, the law shifted by d or not, on the
+  // beam or below it, and which part of the stirrups' demand.
+  let comboId = $state<number | undefined>(undefined);
+  let showShift = $state(false), lawOn = $state<'beam' | 'below'>('below');
+  let tMode = $state<'shear' | 'torsion' | 'both'>('both'), tMin = $state(true);
+  /** While on, a click on the elevation places a cross-section there instead of reading the point. */
+  let placing = $state(false);
+  function onPoint(x: number) {
+    if (placing && draft) { apply(addCut(draft, x)); placing = false; return; }
+    pointX = x;
+  }
+  const spans = $derived.by(() => {
     if (!line || !draft) return [];
     const offs = memberOffsets(draft);
-    return lineDemand(line.members.map((id, i) => ({ ctx: verificationStore.contextFor(id), offset: offs[i]!, L: draft!.lengths[i]!, forward: line!.forward[i] !== false })));
+    return line.members.map((id, i) => ({ ctx: verificationStore.contextFor(id), offset: offs[i]!, L: draft!.lengths[i]!, forward: line!.forward[i] !== false }));
+  });
+  const combos = $derived(lineCombos(spans.map((s) => s.ctx)));
+  const demand = $derived(lineDemand(spans, comboId));
+  const shifted = $derived(showShift ? shiftedDemand(demand) : null);
+  const transverse = $derived(lineTransverseDemand(spans, comboId));
+  const spanOf = (id: number) => verificationStore.contextFor(id)?.span;
+  const hangers = $derived(line && draft ? lineHangers(line, draft.lengths) : []);
+  const holes = $derived.by(() => {
+    void modelStore.designDecisions;
+    return line && draft ? lineOpenings(openingChecks(), draft, line.forward, (id) => verificationStore.contextFor(id)?.axes.hFlex, spanOf) : [];
   });
   const repeats = $derived.by(() => { void modelStore.designDecisions; return line ? (framesOf(line.members[0]!)?.group?.lines ?? []) : []; });
   const key = $derived(line ? lineKey(line.members) : '');
@@ -74,6 +105,12 @@
     undo = [...undo, draft].slice(-50);
     draft = next; dirty = true; note = null;
     keep();
+  }
+  /** Take a redesigned line's saved bars up again as a draft: checked here, written only by «Save». */
+  function takeUp(s: StaleLine) {
+    const { memberHashes: _old, ...rec } = JSON.parse(JSON.stringify(s.record)) as BeamLineReinforcement;
+    apply(rec as BeamLineReinforcement);
+    stale = null; note = t('frameEd.stale.takenUp');
   }
   function back() { const prev = undo[undo.length - 1]; if (prev) { draft = prev; undo = undo.slice(0, -1); dirty = true; keep(); } }
   function save() {
@@ -144,10 +181,34 @@
         {/if}
       {/if}
     </header>
+    {#if stale}<StaleLinesNotice one={stale} onTakeUp={takeUp} />{/if}
     {#if note}<p class="fx-hint" role="status">{note}</p>{/if}
-    <FrameElevation line={draft} {faces} {demand} selectedBar={selBar} secondBar={selBar2} selectedZone={selZone} {pointX} {failing}
-      onBar={onBar} onZone={(id) => { selZone = id; selBar = selBar2 = null; }} onPoint={(x) => (pointX = x)} />
-    <p class="fx-legend"><span class="need">- -</span> {t('frameEd.needed')} · <span class="give">—</span> {t('frameEd.provided')}</p>
+    <div class="fx-view" data-testid="frame-view">
+      <label>{t('frameEd.view.combo')}
+        <select value={comboId ?? ''} onchange={(e) => (comboId = e.currentTarget.value === '' ? undefined : Number(e.currentTarget.value))} data-testid="frame-view-combo">
+          <option value="">{t('frameEd.view.envelope')}</option>
+          {#each combos as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        </select>
+      </label>
+      <label><input type="checkbox" bind:checked={showShift} data-testid="frame-view-shift" /> {t('frameEd.view.shift')}</label>
+      <label>{t('frameEd.view.lawOn')}
+        <select bind:value={lawOn} data-testid="frame-view-law"><option value="below">{t('frameEd.view.below')}</option><option value="beam">{t('frameEd.view.onBeam')}</option></select>
+      </label>
+      <label>{t('frameEd.view.stirrups')}
+        <select bind:value={tMode} data-testid="frame-view-transverse"><option value="both">{t('frameEd.view.both')}</option><option value="shear">{t('frameEd.view.shear')}</option><option value="torsion">{t('frameEd.view.torsion')}</option></select>
+      </label>
+      <label><input type="checkbox" bind:checked={tMin} data-testid="frame-view-min" /> {t('frameEd.view.min')}</label>
+    </div>
+    <FrameElevation line={draft} {faces} {demand} {shifted} {lawOn} {transverse} {tMode} {tMin} {holes} selectedBar={selBar} secondBar={selBar2} selectedZone={selZone} {pointX} {failing}
+      onBar={onBar} onZone={(id) => { selZone = id; selBar = selBar2 = null; }} {onPoint} />
+    <div class="fx-view" data-testid="frame-cuts">
+      <button class:on={placing} onclick={() => (placing = !placing)} data-testid="frame-cut-place">{placing ? t('frameEd.cuts.clickHint') : t('frameEd.cuts.place')}</button>
+      {#each draft.cuts ?? [] as c (c.id)}
+        <span class="fx-cut">{c.label}–{c.label} · {c.x.toFixed(2)} m <button aria-label={tp('frameEd.cuts.remove', { label: c.label })} onclick={() => apply(removeCut(draft!, c.id))} data-testid="frame-cut-remove-{c.label}">×</button></span>
+      {/each}
+      {#if (draft.cuts ?? []).length}<span class="fx-hint">{t('frameEd.cuts.onSheet')}</span>{/if}
+    </div>
+    <p class="fx-legend"><span class="need">- -</span> {t('frameEd.needed')} · <span class="give">—</span> {t('frameEd.provided')}{#if showShift} · <span class="shift">- -</span> {t('frameEd.view.shiftLegend')}{/if}</p>
     {#if point}
       <table class="fx-point" data-testid="frame-point">
         <thead><tr><th>x = {point.x.toFixed(2)} m</th><th>Mu</th><th>As</th><th>φMn</th><th></th></tr></thead>
@@ -163,13 +224,15 @@
     <div class="fx-cols">
       <FramePanel line={draft} selectedBar={selBar} secondBar={selBar2} selectedZone={selZone} {lapOf} {apply} clearSelection={() => { selBar = selBar2 = selZone = null; }} />
       <section class="fx-members" data-testid="frame-members">
+        <FrameOpenings openings={holes} locate={(x) => (line && draft ? memberAtLine(draft, line.forward, x, spanOf) : null)} total={draft.lengths.reduce((a, l) => a + l, 0)} />
+        <FrameHangers supports={hangers} line={draft} {apply} />
         <h5>{t('frameEd.members')}</h5>
         {#each line.members as id, i (id)}
           {@const v = verdicts.get(id)}
           <div class="fx-m" class:bad={failing.has(id)}>
             <span>{i + 1} · #{id}</span>
             <span>{v ? v.worstUtilization.toFixed(2) : '—'}</span>
-            {#if v}{#each v.checks.filter((c: { status: string }) => c.status === 'fail').slice(0, 3) as c}<span class="fx-c">{c.category}</span>{/each}{/if}
+            {#if v}{#each v.checks.filter((c: { status: string }) => c.status === 'fail').slice(0, 3) as c}<span class="fx-c">{checkLabel(c, 'beam')}</span>{/each}{/if}
           </div>
         {/each}
       </section>
@@ -189,7 +252,14 @@
   .fx-badge.bad, .bad { color: var(--st-danger); }
   .fx-hint { font-size: 0.7rem; color: var(--st-text-3); margin: 0; }
   .fx-legend { font-size: 0.66rem; color: var(--st-text-3); margin: 0; }
-  .need { color: var(--st-danger); } .give { color: var(--st-ok); }
+  .need { color: var(--st-danger); } .give { color: var(--st-ok); } .shift { color: var(--st-warn); }
+  .fx-view { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 0.68rem; color: var(--st-text-2); }
+  .fx-view label { display: flex; align-items: center; gap: 4px; }
+  .fx-view select { font-size: 0.68rem; }
+  .fx-view button { font-size: 0.68rem; padding: 1px 8px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text); border-radius: 4px; cursor: pointer; }
+  .fx-view button.on { border-color: var(--st-accent); color: var(--st-accent); }
+  .fx-cut { display: inline-flex; align-items: center; gap: 3px; }
+  .fx-cut button { padding: 0 5px; }
   .fx-point { font-size: 0.7rem; border-collapse: collapse; }
   .fx-point th, .fx-point td { padding: 1px 8px; text-align: right; font-variant-numeric: tabular-nums; }
   .fx-point th:first-child, .fx-point td:first-child { text-align: left; }

@@ -78,11 +78,12 @@ async function pickDesignMember(page: Page, id: number): Promise<void> {
 }
 
 /** Design's current member, as design names it; null when design shows none. */
+/** The member the desk's inspector holds: its id (the heading reads its name, `member-names.ts`). */
 async function designCurrentMember(page: Page): Promise<number | null> {
-  const head = page.getByTestId('desk-inspector').locator('h4');
+  const head = page.getByTestId('desk-inspector').locator('h4[data-member-id]');
   if (await head.count() === 0) return null;
-  const m = /^(\d+)\s*·/.exec((await head.innerText()).trim());
-  return m ? Number(m[1]) : null;
+  const id = await head.getAttribute('data-member-id');
+  return id ? Number(id) : null;
 }
 
 /** Whether design's member list is long enough to scroll, and how far it is scrolled. */

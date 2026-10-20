@@ -16,7 +16,7 @@ import {
   rcRegenerationImpact, rcRegenerationWarns,
   rcRetouchIsCountable, rcRetouchProvenance, rcRetouchWithin,
 } from '../rc-selection';
-import { SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
+import { MEMBER_SOLID_KINDS, SCENE_SOLID_KINDS, type SceneSolidKind } from '../../engine/detailing/scene-model';
 import es from '../../i18n/locales/es';
 import en from '../../i18n/locales/en';
 
@@ -48,8 +48,8 @@ describe('the three groups cover the six families, exhaustively', () => {
    * the union is what grew. This asserts the runtime consequence: every family the scene
    * declares lands in exactly one group, so none can silently vanish from the list.
    */
-  it('every scene family belongs to exactly one group', () => {
-    for (const kind of SCENE_SOLID_KINDS) {
+  it('every member family belongs to exactly one group', () => {
+    for (const kind of MEMBER_SOLID_KINDS) {
       const groups = RC_ELEMENT_GROUPS.filter((g) => rcFamiliesIn(g).includes(kind));
       expect(groups, `${kind} belongs to ${groups.length} groups`).toHaveLength(1);
       expect(groups[0]).toBe(rcGroupOf(kind));
@@ -58,7 +58,9 @@ describe('the three groups cover the six families, exhaustively', () => {
 
   it('the groups partition the families with none left over', () => {
     const covered = RC_ELEMENT_GROUPS.flatMap((g) => rcFamiliesIn(g));
-    expect(covered.sort()).toEqual([...SCENE_SOLID_KINDS].sort());
+    expect(covered.sort()).toEqual([...MEMBER_SOLID_KINDS].sort());
+    // The one concrete family no group lists: the joint, which belongs to its owner (PR 7 F0).
+    expect(SCENE_SOLID_KINDS.filter((k) => !covered.includes(k))).toEqual(['joint']);
   });
 
   it('a pedestal is a foundation, not a linear element', () => {

@@ -137,6 +137,8 @@ export interface StructureLevel {
 export function levelsOf(scene: SceneModel, tolerance = 0.25): StructureLevel[] {
   const zOf = new Map<number, number>();
   for (const s of scene.solids) {
+    // A joint is its owner's concrete at a node, not a member with a level of its own.
+    if (s.kind === 'joint') continue;
     const c = solidCorners(s);
     if (c.length === 0) continue;
     const b = bbox(c);
@@ -208,8 +210,9 @@ export function drawGeneralPlan(input: StructureSheetInput): Sheet {
 
   if (input.withBars) for (const b of scene.bars) polylines.push(barPolyline(b, PLAN));
 
-  // Member ids, so a plan can be read against the model and the 3-D view.
+  // Member ids, so a plan can be read against the model and the 3-D view (a joint carries its column's).
   for (const s of scene.solids) {
+    if (s.kind === 'joint') continue;
     const c = solidCorners(s).map((p) => project(p, PLAN));
     const cx = c.reduce((n, p) => n + p.x, 0) / c.length;
     const cy = c.reduce((n, p) => n + p.y, 0) / c.length;

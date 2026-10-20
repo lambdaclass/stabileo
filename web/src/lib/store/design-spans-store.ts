@@ -5,6 +5,7 @@
 import { modelStore } from './model.svelte';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
+import { spanLabels } from './member-names';
 import { applySpanContexts, designSpans, type DesignSpan, type SpanSourceModel } from '../engine/design/design-spans';
 import type { MemberContext } from '../engine/design/member-context';
 import type { MemberDesignOutcome } from '../engine/design/outcome';
@@ -34,19 +35,7 @@ export function groupSpanContexts(contexts: Map<number, MemberContext>): DesignS
   const phys = physicalBeams();
   const spans = designSpans(model, (id) => contexts.get(id)?.elementType === 'beam', (id) => phys.get(id)?.id);
   // «V3-1»: the physical beam's name and the span's place along it, from its start.
-  const byBeam = new Map<string, DesignSpan[]>();
-  for (const s of spans) {
-    const b = phys.get(s.representative);
-    if (b) byBeam.set(b.id, [...(byBeam.get(b.id) ?? []), s]);
-  }
-  const labels = new Map<string, string>();
-  for (const list of byBeam.values()) {
-    const name = phys.get(list[0]!.representative)?.name;
-    if (!name) continue;
-    const key = (s: DesignSpan) => { const n = modelStore.nodes.get(s.start)!; return [n.x, n.y, n.z ?? 0]; };
-    const order = [...list].sort((a, b) => { const p = key(a), q = key(b); return p[0]! - q[0]! || p[1]! - q[1]! || p[2]! - q[2]!; });
-    order.forEach((s, k) => labels.set(s.key, `${name}-${k + 1}`));
-  }
+  const labels = spanLabels(spans, (id) => phys.get(id), (id) => modelStore.nodes.get(id)!);
   return applySpanContexts(contexts, model, spans, (s) => labels.get(s.key));
 }
 

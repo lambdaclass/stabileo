@@ -158,6 +158,22 @@ function body(bar: BarPath): { start: Point3; end: Point3 } | null {
 export function lapGeometry(a: BarPath, b: BarPath): { overlap: number; minOffset: number; maxOffset: number } | null {
   const pa = body(a), pb = body(b);
   if (!pa || !pb) return null;
+  // A cranked bar (§10.7.4.1) laps on the straight run past its bend, not on its body: of the
+  // two bars' parallel straight runs, the pair that shares the longest stretch is the lap.
+  let best: { overlap: number; minOffset: number; maxOffset: number } | null = null;
+  for (const sa of a.segments) {
+    if (sa.kind !== 'straight') continue;
+    for (const sb of b.segments) {
+      if (sb.kind !== 'straight') continue;
+      const g = segmentLap({ start: sa.start, end: sa.end }, { start: sb.start, end: sb.end });
+      if (g && g.overlap > 1e-9 && (!best || g.overlap > best.overlap)) best = g;
+    }
+  }
+  return best ?? segmentLap(pa, pb);
+}
+
+/** Two straight runs' shared stretch: null when they are not parallel (or degenerate). */
+function segmentLap(pa: { start: Point3; end: Point3 }, pb: { start: Point3; end: Point3 }): { overlap: number; minOffset: number; maxOffset: number } | null {
   const d = { x: pa.end.x - pa.start.x, y: pa.end.y - pa.start.y, z: pa.end.z - pa.start.z };
   const L = Math.hypot(d.x, d.y, d.z);
   if (L < 1e-9) return null;

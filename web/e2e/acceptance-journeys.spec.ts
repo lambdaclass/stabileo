@@ -12,7 +12,7 @@
  * and where it breaks. With `AUDIT_OUT` the record is written as JSON; with `AUDIT_SHOTS` each step
  * leaves a screenshot. It is an audit instrument: its assertions are the record.
  */
-import { test, expect, solveModel, setAppLanguage, openDeskStage, ribbonCmd, leaveDesign, designPlace, generateDetailing } from './fixtures';
+import { test, expect, solveModel, setAppLanguage, openDeskStage, ribbonCmd, leaveDesign, designPlace, generateDetailing, placeFrameFromGrid, placeSlabsFromGrid } from './fixtures';
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 
@@ -73,34 +73,33 @@ async function buildFromScratch(page: Page, j: string): Promise<void> {
     await page.getByTestId('grid-open-building').click();
   });
   await step(page, j, 'frame defaults', async () => {
-    const sel = page.getByTestId('grid-col-section').locator('xpath=ancestor::div[1]').locator('select');
     const pick = (l: import('@playwright/test').Locator) => l.evaluate((e) => (e as HTMLSelectElement).selectedOptions[0]?.textContent ?? '');
+    const column = await pick(page.getByTestId('grid-col-section'));
+    const columnTypology = await page.getByTestId('building-col-typology').locator('[aria-checked="true"]').first().innerText().catch(() => '?');
+    await page.getByTestId('building-tab-beams').click();
     return {
-      material: await pick(page.getByTestId('building-material')),
-      column: await pick(sel.nth(0)), beamX: await pick(sel.nth(1)), beamY: await pick(sel.nth(2)),
-      columnTypology: await page.getByTestId('building-col-typology').locator('[aria-pressed="true"], .on, .active').first().innerText().catch(() => '?'),
+      material: await pick(page.getByTestId('building-material')), column,
+      beamX: await pick(page.getByTestId('building-beam-section-x')), beamY: await pick(page.getByTestId('building-beam-section-y')), columnTypology,
     };
   });
   // The concrete typology proposes the concrete and the starter sections by itself.
   await step(page, j, 'typology proposes concrete', async () => {
     const pick = (l: import('@playwright/test').Locator) => l.evaluate((e) => (e as HTMLSelectElement).selectedOptions[0]?.textContent ?? '');
-    const sel = page.getByTestId('grid-col-section').locator('xpath=ancestor::div[1]').locator('select');
-    const out = { material: await pick(page.getByTestId('building-material')), column: await pick(sel.nth(0)), beam: await pick(sel.nth(1)),
-      beamMaterial: await pick(page.getByTestId('building-beam-material')), mismatch: await page.locator('[data-testid^="building-mismatch-"]').count() };
+    await page.getByTestId('building-tab-columns').click();
+    const column = await pick(page.getByTestId('grid-col-section'));
+    await page.getByTestId('building-tab-beams').click();
+    const out = { material: await pick(page.getByTestId('building-material')), column, beam: await pick(page.getByTestId('building-beam-section-x')) };
     expect(out.material).toBe('H-30');
     expect(out.column).toMatch(/30\s*[x×]\s*30/);
     expect(out.beam).toMatch(/20\s*[x×]\s*50/);
-    expect(out.mismatch).toBe(0);
     return out;
   });
   await step(page, j, 'frame', async () => {
-    await page.getByTestId('grid-frame-create').click();
-    await expect(page.getByTestId('building-result')).toBeVisible();
+    await placeFrameFromGrid(page);
     return census(page);
   });
   await step(page, j, 'slabs', async () => {
-    await page.getByTestId('building-place-slabs').click();
-    await expect(page.getByTestId('building-result')).toBeVisible();
+    await placeSlabsFromGrid(page);
     return census(page);
   });
   await step(page, j, 'physical elements listed', async () => physical(page));
@@ -116,6 +115,7 @@ async function loads(page: Page, j: string): Promise<void> {
     const outcome = await page.getByTestId('al-apply').isEnabled();
     if (!outcome) throw new Error('apply disabled: ' + (await page.getByTestId('al-preview').innerText().catch(() => '')).slice(0, 400));
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const c = await census(page);
     expect(c.loads).toBeGreaterThan(0);
     return c;
@@ -130,6 +130,7 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     await page.getByTestId('desk-design').click();
     // The slabs too: frames are the default, a building has floors.
     await page.getByTestId('desk-run-family-slab').check();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 180_000 });
     const counts = await page.evaluate(() => window.__stabileo.runCounts());
@@ -161,6 +162,7 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
   });
   await step(page, j, 'sheets with bending schedule', async () => {
     await expect(page.getByTestId('desk-step-document')).toHaveAttribute('data-open', 'true');
+    await designPlace(page, 'sheets');
     const desk = page.getByTestId('design-desk');
     await desk.getByTestId('sheets-build').click();
     const list = desk.getByTestId('sheets-list');
@@ -172,6 +174,7 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     return { sheets: await desk.getByTestId('sheets-count').innerText(), pdf: bytes.subarray(0, 5).toString(), list: text.split('\n').slice(0, 60) };
   });
   await step(page, j, 'memoria', async () => {
+    await designPlace(page, 'documents');
     await page.getByTestId('design-desk').getByTestId('memoria-open').first().click();
     const count = await page.getByTestId('memoria-count').innerText();
     await page.getByTestId('memoria-close').click();
@@ -183,6 +186,27 @@ async function designAndDocument(page: Page, j: string): Promise<void> {
     const text = readFileSync(await ifc.path(), 'utf8');
     const [xlsx] = await Promise.all([page.waitForEvent('download'), panel.getByTestId('exchange-xlsx').click()]);
     return { ifcColumns: (text.match(/IFCCOLUMN\(/g) ?? []).length, ifcBeams: (text.match(/IFCBEAM\(/g) ?? []).length, ifcSlabs: (text.match(/IFCSLAB\(/g) ?? []).length, outdatedBars: (text.match(/OUTDATED/g) ?? []).length, xlsx: xlsx.suggestedFilename() };
+  });
+  // What this PR added, reachable on both journeys: slab sheets by layer, the listings in their
+  // formats, the bar schedule for bending machines and the sheets as DXF 2004.
+  await step(page, j, 'slab sheets, listings, BVBS and DXF 2004', async () => {
+    const desk = page.getByTestId('design-desk');
+    await designPlace(page, 'sheets');
+    await expect(desk.getByTestId('sheets-list')).toBeVisible({ timeout: 120_000 });
+    const list = await desk.getByTestId('sheets-list').innerText();
+    expect(list, 'slab reinforcement by layer').toMatch(/Losas por capa|Slabs by layer|Lajes por camada/);
+    await designPlace(page, 'listings');
+    const listings = desk.getByTestId('listings-panel');
+    await listings.scrollIntoViewIfNeeded();
+    const [html] = await Promise.all([page.waitForEvent('download'), listings.getByTestId('listing-checks-html').click()]);
+    const checks = readFileSync(await html.path(), 'utf8');
+    expect((checks.match(/<tr>/g) ?? []).length, 'checks listed').toBeGreaterThan(5);
+    const [bvbs] = await Promise.all([page.waitForEvent('download'), listings.getByTestId('listings-bvbs').click()]);
+    expect(readFileSync(await bvbs.path(), 'latin1')).toMatch(/^BF2D@/);
+    await designPlace(page, 'sheets');
+    await expect(desk.getByTestId('sheets-dxf')).toBeVisible({ timeout: 120_000 });
+    const [dxf] = await Promise.all([page.waitForEvent('download'), desk.getByTestId('sheets-dxf').click()]);
+    return { slabSheets: (list.match(/Losas por capa|Slabs by layer|Lajes por camada/g) ?? []).length, checkRows: (checks.match(/<tr>/g) ?? []).length - 1, dxf: dxf.suggestedFilename() };
   });
   await step(page, j, 'leave desk', async () => { await leaveDesign(page); });
 }
@@ -207,7 +231,10 @@ test.describe('@slow acceptance of the two journeys', () => {
       const desk = page.getByTestId('design-desk');
       // The bars stay (they are the person's), and every output built from them says it is out of date.
       await expect(desk.getByTestId('documents-outdated')).toBeVisible();
+      await designPlace(page, 'sheets');
       await expect(desk.getByTestId('sheets-detailing-outdated')).toBeVisible();
+      await designPlace(page, 'listings');
+      await expect(desk.getByTestId('listings-detailing-outdated')).toBeVisible();
       return { detailingBefore: before, detailingAfter: await detailingTotals(page), deskSaysSolve: /solve|calcul/i.test(await desk.innerText()) };
     });
     await step(page, j, 'after the change: solve, design and detail again', async () => {
@@ -215,6 +242,7 @@ test.describe('@slow acceptance of the two journeys', () => {
       await solveModel(page);
       await openDeskStage(page);
       await page.getByTestId('desk-design').click();
+      if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
       await page.getByTestId('desk-run').click();
       await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 180_000 });
       const report = await page.getByTestId('desk-report').innerText();
@@ -251,7 +279,7 @@ test.describe('@slow acceptance of the two journeys', () => {
     await step(page, j, 'other language', async () => {
       await leaveDesign(page);
       await setAppLanguage(page, 'pt');
-      await deskDocs(page);
+      await designPlace(page, 'sheets');
       const desk = page.getByTestId('design-desk');
       const text = await desk.innerText();
       expect(text).toMatch(/Mesa de projeto/);
@@ -259,7 +287,7 @@ test.describe('@slow acceptance of the two journeys', () => {
       const sheetsPt = await desk.getByTestId('sheets-list').innerText();
       await leaveDesign(page);
       await setAppLanguage(page, 'es');
-      await deskDocs(page);
+      await designPlace(page, 'sheets');
       await page.getByTestId('design-desk').getByTestId('sheets-build').click();
       const sheetsEs = await page.getByTestId('design-desk').getByTestId('sheets-list').innerText();
       await leaveDesign(page);
@@ -307,6 +335,9 @@ test.describe('@slow acceptance of the two journeys', () => {
       await expect(page.getByTestId('physical-table')).toBeVisible();
       return physical(page);
     });
+    // The second journey runs in Spanish: with the first in English and its last step in
+    // Portuguese, the three languages are walked.
+    await step(page, j, 'Spanish', async () => { await setAppLanguage(page, 'es'); });
     await designAndDocument(page, j);
     if (process.env.AUDIT_OUT) writeFileSync(`${process.env.AUDIT_OUT}-J2.json`, JSON.stringify(record.filter((r) => r.journey.startsWith('J2')), null, 2));
   });

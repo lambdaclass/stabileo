@@ -54,6 +54,14 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
    * crossing direction), and a further eccentricity along it, in m.
    */
   beamAlign?: number; beamEccentricity?: number;
+  /**
+   * The beams on the range's edges with their outer face on the columns' outer face: each moved
+   * outward, on its own side, by the column's half less its own (QA of 20-oct); the beams inside
+   * the range stay on their axes. Instead of `beamAlign` on the edges.
+   */
+  beamPerimeterFlush?: boolean;
+  /** The beams' top face on the level (the slab's top), their axis half a depth below it. */
+  beamTopFlush?: boolean;
 } = {}): FramePlaced {
   const out: FramePlaced = { created: 0, elements: 0, shells: 0, nodes: 0, welded: 0, duplicates: 0, bars: [] };
   const layout = frameBetweenAxes(g, spec);
@@ -68,6 +76,10 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
     for (const grp of modelStore.model.groups.values()) if (grp.kind === PHYSICAL_GROUP_KIND) for (const id of grp.members.elements ?? []) held.add(id);
     const levelOf = (z: number) => g.levels.find((l) => Math.abs(l.z - z) < 1e-6)?.id;
     const runs = new Map<string, { kind: 'column' | 'beam'; bars: number[]; z0: number; z1: number; base?: number }>();
+    // The range's edges, for the perimeter beams; the beams' offsets wait for every column placed.
+    const xs = layout.nodes.map((n) => n.x), ys = layout.nodes.map((n) => n.y);
+    const edge = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    const beamsToSeat: Array<{ id: number; role: 'beamX' | 'beamY'; at: number; node: number | undefined }> = [];
     layout.members.forEach((m, i) => {
       const id = elMap.get(i + 1) ?? byPair.get(pairKey(nodeMap.get(m.nodeI) ?? -1, nodeMap.get(m.nodeJ) ?? -1));
       if (id === undefined || held.has(id)) return;
@@ -77,14 +89,35 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
       run.bars.push(id);
       if (elMap.has(i + 1)) {
         if (m.role === 'column' && o.columnAngle) modelStore.updateElement(id, { rollAngle: o.columnAngle });
-        const shift = offsetFor(id, m.role, o);
-        if (shift) modelStore.updateElement(id, { offset: { frame: 'global', i: shift, j: shift } });
+        if (m.role !== 'column' && (o.beamPerimeterFlush || o.beamTopFlush)) beamsToSeat.push({ id, role: m.role, at: m.role === 'beamX' ? a.y : a.x, node: nodeMap.get(m.nodeI) });
+        else {
+          const shift = offsetFor(id, m.role, o);
+          if (shift) modelStore.updateElement(id, { offset: { frame: 'global', i: shift, j: shift } });
+        }
       }
       const lo = Math.min(a.z, b.z);
       if (m.role === 'column' && lo < run.z0) run.base = nodeMap.get(a.z <= b.z ? m.nodeI : m.nodeJ);
       run.z0 = Math.min(run.z0, lo); run.z1 = Math.max(run.z1, a.z, b.z);
       runs.set(key, run);
     });
+    for (const b of beamsToSeat) {
+      const shift = offsetFor(b.id, b.role, o) ?? { x: 0, y: 0, z: 0 };
+      if (o.beamPerimeterFlush) {
+        const [lo, hi] = b.role === 'beamX' ? [edge.y0, edge.y1] : [edge.x0, edge.x1];
+        const side = Math.abs(b.at - lo) < 1e-6 ? -1 : Math.abs(b.at - hi) < 1e-6 ? 1 : 0;
+        const k = b.role === 'beamX' ? 1 : 0;
+        const col = b.node === undefined ? undefined : columnAt(b.node);
+        const ch = col === undefined ? null : planHalf(col), bh = planHalf(b.id);
+        // On an edge: outward by the column's half less the beam's, the eccentricity added.
+        const d = side && ch && bh ? side * Math.max(0, ch[k] - bh[k]) + (o.beamEccentricity ?? 0) : null;
+        if (d !== null) { if (b.role === 'beamX') { shift.x = 0; shift.y = d; } else { shift.x = d; shift.y = 0; } }
+      }
+      if (o.beamTopFlush) {
+        const h = modelStore.sections.get(modelStore.elements.get(b.id)!.sectionId)?.h;
+        if (h) shift.z = -h / 2;
+      }
+      if (shift.x || shift.y || shift.z) modelStore.updateElement(b.id, { offset: { frame: 'global', i: shift, j: shift } });
+    }
     const colName = nextName('C'), beamName = nextName('V');
     for (const run of runs.values()) {
       const typology = run.kind === 'column' ? o.columnTypology : o.beamTypology;
@@ -107,11 +140,14 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
  * Slabs in the panels the beams close at each level: a grid bay, an L, any outline the beams
  * bound, found as the floor loads find them. A ring of beams inside a panel (a stair well) stays
  * open. Each panel is meshed at the size given, cutting its beams at the mesh's edge nodes so slab
- * and beams share them, and becomes one slab. A joist slab is modelled as a one-way slab of the
+ * and beams share them, and becomes one slab; asked to wait (`meshAtSolve`), a panel is one shell
+ * until the first solve meshes it. A joist slab is modelled as a one-way slab of the
  * thickness given; the joists' design reads its typology. Panels already holding shells are left.
  */
 export function placeSlabs(g: StructuralGrid, o: {
   levels: string[]; thickness: number; materialId: number; meshSize: number; typology?: string;
+  /** One shell per panel now, meshed at `meshSize` by the first solve (`deferred-slabs.ts`). */
+  meshAtSolve?: boolean;
 }): PlaceResult {
   const name = nextName('L');
   let created = 0, shells = 0;
@@ -122,14 +158,17 @@ export function placeSlabs(g: StructuralGrid, o: {
       if (!l) continue;
       const onLevel = (id: number) => Math.abs((modelStore.nodes.get(id)?.z ?? 0) - l.z) < 1e-6;
       const beams = [...modelStore.elements.values()].filter((e) => onLevel(e.nodeI) && onLevel(e.nodeJ)).map((e) => e.id);
-      const r = fillHoles(beams, o.materialId, o.thickness, { density: { mode: 'targetSize', size: o.meshSize } });
+      const r = fillHoles(beams, o.materialId, o.thickness, o.meshAtSolve ? {} : { density: { mode: 'targetSize', size: o.meshSize } });
       if ('refused' in r) { refused = r.refused; continue; }
       if (r.faces.length === 0 && r.skippedExisting > 0) refused = 'occupied';
       for (const f of r.faces) {
         created++; shells += f.quads.length + f.plates.length;
+        // A panel that came out as one quad waits for its mesh; any other shape is meshed as filled.
+        const panel = o.meshAtSolve && f.quads.length === 1 && f.plates.length === 0 ? modelStore.quads.get(f.quads[0]!)?.nodes : undefined;
         declare(name(), f, {
           kind: 'slab', provenance: 'declared', levelFrom: l.id, levelTo: l.id,
           ...(o.typology ? { typology: o.typology } : {}),
+          ...(panel ? { meshAtSolve: { size: o.meshSize, meshed: false, panel: [...panel] } } : {}),
         });
       }
     }
@@ -148,6 +187,16 @@ export function planHalf(id: number): [number, number] | null {
   // The profile's width b runs along local y and its depth h along local z.
   const half = (k: 0 | 1) => (Math.abs(ax.ey[k]) * sec.b! + Math.abs(ax.ez[k]) * sec.h!) / 2;
   return [half(0), half(1)];
+}
+
+/** The column standing at or arriving at a node, where there is one. */
+function columnAt(node: number): number | undefined {
+  for (const e of modelStore.elements.values()) {
+    if (e.nodeI !== node && e.nodeJ !== node) continue;
+    const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
+    if (a && b && Math.hypot(b.x - a.x, b.y - a.y) < 1e-6 && Math.abs((b.z ?? 0) - (a.z ?? 0)) > 1e-6) return e.id;
+  }
+  return undefined;
 }
 
 function offsetFor(id: number, role: 'column' | 'beamX' | 'beamY', o: { columnFixedPoint?: [number, number]; beamAlign?: number; beamEccentricity?: number }) {

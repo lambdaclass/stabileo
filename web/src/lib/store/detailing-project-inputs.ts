@@ -93,6 +93,7 @@ export function buildProjectDocument(input: {
     assemblies: input.assemblies,
     laps: input.laps,
     certificates: collectCertificates(input.assemblies),
+    ...((cuts) => (cuts.length ? { sectionCuts: cuts } : {}))(savedSectionCuts()),
     // The vector as it stands NOW, so a family certificate stamped at an earlier analysis is
     // reported as STALE rather than compared against its own vector and found equal. Omitting
     // this would produce a document that structurally cannot detect staleness.
@@ -345,7 +346,19 @@ export const wallBarDiameterMm = (): number => designData().wallBarDiaMm;
 /** A member a person locked against a redesign: the detailing repair loop leaves its bars. */
 export const isLockedMember = (id: number): boolean => !!modelStore.designDecisions?.locked?.includes(id);
 export { writeRepaired } from './design-decisions';
-export { savedMemberCuts } from './beam-line-store';
+export { savedMemberCuts, savedLinePieces } from './beam-line-store';
+import { savedLinePieces, savedSectionCuts } from './beam-line-store';
+import { specialElements } from './special-elements';
+import { storedDecisions } from './design-decisions';
+
+/** What a person drew or set that the detailing lays as given: saved lines' pieces and laps, web openings, column laps. */
+export function detailingLineInputs() {
+  const lp = savedLinePieces();
+  const columnLaps = new Map(Object.entries(storedDecisions().columnLaps ?? {}).map(([k, v]) => [Number(k), v] as const));
+  const webOpenings = new Map<number, Array<{ from: number; to: number }>>();
+  for (const o of specialElements().openings ?? []) webOpenings.set(o.elementId, [...(webOpenings.get(o.elementId) ?? []), { from: o.x - o.lo / 2, to: o.x + o.lo / 2 }]);
+  return { linePieces: lp.pieces, lineLaps: lp.laps, ...(webOpenings.size ? { webOpenings } : {}), ...(columnLaps.size ? { columnLaps } : {}) };
+}
 export { wallInputs } from './wall-inputs'; export { slabInputs } from './slab-inputs';
 
 // The footing bottom-mat diameter used to live here, as

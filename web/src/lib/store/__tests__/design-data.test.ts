@@ -118,6 +118,15 @@ describe('covers against CIRSOC 201-2025 Table 20.5.1.3.1', () => {
     });
   });
 
+  it('the exchange option, the frame tolerance and a member\'s own cover survive a save and reopen', () => {
+    // The IFC column-top option was dropped here: chosen in the exchange panel, gone on the next read.
+    const back = migrateDesignData(JSON.parse(JSON.stringify({ exchange: { ifcColumnTop: 'slabSoffit' }, frameToleranceMm: 20, coverByElement: { '7': 0.05, '8': -1 } })));
+    expect(back.exchange).toEqual({ ifcColumnTop: 'slabSoffit' });
+    expect(back.frameToleranceMm).toBe(20);
+    expect(back.coverByElement).toEqual({ '7': 0.05 });
+    expect(migrateDesignData({ exchange: { ifcColumnTop: 'roof' } }).exchange).toBeUndefined();
+  });
+
   it('f\'c is the material\'s own, else the fy older projects kept it in', () => {
     expect(concreteFc({ fc: 30, fy: 25 })).toBe(30);
     expect(concreteFc({ fy: 25 })).toBe(25);

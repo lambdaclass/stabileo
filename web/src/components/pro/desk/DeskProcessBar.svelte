@@ -12,8 +12,10 @@
    * (the rail lists them), and the actions shown are the ones that make sense for that step, one
    * of each: «Size…» and the frame equaliser while sizing, «Generate detailing» while detailing.
    */
+  import DeskGuide from './DeskGuide.svelte';
   import RecheckNotice from '../design/RecheckNotice.svelte';
   import RcRegenerationWarning from '../design/RcRegenerationWarning.svelte';
+  import StaleLinesNotice from './frame/StaleLinesNotice.svelte';
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { materialFamilyOf } from '../../../lib/engine/steel/material-family';
@@ -23,7 +25,8 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { designDrafts } from '../../../lib/store/design-drafts.svelte';
-  import { equalizeAllFrames } from '../../../lib/store/frame-equalize';
+  import { equalizeAllFrames, frameTolerance } from '../../../lib/store/frame-equalize';
+  import { patchOwnDesignData } from '../../../lib/store/design-data';
   import { currentRcReadings } from '../../../lib/store/design-readings';
   import { designSteps } from '../../../lib/pro/design-steps';
   import { rcModelReadiness } from '../../../lib/flow/rc-stages';
@@ -61,7 +64,7 @@
     return designSteps(currentRcReadings(), size, { hasConcrete: hasConcrete() });
   });
   /** Where each step lands: the place it was last on, else its first. */
-  const HOME: Record<DeskStep, DeskTab> = { prepare: 'prepare', size: 'plan', detail: 'detailing', document: 'documents' };
+  const HOME: Record<DeskStep, DeskTab> = { prepare: 'prepare', size: 'plan', detail: 'detailing', document: 'sheets' };
   const lastOf = $state<Partial<Record<DeskStep, DeskTab>>>({});
   $effect(() => { const s = stepOf(deskUi.tab); if (s) lastOf[s] = deskUi.tab; });
 
@@ -108,11 +111,14 @@
     {/each}
   </ol>
 
+  <DeskGuide {steps} {go} />
+
   <!-- The actions of the step in hand, one of each. -->
   <div class="dp-actions" role="group" aria-label={step ? t(`desk.step.${step}`) : t('desk.flow')} data-testid="desk-step-actions" data-step={step ?? ''}>
     {#if step === 'size'}
       <button class="dp-primary" disabled={!solved || designRunStore.running} onclick={() => (deskUi.ask = { scope: 'all' })} data-testid="desk-design">{t('desk.size')}</button>
       <button disabled={designRunStore.running} onclick={() => { const r = equalizeAllFrames(); framesNote = { groups: r.groups, n: r.members }; }} title={t('desk.equalizeFramesHint')} data-testid="desk-equalize-frames">{t('desk.equalizeFrames')}</button>
+      <label class="dp-tol" title={t('desk.frameTolHint')}>{t('desk.frameTol')}<input type="number" min="0" max="500" step="5" value={frameTolerance()} onchange={(e) => patchOwnDesignData({ frameToleranceMm: Math.max(0, Math.min(500, Number(e.currentTarget.value) || 0)) })} data-testid="desk-frame-tol" /> mm</label>
       {#if framesNote}<span class="dp-note" role="status" data-testid="desk-frames-note">{tp('desk.framesEqualized', framesNote)}</span>{/if}
     {/if}
     <!--
@@ -127,6 +133,8 @@
       >{detailingStore.generating ? t('detailing.cmd.generating') : hasDetailing ? t('detailing.cmd.regenerate') : t('detailing.cmd.generate')}</button>
       <!-- What regenerating is about to replace, before it runs, beside the command. -->
       <RcRegenerationWarning />
+      <!-- Saved lines the detailing will not apply, because the members no longer match them. -->
+      <StaleLinesNotice />
     {/if}
   </div>
 
@@ -189,4 +197,6 @@
     .dp-step { padding: 3px 6px; }
     .dp-actions { padding-left: 0; border-left: none; }
   }
+  .dp-tol { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); }
+  .dp-tol input { width: 3.4rem; font-size: 0.7rem; }
 </style>

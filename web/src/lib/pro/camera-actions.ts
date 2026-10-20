@@ -104,5 +104,13 @@ export function cameraActions(): CameraAction[] {
       },
       active: () => uiStore.renderMode3D === 'sections',
     },
+    {
+      id: 'physical',
+      labelKey: uiStore.renderMode3D === 'physical' ? 'config.wireframe' : 'config.physical',
+      glyph: '▣',
+      // As sections: back to wireframe, the mode it is an alternative to.
+      run: () => { uiStore.renderMode3D = uiStore.renderMode3D === 'physical' ? 'wireframe' : 'physical'; },
+      active: () => uiStore.renderMode3D === 'physical',
+    },
   ];
 }

@@ -13,6 +13,8 @@ import type { TendonLayout, TendonSystem } from '../engine/design/slabs/post-ten
 export interface StairSupport { elementId: number; /** Where the stair starts along the beam, m from its node I. */ a: number }
 export interface StairEntry extends StairDesignSpec {
   id: string; name: string;
+  /** Main and distribution bar diameters a person set, mm; absent, Ø12 and Ø8. */
+  barDia?: number; distDia?: number;
   /** The beams at the foot and at the head its reactions were applied to. */
   supports?: { foot?: StairSupport; head?: StairSupport };
   /** The inclined plate the analysis meshes for this stair, when it was built from the same flight (`store/stair-link.ts`). */

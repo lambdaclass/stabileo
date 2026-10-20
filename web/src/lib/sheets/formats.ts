@@ -27,6 +27,12 @@ export function formatGeometry(f: SheetFormat): FormatGeometry {
   return { width, height, frame, titleBlock: tb, drawable };
 }
 
+/** A sheet of free size with no title block (the blank template): the frame, and all of it drawable. */
+export function blankGeometry(width: number, height: number): FormatGeometry {
+  const frame = { x0: 10, y0: 10, x1: width - 10, y1: height - 10 };
+  return { width, height, frame, titleBlock: { x0: frame.x1, y0: frame.y0, x1: frame.x1, y1: frame.y0 }, drawable: { x0: frame.x0 + 5, y0: frame.y0 + 5, x1: frame.x1 - 5, y1: frame.y1 - 5 } };
+}
+
 export const SCALES: readonly number[] = [1, 2, 5, 10, 20, 25, 50, 75, 100, 200, 250, 500];
 
 /** The largest standard scale (smallest denominator) at which a drawing `w × h` model mm fits `W × H` paper mm. */

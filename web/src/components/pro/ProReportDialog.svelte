@@ -24,6 +24,7 @@
   import { reportFigures } from '../../lib/store/report-figures.svelte';
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
+  import { REPORT_FORMATS, type ReportFormat } from '../../lib/export/report-formats';
 
   interface Props {
     open: boolean;
@@ -33,7 +34,7 @@
     advancedRan: string[];
     hasDiagnostics: boolean;
     hasQuantities: boolean;
-    ongenerate: (config: ReportConfig, figures: ReportFigureChoices) => void;
+    ongenerate: (config: ReportConfig, figures: ReportFigureChoices, format?: ReportFormat) => void;
   }
 
   let { open = $bindable(false), hasResults, hasAdvanced, advancedRan, hasDiagnostics, hasQuantities, ongenerate }: Props = $props();
@@ -167,6 +168,8 @@
     reportFigures.list.length ? tp('proReport.addedN', { n: reportFigures.list.length }) : null,
   ].filter(Boolean).join(' · '));
 
+  /** The report's format: the PDF opens it to print (as before); the other four download it. */
+  let format = $state<ReportFormat>('pdf');
   function handleGenerate() {
     persist();
     ongenerate({
@@ -185,7 +188,7 @@
         storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
-    }, $state.snapshot(figs));
+    }, $state.snapshot(figs), format);
   }
 </script>
 
@@ -292,11 +295,15 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('report.cancel')}</button>
+    <label class="rpt-format">{t('export.formats')}
+      <select bind:value={format} data-testid="rpt-format">{#each REPORT_FORMATS as f (f)}<option value={f}>{t(`export.format.${f}`)}</option>{/each}</select>
+    </label>
     <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{t('proReport.generate')}</button>
   {/snippet}
 </ExportDialog>
 
 <style>
+  .rpt-format { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--st-text-2); }
   .rpt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; align-items: start; }
   .rpt-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   @media (max-width: 560px) { .rpt-cols { grid-template-columns: 1fr; } }

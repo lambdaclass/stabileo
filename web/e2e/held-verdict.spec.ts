@@ -57,11 +57,10 @@ test.describe('held verdicts in the browser', () => {
     await expect(status).toContainText(/local η|η local/);
     await expect(page.getByTestId('desk-status-holds')).toContainText(/substitute|sustituto/);
 
-    // The verification detail: the member's verdict apart; its rows labelled as local checks.
-    const verdict = page.getByTestId(`member-verdict-${target}`);
-    await expect(verdict).toHaveAttribute('data-status', v.status);
-    await expect(verdict).toHaveAttribute('data-local', v.local);
-    await expect(page.getByTestId(`member-verdict-holds-${target}`)).toContainText(/substitute|sustituto/);
+    // The verification detail: the member's verdict is the panel's headline (said once, QA of
+    // 20-oct), the local status beside it; the detail's rows labelled as local checks.
+    await expect(status).toHaveAttribute('data-local', v.local);
+    await expect(page.getByTestId(`member-verdict-${target}`)).toHaveCount(0);
     await expect(page.getByTestId(`local-checks-title-${target}`)).toBeVisible();
     const rows = page.getByTestId(`checks-${target}`).locator('[data-testid="status-badge"]');
     expect(await rows.count()).toBeGreaterThan(0);
@@ -98,7 +97,6 @@ test.describe('held verdicts in the browser', () => {
     await page.getByTestId(`desk-row-${free[0]}`).click();
     await expect(page.getByTestId('desk-status')).toHaveAttribute('data-status', 'ok');
     await expect(page.getByTestId('desk-status-holds')).toHaveCount(0);
-    await expect(page.getByTestId(`member-verdict-${free[0]}`)).toHaveAttribute('data-status', 'ok');
 
     await designPlace(page, 'prepare');
     await expect(page.getByTestId('summary-count-verified')).toContainText('6');

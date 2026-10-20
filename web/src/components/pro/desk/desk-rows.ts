@@ -1,22 +1,24 @@
 /**
- * The desk's rows: every member the design reads, with its level, kind, status, ratio and
- * decision state, filtered as the navigator asks.
+ * The desk's rows: every member the design reads, named as it is built (`member-names.ts`), with
+ * its level, kind, status, ratio and decision state, filtered as the navigator asks.
  */
 import { modelStore } from '../../../lib/store/model.svelte';
 import { deskMembers, type DeskMember } from '../../../lib/store/design-desk';
 import { decisionState } from '../../../lib/store/design-decisions';
 import { verificationStore } from '../../../lib/store/verification.svelte';
 import type { DeskFilter } from '../../../lib/store/design-desk-ui.svelte';
+import { memberNames } from '../../../lib/store/member-names';
 
 export interface DeskRow extends DeskMember { name: string; kind: string; zTop: number; zBottom: number; decision: ReturnType<typeof decisionState> }
 
 export function deskRows(): DeskRow[] {
+  const names = memberNames();
   return deskMembers().map((m) => {
     const e = modelStore.elements.get(m.id)!;
     const zs = [e.nodeI, e.nodeJ].map((n) => modelStore.nodes.get(n)?.z ?? 0);
     const sec = modelStore.sections.get(e.sectionId);
     const kind = m.material === 'steel' ? 'steel' : verificationStore.contextFor(m.id)?.elementType ?? 'beam';
-    return { ...m, name: `${m.id} · ${sec?.name ?? '—'}`, kind, zTop: Math.max(...zs), zBottom: Math.min(...zs), decision: decisionState(m.id) };
+    return { ...m, name: `${names.name(m.id)} · ${sec?.name ?? '—'}`, kind, zTop: Math.max(...zs), zBottom: Math.min(...zs), decision: decisionState(m.id) };
   });
 }
 

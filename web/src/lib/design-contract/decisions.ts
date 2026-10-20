@@ -80,6 +80,8 @@ export interface StoredDecisions {
   lines?: Record<string, BeamLineReinforcement>;
   /** Beam lines kept equal: groups of line keys. */
   frameGroups?: string[][];
+  /** Lap length of a column's bars a person set, m, by column element id (one value per stack group). */
+  columnLaps?: Record<string, number>;
   /** Walls' reinforcement a person set, by wall id (one wall on one level). */
   walls?: Record<string, WallReinforcement>;
   /** Slab panels' reinforcement a person set, by panel id. */
@@ -127,6 +129,10 @@ export function migrateStoredDecisions(raw: unknown): StoredDecisions {
     ...(e.joists && typeof e.joists === 'object' && !Array.isArray(e.joists) ? { joists: e.joists as Record<string, unknown> } : {}),
     ...(e.slabs && typeof e.slabs === 'object' && !Array.isArray(e.slabs) ? { slabs: Object.fromEntries(Object.entries(e.slabs as Record<string, SlabPanelReinforcement>).filter(([, x]) => x && x.base && Array.isArray(x.bands))) } : {}),
     ...(frameGroups.length ? { frameGroups } : {}),
+    ...((laps) => (Object.keys(laps).length ? { columnLaps: laps } : {}))(
+      e.columnLaps && typeof e.columnLaps === 'object' && !Array.isArray(e.columnLaps)
+        ? Object.fromEntries(Object.entries(e.columnLaps as Record<string, unknown>).filter((x): x is [string, number] => typeof x[1] === 'number' && Number.isFinite(x[1]) && x[1] > 0))
+        : {}),
   };
 }
 

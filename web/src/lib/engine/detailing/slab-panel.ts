@@ -15,6 +15,7 @@
  */
 import type { SlabBand, SlabPanelReinforcement } from '../../design-contract/reinforcement';
 import { woodArmer, SHRINKAGE_RATIO } from './slab-design';
+import { bandContains, bandShare } from './slab-bands';
 
 export interface PanelElement {
   id: number;
@@ -81,9 +82,12 @@ function rows(strip: Strip, els: ReadonlyMap<number, PanelElement>): Array<{ at:
 export function providedAt(r: SlabPanelReinforcement, k: Key, x: number, y: number): number {
   const b = r.base[k];
   let as = b ? area(b.diameter) / b.spacing : 0;
+  // A band counts in the direction its bars run, by the share its angle gives (cos² in x, sin² in y),
+  // over its outline (`slab-bands.ts`).
   for (const band of r.bands) {
-    if (band.face !== faceOf(k) || band.dir !== dirOf(k)) continue;
-    if (x >= band.x0 - 1e-9 && x <= band.x1 + 1e-9 && y >= band.y0 - 1e-9 && y <= band.y1 + 1e-9) as += area(band.diameter) / band.spacing;
+    if (band.face !== faceOf(k)) continue;
+    const share = bandShare(band, dirOf(k));
+    if (share > 0 && bandContains(band, x, y)) as += (share * area(band.diameter)) / band.spacing;
   }
   return as;
 }

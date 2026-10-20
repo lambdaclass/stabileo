@@ -277,11 +277,17 @@ describe('column stack generation', () => {
     const lower = g.bars.find((b) => b.id.includes('-L0-'))!;
     const top = g.bars.find((b) => b.id.includes('-L2-'))!;
     // Lower lift: from the base to the top of the joint (3 m + 0,30 m, half the 0,60 m beam
-    // centred on the node) plus the lap (0.05 × 20 = 1.0 m): 4,30 m. The top lift stands on
-    // the floor at 6,30 m and rises to the roof beam's top less the cover, 9,30 − 0,025 m:
-    // 2,975 m. They were 4,0 and 3,0 m with the node read as the top of each floor.
-    expect(lower.cuttingLength).toBeCloseTo(4.3, 6);
-    expect(top.cuttingLength).toBeCloseTo(2.975, 6);
+    // centred on the node), cranked inward by two Ø20 in contact (0,02 m) over 6 × 0,02 = 0,12 m
+    // above it (§10.7.4.1, 1 in 6), plus the lap (0.05 × 20 = 1.0 m) from the end of the bend:
+    // 3,30 + √(0,12² + 0,02²) + 1,0 m. The lift above stands on the end of that bend, 3,42 m. The
+    // top lift stands on the floor at 6,30 m plus its bend, 6,42 m, and rises to the roof beam's
+    // top less the cover, 9,30 − 0,025 m: 2,855 m. They were 4,30 and 2,975 m with the bars of two
+    // lifts on one axis through the lap, 4,0 and 3,0 m with the node read as the top of each floor.
+    expect(lower.cuttingLength).toBeCloseTo(3.3 + Math.hypot(0.12, 0.02) + 1.0, 6);
+    expect(lower.segments.map((x) => +x.end.z.toFixed(6))).toEqual([3.3, 3.42, 4.42]);
+    const middle = g.bars.find((b) => b.id.includes('-L1-'))!;
+    expect(middle.segments[0]!.start.z).toBeCloseTo(3.42, 9);
+    expect(top.cuttingLength).toBeCloseTo(9.275 - 6.42, 6);
   });
 
   it('places four corner bars plus face bars, inside the cover', () => {

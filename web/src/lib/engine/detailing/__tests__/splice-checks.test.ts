@@ -118,9 +118,13 @@ describe('§25.5.2.2 in a column stack — the lap is set by the larger bar of t
     const lower = g.bars.filter((b) => b.id.includes('-L0-')), upper = g.bars.filter((b) => b.id.includes('-L1-'));
     const overlap = Math.round((Math.max(...zs(lower[0]!)) - Math.min(...zs(upper[0]!))) * 10000) / 10;
     // ℓd(Ø20) = 420/(1,7·√30)·20 = 902,1 mm; ℓst(Ø16) = 1,3·584,2 = 759,5 mm → §25.5.2.2: 902,1 mm.
-    // The detailing laps Class B on the larger bar, 1,3·902,1 = 1172,8 mm, which covers it.
+    // The detailing laps Class B on the larger bar, 1,3·902,1 = 1172,8 mm, which covers it: from
+    // the end of the lower bar's crank (§10.7.4.1), where the upper bar starts, to its top.
     expect(overlap).toBeGreaterThanOrEqual(902.1);
     expect(overlap).toBe(1172.8);
+    // The two stand side by side through it, in contact: (16 + 20)/2 = 18 mm apart.
+    const top = lower[0]!.segments.at(-1)!, foot = upper[0]!.segments[0]!;
+    expect(Math.round(Math.hypot(top.end.x - foot.start.x, top.end.y - foot.start.y) * 10000) / 10).toBeGreaterThanOrEqual(17.9);
   });
 });
 

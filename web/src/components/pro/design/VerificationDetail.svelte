@@ -25,8 +25,10 @@
     provided: ProvidedRebarResult | null;
     outcome: MemberDesignOutcome | undefined;
     onApplyAdvice: (o: MemberDesignOutcome) => void;
+    /** The member's verdict is stated by the host already (the desk's inspector): not again here. */
+    hideVerdict?: boolean;
   }
-  let { elementId, ctx, provided, outcome, onApplyAdvice }: Props = $props();
+  let { elementId, ctx, provided, outcome, onApplyAdvice, hideVerdict = false }: Props = $props();
 
   // A shaped column draws its own section's curves; a rectangle its two-face diagram.
   const columnDiagram = $derived(verificationColumnDiagram(ctx, modelStore.elements.get(elementId)?.reinforcement));
@@ -50,6 +52,7 @@
 
 <div class="detail" data-testid={`verification-detail-${elementId}`}>
   <!-- ─── The member's verdict: what every count and colour follows ─── -->
+  {#if !hideVerdict}
   <div class="verdict" class:verdict-held={!approves} data-testid={`member-verdict-${elementId}`} data-status={verdict.status} data-local={verdict.local}>
     <strong>{t('verdict.member.title')}:</strong>
     <OutcomeBadge status={verdict.status} />
@@ -60,6 +63,7 @@
       <span class="muted" data-testid={`member-verdict-assumed-${elementId}`}>{tp('verdict.member.assumed', { reasons: verdictReasons({ ...verdict, holds: [] }, tp).join('; ') })}</span>
     {/if}
   </div>
+  {/if}
   <!-- ─── Axis provenance: what was actually checked ─── -->
   <div class="axes-line" data-testid={`axes-${elementId}`}>
     <strong>{t('design.cert.axes')}:</strong>
@@ -230,17 +234,18 @@
   .notice-fix { color: var(--st-text-2); }
   .detail { display: flex; flex-direction: column; gap: 5px; }
   .axes-line { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.68rem; color: var(--st-text-2); }
-  .mono { font-family: monospace; }
+  /* Figures in the app's own face, aligned (QA of 20-oct: three faces in one panel). */
+  .mono { font-variant-numeric: tabular-nums; }
   .small { font-size: 0.64rem; }
   .muted { color: var(--st-text-2); }
   .cert { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     padding: 4px 7px; border-radius: 4px; font-size: 0.68rem; }
   .verdict { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 4px 6px; margin-bottom: 4px;
-    border: 1px solid var(--st-text-3); border-radius: 4px; }
+    border: 1px solid var(--st-text-3); border-radius: 4px; font-size: 0.7rem; }
   .verdict-held { border-color: var(--st-warn); }
   .verdict-holds { color: var(--st-text); }
   .cert-local { background: var(--st-surface-3); border: 1px solid var(--st-text-3); color: var(--st-text); }
-  .cert-scope { color: var(--st-text-2); font-style: italic; }
+  .cert-scope { color: var(--st-text-2); }
   .local-title { margin: 6px 0 2px; font-size: 0.72rem; }
   .cert-ok { background: rgba(34,204,102,0.10); border: 1px solid var(--st-ok); color: var(--st-text); }
   /* A violet fill on a badge whose border and label are both neutral, for a state that means
@@ -251,7 +256,7 @@
   .reason { font-size: 0.67rem; color: var(--st-text-2); padding-left: 4px; }
   .limiting { display: flex; gap: 4px; flex-wrap: wrap; }
   .lim-chip { padding: 0 5px; background: var(--st-surface-3); border: 1px solid var(--st-text-3);
-    border-radius: 3px; font-size: 0.62rem; color: var(--st-text); font-family: monospace; }
+    border-radius: 3px; font-size: 0.62rem; color: var(--st-text); }
   .prov-note { display: flex; gap: 6px; align-items: center; font-size: 0.67rem; }
   /* The fourth site of the orange that was never `--st-warn` — beside a border that already
      was. One hue now. */
@@ -267,7 +272,7 @@
   table.checks { width: 100%; border-collapse: collapse; font-size: 0.67rem; }
   table.checks th { text-align: left; padding: 2px 5px; border-bottom: 1px solid var(--st-hair-strong); color: var(--st-info); }
   table.checks td { padding: 2px 5px; border-bottom: 1px solid var(--st-surface-3); color: var(--st-text); }
-  .num { text-align: right; font-family: monospace; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
   .strong { font-weight: 700; }
   .chk-fail td { color: var(--st-danger); }
   .chk-warn td { color: var(--st-warn); }
@@ -278,7 +283,7 @@
   .fold summary { cursor: pointer; font-size: 0.68rem; color: var(--st-info); }
   .memos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px; margin-top: 4px; }
   .memo-title { font-size: 0.66rem; font-weight: 700; color: var(--st-text-2); }
-  .memo-step { font-size: 0.62rem; color: var(--st-text-2); font-family: monospace; }
+  .memo-step { font-size: 0.62rem; color: var(--st-text-2); font-variant-numeric: tabular-nums; }
   .diagram { margin-top: 4px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 </style>

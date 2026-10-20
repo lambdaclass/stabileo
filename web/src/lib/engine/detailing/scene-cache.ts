@@ -61,6 +61,8 @@ export function membersSignature(members: readonly MemberGeometry[]): string {
 interface CacheEntry {
   doc: DocumentModel;
   membersKey: string;
+  /** The physical frame the scene was cut with: a new frame is a new model, so a new scene. */
+  physical: SceneOptions['physical'];
   scene: SceneModel;
 }
 
@@ -83,13 +85,13 @@ export function cachedSceneModel(
   doc: DocumentModel, members: readonly MemberGeometry[], opts: SceneOptions = {},
 ): SceneModel {
   const membersKey = membersSignature(members);
-  if (entry && entry.doc === doc && entry.membersKey === membersKey) {
+  if (entry && entry.doc === doc && entry.membersKey === membersKey && entry.physical === opts.physical) {
     hits += 1;
     return entry.scene;
   }
   misses += 1;
   const scene = buildSceneModel(doc, { ...opts, members });
-  entry = { doc, membersKey, scene };
+  entry = { doc, membersKey, physical: opts.physical, scene };
   return scene;
 }
 

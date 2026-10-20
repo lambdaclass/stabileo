@@ -26,6 +26,7 @@
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import { summariseScene } from '../../../lib/engine/detailing/scene-model';
+  import { projectPhysicalFrame } from '../../../lib/store/physical-frame';
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
@@ -60,7 +61,7 @@
        * the only question that matters — same document, same members — so a checkbox, a
        * slider or a selection no longer rebuilds the projection.
        */
-      return { scene: cachedSceneModel(doc, members), refused };
+      return { scene: cachedSceneModel(doc, members, { physical: projectPhysicalFrame() }), refused };
   });
 
   const summary = $derived(built ? summariseScene(built.scene) : null);

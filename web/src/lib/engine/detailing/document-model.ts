@@ -186,6 +186,12 @@ export interface DocumentModel {
   /** Stable identity of the document SERIES, constant across revisions. */
   seriesId: string;
   revision: DocumentRevision;
+  /**
+   * Cross-sections placed on beam lines (`BeamLineCut`), each at its point in the model: the
+   * sheets draw one section per cut on the assemblies holding those members, in place of the
+   * section at the middle of the longest member.
+   */
+  sectionCuts?: Array<{ elementIds: number[]; label: string; at: { x: number; y: number; z: number } }>;
   readiness: DocumentReadiness;
   /** Set when this revision has been superseded, naming the one that replaced it. */
   supersededBy?: number;
@@ -457,6 +463,8 @@ export function buildDocumentModel(input: {
   laps: readonly LapInterval[];
   certificates: readonly CertificateEntry[];
   supersededBy?: number;
+  /** Cross-sections placed on beam lines (`DocumentModel.sectionCuts`). */
+  sectionCuts?: DocumentModel['sectionCuts'];
   /** The model changed after the detailing was generated: the document says so on its face. */
   outdated?: boolean;
   /** Alternatives the coordinator tried, for the conflict records. */
@@ -626,6 +634,7 @@ export function buildDocumentModel(input: {
 
   return {
     seriesId: input.seriesId,
+    ...(input.sectionCuts?.length ? { sectionCuts: input.sectionCuts.map((c) => ({ ...c, elementIds: [...c.elementIds], at: { ...c.at } })) } : {}),
     revision: input.revision,
     readiness,
     supersededBy: input.supersededBy,

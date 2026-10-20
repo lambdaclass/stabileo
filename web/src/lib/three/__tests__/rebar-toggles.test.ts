@@ -540,7 +540,8 @@ describe('the filter a switch position produces', () => {
 
   it('names the families to DRAW, not the ones the user hid', () => {
     const f = workspaceFilter({ ...DEFAULTS, hiddenKinds: ['column', 'slab'] });
-    expect(f.solidKinds).toEqual(['beam', 'wall', 'footing', 'pedestal']);
+    // The joint has its own switch (PR 7 F0) and stays drawn when columns are hidden.
+    expect(f.solidKinds).toEqual(['beam', 'joint', 'wall', 'footing', 'pedestal']);
   });
 
   it('distinguishes "every family hidden" from "no family filter"', () => {

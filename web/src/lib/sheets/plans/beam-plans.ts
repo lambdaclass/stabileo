@@ -8,14 +8,18 @@ import type { Primitive } from '../primitives';
 import { shapeFigure } from './bending-schedule';
 import type { Tr } from './details';
 
-export interface StirrupSpan { name: string; length: number; support?: { diameter: number; spacing: number; length: number }; span?: { diameter: number; spacing: number } }
+export interface StirrupSpan {
+  name: string; length: number; support?: { diameter: number; spacing: number; length: number }; span?: { diameter: number; spacing: number };
+  /** The zones a saved beam line draws, along the span from its start, m: laid as drawn instead of the three regions. */
+  drawn?: Array<{ from: number; to: number; diameter: number; spacing: number }>;
+}
 export interface BreakdownMark { mark: string; count: number; diameter: number; cut: number; shape?: { points: Array<{ x: number; y: number }>; legs: Array<{ lengthM: number; at: { x: number; y: number }; horizontal: boolean }>; extent: { min: { x: number; y: number }; max: { x: number; y: number } } } }
 
 const k = 1000, cm = (v: number) => String(Math.round(v * 100));
 
 /** The spans of one line laid end to end at 1:50, each with its stirrup zones dimensioned. */
 export function stirrupZones(line: string, spans: readonly StirrupSpan[], tr: Tr): DrawingInput | null {
-  const withZones = spans.filter((s) => s.support || s.span);
+  const withZones = spans.filter((s) => s.support || s.span || s.drawn?.length);
   if (withZones.length === 0) return null;
   const out: Primitive[] = [];
   let x = 0;
@@ -26,9 +30,11 @@ export function stirrupZones(line: string, spans: readonly StirrupSpan[], tr: Tr
     out.push({ kind: 'text', layer: 'FW-TAG', at: { x: x + L / 2, y: H + 250 }, text: s.name, height: 2.5, align: 'center' });
     const sup = s.support, mid = s.span;
     const lz = sup ? Math.min(sup.length * k, L / 2) : 0;
-    const zones: Array<[number, number, { diameter: number; spacing: number } | undefined]> = sup
-      ? [[x, x + lz, sup], [x + lz, x + L - lz, mid], [x + L - lz, x + L, sup]]
-      : [[x, x + L, mid]];
+    const zones: Array<[number, number, { diameter: number; spacing: number } | undefined]> = s.drawn?.length
+      ? s.drawn.map((d) => [x + d.from * k, x + d.to * k, d] as [number, number, { diameter: number; spacing: number }])
+      : sup
+        ? [[x, x + lz, sup], [x + lz, x + L - lz, mid], [x + L - lz, x + L, sup]]
+        : [[x, x + L, mid]];
     for (const [a, b, z] of zones) {
       if (!z || b - a < 1) continue;
       // Ticks at the stirrups, to scale.

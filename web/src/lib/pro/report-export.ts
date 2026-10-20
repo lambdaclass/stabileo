@@ -25,7 +25,7 @@ import { viewportCanvas } from '../utils/viewport-canvas';
 import { uiStore } from '../store/ui.svelte';
 import { viewState } from '../store/view-state.svelte';
 import { buildProReportData } from '../engine/pro-report-inputs';
-import { openReport } from '../engine/pro-report';
+import { generateReportHtml, openReport } from '../engine/pro-report';
 import type { ReportConfig, ReportData, ReportResult, ReportResultFigures } from '../engine/pro-report';
 import type { ReportFigure } from '../engine/report/project-sections';
 import { DEFAULT_FIGURE_OPTIONS, figureTitle, plan2D, toSvg, type FigureContent, type FigureOptions, type FigureView } from '../export/view-figure';
@@ -40,6 +40,8 @@ export interface ReportExportInputs {
   t: (key: string) => string;
   /** How the figures are drawn; without it the report captures the screen for the model. */
   figureOptions?: ReportFigureChoices;
+  /** The format: the PDF (the report opened to print, as before) or a file in another of the five. */
+  format?: import('../export/report-formats').ReportFormat;
 }
 
 /** The canvas as it is on screen, or nothing if the browser refuses it. */
@@ -98,7 +100,9 @@ export async function exportReportAs(input: ReportExportInputs): Promise<void> {
   });
   if (!data) return;
   data.resultFigures = figures;
-  openReport(data);
+  if (!input.format || input.format === 'pdf') { openReport(data); return; }
+  const { downloadReport } = await import('../export/report-download');
+  await downloadReport(input.format, { title: data.projectName || input.t('proReport.title'), html: generateReportHtml(data), stem: `report-${(data.projectName || 'model').replace(/[^\w.-]+/g, '-')}` });
 }
 
 /** How the report's figures are drawn: the dialog's choices. */

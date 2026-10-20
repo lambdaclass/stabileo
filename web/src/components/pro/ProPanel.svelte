@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ReportFormat } from '../../lib/export/report-formats';
   /**
    * The PRO panel: which destination is open, and the three commands the ribbon delegates here.
    *
@@ -172,13 +173,14 @@
 
   /* The assembly lives in `lib/pro/report-export.ts`: this component is a
      layout shell, and the 600-line ceiling on it is what said so. */
-  function exportReport(config: ReportConfig, figureOptions: ReportFigureChoices) {
+  function exportReport(config: ReportConfig, figureOptions: ReportFigureChoices, format?: ReportFormat) {
     showReportDialog = false;
     void exportReportAs({
       config,
       advancedResults: advancedResultsRef,
       t,
       figureOptions,
+      ...(format ? { format } : {}),
     });
   }
 

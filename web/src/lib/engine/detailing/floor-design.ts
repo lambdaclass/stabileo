@@ -24,6 +24,8 @@
  * Pure: no store, no runes.
  */
 
+import { bandAngle, bandChords } from './slab-bands';
+import { layerOf } from '../../sheets/plans/slab-plan';
 import type { SlabBand } from '../../design-contract/reinforcement';
 import {
   buildStraightBarWithHooks, type BarPath, type Point3,
@@ -159,6 +161,25 @@ export function generateBandBars(
   const halfT = panel.thickness / 2;
   for (const b of bands) {
     const isTop = b.face === 'top';
+    if (b.angle !== undefined || b.outline?.length) {
+      // At an angle or over a free outline: one bar per chord (`bandChords`), in the layer its
+      // direction is nearer.
+      const dir = layerOf(b).endsWith('X') ? 'x' : 'y';
+      const d = b.diameter / 1000, dBase = baseDiameterMm(b.face, dir) / 1000;
+      const inset = panel.cover + dBase + (dir === 'y' ? dBase : 0) + d + d / 2;
+      const z = panel.origin.z + (isTop ? halfT - inset : -halfT + inset);
+      const t = (bandAngle(b) * Math.PI) / 180;
+      bandChords(b).forEach(([p0, p1], i) => {
+        bars.push(buildStraightBarWithHooks({
+          id: `${b.id}-${i}`, diameterMm: b.diameter, role: 'longitudinal', start: { x: p0.x, y: p0.y, z }, end: { x: p1.x, y: p1.y, z },
+          axis: { x: Math.cos(t), y: Math.sin(t), z: 0 },
+          hookNormal: { x: 0, y: 0, z: isTop ? -1 : 1 },
+          startHook: b.hookStart ? 90 : undefined, endHook: b.hookEnd ? 90 : undefined,
+          ownerElementIds: panel.elementIds, edition,
+        }));
+      });
+      continue;
+    }
     const d = b.diameter / 1000, dBase = baseDiameterMm(b.face, b.dir) / 1000;
     const inset = panel.cover + dBase + (b.dir === 'y' ? dBase : 0) + d + d / 2;
     const z = panel.origin.z + (isTop ? halfT - inset : -halfT + inset);

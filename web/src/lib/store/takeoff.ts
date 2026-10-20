@@ -2,9 +2,17 @@
  * What the project measures, once, for the memoria's quantities and for the budget: every member,
  * shell, footing and bar mark as an item with its level, its concrete (and the material it is
  * cast in), formwork and steel; the steel members by section; the bar marks; the steel joints'
- * parts. Measuring rules: a beam's formwork is its soffit and two sides, a column's its
- * perimeter, a slab's its soffit, a wall's both faces, a footing's its sides; a steel member
- * weighs its area at 7850 kg/m³; a mark shared by several members is split between them.
+ * parts.
+ *
+ * Measuring rules. The concrete of a reinforced-concrete frame and of its horizontal slabs is the
+ * concrete as built (`store/physical-frame.ts`): members face to face, each beam-column joint once
+ * as an item of its own (kind `joint`, attributed to the column that fills it, or to the deepest
+ * beam where none does), slabs net of the frame they are cast against; formwork is every face of
+ * those solids with no other concrete against it, soffits included, column bases and top faces not.
+ * What that geometry does not cover keeps the rules it always had: an inclined member or one with
+ * no rectangle is its area times its length between nodes, a beam's formwork its soffit and two
+ * sides, a column's its perimeter; a wall's formwork is both faces, a footing's its sides. A steel
+ * member weighs its area at 7850 kg/m³; a mark shared by several members is split between them.
  */
 import { modelStore } from './model.svelte';
 import { detailingStore } from './detailing.svelte';
@@ -14,6 +22,7 @@ import { gridFromModel, sortedLevels } from '../model/grid';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { memberFormwork, type QtyItem } from '../report/memoria/quantities';
+import { projectPhysicalFrame } from './physical-frame';
 
 const TOL = 0.05;
 
@@ -29,7 +38,7 @@ export function levelNamer() {
 export const isSteelMaterial = (materialId: number) => materialFamilyOf(modelStore.model.materials.get(materialId) as never, catalogueGradeFamily).family === 'steel';
 
 /** A measured item, with what the budget prices it by: the concrete's material, the section. */
-export interface MeasuredItem extends QtyItem { materialId?: number; sectionId?: number; elementId?: number; shellKey?: string }
+export interface MeasuredItem extends QtyItem { materialId?: number; sectionId?: number; elementId?: number; shellKey?: string; nodeId?: number }
 
 export interface Measurement {
   items: MeasuredItem[];
@@ -52,11 +61,19 @@ export function measure(): Measurement {
   const levelOfElement = (id: number) => { const e = m.elements.get(id); return e ? lv.name(Math.max(zOf(e.nodeI), zOf(e.nodeJ))) : undefined; };
   const items: MeasuredItem[] = [];
   const steelMembers: Measurement['steelMembers'] = [];
+  const physical = projectPhysicalFrame();
   for (const e of m.elements.values()) {
     const s = m.sections.get(e.sectionId); if (!s) continue;
     const L = lenOf(e), kind = vertical(e) ? 'column' : 'beam', level = levelOfElement(e.id) ?? '—';
-    if (isSteelMaterial(e.materialId)) { steelMembers.push({ id: e.id, L, sectionName: s.name, area: s.a }); items.push({ kind: `steel-${kind}`, level, concrete: 0, formwork: 0, steel: s.a * L * 7850, sectionId: e.sectionId, elementId: e.id }); }
-    else items.push({ kind, level, concrete: s.a * L, formwork: memberFormwork(kind, s.b ?? 0, s.h ?? 0, L), steel: 0, materialId: e.materialId, elementId: e.id });
+    if (isSteelMaterial(e.materialId)) { steelMembers.push({ id: e.id, L, sectionName: s.name, area: s.a }); items.push({ kind: `steel-${kind}`, level, concrete: 0, formwork: 0, steel: s.a * L * 7850, sectionId: e.sectionId, elementId: e.id }); continue; }
+    const cut = physical.member.get(e.id);
+    // The concrete as built where the physical frame cut it; node to node where it did not.
+    if (cut && cut.kind !== 'member') items.push({ kind, level, concrete: cut.volume, formwork: cut.formwork ?? 0, steel: 0, materialId: e.materialId, elementId: e.id });
+    else items.push({ kind, level, concrete: cut?.volume ?? s.a * L, formwork: memberFormwork(kind, s.b ?? 0, s.h ?? 0, L), steel: 0, materialId: e.materialId, elementId: e.id });
+  }
+  for (const j of physical.joint.values()) {
+    const owner = j.owner.elementId!;
+    items.push({ kind: 'joint', level: lv.name(zOf(j.nodeId!)), concrete: j.volume, formwork: j.formwork ?? 0, steel: 0, materialId: m.elements.get(owner)?.materialId, elementId: owner, nodeId: j.nodeId });
   }
   const area = (ns: number[]) => {
     const p = ns.map((n) => nodes.get(n)).filter((x): x is NonNullable<typeof x> => !!x);
@@ -68,7 +85,8 @@ export function measure(): Measurement {
   for (const [prefix, map] of [['q', m.quads], ['p', m.plates]] as const) for (const q of map.values()) {
     if (isSteelMaterial(q.materialId)) continue;
     const zs = q.nodes.map((n) => zOf(n)), slab = Math.max(...zs) - Math.min(...zs) < TOL, A = area([...q.nodes]);
-    items.push({ kind: slab ? 'slab' : 'wall', level: lv.name(Math.max(...zs)), concrete: A * q.thickness, formwork: slab ? A : 2 * A, steel: 0, materialId: q.materialId, shellKey: `${prefix}${q.id}` });
+    const net = physical.slab.get(`${prefix}${q.id}`);
+    items.push({ kind: slab ? 'slab' : 'wall', level: lv.name(Math.max(...zs)), concrete: net ? net.volume : A * q.thickness, formwork: net ? net.formwork ?? 0 : slab ? A : 2 * A, steel: 0, materialId: q.materialId, shellKey: `${prefix}${q.id}` });
   }
   for (const f of m.footings.values()) items.push({ kind: 'footing', level: lv.name(f.foundingElevation), concrete: f.B * f.L * f.thickness, formwork: 2 * (f.B + f.L) * f.thickness, steel: 0 });
   const marks = detailingStore.assemblies.flatMap((a) => a.marks);

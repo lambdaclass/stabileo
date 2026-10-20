@@ -328,8 +328,8 @@ function createUIStore() {
   let showSecondarySelector = $state<boolean>(true);
 
   // 3D rendering mode — per-mode
-  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
-  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
 
   // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
   // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
@@ -342,6 +342,18 @@ function createUIStore() {
 
   // 3D camera mode
   let cameraMode3D = $state<'perspective' | 'orthographic'>('perspective');
+  /**
+   * The plan view: the model seen from above on the working level, the view held there (no
+   * orbit), a drag sliding over the floor and the storeys above it cut away.
+   */
+  let planView3D = $state<boolean>(false);
+  /**
+   * Where the plan view cuts the storeys above away, m: its own cut, apart from the cut plane a
+   * person sets (`clippingEnabled`). Null outside the plan view.
+   */
+  let planCutZ = $state<number | null>(null);
+  /** What a left drag does with the Pan tool in 3D: orbit the model, or slide over the view's plane. */
+  let dragMode3D = $state<'orbit' | 'slide'>('orbit');
 
   // 3D clipping plane
   let clippingEnabled = $state<boolean>(false);
@@ -984,7 +996,7 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections' | 'physical') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 
@@ -993,6 +1005,12 @@ function createUIStore() {
 
     get cameraMode3D() { return cameraMode3D; },
     set cameraMode3D(v: 'perspective' | 'orthographic') { cameraMode3D = v; },
+    get planView3D() { return planView3D; },
+    set planView3D(v: boolean) { planView3D = v; },
+    get planCutZ() { return planCutZ; },
+    set planCutZ(v: number | null) { planCutZ = v; },
+    get dragMode3D() { return dragMode3D; },
+    set dragMode3D(v: 'orbit' | 'slide') { dragMode3D = v; },
 
     get clippingEnabled() { return clippingEnabled; },
     set clippingEnabled(v: boolean) { clippingEnabled = v; },

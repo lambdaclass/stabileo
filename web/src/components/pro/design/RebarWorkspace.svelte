@@ -29,9 +29,8 @@
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { openRebar3D } from '../../../lib/store/rebar-open';
   import { rebarWorkspace, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
-  import {
-    filterScene, summariseScene, type SceneFilter,
-  } from '../../../lib/engine/detailing/scene-model';
+  import { filterScene, summariseScene, type SceneFilter } from '../../../lib/engine/detailing/scene-model';
+  import { projectPhysicalFrame } from '../../../lib/store/physical-frame';
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
@@ -103,7 +102,7 @@
        * the only question that matters — same document, same members — so a checkbox, a
        * slider or a selection no longer rebuilds the projection.
        */
-      const scene = cachedSceneModel(doc, members);
+      const scene = cachedSceneModel(doc, members, { physical: projectPhysicalFrame() });
       markOpenPhase('scene');
       return { scene, refused };
   });

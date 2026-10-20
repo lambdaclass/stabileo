@@ -38,6 +38,8 @@
 
   // A new bar
   let nFace = $state<BeamBarFace>('bottom'), nRow = $state(1), nCount = $state(2), nDia = $state(12), nFrom = $state(0), nTo = $state(1), nRole = $state<BeamBarRole>('extra');
+  /** How the new bar ends at each side: straight, or with a hook. */
+  let nEnd0 = $state<'straight' | 'hook'>('straight'), nEnd1 = $state<'straight' | 'hook'>('straight');
   $effect(() => { if (nTo <= 0 && total > 0) nTo = +total.toFixed(2); });
 
   // Spans as one
@@ -103,8 +105,10 @@
       <label>Ø<select bind:value={nDia}>{#each DIAS as d}<option value={d}>{d}</option>{/each}</select></label>
       <label>{t('frameEd.from')}<input type="number" step="0.05" bind:value={nFrom} /></label>
       <label>{t('frameEd.to')}<input type="number" step="0.05" bind:value={nTo} /></label>
+      <label>{t('frameEd.endStart')}<select bind:value={nEnd0} data-testid="frame-add-end-start"><option value="straight">{t('frameEd.endStraight')}</option><option value="hook">{t('frameEd.endHook')}</option></select></label>
+      <label>{t('frameEd.endEnd')}<select bind:value={nEnd1} data-testid="frame-add-end-end"><option value="straight">{t('frameEd.endStraight')}</option><option value="hook">{t('frameEd.endHook')}</option></select></label>
     </div>
-    <button onclick={() => apply(addBar(line, { face: nFace, row: nRow, count: nCount, diameter: nDia, from: nFrom, to: nTo, role: nRole }))} data-testid="frame-add-bar-go">{t('frameEd.add')}</button>
+    <button onclick={() => apply(addBar(line, { face: nFace, row: nRow, count: nCount, diameter: nDia, from: nFrom, to: nTo, role: nRole, ...(nEnd0 === 'hook' ? { hookStart: true } : {}), ...(nEnd1 === 'hook' ? { hookEnd: true } : {}) }))} data-testid="frame-add-bar-go">{t('frameEd.add')}</button>
   </section>
 
   {#if line.members.length > 1}

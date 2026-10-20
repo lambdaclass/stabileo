@@ -16,11 +16,7 @@
   const list = $derived((TYPOLOGIES[kind] ?? []).filter((ty) => !exclude.includes(ty)));
 </script>
 
-<div class="tp" role="radiogroup" aria-label={t('physical.typology')} data-testid={testid}>
-  {#each list as ty (ty)}
-    <button type="button" class="tp-chip" class:on={value === ty} role="radio" aria-checked={value === ty}
-      {disabled} onclick={() => (value = ty)} title={t(`physical.typ.${ty}`)} data-testid={testid ? `${testid}-${ty}` : undefined}>
-      <svg viewBox="0 0 40 28" aria-hidden="true">
+{#snippet shape(ty: string)}
         {#if kind === 'beam'}
           {#if ty === 'dropped'}<rect class="ctx" x="2" y="6" width="36" height="5" /><rect class="el" x="14" y="11" width="12" height="12" />
           {:else if ty === 'flat'}<rect class="ctx" x="2" y="10" width="36" height="6" /><rect class="el" x="10" y="10" width="20" height="6" />
@@ -51,11 +47,26 @@
         {:else}
           <rect class="ctx" x="4" y="3" width="32" height="22" /><path class="el" d="M4 25L36 3{ty === 'steel' ? 'M4 3L36 25' : ''}" />
         {/if}
+{/snippet}
+
+<div class="tp" role="radiogroup" aria-label={t('physical.typology')} data-testid={testid}>
+  {#each list as ty (ty)}
+    <button type="button" class="tp-chip" class:on={value === ty} role="radio" aria-checked={value === ty}
+      {disabled} onclick={() => (value = ty)} title={t(`physical.typ.${ty}`)} data-testid={testid ? `${testid}-${ty}` : undefined}>
+      <svg viewBox="0 0 40 28" aria-hidden="true">
+        {@render shape(ty)}
       </svg>
       <span>{t(`physical.typ.${ty}`)}</span>
     </button>
   {/each}
 </div>
+{#if value && (TYPOLOGIES[kind] ?? []).includes(value) && kind !== 'brace'}
+  <!-- The chosen typology, drawn larger, with what it is and how it meets the slab and the columns. -->
+  <div class="tp-card" data-testid={testid ? `${testid}-card` : undefined}>
+    <svg viewBox="0 0 40 28" aria-hidden="true">{@render shape(value)}</svg>
+    <p><strong>{t(`physical.typ.${value}`)}</strong> · {t(`physical.desc.${kind}.${value}`)}</p>
+  </div>
+{/if}
 
 <style>
   .tp { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
@@ -70,5 +81,14 @@
   .tp-chip svg :global(.ctx) { fill: var(--st-surface-3); stroke: var(--st-text-3); stroke-width: 0.8; }
   .tp-chip svg :global(.ctx-l) { fill: none; stroke: var(--st-text-3); stroke-width: 0.7; }
   .tp-chip svg :global(.gnd) { stroke: var(--st-text-3); stroke-width: 0.9; }
-  .tp-chip svg :global(.bar) { fill: var(--st-text); }
+  .tp-chip svg :global(.bar), .tp-card svg :global(.bar) { fill: var(--st-text); }
+  .tp-card { display: flex; gap: 8px; align-items: flex-start; margin: 2px 0 6px; padding: 6px; border: 1px solid var(--st-hair); border-radius: 4px; background: var(--st-surface-2); }
+  .tp-card svg { width: 96px; height: 67px; flex: none; }
+  .tp-card p { margin: 0; font-size: 0.68rem; line-height: 1.4; color: var(--st-text-2); min-width: 0; }
+  .tp-card strong { color: var(--st-text); font-weight: 600; }
+  .tp-card svg :global(.el) { fill: color-mix(in srgb, var(--st-accent) 25%, transparent); stroke: var(--st-accent); stroke-width: 1; }
+  .tp-card svg :global(path.el) { fill: none; stroke-width: 1.6; }
+  .tp-card svg :global(.ctx) { fill: var(--st-surface-3); stroke: var(--st-text-3); stroke-width: 0.6; }
+  .tp-card svg :global(.ctx-l) { fill: none; stroke: var(--st-text-3); stroke-width: 0.5; }
+  .tp-card svg :global(.gnd) { stroke: var(--st-text-3); stroke-width: 0.7; }
 </style>

@@ -153,13 +153,13 @@ test.describe('@smoke Documents is a stage of the panel', () => {
 
 test.describe('the Documents stage speaks the three languages', () => {
   for (const [locale, title] of [
-    ['en', 'Documents'],
-    ['es', 'Documentos'],
-    ['pt', 'Documentos'],
+    ['en', 'Memo and exports'],
+    ['es', 'Memoria y exportaciones'],
+    ['pt', 'Memorial e exportações'],
   ] as const) {
     test(`E7 ${locale} — the stage is named in the interface's language`, async ({ pro: page }) => {
       await setAppLanguage(page, locale);
-      await expect(page.getByTestId('desk-step-document')).toContainText(title === 'Documents' ? 'Document' : 'Documentar');
+      await expect(page.getByTestId('desk-step-document')).toContainText(locale === 'en' ? 'Document' : 'Documentar');
       await designPlace(page, 'documents');
       await expect(page.getByTestId('desk-rail-documents')).toContainText(title);
     });

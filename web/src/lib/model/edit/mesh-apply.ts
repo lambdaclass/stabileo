@@ -9,7 +9,11 @@ import { splitAtNodes } from './cut-members';
 import { generateMesh, type MeshInput, type MeshOutput } from './mesher';
 import type { Vec3 } from './affine';
 
-export interface MeshApplyOptions { materialId: number; thickness: number; splitBeams: boolean }
+export interface MeshApplyOptions {
+  materialId: number; thickness: number; splitBeams: boolean;
+  /** Which edge points may cut a member; absent, every one (`column-footprints.ts` keeps the columns' sections out). */
+  splitAt?: (p: Vec3) => boolean;
+}
 
 export interface MeshApplyResult {
   newNodes: number; quads: number[]; plates: number[]; splitCount: number; structured: boolean; nodeIds: number[];
@@ -79,7 +83,7 @@ export function applyMesh(input: MeshInput, o: MeshApplyOptions, mesh: MeshOutpu
       else out.plates.push(modelStore.addPlate(n as [number, number, number], o.materialId, o.thickness));
     }
     if (o.splitBeams) {
-      const edge = [...mesh.boundary].map((i) => ids[i]!);
+      const edge = [...mesh.boundary].filter((i) => !o.splitAt || o.splitAt(mesh.points[i]!)).map((i) => ids[i]!);
       const cut = splitAtNodes([...modelStore.elements.keys()], edge);
       out.splitCount = cut.cut.reduce((s, x) => s + x.segments.length - 1, 0);
     }

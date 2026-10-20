@@ -32,6 +32,9 @@
   import { deskUi, deskLayout, type DeskTab } from '../../../lib/store/design-desk-ui.svelte';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import { jointChecks } from '../../../lib/store/joint-checks';
+  import SheetsPanel from '../design/SheetsPanel.svelte';
+  import ListingsPanel from '../design/ListingsPanel.svelte';
+  import { currentDocument, documentProjectName } from '../../../lib/store/current-document';
   import DocumentsSection from '../design/DocumentsSection.svelte';
   import ProDesignCompleteness from '../design/ProDesignCompleteness.svelte';
   import ProSteelWorkflowTab from '../ProSteelWorkflowTab.svelte';
@@ -240,6 +243,8 @@
         {:else if deskUi.tab === 'levels'}<DeskLevels {centres} />
         {:else if deskUi.tab === 'report'}<DeskReportView {levels} />
         {:else if deskUi.tab === 'documents'}<div class="dd-docs"><DocumentsSection recheck={false} /></div>
+        {:else if deskUi.tab === 'sheets'}<div class="dd-docs"><SheetsPanel resolve={() => currentDocument().doc} projectName={documentProjectName()} autoBuild /></div>
+        {:else if deskUi.tab === 'listings'}<div class="dd-docs"><ListingsPanel resolve={() => currentDocument().doc} /></div>
         {:else}<DeskGeometry />{/if}
       </div>
     </main>

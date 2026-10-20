@@ -52,6 +52,7 @@ test.describe('@slow memoria', () => {
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();
+    if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
     await page.getByTestId('desk-run').click();
     await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
     await leaveDesign(page);

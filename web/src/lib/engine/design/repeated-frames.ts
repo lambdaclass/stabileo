@@ -58,26 +58,40 @@ export function beamLines(model: ContextModelData, isBeam: (id: number) => boole
   return out;
 }
 
-/** The groups of lines that repeat, read either way; single lines are left out. */
-export function repeatedFrames(lines: readonly BeamLine[]): RepeatedFrames[] {
-  const by = new Map<string, BeamLine[]>();
+/** Two signatures alike: the same sections, lengths within `tolMm`. */
+function alike(a: readonly string[], b: readonly string[], tolMm: number): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((s, i) => {
+    const [la, sa] = s.split(':'), [lb, sb] = b[i]!.split(':');
+    return sa === sb && Math.abs(Number(la) - Number(lb)) <= tolMm;
+  });
+}
+
+/**
+ * The groups of lines that repeat, read either way; single lines are left out. With a tolerance,
+ * members whose lengths differ by up to `tolMm` still count as the same (each line joins the first
+ * group whose first line it is alike to).
+ */
+export function repeatedFrames(lines: readonly BeamLine[], tolMm = 0): RepeatedFrames[] {
+  const groups: Array<{ key: string; lines: BeamLine[] }> = [];
   for (const l of lines) {
-    const fwd = l.signature.join('|'), rev = [...l.signature].reverse().join('|');
-    const key = fwd <= rev ? fwd : rev;
-    by.set(key, [...(by.get(key) ?? []), l]);
+    const rev = [...l.signature].reverse();
+    const g = groups.find((x) => alike(x.lines[0]!.signature, l.signature, tolMm) || alike(x.lines[0]!.signature, rev, tolMm));
+    if (g) g.lines.push(l);
+    else { const fwd = l.signature.join('|'), r = rev.join('|'); groups.push({ key: fwd <= r ? fwd : r, lines: [l] }); }
   }
-  return [...by].filter(([, ls]) => ls.length > 1).map(([key, ls]) => ({ key, lines: ls }));
+  return groups.filter((g) => g.lines.length > 1);
 }
 
 /**
  * How `target`'s members take `source`'s: per target member, the source member and whether its
- * bars turn end for end. Null when the two lines do not repeat.
+ * bars turn end for end. Null when the two lines do not repeat (within `tolMm`).
  */
-export function mapLines(source: BeamLine, target: BeamLine): Array<{ target: number; source: number; mirror: boolean }> | null {
+export function mapLines(source: BeamLine, target: BeamLine, tolMm = 0): Array<{ target: number; source: number; mirror: boolean }> | null {
   const n = source.members.length;
   if (target.members.length !== n) return null;
-  const same = source.signature.every((s, i) => s === target.signature[i]);
-  const reversed = source.signature.every((s, i) => s === target.signature[n - 1 - i]);
+  const same = alike(source.signature, target.signature, tolMm);
+  const reversed = alike(source.signature, [...target.signature].reverse(), tolMm);
   if (!same && !reversed) return null;
   const flip = !same;
   return target.members.map((id, i) => {

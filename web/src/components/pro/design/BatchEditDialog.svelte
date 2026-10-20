@@ -18,6 +18,9 @@
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { getReinforcement, commitManualBatch } from '../../../lib/store/rebar-edit';
+  import { setMemberCovers } from '../../../lib/store/design-data';
+  import { assignSection } from '../../../lib/store/section-batch';
+  import { modelStore } from '../../../lib/store';
   import OutcomeBadge from './OutcomeBadge.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
 
@@ -55,6 +58,22 @@
   let tieDia = $state<number | undefined>(undefined);
   let tieLegs = $state<number | undefined>(undefined);
   let tieSp = $state<number | null>(null);
+  // Beam: skin, support region, end shape. `keep` leaves each member's own.
+  let skinMode = $state<'keep' | 'none' | 'set'>('keep');
+  let skinDia = $state(10), skinSp = $state(0.2);
+  let regionPct = $state<number | undefined>(undefined);
+  let bottomEnds = $state<'' | 'hook' | 'straight'>('');
+  // The pieces themselves: cover and section, applied apart from the bars.
+  let coverCm = $state<number | undefined>(undefined);
+  let sectionId = $state<number | undefined>(undefined);
+  let pieceNote = $state<string | null>(null);
+  function applyPieces() {
+    const ids = [...selection];
+    let n = 0;
+    if (coverCm !== undefined) { setMemberCovers(ids, coverCm / 100); n = ids.length; }
+    if (sectionId !== undefined) n = Math.max(n, assignSection(ids, sectionId).length);
+    pieceNote = tp('design.batch.piecesDone', { n });
+  }
 
   const patch = $derived.by((): BatchPatch => {
     const p: BatchPatch = {};
@@ -69,6 +88,10 @@
       p.column = { cornerDia: colCorner, faceDia: colFace, perFace: colPerFace };
     if (tieDia !== undefined || tieLegs !== undefined || tieSp !== null)
       p.ties = { diameter: tieDia, legs: tieLegs, spacing: tieSp ?? undefined };
+    if (skinMode === 'none') p.skin = null;
+    else if (skinMode === 'set') p.skin = { diameter: skinDia, spacing: skinSp };
+    if (regionPct !== undefined) p.regionT = regionPct / 100;
+    if (bottomEnds) p.bottomEnds = bottomEnds;
     return p;
   });
 
@@ -214,7 +237,34 @@
         <label>{t('design.batch.spacingShort')}<QuantityInput quantity="sectionDim" nullable min={0.05} max={0.5}
                wrap="qi-fill" testid="batch-span-spacing" bind:value={spanSp} /></label>
       </fieldset>
+      <fieldset>
+        <legend>{t('design.batch.fieldBeamMore')}</legend>
+        <label>{t('design.batch.skin')}<select bind:value={skinMode} data-testid="batch-skin-mode">
+            <option value="keep">—</option><option value="none">{t('design.batch.skinNone')}</option><option value="set">{t('design.batch.skinSet')}</option>
+          </select></label>
+        {#if skinMode === 'set'}
+          <label>Ø<select bind:value={skinDia} data-testid="batch-skin-dia">{#each STIRRUP_DIAS as d (d)}<option value={d}>{d}</option>{/each}</select></label>
+          <label>{t('design.batch.spacingShort')}<input type="number" min="0.05" max="0.3" step="0.025" bind:value={skinSp} data-testid="batch-skin-spacing" /> m</label>
+        {/if}
+        <label>{t('design.batch.region')}<input type="number" min="10" max="45" step="5" data-testid="batch-region"
+               value={regionPct ?? ''} oninput={(e) => regionPct = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /> %</label>
+        <label>{t('design.batch.bottomEnds')}<select bind:value={bottomEnds} data-testid="batch-bottom-ends">
+            <option value="">—</option><option value="hook">{t('design.batch.endHook')}</option><option value="straight">{t('design.batch.endStraight')}</option>
+          </select></label>
+      </fieldset>
     {/if}
+    <fieldset>
+      <legend>{t('design.batch.fieldPieces')}</legend>
+      <label>{t('design.batch.cover')}<input type="number" min="1" max="10" step="0.5" data-testid="batch-cover"
+             value={coverCm ?? ''} oninput={(e) => coverCm = e.currentTarget.value === '' ? undefined : +e.currentTarget.value} /> cm</label>
+      <label>{t('design.batch.section')}<select data-testid="batch-section" value={sectionId ?? ''}
+             onchange={(e) => sectionId = e.currentTarget.value === '' ? undefined : +e.currentTarget.value}>
+          <option value="">—</option>{#each [...modelStore.sections.values()] as sec (sec.id)}<option value={sec.id}>{sec.name}</option>{/each}
+        </select></label>
+      <button class="piece-apply" disabled={coverCm === undefined && sectionId === undefined} onclick={applyPieces} data-testid="batch-pieces-apply">{tp('design.batch.piecesApply', { n: selection.length })}</button>
+      <p class="piece-hint">{t('design.batch.piecesHint')}</p>
+      {#if pieceNote}<p class="piece-hint" role="status" data-testid="batch-pieces-note">{pieceNote}</p>{/if}
+    </fieldset>
 
     {#if kinds.columns > 0}
       <fieldset>
@@ -318,6 +368,9 @@
   .x { background: none; border:  1px solid var(--st-hair); color: var(--st-text-2); font-size: 1.2rem; cursor: pointer; line-height: 1; }
   .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: var(--st-text-2); }
   .muted { color: var(--st-text-2); }
+  .piece-hint { margin: 3px 0 0; font-size: 0.64rem; line-height: 1.35; color: var(--st-text-3); }
+  .piece-apply { font-size: 0.68rem; padding: 2px 8px; margin-top: 3px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text); border-radius: 4px; cursor: pointer; }
+  .piece-apply:disabled { opacity: 0.45; cursor: default; }
   .warn-inline { color: var(--st-text); }
   .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; }
   fieldset { border: 1px solid var(--st-surface-3); border-radius: 4px; padding: 4px 7px 6px; margin: 0; }

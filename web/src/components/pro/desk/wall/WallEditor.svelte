@@ -8,6 +8,7 @@
    * puts the earth pressure on its shells.
    */
   import { untrack } from 'svelte';
+  import FamilyBatch from '../FamilyBatch.svelte';
   import { t, tp } from '../../../../lib/i18n';
   import { modelStore } from '../../../../lib/store';
   import { detailingStore } from '../../../../lib/store/detailing.svelte';
@@ -160,6 +161,7 @@
       </div>
     </section>
   {/if}
+  <FamilyBatch family="wall" />
 </div>
 
 <style>

@@ -7,6 +7,7 @@
    * and can be made one combined footing.
    */
   import { t, tp } from '../../../../lib/i18n';
+  import FamilyBatch from '../FamilyBatch.svelte';
   import { modelStore } from '../../../../lib/store';
   import { detailingStore } from '../../../../lib/store/detailing.svelte';
   import { openRebar3DView } from '../../../../lib/store/rebar-open';
@@ -189,6 +190,7 @@
       {/if}
     </div>
   {/if}
+  <FamilyBatch family="footing" />
 </div>
 
 <style>

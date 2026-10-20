@@ -3,7 +3,7 @@
  * strap beams proposed on the plan and placed, sizing that says what it lacks. The arithmetic is
  * pinned in `model/foundation/__tests__`; this checks the panel drives it.
  */
-import { test, expect, ribbonCmd } from './fixtures';
+import { test, expect, ribbonCmd, placeFrameFromGrid } from './fixtures';
 
 test.use({ viewport: { width: 1280, height: 860 } });
 
@@ -18,7 +18,7 @@ test.describe('@smoke foundations in the model', () => {
     await page.getByTestId('grid-heights').fill('3');
     await page.getByTestId('grid-generate-levels').click();
     await page.getByTestId('grid-open-building').click();
-    await page.getByTestId('grid-frame-create').click();
+    await placeFrameFromGrid(page);
 
     await ribbonCmd(page, 'foundations');
     await expect(page.getByTestId('foundation-model-panel')).toBeVisible();

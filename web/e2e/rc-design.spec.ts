@@ -586,15 +586,19 @@ test.describe('@slow RC design at scale', () => {
      * Since the minimum shear reinforcement of §9.6.3.1 (run counts above): 339 of the 360
      * verified read fail, held by the detailing as described, and the 35 refused read
      * unavailable.
+     *
+     * Since the lower column bars are cranked into contact laps and clearances are read to
+     * 0.01 mm (no lap on one centreline is left open, no slot refused for microns): 285 of the
+     * 360 verified read fail.
      */
     const display = await page.evaluate(() => window.__stabileo.counts());
     expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(360);
     expect(display.provisional, 'the proposals, named as proposals').toBe(13);
-    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(339);
+    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(285);
     expect(display.unavailable, 'only the refused beams are left without steel').toBe(35);
     // A proposal is never folded into the passes. This is the assertion that would catch the
     // exception being widened into a way of making red things green.
-    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(21);
+    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(75);
     // Every member lands in exactly one display bucket. A member missing from all of them
     // would be a row the summary bar does not describe.
     expect(display.ok + display.warn + display.fail + display.provisional

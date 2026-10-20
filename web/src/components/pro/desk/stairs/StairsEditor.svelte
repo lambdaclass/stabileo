@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { t, tp } from '../../../../lib/i18n';
+  import FamilyBatch from '../FamilyBatch.svelte';
   import { modelStore } from '../../../../lib/store';
   import { applyStairReactions, removeStair, saveStair, stairChecks, type StairEntry } from '../../../../lib/store/stairs-pt';
   import { findOccupancy } from '../../../../lib/codes/cirsoc101/live-loads';
@@ -146,6 +147,7 @@
     </details>
     <button class="link" onclick={() => { removeStair(current.entry.id); fresh(); }} data-testid="stair-remove">{t('mat.timber.drop')}</button>
   {/if}
+  <FamilyBatch family="stair" />
 </div>
 
 <style>

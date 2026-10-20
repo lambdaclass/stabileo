@@ -52,6 +52,11 @@ export interface BeamLineReinforcement {
   memberHashes?: Record<string, string>;
   /** Consecutive members reinforced as one span (predefined spans), by index along the line. */
   spans?: number[][];
+  /** Cross-sections placed on the line, m along it, each drawn as its own section on the sheet. */
+  cuts?: BeamLineCut[];
 }
+
+/** A cross-section a person placed on a beam line: where, and the letter it is drawn with. */
+export interface BeamLineCut { id: string; x: number; label: string }
 
 export const lineKey = (members: readonly number[]): string => members.join('-');

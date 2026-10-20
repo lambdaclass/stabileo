@@ -17,6 +17,7 @@
  * an error: the panel is what words it.
  */
 
+import { downloadReport } from '../export/report-download';
 import { i18n, tp } from '../i18n';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../engine/detailing/document-render';
 import { exportToExcel } from '../export/excel';
@@ -43,8 +44,9 @@ interface ExportContext {
   at: string;
 }
 
-export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext): void {
-  const filename = `detailing-rev${doc.revision.number}.html`;
+export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext, format: import('../export/report-formats').ReportFormat = 'pdf'): void {
+  const ext = format === 'pdf' ? 'html' : format === 'csv' ? 'csv' : format;
+  const filename = `detailing-rev${doc.revision.number}.${ext}`;
   withExportLog({ kind: 'report', doc, filename, at: ctx.at }, () => {
     const html = renderReportHtml(
       doc,
@@ -57,11 +59,14 @@ export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext): v
         Object.entries(params).map(([n, v]) => [n, typeof v === 'number' ? v : String(v)]),
       )),
     );
-    // Printed through the browser rather than a bundled PDF writer: better typography, no
-    // dependency, and the user picks the paper size.
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
-    else downloadBlob(filename, 'text/html', html);
+    // The PDF is printed through the browser rather than a bundled PDF writer: better
+    // typography, no dependency, and the user picks the paper size. The other four formats are
+    // the same report as a file (`report-formats.ts`).
+    if (format === 'pdf') {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+      else downloadBlob(filename, 'text/html', html);
+    } else void downloadReport(format, { title: `${ctx.projectName} · rev. ${doc.revision.number}`, html, stem: `detailing-rev${doc.revision.number}` });
   });
 }
 

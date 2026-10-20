@@ -28,6 +28,8 @@
   import { REVIEW_STATES, reviewRank } from '../../../lib/engine/detailing/assembly';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
   import { rcConflictLabel } from '../../../lib/flow/rc-bar-label';
+  import { memberNames } from '../../../lib/store/member-names';
+  import { deskUi } from '../../../lib/store/design-desk-ui.svelte';
 
   /** Bound to the sheet dialog, so a conflict can open the drawing it is on. */
   let sheetOpen = $state(false);
@@ -48,6 +50,23 @@
       (n, a) => n + (a.conflicts ?? []).filter((c) => c.severity !== 'marginal').length, 0));
 
   const selected = $derived(detailingStore.selected);
+  /**
+   * Each assembly with the members it holds, named as the desk names them (`member-names.ts`), so
+   * a member is found by its name: «V1-2», «C3» (QA of 20-oct: the list read «level-1.00» and the
+   * member had to be guessed).
+   */
+  let find = $state('');
+  const membersOf = $derived.by(() => {
+    void detailingStore.assemblies;
+    const n = memberNames();
+    return new Map(detailingStore.assemblies.map((a) => [a.id, [...new Set(a.elementIds.map((id) => n.name(id)))].sort((p, q) => p.localeCompare(q, undefined, { numeric: true }))]));
+  });
+  const shownAssemblies = $derived.by(() => {
+    const q = find.trim().toLowerCase();
+    if (!q) return detailingStore.assemblies;
+    return detailingStore.assemblies.filter((a) => (membersOf.get(a.id) ?? []).some((m) => m.toLowerCase().includes(q)));
+  });
+  const labelOf = (a: { labelKey?: string; labelParams?: Record<string, string | number>; label: string }) => (a.labelKey ? tp(a.labelKey, a.labelParams ?? {}) : a.label);
 
   /**
    * Follow a conflict to the member it is in.
@@ -181,8 +200,9 @@
         {/if}
       </div>
     {:else}
+      <input class="find" type="search" bind:value={find} placeholder={t('detailing.findMember')} aria-label={t('detailing.findMember')} data-testid="detailing-find" />
       <ul role="listbox" aria-label={t('detailing.assemblies')}>
-        {#each detailingStore.assemblies as a (a.id)}
+        {#each shownAssemblies as a (a.id)}
           <li>
             <button
               role="option"
@@ -191,10 +211,14 @@
               data-testid={`assembly-${a.id}`}
               onclick={() => detailingStore.select(a.id)}
             >
-              <span class="label">{a.labelKey ? tp(a.labelKey, a.labelParams ?? {}) : a.label}</span>
+              <span class="label">{labelOf(a)}</span>
               <span class="state state-{a.state.toLowerCase()}">{t(`detailing.state.${a.state}`)}</span>
               {#if a.maturity !== 'VALIDATED'}
                 <span class="maturity">{t(maturityLabelKey(a.maturity))}</span>
+              {/if}
+              {#if (membersOf.get(a.id) ?? []).length}
+                {@const ms = membersOf.get(a.id)!}
+                <span class="members" data-testid={`assembly-members-${a.id}`}>{ms.slice(0, 10).join(' · ')}{ms.length > 10 ? ` · +${ms.length - 10}` : ''}</span>
               {/if}
             </button>
           </li>
@@ -208,7 +232,8 @@
       <p class="empty">{t('detailing.selectOne')}</p>
     {:else}
       <header>
-        <h4>{selected.label}</h4>
+        <h4>{labelOf(selected)}</h4>
+        <button class="to-sheets" onclick={() => (deskUi.tab = 'sheets')} data-testid="detailing-to-sheets">{t('detailing.composeSheets')}</button>
         <div class="badges">
           <span class="state state-{selected.state.toLowerCase()}" data-testid="assembly-state">
             {t(`detailing.state.${selected.state}`)}
@@ -452,6 +477,9 @@
   .assemblies button.selected { border-color: currentColor; background: var(--st-selected-bg); }
   .assemblies button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   .label { flex: 1; }
+  .members { flex-basis: 100%; font-size: 0.64rem; color: var(--st-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .find { width: 100%; box-sizing: border-box; margin: 0 0 4px; font-size: 0.7rem; padding: 2px 6px; background: var(--st-surface-2); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 4px; }
+  .to-sheets { font-size: 0.68rem; padding: 2px 8px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text); border-radius: 4px; cursor: pointer; }
   header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
   .badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .state, .maturity, .rev, .superseded { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 3px; }

@@ -13,7 +13,7 @@
   import { designRunStore } from '../../../lib/store/design-run.svelte';
   import { deskUi, type RunScope } from '../../../lib/store/design-desk-ui.svelte';
   import { undesignedMembers, type DeskReport } from '../../../lib/store/design-desk';
-  import { rcDesign } from '../../../lib/flow/rc-commands';
+  import { rcSize } from '../../../lib/flow/rc-commands';
 
   let { onDone }: { onDone: (report: DeskReport, error: { key: string; params: Record<string, string | number> } | null, fromList: boolean) => void } = $props();
 
@@ -21,6 +21,8 @@
   let scope = $state<RunScope>('all');
   let edited = $state<'keep' | 'overwrite'>('keep');
   let steel = $state(true);
+  /** Enlarge the sections no reinforcement verifies, and design again, until every member verifies. */
+  let resize = $state(true);
   let confirming = $state(false);
   // Each time it is asked for, it starts from the scope it was asked with, keeping the edited bars.
   $effect(() => {
@@ -47,19 +49,35 @@
   function close() { deskUi.ask = null; }
   async function run() {
     if (edited === 'overwrite' && editedInScope > 0 && !confirming) { confirming = true; return; }
-    const ask = { scope, ids: scope === 'selection' ? selected : undefined, edited: editedInScope > 0 ? edited : 'keep' as const, steel };
+    const ask = { scope, ids: scope === 'selection' ? selected : undefined, edited: editedInScope > 0 ? edited : 'keep' as const, steel, resize };
     const fromList = !!deskUi.ask?.fromList;
     deskUi.ask = null;
-    // A frame for the dialog to go before the run holds the page.
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    const report = rcDesign(ask);
-    const e = designRunStore.lastError;
-    onDone(report, e ? { key: e.key, params: e.params ?? {} } : null, fromList);
+    // A frame between the steps, so the progress shows while the run holds the page.
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+    deskUi.running = { phase: 'design', round: 0, changed: 0 };
+    try {
+      const report = await rcSize(ask, { progress: (p) => { deskUi.running = p; }, cancelled: () => deskUi.stopAsked, pause: frame });
+      const e = designRunStore.lastError;
+      onDone(report, e ? { key: e.key, params: e.params ?? {} } : null, fromList);
+    } finally {
+      deskUi.running = null;
+    }
   }
   function onKey(e: KeyboardEvent) { if (deskUi.ask && e.key === 'Escape') { e.stopPropagation(); close(); } }
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+{#if deskUi.running}
+  {@const p = deskUi.running}
+  <div class="rp" role="status" aria-live="polite" data-testid="desk-run-progress">
+    <p class="rp-what">{p.phase === 'resize' ? tp('desk.progress.resize', { round: p.round, n: p.members ?? 0 }) : p.round > 0 ? tp('desk.progress.designRound', { round: p.round }) : t('desk.progress.design')}</p>
+    <div class="rp-bar" aria-hidden="true"><span></span></div>
+    {#if p.changed > 0}<p class="rp-sub">{tp('desk.progress.changed', { n: p.changed })}</p>{/if}
+    <button onclick={() => (deskUi.stopAsked = true)} disabled={deskUi.stopAsked} data-testid="desk-run-stop">{t('desk.progress.stop')}</button>
+    {#if deskUi.stopAsked}<p class="rp-sub">{t('desk.progress.stopHint')}</p>{/if}
+  </div>
+{/if}
 
 {#if deskUi.ask}
   <div class="rd" role="dialog" aria-label={t('desk.size')} data-testid="desk-run-options">
@@ -93,6 +111,10 @@
         <label><input type="radio" bind:group={edited} value="overwrite" data-testid="desk-overwrite-edited" /> {t('desk.overwriteEdited')}</label>
       </fieldset>
     {/if}
+    {#if scope === 'all'}
+      <label><input type="checkbox" bind:checked={resize} data-testid="desk-run-resize" /> {t('desk.resize')}</label>
+      <p class="rd-scope">{t('desk.resizeHint')}</p>
+    {/if}
     <label><input type="checkbox" bind:checked={steel} data-testid="desk-run-steel" /> {t('desk.withSteel')}</label>
     {#if confirming}
       <p class="rd-confirm" role="alert" data-testid="desk-run-confirm">{tp('desk.overwriteConfirm', { n: editedInScope })}</p>
@@ -116,4 +138,13 @@
   .rd-actions .rd-primary { border-color: var(--st-accent); background: var(--st-accent); color: var(--st-on-accent, #fff); }
   .rd-actions button:disabled { opacity: 0.5; cursor: default; }
   @media (max-height: 600px) { .rd { top: 40px; max-height: calc(100vh - 56px); } }
+  .rp { position: fixed; z-index: 906; top: 110px; left: 50%; transform: translateX(-50%); width: min(24rem, 92vw); background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 6px; padding: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; gap: 6px; font-size: 0.74rem; box-sizing: border-box; }
+  .rp p { margin: 0; }
+  .rp .rp-sub { color: var(--st-text-2); font-size: 0.7rem; }
+  .rp-bar { height: 4px; border-radius: 2px; background: var(--st-hair); overflow: hidden; position: relative; }
+  .rp-bar span { position: absolute; inset: 0 auto 0 0; width: 35%; background: var(--st-accent); border-radius: 2px; animation: rp-slide 1.2s ease-in-out infinite; }
+  @keyframes rp-slide { from { left: -35%; } to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .rp-bar span { animation: none; width: 100%; opacity: 0.5; } }
+  .rp button { align-self: flex-end; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text); cursor: pointer; }
+  .rp button:disabled { opacity: 0.5; cursor: default; }
 </style>

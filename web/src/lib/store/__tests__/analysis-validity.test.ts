@@ -183,10 +183,11 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       expect(x.verdict, `mesh ${m}`).toBe('pointJoint');
       // 14 spans and 12 columns.
       expect(x.pointJoints, `mesh ${m}`).toBe(26);
-      // The desk, the memoria and the certificates list a span's pieces, the IFC one beam per span;
-      // the memoria's 12 joints read the beams' end forces and are held too.
+      // The memoria and the certificates list a span's pieces; the desk (`member-names.ts`) and the
+      // IFC one member per span, 26; the memoria's 12 joints read the beams' end forces and are
+      // held too.
       const pieces = x.certificates;
-      expect(x.desk, `mesh ${m}: desk`).toEqual({ ok: 0, d124: pieces });
+      expect(x.desk, `mesh ${m}: desk`).toEqual({ ok: 0, d124: 26 });
       expect(x.memoria, `mesh ${m}: memoria`).toBe(pieces + 12);
       expect(x.workbookOk, `mesh ${m}: workbook`).toBe(0);
       expect(x.ifc, `mesh ${m}: IFC`).toEqual({ joint: 26, satisfies: 0 });

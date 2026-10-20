@@ -23,8 +23,8 @@
  *  - the revision counters replace arbitrary waits with `expect.poll` on real state.
  *
  * Nothing here mutates app state except `loadExample` (the same call the
- * examples menu makes) and `clearSelection` (the same call pressing Escape
- * makes). The bundle cost is trivial and the object is absent unless the
+ * examples menu makes), `clearSelection` (the same call pressing Escape
+ * makes) and the actions below, each the same operation a UI control performs. The bundle cost is trivial and the object is absent unless the
  * query flag is present, so production pages never expose it.
  */
 
@@ -269,6 +269,10 @@ export interface StabileoTestHooks {
    * which is the whole reason a stair spec needs the position in model space.
    */
   nodeIds(): number[];
+  /** A node's coordinates, m. */
+  nodePosition(id: number): { x: number; y: number; z: number } | null;
+  /** What a member states beyond its geometry: buckling factors and end releases. */
+  memberStatement(id: number): { kStrong?: number; kWeak?: number; releaseI?: { my: boolean; mz: boolean }; releaseJ?: { my: boolean; mz: boolean } } | null;
   nodePos(id: number): { x: number; y: number; z: number } | null;
   /** The shells, and whether a quad carries curvature into the solve. */
   quadIds(): number[];
@@ -426,6 +430,8 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
+  moveNode(id: number, x: number, y: number, z: number): void;
   /**
    * Load a model given as an example's JSON (`templates/load-fixture.ts`), as an example loads:
    * for a spec that builds its own model, a large one to time the tables, say.
@@ -730,6 +736,13 @@ export function installE2EHooks(): void {
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
     nodeIds: () => [...modelStore.nodes.keys()].sort((a, b) => a - b),
+    memberStatement: (id: number) => {
+      const e = modelStore.elements.get(id);
+      if (!e) return null;
+      return { ...(e.kStrong !== undefined ? { kStrong: e.kStrong } : {}), ...(e.kWeak !== undefined ? { kWeak: e.kWeak } : {}),
+        ...(e.releaseI ? { releaseI: { my: e.releaseI.my, mz: e.releaseI.mz } } : {}), ...(e.releaseJ ? { releaseJ: { my: e.releaseJ.my, mz: e.releaseJ.mz } } : {}) };
+    },
+    nodePosition: (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; },
     nodePos: (id: number) => {
       const n = modelStore.nodes.get(id);
       return n ? { x: n.x, y: n.y ?? 0, z: (n as { z?: number }).z ?? 0 } : null;
@@ -850,6 +863,7 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    moveNode: (id: number, x: number, y: number, z: number) => { historyStore.pushState(); modelStore.updateNode(id, x, y, z); },
     loadModelData: (json: Record<string, unknown>) => {
       modelStore.clear();
       modelStore.bulkMutate(() => loadFixture(json as never, modelStore.fixtureApi() as never));

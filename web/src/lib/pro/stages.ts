@@ -411,6 +411,8 @@ export function buildProStages(ctx: ProStageContext): ProStage[] {
           id: 'designDocument',
           labelKey: 'desk.step.document',
           cmds: [
+            { id: 'sheets', labelKey: 'desk.tab.sheets', icon: 'section', action: () => openDeskAt('sheets'), activeWhen: () => deskOn('sheets') },
+            { id: 'listings', labelKey: 'desk.tab.listings', icon: 'data', action: () => openDeskAt('listings'), activeWhen: () => deskOn('listings') },
             { id: 'documents', labelKey: 'desk.tab.documents', icon: 'project', action: () => openDeskAt('documents'), activeWhen: () => deskOn('documents') },
           ],
         },

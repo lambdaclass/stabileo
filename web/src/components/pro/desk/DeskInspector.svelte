@@ -16,7 +16,9 @@
   import { designTableUi } from '../design/design-table-ui.svelte';
   import { openRebar3DView } from '../../../lib/store/rebar-open';
   import VerificationDetail from '../design/VerificationDetail.svelte';
-  import { copyFrame, equalizeFrames, framesOf } from '../../../lib/store/frame-equalize';
+  // One way to copy a frame: the repeats are copied by the same planner the copy panel uses.
+  import { applyFrameCopy, equalizeFrames, framesOf, previewFrameCopy } from '../../../lib/store/frame-equalize';
+  import FrameCopyPanel from './FrameCopyPanel.svelte';
   import { jointChecks } from '../../../lib/store/joint-checks';
   import type { DeskRow } from './desk-rows';
   import BatchEditDialog from '../design/BatchEditDialog.svelte';
@@ -117,8 +119,8 @@
     <p class="di-hint">{t('desk.pickMember')}</p>
   {:else}
     <header class="di-head">
-      <h4>{row.name}</h4>
-      <span class="di-status st-{row.status}" data-testid="desk-status" data-status={row.status}>{t(`desk.f.${row.status === 'provisional' ? 'fail' : row.status === 'stale' ? 'unavailable' : row.status}`)}{row.ratio !== null ? ` · ${t('verdict.local.ratio')} ${row.ratio.toFixed(2)}` : ''}</span>
+      <h4 data-member-id={row.id}>{row.name}</h4>
+      <span class="di-status st-{row.status}" data-testid="desk-status" data-status={row.status} data-local={verdict?.local}>{t(`desk.f.${row.status === 'provisional' ? 'fail' : row.status === 'stale' ? 'unavailable' : row.status}`)}{row.ratio !== null ? ` · ${t('verdict.local.ratio')} ${row.ratio.toFixed(2)}` : ''}</span>
       <span class="di-decision" data-testid="desk-decision">{t(`desk.d.${decision}`)}</span>
     </header>
     {#if verdict && verdict.holds.length}
@@ -172,11 +174,12 @@
         {:else}
           <p class="di-hint">{tp('desk.frameRepeats', { n: others.length })} {others.map((l) => l.label).join(' · ')}</p>
           <div class="di-actions">
-            <button onclick={() => { note = tp('desk.frameCopied', { n: copyFrame(frames.line, others).length }); }} data-testid="desk-frame-copy">{tp('desk.frameCopy', { n: others.length })}</button>
+            <button onclick={() => { note = tp('desk.frameCopied', { n: applyFrameCopy(previewFrameCopy(frames.line, others)).length }); }} data-testid="desk-frame-copy">{tp('desk.frameCopy', { n: others.length })}</button>
             <button onclick={() => { note = tp('desk.equalized', { n: equalizeFrames(frames.group!).length }); }} data-testid="desk-frame-equalize">{tp('desk.frameEqualize', { n: others.length + 1 })}</button>
           </div>
         {/if}
         <button class="di-open-frame" onclick={() => (deskUi.tab = 'frame')} data-testid="desk-open-frame">{t('desk.openFrame')}</button>
+        <FrameCopyPanel line={frames.line} />
       </section>
     {/if}
 
@@ -184,7 +187,7 @@
       <!-- The member list has this member's row open, with these same checks and its editors. -->
       <p class="di-hint" data-testid="desk-inspector-in-list">{t('desk.inspectorInList')}</p>
     {:else if row.material === 'concrete' && ctx}
-      <VerificationDetail elementId={row.id} {ctx} provided={verificationStore.providedFor(row.id) ?? null} outcome={verificationStore.outcomeFor(row.id)} onApplyAdvice={() => {}} />
+      <VerificationDetail elementId={row.id} {ctx} provided={verificationStore.providedFor(row.id) ?? null} outcome={verificationStore.outcomeFor(row.id)} onApplyAdvice={() => {}} hideVerdict />
     {:else if row.material !== 'concrete' && row.material !== 'steel'}
       {@const res = materialCheckState.results.get(row.id)}
       {#if res}<SteelMemberSheet rows={res.rows} elementId={row.id} note={t(`mat.note.${res.family}`)} />{/if}

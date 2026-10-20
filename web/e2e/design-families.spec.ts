@@ -31,6 +31,7 @@ async function openSize(page: Page) {
 }
 async function runSize(page: Page) {
   await openSize(page);
+  if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
   await page.getByTestId('desk-run').click();
 }
 

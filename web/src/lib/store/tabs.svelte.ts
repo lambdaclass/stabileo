@@ -78,7 +78,7 @@ export interface TabState {
   showSecondarySelector: boolean;
   showAxes: boolean;
   // 3D config
-  renderMode3D: 'wireframe' | 'solid' | 'sections';
+  renderMode3D: 'wireframe' | 'solid' | 'sections' | 'physical';
   momentStyle3D: 'double-arrow' | 'curved';
   cameraMode3D: 'perspective' | 'orthographic';
   showGrid3D: boolean;

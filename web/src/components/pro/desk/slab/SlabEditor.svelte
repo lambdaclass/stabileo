@@ -7,6 +7,9 @@
    * again) or sent back to the proposal.
    */
   import { untrack } from 'svelte';
+  import SlabBandTools from './SlabBandTools.svelte';
+  import { bandBars, bandOutline } from '../../../../lib/engine/detailing/slab-bands';
+  import FamilyBatch from '../FamilyBatch.svelte';
   import { t, tp } from '../../../../lib/i18n';
   import { modelStore } from '../../../../lib/store';
   import { detailingStore } from '../../../../lib/store/detailing.svelte';
@@ -103,9 +106,11 @@
         <rect x={X(inp.x0)} y={Y(inp.y1)} width={(inp.x1 - inp.x0) * sc} height={(inp.y1 - inp.y0) * sc} class="se-panel" />
         {#each inp.elements as e (e.id)}<rect x={X(e.cx - e.sx / 2)} y={Y(e.cy + e.sy / 2)} width={e.sx * sc} height={e.sy * sc} class="se-el" />{/each}
         {#each draft.bands as x (x.id)}
-          <rect x={X(x.x0)} y={Y(x.y1)} width={(x.x1 - x.x0) * sc} height={(x.y1 - x.y0) * sc} class="se-band {x.face}" class:on={x.id === band}
+          {@const bb = bandBars(x)}
+          <polygon points={bandOutline(x).map((p) => `${X(p.x)},${Y(p.y)}`).join(' ')} class="se-band {x.face}" class:on={x.id === band}
             role="button" tabindex="0" onclick={() => (band = x.id)} onkeydown={() => (band = x.id)} data-testid="slab-band-{x.id}" />
-          <text x={X((x.x0 + x.x1) / 2)} y={Y((x.y0 + x.y1) / 2) + 3} class="se-t">{x.face === 'top' ? '↑' : '↓'}{x.dir} Ø{x.diameter} c/{(x.spacing * 100).toFixed(0)}</text>
+          <line x1={X(bb.bar[0].x)} y1={Y(bb.bar[0].y)} x2={X(bb.bar[1].x)} y2={Y(bb.bar[1].y)} class="se-bar" />
+          <text x={X(x.label?.x ?? (x.x0 + x.x1) / 2)} y={Y(x.label?.y ?? (x.y0 + x.y1) / 2) + 3} class="se-t">{x.face === 'top' ? '↑' : '↓'}{x.angle !== undefined ? `${x.angle}°` : x.dir} {bb.count}Ø{x.diameter} c/{(x.spacing * 100).toFixed(0)}{x.group ? ' ▣' : ''}</text>
         {/each}
         {#each columns as c}<rect x={X(c.x) - 4} y={Y(c.y) - 4} width="8" height="8" class="se-col" />{/each}
       </svg>
@@ -150,6 +155,7 @@
               <label class="se-chk"><input type="checkbox" checked={!!b.hookStart} onchange={(e) => setBand({ hookStart: e.currentTarget.checked || undefined })} /> {t('slabEd.hookStart')}</label>
               <label class="se-chk"><input type="checkbox" checked={!!b.hookEnd} onchange={(e) => setBand({ hookEnd: e.currentTarget.checked || undefined })} /> {t('slabEd.hookEnd')}</label>
             </div>
+            <SlabBandTools draft={draft} band={b} input={inp} apply={(next) => (draft = next)} />
             <button class="se-btn se-danger" onclick={() => { draft!.bands = draft!.bands.filter((x) => x.id !== b!.id); band = null; }}>{t('slabEd.delete')}</button>
           {/if}
           <div class="se-row"><button class="se-btn" onclick={addBand} data-testid="slab-add-band">{t('slabEd.addBand')}</button></div>
@@ -173,6 +179,7 @@
       </div>
     </section>
   {/if}
+  <FamilyBatch family="slab" />
 </div>
 
 <style>
@@ -205,4 +212,5 @@
   .se-hint { color: var(--st-text-3); }
   .se-defl { margin: 2px 0; }
   @media (max-width: 1000px) { .se, .se-cols { grid-template-columns: 1fr; } }
+  .se-bar { stroke: var(--st-value); stroke-width: 1.4; pointer-events: none; }
 </style>

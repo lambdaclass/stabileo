@@ -34,7 +34,6 @@
    */
   import { t, tp } from '../../../lib/i18n';
   import { detailingStore } from '../../../lib/store/detailing.svelte';
-  import { detailingSheet } from '../../../lib/store/detailing-sheet.svelte';
   import { reviewRank } from '../../../lib/engine/detailing/assembly';
   import type { DesignFamily } from '../../../lib/engine/design/design-families';
   import { maturityLabelKey } from '../../../lib/codes/maturity';
@@ -44,19 +43,17 @@
   import RcExportLog from './RcExportLog.svelte';
   import RcDocumentScope from './RcDocumentScope.svelte';
   import RcDocumentPreview from './RcDocumentPreview.svelte';
-  import SheetsPanel from './SheetsPanel.svelte';
+  import ReportFormats from '../export/ReportFormats.svelte';
   import MemoriaButton from './MemoriaButton.svelte';
   import ExchangePanel from './ExchangePanel.svelte';
   import ProQuantitiesCard from './ProQuantitiesCard.svelte';
   import {
     downloadBlob, exportDetailingDxf, exportDetailingReport, exportDetailingXlsx,
   } from '../../../lib/store/document-exports';
-  import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { documentScope } from '../../../lib/store/document-scope.svelte';
+  import { currentDocument, currentScope, documentProjectName } from '../../../lib/store/current-document';
+  import { openDeskAt } from '../../../lib/pro/design-navigation';
   import { documentableMembers } from '../../../lib/store/detailing-project-inputs';
-  import {
-    documentScopeBlocker, resolveDocumentScope,
-  } from '../../../lib/flow/rc-document-scope';
+  import { documentScopeBlocker } from '../../../lib/flow/rc-document-scope';
 
   let docError = $state<string | null>(null);
   let show3d = $state(false);
@@ -79,55 +76,20 @@
    * array the command bar states its scope from and `currentReadiness()` measures convergence
    * against. A second source for it is how a document comes to declare a coverage it did not have.
    */
-  const members = () => documentableMembers();
-  function scopeNow() {
-    return resolveDocumentScope({
-      members: members(),
-      designFamilies: designRunStore.familySelection,
-      requested: documentScope.requested,
-    });
-  }
-
   /**
-   * Build the document, or say why not.
-   *
-   * Every export and every preview goes through this, so all of them consume the SAME model
-   * instance, the same revision AND the same narrowing.
-   *
-   * Two refusals before it builds, worded apart: nothing documentable in this project, and
-   * nothing selected. A single "nothing to export" would send half the users to Diseñar and the
-   * other half to a checkbox, and only one of them would be right.
+   * Build the document, or say why not (`store/current-document.ts`, the one resolution the sheets
+   * and the listings read too). Two refusals, worded apart: nothing documentable or selected, and
+   * nothing coordinated.
    */
   function currentDoc(quiet = false) {
     docError = null;
-    const scope = scopeNow();
-    const blocked = documentScopeBlocker(scope);
-    if (blocked) {
-      if (!quiet) docError = t(`detailing.doc.select.${blocked}`);
-      return null;
-    }
-    const doc = detailingStore.buildDocument({
-      author: detailingAuthor.resolve(t('detailing.doc.unnamedAuthor')),
-      at: new Date().toISOString(),
-      // Only when it is a narrowing. A whole set carries no selection to declare — see
-      // `DocumentModel.selection`.
-      scope: scope.whole ? null : { elements: scope.elements, families: scope.families },
-    });
-    if (!doc && !quiet) docError = t('detailing.doc.noCoordinated');
-    return doc;
+    const r = currentDocument();
+    if (!r.doc && !quiet) docError = r.blocker.kind === 'scope' ? t(r.blocker.key) : t('detailing.doc.noCoordinated');
+    return r.doc;
   }
+  const scopeNow = currentScope;
 
-  /**
-   * What heads every export.
-   *
-   * The project's rótulo when it has one, and the generic word only when it does not. All three
-   * exports used `t('detailing.doc.project')` unconditionally — a translated word meaning
-   * "Project" — so a drawing set, a report and a schedule of a real works were all headed with
-   * a noun. The rótulo is the same one the sheets carry, so the four cannot disagree.
-   */
-  function projectName(): string {
-    return detailingSheet.titleBlockConfig.project || t('detailing.doc.project');
-  }
+  const projectName = documentProjectName;
 
   /**
    * Every export, recorded — objective 11.
@@ -242,8 +204,11 @@
 {#if !selected}
   <!-- Not a blank stage: the reason there is nothing to export, and where to get one. -->
   <p class="empty" data-testid="documents-empty">{t('detailing.doc.emptyStage')}</p>
-  <!-- The plans that read the model alone (formwork, schedules, steel) need no detailing. -->
-  <SheetsPanel resolve={() => null} projectName={projectName()} />
+  <!-- The plans that read the model alone (formwork, schedules, steel) and the listings need no detailing: they have places of their own. -->
+  <div class="doc-places">
+    <button onclick={() => openDeskAt('sheets')} data-testid="documents-go-sheets">{t('desk.tab.sheets')} →</button>
+    <button onclick={() => openDeskAt('listings')} data-testid="documents-go-listings">{t('desk.tab.listings')} →</button>
+  </div>
   <MemoriaButton />
   <ExchangePanel projectName={projectName()} />
 {:else}
@@ -332,13 +297,15 @@
       `rc-document-scope.ts`; what matters for the ORDER is that a user reads what an export will
       contain before pressing the control that produces it.
     -->
-    <RcDocumentScope scope={scopeNow()} members={members()} />
+    <RcDocumentScope scope={scopeNow()} members={documentableMembers()} />
 
     <div class="doc-actions">
       <button data-testid="doc-report"
               onclick={() => runExport((d) => exportDetailingReport(d, exportCtx()))}>
         {t('detailing.doc.report')}
       </button>
+      <!-- The same report in the other four formats every report offers. -->
+      <ReportFormats prefix="doc-report" formats={['html', 'docx', 'xlsx', 'csv']} run={(f) => runExport((d) => exportDetailingReport(d, exportCtx(), f))} />
       <button data-testid="doc-dxf"
               onclick={() => runExport((d) => exportDetailingDxf(d, exportCtx()))}>
         {t('detailing.doc.dxf')}
@@ -360,8 +327,11 @@
     <!-- The drawing and the schedule before they leave, from the same document instance. -->
     <RcDocumentPreview resolve={currentDoc} projectName={projectName()} />
 
-    <!-- The same drawings composed onto numbered sheets with the title block and the index. -->
-    <SheetsPanel resolve={() => currentDoc(true)} projectName={projectName()} />
+    <!-- The same drawings on numbered sheets, and the listings, each in its own place of the step. -->
+    <div class="doc-places">
+      <button onclick={() => openDeskAt('sheets')} data-testid="documents-go-sheets">{t('desk.tab.sheets')} →</button>
+      <button onclick={() => openDeskAt('listings')} data-testid="documents-go-listings">{t('desk.tab.listings')} →</button>
+    </div>
     <ExchangePanel projectName={projectName()} />
 
     <!--
@@ -583,4 +553,6 @@
 
   .superseded-docs { font-size: 0.68rem; color: var(--st-text-2); }
   .superseded-docs ul { margin: 0.2rem 0 0; padding-left: 1rem; }
+  .doc-places { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .doc-places button { font-size: 0.72rem; padding: 2px 10px; background: var(--st-surface-2); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer; }
 </style>

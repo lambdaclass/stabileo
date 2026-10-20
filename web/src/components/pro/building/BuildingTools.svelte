@@ -1,17 +1,14 @@
 <script lang="ts">
   /**
-   * The Building panel's tools beyond placing on the grid: drawing declared members node to node
-   * on the working level, a ramp across a bay, a rigid diaphragm per level, and copying a level's
-   * elements to others.
+   * The Building panel's tools beyond placing one kind of element: a ramp across a bay, copying a
+   * level's elements to others, and a rigid diaphragm per level.
    */
-  import { modelStore, uiStore } from '../../../lib/store';
+  import { modelStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { nextMember } from '../../../lib/store/next-member.svelte';
   import { placeRamp } from '../../../lib/model/building/build-on-grid';
   import { addLevelDiaphragms } from '../../../lib/model/building/diaphragms';
   import { copyToLevels } from '../../../lib/model/building/copy-levels';
   import type { PhysicalKind } from '../../../lib/model/physical';
-  import TypologyPicker from './TypologyPicker.svelte';
 
   let { materialId, meshSize, report }: { materialId: number; meshSize: number; report: (text: string) => void } = $props();
 
@@ -21,23 +18,6 @@
   const ys = $derived((grid?.axes ?? []).filter((a) => a.axis === 'y').sort((a, b) => a.at - b.at));
   const first = <T extends { id: string }>(cur: string, list: T[], end: 'first' | 'last' | number) =>
     list.some((a) => a.id === cur) ? cur : (end === 'first' ? list[0]?.id : end === 'last' ? list[list.length - 1]?.id : list[end]?.id) ?? '';
-
-  // ── Draw ──
-  let drawKind = $state<'column' | 'beam' | 'brace'>('beam');
-  let drawTypology = $state('dropped');
-  let workLevel = $state('');
-  $effect(() => { workLevel = first(workLevel, levels, 1); });
-  $effect(() => {
-    // A typology of another kind is not this one's: take the kind's first.
-    const ok = { column: ['concrete', 'steel', 'composite', 'timber'], beam: null, brace: ['steel', 'timber'] }[drawKind];
-    if (ok && !ok.includes(drawTypology)) drawTypology = ok[0]!;
-  });
-  function startDrawing() {
-    nextMember.physical = { kind: drawKind, typology: drawTypology };
-    const l = levels.find((x) => x.id === workLevel);
-    if (l) uiStore.setActiveLevel(l.z);
-    uiStore.currentTool = 'element';
-  }
 
   // ── Ramp ──
   let rx0 = $state(''), rx1 = $state(''), ry0 = $state(''), ry1 = $state(''), rLow = $state(''), rHigh = $state('');
@@ -70,23 +50,6 @@
   }
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 </script>
-
-<section class="pk-card" data-testid="building-draw">
-  <h5 class="bt-h">{t('building.drawTitle')}</h5>
-  <p class="pk-hint">{t('building.drawHint')}</p>
-  <div class="bt-row" role="radiogroup" aria-label={t('physical.kindCol')}>
-    {#each ['column', 'beam', 'brace'] as const as k}
-      <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
-    {/each}
-  </div>
-  <TypologyPicker kind={drawKind} bind:value={drawTypology} testid="building-draw-typology" />
-  <div class="bt-row">
-    <label class="bt-inline">{t('building.workLevel')}
-      <select bind:value={workLevel}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-    </label>
-    <button class="pk-btn pk-btn-primary" onclick={startDrawing} data-testid="building-draw-start">{t('building.draw')}</button>
-  </div>
-</section>
 
 {#if xs.length >= 2 && ys.length >= 2}
   <section class="pk-card" data-testid="building-ramp">

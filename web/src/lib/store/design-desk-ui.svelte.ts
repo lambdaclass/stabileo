@@ -16,6 +16,7 @@
  * `capture` and `restore` travel with the tab (`tabs.svelte.ts`), and a new project starts from
  * the defaults (`reset`), so one tab's level, filter and editor never show up in another.
  */
+import type { ResizeProgress } from './design-resize';
 import type { DeskReport } from './design-desk';
 import { uiStore } from './ui.svelte';
 import { modelStore } from './model.svelte';
@@ -23,7 +24,7 @@ import { sortedLevels } from '../model/grid';
 import { designDrafts } from './design-drafts.svelte';
 import { tp } from '../i18n';
 
-export type DeskTab = 'prepare' | 'designData' | 'plan' | 'frame' | 'column' | 'wall' | 'slab' | 'joist' | 'footing' | 'seismic' | 'joint' | 'levels' | 'list' | 'steel' | 'connections' | 'report' | 'geometry' | 'materials' | 'special' | 'stairs' | 'pt' | 'elements' | 'fire' | 'codes' | 'detailing' | 'budget' | 'collab' | 'arch' | 'site' | 'documents';
+export type DeskTab = 'prepare' | 'designData' | 'plan' | 'frame' | 'column' | 'wall' | 'slab' | 'joist' | 'footing' | 'seismic' | 'joint' | 'levels' | 'list' | 'steel' | 'connections' | 'report' | 'geometry' | 'materials' | 'special' | 'stairs' | 'pt' | 'elements' | 'fire' | 'codes' | 'detailing' | 'budget' | 'collab' | 'arch' | 'site' | 'sheets' | 'listings' | 'documents';
 
 /**
  * How the desk's views are grouped. Preparing the model comes first: what it still lacks and the
@@ -43,7 +44,7 @@ export const DESK_GROUPS = {
   codes: ['codes'],
   pending: ['report', 'geometry'],
   detailing: ['detailing'],
-  documents: ['documents'],
+  documents: ['sheets', 'listings', 'documents'],
   specialties: ['seismic', 'fire', 'materials'],
   project: ['budget', 'collab', 'arch', 'site'],
 } as const satisfies Record<string, readonly DeskTab[]>;
@@ -101,6 +102,9 @@ function createDesk() {
   let codesMode = $state<CodesMode>('verify');
   /** «Size…» asked for, with the scope it was asked with and from where; null while no one is asking. */
   let ask = $state<DeskAsk | null>(null);
+  /** A sizing run under way: where it stands, and whether it was asked to stop. */
+  let running = $state<ResizeProgress | null>(null);
+  let stopAsked = $state(false);
   /*
    * Not reactive: read and written only on entering and leaving. The default is the default
    * modelling level, so a model nobody moved off the ground opens design on «all levels».
@@ -158,6 +162,8 @@ function createDesk() {
     get report() { return report; }, set report(v: DeskReport | null) { report = v; },
     get codesMode() { return codesMode; }, set codesMode(v: CodesMode) { codesMode = v; },
     get ask() { return ask; }, set ask(v: DeskAsk | null) { ask = v; },
+    get running() { return running; }, set running(v: ResizeProgress | null) { running = v; if (!v) stopAsked = false; },
+    get stopAsked() { return stopAsked; }, set stopAsked(v: boolean) { stopAsked = v; },
 
     capture(): DeskViewState {
       return { open, levelZ, focus, tab, filter, modelLevelSeen, codesMode };

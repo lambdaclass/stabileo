@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { downloadReport } from '../../lib/export/report-download';
+  import type { DocBlock } from '../../lib/export/docx';
   import { activePerCombo3D } from '../../lib/store/active-results';
   /**
    * The raw forces report, configured and generated.
@@ -138,6 +140,15 @@
         },
       });
       const filename = `${stem}.html`;
+      if (format === 'docx' || format === 'csv') {
+        // The same document as blocks: its scope and notes, a heading and a table per sheet.
+        const blocks: DocBlock[] = [
+          { kind: 'paragraph', text: doc.scopeLine }, ...(doc.stationNote ? [{ kind: 'paragraph' as const, text: doc.stationNote }] : []),
+          ...doc.sheets.flatMap((sh) => [{ kind: 'heading' as const, text: sh.name, level: 2 as const }, { kind: 'table' as const, head: (sh.aoa[0] ?? []).map(String), rows: sh.aoa.slice(1).map((r) => r.map((c) => (c === null || c === undefined ? '' : String(c)))) }]),
+        ];
+        void downloadReport(format, { title: t('design.forcesReport.title'), html, stem, blocks }).then((fn) => { if (fn) lastExport = { filename: fn, at }; });
+        return;
+      }
       if (format === 'html') {
         downloadBlob(filename, 'text/html', html);
       } else {
@@ -245,11 +256,11 @@
 
   <fieldset class="fr-group">
     <legend>{t('design.forcesReport.format')}</legend>
-    {#each ['xlsx', 'pdf', 'html'] as f (f)}
+    {#each ['pdf', 'html', 'docx', 'xlsx', 'csv'] as f (f)}
       <label class="fr-opt">
         <input type="radio" name="fr-format" value={f} data-testid={`fr-format-${f}`}
                checked={format === f} onchange={() => (format = f as RcForcesFormat)} />
-        {t(`design.forcesReport.format.${f}`)}
+        {t(`export.format.${f}`)}
       </label>
     {/each}
   </fieldset>

@@ -4,11 +4,11 @@
  * text (what R12 readers draw). Text is written as it is; the code page is ANSI 1252.
  */
 import { dimensionGeometry, type Primitive } from './primitives';
-import { LAYERS } from './layers';
+import { LAYERS, layerDef, type LayerStyle } from './layers';
 
 const n = (v: number) => (Math.round(v * 1000) / 1000).toString();
 
-export function sheetToDxf(ps: readonly Primitive[]): string {
+export function sheetToDxf(ps: readonly Primitive[], layerOf: LayerStyle = layerDef): string {
   const o: string[] = [];
   const w = (...kv: Array<string | number>) => { for (const x of kv) o.push(String(x)); };
   w(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$DWGCODEPAGE', 3, 'ANSI_1252', 9, '$INSUNITS', 70, 4, 0, 'ENDSEC');
@@ -18,7 +18,7 @@ export function sheetToDxf(ps: readonly Primitive[]): string {
   w(0, 'LTYPE', 2, 'DASHED', 70, 0, 3, '__ __ __', 72, 65, 73, 2, 40, '5.0', 49, '3.0', 49, '-2.0');
   w(0, 'ENDTAB');
   const used = new Set(ps.map((p) => p.layer));
-  const layers = [...LAYERS.filter((l) => used.has(l.name) || l.name.startsWith('SHEET')), ...[...used].filter((u) => !LAYERS.some((l) => l.name === u)).map((name) => ({ name, color: 7, weight: 0.25, dashed: false }))];
+  const layers = [...LAYERS.filter((l) => used.has(l.name) || l.name.startsWith('SHEET')), ...[...used].filter((u) => !LAYERS.some((l) => l.name === u)).map((name) => layerOf(name))].map((l) => layerOf(l.name));
   w(0, 'TABLE', 2, 'LAYER', 70, layers.length);
   for (const l of layers) w(0, 'LAYER', 2, l.name, 70, 0, 62, l.color, 6, l.dashed ? 'DASHED' : 'CONTINUOUS');
   w(0, 'ENDTAB', 0, 'ENDSEC');

@@ -52,6 +52,7 @@ import {
   type LongitudinalBarRef, type TransversePiece,
 } from '../../codes/cirsoc201/transverse-cage';
 import type { TopSteelPurpose } from './beam-top-steel';
+import type { LineBarPiece, LineStirrupPiece } from './line-bars';
 import { DEFAULT_TOLERANCES } from './collision';
 import { clause, formatClause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 
@@ -199,7 +200,21 @@ export interface BeamGenerationInput {
    * plan the design verified the member against. Null where the node has no column geometry.
    * Absent, every end runs 150 mm past the node, as before.
    */
-  supportEnd?: (side: 'I' | 'J', bar: { position: 'top' | 'bottom'; diameterMm: number; need: 'develop' | 'embed' | 'none'; hook: 'allowed' | 'requested'; inboard: number; rowStep?: number }) => SupportEndPlan | null;
+  supportEnd?: (side: 'I' | 'J', bar: { position: 'top' | 'bottom'; diameterMm: number; need: 'develop' | 'embed' | 'none'; hook: 'allowed' | 'requested'; inboard: number; rowStep?: number; endsHere?: boolean }) => SupportEndPlan | null;
+  /**
+   * The member's longitudinal bars exactly as a saved beam line draws them (`line-bars.ts`).
+   * Given, they are laid as drawn and the generator lays none of its own: no continuity rule, no
+   * curtailment, no run-through pair is added or moved. What the drawing leaves short of a rule
+   * is reported (`unsupported`), never corrected.
+   */
+  lineBars?: readonly LineBarPiece[];
+  /** The member's stirrup zones as the saved line draws them, between the support faces. */
+  lineStirrups?: readonly LineStirrupPiece[];
+  /**
+   * Openings through the web (`OpeningEntry`), along the member from its i node, m: no stirrup
+   * crosses one, and what the opening's own design asks there is said, not drawn.
+   */
+  webOpenings?: ReadonlyArray<{ from: number; to: number }>;
   /** Rows of top bars planned at each support, and the largest top bar: where bottom hooks nest. */
   topRowsAt?: { I: number; J: number };
   /** A simple support at either end (§9.7.3.8.1): no column and no continuation. */
@@ -664,6 +679,12 @@ export interface GeneratedBeam {
    * downstream would be guessing at a decision this function already made.
    */
   barLayers: Record<string, number>;
+  /**
+   * The pairs of bars lapping inside this member as a saved line draws them: bar ids, where the
+   * shared stretch runs, and the pair's centre-to-centre offset. The collision check takes them
+   * as intended laps; their length is checked on the whole line (`lineLaps`).
+   */
+  drawnLaps: Array<{ fromBarId: string; toBarId: string; from: Point3; to: Point3; offset: number }>;
 }
 
 function add(p: Point3, v: Point3, k: number): Point3 {
@@ -878,11 +899,12 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
    * `none` (a hanger with no tension at that face). No column geometry: 150 mm past the node.
    */
   const endPlan = (
-    side: 'I' | 'J', position: 'top' | 'bottom', dbMm: number, need: 'develop' | 'embed' | 'none', wantHook: boolean, inboard = 0,
+    side: 'I' | 'J', position: 'top' | 'bottom', dbMm: number, need: 'develop' | 'embed' | 'none', wantHook: boolean, inboard = 0, endsHere = false,
   ): EndPlan => {
     const plan = input.supportEnd?.(side, {
       position, diameterMm: dbMm, need, hook: wantHook ? 'requested' : 'allowed', inboard,
       ...(position === 'top' ? { rowStep: dbMm / 1000 + nestClear(dbMm) } : {}),
+      ...(endsHere ? { endsHere } : {}),
     }) ?? null;
     if (!plan) return { along: EMBED, ...(wantHook ? { hook: 90 as HookAngle } : {}) };
     return { along: plan.along, ...(plan.hook ? { hook: plan.hook } : {}), anchorage: plan.record };
@@ -938,9 +960,13 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     slots: ReadonlyArray<{ across: number; layer: number }>, count: number, dia: number,
     occupied: ReadonlyArray<{ across: number; layer: number; dia: number }> = [],
   ): number[] | null => {
+    // A hundredth of a millimetre short is the two seats' arithmetic, not a bar out of place: the
+    // coordinated slots are laid from the row's seat and the continuous pair from its own bend,
+    // a few microns apart (3Ø16 in a 20 cm beam: 26,661 mm clear against 26,667), and the
+    // middle bar fell back to the group's own row, onto a column's face bar.
     const clearOf = (a: number, b: number) => (a + b) / 2000 + minClearSpacingInLayer(input.edition, {
       barDiameterMm: Math.max(a, b), maxAggregateSizeMm: input.maxAggregateSizeMm,
-    }).minClear + DEFAULT_TOLERANCES.placement - 1e-9;
+    }).minClear + DEFAULT_TOLERANCES.placement - 1e-5;
     const placed = occupied.map((o) => ({ ...o }));
     const out: number[] = [];
     const order = slots.map((sl, i) => ({ sl, i }))
@@ -954,9 +980,149 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     return out.length === count ? out.sort((a, b) => a - b) : null;
   };
 
-  const botWide = placeGroup(Math.max(input.bottom.count, input.transverseSlots?.length ?? 0), input.bottom.diameterMm, false);
-  const botPick = pickLegal(botWide, input.bottom.count, input.bottom.diameterMm);
-  const botSlotsRaw = botPick ? botPick.map((i) => botWide[i]!) : placeGroup(input.bottom.count, input.bottom.diameterMm, false, true);
+  // ── Bars as a saved line draws them ──
+  const fromLine = (input.lineBars?.length ?? 0) > 0;
+  const drawnLaps: GeneratedBeam['drawnLaps'] = [];
+  if (fromLine) {
+    trace.push('Armadura longitudinal tal como la dibuja la línea de vigas guardada: cada barra donde empieza y termina, ' +
+      'con sus ganchos y solapes; el generador no agrega ni corre barras. Lo que no cumpla una regla se informa.');
+    const byId = new Map<string, Array<{ barId: string; across: number; layer: number }>>();
+    for (const face of ['bottom', 'top'] as const) {
+      const pieces = input.lineBars!.filter((q) => q.face === face);
+      const rows = [...new Set(pieces.map((q) => q.row))].sort((a, b) => a - b);
+      const stacked: number[][] = [];
+      for (const r of rows) {
+        const inRow = pieces.filter((q) => q.row === r).sort((p, q) => p.from - q.from || p.lineBarId.localeCompare(q.lineBarId));
+        const dia = Math.max(...inRow.map((q) => q.diameterMm));
+        // As many positions as bars stand side by side at once anywhere along the member, or as the
+        // line seats its row with (`place`): the same count in every member it crosses.
+        // A lap's two bars stand side by side in contact (§25.5.1.2): the pair takes one bar's
+        // positions, the second bar beside the first.
+        const xs = [...new Set(inRow.flatMap((q) => [q.from, q.to]))].sort((a, b) => a - b);
+        let most = Math.max(0, ...inRow.map((q) => q.place?.seats ?? 0));
+        for (let k = 0; !most && k + 1 < xs.length; k++) {
+          const mid = (xs[k]! + xs[k + 1]!) / 2;
+          const here = inRow.filter((q) => q.from <= mid && q.to >= mid);
+          const paired = here.filter((q) => here.some((o) => o !== q && q.lapsWith.includes(o.lineBarId) && o.lineBarId < q.lineBarId));
+          most = Math.max(most, here.filter((q) => !paired.includes(q)).reduce((n, q) => n + q.count, 0));
+        }
+        // Positions reserved by index on the row's largest bar; each bar stands at its own
+        // diameter's seat of the same index, so a bar running through a support stands at the same
+        // place either side of it and the two pieces are one bar (`lap-materialize` fuses them).
+        const order = (xs: Array<{ layer: number; across: number; x: number; y: number; z: number }>) =>
+          xs.map((o) => ({ ...o })).sort((p, q) => p.layer - q.layer || Math.abs(q.across) - Math.abs(p.across) || p.across - q.across);
+        // The row's own layout (`own`), not the coordinated slots the search chose for the
+        // generator's arrangement: a drawn bar stands where its row puts it in every member it
+        // crosses, the outer bars in the stirrup's bends. A clash with a crossing cage that this
+        // leaves is the collision check's to report.
+        const slots = order(placeGroup(Math.max(1, most), dia, face === 'top', true, undefined, stacked));
+        const seatsOf = new Map<number, typeof slots>([[dia, slots]]);
+        const seats = (d: number) => { let v = seatsOf.get(d); if (!v) { v = order(placeGroup(Math.max(1, most), d, face === 'top', true, undefined, stacked)); seatsOf.set(d, v); } return v; };
+        // A row past the face's first stands that many layers in, by the clear owed between layers.
+        const inward = face === 'top' ? -1 : 1;
+        const deeper = r === 0 ? 0 : intoLayer(stacked, r, dia) - intoLayer(stacked, 0, dia);
+        type Spot = { layer: number; across: number; x: number; y: number; z: number };
+        /** What each laid bar holds: slot indices it reserves, its base positions, and whether it stands beside them. */
+        const taken: Array<{ id: string; from: number; to: number; slots: number[]; base: Spot[]; beside: boolean; dia: number }> = [];
+        const besideOf = (sp: Spot, mm: number): Spot => {
+          const shift = mm / 1000, sgn = sp.across === 0 ? 1 : -Math.sign(sp.across);
+          return { ...sp, across: sp.across + sgn * shift, x: sp.x + across.x * sgn * shift, y: sp.y + across.y * sgn * shift, z: sp.z + across.z * sgn * shift };
+        };
+        for (const q of inRow) {
+          if (q.place) {
+            // Seated on the line: the same positions in every member, mirrored across where the
+            // member runs against the line (its across axis is the line's reversed).
+            const own = seats(q.diameterMm);
+            const at = (i: number) => {
+              const sp = own[i] ?? own[own.length - 1]!;
+              return q.place!.mirrored ? own.reduce((m, o) => (Math.abs(o.across + sp.across) < Math.abs(m.across + sp.across) ? o : m), sp) : sp;
+            };
+            const base = q.place.slots.map(at);
+            const spots = q.place.besideMm ? base.map((sp) => besideOf(sp, q.place!.besideMm!)) : base;
+            taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: q.place.besideMm ? [] : q.place.slots, base, beside: !!q.place.besideMm, dia: q.diameterMm });
+            layAt(q, spots, r, deeper, inward);
+            continue;
+          }
+          // Lapped with a bar already laid: in contact beside it, toward the section's middle; a bar
+          // lapping one that stands beside its own partner goes back to the base positions.
+          const partner = taken.find((t) => q.lapsWith.includes(t.id) && t.to > q.from + 1e-6 && t.from < q.to - 1e-6);
+          if (partner) {
+            const base = partner.base.slice(0, q.count);
+            const spots = partner.beside ? base : base.map((sp) => besideOf(sp, (partner.dia + q.diameterMm) / 2));
+            layAt(q, spots, r, deeper, inward);
+            taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: [], base, beside: !partner.beside, dia: q.diameterMm });
+            continue;
+          }
+          const busy = new Set(taken.filter((t) => t.to > q.from + 1e-6 && t.from < q.to - 1e-6).flatMap((t) => t.slots));
+          const free = slots.map((_, i) => i).filter((i) => !busy.has(i));
+          if (free.length < q.count) {
+            unsupported.push(`La fila ${r + 1} de la cara ${face === 'top' ? 'superior' : 'inferior'} no tiene lugar para ${q.count}Ø${q.diameterMm} ` +
+              `en x = ${q.from.toFixed(2)}–${q.to.toFixed(2)} m junto a las barras que la comparten.`);
+          }
+          const mine = (free.length >= q.count ? free : slots.map((_, i) => i)).slice(0, q.count);
+          const own = seats(q.diameterMm);
+          const base = mine.map((i) => own[i] ?? slots[i]!);
+          taken.push({ id: q.lineBarId, from: q.from, to: q.to, slots: mine, base, beside: false, dia: q.diameterMm });
+          layAt(q, base, r, deeper, inward);
+        }
+        stacked.push([...new Set(inRow.map((q) => q.diameterMm))]);
+      }
+    }
+    /** Lay a piece's bars at the given positions, each end as the piece says (`LineBarEnd`). */
+    function layAt(q: LineBarPiece, spots: ReadonlyArray<{ layer: number; across: number; x: number; y: number; z: number }>, r: number, deeper: number, inward: number) {
+      const face = q.face;
+      const zFace = face === 'bottom'
+        ? -(cage.halfUp - inset(q.diameterMm)) + raise
+        : cage.halfUp - inset(q.diameterMm) - drop;
+      const need = face === 'bottom' ? bottomNeed : 'develop' as const;
+      const endOf = (kind: 'support' | 'continue' | 'cut', side: 'I' | 'J', x: number, hook: boolean | undefined, layer: number): EndPlan =>
+        kind === 'cut'
+          ? { along: side === 'I' ? -x : x - input.L, ...(hook ? { hook: 90 as HookAngle } : {}) }
+          : endPlan(side, face, q.diameterMm, need, !!hook,
+            face === 'top' ? rowInboard(layer, q.diameterMm, nestClear(q.diameterMm)) : hook ? bottomHookInboardAt(side) + rowInboard(layer, q.diameterMm, nestClear(q.diameterMm)) : 0,
+            kind === 'support');
+      for (let k = 0; k < spots.length; k++) {
+        const sl = spots[k]!;
+        const layer = r + sl.layer;
+        const offset = { x: sl.x + input.up.x * deeper * inward, y: sl.y + input.up.y * deeper * inward, z: sl.z + input.up.z * deeper * inward };
+        const id = `e${input.elementId}-line-${q.lineBarId}-${k}`;
+        barLayers[id] = layer;
+        const bar = supportedBar({
+          id, layerId: layerId(face, layer), dbMm: q.diameterMm, z: zFace, offset,
+          hookNormal: face === 'bottom' ? input.up : { x: -input.up.x, y: -input.up.y, z: -input.up.z },
+          i: endOf(q.start, 'I', q.from, q.hookStart, layer), j: endOf(q.end, 'J', q.to, q.hookEnd, layer),
+        });
+        bars.push({ ...bar, source: 'manual' });
+        byId.set(q.lineBarId, [...(byId.get(q.lineBarId) ?? []), { barId: id, across: sl.across, layer }]);
+      }
+    }
+    // The laps drawn inside this member: each bar of one paired with the nearest of the other.
+    for (const q of input.lineBars!) {
+      for (const other of q.lapsWith) {
+        if (q.lineBarId > other) continue;
+        const o = input.lineBars!.find((x) => x.lineBarId === other);
+        const mine = byId.get(q.lineBarId) ?? [], theirs = [...(byId.get(other) ?? [])];
+        if (!o) continue;
+        const from = Math.max(q.from, o.from), to = Math.min(q.to, o.to);
+        if (!(to > from)) continue;
+        for (const m of mine) {
+          theirs.sort((a, b) => Math.abs(a.across - m.across) - Math.abs(b.across - m.across));
+          const t = theirs.shift();
+          if (!t) break;
+          const zA = 0;
+          drawnLaps.push({
+            fromBarId: m.barId, toBarId: t.barId,
+            from: add(add(input.origin, input.axis, from), input.up, zA), to: add(add(input.origin, input.axis, to), input.up, zA),
+            offset: Math.abs(t.across - m.across),
+          });
+        }
+      }
+    }
+  }
+
+  const botWide = fromLine ? [] : placeGroup(Math.max(input.bottom.count, input.transverseSlots?.length ?? 0), input.bottom.diameterMm, false);
+  const botPick = fromLine ? [] : pickLegal(botWide, input.bottom.count, input.bottom.diameterMm);
+  const botSlotsRaw = fromLine ? [] : botPick ? botPick.map((i) => botWide[i]!) : placeGroup(input.bottom.count, input.bottom.diameterMm, false, true);
   /**
    * Which bottom bars continue, and which are curtailed — ordered OUTERMOST FIRST.
    *
@@ -971,7 +1137,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
    */
   const botSlots = [...botSlotsRaw].sort((p, q) =>
     p.layer - q.layer || Math.abs(q.across) - Math.abs(p.across) || p.across - q.across);
-  for (let i = 0; i < continuing; i++) {
+  for (let i = 0; !fromLine && i < continuing; i++) {
     const o = botSlots[i] ?? { layer: 0, x: 0, y: 0, z: 0 };
     barLayers[`e${input.elementId}-bot-cont-${i}`] = o.layer;
     bars.push(supportedBar({
@@ -987,7 +1153,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   }
 
   // ── Curtailed bottom bars ──
-  if (curtailable > 0 && peakPos > 0) {
+  if (!fromLine && curtailable > 0 && peakPos > 0) {
     const retained = continuing / input.bottom.count;
     const midpoint = input.L / 2;
     const xLeft = theoreticalCutoff(input.stations, 'mPos', peakPos, retained, midpoint, 0);
@@ -1109,7 +1275,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const hangerDia = Math.max(input.topStart.diameterMm, input.topEnd.diameterMm);
   const hangerCount = Math.min(
     CONTINUOUS_TOP, Math.max(input.topStart.count, input.topEnd.count, CONTINUOUS_TOP));
-  if (hangerCount > 0) {
+  if (!fromLine && hangerCount > 0) {
     const zHanger = cage.halfUp - inset(hangerDia) - drop;
     // The two OUTER positions of the top row — which is where the stirrup's two top bends are.
     //
@@ -1163,7 +1329,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     }
   }
 
-  for (const t of tops) {
+  for (const t of fromLine ? [] : tops) {
     if (t.group.count <= 0) continue;
     /**
      * A hanger face has no hogging envelope, so it has nothing to curtail against.
@@ -1368,7 +1534,17 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const clear = Math.max(0, faceJ - faceI);
 
   const raw: StirrupZone[] = [];
-  if (designed) {
+  if (input.lineStirrups?.length) {
+    // ── The zones a saved line draws, each as drawn, clipped to the faces ──
+    // The same table rules them (`zoneFor`): a drawn zone is laid at its spacing and legs, never
+    // wider or with fewer legs than Table 9.7.6.2.2 allows there.
+    const shearRefs = [c('9.7.6.2.2', 'separación máxima de ramas')];
+    for (const z of input.lineStirrups) {
+      const from = Math.max(z.from, faceI), to = Math.min(z.to, faceJ);
+      if (to > from + 1e-9) raw.push(zoneFor(from, to, 'shear', shearRefs, { diameter: z.diameter, legs: z.legs, spacing: z.spacing }));
+    }
+    trace.push(`${input.lineStirrups.length} zona(s) de estribos tal como las dibuja la línea guardada.`);
+  } else if (designed) {
     // ── The cage the design verified ──
     //
     // The design sized and checked a stirrup set per region — the support regions from the
@@ -1511,6 +1687,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const zoneId = `e${input.elementId}:${z.reason}:${zi}`;
     for (let si = 0; si < stations.length; si++) {
       const station = stations[si];
+      if (input.webOpenings?.some((o) => station > o.from - 0.01 && station < o.to + 0.01)) continue;
       // Only the bars that EXIST at this station. A bend cannot grip a curtailed bar past its
       // cut-off, and the tolerance is the same fabrication tolerance the containment check
       // uses — a bar ending exactly at the station is still there to be gripped.
@@ -1544,6 +1721,10 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     // by Table 9.7.6.2.2 across the width (already enforced, and it is what sets `z.legs`) and
     // by §25.7.1.2 at the bends. `unbracedBarReport` stays available for the column generator,
     // which is where that clause belongs.
+  }
+  for (const o of input.webOpenings ?? []) {
+    unsupported.push(`Hueco en el alma en x = ${o.from.toFixed(2)}–${o.to.toFixed(2)} m: ningún estribo lo cruza. ` +
+      'Los estribos de los cordones y los laterales que pide el cálculo del hueco (22.5) no se dibujan; se leen en Elementos especiales.');
   }
   // §25.7.1.2 — "cada doblez en un estribo cerrado debe contener una barra longitudinal".
   //
@@ -1600,6 +1781,6 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   return {
     bars, cutoffs, stirrupZones, transverse,
     transverseFindings: { bendsWithoutBar: looseBends.length },
-    bentUp, trace, refs, unsupported, barLayers,
+    bentUp, trace, refs, unsupported, barLayers, drawnLaps,
   };
 }

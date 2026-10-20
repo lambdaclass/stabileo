@@ -1035,6 +1035,32 @@ const VIEW_CHANNEL_FIELDS = ['views', 'grid', 'dynamics', 'notes', 'underlays', 
 /** Whether a floor-load definition wrote the load (`model/loads/floor-definitions.ts` `isDefinedLoad`). */
 const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDef?: number } | undefined)?.fromDef !== undefined;
 
+
+/**
+ * The detailing as a snapshot carries it, each of its parts copied once per version of it.
+ *
+ * The detailing of a detailed building runs to tens of megabytes (every bar of every assembly),
+ * and every edit pushes an undo entry. Its parts are only ever replaced whole: an edit that
+ * retires the document writes a new detailing object holding the SAME assemblies, refusals and
+ * floor readings. So each part is copied once, keyed by the object the model holds, and every
+ * snapshot taken until that part is replaced shares the copy. Nothing writes into a snapshot's
+ * detailing: `restore()` copies what it receives before adopting it.
+ */
+let detailingCopies = new WeakMap<object, unknown>();
+function copyDetailing(d: DetailingStore | undefined): DetailingStore {
+  if (!d) return emptyDetailingStore();
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(d)) {
+    if (v === null || typeof v !== 'object') { out[k] = v; continue; }
+    let copy = detailingCopies.get(v);
+    if (copy === undefined) { copy = JSON.parse(JSON.stringify($state.snapshot(v))); detailingCopies.set(v, copy); }
+    out[k] = copy;
+  }
+  return out as unknown as DetailingStore;
+}
+/** For the tests that compare a snapshot's cost before and after: forget the copies made. */
+export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
+
 function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
@@ -2063,7 +2089,9 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      const snap = $state.snapshot(model);
+      // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
+      // the largest part of a detailed project and an edit never changes it in place.
+      const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
@@ -2165,9 +2193,7 @@ function createModelStore() {
         codeSettings: snap.codeSettings
           ? (JSON.parse(JSON.stringify(snap.codeSettings)) as ProjectCodeSettings)
           : defaultCodeSettings(),
-        detailing: snap.detailing
-          ? (JSON.parse(JSON.stringify(snap.detailing)) as DetailingStore)
-          : emptyDetailingStore(),
+        detailing: copyDetailing(model.detailing),
         // Both of these were declared on StructureModel AND on ModelSnapshot and
         // emitted by neither, so the regulation stack and the revision vector were
         // dropped by every path that goes through snapshot(): .ded save, undo/redo,

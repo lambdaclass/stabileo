@@ -76,7 +76,10 @@
     <button disabled={!can3d} onclick={open3d} title={can3d ? t('desk.rail.rebar3dHint') : why3d} aria-describedby={can3d ? undefined : 'desk-rail-3d-why'} data-testid="desk-rail-3d">{t('desk.rebar3d')}</button>
     {#if !can3d}<span class="sr-only" id="desk-rail-3d-why" data-testid="desk-rail-3d-why">{why3d}</span>{/if}
   {:else}
-    <button class:on={on('documents')} onclick={() => go('documents')} data-testid="desk-rail-documents">{t('desk.tab.documents')}</button>
+    <!-- The output of the work, each where it is looked at: the drawings, the listings, the memo and the exports. -->
+    <button class:on={on('sheets')} onclick={() => go('sheets')} title={t('desk.tab.sheetsHint')} data-testid="desk-rail-sheets">{t('desk.tab.sheets')}</button>
+    <button class:on={on('listings')} onclick={() => go('listings')} title={t('desk.tab.listingsHint')} data-testid="desk-rail-listings">{t('desk.tab.listings')}</button>
+    <button class:on={on('documents')} onclick={() => go('documents')} title={t('desk.tab.documentsHint')} data-testid="desk-rail-documents">{t('desk.tab.documents')}</button>
   {/if}
   <div class="dr-menus">
     {#each (step === 'size' ? ['specialties', 'project'] : ['project']) as g (g)}

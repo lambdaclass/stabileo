@@ -70,7 +70,7 @@ export type { SheetSelection } from './detailing-sheet.svelte';
  * See `detailing-inputs.ts` for why they are grouped rather than threaded through arguments.
  */
 import {
-  CONCRETE_REGULATION_ID, wallBarDiameterMm, isLockedMember, writeRepaired, bentUpPolicy, currentConcreteEdition, savedMemberCuts, wallInputs, slabInputs,
+  CONCRETE_REGULATION_ID, wallBarDiameterMm, isLockedMember, writeRepaired, bentUpPolicy, currentConcreteEdition, savedMemberCuts, detailingLineInputs, wallInputs, slabInputs,
   buildProjectDocument, currentReadiness, designOutcomeMap, lockedMemberIds,
   maxPersistedRevision, presentFloorFamilies,
   regenerationImpact, resolveAggregate, type RcDocumentationScope,
@@ -317,7 +317,7 @@ function createDetailingStore() {
           // The member's conformity at the final geometry: strength, §24.2.2, and a load split the model establishes (its slab-column joint).
           ...memberConformityGates(outcomes),
           lockedBars: store.assemblies.flatMap((a) => a.bars.filter((b) => b.locked)),
-          bentUp: bentUpPolicy(), memberCuts: savedMemberCuts(),
+          bentUp: bentUpPolicy(), memberCuts: savedMemberCuts(), ...detailingLineInputs(),
           /**
            * Whether the adapter that ran actually verifies torsion on beams.
            *
