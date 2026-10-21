@@ -129,6 +129,10 @@ describe('Vitest harness architecture', () => {
     expect(build![1]).toMatch(/maxWorkers: 1/);
   });
 
+  it('the project-scale timing budgets run outside the parallel unit pool', () => {
+    expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
+  });
+
   it('`npm test` runs BOTH passes and propagates either failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);

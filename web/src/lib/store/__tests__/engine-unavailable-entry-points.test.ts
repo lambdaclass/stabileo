@@ -174,8 +174,8 @@ describe('the remaining entry points route the engine error to the screen', () =
     ['lib/pro/report-export.ts', /runEngineActionAsync\(\(\) => exportReportWithEngine/, /async function exportReportWithEngine/],
     ['lib/store/model.svelte.ts', /engineFailureMessage\(err\)/, /return tp\(m\.key, m\.params \?\? \{\}\);/],
     ['lib/engine/codes/argentina/serviceability.ts', /isEngineUnavailable\(err\)/, /no verificado/],
-    ['components/pro/ProAdvancedTab.svelte', /engineStatus\.ready \|\| isWasmReady\(\)/, /'engine\.unavailable'/],
-    ['components/pro/ProAutoLoadsDialog.svelte', /engineStatus\.ready \|\| isWasmReady\(\)/, /'engine\.unavailable'/],
+    ['components/pro/ProAdvancedTab.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],
+    ['components/pro/ProAutoLoadsDialog.svelte', /previewCodeSpectrum\(/, /from '..\/..\/lib\/store\/spectrum-preview'/],
   ])('%s', (file, a, b) => {
     const s = read(file);
     expect(s).toMatch(a);

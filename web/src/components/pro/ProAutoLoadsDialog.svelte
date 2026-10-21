@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { engineStatus } from '../../lib/store/engine-status.svelte';
-  import { isWasmReady } from '../../lib/engine/wasm-solver';
+  import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -56,7 +55,7 @@
    * behind it, inside a dialog that cites a clause for everything else.
    */
   import {
-    designSpectrum, isBlocked, RISK_FACTOR, SIMULTANEITY_F1,
+    isBlocked, RISK_FACTOR, SIMULTANEITY_F1,
     type SeismicZone, type SiteClass, type DestinationGroup, type OccupancyProbability,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { BEHAVIOUR_TABLE_2018, findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -165,12 +164,7 @@
   let seismicDirectionZ = $state(start.seismicDirectionZ);
 
   /** The spectrum, live, so the panel can show what the zone and site imply. */
-  const spectrumPreview = $derived(
-    // The spectrum is the engine's: until it is loaded the code spectrum is refused, by name.
-    (engineStatus.ready || isWasmReady())
-      ? designSpectrum({ zone: seismicZone, site: siteClass })
-      : { blocked: { key: 'engine.unavailable' }, refs: [] },
-  );
+  const spectrumPreview = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
   const behaviourEntry = $derived(findBehaviour(systemKey));
   const effectiveR = $derived(elasticDesign ? R_ELASTIC : behaviourEntry?.r ?? null);
 

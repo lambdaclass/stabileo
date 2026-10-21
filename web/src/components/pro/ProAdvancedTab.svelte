@@ -1,7 +1,6 @@
 <script lang="ts">
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
-  import { engineStatus } from '../../lib/store/engine-status.svelte';
-  import { isWasmReady } from '../../lib/engine/wasm-solver';
+  import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
   import { lateralPatternLoads } from '../../lib/engine/pushover-pattern';
   import { incrementalOutcome, convergedPercent } from '../../lib/engine/incremental-outcome';
@@ -62,7 +61,7 @@
   import { errorText } from '../../lib/utils/error-text';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
-    designSpectrum, isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
+    isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
     type SeismicZone, type SiteClass, type DestinationGroup,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -316,12 +315,7 @@
   /** Damping ratio for the modal combination (CQC correlation). The spectrum is the code's. */
   let spectralXi = $state(0.05);
   const fromProject = seismicSettings?.zone !== undefined;
-  const codeSpectrum = $derived(
-    // The spectrum is the engine's: until it is loaded the code spectrum is refused, by name.
-    (engineStatus.ready || isWasmReady())
-      ? designSpectrum({ zone: seismicZone, site: siteClass })
-      : { blocked: { key: 'engine.unavailable' }, refs: [] },
-  );
+  const codeSpectrum = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
 
   function handleSpectral() {
     solveError = null;
