@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { meshHidden, meshOnlyNodes, syncShellMembers } from './shell-members';
 import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
@@ -104,6 +105,8 @@ export interface SceneSyncContext {
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
+  /** The slabs and walls drawn as members while their mesh is hidden (`shell-members.ts`). */
+  shellMembers?: Map<string, THREE.Group>;
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
@@ -148,7 +151,10 @@ function makeJointMarker(pos: { x: number; y: number; z: number }): THREE.Mesh {
 export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   // Hidden in the view (store/view-state): not drawn, not picked. The model is untouched.
-  const storeNodes = visibleNodes();
+  const visible = visibleNodes();
+  // While the slabs and walls are drawn as members, the nodes only their mesh has are not drawn.
+  const meshOnly = meshHidden() ? meshOnlyNodes() : null;
+  const storeNodes = meshOnly?.size ? new Map([...visible].filter(([id]) => !meshOnly.has(id))) : visible;
   const project2D = projectFlag();
   const ni = ctx.nodesInstanced;
 
@@ -487,8 +493,16 @@ export function syncSupports(ctx: SceneSyncContext): void {
 
 // ─── Shells (Plates + Quads) ────────────────────────────────
 
+/** Set while `syncShells` runs, so the selection it re-applies does not ask for it again. */
+let inShellSync = false;
+
 export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
+  inShellSync = true;
+  try { syncShellsNow(ctx); } finally { inShellSync = false; }
+}
+
+function syncShellsNow(ctx: SceneSyncContext): void {
 
   const project2D = projectFlag();
   const renderMode = uiStore.renderMode3D;
@@ -517,6 +531,10 @@ export function syncShells(ctx: SceneSyncContext): void {
   };
 
   const seen = new Set<string>();
+  // A large model being modelled: its slabs and walls as members, and as shells only those selected.
+  const merged = meshHidden();
+  syncShellMembers(ctx, project2D, merged);
+  const drawn = (key: string) => !merged || uiStore.selectedShells.has(key);
   // The physical mode's slabs, net of the frame; a shell it does not cover is drawn as in 'sections'.
   const physical = renderMode === 'physical' && !project2D ? projectPhysicalFrame() : null;
   const netKey = (key: string) => {
@@ -541,6 +559,7 @@ export function syncShells(ctx: SceneSyncContext): void {
   // Plates (triangular DKT)
   for (const [id, plate] of visiblePlates()) {
     const key = `p${id}`;
+    if (!drawn(key)) continue;
     const nodes = plate.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, plate.offset);
@@ -568,6 +587,7 @@ export function syncShells(ctx: SceneSyncContext): void {
   // Quads (MITC4)
   for (const [id, quad] of visibleQuads()) {
     const key = `q${id}`;
+    if (!drawn(key)) continue;
     const nodes = quad.nodes.map(nid => getNode(nid));
     if (nodes.some(n => !n)) continue;
     const [n0, n1, n2, n3] = shiftForOffset(nodes as Array<{ x: number; y: number; z: number }>, quad.offset);
@@ -620,6 +640,11 @@ function shellContourActive(): boolean {
 export function applyShellSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const selected = uiStore.selectedShells;
+  // Drawn as members, a shell has a group of its own only while selected: the selection changed, so do they.
+  if (!inShellSync && meshHidden() && (selected.size !== ctx.shellGroups.size || [...selected].some((k) => !ctx.shellGroups.has(k)))) {
+    syncShells(ctx);
+    return;
+  }
   const contour = shellContourActive();
   for (const [key, group] of ctx.shellGroups) {
     const isSel = selected.has(key);
@@ -1383,9 +1408,13 @@ export function syncShellOffsets(ctx: SceneSyncContext): void {
   // Offsets are a genuine-3D feature (matches solver gating); skip projected 2D.
   if (projectFlag()) return;
 
+  // Drawn as members (`shell-members.ts`), a floor's shells show their offset only while selected:
+  // every shell's arm and outline drew its mesh again.
+  const merged = meshHidden();
+  const shown = (key: string) => !merged || uiStore.selectedShells.has(key);
   const shellsWithOffset: Array<{ nodeIds: number[]; offset: import('../model/element-3d-metadata').ShellOffset }> = [];
-  for (const p of modelStore.plates.values()) if (hasShellOffset(p)) shellsWithOffset.push({ nodeIds: [...p.nodes], offset: p.offset! });
-  for (const q of modelStore.quads.values()) if (hasShellOffset(q)) shellsWithOffset.push({ nodeIds: [...q.nodes], offset: q.offset! });
+  for (const [id, p] of modelStore.plates) if (hasShellOffset(p) && shown(`p${id}`)) shellsWithOffset.push({ nodeIds: [...p.nodes], offset: p.offset! });
+  for (const [id, q] of modelStore.quads) if (hasShellOffset(q) && shown(`q${id}`)) shellsWithOffset.push({ nodeIds: [...q.nodes], offset: q.offset! });
   if (shellsWithOffset.length === 0) return;
 
   const group = new THREE.Group();
@@ -1393,30 +1422,28 @@ export function syncShellOffsets(ctx: SceneSyncContext): void {
   const armMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR });
   const ghostMat = new THREE.LineBasicMaterial({ color: SHELL_OFFSET_COLOR, transparent: true, opacity: 0.5 });
 
+  // All the arms in one geometry and all the outlines in another: two draw calls, not two a shell.
+  const arms: number[] = [], ghosts: number[] = [];
   for (const { nodeIds, offset } of shellsWithOffset) {
     const corners = nodeIds.map(id => modelStore.nodes.get(id));
     if (corners.some(c => !c)) continue;
     const cv = (corners as Array<{ x: number; y: number; z?: number }>).map(n => ({ x: n.x, y: n.y, z: n.z ?? 0 }));
     const v = resolveShellOffsetGlobal(offset, cv);
     if (!v) continue;
-
     // Rigid arms: base corner → offset corner.
-    const armPts: THREE.Vector3[] = [];
-    for (const c of cv) {
-      armPts.push(new THREE.Vector3(c.x, c.y, c.z));
-      armPts.push(new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
-    }
-    const armGeo = new THREE.BufferGeometry().setFromPoints(armPts);
-    const arms = new THREE.LineSegments(armGeo, armMat);
-    arms.raycast = () => {};
-    group.add(arms);
-
-    // Ghost outline of the offset surface (closed loop).
-    const loop = cv.map(c => new THREE.Vector3(c.x + v.x, c.y + v.y, c.z + v.z));
-    loop.push(loop[0].clone());
-    const ghost = new THREE.Line(new THREE.BufferGeometry().setFromPoints(loop), ghostMat);
-    ghost.raycast = () => {};
-    group.add(ghost);
+    for (const c of cv) arms.push(c.x, c.y, c.z, c.x + v.x, c.y + v.y, c.z + v.z);
+    // Ghost outline of the offset surface, its sides as segments.
+    cv.forEach((c, k) => {
+      const d = cv[(k + 1) % cv.length]!;
+      ghosts.push(c.x + v.x, c.y + v.y, c.z + v.z, d.x + v.x, d.y + v.y, d.z + v.z);
+    });
+  }
+  for (const [pts, mat] of [[arms, armMat], [ghosts, ghostMat]] as const) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const lines = new THREE.LineSegments(geo, mat);
+    lines.raycast = () => {};
+    group.add(lines);
   }
 
   ctx.shellOffsetVizGroup = group;

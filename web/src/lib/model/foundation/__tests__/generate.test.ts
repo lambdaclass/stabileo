@@ -74,6 +74,11 @@ describe('foundations in the model', () => {
     expect(modelStore.elements.size).toBe(before + 7);
     expect(physicalGroups().filter((g) => g.physical.typology === 'strap')).toHaveLength(2);
     expect(physicalGroups().filter((g) => g.physical.typology === 'tie')).toHaveLength(5);
+    // Each footing a strap leaves is balanced by it, toward the footing at its other end.
+    for (const s of straps) {
+      const f = [...modelStore.model.footings.values()].find((x) => x.nodeId === s.a)!;
+      expect(f.straps!.map((x) => modelStore.model.footings.get(x.toFootingId)!.nodeId)).toContain(s.b);
+    }
     // Proposed again, nothing new.
     expect(proposeTies(6.5, 45)).toHaveLength(0);
   });

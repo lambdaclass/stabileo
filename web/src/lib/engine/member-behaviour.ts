@@ -34,6 +34,7 @@ import { finishSolve3D } from './solve-finish';
 import { addConstraintConnectivity } from './constraint-connectivity';
 import { t } from '../i18n';
 import { massDensities } from './dynamics/requests';
+import { CONCRETE_FY_CEILING } from '../model/material-family';
 
 /**
  * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
@@ -448,7 +449,27 @@ export function compositeReferenceFactor(model: ModelData, memberId: number): { 
 export function solveStiffnessFactors(model: ModelData, id: number): { a: number; iy: number; iz: number; j: number } {
   const m = (model.elements.get(id) as { stiffness?: StiffnessModifiers } | undefined)?.stiffness ?? {};
   const c = compositeReferenceFactor(model, id);
-  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: (m.j ?? 1) * c.g };
+  const j = m.j ?? beamTorsionFactor(model, id);
+  return { a: (m.a ?? 1) * c.e, iy: (m.iy ?? 1) * c.e, iz: (m.iz ?? 1) * c.e, j: j * c.g };
+}
+
+/**
+ * The project's factor on J for a concrete beam (`AnalysisSettings.beamTorsion`): a frame member
+ * lying level, of a concrete (its strength within the concrete band, as the material family reads
+ * it). 1 for anything else, and when the project sets none.
+ */
+export function beamTorsionFactor(model: ModelData, id: number): number {
+  const f = model.analysis?.beamTorsion;
+  if (f === undefined || !(f > 0) || f === 1) return 1;
+  const e = model.elements.get(id) as { nodeI: number; nodeJ: number; materialId: number; type?: string } | undefined;
+  if (!e || (e.type !== undefined && e.type !== 'frame')) return 1;
+  const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+  if (!a || !b) return 1;
+  const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+  if (!(L > 0) || Math.abs((b.z ?? 0) - (a.z ?? 0)) > 0.1 * L) return 1;
+  const mat = model.materials.get(e.materialId) as { fy?: number; fc?: number } | undefined;
+  const strength = mat?.fc ?? mat?.fy;
+  return strength !== undefined && strength > 0 && strength <= CONCRETE_FY_CEILING ? f : 1;
 }
 
 export function applyStiffnessModifiers(input: SolverInput3D, model: ModelData): void {

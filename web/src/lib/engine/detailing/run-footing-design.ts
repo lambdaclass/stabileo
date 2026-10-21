@@ -32,6 +32,7 @@
  * Pure: no store, no runes. Forces kN, moments kN·m, lengths m, pressures kPa.
  */
 
+import { strapAdjust } from '../foundation/strap-footing';
 import { GRAVITY_CASES, LATERAL_CASES, serviceGravity } from './service-reaction';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
@@ -309,7 +310,35 @@ export function punchingPosition(
   return { position: null, truncatedSides, pattern: 'doesNotFit' };
 }
 
-export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesignResult {
+export function runFootingDesign(given: RunFootingDesignInput): RunFootingDesignResult {
+  // An eccentric footing tied by a strap beam is checked centred and its partner relieved
+  // (`strap-footing.ts`): the reactions and offsets the rest of the run reads are the strap's.
+  const strapped = strapAdjust(given.footings, given.nodes, given.reactions);
+  const input: RunFootingDesignInput = { ...given, footings: strapped.footings, reactions: strapped.reactions };
+  const nameOf = (id: number) => given.footings.find((x) => x.id === id)?.name ?? `F${id}`;
+  const strapNotes = (f: Footing): { assumptions: EngineMessage[]; unsupported: EngineMessage[] } => {
+    const a: EngineMessage[] = [], u: EngineMessage[] = [];
+    const own = strapped.straps.filter((x) => x.footingId === f.id);
+    if (own.length) a.push(msg(own[0]!.bothWays ? 'footing.assumption.strapCentred' : 'footing.assumption.strapOneWay', { footing: f.name, factor: +own[0]!.factor.toFixed(3) }));
+    for (const x of own) {
+      a.push(msg('footing.assumption.strap', { footing: f.name, partner: nameOf(x.partnerId), L: +x.L.toFixed(2), e: +x.e.toFixed(2), M: +x.M.toFixed(1), V: +x.V.toFixed(1) }));
+      const sec = f.straps?.find((k) => k.toFootingId === x.partnerId && (k.nodeId === undefined || k.nodeId === x.partnerNodeId));
+      if (sec?.b && sec.h) {
+        const d = sec.h - 0.05;
+        const as = (x.M / (0.9 * 0.9 * d * input.fy * 1000)) * 1e4;
+        const phiVc = 0.75 * 0.17 * Math.sqrt(input.fc) * sec.b * d * 1000;
+        a.push(msg('footing.assumption.strapSteel', { footing: f.name, partner: nameOf(x.partnerId), b: Math.round(sec.b * 100), h: Math.round(sec.h * 100), as: +as.toFixed(2), V: +x.V.toFixed(1), phiVc: +phiVc.toFixed(1) }));
+      }
+    }
+    for (const x of strapped.straps.filter((k) => k.partnerId === f.id)) {
+      a.push(msg(x.relief >= 0 ? 'footing.assumption.strapRelief' : 'footing.assumption.strapLoad', { footing: f.name, partner: nameOf(x.footingId), dR: +Math.abs(x.relief).toFixed(1) }));
+    }
+    const bal = strapped.balanced.find((x) => x.footingId === f.id);
+    if (bal) a.push(msg(bal.h !== undefined ? 'footing.assumption.balancedProp' : 'footing.assumption.balanced', { footing: f.name, e: +bal.e.toFixed(2), m: +bal.m.toFixed(1), h: +(bal.h ?? 0).toFixed(1) }));
+    const refused = strapped.refused.find((x) => x.footingId === f.id);
+    if (refused) u.push(msg(refused.reason === 'noPartner' ? 'footing.run.strapNoPartner' : 'footing.run.strapNotToward', { footing: f.name }));
+    return { assumptions: a, unsupported: u };
+  };
   const outcomes: FootingDesignOutcome[] = [];
   const entriesByLevel = new Map<number, FootingAssemblyEntry[]>();
   const unverifiedByLevel = new Map<number, Array<FamilyRecordDraft<FootingDesignRecord>>>();
@@ -321,8 +350,9 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
   const ordered = [...input.footings].sort((a, b) => a.id - b.id);
 
   for (const f of ordered) {
-    const unsupported: EngineMessage[] = [];
-    const assumptions: EngineMessage[] = [];
+    const notes = strapNotes(f);
+    const unsupported: EngineMessage[] = [...notes.unsupported];
+    const assumptions: EngineMessage[] = [...notes.assumptions];
     const level = levelKey(f.foundingElevation);
 
     // ── Everything the record needs is accumulated as the run proceeds ──────────

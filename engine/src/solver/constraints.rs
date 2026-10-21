@@ -494,8 +494,10 @@ pub fn validate_constraints(
     let mut dep_count: HashMap<usize, Vec<usize>> = HashMap::new(); // global_dof -> [constraint indices]
     let mut master_of: HashMap<usize, HashSet<usize>> = HashMap::new(); // dep_dof -> set of master DOFs
 
+    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| nodes.values().map(|n| (n.id, n)).collect());
+    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| nodes.values().map(|n| (n.id, n)).collect());
     for (ci, constraint) in constraints.iter().enumerate() {
-        let slave_dofs = collect_dependent_dofs(constraint, dof_num, nodes_2d, nodes_3d);
+        let slave_dofs = collect_dependent_dofs(constraint, dof_num, node_by_id_2d.as_ref(), node_by_id_3d.as_ref());
         for (slave_global, master_globals) in &slave_dofs {
             dep_count.entry(*slave_global).or_default().push(ci);
             master_of.entry(*slave_global).or_default().extend(master_globals);
@@ -624,15 +626,9 @@ fn mpc_dependent_term(mpc: &LinearMPCConstraint, dof_num: &DofNumbering) -> Opti
 fn collect_dependent_dofs(
     constraint: &Constraint,
     dof_num: &DofNumbering,
-    nodes_2d: Option<&HashMap<String, SolverNode>>,
-    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    node_by_id_2d: Option<&HashMap<usize, &SolverNode>>,
+    node_by_id_3d: Option<&HashMap<usize, &SolverNode3D>>,
 ) -> Vec<(usize, Vec<usize>)> {
-    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| {
-        nodes.values().map(|n| (n.id, n)).collect()
-    });
-    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
-        nodes.values().map(|n| (n.id, n)).collect()
-    });
     let mut result = Vec::new();
 
     match constraint {
@@ -3033,6 +3029,28 @@ mod tests {
             "Diaphragm ux: got {} expected {}", d2.ux, expected_ux);
         assert!((d2.uz - expected_uy).abs() < 1e-8,
             "Diaphragm uz: got {} expected {}", d2.uz, expected_uy);
+    }
+
+    #[test]
+    fn validate_constraints_reads_the_nodes_once_not_once_per_constraint() {
+        // A building's imported model: 20 000 nodes and 3 000 eccentric ends, each a rigid link.
+        // The node table was rebuilt for every constraint (60 M inserts here), which took a
+        // solve of such a model from about 10 s to over 2 min. Read once, this is milliseconds.
+        let n = 20_000usize;
+        let mut nodes = HashMap::new();
+        let mut map = HashMap::new();
+        for i in 0..n {
+            nodes.insert(i.to_string(), SolverNode3D { id: i, x: i as f64, y: 0.0, z: 0.0 });
+            for d in 0..6 { map.insert((i, d), i * 6 + d); }
+        }
+        let dof_num = DofNumbering { map, n_free: n * 6, n_total: n * 6, dofs_per_node: 6, node_order: (0..n).collect() };
+        let constraints: Vec<Constraint> = (0..3_000)
+            .map(|k| Constraint::RigidLink(RigidLinkConstraint { master_node: 2 * k, slave_node: 2 * k + 1, dofs: vec![0, 1, 2, 3, 4, 5] }))
+            .collect();
+        let t = std::time::Instant::now();
+        let diags = validate_constraints(&constraints, &dof_num, None, Some(&nodes));
+        assert!(t.elapsed().as_secs_f64() < 2.0, "validate_constraints took {:?}", t.elapsed());
+        assert!(diags.is_empty(), "independent links raise nothing: {:?}", diags.len());
     }
 
     #[test]

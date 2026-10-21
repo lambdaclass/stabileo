@@ -17,7 +17,8 @@ import { emptyStoredDecisions, migrateStoredDecisions, withProposals } from '../
 import { lateralResolver } from './lateral-system';
 import type { ProvidedReinforcement } from '../design-contract/reinforcement';
 import { designContextOptions, designData, verifyOptions } from './design-data';
-import { beamFlanges } from '../engine/design/beam-flange';
+import { beamFlanges, beamsInSlabPlane } from '../engine/design/beam-flange';
+import { solveStiffnessFactors } from '../engine/member-behaviour';
 import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
 
 /** The flanges of the model's beams, from its slabs' shells and its physical beams' spans. */
@@ -189,6 +190,10 @@ function createDesignRunStore() {
         concrete: modelStore.model.codeSettings?.concrete,
         // A beam cast with its slab acts as a T or an L (Table 6.3.2.1).
         flangeOf: ((f) => (id: number) => f.get(id))(modelFlanges()),
+        // The J the analysis gave each member (its own modifier, or the project's on concrete beams).
+        torsionStiffnessOf: ((md) => (id: number) => solveStiffnessFactors(md as never, id).j)({ nodes: modelStore.nodes, elements: modelStore.elements, materials: modelStore.materials, sections: modelStore.sections, analysis: modelStore.analysis }),
+        // Its in-plane bending carried by the slab's diaphragm, flange or not.
+        inSlabPlane: ((s) => (id: number) => s.has(id))(modelStore.quads.size ? beamsInSlabPlane({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads }) : new Set<number>()),
         // The model's physical elements say what each bar is; geometry only where none does.
         physicalKindOf: ((idx) => (id: number) => idx.get(id))(physicalKindIndex(modelStore.model.groups.values())),
         // Each member's role in the lateral system, as the project declares it; none is read off

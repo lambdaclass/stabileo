@@ -22,6 +22,7 @@
  * a column it frames into is enlarged for it, and a column locked is not enlarged for a beam.
  */
 import { modelStore } from './model.svelte';
+import { t } from '../i18n';
 import { historyStore } from './history.svelte';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { resultsStore } from './results.svelte';
@@ -30,6 +31,7 @@ import { verificationStore } from './verification.svelte';
 import { designEverything, type DeskReport, type DeskRunOptions } from './design-desk';
 import { publishCombinations3D } from './active-results';
 import { syncDefinedLoadsForAnalysis } from './defined-loads';
+import { spectralCaseResults } from './spectral-cases';
 import { physicalGroups } from './physical';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
@@ -76,7 +78,11 @@ export function solveForDesign(): boolean {
   if (!r || typeof r === 'string') return false;
   resultsStore.setResults3D(r);
   if (modelStore.model.combinations.length > 0) {
-    const c = modelStore.solveCombinations3D(uiStore.includeSelfWeight, left, isPro);
+    // The spectral cases too, as the Solve's: without their results the combinations that take
+    // them were left out, and a resized model was verified without its earthquake.
+    const sp = isPro && modelStore.model.loadCases.some((c) => c.spectral) ? spectralCaseResults() : undefined;
+    if (typeof sp === 'string') uiStore.toast(t('spectralCase.leftOut') + ' ' + sp, 'error');
+    const c = modelStore.solveCombinations3D(uiStore.includeSelfWeight, left, isPro, sp && typeof sp !== 'string' ? sp.results : undefined);
     if (!c || typeof c === 'string') return false;
     publishCombinations3D(c);
   }

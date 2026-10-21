@@ -2016,6 +2016,8 @@ export function verifyProvidedReinforcement(
     axes?: DesignAxes;
     /** Slenderness moment magnifier for columns (>= 1). Default 1 (short column). */
     slenderDeltaNs?: number;
+    /** The factor on J the member was analysed with, when below 1 (`AnalysisSettings.beamTorsion`). */
+    torsionStiffness?: number;
     /** A column section that is not a rectangle: checked on its own outline. */
     shape?: ColumnShape;
     /**
@@ -2782,7 +2784,7 @@ export function verifyProvidedReinforcement(
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
             utilization: tr.ratio,
             unit: 'kN·m', method: 'capacity', tuplesChecked: ss.tuples.length, regionRange: ss.range,
-            description: `§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²`,
+            description: `§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
             limiting: 'torsion',
           });

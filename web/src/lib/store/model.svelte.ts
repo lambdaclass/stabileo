@@ -3250,7 +3250,7 @@ function createModelStore() {
         ...(data.materialId !== undefined ? { materialId: data.materialId } : {}),
         ...(data.thickness !== undefined ? { thickness: data.thickness } : {}),
       });
-      model.quads = new Map(model.quads);
+      if (!_bulkMutating) model.quads = new Map(model.quads);
     },
 
     /**
@@ -3284,12 +3284,14 @@ function createModelStore() {
       // also rewrite the offset that undo is supposed to restore.
       const next = { ...shell };
       if (offset) next.offset = { ...offset }; else delete next.offset;
+      // In a bulk edit the maps are committed once at its end (`bulkMutate`): a copy per shell
+      // made meshing a floor of thousands of shells quadratic.
       if (kind === 'plate') {
         model.plates.set(id, next as Plate);
-        model.plates = new Map(model.plates);
+        if (!_bulkMutating) model.plates = new Map(model.plates);
       } else {
         model.quads.set(id, next as Quad);
-        model.quads = new Map(model.quads);
+        if (!_bulkMutating) model.quads = new Map(model.quads);
       }
     },
 

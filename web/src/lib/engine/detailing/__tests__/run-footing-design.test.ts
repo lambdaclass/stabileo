@@ -522,3 +522,25 @@ describe('the general path inside the run', () => {
     expect(keysOf(run({ footings: [footing({ kind: 'mat' })] }).outcomes[0]!.unsupported)).toContain('footing.run.kindNotImplemented');
   });
 });
+
+describe('runFootingDesign — a strap beam', () => {
+  it('checks the eccentric footing centred, relieves its partner, and states the strap\'s demand', () => {
+    const z1 = footing({ eccentricityB: 0.6, B: 2.4, L: 2.0, straps: [{ toFootingId: 2, b: 0.4, h: 0.6 }] });
+    const z2 = footing({ id: 2, nodeId: 20, name: 'Z2', columnElementId: 4 });
+    const r = run({
+      footings: [z1, z2],
+      nodes: new Map([[10, { x: 0, y: 0, z: -1.2 }], [20, { x: 5, y: 0, z: -1.2 }]]),
+      columns: new Map([[3, column()], [4, column({ elementId: 4 })]]),
+      reactions: new Map([[10, reactions()], [20, reactions()]]),
+    });
+    const [o1, o2] = r.outcomes;
+    const all = JSON.stringify(r);
+    expect(all).toContain('footing.assumption.strap"');
+    expect(all).toContain('footing.assumption.strapOneWay');
+    expect(all).toContain('footing.assumption.strapSteel');
+    expect(all).toContain('footing.assumption.strapRelief');
+    // Both are checked, the eccentric one centred.
+    expect(o1!.check).not.toBeNull(); expect(o2!.check).not.toBeNull();
+  });
+});
+

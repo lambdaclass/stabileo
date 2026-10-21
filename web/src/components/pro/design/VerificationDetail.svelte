@@ -70,6 +70,7 @@
     <span class="mono">{ctx.axes.flexure} / {ctx.axes.shear}</span>
     {#if ctx.axes.biaxial}<span class="mono">+ {ctx.axes.secondaryFlexure} ({(ctx.axes.secondaryRatio * 100).toFixed(0)} %)</span>{/if}
     <span class="muted">({t(`axesBasis.${ctx.axes.basis}`)})</span>
+    {#if ctx.axes.secondaryCarriedBy === 'slab'}<span class="muted" data-testid={`axes-slab-${elementId}`}>{tp('axes.secondaryBySlab', { axis: ctx.axes.secondaryFlexure, r: (ctx.axes.secondaryRatio * 100).toFixed(0) })}</span>{/if}
     <span class="muted">b×h = {(ctx.axes.bFlex * 100).toFixed(0)}×{(ctx.axes.hFlex * 100).toFixed(0)} cm</span>
     {#if ctx.slenderDeltaNs > 1.0001}<span class="mono">δns = {ctx.slenderDeltaNs.toFixed(3)}</span>{/if}
     {#if (ctx.slenderDeltaS ?? 1) > 1.0001}<span class="mono">δs = {Number.isFinite(ctx.slenderDeltaS) ? ctx.slenderDeltaS.toFixed(3) : '∞'}</span>{/if}

@@ -14,6 +14,7 @@
   import { categoryCss } from '../../lib/viewport/element-colour';
   import type { SavedViewDisplay } from '../../lib/store/model.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
+  import { MESH_SHOWN_UP_TO } from '../../lib/viewport3d/shell-members';
   import { addNote } from '../../lib/model/annotations';
   import { UNIT_SYSTEMS, toDisplay, fromDisplay } from '../../lib/utils/units';
   import { displayUnits, unitQ, DECIMAL_QUANTITIES } from '../../lib/store/display-units.svelte';
@@ -205,6 +206,13 @@
     <h4 class="pk-heading">{t('view.draw')}</h4>
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showConstraints} data-testid="view-draw-constraints" /> {t('view.drawConstraints')}</label>
     <label class="pk-check"><input type="checkbox" bind:checked={viewState.showMemberEnds} data-testid="view-draw-ends" /> {t('view.drawEnds')}</label>
+    <label class="pk-check">{t('view.shellMesh')}
+      <select bind:value={viewState.shellMesh} data-testid="view-shell-mesh">
+        <option value="auto">{tp('view.shellMeshAuto', { n: MESH_SHOWN_UP_TO })}</option>
+        <option value="show">{t('view.shellMeshShow')}</option>
+        <option value="hide">{t('view.shellMeshHide')}</option>
+      </select>
+    </label>
   </section>
 
   <section class="pk-card" data-testid="view-notes">

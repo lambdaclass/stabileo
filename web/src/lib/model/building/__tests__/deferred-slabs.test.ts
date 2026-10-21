@@ -112,3 +112,17 @@ describe('a slab meshed at the analysis', () => {
     expect(census()).toEqual(placed);
   });
 });
+
+describe('a waffle slab waiting for its mesh', () => {
+  it('is meshed at its rib spacing where that is finer than its own size', async () => {
+    const { meshSizeOf } = await import('../deferred-slabs');
+    const { patchOwnDesignData } = await import('../../../store/design-data');
+    build(true);
+    const g = physicalGroups().find((x) => x.physical.kind === 'slab')!;
+    expect(meshSizeOf({ id: g.id, physical: { ...g.physical, typology: 'waffle' } as never })).toBe(1);
+    patchOwnDesignData({ specialFloors: { systems: { [`S${g.id}`]: { ribbed: { h: 0.3, c: 0.05, spacingX: 0.8, spacingY: 0.6, ribBottom: 0.12, filler: 'permanent' } } } } });
+    expect(meshSizeOf({ id: g.id, physical: { ...g.physical, typology: 'waffle' } as never })).toBe(0.6);
+    // A solid slab keeps its own size whatever system the design data holds.
+    expect(meshSizeOf({ id: g.id, physical: { ...g.physical, typology: 'solid' } as never })).toBe(1);
+  });
+});

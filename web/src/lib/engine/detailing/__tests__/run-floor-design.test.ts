@@ -188,6 +188,24 @@ describe('runFloorDesign — what it refuses to invent', () => {
       .toContain('detailing.floorRun.nonRectangularPanel');
   });
 
+  it('designs a triangle of a physical panel by the panel\'s strips, at its centroid', () => {
+    const { nodes, shells } = model();
+    // The 5 × 5 panel as two triangles: what the mesher leaves around a column or a skewed edge.
+    const tri: FloorShell[] = [
+      { id: 11, nodes: [1, 2, 3], materialId: 1, thickness: 0.20 },
+      { id: 12, nodes: [1, 3, 4], materialId: 1, thickness: 0.20 },
+      shells[1]!,
+    ];
+    const stress = (id: number) => ({ elementId: id, sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 40, my: 30, mxy: 8 });
+    const base = { nodes, shells: tri, stresses: [stress(11), stress(12), input().stresses[1]!], factoredAreaLoad: new Map([[11, 12], [12, 12]]) };
+    expect(runFloorDesign(input(base)).unsupported.map((u) => u.message.key)).toContain('detailing.floorRun.nonRectangularPanel');
+    const r = runFloorDesign(input({ ...base, slabPanelOf: (id) => (id === 11 || id === 12 ? 'L7' : undefined) }));
+    expect(r.unsupported.map((u) => u.message.key)).not.toContain('detailing.floorRun.nonRectangularPanel');
+    const panel = r.slabs.find((s) => s.panelId === 'L7')!;
+    expect(panel.panel!.input.elements.map((e) => [e.id, +e.cx.toFixed(3), +e.cy.toFixed(3), e.area])).toEqual([[11, 3.333, 1.667, 12.5], [12, 1.667, 3.333, 12.5]]);
+    expect(panel.panel!.input.rowStep).toBeCloseTo(Math.sqrt(12.5), 6);
+  });
+
   it('says so when a wall moment came from membrane stress rather than a derivation', () => {
     const r = runFloorDesign(input());
     expect(r.unsupported.map((u) => u.message.key))

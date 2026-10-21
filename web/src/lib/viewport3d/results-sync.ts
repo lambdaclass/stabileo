@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
+import { tp } from '../i18n';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -1040,8 +1041,24 @@ export function keepLabelBeside(
   };
 }
 
+/**
+ * The most labels of one kind drawn at once. Each is a canvas texture on the GPU: the 20 000
+ * nodes of a building's exchange file, all numbered, took the tab's graphics memory with them.
+ * Past it, a kind is labelled on the selection only, and the view says so once.
+ */
+const LABEL_BUDGET = 2000;
+let crowdedNotice = '';
+
 export function syncLabels3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
+  /** Whether a kind with `count` items is labelled on the selection only (asked, or too many). */
+  const crowded: string[] = [];
+  const selectionOnly = (count: number, kind: string) => {
+    if (viewState.labelsOnSelection) return true;
+    if (count <= LABEL_BUDGET) return false;
+    crowded.push(kind);
+    return true;
+  };
 
   // Clear old labels
   if (ctx.nodeLabelsGroup) {
@@ -1082,8 +1099,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    const only = viewState.labelsOnSelection;
-    for (const [id, node] of visibleNodes()) {
+    const nodes = visibleNodes();
+    const only = selectionOnly(nodes.size, 'nodes');
+    for (const [id, node] of nodes) {
       if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(nodeLabelText(viewState.memberLabel, node), '#ffffff', 28, true);
@@ -1100,8 +1118,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
+    const only = selectionOnly(visibleElements().size, 'elements');
     for (const [, elem] of visibleElements()) {
-      if (viewState.labelsOnSelection && !uiStore.selectedElements.has(elem.id)) continue;
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1129,7 +1148,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.lengthLabelsGroup = new THREE.Group();
     ctx.lengthLabelsGroup.name = 'lengthLabels';
 
+    const only = selectionOnly(visibleElements().size, 'lengths');
     for (const [, elem] of visibleElements()) {
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1182,8 +1203,15 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       ctx.shellLabelsGroup!.add(sprite);
     };
 
-    for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
-    for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    // Shells have no selection of their own to fall back on: past the budget they go unlabelled.
+    if (!selectionOnly(visiblePlates().size + visibleQuads().size, 'shells')) {
+      for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
+      for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    }
     ctx.scene.add(ctx.shellLabelsGroup);
   }
+
+  const notice = crowded.join(',');
+  if (notice && notice !== crowdedNotice) uiStore.toast(tp('viewport.labelsCrowded', { n: LABEL_BUDGET }), 'info');
+  crowdedNotice = notice;
 }

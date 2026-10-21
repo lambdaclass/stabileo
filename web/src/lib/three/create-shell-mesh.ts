@@ -16,6 +16,8 @@ import { prismLayersGeometry } from './physical-mesh';
 const SHELL_COLOR = 0x4ecdc4;
 
 const EDGE_COLOR = 0x88ddcc;
+/** The shells' outline colour, for what draws them other than here. */
+export const SHELL_EDGE_COLOR = EDGE_COLOR;
 
 // Per-material palette so different shell materials read distinctly in 3D.
 // materialId 0 keeps the historic teal; others cycle a calm, high-contrast set.

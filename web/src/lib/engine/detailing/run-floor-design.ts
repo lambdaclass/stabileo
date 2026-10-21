@@ -37,6 +37,7 @@
  */
 
 import { checkPanel, proposePanel, panelMaxSpacing, type PanelElement, type PanelInput } from './slab-panel';
+import type { RibbedGeometry } from '../design/slabs/ribbed';
 import type { SlabBarLayer } from './slab-design';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
@@ -101,6 +102,8 @@ export interface RunFloorDesignInput {
   wallDemands?: ReadonlyMap<number, { pu: number; muInPlane: number; vuInPlane: number }>;
   /** The slab panel (physical element) a shell belongs to; with it the panel is designed whole, by strips. */
   slabPanelOf?: (shellId: number) => string | undefined;
+  /** A ribbed (waffle) panel's rib geometry, by panel id; its bars are then set per rib. */
+  slabRibs?: (panelId: string) => RibbedGeometry | undefined;
   /** A panel's reinforcement a person set, by panel id; absent, the design proposes it. */
   slabReinforcement?: (panelId: string) => import('../../design-contract/reinforcement').SlabPanelReinforcement | undefined;
   /** The project's predetermined base mat, deducted before any band is added. */
@@ -249,12 +252,26 @@ export function planExtent(pts: readonly FloorNode[]): {
   const y0 = Math.min(...ys);
   const lx = Math.max(...xs) - x0;
   const ly = Math.max(...ys) - y0;
-  // Every corner must sit on a corner of the bounding box, or the panel is not the
-  // rectangle the slab generator lays bars across.
-  const axisAligned = pts.every((p) =>
+  // Four corners, each on a corner of the bounding box, or the panel is not the rectangle the
+  // slab generator lays bars across (a right triangle has its three on the box's corners too).
+  const axisAligned = pts.length === 4 && pts.every((p) =>
     (Math.abs(p.x - x0) < 1e-6 || Math.abs(p.x - (x0 + lx)) < 1e-6)
     && (Math.abs(p.y - y0) < 1e-6 || Math.abs(p.y - (y0 + ly)) < 1e-6));
   return { x0, y0, lx, ly, axisAligned };
+}
+
+/** Plan centroid and area of a shell's outline (shoelace), m and m². */
+export function planCentroid(pts: readonly FloorNode[]): { x: number; y: number; area: number } {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!, q = pts[(i + 1) % pts.length]!;
+    const cr = p.x * q.y - q.x * p.y;
+    a += cr; cx += (p.x + q.x) * cr; cy += (p.y + q.y) * cr;
+  }
+  if (Math.abs(a) < 1e-12) {
+    return { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length, area: 0 };
+  }
+  return { x: cx / (3 * a), y: cy / (3 * a), area: Math.abs(a) / 2 };
 }
 
 /**
@@ -325,7 +342,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
   const slabsByLevel = new Map<number, SlabEntry[]>();
   const panelParts = new Map<string, Array<{
     shell: FloorShell; level: number; punching: SlabPunchingResult[]; qu: number; stress: FloorShellStress;
-    design: SlabDesignResult; el: PanelElement; box: { x0: number; x1: number; y0: number; y1: number };
+    design: SlabDesignResult; el: PanelElement; box: { x0: number; x1: number; y0: number; y1: number }; rectangular: boolean;
   }>>();
   const wallsByLevel = new Map<number, WallEntry[]>();
 
@@ -400,7 +417,10 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
 
     if (cls.family === 'slab') {
       const ext = planExtent(pts);
-      if (!ext.axisAligned || ext.lx <= 0 || ext.ly <= 0) {
+      // An element of a physical panel is read by the panel's strips at its centroid, so it need
+      // not be a rectangle: a slab meshed around columns or an irregular outline has triangles.
+      const pk = input.slabPanelOf?.(shell.id);
+      if ((!ext.axisAligned && !pk) || ext.lx <= 0 || ext.ly <= 0) {
         unsupported.push({
           elementId: shell.id,
           message: msg('detailing.floorRun.nonRectangularPanel', { element: shell.id }),
@@ -463,12 +483,11 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
           staleAnalysis: input.analysisStale === true,
         }));
 
-      const pk = input.slabPanelOf?.(shell.id);
       if (pk) {
-        const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+        const c = planCentroid(pts);
         panelParts.set(pk, [...(panelParts.get(pk) ?? []), {
-          shell, level: cls.level, punching: punchingResults, qu, stress, design,
-          el: { id: shell.id, cx: xs.reduce((a, b) => a + b, 0) / xs.length, cy: ys.reduce((a, b) => a + b, 0) / ys.length, sx: ext.lx, sy: ext.ly, thickness: shell.thickness, sets: stress.sets?.length ? stress.sets : [{ mx: stress.mx, my: stress.my, mxy: stress.mxy }] },
+          shell, level: cls.level, punching: punchingResults, qu, stress, design, rectangular: ext.axisAligned,
+          el: { id: shell.id, cx: c.x, cy: c.y, sx: ext.lx, sy: ext.ly, thickness: shell.thickness, area: c.area, sets: stress.sets?.length ? stress.sets : [{ mx: stress.mx, my: stress.my, mxy: stress.mxy }] },
           box: { x0: ext.x0, x1: ext.x0 + ext.lx, y0: ext.y0, y1: ext.y0 + ext.ly },
         }]);
       }
@@ -517,7 +536,17 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
     const x0 = Math.min(...parts.map((p) => p.box.x0)), x1 = Math.max(...parts.map((p) => p.box.x1));
     const y0 = Math.min(...parts.map((p) => p.box.y0)), y1 = Math.max(...parts.map((p) => p.box.y1));
     const thickness = Math.min(...parts.map((p) => p.shell.thickness));
-    const pInput: PanelInput = { panelId: pk, x0, x1, y0, y1, thickness, cover: input.cover, fy: input.fy, elements: parts.map((p) => p.el) };
+    const ribs = input.slabRibs?.(pk);
+    // A structured mesh keeps its rows to the centimetre and its plain means (as it always has);
+    // an unstructured one gathers rows a typical element wide and weighs them by area.
+    const structured = parts.every((p) => p.rectangular);
+    const sizes = parts.map((p) => Math.sqrt(p.el.area ?? 0)).sort((a, b) => a - b);
+    const pInput: PanelInput = {
+      panelId: pk, x0, x1, y0, y1, thickness, cover: input.cover, fy: input.fy,
+      elements: parts.map((p) => (structured ? (({ area: _a, ...e }) => e)(p.el) : p.el)),
+      ...(structured ? {} : { rowStep: Math.max(0.05, sizes[Math.floor(sizes.length / 2)] ?? 0.5) }),
+      ...(ribs ? { ribs: { geometry: ribs, fc: input.fc } } : {}),
+    };
     // CIRSOC 201-2025 §8.7.2.2: min(2h, 300 mm) at the critical sections (`panelMaxSpacing`).
     const sMax = panelMaxSpacing(thickness);
     const saved = input.slabReinforcement?.(pk);

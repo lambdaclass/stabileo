@@ -75,6 +75,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
+  import { meshHidden } from '../lib/viewport3d/shell-members';
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
   import { createTimelapseCompositor } from '../lib/viewport3d/timelapse-compositor';
@@ -1340,6 +1341,8 @@
   }
   function syncSelection() {
     _syncSelection(sceneCtx);
+    // Drawn as members, a shell shows its offset while selected (`shell-members.ts`).
+    if (meshHidden()) syncShellOffsets();
     // Re-apply color map if active (syncSelection overwrites element colors)
     const dt = resultsStore.diagramType;
     if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
@@ -1480,6 +1483,14 @@
     modelStore.quads;
     uiStore.renderMode3D; // flat ↔ extruded slab rebuild
     syncShells();
+    invalidate();
+  });
+
+  // The slabs and walls as members or as their mesh (`shell-members.ts`): results arriving or
+  // cleared, the view's switch, the model crossing the size, all redraw them and the mesh's nodes.
+  $effect(() => {
+    meshHidden();
+    untrack(() => { syncShells(); syncNodes(); syncShellOffsets(); });
     invalidate();
   });
 

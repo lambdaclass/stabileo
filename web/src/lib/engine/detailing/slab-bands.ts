@@ -51,10 +51,14 @@ export function bandChords(b: SlabBand): Array<[P, P]> {
   const poly = bandOutline(b);
   const pu = poly.map((p) => p.x * u.x + p.y * u.y), pv = poly.map((p) => p.x * v.x + p.y * v.y);
   const v0 = Math.min(...pv), v1 = Math.max(...pv);
-  const n = Math.max(1, Math.floor((v1 - v0) / b.spacing + 1e-9));
+  // Bars set per rib lie on the ribs the band covers (one at least, a rib strip at a slab edge
+  // being half a spacing wide), so many to each; other bands at their spacing from one side.
+  const ribs = b.perRib ? Math.max(1, Math.round((v1 - v0) / (b.spacing * b.perRib))) : 0;
+  const lines = b.perRib
+    ? Array.from({ length: ribs }, (_, j) => v0 + ((j + 0.5) * (v1 - v0)) / ribs).flatMap((v) => Array<number>(b.perRib!).fill(v))
+    : Array.from({ length: Math.max(1, Math.floor((v1 - v0) / b.spacing + 1e-9)) }, (_, i) => v0 + (i + 0.5) * b.spacing);
   const out: Array<[P, P]> = [];
-  for (let i = 0; i < n; i++) {
-    const vm = v0 + (i + 0.5) * b.spacing;
+  for (const vm of lines) {
     const hits: number[] = [];
     for (let k = 0; k < poly.length; k++) {
       const j = (k + 1) % poly.length, a = pv[k]!, c = pv[j]!;

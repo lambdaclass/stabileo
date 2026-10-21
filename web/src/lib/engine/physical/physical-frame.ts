@@ -139,6 +139,8 @@ export interface PhysicalFrame {
 const TOL = 1e-6;
 /** Two plan directions closer than this to parallel are one line (about 0.06°). */
 const PARALLEL = 1e-3;
+/** |sin θ| under which two beams meeting at a node are read as one line (about 10°). */
+const NEAR_COLLINEAR = 0.17;
 
 // ─── Plan geometry ───────────────────────────────────────────────
 
@@ -169,21 +171,38 @@ const open = (r: Ring): XY[] => {
 const fromMulti = (m: MultiPolygon): PlanPolygon[] => m
   .map((poly) => ({ outer: ccw(open(poly[0]!)), holes: poly.slice(1).map((h) => cw(open(h))) }))
   .filter((p) => p.outer.length >= 3 && polygonArea(p) > 1e-10);
-const toGeom = (p: PlanPolygon): Polygon => [p.outer, ...p.holes] as Polygon;
+const toGeom = (p: PlanPolygon, grid = 0): Polygon => {
+  const snap = (r: readonly XY[]): XY[] => (grid > 0 ? r.map(([x, y]) => [Math.round(x / grid) * grid, Math.round(y / grid) * grid] as XY) : [...r]);
+  return [snap(p.outer), ...p.holes.map(snap)] as Polygon;
+};
+
+/**
+ * A plan boolean that does not take the geometry down with it. The clipping library refuses some
+ * inputs whose edges nearly coincide (a ring it «cannot complete»): a building of rotated columns
+ * and faceted slab edges gave it one, and the whole physical frame, the quantities, the physical
+ * view and the IFC failed with it. The coordinates are snapped to 0,1 mm and, refused again, to
+ * 1 mm; refused at both, `fallback` answers (the operand kept, conservative for what is measured).
+ */
+function robust(op: (grid: number) => MultiPolygon, fallback: () => PlanPolygon[]): PlanPolygon[] {
+  for (const grid of [1e-4, 1e-3]) {
+    try { return fromMulti(op(grid)); } catch { /* the next, coarser grid */ }
+  }
+  return fallback();
+}
 
 const union = (ps: readonly PlanPolygon[]): PlanPolygon[] => {
   if (ps.length === 0) return [];
   if (ps.length === 1) return [ps[0]!];
-  return fromMulti(polygonClipping.union(toGeom(ps[0]!), ...ps.slice(1).map(toGeom)));
+  return robust((g) => polygonClipping.union(toGeom(ps[0]!, g), ...ps.slice(1).map((p) => toGeom(p, g))), () => [...ps]);
 };
 const difference = (ps: readonly PlanPolygon[], cut: readonly PlanPolygon[]): PlanPolygon[] => {
   if (ps.length === 0) return [];
   if (cut.length === 0) return [...ps];
-  return fromMulti(polygonClipping.difference(ps.map(toGeom) as MultiPolygon, ...cut.map(toGeom)));
+  return robust((g) => polygonClipping.difference(ps.map((p) => toGeom(p, g)) as MultiPolygon, ...cut.map((p) => toGeom(p, g))), () => [...ps]);
 };
 const intersection = (a: readonly PlanPolygon[], b: readonly PlanPolygon[]): PlanPolygon[] => {
   if (a.length === 0 || b.length === 0) return [];
-  return fromMulti(polygonClipping.intersection(a.map(toGeom) as MultiPolygon, b.map(toGeom) as MultiPolygon));
+  return robust((g) => polygonClipping.intersection(a.map((p) => toGeom(p, g)) as MultiPolygon, b.map((p) => toGeom(p, g)) as MultiPolygon), () => []);
 };
 
 function insideRing(p: XY, r: readonly XY[]): boolean {
@@ -291,7 +310,10 @@ interface AtNode {
 /** The parallelogram where two non-parallel beams' widths cross, each strip unbounded along its axis. */
 function crossing(a: AtNode, b: AtNode): XY[] | null {
   const cross = a.d[0] * b.d[1] - a.d[1] * b.d[0];
-  if (Math.abs(cross) < PARALLEL) return null;
+  // Two beams meeting within a few degrees of one line (a polygonal beam's kink) do not cross:
+  // their widths overlap along a sliver as long as w / sin θ, metres for a degree, and the joint
+  // took it whole (60 m³ at one column of a building whose beams kink by 0,5°).
+  if (Math.abs(cross) < Math.max(PARALLEL, NEAR_COLLINEAR)) return null;
   const na: XY = [-a.d[1], a.d[0]], nb: XY = [-b.d[1], b.d[0]];
   // Point where a's side line t = ta meets b's side line t = tb.
   const meet = (ta: number, tb: number): XY => {
@@ -346,7 +368,9 @@ function jointsOf(preps: Array<ColumnPrep | BeamPrep | MemberPrep>, nodeZ: (id: 
         const par = crossing(b, c);
         if (par) for (const q of par) ss.push(along(q));
       }
-      return { at: b, s0: Math.min(...ss), s1: Math.min(Math.max(...ss), b.beam.L) };
+      // Into the joint no further than the other members reach across it: a stub is the beam's
+      // stretch inside the joint, never past its own length either way.
+      return { at: b, s0: Math.max(Math.min(...ss), -b.beam.L), s1: Math.min(Math.max(...ss), b.beam.L) };
     });
     if (stubs.every((s) => s.s1 - s.s0 < TOL) && !col) continue;
     out.set(nodeId, { nodeId, lo: band.lo, hi: band.hi, col, columns: [...down, ...up], stubs });

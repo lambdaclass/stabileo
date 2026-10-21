@@ -17,9 +17,13 @@ import type { SlabBand, SlabPanelReinforcement } from '../../design-contract/rei
 export type SlabLayer = 'bottomX' | 'bottomY' | 'topX' | 'topY';
 export const SLAB_LAYERS: readonly SlabLayer[] = ['bottomX', 'bottomY', 'topX', 'topY'];
 
-export interface PlanSlabPanel { id: string; x0: number; x1: number; y0: number; y1: number; reinforcement: SlabPanelReinforcement }
+export interface PlanSlabPanel {
+  id: string; x0: number; x1: number; y0: number; y1: number; reinforcement: SlabPanelReinforcement;
+  /** The slab's own outline and openings, m (`boundaryLoops`); absent, the box x0–x1 × y0–y1. */
+  outline?: Array<Array<{ x: number; y: number }>>;
+}
 
-export interface SlabMark { mark: string; layer: SlabLayer; panel: string; bands: SlabBand[]; count: number; diameter: number; spacing: number; length: number; hooks: number }
+export interface SlabMark { mark: string; layer: SlabLayer; panel: string; bands: SlabBand[]; count: number; diameter: number; spacing: number; length: number; hooks: number; perRib?: number }
 
 const k = 1000;
 /** The layer a band's bars belong to: its face, and the axis its angle is nearer. */
@@ -45,7 +49,7 @@ export function slabMarks(panels: readonly PlanSlabPanel[]): SlabMark[] {
         out.push({
           mark: `${prefix[layer]}${++n}`, layer, panel: p.id, bands: members,
           count: bars.reduce((s, x) => s + x.count, 0), diameter: b.diameter, spacing: b.spacing,
-          length: Math.max(...bars.map((x) => x.length)), hooks: bars[0]!.hooks,
+          length: Math.max(...bars.map((x) => x.length)), hooks: bars[0]!.hooks, ...(b.perRib ? { perRib: b.perRib } : {}),
         });
       }
     }
@@ -54,6 +58,8 @@ export function slabMarks(panels: readonly PlanSlabPanel[]): SlabMark[] {
 }
 
 const cm = (v: number) => Math.round(v * 100);
+/** How bars repeat: at a spacing, or so many in every rib of a ribbed slab. */
+const spacingText = (b: { spacing: number; perRib?: number }, tr: Tr) => (b.perRib ? tr('plan.slab.perRib', { n: b.perRib }) : `c/${cm(b.spacing)}`);
 
 /** One layer's sheet; null when the level has nothing in that layer. */
 export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly PlanSlabPanel[], marks: readonly SlabMark[], axes: readonly PlanAxis[], scale: number, tr: Tr, fmt: (v: number, d: number) => string): DrawingInput | null {
@@ -62,10 +68,11 @@ export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly 
   if (!mine.length && !bases.length) return null;
   const s = scale, out: Primitive[] = [], pts: P[] = [];
   for (const p of panels) {
-    const o = [{ x: p.x0 * k, y: p.y0 * k }, { x: p.x1 * k, y: p.y0 * k }, { x: p.x1 * k, y: p.y1 * k }, { x: p.x0 * k, y: p.y1 * k }];
-    out.push({ kind: 'polyline', layer: 'FW-OUTLINE', closed: true, points: o });
+    const loops = p.outline?.length ? p.outline.map((l) => l.map((q) => ({ x: q.x * k, y: q.y * k })))
+      : [[{ x: p.x0 * k, y: p.y0 * k }, { x: p.x1 * k, y: p.y0 * k }, { x: p.x1 * k, y: p.y1 * k }, { x: p.x0 * k, y: p.y1 * k }]];
+    for (const o of loops) out.push({ kind: 'polyline', layer: 'FW-OUTLINE', closed: true, points: o });
     out.push({ kind: 'text', layer: 'FW-TAG', at: { x: p.x0 * k + 1.5 * s, y: p.y1 * k - 3.5 * s }, text: p.id, height: 2.2 });
-    pts.push(...o);
+    pts.push(...loops[0]!);
   }
   for (const m of mine) {
     for (const b of m.bands) {
@@ -84,7 +91,7 @@ export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly 
     }
     const first = m.bands[0]!, mid = bandBars(first).bar;
     const at = first.label ? { x: first.label.x * k, y: first.label.y * k } : { x: ((mid[0].x + mid[1].x) / 2) * k + 1 * s, y: ((mid[0].y + mid[1].y) / 2) * k + 1 * s };
-    out.push({ kind: 'text', layer: 'RC-TEXT', at, text: `${m.mark} ${m.count}Ø${m.diameter} c/${cm(m.spacing)} L=${fmt(m.length, 2)}${m.bands.length > 1 ? ` (${m.bands.length}×)` : ''}`, height: 2.4 });
+    out.push({ kind: 'text', layer: 'RC-TEXT', at, text: `${m.mark} ${m.count}Ø${m.diameter} ${spacingText(m, tr)} L=${fmt(m.length, 2)}${m.bands.length > 1 ? ` (${m.bands.length}×)` : ''}`, height: 2.4 });
   }
   // The base mat drawn in each panel that has one, as a slab plan draws a mesh: one bar of it
   // across the panel, the spread it repeats over dimensioned across, and the bar's diameter and
@@ -105,13 +112,13 @@ export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly 
     const d1 = alongX ? { x: d0.x, y: (p.y1 - inset) * k } : { x: (p.x1 - inset) * k, y: d0.y };
     out.push({ kind: 'line', layer: 'RC-DIM', a: d0, b: d1 });
     for (const e of [d0, d1]) out.push({ kind: 'circle', layer: 'RC-DIM', c: e, r: 0.6 * s, fill: true });
-    out.push({ kind: 'text', layer: 'RC-TEXT', at: { x: (a.x + c.x) / 2 + 1 * s, y: (a.y + c.y) / 2 + 1 * s }, text: `Ø${b.diameter} c/${cm(b.spacing)}`, height: 2.4 });
+    out.push({ kind: 'text', layer: 'RC-TEXT', at: { x: (a.x + c.x) / 2 + 1 * s, y: (a.y + c.y) / 2 + 1 * s }, text: `Ø${b.diameter} ${spacingText(b, tr)}`, height: 2.4 });
   }
   const box = boxOf(pts);
   out.push(...drawAxes(axes, box, s));
   // The base mats of the layer, stated once with the panels each covers.
   const meshes = new Map<string, string[]>();
-  for (const p of bases) { const b = p.reinforcement.base[layer]!; const key = `Ø${b.diameter} c/${cm(b.spacing)}`; meshes.set(key, [...(meshes.get(key) ?? []), p.id]); }
+  for (const p of bases) { const b = p.reinforcement.base[layer]!; const key = `Ø${b.diameter} ${spacingText(b, tr)}`; meshes.set(key, [...(meshes.get(key) ?? []), p.id]); }
   const baseText = meshes.size ? [...meshes].map(([m, ps]) => `${m} (${ps.join(', ')})`).join(' · ') : tr('plan.slab.noBase');
   out.push({ kind: 'text', layer: 'RC-TEXT', at: { x: box.x0, y: box.y1 + 8 * s }, text: tr('plan.slab.base', { mesh: baseText }), height: 2.6 });
   const all = boxOf([...pts, { x: box.x0 - 20 * s, y: box.y0 - 20 * s }, { x: box.x1 + 20 * s, y: box.y1 + 20 * s }]);

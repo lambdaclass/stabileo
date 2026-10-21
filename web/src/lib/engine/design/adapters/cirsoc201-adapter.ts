@@ -197,6 +197,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
         axes: ctx.axes,
         // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
         slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
+        ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
         ...(ctx.shape ? { shape: ctx.shape } : {}),
         spacingRule: {
           edition: ctx.codeEdition,

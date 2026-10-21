@@ -68,6 +68,15 @@ export interface IfcBuilding {
 
 const BAR_KINDS = new Set<ClassChoice>(['column', 'beam', 'brace']);
 
+/** The bars and the slabs and walls the class choices keep, each surface as the kind it was chosen as. */
+export function chosenParts(members: IfcMember[], surfaces: IfcSurface[], choices: Record<string, ClassChoice>): { members: IfcMember[]; surfaces: IfcSurface[] } {
+  const choiceOf = (cls: string | undefined, read: string) => choices[cls ?? read] ?? defaultKindOf(cls ?? read, read as never);
+  return {
+    members: members.filter((m) => BAR_KINDS.has(choiceOf(m.ifcClass, m.type))),
+    surfaces: surfaces.flatMap((s) => { const c = choiceOf(s.ifcClass, s.type); return c === 'slab' || c === 'wall' ? [{ ...s, type: c as IfcSurface['type'] }] : []; }),
+  };
+}
+
 export function buildIfcFragment(members: IfcMember[], surfaces: IfcSurface[], o: IfcBuildingOptions): IfcBuilding {
   const choiceOf = (cls: string | undefined, read: string) => o.choices[cls ?? read] ?? defaultKindOf(cls ?? read, read as never);
   const bars = members.filter((m) => BAR_KINDS.has(choiceOf(m.ifcClass, m.type)));
@@ -116,15 +125,15 @@ export function buildIfcFragment(members: IfcMember[], surfaces: IfcSurface[], o
   let elements = 0;
   if (o.declare) {
     const zOf = (id: number) => frag.nodes.find((n) => n.id === id)?.z ?? 0;
-    const group = (gid: number, name: string, kind: PhysicalKind, members: ModelGroup['members'], zs: number[]): ModelGroup => {
-      const data: PhysicalData = { kind, provenance: 'declared', levelFrom: levelAt(Math.min(...zs), o.levels), levelTo: levelAt(Math.max(...zs), o.levels) };
+    const group = (gid: number, name: string, kind: PhysicalKind, members: ModelGroup['members'], zs: number[], typology?: string): ModelGroup => {
+      const data: PhysicalData = { kind, provenance: 'declared', levelFrom: levelAt(Math.min(...zs), o.levels), levelTo: levelAt(Math.max(...zs), o.levels), ...(typology ? { typology } : {}) };
       return { id: gid, name, kind: PHYSICAL_GROUP_KIND, origin: 'user', members, data: data as unknown as Record<string, unknown> };
     };
     let gid = 1;
     mapping.elements.forEach((e, k) => {
       const m = bars.find((b) => b.id === e.member);
       if (!m) return;
-      frag.groups.push(group(gid++, m.name, choiceOf(m.ifcClass, m.type) as PhysicalKind, { elements: [k + 1] }, [zOf(e.nodeI), zOf(e.nodeJ)]));
+      frag.groups.push(group(gid++, m.name, choiceOf(m.ifcClass, m.type) as PhysicalKind, { elements: [k + 1] }, [zOf(e.nodeI), zOf(e.nodeJ)], m.typology));
       elements++;
     });
     for (const [s, sh] of shellsOf) {
@@ -148,3 +157,35 @@ export function connectShells(quads: number[], plates: number[]): number {
   const r = splitAtNodes([...modelStore.elements.keys()], nodes);
   return r.cut.reduce((s, x) => s + x.segments.length - 1, 0);
 }
+
+/**
+ * Fix the feet of the lowest columns and walls. An exchange file carries the building, not its
+ * supports, so an imported model had none and could not be solved until each base was found by
+ * hand. The nodes at the lowest elevation any column or wall reaches, that belong to one, are
+ * fixed (nodes already supported are left as they are). Returns how many supports were added.
+ */
+export function fixBases(tol = 1e-3): number {
+  const m = modelStore.model;
+  const vertical = [...m.elements.values()].filter((e) => {
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+    return !!a && !!b && Math.hypot(b.x - a.x, b.y - a.y) < 1e-6 && Math.abs((b.z ?? 0) - (a.z ?? 0)) > 1e-6;
+  });
+  const wallNodes = new Set<number>();
+  for (const q of m.quads.values()) {
+    const ps = q.nodes.map((n) => m.nodes.get(n)).filter((p): p is NonNullable<typeof p> => !!p);
+    const zs = ps.map((p) => p.z ?? 0);
+    if (Math.max(...zs) - Math.min(...zs) > 1e-6) for (const n of q.nodes) wallNodes.add(n); // not horizontal: a wall
+  }
+  const candidates = new Set<number>([...vertical.flatMap((e) => [e.nodeI, e.nodeJ]), ...wallNodes]);
+  if (candidates.size === 0) return 0;
+  const zMin = Math.min(...[...candidates].map((n) => m.nodes.get(n)?.z ?? 0));
+  const held = new Set([...m.supports.values()].map((x) => x.nodeId));
+  let added = 0;
+  for (const n of candidates) {
+    if (held.has(n) || Math.abs((m.nodes.get(n)?.z ?? 0) - zMin) > tol) continue;
+    modelStore.addSupport(n, 'fixed3d' as never);
+    added++;
+  }
+  return added;
+}
+

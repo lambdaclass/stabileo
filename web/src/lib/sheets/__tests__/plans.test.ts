@@ -54,6 +54,21 @@ describe('construction drawings', () => {
     await golden('formwork', [d]);
   });
 
+  it('formwork plan of a waffle slab: its voids hidden, its drops named in reading order with their size', () => {
+    const d = formworkPlan({
+      level: { name: 'N1', z: 3.2 }, axes, scale: 100, columns: [], beams: [], walls: [],
+      slabs: [{
+        name: 'L101', outline: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 4 }, { x: 0, y: 4 }], thickness: 0.12,
+        waffle: { label: '25+5 · 82×82', voids: [{ x0: 2, x1: 2.7, y0: 1, y1: 1.7 }], solids: [{ x0: 0, x1: 1.64, y0: 0, y1: 1.64 }, { x0: 5, x1: 6.64, y0: 2.36, y1: 4 }] },
+      }],
+    }, 'Formwork N1', (v) => v.toFixed(2));
+    const t = texts(d.primitives);
+    expect(t).toContain('L101 — 25+5 · 82×82');
+    expect(t).toContain('A1 164×164');
+    expect(t.indexOf('A2 164×164')).toBeGreaterThan(-1);
+    expect(d.primitives.filter((p) => p.kind === 'polyline' && p.layer === 'FW-HIDDEN')).toHaveLength(1);
+  });
+
   it('column schedule: identical stacks merged, a cell per lift with its steel', async () => {
     const lift = (level: string, zLo: number, zHi: number, b: number) => ({ level, zLo, zHi, section: { kind: 'rect' as const, b, h: b }, bars: { kind: 'faces' as const, corner: 16, face: 12, nB: 1, nT: 1, nL: 1, nR: 1 }, ties: { diameter: 6, spacing: 0.15, endSpacing: 0.1 } });
     const c1 = { name: 'C1', lifts: [lift('N1', 0, 3, 0.3), lift('N2', 3, 6, 0.25)] };

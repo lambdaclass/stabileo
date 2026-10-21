@@ -14,6 +14,7 @@
  */
 import { modelStore } from '../../store/model.svelte';
 import { physicalGroups } from '../../store/physical';
+import { designData } from '../../store/design-data';
 import { meshQuad } from '../edit/mesh-region';
 import { mergeCollinear } from '../edit/merge-collinear';
 import type { PhysicalData } from '../physical/types';
@@ -28,6 +29,17 @@ export const slabsToMesh = (): number => deferred().filter((g) => !g.physical.me
 /** The slabs meshed by a solve, which can go back to one shell per panel. */
 export const slabsToSimplify = (): number => deferred().filter((g) => g.physical.meshAtSolve.meshed).length;
 
+/**
+ * The size a waiting slab is meshed at: its own, and for a waffle slab with its rib system chosen
+ * no more than the rib spacing, so the mesh has a row of elements per rib and the rib strips of the
+ * design each read the moment over their own rib rather than a neighbour's average.
+ */
+export function meshSizeOf(g: { id: number; physical: { typology?: string; meshAtSolve: { size: number } } }): number {
+  const size = g.physical.meshAtSolve.size;
+  const rib = g.physical.typology === 'waffle' ? designData().specialFloors?.systems?.[`S${g.id}`]?.ribbed : undefined;
+  return rib ? Math.min(size, rib.spacingX, rib.spacingY ?? rib.spacingX) : size;
+}
+
 /** Mesh every slab that is waiting for it, at its own size. Returns how many slabs and shells. */
 export function meshDeferredSlabs(): { slabs: number; shells: number } {
   const out = { slabs: 0, shells: 0 };
@@ -38,7 +50,7 @@ export function meshDeferredSlabs(): { slabs: number; shells: number } {
       const quads = g.members.quads ?? [];
       // One shell per panel is what was placed; anything else was edited by hand and is left as it is.
       if (quads.length !== 1) continue;
-      const r = meshWithFootprints(quads[0]!, g.physical.meshAtSolve.size);
+      const r = meshWithFootprints(quads[0]!, meshSizeOf(g));
       if (!r || 'refused' in r) continue;
       out.slabs++; out.shells += r.quadCount;
       modelStore.setGroupData(g.id, { ...g.physical, meshAtSolve: { ...g.physical.meshAtSolve, meshed: true } } as unknown as Record<string, unknown>);

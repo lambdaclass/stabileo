@@ -27,6 +27,11 @@ let showMemberEnds = $state(false);
 let quickInfo = $state(false);
 /** A drag on empty space draws a lasso instead of a rectangle. */
 let lasso = $state(false);
+/**
+ * The slabs' and walls' mesh: drawn, drawn as members (`viewport3d/shell-members.ts`), or as the
+ * model's size and results say ('auto': members above 2000 shells until there are results).
+ */
+let shellMesh = $state<'auto' | 'show' | 'hide'>('auto');
 
 export const viewState = {
   get memberLabel() { return memberLabel; },
@@ -45,6 +50,8 @@ export const viewState = {
   set showMemberEnds(v: boolean) { showMemberEnds = v; },
   get labelsOnSelection() { return labelsOnSelection; },
   set labelsOnSelection(v: boolean) { labelsOnSelection = v; },
+  get shellMesh() { return shellMesh; },
+  set shellMesh(v: 'auto' | 'show' | 'hide') { shellMesh = v; },
   get zoomWindowArmed() { return zoomWindowArmed; },
   set zoomWindowArmed(v: boolean) { zoomWindowArmed = v; },
 };

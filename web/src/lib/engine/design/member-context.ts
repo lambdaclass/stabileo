@@ -26,7 +26,7 @@ import {
   type ElementDesignDemands,
   type ElementStationResult,
 } from '../station-design-forces';
-import { resolveDesignAxes, type DesignAxes } from './design-axes';
+import { resolveDesignAxes, uprightBeam, type DesignAxes } from './design-axes';
 import type { LimitingConstraint } from './outcome';
 import type { ProvenancedValue, RegulationEdition } from '../../codes/regulation';
 import { resolveMaxAggregateSize, type ConcreteProjectData } from '../../codes/project-code-settings';
@@ -96,6 +96,10 @@ export interface MemberContext {
    * model's insertions put the slab at the beam's top or that was assumed (`beam-flange.ts`).
    */
   flange?: { bf: number; hf: number; kind: 'T' | 'L'; datum?: 'insertion' | 'assumed' };
+  /** A beam in the plane of a slab cast with its top, flange or not: the slab's diaphragm is there. */
+  inSlabPlane?: boolean;
+  /** The factor on J the member was analysed with, when below 1 (`AnalysisSettings.beamTorsion`). */
+  torsionStiffness?: number;
   /**
    * The member's FINAL physical geometry, when coordination has moved its steel.
    *
@@ -258,6 +262,10 @@ export interface BuildContextOptions {
   lookupGrade?: GradeFamilyLookup;
   /** The flange a beam acts with, from the slab cast with it (`design/beam-flange.ts`). */
   flangeOf?: (elementId: number) => { bf: number; hf: number; kind: 'T' | 'L'; datum?: 'insertion' | 'assumed' } | undefined;
+  /** Whether a beam lies in the plane of a slab cast with its top, flange or not (`beamsInSlabPlane`). */
+  inSlabPlane?: (elementId: number) => boolean;
+  /** The factor on J a member is analysed with (`solveStiffnessFactors`). */
+  torsionStiffnessOf?: (elementId: number) => number;
   /** The project's declaration of each member's role in the lateral system (`store/lateral-system.ts`). */
   lateralOf?: (elementId: number, kind: 'beam' | 'column' | 'wall') => LateralReading;
 }
@@ -334,7 +342,11 @@ export function buildMemberContext(
     opts.concrete ?? { maxAggregateSizeMm: null, shotcrete: false },
   );
 
-  const axes = resolveDesignAxes(elementType, { b, h }, demands);
+  // A beam with its slab, its section upright: the in-plane axis is the slab's diaphragm
+  // (`withSlabDiaphragm`). A beam turned about its axis bends sideways under its own vertical
+  // load, which no slab takes, and keeps its biaxial check.
+  const inSlab = elementType === 'beam' && (!!opts.flangeOf?.(elementId) || !!opts.inSlabPlane?.(elementId));
+  const axes = resolveDesignAxes(elementType, { b, h }, demands, { slab: inSlab && uprightBeam(elem as { rollAngle?: number }) });
   if (axes.basis === 'no-demand' && !blocking.includes('missingDemand')) blocking.push('missingDemand');
 
   return {
@@ -344,6 +356,8 @@ export function buildMemberContext(
     L,
     section: { id: sec?.id ?? -1, name: sec?.name ?? '—', b, h },
     ...(elementType === 'beam' && opts.flangeOf?.(elementId) ? { flange: opts.flangeOf(elementId)! } : {}),
+    ...(inSlab ? { inSlabPlane: true } : {}),
+    ...((() => { const j = opts.torsionStiffnessOf?.(elementId); return j !== undefined && j < 1 ? { torsionStiffness: j } : {}; })()),
     ...(opts.lateralOf ? { lateral: opts.lateralOf(elementId, elementType) } : {}),
     material: {
       fc: fc ?? 0, fy, cover, stirrupDia, maxAggregateSize,

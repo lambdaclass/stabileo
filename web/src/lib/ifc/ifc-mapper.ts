@@ -22,6 +22,15 @@ export interface IfcMember {
   storey?: string;
   /** The object's IFC GlobalId: what a later version of the file is compared by. */
   globalId?: string;
+  /** The physical typology the file states (a footing beam: 'foundation'). */
+  typology?: string;
+  /** A column's rotation in plan, degrees: where its profile's x axis points. */
+  rollDeg?: number;
+  /**
+   * The member's insertion off its analytical axis, m (global), at each end: set when the model
+   * of calculation moves its axis (`ifc-analytical.ts`) and its physical place stays.
+   */
+  offset?: { i: { x: number; y: number; z: number }; j: { x: number; y: number; z: number } };
 }
 
 /**
@@ -39,6 +48,44 @@ export interface IfcSurface {
   ifcClass?: string;
   storey?: string;
   globalId?: string;
+  /** The object's type as the file names it (a slab's system: «30+5 … nervio 12 … intereje 82», a drop). */
+  objectType?: string;
+}
+
+/**
+ * A footing of the file: a pad or a strip, as its plan rectangle (the smallest that holds its
+ * solid), m, with its underside and top elevations. A footing beam is read as a member instead.
+ */
+export interface IfcFootingRead {
+  id: number;
+  kind: 'pad' | 'strip';
+  name: string;
+  /** Plan centre, and the rectangle's sides along its own axes, m. */
+  centre: { x: number; y: number };
+  /** Side along `angle` and across it, m. */
+  length: number; width: number;
+  /** Direction of `length`, degrees from x. */
+  angle: number;
+  zBottom: number; zTop: number;
+  materialName?: string;
+  storey?: string;
+  globalId?: string;
+}
+
+/**
+ * A stair of the file, as its flights: each the mid-surface of its inclined slab between its
+ * lower and upper edges (each edge's two ends, left to right as seen going up), and its waist.
+ */
+export interface IfcStairRead {
+  id: number;
+  name: string;
+  flights: Array<{ low: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }]; high: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }]; waist: number }>;
+  /** Its landings: the corners of each at its mid-depth, in order round it, and its depth, m. */
+  landings?: Array<{ corners: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }, { x: number; y: number; z: number }, { x: number; y: number; z: number }]; thickness: number }>;
+  /** The riser height the file states, m, when it does. */
+  riserHeight?: number;
+  storey?: string;
+  globalId?: string;
 }
 
 /** A storey of the file: its name and elevation, m. */
@@ -47,7 +94,7 @@ export interface IfcStorey { name: string; elevation: number }
 export interface IfcMappingResult {
   nodes: Array<{ id: number; x: number; y: number; z: number }>;
   /** Each element with the index of its material and section in the lists below, and the member it was. */
-  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss'; material: number; section: number; member: number }>;
+  elements: Array<{ nodeI: number; nodeJ: number; type: 'frame' | 'truss'; material: number; section: number; member: number; roll?: number; offset?: IfcMember['offset'] }>;
   materials: Array<{ name: string; e: number; nu: number; rho: number }>;
   sections: Array<{
     name: string; a: number; iz: number;
@@ -79,7 +126,8 @@ const TIMBER = { e: 12000, nu: 0.3, rho: 5.0 };
 const ALUMINIUM = { e: 70000, nu: 0.33, rho: 27.0 };
 export const CONCRETE = { e: 30000, nu: 0.2, rho: 25.0 };
 /** An Argentine grade (H-30) names f'c, and E = 4700·√f'c as in CIRSOC 201. */
-function concreteOfFc(fc: number) { return { e: Math.round(4700 * Math.sqrt(fc)), nu: 0.2, rho: 25.0 }; }
+/** Its strength also as `fy`, as the app's concretes keep it: the material family reads it there. */
+function concreteOfFc(fc: number) { return { e: Math.round(4700 * Math.sqrt(fc)), nu: 0.2, rho: 25.0, fc, fy: fc }; }
 
 const MATERIAL_WORDS: Array<[string, { e: number; nu: number; rho: number }]> = [
   ['hormigon', CONCRETE], ['concreto', CONCRETE], ['betao', CONCRETE], ['beton', CONCRETE],
@@ -105,10 +153,13 @@ const MATERIAL_DEFAULTS: Record<string, { e: number; nu: number; rho: number }> 
   aluminum: { e: 70000,  nu: 0.33, rho: 27.0 },
 };
 
-export function materialFor(name: string): { e: number; nu: number; rho: number } | null {
+export function materialFor(name: string): { e: number; nu: number; rho: number; fc?: number; fy?: number } | null {
   const plain = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const key = plain.replace(/[\s_-]/g, '');
-  // An H-grade names f'c, which is the better answer than a family default.
+  // An H-grade names f'c, which is the better answer than a family default: H-25, and the
+  // designations of reinforced, plain and prestressed concrete HA-25, HM-20, HP-35.
+  const ha = key.match(/^h[amp](\d{2})(?!\d)/);
+  if (ha) return concreteOfFc(Number(ha[1]));
   const h = key.match(/h(\d{2})(?!\d)/);
   if (h && /hormigon|concreto|^h\d/.test(key)) return concreteOfFc(Number(h[1]));
   const known = Object.entries(MATERIAL_DEFAULTS).find(([k]) => key.includes(k));
@@ -280,6 +331,8 @@ export function mapIfcToModel(
     material: p.member.materialName !== undefined ? materialIndex.get(p.member.materialName) ?? 0 : 0,
     section: p.member.profileName !== undefined ? sectionIndex.get(p.member.profileName) ?? 0 : 0,
     member: p.member.id,
+    ...(p.member.rollDeg !== undefined ? { roll: p.member.rollDeg } : {}),
+    ...(p.member.offset ? { offset: p.member.offset } : {}),
   }));
 
   return { nodes, elements, materials, sections, warnings };

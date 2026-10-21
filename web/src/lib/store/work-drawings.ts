@@ -26,7 +26,7 @@ import type { DocumentModel } from '../engine/detailing/document-model';
 import type { DrawingInput } from '../sheets/compose';
 import type { SheetFormat } from '../sheets/formats';
 import { boxOf, planScale, type PlanAxis } from '../sheets/plans/plan-common';
-import { formworkPlan, type PlanBeam, type PlanColumn, type PlanSlab, type PlanWall } from '../sheets/plans/formwork-plan';
+import { formworkPlan, mergeCollinearBeams, type PlanBeam, type PlanColumn, type PlanSlab, type PlanWall } from '../sheets/plans/formwork-plan';
 import { columnSchedule, type ColumnLift, type ScheduleColumn } from '../sheets/plans/column-schedule';
 import { foundationPlan, type PlanFooting } from '../sheets/plans/foundation-plan';
 import { punchingPlan, type PunchingJoint } from '../sheets/plans/punching-plan';
@@ -39,6 +39,8 @@ import { columnLapOf } from './column-stack-store';
 import { corbelChecks } from './special-elements';
 import { anchorageFunctions } from '../codes/cirsoc201/anchorage';
 import { CIRSOC201_DESIGN_EDITION } from '../engine/codes/argentina/cirsoc201-basis';
+import { boundaryLoops } from '../model/mesh-boundary';
+import { mergeBoxes, waffleVoids } from '../sheets/plans/waffle-voids';
 import { SLAB_LAYERS, slabBreakdown, slabLayerPlan, slabMarks, type PlanSlabPanel } from '../sheets/plans/slab-plan';
 import { storedDecisions } from './design-decisions';
 import { savedLinePieces } from './beam-line-store';
@@ -104,7 +106,10 @@ function gridOf(): { axes: PlanAxis[]; levels: Array<{ name: string; z: number }
     const zs = [...new Set(frames().filter((f) => isLevel(f) && !isVertical(f)).map((f) => Math.round(f.a.z * 100) / 100))].sort((a, b) => a - b);
     zs.filter((z) => z > TOL).forEach((z, i) => levels.push({ name: `N${i + 1}`, z }));
   }
-  return { axes: g.axes.map((a) => ({ name: a.name, axis: a.axis, at: a.at })), levels: levels.filter((l) => l.z > TOL) };
+  // The lowest level is the base the building stands on; every level above it is a floor, a
+  // ground floor over a basement included.
+  const base = Math.min(0, ...levels.map((l) => l.z));
+  return { axes: g.axes.map((a) => ({ name: a.name, axis: a.axis, at: a.at })), levels: levels.filter((l) => l.z > base + TOL) };
 }
 
 function sectionOf(id: number): PlanColumn['section'] {
@@ -151,20 +156,22 @@ function formwork(c: PlanContext, axes: PlanAxis[], levels: Array<{ name: string
     // pieces the slab's mesh cut it into are one beam on the plan.
     const named = memberNames(), spansDrawn = new Set<string>();
     const P = (id: number) => { const n = m.nodes.get(id)!; return { x: n.x, y: n.y, z: n.z ?? 0 }; };
-    const beams: PlanBeam[] = all.filter((f) => !isVertical(f) && isLevel(f) && Math.abs(f.a.z - lv.z) < TOL).flatMap((f) => {
+    const beams: PlanBeam[] = mergeCollinearBeams(all.filter((f) => !isVertical(f) && isLevel(f) && Math.abs(f.a.z - lv.z) < TOL).flatMap((f) => {
       const s = m.sections.get(f.sectionId);
       const sp = named.span(f.id);
       if (sp && spansDrawn.has(sp.key)) return [];
       if (sp) spansDrawn.add(sp.key);
       return [{ name: named.name(f.id), a: sp ? P(sp.start) : f.a, b: sp ? P(sp.end) : f.b, width: s?.b ?? 0.2, depth: s?.h ?? 0.5 }];
-    });
+    }));
     const slabs: PlanSlab[] = [], walls: PlanWall[] = [];
     for (const g of groups) {
       const ids = [...(g.members.quads ?? []).map((q) => m.quads.get(q)?.nodes), ...(g.members.plates ?? []).map((p) => m.plates.get(p)?.nodes)].flat().filter((n): n is number => n !== undefined);
       const pts = ids.map((n) => m.nodes.get(n)).filter((n): n is NonNullable<typeof n> => !!n).map((n) => ({ x: n.x, y: n.y, z: n.z ?? 0 }));
       if (pts.length < 3) continue;
       if (g.physical.kind === 'slab' && pts.every((p) => Math.abs(p.z - lv.z) < TOL)) {
-        slabs.push({ name: `L${(li + 1) * 100 + slabs.length + 1}`, outline: hull(pts), thickness: physicalThickness(g) ?? 0.12 });
+        const loops = boundaryLoops(shellFaces(g.members), (n) => m.nodes.get(n));
+        const waffle = loops.length ? waffleOf(g, loops) : undefined;
+        slabs.push({ name: `L${(li + 1) * 100 + slabs.length + 1}`, outline: loops[0] ?? hull(pts), ...(loops.length > 1 ? { holes: loops.slice(1) } : {}), thickness: physicalThickness(g) ?? 0.12, ...(waffle ? { waffle } : {}) });
       } else if (g.physical.kind === 'wall' && Math.min(...pts.map((p) => p.z)) < lv.z - TOL && Math.max(...pts.map((p) => p.z)) > lv.z - TOL) {
         const [a, b] = farthest(pts);
         walls.push({ name: g.name || `T${walls.length + 1}`, a, b, thickness: physicalThickness(g) ?? 0.2 });
@@ -272,6 +279,33 @@ function beams(c: PlanContext, doc: DocumentModel | null, axes: PlanAxis[]): Dra
   return out;
 }
 
+/** The node lists of a physical group's shells. */
+function shellFaces(members: { quads?: readonly number[]; plates?: readonly number[] }): number[][] {
+  const m = modelStore.model;
+  const faces: Array<readonly number[] | undefined> = [...(members.quads ?? []).map((q) => m.quads.get(q)?.nodes), ...(members.plates ?? []).map((p) => m.plates.get(p)?.nodes)];
+  return faces.filter((f): f is readonly number[] => !!f).map((f) => [...f]);
+}
+
+/**
+ * A waffle slab's voids and solid zones for its formwork plan, from the rib geometry chosen for it
+ * (the special floors' system) and the elements as deep as the ribs (its drops and solid bands).
+ */
+function waffleOf(g: ReturnType<typeof physicalGroups>[number], loops: Array<Array<{ x: number; y: number }>>): PlanSlab['waffle'] {
+  const rib = g.physical.typology === 'waffle' ? designData().specialFloors?.systems?.[`S${g.id}`]?.ribbed : undefined;
+  if (!rib) return undefined;
+  const m = modelStore.model;
+  const solidBoxes = (g.members.quads ?? []).flatMap((id) => {
+    const q = m.quads.get(id);
+    if (!q || q.thickness < rib.h - 1e-3) return [];
+    const ps = q.nodes.map((n) => m.nodes.get(n)!).filter(Boolean);
+    return [{ x0: Math.min(...ps.map((p) => p.x)), x1: Math.max(...ps.map((p) => p.x)), y0: Math.min(...ps.map((p) => p.y)), y1: Math.max(...ps.map((p) => p.y)) }];
+  });
+  const solids = mergeBoxes(solidBoxes);
+  const voids = waffleVoids({ loops, solids, spacingX: rib.spacingX, spacingY: rib.spacingY ?? rib.spacingX, ribWidth: rib.ribBottom });
+  const cm = (v: number) => Math.round(v * 100);
+  return { voids, solids, label: `${cm(rib.h - rib.c)}+${cm(rib.c)} · ${cm(rib.spacingX)}×${cm(rib.spacingY ?? rib.spacingX)}` };
+}
+
 /** The level's slab panels with the bars they hold: the person's where saved, else the design's. */
 export function levelSlabPanels(): Array<PlanSlabPanel & { z: number }> {
   const m = modelStore.model, saved = storedDecisions().slabs ?? {};
@@ -283,7 +317,8 @@ export function levelSlabPanels(): Array<PlanSlabPanel & { z: number }> {
     const shell = m.quads.get(id) ?? m.plates.get(id);
     const n = shell && m.nodes.get((shell as { nodes: number[] }).nodes[0]!);
     const i = s.panel.input;
-    out.push({ id: s.panelId, x0: i.x0, x1: i.x1, y0: i.y0, y1: i.y1, reinforcement: saved[s.panelId] ?? s.panel.reinforcement, z: n?.z ?? 0 });
+    const outline = boundaryLoops(i.elements.map((e) => (m.quads.get(e.id) ?? m.plates.get(e.id))?.nodes ?? []), (k) => m.nodes.get(k));
+    out.push({ id: s.panelId, x0: i.x0, x1: i.x1, y0: i.y0, y1: i.y1, reinforcement: saved[s.panelId] ?? s.panel.reinforcement, z: n?.z ?? 0, ...(outline.length ? { outline } : {}) });
   }
   return out;
 }

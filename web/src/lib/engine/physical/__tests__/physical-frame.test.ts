@@ -243,3 +243,25 @@ describe('what it does not cut', () => {
     expect(f.solids).toEqual([]);
   });
 });
+
+describe('a beam that kinks by half a degree at a column', () => {
+  // Column 300×300, z 0 to 3; a 300×500 beam arrives along +y and leaves at 0,5° off it, both
+  // centred on the node at z 3. Read as two beams crossing, their widths overlapped along a sliver
+  // w / sin θ long, and the joint took metres of it (60 m³ at one column of a reconstructed
+  // building). Within about 10° of one line the two are one beam through the joint.
+  const a = (0.5 * Math.PI) / 180;
+  const input: PhysicalFrameInput = {
+    nodes: [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 0, z: 3 }, { id: 3, x: 0, y: -5, z: 3 }, { id: 4, x: 5 * Math.sin(a), y: 5 * Math.cos(a), z: 3 }],
+    elements: [{ id: 1, nodeI: 1, nodeJ: 2, sectionId: 1 }, { id: 2, nodeI: 3, nodeJ: 2, sectionId: 3 }, { id: 3, nodeI: 2, nodeJ: 4, sectionId: 3 }],
+    sections: [col300, { id: 3, b: 0.3, h: 0.5 }], elementIds: [1, 2, 3],
+  };
+  const f = buildPhysicalFrame(input);
+
+  it('keeps the joint to the column and the beam crossing it: about 0,045 m³, not metres of sliver', () => {
+    const j = f.joint.get(2)!;
+    expect(j.volume).toBeLessThan(0.1);
+    // The whole frame is about its node-to-node volume less the overlaps: 0.09·3 + 2·5·0.3·0.5.
+    expect(frameVolume(f)).toBeLessThan(0.09 * 3 + 2 * 5 * 0.15 + 1e-6);
+    expect(frameVolume(f)).toBeGreaterThan(0.09 * 3 + 2 * 5 * 0.15 - 0.1);
+  });
+});

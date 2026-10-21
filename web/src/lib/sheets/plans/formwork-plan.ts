@@ -11,7 +11,13 @@ import { boxOf, drawAxes, levelMark, rectAt, type PlanAxis } from './plan-common
 
 export interface PlanColumn { name: string; at: { x: number; y: number }; section: { kind: 'rect'; b: number; h: number; rotDeg?: number } | { kind: 'circle'; D: number } | { kind: 'other'; label: string; b: number; h: number } }
 export interface PlanBeam { name: string; a: { x: number; y: number }; b: { x: number; y: number }; width: number; depth: number }
-export interface PlanSlab { name: string; outline: Array<{ x: number; y: number }>; thickness: number }
+export interface PlanSlab {
+  name: string; outline: Array<{ x: number; y: number }>; thickness: number;
+  /** Openings through the slab, drawn crossed. */
+  holes?: Array<Array<{ x: number; y: number }>>;
+  /** A waffle slab: its voids between the ribs and its solid zones (drops), seen from above. */
+  waffle?: { voids: Array<{ x0: number; x1: number; y0: number; y1: number }>; solids: Array<{ x0: number; x1: number; y0: number; y1: number }>; label: string };
+}
 export interface PlanWall { name: string; a: { x: number; y: number }; b: { x: number; y: number }; thickness: number }
 
 export interface FormworkInput {
@@ -27,6 +33,39 @@ export interface FormworkInput {
 const k = 1000;
 const mm = (p: { x: number; y: number }): P => ({ x: p.x * k, y: p.y * k });
 const cm = (v: number) => String(Math.round(v * 100));
+
+/**
+ * Beams of one name and section that continue one another (collinear, end to end) drawn as one: a
+ * member the slab's mesh cut into pieces, with no support between them to make spans of, is one
+ * beam on the plan with one label, not a label per piece.
+ */
+export function mergeCollinearBeams(beams: readonly PlanBeam[]): PlanBeam[] {
+  const out: PlanBeam[] = [];
+  const same = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3;
+  const collinear = (u: PlanBeam, v: PlanBeam) => {
+    const dx = u.b.x - u.a.x, dy = u.b.y - u.a.y, L = Math.hypot(dx, dy) || 1;
+    const off = (p: { x: number; y: number }) => Math.abs(dx * (p.y - u.a.y) - dy * (p.x - u.a.x)) / L;
+    return off(v.a) < 1e-3 && off(v.b) < 1e-3;
+  };
+  const pending = [...beams];
+  while (pending.length) {
+    let cur = pending.shift()!;
+    for (let grew = true; grew;) {
+      grew = false;
+      for (let i = 0; i < pending.length; i++) {
+        const o = pending[i]!;
+        if (o.name !== cur.name || o.width !== cur.width || o.depth !== cur.depth || !collinear(cur, o)) continue;
+        const ends = [[cur.a, cur.b], [cur.b, cur.a]] as const;
+        const hit = ends.flatMap(([keep, at]) => [[o.a, o.b], [o.b, o.a]].filter(([touch]) => same(at, touch!)).map(([, far]) => ({ keep, far: far! })))[0];
+        if (!hit) continue;
+        cur = { ...cur, a: hit.keep, b: hit.far };
+        pending.splice(i, 1); grew = true; break;
+      }
+    }
+    out.push(cur);
+  }
+  return out;
+}
 
 export function columnOutline(c: PlanColumn): Primitive {
   const at = mm(c.at);
@@ -46,11 +85,24 @@ export function formworkPlan(i: FormworkInput, title: string, fmt: (v: number) =
   for (const a of i.axes) pts.push(a.axis === 'x' ? { x: a.at * k, y: pts[0]?.y ?? 0 } : { x: pts[0]?.x ?? 0, y: a.at * k });
   const box = boxOf(pts.length ? pts : [{ x: 0, y: 0 }]);
 
+  // Drops named in reading order over the whole level (A1, A2…), with their plan size.
+  const drops = i.slabs.flatMap((sl) => sl.waffle?.solids ?? []).sort((p, q) => (q.y1 + q.y0) - (p.y1 + p.y0) || (p.x0 + p.x1) - (q.x0 + q.x1));
   for (const sl of i.slabs) {
     const o = sl.outline.map(mm);
     out.push({ kind: 'polyline', layer: 'FW-OUTLINE', closed: true, points: o });
+    for (const h of sl.holes ?? []) {
+      const q = h.map(mm), b = boxOf(q);
+      out.push({ kind: 'polyline', layer: 'FW-OUTLINE', closed: true, points: q });
+      out.push({ kind: 'line', layer: 'FW-HIDDEN', a: { x: b.x0, y: b.y0 }, b: { x: b.x1, y: b.y1 } }, { kind: 'line', layer: 'FW-HIDDEN', a: { x: b.x0, y: b.y1 }, b: { x: b.x1, y: b.y0 } });
+    }
+    // Below the topping, so hidden from above: the voids between the ribs and the drops' edges.
+    for (const r of sl.waffle?.voids ?? []) out.push({ kind: 'polyline', layer: 'FW-HIDDEN', closed: true, points: [{ x: r.x0 * k, y: r.y0 * k }, { x: r.x1 * k, y: r.y0 * k }, { x: r.x1 * k, y: r.y1 * k }, { x: r.x0 * k, y: r.y1 * k }] });
+    for (const r of sl.waffle?.solids ?? []) {
+      out.push({ kind: 'polyline', layer: 'FW-OUTLINE', closed: true, points: [{ x: r.x0 * k, y: r.y0 * k }, { x: r.x1 * k, y: r.y0 * k }, { x: r.x1 * k, y: r.y1 * k }, { x: r.x0 * k, y: r.y1 * k }] });
+      out.push({ kind: 'text', layer: 'FW-TAG', at: { x: r.x0 * k + 1.2 * s, y: r.y1 * k - 3 * s }, text: `A${drops.indexOf(r) + 1} ${cm(r.x1 - r.x0)}×${cm(r.y1 - r.y0)}`, height: th });
+    }
     const c = o.reduce((a, p) => ({ x: a.x + p.x / o.length, y: a.y + p.y / o.length }), { x: 0, y: 0 });
-    out.push({ kind: 'text', layer: 'FW-TAG', at: c, text: `${sl.name} — h ${cm(sl.thickness)}`, height: th * 1.1, align: 'center' });
+    out.push({ kind: 'text', layer: 'FW-TAG', at: c, text: sl.waffle ? `${sl.name} — ${sl.waffle.label}` : `${sl.name} — h ${cm(sl.thickness)}`, height: th * 1.1, align: 'center' });
   }
   for (const b of i.beams) {
     const A = mm(b.a), B = mm(b.b), L = Math.hypot(B.x - A.x, B.y - A.y) || 1;

@@ -1,4 +1,5 @@
 // Pure picking / intersection utilities extracted from Viewport3D.svelte
+import { shellOfMemberHit } from './shell-members';
 import * as THREE from 'three';
 import { findUserData } from '../three/selection-helpers';
 import { planeNormal, type WorkingPlane3D } from '../geometry/coordinate-system';
@@ -87,6 +88,7 @@ export function resolveHitUserData(hit: THREE.Intersection): { type: string; id:
     const id = indexToId?.[hit.instanceId];
     return id === undefined ? null : { type: 'node', id };
   }
+  if (ud?.type === 'shellMember') return shellOfMemberHit(hit);
   if (ud?.type === 'elementPick') {
     if (hit.instanceId === undefined) return null;
     const indexToId = (hit.object.userData as { indexToId?: number[] }).indexToId;

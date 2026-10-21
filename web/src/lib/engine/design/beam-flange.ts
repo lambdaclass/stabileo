@@ -103,3 +103,66 @@ export function beamFlanges(m: FlangeModel): Map<number, PlacedFlange> {
   }
   return out;
 }
+
+/**
+ * The beams that lie in the plane of a slab cast with their top, whether or not the slab's mesh
+ * shares both their end nodes: the slab's diaphragm then carries their in-plane bending
+ * (`withSlabDiaphragm`). A flange is a narrower question (the slab in the compression zone, which
+ * needs the slab along the beam's edges); a beam embedded in a slab meshed past it, or joined to it
+ * at its ends by rigid links, has no flange the model can measure, and still has the slab around it.
+ *
+ * Read in plan: the beam's midpoint inside a horizontal shell at its level or within half its width
+ * of one (an edge beam whose axis lies past the slab's edge, the slab cast against its face), or an
+ * end node shared with one, where the insertions put the slab's top at the beam's (as
+ * `beamFlanges` reads them).
+ */
+export function beamsInSlabPlane(m: FlangeModel): Set<number> {
+  const out = new Set<number>();
+  type Q = { q: { id: number; nodes: number[]; thickness: number; offset?: ShellOffset }; pts: Node[]; x0: number; x1: number; y0: number; y1: number };
+  const byLevel = new Map<number, Q[]>();
+  const key = (z: number) => Math.round(z * 1000);
+  for (const q of m.quads.values()) {
+    const pts = q.nodes.map((id) => m.nodes.get(id)).filter((p): p is Node => !!p);
+    if (pts.length < 3 || pts.some((p) => Math.abs((p.z ?? 0) - (pts[0]!.z ?? 0)) > 1e-3)) continue;
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const e = { q, pts, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    const k = key(pts[0]!.z ?? 0);
+    (byLevel.get(k) ?? byLevel.set(k, []).get(k)!).push(e);
+  }
+  const near = (x: number, y: number, pts: readonly Node[], r: number) => {
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[j]!, b = pts[i]!, dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)) : 0;
+      if (Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy)) <= r) return true;
+    }
+    return false;
+  };
+  const inside = (x: number, y: number, pts: readonly Node[]) => {
+    let c = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i]!, b = pts[j]!;
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  };
+  for (const e of m.elements.values()) {
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+    const h = m.sections.get(e.sectionId)?.h, r = (m.sections.get(e.sectionId)?.b ?? 0) / 2 + FLUSH_TOLERANCE;
+    if (!a || !b || !h || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+    const line = memberReferenceLine(e, a, b, m.sections);
+    const beamTop = Math.max(line.i.z, line.j.z) + h / 2;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    for (const s of byLevel.get(key(a.z ?? 0)) ?? []) {
+      const touches = s.q.nodes.includes(e.nodeI) || s.q.nodes.includes(e.nodeJ)
+        || (mx >= s.x0 - r && mx <= s.x1 + r && my >= s.y0 - r && my <= s.y1 + r && (inside(mx, my, s.pts) || near(mx, my, s.pts, r)));
+      if (!touches) continue;
+      if (hasShellOffset(s.q) || hasMemberOffset(e)) {
+        const so = hasShellOffset(s.q) ? resolveShellOffsetGlobal(s.q.offset!, s.pts.map((p) => ({ x: p.x, y: p.y, z: p.z ?? 0 }))) : { x: 0, y: 0, z: 0 };
+        if (!so || Math.abs(beamTop - ((a.z ?? 0) + so.z)) > s.q.thickness / 2 + FLUSH_TOLERANCE) continue;
+      }
+      out.add(e.id);
+      break;
+    }
+  }
+  return out;
+}
