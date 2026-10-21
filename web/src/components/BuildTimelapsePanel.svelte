@@ -61,6 +61,7 @@
     t(CAMERAS.find((c) => c.id === buildTimelapse.camera)!.key),
     buildTimelapse.sound !== 'off' ? t(SOUNDS.find((x) => x.id === buildTimelapse.sound)!.key) : null,
     buildTimelapse.texts ? t('timelapse.texts') : null,
+    buildTimelapse.envelope ? t('timelapse.envelopeShort') : null,
   ].filter(Boolean).join(' · '));
 
   let recorder: MediaRecorder | null = null;
@@ -254,6 +255,8 @@
         <label class="tl-check"><input type="checkbox" bind:checked={buildTimelapse.highlight} />{t('timelapse.highlight')}</label>
         <label class="tl-check"><input type="checkbox" bind:checked={buildTimelapse.cleanBackground} disabled={buildTimelapse.style === 'studio'} />{t('timelapse.clean')}</label>
         <label class="tl-check"><input type="checkbox" bind:checked={buildTimelapse.texts} />{t('timelapse.texts')}</label>
+        <!-- A picture only: the façades of a building, clad and glazed once the structure stands. -->
+        <label class="tl-check" title={t('timelapse.envelopeTip')}><input type="checkbox" bind:checked={buildTimelapse.envelope} data-testid="timelapse-envelope" />{t('timelapse.envelope')}</label>
       </div>
       {#if buildTimelapse.texts}
         <label class="tl-field tl-title-field">
