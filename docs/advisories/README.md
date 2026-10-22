@@ -4,10 +4,10 @@ Advisories for released versions that produced wrong or unconservative results. 
 severity scale, notification channels, timelines and template are in
 [../SAFETY_ADVISORIES.md](../SAFETY_ADVISORIES.md).
 
-**All advisories below are published** (2026-10-21, with release 0.3.0): SA-2026-001…004 are
+**SA-2026-001…020 are published** (2026-10-21, with release 0.3.0): SA-2026-001…004 are
 retroactive, for defects fixed in 0.2.0; SA-2026-005…020 were fixed in 0.3.0. Each has a GitHub
 issue labelled `safety-advisory`, a section in the release notes and an entry in the in-app
-re-check registry where the app could produce the result.
+re-check registry where the app could produce the result. SA-2026-021 is a draft.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -31,6 +31,7 @@ re-check registry where the app could produce the result.
 | [SA-2026-018](SA-2026-018-mitc9-curved-rigid-motion.md) | MITC9 shells (engine/WASM only) on curved geometry strained by rigid-body motion (101 MPa from a 1 mrad rotation) | Medium | [#411](https://github.com/lambdaclass/stabileo/issues/411) | #528 | 0.3.0 | Published 2026-10-21 |
 | [SA-2026-019](SA-2026-019-frame-thermal-alpha-depth.md) | Frame and truss temperature loads assumed steel's α and a solid rectangle's depth (gradient moments up to ~30 % low on I sections) | Medium | [#407](https://github.com/lambdaclass/stabileo/issues/407) | #531 | 0.3.0 | Published 2026-10-21 |
 | [SA-2026-020](SA-2026-020-material-nonlinear-3d-yield-surface.md) | 3D material-nonlinear solver (engine/WASM only) used a yield surface less conservative than 2D (first yield up to 15 % late at N = 0.5·Np) | Medium | [#429](https://github.com/lambdaclass/stabileo/issues/429) | #529 | 0.3.0 | Published 2026-10-21 |
+| [SA-2026-021](SA-2026-021-column-moment-sign.md) | RC column check read one sign of the moment: uneven bar layouts (6, 10, 14… bars) passed on the stronger sign (φMn up to 38 % high) | Critical | — | `fix/d4-01-column-both-signs` | — | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

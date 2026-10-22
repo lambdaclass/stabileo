@@ -39,6 +39,7 @@ export const safetyAdvisories: Post = {
           caption: 'Avisos publicados. Severidad: crítica cuando la capacidad o la demanda podían quedar muy del lado inseguro sin señal visible.',
           head: ['Aviso', 'Qué', 'Severidad', 'Estado'],
           rows: [
+            ['SA-2026-021', 'Columnas de hormigón armado: la verificación leía un solo signo del momento; con barras desparejas (6, 10, 14…) aprobaba con el lado más fuerte', 'Crítica', 'Borrador: corrección en revisión'],
             ['SA-2026-013', 'Láminas curvas: momentos flectores informados como cero; tensiones con la deformación térmica libre', 'Alta', 'Corregido en 0.3.0'],
             ['SA-2026-014', 'Colapso plástico 3D: el factor dependía de la numeración de las barras (hasta 2,4 veces la carga de colapso)', 'Alta', 'Corregido en 0.3.0'],
             ['SA-2026-015', 'Cables con peso propio con tracción baja en estructuras hiperestáticas', 'Alta', 'Corregido en 0.3.0'],
@@ -66,6 +67,7 @@ export const safetyAdvisories: Post = {
           caption: 'Casos documentados en cada aviso: el valor correcto y el que informaba Stabileo.',
           head: ['Aviso', 'Caso', 'Correcto', 'Informado', 'Unidad'],
           rows: [
+            ['SA-2026-021', 'Columna de 30×30 cm, 6 Ø20 (tres en la cara inferior), Nu = 100 kN: φMn con la cara de tres barras comprimida', '78,57', '101,57', 'kN·m'],
             ['SA-2026-013', 'Ménsula de cuatro láminas curvas de 4 × 1 × 0,2 m, 10 kN en la punta: mx en el elemento del empotramiento', '35,0', '0', 'kN·m/m'],
             ['SA-2026-014', 'Pórtico espacial de 10 barras (frame3d-2) renumerado: factor de colapso plástico', '176,47', '424,3', '—'],
             ['SA-2026-015', 'Mástil de 20 m arriostrado con un cable de acero de 1 cm², 5 kN en el tope: tracción del cable', '5,18', '4,34', 'kN'],
@@ -83,6 +85,18 @@ export const safetyAdvisories: Post = {
             ['SA-2026-009', 'Placa delgada en flexión, ν = 0,3: rigidez relativa a la correcta', '1,000', '1,225', '—'],
           ],
         },
+
+        { k: 'h', t: 'SA-2026-021: columnas de hormigón armado con barras desparejas' },
+        { k: 'p', t: 'Los momentos de cada estación llegan a la verificación de columnas como valores absolutos, pero la capacidad a flexión compuesta en un eje se calculaba con un solo signo, con la cara superior comprimida. Con 6, 10, 14, 18 o 22 barras el diseñador pone las barras de más en la cara inferior y en la derecha, así que ese es el signo fuerte: con el momento al revés la capacidad es menor y nunca se verificaba. Una columna de 30×30 cm con 6 Ø20 y 100 kN de compresión resiste 101,57 kN·m en un sentido y 78,57 en el otro, y aprobaba Mu = 100 kN·m. Afecta la verificación de columnas CIRSOC 201 en flexión en un eje (la de las barras que tiene la barra, la del diseñador y la del control del motor); la verificación biaxial ya tomaba el peor cuadrante.' },
+        {
+          k: 'ul',
+          items: [
+            'Cómo saber si te afecta: el modelo tiene columnas de hormigón verificadas con CIRSOC 201 cuyas barras no son simétricas respecto del eje de flexión: 6, 10, 14, 18 o 22 barras del diseñador, o caras cargadas a mano con distinta cantidad de barras en caras opuestas.',
+            'Qué hacer: hasta que la corrección esté publicada, usá disposiciones simétricas (4, 8, 12, 16, 20 o 24 barras, o caras opuestas iguales), o verificá la columna también con las barras espejadas: manda la menor de las dos capacidades.',
+            'Estado: borrador; la corrección está en revisión. El motor calcula los dos signos y toma el más débil; las disposiciones simétricas dan exactamente lo mismo que antes.',
+          ],
+        },
+        { k: 'ext', href: `${REPO}/SA-2026-021-column-moment-sign.md`, label: 'SA-2026-021 completo', t: 'El aviso, con el caso de prueba:' },
 
         { k: 'h', t: 'SA-2026-014: colapso plástico 3D dependiente de la numeración' },
         { k: 'p', t: 'Con flexión biaxial, los controles que cierran una rótula que gira hacia atrás y reabren una cerrada que sale de la superficie de fluencia podían entrar en ciclo. El solver seguía desde el estado en que el orden de las barras lo dejaba y llevaba una sección cerrada fuera de la superficie de fluencia: la misma estructura, renumerada, informaba factores de colapso entre 75,9 y 424,3, con un valor certificado de 176,47. Ahora el análisis se detiene en el último estado consistente e informa ese factor como cota inferior, con un aviso, el mismo con cualquier numeración. Afecta el pushover de la pestaña Pro en 3D.' },
@@ -230,6 +244,7 @@ export const safetyAdvisories: Post = {
           caption: 'Published advisories. Severity: critical when capacity or demand could be far on the unsafe side with no visible sign.',
           head: ['Advisory', 'What', 'Severity', 'Status'],
           rows: [
+            ['SA-2026-021', 'RC columns: the check read one sign of the moment; uneven bar layouts (6, 10, 14…) passed on the stronger side', 'Critical', 'Draft: fix in review'],
             ['SA-2026-013', 'Curved shells: bending moments reported as zero; stresses kept the free thermal strain', 'High', 'Fixed in 0.3.0'],
             ['SA-2026-014', '3D plastic collapse: the factor depended on the element numbering (up to 2.4 times the collapse load)', 'High', 'Fixed in 0.3.0'],
             ['SA-2026-015', 'Cables with self-weight got too little tension in indeterminate structures', 'High', 'Fixed in 0.3.0'],
@@ -257,6 +272,7 @@ export const safetyAdvisories: Post = {
           caption: 'Cases documented in each advisory: the correct value and the one Stabileo reported.',
           head: ['Advisory', 'Case', 'Correct', 'Reported', 'Unit'],
           rows: [
+            ['SA-2026-021', 'Column 30×30 cm, 6 Ø20 (three on the bottom face), Nu = 100 kN: φMn with the three-bar face compressed', '78.57', '101.57', 'kN·m'],
             ['SA-2026-013', 'Cantilever of four curved shells, 4 × 1 × 0.2 m, 10 kN at the tip: mx at the root element', '35.0', '0', 'kN·m/m'],
             ['SA-2026-014', '10-member space frame (frame3d-2), renumbered: plastic collapse factor', '176.47', '424.3', '—'],
             ['SA-2026-015', '20 m guyed mast, 1 cm² steel guy, 5 kN at the top: guy tension', '5.18', '4.34', 'kN'],
@@ -274,6 +290,18 @@ export const safetyAdvisories: Post = {
             ['SA-2026-009', 'Thin plate in bending, ν = 0.3: stiffness relative to the correct value', '1.000', '1.225', '—'],
           ],
         },
+
+        { k: 'h', t: 'SA-2026-021: RC columns with uneven bar layouts' },
+        { k: 'p', t: 'The station moments reach the column check as magnitudes, but the capacity under axial force and bending about one axis was computed for one sign only, with the top face compressed. With 6, 10, 14, 18 or 22 bars the designer puts the extra bars on the bottom and right faces, so that is the strong sign: with the moment reversed the capacity is lower, and it was never checked. A 30×30 cm column with 6 Ø20 under 100 kN of compression carries 101.57 kN·m one way and 78.57 the other, and passed Mu = 100 kN·m. It affects the CIRSOC 201 column check under bending about one axis (of the bars a member has, of the designer, and of the engine’s re-check); the biaxial check already took the worst quadrant.' },
+        {
+          k: 'ul',
+          items: [
+            'How to tell if it affects you: the model has concrete columns checked by CIRSOC 201 whose bars are not symmetric about the bending axis: 6, 10, 14, 18 or 22 bars from the designer, or faces entered by hand with a different number of bars on opposite faces.',
+            'What to do: until the fix is live, use symmetric layouts (4, 8, 12, 16, 20 or 24 bars, or equal opposite faces), or check the column also with the bars mirrored: the smaller of the two capacities governs.',
+            'Status: draft; the fix is in review. The engine computes both signs and takes the weaker; symmetric layouts give exactly what they gave before.',
+          ],
+        },
+        { k: 'ext', href: `${REPO}/SA-2026-021-column-moment-sign.md`, label: 'Full SA-2026-021', t: 'The advisory, with the test case:' },
 
         { k: 'h', t: 'SA-2026-014: 3D plastic collapse depended on the numbering' },
         { k: 'p', t: 'Under biaxial bending, the checks that close a hinge turning backwards and reopen a closed one pushed out of the yield surface could cycle. The solver went on from whichever state the element order left it in and pushed a closed section through the yield surface: the same structure, renumbered, reported collapse factors from 75.9 to 424.3, against a certified 176.47. The analysis now stops at the last consistent state and reports that factor as a lower bound, with a warning, the same for any numbering. It affects the 3D pushover of the Pro tab.' },
@@ -421,6 +449,7 @@ export const safetyAdvisories: Post = {
           caption: 'Avisos publicados. Severidade: crítica quando a capacidade ou a solicitação podiam ficar muito contra a segurança sem sinal visível.',
           head: ['Aviso', 'O quê', 'Severidade', 'Situação'],
           rows: [
+            ['SA-2026-021', 'Pilares de concreto armado: a verificação lia um só sinal do momento; com barras desiguais (6, 10, 14…) aprovava com o lado mais forte', 'Crítica', 'Rascunho: correção em revisão'],
             ['SA-2026-013', 'Cascas curvas: momentos fletores informados como zero; tensões com a deformação térmica livre', 'Alta', 'Corrigido na 0.3.0'],
             ['SA-2026-014', 'Colapso plástico 3D: o fator dependia da numeração das barras (até 2,4 vezes a carga de colapso)', 'Alta', 'Corrigido na 0.3.0'],
             ['SA-2026-015', 'Cabos com peso próprio com tração baixa em estruturas hiperestáticas', 'Alta', 'Corrigido na 0.3.0'],
@@ -448,6 +477,7 @@ export const safetyAdvisories: Post = {
           caption: 'Casos documentados em cada aviso: o valor correto e o que o Stabileo informava.',
           head: ['Aviso', 'Caso', 'Correto', 'Informado', 'Unidade'],
           rows: [
+            ['SA-2026-021', 'Pilar de 30×30 cm, 6 Ø20 (três na face inferior), Nu = 100 kN: φMn com a face de três barras comprimida', '78,57', '101,57', 'kN·m'],
             ['SA-2026-013', 'Balanço de quatro cascas curvas de 4 × 1 × 0,2 m, 10 kN na ponta: mx no elemento do engaste', '35,0', '0', 'kN·m/m'],
             ['SA-2026-014', 'Pórtico espacial de 10 barras (frame3d-2) renumerado: fator de colapso plástico', '176,47', '424,3', '—'],
             ['SA-2026-015', 'Mastro de 20 m estaiado com cabo de aço de 1 cm², 5 kN no topo: tração do cabo', '5,18', '4,34', 'kN'],
@@ -465,6 +495,18 @@ export const safetyAdvisories: Post = {
             ['SA-2026-009', 'Placa fina em flexão, ν = 0,3: rigidez relativa à correta', '1,000', '1,225', '—'],
           ],
         },
+
+        { k: 'h', t: 'SA-2026-021: pilares de concreto armado com barras desiguais' },
+        { k: 'p', t: 'Os momentos de cada estação chegam à verificação de pilares como valores absolutos, mas a capacidade à flexão composta em um eixo era calculada com um só sinal, com a face superior comprimida. Com 6, 10, 14, 18 ou 22 barras o dimensionador põe as barras a mais na face inferior e na direita, então esse é o sinal forte: com o momento invertido a capacidade é menor e nunca era verificada. Um pilar de 30×30 cm com 6 Ø20 e 100 kN de compressão resiste 101,57 kN·m em um sentido e 78,57 no outro, e aprovava Mu = 100 kN·m. Afeta a verificação de pilares CIRSOC 201 em flexão em um eixo (a das barras que a barra tem, a do dimensionador e a do controle do motor); a verificação biaxial já tomava o pior quadrante.' },
+        {
+          k: 'ul',
+          items: [
+            'Como saber se afeta você: o modelo tem pilares de concreto verificados com CIRSOC 201 cujas barras não são simétricas em relação ao eixo de flexão: 6, 10, 14, 18 ou 22 barras do dimensionador, ou faces preenchidas à mão com quantidades diferentes de barras em faces opostas.',
+            'O que fazer: até a correção estar publicada, use disposições simétricas (4, 8, 12, 16, 20 ou 24 barras, ou faces opostas iguais), ou verifique o pilar também com as barras espelhadas: vale a menor das duas capacidades.',
+            'Situação: rascunho; a correção está em revisão. O motor calcula os dois sinais e toma o mais fraco; as disposições simétricas dão exatamente o mesmo que antes.',
+          ],
+        },
+        { k: 'ext', href: `${REPO}/SA-2026-021-column-moment-sign.md`, label: 'SA-2026-021 completo', t: 'O aviso, com o caso de teste:' },
 
         { k: 'h', t: 'SA-2026-014: colapso plástico 3D dependente da numeração' },
         { k: 'p', t: 'Com flexão biaxial, as verificações que fecham uma rótula que gira para trás e reabrem uma fechada que sai da superfície de escoamento podiam entrar em ciclo. O solver seguia a partir do estado em que a ordem das barras o deixava e levava uma seção fechada para fora da superfície de escoamento: a mesma estrutura, renumerada, informava fatores de colapso entre 75,9 e 424,3, com um valor certificado de 176,47. Agora a análise para no último estado consistente e informa esse fator como limite inferior, com um aviso, o mesmo com qualquer numeração. Afeta o pushover da aba Pro em 3D.' },

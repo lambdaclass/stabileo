@@ -1356,6 +1356,12 @@ function columnCapacity(
   geometryAware: boolean;
   strainCompatible: boolean;
   cNeutral?: number;    // neutral axis depth (m) when strain-compatible
+  /**
+   * Which sign of the moment governs φMn, when strain-compatible: +1 with the +y face (top for
+   * 'z', +x for 'y') compressed, −1 with the opposite face. The demand arrives as a magnitude,
+   * so the weaker sign is the capacity; cNeutral is measured from that sign's compressed face.
+   */
+  momentSign?: 1 | -1;
   status: 'ok' | 'warn' | 'fail';
 } {
   const Ag = b * h;
@@ -1375,12 +1381,13 @@ function columnCapacity(
   let geometryAware = false;
   let strainCompatible = false;
   let cNeutral: number | undefined;
+  let momentSign: 1 | -1 | undefined;
 
   if (bars && bars.length >= 4) {
     geometryAware = true;
     strainCompatible = true;
 
-    ({ phiMn, phiPtMax, cNeutral } = solveSection
+    ({ phiMn, phiPtMax, cNeutral, momentSign } = solveSection
       ? solveSection(Nu, axis)
       : solveColumnSection(columnSectionData(AsProv_cm2, b, h, fc, fy, bars, axis, edition), Nu));
   } else {
@@ -1424,7 +1431,7 @@ function columnCapacity(
   return {
     phiPn: +phiPn.toFixed(1), phiMn: +phiMn.toFixed(2),
     ratio: +ratio, rhoPercent, rhoOk,
-    geometryAware, strainCompatible, cNeutral, status,
+    geometryAware, strainCompatible, cNeutral, momentSign, status,
   };
 }
 
@@ -1433,7 +1440,7 @@ interface ColumnSectionData {
   fy: number; b1: number; phiPn: number; edition: RegulationEdition;
   barData: Array<{ d: number; area_m2: number }>;
 }
-interface ColumnSectionSolution { phiMn: number; phiPtMax: number; cNeutral: number }
+interface ColumnSectionSolution { phiMn: number; phiPtMax: number; cNeutral: number; momentSign: 1 | -1 }
 type ColumnSectionSolve = (Nu: number, axis: 'z' | 'y') => ColumnSectionSolution;
 
 function columnSectionData(As: number, b: number, h: number, fc: number, fy: number,
@@ -1454,7 +1461,8 @@ function columnSectionData(As: number, b: number, h: number, fc: number, fy: num
  * One call per batch, with all equilibrium iterations inside Rust: the CIRSOC 201 section
  * engine (`column_capacity_kernel.rs` → `cirsoc201_section.rs`). Without the engine the column
  * is not computed: this throws. (A TypeScript copy of the bisection used to stand in; it is the
- * tests' oracle now, `__tests__/differential/oracle/column-section.ts`.)
+ * tests' oracle now, `__tests__/differential/oracle/column-section.ts`.) The capacity is the
+ * weaker of the two moment signs: the station moments are magnitudes.
  */
 function solveColumnSections(data: ColumnSectionData, loads: readonly number[]): ColumnSectionSolution[] {
   const kernel = getColumnCapacityKernel();
@@ -1469,9 +1477,10 @@ function solveColumnSections(data: ColumnSectionData, loads: readonly number[]):
   const phiPtMax = -0.9 * data.fy_kPa * barData.reduce((t, b) => t + b.area_m2, 0);
   let k = 0;
   return loads.map((load) => {
-    if (!Number.isFinite(load)) return { phiMn: 0, phiPtMax, cNeutral: NaN };
+    if (!Number.isFinite(load)) return { phiMn: 0, phiPtMax, cNeutral: NaN, momentSign: 1 };
     const i = k++;
-    return { phiMn: values[i * 3], phiPtMax: values[i * 3 + 1], cNeutral: +values[i * 3 + 2].toFixed(4) };
+    return { phiMn: values[i * 4], phiPtMax: values[i * 4 + 1], cNeutral: +values[i * 4 + 2].toFixed(4),
+      momentSign: values[i * 4 + 3] < 0 ? -1 : 1 };
   });
 }
 function solveColumnSection(data: ColumnSectionData, Nu: number): ColumnSectionSolution {

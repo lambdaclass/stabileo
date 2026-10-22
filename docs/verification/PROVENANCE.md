@@ -35,7 +35,7 @@ not exist.
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
 all at results version 1 (#328, 2026-10-21). Version 2 holds the fixes merged with 0.3.0 after
-that (SA-2026-013 to 017 and 019).
+that (SA-2026-013 to 017 and 019); version 3, the column moment sign (SA-2026-021).
 
 ## Solve stamps and the re-check prompt
 

@@ -297,6 +297,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     // (docs/advisories/SA-2026-*.md).
     const cases = post!.i18n.en.blocks.filter((b) => b.k === 'table')[1] as Extract<Block, { k: 'table' }>;
     expect(cases.rows.map((r) => [r[0], r[2], r[3]])).toEqual([
+      ['SA-2026-021', '78.57', '101.57'],
       ['SA-2026-013', '35.0', '0'],
       ['SA-2026-014', '176.47', '424.3'],
       ['SA-2026-015', '5.18', '4.34'],

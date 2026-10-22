@@ -1,8 +1,27 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 2,
+  "currentResultsVersion": 3,
   "changes": [
+    {
+      "id": "column-capacity-both-signs",
+      "resultsVersion": 3,
+      "date": "2026-10-22",
+      "prs": [590],
+      "area": "design",
+      "when": { "any": ["cirsoc201"] },
+      "title": {
+        "en": "RC columns are checked for both signs of the moment",
+        "es": "Las columnas de hormigón armado se verifican con los dos signos del momento",
+        "pt": "Os pilares de concreto armado são verificados com os dois sinais do momento"
+      },
+      "explanation": {
+        "en": "A CIRSOC 201 column whose bars are not symmetric about the bending axis (6, 10, 14… bars, or faces with different counts) was checked with one face compressed only; the other side is weaker (30×30, 6 Ø20, Nu 100 kN: 78.57 instead of 101.57 kN·m), so columns may now fail or need more bars (SA-2026-021).",
+        "es": "Una columna CIRSOC 201 con barras no simétricas respecto del eje de flexión (6, 10, 14… barras, o caras con distinta cantidad) se verificaba con una sola cara comprimida; el otro lado es más débil (30×30, 6 Ø20, Nu 100 kN: 78,57 en lugar de 101,57 kN·m), así que hay columnas que ahora no verifican o piden más barras (SA-2026-021).",
+        "pt": "Um pilar CIRSOC 201 com barras não simétricas em relação ao eixo de flexão (6, 10, 14… barras, ou faces com quantidades diferentes) era verificado com uma só face comprimida; o outro lado é mais fraco (30×30, 6 Ø20, Nu 100 kN: 78,57 em vez de 101,57 kN·m), então há pilares que agora não verificam ou pedem mais barras (SA-2026-021)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-021-column-moment-sign.md", "heading": "SA-2026-021: the RC column check read one sign of the moment, and an uneven bar layout is weaker the other way" }
+    },
     {
       "id": "curved-shell-moments-and-thermal",
       "resultsVersion": 2,
