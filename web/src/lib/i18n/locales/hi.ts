@@ -3395,6 +3395,7 @@ const hi: Translations = {
   'design.error.noCombinations': 'डिज़ाइन करने से पहले कम से कम एक भार संयोजन परिभाषित करें।',
   'design.error.noDemands': 'वर्तमान परिणामों से कोई डिज़ाइन बल नहीं निकाला जा सका।',
   'design.error.noLinearCombination': 'कोई रैखिक संयोजन सक्रिय नहीं है: SRSS और ABS संयोजन बिना चिह्न के परिमाण हैं और उनसे डिज़ाइन नहीं किया जाता। एक रैखिक संयोजन सक्रिय करें।',
+  'design.error.combinationsUnsolved': 'संयोजन परिभाषित हैं पर हल नहीं हुए, इसलिए डिज़ाइन के लिए केवल बिना गुणक वाले भार हैं। संयोजनों से डिज़ाइन करने के लिए फिर से गणना करें।',
   'design.error.noAdapter': 'चयनित कोड के लिए कोई डिज़ाइन-कोड अडैप्टर पंजीकृत नहीं है।',
   'design.error.codeUnsupported': '{code} सुदृढीकरण डिज़ाइन नहीं कर सकता — यह केवल दी गई व्यवस्था का मूल्यांकन कर सकता है।',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

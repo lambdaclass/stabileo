@@ -3351,6 +3351,7 @@ const ja: Translations = {
   'design.error.noCombinations': '設計の前に少なくとも1つの荷重組み合わせを定義してください。',
   'design.error.noDemands': '現在の結果から設計応力を抽出できませんでした。',
   'design.error.noLinearCombination': '有効な線形組合せがありません。SRSS・ABS 組合せは符号のない大きさで、設計には使いません。線形組合せを有効にしてください。',
+  'design.error.combinationsUnsolved': '組合せは定義されていますが未解析のため、設計に使えるのは係数を掛けていない荷重だけです。組合せで設計するには再度計算してください。',
   'design.error.noAdapter': '選択した規準に対応するアダプタが登録されていません。',
   'design.error.codeUnsupported': '{code} は配筋を設計できません — 所定の配筋の照査のみ可能です。',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

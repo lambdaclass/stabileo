@@ -3383,6 +3383,7 @@ const ar: Translations = {
   'design.error.noCombinations': 'عرّف تركيبة أحمال واحدة على الأقل قبل التصميم.',
   'design.error.noDemands': 'تعذّر استخراج قوى تصميم من النتائج الحالية.',
   'design.error.noLinearCombination': 'لا توجد تركيبة خطية نشطة: تركيبات SRSS وABS مقادير بلا إشارة ولا يُصمَّم عليها. فعّل تركيبة خطية.',
+  'design.error.combinationsUnsolved': 'التركيبات معرّفة وغير محلولة، فلا توجد للتصميم إلا الأحمال غير المضروبة في المعاملات. أعد الحساب للتصميم بالتركيبات.',
   'design.error.noAdapter': 'لا يوجد محول كود تصميم مسجَّل للكود المحدد.',
   'design.error.codeUnsupported': '{code} لا يمكنه تصميم التسليح — يمكنه فقط تقييم توزيع معطى.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

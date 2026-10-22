@@ -3403,6 +3403,7 @@ const de: Translations = {
   'design.error.noCombinations': 'Definieren Sie mindestens eine Lastkombination, bevor Sie bemessen.',
   'design.error.noDemands': 'Aus den aktuellen Ergebnissen konnten keine Bemessungsgrößen ermittelt werden.',
   'design.error.noLinearCombination': 'Keine lineare Kombination ist aktiv: SRSS- und ABS-Kombinationen sind Beträge ohne Vorzeichen und werden nicht bemessen. Aktivieren Sie eine lineare Kombination.',
+  'design.error.combinationsUnsolved': 'Kombinationen sind definiert und nicht berechnet, es gibt also nur die unfaktorisierten Lasten für die Bemessung. Berechnen Sie erneut, um mit den Kombinationen zu bemessen.',
   'design.error.noAdapter': 'Für die ausgewählte Norm ist kein Bemessungsadapter registriert.',
   'design.error.codeUnsupported': '{code} kann keine Bewehrung bemessen — es kann nur eine vorgegebene Anordnung bewerten.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

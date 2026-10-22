@@ -3,7 +3,8 @@
  *
  * Provides two functions:
  *  - runLiveCalc()    — called inside the reactive $effect when liveCalc is ON
- *  - runGlobalSolve() — called from the 'stabileo-solve' global event (manual solve)
+ *  - runGlobalSolve() — the manual solve: the 'stabileo-solve' global event, Calcular, and in 3D
+ *                       Enter, the ribbon and the exports (`actions/solve.ts`)
  *
  * Both delegate to modelStore.solve / solve3D but encapsulate NaN-checking,
  * combination solving, diagram-type restoration and error handling so App.svelte
@@ -16,6 +17,7 @@ import { spectralOrSay } from '../actions/solve';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { modelStore, resultsStore, uiStore } from '../store';
+import { instability } from '../store/instability.svelte';
 import { is3DWorkspace } from '../utils/workspace';
 import { requestAutosave } from '../store/autosave-service';
 import { publishCombinations3D, activePerCombo3D } from '../store/active-results';
@@ -51,14 +53,44 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
 // ─── Stale-response discipline ─────────────────────────────────────────────
 // Solves are async now: while a solve is in flight the user can keep editing
 // (bumping modelStore.modelVersion) or trigger a newer solve. Each solve
-// request captures the model version and a monotonically increasing request
+// request captures what it solves and a monotonically increasing request
 // id; results are written to the stores only if both are still current.
 let solveRequestSeq = 0;
 
+/**
+ * What a solve reads: the model, and the settings it reads besides it. Self-weight on or off (and
+ * its case) clears the results without moving the model version (App.svelte), and a solve in
+ * flight then published its answer without self-weight under the switch.
+ */
+function solveInputKey(): string {
+  return [
+    modelStore.modelVersion, uiStore.analysisMode, uiStore.includeSelfWeight, uiStore.selfWeightCaseId,
+    uiStore.axisConvention3D, uiStore.drawPlane2D,
+  ].join('|');
+}
+
 function nextSolveGuard(): () => boolean {
-  const versionAtStart = modelStore.modelVersion;
+  const inputAtStart = solveInputKey();
   const requestId = ++solveRequestSeq;
-  return () => modelStore.modelVersion !== versionAtStart || requestId !== solveRequestSeq;
+  return () => solveInputKey() !== inputAtStart || requestId !== solveRequestSeq;
+}
+
+/** How a manual solve ended. */
+export type GlobalSolveOutcome =
+  /** `combinationsLeftOut`: the model's combinations were to be solved and were not, and why. */
+  | { ok: true; combinationsLeftOut: string | null }
+  | { ok: false; error: string };
+
+/** The last manual solve's failure, and what it was a failure of. */
+let lastFailure: { input: string; error: string } | null = null;
+
+/**
+ * Why the last manual solve failed, while the model and its settings are still what it failed on.
+ * An export asked for right after PRO's solve failed (`pro/export-results.ts` then
+ * `actions/solve.ts` `ensureResults`) solved the same model again: the same failure, said twice.
+ */
+export function lastSolveFailure(): string | null {
+  return lastFailure && lastFailure.input === solveInputKey() ? lastFailure.error : null;
 }
 
 // ─── Live Calc (reactive $effect) ─────────────────────────────────────────
@@ -187,15 +219,17 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
 // ─── Global Solve (manual "Calcular" button) ─────────────────────────────
 
 /**
- * Solve the structure manually (triggered by Enter key / Calcular button).
- * Handles 2D and 3D, combinations, toasts and mobile panel.
+ * Solve the structure manually (Calcular, and in 3D Enter, the ribbon and the exports through
+ * `actions/solve.ts`). Handles 2D and 3D, combinations, toasts and mobile panel, and says how it
+ * ended. Throws only when the solver cannot be started.
  */
-export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<void> {
+export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
   if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
+  const input = solveInputKey();
 
   // Pre-solve model hygiene, for the modes that had none. The PRO exclusion
   // is inside `reportModelDiagnostics` itself, so this call site — like the
@@ -205,9 +239,10 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // edit, so the same warning would fire on each keystroke of a half-built
   // model. A manual solve is the moment the user asserts the model is ready.
   reportModelDiagnostics();
+  let outcome: GlobalSolveOutcome;
   if (uiStore.is3DWorkspace) {
     await ensureWasmReady('runGlobalSolve');
-    await globalSolve3D(isStale, options.directBase ?? false);
+    outcome = await globalSolve3D(isStale, options.directBase ?? false);
   } else if (uiStore.analysisMode === 'edu') {
     // Education owns its own solve lifecycle (results are withheld until the
     // student answers), so dispatch to it explicitly.
@@ -219,14 +254,18 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     // before mount silently did nothing at all. A direct call has no ordering
     // hazard and cannot double-solve.
     solveForEdu();
-    return;
+    return { ok: true, combinationsLeftOut: null };
   } else {
-    await globalSolve2D(isStale);
+    outcome = await globalSolve2D(isStale);
   }
-  if (!isStale()) resultsStore.restoreView(uiStore.is3DWorkspace);
+  if (!isStale()) {
+    lastFailure = outcome.ok ? null : { input, error: outcome.error };
+    resultsStore.restoreView(uiStore.is3DWorkspace);
+  }
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');
+  return outcome;
 }
 
 async function ensureWasmReady(context: string): Promise<void> {
@@ -261,22 +300,33 @@ function isMechanismError(msg: string): boolean {
     || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 }
 
-async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<void> {
+async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<GlobalSolveOutcome> {
   const isPro = uiStore.analysisMode === 'pro';
   const leftHand = uiStore.axisConvention3D === 'leftHand';
-  const hasCombos = modelStore.model.combinations.length > 0;
+  // Basic with load cases off shows no combinations: none are solved.
+  const hasCombos = modelStore.model.combinations.length > 0 && uiStore.showLoadCasePicker;
   const t0 = performance.now();
+  // Superseded: an edit, a setting or a newer solve. Nothing was published.
+  const stale: GlobalSolveOutcome = { ok: false, error: t('results.editedDuringSolve') };
+  const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
-  const runSingleSolve = async () => {
+  const runSingleSolve = async (): Promise<GlobalSolveOutcome> => {
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
-    if (isStale()) return null;
+    if (isStale()) return stale;
     if (typeof r === 'string') {
       uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
-      return null;
+      // Name the mechanism, when that is what stopped it (`store/instability.svelte.ts`).
+      if (isPro) instability.explain(uiStore.includeSelfWeight, leftHand);
+      return failed(localizeEngineText(r));
     }
     if (!r) {
       uiStore.toast(t('results.emptyModelError'), 'error');
-      return null;
+      return failed(t('results.emptyModelError'));
+    }
+    instability.clear();
+    if (hasInvalid3DDisplacements(r.displacements as Array<{ ux: number; uy: number; uz: number }>)) {
+      uiStore.toast(t('results.numericError3d'), 'error');
+      return failed(t('results.numericError3d'));
     }
     resultsStore.setResults3D(r);
     const timeStr = formatSolveTiming(r.timings);
@@ -285,10 +335,11 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       'success',
     );
     showSolverWarningToasts(r.solverDiagnostics);
-    return r;
+    return { ok: true, combinationsLeftOut: null };
   };
 
-  const runComboSolve = async () => {
+  /** The combinations and "All loads" published, or why the combinations could not be had. */
+  const runComboSolve = async (): Promise<GlobalSolveOutcome | string> => {
     // Version guard: capture the model's mutation epoch right before dispatching
     // the async solve. If the model changed while the (worker-based) combo solve
     // was in flight, the result below describes a superseded model — publishing
@@ -297,10 +348,10 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
-    if (isStale()) return null;
+    if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
-    if (modelStore.modelVersion !== solveEpoch) return null;
+    if (modelStore.modelVersion !== solveEpoch) return stale;
 
     // "All loads" is an unfactored physical load state, the single solve's (`case-effects.ts`
     // `singleSolveModel`). Only a linear model can reuse the sum of independently solved cases:
@@ -320,7 +371,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     let firstCaseResult;
     if (listedFactors === null || factors.length === 0) {
       const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
-      if (isStale() || modelStore.modelVersion !== solveEpoch) return null;
+      if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
       firstCaseResult = single;
     } else {
@@ -349,11 +400,14 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       'success',
     );
     showSolverWarningToasts(firstCaseResult.solverDiagnostics);
-    return null;
+    return { ok: true, combinationsLeftOut: null };
   };
 
   // When combinations exist, use parallel Web Workers for maximum performance
   if (hasCombos) {
+    /** The single solve stands; the combinations it was asked for are not there, and why. */
+    const withoutCombinations = (fallback: GlobalSolveOutcome, why: string): GlobalSolveOutcome =>
+      fallback.ok ? { ok: true, combinationsLeftOut: localizeEngineText(why) } : fallback;
     if (isPro) {
       // The combination solve already returns per-case results (runComboSolve
       // seeds the baseline/current view from the first per-case result), so the
@@ -361,58 +415,55 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       // on every PRO solve. Run combos directly; fall back to a single solve
       // ONLY if the combination path fails, so the user still gets results.
       try {
-        const comboError = await runComboSolve();
-        if (comboError) {
-          console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', comboError);
-          const fallback = await runSingleSolve();
-          // Said either way: with the fallback the model is solved, but without the
-          // combinations asked for — an empty active list, for one, is refused here. The
-          // command that may fix a solve is offered only when the fallback failed too.
-          uiStore.toast(localizeEngineText(comboError), 'info', fallback ? undefined : solveErrorAction(comboError));
-        }
+        const combo = await runComboSolve();
+        if (typeof combo !== 'string') return combo;
+        console.warn('[globalSolve3D] Combination solve returned error in PRO, falling back to single solve:', combo);
+        const fallback = await runSingleSolve();
+        // Said either way: with the fallback the model is solved, but without the
+        // combinations asked for — an empty active list, for one, is refused here. The
+        // command that may fix a solve is offered only when the fallback failed too.
+        uiStore.toast(localizeEngineText(combo), 'info', fallback.ok ? undefined : solveErrorAction(combo));
+        return withoutCombinations(fallback, combo);
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
         const fallback = await runSingleSolve();
-        if (!fallback) uiStore.toast(localizeEngineText(e.message), 'info', solveErrorAction(e.message));
+        if (!fallback.ok) uiStore.toast(localizeEngineText(e.message), 'info', solveErrorAction(e.message));
+        return withoutCombinations(fallback, e.message);
       }
-      return;
     }
 
     try {
-      const comboError = await runComboSolve();
-      if (comboError) {
-        console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', comboError);
-        uiStore.toast(localizeEngineText(comboError), 'error', solveErrorAction(comboError));
-        await runSingleSolve();
-        return;
-      }
+      const combo = await runComboSolve();
+      if (typeof combo !== 'string') return combo;
+      console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', combo);
+      uiStore.toast(localizeEngineText(combo), 'error', solveErrorAction(combo));
+      return withoutCombinations(await runSingleSolve(), combo);
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
       uiStore.toast(localizeEngineText(e.message), 'error', solveErrorAction(e.message));
-      await runSingleSolve();
+      return withoutCombinations(await runSingleSolve(), e.message);
     }
-    return;
   }
 
   // No combinations — single solve only
-  await runSingleSolve();
+  return runSingleSolve();
 }
 
-async function globalSolve2D(isStale: () => boolean): Promise<void> {
+async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome> {
   const r = await modelStore.solveAsync(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-  if (isStale()) return;
+  if (isStale()) return { ok: false, error: t('results.editedDuringSolve') };
   if (typeof r === 'string') {
     uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
-    return;
+    return { ok: false, error: localizeEngineText(r) };
   }
   if (!r) {
     uiStore.toast(t('results.emptyModelError'), 'error');
-    return;
+    return { ok: false, error: t('results.emptyModelError') };
   }
 
   if (hasInvalid2DDisplacements(r.displacements as Array<{ ux: number; uz?: number; uy?: number; ry?: number; rz?: number }>)) {
     uiStore.toast(t('results.numericError'), 'error', 'kinematic');
-    return;
+    return { ok: false, error: t('results.numericError') };
   }
 
   resultsStore.setResults(r);
@@ -426,9 +477,12 @@ async function globalSolve2D(isStale: () => boolean): Promise<void> {
 
   // Auto-solve combinations if defined
   let comboText = '';
+  let combinationsLeftOut: string | null = null;
   if (modelStore.model.combinations.length > 0) {
     const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-    if (comboResult && typeof comboResult !== 'string') {
+    if (typeof comboResult === 'string') combinationsLeftOut = localizeEngineText(comboResult);
+    else if (!comboResult) combinationsLeftOut = t('results.emptyModelError');
+    else {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
       const comboNames = new Map<number, string>();
       for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
@@ -445,4 +499,5 @@ async function globalSolve2D(isStale: () => boolean): Promise<void> {
 
   // Show solver warnings/errors as separate toasts
   showSolverWarningToasts(r.solverDiagnostics);
+  return { ok: true, combinationsLeftOut };
 }

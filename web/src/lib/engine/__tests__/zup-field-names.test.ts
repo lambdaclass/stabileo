@@ -403,12 +403,11 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
      * rather than kept in sync forever.
      */
     const solveAction = readFileSync(new URL('../../actions/solve.ts', import.meta.url), 'utf8');
+    const manualSolve = readFileSync(new URL('../live-calc.ts', import.meta.url), 'utf8');
 
-    expect(solveAction, 'actions/solve.ts must call ensureWasmReady or initSolver before solve3D')
-      .toMatch(/ensureWasmReady|initSolver/);
-
-    // The extracted action keeps the async 3D entry point.
-    expect(solveAction, 'runSolve3D must be async').toMatch(/export\s+async\s+function\s+runSolve3D/);
+    // The action's 3D arm is the manual solve, `runGlobalSolve`, which readies WASM first.
+    expect(solveAction, 'actions/solve.ts must solve 3D through runGlobalSolve').toMatch(/runGlobalSolve\(/);
+    expect(manualSolve, 'runGlobalSolve must call ensureWasmReady before solve3D').toMatch(/await ensureWasmReady\(/);
 
     // And nothing may call solve3D without going through it: ToolbarResults is
     // the button every toolbar (desktop or mobile) renders, and it delegates.

@@ -18,19 +18,29 @@ import { errorText } from '../utils/error-text';
 
 export async function rerunAnalysisAndDesign(): Promise<{ ok: boolean; error?: string }> {
   uiStore.toast(t('recheck.rerunning'), 'info');
-  try {
-    await runGlobalSolve();
-  } catch (e) {
-    const error = errorText(e, 'error');
+  const failed = (error: string) => {
     uiStore.toast(tp('recheck.rerunFailed', { error }), 'error');
     return { ok: false, error };
+  };
+  const before = recheckStore.capture();
+  let outcome;
+  try {
+    outcome = await runGlobalSolve();
+  } catch (e) {
+    return failed(errorText(e, 'error'));
+  }
+  if (!outcome.ok) return failed(outcome.error);
+  /*
+   * The combinations refused (an empty active list) or failed, and the single solve stood in for
+   * them: the model is not what was asked for, and design has nothing to read. The project stays
+   * stale, as the message says; the single solve's publish had already stamped it.
+   */
+  if (outcome.combinationsLeftOut !== null) {
+    recheckStore.restoreStamp(before);
+    return failed(tp('recheck.combinationsLeftOut', { reason: outcome.combinationsLeftOut }));
   }
   const solved = uiStore.is3DWorkspace ? !!resultsStore.results3D : !!resultsStore.results;
-  if (!solved || recheckStore.stale) {
-    const error = t('results.emptyModelError');
-    uiStore.toast(tp('recheck.rerunFailed', { error }), 'error');
-    return { ok: false, error };
-  }
+  if (!solved || recheckStore.stale) return failed(t('results.emptyModelError'));
   if (uiStore.analysisMode === 'pro' && resultsStore.results3D) {
     // A refusal here (no combinations, no concrete members) is not a failed re-run: there was
     // no RC check to repeat. The design panel says why when it is opened.

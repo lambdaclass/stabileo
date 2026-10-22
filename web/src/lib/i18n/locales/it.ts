@@ -3396,6 +3396,7 @@ const it: Translations = {
   'design.error.noCombinations': 'Definisci almeno una combinazione di carico prima di progettare.',
   'design.error.noDemands': 'Non è stato possibile estrarre sollecitazioni di progetto dai risultati attuali.',
   'design.error.noLinearCombination': 'Nessuna combinazione lineare è attiva: le combinazioni SRSS e ABS sono grandezze senza segno e non si usano per il progetto. Attiva una combinazione lineare.',
+  'design.error.combinationsUnsolved': 'Ci sono combinazioni definite e non risolte, quindi per il progetto ci sono solo i carichi non fattorizzati. Ricalcola per progettare con le combinazioni.',
   'design.error.noAdapter': 'Nessun adattatore normativo è registrato per il codice selezionato.',
   'design.error.codeUnsupported': "{code} non può progettare l'armatura — può solo valutare una disposizione data.",
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

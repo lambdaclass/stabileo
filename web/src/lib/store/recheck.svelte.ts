@@ -20,7 +20,8 @@
  *     the file still says it was solved with the older version, and a colleague opening it
  *     has read nothing.
  *   - Until the model is solved again in this build, its results are STALE, acknowledged or
- *     not, and say so (`stale`). A solve stamps the current version and clears it.
+ *     not, and say so (`stale`). A solve stamps the current version and clears it; the static
+ *     (linear) solve, not a modal or P-Δ run alone.
  */
 import { assessProject, type RecheckAssessment } from '../provenance/applicability';
 import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
@@ -34,8 +35,10 @@ function createRecheckStore() {
   let assessedStampId = $state<string | null>(null);
   let acknowledged = $state.raw<ReadonlySet<string>>(new Set());
 
+  // Ended by the static solve: a modal run alone leaves the results the older version's.
   const stale = (): boolean =>
-    !!assessment && assessment.changes.length > 0 && (stamp === null || stamp.id === assessedStampId);
+    !!assessment && assessment.changes.length > 0
+    && (stamp === null || stamp.id === assessedStampId || !stamp.analyses.includes('linear'));
 
   return {
     get stamp() { return stamp; },

@@ -3385,6 +3385,7 @@ const id: Translations = {
   'design.error.noCombinations': 'Definisikan setidaknya satu kombinasi beban sebelum mendesain.',
   'design.error.noDemands': 'Tidak ada gaya desain yang dapat diekstrak dari hasil saat ini.',
   'design.error.noLinearCombination': 'Tidak ada kombinasi linear yang aktif: kombinasi SRSS dan ABS adalah besaran tanpa tanda dan tidak dipakai untuk desain. Aktifkan kombinasi linear.',
+  'design.error.combinationsUnsolved': 'Kombinasi sudah didefinisikan tetapi belum diselesaikan, jadi hanya ada beban tanpa faktor untuk desain. Hitung ulang untuk mendesain dengan kombinasi.',
   'design.error.noAdapter': 'Tidak ada adaptor kode desain yang terdaftar untuk kode yang dipilih.',
   'design.error.codeUnsupported': '{code} tidak dapat mendesain tulangan — hanya dapat menilai susunan yang diberikan.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

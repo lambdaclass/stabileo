@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { jointDesignStore } from '../../lib/store/joint-design.svelte';
+  import { combinationsUnsolved } from '../../lib/store/active-results';
   import { jointStateKey } from '../../lib/connection/joint-design';
   import { BOLT_GRADES } from '../../lib/connection/bolted-joint';
   import { TABULATED_DIAMETERS_MM } from '../../lib/connection/bolt-geometry';
@@ -664,6 +665,10 @@
               </dd>
             {/each}
           </dl>
+          <!-- Combinations defined and none solved: no demand is read off the unfactored loads. -->
+          {#if design.demands.combinationsConsidered === 0 && combinationsUnsolved()}
+            <p class="conn-explain" data-testid="joint-demand-unsolved">{t('design.error.combinationsUnsolved')}</p>
+          {/if}
           {#if design.demands.membersWithoutForces.length > 0}
             <p class="conn-explain" data-testid="joint-demand-gaps">
               {tp('conn.demand.membersWithoutForces', { n: design.demands.membersWithoutForces.length })}

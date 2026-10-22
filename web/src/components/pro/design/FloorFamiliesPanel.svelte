@@ -23,6 +23,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
+  import { combinationsUnsolved } from '../../../lib/store/active-results';
   import FoundationsPanel from './FoundationsPanel.svelte';
   import FloorFamilyStateCard from './FloorFamilyStateCard.svelte';
   import {
@@ -193,6 +194,14 @@
         <li>{tp(r.message.key, r.message.params ?? {})}</li>
       {/each}
     </ul>
+  {/if}
+
+  <!--
+    Combinations defined and none solved (an edit live calc re-solved without them): a footing or
+    a punching joint has no factored reaction to read, and says only that it has none.
+  -->
+  {#if combinationsUnsolved()}
+    <p class="warn" role="status" data-testid="floor-design-unsolved">{t('design.error.combinationsUnsolved')}</p>
   {/if}
 
   {#if detailingStore.lastError}

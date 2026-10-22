@@ -3387,6 +3387,7 @@ const ru: Translations = {
   'design.error.noCombinations': 'Определите хотя бы одну комбинацию нагрузок перед подбором.',
   'design.error.noDemands': 'Не удалось извлечь расчётные усилия из текущих результатов.',
   'design.error.noLinearCombination': 'Нет активной линейной комбинации: комбинации SRSS и ABS — величины без знака, по ним не проектируют. Активируйте линейную комбинацию.',
+  'design.error.combinationsUnsolved': 'Комбинации заданы, но не рассчитаны, поэтому для проектирования есть только нагрузки без коэффициентов. Выполните расчёт снова, чтобы проектировать по комбинациям.',
   'design.error.noAdapter': 'Для выбранного кода не зарегистрирован адаптер норм проектирования.',
   'design.error.codeUnsupported': '{code} не может подобрать арматуру — может только оценить заданное расположение.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',

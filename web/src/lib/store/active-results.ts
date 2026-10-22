@@ -43,17 +43,30 @@ export function activePerCombo3D(): Map<number, AnalysisResults3D> {
 /**
  * The one result set footings, joints and floors read when no linear combination is active.
  *
- * With no combination solved it is the result on screen, as before. With combinations solved and
- * none of them active and linear (every active one an SRSS or ABS, say), it is the solve of every
- * load ("All loads", `singleResults3D`): the result on screen could be the magnitude, read as a
- * signed state (a footing's 60,13 kN for 56,0). Never a result that is a magnitude; null when
- * there is no other, and the caller says why (`noLinearCombinationActive`).
+ * With no combination solved it is the result on screen, as before, unless the model has
+ * combinations to design for and they are not solved (`combinationsUnsolved`). With combinations
+ * solved and none of them active and linear (every active one an SRSS or ABS, say), it is the
+ * solve of every load ("All loads", `singleResults3D`): the result on screen could be the
+ * magnitude, read as a signed state (a footing's 60,13 kN for 56,0). Never a result that is a
+ * magnitude; null when there is no other, and the caller says why (`noLinearCombinationActive`,
+ * `combinationsUnsolved`).
  */
 export function activeResultSet3D(): AnalysisResults3D | null {
   const shown = resultsStore.results3D;
-  if (resultsStore.perCombo3D.size === 0) return shown && !shown.magnitude ? shown : null;
+  if (resultsStore.perCombo3D.size === 0) return shown && !shown.magnitude && !combinationsUnsolved() ? shown : null;
   const single = resultsStore.singleResults3D;
   return single && !single.magnitude ? single : null;
+}
+
+/**
+ * The model is solved, has combinations design reads, and none of them is solved. Live calc leaves
+ * them out while the single view is on screen (`engine/live-calc.ts`, for a large model's sake), so
+ * after an edit the results on hand are every load at factor 1: a footing or a joint designed for
+ * D + W where 1.2D + 1.6W acts. Not in Basic with load cases off, which solves no combination.
+ */
+export function combinationsUnsolved(): boolean {
+  return !!resultsStore.results3D && resultsStore.perCombo3D.size === 0 && uiStore.showLoadCasePicker
+    && activeCombinationIds().length > 0;
 }
 
 /** Combinations are solved, none active and linear, and an SRSS or ABS one among them. */

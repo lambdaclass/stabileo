@@ -13,7 +13,7 @@
   import { steelOptimise, type OptimiseScope, type OptimiseSettings } from '../../lib/store/steel-optimise.svelte';
   import { I_FAMILIES } from '../../lib/engine/steel/profile-optimise';
   import type { ProfileFamily } from '../../lib/data/steel-profiles';
-  import { runSolve3D } from '../../lib/actions/solve';
+  import { solveNow } from '../../lib/actions/solve';
 
   let scope = $state<OptimiseScope>('section');
   let onlySelection = $state(false);
@@ -62,7 +62,7 @@
   async function reverify() {
     busy = true;
     try {
-      await runSolve3D();
+      await solveNow();
       steelOptimise.recheck();
     } finally {
       busy = false;
