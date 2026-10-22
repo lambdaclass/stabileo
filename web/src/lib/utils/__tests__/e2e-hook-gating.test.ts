@@ -32,8 +32,12 @@ const WEB_ROOT = resolve(__dirname, '../../../..');
 
 /** Strings that exist ONLY inside the hook module.
  *  (Deliberately not `orientationSuspectCount` — that is a real verificationStore
- *  getter the design toolbar uses, so it legitimately ships in production.) */
-const HOOK_MARKERS = ['__stabileoActions', 'canvasInkRatio', 'e2eQueryEnabled'];
+ *  getter the design toolbar uses, so it legitimately ships in production.)
+ *
+ *  Every marker must be a PROPERTY name: those survive minification, local
+ *  identifiers do not. `e2eQueryEnabled` was one until rolldown (vite 8)
+ *  renamed it — the module was present, its minified name just gone. */
+const HOOK_MARKERS = ['__stabileoActions', 'canvasInkRatio'];
 const OUT_OFF = '.dist-hookgate-off';
 const OUT_ON = '.dist-hookgate-on';
 

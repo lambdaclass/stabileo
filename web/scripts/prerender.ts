@@ -196,6 +196,21 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
   });
   await page.waitForTimeout(200);
 
+  /*
+   * Vite 8's dynamic-import preload helper injects
+   * `<link rel="modulepreload" href="…">` with an ABSOLUTE href, resolved
+   * against import.meta.url — here, the throwaway capture server's origin.
+   * Serialized into the file, that link outlives the server: every page the
+   * capture produces then loads a dead port (ERR_CONNECTION_REFUSED), which
+   * the e2e fixtures rightly treat as a console error. Vite's own build-time
+   * preloads carry a relative href and are left alone.
+   */
+  await page.evaluate((origin) => {
+    for (const el of document.querySelectorAll('link[rel="modulepreload"]')) {
+      if (el.getAttribute('href')?.startsWith(origin)) el.remove();
+    }
+  }, base);
+
   const { head, body } = await page.evaluate(() => ({
     head: document.head.innerHTML,
     body: document.querySelector('#app')?.innerHTML ?? '',

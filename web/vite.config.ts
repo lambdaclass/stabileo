@@ -135,7 +135,7 @@ export default defineConfig({
           // and a suite that throws away a correct result.
           pool: 'threads',
           /*
-           * Fifteen seconds, not five.
+           * Thirty seconds, not five.
            *
            * The default was never chosen with these tests in mind. The CIRSOC
            * sweeps bisect over a 400-point interaction curve at every point of
@@ -149,8 +149,17 @@ export default defineConfig({
            * Raised rather than thinning the sweeps. The density is the point —
            * the defects they catch are a few kN·m wide, and the dead band
            * that shipped was five.
+           *
+           * Fifteen seconds was headroom enough through vite 6 / vitest 3.
+           * Under vite 8 / vitest 4 the same files inflate several-fold while
+           * the rest of the suite runs alongside them (files at 2–5 s idle
+           * measured at 19–41 s inside a full shard, while passing alone in
+           * the same few seconds); fifteen stopped being headroom and became
+           * a second source of red that meant "the neighbours were busy".
+           * Sixty covers the worst inflation measured under a full shard with
+           * room to spare.
            */
-          testTimeout: 15_000,
+          testTimeout: 60_000,
         },
       },
       {

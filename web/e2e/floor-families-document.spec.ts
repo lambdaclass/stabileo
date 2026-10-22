@@ -153,7 +153,13 @@ async function captureReport(page: Page): Promise<string> {
     page.waitForEvent('popup', { timeout: 60_000 }),
     page.getByTestId('doc-report').click(),
   ]);
-  await popup.waitForLoadState('domcontentloaded');
+  /*
+   * The popup's first document is the empty about:blank shell — the report
+   * arrives by document.write only after the HTML is generated, so waiting
+   * for domcontentloaded can read the shell before the write lands. Whether
+   * the write wins that race is machine-speed luck; wait for the content.
+   */
+  await popup.waitForFunction(() => document.body?.childElementCount > 0, undefined, { timeout: 60_000 });
   const html = await popup.content();
   await popup.close();
   return html;
