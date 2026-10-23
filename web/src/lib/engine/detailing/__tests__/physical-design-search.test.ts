@@ -42,6 +42,57 @@ function harness() {
 
 afterEach(() => vi.restoreAllMocks());
 
+describe('reopening exhausted members', () => {
+  function refused() {
+    const { input, generate } = harness();
+    input.outcomes.set(1, { ...outcome(1, 16), outcome: 'SEARCH_EXHAUSTED', accepted: undefined });
+    input.result = detail([]);
+    input.result.reverification[0].status = 'noBars';
+    return { generate, input: { ...input, budget: { maxDetailingRuns: 1, maxMemberSearches: 1,
+      operators: ['retryExhausted'] as const } } };
+  }
+
+  it('retries with actual neighbour seats and materializes a recovery before accepting it', () => {
+    const { input, generate } = refused();
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([1]);
+    expect(result.trials).toEqual([expect.objectContaining({ elementId: 1, disposition: 'accepted' })]);
+    expect(generate.mock.calls[0][1].absentBeams).toEqual(new Set([1]));
+    const builtContexts = input.detail.mock.calls[0][1];
+    expect(builtContexts.get(2)!.absentBeams).toEqual(new Set());
+    expect(builtContexts.get(2)!.beamCorners!.has(1)).toBe(true);
+    expect(result.outcomes.get(1)!.outcome).toBe('VERIFIED');
+    expect(input.outcomes.get(1)!.outcome).toBe('SEARCH_EXHAUSTED');
+    expect(result.stats).toMatchObject({ memberSearches: 1, detailingRuns: 1, verifierCalls: 1 });
+  });
+
+  it.each(['selfClash', 'neighbourClash', 'strength', 'missingCheck'] as const)(
+    'does not install a nominal recovery with a %s regression', reason => {
+    const { input } = refused();
+    const trial = detail(reason === 'selfClash' ? [1] : reason === 'neighbourClash' ? [2] : [],
+      reason === 'strength' ? [1] : []);
+    if (reason === 'missingCheck') trial.reverification = trial.reverification.filter(r => r.elementId !== 1);
+    input.detail.mockReturnValue(trial);
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([]);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.trials[0].disposition).toBe('regression');
+  });
+
+  it.each(['locked', 'span', 'provisional', 'budget'] as const)('respects %s exclusions', reason => {
+    const { input, generate } = refused();
+    if (reason === 'span') input.contexts.get(1)!.span = { elements: [1, 2], representative: 1 } as never;
+    if (reason === 'provisional') input.outcomes.set(1, { ...input.outcomes.get(1)!, outcome: 'PROVISIONAL_BIAXIAL' });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      lockedMembers: reason === 'locked' ? new Set([1]) : undefined,
+      budget: { ...input.budget, maxMemberSearches: reason === 'budget' ? 0 : 1 } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.changed).toEqual([]);
+    if (reason === 'budget') expect(result.termination).toBe('budget');
+  });
+});
+
 describe('atomic top continuity repair', () => {
   function paired() {
     const { input } = harness();
@@ -200,6 +251,70 @@ describe('atomic top continuity repair', () => {
     }
     const detailed = input.detail.mock.calls[0][0];
     expect([...detailed.values()].every(o => o.accepted!.regions!.bottomGroups![0].anchorageStart === 'hook')).toBe(true);
+  });
+
+  it('retries a rejected prefix when an adjacent line changes, without renewing its budget', () => {
+    const { input } = line();
+    const model = input.contexts.get(1)!.modelData;
+    for (const id of [5, 6]) model.nodes.set(id, { id, x: 6, y: id === 5 ? -6 : 6, z: 0 });
+    for (const id of [4, 5]) {
+      model.elements.set(id, { ...model.elements.get(1)!, id,
+        nodeI: id === 4 ? 5 : 2, nodeJ: id === 4 ? 2 : 6 });
+      input.contexts.set(id, { ...syntheticBeamContext({ elementId: id }), modelData: model });
+      input.outcomes.set(id, outcome(id, 16));
+      input.result.reverification.push({ ...input.result.reverification[0], elementId: id });
+      input.result.layering!.lineOfMember.set(id, 'crossing');
+    }
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [16];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    input.result.assemblies[0].unsupported = [];
+    input.result.assemblies[0].conflicts.push({ ...input.result.assemblies[0].conflicts[0], elementIds: [4] });
+    input.detail.mockImplementation(proposed => {
+      const mainChanged = proposed.get(1)!.accepted!.regions!.topStart!.count === 4;
+      const crossing = proposed.get(4)!.accepted!.regions!;
+      const firstCrossingProposal = crossing.topStart!.count === 4 && crossing.bottomSpan!.count === 3;
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0],
+        conflicts: mainChanged ? firstCrossingProposal ? [] : input.result.assemblies[0].conflicts.slice(-1)
+          : input.result.assemblies[0].conflicts }] };
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 3, maxMemberSearches: 7, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials.map(t => [t.elementIds, t.disposition, t.counts, t.bottomCounts])).toEqual([
+      [[4, 5], 'noProgress', [4], [3]], [[1, 2, 3], 'accepted', [4], [3]],
+      [[4, 5], 'accepted', [4], [3]],
+    ]);
+    expect(result.stats).toMatchObject({ detailingRuns: 3, memberSearches: 7, verifierCalls: 7 });
+    expect(result.result.assemblies[0].conflicts).toEqual([]);
+  });
+
+  it('uses joint congestion to rebalance rows before adding steel or changing the opposite face', () => {
+    const { input, verify } = line();
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [16];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -60, vz: 0 }, { t: 0.5, my: 300, vz: 0 }, { t: 1, my: -60, vz: 0 },
+      ] }] } as never;
+    }
+    verify.mockImplementation((_ctx, r) => {
+      const fits = r.regions!.bottomSpanLayers![0].count < 6;
+      return { overallStatus: fits ? 'ok' : 'fail', strengthCheckCount: 2,
+        checks: [{ status: fits ? 'ok' : 'fail', limiting: 'congestion', category: 'Bottom joint' }],
+        worstUtilization: 0.8, checkedAxes: ['My'] } as never;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 6, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials.map(t => [t.disposition, t.counts, t.bottomCounts])).toEqual([
+      ['nominalFailure', [3], [6, 3]], ['accepted', [3], [5, 4]],
+    ]);
+    expect(result.stats).toMatchObject({ verifierCalls: 6, detailingRuns: 1 });
+    for (const o of result.outcomes.values()) {
+      expect(o.accepted!.regions!.bottomSpanLayers!.map(l => l.count)).toEqual([5, 4]);
+      expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
+    }
   });
 
   it('uses a top resistance rejection to try more top steel before unrelated bottom alternatives', () => {

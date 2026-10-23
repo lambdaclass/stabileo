@@ -11,6 +11,31 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it('offers balanced bottom rows and one extra row with the same steel for a crowded joint', () => {
+    const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
+    for (const c of ctx) {
+      c.material.longDiametersMm = [16];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -300, vz: 0 }, { t: 0.5, my: 300, vz: 0 }, { t: 1, my: -300, vz: 0 },
+      ] }] } as never;
+    }
+    const before = structuredClone(current);
+    for (const face of ['bottom'] as const) {
+      const proposals = [...beamContinuityAlternatives(ctx, current, face, 'demand')];
+      const packed = proposals[0].layers, balanced = proposals[1].layers;
+      expect(packed.map(l => l.count)).toEqual([6, 3]);
+      expect(balanced.map(l => l.count)).toEqual([5, 4]);
+      expect(proposals[2].layers.map(l => l.count)).toEqual([3, 3, 3]);
+      expect(new Set(proposals.map(p => JSON.stringify(p.layers))).size).toBe(proposals.length);
+      for (const p of proposals) {
+        expect(p.layers.every(l => l.count >= 2 && l.count <= 6 && l.diameter === 16)).toBe(true);
+        for (const r of p.reinforcement) expect(r.regions!.bottomSpanLayers)
+          .toEqual(p.layers);
+      }
+    }
+    expect(current).toEqual(before);
+  });
+
   it('seeds from forces instead of ratcheting up the retained steel, and requires force data', () => {
     const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
     for (const c of ctx) {
@@ -22,7 +47,7 @@ describe('paired top continuity patterns', () => {
     for (const r of current) r.regions!.bottomSpan = { count: 5, diameter: 16 };
     const before = structuredClone(current);
     const proposals = [...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')];
-    expect(proposals).toHaveLength(9);
+    expect(proposals).toHaveLength(12);
     expect([proposals[0].layers[0].count, proposals[0].bottomLayers![0].count]).toEqual([4, 3]);
     expect(new Set(proposals.map(p => p.layers[0].count))).toEqual(new Set([3, 4, 5]));
     expect(new Set(proposals.map(p => p.bottomLayers![0].count))).toEqual(new Set([2, 3, 4]));

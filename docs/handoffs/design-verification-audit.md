@@ -6,6 +6,97 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Filas inferiores alternativas y reapertura de búsquedas agotadas
+
+La menor cantidad de filas que cabe dentro de la sección no necesariamente permite atravesar
+los nudos. En 235–238, una propuesta de 10Ø16 superiores y 7Ø12 inferiores en una fila bajaba
+795 → 772 conflictos, pero cruzaba dos barras verticales de la columna 58. Se rechazaba para
+conservar esa columna aprobada. Repartir las mismas siete inferiores como **4+3** evita ese
+obstáculo: la prueba dirigida acepta la línea, baja a **710 bloqueantes** y suma cuatro aprobados.
+Resuelve además 14 parejas de empalme pendientes (20 → 6 en esa línea). Las nuevas
+aprobadas son las columnas 56, 57, 59 y 60: las vigas modificadas todavía tienen bloqueos.
+
+`harmonizeDemandCatalog` ahora ofrece, para cada población inferior, una distribución pareja
+con la cantidad mínima de filas y otra con una fila adicional, hasta el límite existente de
+tres. No agrega acero por redistribuirlo. El cambio de centroide obliga a verificar otra vez
+resistencia y anclajes; `preserveBottomRows` lleva esas poblaciones al detalle construido.
+Las propuestas duplicadas se reconocen por fila, cantidad y diámetro, independientemente
+del orden de las propiedades de los objetos.
+
+La guía por congestión considera también reducir la población máxima de una fila. Las
+alternativas superiores no se redistribuyen de esta manera: la coordinación actual vuelve
+a disponerlas y no conserva sus poblaciones propuestas. Enumerar variantes que después se
+pierden sólo consume presupuesto. La prueba inicial de balanceo sin permitir una fila adicional
+no mejoró 795/180; abrir la cantidad de filas fue el cambio que hizo progresar la búsqueda.
+
+También había rechazos que quedaban obsoletos: las alternativas consumidas de una línea no
+se volvían a probar después de modificar sus vecinos. En 248–250, una propuesta rechazada
+antes del cambio de 235–238 podía mejorar el modelo después. La búsqueda por demanda ahora
+reinicia las líneas aún bloqueadas que comparten un nodo con la línea modificada, incluyendo
+su prefijo rechazado, y conserva las colas de las demás. La topología determina esa vecindad,
+no la numeración de elementos. Las repeticiones conservan el presupuesto global y la clave de
+asignación evita repetir un ensayo contra los mismos armados; el progreso estricto sigue siendo
+obligatorio. Una prueba reproduce el rechazo, el cambio del vecino y la aceptación de exactamente
+la misma propuesta dentro de tres detallados y siete verificaciones nominales.
+
+El nuevo operador opt-in `retryExhausted` vuelve a dimensionar una vez por miembro agotado,
+leyendo los vecinos retenidos y actualizando tanto sus jaulas como la presencia de barras.
+Respeta miembros bloqueados por el usuario, excluye tramos compuestos y propuestas biaxiales,
+y comparte los presupuestos con los otros operadores. Sólo instala una recuperación que
+verifique en su geometría final, sin bloqueos físicos propios ni regresiones sobre los demás.
+No amplía el presupuesto interno de `designMember` ni declara inviable una búsqueda fallida.
+
+En el estado publicado de 795, reabrir los 35 agotados recupera nominalmente 324 y 327,
+pero sus detallados producen 859 y 863 bloqueantes y bloquean respectivamente las columnas
+111 y 115. Ambos se rechazan y se conserva íntegro el estado inicial. Los otros 33 siguen
+agotados: 28 tienen congestión entre sus restricciones, 11 anclaje y cuatro flexión (pueden
+coexistir). Son 35 búsquedas nominales, 1722 verificaciones y dos detallados; el test con
+regeneración pasa en 28,23 s. Esto demuestra por qué una recuperación nominal requiere el
+mismo control físico que cualquier otro cambio.
+
+Resultado final sobre el audit publicado de `7451f330a`, con nuevo análisis de los 408 elementos:
+
+| Variante desde 795/180 | Detallados | Verificaciones nominales | Aprobados | Bloqueantes |
+| --- | ---: | ---: | ---: | ---: |
+| Filas alternativas sin reabrir rechazos vecinos | 84 | 512 | 184 | 710 |
+| Filas alternativas y reapertura de líneas vecinas, retenida | 86 | 510 | 184 | 703 |
+
+La versión retenida acepta 235–238 (7+3 Ø16 superiores, 4+3 Ø12 inferiores) y 248–250
+(4Ø16 por cara). En 248–250, la misma propuesta llevaba a 841 bloqueantes antes de cambiar
+235–238 y a 703 después: el rechazo anterior no era válido contra las nuevas jaulas.
+El resultado conserva las 180 identidades publicadas y suma las cuatro columnas indicadas:
+**118 columnas y 66 vigas aprobadas**, 176 fallidos, 35 agotados y 13 provisionales. Ningún
+aprobado participa en un conflicto bloqueante. En total se resuelven 16 parejas de empalme
+pendientes (294 → 278). Las dos variantes de la tabla son corridas desde la misma base.
+
+La corrida retenida termina por presupuesto nominal: la próxima línea no cabe en las dos
+verificaciones restantes del límite 512. Registra 69 rechazos nominales, 80 regresiones,
+cuatro casos sin progreso y dos aceptaciones, sin análisis estructurales adicionales dentro
+de la búsqueda. La reconstrucción, búsqueda y regeneración exacta pasan en **203,99 s** locales;
+no se repiten las búsquedas históricas desde cero. Reabrir los 35 agotados después del cambio
+de 235–238 vuelve a rechazar las dos recuperaciones físicas y conserva 710/184 (31,03 s).
+
+Pasan **121 pruebas dirigidas en cuatro suites**. Typecheck no agrega errores (442 existentes
+frente a baseline 443). Las exploraciones iniciales de balanceo sin una fila adicional no
+mejoraron el modelo; sus barridos amplios excedieron el timeout y no se cuentan como validación
+aprobada. Las mediciones retenidas de esta sección sí terminan y pasan, incluida la regeneración.
+
+Reproducción general medida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-demand-accepted.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_RUNS=128 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-rows-requeue-final.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+Reproducción de la mejora dirigida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-demand-accepted.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_TARGETS=235,236,237,238 STABILEO_REPAIR_RUNS=32 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-extra-bottom-row.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+`STABILEO_REPAIR_TARGETS` limita sólo el experimento mediante los bloqueos de miembros del
+motor; no modifica las reglas de aceptación. `STABILEO_REPAIR_REOPEN=1` registra propuestas
+nominales sin instalarlas; `STABILEO_REPAIR_OPERATOR=retryExhausted` prueba también el detalle.
+
 ## Convergencia: usar los rechazos y evitar el crecimiento obligatorio del armado
 
 Un diseño terminado debe verificar; un candidato rechazado durante la búsqueda no es un

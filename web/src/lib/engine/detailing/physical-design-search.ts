@@ -13,7 +13,7 @@ import { detailRegressionReasons } from './detail-regression';
 import type { ProvidedRebarCheck } from '../station-design-forces';
 import { completeAnchorage } from '../design/anchorage-hooks';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'retryExhausted';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -116,7 +116,7 @@ function nominalRepairPriority(
     if (!relevant.length) { if (JSON.stringify(a) !== JSON.stringify(b)) score--; continue; }
     for (const i of relevant) {
       const helpful = i.more ? area(b) > area(a) : b[0].diameter < a[0].diameter || b.length < a.length
-        || (!i.anchor && count(b) < count(a));
+        || (!i.anchor && (count(b) < count(a) || Math.max(...b.map(l => l.count)) < Math.max(...a.map(l => l.count))));
       if (helpful) score += 4 + (b[0].diameter === a[0].diameter ? 1 : 0);
     }
   }
@@ -128,13 +128,14 @@ function contextsFor(
   contexts: ReadonlyMap<number, MemberContext>, outcomes: ReadonlyMap<number, MemberDesignOutcome>,
 ): ReadonlyMap<number, MemberContext> {
   const corners = new Map<number, BeamCornerRecord>();
+  const absent = new Set<number>();
   for (const [id, ctx] of contexts) {
     if (ctx.elementType !== 'beam') continue;
     const record = beamCornerRecord(detailableReinforcement(outcomes.get(id))?.rebar, ctx.material.stirrupDia);
-    if (record) corners.set(id, record);
+    if (record) corners.set(id, record); else absent.add(id);
   }
   return new Map([...contexts].map(([id, ctx]) => [id,
-    ctx.elementType === 'beam' ? { ...ctx, beamCorners: corners } : ctx]));
+    ctx.elementType === 'beam' ? { ...ctx, beamCorners: corners, absentBeams: absent } : ctx]));
 }
 
 export function searchPhysicalDesignAlternatives(input: {
@@ -152,11 +153,11 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'retryExhausted')) {
     throw new Error('Unknown physical repair operator');
   }
-  if (operators.some(o => o.startsWith('harmonize'))) {
-    if (operators.length === 1) return searchBeamContinuity(input);
+  if (operators.some(o => o.startsWith('harmonize') || o === 'retryExhausted')) {
+    if (operators.length === 1) return operators[0] === 'retryExhausted' ? searchExhausted(input) : searchBeamContinuity(input);
     // Atomic neighbourhood repair is a separate sweep. All sweeps share the caller's budgets.
     let retained: PhysicalSearchResult = { outcomes: input.outcomes, result: input.result, trials: [],
       changed: [], termination: 'sweepComplete', stats: { detailingRuns: 0, memberSearches: 0,
@@ -258,6 +259,47 @@ export function searchPhysicalDesignAlternatives(input: {
     }
   }
   return { outcomes, result, trials, changed: [...changed].sort((a, b) => a - b), termination, stats };
+}
+
+/** Reopen nominal refusals against the retained neighbours, once per member in this sweep. */
+function searchExhausted(input: Parameters<typeof searchPhysicalDesignAlternatives>[0]): PhysicalSearchResult {
+  let outcomes = input.outcomes, result = input.result;
+  const trials: PhysicalSearchTrial[] = [], changed: number[] = [];
+  const stats: PhysicalSearchResult['stats'] = { detailingRuns: 0, memberSearches: 0,
+    candidatesConsidered: 0, verifierCalls: 0, structuralSolves: 0 };
+  let termination: PhysicalSearchResult['termination'] = 'sweepComplete';
+  for (const [id, prior] of input.outcomes) {
+    const original = input.contexts.get(id);
+    if (prior.outcome !== 'SEARCH_EXHAUSTED' || original?.elementType !== 'beam' || original.span
+      || input.lockedMembers?.has(id)) continue;
+    if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches >= input.budget.maxMemberSearches) {
+      termination = 'budget'; break;
+    }
+    const ctx = contextsFor(input.contexts, outcomes).get(id)!;
+    const candidate = designMember(input.adapter, ctx);
+    stats.memberSearches++;
+    stats.candidatesConsidered += candidate.searchStats.candidatesTried;
+    stats.verifierCalls += candidate.searchStats.verifierCalls;
+    const trial: PhysicalSearchTrial = { elementId: id, operator: 'retryExhausted', disposition: 'nominalFailure' };
+    trials.push(trial);
+    if (candidate.outcome !== 'VERIFIED' || !candidate.accepted) continue;
+    const proposed = new Map(outcomes).set(id, candidate);
+    const detailed = input.detail(proposed, contextsFor(input.contexts, proposed));
+    stats.detailingRuns++;
+    const before = physicallyBlockedMembers(result), after = physicallyBlockedMembers(detailed);
+    trial.newlyBlocked = [...after].filter(member => !before.has(member)).sort((a, b) => a - b);
+    trial.blockingConflicts = conflicts(detailed);
+    trial.regressions = detailRegressionReasons(result, detailed);
+    // Adding bars is progress only if the recovered member verifies physically too.
+    // Never turn a nominal refusal into a geometrically blocked "recovery".
+    if (after.has(id) || trial.newlyBlocked.length || input.regresses(result, detailed)
+      || !detailed.reverification.some(r => r.elementId === id && (r.status === 'ok' || r.status === 'warn'))) {
+      trial.disposition = 'regression'; continue;
+    }
+    trial.disposition = 'accepted';
+    outcomes = proposed; result = detailed; changed.push(id);
+  }
+  return { outcomes, result, trials, changed: changed.sort((a, b) => a - b), termination, stats };
 }
 
 /** Follow the coordinator's straight lines and splice transitions, never numbering or proximity. */
@@ -364,7 +406,12 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
     .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
-  pairLoop: for (const target of ranked) {
+  const nodesOf = (ids: number[]) => new Set(ids.flatMap(id => {
+    const ctx = input.contexts.get(id), e = ctx?.modelData.elements.get(id);
+    return e ? [e.nodeI, e.nodeJ] : [];
+  }));
+  pairLoop: for (let targetIndex = 0; targetIndex < ranked.length; targetIndex++) {
+    const target = ranked[targetIndex];
     const { ids, jointIds } = target;
     const open = (r: RunDetailingResult) => jointIds.reduce((n, j) => n + conditions(r, j), 0);
     if (!catalog && !open(result)) continue;
@@ -484,6 +531,21 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
       trial.disposition = 'accepted';
       ids.forEach((id, i) => { if (rebarHash(proposal.reinforcement[i]) !== rebarHash(current[i])) changed.add(id); });
       outcomes = proposed; result = detailed;
+      if (demand) {
+        // A refusal was against the OLD seats. Restart adjacent lines, including their
+        // consumed prefix, after changing a shared joint. Keep unrelated queues intact.
+        // The assignment-aware seen key and strict progress gate still prevent cycles;
+        // retries use the caller's remaining budget, never a fresh one.
+        const nodes = nodesOf(ids);
+        const affected = targets.filter(p => burden(p.ids) > 0 && !p.ids.some(id => ids.includes(id))
+          && [...nodesOf(p.ids)].some(node => nodes.has(node)));
+        const keys = new Set(affected.map(p => p.ids.join(',')));
+        for (let i = ranked.length - 1; i > targetIndex; i--) {
+          if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);
+        }
+        ranked.splice(targetIndex + 1, 0, ...affected.map(p => ({ ...p, burden: burden(p.ids),
+          offset: 0, order: undefined })));
+      }
       break;
     }
   }

@@ -111,6 +111,18 @@ export function* beamContinuityAlternatives(
           return { row, count: take, diameter: dia };
         });
         yield layers;
+        if (patterns === 'demand' && face === 'bottom') {
+          // Bottom row populations are materialized by preserveBottomRows. Top rows
+          // are still repacked by coordination, so do not offer fictitious top variants.
+          // A packed outer row can be the joint bottleneck. Keep the same steel and
+          // offer an even distribution, including one extra row to clear a crowded joint.
+          // Its centroid changes, so this is only a proposal, never a reused capacity.
+          for (const n of [rows, rows + 1]) {
+            if (n > BEAM_LIMITS.maxRows || count < n * BEAM_LIMITS.minBarsPerRow) continue;
+            yield Array.from({ length: n }, (_, row) => ({ row, diameter: dia,
+              count: Math.floor(count / n) + (row < count % n ? 1 : 0) }));
+          }
+        }
       }
     }
   }
@@ -127,7 +139,7 @@ export function* beamContinuityAlternatives(
       return !(ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS).includes(dia)
         || ordered.some(l => l.count > maxBarsPerRow(ctx.axes.bFlex, ctx.material.cover, stirrup, dia));
     })) continue;
-    const key = JSON.stringify(ordered);
+    const key = ordered.map(l => `${l.row}:${l.count}:${l.diameter}`).join('|');
     if (seen.has(key)) continue;
     seen.add(key);
     const count = ordered.reduce((sum, l) => sum + l.count, 0);
