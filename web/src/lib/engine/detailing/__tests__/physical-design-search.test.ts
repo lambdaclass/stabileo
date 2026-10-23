@@ -348,6 +348,136 @@ describe('atomic top continuity repair', () => {
     expect(result.result.assemblies[0].conflicts).toEqual([]);
   });
 
+  function coupledLines(residualRegression = false) {
+    const { input } = line();
+    const model = input.contexts.get(1)!.modelData;
+    for (const id of [5, 6, 7]) model.nodes.set(id, { id, x: (id - 5) * 6, y: 12, z: 0 });
+    for (const id of [4, 5]) {
+      model.elements.set(id, { ...model.elements.get(1)!, id, nodeI: id + 1, nodeJ: id + 2 });
+      input.contexts.set(id, { ...syntheticBeamContext({ elementId: id }), modelData: model });
+      input.outcomes.set(id, outcome(id, 16));
+      input.result.reverification.push({ ...input.result.reverification[0], elementId: id });
+      input.result.layering!.lineOfMember.set(id, 'remote');
+    }
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [16];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    input.result.assemblies[0].elementIds = [1, 2, 3, 4, 5];
+    input.result.assemblies[0].unsupported = [];
+    input.detail.mockImplementation(proposed => {
+      const primary = proposed.get(1)!.accepted!.regions!.topStart!.count === 4;
+      const companion = proposed.get(4)!.accepted!.regions!.topStart!.count === 4;
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0],
+        conflicts: primary ? [] : input.result.assemblies[0].conflicts,
+        unsupported: [
+          ...(primary && !companion ? [{ key: 'detailing.lapCheck.integrity', message: 'remote splice', refs: [],
+            scope: { elementIds: [4, 5] }, params: { joint: 'n6' } }] : []),
+          ...(primary && residualRegression ? [{ key: 'detailing.lapCheck.integrity', message: 'other splice', refs: [],
+            scope: { elementIds: [99] }, params: { joint: 'n99' } }] : []),
+        ],
+      }] };
+    });
+    return { ...input, budget: { maxDetailingRuns: 2, maxMemberSearches: 5,
+      operators: ['harmonizeCoupledCatalog'] as const } };
+  }
+
+  it('repairs a remote lap-only regression atomically within the shared budget', () => {
+    const input = coupledLines();
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([1, 2, 3, 4, 5]);
+    expect(result.stats).toMatchObject({ detailingRuns: 2, memberSearches: 5, verifierCalls: 5, structuralSolves: 0 });
+    expect(result.trials).toEqual([expect.objectContaining({ disposition: 'accepted',
+      companionRetained: true, companionIds: [4, 5], companionTrials: [expect.objectContaining({
+        elementIds: [4, 5], operator: 'harmonizeDemandCatalog', disposition: 'accepted',
+      })] })]);
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+    expect(result.result.assemblies[0].conflicts).toEqual([]);
+    // The primary assignment stays fixed while the companion is explored.
+    for (const id of [1, 2, 3]) expect(input.detail.mock.calls[1][0].get(id))
+      .toBe(input.detail.mock.calls[0][0].get(id));
+    expect(input.outcomes.get(1)!.accepted!.regions!.topStart!.count).toBe(2);
+  });
+
+  it('judges the combination against the retained design rather than its incomplete first half', () => {
+    const input = coupledLines();
+    const build = input.detail.getMockImplementation()!;
+    input.detail.mockImplementation((...args) => {
+      const next = build(...args);
+      if (args[0].get(4)!.accepted!.regions!.topStart!.count === 4)
+        next.assemblies[0].conflicts.push({ ...input.result.assemblies[0].conflicts[0] });
+      return next;
+    });
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(input.detail.mock.results.map(r => r.value.assemblies[0].conflicts.length)).toEqual([0, 1]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', companionRetained: true });
+    expect(result.result.assemblies[0].conflicts).toHaveLength(1);
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+    expect(input.result.assemblies[0].conflicts).toHaveLength(2);
+  });
+
+  it('does not enlarge the companion to conditions that changed scope without regressing', () => {
+    const input = coupledLines();
+    const model = input.contexts.get(1)!.modelData;
+    model.nodes.set(8, { id: 8, x: -6, y: 12, z: 0 });
+    model.elements.set(6, { ...model.elements.get(4)!, id: 6, nodeI: 8, nodeJ: 5 });
+    input.contexts.set(6, { ...input.contexts.get(4)!, elementId: 6 });
+    input.outcomes.set(6, outcome(6, 16));
+    input.result.layering!.lineOfMember.set(6, 'remote');
+    input.result.reverification.push({ ...input.result.reverification[0], elementId: 6 });
+    input.result.assemblies[0].unsupported.push({ key: 'detailing.clash.unresolved', message: 'old', refs: [],
+      scope: { elementIds: [4, 5, 6] } });
+    const build = input.detail.getMockImplementation()!;
+    input.detail.mockImplementation((...args) => {
+      const next = build(...args);
+      next.assemblies[0].unsupported.push({ key: 'detailing.clash.unresolved', message: 'shifted', refs: [],
+        scope: { elementIds: [5, 6] } });
+      return next;
+    });
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', companionIds: [4, 5] });
+    expect(result.outcomes.get(6)).toBe(input.outcomes.get(6));
+    expect(result.stats.memberSearches).toBe(5);
+  });
+
+  it('discards an accepted companion when the primary members still fail final verification', () => {
+    const input = coupledLines();
+    input.result.reverification[0].status = 'fail';
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.result).toBe(input.result);
+    expect(result.changed).toEqual([]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'regression', companionRetained: false,
+      companionTrials: [expect.objectContaining({ disposition: 'accepted' })] });
+  });
+
+  it('discards a combination that leaves a new blocker outside either repair segment', () => {
+    const input = coupledLines(true);
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'regression', companionRetained: false,
+      companionTrials: [expect.objectContaining({ disposition: 'regression', newlyBlocked: [99] })] });
+  });
+
+  it.each(['detailBudget', 'memberBudget', 'locked', 'provisional'] as const)(
+    'does not exceed %s restrictions while exploring a companion', restriction => {
+      const input = coupledLines();
+      if (restriction === 'detailBudget') input.budget.maxDetailingRuns = 1;
+      if (restriction === 'memberBudget') input.budget.maxMemberSearches = 3;
+      if (restriction === 'provisional') for (const id of [4, 5])
+        input.outcomes.set(id, { ...input.outcomes.get(id)!, outcome: 'PROVISIONAL_BIAXIAL' });
+      const result = searchPhysicalDesignAlternatives({ ...input,
+        lockedMembers: restriction === 'locked' ? new Set([4, 5]) : undefined });
+      expect(result.changed).toEqual([]);
+      expect(result.outcomes).toBe(input.outcomes);
+      expect(result.stats.detailingRuns).toBe(1);
+      expect(result.stats.memberSearches).toBe(3);
+      expect(result.trials.flatMap(t => t.companionTrials ?? [])).toEqual([]);
+    });
+
   it('uses joint congestion to rebalance rows before adding steel or changing the opposite face', () => {
     const { input, verify } = line();
     for (const ctx of input.contexts.values()) {

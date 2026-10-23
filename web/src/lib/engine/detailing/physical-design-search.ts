@@ -13,7 +13,7 @@ import { detailRegressionReasons } from './detail-regression';
 import type { ProvidedRebarCheck } from '../station-design-forces';
 import { completeAnchorage } from '../design/anchorage-hooks';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'retryExhausted';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'retryExhausted';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -54,6 +54,10 @@ export interface PhysicalSearchTrial {
   /** Demand-guided repairs must strictly improve this global, lexicographic measure. */
   progressBefore?: number[];
   progressAfter?: number[];
+  /** Tentative companion repairs; only published with an accepted parent trial. */
+  companionTrials?: PhysicalSearchTrial[];
+  companionIds?: number[];
+  companionRetained?: boolean;
 }
 
 export interface PhysicalSearchResult {
@@ -153,7 +157,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'retryExhausted')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'retryExhausted')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize') || o === 'retryExhausted')) {
@@ -362,10 +366,15 @@ export function continuityLines(contexts: ReadonlyMap<number, MemberContext>, re
 }
 
 /** Uniform longitudinal patterns are checked and published on a whole neighbourhood atomically. */
-function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlternatives>[0]): PhysicalSearchResult {
+function searchBeamContinuity(
+  input: Parameters<typeof searchPhysicalDesignAlternatives>[0],
+  /** A companion completes one tentative proposal; judge the pair against the retained design. */
+  retained?: RunDetailingResult,
+): PhysicalSearchResult {
   const operator = input.budget.operators![0] as Extract<PhysicalRepairOperator, `harmonize${string}`>;
   const mixed = operator === 'harmonizeMixedCageCatalog';
-  const demand = operator === 'harmonizeDemandCatalog';
+  const coupled = operator === 'harmonizeCoupledCatalog';
+  const demand = operator === 'harmonizeDemandCatalog' || coupled;
   const cage = operator === 'harmonizeCageCatalog' || mixed || demand;
   const catalog = operator === 'harmonizeTopCatalog' || cage;
   let result = input.result, outcomes = input.outcomes;
@@ -411,7 +420,8 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
   }
   const targets = operator !== 'harmonizeTop'
     ? lines.filter(p => catalog
-      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 : p.jointIds.some(j => conditions(result, j)))
+      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && p.jointIds.some(j => conditions(result, j)))
+      : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
   const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, order: undefined as number[] | undefined }))
     .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
@@ -451,7 +461,7 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
         + `>${ids.join(',')}:${proposal.reinforcement.map(rebarHash).join(',')}`;
       if (seen.has(hash)) continue;
       seen.add(hash);
-      const proposed = new Map(outcomes);
+      let proposed = new Map(outcomes);
       ids.forEach((id, i) => proposed.set(id, { ...outcomes.get(id)!, accepted: proposal.reinforcement[i] }));
       const trialContexts = contextsFor(input.contexts, proposed);
       const trial: PhysicalSearchTrial = { elementId: ids[0], elementIds: [...ids], jointId: jointIds[0], jointIds,
@@ -506,16 +516,62 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
         if (mixed || demand) { resume(); break; }
         continue;
       }
-      const detailed = input.detail(proposed, trialContexts);
+      let detailed = input.detail(proposed, trialContexts);
       stats.detailingRuns++;
-      const before = physicallyBlockedMembers(result), after = physicallyBlockedMembers(detailed);
+      let companions: number[] = [];
+      if (coupled && conflicts(detailed) < conflicts(result)
+        && stats.detailingRuns < input.budget.maxDetailingRuns && stats.memberSearches < input.budget.maxMemberSearches) {
+        const beforeBlocked = physicallyBlockedMembers(result);
+        const newlyBlocked = new Set([...physicallyBlockedMembers(detailed)].filter(id => !beforeBlocked.has(id)));
+        if (newlyBlocked.size || input.regresses(result, detailed)) {
+          // Use the actual collateral failures, even when floor coordination moved a line
+          // that does not directly share a node with the primary change.
+          const affected = new Set<number>();
+          for (const a of detailed.assemblies) for (const c of a.conflicts) {
+            if (c.severity !== 'marginal' && c.elementIds.some(id => newlyBlocked.has(id)))
+              c.elementIds.forEach(id => affected.add(id));
+          }
+          const conditionKey = (key: string, ids: readonly number[], joint: unknown) =>
+            JSON.stringify([key, [...ids].sort((a, b) => a - b), joint ?? '']);
+          const previousConditions = new Set(result.assemblies.flatMap(a => a.unsupported.map(u =>
+            conditionKey(u.key, u.scope?.elementIds ?? a.elementIds, u.params?.joint))));
+          const regressedKeys = new Set(detailRegressionReasons(result, detailed));
+          for (const a of detailed.assemblies) for (const u of a.unsupported) {
+            const members = u.scope?.elementIds ?? a.elementIds;
+            // Changed clash records can move among already blocked members without a
+            // regression. Do not let that noise expand a lap repair to unrelated spans.
+            if ((regressedKeys.has(u.key) || members.some(id => newlyBlocked.has(id)))
+              && !previousConditions.has(conditionKey(u.key, members, u.params?.joint))) members.forEach(id => affected.add(id));
+          }
+          // Repair the affected segment first. Expanding to an entire line can needlessly
+          // change already sound joints and consume its budget on unrelated failures.
+          ids.forEach(id => affected.delete(id));
+          if ([...affected].some(id => eligible.has(id))) {
+            // One level of look-ahead, at most four full builds and 32 member checks,
+            // all charged to the outer budget. The primary proposal stays locked.
+            const next = searchBeamContinuity({ ...input, outcomes: proposed, result: detailed,
+              lockedMembers: new Set([...(input.lockedMembers ?? []),
+                ...[...input.contexts.keys()].filter(id => !affected.has(id))]),
+              budget: { operators: ['harmonizeDemandCatalog'],
+                maxDetailingRuns: Math.min(4, input.budget.maxDetailingRuns - stats.detailingRuns),
+                maxMemberSearches: Math.min(32, input.budget.maxMemberSearches - stats.memberSearches) } }, result);
+            for (const key of ['detailingRuns', 'memberSearches', 'candidatesConsidered', 'verifierCalls'] as const) stats[key] += next.stats[key];
+            trial.companionTrials = next.trials;
+            trial.companionRetained = false;
+            companions = next.changed;
+            proposed = new Map(next.outcomes); detailed = next.result;
+          }
+        }
+      }
+      const baseline = retained ?? result;
+      const before = physicallyBlockedMembers(baseline), after = physicallyBlockedMembers(detailed);
       trial.newlyBlocked = [...after].filter(id => !before.has(id)).sort((a, b) => a - b);
       trial.blockingConflicts = conflicts(detailed);
-      trial.regressions = detailRegressionReasons(result, detailed);
+      trial.regressions = detailRegressionReasons(baseline, detailed);
       trial.splicePairsBefore = splicePairs(result, jointIds);
       trial.splicePairsAfter = splicePairs(detailed, jointIds);
       if (trial.newlyBlocked.length || ids.some(id => !detailed.reverification.some(r => r.elementId === id
-        && (r.status === 'ok' || r.status === 'warn'))) || input.regresses(result, detailed)) {
+        && (r.status === 'ok' || r.status === 'warn'))) || input.regresses(baseline, detailed)) {
         trial.disposition = 'regression';
         // Give every catalog neighbourhood a full trial before spending another on
         // the same line. Resume at the next proposal against the latest neighbours.
@@ -530,25 +586,34 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
       const localProgress = catalog && (ids.filter(id => after.has(id)).length < ids.filter(id => before.has(id)).length
         || localClashes(detailed) < localClashes(result));
       if (demand) {
-        trial.progressBefore = physicalProgressMeasure(result);
+        trial.progressBefore = physicalProgressMeasure(baseline);
         trial.progressAfter = physicalProgressMeasure(detailed);
       }
       if ((demand && !strictlyImproves(trial.progressBefore!, trial.progressAfter!))
-        || (!localProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore)) {
+        || (!retained && !localProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore)) {
         trial.disposition = 'noProgress';
         if (catalog) { resume(); break; }
         continue;
       }
       trial.disposition = 'accepted';
+      if (trial.companionTrials) {
+        trial.companionRetained = true;
+        trial.companionIds = companions;
+        companions.forEach(id => changed.add(id));
+      }
       ids.forEach((id, i) => { if (rebarHash(proposal.reinforcement[i]) !== rebarHash(current[i])) changed.add(id); });
       outcomes = proposed; result = detailed;
+      // Return the first complete combination. The parent still checks its own members
+      // and all global gates before publishing either half of this tentative repair.
+      if (retained) break pairLoop;
       if (demand) {
         // A refusal was against the OLD seats. Restart adjacent lines, including their
         // consumed prefix, after changing a shared joint. Keep unrelated queues intact.
         // The assignment-aware seen key and strict progress gate still prevent cycles;
         // retries use the caller's remaining budget, never a fresh one.
-        const nodes = nodesOf(ids);
-        const affected = targets.filter(p => burden(p.ids) > 0 && !p.ids.some(id => ids.includes(id))
+        const acceptedIds = [...ids, ...companions];
+        const nodes = nodesOf(acceptedIds);
+        const affected = targets.filter(p => burden(p.ids) > 0 && !p.ids.some(id => acceptedIds.includes(id))
           && [...nodesOf(p.ids)].some(node => nodes.has(node)));
         const keys = new Set(affected.map(p => p.ids.join(',')));
         for (let i = ranked.length - 1; i > targetIndex; i--) {

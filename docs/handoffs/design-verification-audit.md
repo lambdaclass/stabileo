@@ -6,6 +6,83 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Reparaciones conjuntas contra el diseño retenido
+
+Desde `53179f198`, una propuesta para 279–281 reduce los choques, pero la coordinación
+global altera el empalme de 268–269 en n99: queda una sola barra superior continua y aparece
+una condición de integridad. No alcanza con verificar las vigas que se modificaron.
+
+El operador opcional `harmonizeCoupledCatalog` explora una reparación complementaria cuando
+una propuesta reduce los conflictos totales pero introduce una regresión. Identifica los
+miembros afectados a partir de los bloqueos nuevos y las categorías que efectivamente
+empeoran, incluidos los que no comparten un nodo con la primera línea. Un cambio de alcance
+en una condición que no empeoró no amplía el segmento: incluir esos miembros también
+impedía encontrar la reparación que funcionaba en el ensayo dirigido. Explora sólo esos
+segmentos elegibles, manteniendo fija la primera propuesta y respetando los bloqueos del
+usuario y las exclusiones nominales.
+Las condiciones de empalme también permiten seleccionar una línea aunque no tenga choques.
+
+La comparación decisiva es contra **el diseño retenido antes de ambas modificaciones**.
+Comparar cada complemento con la primera propuesta incompleta descartaba combinaciones
+que solucionaban su empalme y seguían mejorando el diseño original. El complemento vuelve
+en cuanto encuentra una combinación admisible; el padre comprueba además la verificación
+final de sus propios miembros. Sólo entonces se conservan ambas partes. Si falla cualquier
+control, se descarta todo el conjunto.
+
+Se mantienen las barreras globales: ninguna aprobación previa perdida, ningún miembro
+nuevo bloqueado, ningún aumento de fallos o condiciones por categoría y mejora estricta de
+la medida de progreso. No cambian tolerancias, cargas, secciones ni verificadores. La búsqueda
+complementaria tiene una sola profundidad, hasta cuatro detallados y 32 evaluaciones de
+candidatos por miembro, descontados del presupuesto global; no se inicia un análisis estructural nuevo.
+La traza distingue propuestas complementarias tentativas de las que se retuvieron con su padre.
+
+La corrida general desde el audit de `53179f198`, **sin seleccionar miembros manualmente**,
+da el siguiente resultado sobre los 408 elementos:
+
+| Estado | Aprobados | Fallidos | Conflictos bloqueantes |
+| --- | ---: | ---: | ---: |
+| Publicado | 200 | 160 | 648 |
+| Reparaciones conjuntas | 207 | 153 | 580 |
+
+Conserva las 200 aprobaciones y suma las columnas 64, 69, 75 y 80 y las vigas 279–281:
+**128 columnas y 79 vigas aprobadas**, ninguna con conflictos bloqueantes. Los 35 agotados
+y 13 provisionales conservan exactamente sus resultados nominales y armados. El edificio
+completo todavía no verifica.
+
+Acepta 20 propuestas principales sobre 27 vigas distintas, contando sus complementos.
+Dos propuestas requieren reparación conjunta: 279–281 con 268–269, y 282–284 con 257.
+La segunda reduce 638 → 616 y libera las columnas 75 y 80; otras 18 propuestas individuales
+reducen 616 → 580. Las parejas de empalme pendientes bajan de 264 a 242 y las condiciones
+abiertas de 886 a 845. No se relaja ninguna barrera de aceptación.
+
+Consume **64 detallados y 334 verificaciones nominales**, sin análisis estructurales dentro
+de la búsqueda, y termina por presupuesto de detallado. La reconstrucción con un nuevo
+análisis, búsqueda y regeneración exacta pasa en **160,83 s locales**. La restauración inicial
+reproduce exactamente el audit publicado. El agotamiento del presupuesto no prueba inviabilidad.
+
+Pasan **136 pruebas dirigidas en cuatro suites**, incluidos presupuesto compartido, bloqueos,
+provisionales, reparación de un empalme remoto sin choques, comparación contra el diseño
+retenido, descarte atómico y exclusión de condiciones que cambian sin empeorar. Typecheck
+no agrega errores: 442 existentes frente al baseline de 443.
+
+Reproducción general medida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-segments-final.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-coupled-measured.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+La prueba dirigida confirma **648 → 638 bloqueantes y 200 → 205 aprobados**. La primera
+propuesta deja 636 choques pero introduce la condición de integridad. El complemento de
+268–269, con 7+2 Ø16 superiores y 4+3 Ø12 inferiores, deja 638 choques y elimina esa regresión.
+La comparación contra el estado intermedio rechazaba esos dos choques adicionales, aunque
+el conjunto mejora el estado retenido de 648 sin crear bloqueados ni perder aprobaciones.
+Las nuevas aprobaciones son las columnas 64 y 69 y las vigas 279–281. Consume ocho detallados
+y 23 verificaciones nominales; la reconstrucción y regeneración exacta pasan en 109,63 s locales.
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-segments-final.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_TARGETS=268,269,279,280,281 STABILEO_REPAIR_RUNS=8 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-coupled-atomic.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Reparar segmentos verificables junto a tramos provisionales
 
 La búsqueda por líneas descartaba una línea completa cuando uno de sus miembros no tenía

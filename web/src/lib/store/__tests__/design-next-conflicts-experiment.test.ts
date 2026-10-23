@@ -58,7 +58,7 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     const ids = process.env.STABILEO_REPAIR_PROPOSALS.split(',').map(Number);
     const ctx = ids.map(id => verificationStore.contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
-    const demand = process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeDemandCatalog';
+    const demand = ['harmonizeDemandCatalog', 'harmonizeCoupledCatalog'].includes(process.env.STABILEO_REPAIR_OPERATOR ?? '');
     for (const proposal of beamCageContinuityAlternatives(ctx, current,
       demand ? 'all' : process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeMixedCageCatalog' ? 'mixed' : 'common',
       demand ? 'demand' : 'retained')) {
@@ -107,10 +107,19 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     if (changed.length) {
       const blockedBefore = physicallyBlockedMembers(initialDetail);
       const newlyBlocked = [...physicallyBlockedMembers(result)].filter(id => !blockedBefore.has(id));
+      const changedIds = new Set(changed.map(m => m.id));
       attempts.push({ changed, regressionsFromSnapshot: detailRegressionReasons(initialDetail, result), newlyBlocked,
         newConflicts: result.assemblies.flatMap(a => a.conflicts).filter(c => c.elementIds.some(id => newlyBlocked.includes(id))),
         newConditions: result.assemblies.flatMap(a => a.unsupported.filter(u =>
           (u.scope?.elementIds ?? a.elementIds).some(id => newlyBlocked.includes(id)))),
+        ...(process.env.STABILEO_REPAIR_GEOMETRY ? {
+          changedLongitudinal: result.assemblies.flatMap(a => a.bars.filter(b => b.role === 'longitudinal'
+            && b.ownerElementIds.some(id => changedIds.has(id)))),
+          changedLapConditions: result.assemblies.flatMap(a => a.unsupported.filter(u => u.key.startsWith('detailing.lapCheck.')
+            && (u.scope?.elementIds ?? a.elementIds).some(id => changedIds.has(id)))),
+          changedLaps: result.lapping?.laps.filter(l => changedIds.has(l.fromElementId!) || changedIds.has(l.toElementId!)),
+          lapConditions: result.assemblies.flatMap(a => a.unsupported.filter(u => u.key.startsWith('detailing.lapCheck.'))),
+        } : {}),
       });
     }
     // The audit retains only the evidence above. Vitest otherwise holds every full building
