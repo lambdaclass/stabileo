@@ -57,7 +57,7 @@ pub struct FiberBasic2D {
 }
 
 /// Gauss–Lobatto points and weights on [0, 1].
-fn lobatto(n: usize) -> Vec<(f64, f64)> {
+pub(crate) fn lobatto(n: usize) -> Vec<(f64, f64)> {
     let raw: &[(f64, f64)] = match n {
         3 => &[(-1.0, 1.0 / 3.0), (0.0, 4.0 / 3.0), (1.0, 1.0 / 3.0)],
         4 => &[

@@ -1,13 +1,52 @@
-//! A 2D model: nodes, their DOFs, supports, a reference load and elements.
+//! Models: what the driver assembles and moves.
 
 use super::element::Element;
 
-/// Nodes carry three DOFs, (ux, uz, θ), numbered `3·node + k`.
+/// What a DOF measures: arc-length constraints and step norms weigh
+/// translations, not rotations, so that metres and radians never add.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DofKind {
+    Translation,
+    Rotation,
+}
+
+/// Receives each element's tangent during assembly: (element, its DOFs, k_e).
+pub type TangentSink<'a> = dyn FnMut(usize, &[usize], &[f64]) + 'a;
+
+/// A model as the driver sees it. The model owns its trial configuration and
+/// its committed one; the driver only sends increments.
+pub trait NonlinearModel {
+    fn n_dofs(&self) -> usize;
+    fn is_fixed(&self, dof: usize) -> bool;
+    fn dof_kind(&self, dof: usize) -> DofKind;
+    /// F, the load the driver scales by λ.
+    fn reference_load(&self) -> &[f64];
+    /// The DOFs of each element, in assembly order: the sparsity pattern.
+    fn element_dofs(&self) -> Vec<Vec<usize>>;
+    /// Evaluates every element at the trial configuration from its committed
+    /// state: adds its internal force into `f_int` and hands its tangent
+    /// (row-major, dofs × dofs) to `add_tangent(element, dofs, k_e)`.
+    fn assemble(&mut self, f_int: &mut [f64], add_tangent: &mut TangentSink<'_>) -> Result<(), String>;
+    /// Moves the trial configuration by `du` (zero at restrained DOFs).
+    /// Translations add; in 3D a rotation increment δθ is spatial:
+    /// R ← exp(δθ)·R. `increment(−du)` undoes `increment(du)`.
+    fn increment(&mut self, du: &[f64]);
+    /// Trial displacements; rotations as rotation vectors.
+    fn displacements(&self) -> Vec<f64>;
+    /// Accepts the trial configuration and every element's trial state.
+    fn commit(&mut self);
+    /// Returns to the committed configuration and states.
+    fn revert(&mut self);
+}
+
+/// A 2D model: nodes carry three DOFs, (ux, uz, θ), numbered `3·node + k`.
 pub struct Model2D {
     nodes: Vec<[f64; 2]>,
     fixed: Vec<bool>,
     load: Vec<f64>,
     elements: Vec<Box<dyn Element>>,
+    u: Vec<f64>,
+    u_committed: Vec<f64>,
 }
 
 impl Default for Model2D {
@@ -18,13 +57,15 @@ impl Default for Model2D {
 
 impl Model2D {
     pub fn new() -> Self {
-        Model2D { nodes: Vec::new(), fixed: Vec::new(), load: Vec::new(), elements: Vec::new() }
+        Model2D { nodes: Vec::new(), fixed: Vec::new(), load: Vec::new(), elements: Vec::new(), u: Vec::new(), u_committed: Vec::new() }
     }
 
     pub fn add_node(&mut self, x: f64, z: f64) -> usize {
         self.nodes.push([x, z]);
         self.fixed.extend([false; 3]);
         self.load.extend([0.0; 3]);
+        self.u.extend([0.0; 3]);
+        self.u_committed.extend([0.0; 3]);
         self.nodes.len() - 1
     }
 
@@ -65,54 +106,54 @@ impl Model2D {
         self.elements.push(e);
     }
 
-    pub fn n_dofs(&self) -> usize {
-        self.fixed.len()
-    }
-
-    pub fn is_fixed(&self, dof: usize) -> bool {
-        self.fixed[dof]
-    }
-
-    pub fn reference_load(&self) -> &[f64] {
-        &self.load
-    }
-
     pub fn elements(&self) -> &[Box<dyn Element>] {
         &self.elements
     }
+}
 
-    /// Evaluates every element at `u` and assembles the internal force and
-    /// the tangent (dense, row-major n×n).
-    pub(crate) fn assemble(&mut self, u: &[f64]) -> Result<(Vec<f64>, Vec<f64>), String> {
-        let n = self.n_dofs();
-        let mut f = vec![0.0; n];
-        let mut k = vec![0.0; n * n];
+impl NonlinearModel for Model2D {
+    fn n_dofs(&self) -> usize {
+        self.fixed.len()
+    }
+    fn is_fixed(&self, dof: usize) -> bool {
+        self.fixed[dof]
+    }
+    fn dof_kind(&self, dof: usize) -> DofKind {
+        if dof % 3 == 2 { DofKind::Rotation } else { DofKind::Translation }
+    }
+    fn reference_load(&self) -> &[f64] {
+        &self.load
+    }
+    fn element_dofs(&self) -> Vec<Vec<usize>> {
+        self.elements.iter().map(|e| e.dofs().to_vec()).collect()
+    }
+    fn assemble(&mut self, f_int: &mut [f64], add_tangent: &mut TangentSink<'_>) -> Result<(), String> {
         let mut ue = Vec::new();
         for (ei, e) in self.elements.iter_mut().enumerate() {
             ue.clear();
-            ue.extend(e.dofs().iter().map(|&d| u[d]));
+            ue.extend(e.dofs().iter().map(|&d| self.u[d]));
             e.update(&ue).map_err(|m| format!("element {ei}: {m}"))?;
-            let dofs = e.dofs();
-            let ne = dofs.len();
-            let (fe, ke) = (e.internal_force(), e.tangent());
-            for a in 0..ne {
-                f[dofs[a]] += fe[a];
-                for b in 0..ne {
-                    k[dofs[a] * n + dofs[b]] += ke[a * ne + b];
-                }
+            for (&d, &f) in e.dofs().iter().zip(e.internal_force()) {
+                f_int[d] += f;
             }
+            add_tangent(ei, e.dofs(), e.tangent());
         }
-        if f.iter().chain(k.iter()).any(|x| !x.is_finite()) {
-            return Err("non-finite internal force or tangent".into());
-        }
-        Ok((f, k))
+        Ok(())
     }
-
-    pub(crate) fn commit(&mut self) {
+    fn increment(&mut self, du: &[f64]) {
+        for (u, d) in self.u.iter_mut().zip(du) {
+            *u += d;
+        }
+    }
+    fn displacements(&self) -> Vec<f64> {
+        self.u.clone()
+    }
+    fn commit(&mut self) {
+        self.u_committed.clone_from(&self.u);
         self.elements.iter_mut().for_each(|e| e.commit());
     }
-
-    pub(crate) fn revert(&mut self) {
+    fn revert(&mut self) {
+        self.u.clone_from(&self.u_committed);
         self.elements.iter_mut().for_each(|e| e.revert());
     }
 }

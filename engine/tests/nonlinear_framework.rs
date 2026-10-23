@@ -426,3 +426,120 @@ fn j2_unloads_elastically_and_keeps_only_committed_state() {
     assert_eq!(m.stress(), fresh.stress());
 }
 
+
+// ==================== Robust strategies ====================
+
+/// The two-bar truss loaded through a soft spring above the apex: the
+/// load–deflection curve of the loaded point turns back (snap-back), which
+/// displacement control cannot follow and arc-length does. Every step is on
+/// the closed form: λ = P(w) at the apex and v = w + λ/k at the loaded point.
+#[test]
+fn arc_length_follows_a_snap_back() {
+    let (a, h, ea) = (1.0, 0.2, 1000.0);
+    let slope_min = (0..=2000)
+        .map(|i| {
+            let w = 2.0 * h * i as f64 / 2000.0;
+            (von_mises_load(a, h, ea, w + 1e-6) - von_mises_load(a, h, ea, w - 1e-6)) / 2e-6
+        })
+        .fold(f64::INFINITY, f64::min);
+    let k = 0.5 * -slope_min; // softer than the truss's steepest fall: snap-back
+    let p_max = (0..=10000).map(|i| von_mises_load(a, h, ea, h * i as f64 / 10000.0)).fold(0.0, f64::max);
+
+    let build = || {
+        let (mut m, apex) = von_mises_truss(a, h, ea);
+        // Move the load from the apex to a node above it, on a spring.
+        m.add_load(apex, [0.0, 1.0, 0.0]);
+        let top = m.add_node(0.0, h + 1.0);
+        m.fix(top, [true, false, true]);
+        let spring = Truss2D::new(m.truss_dofs(apex, top), m.coords(apex), m.coords(top), Kinematics::Linear, 1.0, Box::new(Elastic1D::new(k))).unwrap();
+        m.add_element(Box::new(spring));
+        m.add_load(top, [0.0, -1.0, 0.0]);
+        (m, apex, top)
+    };
+
+    let (mut m, apex, top) = build();
+    let out = solve(&mut m, &Strategy::ArcLength { target: 1.2 * p_max, increments: 20, max_steps: 600 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed(), "{:?} at λ = {}", out.termination, out.lambda);
+    let mut turned_back = false;
+    let mut v_prev = 0.0;
+    let mut v_max = 0.0f64;
+    for s in &out.steps {
+        let (w, v) = (-s.u[m.dof(apex, 1)], -s.u[m.dof(top, 1)]);
+        assert!((s.lambda - von_mises_load(a, h, ea, w)).abs() < 1e-7 * p_max, "λ = {} at w = {w}", s.lambda);
+        assert!((v - (w + s.lambda / k)).abs() < 1e-8, "spring: v = {v}, w + λ/k = {}", w + s.lambda / k);
+        v_max = v_max.max(v);
+        turned_back |= v < v_prev - 1e-3 * h && v < v_max - 1e-3 * h;
+        v_prev = v;
+    }
+    assert!(turned_back, "the loaded point never moved back: no snap-back traced");
+    assert!(w_final(&out, &m, apex) > 2.0 * h, "ended on the inverted branch");
+    assert_close(out.lambda, 1.2 * p_max, 1e-9, "ends on the target load");
+
+    // Displacement control of the loaded point cannot pass the snap-back.
+    let (mut m, _, top) = build();
+    let dof = m.dof(top, 1);
+    let dc = solve(&mut m, &Strategy::DisplacementControl { dof, target: -3.0 * h, increments: 60 }, &NewtonOptions::default()).unwrap();
+    let Termination::Stopped { reason, .. } = &dc.termination else { panic!("displacement control got through a snap-back") };
+    assert_eq!(*reason, StopReason::LimitPoint);
+}
+
+fn w_final(out: &Outcome, m: &Model2D, apex: usize) -> f64 {
+    -out.u[m.dof(apex, 1)]
+}
+
+/// The robust default goes through the snap-through that stops load control:
+/// load control up to the limit point, arc-length past it, and the target
+/// load reached on the far branch, every step on the closed form.
+#[test]
+fn auto_strategy_passes_the_limit_point_that_stops_load_control() {
+    let (a, h, ea) = (1.0, 0.2, 1000.0);
+    let p_max = (0..=10000).map(|i| von_mises_load(a, h, ea, h * i as f64 / 10000.0)).fold(0.0, f64::max);
+    let (mut m, apex) = von_mises_truss(a, h, ea);
+    let out = solve(&mut m, &Strategy::Auto { target: 1.5 * p_max, increments: 15, max_steps: 400 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed(), "{:?}", out.termination);
+    assert_close(out.lambda, 1.5 * p_max, 1e-9, "the target load");
+    assert!(w_final(&out, &m, apex) > 2.0 * h, "on the far branch");
+    assert!(out.steps.iter().any(|s| s.phase == Phase::LoadControl));
+    assert!(out.steps.iter().any(|s| s.phase == Phase::ArcLength));
+    for s in &out.steps {
+        let w = -s.u[m.dof(apex, 1)];
+        assert!((s.lambda - von_mises_load(a, h, ea, w)).abs() < 1e-7 * p_max, "λ = {} at w = {w}", s.lambda);
+    }
+}
+
+/// The LDLᵀ inertia marks the unstable branch: one negative eigenvalue
+/// exactly where the truss's load falls with deflection, none elsewhere.
+#[test]
+fn inertia_marks_the_unstable_branch() {
+    let (a, h, ea) = (1.0, 0.2, 1000.0);
+    let (mut m, apex) = von_mises_truss(a, h, ea);
+    let dof = m.dof(apex, 1);
+    let out = solve(&mut m, &Strategy::DisplacementControl { dof, target: -2.5 * h, increments: 100 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed());
+    let mut seen_unstable = false;
+    for s in &out.steps {
+        let w = -s.u[dof];
+        let slope = (von_mises_load(a, h, ea, w + 1e-6) - von_mises_load(a, h, ea, w - 1e-6)) / 2e-6;
+        if slope.abs() < 1.0 {
+            continue; // at a limit point
+        }
+        let expected = if slope < 0.0 { 1 } else { 0 };
+        assert_eq!(s.negative_eigenvalues, Some(expected), "w = {w}, dP/dw = {slope}");
+        seen_unstable |= expected == 1;
+        assert_eq!(s.method, FactorMethod::Ldlt);
+    }
+    assert!(seen_unstable);
+}
+
+/// Asked for the whole elastica (PL²/EI = 10) in one load step, the driver
+/// gets there by itself: Newton, then line search, then cuts.
+#[test]
+fn one_large_load_step_reaches_the_elastica() {
+    let (l, ei, n) = (1.0, 1.0, 20);
+    let (mut m, end) = cantilever(n, l, Kinematics::Corotational, &elastic(1e8, ei));
+    m.add_load(end, [0.0, 1.0, 0.0]);
+    let out = solve(&mut m, &Strategy::Auto { target: 10.0, increments: 1, max_steps: 100 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed(), "{:?}", out.termination);
+    let (u, w) = (-out.u[m.dof(end, 0)], out.u[m.dof(end, 1)]);
+    assert!((w - 0.81061).abs() < 1e-3 && (u - 0.55500).abs() < 1e-3, "w/L = {w}, u/L = {u}");
+}
