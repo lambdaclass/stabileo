@@ -378,6 +378,39 @@ fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T, nu: T) -> (T, T, T,
     (cc + cs - t - nu, mn, a, eps_t, fst, fsc)
 }
 
+/// Maximum design axial compressive strength φ·Pn,max = 0,65·0,80·Po for a tied section
+/// (Tabla 22.4.2.1, 22.4.2.2; [10.3.6.2]).
+pub(crate) fn max_axial_compression_r<T: Real>(m: &Cirsoc201MemberData) -> T {
+    let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
+    let d_p = m.d_prime.unwrap_or(0.0);
+    let doubly = as_c > 0.0 && d_p > 0.0 && d_p < m.d;
+    let ast = T::exact(m.as_tension) + if doubly { T::exact(as_c) } else { T::exact(0.0) };
+    let ag = T::exact(m.ag.unwrap_or_else(|| gross_area(m)).min(gross_area(m)));
+    let k = T::lit(0.85) * T::exact(m.fc);
+    let po = k * ag + ast * (T::exact(m.fy) - k).max(T::exact(0.0));
+    T::lit(0.65) * T::lit(0.80) * po
+}
+
+/// Required nominal axial force Pn = Nu/φ (Tabla 21.2.2; 22.4.3.1), continuous and strictly
+/// increasing in `nu`: Nu/0,90 in tension and in the tension-controlled range up to
+/// Nu,tc = 0,90·Pn(c_tc), and Nu/0,65 in the compression-controlled range.
+fn required_pn_r<T: Real>(m: &Cirsoc201MemberData, b1: T, nu: T) -> T {
+    let es = m.es.unwrap_or(200e9);
+    let ecu = T::lit(EPSILON_CU);
+    let d = T::exact(m.d);
+    let etc = tension_controlled_strain_r::<T>(m.edition, m.fy, es);
+    let c_tc = (ecu * d).dv(ecu + etc);
+    let zero = T::exact(0.0);
+    let pn_tc = flexure_at::<T>(m, b1, c_tc, zero).0.max(zero);
+    let nu_tc = T::lit(0.90) * pn_tc;
+    let pn_neg = nu.min(zero).dv(T::lit(0.90));
+    let nu_pos = nu.max(zero);
+    let pn_pos = (nu_pos.dv(T::lit(0.65))).min(
+        nu_pos.dv(T::lit(0.90)) + (nu_pos - nu_tc).max(zero).dv(T::lit(0.05)),
+    );
+    pn_neg + pn_pos
+}
+
 /// Nominal flexural strength with an axial force `nu` (N, compression positive) acting at the
 /// gross centroid, about which the moment is taken (22.2; 22.4 for the axial force). `nu_f64`
 /// is the f64 value of `nu`, used to place the root (the interval version certifies it).
@@ -389,20 +422,25 @@ pub(crate) fn nominal_flexure_axial_r<T: Real>(m: &Cirsoc201MemberData, nu: T, n
     if !flexure_inputs_valid(m) || !nu_f64.is_finite() {
         return None;
     }
+    if nu.le(max_axial_compression_r::<T>(m)) != Tri::True {
+        return None;
+    }
     let b1_f = beta1(m.fc);
     let b1 = beta1_r::<T>(m.fc);
+    let pn_f64 = required_pn_r::<f64>(m, b1_f, nu_f64);
+    let pn = required_pn_r::<T>(m, b1, nu);
     // Without compression the root is below d (R(d) ≥ Cc > 0). With it, the neutral axis can
     // leave the section; every strain saturates within a few depths, so a wide bracket is safe.
     let hi = if nu_f64 > 0.0 { 1e3 * (m.h / b1_f + m.d) } else { m.h / b1_f + m.d };
     let c = T::increasing_root(
-        |c| flexure_at::<f64>(m, b1_f, c, nu_f64).0,
-        |c| flexure_at::<T>(m, b1, c, nu).0,
+        |c| flexure_at::<f64>(m, b1_f, c, pn_f64).0,
+        |c| flexure_at::<T>(m, b1, c, pn).0,
         1e-9,
         hi,
     );
     // A root that is not bracketed (f64) or not certified (interval) is NaN, and so is
     // everything computed from it: the callers refuse non-finite results.
-    let (_, mn, a, epsilon_t, fs_tension, fs_compression) = flexure_at::<T>(m, b1, c, nu);
+    let (_, mn, a, epsilon_t, fs_tension, fs_compression) = flexure_at::<T>(m, b1, c, pn);
     Some(FlexureStateR { mn, a, c, epsilon_t, fs_tension, fs_compression })
 }
 
