@@ -133,9 +133,12 @@ def _rich_2d(seed):
             if rng.random() < 0.4:
                 s["angle"] = rng.uniform(-1.2, 1.2)
         elif rng.random() < 0.3:
-            s["dx"] = rng.uniform(-0.01, 0.01)
-            s["dz"] = rng.uniform(-0.01, 0.01)
-            s["dry"] = rng.uniform(-0.002, 0.002)
+            fl = {"fixed": (1, 1, 1), "pinned": (1, 1, 0), "rollerX": (0, 1, 0),
+                  "rollerZ": (1, 0, 0), "guidedX": (0, 1, 1), "guidedZ": (1, 0, 1)}[typ]
+            for key, r_, lim in (("dx", fl[0], 0.01), ("dz", fl[1], 0.01), ("dry", fl[2], 0.002)):
+                v = rng.uniform(-lim, lim)
+                if r_:
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}
@@ -218,10 +221,14 @@ def _rich_3d(seed):
                 if rng.random() < 0.4:
                     s[key] = rng.uniform(1e3, 1e6)
         if rng.random() < 0.3:
-            for key in ("dx", "dy", "dz"):
-                s[key] = rng.uniform(-0.01, 0.01)
-            for key in ("drx", "dry", "drz"):
-                s[key] = rng.uniform(-0.002, 0.002)
+            for key, fl, sp in (("dx", "rx", "kx"), ("dy", "ry", "ky"), ("dz", "rz", "kz")):
+                v = rng.uniform(-0.01, 0.01)
+                if s[fl] and not s.get(sp):
+                    s[key] = v
+            for key, fl, sp in (("drx", "rrx", "krx"), ("dry", "rry", "kry"), ("drz", "rrz", "krz")):
+                v = rng.uniform(-0.002, 0.002)
+                if s[fl] and not s.get(sp):
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}
