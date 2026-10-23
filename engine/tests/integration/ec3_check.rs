@@ -281,3 +281,44 @@ fn ec3_multiple_members() {
         "Longer column should have higher ratio"
     );
 }
+
+/// Test 9: Class 1 column under reverse-curvature bending (Cmy = 0.4) where end cross-section
+/// M-N interaction exceeds 1.0 even though member buckling Eqs. (6.61)/(6.62) are below 1.0.
+#[test]
+fn ec3_class1_end_section_overloaded_with_low_cmy_fails() {
+    let mut m = ipe300_s275();
+    m.lcr_y = 1.0;
+    m.lcr_z = 1.0;
+    m.lb = 1.0;
+    m.ltb = Some(Ec3LtbData {
+        load_position: Some(Ec3LoadPosition::ShearCentre),
+        ..Default::default()
+    });
+    m.interaction = Some(Ec3InteractionData {
+        cmy: Some(0.4),
+        cmz: Some(0.4),
+        cm_lt: Some(0.4),
+        hollow: None,
+    });
+
+    let input = Ec3CheckInput {
+        members: vec![m],
+        forces: vec![Ec3DesignForces {
+            element_id: 1,
+            n_ed: Some(-700_000.0), // n = 700 / 1479.5 = 0.4731 > 0.5*a
+            my_ed: Some(120_000.0), // My / Mpl,y,Rd = 120 / 172.7 = 0.6948 > (1 - n)/(1 - 0.5*a) = 0.6305
+            mz_ed: None,
+            v_ed: None,
+        }],
+    };
+
+    let results = check_ec3_members(&input);
+    let r = &results[0];
+    assert!(
+        r.interaction_ratio > 1.0,
+        "Expected Class 1 cross-section M-N check to exceed 1.0, got {}",
+        r.interaction_ratio
+    );
+    assert!(!r.pass, "End cross-section overloaded under M+N must not pass");
+}
+
