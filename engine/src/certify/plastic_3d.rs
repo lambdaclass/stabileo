@@ -1292,7 +1292,7 @@ fn insert_dir(dirs: &mut Vec<f64>, phi: f64) -> bool {
 /// new samples at interior maxima of the yield ratio on loaded members that
 /// lie outside the ellipse. Returns whether anything was added and the
 /// largest ratio found.
-fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, samples: &mut Vec<Sample>) -> (bool, f64) {
+fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, mu: &[Vec<f64>], samples: &mut Vec<Sample>) -> (bool, f64) {
     let mut added = false;
     let mut worst = 0.0f64;
     let mut extra = Vec::new();
@@ -1334,7 +1334,8 @@ fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, samples: &mu
         insert_dir(&mut s.dirs, mz.atan2(my));
         added = true;
     }
-    for s in samples.iter_mut() {
+    let mumax = mu.iter().map(|m| m.iter().sum::<f64>()).fold(0.0f64, f64::max);
+    for (s, smu) in samples.iter_mut().zip(mu) {
         let (my, mz) = sample_m(s, &ef[s.e], x, lam);
         worst = worst.max((my * my + mz * mz).sqrt());
         let on_edge = edges(&s.dirs).iter().map(|(a, b)| a * my + b * mz).fold(f64::NEG_INFINITY, f64::max);
@@ -1346,9 +1347,12 @@ fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, samples: &mu
             added = true;
             continue;
         }
-        // at a vertex already: narrow its normal cone (the dual's hinge
-        // rotation may lie anywhere in it, where the polygon underestimates
-        // the dissipation) by bisecting the two edges next to it
+        if smu.iter().sum::<f64>() <= 1e-9 * mumax {
+            continue;
+        }
+        // at a vertex already on an active hinge: narrow its normal cone (the
+        // dual's hinge rotation may lie anywhere in it, where the polygon
+        // underestimates the dissipation) by bisecting the two edges next to it
         let n = s.dirs.len();
         let k = (0..n)
             .min_by(|&a, &b| {
@@ -1744,12 +1748,14 @@ pub fn plastic_candidates_3d(
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
     let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
+    let mut prev_lam = f64::NEG_INFINITY;
     for _ in 0..60 {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
-        let (added, _) = refine(model, &ef, &x, lp.lambda, &mut samples);
-        if !added {
+        let (added, worst) = refine(model, &ef, &x, lp.lambda, &lp.mu, &mut samples);
+        if !added || (worst <= 1.0 + 1e-9 && (lp.lambda - prev_lam).abs() <= 1e-9 * lp.lambda.abs()) {
             break;
         }
+        prev_lam = lp.lambda;
         match solve_lp(&samples, &ef, &eqf) {
             Some(s) => lp = s,
             None => break,
@@ -1883,40 +1889,48 @@ pub fn plastic_candidates_3d(
     // solve again. When the mechanism is the collapse mechanism, the LP can
     // reach λ_up on these vertices and the exact check proves it.
     if let Some((_, mc)) = &best_mech {
-        let pos: HashMap<usize, usize> = model.elems.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
-        let mut changed = false;
-        for (id, t, ry, rz) in &mc.hinges {
-            let ei = pos[id];
-            let Some([(py, _), (pz, _)]) = &model.elems[ei].mp else { continue };
-            let (a, b) = (to_f64(py) * ry, to_f64(pz) * rz);
-            if a == 0.0 && b == 0.0 {
-                continue;
-            }
-            let phi = b.atan2(a);
-            let Some(smp) = samples.iter_mut().find(|x| x.e == ei && &x.t == t) else { continue };
-            for w in [phi, phi + std::f64::consts::PI] {
-                for d in [0.0, 1e-6, -1e-6] {
-                    changed |= insert_dir(&mut smp.dirs, w + d);
+        let up = to_f64(&mc.lambda_upper);
+        let already_tight = best_static
+            .as_ref()
+            .is_some_and(|(_, sc, _)| (up - to_f64(&sc.lambda_lower)) <= 1e-12 * up.abs());
+        if !already_tight {
+            let pos: HashMap<usize, usize> = model.elems.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
+            let mut changed = false;
+            for (id, t, ry, rz) in &mc.hinges {
+                let ei = pos[id];
+                let Some([(py, _), (pz, _)]) = &model.elems[ei].mp else { continue };
+                let (a, b) = (to_f64(py) * ry, to_f64(pz) * rz);
+                if a == 0.0 && b == 0.0 {
+                    continue;
                 }
-            }
-        }
-        if changed {
-            if let Some(mut lp2) = solve_lp(&samples, &ef, &eqf) {
-                for _ in 0..10 {
-                    let x = field_f64(&eqf, lp2.lambda, &lp2.z);
-                    let (added, _) = refine(model, &ef, &x, lp2.lambda, &mut samples);
-                    if !added {
-                        break;
-                    }
-                    match solve_lp(&samples, &ef, &eqf) {
-                        Some(s) => lp2 = s,
-                        None => break,
+                let phi = b.atan2(a);
+                let Some(smp) = samples.iter_mut().find(|x| x.e == ei && &x.t == t) else { continue };
+                for w in [phi, phi + std::f64::consts::PI] {
+                    for d in [0.0, 1e-6, -1e-6] {
+                        changed |= insert_dir(&mut smp.dirs, w + d);
                     }
                 }
-                if lp2.lambda > 0.0 && lp2.lambda.is_finite() {
-                    let lam = q(lp2.lambda).unwrap_or_else(Q::zero);
-                    let z: Vec<Q> = lp2.z.iter().map(|v| q(*v).unwrap_or_else(Q::zero)).collect();
-                    consider(to_static(exact_field(&eq, &lam, &z), lam.clone()), "limit-analysis LP (mechanism vertices)", &mut best_static);
+            }
+            if changed {
+                if let Some(mut lp2) = solve_lp(&samples, &ef, &eqf) {
+                    let mut prev_lam = up;
+                    for _ in 0..10 {
+                        let x = field_f64(&eqf, lp2.lambda, &lp2.z);
+                        let (added, worst) = refine(model, &ef, &x, lp2.lambda, &lp2.mu, &mut samples);
+                        if !added || (worst <= 1.0 + 1e-9 && (lp2.lambda - prev_lam).abs() <= 1e-9 * lp2.lambda.abs()) {
+                            break;
+                        }
+                        prev_lam = lp2.lambda;
+                        match solve_lp(&samples, &ef, &eqf) {
+                            Some(s) => lp2 = s,
+                            None => break,
+                        }
+                    }
+                    if lp2.lambda > 0.0 && lp2.lambda.is_finite() {
+                        let lam = q(lp2.lambda).unwrap_or_else(Q::zero);
+                        let z: Vec<Q> = lp2.z.iter().map(|v| q(*v).unwrap_or_else(Q::zero)).collect();
+                        consider(to_static(exact_field(&eq, &lam, &z), lam.clone()), "limit-analysis LP (mechanism vertices)", &mut best_static);
+                    }
                 }
             }
         }
