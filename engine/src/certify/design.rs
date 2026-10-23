@@ -425,7 +425,7 @@ pub fn steel_demands_from_combinations_2d(
     Ok(demands)
 }
 
-/// 3D version of `steel_demands_from_combinations_2d` (N, My, Mz, Vy).
+/// 3D version of `steel_demands_from_combinations_2d` (N, My, Mz, Vz → vy).
 pub fn steel_demands_from_combinations_3d(
     out: &CertifiedMultiCase3D,
     stations: usize,
@@ -443,7 +443,7 @@ pub fn steel_demands_from_combinations_3d(
         for ef in &cr.results.element_forces {
             let bound = sb
                 .get(&ef.element_id)
-                .map(|s| DemandBound { n: s.axial, my: s.moment_y, mz: s.moment_z, vy: s.shear_y })
+                .map(|s| DemandBound { n: s.axial, my: s.moment_y, mz: s.moment_z, vy: s.shear_z })
                 .unwrap_or(DemandBound { n: f64::NAN, my: f64::NAN, mz: f64::NAN, vy: f64::NAN });
             for j in 0..stations {
                 let t = j as f64 / (stations - 1) as f64;
@@ -453,7 +453,7 @@ pub fn steel_demands_from_combinations_3d(
                         n: evaluate_diagram_3d_at(ef, "axial", t),
                         my: evaluate_diagram_3d_at(ef, "momentY", t),
                         mz: Some(evaluate_diagram_3d_at(ef, "momentZ", t)),
-                        vy: Some(evaluate_diagram_3d_at(ef, "shearY", t)),
+                        vy: Some(evaluate_diagram_3d_at(ef, "shearZ", t)),
                     },
                     bound,
                 });

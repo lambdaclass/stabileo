@@ -36,13 +36,13 @@ pub fn extract_steel_demands_3d(
     strategy: DemandStrategy,
 ) -> Vec<ElementDesignForces> {
     grouped.members.iter().map(|member| {
-        let (n, my, mz, vy) = pick_governing_3d(&member.stations, strategy);
+        let (n, my, mz, vz) = pick_governing_3d(&member.stations, strategy);
         ElementDesignForces {
             element_id: member.member_id,
             n,
             my,
             mz: Some(mz),
-            vy: Some(vy),
+            vy: Some(vz),
         }
     }).collect()
 }
@@ -81,17 +81,17 @@ pub fn extract_rc_demands_2d(
 }
 
 /// Extract governing RC design demands from 3D grouped station results.
-/// Uses moment_z (major axis bending) as the governing moment for RC.
+/// Uses moment_y (major axis bending) and shear_z (vertical web shear) as the governing demands for RC.
 pub fn extract_rc_demands_3d(
     grouped: &GroupedBeamStationResult3D,
     strategy: DemandStrategy,
 ) -> Vec<RCDesignForces> {
     grouped.members.iter().map(|member| {
-        let (n, _my, mz, vy) = pick_governing_3d(&member.stations, strategy);
+        let (n, my, _mz, vz) = pick_governing_3d(&member.stations, strategy);
         RCDesignForces {
             element_id: member.member_id,
-            mu: mz,
-            vu: Some(vy),
+            mu: my,
+            vu: Some(vz),
             nu: Some(n),
         }
     }).collect()
@@ -128,7 +128,7 @@ fn pick_governing_2d(
     best
 }
 
-/// Scan all stations and combos for a 3D member, return (n, my, mz, vy) at the
+/// Scan all stations and combos for a 3D member, return (n, my, mz, vz) at the
 /// governing point according to the strategy.
 fn pick_governing_3d(
     stations: &[BeamStation3D],
@@ -154,7 +154,7 @@ fn pick_governing_3d(
             };
             if score > best_score {
                 best_score = score;
-                best = (cf.n, cf.my, cf.mz, cf.vy);
+                best = (cf.n, cf.my, cf.mz, cf.vz);
             }
         }
     }
@@ -235,11 +235,11 @@ mod tests {
             make_station_3d(1, 0, 0.0, vec![(1, 0.0, 10.0, 5.0, -30.0, -40.0, 2.0)]),
             make_station_3d(1, 1, 0.5, vec![(1, 0.0, 8.0, 3.0, -60.0, -80.0, 1.0)]),
         ];
-        let (n, my, mz, vy) = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
+        let (n, my, mz, vz) = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
         // Station 1: SRSS = sqrt(60^2 + 80^2) = 100  vs station 0: sqrt(30^2 + 40^2) = 50
         assert!((my - (-60.0)).abs() < 1e-10);
         assert!((mz - (-80.0)).abs() < 1e-10);
-        assert!((vy - 8.0).abs() < 1e-10);
+        assert!((vz - 3.0).abs() < 1e-10);
         assert!(n.abs() < 1e-10);
     }
 
@@ -276,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn extract_rc_demands_3d_uses_mz_as_mu() {
+    fn extract_rc_demands_3d_uses_my_as_mu_and_vz_as_vu() {
         let grouped = GroupedBeamStationResult3D {
             schema_version: 1,
             members: vec![MemberStationGroup3D {
@@ -305,9 +305,14 @@ mod tests {
 
         let demands = extract_rc_demands_3d(&grouped, DemandStrategy::MaxAbsMoment);
         assert_eq!(demands.len(), 1);
-        // RC uses mz (major axis) as mu
-        assert!((demands[0].mu - (-150.0)).abs() < 1e-10);
+        // RC uses my (major axis) as mu and vz (strong-axis shear) as vu
+        assert!((demands[0].mu - (-10.0)).abs() < 1e-10);
         assert!((demands[0].nu.unwrap() - (-50.0)).abs() < 1e-10);
-        assert!((demands[0].vu.unwrap() - 25.0).abs() < 1e-10);
+        assert!((demands[0].vu.unwrap() - 5.0).abs() < 1e-10);
+        let steel_demands = extract_steel_demands_3d(&grouped, DemandStrategy::MaxAbsMoment);
+        assert_eq!(steel_demands.len(), 1);
+        assert!((steel_demands[0].my - (-10.0)).abs() < 1e-10);
+        assert!((steel_demands[0].mz.unwrap() - (-150.0)).abs() < 1e-10);
+        assert!((steel_demands[0].vy.unwrap() - 5.0).abs() < 1e-10);
     }
 }

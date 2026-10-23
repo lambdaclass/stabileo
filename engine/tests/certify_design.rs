@@ -351,6 +351,73 @@ fn certified_steel_utilization_end_to_end_3d() {
     }
 }
 
+/// Gravity-loaded 3D beam (load in −Z) bends in the local x–z plane (`momentY`)
+/// and carries vertical web shear in `shearZ` (`shearY = 0`). A short beam whose
+/// web shear `|Vz| / (φv·Vn) > 1` while flexure `|My| / (φb·Mny) < 1` must be
+/// certified as failing on `"Shear G2"`, not passed with zero shear demand.
+#[test]
+fn certified_steel_multi_case_3d_gravity_web_shear_governs() {
+    let solver: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {
+            "1": { "id": 1, "x": 0.0, "y": 0.0, "z": 0.0 },
+            "2": { "id": 2, "x": 0.5, "y": 0.0, "z": 0.0 }
+        },
+        "materials": {
+            "1": { "id": 1, "e": 200000.0, "nu": 0.3 }
+        },
+        "sections": {
+            "1": { "id": 1, "a": 1.23e-2, "iy": 2.22e-4, "iz": 7.25e-5, "j": 9.1e-7 }
+        },
+        "elements": {
+            "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "sectionId": 1, "materialId": 1 }
+        },
+        "supports": {
+            "1": { "id": 1, "nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true }
+        },
+        "loads": []
+    }))
+    .unwrap();
+    let mc = MultiCaseInput3D {
+        solver,
+        load_cases: vec![LoadCase3D {
+            name: "G".into(),
+            loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: 2,
+                fx: 0.0,
+                fy: 0.0,
+                fz: -750.0,
+                mx: 0.0,
+                my: 0.0,
+                mz: 0.0,
+                bw: None,
+            })],
+        }],
+        combinations: vec![CombinationDef {
+            name: "1.0G".into(),
+            factors: [("G".to_string(), 1.0)].into_iter().collect(),
+        }],
+    };
+    let out = certify_steel_multi_case_3d(&SteelMultiCaseInput3D {
+        multi_case: mc,
+        members: vec![w_member(1, 0.5)],
+        stations: Some(11),
+    })
+    .unwrap();
+    for r in &out.steel {
+        let exact_shear_ratio = 750.0 / (0.9 * 0.6 * 345e3 * 3.08e-3);
+        assert!(r.certified, "{r:?}");
+        assert!(!r.certified_ok && r.certified_fail, "must fail web shear: {r:?}");
+        assert_eq!(r.governing_check, "Shear G2");
+        assert!(
+            r.utilization_lower <= exact_shear_ratio * (1.0 + 1e-12)
+                && exact_shear_ratio <= r.utilization_upper * (1.0 + 1e-12),
+            "exact {exact_shear_ratio} ∉ [{}, {}]",
+            r.utilization_lower,
+            r.utilization_upper
+        );
+    }
+}
+
 /// Fed a wrong combination result, the certified utilization still encloses
 /// the utilization from the correct results (the bound widens; it never
 /// under-bounds).
