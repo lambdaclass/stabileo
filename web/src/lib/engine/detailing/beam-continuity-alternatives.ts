@@ -6,7 +6,25 @@ import { BEAM_LIMITS, maxBarsPerRow } from '../design/candidate-enumerate-beam';
 
 export interface BeamContinuityAlternative {
   layers: RebarLayer[];
+  bottomLayers?: RebarLayer[];
   reinforcement: ProvidedReinforcement[];
+}
+
+/**
+ * Joint top/bottom alternatives: the widest face supplies the shared layout's pitch.
+ * Changing only the top can therefore leave its larger bars on a smaller bottom pitch,
+ * forcing extra rows and shorter hooks. Try one catalog diameter on both faces, with
+ * independent area seeds. Every member still needs nominal and full-detail verification.
+ */
+export function* beamCageContinuityAlternatives(
+  contexts: readonly MemberContext[], current: readonly ProvidedReinforcement[],
+): Generator<BeamContinuityAlternative> {
+  for (const top of beamContinuityAlternatives(contexts, current, 'top', 'catalog')) {
+    for (const bottom of beamContinuityAlternatives(contexts, top.reinforcement, 'bottom', 'catalog')) {
+      if (bottom.layers[0].diameter !== top.layers[0].diameter) continue;
+      yield { layers: top.layers, bottomLayers: bottom.layers, reinforcement: bottom.reinforcement };
+    }
+  }
 }
 
 /**

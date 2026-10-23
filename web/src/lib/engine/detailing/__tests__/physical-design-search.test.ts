@@ -114,6 +114,35 @@ describe('atomic top continuity repair', () => {
     expect(input.detail).not.toHaveBeenCalled();
   });
 
+  it('verifies a whole cage proposal atomically and records both face populations', () => {
+    const { input, verify } = line();
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, operators: ['harmonizeCageCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', operator: 'harmonizeCageCatalog',
+      elementIds: [1, 2, 3], diameterMm: 16, counts: [2], bottomCounts: [2] });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(input.detail).toHaveBeenCalledTimes(1);
+    for (const o of result.outcomes.values()) {
+      expect(o.accepted!.regions!.topStart!.diameter).toBe(16);
+      expect(o.accepted!.regions!.bottomSpan!.diameter).toBe(16);
+      expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
+    }
+  });
+
+  it('retains both original faces when a cage proposal blocks a neighbour', () => {
+    const { input } = line();
+    input.result.assemblies[0].conflicts = input.result.assemblies[0].conflicts.slice(0, 1);
+    input.detail.mockReturnValue(input.result);
+    const worse = structuredClone(input.result);
+    worse.assemblies[0].conflicts.push({ ...worse.assemblies[0].conflicts[0], elementIds: [99] });
+    input.detail.mockReturnValue(worse);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 3, operators: ['harmonizeCageCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'regression', newlyBlocked: [99] });
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+  });
+
   it('tries the next catalog line before spending a second full run on the first', () => {
     const { input, verify } = line();
     const model = input.contexts.get(1)!.modelData;

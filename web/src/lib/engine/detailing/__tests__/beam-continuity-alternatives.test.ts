@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beamContinuityAlternatives } from '../beam-continuity-alternatives';
+import { beamCageContinuityAlternatives, beamContinuityAlternatives } from '../beam-continuity-alternatives';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
 import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
 
@@ -11,6 +11,28 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it('tries independent top and bottom areas in one common cage diameter without changing end intent', () => {
+    const ctx = contexts(), current = [reinforcement(7, 12), reinforcement(8, 10)];
+    ctx[1].material.longDiametersMm = [16];
+    current[0].regions!.bottomSpan = { count: 5, diameter: 16 };
+    current[0].regions!.bottomGroups = [{ layers: [{ count: 5, diameter: 16, row: 0 }], anchorageStart: 'hook' }];
+    const before = structuredClone(current);
+    const candidates = [...beamCageContinuityAlternatives(ctx, current)];
+    expect(candidates.map(p => [p.layers[0].count, p.bottomLayers![0].count])).toEqual([
+      [4, 5], [4, 6], [5, 5], [5, 6],
+    ]);
+    for (const p of candidates) p.reinforcement.forEach((r, i) => {
+      expect(r.regions!.topStart).toEqual({ count: p.layers[0].count, diameter: 16 });
+      expect(r.regions!.bottomSpan).toEqual({ count: p.bottomLayers![0].count, diameter: 16 });
+      expect(r.regions!.bottomGroups?.[0].anchorageStart).toBe(before[i].regions!.bottomGroups?.[0].anchorageStart);
+      expect(r.regions!.preserveBottomRows).toBe(true);
+      expect(r.regions!.stirrupsSupport).toEqual(before[i].regions!.stirrupsSupport);
+    });
+    expect(current).toEqual(before);
+    current[0].regions!.bottomGroups!.push({ layers: [{ count: 2, diameter: 12, row: 0 }] });
+    expect([...beamCageContinuityAlternatives(ctx, current)]).toEqual([]);
+  });
+
   it('offers a common catalog family absent from both original designs, with a bounded count/row search', () => {
     const ctx = contexts(), current = [reinforcement(7, 12), reinforcement(8, 10)];
     ctx[1].material.longDiametersMm = [16];

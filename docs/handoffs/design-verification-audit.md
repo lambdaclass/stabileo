@@ -6,6 +6,74 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Explorar ambas caras de una línea en una misma alternativa
+
+Armonizar sólo la cara superior deja intacta la inferior, aunque el grupo más numeroso
+determina el paso de la distribución compartida. Una propuesta superior de mayor diámetro
+puede quedar condicionada por las posiciones inferiores y requerir filas adicionales, con
+menos espacio de anclaje. Cambiar una cara por vez no explora todas las soluciones posibles.
+
+El operador opt-in `harmonizeCageCatalog` propone un diámetro común para ambas caras de una
+línea, dimensionando sus áreas por separado. Para cada cara prueba el menor número entero
+de barras que conserva el área máxima de la línea y una barra adicional. Combina como máximo
+cuatro poblaciones por diámetro, con los límites de filas y catálogos existentes. Conserva
+estribos y terminaciones, incluidas las instrucciones de ganchos, y persiste las filas inferiores.
+Actualiza los asientos vecinos y verifica todos los miembros de la propuesta antes de generar
+el edificio completo. Sólo retiene una mejora física sin nuevas regresiones ni miembros bloqueados.
+
+La primera corrida sobre la asignación de `54a221cbb`, reconstruida con un nuevo análisis del
+modelo de 408 elementos, consumió 32 detallados y 198 verificaciones nominales. Retuvo ocho
+alternativas sobre 31 vigas: **920 → 848 bloqueantes**, **140 → 166 aprobados** (114 columnas
+y 52 vigas). Conservó las 140 identidades anteriores y reprodujo exactamente el resultado al
+regenerar sin búsqueda. Ampliar a 64 detallados y 427 verificaciones nominales retiene nueve
+alternativas sobre 34 vigas y alcanza **844 bloqueantes y 169 aprobados** (114 columnas y
+55 vigas). Conserva todos los aprobados anteriores, sin aprobados con conflictos bloqueantes.
+La reconstrucción, búsqueda ampliada y regeneración pasan en 158,66 s locales; la búsqueda
+no hace nuevos análisis estructurales y termina por presupuesto, no por agotar alternativas.
+
+| Presupuesto de detallados | Aprobados | Bloqueantes |
+| --- | ---: | ---: |
+| Antes | 140 | 920 |
+| 32 | 166 | 848 |
+| 64 | 169 | 844 |
+
+Por ejemplo, la línea 351–354 pasa de 8Ø12 superiores y 7Ø12 inferiores a 5Ø16 superiores y
+4Ø16 inferiores. La línea 217–219 encuentra una familia común de Ø12, no necesariamente el
+mayor diámetro. Las mejoras también liberan vecinos sin cambiar su armado. El volumen
+longitudinal generado de todo el modelo pasa de 4,604742 a 4,638558 m³ (+0,73%); esta búsqueda
+prioriza cerrar verificaciones, todavía no minimiza el costo del acero.
+
+Pasan 98 pruebas dirigidas en cuatro suites. La integración de tres vanos reproduce un caso
+que no cierra con el catálogo superior solo y sí con la propuesta conjunta; también lo prueba
+con los elementos orientados al revés. Verifica resistencia, ausencia de condiciones abiertas,
+continuidad física, cobertura transversal y regeneración. Las pruebas de búsqueda comprueban
+la certificación atómica y el rechazo de alternativas que bloquean un vecino.
+
+La traza del experimento libera el historial de llamadas del espía después de extraer cada
+diagnóstico. Antes Vitest retenía todos los resultados de geometría en `mock.results` y agotaba
+la memoria del worker al ampliar la búsqueda a 64 detallados. La repetición con la corrección
+pasa sin aumentar el límite de memoria. Typecheck no agrega errores: 442 frente a baseline 443.
+
+Quedan 467 pares superiores, 133 inferiores, 97 otros longitudinales y 147
+longitudinal/transversal. La reducción neta es de 76: 78 pares superiores menos y dos
+inferiores más, sin bloquear nuevos miembros. Las propuestas de 235–238 siguen rechazadas:
+las primeras seis fallan nominalmente en 235 y 238; la séptima (18Ø12 superiores, 11Ø12
+inferiores) pasa nominalmente pero aumenta a 966 bloqueantes el estado entonces retenido,
+con más solapes, separaciones incumplidas y condiciones de generación. No se retiene esa
+mejora parcial de empalmes. El edificio completo aún tiene 191 fallidos, 35 búsquedas agotadas
+y 13 provisionales biaxiales.
+
+Reproducción desde el audit de 920 bloqueantes, en `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-preserve-final-audit.json STABILEO_REPAIR_OPERATOR=harmonizeCageCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-cage-audit.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+La secuencia desde cero admite una etapa final con `STABILEO_CAGE_CATALOG`, después de
+`STABILEO_ROW_PRESERVATION`. La medición de esta sección corresponde a reconstruir el audit
+anterior, resolver nuevamente sus fuerzas y ensayar el detalle completo; no a repetir las etapas
+de búsqueda que ya produjeron ese audit.
+
 ## Conservar las filas verificadas antes de redistribuirlas
 
 La coordinación compartía posiciones entre los grupos superiores e inferiores. Conservaba

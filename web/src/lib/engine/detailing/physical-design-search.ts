@@ -8,10 +8,10 @@ import { rebarHash } from '../design/rebar-hash';
 import { detailableReinforcement, type MemberDesignOutcome } from '../design/outcome';
 import type { RunDetailingResult } from './run-detailing';
 import { beamLayerAlternatives, type BeamLayerAlternative } from './beam-layer-alternatives';
-import { beamContinuityAlternatives } from './beam-continuity-alternatives';
+import { beamCageContinuityAlternatives, beamContinuityAlternatives } from './beam-continuity-alternatives';
 import { detailRegressionReasons } from './detail-regression';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -39,6 +39,7 @@ export interface PhysicalSearchTrial {
   diameterMm?: number;
   region?: BeamLayerAlternative['region'];
   counts?: number[];
+  bottomCounts?: number[];
   disposition: 'nominalFailure' | 'unchanged' | 'regression' | 'noProgress' | 'accepted';
   /** Members acquiring a physical condition they did not previously have. */
   newlyBlocked?: number[];
@@ -96,7 +97,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize'))) {
@@ -265,8 +266,9 @@ export function continuityLines(contexts: ReadonlyMap<number, MemberContext>, re
 
 /** Uniform longitudinal patterns are checked and published on a whole neighbourhood atomically. */
 function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlternatives>[0]): PhysicalSearchResult {
-  const operator = input.budget.operators![0] as 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog';
-  const catalog = operator === 'harmonizeTopCatalog';
+  const operator = input.budget.operators![0] as Extract<PhysicalRepairOperator, `harmonize${string}`>;
+  const cage = operator === 'harmonizeCageCatalog';
+  const catalog = operator === 'harmonizeTopCatalog' || cage;
   let result = input.result, outcomes = input.outcomes;
   const trials: PhysicalSearchTrial[] = [], changed = new Set<number>();
   const stats: PhysicalSearchResult['stats'] = { detailingRuns: 0, memberSearches: 0,
@@ -299,7 +301,7 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
       .some(bar => topOwners.get(bar)?.some(id => ids.includes(id)))).length, 0);
   const targets = operator !== 'harmonizeTop'
     ? continuityLines(input.contexts, result).filter(p => catalog
-      ? topClashes(p.ids) > 0 : p.jointIds.some(j => conditions(result, j)))
+      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
   const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0 }))
     .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
@@ -316,7 +318,9 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
     let proposalIndex = 0;
-    for (const proposal of beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing')) {
+    const proposals = cage ? beamCageContinuityAlternatives(ctx, current)
+      : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
+    for (const proposal of proposals) {
       if (proposalIndex++ < target.offset) continue;
       if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
         termination = 'budget'; break pairLoop;
@@ -332,7 +336,9 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
       const trialContexts = contextsFor(input.contexts, proposed);
       const trial: PhysicalSearchTrial = { elementId: ids[0], elementIds: [...ids], jointId: jointIds[0], jointIds,
         operator, diameterMm: proposal.layers[0].diameter,
-        counts: proposal.layers.map(l => l.count), disposition: 'nominalFailure', nominalFailures: [] };
+        counts: proposal.layers.map(l => l.count),
+        ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count) } : {}),
+        disposition: 'nominalFailure', nominalFailures: [] };
       trials.push(trial);
       for (let i = 0; i < ids.length; i++) {
         const c = trialContexts.get(ids[i])!, reinforcement = proposal.reinforcement[i];

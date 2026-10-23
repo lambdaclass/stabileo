@@ -59,7 +59,8 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
   }
   const attempts: unknown[] = [];
   const run = detailEngine.runDetailing;
-  const spy = process.env.STABILEO_REPAIR_TRACE ? vi.spyOn(detailEngine, 'runDetailing').mockImplementation(input => {
+  const spy = process.env.STABILEO_REPAIR_TRACE ? vi.spyOn(detailEngine, 'runDetailing') : undefined;
+  spy?.mockImplementation(input => {
     const result = run(input);
     const changed = [...input.outcomes].filter(([id, o]) => rebarHash(detailableReinforcement(o)?.rebar)
       !== rebarHash(detailableReinforcement(outcomes.get(id))?.rebar)).map(([id, o]) => ({ id, reinforcement: detailableReinforcement(o)?.rebar }));
@@ -72,8 +73,11 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
           (u.scope?.elementIds ?? a.elementIds).some(id => newlyBlocked.includes(id)))),
       });
     }
+    // The audit retains only the evidence above. Vitest otherwise holds every full building
+    // geometry in mock.results, exhausting the worker heap on longer diagnostic sweeps.
+    spy.mockClear();
     return result;
-  }) : undefined;
+  });
   const runs = process.env.STABILEO_REPAIR_RUNS ?? process.env.STABILEO_REPAIR_CATALOG;
   try {
     if (runs) expect(detailingStore.generate({ physicalSearch: {
