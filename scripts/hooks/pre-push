@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Before a push: the web typecheck and the unit tests related to what is being pushed.
+#
+# Installed by `make hooks` (git config core.hooksPath scripts/hooks); skip one push with
+# `git push --no-verify`. Usually 20 to 40 s: the typecheck is ~18 s, and `vitest related` runs
+# only the unit tests that import a pushed file (a module half the app imports pulls in most of
+# the suite, ~2 min). Engine changes are not tested here, their tests take minutes:
+# `make test-changed` runs them.
+#
+# It tests the working tree, which is what is pushed when the tree is clean. With uncommitted
+# changes it tests those too, so a failure can come from work that is not in the push.
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+status=0
+
+# One line per pushed ref: <local ref> <local sha> <remote ref> <remote sha>.
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  # A deleted branch pushes nothing to test.
+  [[ "$local_sha" =~ ^0+$ ]] && continue
+  # The commits the remote does not have yet. A new branch, or a remote tip this clone has
+  # never seen (someone else pushed; this push is a force), compares with where the branch
+  # left main instead.
+  if [[ "$remote_sha" =~ ^0+$ ]] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    base=$(git merge-base origin/main "$local_sha" 2>/dev/null || true)
+    if [ -z "$base" ]; then
+      echo "pre-push: no origin/main to compare with; skipping the checks (git fetch origin)" >&2
+      continue
+    fi
+  else
+    base=$remote_sha
+  fi
+  "$root/scripts/test-changed.sh" --web-only --typecheck --base "$base" --head "$local_sha" || status=1
+done
+
+if [ "$status" != 0 ]; then
+  echo >&2
+  echo "pre-push: checks failed. Fix them, or push anyway with: git push --no-verify" >&2
+fi
+exit "$status"

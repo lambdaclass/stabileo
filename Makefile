@@ -1,5 +1,5 @@
-.PHONY: check-pins worktree worktree-prune dev dev-backend dev-web wasm build build-backend build-web \
-       test test-engine test-backend test-web test-inventory \
+.PHONY: check-pins worktree worktree-prune hooks dev dev-backend dev-web wasm build build-backend build-web \
+       test test-changed test-engine test-backend test-web test-inventory \
        docker-build docker-up docker-down \
        clean fmt check
 
@@ -28,6 +28,13 @@ worktree:
 worktree-prune:
 	scripts/worktree-prune.sh
 
+## Use the versioned git hooks (scripts/hooks): pre-push runs the web typecheck and the related
+## unit tests. Set in the repository's config, so every worktree of this clone gets it; skip one
+## push with `git push --no-verify`; undo with `git config --unset core.hooksPath`.
+hooks:
+	git config core.hooksPath scripts/hooks
+	@echo "hooks: core.hooksPath = scripts/hooks (pre-push: typecheck + related unit tests)"
+
 # ── Build ────────────────────────────────────────────────────
 
 build: build-backend build-web
@@ -45,6 +52,11 @@ check-pins:
 # ── Test ─────────────────────────────────────────────────────
 
 test: test-engine test-backend test-web
+
+## Only the tests your changes most likely affect (vs origin/main, uncommitted work included);
+## prints what it runs and what it skips. BASE=<rev> to compare with something else.
+test-changed:
+	scripts/test-changed.sh $(if $(BASE),--base $(BASE))
 
 test-engine:
 	cargo test -p dedaliano-engine
