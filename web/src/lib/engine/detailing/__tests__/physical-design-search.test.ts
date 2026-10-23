@@ -348,6 +348,28 @@ describe('atomic top continuity repair', () => {
     expect(result.result.assemblies[0].conflicts).toEqual([]);
   });
 
+  it('reaches a different diameter pair before row variants consume a short detailing budget', () => {
+    const { input } = line();
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [12, 16, 20];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    const closed = input.detail.getMockImplementation()!(input.outcomes, input.contexts);
+    input.detail.mockImplementation(proposed => {
+      const r = proposed.get(1)!.accepted!.regions!;
+      return r.topStart!.diameter === 20 && r.bottomSpan!.diameter === 12 ? closed : input.result;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 9, maxMemberSearches: 27, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.changed).toEqual([1, 2, 3]);
+    expect(result.trials.at(-1)).toMatchObject({ disposition: 'accepted', diameterMm: 20, bottomDiameterMm: 12 });
+    expect(result.stats.detailingRuns).toBeLessThanOrEqual(9);
+    expect(result.stats.memberSearches).toBeLessThanOrEqual(27);
+    expect(result.result).toBe(closed);
+  });
+
   function coupledLines(residualRegression = false) {
     const { input } = line();
     const model = input.contexts.get(1)!.modelData;

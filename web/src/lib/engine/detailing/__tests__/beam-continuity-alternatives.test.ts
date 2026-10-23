@@ -11,6 +11,29 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it('tries every diameter pair before spending another trial on its population variants', () => {
+    const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
+    for (const c of ctx) {
+      c.material.longDiametersMm = [12, 16, 20];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    const before = structuredClone(current);
+    const proposals = [...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')];
+    const family = (p: typeof proposals[number]) => `${p.layers[0].diameter}/${p.bottomLayers![0].diameter}`;
+    expect(proposals[0]).toMatchObject({ layers: [{ count: 4, diameter: 16 }], bottomLayers: [{ count: 3, diameter: 16 }] });
+    expect(new Set(proposals.slice(0, 9).map(family))).toEqual(new Set([
+      '12/12', '12/16', '12/20', '16/12', '16/16', '16/20', '20/12', '20/16', '20/20',
+    ]));
+    // Ordering must not lose any admissible face combination or duplicate a cage.
+    const tops = [...beamContinuityAlternatives(ctx, current, 'top', 'demand')];
+    const bottoms = [...beamContinuityAlternatives(ctx, current, 'bottom', 'demand')];
+    expect(proposals).toHaveLength(tops.length * bottoms.length);
+    expect(new Set(proposals.map(p => JSON.stringify(p.reinforcement))).size).toBe(proposals.length);
+    expect(current).toEqual(before);
+  });
+
   it('offers balanced bottom rows and one extra row with the same steel for a crowded joint', () => {
     const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
     for (const c of ctx) {

@@ -39,6 +39,21 @@ export function* beamCageContinuityAlternatives(
   // with the other's first pattern. These lists are bounded by diameter and count limits.
   mixed.sort((a, b) => Math.max(a.topIndex, a.bottomIndex) - Math.max(b.topIndex, b.bottomIndex)
     || a.topIndex + a.bottomIndex - b.topIndex - b.bottomIndex || a.topIndex - b.topIndex);
+  if (seed === 'demand') {
+    // Row/count variants must not consume the budget before another diameter family
+    // gets a first trial. Keep the existing preference order within each face pair,
+    // then round-robin the pairs; failed-check guidance may still reorder them later.
+    const families = new Map<string, BeamContinuityAlternative[]>();
+    for (const { proposal } of mixed) {
+      const key = `${proposal.layers[0].diameter}/${proposal.bottomLayers![0].diameter}`;
+      const family = families.get(key) ?? [];
+      family.push(proposal); families.set(key, family);
+    }
+    const rounds = Math.max(0, ...[...families.values()].map(f => f.length));
+    for (let index = 0; index < rounds; index++)
+      for (const family of families.values()) if (family[index]) yield family[index];
+    return;
+  }
   for (const { proposal } of mixed) yield proposal;
 }
 

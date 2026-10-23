@@ -6,6 +6,72 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Diversidad de familias antes de agotar variantes de filas
+
+Una continuación del algoritmo publicado en `35e83edc8`, desde el audit de 580 bloqueantes,
+ya permite reparar conjuntamente 273–275 y 254–256. Baja a **546 bloqueantes y 208 aprobados**,
+conservando las 207 aprobaciones y sumando la viga 275. Consume 64 detallados y 325
+verificaciones nominales; la reconstrucción y regeneración exacta pasan en 177,50 s.
+Esta ganancia corresponde a continuar la búsqueda anterior, no al cambio de orden siguiente.
+
+El catálogo por demanda tenía otra limitación: las variantes de cantidad y filas de una
+combinación de diámetros podían consumir muchos ensayos antes de ofrecer otra familia.
+Por ejemplo, los primeros ocho detallados de 329–330 sólo ensayaban Ø16 en ambas caras.
+El orden inicial ahora intercala las combinaciones de diámetros: una propuesta por pareja,
+después la segunda de cada una, y así sucesivamente. Mantiene el orden interno de cada
+pareja, la primera propuesta preferida y el catálogo completo, sin duplicados. La guía por
+controles nominales fallidos puede seguir reordenando las propuestas pendientes.
+
+El cambio afecta la enumeración por demanda con familias combinadas. Los catálogos basados
+en el acero retenido y la modalidad de diámetro común conservan su orden anterior. No se
+reutiliza una certificación para las propuestas reordenadas: todas requieren los controles
+nominales y del detalle completo, con el mismo presupuesto y las mismas barreras globales.
+
+Resultado de las dos continuaciones generales sobre los 408 elementos, sin selección manual:
+
+| Estado | Aprobados | Fallidos | Conflictos bloqueantes |
+| --- | ---: | ---: | ---: |
+| Publicado en `35e83edc8` | 207 | 153 | 580 |
+| Continuar con el orden anterior | 208 | 152 | 546 |
+| Intercalar familias desde ese resultado | 211 | 149 | 545 |
+
+La nueva corrida acepta 4Ø16 superiores y 7Ø12 inferiores en 313–315. Elimina el único
+conflicto que bloqueaba a las tres vigas: **un conflicto menos puede liberar varios miembros**.
+El total retenido es 128 columnas y 83 vigas aprobadas. Conserva las 207 identidades publicadas,
+la nueva aprobación de 275 y los resultados nominales y armados exactos de los 35 agotados
+y 13 provisionales. Ningún aprobado tiene conflictos bloqueantes. El edificio completo no verifica.
+
+La etapa de diversidad consume **64 detallados y 222 verificaciones nominales**, sin análisis
+estructurales dentro de la búsqueda, y termina por presupuesto. La reconstrucción del audit
+de 546 con nuevo análisis, búsqueda y regeneración exacta pasa en **234,74 s locales**.
+Las dos etapas suman 128 detallados y 547 verificaciones nominales; no se atribuye toda la
+reducción 580 → 545 al cambio de orden. Los tiempos incluyen ejecuciones concurrentes y no
+constituyen una comparación de rendimiento.
+
+Pasan **138 pruebas dirigidas en cuatro suites**. Las nuevas pruebas comprueban que las
+nueve combinaciones de tres diámetros aparecen antes de repetir una familia, que no se
+pierden candidatos ni se duplican jaulas y que una reparación puede alcanzar otra familia
+dentro de un presupuesto corto. Typecheck no agrega errores: 442 existentes frente al baseline 443.
+
+Se aisló además el efecto del orden en 313–315 con **el mismo audit inicial de 546 y un límite
+de dos detallados**. El código publicado consume 15 verificaciones nominales y permanece en
+546/208. El catálogo intercalado consume seis y termina en **545/211**. Ambos ensayos pasan
+la restauración y regeneración exactas. La comparación usa el mismo generador, verificadores
+y catálogo de candidatos; sólo cambia el orden.
+
+La prueba dirigida de 329–330 sigue sin mejorar con 32 detallados: sus variantes introducen
+choques en vecinos aprobados. Se conserva el rechazo. Cambiar el orden abre alternativas;
+no demuestra que el catálogo actual contenga una solución para todos los miembros.
+
+Reproducción medida desde `web/`:
+
+```sh
+# Continuación del algoritmo publicado, ejecutada antes de cambiar el orden:
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-coupled-measured.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-next-baseline.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+# Continuación con el catálogo intercalado:
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-next-baseline.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-family-full.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Reparaciones conjuntas contra el diseño retenido
 
 Desde `53179f198`, una propuesta para 279–281 reduce los choques, pero la coordinación
