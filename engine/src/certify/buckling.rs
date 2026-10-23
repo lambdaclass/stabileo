@@ -202,6 +202,15 @@ pub fn certify_critical_factor_enclosed(
         return BucklingCertificate::uncertified(format!("K not certified positive definite: {reason}"));
     }
 
+    let lambda_upper = rayleigh_upper(k, kv, n_mat, nv, phi);
+    if let Some(ub) = lambda_upper {
+        if lambda_hat > ub {
+            return BucklingCertificate::uncertified(format!(
+                "computed load factor {lambda_hat:.6e} exceeds certified Rayleigh upper bound {ub:.6e}"
+            ));
+        }
+    }
+
     // Tightest λ̲ = λ̂(1 − δ) that certifies.
     let mut lambda_lower = None;
     let mut last = String::new();
@@ -224,7 +233,7 @@ pub fn certify_critical_factor_enclosed(
 
     BucklingCertificate::Certified {
         lambda_lower,
-        lambda_upper: rayleigh_upper(k, kv, n_mat, nv, phi),
+        lambda_upper,
         lambda_computed: lambda_hat,
     }
 }
@@ -390,12 +399,36 @@ mod tests {
 
     #[test]
     fn overestimated_factor_is_not_certified_as_lower_bound() {
-        // A wrong λ̂ = 3 (true λ_cr = 2): the lower bound must stay ≤ 2.
+        // A wrong λ̂ = 3 (true λ_cr = 2): the lower bound must stay ≤ 2, and
+        // when the Rayleigh upper bound is 2 < λ̂ the certificate is refused.
         let k = diag(&[4.0, 6.0, 10.0]);
         let n = diag(&[1.0, 3.0, 1.0]);
         let c = certify_critical_factor(&k, &n, 3.0, &[0.0, 1.0, 0.0]);
-        if let BucklingCertificate::Certified { lambda_lower, .. } = c {
+        assert!(!c.is_certified(), "{c:?}");
+        if let BucklingCertificate::Certified { lambda_lower, .. } =
+            certify_critical_factor(&k, &n, 3.0, &[0.0, 0.0, 0.0])
+        {
             assert!(lambda_lower <= 2.0, "λ̲ = {lambda_lower}");
         }
+    }
+
+    #[test]
+    fn regression_issue_570_buckling_3d_rayleigh_enclosure() {
+        let json = r#"{"elements":{"1":{"id":1,"materialId":1,"nodeI":1,"nodeJ":2,"sectionId":1,"type":"frame"},"2":{"id":2,"materialId":1,"nodeI":2,"nodeJ":3,"sectionId":1,"type":"frame"},"3":{"id":3,"materialId":1,"nodeI":3,"nodeJ":4,"sectionId":1,"type":"frame"}},"loads":[{"data":{"elementId":3,"qYI":-3330997229,"qYJ":-18.011781194247305,"qZI":4.009405128657818,"qZJ":-7.76929097622633},"type":"distributed"}],"materials":{"1":{"e":200000,"id":1,"nu":0.3}},"nodes":{"1":{"id":1,"x":0,"y":0,"z":0},"2":{"id":2,"x":5.7419099581878304,"y":5,"z":0},"3":{"id":3,"x":0.9414404305807742,"y":4.848409259226173,"z":3.27579596824944},"4":{"id":4,"x":3.7865452979101173,"y":2,"z":0.3494559196841771}},"sections":{"1":{"a":0.00538,"id":1,"iy":0.00008356,"iz":6.04e-6,"j":2.01e-7}},"supports":{"1":{"nodeId":1,"rrx":true,"rry":true,"rrz":true,"rx":true,"ry":true,"rz":true},"2":{"nodeId":2,"rrx":false,"rry":false,"rrz":false,"rx":true,"ry":true,"rz":true}}}"#;
+        let input: SolverInput3D = serde_json::from_str(json).unwrap();
+        let out = certify_buckling_3d(&input, 3).unwrap();
+        let BucklingCertificate::Certified {
+            lambda_lower,
+            lambda_upper,
+            lambda_computed,
+        } = out.certificate
+        else {
+            panic!("expected Certified, got {:?}", out.certificate);
+        };
+        let ub = lambda_upper.expect("Rayleigh upper bound");
+        assert!(
+            lambda_lower <= lambda_computed && lambda_computed <= ub,
+            "lambda_lower={lambda_lower}, lambda_computed={lambda_computed}, lambda_upper={ub}"
+        );
     }
 }
