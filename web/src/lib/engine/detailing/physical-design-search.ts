@@ -12,8 +12,9 @@ import { beamCageContinuityAlternatives, beamContinuityAlternatives, type BeamCo
 import { detailRegressionReasons } from './detail-regression';
 import type { ProvidedRebarCheck } from '../station-design-forces';
 import { completeAnchorage } from '../design/anchorage-hooks';
+import { beamStirrupContinuityAlternatives } from './beam-stirrup-alternatives';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'retryExhausted';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'harmonizeStirrupCatalog' | 'retryExhausted';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -43,6 +44,8 @@ export interface PhysicalSearchTrial {
   counts?: number[];
   bottomCounts?: number[];
   bottomDiameterMm?: number;
+  stirrupDiameterMm?: number;
+  stirrupSpacings?: Array<{ elementId: number; support: number; span: number }>;
   disposition: 'nominalFailure' | 'unchanged' | 'regression' | 'noProgress' | 'accepted';
   /** Members acquiring a physical condition they did not previously have. */
   newlyBlocked?: number[];
@@ -157,7 +160,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'retryExhausted')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'harmonizeStirrupCatalog' && o !== 'retryExhausted')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize') || o === 'retryExhausted')) {
@@ -374,7 +377,8 @@ function searchBeamContinuity(
   const operator = input.budget.operators![0] as Extract<PhysicalRepairOperator, `harmonize${string}`>;
   const mixed = operator === 'harmonizeMixedCageCatalog';
   const coupled = operator === 'harmonizeCoupledCatalog';
-  const demand = operator === 'harmonizeDemandCatalog' || coupled;
+  const stirrupOnly = operator === 'harmonizeStirrupCatalog';
+  const demand = operator === 'harmonizeDemandCatalog' || coupled || stirrupOnly;
   const cage = operator === 'harmonizeCageCatalog' || mixed || demand;
   const catalog = operator === 'harmonizeTopCatalog' || cage;
   let result = input.result, outcomes = input.outcomes;
@@ -443,7 +447,8 @@ function searchBeamContinuity(
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
     let proposalIndex = 0;
-    const proposals = cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
+    const proposals = stirrupOnly ? beamStirrupContinuityAlternatives(ctx, current)
+      : cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
     const domain = demand ? [...proposals] : undefined;
     let remaining = domain ? [...(target.order ?? domain.map((_, i) => i))] : [];
@@ -465,8 +470,10 @@ function searchBeamContinuity(
       ids.forEach((id, i) => proposed.set(id, { ...outcomes.get(id)!, accepted: proposal.reinforcement[i] }));
       const trialContexts = contextsFor(input.contexts, proposed);
       const trial: PhysicalSearchTrial = { elementId: ids[0], elementIds: [...ids], jointId: jointIds[0], jointIds,
-        operator, diameterMm: proposal.layers[0].diameter,
-        counts: proposal.layers.map(l => l.count),
+        operator, ...(stirrupOnly ? { stirrupDiameterMm: proposal.stirrupDiameterMm,
+          stirrupSpacings: proposal.reinforcement.map((r, i) => ({ elementId: ids[i],
+            support: r.regions!.stirrupsSupport!.spacing, span: r.regions!.stirrupsSpan!.spacing })) }
+          : { diameterMm: proposal.layers[0].diameter, counts: proposal.layers.map(l => l.count) }),
         ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count),
           bottomDiameterMm: proposal.bottomLayers[0].diameter } : {}),
         disposition: 'nominalFailure', nominalFailures: [] };
@@ -476,7 +483,7 @@ function searchBeamContinuity(
         let reinforcement = proposal.reinforcement[i];
         let verdict = input.adapter.verify(c, reinforcement);
         let verifierCalls = 1;
-        if (demand) {
+        if (demand && !stirrupOnly) {
           // A requested bottom hook is an actionable repair, not a reason to discard the
           // whole family. Reuse the bounded completion used by nominal design, then build
           // and check the actual hooks in the full-detail gate below.

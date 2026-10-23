@@ -15,13 +15,14 @@ import type { ProvidedReinforcement } from '../../../design-contract/reinforceme
 // = w L²/8 = 153.1125 kN m. The initial top patterns (7Ø12 and 4Ø16) both resist it,
 // but cannot occupy their nearly coincident positions as a lap. Either uniform pattern
 // is a finite, known alternative to test; the engine must still build and verify it.
-it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed', 'mixed cage three spans', 'mixed cage three spans reversed', 'demand cage three spans', 'demand cage three spans reversed'] as const)(
+it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed', 'mixed cage three spans', 'mixed cage three spans reversed', 'demand cage three spans', 'demand cage three spans reversed', 'stirrup three spans', 'stirrup three spans reversed'] as const)(
   'closes both spans through the production path (%s)', mode => {
   const model = structuredClone(fixture);
   model.nodes[1].x = 6; model.nodes[2].x = 12;
   const three = mode.includes('three spans'), bottom = mode.startsWith('bottom'), catalog = mode.startsWith('catalog');
   const cage = mode.includes('cage'), mixed = mode.startsWith('mixed');
   const demand = mode.startsWith('demand');
+  const stirrup = mode.startsWith('stirrup');
   if (three) {
     model.nodes.push({ id: 4, x: 18, y: 0, z: 0 });
     model.elements.push({ ...model.elements[1], id: 3, nodeI: 3, nodeJ: 4 });
@@ -51,13 +52,14 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   const firstId = model.elements[0].id;
   const solved = solveFixture(model);
   const rebar = (id: number): ProvidedReinforcement => ({ regions: {
-    topStart: { count: demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
-    topEnd: { count: demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
+    topStart: { count: stirrup ? 7 : demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: stirrup ? 16 : !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
+    topEnd: { count: stirrup ? 7 : demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: stirrup ? 16 : !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
     bottomSpan: { count: (bottom || cage) && id !== firstId ? 7 : 4, diameter: (bottom || cage) && id !== firstId ? 12 : 16 },
+    ...(stirrup ? { preserveBottomRows: true } : {}),
     bottomGroups: [{ layers: [{ count: (bottom || cage) && id !== firstId ? 7 : 4, diameter: (bottom || cage) && id !== firstId ? 12 : 16, row: 0 }],
       anchorageStart: 'hook', anchorageEnd: 'hook' }],
-    stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.125 },
-    stirrupsSpan: { diameter: 8, legs: 2, spacing: 0.125 },
+    stirrupsSupport: { diameter: stirrup ? id === firstId ? 10 : 6 : 8, legs: 2, spacing: 0.125 },
+    stirrupsSpan: { diameter: stirrup ? id === firstId ? 10 : 6 : 8, legs: 2, spacing: 0.125 },
   } });
   const outcomes = new Map<number, MemberDesignOutcome>();
   for (const [id, ctx] of solved.contexts) {
@@ -78,8 +80,8 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
     },
   });
   const before = detail(outcomes);
-  expect(before.assemblies.flatMap(a => a.unsupported).map(u => u.key))
-    .toContain('detailing.lapCheck.unarranged');
+  if (stirrup) expect(before.assemblies.flatMap(a => a.conflicts).filter(c => c.severity !== 'marginal').length).toBeGreaterThan(0);
+  else expect(before.assemblies.flatMap(a => a.unsupported).map(u => u.key)).toContain('detailing.lapCheck.unarranged');
   if (cage) {
     const topOnly = searchPhysicalDesignAlternatives({ adapter: cirsoc201Adapter, contexts: solved.contexts,
       outcomes, result: before, detail, regresses: detailRegresses,
@@ -90,8 +92,13 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   const result = searchPhysicalDesignAlternatives({ adapter: cirsoc201Adapter, contexts: solved.contexts,
     outcomes, result: before, detail, regresses: detailRegresses,
     budget: { maxDetailingRuns: 4, maxMemberSearches: 12,
-      operators: [demand ? 'harmonizeDemandCatalog' : mixed ? 'harmonizeMixedCageCatalog' : cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
+      operators: [stirrup ? 'harmonizeStirrupCatalog' : demand ? 'harmonizeDemandCatalog' : mixed ? 'harmonizeMixedCageCatalog' : cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
   expect(result.changed.length).toBeGreaterThan(0);
+  if (stirrup) for (const [id, o] of result.outcomes) {
+    expect(o.accepted!.regions!.topStart).toEqual(outcomes.get(id)!.accepted!.regions!.topStart);
+    expect(o.accepted!.regions!.bottomSpan).toEqual(outcomes.get(id)!.accepted!.regions!.bottomSpan);
+    expect(o.accepted!.regions!.stirrupsSupport).toEqual({ diameter: 10, legs: 2, spacing: 0.125 });
+  }
   if (catalog) for (const o of result.outcomes.values()) expect(o.accepted!.regions!.topStart).toEqual({ count: 5, diameter: 16 });
   if (cage && !mixed) for (const o of result.outcomes.values()) {
     expect(o.accepted!.regions!.topStart).toEqual({ count: 4, diameter: 16 });
@@ -123,8 +130,9 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
       const stations = bars.filter(b => b.role === 'transverse' && b.ownerElementIds.includes(id))
         .map(b => b.station!).sort((a, b) => a - b);
       expect(stations.length).toBeGreaterThan(40);
-      expect(stations[0]).toBeLessThanOrEqual(0.008 + 1e-8);
-      expect(6 - stations.at(-1)!).toBeLessThanOrEqual(0.008 + 1e-8);
+      const inset = stirrup ? 0.010 : 0.008;
+      expect(stations[0]).toBeLessThanOrEqual(inset + 1e-8);
+      expect(6 - stations.at(-1)!).toBeLessThanOrEqual(inset + 1e-8);
       expect(Math.max(...stations.slice(1).map((s, i) => s - stations[i]))).toBeLessThanOrEqual(0.125 + 1e-8);
     }
   };

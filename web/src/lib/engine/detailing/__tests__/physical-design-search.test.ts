@@ -370,6 +370,71 @@ describe('atomic top continuity repair', () => {
     expect(result.result).toBe(closed);
   });
 
+  function stirrupLine() {
+    const { input, verify } = line();
+    for (const [id, ctx] of input.contexts) {
+      ctx.material.stirrupDiametersMm = [6, 8, 10];
+      const r = input.outcomes.get(id)!.accepted!;
+      r.regions!.stirrupsSupport = { diameter: id === 1 ? 8 : 6, legs: 2, spacing: 0.1 };
+      r.regions!.stirrupsSpan = { diameter: id === 1 ? 8 : 6, legs: 2, spacing: 0.15 };
+    }
+    return { verify, input: { ...input, budget: { maxDetailingRuns: 1, maxMemberSearches: 3,
+      operators: ['harmonizeStirrupCatalog'] as const } } };
+  }
+
+  it('verifies every member of a transverse repair and keeps all longitudinal steel', () => {
+    const { input, verify } = stirrupLine();
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([2, 3]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', stirrupDiameterMm: 8,
+      stirrupSpacings: [1, 2, 3].map(elementId => ({ elementId, support: 0.1, span: 0.15 })) });
+    expect(result.trials[0].diameterMm).toBeUndefined();
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 3, structuralSolves: 0 });
+    for (const [id, o] of result.outcomes) {
+      expect(o.accepted!.regions!.topStart).toEqual(input.outcomes.get(id)!.accepted!.regions!.topStart);
+      expect(o.accepted!.regions!.bottomSpan).toEqual(input.outcomes.get(id)!.accepted!.regions!.bottomSpan);
+      expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
+    }
+    expect(input.outcomes.get(2)!.accepted!.regions!.stirrupsSupport!.diameter).toBe(6);
+  });
+
+  it.each(['nominal', 'cover', 'neighbour', 'budget', 'locked'] as const)(
+    'does not install a transverse change with a %s failure or restriction', reason => {
+      const { input, verify } = stirrupLine();
+      if (reason === 'nominal') verify.mockReturnValue({ overallStatus: 'fail', strengthCheckCount: 1,
+        checks: [{ status: 'fail', category: 'Shear', limiting: 'shear' }] } as never);
+      if (reason === 'cover') {
+        const closed = input.detail.getMockImplementation()!(input.outcomes, input.contexts);
+        closed.assemblies[0].unsupported.push({ key: 'detailing.cover.violated', refs: [], message: 'cover',
+          scope: { elementIds: [1] } });
+      }
+      if (reason === 'neighbour') input.detail.mockReturnValue({ ...input.result,
+        assemblies: [{ ...input.result.assemblies[0], conflicts: [{ ...input.result.assemblies[0].conflicts[0], elementIds: [3] }] }] });
+      const result = searchPhysicalDesignAlternatives({ ...input,
+        lockedMembers: reason === 'locked' ? new Set([2]) : undefined,
+        budget: { ...input.budget, maxMemberSearches: reason === 'budget' ? 2 : 3 } });
+      expect(result.changed).toEqual([]);
+      expect(result.outcomes).toBe(input.outcomes);
+      if (reason === 'nominal' || reason === 'budget' || reason === 'locked') expect(input.detail).not.toHaveBeenCalled();
+      if (reason === 'cover') expect(result.trials[0].regressions).toContain('detailing.cover.violated');
+      if (reason === 'neighbour') expect(result.trials[0].newlyBlocked).toEqual([3]);
+    });
+
+  it('does not silently add longitudinal hooks to make a transverse-only repair pass', () => {
+    const { input, verify } = stirrupLine();
+    verify.mockImplementation((_ctx, r) => ({ overallStatus: 'warn', strengthCheckCount: 2,
+      checks: r.regions?.bottomGroups?.[0].anchorageStart === 'hook' ? [{ status: 'ok' }]
+        : [{ status: 'warn', anchorHook: { face: 'bottom', toward: 'start', group: 0 } }],
+    } as never));
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([]);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.trials[0]).toMatchObject({ disposition: 'nominalFailure', nominalFailures: [1, 2, 3] });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(input.detail).not.toHaveBeenCalled();
+  });
+
   function coupledLines(residualRegression = false) {
     const { input } = line();
     const model = input.contexts.get(1)!.modelData;

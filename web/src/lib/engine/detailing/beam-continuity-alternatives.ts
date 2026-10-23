@@ -5,8 +5,10 @@ import { STANDARD_LONG_DIAS } from '../design/objective';
 import { BEAM_LIMITS, computeBeamSeed, maxBarsPerRow, seedAreaFor } from '../design/candidate-enumerate-beam';
 
 export interface BeamContinuityAlternative {
+  /** Longitudinal layers changed by this proposal; empty for transverse-only repair. */
   layers: RebarLayer[];
   bottomLayers?: RebarLayer[];
+  stirrupDiameterMm?: number;
   reinforcement: ProvidedReinforcement[];
 }
 

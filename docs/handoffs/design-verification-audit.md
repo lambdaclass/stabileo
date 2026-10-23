@@ -6,6 +6,70 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Compatibilidad de los estribos entre tramos consecutivos
+
+Desde `f1edcda04`, parte de los choques persiste aunque las vigas consecutivas compartan
+diámetros y cantidades longitudinales. Sus estribos pueden ser distintos: en 235–238 los
+extremos usan Ø10 y los interiores Ø6. Las barras se apoyan en esos dobleces a distintas
+alturas y distancias laterales; al atravesar el empalme pueden chocar con la jaula vecina.
+La búsqueda anterior conservaba los estribos durante todas las alternativas longitudinales.
+
+El operador opcional `harmonizeStirrupCatalog` propone un diámetro transversal común dentro
+de la intersección de catálogos de los miembros elegibles. Primero prueba el mayor diámetro
+retenido, luego los menores y después los mayores del catálogo. Conserva las ramas, las
+zonas y el armado longitudinal. Nunca aumenta separaciones. Si reduce un diámetro, limita
+la separación a `s_anterior × (diámetro_nuevo / diámetro_anterior)²`, redondeando hacia abajo
+a la grilla existente de 25 mm. Descarta propuestas por debajo del mínimo de separación
+del generador. Así conserva o aumenta `ramas × diámetro² / separación`; esto **no sustituye
+la verificación resistente**, porque cambian los asientos, dobleces y alturas útiles.
+
+Cada propuesta requiere verificación nominal de todos sus miembros y detallado completo.
+Se mantienen las barreras de recubrimiento, anclajes, conflictos, conservación de aprobaciones
+y progreso global. Se respetan bloqueos, tramos compuestos y estados provisionales o agotados.
+La traza identifica el diámetro propuesto y las separaciones de apoyo y vano por miembro.
+Un nuevo pedido de gancho longitudinal rechaza la propuesta transversal; este operador
+conserva también las terminaciones longitudinales existentes.
+
+La corrida general sobre los 408 elementos reduce **545 → 536 bloqueantes** con 15 detallados
+y 56 verificaciones nominales, sin seleccionar miembros manualmente. Conserva las **211
+aprobaciones** (128 columnas y 83 vigas), ninguna con conflictos bloqueantes. Los 35 agotados
+y 13 provisionales conservan exactamente sus resultados nominales y armados. Acepta dos
+reparaciones de línea y modifica efectivamente tres miembros:
+
+- 232 y 233: Ø6 cada 175 mm → Ø8 cada 175 mm, para compatibilizar 231–234.
+- 227: Ø8 cada 100 mm → Ø6 cada 50 mm, para compatibilizar 227–230.
+
+Las ramas se conservan en ambas regiones y ningún armado longitudinal cambia. Las parejas
+de empalme pendientes bajan de 234 a 230 y las condiciones abiertas, de 802 a 786. El volumen
+transversal generado del edificio aumenta aproximadamente **0,50 %**; no se afirma que el
+resultado minimice el acero. La reconstrucción con nuevo análisis y regeneración exacta
+pasa en **78,64 s locales**. La búsqueda termina el barrido, sin análisis estructurales dentro
+de ella; ese barrido no prueba que se hayan agotado todos los diseños posibles.
+
+En 235–238, Ø10 comunes reduce provisionalmente 545 → 499 y Ø8 comunes llega a 492, pero
+ambas propuestas introducen condiciones de recubrimiento y bloquean columnas aprobadas.
+Se descartan. La alternativa Ø6 también se rechaza por bloquear vecinos. Estos conteos no
+son resultados retenidos y no se usan para declarar progreso.
+
+Pasan **158 pruebas dirigidas en cinco suites**. Incluyen conservación del acero por unidad
+de longitud al reducir diámetro, redondeo de separaciones, catálogos incompatibles, datos
+inválidos, representación heredada, presupuestos, bloqueos y rechazo por resistencia,
+recubrimiento o nuevos conflictos. Una integración de tres vanos con 7Ø16 superiores y
+4Ø16 inferiores reproduce jaulas Ø10/Ø6/Ø6: armonizarlas a Ø10 c/125 mm cierra el detalle
+sin cambiar longitudinales, en orientación normal e invertida, con continuidad materializada,
+cobertura de estribos y regeneración completa. Typecheck no agrega errores (442 frente a 443).
+
+Una continuación con `harmonizeCoupledCatalog` desde 536, limitada a 64 detallados, no agrega
+mejoras ni pierde aprobaciones. Su reconstrucción y regeneración pasan en 260,97 s locales.
+La reparación transversal resuelve parte de la incompatibilidad entre jaulas; los rechazos
+restantes todavía necesitan otras alternativas. El edificio completo no verifica.
+
+Reproducción medida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-family-full.json STABILEO_REPAIR_OPERATOR=harmonizeStirrupCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-stirrup-spacing-full.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Diversidad de familias antes de agotar variantes de filas
 
 Una continuación del algoritmo publicado en `35e83edc8`, desde el audit de 580 bloqueantes,
