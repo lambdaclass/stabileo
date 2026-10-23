@@ -57,6 +57,14 @@ describe('which registered changes concern a model', () => {
     expect(ids(straight)).not.toContain('arc-member-local-axes');
   });
 
+  it('shows the member thermal change only for models with temperature loads on members (#407)', () => {
+    const heated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 20, caseId: 1 } }] });
+    expect(ids(heated)).toContain('frame-thermal-alpha-depth');
+    const shellOnly = model({ quads: [[1, {}]] as never, loads: [{ type: 'thermalQuad3d', data: { quadId: 1, caseId: 1 } }] });
+    expect(ids(shellOnly)).not.toContain('frame-thermal-alpha-depth');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('frame-thermal-alpha-depth');
+  });
+
   it('names the ACI change for an ACI-bound concrete model and not the CIRSOC 201 one', () => {
     const aci = model({ elements: [member(1, 2, 'frame')], regulations: { roles: { concrete: { adapterId: 'aci-aisc' } } } });
     expect(ids(aci)).toContain('aci318-strain-and-axial');
@@ -104,26 +112,28 @@ describe('which registered changes concern a model', () => {
 });
 
 describe('versions and recorded analyses (a later registry)', () => {
+  // The version after this build's, holding two made-up changes.
+  const next = RESULTS_VERSION + 1;
   const later: ResultChangeRegistry = {
     ...RESULT_CHANGES,
-    currentResultsVersion: 2,
+    currentResultsVersion: next,
     changes: [
       ...RESULT_CHANGES.changes,
-      { ...RESULT_CHANGES.changes[0], id: 'v2-modal', resultsVersion: 2, when: { all: ['members', 'analysis:modal'] } },
-      { ...RESULT_CHANGES.changes[0], id: 'v2-all', resultsVersion: 2, when: {} },
+      { ...RESULT_CHANGES.changes[0], id: 'next-modal', resultsVersion: next, when: { all: ['members', 'analysis:modal'] } },
+      { ...RESULT_CHANGES.changes[0], id: 'next-all', resultsVersion: next, when: {} },
     ],
   };
   const steel = model({ elements: [member(1, 1, 'truss')] });
-  const v1 = (analyses: SolveStamp['analyses']) => ({ ...stampSolve('linear', null), resultsVersion: 1, analyses });
+  const solvedHere = (analyses: SolveStamp['analyses']) => ({ ...stampSolve('linear', null), analyses });
 
   it('lists only changes after the version the project was solved with', () => {
-    const got = assessProject(steel, v1(['linear', 'modal']), 'pro', later).changes.map((c) => c.id);
-    expect(got).toEqual(['v2-all', 'v2-modal'].sort());
+    const got = assessProject(steel, solvedHere(['linear', 'modal']), 'pro', later).changes.map((c) => c.id);
+    expect(got).toEqual(['next-all', 'next-modal'].sort());
   });
 
   it('gates on the analyses the stamp recorded, and counts every analysis as run when it records none', () => {
-    expect(assessProject(steel, v1(['linear']), 'pro', later).changes.map((c) => c.id)).toEqual(['v2-all']);
-    expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('v2-modal');
+    expect(assessProject(steel, solvedHere(['linear']), 'pro', later).changes.map((c) => c.id)).toEqual(['next-all']);
+    expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('next-modal');
   });
 
   it('counts the analyses the stamp cannot see as run', () => {

@@ -7,7 +7,7 @@
 | Issue | [#407](https://github.com/lambdaclass/stabileo/issues/407) (FR-4 in the element-derivation review) |
 | Fix | PR [#531](https://github.com/lambdaclass/stabileo/pull/531) |
 | Affected versions | the engine and WASM API in every version up to 0.2.0 and `main` until the fix; the app before 2026-10-07 |
-| Re-check registry | not needed for this fix: app results do not change (the app sent loads scaled to the engine's assumptions since 2026-10-07) |
+| Re-check registry | `frame-thermal-alpha-depth` (models with temperature loads on members): app results solved before 2026-10-07 had the error; since then the app sent loads scaled to the engine's assumptions, and only a gradient on a flat model's section turned a quarter or half turn in its plane changes |
 
 ## Affected features
 

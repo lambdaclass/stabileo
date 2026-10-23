@@ -40,7 +40,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements',
   'connectors', 'connectorsWithShear',
-  'memberLoads', 'pointOrPartialMemberLoads', 'areaDeadLoads',
+  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads',
   'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -194,6 +194,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const d = l.data ?? {};
     if (/^(distributed|pointOnElement|thermal)/.test(t)) f.add('memberLoads');
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
+    if (t === 'thermal') f.add('memberThermalLoads');
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');

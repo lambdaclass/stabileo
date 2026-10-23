@@ -1,11 +1,11 @@
 {
-  "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, and bump currentResultsVersion when the entry's resultsVersion is new. Feature ids are defined in web/src/lib/provenance/model-features.ts.",
+  "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
   "currentResultsVersion": 2,
   "changes": [
     {
       "id": "curved-shell-moments-and-thermal",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [522],
       "area": "analysis",
@@ -24,7 +24,7 @@
     },
     {
       "id": "arc-member-local-axes",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [523],
       "area": "analysis",
@@ -43,7 +43,7 @@
     },
     {
       "id": "plastic-3d-element-order",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [524],
       "area": "analysis",
@@ -62,7 +62,7 @@
     },
     {
       "id": "cable-tension-chord-law",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [525],
       "area": "analysis",
@@ -81,7 +81,7 @@
     },
     {
       "id": "soil-curves-references",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [526],
       "area": "analysis",
@@ -97,6 +97,25 @@
         "pt": "A curva de argila mole omitia o termo J de Matlock (resistência última do solo entre um terço e a metade baixa perto da superfície), a areia usava sempre o fator cíclico A = 0,9 e uma tabela de k em degraus, e a curva de argila rígida saltava da metade para a resistência total em y50 e caía a 70 % depois (SA-2026-017). Afeta modelos resolvidos com molas de solo no PRO Avançado; resolva-os novamente."
       },
       "changelog": { "file": "docs/advisories/SA-2026-017-soil-curves.md", "heading": "SA-2026-017: Soil-structure interaction p-y, t-z and q-z curves departed from their references" }
+    },
+    {
+      "id": "frame-thermal-alpha-depth",
+      "resultsVersion": 2,
+      "date": "2026-10-21",
+      "prs": [531],
+      "area": "loads",
+      "when": { "any": ["memberThermalLoads"] },
+      "title": {
+        "en": "Member temperature loads take the material's α and the section's depth",
+        "es": "Las cargas de temperatura en barras toman el α del material y la altura de la sección",
+        "pt": "As cargas de temperatura em barras tomam o α do material e a altura da seção"
+      },
+      "explanation": {
+        "en": "Projects solved before 2026-10-07 took steel's α for every material and the depth of the section's equivalent solid rectangle (an I section's gradient moment about 30 % low, aluminium's thermal force about half). The app has compensated since, so most results do not move; a gradient on a member of a flat model whose section is turned a quarter or half turn in its plane now acts across b or h instead of the equivalent rectangle (SA-2026-019).",
+        "es": "Los proyectos resueltos antes del 2026-10-07 tomaban el α del acero para todo material y la altura del rectángulo macizo equivalente de la sección (en un perfil doble T el momento por gradiente salía un 30 % bajo, en aluminio la fuerza térmica casi la mitad). Desde entonces la app lo compensa, así que la mayoría de los resultados no cambia; un gradiente sobre una barra de un modelo plano cuya sección está girada un cuarto o media vuelta en su plano ahora actúa sobre b o h en lugar del rectángulo equivalente (SA-2026-019).",
+        "pt": "Os projetos resolvidos antes de 2026-10-07 tomavam o α do aço para todo material e a altura do retângulo maciço equivalente da seção (num perfil I o momento por gradiente saía 30 % baixo, no alumínio a força térmica quase a metade). Desde então o app compensa, então a maioria dos resultados não muda; um gradiente numa barra de um modelo plano cuja seção está girada um quarto ou meia volta no seu plano agora atua sobre b ou h em vez do retângulo equivalente (SA-2026-019)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-019-frame-thermal-alpha-depth.md", "heading": "SA-2026-019: frame and truss temperature loads assumed steel's α and a solid rectangle's depth" }
     },
     {
       "id": "spectral-cqc-and-participation",
