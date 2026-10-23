@@ -398,8 +398,19 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
   const topClashes = (ids: number[]) => result.assemblies.reduce((n, a) => n + a.conflicts
     .filter(c => c.severity !== 'marginal' && [c.barA, c.barB]
       .some(bar => topOwners.get(bar)?.some(id => ids.includes(id)))).length, 0);
+  // An unavailable/provisional neighbour must not exclude an otherwise verified beam
+  // from repair. Demand-based proposals can cover each contiguous eligible segment,
+  // including one isolated member; full detailing still checks its boundary splices.
+  const eligible = demand ? new Map([...input.contexts].filter(([id, ctx]) => ctx.elementType === 'beam'
+    && !ctx.span && !input.lockedMembers?.has(id) && outcomes.get(id)?.outcome === 'VERIFIED'
+    && outcomes.get(id)?.accepted)) : input.contexts;
+  const lines = continuityLines(eligible, result);
+  if (demand) {
+    const covered = new Set(lines.flatMap(p => p.ids));
+    for (const id of eligible.keys()) if (!covered.has(id)) lines.push({ ids: [id], jointIds: [] });
+  }
   const targets = operator !== 'harmonizeTop'
-    ? continuityLines(input.contexts, result).filter(p => catalog
+    ? lines.filter(p => catalog
       ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
   const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, order: undefined as number[] | undefined }))

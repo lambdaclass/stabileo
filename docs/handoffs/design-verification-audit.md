@@ -6,6 +6,78 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Reparar segmentos verificables junto a tramos provisionales
+
+La búsqueda por líneas descartaba una línea completa cuando uno de sus miembros no tenía
+un armado nominalmente verificado. En el audit de `3a1d4e404`, esto excluía **26 vigas** situadas
+a ambos lados de los 13 tramos provisionales biaxiales. Las 26 tenían armado verificado
+nominalmente y conflictos físicos; el estado del vecino impedía siquiera proponer su reparación.
+
+El catálogo por demanda ahora construye componentes contiguos sólo con los miembros elegibles
+y agrega los miembros aislados como objetivos individuales. Se mantienen excluidos los tramos
+provisionales, agotados, compuestos y bloqueados por el usuario. No se salta un miembro para
+unir artificialmente sus dos lados. La verificación completa sigue evaluando los vecinos y los
+empalmes de borde: reparar un segmento no certifica el tramo provisional ni autoriza degradar
+su continuidad. Los demás operadores conservan su alcance anterior.
+
+En la prueba dirigida, 343 pasa de 7Ø12 superiores y 4Ø16 inferiores a 6Ø12 superiores y
+2+2 Ø16 inferiores. Reduce **703 → 701** bloqueantes y dos parejas de empalme pendientes,
+sin nuevas aprobaciones ni pérdidas. El vecino 342 conserva su armado y su estado provisional.
+La reconstrucción, búsqueda y regeneración pasan en 48,20 s.
+
+Se ensayaron también poblaciones inferiores intermedias como 5+2 o 4+3+2, manteniendo
+acero y límites existentes. No mejoraron el ensayo de 328–331 y ninguna de las propuestas
+aceptadas en la primera corrida general necesitó esas variantes. **Esa ampliación no se retuvo**:
+la corrección publicada se concentra en los miembros que la búsqueda estaba omitiendo.
+
+Explorar sólo 328–331 con 32 detallados no mejoró 703/184, tanto con el catálogo publicado como con las
+poblaciones experimentales: las mejores alternativas trasladan choques a las columnas 114 y 119 y a la
+viga 316. Se rechazaron. Ampliar el catálogo no demuestra por sí solo que esa línea pueda cerrar;
+el efecto de coordinar otros miembros sigue siendo relevante.
+
+Resultado retenido con el catálogo de filas anterior, desde el audit publicado de `3a1d4e404`
+y resolviendo de nuevo el modelo de 408 elementos:
+
+| Estado | Aprobados | Fallidos | Bloqueantes |
+| --- | ---: | ---: | ---: |
+| Publicado | 184 | 176 | 703 |
+| Segmentos elegibles, retenido | 200 | 160 | 648 |
+
+Conserva las 184 identidades y suma seis columnas (127–129 y 132–134) y diez vigas
+(390–396 y 406–408): **124 columnas y 76 vigas aprobadas**. Ningún aprobado participa en
+conflictos bloqueantes. Los 35 agotados y 13 provisionales conservan exactamente sus resultados
+nominales y sus armados, no sólo sus contadores. El edificio completo todavía no verifica.
+
+La búsqueda acepta 21 propuestas sobre 23 vigas distintas. Los cambios en miembros aislados
+permiten que sus vecinos vuelvan a explorar alternativas: también se acepta la línea 390–393,
+y 399 vuelve a mejorar tras una modificación vecina. Se resuelven 14 parejas de empalme
+pendientes (278 → 264). No se relajan las verificaciones para aceptar segmentos parciales.
+
+Consume 103 detallados y 510 verificaciones nominales, sin análisis estructurales adicionales
+dentro de la búsqueda. Termina por presupuesto nominal: la siguiente línea no cabe en las dos
+verificaciones restantes del límite 512. Registra además 89 rechazos nominales, 72 regresiones
+y diez casos sin progreso. La reconstrucción, búsqueda y regeneración exacta pasan en
+**270,38 s** locales; no se repiten las búsquedas históricas desde cero. La reconstrucción
+inicial reproduce también exactamente el estado publicado de 703/184.
+
+Pasan **127 pruebas dirigidas en cuatro suites**, incluyendo segmentos a ambos lados de un
+miembro provisional, agotado, compuesto o bloqueado, reparación atómica de miembros elegibles
+contiguos y rechazo cuando empeora un empalme de borde. Typecheck no agrega errores (442
+existentes frente a baseline 443). La corrida exploratoria que añadía poblaciones intermedias
+produjo los mismos totales y ninguna aceptación las necesitó; la versión retenida las excluye.
+
+Reproducción general medida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-rows-requeue-final.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_RUNS=128 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-segments-final.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+Reproducción dirigida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-rows-requeue-final.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_TARGETS=343 STABILEO_REPAIR_RUNS=16 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-single343.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Filas inferiores alternativas y reapertura de búsquedas agotadas
 
 La menor cantidad de filas que cabe dentro de la sección no necesariamente permite atravesar

@@ -253,6 +253,63 @@ describe('atomic top continuity repair', () => {
     expect([...detailed.values()].every(o => o.accepted!.regions!.bottomGroups![0].anchorageStart === 'hook')).toBe(true);
   });
 
+  it.each(['provisional', 'exhausted', 'locked', 'span'] as const)(
+    'repairs eligible segments on both sides of a %s member without changing that member', reason => {
+    const { input, verify } = line();
+    if (reason === 'provisional') {
+      input.outcomes.set(2, { ...input.outcomes.get(2)!, outcome: 'PROVISIONAL_BIAXIAL', accepted: undefined,
+        provisional: { candidate: input.outcomes.get(2)!.accepted! } } as MemberDesignOutcome);
+      input.result.provisionalMembers = [2];
+    }
+    if (reason === 'exhausted') input.outcomes.set(2, { ...input.outcomes.get(2)!, outcome: 'SEARCH_EXHAUSTED', accepted: undefined });
+    if (reason === 'span') input.contexts.get(2)!.span = { elements: [2, 20], representative: 2 } as never;
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+    ] }] } as never;
+    input.result.assemblies[0].unsupported = [];
+    input.result.assemblies[0].conflicts.push({ ...input.result.assemblies[0].conflicts[0], elementIds: [3] });
+    input.detail.mockImplementation(proposed => ({ ...input.result,
+      assemblies: [{ ...input.result.assemblies[0], conflicts: input.result.assemblies[0].conflicts
+        .filter(c => c.elementIds.some(id => proposed.get(id) === input.outcomes.get(id))) }] }));
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      lockedMembers: reason === 'locked' ? new Set([2]) : undefined,
+      budget: { maxDetailingRuns: 2, maxMemberSearches: 2, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.changed).toEqual([1, 3]);
+    expect(verify.mock.calls.map(([ctx]) => ctx.elementId)).toEqual([1, 3]);
+    expect(result.outcomes.get(2)).toBe(input.outcomes.get(2));
+    expect(result.result.provisionalMembers).toEqual(input.result.provisionalMembers);
+    expect(result.result.assemblies[0].conflicts.map(c => c.elementIds)).toEqual([[2]]);
+  });
+
+  it('keeps adjacent eligible members in one atomic segment when the next member is locked', () => {
+    const { input, verify } = line();
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+    ] }] } as never;
+    const result = searchPhysicalDesignAlternatives({ ...input, lockedMembers: new Set([3]),
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 2, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials).toHaveLength(1);
+    expect(result.trials[0]).toMatchObject({ elementIds: [1, 2], disposition: 'accepted' });
+    expect(verify.mock.calls.map(([ctx]) => ctx.elementId)).toEqual([1, 2]);
+    expect(result.outcomes.get(3)).toBe(input.outcomes.get(3));
+  });
+
+  it('rejects a partial-line repair that worsens a boundary splice', () => {
+    const { input } = line();
+    input.outcomes.set(2, { ...input.outcomes.get(2)!, outcome: 'SEARCH_EXHAUSTED', accepted: undefined });
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+    ] }] } as never;
+    input.detail.mockReturnValue({ ...input.result, assemblies: [{ ...input.result.assemblies[0],
+      conflicts: [], unsupported: [...input.result.assemblies[0].unsupported,
+        { key: 'detailing.lapCheck.integrity', scope: { elementIds: [1, 2] }, params: { joint: 'n2' }, message: 'boundary', refs: [] }] }] });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 1, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ elementIds: [1], disposition: 'regression' });
+    expect(result.trials[0].regressions).toContain('detailing.lapCheck.integrity');
+    expect(result.outcomes).toBe(input.outcomes);
+  });
+
   it('retries a rejected prefix when an adjacent line changes, without renewing its budget', () => {
     const { input } = line();
     const model = input.contexts.get(1)!.modelData;

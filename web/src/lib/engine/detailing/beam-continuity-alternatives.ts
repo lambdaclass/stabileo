@@ -1,4 +1,4 @@
-/** Atomic longitudinal patterns for an adjacent beam pair or line. */
+/** Atomic longitudinal patterns for a beam segment; demand-based repair also admits one member. */
 import type { ProvidedReinforcement, RebarLayer } from '../../design-contract/reinforcement';
 import type { MemberContext } from '../design/member-context';
 import { STANDARD_LONG_DIAS } from '../design/objective';
@@ -54,7 +54,7 @@ export function* beamContinuityAlternatives(
   face: 'top' | 'bottom' = 'top',
   patterns: 'existing' | 'catalog' | 'demand' = 'existing',
 ): Generator<BeamContinuityAlternative> {
-  if (contexts.length < 2 || contexts.length !== current.length) return;
+  if (contexts.length < (patterns === 'demand' ? 1 : 2) || contexts.length !== current.length) return;
   if (contexts.some(c => c.elementType !== 'beam' || c.span)) return;
   if (current.some(r => !r.regions || r.regions.continuity || (face === 'top'
     ? r.regions.topStartGroups || r.regions.topEndGroups
