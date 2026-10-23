@@ -160,6 +160,19 @@ it.each([false, true])('joint cages see continuous bars stored in a different sp
 
 // ─── Readiness ───────────────────────────────────────────────────
 
+it('persists a failed final strength check on its member and removes it after a successful rebuild', () => {
+  const s = scenario();
+  const failed = runDetailing({ ...s, reverify: id => id === 12 ? 'fail' : 'ok' });
+  const conditions = failed.assemblies.flatMap(a => a.unsupported)
+    .filter(u => u.key === 'detailing.finalVerification.failed');
+  expect(conditions).toEqual([expect.objectContaining({ scope: { elementIds: [12] }, params: { element: 12 } })]);
+  for (const locale of ['en', 'es', 'pt']) {
+    expect(teAt({ key: conditions[0].key, params: conditions[0].params }, locale)).not.toBe(conditions[0].key);
+  }
+  const repaired = runDetailing({ ...s, reverify: () => 'ok' });
+  expect(repaired.assemblies.flatMap(a => a.unsupported).some(u => u.key === conditions[0].key)).toBe(false);
+});
+
 describe('detailing readiness', () => {
   it('is ready when every member is verified with accepted reinforcement', () => {
     const r = detailingReadiness(scenario());

@@ -9445,6 +9445,7 @@ const pt: Translations = {
   'fx.note.aiscInteraction': 'só com tração; com compressão a H1 lê φc·Pn e o φc difere',
   'detailing.anchorage.unresolved': 'Ancoragem não resolvida — barra {bar}, elemento {element}, extremidade {end}: disponível {available} m, exigido {rule} = {required} m',
   'check.detailing.anchorage': 'Ancoragem da armadura no apoio',
+  'detailing.finalVerification.failed': 'Elemento {element}: a resistência não verifica com a geometria final da armadura.',
   'detailing.cover.violated': 'Barra fora do cobrimento — barra {bar}, elemento {element}: a {across} m do eixo na largura (máx. {maxAcross} m) e a {up} m na altura (máx. {maxUp} m)',
   'check.detailing.cover': 'Barra dentro do cobrimento',
   'detailing.anchorage.side.start': 'inicial',

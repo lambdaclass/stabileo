@@ -8989,6 +8989,7 @@ const es: Record<string, string> = {
   'fx.note.aiscInteraction': 'solo con tracción; con compresión H1 lee φc·Pn y el φc difiere',
   'detailing.anchorage.unresolved': 'Anclaje sin resolver — barra {bar}, elemento {element}, extremo {end}: disponible {available} m, requerido {rule} = {required} m',
   'check.detailing.anchorage': 'Anclaje de la armadura en el apoyo',
+  'detailing.finalVerification.failed': 'Elemento {element}: no verifica la resistencia con la geometría final de la armadura.',
   'detailing.cover.violated': 'Barra fuera del recubrimiento — barra {bar}, elemento {element}: a {across} m del eje en el ancho (máx. {maxAcross} m) y a {up} m en la altura (máx. {maxUp} m)',
   'check.detailing.cover': 'Barra dentro del recubrimiento',
   'detailing.anchorage.side.start': 'inicial',

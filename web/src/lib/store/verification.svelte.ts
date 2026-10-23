@@ -310,8 +310,10 @@ function createVerificationStore() {
      * reinforcement is used, which is what every other caller wants.
      */
     reinforcement?: ProvidedReinforcement,
+    /** Trial neighbours must travel with a tentative reinforcement assignment. */
+    trialContext?: MemberContext,
   ): 'ok' | 'warn' | 'fail' {
-    const ctx = withSavedColumns(contexts.get(elementId));
+    const ctx = trialContext ?? withSavedColumns(contexts.get(elementId));
     const reinf = reinforcement ?? reinforcementProvider?.(elementId);
     if (!ctx || !reinf) return 'fail';
     // Same source as every other design decision: the project's `concrete` role.

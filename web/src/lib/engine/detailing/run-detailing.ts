@@ -3229,6 +3229,16 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     // The beams' laps on the final bars, and the column laps that stand in this storey (scoped to
     // the upper lift). An open condition here withholds CONSTRUCTIBLE through `noUnsupportedRule`.
     result.assembly.unsupported.push(...lapConditionsOf(result.assembly.bars, elementIds));
+    // Persist a failed final strength check with the member, so a nominal pass cannot
+    // reappear as an approval in counts, drawings or after reloading the assemblies.
+    // Provisional/refused designs already carry their separate verification limitation.
+    for (const id of elementIds) if (input.outcomes.get(id)?.outcome === 'VERIFIED'
+      && reverification.get(id) === 'fail') {
+      result.assembly.unsupported.push({ key: 'detailing.finalVerification.failed',
+        scope: { elementIds: [id] }, params: { element: id }, refs: [],
+        message: `Element ${id}: strength verification fails at the final reinforcement geometry.`,
+      });
+    }
     // ── The thirteen conditions, measured on what coordination ACTUALLY produced ──
     //
     // Second pass on purpose. The conflict count is an output of coordination, so a gate

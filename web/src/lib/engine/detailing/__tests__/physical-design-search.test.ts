@@ -42,6 +42,75 @@ function harness() {
 
 afterEach(() => vi.restoreAllMocks());
 
+describe('column diameter repair', () => {
+  function column() {
+    const { input, generate } = harness();
+    input.contexts.get(1)!.elementType = 'column';
+    input.contexts.get(1)!.material.longDiametersMm = [16];
+    input.contexts.get(2)!.columnCages = new Map([[1, 12], [90, 20]]);
+    input.contexts.get(2)!.columnBars = new Map([[1, { count: 28, diameterMm: 12 }],
+      [90, { count: 8, diameterMm: 20 }]]);
+    input.outcomes.set(1, { ...outcome(1, 12), elementType: 'column',
+      accepted: { longitudinal: { count: 28, diameter: 12 } } });
+    generate.mockImplementation((_adapter, ctx) => ({ ...outcome(ctx.elementId, 16), elementType: 'column',
+      accepted: { longitudinal: { count: 16, diameter: ctx.material.longDiametersMm![0] } } }));
+    return { generate, input: { ...input, budget: { maxDetailingRuns: 1, maxMemberSearches: 1,
+      operators: ['columnDiameterFamily'] as const } } };
+  }
+
+  it('rebuilds neighbouring beam registries for the complete trial without changing the retained contexts', () => {
+    const { input, generate } = column();
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([1]);
+    expect(result.trials[0]).toMatchObject({ operator: 'columnDiameterFamily', diameterMm: 16, disposition: 'accepted' });
+    expect(generate).toHaveBeenCalledTimes(1);
+    const beam = input.detail.mock.calls[0][1].get(2)!;
+    expect(beam.columnCages).toEqual(new Map([[1, 16], [90, 20]]));
+    expect(beam.columnBars).toEqual(new Map([[1, { count: 16, diameterMm: 16 }], [90, { count: 8, diameterMm: 20 }]]));
+    expect(input.contexts.get(2)!.columnCages!.get(1)).toBe(12);
+    expect(input.contexts.get(2)!.columnBars!.get(1)!.count).toBe(28);
+    expect(result.stats).toEqual({ detailingRuns: 1, memberSearches: 1, candidatesConsidered: 1,
+      verifierCalls: 1, structuralSolves: 0 });
+  });
+
+  it.each(['neighbourClash', 'strength', 'missingCheck', 'unsupported', 'noProgress'] as const)(
+    'retains the assignment on %s', reason => {
+    const { input } = column();
+    const next = detail(reason === 'neighbourClash' ? [2] : reason === 'noProgress' ? [1, 1] : [],
+      reason === 'strength' ? [1] : []);
+    if (reason === 'missingCheck') next.reverification = next.reverification.filter(r => r.elementId !== 1);
+    if (reason === 'unsupported') next.assemblies[0].unsupported.push({ key: 'generation', message: 'unbuilt cage',
+      refs: [], scope: { elementIds: [1] } });
+    input.detail.mockReturnValue(next);
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+    expect(result.trials[0].disposition).toBe(reason === 'noProgress' ? 'noProgress' : 'regression');
+  });
+
+  it.each(['default', 'locked', 'provisional', 'span', 'budget'] as const)('respects %s exclusions', reason => {
+    const { input, generate } = column();
+    if (reason === 'provisional') input.outcomes.get(1)!.outcome = 'PROVISIONAL_BIAXIAL';
+    if (reason === 'span') input.contexts.get(1)!.span = { elements: [1, 2], representative: 1 } as never;
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      lockedMembers: reason === 'locked' ? new Set([1]) : undefined,
+      budget: { ...input.budget, operators: reason === 'default' ? undefined : input.budget.operators,
+        maxMemberSearches: reason === 'budget' ? 0 : 1 } });
+    expect(generate).not.toHaveBeenCalled();
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.changed).toEqual([]);
+  });
+
+  it('does not build a column candidate that fails nominal verification', () => {
+    const { input, generate } = column();
+    generate.mockReturnValue({ ...input.outcomes.get(1)!, outcome: 'SEARCH_EXHAUSTED', accepted: undefined });
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.trials[0].disposition).toBe('nominalFailure');
+    expect(result.changed).toEqual([]);
+  });
+});
+
 describe('reopening exhausted members', () => {
   function refused() {
     const { input, generate } = harness();

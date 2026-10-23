@@ -16,6 +16,7 @@ it('verifies two more columns without losing previous passes or hiding physical 
   expect(output.notReached).toBe(0);
   expect(Object.values(output.counts).reduce((a, b) => a + b, 0)).toBe(408);
   expect(output.passingWithBlockingConflicts).toEqual([]);
+  expect(output.passingWithoutFinalVerification).toEqual([]);
   expect(verifiedIds).toEqual(expect.arrayContaining([...PREVIOUS_PASSES, 32, 34]));
   expect(verifiedIds.length).toBeGreaterThanOrEqual(72);
   expect(output.exhausted).toBeLessThanOrEqual(35);
@@ -27,6 +28,9 @@ it('verifies two more columns without losing previous passes or hiding physical 
     'detailing.lapCheck.pitch': 4, 'detailing.lapCheck.noPartner': 2,
   };
   for (const [key, count] of Object.entries(output.open)) {
+    // Newly exposed final-depth failures were absent from the old physical-only tally;
+    // the independent assertion above forbids counting any of them as approved.
+    if (key === 'detailing.finalVerification.failed') continue;
     expect(count, key).toBeLessThanOrEqual(achievedOpen[key] ?? 0);
   }
 }, 600_000);

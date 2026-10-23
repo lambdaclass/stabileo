@@ -6,7 +6,90 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Diagnóstico de los 533 conflictos y reparación de columnas
+
+Auditoría desde `d398c4c56`, con el armado de `/tmp/design-owner-restored.json`. Los 533
+son conflictos físicos, no miembros ni todas las verificaciones pendientes. Por clase
+hay 381 interpenetraciones y 152 separaciones insuficientes. La siguiente partición
+geométrica es disjunta; orienta las reparaciones, sin atribuir una causa única a cada grupo:
+
+| Pareja afectada | Bloqueantes |
+| --- | ---: |
+| Longitudinales de vigas alineadas/paralelas | 319 |
+| Longitudinales de vigas que se cruzan | 68 |
+| Longitudinales de viga con sus estribos | 75 |
+| Longitudinales de viga con trabas/estribos de nudo | 18 |
+| Longitudinales dentro de columnas | 48 |
+| Longitudinales de viga con longitudinales de columna | 5 |
+| Total | 533 |
+
+Las líneas 223–225, 235–238 y 328–331 concentran problemas de continuidad: cambian las
+familias, las cantidades o los asientos transversales y las barras no logran materializar
+una transición compatible. En 235–238 incluso coinciden las cantidades longitudinales,
+pero los estribos Ø10/Ø6 dejan asientos diferentes. De los 533 conflictos, **171** incluyen
+algún miembro `PROVISIONAL_BIAXIAL`; resolver su geometría no implementaría por sí solo la
+verificación resistente que falta. Permanecen además condiciones de empalme, dos condiciones
+de generación en 177/189, 35 búsquedas agotadas y 13 provisionales.
+
+Los 48 conflictos internos de columnas se repiten ocho veces en 1, 5, 11, 15, 27 y 29.
+Su jaula de 28Ø12 cabe nominalmente, pero el doblado de las esquinas para empalmar con
+el piso superior reduce la separación respecto de las barras vecinas: **34,46 mm frente
+a 40 mm exigidos por el verificador**. La búsqueda física anterior excluía las columnas.
+
+El nuevo operador opcional `columnDiameterFamily` reutiliza el diseño nominal acotado por
+familia de diámetros para columnas verificadas, dentro del catálogo del proyecto. Actualiza
+los registros de diámetros y cantidades de las columnas que consultan las vigas. El callback
+de verificación final recibe ahora ese contexto tentativo: antes le llegaba el armado
+tentativo, pero todavía podía leer los vecinos guardados. Cada alternativa requiere
+reverificación de la columna, detallado global, conservación de aprobaciones válidas y
+ausencia de regresiones. Se respetan bloqueos, presupuestos y exclusiones provisionales.
+La búsqueda por defecto sigue siendo la anterior; las causas de rechazo quedan en la traza.
+
+La corrida general, sin selección manual de miembros, cambia 27 y 29 de **28Ø12 a 8Ø25**,
+con estribos Ø6 cada 250 mm en lugar de 175 mm, redimensionados por el verificador nominal.
+El área longitudinal aumenta aproximadamente 24 %; no se afirma mínimo acero. El resto
+de los 406 resultados y armados permanece idéntico. Esto elimina 16 conflictos internos,
+reduce **533 → 517 bloqueantes** y permite aprobar las columnas superiores **47 y 49**.
+27 y 29 todavía tienen una condición de separación de empalme con el otro piso.
+
+### Corrección del conteo anterior de aprobaciones
+
+El conteo publicado de 225 incluía 262 y 265, aunque su reverificación final fallaba en
+flexión, con relación demanda/capacidad 1,005. El estado del miembro leía las verificaciones
+nominales y los conflictos persistidos, pero no ese fallo resistente final. Por tanto,
+**había 223 aprobaciones válidas**, no 225. Ahora el fallo se persiste como condición del
+miembro y bloquea también conteos, documentos y proyectos recargados. La auditoría contrasta
+cada aprobación con la reverificación final de forma independiente y registra las dos
+aprobaciones inválidas del snapshot anterior.
+
+Después de reparar las columnas quedan **225 aprobaciones válidas: 133 columnas y 92 vigas**.
+Se conservan las 223 válidas anteriores y se suman 47/49. Hay 135 fallidos, 35 agotados y
+13 provisionales. Ningún aprobado tiene conflictos bloqueantes ni carece de una verificación
+final favorable. Los cuatro fallos resistentes finales de miembros nominalmente verificados
+(192, 195, 262 y 265) permanecen visibles; no se redujeron exigencias ni tolerancias.
+
+La corrida consume **32 detallados, 46 búsquedas nominales y 194 llamadas al verificador**,
+sin análisis estructurales dentro de la búsqueda. Termina por presupuesto. Nuevo análisis,
+restauración, búsqueda y regeneración exacta pasan en **91,15 s locales**. Pasan 264 pruebas
+dirigidas en diez suites y typecheck no agrega errores (442 existentes frente a 443).
+
+Los próximos vecindarios deben incluir columna y vigas incidentes: en 1/5/11/15, cambiar
+sólo la columna reduce algunos choques, pero abre empalmes o perjudica la continuidad de
+integridad. Las propuestas se rechazan. Después siguen las transiciones longitudinales de
+las líneas más cargadas y los cuatro fallos de flexión final. La cobertura biaxial es una
+limitación distinta de la búsqueda geométrica. No hay prueba de convergencia a cero ni de
+inviabilidad por agotar el presupuesto.
+
+Reproducción desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-owner-restored.json STABILEO_REPAIR_OPERATOR=columnDiameterFamily STABILEO_REPAIR_RUNS=32 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-column-verified.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Barras continuas visibles para todos sus nudos
+
+El conteo de 225 informado en esta etapa se corrige a 223 aprobaciones válidas en la
+auditoría anterior: 262 y 265 no superaban la verificación resistente final.
 
 Desde `0120077ae`, la materialización de continuidad conserva cada barra fusionada en el
 último tramo de la línea, con todos sus propietarios en `ownerElementIds`. La generación

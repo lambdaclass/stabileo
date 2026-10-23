@@ -1,6 +1,7 @@
 import { modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
+import { detailingStore } from '../detailing.svelte';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 
 /** Full production path with the example’s own lateral declaration, including final holds. */
@@ -29,9 +30,12 @@ export function currentFrameDesignQuality() {
   // Independent of member holds: an omitted open condition must not inflate this metric.
   const physicallyBlocked = new Set(assemblies.flatMap(a => a.conflicts
     .filter(c => c.severity !== 'marginal').flatMap(c => c.elementIds)));
+  const finalPasses = new Set((detailingStore.lastRun?.reverification ?? [])
+    .filter(r => r.status === 'ok' || r.status === 'warn').map(r => r.elementId));
   const output = { verified: summary.verified, exhausted: summary.searchExhausted, provisional: summary.provisionalBiaxial,
     aborted: summary.aborted, notReached: summary.notReached, counts, assemblies: assemblies.length,
     passingWithBlockingConflicts: verifiedIds.filter(id => physicallyBlocked.has(id)),
+    passingWithoutFinalVerification: verifiedIds.filter(id => !finalPasses.has(id)),
     conflicts: assemblies.reduce((n, a) => n + a.conflicts.length, 0),
     blockingConflicts: assemblies.reduce((n, a) => n + a.conflicts.filter(c => c.severity !== 'marginal').length, 0),
     open: assemblies.flatMap(a => a.unsupported).reduce((n, u) => { n[u.key] = (n[u.key] ?? 0) + 1; return n; }, {} as Record<string, number>) };

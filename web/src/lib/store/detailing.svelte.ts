@@ -317,7 +317,7 @@ function createDetailingStore() {
           maxAggregateSizeMm: resolveAggregate(),
           spacingMargin: resolveSpacingMargin(),
           // The member's conformity at the final geometry: strength, §24.2.2, and a load split the model establishes (its slab-column joint).
-          ...memberConformityGates(outcomes),
+          ...memberConformityGates(outcomes, contexts),
           lockedBars: store.assemblies.flatMap((a) => a.bars.filter((b) => b.locked)),
           bentUp: bentUpPolicy(), memberCuts: savedMemberCuts(), ...detailingLineInputs(),
           /**

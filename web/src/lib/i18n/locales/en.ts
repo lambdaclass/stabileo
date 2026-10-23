@@ -8996,6 +8996,7 @@ const en: Record<string, string> = {
   'fx.note.aiscInteraction': 'with tension only; with compression H1 reads φc·Pn and φc differs',
   'detailing.anchorage.unresolved': 'Anchorage not resolved — bar {bar}, element {element}, {end} end: {available} m available, {rule} = {required} m required',
   'check.detailing.anchorage': 'Bar anchorage at the support',
+  'detailing.finalVerification.failed': 'Element {element}: strength verification fails at the final reinforcement geometry.',
   'detailing.cover.violated': 'Bar outside the cover — bar {bar}, element {element}: {across} m from the axis across the width (max. {maxAcross} m) and {up} m up (max. {maxUp} m)',
   'check.detailing.cover': 'Bar within the cover',
   'detailing.anchorage.side.start': 'first',

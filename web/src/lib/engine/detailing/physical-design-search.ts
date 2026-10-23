@@ -2,7 +2,8 @@
 import type { DesignCodeAdapter } from '../design/code-adapter';
 import type { MemberContext } from '../design/member-context';
 import { designMember, outcomeFromProvided } from '../design/candidate-search';
-import { beamCornerRecord, type BeamCornerRecord } from '../design/end-support-anchorage';
+import { beamCornerRecord, columnCageDia, type BeamCornerRecord } from '../design/end-support-anchorage';
+import { columnBarsOf } from './joint-threading';
 import { STANDARD_LONG_DIAS } from '../design/objective';
 import { rebarHash } from '../design/rebar-hash';
 import { detailableReinforcement, type MemberDesignOutcome } from '../design/outcome';
@@ -14,7 +15,7 @@ import type { ProvidedRebarCheck } from '../station-design-forces';
 import { completeAnchorage } from '../design/anchorage-hooks';
 import { beamStirrupContinuityAlternatives } from './beam-stirrup-alternatives';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'harmonizeStirrupCatalog' | 'retryExhausted';
+export type PhysicalRepairOperator = 'diameterFamily' | 'columnDiameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'harmonizeStirrupCatalog' | 'retryExhausted';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -141,8 +142,21 @@ function contextsFor(
     const record = beamCornerRecord(detailableReinforcement(outcomes.get(id))?.rebar, ctx.material.stirrupDia);
     if (record) corners.set(id, record); else absent.add(id);
   }
-  return new Map([...contexts].map(([id, ctx]) => [id,
-    ctx.elementType === 'beam' ? { ...ctx, beamCorners: corners, absentBeams: absent } : ctx]));
+  const columns = [...contexts].filter(([, ctx]) => ctx.elementType === 'column')
+    .map(([id]) => ({ id, rebar: detailableReinforcement(outcomes.get(id))?.rebar }));
+  return new Map([...contexts].map(([id, ctx]) => {
+    if (ctx.elementType !== 'beam') return [id, ctx];
+    // A different column cage changes beam threading and anchorage too. Refresh the
+    // trial's registries before full verification, without mutating the retained context
+    // or dropping neighbours outside a partial context map.
+    const columnCages = new Map(ctx.columnCages), columnBars = new Map(ctx.columnBars);
+    for (const column of columns) {
+      const dia = columnCageDia(column.rebar), bars = columnBarsOf(column.rebar);
+      if (dia > 0) columnCages.set(column.id, dia); else columnCages.delete(column.id);
+      if (bars) columnBars.set(column.id, bars); else columnBars.delete(column.id);
+    }
+    return [id, { ...ctx, beamCorners: corners, absentBeams: absent, columnCages, columnBars }];
+  }));
 }
 
 export function searchPhysicalDesignAlternatives(input: {
@@ -160,7 +174,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'harmonizeStirrupCatalog' && o !== 'retryExhausted')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'columnDiameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'harmonizeStirrupCatalog' && o !== 'retryExhausted')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize') || o === 'retryExhausted')) {
@@ -199,7 +213,8 @@ export function searchPhysicalDesignAlternatives(input: {
     const ctx = contexts.get(id), current = outcomes.get(id);
     // Multi-element spans require an atomic group replacement, which this first operator
     // does not implement. Never modify just one analysis piece or a provisional design.
-    if (ctx?.elementType !== 'beam' || ctx.span || current?.outcome !== 'VERIFIED'
+    const columnRepair = ctx?.elementType === 'column' && operators.includes('columnDiameterFamily');
+    if (!ctx || (ctx.elementType !== 'beam' && !columnRepair) || ctx.span || current?.outcome !== 'VERIFIED'
       || !current.accepted || input.lockedMembers?.has(id) || !physicallyBlockedMembers(result).has(id)) continue;
     const allowed = ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS;
     // A priority, not a restricted project catalog. Remaining sizes remain alternatives.
@@ -209,7 +224,8 @@ export function searchPhysicalDesignAlternatives(input: {
     const seen = new Set([rebarHash(current.accepted)]);
     function* proposals(): Generator<{ trial: PhysicalSearchTrial; evaluate: () => MemberDesignOutcome | null }> {
       for (const operator of operators) {
-        if (operator === 'diameterFamily') {
+        if ((operator === 'columnDiameterFamily') !== columnRepair) continue;
+        if (operator === 'diameterFamily' || operator === 'columnDiameterFamily') {
           for (const diameterMm of diameters) yield {
             trial: { elementId: id, operator, diameterMm, disposition: 'nominalFailure' },
             evaluate: () => designMember(input.adapter, {
@@ -236,7 +252,7 @@ export function searchPhysicalDesignAlternatives(input: {
       }
       const candidate = proposal.evaluate();
       stats.memberSearches++;
-      const direct = proposal.trial.operator !== 'diameterFamily';
+      const direct = proposal.trial.operator !== 'diameterFamily' && proposal.trial.operator !== 'columnDiameterFamily';
       stats.candidatesConsidered += direct ? 1 : candidate!.searchStats.candidatesTried;
       stats.verifierCalls += direct ? 1 : candidate!.searchStats.verifierCalls;
       const trial = proposal.trial;
@@ -254,7 +270,10 @@ export function searchPhysicalDesignAlternatives(input: {
       const before = physicallyBlockedMembers(result), after = physicallyBlockedMembers(detailed);
       trial.newlyBlocked = [...after].filter(member => !before.has(member)).sort((a, b) => a - b);
       trial.blockingConflicts = conflicts(detailed);
-      if (trial.newlyBlocked.length || input.regresses(result, detailed)) {
+      trial.regressions = detailRegressionReasons(result, detailed);
+      if (trial.newlyBlocked.length || input.regresses(result, detailed)
+        || (columnRepair && !detailed.reverification.some(r => r.elementId === id
+          && (r.status === 'ok' || r.status === 'warn')))) {
         trial.disposition = 'regression'; continue;
       }
       if (after.size >= before.size && trial.blockingConflicts >= conflicts(result)) {

@@ -198,7 +198,7 @@ verificationStore._setRefusalProvider(
 // The members the detailing left an unresolved anchorage, a bar outside the section or a clash the
 // repair could not separate on: read from the persisted assemblies, as the memoria reads them, and
 // indexed once per set.
-const DETAILING_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
+const DETAILING_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved', 'detailing.finalVerification.failed']);
 let issueIndex: { of: unknown; ids: Map<number, string[]> } | null = null;
 verificationStore._setDetailingIssueProvider((elementId) => {
   const assemblies = modelStore.model.detailing?.assemblies ?? detailingStore.assemblies;

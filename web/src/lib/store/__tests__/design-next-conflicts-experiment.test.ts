@@ -20,6 +20,14 @@ import { designMember } from '../../engine/design/candidate-search';
 // assignment is restored. Every comparison below uses a newly generated full detail.
 it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforcement assignment', async () => {
   const saved = JSON.parse(readFileSync(process.env.STABILEO_REPAIR_SNAPSHOT!, 'utf8'));
+  // Older reports could approve a nominal pass despite a failed final-depth check.
+  // Preserve actual approvals, and expose those reporting errors rather than treating
+  // their correction as a lost valid design.
+  const priorFinalPasses = new Set(saved.reverification
+    .filter((r: { status: string }) => r.status === 'ok' || r.status === 'warn')
+    .map((r: { elementId: number }) => r.elementId));
+  const priorApproved: number[] = saved.after.verifiedIds.filter((id: number) => priorFinalPasses.has(id));
+  const priorInvalidApprovals: number[] = saved.after.verifiedIds.filter((id: number) => !priorFinalPasses.has(id));
   await frameDesignQuality();
   const outcomes = new Map<number, MemberDesignOutcome>(saved.members.map((m: { id: number; outcome: MemberDesignOutcome }) => [m.id, m.outcome]));
   modelStore.reinforcementTransaction(api => {
@@ -143,7 +151,7 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
   const after = currentFrameDesignQuality();
   const detail = detailingStore.lastRun!;
   const search = detailingStore.lastFeedbackLoop?.physicalSearch;
-  const evidence = { before: saved.after, restored, after, attempts, nominalFailures, reopened,
+  const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened,
     search: search ? { trials: search.trials, stats: search.stats, termination: search.termination, changed: search.changed } : undefined,
     reverification: detail.reverification,
     failedChecks: detail.reverification.filter(r => r.status === 'fail').map(r => {
@@ -161,9 +169,10 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
   writeFileSync(process.env.STABILEO_REPAIR_AUDIT ?? '/tmp/design-next-conflicts.json', JSON.stringify(evidence,
     (_k, v) => v instanceof Map ? Object.fromEntries(v) : v instanceof Set ? [...v] : v));
   console.log(JSON.stringify({ before: saved.after.output, after: after.output,
-    lost: saved.after.verifiedIds.filter((id: number) => !after.verifiedIds.includes(id)) }));
-  expect(after.verifiedIds).toEqual(expect.arrayContaining(saved.after.verifiedIds));
+    priorInvalidApprovals, lost: priorApproved.filter(id => !after.verifiedIds.includes(id)) }));
+  expect(after.verifiedIds).toEqual(expect.arrayContaining(priorApproved));
   expect(after.output.passingWithBlockingConflicts).toEqual([]);
+  expect(after.output.passingWithoutFinalVerification).toEqual([]);
   expect(after.output.blockingConflicts).toBeLessThanOrEqual(saved.after.output.blockingConflicts);
   expect(detailingStore.generate()).not.toBeNull();
   expect(currentFrameDesignQuality()).toEqual(after);

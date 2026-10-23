@@ -17,12 +17,13 @@ import { verificationStore } from './verification.svelte';
 import { loadSplitNotEstablished } from './analysis-validity-store';
 import type { MemberDesignOutcome } from '../engine/design/outcome';
 import type { RunDetailingInput } from '../engine/detailing/run-detailing';
+import type { MemberContext } from '../engine/design/member-context';
 
-export function memberConformityGates(outcomes: ReadonlyMap<number, MemberDesignOutcome>)
+export function memberConformityGates(outcomes: ReadonlyMap<number, MemberDesignOutcome>, contexts?: ReadonlyMap<number, MemberContext>)
   : Pick<RunDetailingInput, 'reverify' | 'serviceabilityFails' | 'loadSplitNotEstablished'> {
   return {
     reverify: (elementId, loss) => verificationStore.reverifyAtFinalDepth(
-      elementId, loss, outcomes.get(elementId)?.accepted),
+      elementId, loss, outcomes.get(elementId)?.accepted, contexts?.get(elementId)),
     serviceabilityFails: (elementId) => verificationStore.serviceabilityFails(elementId),
     loadSplitNotEstablished,
   };
