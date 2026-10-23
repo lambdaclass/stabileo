@@ -27,6 +27,6 @@ mod ldlt;
 mod lu;
 mod pattern;
 
-pub use ldlt::{ldlt_numeric, ldlt_symbolic, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
+pub use ldlt::{ldlt_numeric, ldlt_numeric_simplicial, ldlt_numeric_supernodal, ldlt_symbolic, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
 pub use lu::{lu_numeric, LuFactor};
 pub use pattern::{SparseMatrix, SparsePattern};

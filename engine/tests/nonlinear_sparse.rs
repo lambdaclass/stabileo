@@ -305,3 +305,130 @@ fn empty_and_one_by_one() {
     assert_eq!(lu.solve(&[2.0]), vec![-0.5]);
     assert_eq!(lu.det_sign(), -1);
 }
+
+/// Timings of LDLᵀ on 3D grids (print with `--nocapture`; release for real
+/// numbers). The 20k-unknown cube runs only in release.
+#[test]
+fn ldlt_timings_on_3d_grids() {
+    let grids: &[(usize, usize, usize)] = if cfg!(debug_assertions) { &[(12, 12, 12)] } else { &[(20, 20, 20), (28, 28, 26)] };
+    for &(nx, ny, nz) in grids {
+        let a = laplacian(nx, ny, nz, 0.01);
+        let n = a.pattern.n;
+        let b = rhs(n, 3);
+        let t = Instant::now();
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        let t_sym = t.elapsed();
+        // Best of three: timings on a shared machine are noisy.
+        let mut t_num = std::time::Duration::MAX;
+        let mut t_simp = std::time::Duration::MAX;
+        let mut f = None;
+        for _ in 0..3 {
+            let t = Instant::now();
+            f = Some(ldlt_numeric(&sym, &a, 1e-14).unwrap());
+            t_num = t_num.min(t.elapsed());
+            let t = Instant::now();
+            let _ = ldlt_numeric_simplicial(&sym, &a, 1e-14).unwrap();
+            t_simp = t_simp.min(t.elapsed());
+        }
+        let f = f.unwrap();
+        let t = Instant::now();
+        let x = f.solve(&b);
+        let t_solve = t.elapsed();
+        assert!(rel_residual(&a, &x, &b) < 1e-10);
+        assert_eq!(f.inertia(), (0, 0, n));
+        eprintln!("{nx}×{ny}×{nz} (n = {n}, nnz(L) = {}): symbolic {t_sym:?}, numeric {t_num:?} (simplicial {t_simp:?}), solve {t_solve:?}", sym.l_nnz());
+    }
+}
+
+/// Supernodal and simplicial agree: same inertia, the same solution to
+/// rounding, on plane and cube grids and on random symmetric matrices,
+/// definite and indefinite.
+#[test]
+fn supernodal_and_simplicial_ldlt_agree() {
+    let mut cases = vec![laplacian(30, 30, 1, 0.5), laplacian(9, 8, 7, 0.01), laplacian(9, 8, 7, -1.3), laplacian(10, 10, 10, -0.7)];
+    for seed in [31, 32, 33] {
+        cases.push(random(400, 4, true, 6.0, seed));
+        cases.push(random(400, 4, true, 0.3, seed));
+    }
+    for (k, a) in cases.iter().enumerate() {
+        let n = a.pattern.n;
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        let b = rhs(n, 40 + k as u64);
+        let (sup, simp) = match (ldlt_numeric_supernodal(&sym, a, 1e-14), ldlt_numeric_simplicial(&sym, a, 1e-14)) {
+            (Ok(x), Ok(y)) => (x, y),
+            (Err(LdltError::TinyPivot { column: c1, .. }), Err(LdltError::TinyPivot { column: c2, .. })) => {
+                assert_eq!(c1, c2, "case {k}: both refuse, at the same column");
+                continue;
+            }
+            (x, y) => panic!("case {k}: supernodal {:?}, simplicial {:?}", x.err(), y.err()),
+        };
+        assert_eq!(sup.inertia(), simp.inertia(), "case {k}");
+        let (xs, xp) = (sup.solve(&b), simp.solve(&b));
+        // Indefinite without pivoting, the residual is the factorization's
+        // growth, not the path's: the supernodal one is as small as the
+        // simplicial one, and 1e-12 when the matrix is definite.
+        let (rs, rp) = (rel_residual(a, &xs, &b), rel_residual(a, &xp, &b));
+        let bound = if sup.inertia().0 == 0 { 1e-12 } else { 1e-12f64.max(10.0 * rp) };
+        assert!(rs < bound, "case {k}: residual {rs} (simplicial {rp})");
+        let scale = xp.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        let diff = xs.iter().zip(&xp).fold(0.0f64, |m, (p, q)| m.max((p - q).abs()));
+        assert!(diff <= 1e-10 * scale, "case {k}: solutions differ by {diff} (scale {scale})");
+        // Without pivoting an indefinite factorization amplifies rounding
+        // differently in each order of operations: pivots agree to 1e-8.
+        for (p, q) in sup.pivots().iter().zip(simp.pivots()) {
+            assert!((p - q).abs() <= 1e-8 * q.abs().max(1.0), "case {k}: pivots {p} vs {q}");
+        }
+    }
+}
+
+/// The inertia of the supernodal factorization is Sylvester's: the count of
+/// negative eigenvalues of an indefinite matrix above the simplicial cutoff.
+#[test]
+fn supernodal_inertia_counts_negative_eigenvalues() {
+    for (shift, seed) in [(-0.9, 0u64), (-2.1, 0), (0.0, 61), (0.0, 62)] {
+        let a = if seed == 0 { laplacian(6, 5, 2, shift) } else { random(48, 3, true, 0.2, seed) };
+        let n = a.pattern.n;
+        assert!(n >= 32);
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        let f = match ldlt_numeric_supernodal(&sym, &a, 1e-14) {
+            Ok(f) => f,
+            Err(e) => panic!("shift {shift}, seed {seed}: {e:?}"),
+        };
+        let eig = jacobi_eigen(&a.to_dense(), n, 200);
+        let neg = eig.values.iter().filter(|&&v| v < 0.0).count();
+        assert_eq!(f.inertia().0, neg, "shift {shift}, seed {seed}");
+    }
+}
+
+/// A zero pivot in the given order is refused by the supernodal path as by
+/// the simplicial one, at the same column.
+#[test]
+fn supernodal_refuses_the_same_zero_pivot() {
+    // [[0, 1], [1, 0]] at columns 0 and 1, then a 40-unknown chain.
+    let n = 42;
+    let mut groups = vec![vec![0, 1]];
+    for i in 2..n - 1 {
+        groups.push(vec![i, i + 1]);
+    }
+    let p = Rc::new(SparsePattern::from_groups(n, &groups));
+    let mut a = SparseMatrix::zeros(Rc::clone(&p));
+    a.values[p.position(0, 1).unwrap()] = 1.0;
+    a.values[p.position(1, 0).unwrap()] = 1.0;
+    for i in 2..n {
+        a.values[p.position(i, i).unwrap()] = 2.5;
+        if i + 1 < n {
+            a.values[p.position(i, i + 1).unwrap()] = -1.0;
+            a.values[p.position(i + 1, i).unwrap()] = -1.0;
+        }
+    }
+    let natural: Vec<usize> = (0..n).collect();
+    let sym = Rc::new(ldlt_symbolic_with_perm(&p, &natural));
+    let s = ldlt_numeric_supernodal(&sym, &a, 1e-14);
+    let t = ldlt_numeric_simplicial(&sym, &a, 1e-14);
+    assert!(matches!(s, Err(LdltError::TinyPivot { column: 0, .. })), "{:?}", s.err());
+    assert!(matches!(t, Err(LdltError::TinyPivot { column: 0, .. })));
+    // A NaN pivot is refused too.
+    let mut b = a.clone();
+    b.values[p.position(0, 0).unwrap()] = f64::NAN;
+    assert!(matches!(ldlt_numeric_supernodal(&sym, &b, 1e-14), Err(LdltError::TinyPivot { column: 0, .. })));
+}

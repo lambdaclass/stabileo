@@ -59,20 +59,22 @@ factorization of the analysis.
 
 | Factorization | For | Gives |
 |---|---|---|
-| Sparse LDLᵀ, no pivoting, up-looking (Davis's LDL) | symmetric tangents, definite or indefinite | the inertia: the number of negative eigenvalues |
+| Sparse LDLᵀ, no pivoting: supernodal, left-looking, with relaxed supernodes and a postordered AMD (simplicial up-looking below 32 unknowns) | symmetric tangents, definite or indefinite | the inertia: the number of negative eigenvalues |
 | Sparse LU, threshold partial pivoting (Gilbert–Peierls, `cs_lu`) | nonsymmetric tangents (3D co-rotational away from equilibrium); LDLᵀ meeting a tiny pivot | the determinant's sign |
 | Bordered system [K −F; e_cᵀ 0], by LU | displacement control where K itself is singular (a perfectly plastic mechanism) | δu and δλ together |
 
-Measured on grids, release build:
+Measured on Laplacian grids, release build, numeric factorization. The machine was loaded, so
+the times are approximate.
 
-| Grid | Unknowns | LDLᵀ | LU |
-|---|---|---|---|
-| 2D 141² | 20k | 19 ms | 61 ms |
-| 3D 20³ | 8k | 90 ms | 0.44 s |
-| 3D 28²×26 | 20k | 0.84 s | 4.3 s |
+| Grid | Unknowns | LDLᵀ supernodal | LDLᵀ simplicial | LU |
+|---|---|---|---|---|
+| 3D 20³ | 8k | 31–34 ms | 93–100 ms | 0.44 s |
+| 3D 28²×26 | 20k (nnz(L) = 4.2M) | 0.28–0.31 s | 0.88–0.94 s | 4.3 s |
 
-LU is about 5× LDLᵀ on 3D fill, so it stays a fallback. A 1,296-DOF space frame solves in the
-test suite in under a second in debug.
+LU is a fallback, about 15× the supernodal LDLᵀ on 3D fill. The supernodes are narrow, about
+2.2 columns on average, because the AMD has no supervariable merging. Merging would widen the
+panels and is the next speed-up. A 1,296-DOF space frame solves in the test suite in under a
+second in debug.
 
 ## The robust default
 
