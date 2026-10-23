@@ -5,6 +5,7 @@ node_modules
 
 # Build output
 web/dist/
+web/dist-admin/
 
 # IDE / OS
 .DS_Store
@@ -70,10 +71,15 @@ web/.dist-hookgate-on/
 docs/codes/CIRSOC/*.pdf
 /.tools/
 
-
 # Stryker mutation testing (web/stryker.config.json)
 web/reports/mutation/
 web/.stryker-tmp/
 
 # Python bytecode (scripts/tests)
 __pycache__/
+
+# Elixir backend (deps and build live under backend/, see backend/.gitignore)
+.mix/
+.hex/
+.stabileo-inst
+.env.prod

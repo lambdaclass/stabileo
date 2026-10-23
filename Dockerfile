@@ -10,7 +10,7 @@ FROM ${RUST_IMAGE} AS backend-builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY engine/ engine/
-COPY backend/ backend/
+COPY ai-backend/ ai-backend/
 
 RUN cargo build --locked -p dedaliano-backend --release
 

@@ -20,6 +20,15 @@ updates:
       npm-minor:
         update-types: [minor, patch]
 
+  - package-ecosystem: mix
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      mix-minor:
+        update-types: [minor, patch]
+
   # Keeps the SHA-pinned actions current (the version comment is updated too).
   - package-ecosystem: github-actions
     directory: /

@@ -24,7 +24,7 @@ It should not be the main roadmap or the historical archive.
 The benchmark ledger below is curated. It is narrower than the full automated test inventory, because many validation, unit, integration, and regression tests are support checks rather than one benchmark row per test.
 
 Measured inventory — **measured at `6c3369d6` on 2026-08-01**. These are point-in-time
-counts, not live numbers: every merged PR moves them. Re-measure with `make test-inventory`
+counts, not live numbers: every merged PR moves them. Re-measure with `make test.inventory`
 (runs the full engine suite, ~10 min) and update the stamp above in the same commit. A
 number here without a stamp it was measured at is a number nobody can check.
 

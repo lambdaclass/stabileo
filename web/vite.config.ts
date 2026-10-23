@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { existsSync, readFileSync } from 'fs';
+import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
@@ -98,6 +98,70 @@ const PRODUCTION_BUILD_TESTS = [
 ];
 
 
+const ADMIN = process.env.VITE_APP_TYPE === 'admin';
+
+const ADMIN_PUBLIC_ASSETS = ['fonts', 'favicon.svg'];
+
+function adminPublicAssetsPlugin(): Plugin {
+  return {
+    name: 'admin-public-assets',
+    apply: 'build',
+    config: () => ({ publicDir: false }),
+    closeBundle() {
+      for (const asset of ADMIN_PUBLIC_ASSETS) {
+        const from = resolve(__dirname, 'public', asset);
+        const to = resolve(__dirname, 'dist-admin', asset);
+        if (asset.includes('.')) copyFileSync(from, to);
+        else cpSync(from, to, { recursive: true });
+      }
+    },
+  };
+}
+
+/** This checkout's instance (`INST`, else the `.stabileo-inst` that `make inst.claim` writes); every dev port shifts by `INST * 10`. */
+function instance(): number {
+  let raw = process.env.INST;
+  if (raw === undefined) {
+    try {
+      raw = readFileSync(resolve(__dirname, '../.stabileo-inst'), 'utf8');
+    } catch {
+      raw = '0';
+    }
+  }
+  const n = Number.parseInt(raw.trim(), 10);
+  return Number.isInteger(n) && n >= 0 ? n : 0;
+}
+
+const INST = instance();
+const DEV_API_URL = process.env.VITE_API_URL || `http://localhost:${4100 + INST * 10}`;
+
+const ADMIN_CLIENT_ROUTES = ['/', '/settings', '/allowlist', '/oauth/callback'];
+
+function adminRootPlugin(): Plugin {
+  const rewrite = (req: { url?: string }) => {
+    if (!req.url) return;
+    const cut = req.url.indexOf('?');
+    const path = cut === -1 ? req.url : req.url.slice(0, cut);
+    const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path;
+    if (ADMIN_CLIENT_ROUTES.includes(normalized)) req.url = `/admin.html${cut === -1 ? '' : req.url.slice(cut)}`;
+  };
+  return {
+    name: 'admin-root',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        rewrite(req);
+        next();
+      });
+    },
+  };
+}
+
 /** The commit this bundle is built from, for the project workbook's cover (`lib/build-info.ts`). */
 function buildCommit(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 12);
@@ -115,23 +179,30 @@ function appVersion(): string {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte()],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
+    __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
   },
   base: process.env.BASE_PATH || '/',
   server: {
-    port: 4000,
+    port: (ADMIN ? 4001 : 4000) + INST * 10,
   },
   worker: {
     format: 'es',
     plugins: () => [wasmStubPlugin()],
   },
-  build: {
-    target: 'esnext',
-  },
+  build: ADMIN
+    ? {
+        target: 'esnext',
+        outDir: 'dist-admin',
+        rollupOptions: { input: { admin: resolve(__dirname, 'admin.html') } },
+      }
+    : {
+        target: 'esnext',
+      },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],
   },

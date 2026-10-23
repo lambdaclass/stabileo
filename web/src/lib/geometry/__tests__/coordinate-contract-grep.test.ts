@@ -29,9 +29,9 @@ const seamFiles = [
   'web/src/lib/viewport3d/results-sync.ts',
   'web/src/components/Viewport3D.svelte',
   'web/src/components/floating-tools/ToolNodeOptions.svelte',
-  'backend/src/capabilities/build_model.rs',
-  'backend/src/capabilities/generators.rs',
-  'backend/src/capabilities/edit_executor.rs',
+  'ai-backend/src/capabilities/build_model.rs',
+  'ai-backend/src/capabilities/generators.rs',
+  'ai-backend/src/capabilities/edit_executor.rs',
 ];
 
 const forbiddenPatterns: Array<[RegExp, string]> = [

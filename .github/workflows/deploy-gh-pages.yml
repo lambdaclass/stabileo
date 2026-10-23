@@ -25,33 +25,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+      - uses: ./.github/actions/free-disk
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
-        with:
-          toolchain: 1.99.1
-          targets: wasm32-unknown-unknown
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
 
-      # Pinned release, checksum-verified by install-action (no curl | sh).
-      - name: Install wasm-pack
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: wasm-pack@0.13.1
-
-      # Optimized with wasm-opt: 25 % smaller. CI's wasm job checks it gives the same results,
-      # bit for bit, as an unoptimized build.
-      - name: Build WASM engine
-        run: wasm-pack build --target web --out-dir ../web/src/lib/wasm
-        working-directory: engine
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
 
       - name: Install dependencies
-        working-directory: web
-        run: npm ci
+        run: make web.deps
 
       # The build prerenders the public pages by driving the real application in
       # a browser (web/scripts/prerender.ts), so one is needed here. Without it
@@ -59,12 +42,12 @@ jobs:
       # silently skipped prerendering would put the site back to answering 404
       # to every crawler, and nothing on the page would look wrong.
       - name: Install Chromium for prerendering
-        working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: |
+          make e2e.web.setup
+          nix develop --command bash -c "cd web && npx playwright install-deps chromium"
 
       - name: Build
-        working-directory: web
-        run: npm run build
+        run: make web.build
         env:
           BASE_PATH: /
 
