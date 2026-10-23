@@ -15,6 +15,7 @@ import { detailingReadiness, runDetailing } from '../run-detailing';
 import type { MemberContext } from '../../design/member-context';
 import type { MemberDesignOutcome } from '../../design/outcome';
 import { teAt } from '../../../i18n/engine-text';
+import { minSurfaceClearance, COLLISION_CHORD_TOLERANCE } from '../collision';
 
 const SRC = new URL('../../../..', import.meta.url).pathname;
 
@@ -127,6 +128,35 @@ function scenario(opts: { beamVerified?: boolean } = {}) {
     demandRevision: 1, maxAggregateSizeMm: 19,
   };
 }
+
+it.each([false, true])('joint cages see continuous bars stored in a different span (reversed: %s)', reversed => {
+  const s = scenario();
+  s.nodes.set(5, node(5, 12, 0, 0)); s.nodes.set(6, node(6, 12, 0, 3.2));
+  s.elements.set(13, { id: 13, nodeI: 5, nodeJ: 6 });
+  s.elements.set(14, { id: 14, nodeI: 4, nodeJ: 6 });
+  s.contexts.set(13, columnContext(13)); s.contexts.set(14, beamContext(14, 6));
+  s.outcomes.set(13, verifiedColumn(13)); s.outcomes.set(14, verifiedBeam(14));
+  if (reversed) for (const id of [12, 14]) {
+    const e = s.elements.get(id)!; [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
+  }
+  const result = runDetailing(s as never);
+  const bars = result.assemblies.flatMap(a => a.bars);
+  const continuous = bars.filter(b => b.role === 'longitudinal'
+    && b.ownerElementIds.includes(12) && b.ownerElementIds.includes(14));
+  expect(continuous.length).toBeGreaterThan(0);
+  // Both end joints must see the same physical bars, regardless of which span stores them.
+  for (const joint of [3, 6]) {
+    const ties = bars.filter(b => b.zoneId === `joint-${joint}:ties`);
+    expect(ties.length).toBeGreaterThan(0);
+    for (const tie of ties) for (const bar of continuous) {
+      expect(tie.enclosesBarIds, `${tie.id}/${bar.id}`).toContain(bar.id);
+      const run = bar.segments.filter(g => g.kind === 'straight').sort((a, b) => b.length - a.length)[0];
+      expect(run).toBeDefined();
+      expect(minSurfaceClearance(tie, { ...bar, segments: [run!] }).clearance, `${tie.id}/${bar.id}`)
+        .toBeGreaterThanOrEqual(0.04 - COLLISION_CHORD_TOLERANCE);
+    }
+  }
+});
 
 // ─── Readiness ───────────────────────────────────────────────────
 

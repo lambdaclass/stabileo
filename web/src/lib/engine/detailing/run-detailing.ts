@@ -2742,6 +2742,15 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
   // adds transverse bars, so every column can share these extents for this run.
   let jointBarExtents: Map<string, { lo: number; hi: number }> | undefined;
 
+  // Fusion stores a continuous bar only in the last span, but every span still owns it.
+  // Joint cages must see that steel for their mat clearance, crosstie orientation and
+  // containment declarations. Index the final paths by physical ownership, not storage.
+  const beamBarsByOwner = new Map<number, BarPath[]>(beams.map(id => [id, []]));
+  for (const mb of memberBarsById.values()) for (const bar of mb.bars) {
+    if (bar.role !== 'longitudinal') continue;
+    for (const owner of bar.ownerElementIds) beamBarsByOwner.get(owner)?.push(bar);
+  }
+
   // ── §15.4 — the joint gets its own transverse reinforcement ──
   //
   // Beam stirrups stop at the support face, which is where a beam's shear reinforcement
@@ -2853,6 +2862,9 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       const bEl = input.elements.get(bid);
       return !!bEl && (bEl.nodeI === top.id || bEl.nodeJ === top.id);
     });
+    // Adjacent spans can name the same fused bar; evaluate its geometry once per joint.
+    const throughBars = [...new Map(incidentBeams.flatMap(id => beamBarsByOwner.get(id) ?? [])
+      .map(bar => [bar.id, bar])).values()];
     const tieR = cCtx.material.stirrupDia / 2000;
     let bandLo = jointLo;
     let bandHi = jointHi;
@@ -2877,18 +2889,15 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       if (from === 'roofHook' || zc >= jointMid) bandHi = Math.min(bandHi, zc - keepOut);
       else bandLo = Math.max(bandLo, zc + keepOut);
     };
-    for (const bid of incidentBeams) {
-      for (const bar of memberBarsById.get(bid)?.bars ?? []) {
-        if (bar.role !== 'longitudinal') continue;
-        // The mat is where the bar's RUN lies: its longest straight segment. The midpoint of all
-        // its elevations put a bar hooked down into the column halfway down its own tail, and the
-        // band then admitted ties at the elevation of the mat itself.
-        const run = bar.segments.filter((sg) => sg.kind === 'straight')
-          .sort((p, q) => Math.hypot(q.end.x - q.start.x, q.end.y - q.start.y, q.end.z - q.start.z)
-            - Math.hypot(p.end.x - p.start.x, p.end.y - p.start.y, p.end.z - p.start.z))[0];
-        const zs = run ? [run.start.z, run.end.z] : bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
-        keepClearOf((Math.min(...zs) + Math.max(...zs)) / 2, bar.diameterMm, 'mat');
-      }
+    for (const bar of throughBars) {
+      // The mat is where the bar's RUN lies: its longest straight segment. The midpoint of all
+      // its elevations put a bar hooked down into the column halfway down its own tail, and the
+      // band then admitted ties at the elevation of the mat itself.
+      const run = bar.segments.filter((sg) => sg.kind === 'straight')
+        .sort((p, q) => Math.hypot(q.end.x - q.start.x, q.end.y - q.start.y, q.end.z - q.start.z)
+          - Math.hypot(p.end.x - p.start.x, p.end.y - p.start.y, p.end.z - p.start.z))[0];
+      const zs = run ? [run.start.z, run.end.z] : bar.segments.flatMap((sg) => [sg.start.z, sg.end.z]);
+      keepClearOf((Math.min(...zs) + Math.max(...zs)) / 2, bar.diameterMm, 'mat');
     }
     // ── And of the COLUMN's own steel where it turns horizontal ──
     //
@@ -2928,8 +2937,6 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     // The beam steel passing through the joint is CONFINED by these ties, and the tie belongs
     // to the joint rather than to the column alone. Both facts have to be recorded or the
     // classifier sees an unrelated pair and reaches for §25.2.3's column bar spacing.
-    const throughBars = incidentBeams.flatMap((bid) =>
-      (memberBarsById.get(bid)?.bars ?? []).filter((b) => b.role === 'longitudinal'));
     const jointOwners = [...new Set([cid, ...incidentBeams])].sort((x, y) => x - y);
     let built = 0;
     /**

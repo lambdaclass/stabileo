@@ -6,6 +6,47 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Barras continuas visibles para todos sus nudos
+
+Desde `0120077ae`, la materialización de continuidad conserva cada barra fusionada en el
+último tramo de la línea, con todos sus propietarios en `ownerElementIds`. La generación
+de jaulas de nudo consultaba solamente el contenedor del tramo incidente. Por eso perdía
+las barras continuas almacenadas en otro tramo al reservar la banda de estribos, orientar
+las trabas y declarar qué barras confinan.
+
+El detallado ahora indexa las trayectorias longitudinales finales por todos sus propietarios.
+Cada nudo reúne las de sus vigas incidentes y elimina duplicados por ID antes de consultar
+su geometría. La misma colección alimenta las tres decisiones; no se modifica el clasificador
+de colisiones, sus tolerancias ni las reglas de verificación.
+
+Con el mismo armado publicado, nuevo análisis de los 408 elementos y regeneración completa,
+los bloqueantes bajan **536 → 533** y las aprobaciones suben **211 → 225**: **131 columnas y
+94 vigas**. No se pierde ninguna aprobación. Las nuevas son las columnas 61, 67 y 71 y las
+vigas 259, 260, 262–265 y 270–274. Quedan 135 fallidos, 35 agotados y 13 provisionales;
+ningún aprobado tiene conflictos bloqueantes. Los resultados nominales y los armados de
+los 408 miembros permanecen exactamente iguales, incluidas las trayectorias longitudinales
+generadas. Sí cambia la geometría transversal de los nudos: no es sólo una corrección del
+reporte. La reconstrucción y su regeneración exacta pasan en **28,59 s locales**, sin búsqueda
+de nuevas armaduras. El edificio completo todavía no verifica.
+
+La regresión mínima usa dos vanos y comprueba ambos nudos extremos: sus jaulas deben
+reconocer la misma barra continua y reservar la separación física respecto de su tramo
+horizontal. Falla antes del cambio y pasa después, tanto en orientación normal como al
+invertir las vigas. Las pruebas de cobertura transversal y de interpenetraciones siguen
+aplicándose a las piezas realmente generadas.
+
+Pasan **222 pruebas en diez suites** y typecheck no agrega errores (442 existentes frente
+a 443 del baseline). Una continuación con `harmonizeStirrupCatalog` desde este resultado
+consume 12 detallados y 44 verificaciones nominales, completa el barrido y conserva
+**225 aprobados / 533 bloqueantes**, sin nuevas aceptaciones. Su reconstrucción y
+regeneración exacta pasan en **116,02 s locales**. El barrido no prueba inviabilidad.
+
+Reproducción desde `web/`, restaurando el armado publicado:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-stirrup-spacing-full.json STABILEO_REPAIR_AUDIT=/tmp/design-owner-restored.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Compatibilidad de los estribos entre tramos consecutivos
 
 Desde `f1edcda04`, parte de los choques persiste aunque las vigas consecutivas compartan
