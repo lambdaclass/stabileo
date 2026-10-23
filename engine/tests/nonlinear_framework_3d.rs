@@ -358,3 +358,31 @@ fn space_frame_building_solves_sparse() {
     assert!(start.elapsed().as_secs_f64() < 60.0, "took {:?}", start.elapsed());
 }
 
+
+/// A square column buckles in either lateral direction at the same load:
+/// the critical point reports two modes, both lateral and orthogonal to the
+/// load (the 3D co-rotational tangent is factored by LU, its stability read
+/// from the symmetric part).
+#[test]
+fn a_square_column_has_two_buckling_modes() {
+    let (l, ei, n) = (1.0, 1.0, 12);
+    let p_cr = PI * PI * ei / (4.0 * l * l);
+    let pts: Vec<[f64; 3]> = (0..=n).map(|i| [0.0, 0.0, l * i as f64 / n as f64]).collect();
+    let (mut m, nodes) = polyline(&pts, [1.0, 0.0, 0.0], Kinematics::Corotational, &elastic3d(1e5, 0.8, ei, ei));
+    let top = nodes[n];
+    m.add_load(top, [0.0, 0.0, -1.0, 0.0, 0.0, 0.0]);
+    let opts = NewtonOptions { branch_switching: true, ..NewtonOptions::default() };
+    let out = solve(&mut m, &Strategy::ArcLength { target: 1.05 * p_cr, increments: 10, max_steps: 60 }, &opts).unwrap();
+    let c = out.critical_points.first().unwrap_or_else(|| panic!("no critical point: {:?}", out.termination));
+    assert_eq!(c.kind, CriticalKind::Bifurcation, "{c:?}");
+    assert_eq!(c.multiplicity, 2);
+    assert!((c.lambda / p_cr - 1.0).abs() < 0.01, "λ_cr = {}", c.lambda);
+    for mode in &c.modes {
+        let (ux, uy, uz) = (mode[m.dof(top, 0)], mode[m.dof(top, 1)], mode[m.dof(top, 2)]);
+        assert!(uz.abs() < 1e-6 * (ux.abs() + uy.abs()), "a lateral mode: ({ux}, {uy}, {uz})");
+    }
+    // The two span the plane: their tip displacements are independent.
+    let (a, b) = (&c.modes[0], &c.modes[1]);
+    let det = a[m.dof(top, 0)] * b[m.dof(top, 1)] - a[m.dof(top, 1)] * b[m.dof(top, 0)];
+    assert!(det.abs() > 1e-3, "two independent lateral directions");
+}

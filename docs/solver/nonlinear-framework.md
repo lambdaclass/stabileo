@@ -97,22 +97,38 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
    arc-length from the last converged state when load control meets a limit or bifurcation point
    (as a change of stability, a failure to converge, or a singular tangent). When the arc passes
    the target load, a final load step lands on it exactly.
-5. **Branch switching at bifurcations.** When arc-length gains a negative eigenvalue, the driver
-   computes the critical mode by inverse iteration on the LDLᵀ factor:
-   - **Limit point or bifurcation?** At a limit point the mode has a component along the load;
-     at a symmetric bifurcation it is orthogonal to it (|Fᵀφ| < 10⁻³·‖F‖·‖φ‖). The stiffness in
-     the load direction cannot tell them apart: a soft support in series keeps it positive past
-     a limit point.
-   - **Locating the point.** At a bifurcation, the crossing step is halved until it is a 64th of
-     the step that found it.
-   - **Switching.** The next step leaves along the mode at constant load, with an arc of at
-     least 10⁻³ of the model's length.
+5. **Critical points and branch switching.** When arc-length gains m negative eigenvalues, the
+   driver handles the crossing in five steps:
+   - **Locate.** The crossing step is cut back until it is a 256th of the step that found it.
+   - **Critical subspace.** A block inverse iteration with m + 1 vectors on the tangent's
+     factorization, then Rayleigh–Ritz on the symmetric part, gives the m Ritz vectors nearest
+     zero.
+   - **Classify** by the subspace's alignment with the load, ‖Φᵀ·F‖/‖F‖:
+     - **bifurcation** of multiplicity m when it is below 10⁻²;
+     - **limit point** when m = 1 and it is above;
+     - **bifurcation at a limit point** when m ≥ 2 and it is above. The part of the subspace
+       orthogonal to the load holds the m − 1 bifurcation modes.
+
+     The stiffness in the load direction cannot tell a limit point from a bifurcation: a soft
+     support in series keeps it positive past a limit point.
+   - **Record.** Each point goes into `Outcome::critical_points` with its λ, kind, multiplicity,
+     load alignment, modes over all DOFs (most unstable first, normalized on translations) and
+     Rayleigh quotients.
+   - **Switch.** At a bifurcation the next step leaves along mode `branch_mode` (default 0, the
+     most unstable), in the direction `branch_reverse` selects, at constant load, with an arc of
+     at least 10⁻³ of the model's length. At an asymmetric bifurcation the two directions lead
+     to different branches, one rising and stable, the other falling and unstable.
 6. **Linear algebra.**
    - Symmetric equilibration S·K·S, S = diag(1/√|K_ii|), on every factorization. This makes the
      pivot tests independent of units and of a wide spread of stiffnesses (the buckled column of
      the tests has EA·L²/EI = 10⁸). It is a congruence, so the inertia is K's.
    - LDLᵀ first, then LU when the tangent is nonsymmetric or a pivot is tiny. For displacement
      control, the bordered system when K is singular.
+   - **Stability of a slightly nonsymmetric tangent.** The 3D co-rotational tangent is slightly
+     nonsymmetric away from equilibrium, which is a by-product of the rotation parametrization:
+     its asymmetry vanishes at equilibrium under conservative loads. LU factors it, and the
+     inertia at converged states comes from the symmetric part, when the relative asymmetry is
+     at most 10⁻⁶.
    - One step of iterative refinement on every solve.
 
 **Detecting where a strategy cannot go.** Load control stops with `LimitPoint`, never with a
@@ -145,9 +161,9 @@ switched branch. `Err` is only for an invalid request.
   regularization, and crack-band scaling at the material. This waits for a softening
   plane-stress law; the uniaxial Hognestad concrete's descending branch is the only softening
   so far.
-- **Asymmetric bifurcations and multiple critical modes.** Branch switching handles one critical
-  mode orthogonal to the load. Two coincident modes (a doubly symmetric column), or a mode with a
-  small load component, are reported through the inertia but not followed.
+- **Continuous symmetry.** A doubly symmetric column has a neutral mode on its buckled branch:
+  the plane of buckling can turn. Its two modes are found, but following a branch there needs a
+  constraint on that symmetry.
 - **Branch switching under displacement control,** which today passes a bifurcation on the
   primary path.
 - **Multithreaded assembly** where it is available (not in WASM).
@@ -167,6 +183,10 @@ switched branch. `Err` is only for an invalid request.
 | Snap-back (truss loaded through a soft spring) | arc-length on the closed form throughout, ending on the target load; displacement control stops with `LimitPoint` |
 | LDLᵀ inertia along the snap-through | one negative eigenvalue exactly where dP/dw < 0 |
 | Perfect cantilever column, Auto to 1.1·P_cr | branch switch within 0.2 % of π²EI/4L²; Euler's elastica (elliptic integrals): sideways tip deflection to 1 %, drop to 2 %; the buckled branch stable. Without switching: straight and unstable |
+| Two identical independent columns | multiplicity 2 within 1 % of P_cr; each column ends straight or on the elastica |
+| Roorda's frame (nearly inextensible) | P_cr from `solver::buckling::solve_buckling_2d` (1.407·π²EI/L²) within 2 %; the two mode directions give opposite load slopes, the falling branch unstable and the rising one stable |
+| Snap-back crossings | classified as limit points (load alignment > 0.1) |
+| Square 3D column | two independent lateral modes orthogonal to the load, within 1 % of P_cr; stability through LU and the symmetric part |
 | Modified Newton and BFGS on the plastic cantilever | the same displacement as full Newton to 1e-6, with fewer factorizations |
 | Energy criterion; moment scaling of 10⁻³ and 10³ | the same converged path to 1e-7 |
 | Spherical arc-length (ψ = 10⁻³) through the snap-back | the closed form |
@@ -190,10 +210,11 @@ switched branch. `Err` is only for an invalid request.
   orders (a torsion stiffness far above a plastic plateau's), the bordered system's pivot test
   can refuse the mechanism and stop with `SingularTangent`. A small hardening avoids it.
 - **The critical-point checks are heuristics:** the ¼–4 band, the 10⁻³ stiffness parameter, the
-  10⁻³ orthogonality and the 1/64 localisation. They are validated on the tests above, and on
+  10⁻² load alignment and the 1/256 localisation. They are validated on the tests above, and on
   nothing else yet.
-- **LU and inertia.** When LU is used, the inertia is not known: the 3D co-rotational tangent is
-  nonsymmetric away from equilibrium. There, the determinant's sign stands in for it.
+- **LU and inertia.** Within a load step, LU gives only the determinant's sign. At converged
+  states, the inertia of a nearly symmetric tangent comes from its symmetric part; a tangent
+  further from symmetric has none.
 - **Displacement-based fiber elements** need several elements per member.
 - **Not wired to WASM or the app.**
 

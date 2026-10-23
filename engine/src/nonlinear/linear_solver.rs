@@ -193,6 +193,43 @@ impl TangentSystem {
             .collect()
     }
 
+    /// y = K·x with the assembled tangent.
+    pub fn mat_vec(&self, x: &[f64]) -> Vec<f64> {
+        self.matrix.mat_vec(x)
+    }
+
+    /// The full-length vector (zeros at restrained DOFs) of a free-DOF one.
+    pub fn scatter(&self, x: &[f64], n: usize) -> Vec<f64> {
+        let mut v = vec![0.0; n];
+        for (&d, &xi) in self.free.iter().zip(x) {
+            v[d] = xi;
+        }
+        v
+    }
+
+    /// The number of negative eigenvalues of the symmetric part (K + Kᵀ)/2,
+    /// when K's relative asymmetry is at most `tol`: the stability of a
+    /// tangent whose asymmetry is a by-product of the rotation
+    /// parametrization. `None` when K is further from symmetric, or the
+    /// symmetric part cannot be factored.
+    pub fn near_symmetric_inertia(&self, tol: f64) -> Option<usize> {
+        let p = &self.matrix.pattern;
+        let max = self.matrix.values.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        let scale = self.equilibration();
+        let mut sym = self.matrix.clone();
+        for j in 0..p.n {
+            for k in p.col_ptr[j]..p.col_ptr[j + 1] {
+                let i = p.row_idx[k];
+                let t = p.position(j, i).map_or(0.0, |q| self.matrix.values[q]);
+                if (self.matrix.values[k] - t).abs() > tol * max {
+                    return None;
+                }
+                sym.values[k] = 0.5 * (self.matrix.values[k] + t) * scale[i] * scale[j];
+            }
+        }
+        ldlt_numeric(&self.symbolic, &sym, 1e-13).ok().map(|f| f.inertia().0)
+    }
+
     /// x = K⁻¹·b from `f` alone, for a factorization of an earlier tangent.
     pub fn solve_raw(&self, f: &Factor, b: &[f64]) -> Result<Vec<f64>, String> {
         let x = f.raw_solve(b);

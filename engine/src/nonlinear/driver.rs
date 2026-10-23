@@ -2,6 +2,7 @@
 
 use super::linear_solver::{Bordered, Factor, FactorMethod, TangentSystem};
 use super::model::{DofKind, NonlinearModel};
+use crate::linalg::jacobi::jacobi_eigen;
 
 /// How the load is applied.
 #[derive(Debug, Clone)]
@@ -62,10 +63,16 @@ pub struct NewtonOptions {
     /// ψ of the spherical arc-length constraint ‖Δu‖² + ψ²·Δλ²·‖F‖² = Δs²
     /// (length per force); 0 is the cylindrical one.
     pub arc_psi: f64,
-    /// At a bifurcation met by arc-length (the count of negative eigenvalues
-    /// rises while the load still has stiffness), continue on the secondary
-    /// branch along the critical mode instead of the unstable primary one.
+    /// At a bifurcation met by arc-length, continue on a secondary branch
+    /// along a critical mode instead of the unstable primary path.
     pub branch_switching: bool,
+    /// Which bifurcation mode to follow, in `CriticalPoint::modes` order
+    /// (0: the most unstable).
+    pub branch_mode: usize,
+    /// Follow the mode's negative direction (modes are signed with their
+    /// largest translation positive). At an asymmetric bifurcation the two
+    /// directions lead to different branches.
+    pub branch_reverse: bool,
 }
 
 impl Default for NewtonOptions {
@@ -80,6 +87,8 @@ impl Default for NewtonOptions {
             rotation_length: None,
             arc_psi: 0.0,
             branch_switching: true,
+            branch_mode: 0,
+            branch_reverse: false,
         }
     }
 }
@@ -127,6 +136,39 @@ pub enum StopReason {
     StepLimit,
 }
 
+/// What a change of stability on the path is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CriticalKind {
+    /// The critical modes have a component along the load: the load peaks
+    /// (or, under arc-length, the path turns).
+    LimitPoint,
+    /// Critical modes orthogonal to the load: secondary branches cross the path.
+    Bifurcation,
+}
+
+/// A critical point met by arc-length: located (the crossing step cut to
+/// 1/256 of the one that found it), then classified from its critical modes.
+#[derive(Debug, Clone)]
+pub struct CriticalPoint {
+    pub lambda: f64,
+    pub kind: CriticalKind,
+    /// How many eigenvalues crossed zero together: 2 for a doubly symmetric
+    /// pair of modes. At a bifurcation coinciding with a limit point, the
+    /// number of bifurcation modes (one fewer).
+    pub multiplicity: usize,
+    /// ‖Φᵀ·F‖ / ‖F‖ for the orthonormal critical subspace Φ: about zero at a
+    /// bifurcation, of order one at a limit point.
+    pub load_alignment: f64,
+    /// The modes (all DOFs, rotations included), most unstable first: at a
+    /// bifurcation the ones orthogonal to the load. Each is normalized on its
+    /// translations, its largest translation positive.
+    pub modes: Vec<Vec<f64>>,
+    /// Their Rayleigh quotients φᵀ·K·φ / φᵀ·φ (negative just past the point).
+    pub ritz_values: Vec<f64>,
+    /// Whether the analysis left along one of the modes.
+    pub switched: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Termination {
     Completed,
@@ -149,6 +191,8 @@ pub struct Outcome {
     pub factorizations: usize,
     /// λ at each bifurcation where arc-length switched branch.
     pub branch_switches: Vec<f64>,
+    /// Every critical point arc-length crossed, in order.
+    pub critical_points: Vec<CriticalPoint>,
 }
 
 impl Outcome {
@@ -178,9 +222,14 @@ const MIN_STIFFNESS_PARAMETER: f64 = 1e-3;
 /// is this fraction of its nominal size: progress would be imperceptible.
 const MIN_STEP_FRACTION: f64 = 1e-8;
 
-/// The critical mode of a bifurcation is orthogonal to the load: |Fᵀφ| below
-/// this fraction of ‖F‖·‖φ‖. Above it, the point is a limit point.
-const BIFURCATION_ORTHOGONALITY: f64 = 1e-3;
+/// The critical subspace of a bifurcation is orthogonal to the load:
+/// ‖Φᵀ·F‖ below this fraction of ‖F‖ (once the point is located). Above it,
+/// the point is a limit point.
+const BIFURCATION_ORTHOGONALITY: f64 = 1e-2;
+
+/// A crossing of stability is located to this fraction of the arc that
+/// found it before it is classified.
+const LOCATE_DIVISIONS: f64 = 256.0;
 
 /// An arc never grows past this multiple of the first one, or this fraction
 /// of the model's characteristic length if that is larger: on a nearly
@@ -197,6 +246,25 @@ const BRANCH_STEP: f64 = 1e-3;
 /// Arc-length aims each step at this many iterations, scaling the arc by
 /// √(target / iterations) within [½, 2].
 const ARC_TARGET_ITERATIONS: f64 = 5.0;
+
+/// Modified Gram–Schmidt; `None` if a vector collapses.
+fn orthonormalize(v: &mut [Vec<f64>]) -> Option<()> {
+    for k in 0..v.len() {
+        for j in 0..k {
+            let (head, tail) = v.split_at_mut(k);
+            let c = dot(&head[j], &tail[0]);
+            for (x, y) in tail[0].iter_mut().zip(&head[j]) {
+                *x -= c * y;
+            }
+        }
+        let nk = norm(&v[k]);
+        if !nk.is_finite() || nk <= 1e-300 {
+            return None;
+        }
+        v[k].iter_mut().for_each(|x| *x /= nk);
+    }
+    Some(())
+}
 
 fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
@@ -337,30 +405,105 @@ impl<M: NonlinearModel> Ctx<'_, M> {
         }
     }
 
-    /// The critical mode at the committed state: the eigenvector of the
-    /// tangent's eigenvalue nearest zero, by inverse iteration on its
-    /// factorization from a fixed start vector. Normalized on the
-    /// translations, its largest translation positive.
-    fn critical_mode(&mut self, lambda: f64) -> Result<Vec<f64>, Failure> {
+    /// The critical point at the committed state, where `m` eigenvalues
+    /// have just crossed zero.
+    ///
+    /// The critical subspace: block inverse iteration (m + 1 vectors, shift 0)
+    /// on the tangent's factorization, then Rayleigh–Ritz on the symmetric
+    /// part; the m Ritz vectors nearest zero. Its alignment with the load
+    /// classifies the point. A subspace with a component along the load and
+    /// m ≥ 2 is a bifurcation at a limit point: its part orthogonal to the
+    /// load (m − 1 modes) is the bifurcation's. Returns the point (modes over
+    /// all DOFs) and the modes over the free DOFs, in the same order.
+    fn critical_point(&mut self, lambda: f64, m: usize) -> Result<(CriticalPoint, Vec<Vec<f64>>), Failure> {
         self.evaluate(lambda)?;
         let fac = self.factor()?;
         let n = self.sys.free.len();
-        let mut x: Vec<f64> = (0..n).map(|i| ((i as u64 * 2_654_435_761) % 1000) as f64 / 1000.0 - 0.5).collect();
-        for _ in 0..40 {
-            x = self.solve_raw(&fac, &x)?;
-            let nx = norm(&x);
-            if nx == 0.0 || !nx.is_finite() {
-                return Err(fail(StopReason::SingularTangent, "inverse iteration lost the critical mode"));
+        let p = (m + 1).min(n);
+        let lost = || fail(StopReason::SingularTangent, "inverse iteration lost the critical subspace");
+        let mut v: Vec<Vec<f64>> = (0..p)
+            .map(|c| (0..n).map(|i| (((i as u64 + 1) * (2_654_435_761 + 97 * c as u64)) % 1000) as f64 / 1000.0 - 0.5).collect())
+            .collect();
+        orthonormalize(&mut v).ok_or_else(lost)?;
+        for _ in 0..50 {
+            for col in v.iter_mut() {
+                *col = self.solve_raw(&fac, col)?;
             }
-            x.iter_mut().for_each(|v| *v /= nx);
+            orthonormalize(&mut v).ok_or_else(lost)?;
         }
-        let nt = self.wdot(&x, &x).sqrt();
-        if nt == 0.0 {
-            return Err(fail(StopReason::SingularTangent, "the critical mode moves no translation"));
+        let kv: Vec<Vec<f64>> = v.iter().map(|x| self.sys.mat_vec(x)).collect();
+        let mut a = vec![0.0; p * p];
+        for r in 0..p {
+            for c in 0..p {
+                a[r * p + c] = 0.5 * (dot(&v[r], &kv[c]) + dot(&v[c], &kv[r]));
+            }
         }
-        let lead = (0..n).filter(|&i| self.weight[i] > 0.0).max_by(|&a, &b| x[a].abs().total_cmp(&x[b].abs())).unwrap_or(0);
-        let sign = if x[lead] < 0.0 { -1.0 } else { 1.0 };
-        Ok(x.iter().map(|v| sign * v / nt).collect())
+        let eig = jacobi_eigen(&a, p, 200);
+        let mut ritz: Vec<(f64, Vec<f64>)> = (0..p)
+            .map(|c| {
+                let mut x = vec![0.0; n];
+                for (r, vr) in v.iter().enumerate() {
+                    let y = eig.vectors[r * p + c];
+                    for (xi, vi) in x.iter_mut().zip(vr) {
+                        *xi += y * vi;
+                    }
+                }
+                (eig.values[c], x)
+            })
+            .collect();
+        ritz.sort_by(|a, b| a.0.abs().total_cmp(&b.0.abs()));
+        ritz.truncate(m);
+
+        let f_norm = norm(&self.f_free).max(f64::MIN_POSITIVE);
+        let along: Vec<f64> = ritz.iter().map(|(_, x)| dot(x, &self.f_free) / f_norm).collect();
+        let alignment = along.iter().map(|c| c * c).sum::<f64>().sqrt();
+        let (kind, mut modes): (CriticalKind, Vec<Vec<f64>>) = if alignment <= BIFURCATION_ORTHOGONALITY {
+            (CriticalKind::Bifurcation, ritz.iter().map(|(_, x)| x.clone()).collect())
+        } else if m >= 2 {
+            // u: the unit vector of the subspace nearest the load; its
+            // complement in the subspace is the bifurcation's.
+            let mut u = vec![0.0; n];
+            for ((_, x), c) in ritz.iter().zip(&along) {
+                for (ui, xi) in u.iter_mut().zip(x) {
+                    *ui += c / alignment * xi;
+                }
+            }
+            let mut rest: Vec<Vec<f64>> = ritz
+                .iter()
+                .map(|(_, x)| {
+                    let k = dot(x, &u);
+                    x.iter().zip(&u).map(|(xi, ui)| xi - k * ui).collect()
+                })
+                .collect();
+            rest.sort_by(|a, b| norm(b).total_cmp(&norm(a)));
+            rest.truncate(m - 1);
+            orthonormalize(&mut rest).ok_or_else(lost)?;
+            (CriticalKind::Bifurcation, rest)
+        } else {
+            (CriticalKind::LimitPoint, ritz.iter().map(|(_, x)| x.clone()).collect())
+        };
+        // Most unstable first, each signed and scaled on its translations.
+        let quotient = |x: &Vec<f64>| dot(x, &self.sys.mat_vec(x)) / dot(x, x);
+        let mut keyed: Vec<(f64, Vec<f64>)> = modes.drain(..).map(|x| (quotient(&x), x)).collect();
+        keyed.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let quotients: Vec<f64> = keyed.iter().map(|(q, _)| *q).collect();
+        let mut modes: Vec<Vec<f64>> = keyed.into_iter().map(|(_, x)| x).collect();
+        for x in modes.iter_mut() {
+            let t = self.wdot(x, x).sqrt();
+            let scale = if t > 0.0 { t } else { norm(x) };
+            let lead = (0..n)
+                .filter(|&i| t == 0.0 || self.weight[i] > 0.0)
+                .max_by(|&a, &b| x[a].abs().total_cmp(&x[b].abs()))
+                .unwrap_or(0);
+            let sign = if x[lead] < 0.0 { -1.0 } else { 1.0 };
+            x.iter_mut().for_each(|v| *v *= sign / scale);
+        }
+        let full = modes.iter().map(|x| self.sys.scatter(x, self.model.n_dofs())).collect();
+        let multiplicity = modes.len();
+        Ok((
+            CriticalPoint { lambda, kind, multiplicity, load_alignment: alignment, modes: full, ritz_values: quotients, switched: false },
+            modes,
+        ))
     }
 
     /// A converged state, described by the factorization of its tangent;
@@ -380,11 +523,15 @@ impl<M: NonlinearModel> Ctx<'_, M> {
             });
         };
         let flexibility = dot(&self.f_free, &self.solve(fac, &self.f_free)?);
+        // A tangent LU had to factor because it is slightly nonsymmetric (the
+        // 3D co-rotational one, whose asymmetry vanishes at equilibrium under
+        // conservative loads): its stability from the symmetric part.
+        let negative = fac.negative_eigenvalues().or_else(|| self.sys.near_symmetric_inertia(1e-6));
         Ok(Converged {
             lambda,
             iterations,
             f_int: ev.f_int,
-            negative: fac.negative_eigenvalues(),
+            negative,
             det_sign: fac.det_sign(),
             method: fac.method(),
             flexibility,
@@ -713,6 +860,7 @@ struct Run {
     total_iterations: usize,
     last_du: Option<Vec<f64>>,
     branch_switches: Vec<f64>,
+    critical_points: Vec<CriticalPoint>,
 }
 
 impl Run {
@@ -838,25 +986,15 @@ fn run_arc<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64, 
         let along = switch_along.take();
         match ctx.arc_step(run.lambda, ds, prev.as_deref(), sign, along.as_deref()) {
             Ok(conv) => {
-                // One more negative eigenvalue: a limit point or a bifurcation.
-                // The critical mode tells them apart: at a limit point it has a
-                // component along the load, at a (symmetric) bifurcation it is
-                // orthogonal to it. The stiffness in the load direction cannot:
-                // a soft support in series keeps it positive past a limit point.
-                let crossing = matches!((negative_before, conv.negative), (Some(a), Some(b)) if b > a);
-                let mut bifurcation: Option<Vec<f64>> = None;
-                if ctx.opts.branch_switching && along.is_none() && crossing {
-                    if let Ok(phi) = ctx.critical_mode(conv.lambda) {
-                        let along_load = dot(&ctx.f_free, &phi).abs() / (norm(&ctx.f_free) * norm(&phi)).max(f64::MIN_POSITIVE);
-                        if along_load < BIFURCATION_ORTHOGONALITY {
-                            bifurcation = Some(phi);
-                        }
-                    }
-                }
-                if bifurcation.is_some() {
-                    // Locate it first: back off and halve the arc until the
-                    // crossing step is a 64th of the one that found it.
-                    let within = *locate_within.get_or_insert(ds / 64.0);
+                // More negative eigenvalues: a critical point was crossed.
+                // Locate it first, backing off and halving the arc until the
+                // crossing step is a 256th of the one that found it.
+                let crossed = match (negative_before, conv.negative) {
+                    (Some(a), Some(b)) if b > a => b - a,
+                    _ => 0,
+                };
+                if ctx.opts.branch_switching && along.is_none() && crossed > 0 {
+                    let within = *locate_within.get_or_insert(ds / LOCATE_DIVISIONS);
                     if ds > within {
                         ctx.model.revert();
                         ds /= 2.0;
@@ -868,14 +1006,29 @@ fn run_arc<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64, 
                 taken += 1;
                 cuts = 0;
                 negative_before = run.negative;
-                if let Some(phi) = bifurcation {
-                    // At a bifurcation the next step leaves along the mode, at
-                    // constant load, by an arc the model can see.
-                    run.branch_switches.push(run.lambda);
-                    switch_along = Some(phi);
+                if ctx.opts.branch_switching && along.is_none() && crossed > 0 {
                     locate_within = None;
-                    ds = ds.max(BRANCH_STEP * ctx.length);
-                    continue;
+                    // Classified from its critical modes: at a limit point
+                    // they have a component along the load, at a bifurcation
+                    // they are orthogonal to it. (The stiffness in the load
+                    // direction cannot tell: a soft support in series keeps it
+                    // positive past a limit point.)
+                    if let Ok((mut point, free_modes)) = ctx.critical_point(run.lambda, crossed) {
+                        if point.kind == CriticalKind::Bifurcation && !free_modes.is_empty() {
+                            let k = ctx.opts.branch_mode.min(free_modes.len() - 1);
+                            let sign = if ctx.opts.branch_reverse { -1.0 } else { 1.0 };
+                            switch_along = Some(free_modes[k].iter().map(|x| sign * x).collect());
+                            point.switched = true;
+                            run.branch_switches.push(run.lambda);
+                            // Off the primary path by an arc the model can see,
+                            // at constant load.
+                            ds = ds.max(BRANCH_STEP * ctx.length);
+                        }
+                        run.critical_points.push(point);
+                        if switch_along.is_some() {
+                            continue;
+                        }
+                    }
                 }
                 ds = (ds * (ARC_TARGET_ITERATIONS / iterations).sqrt().clamp(0.5, 2.0)).min(max_ds);
                 if (run.lambda - target) * sign >= 0.0 {
@@ -956,6 +1109,7 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
         total_iterations: 0,
         last_du: None,
         branch_switches: Vec::new(),
+        critical_points: Vec::new(),
     };
     let first_arc = (target / increments as f64).abs() * ctx.wdot(&uf0, &uf0).sqrt();
 
@@ -996,5 +1150,6 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
         total_iterations: run.total_iterations,
         factorizations: ctx.sys.factorizations(),
         branch_switches: run.branch_switches,
+        critical_points: run.critical_points,
     })
 }

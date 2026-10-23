@@ -460,6 +460,11 @@ fn arc_length_follows_a_snap_back() {
     let (mut m, apex, top) = build();
     let out = solve(&mut m, &Strategy::ArcLength { target: 1.2 * p_max, increments: 20, max_steps: 600 }, &NewtonOptions::default()).unwrap();
     assert!(out.branch_switches.is_empty(), "a limit point is not a bifurcation: {:?}", out.branch_switches);
+    assert!(!out.critical_points.is_empty());
+    for c in &out.critical_points {
+        assert_eq!(c.kind, CriticalKind::LimitPoint, "λ = {}, alignment {}", c.lambda, c.load_alignment);
+        assert!(c.load_alignment > 0.1);
+    }
     assert!(out.completed(), "{:?} at λ = {}", out.termination, out.lambda);
     let mut turned_back = false;
     let mut v_prev = 0.0;
@@ -679,4 +684,145 @@ fn spherical_arc_length_follows_the_snap_back() {
         let w = -s.u[m.dof(apex, 1)];
         assert!((s.lambda - von_mises_load(a, h, ea, w)).abs() < 1e-7 * p_max, "λ = {} at w = {w}", s.lambda);
     }
+}
+
+// ==================== Buckling modes ====================
+
+/// Euler's elastica for a cantilever column: k with P/P_cr = (2K(k)/π)².
+fn elastica_k(ratio: f64) -> f64 {
+    let (mut lo, mut hi) = (1e-9, 1.0 - 1e-12);
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if (2.0 * elliptic_ke(mid).0 / PI).powi(2) < ratio { lo = mid } else { hi = mid }
+    }
+    0.5 * (lo + hi)
+}
+
+/// Cantilever columns standing at the given x, loaded down at their tops.
+fn columns(xs: &[f64], ei: f64, n: usize) -> (Model2D, Vec<usize>) {
+    let mut m = Model2D::new();
+    let mut tops = Vec::new();
+    for &x in xs {
+        let nodes: Vec<usize> = (0..=n).map(|i| m.add_node(x, i as f64 / n as f64)).collect();
+        m.fix(nodes[0], [true, true, true]);
+        for w in nodes.windows(2) {
+            let e = Frame2D::new(m.frame_dofs(w[0], w[1]), m.coords(w[0]), m.coords(w[1]), Kinematics::Corotational, Box::new(ElasticBasic2D::new(1e5, ei, 1.0 / n as f64)))
+                .unwrap();
+            m.add_element(Box::new(e));
+        }
+        m.add_load(nodes[n], [0.0, -1.0, 0.0]);
+        tops.push(nodes[n]);
+    }
+    (m, tops)
+}
+
+/// Two identical, independent columns buckle at the same load: a double
+/// eigenvalue. The critical point reports multiplicity 2 and two modes
+/// orthogonal to the load; whatever combination the driver follows, each
+/// column ends either straight or on Euler's elastica.
+#[test]
+fn a_double_critical_load_has_two_modes() {
+    let p_cr = PI * PI / 4.0;
+    let (mut m, tops) = columns(&[0.0, 1.0], 1.0, 16);
+    let out = solve(&mut m, &Strategy::Auto { target: 1.1 * p_cr, increments: 10, max_steps: 300 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed(), "{:?}", out.termination);
+    let c = &out.critical_points[0];
+    assert_eq!(c.kind, CriticalKind::Bifurcation);
+    assert_eq!(c.multiplicity, 2, "{c:?}");
+    assert_eq!(c.modes.len(), 2);
+    assert!((c.lambda / p_cr - 1.0).abs() < 0.01, "λ_cr = {}", c.lambda);
+    assert!(c.switched);
+    let k = elastica_k(1.1);
+    let delta = 2.0 * k / elliptic_ke(k).0;
+    let mut buckled = 0;
+    for &top in &tops {
+        let ux = out.u[m.dof(top, 0)].abs();
+        if ux > 0.5 * delta {
+            assert!((ux - delta).abs() < 0.01 * delta, "a buckled column off the elastica: {ux} vs {delta}");
+            buckled += 1;
+        } else {
+            assert!(ux < 1e-6, "neither straight nor on the elastica: {ux}");
+        }
+    }
+    assert!(buckled >= 1);
+}
+
+/// Roorda's frame (an L of two equal members, pinned at both far ends, loaded
+/// down the column at the rigid joint) bifurcates asymmetrically: the load
+/// rises along one direction of the mode and falls along the other. The
+/// critical load is the engine's linear buckling solver's.
+#[test]
+fn roorda_frame_bifurcates_asymmetrically() {
+    // Members nearly inextensible (EA·L²/EI = 10⁹), as in Roorda's analysis: with a
+    // shorter column the joint drops, the beam bends, and the primary path
+    // rotates — an imperfect bifurcation.
+    let (e_mpa, a, iz, l, n) = (1.0, 1e6, 1e-3, 1.0, 12);
+    let (ea, ei) = (e_mpa * 1000.0 * a, e_mpa * 1000.0 * iz);
+    let build = || {
+        let mut m = Model2D::new();
+        let col: Vec<usize> = (0..=n).map(|i| m.add_node(0.0, l * i as f64 / n as f64)).collect();
+        let joint = col[n];
+        let mut beam = vec![joint];
+        beam.extend((1..=n).map(|i| m.add_node(l * i as f64 / n as f64, l)));
+        m.fix(col[0], [true, true, false]);
+        m.fix(beam[n], [true, true, false]);
+        for line in [&col, &beam] {
+            for w in line.windows(2) {
+                let e = Frame2D::new(m.frame_dofs(w[0], w[1]), m.coords(w[0]), m.coords(w[1]), Kinematics::Corotational, Box::new(ElasticBasic2D::new(ea, ei, l / n as f64)))
+                    .unwrap();
+                m.add_element(Box::new(e));
+            }
+        }
+        m.add_load(joint, [0.0, -1.0, 0.0]);
+        (m, joint)
+    };
+
+    // The oracle: linear buckling of the same mesh.
+    let mut nodes = Vec::new();
+    for i in 0..=n {
+        nodes.push((i + 1, 0.0, l * i as f64 / n as f64));
+    }
+    for i in 1..=n {
+        nodes.push((n + 1 + i, l * i as f64 / n as f64, l));
+    }
+    let mut elems = Vec::new();
+    for i in 0..n {
+        elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
+    }
+    for i in 0..n {
+        let from = if i == 0 { n + 1 } else { n + 1 + i };
+        elems.push((n + i + 1, "frame", from, n + 2 + i, 1, 1, false, false));
+    }
+    let input = make_input(
+        nodes,
+        vec![(1, e_mpa, 0.3)],
+        vec![(1, a, iz)],
+        elems,
+        vec![(1, 1, "pinned"), (2, 2 * n + 1, "pinned")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: -1.0, my: 0.0 })],
+    );
+    let p_cr = dedaliano_engine::solver::buckling::solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
+    assert!((p_cr / (1.407 * PI * PI * ei / (l * l)) - 1.0).abs() < 0.01, "Roorda's P_cr ≈ 1.407·π²EI/L², the oracle gives {p_cr}");
+
+    let mut slopes = Vec::new();
+    for reverse in [false, true] {
+        let (mut m, joint) = build();
+        let opts = NewtonOptions { branch_reverse: reverse, ..NewtonOptions::default() };
+        let out = solve(&mut m, &Strategy::ArcLength { target: 1.2 * p_cr, increments: 10, max_steps: 40 }, &opts).unwrap();
+        let c = out.critical_points.iter().find(|c| c.kind == CriticalKind::Bifurcation).expect("a bifurcation");
+        assert_eq!(c.multiplicity, 1);
+        assert!((c.lambda / p_cr - 1.0).abs() < 0.02, "λ_cr = {}, linear buckling {p_cr}", c.lambda);
+        let after: Vec<&StepRecord> = out.steps.iter().skip_while(|s| s.lambda != c.lambda).skip(1).take(3).collect();
+        let s = after[2];
+        let at_critical = out.steps.iter().find(|s| s.lambda == c.lambda).unwrap().u[m.dof(joint, 2)];
+        let rotation = (s.u[m.dof(joint, 2)] - at_critical).abs();
+        assert!(rotation > 1e-3, "left the primary path");
+        let slope = (s.lambda - c.lambda) / rotation;
+        // The falling branch is unstable, the rising one stable (Koiter).
+        assert_eq!(s.negative_eigenvalues, Some(if slope < 0.0 { 1 } else { 0 }), "slope {slope}");
+        slopes.push(slope);
+    }
+    assert!(slopes[0] * slopes[1] < 0.0, "one direction rises, the other falls: {slopes:?}");
+    let ratio = (slopes[0] / slopes[1]).abs();
+    assert!((0.3..3.0).contains(&ratio), "comparable slopes: {slopes:?}");
 }

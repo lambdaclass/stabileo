@@ -37,7 +37,7 @@ pub mod rotation;
 mod section;
 pub mod sparse;
 
-pub use driver::{solve, Iteration, NewtonOptions, Outcome, Phase, StepRecord, StopReason, Strategy, Termination};
+pub use driver::{solve, CriticalKind, CriticalPoint, Iteration, NewtonOptions, Outcome, Phase, StepRecord, StopReason, Strategy, Termination};
 pub use element::{Element, Kinematics};
 pub use frame2d::{BasicResponse2D, ElasticBasic2D, FiberBasic2D, Frame2D, Truss2D};
 pub use frame3d::{BasicResponse3D, ElasticBasic3D, FiberBasic3D, Frame3D, Truss3D};
