@@ -41,6 +41,7 @@ import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-
 import { clause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 import { computeColumnLayout } from '../station-design-forces';
 import { MAX_NONCONTACT_PITCH_MM } from './splice';
+import { inwardContactCrank } from './column-lap-geometry';
 
 // ─── Column stacks ───────────────────────────────────────────────
 
@@ -694,15 +695,7 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
     const lowerAt = liftBarPositions(a, input.barPositions).positions;
     const upperAt = liftBarPositions(b, input.barPositions).positions;
     if (k >= Math.min(lowerAt.length, upperAt.length, b.bars.count, a.bars.count)) return null;
-    const p = lowerAt[k]!, q = upperAt[k]!;
-    const off = (a.bars.diameterMm + b.bars.diameterMm) / 2000;
-    if (Math.hypot(q.x - p.x, q.y - p.y) >= off - 1e-4) return null;
-    const r = Math.hypot(p.x, p.y);
-    if (r < 1e-6) return null;
-    // Inward past the upper bar, wherever it stands along that line, by the two bars in contact.
-    const ux = -p.x / r, uy = -p.y / r;
-    const by = Math.max(off, (q.x - p.x) * ux + (q.y - p.y) * uy + off);
-    return { dx: ux * by, dy: uy * by, off: by };
+    return inwardContactCrank(lowerAt[k]!, upperAt[k]!, a.bars.diameterMm, b.bars.diameterMm);
   };
   for (let i = 0; i < input.lifts.length; i++) {
     const lift = input.lifts[i];

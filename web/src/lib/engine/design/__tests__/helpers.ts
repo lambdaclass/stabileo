@@ -116,16 +116,17 @@ export function syntheticBeamContext(over: Partial<MemberContext> = {}): MemberC
   const materials = new Map<number, any>([[1, { id: 1, name: 'H30', fy: 30 }]]);
   const supports = new Map<number, any>();
   return {
-    elementId: 1, elementType: 'beam', L: 6,
+    elementId: 1, elementType: 'beam', materialFamily: 'concrete', codeEdition: '2025', L: 6,
     section: { id: 1, name: '300×600', b: 0.3, h: 0.6 },
-    material: { fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 },
+    material: { fc: 30, fy: 420, cover: 0.025, stirrupDia: 8,
+      maxAggregateSize: { value: 19, origin: 'project', refs: [], unit: 'mm' } },
     demands: undefined, stations: undefined, criticalSections: undefined,
     axes: {
       flexure: 'My', shear: 'Vz', secondaryFlexure: 'Mz', secondaryShear: 'Vy',
       bFlex: 0.3, hFlex: 0.6, biaxial: false,
       sagCategory: 'My+', hogCategory: 'My-', basis: 'stress-proxy', secondaryRatio: 0,
     },
-    slenderDeltaNs: 1, orientationSuspect: false,
+    slenderDeltaNs: 1, slenderDeltaS: 1, orientationSuspect: false,
     analysisRevision: 1, demandRevision: 1, solveGeneration: 1, blocking: [],
     modelData: { nodes, elements, sections, materials, supports },
     ...over,

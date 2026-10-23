@@ -110,6 +110,12 @@ export interface BeamRegions {
   topStartLayers?: RebarLayer[];   // top rows at start support
   topEndLayers?: RebarLayer[];     // top rows at end support
   bottomSpanLayers?: RebarLayer[]; // bottom rows at span
+  /**
+   * Keep these bottom row populations during detailing instead of repacking the
+   * total onto the shared coordination slots. Used by a verified cage repair;
+   * positions, anchorage and neighbors still require full geometry verification.
+   */
+  preserveBottomRows?: boolean;
   // ── Partial curtailment: multiple bar groups per face ──
   /** Bottom bar groups in span (each with own curtailment). Overrides bottomSpanLayers when present. */
   bottomGroups?: LongBarGroup[];

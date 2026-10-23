@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { stirrupStations } from '../../../codes/cirsoc201/transverse-cage';
 import {
-  bentUpPermitted, evaluateCutoff, generateBeamBars, mergeStirrupZones, theoreticalCutoff,
+  bentUpPermitted, evaluateCutoff, generateBeamBars, layoutBarRow, mergeStirrupZones, theoreticalCutoff,
   type BeamGenerationInput, type BentUpPolicy, type MomentStation, type StirrupZone,
 } from '../generate-beam';
 
@@ -36,6 +37,55 @@ function input(over: Partial<BeamGenerationInput> = {}): BeamGenerationInput {
     ...over,
   };
 }
+
+describe('provided bottom rows reach the fabricated cage', () => {
+  it('restores a verified 8+5 bottom cage instead of borrowing a 6+6+1 layout from the top', () => {
+    const row = [-0.133778, -0.080267, -0.026756, 0.026756, 0.080267, 0.133778];
+    const build = (rowCounts?: number[]) => generateBeamBars(input({
+      b: 0.35, h: 0.65, bottom: { count: 13, diameterMm: 10, rowCounts },
+      topStart: { count: 24, diameterMm: 10 }, topEnd: { count: 24, diameterMm: 10 },
+      transverseSlots: [...row, ...row, ...row, ...row],
+      transverseLayers: [0, 1, 2, 3].flatMap(layer => row.map(() => layer)),
+      bentUp: { seismicDesign: 'notRequired', optOut: true },
+    }));
+    const rows = (g: ReturnType<typeof build>) => {
+      const counts: number[] = [];
+      for (const bar of g.bars.filter(b => b.id.includes('-bot-'))) {
+        counts[g.barLayers[bar.id]] = (counts[g.barLayers[bar.id]] ?? 0) + 1;
+      }
+      return counts;
+    };
+    expect(rows(build())).toEqual([6, 6, 1]);
+    const restored = build([8, 5]);
+    expect(rows(restored)).toEqual([8, 5]);
+    expect(restored.bars.filter(b => b.id.includes('-bot-')).every(b => b.diameterMm === 10)).toBe(true);
+  });
+
+  it.each([[2, 4], [3, 2], [7, -1], [2.5, 3.5]])('does not certify an invalid prescribed population %j', (...rowCounts) => {
+    expect(layoutBarRow({ count: 6, diameterMm: 16, rowCounts,
+      clearWidth: 0.23, minClear: 0.025, layerClear: 0.025,
+    }).fits).toBe(false);
+  });
+  it('changes the actual row populations instead of repacking the same total', () => {
+    const build = (rowCounts: number[]) => generateBeamBars(input({
+      bottom: { count: 6, diameterMm: 16, rowCounts },
+      bentUp: { seismicDesign: 'notRequired', optOut: true },
+      // A coordinated six-bar row cannot overwrite a provided two-row cage.
+      transverseSlots: [-0.10, -0.06, -0.02, 0.02, 0.06, 0.10],
+      transverseLayers: [0, 0, 0, 0, 0, 0],
+    }));
+    const counts = (r: ReturnType<typeof build>) => {
+      const result = [0, 0];
+      for (const bar of r.bars.filter(b => b.id.includes('-bot-'))) result[r.barLayers[bar.id]]++;
+      return result;
+    };
+    const a = build([4, 2]), b = build([3, 3]);
+    expect(counts(a)).toEqual([4, 2]);
+    expect(counts(b)).toEqual([3, 3]);
+    expect(b.bars.filter(x => x.id.includes('-bot-')).map(x => x.segments))
+      .not.toEqual(a.bars.filter(x => x.id.includes('-bot-')).map(x => x.segments));
+  });
+});
 
 // ─── D13c ────────────────────────────────────────────────────────
 
@@ -223,11 +273,82 @@ describe('stirrup zone merging', () => {
   it('returns nothing for no input', () => {
     expect(mergeStirrupZones([], 6)).toEqual([]);
   });
+
+  it.each([
+    [z(0, 5.99625, 0.075, 'cutoff'), z(5.99625, 6, 0.175)],
+    [z(0, 0.00375, 0.175), z(0.00375, 6, 0.075, 'cutoff')],
+    [z(0, 0.85775, 0.175), z(0.85775, 0.85875, 0.075, 'cutoff'), z(0.85875, 6, 0.275)],
+  ])('does not place colliding cages at a millimetre-wide requirement boundary (%#)', (...zones) => {
+    const merged = mergeStirrupZones(zones, 6);
+    const stations = merged.flatMap((zone, i) => stirrupStations({ ...zone,
+      nextZoneStartsAtEnd: i + 1 < merged.length && merged[i + 1].from === zone.to,
+    }));
+    expect(stations[0]).toBe(0);
+    expect(stations.at(-1)).toBe(6);
+    for (let i = 1; i < stations.length; i++) {
+      expect(stations[i] - stations[i - 1]).toBeGreaterThan(0.016);
+      // Every interval that intersects a requirement respects that requirement's pitch.
+      for (const zone of zones) {
+        if (stations[i] > zone.from + 1e-9 && stations[i - 1] < zone.to - 1e-9) {
+          expect(stations[i] - stations[i - 1]).toBeLessThanOrEqual(zone.spacing + 1e-6);
+        }
+      }
+    }
+  });
+
+  it('keeps incompatible cages and uncovered gaps explicit', () => {
+    const first = z(0, 0.003, 0.15);
+    for (const change of [{ diameterMm: 10 }, { legs: 4 }, { acrossMax: 0.2 }, { row: 'row2' as const }, { from: 0.004 }]) {
+      const second = { ...z(0.003, 6, 0.15), ...change };
+      expect(mergeStirrupZones([first, second], 6)).toEqual([first, second]);
+    }
+  });
 });
 
 // ─── End-to-end generation ───────────────────────────────────────
 
 describe('beam bar generation', () => {
+  it('uses each group diameter for clear spacing, including larger top bars', () => {
+    const g = generateBeamBars(input({ b: 0.4,
+      bottom: { count: 4, diameterMm: 12 },
+      topStart: { count: 6, diameterMm: 32 }, topEnd: { count: 6, diameterMm: 32 },
+    }));
+    const top = g.bars.filter(b => b.id.includes('-topRun-') || b.id.includes('-topI-'));
+    expect(top).toHaveLength(6);
+    const firstRow = top.filter(b => g.barLayers[b.id] === 0).map(b =>
+      b.segments.filter(s => s.kind === 'straight').sort((a, b) => b.length - a.length)[0].start.y).sort((a, b) => a - b);
+    expect(firstRow).toHaveLength(5);
+    for (let k = 1; k < firstRow.length; k++) expect(firstRow[k] - firstRow[k - 1] - 0.032).toBeGreaterThanOrEqual(0.032);
+  });
+
+  it('fits the support steel between the actual asymmetric continuous pair', () => {
+    // The 350 mm frame beam's coordinated row is clipped at the stirrup bend. Its
+    // fallback must keep BOTH corner positions, not mirror the wider one and leave
+    // only 20 mm between the retained continuous bar and the next support bar.
+    const row = [-0.1186164141349725, -0.024283080801639167, 0.017, 0.05566666666666666, 0.09433333333333332, 0.133];
+    const g = generateBeamBars(input({ b: 0.35, h: 0.65, stirrupDia: 10,
+      topStart: { count: 16, diameterMm: 12 }, topEnd: { count: 17, diameterMm: 12 },
+      transverseSlots: [...row, ...row, ...row.slice(0, 5)],
+      transverseLayers: [...row.map(() => 0), ...row.map(() => 1), ...row.slice(0, 5).map(() => 2)],
+    }));
+    for (const [side, count] of [['I', 16], ['J', 17]] as const) {
+      const bars = g.bars.filter(b => b.id.includes('-topRun-') || b.id.includes(`-top${side}-`));
+      expect(bars).toHaveLength(count);
+      const rows = new Map<number, number[]>();
+      for (const b of bars) {
+        const body = b.segments.filter(s => s.kind === 'straight').sort((a, b) => b.length - a.length)[0];
+        const key = Math.round(body.start.z * 1e6);
+        rows.set(key, [...(rows.get(key) ?? []), body.start.y]);
+      }
+      for (const positions of rows.values()) {
+        positions.sort((a, b) => a - b);
+        for (let k = 1; k < positions.length; k++) {
+          expect(positions[k] - positions[k - 1] - 0.012).toBeGreaterThanOrEqual(0.02666666);
+        }
+      }
+    }
+  });
+
   it('generates physical bars, cut-offs and stirrup zones', () => {
     const g = generateBeamBars(input());
     expect(g.bars.length).toBeGreaterThan(0);

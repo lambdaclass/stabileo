@@ -114,7 +114,7 @@ export function beamGroups(
   accepted: NonNullable<MemberDesignOutcome['accepted']>,
   opts: BeamGroupOptions,
 ): {
-  bottom: { count: number; diameterMm: number };
+  bottom: { count: number; diameterMm: number; rowCounts?: readonly number[] };
   topStart: { count: number; diameterMm: number };
   topEnd: { count: number; diameterMm: number };
   topPurpose: { start: TopSteelPurpose; end: TopSteelPurpose };
@@ -126,11 +126,20 @@ export function beamGroups(
   const r = accepted.regions;
   const bottom = g(r?.bottomSpan) ?? g(accepted.bottom);
   if (!bottom) return null;
+  const layers = r?.bottomGroups?.length === 1 ? r.bottomGroups[0].layers
+    : r?.bottomGroups?.length ? undefined : r?.bottomSpanLayers;
+  const ordered = layers && [...layers].sort((a, b) => a.row - b.row);
+  const rowCounts = r?.preserveBottomRows && ordered && ordered.length > 0
+    && ordered.every((l, i) => l.diameter === bottom.diameterMm && l.row === i)
+    && ordered.reduce((n, l) => n + l.count, 0) === bottom.count
+    ? ordered.map(l => l.count) : undefined;
+  // Do not silently discard a prescribed layout that this uniform-diameter path cannot build.
+  if (r?.preserveBottomRows && !rowCounts) return null;
 
   const { start, end } = resolveTopSteelFor(accepted, opts);
   if (!start.group || !end.group) return null;
   return {
-    bottom, topStart: start.group, topEnd: end.group,
+    bottom: { ...bottom, ...(rowCounts ? { rowCounts } : {}) }, topStart: start.group, topEnd: end.group,
     topPurpose: { start: start.purpose, end: end.purpose },
     provisions: { start, end },
   };

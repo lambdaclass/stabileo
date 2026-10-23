@@ -40,23 +40,24 @@ import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it('the outcome population is 383 VERIFIED + 25 honest refusals — 373 was a display band', () => {
+  it('the outcome population is 385 VERIFIED + 23 honest refusals — 373 was a display band', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
     // 379 since the ductility check of §9.3.3.1 steers the search off over-reinforced candidates
     // and six of the 22 congested beams (169–172, 197, 198) thread and verify (see
     // autodesign-regression.test.ts, header). 373 until then. 383 since the minimum shear
     // reinforcement of CIRSOC 201-2025 §9.6.3.1 (same header): 165–168 verify.
-    expect(summary.verified).toBe(383);
+    // Lap-aware column seeds also let incident beams 182 and 188 verify.
+    expect(summary.verified).toBe(385);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
     // an outcome, and the 13 that are outcomes all name the same honest cause.
-    // The 12 congested beams: no arrangement the search implements passes, which is
+    // The 10 congested beams: no arrangement the search implements passes, which is
     // SEARCH_EXHAUSTED; no bound proves their section inadequate (`section-bounds.ts`).
     expect(summary.sectionInadequate).toBe(0);
     const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
-    expect(congested).toHaveLength(12);
+    expect(congested).toHaveLength(10);
     for (const o of congested) {
       expect(o.limiting, `member ${o.elementId}`).toContain('congestion');
       expect(o.exhaustion?.scope, `member ${o.elementId}`).toBe('implementedAlternatives');

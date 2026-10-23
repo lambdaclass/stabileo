@@ -27,7 +27,7 @@
  * Written so it runs on the tree before the rule (the APIs it needs that did not exist are read
  * optionally and their absence is itself a violation): `HELD_PRINT=1` prints what each read.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -64,7 +64,7 @@ beforeAll(async () => {
 const PRINT = !!process.env.HELD_PRINT;
 const tr = (k: string, p?: Record<string, string | number>) => (p ? `${k}[${Object.entries(p).map(([a, b]) => `${a}=${b}`).join(',')}]` : k);
 const ctxRender = { tr: (k: string) => k, msg: (x: { key: string }) => x.key, fmt: (v: number, d: number) => v.toFixed(d) } as never;
-const DETAILING_OPEN = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
+const DETAILING_OPEN = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved', 'detailing.finalVerification.failed']);
 /** The colours `verificationColor` paints a ratio ≤ 1 with: a pass. */
 const PASS_COLOURS = new Set([0x22cc66, 0x88cc22, 0xbfcc11, 0xddaa00]);
 const APPROVAL = new Set(['ok', 'warn']);
@@ -311,19 +311,27 @@ describe('(c) the span building with no slab: a member held by the detailing alo
   let lifts: number[] = [];
   beforeAll(() => {
     building(null, { columnSide: 0.4 });
-    const doc = designAndDocument();
-    lifts = [...new Set((modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.unsupported)
-      .filter((u) => u.key.startsWith('detailing.lapCheck.')).flatMap((u) => u.scope.elementIds ?? []))];
-    r = readSurfaces(doc);
-    show('C', r);
+    designAndDocument();
+    // Geometry repairs can close the old fixture. Keep a controlled final-depth failure
+    // on one nominally passing column so this still exercises every held surface.
+    const target = [...verificationStore.contexts.values()].find(c => c.elementType === 'column'
+      && APPROVAL.has(verificationStore.localStatus(c.elementId)))!.elementId;
+    const reverify = verificationStore.reverifyAtFinalDepth;
+    const finalCheck = vi.spyOn(verificationStore, 'reverifyAtFinalDepth')
+      .mockImplementation((id, ...args) => id === target ? 'fail' : reverify(id, ...args));
+    try {
+      expect(detailingStore.generate()).not.toBeNull();
+      const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' })!;
+      lifts = [...new Set((modelStore.model.detailing?.assemblies ?? []).flatMap((a) => a.unsupported)
+        .filter((u) => u.key.startsWith('detailing.lapCheck.')).flatMap((u) => u.scope.elementIds ?? []))];
+      r = readSurfaces(doc);
+      expect(r.held.has(target)).toBe(true);
+      show('C', r);
+    } finally { finalCheck.mockRestore(); }
   }, 600_000);
 
   it('it is held by the detailing alone, and no surface reads it or the project as approved', () => {
-    // One member holds a detailing condition. Seven before the lower column lifts were cranked
-    // (§10.7.4.1): the six upper lifts held their laps open, each pair on one centreline
-    // (`splice-span-fixture.test.ts`). Nine before the layers were stepped from the largest bar
-    // above them (`stackedLayerDepth`): beam e20's second top row sat 5,1 mm inside the clear
-    // distance it owed the continuous pair through e20/e25, two unresolved clashes that held both.
+    // A nominal pass still held by final-depth verification must not be approved on any surface.
     expect(lifts).toEqual([]);
     expect(kinds(r)).toEqual({ detailing: 1 });
     expect([...r.held.values()].some((k) => k.has('analysis'))).toBe(false);

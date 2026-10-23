@@ -85,11 +85,12 @@ describe('flagship 408-member RC frame designs completely', () => {
     // threshold; this verifier only checks the primary axis for beams, so it
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
-    expect(s.verified).toBe(383);   // 379 until §9.6.3.1 (header)
-    // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
+    // Lap-aware column seeds also allow beams 182 and 188 to verify.
+    expect(s.verified).toBe(385);   // 379 until §9.6.3.1 (header)
+    // 10 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
     // 22 until the ductility check (header).
     expect(s.sectionInadequate).toBe(0);
-    expect(s.searchExhausted).toBe(12);   // 16 until §9.6.3.1 (header)
+    expect(s.searchExhausted).toBe(10);   // 16 until §9.6.3.1 (header)
     expect(s.demandUnavailable).toBe(0);
     /**
      * The 13 biaxial beams: PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
@@ -111,7 +112,7 @@ describe('flagship 408-member RC frame designs completely', () => {
      */
     // 13 + 12 since the minimum shear reinforcement of §9.6.3.1 (header); 13 + 16 = 29 since the
     // ductility check, 13 + 22 = 35 before.
-    expect(s.provisionalRetained).toBe(25);
+    expect(s.provisionalRetained).toBe(23);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
@@ -156,7 +157,7 @@ describe('flagship 408-member RC frame designs completely', () => {
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
     expect(refused).toBe(13);
-    expect(congested).toBe(12);
+    expect(congested).toBe(10);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

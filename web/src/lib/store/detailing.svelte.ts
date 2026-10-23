@@ -34,6 +34,8 @@ import {
 import { verificationStore } from './verification.svelte';
 import { designRunStore } from './design-run.svelte';
 import { rebarHash } from '../engine/design/rebar-hash';
+import type { MemberContext } from '../engine/design/member-context';
+import type { PhysicalSearchBudget } from '../engine/detailing/physical-design-search';
 import { getDesignCode } from '../engine/design/code-adapter';
 import {
   runDesignFeedbackLoop, type DesignFeedbackLoopResult,
@@ -280,7 +282,7 @@ function createDetailingStore() {
      * persistence, revision invalidation, review, drawings, exports — hangs off the
      * assemblies it writes.
      */
-    generate(opts: { verifierId?: string } = {}): RunDetailingResult | null {
+    generate(opts: { verifierId?: string; physicalSearch?: PhysicalSearchBudget } = {}): RunDetailingResult | null {
       generating = true;
       lastError = null;
       try {
@@ -291,8 +293,8 @@ function createDetailingStore() {
          * moves steel, re-verification at the geometry that results can fail, and the repair
          * has to be coordinated and re-verified in turn.
          */
-        const detail = (outcomes: ReadonlyMap<number, MemberDesignOutcome>) => runDetailing({
-          contexts: verificationStore.contexts,
+        const detail = (outcomes: ReadonlyMap<number, MemberDesignOutcome>, contexts: ReadonlyMap<number, MemberContext> = verificationStore.contexts) => runDetailing({
+          contexts,
           outcomes,
           nodes: modelStore.nodes as never,
           elements: modelStore.elements as never, sections: modelStore.sections, // with their insertions (`Element.offset`)
@@ -315,7 +317,7 @@ function createDetailingStore() {
           maxAggregateSizeMm: resolveAggregate(),
           spacingMargin: resolveSpacingMargin(),
           // The member's conformity at the final geometry: strength, §24.2.2, and a load split the model establishes (its slab-column joint).
-          ...memberConformityGates(outcomes),
+          ...memberConformityGates(outcomes, contexts),
           lockedBars: store.assemblies.flatMap((a) => a.bars.filter((b) => b.locked)),
           bentUp: bentUpPolicy(), memberCuts: savedMemberCuts(), ...detailingLineInputs(),
           /**
@@ -349,13 +351,14 @@ function createDetailingStore() {
             outcomes: initial,
             detail,
             lockedMembers: lockedMemberIds(),
+            physicalSearch: opts.physicalSearch,
           })
           : null;
         const result = loop ? loop.result : detail(initial);
         lastFeedbackLoop = loop;
         // A repair is not real until the model carries it. Persisting AFTER the loop means a
         // proposal that failed re-verification never reached the engineer's model at all.
-        if (loop && loop.iterations.some((i) => i.changed.length > 0)) {
+        if (loop && (loop.iterations.some((i) => i.changed.length > 0) || loop.physicalSearch?.changed.length)) {
           publishRepairedReinforcement(loop.outcomes, initial);
         }
         lastRun = result;

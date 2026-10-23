@@ -79,7 +79,7 @@
 
 import {
   arcSegment, centrelineRadius, developedLength, minMandrelDiameter, standardHook,
-  straightSegment, type BarPath, type BarSegment, type HookAngle, type HookGeometry,
+  samplePath, CLEARANCE_CHORD_TOLERANCE, straightSegment, type BarPath, type BarSegment, type HookAngle, type HookGeometry,
   type Point3,
 } from './bar-geometry';
 import {
@@ -191,8 +191,9 @@ export interface StirrupSetInput {
    * Shift of this PIECE along the member axis, m, within its set.
    *
    * The pieces of one set are not coplanar. A closed stirrup and the crossties threaded
-   * through it are separate bars standing side by side against the formwork, one diameter
-   * apart — they cannot all occupy one section plane, and modelling them that way makes every
+   * through it are separate bars standing side by side against the formwork. Body planes
+   * are one diameter apart, with an extra half diameter beside the perimeter closure.
+   * They cannot all occupy one section plane, and modelling them that way makes every
    * crossing between them read as an interpenetration. Measured on the joint cage: 24
    * crosstie-to-stirrup and 12 crosstie-to-crosstie overlaps, all at zero station difference,
    * all of them the model rather than the steel.
@@ -577,51 +578,75 @@ export function buildClosedStirrup(input: StirrupSetInput): TransversePiece {
     return { corners, dir, bendCentre, intoCore, bendStart, tipStart, exitEnd, tipEnd, onSide0, bendEnd };
   };
 
+  // Build both the decision geometry and the emitted geometry with the same function.
+  const segmentsFor = (k: Closure, P: (a: number, u: number, ax?: number) => Point3): BarSegment[] => {
+    const { corners, dir, bendCentre, bendStart, tipStart, exitEnd, tipEnd, onSide0, bendEnd } = layout(k);
+    const segments: BarSegment[] = [];
+
+    // ── Leading end: free tip → 135° bend → onto the first side ──
+    segments.push(straightSegment(P(tipStart[0], tipStart[1], -gap), P(bendStart[0], bendStart[1], -gap)));
+    segments.push(arcSegment(P(bendStart[0], bendStart[1], -gap), P(onSide0[0], onSide0[1]),
+      r, STIRRUP_HOOK_ANGLE, P(bendCentre[0], bendCentre[1], -gap / 2)));
+
+    // ── Perimeter: three 90° corners, then the last side back to the closing corner ──
+    let at: [number, number] = onSide0;
+    for (let i = 0; i < 3; i++) {
+      const next = corners[i + 1];
+      const endTrim: [number, number] = [next[0] - dir[i][0] * r, next[1] - dir[i][1] * r];
+      segments.push(straightSegment(P(at[0], at[1]), P(endTrim[0], endTrim[1])));
+      const arcEnd: [number, number] = [next[0] + dir[i + 1][0] * r, next[1] + dir[i + 1][1] * r];
+      // The corner's bend centre: back off the incoming direction by r, then in along the
+      // outgoing one by r. Both tangent points are exactly r from it.
+      const cc: [number, number] = [
+        next[0] - dir[i][0] * r + dir[i + 1][0] * r, next[1] - dir[i][1] * r + dir[i + 1][1] * r,
+      ];
+      segments.push(arcSegment(P(endTrim[0], endTrim[1]), P(arcEnd[0], arcEnd[1]), r, 90,
+        P(cc[0], cc[1])));
+      at = arcEnd;
+    }
+    // The last side runs into the tangent point of the closing bend, not into the corner.
+    segments.push(straightSegment(P(at[0], at[1]), P(bendEnd[0], bendEnd[1])));
+
+    // ── Trailing end: 135° bend → free tip, one diameter clear of the leading one ──
+    segments.push(arcSegment(P(bendEnd[0], bendEnd[1]), P(exitEnd[0], exitEnd[1], gap),
+      r, STIRRUP_HOOK_ANGLE, P(bendCentre[0], bendCentre[1], gap / 2)));
+    segments.push(straightSegment(P(exitEnd[0], exitEnd[1], gap), P(tipEnd[0], tipEnd[1], gap)));
+    return segments;
+  };
+
   /**
-   * Worst surface clearance between this closure's two tails and the longitudinal bars, m.
+   * Minimum clearance to the longitudinal runs, using the fabricated hooks.
+   * A longitudinal bar extends along the member axis: moving a hook along that axis
+   * does not create clearance. Project each sampled segment into the cross section
+   * and measure its closest point, including points BETWEEN samples. The old score
+   * measured isolated points and credited the axial tail offset as free space.
    *
-   * Negative means a tail is driven through a bar. Both the 135° arc and the straight
-   * extension are sampled, and the axial `gap` is carried into the distance — a tail that
-   * passes a bar half a diameter out of plane is further away than the section view suggests,
-   * and pretending otherwise would reject corners that are in fact fine.
+   * Use a local frame so station, world rotation and translation cannot change a
+   * cached section decision. This is a candidate score; final collision checking
+   * still evaluates the complete cage and neighboring bars.
    */
   const tailClearance = (k: Closure): number => {
-    const g = layout(k);
-    const pts: Array<[number, number]> = [];
-    const sample = (from: [number, number], to: [number, number], n: number) => {
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        pts.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]);
-      }
-    };
-    // The arcs, on the true circle rather than the chord.
-    for (const [from, to] of [[g.bendStart, g.onSide0], [g.bendEnd, g.exitEnd]] as const) {
-      const a0 = Math.atan2(from[1] - g.bendCentre[1], from[0] - g.bendCentre[0]);
-      const a1 = Math.atan2(to[1] - g.bendCentre[1], to[0] - g.bendCentre[0]);
-      let d = a1 - a0;
-      while (d > Math.PI) d -= 2 * Math.PI;
-      while (d < -Math.PI) d += 2 * Math.PI;
-      for (let i = 0; i <= 12; i++) {
-        const a = a0 + d * (i / 12);
-        pts.push([g.bendCentre[0] + r * Math.cos(a), g.bendCentre[1] + r * Math.sin(a)]);
-      }
-    }
-    sample(g.bendStart, g.tipStart, 12);
-    sample(g.exitEnd, g.tipEnd, 12);
-
+    const segments = segmentsFor(k, (a, u, ax = 0) => ({ x: ax, y: a, z: u }));
+    const hooks = [segments.slice(0, 2), segments.slice(-2)];
     let worst = Number.POSITIVE_INFINITY;
-    for (const bar of input.longitudinalBars) {
-      for (const [a, u] of pts) {
-        const inPlane = Math.hypot(bar.across - a, bar.up - u);
-        const d3 = Math.hypot(inPlane, gap);
-        worst = Math.min(worst, d3 - ds / 2000 - bar.diameterMm / 2000);
+    for (const hookSegments of hooks) {
+      const points = samplePath({ segments: hookSegments }, CLEARANCE_CHORD_TOLERANCE);
+      for (const bar of input.longitudinalBars) {
+        for (let i = 0; i + 1 < points.length; i++) {
+          const a = points[i], b = points[i + 1];
+          const dy = b.y - a.y, dz = b.z - a.z;
+          const length2 = dy * dy + dz * dz;
+          const t = length2 > 0
+            ? Math.max(0, Math.min(1, ((bar.across - a.y) * dy + (bar.up - a.z) * dz) / length2)) : 0;
+          const distance = Math.hypot(bar.across - a.y - t * dy, bar.up - a.z - t * dz);
+          worst = Math.min(worst, distance - (ds + bar.diameterMm) / 2000);
+        }
       }
     }
     return worst;
   };
 
-  // Preference order: the requested orientation first, so a station whose corners are all
-  // equally clear still staggers against its neighbour.
+  // Preserve requested staggering whenever the preferred corner clears the bars.
   const preferred: 1 | -1 = input.hookOrientation === 'a' ? 1 : -1;
   const candidates: Closure[] = [
     { s: preferred, v: 1 }, { s: -preferred as 1 | -1, v: 1 },
@@ -631,48 +656,17 @@ export function buildClosedStirrup(input: StirrupSetInput): TransversePiece {
     let choice = 0;
     let bestClear = tailClearance(candidates[0]);
     for (let i = 1; i < candidates.length; i++) {
-      if (bestClear >= 0) break;        // the preferred corner already works; stagger wins.
-      const c = tailClearance(candidates[i]);
-      if (c > bestClear) { choice = i; bestClear = c; }
+      // A corner bar seated on a bend can read slightly negative from arc chords.
+      // Keep staggering within that sampling error; final collision thresholds are unchanged.
+      if (bestClear >= -CLEARANCE_CHORD_TOLERANCE) break;
+      const clearance = tailClearance(candidates[i]);
+      if (clearance > bestClear + 1e-12) { choice = i; bestClear = clearance; }
     }
     return choice;
   };
   const closure = candidates[input.closureCache?.select(input, selectClosure) ?? selectClosure()];
-
-  const geom = layout(closure);
-  const { corners, dir, bendCentre, bendStart, tipStart, exitEnd, tipEnd, onSide0, bendEnd } = geom;
-
-  const segments: BarSegment[] = [];
-  const P = (a: number, u: number, ax = 0) => sectionPoint(input, a, u, ax);
-
-  // ── Leading end: free tip → 135° bend → onto the first side ──
-  segments.push(straightSegment(P(tipStart[0], tipStart[1], -gap), P(bendStart[0], bendStart[1], -gap)));
-  segments.push(arcSegment(P(bendStart[0], bendStart[1], -gap), P(onSide0[0], onSide0[1]),
-    r, STIRRUP_HOOK_ANGLE, P(bendCentre[0], bendCentre[1], -gap / 2)));
-
-  // ── Perimeter: three 90° corners, then the last side back to the closing corner ──
-  let at: [number, number] = onSide0;
-  for (let i = 0; i < 3; i++) {
-    const next = corners[i + 1];
-    const endTrim: [number, number] = [next[0] - dir[i][0] * r, next[1] - dir[i][1] * r];
-    segments.push(straightSegment(P(at[0], at[1]), P(endTrim[0], endTrim[1])));
-    const arcEnd: [number, number] = [next[0] + dir[i + 1][0] * r, next[1] + dir[i + 1][1] * r];
-    // The corner's bend centre: back off the incoming direction by r, then in along the
-    // outgoing one by r. Both tangent points are exactly r from it.
-    const cc: [number, number] = [
-      next[0] - dir[i][0] * r + dir[i + 1][0] * r, next[1] - dir[i][1] * r + dir[i + 1][1] * r,
-    ];
-    segments.push(arcSegment(P(endTrim[0], endTrim[1]), P(arcEnd[0], arcEnd[1]), r, 90,
-      P(cc[0], cc[1])));
-    at = arcEnd;
-  }
-  // The last side runs into the tangent point of the closing bend, not into the corner.
-  segments.push(straightSegment(P(at[0], at[1]), P(bendEnd[0], bendEnd[1])));
-
-  // ── Trailing end: 135° bend → free tip, one diameter clear of the leading one ──
-  segments.push(arcSegment(P(bendEnd[0], bendEnd[1]), P(exitEnd[0], exitEnd[1], gap),
-    r, STIRRUP_HOOK_ANGLE, P(bendCentre[0], bendCentre[1], gap / 2)));
-  segments.push(straightSegment(P(exitEnd[0], exitEnd[1], gap), P(tipEnd[0], tipEnd[1], gap)));
+  const { corners } = layout(closure);
+  const segments = segmentsFor(closure, (a, u, ax = 0) => sectionPoint(input, a, u, ax));
 
   const containment = corners.map(([a, u]) => ({
     at: sectionPoint(input, a, u),
@@ -1030,10 +1024,8 @@ export function buildStirrupSet(input: StirrupSetInput): StirrupSetResult {
   const interior = chosen.offsets;
 
   const offsets = [-halfAcross, ...interior, halfAcross];
-  // The set STRADDLES its station rather than starting at it. Centring keeps the group's
-  // centroid on the design station — so the spacing the table asked for is the spacing
-  // between set centres — and halves how far the outermost piece reaches, which is what
-  // decides whether a set at the end of a zone still fits inside it.
+  // Centre the complete axial envelope, including the perimeter closure, on the station.
+  // Repeating that envelope preserves the specified pitch and reserves both ends of a zone.
   const nudge = setNudge(1 + interior.length, input.stirrupDiaMm);
   const pieces: TransversePiece[] = [buildClosedStirrup({ ...input, axialNudge: nudge(0) })];
   for (let i = 0; i < interior.length; i++) {
@@ -1044,21 +1036,22 @@ export function buildStirrupSet(input: StirrupSetInput): StirrupSetResult {
 }
 
 /**
- * Axial offsets for the `n` pieces of one set, centred on the design station.
+ * Axial offsets for the `n` pieces of one set, with its centreline envelope centred
+ * on the design station.
  *
- * Adjacent pieces sit one bar diameter apart — touching, which is how they stand against the
- * formwork — and the group's centroid stays on the station the spacing table chose, so the
- * table's spacing remains the spacing between sets. `setSpread` is what a caller must reserve
- * at each end of a zone for the set to fit inside it.
+ * The perimeter stirrup's closing tails sit half a diameter either side of its body plane.
+ * The first crosstie therefore needs 1.5 diameters from that plane; subsequent planar ties
+ * need one diameter. Every repeated piece retains the prescribed station spacing.
+ * `setSpread` includes the closing tails, so end reservations use the same geometry.
  */
 export function setNudge(n: number, diaMm: number): (i: number) => number {
   const step = diaMm / 1000;
-  return (i: number) => (i - (n - 1) / 2) * step;
+  return (i: number) => (i - (n - 1) / 2 + (i > 0 ? 0.5 : 0)) * step;
 }
 
-/** Full axial thickness of a set of `n` pieces, m. */
+/** Axial centreline envelope of a set, including closure offsets (surface radii additional). */
 export function setSpread(n: number, diaMm: number): number {
-  return Math.max(0, n - 1) * diaMm / 1000;
+  return Math.max(0, n) * diaMm / 1000;
 }
 
 /**

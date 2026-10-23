@@ -307,6 +307,23 @@ describe('the loop is reinforcement-only', () => {
 });
 
 describe('accounting is complete and honest', () => {
+  it('does not reuse another member’s verdict for identical bars at identical layer offsets', () => {
+    const h = harness();
+    const original = h.contexts.get(5)!;
+    const weaker = { ...h.contexts.get(6)!, material: { ...original.material, fy: 100 } };
+    const contexts = new Map([[5, original], [6, weaker]]);
+    const outcomes = new Map([[5, h.outcomes.get(5)!], [6, { ...h.outcomes.get(5)!, elementId: 6 }]]);
+    const first = h.detail(outcomes);
+    const geometry = first.reverification.find(r => r.elementId === 5)!.finalGeometry;
+    const expected = cirsoc201Adapter.verify({ ...weaker, finalGeometry: geometry }, outcomes.get(6)!.accepted!);
+    const result = runDesignFeedbackLoop({ adapter: cirsoc201Adapter, contexts, outcomes,
+      lockedMembers: new Set([5, 6]),
+      detail: () => ({ ...first, reverification: [5, 6].map(elementId => ({ elementId, status: 'fail', finalGeometry: geometry, layerCentroids: [] })) }),
+    });
+    const feedback = result.iterations[0].feedback;
+    expect(feedback[1].finalUtilization).toBe(expected.worstUtilization);
+    expect(feedback[1].finalUtilization).not.toBe(feedback[0].finalUtilization);
+  });
   // The search contracts. These are properties of the loop, not measurements of one fixture:
   // they hold whatever the corrected verifier decides the demands are. The operational counts
   // they replaced (candidatesConsidered 12, verifierCalls 7, memoHits >= 8,
@@ -322,22 +339,13 @@ describe('accounting is complete and honest', () => {
     expect(s.nonMonotonicSkipped).toBe(0);
   });
 
-  it('every unique member is verified, and every duplicate is answered from the memo', () => {
-    // 5/6 are one identical pair and 7/8 another, at DIFFERENT final geometries. The contract
-    // is the SHAPE of the work, not its magnitude: the first of each pair does real verifier
-    // work, the second does none at all. That is what memoisation means here, and it is what
-    // a regression would break — the zeros are the point.
+  it('verifies every member independently and reuses only its own search verdicts', () => {
     const repairs = loop().iterations[0].repairs;
     const perMember = repairs.map((r) => r.stats.verifierCalls);
     expect(perMember).toHaveLength(4);
-    const [firstOfPairA, secondOfPairA, firstOfPairB, secondOfPairB] = perMember;
-    expect(firstOfPairA).toBeGreaterThan(0);
-    expect(firstOfPairB).toBeGreaterThan(0);
-    expect(secondOfPairA).toBe(0);
-    expect(secondOfPairB).toBe(0);
+    expect(perMember.every(n => n > 0)).toBe(true);
     // The aggregate covers the per-member work and then some: the loop also verifies each
-    // member's CURRENT arrangement at its final geometry before repairing it, and answers the
-    // duplicate of each pair from the memo there too. So the aggregate is a superset of the
+    // member's CURRENT arrangement at its final geometry before repairing it, and shares that verdict only with the same member’s search. So the aggregate is a superset of the
     // per-repair sum rather than equal to it — asserting equality would be asserting a
     // relationship the loop does not have.
     const s = loop().stats;
@@ -390,7 +398,7 @@ describe('accounting is complete and honest', () => {
   });
 
   it('never pays twice for the same reinforcement at the same geometry', () => {
-    // The memo key is (reinforcement, geometry). Both halves matter: the same steel at a
+    // Each member’s memo key is (reinforcement, geometry). Both halves matter: the same steel at a
     // different geometry is a different question and must be re-verified.
     const g1 = finalGeometryHash({ bottomRaise: 0.012, topLower: 0.01, depthTolerance: 0.015 });
     const g2 = finalGeometryHash({ bottomRaise: 0.000, topLower: 0.01, depthTolerance: 0.015 });
@@ -398,6 +406,51 @@ describe('accounting is complete and honest', () => {
     expect(finalGeometryHash({ bottomRaise: 0.012, topLower: 0.01, depthTolerance: 0.015 }))
       .toBe(g1);
   });
+});
+
+describe('repairs must survive full detailing', () => {
+  it.each(['neighbor', 'missing', 'noVerifier', 'physical', 'clash'] as const)(
+    'retains the coherent previous design when a trial introduces a %s regression', (mode) => {
+      const h = harness();
+      const initial = h.detail(h.outcomes);
+      const passing = initial.reverification.find(r => r.status === 'ok' || r.status === 'warn')!;
+      expect(passing).toBeDefined();
+      let calls = 0;
+      const result = runDesignFeedbackLoop({
+        adapter: cirsoc201Adapter, contexts: h.contexts, outcomes: h.outcomes,
+        detail: outcomes => {
+          if (++calls === 1) return initial;
+          const trial = h.detail(outcomes);
+          if (mode === 'clash') return { ...trial, assemblies: trial.assemblies.map((a, i) => i ? a : {
+            ...a, conflicts: [...initial.assemblies.flatMap(a => a.conflicts), {
+              severity: 'overlap', barA: 'trial-a', barB: 'trial-b', at: { x: 0, y: 0, z: 0 },
+              clearance: -0.01, required: 0, shortfall: 0.01, elementIds: [passing.elementId],
+            }],
+          }) };
+          if (mode === 'physical') return { ...trial, assemblies: trial.assemblies.map((a, i) => i ? a : {
+            ...a, unsupported: [...initial.assemblies.flatMap(a => a.unsupported), {
+              key: 'coverViolation', scope: { elementIds: [passing.elementId] },
+              message: 'Trial puts a bar outside its cover.', refs: [],
+            }],
+          }) };
+          return { ...trial, reverification: mode === 'missing'
+            ? trial.reverification.filter(r => r.elementId !== passing.elementId)
+            : trial.reverification.map(r => r.elementId === passing.elementId
+              ? { ...r, status: mode === 'neighbor' ? 'fail' : 'noVerifier' } : r),
+          };
+        },
+      });
+      expect(result.outcome).toBe('FINAL_DETAIL_REGRESSION');
+      expect(result.result).toBe(initial);
+      expect(result.outcomes).toBe(h.outcomes);
+      expect(result.stats.detailingRuns).toBe(2);
+      expect(result.stats.truncated).toBe(false);
+      expect(result.iterations[0].proposed).toEqual(REPAIRED);
+      expect(result.iterations[0].changed).toEqual([]);
+      expect(result.iterations[0].rejected).toBe('FINAL_DETAIL_REGRESSION');
+      expect(result.unrepaired.map(r => r.kind)).toEqual(REPAIRED.map(() => 'FINAL_DETAIL_REGRESSION'));
+    },
+  );
 });
 
 describe('certificates describe the geometry that exists', () => {

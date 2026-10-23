@@ -269,6 +269,22 @@ describe('the detailing pipeline', () => {
     expect(r.assembly.marks.length).toBeGreaterThan(0);
   });
 
+  it.each(['locked', 'transverse'] as const)('publishes %s clashes even when no repair move can be tried', kind => {
+    const opts: Partial<BarPath> = kind === 'locked' ? { locked: true } : { role: 'transverse' };
+    const a = bar('unmovable-a', 0, opts);
+    const b = bar('unmovable-b', 0.005, { ...opts, ownerElementIds: [2] });
+    const r = coordinateFloor(input({ members: [member(1, [a]), member(2, [b])],
+      ...(kind === 'locked' ? { lockedBars: [a, b] } : {}) }));
+    expect(r.repair.moved).toEqual([]);
+    expect(r.repair.unresolved).toHaveLength(1);
+    expect(r.repair.unresolved[0].candidates).toEqual([]);
+    expect(r.assembly.unsupported).toContainEqual(expect.objectContaining({
+      key: 'detailing.clash.unresolved', scope: { elementIds: [1, 2] },
+      params: expect.objectContaining({ tried: 0 }),
+    }));
+    expect(r.assembly.state).not.toBe('CONSTRUCTIBLE');
+  });
+
   it('takes the worst maturity across members and joints', () => {
     const r = coordinateFloor(input({
       members: [member(1, [bar('m1-a', 0)], { maturity: 'VALIDATED' }),

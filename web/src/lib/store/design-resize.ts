@@ -1,9 +1,9 @@
 /**
  * «Size»: the design runs until every member verifies, changing a section where no reinforcement can.
  *
- * Sizing a member is finding reinforcement that verifies; a member left «not verified» was not
- * sized. Where the search finds none (every arrangement it implements fails one check), the bars
- * are not what is wrong: the section is. Then the section is enlarged, the structure solved
+ * Sizing a member is finding reinforcement that verifies. An exhausted reinforcement search
+ * does not prove the section inadequate. Where an evaluated constraint suggests a section
+ * change, the section is enlarged as a trial, the structure solved
  * again (a larger section is a stiffer, heavier member and moves the forces) and the design run
  * again, round after round, until nothing is refused for its section or a round changes nothing.
  *
@@ -58,7 +58,7 @@ export interface ResizeRun {
   changes: ResizeChange[];
   rounds: number;
   /** Members still refused when the run stopped, and why it stopped. */
-  stopped: 'verified' | 'noChange' | 'maxRounds' | 'solveFailed' | 'cancelled';
+  stopped: 'verified' | 'blocked' | 'noChange' | 'maxRounds' | 'solveFailed' | 'cancelled';
 }
 
 interface Grow { elementIds: number[]; member: string; kind: 'column' | 'beam'; db: number; dh: number; reason: ResizeReason }
@@ -147,6 +147,8 @@ export function plannedGrowth(): Grow[] {
     if (seen.has(key)) continue;
     seen.add(key);
     const limiting = new Set(o.limiting ?? []);
+    // A search cut short or an invalid force orientation is not evidence for more concrete.
+    if (limiting.has('searchBudget') || limiting.has('memberOrientationSuspect')) continue;
     if (ctx.elementType === 'column') {
       want({ ...memberOf(id), kind: 'column', db: RESIZE_STEP_M, dh: RESIZE_STEP_M, reason: 'column' });
       continue;
@@ -180,9 +182,8 @@ export function plannedGrowth(): Grow[] {
 
 /** A rectangular section b × h, found among the model's or added: name, area, inertias, Saint-Venant torsion. */
 export function rectSection(b: number, h: number): number {
-  const r = (v: number) => Math.round(v * 100) / 100;
-  b = r(b); h = r(h);
-  const name = `Rect ${Math.round(b * 100)}x${Math.round(h * 100)} cm`;
+  const cmLabel = (v: number) => Math.round(v * 100000) / 1000;
+  const name = `Rect ${cmLabel(b)}x${cmLabel(h)} cm`;
   for (const s of modelStore.sections.values()) {
     if (s.shape === 'rect' && Math.abs((s.b ?? 0) - b) < 1e-6 && Math.abs((s.h ?? 0) - h) < 1e-6 && !(s as { drawn?: unknown }).drawn) return s.id;
   }
@@ -199,7 +200,8 @@ export function applyGrowth(plan: readonly Grow[], round: number): ResizeChange[
     const sec = first && modelStore.sections.get(first.sectionId);
     if (!sec || sec.shape !== 'rect' || !sec.b || !sec.h) continue;
     const cm = (v: number) => Math.round(v * 100) / 100;
-    const b = cm(Math.min(RESIZE_MAX_M, sec.b + g.db)), h = cm(Math.min(RESIZE_MAX_M, sec.h + g.dh));
+    const b = g.db > 0 ? Math.max(sec.b, cm(Math.min(RESIZE_MAX_M, sec.b + g.db))) : sec.b;
+    const h = g.dh > 0 ? Math.max(sec.h, cm(Math.min(RESIZE_MAX_M, sec.h + g.dh))) : sec.h;
     if (Math.abs(b - sec.b) < 1e-6 && Math.abs(h - sec.h) < 1e-6) continue;
     const id = rectSection(b, h);
     for (const e of g.elementIds) if (modelStore.elements.has(e)) modelStore.updateElement(e, { sectionId: id });
@@ -225,6 +227,15 @@ export interface ResizeHooks {
   pause?: () => Promise<void>;
 }
 
+/** No resize proposal is not a verification: read the same verdicts shown in the desk. */
+export function designChecksPass(report: DeskReport): boolean {
+  if (!report.concrete?.ok || report.concrete.families.some(f =>
+    f.state === 'failed' || f.refused > 0 || f.notModelled > 0 || f.designed < f.processed)) return false;
+  const checked = report.levels.reduce((n, l) => n + l.counts.ok + l.counts.warn, 0);
+  return checked > 0 && report.levels.every(l =>
+    l.counts.fail === 0 && l.counts.provisional === 0 && l.counts.unavailable === 0 && l.counts.stale === 0);
+}
+
 /**
  * Design, and while members are refused for their section, enlarge it, solve again and design
  * again. Each round's enlargement and solve is a batch; the run, whatever its rounds, is one undo
@@ -245,7 +256,7 @@ export async function designWithResizing(o: DeskRunOptions & { resize?: boolean;
     // Read before the batch opens: opening it records the undo step, and recording it drops the
     // verification of the model as it was, which is what the plan reads.
     const plan = plannedGrowth();
-    if (plan.length === 0) { stopped = 'verified'; break; }
+    if (plan.length === 0) { stopped = designChecksPass(report) ? 'verified' : 'blocked'; break; }
     if (round >= max) { stopped = 'maxRounds'; break; }
     if (hooks.cancelled?.()) { stopped = 'cancelled'; break; }
     round++;

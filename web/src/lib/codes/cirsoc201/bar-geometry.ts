@@ -445,13 +445,16 @@ export function buildStraightBarWithHooks(opts: {
   };
 }
 
+/** Shared chord error for geometric clearance decisions and final collision checks, m. */
+export const CLEARANCE_CHORD_TOLERANCE = 0.0005;
+
 /**
  * Sample a bar path into points, for collision testing and for drawing.
  *
  * `maxChord` bounds the chord error on arcs, so a hook is never approximated by a
  * single straight line when the question is whether it clashes with something.
  */
-export function samplePath(path: BarPath, maxChord = 0.005): Point3[] {
+export function samplePath(path: Pick<BarPath, 'segments'>, maxChord = 0.005): Point3[] {
   const out: Point3[] = [];
   for (const seg of path.segments) {
     if (out.length === 0) out.push(seg.start);

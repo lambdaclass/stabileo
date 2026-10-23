@@ -101,10 +101,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * 379 and 16 since the verifier checks the ductility of a flexural member (§9.3.3.1): six of
      * the 22 reach a passing arrangement that threads the cages (see the fingerprint).
      */
-    // 383 and 12 since the minimum shear reinforcement of §9.6.3.1 (see the fingerprint).
-    expect(summary.verified).toBe(383);
+    // Lap-aware column seeds allow two additional incident beams to verify (see fingerprint).
+    expect(summary.verified).toBe(385);
     // The 12 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
-    expect(summary.searchExhausted).toBe(12);
+    expect(summary.searchExhausted).toBe(10);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
@@ -213,7 +213,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // 16 of them since the ductility check (see the fingerprint): 169–172, 197 and 198 verify.
     // 12 since the minimum shear reinforcement (§9.6.3.1, see the fingerprint): 165–168 verify.
     const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
-    expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual([161, 164, 180, 181, 182, 183, 184, 186, 187, 188, 196, 199]);
+    expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual([161, 164, 180, 181, 183, 184, 186, 187, 196, 199]);
     for (const o of congested) {
       expect(o.limiting).toContain('congestion');
       expect(o.insufficiency).toBeUndefined();
@@ -373,4 +373,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // several Ø8 c/30 → Ø6 c/17,5, lighter and meeting it); utilization moves on 135, 125 down (to
 // −0,363: more Vs) and 10 up (to +0,251, the Ø8 → Ø6 ones, all ≤ 0,974); the worst stays 0,998.
 // The counts are 383 verified, 12 exhausted, 13 provisional.
-const RECORDED_FINGERPRINT = '43cfaf49844937cb';
+// Lap-aware initial column cages change column assignments and let incident beams 182 and
+// 188 verify with the same verifier: 385 verified, 10 exhausted, 13 provisional. The separate
+// store-level progress test also preserves every prior final pass after physical detailing.
+const RECORDED_FINGERPRINT = '3fbc915f8c0a89f1';

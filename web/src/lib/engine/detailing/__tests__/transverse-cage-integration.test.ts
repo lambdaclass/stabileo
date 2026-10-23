@@ -40,7 +40,7 @@ import {
 } from '../../../codes/cirsoc201/transverse-cage';
 import { computeColumnLayout } from '../../station-design-forces';
 import { generateColumnCandidates } from '../column-candidates';
-import { COLLISION_CHORD_TOLERANCE } from '../collision';
+import { COLLISION_CHORD_TOLERANCE, minSurfaceClearance } from '../collision';
 
 let cached: RunDetailingResult | null = null;
 function run(): RunDetailingResult {
@@ -103,6 +103,23 @@ describe('the cage is in the assembly and it does not clash', () => {
 
   it('has no conflict of any reportable class', () => {
     expect(run().assemblies.flatMap((a) => a.conflicts)).toEqual([]);
+  });
+
+  it('reserves the complete joint set away from the horizontal beam mats', () => {
+    const mats = allBars().filter(b => b.role === 'longitudinal' && b.layerId?.match(/:top|:bottom/))
+      .flatMap(b => {
+        const run = b.segments.filter(s => s.kind === 'straight' && Math.abs(s.end.z - s.start.z) < 1e-9)
+          .sort((a, b) => b.length - a.length)[0];
+        return run ? [{ ...b, segments: [run] }] : [];
+      });
+    let measured = 0;
+    for (const tie of transverse().filter(b => b.zoneId?.startsWith('joint-'))) for (const mat of mats) {
+      if (!tie.ownerElementIds.some(id => mat.ownerElementIds.includes(id))) continue;
+      expect(minSurfaceClearance(tie, mat).clearance, `${tie.id}/${mat.id}`)
+        .toBeGreaterThanOrEqual(0.04 - COLLISION_CHORD_TOLERANCE);
+      measured++;
+    }
+    expect(measured).toBeGreaterThan(0);
   });
 });
 

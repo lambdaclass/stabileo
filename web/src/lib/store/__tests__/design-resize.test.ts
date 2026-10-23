@@ -3,8 +3,8 @@
  * armaduras hasta que verifiquen, no existe dimensionar sin verificar»): the span fixture on its
  * 30×30 columns refuses every span for its anchorage (`design-anchorage-coherence.test.ts`), no
  * bar hooking to ℓdh behind the column's cage. Sized with its sections free to grow, the columns
- * the beams anchor in grow along them, the structure is solved and designed again, and every
- * member verifies; each physical column keeps one section from bottom to top; the changes are
+ * the beams anchor in grow along them, the structure is solved and designed again, and the nominal anchorage refusals clear. Final detailing still has blockers, which the
+ * run must report rather than certifying the building; each physical column keeps one section from bottom to top; the changes are
  * reported with their reason; and one undo puts every section back.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -26,17 +26,18 @@ const sectionOf = (id: number) => modelStore.sections.get(modelStore.elements.ge
 const outcomes = () => [...verificationStore.contexts.values()].map((c) => verificationStore.outcomeFor(c.elementId)?.outcome);
 
 describe('«Size» on the span fixture at 30×30', () => {
-  it('grows the columns the beams cannot anchor in until every member verifies, as one undo step', async () => {
+  it('clears nominal anchorage refusals but reports the remaining final blockers, as one undo step', async () => {
     building(1);
     const before = new Map([...modelStore.elements.values()].map((e) => [e.id, e.sectionId]));
     const phases: string[] = [];
     const run = await designWithResizing({ edited: 'overwrite', steel: false }, { progress: (p) => phases.push(`${p.phase}${p.round}`) });
 
-    expect(run.stopped).toBe('verified');
+    expect(run.stopped).toBe('blocked');
+    expect(run.report.levels.some(l => l.counts.fail + l.counts.provisional + l.counts.unavailable + l.counts.stale > 0)).toBe(true);
     expect(run.rounds).toBeGreaterThan(0);
     expect(phases[0]).toBe('design0');
     expect(phases).toContain('resize1');
-    // Every member verifies, and nothing is left to grow.
+    // No nominal section refusal remains; this does not certify the final detail.
     expect(outcomes().every((o) => o === 'VERIFIED' || o === 'PROVISIONAL_BIAXIAL')).toBe(true);
     expect(plannedGrowth()).toEqual([]);
 

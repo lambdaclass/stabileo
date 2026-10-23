@@ -175,10 +175,11 @@ export interface RepairCandidate {
 }
 
 /**
- * A clash the ladder tried to separate and could not without producing invalid geometry.
+ * A remaining blocking clash, or a marginal clash the ladder tried to separate.
  *
- * Its bars are where the ladder found them: every candidate below was refused, so none was
- * applied. Carried with the clash rather than summarised, because "unresolved" alone does not
+ * A cage piece or a pair of locked bars may have no admissible move to try. That is still an
+ * unresolved clash: absence of a repair attempt must never make the member read as verified.
+ * Carried with the clash rather than summarised, because "unresolved" alone does not
  * tell an engineer whether the section is too narrow, the design's lever arm is in the way or
  * the neighbouring bars are.
  */
@@ -190,7 +191,7 @@ export interface UnresolvedClash {
   /** How far short of the rule the pair still is, m. */
   shortfall: number;
   elementIds: number[];
-  /** Every candidate tried, in rung order, each with its rejection. */
+  /** Every candidate tried, in rung order; empty when the ladder cannot act on this pair. */
   candidates: RepairCandidate[];
 }
 
@@ -198,7 +199,7 @@ export interface RepairResult {
   bars: BarPath[];
   conflicts: BarConflict[];
   attempts: RepairAttempt[];
-  /** The remaining conflicts the ladder attempted, with why each move was refused. */
+  /** Remaining blockers (including unattempted ones), and attempted marginal conflicts. */
   unresolved: UnresolvedClash[];
   /** Every bar the ladder translated, and by how much in total, m: what a reviewer checks. */
   moved: Array<{ id: string; offset: Point3 }>;
@@ -597,11 +598,11 @@ export function repairConflicts(
     }
 
     const unresolved: UnresolvedClash[] = result.conflicts
-      .filter((c) => tried.has(pairKey(c.barA, c.barB)))
+      .filter((c) => c.severity !== 'marginal' || tried.has(pairKey(c.barA, c.barB)))
       .map((c) => ({
         barA: c.barA, barB: c.barB, pairClass: c.pairClass, severity: c.severity,
         shortfall: c.shortfall, elementIds: [...c.elementIds],
-        candidates: tried.get(pairKey(c.barA, c.barB))!,
+        candidates: tried.get(pairKey(c.barA, c.barB)) ?? [],
       }));
 
     if (result.conflicts.length > 0) {
@@ -861,8 +862,9 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
 
   // ── A clash the ladder could not separate without invalid geometry is an open condition ──
   //
-  // The conflict itself stays in the conflict list; this records that the repair was tried and
-  // why every move was refused, so the assembly cannot be built past it and the document, the
+  // The conflict itself stays in the conflict list; record it even when no move can be tried.
+  // Otherwise cage/locked conflicts disappear from member holds, which read open conditions.
+  // Record why attempted moves were refused, so the document, the
   // memoria and the desk can say what stands in the way: the section, the verified depth, or
   // another bar.
   for (const u of repair.unresolved) {

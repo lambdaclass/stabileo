@@ -18,6 +18,8 @@
 
 import type { RegulationEdition } from '../../codes/regulation';
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
+import { minClearSpacingColumn } from '../../codes/cirsoc201/spacing';
+import { repeatedCageLapClearance } from '../detailing/column-lap-geometry';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
@@ -48,9 +50,11 @@ interface ColumnLongOption {
   totalCount: number;
   area: number;
   rho: number;
+  /** A repeated cage would crowd this lift's bars after its inward lap cranks. */
+  lapTight: boolean;
 }
 
-/** Ordered longitudinal options: least steel first, symmetric by construction. */
+/** Prefer room for lap cranks, then least steel, within the existing search bounds. */
 export function buildColumnLongOptions(ctx: MemberContext): ColumnLongOption[] {
   const { b, h } = ctx.section;
   const Ag = b * h;
@@ -71,11 +75,19 @@ export function buildColumnLongOptions(ctx: MemberContext): ColumnLongOption[] {
         cornerDia: dia, faceDia: dia, nBottom: perFace, nTop: perFace, nLeft: perFace, nRight: perFace,
       });
       if (!layout.constructible) continue;
-      out.push({ dia, perFace, totalCount, area, rho });
+      // The drawn lap cranks these bars inward. A cage fitting at its nominal perimeter
+      // can lose the required spacing there (e.g. 28Ø16 in a 500 mm square). Try a roomier
+      // seed first, without declaring the crowded option impossible.
+      const lapClear = repeatedCageLapClearance(
+        layout.bars.map(bar => ({ x: bar.x - b / 2, y: bar.y - h / 2 })), dia);
+      const required = minClearSpacingColumn(ctx.codeEdition, {
+        barDiameterMm: dia, maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
+      }).minClear;
+      out.push({ dia, perFace, totalCount, area, rho, lapTight: lapClear < required - 1e-9 });
     }
   }
-  // Preference: least steel, then fewer bars, then smaller diameter.
-  out.sort((x, y) => x.area - y.area || x.totalCount - y.totalCount || x.dia - y.dia);
+  // This orders trials only. Strength and the actual final detail remain authoritative.
+  out.sort((x, y) => Number(x.lapTight) - Number(y.lapTight) || x.area - y.area || x.totalCount - y.totalCount || x.dia - y.dia);
   return out.slice(0, COLUMN_LIMITS.maxLongOptions);
 }
 

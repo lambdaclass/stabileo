@@ -43,6 +43,8 @@ interface Coverage {
   requiredBends: number; witnessedBends: number;
   prohibited: number; reportable: number;
   unsupported: string[];
+  nonClashUnsupported: string[];
+  blockingConflicts: number; openClashes: number;
   outcome: string; truncated: boolean; assemblies: number;
   verdicts: string[];
 }
@@ -72,6 +74,11 @@ function coverageOf(r: RunDetailingResult): Coverage {
     reportable: conflicts.length,
     unsupported: [...new Set(
       r.assemblies.flatMap((a) => a.unsupported.map((u) => String(u.message))))].sort(),
+    nonClashUnsupported: r.assemblies.flatMap(a => a.unsupported)
+      .filter(u => u.key !== 'detailing.clash.unresolved').map(u => String(u.message)),
+    blockingConflicts: conflicts.filter(c => c.severity !== 'marginal').length,
+    openClashes: r.assemblies.flatMap(a => a.unsupported)
+      .filter(u => u.key === 'detailing.clash.unresolved').length,
     outcome: r.layoutSearch.outcome,
     truncated: r.layoutSearch.stats.truncated,
     assemblies: r.assemblies.length,
@@ -157,11 +164,14 @@ describe('every fixture carries a physical transverse cage', () => {
       // The search reached a definite outcome rather than being cut off by a bound.
       expect(c.truncated, 'search truncated').toBe(false);
       expect(c.outcome).toBe(f.outcome);
+      // Cage conflicts must reach member holds even when the repair ladder cannot move them.
+      expect(c.openClashes).toBeGreaterThanOrEqual(c.blockingConflicts);
 
       // ── Per fixture, with the reason recorded above ──
       if (f.fullyRestrained) {
         expect(c.witnessedBends, `unwitnessed bends (${f.why ?? ''})`).toBe(c.requiredBends);
-        expect(c.unsupported, 'unsupported').toEqual([]);
+        // Restraining every bend does not make the cage clash-free (row-2 below).
+        expect(c.nonClashUnsupported, 'unsupported apart from reported clashes').toEqual([]);
       } else {
         expect(c.witnessedBends, `${f.name} should still fall short: ${f.why}`)
           .toBeLessThan(c.requiredBends);

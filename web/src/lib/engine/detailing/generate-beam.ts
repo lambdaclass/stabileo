@@ -106,7 +106,7 @@ export interface BeamGenerationInput {
   /** Nominal shear strength at each station, kN — for the §9.7.3.5 tests. */
   vn: number;
   /** Chosen bottom reinforcement (from the coordinator). */
-  bottom: { count: number; diameterMm: number };
+  bottom: { count: number; diameterMm: number; rowCounts?: readonly number[] };
   /** Chosen top reinforcement at each support. */
   topStart: { count: number; diameterMm: number };
   topEnd: { count: number; diameterMm: number };
@@ -502,11 +502,37 @@ export function mergeStirrupZones(zones: readonly StirrupZone[], L: number): Sti
     const prev = out[out.length - 1];
     if (prev && Math.abs(prev.to - from) < 1e-9
       && prev.spacing === governing.spacing && prev.diameterMm === governing.diameterMm
-      && prev.legs === governing.legs && prev.reason === governing.reason) {
+      && prev.legs === governing.legs && prev.reason === governing.reason
+      && prev.acrossMax === governing.acrossMax && prev.row === governing.row) {
       prev.to = to;
     } else {
       out.push({ ...governing, from, to });
     }
+  }
+  // A requirement boundary can leave a millimetre-wide sliver between two zones.
+  // Independent station sequences then put complete cages on both of its ends.
+  // Extend a compatible adjacent cage over the sliver at the tighter pitch. This
+  // changes the instruction before both generation and independent coverage counting.
+  const compatible = (a: StirrupZone, b: StirrupZone) => a.diameterMm === b.diameterMm
+    && a.legs === b.legs && a.acrossMax === b.acrossMax && a.row === b.row;
+  for (let i = 0; i < out.length;) {
+    const z = out[i];
+    // legs - 1 pieces, including the perimeter closure, plus the surface radii.
+    const thickness = Math.max(2, Math.floor(z.legs)) * z.diameterMm / 1000;
+    if (z.to - z.from >= thickness + 1e-6) { i++; continue; }
+    const neighbors = [i - 1, i + 1].filter(j => j >= 0 && j < out.length
+      && compatible(z, out[j]) && Math.abs(j < i ? out[j].to - z.from : z.to - out[j].from) < 1e-9);
+    if (!neighbors.length) { i++; continue; }
+    // Prefer the extension requiring fewer extra sets over the adjacent zone.
+    const extra = (j: number) => (out[j].to - out[j].from)
+      * (1 / Math.min(z.spacing, out[j].spacing) - 1 / out[j].spacing);
+    neighbors.sort((a, b) => extra(a) - extra(b) || a - b);
+    const j = neighbors[0], adjacent = out[j], first = Math.min(i, j);
+    const tighter = z.spacing < adjacent.spacing ? z : adjacent;
+    const refs = [...new Map([...z.refs, ...adjacent.refs].map(r => [JSON.stringify(r), r])).values()];
+    out.splice(first, 2, { ...tighter, from: Math.min(z.from, adjacent.from),
+      to: Math.max(z.to, adjacent.to), refs });
+    i = Math.max(0, first - 1);
   }
   return out;
 }
@@ -566,6 +592,8 @@ export interface BarSlot {
  */
 export function layoutBarRow(opts: {
   count: number;
+  /** Explicit outer-to-inner row counts from a provided cage. */
+  rowCounts?: readonly number[];
   diameterMm: number;
   /** Section width available between the stirrup legs, m. */
   clearWidth: number;
@@ -592,19 +620,25 @@ export function layoutBarRow(opts: {
   // rather than nothing — the shortfall is reported by `fits`.
   const perLayer = Math.max(1, Math.min(count,
     Math.floor((clearWidth + minClear) / (d + minClear))));
-  const layers = Math.ceil(count / perLayer);
-  const fits = perLayer * layers >= count && perLayer >= Math.min(count, 2);
+  const requested = opts.rowCounts;
+  const validRows = requested && requested.length > 0
+    && requested.reduce((n, v) => n + v, 0) === count
+    && requested.every((n, i) => Number.isSafeInteger(n) && n >= 2 && n <= perLayer
+      && (i === 0 || n <= requested[i - 1]));
+  const rows = validRows ? requested : Array.from({ length: Math.ceil(count / perLayer) },
+    (_, i) => Math.min(perLayer, count - i * perLayer));
+  const layers = rows.length;
+  const fits = (!requested || !!validRows) && perLayer * layers >= count && perLayer >= Math.min(count, 2);
 
   const slots: BarSlot[] = [];
   // Layer 0 spread to the full available width, so its outer bars seat against the stirrup
   // legs and §25.7.1.2's bends contain a bar by construction.
-  const inFirst = Math.min(perLayer, count);
+  const inFirst = rows[0];
   const basePitch = inFirst > 1 ? (clearWidth - d) / (inFirst - 1) : 0;
   const baseAcross = (k: number) => (inFirst > 1 ? -(clearWidth - d) / 2 + k * basePitch : 0);
 
-  let placed = 0;
   for (let layer = 0; layer < layers; layer++) {
-    const inThis = Math.min(perLayer, count - placed);
+    const inThis = rows[layer];
     // §25.2.2: an upper layer sits DIRECTLY ABOVE layer 0's bars, so it takes a centred subset
     // of layer 0's positions rather than a spread of its own.
     const offset = Math.floor((inFirst - inThis) / 2);
@@ -617,7 +651,6 @@ export function layoutBarRow(opts: {
         layer,
       });
     }
-    placed += inThis;
   }
   return { slots, layers, perLayer, fits };
 }
@@ -792,12 +825,14 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
    */
   const intoLayer = (rows: ReadonlyArray<ReadonlyArray<number>>, layer: number, dia: number) =>
     stackedLayerDepth(rows, layer, dia, inset, input.edition) - inset(dia);
-  const placeGroup = (count: number, dia: number, faceUpward: boolean, own = false, outerHalf?: number, rows: ReadonlyArray<ReadonlyArray<number>> = []) => {
+  const placeGroup = (count: number, dia: number, faceUpward: boolean, own = false, outerHalf?: number, rows: ReadonlyArray<ReadonlyArray<number>> = [], rowCounts?: readonly number[]) => {
     // `outerHalf`: the row's outer bars at ±outerHalf instead of in the stirrup's bends.
     const clearWidth = outerHalf !== undefined ? 2 * outerHalf + dia / 1000 : clearWidthFor(dia);
     const layout = layoutBarRow({
-      count, diameterMm: dia, clearWidth,
-      minClear: spacing.minClear, layerClear: layerSpacing.minClear,
+      count, rowCounts, diameterMm: dia, clearWidth,
+      minClear: minClearSpacingInLayer(input.edition, {
+        barDiameterMm: dia, maxAggregateSizeMm: input.maxAggregateSizeMm,
+      }).minClear, layerClear: layerSpacing.minClear,
       placementTolerance: DEFAULT_TOLERANCES.placement,
     });
     if (!layout.fits && count > 1) {
@@ -1120,9 +1155,11 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     }
   }
 
-  const botWide = fromLine ? [] : placeGroup(Math.max(input.bottom.count, input.transverseSlots?.length ?? 0), input.bottom.diameterMm, false);
+  const botWide = fromLine || input.bottom.rowCounts ? [] : placeGroup(Math.max(input.bottom.count, input.transverseSlots?.length ?? 0), input.bottom.diameterMm, false);
   const botPick = fromLine ? [] : pickLegal(botWide, input.bottom.count, input.bottom.diameterMm);
-  const botSlotsRaw = fromLine ? [] : botPick ? botPick.map((i) => botWide[i]!) : placeGroup(input.bottom.count, input.bottom.diameterMm, false, true);
+  const botSlotsRaw = fromLine ? [] : input.bottom.rowCounts
+    ? placeGroup(input.bottom.count, input.bottom.diameterMm, false, true, undefined, [], input.bottom.rowCounts)
+    : botPick ? botPick.map((i) => botWide[i]!) : placeGroup(input.bottom.count, input.bottom.diameterMm, false, true);
   /**
    * Which bottom bars continue, and which are curtailed — ordered OUTERMOST FIRST.
    *
@@ -1388,14 +1425,23 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     // coordinated ones where they take it, the group's own row otherwise.
     // The group's own row, where the coordinated one cannot take it, spans the pair as laid: its
     // outer bars on the pair's positions, the rest between them.
-    const pairHalf = Math.max(0, ...hangerOffsets.filter((hg) => hg.layer === 0).map((hg) => Math.abs(hg.across)));
+    // Threading can move one corner inward without moving the other. Mirroring the
+    // wider corner leaves the retained pair inside the fallback row and consumes its clear gap.
+    const pairAcross = hangerOffsets.filter((hg) => hg.layer === 0).map((hg) => hg.across);
+    const pairMin = Math.min(0, ...pairAcross), pairMax = Math.max(0, ...pairAcross);
+    const pairHalf = (pairMax - pairMin) / 2;
+    const pairCentre = (pairMax + pairMin) / 2;
     // The group's layers below the first step from the pair where the pair is the larger bar: a
     // Ø10 second layer under a Ø12 pair stepped from the Ø10 bars beside it stood 1,7 mm inside
     // the pair's clear distance (the blog's 20×40 beam, 6Ø10 at one support and 8Ø12 at the other).
     const topRows = [[t.group.diameterMm, ...hangerOffsets.filter((hg) => hg.layer === 0).map(() => hangerDia)]];
     const layTop = (own: boolean) => {
       const wide = own ? t.group.count : Math.max(t.group.count, input.transverseSlots?.length ?? 0);
-      const topSlots = placeGroup(wide, t.group.diameterMm, true, own, own && pairHalf > 0 ? pairHalf : undefined, topRows);
+      const topSlots = placeGroup(wide, t.group.diameterMm, true, own, own && pairHalf > 0 ? pairHalf : undefined, topRows)
+        .map(o => own && pairHalf > 0 ? {
+          ...o, across: o.across + pairCentre,
+          x: o.x + across.x * pairCentre, y: o.y + across.y * pairCentre, z: o.z + across.z * pairCentre,
+        } : o);
       const row0 = topSlots.map((o, i) => ({ o, i })).filter(({ o }) => o.layer === 0);
       const outerOn = (side: number) => row0
         .filter(({ o }) => Math.sign(o.across) === side || (side < 0 && o.across === 0))

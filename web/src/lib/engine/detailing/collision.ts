@@ -30,7 +30,7 @@ import { prepareCollisionKernel, collisionRepairKernelAvailable, collisionQueryF
  */
 
 import type { BarPath, Point3 } from '../../codes/cirsoc201/bar-geometry';
-import { samplePath } from '../../codes/cirsoc201/bar-geometry';
+import { samplePath, CLEARANCE_CHORD_TOLERANCE } from '../../codes/cirsoc201/bar-geometry';
 import type { PairClass, PairClassification } from './classify';
 
 export interface CollisionTolerances {
@@ -79,7 +79,7 @@ export const DEFAULT_TOLERANCES: CollisionTolerances = {
  * half a millimetre: below any fabrication tolerance, and a quarter of `CONTACT_ALLOWANCE`,
  * so it can never manufacture a contact or a clash on its own.
  */
-export const COLLISION_CHORD_TOLERANCE = 0.0005;
+export const COLLISION_CHORD_TOLERANCE = CLEARANCE_CHORD_TOLERANCE;
 
 export type ConflictSeverity = 'overlap' | 'clearance' | 'marginal';
 
