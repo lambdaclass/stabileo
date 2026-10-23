@@ -71,10 +71,24 @@ the times are approximate.
 | 3D 20³ | 8k | 31–34 ms | 93–100 ms | 0.44 s |
 | 3D 28²×26 | 20k (nnz(L) = 4.2M) | 0.28–0.31 s | 0.88–0.94 s | 4.3 s |
 
-LU is a fallback, about 15× the supernodal LDLᵀ on 3D fill. The supernodes are narrow, about
-2.2 columns on average, because the AMD has no supervariable merging. Merging would widen the
-panels and is the next speed-up. A 1,296-DOF space frame solves in the test suite in under a
-second in debug.
+LU is a fallback, about 15× the supernodal LDLᵀ on 3D fill.
+
+**Supervariables.** The ordering compresses supervariables (DOFs with identical structure: the 3
+or 6 of a node) and runs the engine's AMD on the quotient graph. The AMD itself is unchanged, and
+each group's members stay consecutive.
+
+On FE-like matrices of about 20k DOFs, fill and flops come out equal to plain AMD, and the
+ordering runs 3–14× faster (AMD alone: 190 → 36 ms on a 27-node solid pattern, 70 → 5 ms on a
+frame pattern).
+
+The supernodes do not get wider: on FE matrices they already span a node or more, with a mean
+width of 19.6 on the solid pattern and 10.4 on the frame. The AMD's mass elimination keeps a
+node's DOFs together, and the narrow supernodes measured earlier came from scalar Laplacians,
+which have no supervariables.
+
+More relaxed amalgamation (2–4× CHOLMOD's defaults) gains within noise. The numeric kernel
+already runs at about 9–11 GFlop/s, so the factorization is close to what a single thread without
+SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second in debug.
 
 ## The robust default
 

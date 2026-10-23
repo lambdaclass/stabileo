@@ -26,7 +26,9 @@
 mod ldlt;
 mod lu;
 mod pattern;
+mod supervariables;
 
-pub use ldlt::{ldlt_numeric, ldlt_numeric_simplicial, ldlt_numeric_supernodal, ldlt_symbolic, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
+pub use ldlt::{ldlt_numeric, ldlt_numeric_simplicial, ldlt_numeric_supernodal, ldlt_symbolic, ldlt_symbolic_plain, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
 pub use lu::{lu_numeric, LuFactor};
 pub use pattern::{SparseMatrix, SparsePattern};
+pub use supervariables::supervariable_groups;

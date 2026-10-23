@@ -20,6 +20,7 @@
 //! the upper triangle of P·A·Pᵀ.
 
 use super::pattern::{SparseMatrix, SparsePattern};
+use super::supervariables::{compressed_amd, supervariables};
 use crate::linalg::amd::amd_order;
 use std::rc::Rc;
 
@@ -70,6 +71,12 @@ pub struct LdltSymbolic {
 impl LdltSymbolic {
     pub fn l_nnz(&self) -> usize {
         self.lp[self.n]
+    }
+
+    /// Number of supernodes (panels); n / this is their mean width.
+    #[doc(hidden)]
+    pub fn supernode_count(&self) -> usize {
+        self.supernodes.start.len() - 1
     }
 }
 
@@ -136,22 +143,46 @@ fn postorder(parent: &[usize]) -> Vec<usize> {
     post
 }
 
-/// Symbolic factorization on an AMD ordering of the pattern, postordered
-/// (which keeps the fill and makes supernodes contiguous).
-pub fn ldlt_symbolic(p: &SparsePattern) -> LdltSymbolic {
+fn plain_amd(p: &SparsePattern) -> Vec<usize> {
     let (cp, ri) = p.lower();
-    let amd = amd_order(p.n, &cp, &ri);
-    let iperm = check_perm(p.n, &amd);
-    let parent = etree(p, &amd, &iperm);
-    let post = postorder(&parent);
-    let perm: Vec<usize> = post.iter().map(|&k| amd[k]).collect();
-    ldlt_symbolic_with_perm(p, &perm)
+    amd_order(p.n, &cp, &ri)
 }
 
-/// Symbolic factorization on a given ordering, `perm[new] = old`.
-pub fn ldlt_symbolic_with_perm(p: &SparsePattern, perm: &[usize]) -> LdltSymbolic {
+/// Postorders the elimination tree of `order`: same fill, and supernodes
+/// contiguous.
+fn postordered(p: &SparsePattern, order: &[usize]) -> Vec<usize> {
+    let iperm = check_perm(p.n, order);
+    let parent = etree(p, order, &iperm);
+    postorder(&parent).iter().map(|&k| order[k]).collect()
+}
+
+/// Symbolic factorization on a fill-reducing ordering of the pattern.
+///
+/// Variables with identical structure (a node's DOFs) are found first and
+/// ordered as one: AMD on the quotient graph, one vertex per group, each
+/// group's members consecutive. On the FE block matrices of the tests this
+/// gives the same fill and the same supernodes as AMD on the full graph
+/// (whose mass elimination already keeps a node's DOFs together), and the
+/// ordering costs 5–13× less: AMD runs on a graph 3 or 6 times smaller. A
+/// pattern with nothing to compress takes plain AMD. The result is
+/// postordered.
+pub fn ldlt_symbolic(p: &SparsePattern) -> LdltSymbolic {
+    let sv = supervariables(p);
+    let order = if sv.members.len() == p.n { plain_amd(p) } else { compressed_amd(p, &sv) };
+    ldlt_symbolic_with_perm(p, &postordered(p, &order))
+}
+
+/// The symbolic factorization on plain AMD (postordered), without
+/// supervariable compression: for comparisons.
+#[doc(hidden)]
+pub fn ldlt_symbolic_plain(p: &SparsePattern) -> LdltSymbolic {
+    ldlt_symbolic_with_perm(p, &postordered(p, &plain_amd(p)))
+}
+
+/// The elimination tree and the column counts of L (strictly lower) for an
+/// ordering.
+fn column_counts(p: &SparsePattern, perm: &[usize], iperm: &[usize]) -> (Vec<usize>, Vec<usize>) {
     let n = p.n;
-    let iperm = check_perm(n, perm);
     let mut parent = vec![NONE; n];
     let mut flag = vec![NONE; n];
     let mut lnz = vec![0usize; n];
@@ -174,6 +205,14 @@ pub fn ldlt_symbolic_with_perm(p: &SparsePattern, perm: &[usize]) -> LdltSymboli
             }
         }
     }
+    (parent, lnz)
+}
+
+/// Symbolic factorization on a given ordering, `perm[new] = old`.
+pub fn ldlt_symbolic_with_perm(p: &SparsePattern, perm: &[usize]) -> LdltSymbolic {
+    let n = p.n;
+    let iperm = check_perm(n, perm);
+    let (parent, lnz) = column_counts(p, perm, &iperm);
     let mut lp = vec![0usize; n + 1];
     for k in 0..n {
         lp[k + 1] = lp[k] + lnz[k];

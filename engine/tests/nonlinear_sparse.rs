@@ -432,3 +432,177 @@ fn supernodal_refuses_the_same_zero_pivot() {
     b.values[p.position(0, 0).unwrap()] = f64::NAN;
     assert!(matches!(ldlt_numeric_supernodal(&sym, &b, 1e-14), Err(LdltError::TinyPivot { column: 0, .. })));
 }
+
+// ==================== Supervariables ====================
+
+/// An FE-like block matrix: nodes on an nx × ny × nz grid with `dofs` DOFs
+/// each (every `partial.0`-th node keeps only `partial.1` of them, as a node
+/// with restrained DOFs does), coupled to their 6 face neighbours (a frame)
+/// or to all 26 (`box27`, a solid mesh). K = Σ over coupled pairs of
+/// [B −B; −B B], plus I on every DOF, minus `shift`·I: B a fixed SPD block.
+/// Returns the matrix and each node's DOFs.
+fn block_matrix(
+    (nx, ny, nz): (usize, usize, usize),
+    dofs: usize,
+    box27: bool,
+    partial: Option<(usize, usize)>,
+    shift: f64,
+) -> (SparseMatrix, Vec<Vec<usize>>) {
+    let id = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
+    let nodes = nx * ny * nz;
+    let mut node_dofs = Vec::with_capacity(nodes);
+    let mut next = 0;
+    for v in 0..nodes {
+        let count = match partial {
+            Some((every, keep)) if v % every == every - 1 => keep,
+            _ => dofs,
+        };
+        node_dofs.push((next..next + count).collect::<Vec<usize>>());
+        next += count;
+    }
+    let mut edges = Vec::new();
+    for k in 0..nz {
+        for j in 0..ny {
+            for i in 0..nx {
+                for dk in -1i64..=1 {
+                    for dj in -1i64..=1 {
+                        for di in -1i64..=1 {
+                            let face = (di.abs() + dj.abs() + dk.abs()) == 1;
+                            if (di, dj, dk) == (0, 0, 0) || (!box27 && !face) {
+                                continue;
+                            }
+                            let (a, b, c) = (i as i64 + di, j as i64 + dj, k as i64 + dk);
+                            if a < 0 || b < 0 || c < 0 || a >= nx as i64 || b >= ny as i64 || c >= nz as i64 {
+                                continue;
+                            }
+                            let (p, q) = (id(i, j, k), id(a as usize, b as usize, c as usize));
+                            if q > p {
+                                edges.push((p, q));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let mut groups: Vec<Vec<usize>> = node_dofs.clone();
+    for &(p, q) in &edges {
+        groups.push(node_dofs[p].iter().chain(&node_dofs[q]).copied().collect());
+    }
+    let pattern = Rc::new(SparsePattern::from_groups(next, &groups));
+    let mut a = SparseMatrix::zeros(pattern.clone());
+    let block = |r: usize, c: usize| if r == c { 4.0 } else { 1.0 / (1.0 + r.abs_diff(c) as f64) };
+    let mut add = |r: usize, c: usize, v: f64| {
+        let k = pattern.position(r, c).unwrap();
+        a.values[k] += v;
+    };
+    for &(p, q) in &edges {
+        let (dp, dq) = (&node_dofs[p], &node_dofs[q]);
+        for (x, &r) in dp.iter().enumerate() {
+            for (y, &c) in dp.iter().enumerate() {
+                add(r, c, block(x, y));
+            }
+            for (y, &c) in dq.iter().enumerate() {
+                add(r, c, -block(x, y));
+                add(c, r, -block(x, y));
+            }
+        }
+        for (x, &r) in dq.iter().enumerate() {
+            for (y, &c) in dq.iter().enumerate() {
+                add(r, c, block(x, y));
+            }
+        }
+    }
+    for d in 0..next {
+        add(d, d, 1.0 - shift);
+    }
+    (a, node_dofs)
+}
+
+/// Each node's DOFs are one supervariable, partial nodes included, and no
+/// two nodes share one.
+#[test]
+fn supervariables_are_the_nodes_dofs() {
+    for (dofs, box27) in [(3, true), (6, false)] {
+        let (a, node_dofs) = block_matrix((5, 4, 3), dofs, box27, Some((5, 3)), 0.0);
+        let groups = supervariable_groups(&a.pattern);
+        assert_eq!(groups, node_dofs, "{dofs} DOFs per node");
+    }
+    // A Laplacian has nothing to compress.
+    let a = laplacian(6, 5, 4, 0.1);
+    assert_eq!(supervariable_groups(&a.pattern).len(), a.pattern.n);
+}
+
+/// The compressed ordering gives supernodes at least a node wide and no
+/// more fill than plain AMD (within 10 %), and the factorization is the
+/// same: residuals, and inertia against simplicial on plain AMD, definite
+/// and indefinite.
+#[test]
+fn compressed_ordering_widens_supernodes_and_factors_the_same() {
+    for (dofs, box27) in [(3, true), (6, false)] {
+        for shift in [0.0, 2.5] {
+            let (a, _) = block_matrix((6, 6, 5), dofs, box27, Some((7, 3)), shift);
+            let n = a.pattern.n;
+            let sym = Rc::new(ldlt_symbolic(&a.pattern));
+            let plain = Rc::new(ldlt_symbolic_plain(&a.pattern));
+            let width = n as f64 / sym.supernode_count() as f64;
+            let width_plain = n as f64 / plain.supernode_count() as f64;
+            // At least a node (some keep 3 DOFs), never narrower than plain AMD.
+            assert!(width >= 3.0 && width >= width_plain, "{dofs} DOFs: mean width {width} (plain AMD {width_plain})");
+            assert!(sym.l_nnz() as f64 <= 1.1 * plain.l_nnz() as f64);
+            let b = rhs(n, 7);
+            let f = ldlt_numeric(&sym, &a, 1e-14).unwrap();
+            let reference = ldlt_numeric_simplicial(&plain, &a, 1e-14).unwrap();
+            assert_eq!(f.inertia(), reference.inertia(), "{dofs} DOFs, shift {shift}");
+            if shift == 0.0 {
+                assert_eq!(f.inertia(), (0, 0, n));
+            } else {
+                assert!(f.inertia().0 > 0, "the shift makes it indefinite");
+            }
+            let x = f.solve(&b);
+            let xr = reference.solve(&b);
+            assert!(rel_residual(&a, &x, &b) < 1e-10, "{dofs} DOFs, shift {shift}: residual {}", rel_residual(&a, &x, &b));
+            let scale = xr.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+            assert!(x.iter().zip(&xr).all(|(p, q)| (p - q).abs() <= 1e-8 * scale), "{dofs} DOFs, shift {shift}: solutions differ");
+        }
+    }
+}
+
+/// Plain against compressed AMD on FE-like block matrices of about 20k DOFs
+/// (print with `--nocapture`; release for real numbers, where they run;
+/// debug runs a small one).
+#[test]
+fn supervariable_timings_on_block_matrices() {
+    let cases: &[((usize, usize, usize), usize, bool)] = if cfg!(debug_assertions) {
+        &[((6, 6, 6), 3, true), ((6, 6, 6), 6, false)]
+    } else {
+        &[((19, 19, 19), 3, true), ((15, 15, 15), 6, false)]
+    };
+    for &(grid, dofs, box27) in cases {
+        let (a, _) = block_matrix(grid, dofs, box27, None, 0.0);
+        let n = a.pattern.n;
+        let b = rhs(n, 5);
+        for (name, compressed) in [("plain AMD", false), ("supervariables", true)] {
+            let t = Instant::now();
+            let sym = Rc::new(if compressed { ldlt_symbolic(&a.pattern) } else { ldlt_symbolic_plain(&a.pattern) });
+            let t_sym = t.elapsed();
+            let mut t_num = std::time::Duration::MAX;
+            let mut f = None;
+            for _ in 0..3 {
+                let t = Instant::now();
+                f = Some(ldlt_numeric(&sym, &a, 1e-14).unwrap());
+                t_num = t_num.min(t.elapsed());
+            }
+            let f = f.unwrap();
+            let x = f.solve(&b);
+            assert!(rel_residual(&a, &x, &b) < 1e-10);
+            assert_eq!(f.inertia(), (0, 0, n));
+            eprintln!(
+                "{grid:?}, {dofs} DOFs/node{} (n = {n}), {name}: mean width {:.1}, nnz(L) = {}, symbolic {t_sym:?}, numeric {t_num:?}",
+                if box27 { ", 27-node coupling" } else { ", frame coupling" },
+                n as f64 / sym.supernode_count() as f64,
+                sym.l_nnz()
+            );
+        }
+    }
+}
