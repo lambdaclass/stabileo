@@ -193,14 +193,14 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
         (phi_mn, f.a, f.c, f.epsilon_t, phi)
     };
 
-    // Shear capacity
-    let phi_vn: f64 = shear_capacity(m);
+    // Shear capacity (ACI 318-19 Table 22.5.5.1 includes axial force Nu = -nu, compression positive)
+    let pu = -nu; // compression positive
+    let phi_vn: f64 = shear_capacity(m, pu);
     let (phi_pn_max, phi_pnt): (f64, f64) = axial_capacity(m);
 
     // Demand ratios
     let mu_abs = f.mu.abs();
     let vu_abs = f.vu.unwrap_or(0.0).abs();
-    let pu = -nu; // compression positive
 
     let flexure_ratio = ledger.ratio(RC_FLEXURE, mu_abs, phi_mn);
     if nu != 0.0 && matches!(m.section_type, RCSectionType::TBeam) {
@@ -259,17 +259,22 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
     }
 }
 
-/// ACI 318-19 22.4.2 / 22.4.3: (phi*Pn,max, phi*Pnt) for a tied section,
-/// phi*Pn,max = 0.80·0.65·[0.85·f'c·(Ag − Ast) + fy·Ast], phi*Pnt = 0.90·fy·Ast.
-pub(crate) fn axial_capacity<T: Real>(m: &RCMemberData) -> (T, T) {
-    let ast = T::exact(m.as_tension) + T::exact(m.as_compression.unwrap_or(0.0));
-    let ag = match m.section_type {
+/// Gross area Ag of a rectangular or T-section (m²).
+pub(crate) fn gross_area<T: Real>(m: &RCMemberData) -> T {
+    match m.section_type {
         RCSectionType::Rectangular => T::exact(m.b) * T::exact(m.h),
         RCSectionType::TBeam => {
             let (bf, hf) = tbeam_flange(m);
             T::exact(m.b) * T::exact(m.h) + (T::exact(bf) - T::exact(m.b)) * T::exact(hf)
         }
-    };
+    }
+}
+
+/// ACI 318-19 22.4.2 / 22.4.3: (phi*Pn,max, phi*Pnt) for a tied section,
+/// phi*Pn,max = 0.80·0.65·[0.85·f'c·(Ag − Ast) + fy·Ast], phi*Pnt = 0.90·fy·Ast.
+pub(crate) fn axial_capacity<T: Real>(m: &RCMemberData) -> (T, T) {
+    let ast = T::exact(m.as_tension) + T::exact(m.as_compression.unwrap_or(0.0));
+    let ag = gross_area::<T>(m);
     let fy = T::exact(m.fy);
     let po = T::lit(0.85) * T::exact(m.fc) * (ag - ast) + fy * ast;
     (T::lit(0.80) * T::lit(0.65) * po, T::lit(0.90) * fy * ast)
@@ -330,15 +335,18 @@ pub(crate) fn interaction_point<T: Real>(m: &RCMemberData, es: f64, c: T) -> (T,
     let cc = T::lit(0.85) * fc * a * b;
 
     let strain_at = |depth: T| T::lit(0.003) * (c - depth).dv(c);
+    let zero = T::exact(0.0);
+    let k_fc = T::lit(0.85) * fc;
 
-    // Compression steel: net of the concrete it displaces.
-    let fs_comp = (strain_at(d_prime) * es).max(-fy).min(fy);
-    let cs = as_comp * (fs_comp - T::lit(0.85) * fc);
+    // Compression steel: net of the concrete it displaces only when in compression (c >= d').
+    let eps_comp = strain_at(d_prime);
+    let fs_comp = (eps_comp * es).max(-fy).min(fy);
+    let cs = as_comp * branch(zero.le(eps_comp), || fs_comp - k_fc, || fs_comp);
 
-    // Tension steel: positive strain_at means compression, so flip.
+    // Tension steel: positive strain_at means compression, so flip; net of displaced concrete when c > d.
     let epsilon_t = -strain_at(d);
     let fs_tens = (epsilon_t * es).max(-fy).min(fy);
-    let t = T::exact(m.as_tension) * fs_tens;
+    let t = T::exact(m.as_tension) * branch(zero.le(epsilon_t), || fs_tens, || (fs_tens + k_fc).min(zero));
 
     let pn = cc + cs - t;
     let mn = cc * (h.dv(two) - a.dv(two)) + cs * (h.dv(two) - d_prime) + t * (d - h.dv(two));
@@ -397,28 +405,29 @@ fn axial_flexure_capacity(m: &RCMemberData, es: f64, pu: f64) -> (f64, f64, f64,
 /// it is not, the size-effect factor lambda_s applies — and since it only bites
 /// for d > 250 mm, leaving it out was unconservative for essentially every beam.
 /// Generic over `Real` for the certified check.
-pub(crate) fn shear_capacity<T: Real>(m: &RCMemberData) -> T {
+pub(crate) fn shear_capacity<T: Real>(m: &RCMemberData, axial_compression: T) -> T {
     let lambda = T::exact(m.lambda.unwrap_or(1.0));
-    let fc_mpa = T::exact(m.fc).dv(T::exact(1e6));
+    let mpa = T::exact(1e6);
+    let fc_mpa = T::exact(m.fc).dv(mpa);
     let bw_mm = T::exact(m.b) * T::exact(1000.0);
     let d_mm = T::exact(m.d) * T::exact(1000.0);
-    let sqrt_fc = fc_mpa.sqrt();
+    // ACI 318-19 22.5.3.1: sqrt(f'c) <= 8.3 MPa across shear provisions.
+    let sqrt_fc = fc_mpa.sqrt().min(T::lit(8.3));
     let zero = T::exact(0.0);
 
-    // Vs = Av * fy * d / s  (all in base SI: m², Pa, m, m → N)
+    // ACI 318-19 Table 20.2.2.4(a) & 22.5.3.3: fyt used in Vs shall not exceed 420 MPa.
+    let fyt_vs = T::exact(m.fy.min(420e6));
+    // Vs = Av * fyt * d / s  (all in base SI: m², Pa, m, m → N)
     let vs = match (m.av, m.s_stirrup) {
-        (Some(av), Some(s)) if s > 0.0 => (T::exact(av) * T::exact(m.fy) * T::exact(m.d)).dv(T::exact(s)),
+        (Some(av), Some(s)) if s > 0.0 => (T::exact(av) * fyt_vs * T::exact(m.d)).dv(T::exact(s)),
         _ => zero,
     };
 
     // ACI 318-19 9.6.3.4: Av,min = max(0.062·sqrt(f'c)·bw·s/fyt, 0.35·bw·s/fyt)
-    let vc_with_min = || T::lit(0.17) * lambda * sqrt_fc * bw_mm * d_mm;
-    let vc_without_min = || {
-        // 22.5.5.1(c): Vc = 0.66·lambda_s·lambda·rho_w^(1/3)·sqrt(f'c)·bw·d
+    let vc_base_with_min = || T::lit(0.17) * lambda * sqrt_fc;
+    let vc_base_without_min = || {
+        // 22.5.5.1(c): Vc = [0.66·lambda_s·lambda·rho_w^(1/3)·sqrt(f'c) + Nu/(6·Ag)]·bw·d
         // 22.5.5.1.3: lambda_s = sqrt(2/(1 + d/250)) <= 1.0, d in mm.
-        // 22.5.3.1: sqrt(f'c) <= 8.3 MPa here (22.5.3.2 lifts the cap only
-        // with minimum shear reinforcement); uncapped, Vc was overstated for
-        // f'c > 69 MPa.
         let one = T::exact(1.0);
         let lambda_s = (T::exact(2.0).dv(one + d_mm.dv(T::exact(250.0)))).sqrt().min(one);
         let rho_w = if m.b > 0.0 && m.d > 0.0 {
@@ -426,20 +435,31 @@ pub(crate) fn shear_capacity<T: Real>(m: &RCMemberData) -> T {
         } else {
             zero
         };
-        T::lit(0.66) * lambda_s * lambda * cbrt(rho_w) * sqrt_fc.min(T::lit(8.3)) * bw_mm * d_mm
+        T::lit(0.66) * lambda_s * lambda * cbrt(rho_w) * sqrt_fc
     };
-    let vc = match (m.av, m.s_stirrup) {
+    let vc_base = match (m.av, m.s_stirrup) {
         (Some(av), Some(s)) if s > 0.0 && m.fy > 0.0 => {
             let s_mm = T::exact(s) * T::exact(1000.0);
-            let fy_mpa = T::exact(m.fy).dv(T::exact(1e6));
+            let fy_mpa = T::exact(m.fy).dv(mpa);
             let av_min_mm2 = (T::lit(0.062) * sqrt_fc * bw_mm * s_mm)
                 .dv(fy_mpa)
                 .max((T::lit(0.35) * bw_mm * s_mm).dv(fy_mpa));
             let av_mm2 = T::exact(av) * T::exact(1e6);
-            branch(av_min_mm2.le(av_mm2), vc_with_min, vc_without_min)
+            branch(av_min_mm2.le(av_mm2), vc_base_with_min, vc_base_without_min)
         }
-        _ => vc_without_min(),
+        _ => vc_base_without_min(),
     };
+
+    // ACI 318-19 Table 22.5.5.1, 22.5.5.1.1 & 22.5.5.1.2:
+    // Nu/(6·Ag) in MPa (compression positive), capped at 0.05·f'c, with 0 <= Vc <= 0.42·lambda·sqrt(f'c)·bw·d.
+    let ag = gross_area::<T>(m);
+    let axial_mpa = if m.b > 0.0 && m.h > 0.0 {
+        axial_compression.dv(ag * mpa).dv(T::exact(6.0)).min(T::lit(0.05) * fc_mpa)
+    } else {
+        zero
+    };
+    let vc_mpa = (vc_base + axial_mpa).max(zero).min(T::lit(0.42) * lambda * sqrt_fc);
+    let vc = (vc_mpa * bw_mm * d_mm).max(zero);
 
     // Maximum Vs limit: 0.66 * sqrt(f'c_MPa) * bw_mm * d_mm (N)
     let vs_max = T::lit(0.66) * sqrt_fc * bw_mm * d_mm;
