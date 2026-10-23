@@ -45,12 +45,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Outside `nix develop`, node and cargo may not be on PATH: re-enter through the flake, which
-# pins both (the hook runs from whatever shell `git push` was typed in).
+# Outside `nix develop`, re-enter through the flake (a few seconds), which pins node and rust:
+# the hook runs from whatever shell `git push` was typed in, and the node on PATH there can be
+# another major (Homebrew's 26 on one machine here, against the project's 22).
+if [ "$dry" = 0 ] && [ -z "${IN_NIX_SHELL:-}" ] && [ -z "${TEST_CHANGED_IN_NIX:-}" ] && command -v nix >/dev/null 2>&1; then
+  TEST_CHANGED_IN_NIX=1 exec nix develop "$ROOT" --command "$0" ${ARGS[@]+"${ARGS[@]}"}
+fi
 if [ "$dry" = 0 ] && ! command -v npx >/dev/null 2>&1; then
-  if command -v nix >/dev/null 2>&1 && [ -z "${TEST_CHANGED_IN_NIX:-}" ]; then
-    TEST_CHANGED_IN_NIX=1 exec nix develop "$ROOT" --command "$0" ${ARGS[@]+"${ARGS[@]}"}
-  fi
   echo "test-changed: node is not on PATH (run inside \`nix develop\`)" >&2
   exit 2
 fi
