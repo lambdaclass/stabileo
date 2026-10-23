@@ -176,47 +176,91 @@ fn design_strengths<T: Real>(m: &Ec2MemberData) -> (T, T, T) {
     (fcd, fyd, fck_mpa)
 }
 
-/// Flexural resistance. Generic over `Real` so the certified check
-/// (`certify::design`) evaluates the same formula in interval arithmetic.
-pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+/// Whether the flexural section data are finite, positive, and define a
+/// strictly increasing force residual R(x) on x > 0.
+pub(crate) fn ec2_flexure_valid(m: &Ec2MemberData) -> bool {
+    let es = m.es.unwrap_or(200e9);
+    let gamma_c = m.gamma_c.unwrap_or(1.5);
+    let gamma_s = m.gamma_s.unwrap_or(1.15);
+    let alpha_cc = m.alpha_cc.unwrap_or(1.0);
+    let as_c = m.as_compression.unwrap_or(0.0);
+    let d_p = m.d_prime.unwrap_or(0.0);
+    [m.fck, m.fyk, es, gamma_c, gamma_s, alpha_cc, m.b, m.h, m.d, m.as_tension]
+        .iter()
+        .all(|v| v.is_finite() && *v > 0.0)
+        && m.fck < 250e6
+        && m.d <= m.h
+        && as_c.is_finite()
+        && d_p.is_finite()
+}
+
+fn doubly_steel(m: &Ec2MemberData) -> (f64, f64) {
+    match (m.as_compression, m.d_prime) {
+        (Some(as_c), Some(d_p)) if as_c > 0.0 && d_p > 0.0 && d_p < m.d => (as_c, d_p),
+        _ => (0.0, 0.0),
+    }
+}
+
+/// Force residual R(x) = Cc(x) + As'·fsc(x) − As·fst(x) (N) at neutral axis depth `x`.
+/// Continuous and strictly increasing in `x > 0` whenever `ec2_flexure_valid(m)` holds.
+fn ec2_flexure_residual<T: Real>(m: &Ec2MemberData, x: T) -> T {
     let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
     let es = T::exact(m.es.unwrap_or(200e9));
     let (one, fifty) = (T::exact(1.0), T::exact(50.0));
     let (as_t, b, d) = (T::exact(m.as_tension), T::exact(m.b), T::exact(m.d));
+    let (as_c, d_p) = doubly_steel(m);
 
-    // Using simplified rectangular stress block (EC2 3.1.7)
-    // lambda = 0.8 for fck <= 50 MPa, eta = 1.0
+    // Simplified rectangular stress block (EC2 3.1.7)
     let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
     let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
 
-    // Singly reinforced: force equilibrium
-    // C = eta * fcd * lambda * x * b
-    // T = As * fyd
-    // C = T => x = As * fyd / (eta * fcd * lambda * b)
-    let x_na = (as_t * fyd).dv(eta * fcd * lambda * b);
+    let ecu_es = T::lit(0.0035) * es;
+    let fsc = (ecu_es * (one - T::exact(d_p).dv(x))).max(-fyd).min(fyd);
+    let fst = (ecu_es * (d.dv(x) - one)).max(-fyd).min(fyd);
+    let cc = eta * fcd * lambda * x * b;
+    cc + T::exact(as_c) * fsc - as_t * fst
+}
 
-    // Check compression steel contribution
-    let (m_rd, z) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
-        let (as_c, d_p) = (T::exact(as_c), T::exact(d_p));
-        // Doubly reinforced
-        // Check if compression steel yields
-        let epsilon_cu = T::lit(0.0035); // EC2 3.1.7
-        let epsilon_sc = epsilon_cu * (one - d_p.dv(x_na));
-        let fsc = branch(fyd.le(epsilon_sc * es), || fyd, || epsilon_sc * es);
+/// Flexural resistance by strain compatibility (EC2 6.1, rectangular stress block 3.1.7).
+/// Generic over `Real` so the certified check (`certify::design`) evaluates the same
+/// formula in interval arithmetic.
+pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+    if !ec2_flexure_valid(m) {
+        let z = T::exact(0.0);
+        return Ec2Flexure { m_rd: z, z, x_na: z };
+    }
+    let (fcd_f, fyd_f, fck_mpa_f) = design_strengths::<f64>(m);
+    let lambda_f = if fck_mpa_f <= 50.0 { 0.8 } else { 0.8 - (fck_mpa_f - 50.0) / 400.0 };
+    let eta_f = if fck_mpa_f <= 50.0 { 1.0 } else { 1.0 - (fck_mpa_f - 50.0) / 200.0 };
+    let (as_c, d_p) = doubly_steel(m);
+    let s = (m.as_tension + as_c) * fyd_f / (eta_f * fcd_f * lambda_f * m.b);
+    if !(s > 0.0) || !s.is_finite() {
+        let z = T::exact(0.0);
+        return Ec2Flexure { m_rd: z, z, x_na: z };
+    }
+    // R(x) >= eta·fcd·lambda·b·x − (As + As')·fyd, so the root is below s;
+    // at x = lo_scale·1e-12 both steel strains exceed yield in tension, so R(lo) < 0.
+    let lo_scale = if d_p > 0.0 { s.min(m.d).min(d_p) } else { s.min(m.d) };
+    let x_na = T::increasing_root(
+        |x| ec2_flexure_residual::<f64>(m, x),
+        |x| ec2_flexure_residual::<T>(m, x),
+        lo_scale * 1e-12,
+        2.0 * s,
+    );
 
-        // Recompute x with compression steel
-        let x = (as_t * fyd - as_c * fsc).dv(eta * fcd * lambda * b);
-        let z_val = d - (lambda * x).dv(T::exact(2.0));
-        let m_c = eta * fcd * lambda * x * b * z_val;
-        let m_s = as_c * fsc * (d - d_p);
-        (m_c + m_s, z_val)
-    } else {
-        // Singly reinforced
-        let z_val = d - (lambda * x_na).dv(T::exact(2.0));
-        let m_rd_val = as_t * fyd * z_val;
-        (m_rd_val, z_val)
-    };
-    Ec2Flexure { m_rd, z, x_na }
+    let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
+    let es = T::exact(m.es.unwrap_or(200e9));
+    let (one, two, fifty) = (T::exact(1.0), T::exact(2.0), T::exact(50.0));
+    let (b, d) = (T::exact(m.b), T::exact(m.d));
+    let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
+    let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
+    let ecu_es = T::lit(0.0035) * es;
+    let fsc = (ecu_es * (one - T::exact(d_p).dv(x_na))).max(-fyd).min(fyd);
+
+    let z = d - (lambda * x_na).dv(two);
+    let m_c = eta * fcd * lambda * x_na * b * z;
+    let m_s = T::exact(as_c) * fsc * (d - T::exact(d_p));
+    Ec2Flexure { m_rd: m_c + m_s, z, x_na }
 }
 
 /// Shear resistance for axial force `n_ed` (tension-positive).
