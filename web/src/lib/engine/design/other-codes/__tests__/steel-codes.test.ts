@@ -7,7 +7,7 @@ import { modelStore } from '../../../../store/model.svelte';
 import { uiStore } from '../../../../store/ui.svelte';
 import '../../../../store/index';
 import { initSolver } from '../../../wasm-solver';
-import { memberContexts, runOtherCode } from '../run';
+import { memberContexts, runOtherCode, certifyOtherCode } from '../run';
 import { AISC360, EC3, aiscGaps } from '../steel-codes';
 import { ec3Class, ec3Curves } from '../ec3-classify';
 import { steelProps } from '../steel-props';
@@ -186,6 +186,46 @@ describe('steel members under other codes', () => {
     const ok = steelProps(IPE300 as never);
     if ('skip' in ok) throw new Error('props');
     expect(aiscGaps(ok, FY, E)).toEqual({ flexure: false, compression: false, shear: false });
+    // Round HSS (CHS) with D/t > (0.78/0.6)^(2/3)·(E/Fy)^(2/3) has reduced shear buckling Fcr (G5-2b).
+    const chsThin = steelProps({ name: 'CHS 500x3', shape: 'CHS', a: 46.8e-4, iy: 14450e-8, iz: 14450e-8, h: 0.5, b: 0.5, tw: 0.003, tf: 0.003, j: 28900e-8 } as never);
+    if ('skip' in chsThin) throw new Error('props');
+    expect(aiscGaps(chsThin, FY, E).shear).toBe(true);
+  });
+
+  it('certifyOtherCode refuses members with unevaluated checks instead of certifying OK', async () => {
+    const noncompactI = { ...IPE300, tf: 0.0055 };
+    modelStore.clear();
+    const mat = modelStore.addMaterial({ name: 'S235', e: E, nu: 0.3, rho: 78.5, fy: FY, fu: 360 } as never);
+    const sec = modelStore.addSection(noncompactI as never);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const el = modelStore.addElement(a, b, 'frame');
+    modelStore.updateElementMaterial(el, mat);
+    modelStore.updateElementSection(el, sec);
+    modelStore.addSupport(a, 'custom3d', undefined, { dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: false } });
+    modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { tx: false, ty: true, tz: true, rx: false, ry: false, rz: false } });
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    for (const c of [...modelStore.model.loadCases]) modelStore.removeLoadCase(c.id);
+    const dead = modelStore.addLoadCase('D', 'D');
+    modelStore.addDistributedLoad3D(el, 0, 0, -5, -5, undefined, undefined, dead);
+    modelStore.addCombination('1.0D', [{ caseId: dead, factor: 1 }]);
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const ctxs = memberContexts(modelStore.model as never, r.perCombo, modelStore.combinations);
+
+    const plain = runOtherCode(AISC360, ctxs).rows[0]!;
+    expect(plain.status).toBe('checked');
+    if (plain.status === 'checked') {
+      expect(plain.reading.pass).toBe(false);
+      expect(plain.reading.unevaluated).toContain('otherCodes.check.aiscNoncompact');
+    }
+
+    const certs = await certifyOtherCode(
+      AISC360,
+      ctxs,
+      (_c, id) => ({ elementId: id, axial: 0, shearY: 0, shearZ: 0, torsion: 0, momentY: 0, momentZ: 0 }),
+      () => Promise.resolve([{ elementId: el, certified: true, utilizationLower: 0.2, utilizationUpper: 0.21 }]),
+    );
+    expect(certs.get(el)).toEqual({ status: 'uncertified', reason: 'otherCodes.check.aiscNoncompact' });
   });
 
   it('classifies conservatively without the root radius, and refuses what it cannot read', () => {

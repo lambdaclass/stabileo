@@ -172,8 +172,12 @@ pub fn steel_ratio_enclosures(
     let compression = loaded_ratio(CHECK_NAMES[1], (-n).max(zero), phi_pn_c)?;
     let flex_y = loaded_ratio(CHECK_NAMES[2], my, phi_mn_y)?;
     let flex_z = loaded_ratio(CHECK_NAMES[3], mz, phi_mn_z)?;
-    // Shear: `if phi_vn > 0 { vy / phi_vn } else { 0 }`.
-    let shear = branch(zero.lt(phi_vn), || vy.div(phi_vn), || zero);
+    // Shear: when Aw is supplied, require a certified positive capacity under load.
+    let shear = if m.aw.is_some() {
+        loaded_ratio(CHECK_NAMES[4], vy, phi_vn)?
+    } else {
+        zero
+    };
     let axial = branch(n.lt(zero), || compression, || tension);
     let interaction = interaction_h1(axial, flex_y, flex_z);
     let out = [tension, compression, flex_y, flex_z, shear, interaction];
@@ -1384,6 +1388,17 @@ mod tests {
         let f0 = ElementDesignForces { my: 0.0, ..f.clone() };
         let r0 = steel_ratio_enclosures(&bad, &f0, &ZERO_BOUND);
         assert!(r0.is_ok(), "{r0:?}");
+        // Aw supplied with Cv1 <= 0 under shear demand: refused, not 0.0.
+        let mut bad_shear = m.clone();
+        bad_shear.cv1 = Some(0.0);
+        assert!(steel_ratio_enclosures(&bad_shear, &f, &ZERO_BOUND).is_err());
+        // Unbraced beam with iy <= 0 or column with ry <= 0: refused.
+        let mut bad_ltb = m.clone();
+        bad_ltb.iy = 0.0;
+        assert!(steel_ratio_enclosures(&bad_ltb, &f, &ZERO_BOUND).is_err());
+        let mut bad_ry = m.clone();
+        bad_ry.ry = 0.0;
+        assert!(steel_ratio_enclosures(&bad_ry, &f, &ZERO_BOUND).is_err());
         // Member level: uncertified, never "ok".
         let res = certify_steel_members(&CertifiedSteelCheckInput {
             members: vec![bad, w_member(2, 3.0)],
