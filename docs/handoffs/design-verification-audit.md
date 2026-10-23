@@ -6,6 +6,94 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Convergencia: usar los rechazos y evitar el crecimiento obligatorio del armado
+
+Un diseño terminado debe verificar; un candidato rechazado durante la búsqueda no es un
+diseño terminado. El rechazo debe aportar una restricción para la siguiente propuesta. Tampoco
+se puede declarar una sección inviable porque se agotó un presupuesto o porque fallaron las
+alternativas implementadas: esa afirmación requiere una prueba de insuficiencia.
+
+Los catálogos anteriores conservaban como piso el área máxima del armado retenido. Después
+de aceptar una barra adicional, las siguientes pasadas no podían volver a reducirla. Esa regla
+puede aumentar la congestión y excluir soluciones más livianas que resisten las cargas.
+
+El operador opt-in `harmonizeDemandCatalog`:
+
+- Calcula semillas por cara a partir de las solicitaciones, usando `computeBeamSeed` y
+  `seedAreaFor`. Considera familias iguales o distintas entre caras. La semilla es una guía,
+  no una capacidad certificada ni un mínimo obligatorio: prueba la población estimada, una
+  barra más y una menos, dentro de los límites existentes de filas, catálogos y secciones.
+- Conserva las comprobaciones fallidas con sus restricciones y valores. Un fallo resistente
+  prioriza alternativas con más área en la cara afectada; un fallo de anclaje prioriza menor
+  diámetro o menos filas; uno de congestión también puede priorizar menos barras. Prefiere
+  conservar la otra cara cuando no está implicada. Sólo reordena candidatos; no los certifica
+  ni elimina los restantes. Sigue alternando líneas y respetando el presupuesto.
+- Cuando el verificador pide un gancho inferior, reutiliza `completeAnchorage`: lo incorpora
+  al armado y hace una segunda verificación acotada. El gancho debe llegar al detallado real
+  y superar la comprobación completa de geometría. No se dan por resueltos pedidos de ganchos
+  superiores que ese mecanismo no implementa. Se contabilizan ambas llamadas al verificador.
+- Además de los controles globales existentes, exige disminuir estrictamente una medida
+  ordenada: miembros físicamente bloqueados, conflictos bloqueantes, condiciones abiertas y
+  parejas de empalme sin resolver. Los ensayos guardan la medida anterior y posterior.
+  Trasladar un choque entre miembros que ya fallaban, sin mejorar esos totales, se rechaza.
+
+La disminución estricta evita ciclos de reparaciones aceptadas en este operador. **No prueba
+convergencia a un edificio verificado**: quedan fuera configuraciones que el dominio no genera,
+y el presupuesto puede terminar antes de explorarlas. `budget` conserva ese significado. Los
+35 agotados nominales y los 13 provisionales biaxiales tampoco se convierten en aprobados por
+mejorar la geometría de los demás.
+
+Para cerrar los casos restantes, la siguiente ampliación debe responder al tipo de obstáculo:
+reabrir los agotados nominales cuando cambian las jaulas vecinas (la búsqueda física actual
+excluye miembros sin un armado nominalmente verificado); resolver conjuntamente las líneas
+que comparten un nudo cuando una mejora desplaza el choque;
+probar disposiciones completas de filas y ganchos cuando cambia la coordinación; y recurrir
+a otras soluciones de anclaje o a cambios de sección, con nuevo análisis, cuando el espacio
+disponible resulte insuficiente. Una propuesta de sección debe distinguir evidencia de capacidad
+insuficiente de una búsqueda incompleta. No se relajaron verificaciones para obtener progreso.
+
+Medición retenida del 23 de octubre, reconstruyendo el audit publicado de `6072c77bc`
+con nuevo análisis de los 408 elementos:
+
+| Estado | Aprobados | Fallidos | Conflictos bloqueantes |
+| --- | ---: | ---: | ---: |
+| Publicado | 177 | 183 | 819 |
+| Semilla por demanda y guía por rechazo | 180 | 180 | 795 |
+
+Conserva las 177 identidades aprobadas y suma 217–219: **114 columnas y 66 vigas aprobadas**.
+Acepta cuatro líneas (217–219, 220–222, 251–253 y 239–241), con poblaciones superiores/inferiores
+4/4, 4/5, 3/4 y 3/4, todas Ø16. Sus pasos dejan 812, 797, 796 y 795 bloqueantes. Ningún aprobado
+participa en conflictos bloqueantes. La regeneración sin búsqueda reproduce exactamente
+conflictos y veredictos. Permanecen 35 agotados y 13 provisionales; el edificio aún no verifica.
+
+La búsqueda consume 110 detallados y 510 verificaciones nominales, sin nuevos análisis
+estructurales dentro de la búsqueda, y termina por presupuesto nominal (límite 512; la próxima
+línea no cabe). Registra 4 aceptaciones, 45 rechazos nominales, 95 regresiones físicas y
+11 casos sin progreso. Entre las comprobaciones nominales fallidas aparecen 80 de acero mínimo,
+44 de anclaje y 10 de congestión; son comprobaciones, no miembros distintos. Esta corrida no
+necesitó completar ganchos: esa rama está cubierta por una prueba específica.
+
+El prototipo con sólo semilla por demanda obtuvo 796 bloqueantes/183 aprobados; repetirlo no
+mejoró el resultado. La versión retenida obtiene 795/180 desde la misma base publicada: ambas
+conservan sus 177 aprobados, pero ninguna domina a la otra en todos los indicadores. La elección
+prioriza los bloqueos; no se presenta el cambio como una mejora de todos los experimentos.
+
+Pasan **109 pruebas dirigidas en cuatro suites**, incluidas continuidad de tres vanos en ambas
+orientaciones con reducción de área, reparación guiada por un fallo de flexión, materialización
+y nueva verificación de ganchos y rechazo de un choque meramente trasladado. Typecheck no suma
+errores (442 existentes frente a baseline 443). El test de reconstrucción, búsqueda y regeneración
+pasa en 251,56 s locales; no vuelve a ejecutar las búsquedas históricas desde cero.
+
+Reproducción medida desde `web/`, con el audit publicado como entrada:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-mixed-balanced.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_RUNS=128 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-demand-accepted.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+La secuencia completa de `design-continuity-experiment.test.ts` admite esta etapa mediante
+`STABILEO_DEMAND_CATALOG=128` después de `STABILEO_MIXED_CAGE_CATALOG=64`. Esa secuencia desde
+cero no se midió de nuevo en esta revisión; la medición anterior usa el audit reconstruido.
+
 ## Diámetros distintos por cara y reparto del presupuesto
 
 El catálogo conjunto resolvía ambas caras con el mismo diámetro. Esa restricción evita algunas

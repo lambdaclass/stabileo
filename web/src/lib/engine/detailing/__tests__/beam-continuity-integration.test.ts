@@ -15,12 +15,13 @@ import type { ProvidedReinforcement } from '../../../design-contract/reinforceme
 // = w L²/8 = 153.1125 kN m. The initial top patterns (7Ø12 and 4Ø16) both resist it,
 // but cannot occupy their nearly coincident positions as a lap. Either uniform pattern
 // is a finite, known alternative to test; the engine must still build and verify it.
-it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed', 'mixed cage three spans', 'mixed cage three spans reversed'] as const)(
+it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed', 'mixed cage three spans', 'mixed cage three spans reversed', 'demand cage three spans', 'demand cage three spans reversed'] as const)(
   'closes both spans through the production path (%s)', mode => {
   const model = structuredClone(fixture);
   model.nodes[1].x = 6; model.nodes[2].x = 12;
   const three = mode.includes('three spans'), bottom = mode.startsWith('bottom'), catalog = mode.startsWith('catalog');
   const cage = mode.includes('cage'), mixed = mode.startsWith('mixed');
+  const demand = mode.startsWith('demand');
   if (three) {
     model.nodes.push({ id: 4, x: 18, y: 0, z: 0 });
     model.elements.push({ ...model.elements[1], id: 3, nodeI: 3, nodeJ: 4 });
@@ -50,8 +51,8 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   const firstId = model.elements[0].id;
   const solved = solveFixture(model);
   const rebar = (id: number): ProvidedReinforcement => ({ regions: {
-    topStart: { count: !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
-    topEnd: { count: !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
+    topStart: { count: demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
+    topEnd: { count: demand ? (id === firstId ? 8 : 5) : !bottom && id === firstId ? 7 : catalog ? 8 : 4, diameter: !bottom && id === firstId ? 12 : catalog ? 12 : 16 },
     bottomSpan: { count: (bottom || cage) && id !== firstId ? 7 : 4, diameter: (bottom || cage) && id !== firstId ? 12 : 16 },
     bottomGroups: [{ layers: [{ count: (bottom || cage) && id !== firstId ? 7 : 4, diameter: (bottom || cage) && id !== firstId ? 12 : 16, row: 0 }],
       anchorageStart: 'hook', anchorageEnd: 'hook' }],
@@ -89,7 +90,7 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   const result = searchPhysicalDesignAlternatives({ adapter: cirsoc201Adapter, contexts: solved.contexts,
     outcomes, result: before, detail, regresses: detailRegresses,
     budget: { maxDetailingRuns: 4, maxMemberSearches: 12,
-      operators: [mixed ? 'harmonizeMixedCageCatalog' : cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
+      operators: [demand ? 'harmonizeDemandCatalog' : mixed ? 'harmonizeMixedCageCatalog' : cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
   expect(result.changed.length).toBeGreaterThan(0);
   if (catalog) for (const o of result.outcomes.values()) expect(o.accepted!.regions!.topStart).toEqual({ count: 5, diameter: 16 });
   if (cage && !mixed) for (const o of result.outcomes.values()) {
@@ -98,6 +99,10 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   }
   if (mixed) for (const o of result.outcomes.values()) {
     expect(o.accepted!.regions!.topStart!.diameter).not.toBe(o.accepted!.regions!.bottomSpan!.diameter);
+  }
+  if (demand) for (const [id, o] of result.outcomes) {
+    const old = outcomes.get(id)!.accepted!.regions!.topStart!, next = o.accepted!.regions!.topStart!;
+    expect(next.count * next.diameter ** 2).toBeLessThan(old.count * old.diameter ** 2);
   }
   const assertClosed = (r: ReturnType<typeof detail>) => {
     expect(r.skipped).toEqual([]);

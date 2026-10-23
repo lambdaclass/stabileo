@@ -158,6 +158,71 @@ describe('atomic top continuity repair', () => {
     }
   });
 
+  it('does not count moving a clash to another already blocked member as demand-guided progress', () => {
+    const { input } = line();
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -100, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -100, vz: 0 },
+    ] }] } as never;
+    const clash = input.result.assemblies[0].conflicts[0];
+    const at = (id: number) => ({ ...clash, elementIds: [id] });
+    input.result.assemblies[0].conflicts = [at(1), at(1), at(2), at(99)];
+    const moved = { ...input.result, assemblies: [{ ...input.result.assemblies[0],
+      conflicts: [at(1), at(2), at(99), at(99)] }] };
+    input.detail.mockReturnValue(moved);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 3, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'noProgress', newlyBlocked: [],
+      progressBefore: [3, 4, 1, 1], progressAfter: [3, 4, 1, 1] });
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+  });
+
+  it('builds requested bottom hooks and reverifies them before accepting a demand-guided cage', () => {
+    const { input, verify } = line();
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -100, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -100, vz: 0 },
+    ] }] } as never;
+    verify.mockImplementation((_ctx, r) => {
+      const hooked = r.regions?.bottomGroups?.[0].anchorageStart === 'hook';
+      return { overallStatus: hooked ? 'ok' : 'fail', strengthCheckCount: 2,
+        checks: [hooked ? { status: 'ok' } : { status: 'warn',
+          anchorHook: { face: 'bottom', toward: 'start', group: 0 } }],
+        worstUtilization: 0.8, checkedAxes: ['My'] } as never;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 3, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', anchorageCompleted: [1, 2, 3] });
+    expect(result.stats).toMatchObject({ memberSearches: 3, verifierCalls: 6, detailingRuns: 1 });
+    for (const o of result.outcomes.values()) {
+      expect(o.accepted!.regions!.bottomGroups![0].anchorageStart).toBe('hook');
+      expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
+      expect(o.searchStats.verifierCalls).toBe(2);
+    }
+    const detailed = input.detail.mock.calls[0][0];
+    expect([...detailed.values()].every(o => o.accepted!.regions!.bottomGroups![0].anchorageStart === 'hook')).toBe(true);
+  });
+
+  it('uses a top resistance rejection to try more top steel before unrelated bottom alternatives', () => {
+    const { input, verify } = line();
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+    ] }] } as never;
+    verify.mockImplementation((_ctx, r) => {
+      const sufficient = r.regions!.topStart!.count >= 5;
+      return { overallStatus: sufficient ? 'ok' : 'fail', strengthCheckCount: 2,
+        checks: [{ status: sufficient ? 'ok' : 'fail', limiting: 'flexure', category: 'Top Start (My-)', ratio: 1.1 }],
+        worstUtilization: sufficient ? 0.8 : 1.1, checkedAxes: ['My'] } as never;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 1, maxMemberSearches: 6, operators: ['harmonizeDemandCatalog'] } });
+    expect(result.trials.map(t => [t.disposition, t.diameterMm, t.counts, t.bottomCounts])).toEqual([
+      ['nominalFailure', 16, [4], [3]], ['accepted', 16, [5], [3]],
+    ]);
+    expect(result.trials[0].nominalChecks![0]).toMatchObject({ elementId: 1,
+      checks: [{ limiting: 'flexure', category: 'Top Start (My-)', ratio: 1.1 }] });
+    expect(result.stats).toMatchObject({ memberSearches: 6, verifierCalls: 6, detailingRuns: 1 });
+  });
+
   it.each(['harmonizeTopCatalog', 'harmonizeMixedCageCatalog'] as const)(
     'gives the next line a trial after a rejected proposal (%s)', operator => {
     const { input, verify } = line();

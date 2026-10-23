@@ -8,10 +8,12 @@ import { rebarHash } from '../design/rebar-hash';
 import { detailableReinforcement, type MemberDesignOutcome } from '../design/outcome';
 import type { RunDetailingResult } from './run-detailing';
 import { beamLayerAlternatives, type BeamLayerAlternative } from './beam-layer-alternatives';
-import { beamCageContinuityAlternatives, beamContinuityAlternatives } from './beam-continuity-alternatives';
+import { beamCageContinuityAlternatives, beamContinuityAlternatives, type BeamContinuityAlternative } from './beam-continuity-alternatives';
 import { detailRegressionReasons } from './detail-regression';
+import type { ProvidedRebarCheck } from '../station-design-forces';
+import { completeAnchorage } from '../design/anchorage-hooks';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -46,6 +48,12 @@ export interface PhysicalSearchTrial {
   newlyBlocked?: number[];
   blockingConflicts?: number;
   nominalFailures?: number[];
+  /** Failed checks retain the constraint and its numbers, not just the rejected member. */
+  nominalChecks?: Array<{ elementId: number; checks: ProvidedRebarCheck[] }>;
+  anchorageCompleted?: number[];
+  /** Demand-guided repairs must strictly improve this global, lexicographic measure. */
+  progressBefore?: number[];
+  progressAfter?: number[];
 }
 
 export interface PhysicalSearchResult {
@@ -68,6 +76,52 @@ export function physicallyBlockedMembers(result: RunDetailingResult): Set<number
 
 const conflicts = (r: RunDetailingResult) => r.assemblies.reduce((n, a) =>
   n + a.conflicts.filter(c => c.severity !== 'marginal').length, 0);
+
+/** Non-negative counts: accepting only a strict decrease prevents repair cycles. */
+function physicalProgressMeasure(r: RunDetailingResult): number[] {
+  const conditions = r.assemblies.flatMap(a => a.unsupported);
+  return [physicallyBlockedMembers(r).size, conflicts(r), conditions.length,
+    conditions.filter(u => u.key === 'detailing.lapCheck.unarranged')
+      .reduce((n, u) => n + (typeof u.params?.pairs === 'number' ? u.params.pairs : 1), 0)];
+}
+
+function strictlyImproves(before: number[], after: number[]): boolean {
+  const first = before.findIndex((n, i) => n !== after[i]);
+  return first >= 0 && after[first] < before[first];
+}
+
+/** Prefer a bounded alternative addressing the failed constraint; never prune or certify it. */
+function nominalRepairPriority(
+  previous: BeamContinuityAlternative, next: BeamContinuityAlternative, checks: readonly ProvidedRebarCheck[],
+): number {
+  const instructions = checks.flatMap(check => {
+    const more = check.limiting === 'flexure' || check.limiting === 'minSteel';
+    const anchor = check.limiting === 'anchorage';
+    const fit = check.limiting === 'congestion' || check.limiting === 'barFit';
+    if (!more && !anchor && !fit) return [];
+    const category = check.category.toLowerCase();
+    const faces = check.anchorHook?.face === 'bottom' || category.includes('bottom') || category === 'min steel (span)'
+      ? ['bottom'] as const : category.includes('top') ? ['top'] as const : ['top', 'bottom'] as const;
+    return faces.map(face => ({ face, more, anchor }));
+  });
+  if (!instructions.length) return 0;
+  let score = 0;
+  for (const face of ['top', 'bottom'] as const) {
+    const a = face === 'top' ? previous.layers : previous.bottomLayers;
+    const b = face === 'top' ? next.layers : next.bottomLayers;
+    if (!a?.length || !b?.length) continue;
+    const area = (ls: typeof a) => ls.reduce((n, l) => n + l.count * l.diameter ** 2, 0);
+    const count = (ls: typeof a) => ls.reduce((n, l) => n + l.count, 0);
+    const relevant = instructions.filter(i => i.face === face);
+    if (!relevant.length) { if (JSON.stringify(a) !== JSON.stringify(b)) score--; continue; }
+    for (const i of relevant) {
+      const helpful = i.more ? area(b) > area(a) : b[0].diameter < a[0].diameter || b.length < a.length
+        || (!i.anchor && count(b) < count(a));
+      if (helpful) score += 4 + (b[0].diameter === a[0].diameter ? 1 : 0);
+    }
+  }
+  return score;
+}
 
 /** Refresh the neighboring beam seats after every accepted assignment. */
 function contextsFor(
@@ -98,7 +152,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize'))) {
@@ -269,7 +323,8 @@ export function continuityLines(contexts: ReadonlyMap<number, MemberContext>, re
 function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlternatives>[0]): PhysicalSearchResult {
   const operator = input.budget.operators![0] as Extract<PhysicalRepairOperator, `harmonize${string}`>;
   const mixed = operator === 'harmonizeMixedCageCatalog';
-  const cage = operator === 'harmonizeCageCatalog' || mixed;
+  const demand = operator === 'harmonizeDemandCatalog';
+  const cage = operator === 'harmonizeCageCatalog' || mixed || demand;
   const catalog = operator === 'harmonizeTopCatalog' || cage;
   let result = input.result, outcomes = input.outcomes;
   const trials: PhysicalSearchTrial[] = [], changed = new Set<number>();
@@ -305,7 +360,7 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
     ? continuityLines(input.contexts, result).filter(p => catalog
       ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
-  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0 }))
+  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, order: undefined as number[] | undefined }))
     .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
@@ -320,10 +375,15 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
     let proposalIndex = 0;
-    const proposals = cage ? beamCageContinuityAlternatives(ctx, current, mixed ? 'mixed' : 'common')
+    const proposals = cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
-    for (const proposal of proposals) {
+    const domain = demand ? [...proposals] : undefined;
+    let remaining = domain ? [...(target.order ?? domain.map((_, i) => i))] : [];
+    for (const proposal of domain ? remaining.map(i => domain[i]) : proposals) {
+      if (demand) remaining = remaining.slice(1);
       if (proposalIndex++ < target.offset) continue;
+      const resume = () => ranked.push({ ...target, offset: demand ? 0 : proposalIndex,
+        order: demand ? remaining : undefined });
       if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
         termination = 'budget'; break pairLoop;
       }
@@ -344,23 +404,48 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
         disposition: 'nominalFailure', nominalFailures: [] };
       trials.push(trial);
       for (let i = 0; i < ids.length; i++) {
-        const c = trialContexts.get(ids[i])!, reinforcement = proposal.reinforcement[i];
-        const verdict = input.adapter.verify(c, reinforcement);
+        const c = trialContexts.get(ids[i])!;
+        let reinforcement = proposal.reinforcement[i];
+        let verdict = input.adapter.verify(c, reinforcement);
+        let verifierCalls = 1;
+        if (demand) {
+          // A requested bottom hook is an actionable repair, not a reason to discard the
+          // whole family. Reuse the bounded completion used by nominal design, then build
+          // and check the actual hooks in the full-detail gate below.
+          const completion = completeAnchorage(input.adapter, c, reinforcement, verdict,
+            v => (v.overallStatus === 'ok' || v.overallStatus === 'warn') && !v.checks.some(check => check.anchorHook));
+          if (completion.verified) verifierCalls++;
+          if (completion.reinf !== reinforcement) {
+            reinforcement = completion.reinf; verdict = completion.verdict;
+            proposal.reinforcement[i] = reinforcement;
+            (trial.anchorageCompleted ??= []).push(ids[i]);
+          }
+        }
         const checked = outcomeFromProvided(input.adapter, c, reinforcement, verdict);
-        stats.memberSearches++; stats.candidatesConsidered++; stats.verifierCalls++;
+        stats.memberSearches++; stats.candidatesConsidered++; stats.verifierCalls += verifierCalls;
         // outcomeFromProvided also admits a warning asking the caller to add a hook.
-        // This operator preserves end treatments; it cannot certify an unbuilt hook.
+        // No operator can certify an unbuilt hook. Demand-guided completion above must
+        // have removed the request by verifying a reinforcement that actually contains it.
         if ((verdict.overallStatus !== 'ok' && verdict.overallStatus !== 'warn')
-          || verdict.checks.some(c => c.anchorHook) || !checked?.accepted || checked.outcome !== 'VERIFIED') trial.nominalFailures!.push(ids[i]);
+          || verdict.checks.some(c => c.anchorHook) || !checked?.accepted || checked.outcome !== 'VERIFIED') {
+          trial.nominalFailures!.push(ids[i]);
+          (trial.nominalChecks ??= []).push({ elementId: ids[i],
+            checks: verdict.checks.filter(c => c.status === 'fail' || c.anchorHook) });
+        }
         else {
-          checked.searchStats = { ...checked.searchStats, candidatesTried: 1, verifierCalls: 1 };
+          checked.searchStats = { ...checked.searchStats, candidatesTried: 1, verifierCalls };
           proposed.set(ids[i], checked);
         }
       }
       if (trial.nominalFailures!.length) {
         // Mixed faces have a product of catalog families. One difficult line must not use
         // the nominal budget before the other lines get even their first proposal.
-        if (mixed) { ranked.push({ ...target, offset: proposalIndex }); break; }
+        if (demand) {
+          const checks = trial.nominalChecks!.flatMap(f => f.checks);
+          const priorities = new Map(remaining.map(i => [i, nominalRepairPriority(proposal, domain![i], checks)]));
+          remaining.sort((a, b) => priorities.get(b)! - priorities.get(a)!);
+        }
+        if (mixed || demand) { resume(); break; }
         continue;
       }
       const detailed = input.detail(proposed, trialContexts);
@@ -376,7 +461,7 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
         trial.disposition = 'regression';
         // Give every catalog neighbourhood a full trial before spending another on
         // the same line. Resume at the next proposal against the latest neighbours.
-        if (catalog) { ranked.push({ ...target, offset: proposalIndex }); break; }
+        if (catalog) { resume(); break; }
         continue;
       }
       // Do not accept a change that merely displaces this joint's unresolved splice.
@@ -386,9 +471,14 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
         .filter(c => c.severity !== 'marginal' && c.elementIds.some(id => ids.includes(id))).length, 0);
       const localProgress = catalog && (ids.filter(id => after.has(id)).length < ids.filter(id => before.has(id)).length
         || localClashes(detailed) < localClashes(result));
-      if (!localProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore) {
+      if (demand) {
+        trial.progressBefore = physicalProgressMeasure(result);
+        trial.progressAfter = physicalProgressMeasure(detailed);
+      }
+      if ((demand && !strictlyImproves(trial.progressBefore!, trial.progressAfter!))
+        || (!localProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore)) {
         trial.disposition = 'noProgress';
-        if (catalog) { ranked.push({ ...target, offset: proposalIndex }); break; }
+        if (catalog) { resume(); break; }
         continue;
       }
       trial.disposition = 'accepted';

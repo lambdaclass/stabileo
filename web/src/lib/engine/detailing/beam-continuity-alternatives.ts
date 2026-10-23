@@ -2,7 +2,7 @@
 import type { ProvidedReinforcement, RebarLayer } from '../../design-contract/reinforcement';
 import type { MemberContext } from '../design/member-context';
 import { STANDARD_LONG_DIAS } from '../design/objective';
-import { BEAM_LIMITS, maxBarsPerRow } from '../design/candidate-enumerate-beam';
+import { BEAM_LIMITS, computeBeamSeed, maxBarsPerRow, seedAreaFor } from '../design/candidate-enumerate-beam';
 
 export interface BeamContinuityAlternative {
   layers: RebarLayer[];
@@ -19,15 +19,16 @@ export interface BeamContinuityAlternative {
  */
 export function* beamCageContinuityAlternatives(
   contexts: readonly MemberContext[], current: readonly ProvidedReinforcement[],
-  diameters: 'common' | 'mixed' = 'common',
+  diameters: 'common' | 'mixed' | 'all' = 'common',
+  seed: 'retained' | 'demand' = 'retained',
 ): Generator<BeamContinuityAlternative> {
   const mixed: Array<{ proposal: BeamContinuityAlternative; topIndex: number; bottomIndex: number }> = [];
   let topIndex = 0;
-  for (const top of beamContinuityAlternatives(contexts, current, 'top', 'catalog')) {
+  for (const top of beamContinuityAlternatives(contexts, current, 'top', seed === 'demand' ? 'demand' : 'catalog')) {
     let bottomIndex = 0;
-    for (const bottom of beamContinuityAlternatives(contexts, top.reinforcement, 'bottom', 'catalog')) {
+    for (const bottom of beamContinuityAlternatives(contexts, top.reinforcement, 'bottom', seed === 'demand' ? 'demand' : 'catalog')) {
       const index = bottomIndex++;
-      if ((bottom.layers[0].diameter === top.layers[0].diameter) !== (diameters === 'common')) continue;
+      if (diameters !== 'all' && (bottom.layers[0].diameter === top.layers[0].diameter) !== (diameters === 'common')) continue;
       const proposal = { layers: top.layers, bottomLayers: bottom.layers, reinforcement: bottom.reinforcement };
       if (diameters === 'common') yield proposal;
       else mixed.push({ proposal, topIndex, bottomIndex: index });
@@ -51,7 +52,7 @@ export function* beamContinuityAlternatives(
   contexts: readonly MemberContext[],
   current: readonly ProvidedReinforcement[],
   face: 'top' | 'bottom' = 'top',
-  patterns: 'existing' | 'catalog' = 'existing',
+  patterns: 'existing' | 'catalog' | 'demand' = 'existing',
 ): Generator<BeamContinuityAlternative> {
   if (contexts.length < 2 || contexts.length !== current.length) return;
   if (contexts.some(c => c.elementType !== 'beam' || c.span)) return;
@@ -76,7 +77,17 @@ export function* beamContinuityAlternatives(
     // Area is a seed, never a resistance certificate. Offer the smallest equal-or-larger
     // area in each common diameter family, and one extra bar to explore count parity.
     if (!orderedExisting.every(valid)) return;
-    const area = Math.max(...orderedExisting.map(ls => ls.reduce((sum, l) => sum + l.count * l.diameter ** 2, 0)));
+    if (patterns === 'demand' && contexts.some(c => !c.stations?.comboResults.some(r => r.stations.length))) return;
+    // Retained steel is not a lower bound on required steel. Repeated area-preserving
+    // repairs can ratchet up congestion. Demand seeds reopen lighter alternatives; only
+    // the authoritative verifier, including opposite-sign moments and torsion, accepts them.
+    const area = patterns === 'demand' ? Math.max(...contexts.map(c => {
+      const demands = computeBeamSeed(c);
+      const moment = face === 'top' ? Math.max(demands.MuStart, demands.MuEnd, demands.MuSpanHog)
+        : Math.max(demands.MuSpan, demands.MuStartSag, demands.MuEndSag);
+      // seedAreaFor is in cm²; the catalog below works in count × diameter(mm)².
+      return seedAreaFor(moment, c) * 400 / Math.PI;
+    })) : Math.max(...orderedExisting.map(ls => ls.reduce((sum, l) => sum + l.count * l.diameter ** 2, 0)));
     const allowed = contexts[0].material.longDiametersMm ?? STANDARD_LONG_DIAS;
     for (const dia of [...new Set([16, 12, 20, 10, ...allowed])]) {
       if (contexts.some(c => !(c.material.longDiametersMm ?? STANDARD_LONG_DIAS).includes(dia))) continue;
@@ -85,7 +96,12 @@ export function* beamContinuityAlternatives(
           current[i].regions!.stirrupsSpan?.diameter ?? 0, current[i].stirrups?.diameter ?? 0), dia)));
       if (limit < BEAM_LIMITS.minBarsPerRow) continue;
       const minimum = Math.max(BEAM_LIMITS.minBarsPerRow, Math.ceil(area / dia ** 2));
-      for (const count of [minimum, minimum + 1]) {
+      // The demand estimate orders alternatives; it is not a lower bound on required area.
+      // One fewer bar can avoid an entire layer and its nested hooks. Verification decides.
+      const counts = patterns === 'demand'
+        ? [...new Set([minimum, minimum + 1, Math.max(BEAM_LIMITS.minBarsPerRow, minimum - 1)])]
+        : [minimum, minimum + 1];
+      for (const count of counts) {
         const rows = Math.ceil(count / limit);
         if (rows > BEAM_LIMITS.maxRows || count < rows * BEAM_LIMITS.minBarsPerRow) continue;
         let remaining = count;

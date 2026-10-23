@@ -11,6 +11,32 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it('seeds from forces instead of ratcheting up the retained steel, and requires force data', () => {
+    const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
+    for (const c of ctx) {
+      c.material.longDiametersMm = [16];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    for (const r of current) r.regions!.bottomSpan = { count: 5, diameter: 16 };
+    const before = structuredClone(current);
+    const proposals = [...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')];
+    expect(proposals).toHaveLength(9);
+    expect([proposals[0].layers[0].count, proposals[0].bottomLayers![0].count]).toEqual([4, 3]);
+    expect(new Set(proposals.map(p => p.layers[0].count))).toEqual(new Set([3, 4, 5]));
+    expect(new Set(proposals.map(p => p.bottomLayers![0].count))).toEqual(new Set([2, 3, 4]));
+    expect(current).toEqual(before);
+    for (const r of current) {
+      r.regions!.topStartLayers![0].count++;
+      r.regions!.topEndLayers![0].count++;
+    }
+    expect([...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')].map(p => p.layers))
+      .toEqual(proposals.map(p => p.layers));
+    ctx[1].stations = undefined;
+    expect([...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')]).toEqual([]);
+  });
+
   it('offers different catalog diameters on opposite faces without mixing a face or reducing its area seed', () => {
     const ctx = contexts(), current = [reinforcement(7, 12), reinforcement(8, 10)];
     for (const c of ctx) c.material.longDiametersMm = [12, 16];

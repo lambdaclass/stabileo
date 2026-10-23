@@ -38,8 +38,10 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     const ids = process.env.STABILEO_REPAIR_PROPOSALS.split(',').map(Number);
     const ctx = ids.map(id => verificationStore.contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
+    const demand = process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeDemandCatalog';
     for (const proposal of beamCageContinuityAlternatives(ctx, current,
-      process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeMixedCageCatalog' ? 'mixed' : 'common')) {
+      demand ? 'all' : process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeMixedCageCatalog' ? 'mixed' : 'common',
+      demand ? 'demand' : 'retained')) {
       const corners = new Map(ctx[0].beamCorners);
       ids.forEach((id, i) => corners.set(id, beamCornerRecord(proposal.reinforcement[i], ctx[i].material.stirrupDia)!));
       nominalFailures.push({ elementIds: ids, diameterMm: proposal.layers[0].diameter,
