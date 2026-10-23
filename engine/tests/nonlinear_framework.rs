@@ -459,6 +459,7 @@ fn arc_length_follows_a_snap_back() {
 
     let (mut m, apex, top) = build();
     let out = solve(&mut m, &Strategy::ArcLength { target: 1.2 * p_max, increments: 20, max_steps: 600 }, &NewtonOptions::default()).unwrap();
+    assert!(out.branch_switches.is_empty(), "a limit point is not a bifurcation: {:?}", out.branch_switches);
     assert!(out.completed(), "{:?} at λ = {}", out.termination, out.lambda);
     let mut turned_back = false;
     let mut v_prev = 0.0;
@@ -542,4 +543,140 @@ fn one_large_load_step_reaches_the_elastica() {
     assert!(out.completed(), "{:?}", out.termination);
     let (u, w) = (-out.u[m.dof(end, 0)], out.u[m.dof(end, 1)]);
     assert!((w - 0.81061).abs() < 1e-3 && (u - 0.55500).abs() < 1e-3, "w/L = {w}, u/L = {u}");
+}
+
+// ==================== Planned rungs ====================
+
+/// K(k) and E(k), complete elliptic integrals, by the arithmetic–geometric mean.
+fn elliptic_ke(k: f64) -> (f64, f64) {
+    let (mut a, mut b, mut c) = (1.0f64, (1.0 - k * k).sqrt(), k);
+    let mut sum = 0.5 * c * c;
+    let mut pow = 0.5;
+    for _ in 0..30 {
+        let (a1, b1) = ((a + b) / 2.0, (a * b).sqrt());
+        c = (a - b) / 2.0;
+        pow *= 2.0;
+        sum += pow * c * c;
+        a = a1;
+        b = b1;
+    }
+    let kk = std::f64::consts::PI / (2.0 * a);
+    (kk, kk * (1.0 - sum))
+}
+
+/// A perfect cantilever column under axial load buckles at
+/// P_cr = π²EI/(4L²): a bifurcation, with the critical mode orthogonal to the
+/// load. Auto meets it, switches to the buckled branch along that mode, and
+/// follows Euler's elastica: at P/P_cr = (2K(k)/π)², the tip deflects
+/// 2kL/K(k) sideways and drops 2L(1 − E(k)/K(k)). Without branch switching
+/// it stays on the straight, unstable path.
+#[test]
+fn branch_switching_follows_the_buckled_column() {
+    let (l, ei, n) = (1.0, 1.0, 20);
+    let p_cr = PI * PI * ei / (4.0 * l * l);
+    let build = || {
+        let mut m = Model2D::new();
+        let nodes: Vec<usize> = (0..=n).map(|i| m.add_node(0.0, l * i as f64 / n as f64)).collect();
+        m.fix(nodes[0], [true, true, true]);
+        for w in nodes.windows(2) {
+            let e = Frame2D::new(m.frame_dofs(w[0], w[1]), m.coords(w[0]), m.coords(w[1]), Kinematics::Corotational, Box::new(ElasticBasic2D::new(1e8, ei, l / n as f64)))
+                .unwrap();
+            m.add_element(Box::new(e));
+        }
+        m.add_load(nodes[n], [0.0, -1.0, 0.0]);
+        (m, nodes[n])
+    };
+    let ratio: f64 = 1.1;
+    let (mut lo, mut hi) = (1e-9, 1.0 - 1e-12);
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if (2.0 * elliptic_ke(mid).0 / PI).powi(2) < ratio { lo = mid } else { hi = mid }
+    }
+    let k = 0.5 * (lo + hi);
+    let (kk, ek) = elliptic_ke(k);
+
+    let (mut m, top) = build();
+    let out = solve(&mut m, &Strategy::Auto { target: ratio * p_cr, increments: 10, max_steps: 300 }, &NewtonOptions::default()).unwrap();
+    assert!(out.completed(), "{:?}", out.termination);
+    assert_eq!(out.branch_switches.len(), 1, "{:?}", out.branch_switches);
+    assert!((out.branch_switches[0] / p_cr - 1.0).abs() < 0.05, "switched at λ = {}, P_cr = {p_cr}", out.branch_switches[0]);
+    let (ux, uz) = (out.u[m.dof(top, 0)], out.u[m.dof(top, 1)]);
+    assert!((ux.abs() / l - 2.0 * k / kk).abs() < 0.01 * 2.0 * k / kk, "sideways {} vs elastica {}", ux.abs() / l, 2.0 * k / kk);
+    let drop = 2.0 * (1.0 - ek / kk);
+    assert!((-uz / l - drop).abs() < 0.02 * drop, "drop {} vs elastica {drop}", -uz / l);
+    assert_eq!(out.steps.last().unwrap().negative_eigenvalues, Some(0), "the buckled branch is stable");
+
+    let (mut m, top) = build();
+    let opts = NewtonOptions { branch_switching: false, ..NewtonOptions::default() };
+    let out = solve(&mut m, &Strategy::Auto { target: ratio * p_cr, increments: 10, max_steps: 300 }, &opts).unwrap();
+    assert!(out.completed());
+    assert!(out.u[m.dof(top, 0)].abs() < 1e-9, "without switching the column stays straight");
+    assert_eq!(out.steps.last().unwrap().negative_eigenvalues, Some(1), "on the unstable primary path");
+}
+
+/// Modified Newton and BFGS reach the same states as full Newton with fewer
+/// factorizations.
+#[test]
+fn modified_newton_and_bfgs_agree_with_fewer_factorizations() {
+    let (l, b, h) = (1.0, 0.1, 0.2);
+    let p_c = FY * b * h * h / 4.0 / l;
+    let run = |iteration: Iteration| {
+        let (mut m, end) = cantilever(10, l, Kinematics::Linear, &fiber_basic(b, h));
+        m.add_load(end, [0.0, 1.0, 0.0]);
+        let opts = NewtonOptions { iteration, max_iterations: 200, ..NewtonOptions::default() };
+        let out = solve(&mut m, &Strategy::LoadControl { target: 0.95 * p_c, increments: 10 }, &opts).unwrap();
+        assert!(out.completed(), "{iteration:?}: {:?}", out.termination);
+        (out.u[m.dof(end, 1)], out.factorizations)
+    };
+    let (u_full, f_full) = run(Iteration::Full);
+    for it in [Iteration::Modified { refactor_every: 1000 }, Iteration::Bfgs { pairs: 10 }] {
+        let (u, f) = run(it);
+        assert!((u - u_full).abs() < 1e-6 * u_full.abs(), "{it:?}: {u} vs {u_full}");
+        assert!(f < f_full, "{it:?}: {f} factorizations, full Newton {f_full}");
+    }
+}
+
+/// The energy criterion and the moment scaling change how convergence is
+/// measured, not where the path goes.
+#[test]
+fn convergence_measures_do_not_move_the_answer() {
+    let solve_with = |opts: NewtonOptions| {
+        let (mut m, end) = cantilever(20, 1.0, Kinematics::Corotational, &elastic(1e8, 1.0));
+        m.add_load(end, [0.0, 3.0, 2.0]);
+        let out = solve(&mut m, &Strategy::LoadControl { target: 1.0, increments: 10 }, &opts).unwrap();
+        assert!(out.completed(), "{:?}", out.termination);
+        [out.u[m.dof(end, 0)], out.u[m.dof(end, 1)], out.u[m.dof(end, 2)]]
+    };
+    let base = solve_with(NewtonOptions::default());
+    for opts in [
+        NewtonOptions { energy_tolerance: Some(1e-24), ..NewtonOptions::default() },
+        NewtonOptions { rotation_length: Some(1e-3), ..NewtonOptions::default() },
+        NewtonOptions { rotation_length: Some(1e3), ..NewtonOptions::default() },
+    ] {
+        let u = solve_with(opts.clone());
+        for c in 0..3 {
+            assert!((u[c] - base[c]).abs() < 1e-7 * (1.0 + base[c].abs()), "{opts:?}: {u:?} vs {base:?}");
+        }
+    }
+}
+
+/// The spherical arc-length constraint follows the same snap-back.
+#[test]
+fn spherical_arc_length_follows_the_snap_back() {
+    let (a, h, ea) = (1.0, 0.2, 1000.0);
+    let p_max = (0..=10000).map(|i| von_mises_load(a, h, ea, h * i as f64 / 10000.0)).fold(0.0, f64::max);
+    let k = 0.5 * 4000.0; // well inside the snap-back range for this truss
+    let (mut m, apex) = von_mises_truss(a, h, ea);
+    m.add_load(apex, [0.0, 1.0, 0.0]);
+    let top = m.add_node(0.0, h + 1.0);
+    m.fix(top, [true, false, true]);
+    m.add_element(Box::new(Truss2D::new(m.truss_dofs(apex, top), m.coords(apex), m.coords(top), Kinematics::Linear, 1.0, Box::new(Elastic1D::new(k))).unwrap()));
+    m.add_load(top, [0.0, -1.0, 0.0]);
+    let opts = NewtonOptions { arc_psi: 1e-3, ..NewtonOptions::default() };
+    let out = solve(&mut m, &Strategy::ArcLength { target: 1.2 * p_max, increments: 20, max_steps: 600 }, &opts).unwrap();
+    assert!(out.completed(), "{:?}", out.termination);
+    for s in &out.steps {
+        let w = -s.u[m.dof(apex, 1)];
+        assert!((s.lambda - von_mises_load(a, h, ea, w)).abs() < 1e-7 * p_max, "λ = {} at w = {w}", s.lambda);
+    }
 }

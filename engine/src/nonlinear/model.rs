@@ -37,6 +37,9 @@ pub trait NonlinearModel {
     fn commit(&mut self);
     /// Returns to the committed configuration and states.
     fn revert(&mut self);
+    /// A length typical of the model (its bounding-box diagonal): the scale
+    /// that puts moments and forces in one norm.
+    fn characteristic_length(&self) -> f64;
 }
 
 /// A 2D model: nodes carry three DOFs, (ux, uz, θ), numbered `3·node + k`.
@@ -155,5 +158,16 @@ impl NonlinearModel for Model2D {
     fn revert(&mut self) {
         self.u.clone_from(&self.u_committed);
         self.elements.iter_mut().for_each(|e| e.revert());
+    }
+    fn characteristic_length(&self) -> f64 {
+        let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
+        for p in &self.nodes {
+            for k in 0..2 {
+                lo[k] = lo[k].min(p[k]);
+                hi[k] = hi[k].max(p[k]);
+            }
+        }
+        let d = ((hi[0] - lo[0]).powi(2) + (hi[1] - lo[1]).powi(2)).sqrt();
+        if d.is_finite() && d > 0.0 { d } else { 1.0 }
     }
 }

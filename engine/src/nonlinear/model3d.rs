@@ -159,4 +159,15 @@ impl NonlinearModel for Model3D {
         self.trial.clone_from(&self.committed);
         self.elements.iter_mut().for_each(|e| e.revert());
     }
+    fn characteristic_length(&self) -> f64 {
+        let (mut lo, mut hi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+        for p in &self.x0 {
+            for k in 0..3 {
+                lo[k] = lo[k].min(p[k]);
+                hi[k] = hi[k].max(p[k]);
+            }
+        }
+        let d = (0..3).map(|k| (hi[k] - lo[k]).powi(2)).sum::<f64>().sqrt();
+        if d.is_finite() && d > 0.0 { d } else { 1.0 }
+    }
 }

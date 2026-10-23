@@ -78,49 +78,77 @@ test suite in under a second in debug.
 
 Every strategy applies the same policy, cheapest first and escalating only on failure:
 
-1. **Newton–Raphson** with the consistent tangent, factored by LDLᵀ.
-2. **Line search** (Crisfield's, on du·R). It is not used on every iteration: early in a
-   large-rotation step, Newton's residual energy often rises before it converges quadratically,
-   and a line search there slows it (40× on the end-moment test). It runs only when plain Newton
-   fails a load step, on a retry of the same step.
+1. **The configured iteration.** `NewtonOptions::iteration` selects one of:
+   - `Full` Newton–Raphson, the default;
+   - `Modified` Newton, which refactors every k iterations;
+   - `Bfgs`, limited-memory Matthies–Strang with the step's first factorization as H₀.
+
+   The last two cost fewer factorizations on large, mildly nonlinear models. If either fails, the
+   same step is retried with full Newton.
+2. **Line search** (Crisfield's, on du·R). It runs only when full Newton fails a load step, on a
+   retry of the same step. Running it on every iteration made the end-moment test 40× slower,
+   because early in a large-rotation step Newton's residual energy often rises before it
+   converges quadratically.
 3. **Step cutting.** The step is halved, then grows back after successes. There is a floor of
    10⁻⁸ of the nominal step, so a step that keeps failing and growing back cannot loop forever.
-4. **Arc-length past limit points.** `Strategy::Auto` runs load control, and continues by
-   arc-length from the last converged state when load control meets a limit point or stops
-   converging. When the arc passes the target load, a final load step lands on it exactly.
-5. **Linear-solver fallbacks:**
-   - LDLᵀ, then LU when the tangent is nonsymmetric or a pivot is tiny;
-   - for displacement control, the bordered system when K is singular;
-   - one step of iterative refinement on every solve.
+4. **Arc-length past critical points.** `Strategy::Auto` runs load control, and continues by
+   arc-length from the last converged state when load control meets a limit or bifurcation point
+   (as a change of stability, a failure to converge, or a singular tangent). When the arc passes
+   the target load, a final load step lands on it exactly.
+5. **Branch switching at bifurcations.** When arc-length gains a negative eigenvalue, the driver
+   computes the critical mode by inverse iteration on the LDLᵀ factor:
+   - **Limit point or bifurcation?** At a limit point the mode has a component along the load;
+     at a symmetric bifurcation it is orthogonal to it (|Fᵀφ| < 10⁻³·‖F‖·‖φ‖). The stiffness in
+     the load direction cannot tell them apart: a soft support in series keeps it positive past
+     a limit point.
+   - **Locating the point.** At a bifurcation, the crossing step is halved until it is a 64th of
+     the step that found it.
+   - **Switching.** The next step leaves along the mode at constant load, with an arc of at
+     least 10⁻³ of the model's length.
+6. **Linear algebra.**
+   - Symmetric equilibration S·K·S, S = diag(1/√|K_ii|), on every factorization. This makes the
+     pivot tests independent of units and of a wide spread of stiffnesses (the buckled column of
+     the tests has EA·L²/EI = 10⁸). It is a congruence, so the inertia is K's.
+   - LDLᵀ first, then LU when the tangent is nonsymmetric or a pivot is tiny. For displacement
+     control, the bordered system when K is singular.
+   - One step of iterative refinement on every solve.
 
 **Detecting where a strategy cannot go.** Load control stops with `LimitPoint`, never with a
-silent jump to a distant branch, when:
-- the tangent's inertia (or determinant sign) changes during a step;
+silent jump to a distant branch, when any of these happens during a step:
+- the inertia changes;
+- the symmetric tangent becomes too nearly singular for LDLᵀ;
 - the converged step lands outside ¼–4 times the tangent's prediction;
 - Bergan's stiffness parameter drops below 10⁻³.
 
 Displacement control stops with `LimitPoint` at a snap-back, by the same prediction check.
-Arc-length follows both snap-through and snap-back.
+Arc-length follows snap-through and snap-back. It is cylindrical by default, or spherical with
+`arc_psi`. Its arc grows by at most 32× the first arc, or 10% of the model's length if that is
+larger.
 
-**Convergence test.** Converged when ‖R‖ ≤ tol·max(|λ|·‖F‖, ‖f_int‖), or when ‖R‖ reaches the
-rounding floor ε·‖K‖·‖u‖.
+**Convergence test.**
+- **Force norm.** Moments are divided by a length (`rotation_length`, by default the model's
+  bounding-box diagonal), so kN and kN·m do not add.
+- **Criterion.** Converged when the force norm of R ≤ tol·max(|λ|·‖F‖, ‖f_int‖) in the same
+  norm, or when R is down to the rounding floor ε·‖K‖·‖u‖.
+- **Optional energy criterion.** |δu·R| ≤ tol_E·|δu₀·R₀|, which has consistent units by
+  construction.
 
 **Failure contract.** The outcome is always the last converged state, with why the analysis
-stopped. `Err` is only for an invalid request.
+stopped. It also reports the number of factorizations and the loads at which the analysis
+switched branch. `Err` is only for an invalid request.
 
-### Planned rungs
+### Still planned
 
-- **Modified Newton and BFGS,** as a cheaper first rung for large models: the tangent is
-  refactored only when convergence slows.
 - **Regularization for softening materials** (concrete cracking): IMPL-EX, viscous
-  regularization, and crack-band scaling at the material.
-- **Weighted norms.** An energy-norm test, and per-DOF-type scaling of the force and arc norms,
-  replacing today's unscaled mix of forces and moments.
-- **Bifurcation handling.** Branch switching at a bifurcation, using the eigenvector of the zero
-  pivot as an imperfection; today the inertia only reports it.
-- **Supernodal LDLᵀ** for large 3D models, along the lines of the engine's supernodal Cholesky.
-  Multithreaded assembly where it is available (not in WASM).
-- **Spherical arc-length,** with a ψ weight on the load, as an option.
+  regularization, and crack-band scaling at the material. This waits for a softening
+  plane-stress law; the uniaxial Hognestad concrete's descending branch is the only softening
+  so far.
+- **Asymmetric bifurcations and multiple critical modes.** Branch switching handles one critical
+  mode orthogonal to the load. Two coincident modes (a doubly symmetric column), or a mode with a
+  small load component, are reported through the inertia but not followed.
+- **Branch switching under displacement control,** which today passes a bifurcation on the
+  primary path.
+- **Multithreaded assembly** where it is available (not in WASM).
 
 ## Validation
 
@@ -136,6 +164,10 @@ stopped. `Err` is only for an invalid request.
 | Auto past the same limit point | arc-length takes over and reaches 1.5·P_max on the far branch, every step on the closed form |
 | Snap-back (truss loaded through a soft spring) | arc-length on the closed form throughout, ending on the target load; displacement control stops with `LimitPoint` |
 | LDLᵀ inertia along the snap-through | one negative eigenvalue exactly where dP/dw < 0 |
+| Perfect cantilever column, Auto to 1.1·P_cr | branch switch within 0.2 % of π²EI/4L²; Euler's elastica (elliptic integrals): sideways tip deflection to 1 %, drop to 2 %; the buckled branch stable. Without switching: straight and unstable |
+| Modified Newton and BFGS on the plastic cantilever | the same displacement as full Newton to 1e-6, with fewer factorizations |
+| Energy criterion; moment scaling of 10⁻³ and 10³ | the same converged path to 1e-7 |
+| Spherical arc-length (ψ = 10⁻³) through the snap-back | the closed form |
 | Plastic cantilever, small displacements | 3EI/L³; the collapse load converges to Mp/L from above at first order |
 | Plastic cantilever, large displacements | M_support = P·(L + uₓ) on the deformed shape |
 | 3D space frame, loads in all six directions | `solver::linear::solve_3d`, to 1e-9 |
@@ -155,8 +187,9 @@ stopped. `Err` is only for an invalid request.
 - **Perfectly plastic plateaus.** With zero hardening, and a stiffness range spanning many
   orders (a torsion stiffness far above a plastic plateau's), the bordered system's pivot test
   can refuse the mechanism and stop with `SingularTangent`. A small hardening avoids it.
-- **The limit-point checks are heuristics** (the ¼–4 band, the 10⁻³ stiffness parameter),
-  validated on the tests above and on nothing else yet.
+- **The critical-point checks are heuristics:** the ¼–4 band, the 10⁻³ stiffness parameter, the
+  10⁻³ orthogonality and the 1/64 localisation. They are validated on the tests above, and on
+  nothing else yet.
 - **LU and inertia.** When LU is used, the inertia is not known: the 3D co-rotational tangent is
   nonsymmetric away from equilibrium. There, the determinant's sign stands in for it.
 - **Displacement-based fiber elements** need several elements per member.
@@ -168,6 +201,7 @@ stopped. `Err` is only for an invalid request.
    and a flat shell element (MITC4) with linear and co-rotational kinematics. With `PlaneStressJ2`
    this gives EN 1993-1-5 Annex C / EN 1993-1-14 plate analysis, and GMNIA with imperfections
    shaped like the buckling modes.
-2. **The planned rungs above,** starting with modified Newton and the weighted norms.
+2. **The rungs still planned above,** starting with softening regularization once a softening
+   plane-stress law exists.
 3. **Cracked-slab deflection** as a secant concrete-with-rebar layer law on the same shell.
 4. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.

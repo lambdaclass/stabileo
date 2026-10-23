@@ -17,6 +17,7 @@
 //! factorization of the analysis, and each element's slots in the matrix are
 //! computed once, so assembly is a scatter with no search.
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use super::model::NonlinearModel;
@@ -31,42 +32,60 @@ pub enum FactorMethod {
     Lu,
 }
 
-pub(crate) enum Factor {
+pub(crate) enum FactorKind {
     Ldlt(LdltFactor),
-    Lu(LuFactor),
+    /// `near_singular`: the tangent was symmetric and LDLᵀ refused a tiny
+    /// pivot, which on a stable path happens at a critical point.
+    Lu { f: LuFactor, near_singular: bool },
+}
+
+/// A factorization of S·K·S, S = diag(1/√|K_ii|): the symmetric
+/// equilibration that makes the pivot tests independent of units and of the
+/// spread of stiffnesses (EA/L next to EI/L³). A congruence: the inertia and
+/// the determinant's sign are K's.
+pub(crate) struct Factor {
+    kind: FactorKind,
+    scale: Vec<f64>,
 }
 
 impl Factor {
     pub fn method(&self) -> FactorMethod {
-        match self {
-            Factor::Ldlt(_) => FactorMethod::Ldlt,
-            Factor::Lu(_) => FactorMethod::Lu,
+        match &self.kind {
+            FactorKind::Ldlt(_) => FactorMethod::Ldlt,
+            FactorKind::Lu { .. } => FactorMethod::Lu,
         }
+    }
+
+    /// Whether LDLᵀ refused this symmetric tangent for a tiny pivot.
+    pub fn near_singular(&self) -> bool {
+        matches!(self.kind, FactorKind::Lu { near_singular: true, .. })
     }
 
     /// Number of negative eigenvalues, when the factorization knows it.
     pub fn negative_eigenvalues(&self) -> Option<usize> {
-        match self {
-            Factor::Ldlt(f) => Some(f.inertia().0),
-            Factor::Lu(_) => None,
+        match &self.kind {
+            FactorKind::Ldlt(f) => Some(f.inertia().0),
+            FactorKind::Lu { .. } => None,
         }
     }
 
     pub fn det_sign(&self) -> i8 {
-        match self {
-            Factor::Ldlt(f) => {
+        match &self.kind {
+            FactorKind::Ldlt(f) => {
                 let (neg, zero, _) = f.inertia();
                 if zero > 0 { 0 } else if neg % 2 == 0 { 1 } else { -1 }
             }
-            Factor::Lu(f) => f.det_sign(),
+            FactorKind::Lu { f, .. } => f.det_sign(),
         }
     }
 
     fn raw_solve(&self, b: &[f64]) -> Vec<f64> {
-        match self {
-            Factor::Ldlt(f) => f.solve(b),
-            Factor::Lu(f) => f.solve(b),
-        }
+        let sb: Vec<f64> = b.iter().zip(&self.scale).map(|(x, s)| x * s).collect();
+        let y = match &self.kind {
+            FactorKind::Ldlt(f) => f.solve(&sb),
+            FactorKind::Lu { f, .. } => f.solve(&sb),
+        };
+        y.iter().zip(&self.scale).map(|(x, s)| x * s).collect()
     }
 }
 
@@ -80,6 +99,7 @@ pub(crate) struct TangentSystem {
     symbolic: Rc<LdltSymbolic>,
     /// Fill-reducing column order for LU (perm[new] = old): the LDLᵀ's AMD.
     lu_order: Vec<usize>,
+    factorizations: Cell<usize>,
 }
 
 impl TangentSystem {
@@ -109,7 +129,7 @@ impl TangentSystem {
             .collect();
         let symbolic = Rc::new(ldlt_symbolic(&pattern));
         let lu_order = symbolic.perm.clone();
-        TangentSystem { free, matrix: SparseMatrix::zeros(pattern), slots, symbolic, lu_order }
+        TangentSystem { free, matrix: SparseMatrix::zeros(pattern), slots, symbolic, lu_order, factorizations: Cell::new(0) }
     }
 
     pub fn clear(&mut self) {
@@ -134,16 +154,52 @@ impl TangentSystem {
 
     /// The default policy: LDLᵀ when symmetric, LU otherwise or when LDLᵀ
     /// meets a tiny pivot. `Err` when both fail.
+    pub fn factorizations(&self) -> usize {
+        self.factorizations.get()
+    }
+
     pub fn factor(&self) -> Result<Factor, String> {
+        self.factorizations.set(self.factorizations.get() + 1);
         if self.free.is_empty() {
             return Err("no free DOFs".into());
         }
-        if self.matrix.is_symmetric(1e-10) {
-            if let Ok(f) = ldlt_numeric(&self.symbolic, &self.matrix, 1e-13) {
-                return Ok(Factor::Ldlt(f));
+        let scale = self.equilibration();
+        let mut scaled = self.matrix.clone();
+        let p = scaled.pattern.clone();
+        for j in 0..p.n {
+            for k in p.col_ptr[j]..p.col_ptr[j + 1] {
+                scaled.values[k] *= scale[p.row_idx[k]] * scale[j];
             }
         }
-        lu_numeric(&self.matrix, &self.lu_order, 0.5).map(Factor::Lu).map_err(|e| format!("the tangent stiffness is singular ({e})"))
+        let symmetric = scaled.is_symmetric(1e-10);
+        if symmetric {
+            if let Ok(f) = ldlt_numeric(&self.symbolic, &scaled, 1e-13) {
+                return Ok(Factor { kind: FactorKind::Ldlt(f), scale });
+            }
+        }
+        lu_numeric(&scaled, &self.lu_order, 0.5)
+            .map(|f| Factor { kind: FactorKind::Lu { f, near_singular: symmetric }, scale })
+            .map_err(|e| format!("the tangent stiffness is singular ({e})"))
+    }
+
+    /// 1/√|K_ii|, or 1 where the diagonal vanishes.
+    fn equilibration(&self) -> Vec<f64> {
+        let p = &self.matrix.pattern;
+        (0..p.n)
+            .map(|j| {
+                let d = p.position(j, j).map_or(0.0, |k| self.matrix.values[k].abs());
+                if d > 0.0 && d.is_finite() { 1.0 / d.sqrt() } else { 1.0 }
+            })
+            .collect()
+    }
+
+    /// x = K⁻¹·b from `f` alone, for a factorization of an earlier tangent.
+    pub fn solve_raw(&self, f: &Factor, b: &[f64]) -> Result<Vec<f64>, String> {
+        let x = f.raw_solve(b);
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err("non-finite solution of the tangent system".into());
+        }
+        Ok(x)
     }
 
     /// x = K⁻¹·b with one step of iterative refinement.
@@ -229,6 +285,7 @@ impl TangentSystem {
         for &(slot, f) in &b.column_f {
             a.values[slot] = -f;
         }
+        self.factorizations.set(self.factorizations.get() + 1);
         let lu = lu_numeric(&a, &b.order, 0.5).map_err(|e| format!("the bordered system is singular ({e})"))?;
         let mut rhs = r.to_vec();
         rhs.push(dd);
