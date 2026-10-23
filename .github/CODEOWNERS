@@ -1,0 +1,20 @@
+# Code owners: a change under these paths needs an approving review from an
+# owner before it merges to main (branch protection: "Require review from Code
+# Owners"). They are the paths where a bug gives an engineer a wrong number
+# instead of an error: the solver, the result certificates, post-processing
+# (forces, envelopes, design checks), the element formulations, the design-code
+# checks in the web app, and the verification documents that state what is
+# proved and tested.
+#
+# Later lines take precedence over earlier ones. Add a team or a second owner
+# here when one exists; until then the repository admin reviews.
+
+/engine/src/solver/        @unbalancedparentheses
+/engine/src/certify/       @unbalancedparentheses
+/engine/src/postprocess/   @unbalancedparentheses
+/engine/src/element/       @unbalancedparentheses
+/web/src/lib/engine/codes/ @unbalancedparentheses
+/docs/verification/        @unbalancedparentheses
+
+# The rules themselves.
+/.github/CODEOWNERS        @unbalancedparentheses
