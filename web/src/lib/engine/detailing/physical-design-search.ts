@@ -11,7 +11,7 @@ import { beamLayerAlternatives, type BeamLayerAlternative } from './beam-layer-a
 import { beamCageContinuityAlternatives, beamContinuityAlternatives } from './beam-continuity-alternatives';
 import { detailRegressionReasons } from './detail-regression';
 
-export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog';
+export type PhysicalRepairOperator = 'diameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog';
 
 export interface PhysicalSearchBudget {
   /** Full geometry builds, including rejected trials. */
@@ -40,6 +40,7 @@ export interface PhysicalSearchTrial {
   region?: BeamLayerAlternative['region'];
   counts?: number[];
   bottomCounts?: number[];
+  bottomDiameterMm?: number;
   disposition: 'nominalFailure' | 'unchanged' | 'regression' | 'noProgress' | 'accepted';
   /** Members acquiring a physical condition they did not previously have. */
   newlyBlocked?: number[];
@@ -97,7 +98,7 @@ export function searchPhysicalDesignAlternatives(input: {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
   const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
-  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog')) {
+  if (operators.some(o => o !== 'diameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog')) {
     throw new Error('Unknown physical repair operator');
   }
   if (operators.some(o => o.startsWith('harmonize'))) {
@@ -267,7 +268,8 @@ export function continuityLines(contexts: ReadonlyMap<number, MemberContext>, re
 /** Uniform longitudinal patterns are checked and published on a whole neighbourhood atomically. */
 function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlternatives>[0]): PhysicalSearchResult {
   const operator = input.budget.operators![0] as Extract<PhysicalRepairOperator, `harmonize${string}`>;
-  const cage = operator === 'harmonizeCageCatalog';
+  const mixed = operator === 'harmonizeMixedCageCatalog';
+  const cage = operator === 'harmonizeCageCatalog' || mixed;
   const catalog = operator === 'harmonizeTopCatalog' || cage;
   let result = input.result, outcomes = input.outcomes;
   const trials: PhysicalSearchTrial[] = [], changed = new Set<number>();
@@ -318,7 +320,7 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
     let proposalIndex = 0;
-    const proposals = cage ? beamCageContinuityAlternatives(ctx, current)
+    const proposals = cage ? beamCageContinuityAlternatives(ctx, current, mixed ? 'mixed' : 'common')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
     for (const proposal of proposals) {
       if (proposalIndex++ < target.offset) continue;
@@ -337,7 +339,8 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
       const trial: PhysicalSearchTrial = { elementId: ids[0], elementIds: [...ids], jointId: jointIds[0], jointIds,
         operator, diameterMm: proposal.layers[0].diameter,
         counts: proposal.layers.map(l => l.count),
-        ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count) } : {}),
+        ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count),
+          bottomDiameterMm: proposal.bottomLayers[0].diameter } : {}),
         disposition: 'nominalFailure', nominalFailures: [] };
       trials.push(trial);
       for (let i = 0; i < ids.length; i++) {
@@ -354,7 +357,12 @@ function searchBeamContinuity(input: Parameters<typeof searchPhysicalDesignAlter
           proposed.set(ids[i], checked);
         }
       }
-      if (trial.nominalFailures!.length) continue;
+      if (trial.nominalFailures!.length) {
+        // Mixed faces have a product of catalog families. One difficult line must not use
+        // the nominal budget before the other lines get even their first proposal.
+        if (mixed) { ranked.push({ ...target, offset: proposalIndex }); break; }
+        continue;
+      }
       const detailed = input.detail(proposed, trialContexts);
       stats.detailingRuns++;
       const before = physicallyBlockedMembers(result), after = physicallyBlockedMembers(detailed);

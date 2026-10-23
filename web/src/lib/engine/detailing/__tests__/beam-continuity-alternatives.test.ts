@@ -11,6 +11,31 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it('offers different catalog diameters on opposite faces without mixing a face or reducing its area seed', () => {
+    const ctx = contexts(), current = [reinforcement(7, 12), reinforcement(8, 10)];
+    for (const c of ctx) c.material.longDiametersMm = [12, 16];
+    const before = structuredClone(current);
+    const proposals = [...beamCageContinuityAlternatives(ctx, current, 'mixed')];
+    expect(proposals).toHaveLength(8);
+    expect(proposals.slice(0, 2).map(p => [p.layers[0].diameter, p.bottomLayers![0].diameter]))
+      .toEqual([[16, 12], [12, 16]]);
+    expect(new Set(proposals.map(p => `${p.layers[0].diameter}/${p.bottomLayers![0].diameter}`)))
+      .toEqual(new Set(['12/16', '16/12']));
+    for (const p of proposals) {
+      expect(p.layers.reduce((a, l) => a + l.count * l.diameter ** 2, 0)).toBeGreaterThanOrEqual(7 * 12 ** 2);
+      expect(p.bottomLayers!.reduce((a, l) => a + l.count * l.diameter ** 2, 0)).toBeGreaterThanOrEqual(3 * 16 ** 2);
+      for (const r of p.reinforcement) {
+        expect(r.regions!.topStartLayers).toEqual(p.layers);
+        expect(r.regions!.topEndLayers).toEqual(p.layers);
+        expect(r.regions!.bottomSpanLayers).toEqual(p.bottomLayers);
+        expect(r.regions!.preserveBottomRows).toBe(true);
+      }
+    }
+    expect(current).toEqual(before);
+    ctx[1].material.longDiametersMm = [16];
+    expect([...beamCageContinuityAlternatives(ctx, current, 'mixed')]).toEqual([]);
+  });
+
   it('tries independent top and bottom areas in one common cage diameter without changing end intent', () => {
     const ctx = contexts(), current = [reinforcement(7, 12), reinforcement(8, 10)];
     ctx[1].material.longDiametersMm = [16];

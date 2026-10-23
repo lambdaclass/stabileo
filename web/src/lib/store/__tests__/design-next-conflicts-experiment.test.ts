@@ -11,7 +11,7 @@ import { detailRegressionReasons } from '../../engine/detailing/detail-regressio
 import * as detailEngine from '../../engine/detailing/run-detailing';
 import { rebarHash } from '../../engine/design/rebar-hash';
 import { cirsoc201Adapter } from '../../engine/design/adapters/cirsoc201-adapter';
-import { beamContinuityAlternatives } from '../../engine/detailing/beam-continuity-alternatives';
+import { beamCageContinuityAlternatives, beamContinuityAlternatives } from '../../engine/detailing/beam-continuity-alternatives';
 import { beamCornerRecord } from '../../engine/design/end-support-anchorage';
 
 // Forensic continuation of a saved audit. Forces are solved again; only its reinforcement
@@ -34,6 +34,24 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
   // Recheck saved rejected catalog proposals without repeating expensive full detailing.
   // This mode is for a sweep with no accepted changes: all trials share the restored assignment.
   const nominalFailures: unknown[] = [];
+  if (process.env.STABILEO_REPAIR_PROPOSALS) {
+    const ids = process.env.STABILEO_REPAIR_PROPOSALS.split(',').map(Number);
+    const ctx = ids.map(id => verificationStore.contexts.get(id)!);
+    const current = ids.map(id => outcomes.get(id)!.accepted!);
+    for (const proposal of beamCageContinuityAlternatives(ctx, current,
+      process.env.STABILEO_REPAIR_OPERATOR === 'harmonizeMixedCageCatalog' ? 'mixed' : 'common')) {
+      const corners = new Map(ctx[0].beamCorners);
+      ids.forEach((id, i) => corners.set(id, beamCornerRecord(proposal.reinforcement[i], ctx[i].material.stirrupDia)!));
+      nominalFailures.push({ elementIds: ids, diameterMm: proposal.layers[0].diameter,
+        counts: proposal.layers.map(l => l.count), bottomCounts: proposal.bottomLayers!.map(l => l.count),
+        bottomDiameterMm: proposal.bottomLayers![0].diameter,
+        failed: ids.flatMap((id, i) => {
+          const verdict = cirsoc201Adapter.verify({ ...ctx[i], beamCorners: corners }, proposal.reinforcement[i]);
+          const checks = verdict.checks.filter(c => c.status === 'fail' || c.anchorHook);
+          return checks.length ? [{ elementId: id, checks }] : [];
+        }) });
+    }
+  }
   if (process.env.STABILEO_REPAIR_NOMINAL_AUDIT) {
     const audit = JSON.parse(readFileSync(process.env.STABILEO_REPAIR_NOMINAL_AUDIT, 'utf8'));
     expect(restored).toEqual(audit.before);

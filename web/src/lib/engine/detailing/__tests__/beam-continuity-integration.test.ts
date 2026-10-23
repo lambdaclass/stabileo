@@ -15,12 +15,12 @@ import type { ProvidedReinforcement } from '../../../design-contract/reinforceme
 // = w L²/8 = 153.1125 kN m. The initial top patterns (7Ø12 and 4Ø16) both resist it,
 // but cannot occupy their nearly coincident positions as a lap. Either uniform pattern
 // is a finite, known alternative to test; the engine must still build and verify it.
-it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed'] as const)(
+it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three spans reversed', 'bottom three spans', 'catalog three spans', 'cage three spans', 'cage three spans reversed', 'mixed cage three spans', 'mixed cage three spans reversed'] as const)(
   'closes both spans through the production path (%s)', mode => {
   const model = structuredClone(fixture);
   model.nodes[1].x = 6; model.nodes[2].x = 12;
   const three = mode.includes('three spans'), bottom = mode.startsWith('bottom'), catalog = mode.startsWith('catalog');
-  const cage = mode.startsWith('cage');
+  const cage = mode.includes('cage'), mixed = mode.startsWith('mixed');
   if (three) {
     model.nodes.push({ id: 4, x: 18, y: 0, z: 0 });
     model.elements.push({ ...model.elements[1], id: 3, nodeI: 3, nodeJ: 4 });
@@ -28,8 +28,10 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
     model.loads.push(...model.loads.filter(l => l.data.elementId === 2)
       .map(l => ({ ...l, data: { ...l.data, id: l.data.id + 4, elementId: 3 } })));
   }
-  Object.assign(model.sections[0], { b: 0.35, h: 0.65, a: 0.35 * 0.65,
-    iy: 0.35 * 0.65 ** 3 / 12, iz: 0.65 * 0.35 ** 3 / 12 });
+  // The mixed family needs room for its larger population of smaller bottom bars.
+  const width = mixed ? 0.375 : 0.35;
+  Object.assign(model.sections[0], { b: width, h: 0.65, a: width * 0.65,
+    iy: width * 0.65 ** 3 / 12, iz: 0.65 * width ** 3 / 12 });
   model.supports.push({ id: 3, nodeId: 2, type: 'rollerZ' });
   // State all six restraints: the legacy rollerZ label is a 2D support, not a 3D hinge.
   for (const s of model.supports) Object.assign(s, { type: 'custom3d', dofRestraints: {
@@ -60,7 +62,7 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   for (const [id, ctx] of solved.contexts) {
     // Independent statics value: a different load/model must not accidentally weaken the fixture.
     expect(Math.max(...ctx.stations!.comboResults.flatMap(c => c.stations.map(s => Math.abs(s.my)))))
-      .toBeCloseTo(three ? 122.49 : 153.1125, 3);
+      .toBeCloseTo((1.2 * (12 + 25 * width * 0.65) + 1.6 * 8) * (three ? 3.6 : 4.5), 3);
     const r = rebar(id), verdict = cirsoc201Adapter.verify(ctx, r);
     expect(['ok', 'warn'], JSON.stringify({ id, checks: verdict.checks.filter(c => c.status === 'fail') })).toContain(verdict.overallStatus);
     const o = outcomeFromProvided(cirsoc201Adapter, ctx, r, verdict);
@@ -87,12 +89,15 @@ it.each(['original', 'rotated', 'reversed', 'renumbered', 'three spans', 'three 
   const result = searchPhysicalDesignAlternatives({ adapter: cirsoc201Adapter, contexts: solved.contexts,
     outcomes, result: before, detail, regresses: detailRegresses,
     budget: { maxDetailingRuns: 4, maxMemberSearches: 12,
-      operators: [cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
+      operators: [mixed ? 'harmonizeMixedCageCatalog' : cage ? 'harmonizeCageCatalog' : catalog ? 'harmonizeTopCatalog' : bottom ? 'harmonizeBottomLine' : three ? 'harmonizeTopLine' : 'harmonizeTop'] } });
   expect(result.changed.length).toBeGreaterThan(0);
   if (catalog) for (const o of result.outcomes.values()) expect(o.accepted!.regions!.topStart).toEqual({ count: 5, diameter: 16 });
-  if (cage) for (const o of result.outcomes.values()) {
+  if (cage && !mixed) for (const o of result.outcomes.values()) {
     expect(o.accepted!.regions!.topStart).toEqual({ count: 4, diameter: 16 });
     expect(o.accepted!.regions!.bottomSpan).toEqual({ count: 4, diameter: 16 });
+  }
+  if (mixed) for (const o of result.outcomes.values()) {
+    expect(o.accepted!.regions!.topStart!.diameter).not.toBe(o.accepted!.regions!.bottomSpan!.diameter);
   }
   const assertClosed = (r: ReturnType<typeof detail>) => {
     expect(r.skipped).toEqual([]);

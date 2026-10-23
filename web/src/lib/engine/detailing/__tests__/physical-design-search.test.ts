@@ -143,7 +143,23 @@ describe('atomic top continuity repair', () => {
     expect(result.changed).toEqual([]);
   });
 
-  it('tries the next catalog line before spending a second full run on the first', () => {
+  it('certifies a mixed-diameter cage atomically and records each face diameter', () => {
+    const { input, verify } = line();
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, operators: ['harmonizeMixedCageCatalog'] } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', operator: 'harmonizeMixedCageCatalog',
+      elementIds: [1, 2, 3], diameterMm: 16, bottomDiameterMm: 12, counts: [2], bottomCounts: [4] });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(input.detail).toHaveBeenCalledTimes(1);
+    for (const o of result.outcomes.values()) {
+      expect(o.accepted!.regions!.topStart!.diameter).toBe(16);
+      expect(o.accepted!.regions!.bottomSpan!.diameter).toBe(12);
+      expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
+    }
+  });
+
+  it.each(['harmonizeTopCatalog', 'harmonizeMixedCageCatalog'] as const)(
+    'gives the next line a trial after a rejected proposal (%s)', operator => {
     const { input, verify } = line();
     const model = input.contexts.get(1)!.modelData;
     for (const id of [7, 8, 9, 10]) model.nodes.set(id, { id, x: id * 6, y: 0, z: 0 });
@@ -162,13 +178,20 @@ describe('atomic top continuity repair', () => {
     const improved = { ...input.result, assemblies: [{ ...input.result.assemblies[0],
       conflicts: input.result.assemblies[0].conflicts.slice(0, 2) }] };
     input.detail.mockReturnValueOnce(input.result).mockReturnValueOnce(improved);
+    if (operator === 'harmonizeMixedCageCatalog') {
+      verify.mockImplementation(ctx => ({
+        overallStatus: ctx.elementId < 4 ? 'fail' : 'ok', strengthCheckCount: 2,
+        checks: [{ status: ctx.elementId < 4 ? 'fail' : 'ok' }], worstUtilization: 0.8, checkedAxes: ['My'],
+      } as never));
+      input.detail.mockReset().mockReturnValue(improved);
+    }
     const result = searchPhysicalDesignAlternatives({ ...input,
-      budget: { maxDetailingRuns: 2, maxMemberSearches: 6, operators: ['harmonizeTopCatalog'] } });
+      budget: { maxDetailingRuns: 2, maxMemberSearches: 6, operators: [operator] } });
     expect(result.trials.map(t => [t.elementIds, t.disposition])).toEqual([
-      [[1, 2, 3], 'noProgress'], [[4, 5, 6], 'accepted'],
+      [[1, 2, 3], operator === 'harmonizeMixedCageCatalog' ? 'nominalFailure' : 'noProgress'], [[4, 5, 6], 'accepted'],
     ]);
     expect(verify).toHaveBeenCalledTimes(6);
-    expect(input.detail).toHaveBeenCalledTimes(2);
+    expect(input.detail).toHaveBeenCalledTimes(operator === 'harmonizeMixedCageCatalog' ? 1 : 2);
   });
 
   it('does not join a crossing beam even if an upstream line identifier is shared', () => {

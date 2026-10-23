@@ -13,18 +13,32 @@ export interface BeamContinuityAlternative {
 /**
  * Joint top/bottom alternatives: the widest face supplies the shared layout's pitch.
  * Changing only the top can therefore leave its larger bars on a smaller bottom pitch,
- * forcing extra rows and shorter hooks. Try one catalog diameter on both faces, with
- * independent area seeds. Every member still needs nominal and full-detail verification.
+ * forcing extra rows and shorter hooks. Try common diameters or different families on
+ * opposite faces (shorter bottom hooks can need smaller bars), with independent area seeds.
+ * Every member still needs nominal and full-detail verification.
  */
 export function* beamCageContinuityAlternatives(
   contexts: readonly MemberContext[], current: readonly ProvidedReinforcement[],
+  diameters: 'common' | 'mixed' = 'common',
 ): Generator<BeamContinuityAlternative> {
+  const mixed: Array<{ proposal: BeamContinuityAlternative; topIndex: number; bottomIndex: number }> = [];
+  let topIndex = 0;
   for (const top of beamContinuityAlternatives(contexts, current, 'top', 'catalog')) {
+    let bottomIndex = 0;
     for (const bottom of beamContinuityAlternatives(contexts, top.reinforcement, 'bottom', 'catalog')) {
-      if (bottom.layers[0].diameter !== top.layers[0].diameter) continue;
-      yield { layers: top.layers, bottomLayers: bottom.layers, reinforcement: bottom.reinforcement };
+      const index = bottomIndex++;
+      if ((bottom.layers[0].diameter === top.layers[0].diameter) !== (diameters === 'common')) continue;
+      const proposal = { layers: top.layers, bottomLayers: bottom.layers, reinforcement: bottom.reinforcement };
+      if (diameters === 'common') yield proposal;
+      else mixed.push({ proposal, topIndex, bottomIndex: index });
     }
+    topIndex++;
   }
+  // Explore both faces' preferred families before exhausting one face's entire catalog
+  // with the other's first pattern. These lists are bounded by diameter and count limits.
+  mixed.sort((a, b) => Math.max(a.topIndex, a.bottomIndex) - Math.max(b.topIndex, b.bottomIndex)
+    || a.topIndex + a.bottomIndex - b.topIndex - b.bottomIndex || a.topIndex - b.topIndex);
+  for (const { proposal } of mixed) yield proposal;
 }
 
 /**

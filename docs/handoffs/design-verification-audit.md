@@ -6,6 +6,67 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Diámetros distintos por cara y reparto del presupuesto
+
+El catálogo conjunto resolvía ambas caras con el mismo diámetro. Esa restricción evita algunas
+incompatibilidades de posiciones, pero descarta alternativas con barras inferiores menores,
+cuyos anclajes requieren menos espacio. `harmonizeMixedCageCatalog` explora diámetros distintos
+entre caras, manteniendo una familia uniforme por cara a lo largo de la línea y los mínimos de
+área de cada semilla. No modifica reglas de resistencia, anclaje ni colisión.
+
+El producto de dos catálogos requiere repartir la búsqueda: las propuestas intercalan las
+familias preferidas de ambas caras y cada rechazo nominal cede el turno a otra línea. Antes,
+una línea podía consumir el presupuesto nominal probando sucesivas familias inferiores con
+una sola familia superior. La aceptación conserva los controles globales y las certificaciones
+atómicas; se registran ambos diámetros y ambas poblaciones en cada ensayo.
+
+Reconstrucción del audit de `a3073bdec`, resolviendo nuevamente el modelo de 408 elementos:
+
+| Exploración | Detallados | Verificaciones nominales | Aprobados | Bloqueantes |
+| --- | ---: | ---: | ---: | ---: |
+| Estado publicado | — | — | 169 | 844 |
+| Combinaciones secuenciales | 49 | 512 | 178 | 830 |
+| Combinaciones intercaladas, retenidas | 64 | 461 | 177 | 819 |
+
+Ambas exploraciones conservan las 169 identidades aprobadas del estado publicado. Son rutas
+alternativas desde la misma base, no etapas acumulativas. Se retiene la segunda por su menor
+número de conflictos; no domina a la primera en cantidad de aprobados. Termina por presupuesto
+y no demuestra que se hayan agotado las soluciones. La búsqueda no repite el análisis estructural.
+
+La versión retenida acepta cinco propuestas sobre 17 vigas: 270–272, 344–346, 208–210,
+347–350 y 378–381. En 208–210, 4Ø16 superiores y 7+2 Ø12 inferiores eliminan 19 bloqueantes
+y resuelven cuatro parejas de empalmes pendientes. Las ocho nuevas aprobadas son 347–350 y
+378–381. El total final es **114 columnas y 63 vigas aprobadas**, 183 fallidos, 35 búsquedas
+agotadas y 13 provisionales biaxiales. Ningún aprobado participa en conflictos bloqueantes.
+
+La regeneración sin búsqueda reproduce exactamente los veredictos y conflictos. El test de
+reconstrucción, búsqueda y regeneración consume 160,43 s locales. Quedan 451 pares superiores,
+132 inferiores, 90 otros longitudinales y 146 longitudinal/transversal. El volumen longitudinal
+generado pasa de 4,638558 a 4,655773 m³ (+0,37%); todavía no se minimiza el costo del acero.
+
+Pasan 103 pruebas dirigidas en cuatro suites, incluidas dos integraciones de tres vanos con
+diámetros distintos, en ambas orientaciones, con verificación de resistencia, continuidad,
+cobertura transversal y regeneración. El test de presupuesto reproduce una primera línea que
+falla nominalmente y comprueba que la segunda recibe una propuesta dentro del mismo límite.
+Typecheck no agrega errores (442 existentes frente a baseline 443).
+
+El diagnóstico de 235–238 sigue abierto. Se reprodujo una inconsistencia entre filas inferiores
+preservadas y filas hipotéticas consideradas al planificar anclajes. Corregirla globalmente
+cambiaba también las opciones de coordinación: subía a 952 bloqueantes y bloqueaba la columna
+65, aunque el total de aprobados creciera en uno. **Esa modificación no se retuvo.** Hará falta
+seleccionar y verificar la disposición completa para corregirla sin desplazar conflictos a vecinos.
+
+Reproducción medida desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-cage-final.json STABILEO_REPAIR_OPERATOR=harmonizeMixedCageCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-mixed-audit.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
+El experimento desde cero admite `STABILEO_MIXED_CAGE_CATALOG=64` después del catálogo
+conjunto; la medición de esta revisión usa la reconstrucción del audit anterior. Para inspeccionar
+las verificaciones nominales de todas las propuestas de una línea sin repetir la búsqueda física,
+se puede agregar `STABILEO_REPAIR_PROPOSALS=235,236,237,238` y omitir `STABILEO_REPAIR_RUNS`.
+
 ## Explorar ambas caras de una línea en una misma alternativa
 
 Armonizar sólo la cara superior deja intacta la inferior, aunque el grupo más numeroso
