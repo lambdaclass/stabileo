@@ -147,7 +147,7 @@ fn point_value(qs: &[([Q; 4], Q)], t: &Q) -> Q {
 /// or `max_depth` / the split budget runs out. Returns the interior cut points per piece
 /// (increasing) and `U`, the largest segment bound (an upper bound on the maximum).
 fn branch_and_bound(qs: &[Vec<([Q; 4], Q)>], ends: &[(Q, Q)], max_depth: u32) -> (Vec<Vec<Q>>, Q) {
-    let rel = Q::one() + Q::new(1.into(), num_bigint::BigInt::one() << 30usize);
+    let rel = Q::one() + qr(1, 1i64 << 30);
     // (piece, s, s1, bound, depth)
     let mut open: Vec<(usize, Q, Q, Q, u32)> = Vec::new();
     let mut lower = Q::zero();

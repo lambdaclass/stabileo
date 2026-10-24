@@ -6,9 +6,8 @@
 //! `to_f64_up`), so a reported bound is never on the wrong side of the exact
 //! rational it stands for.
 
-use num_bigint::BigInt;
 use num_rational::BigRational;
-use num_traits::{One, Signed, ToPrimitive, Zero};
+use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 pub type Q = BigRational;
 
@@ -23,12 +22,12 @@ pub fn q(x: f64) -> Option<Q> {
 
 /// Small integer as a rational.
 pub fn qi(n: i64) -> Q {
-    Q::from_integer(BigInt::from(n))
+    Q::from_i64(n).expect("every i64 is exactly representable as a rational")
 }
 
 /// Exact ratio n/d of two integers (d ≠ 0).
 pub fn qr(n: i64, d: i64) -> Q {
-    Q::new(BigInt::from(n), BigInt::from(d))
+    qi(n) / qi(d)
 }
 
 /// Exact square root when `x` is the square of a rational, else `None`.

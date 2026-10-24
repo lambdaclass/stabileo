@@ -525,7 +525,7 @@ pub fn check_static(model: &PlasticModel, field: &StaticField) -> Result<StaticC
 
         if let Some((lo, _)) = &e.mp {
             let cr = cross(e, fx, fz);
-            let tol = lo / Q::from_integer(num_bigint::BigInt::one() << 40usize);
+            let tol = lo / qi(1i64 << 40);
             let mut umax = mi.abs().max(mj.abs());
             for pc in &e.pieces {
                 let c = [

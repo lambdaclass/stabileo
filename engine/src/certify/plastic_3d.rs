@@ -605,7 +605,7 @@ pub fn check_static_3d(model: &PlasticModel3, field: &StaticField3) -> Result<St
     let nn = model.node_ids.len();
     let mut sum = vec![std::array::from_fn::<Q, 6, _>(|_| Q::zero()); nn];
     let mut umax_all: Option<Q> = None;
-    let tol = Q::one() / Q::from_integer(num_bigint::BigInt::one() << 40usize);
+    let tol = Q::one() / qi(1i64 << 40);
     for (e, f) in model.elems.iter().zip(&field.elems) {
         let fv: V3 = [f[0].clone(), f[1].clone(), f[2].clone()];
         let mi: V3 = [f[3].clone(), f[4].clone(), f[5].clone()];
