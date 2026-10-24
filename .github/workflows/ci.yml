@@ -16,8 +16,8 @@ permissions:
   contents: read
 
 # Self-hosted runners (Stabileo's own server stabileo-ci-1, dotfiles servers/runners-stabileo.sh,
-# label `stabileo`): the Rust and WASM jobs and web-unit run there when the repository variable
-# STABILEO_SELF_HOSTED is 'true', and only for trusted events (the merge queue, pushes to main),
+# label `stabileo`): lint, the suite, the metamorphic tests and the WASM build run there when the
+# repository variable STABILEO_SELF_HOSTED is 'true', and only for trusted events (the merge queue, pushes to main),
 # never for pull_request: the repo is public. Their build output stays warm on the host
 # (CARGO_TARGET_DIR per runner), so they skip rust-cache, and mold is part of the host. Unset or
 # 'false', every job runs on GitHub's runners as before: the variable is the switch, both ways.
@@ -79,8 +79,10 @@ jobs:
   # step here, add its filter to the suite exclusion as well (verified with:
   # cargo nextest list --profile ci -E '<filter>' | wc -l — suite + gates must
   # equal the old combined filter's count).
+  # GitHub's runners even when STABILEO_SELF_HOSTED is on: its perf gates time the solver, and
+  # next to five busy jobs on stabileo-ci-1 they ran over budget (scale_3d_assembly_sub_cubic).
   test:
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -385,9 +387,12 @@ jobs:
   # the unit pass waiting on its longest files. The unit pass needs the WASM
   # engine and nothing else, so it shards two ways here; the production-build
   # tests need Chromium and the built app, so they stay with the build.
+  # GitHub's runners even when STABILEO_SELF_HOSTED is on: its budget tests time the app's
+  # calculations, and next to five busy jobs on stabileo-ci-1 they ran over (scale-budget 2622 ms
+  # against 1500).
   web-unit:
     needs: wasm
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
