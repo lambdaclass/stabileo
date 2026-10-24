@@ -60,7 +60,11 @@ fn ec2_singly_reinforced_flexure() {
     );
 
     // MRd = As * fyd * z = 1.257e-3 * 434.8e6 * 0.3953 = 216 kN-m approx
-    assert!(r.m_rd > 200_000.0, "MRd should be > 200 kN-m: {:.0}", r.m_rd);
+    assert!(
+        r.m_rd > 200_000.0,
+        "MRd should be > 200 kN-m: {:.0}",
+        r.m_rd
+    );
     assert!(r.flexure_ratio < 1.0);
     assert!(r.pass);
 }
@@ -111,12 +115,12 @@ fn ec2_doubly_reinforced() {
     let input = Ec2CheckInput {
         members: vec![Ec2MemberData {
             element_id: 1,
-            fck: 30e6,  // C30/37
+            fck: 30e6, // C30/37
             fyk: 500e6,
             b: 0.30,
             h: 0.60,
             d: 0.54,
-            as_tension: 2.513e-3, // 8 dia 20
+            as_tension: 2.513e-3,          // 8 dia 20
             as_compression: Some(6.28e-4), // 2 dia 20
             d_prime: Some(0.06),
             es: None,
@@ -163,7 +167,7 @@ fn ec2_shear_concrete_only() {
             gamma_c: None,
             gamma_s: None,
             alpha_cc: None,
-            asw: None,  // No stirrups
+            asw: None, // No stirrups
             s_stirrup: None,
             theta_shear: None,
             bw: None,
@@ -229,7 +233,11 @@ fn ec2_shear_with_stirrups() {
     // = (1.57e-4 / 0.20) * 0.9*0.54 * (500e6/1.15) * 2.5
     // = 7.85e-4 * 0.486 * 434.8e6 * 2.5
     // = 414,632 N ≈ 415 kN
-    assert!(r.v_rds > 200_000.0, "VRd,s should be > 200 kN: {:.0}", r.v_rds);
+    assert!(
+        r.v_rds > 200_000.0,
+        "VRd,s should be > 200 kN: {:.0}",
+        r.v_rds
+    );
     assert!(r.v_rd_max > 0.0);
     assert!(r.shear_ratio < 1.0);
     assert!(r.pass);
@@ -399,4 +407,91 @@ fn ec2_multiple_members() {
     // Both should have positive capacities
     assert!(results[0].m_rd > 0.0);
     assert!(results[1].m_rd > 0.0);
+}
+
+/// Issue #568: Over-reinforced beam where tension steel does not yield must not overstate MRd.
+#[test]
+fn ec2_over_reinforced_beam_must_not_exceed_strain_compatibility_mrd() {
+    let input = Ec2CheckInput {
+        members: vec![Ec2MemberData {
+            element_id: 1,
+            fck: 25e6,
+            fyk: 500e6,
+            b: 0.30,
+            h: 0.50,
+            d: 0.45,
+            as_tension: 4500e-6,
+            as_compression: None,
+            d_prime: None,
+            es: Some(200e9),
+            gamma_c: Some(1.5),
+            gamma_s: Some(1.15),
+            alpha_cc: Some(1.0),
+            asw: None,
+            s_stirrup: None,
+            theta_shear: None,
+            bw: None,
+            z: None,
+        }],
+        forces: vec![Ec2DesignForces {
+            element_id: 1,
+            m_ed: Some(460_000.0), // 460 kN-m > true MRd = 412.1 kN-m
+            v_ed: None,
+            n_ed: None,
+        }],
+    };
+    let r = &check_ec2_members(&input)[0];
+    // True strain-compatibility MRd is ~412.1 kN-m (flexure_ratio ≈ 1.116 -> FAIL),
+    // whereas the old un-iterated closed form erroneously reported 497.6 kN-m and passed.
+    assert!(
+        !r.pass,
+        "Over-reinforced section must fail under Med = 460 kN-m"
+    );
+    assert!(
+        (r.m_rd - 412_100.0).abs() / 412_100.0 < 0.01,
+        "Expected MRd ≈ 412.1 kN-m, got {:.1} kN-m",
+        r.m_rd / 1e3
+    );
+    assert!(
+        (r.x_na - 0.3204).abs() / 0.3204 < 0.01,
+        "Expected x_na ≈ 0.3204 m, got {:.4} m",
+        r.x_na
+    );
+}
+
+/// Issue #568: Doubly-reinforced beam with light tension steel (x_na < d') must clamp fsc properly.
+#[test]
+fn ec2_doubly_reinforced_light_tension_steel_does_not_blow_up() {
+    let input = Ec2CheckInput {
+        members: vec![Ec2MemberData {
+            element_id: 1,
+            fck: 40e6,
+            fyk: 500e6,
+            b: 0.30,
+            h: 0.50,
+            d: 0.45,
+            as_tension: 200e-6,
+            as_compression: Some(400e-6),
+            d_prime: Some(0.05),
+            es: Some(200e9),
+            gamma_c: Some(1.5),
+            gamma_s: Some(1.15),
+            alpha_cc: Some(1.0),
+            asw: None,
+            s_stirrup: None,
+            theta_shear: None,
+            bw: None,
+            z: None,
+        }],
+        forces: vec![Ec2DesignForces {
+            element_id: 1,
+            m_ed: Some(20_000.0),
+            v_ed: None,
+            n_ed: None,
+        }],
+    };
+    let r = &check_ec2_members(&input)[0];
+    assert!(r.m_rd.is_finite() && r.m_rd > 0.0);
+    assert!(r.x_na.is_finite() && r.x_na > 0.0 && r.x_na < 0.45);
+    assert!(r.z.is_finite() && r.z > 0.0 && r.z <= 0.45);
 }
