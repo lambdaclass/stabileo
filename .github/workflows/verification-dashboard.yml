@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Unit tests of the metrics script (fake gh, no network)
@@ -108,10 +108,10 @@ jobs:
         with:
           ref: ${{ github.ref_type == 'tag' && 'main' || github.ref }}
           fetch-depth: 1
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         if: needs.coverage.outputs.uploaded == 'true'
         continue-on-error: true
         with:
