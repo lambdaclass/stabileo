@@ -400,3 +400,44 @@ fn ec2_multiple_members() {
     assert!(results[0].m_rd > 0.0);
     assert!(results[1].m_rd > 0.0);
 }
+
+/// Test 9: Over-reinforced and doubly-reinforced strain compatibility (#568).
+#[test]
+fn ec2_over_reinforced_and_doubly_reinforced_strain_compatibility() {
+    let over_reinforced = Ec2CheckInput {
+        members: vec![Ec2MemberData {
+            element_id: 1,
+            fck: 25e6,
+            fyk: 500e6,
+            b: 0.30,
+            h: 0.50,
+            d: 0.45,
+            as_tension: 4500e-6,
+            as_compression: None,
+            d_prime: None,
+            es: Some(200e9),
+            gamma_c: Some(1.5),
+            gamma_s: Some(1.15),
+            alpha_cc: Some(1.0),
+            asw: None,
+            s_stirrup: None,
+            theta_shear: None,
+            bw: None,
+            z: None,
+        }],
+        forces: vec![Ec2DesignForces {
+            element_id: 1,
+            m_ed: Some(460_000.0), // 460 kN-m > strain-compatibility MRd = 412.1 kN-m
+            v_ed: None,
+            n_ed: None,
+        }],
+    };
+    let r = &check_ec2_members(&over_reinforced)[0];
+    assert!(
+        (r.m_rd - 412_112.0).abs() / 412_112.0 < 1e-3,
+        "Expected strain-compatibility MRd ~ 412.1 kN-m, got {}",
+        r.m_rd
+    );
+    assert!(!r.pass, "Over-reinforced beam at 460 kN-m must fail");
+}
+

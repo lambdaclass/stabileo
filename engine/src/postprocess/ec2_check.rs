@@ -176,46 +176,115 @@ fn design_strengths<T: Real>(m: &Ec2MemberData) -> (T, T, T) {
     (fcd, fyd, fck_mpa)
 }
 
-/// Flexural resistance. Generic over `Real` so the certified check
-/// (`certify::design`) evaluates the same formula in interval arithmetic.
-pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
-    let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
-    let es = T::exact(m.es.unwrap_or(200e9));
-    let (one, fifty) = (T::exact(1.0), T::exact(50.0));
-    let (as_t, b, d) = (T::exact(m.as_tension), T::exact(m.b), T::exact(m.d));
+/// Ultimate compressive strain εcu3 for the rectangular stress block
+/// (EN 1992-1-1 Table 3.1: 0.0035 for fck ≤ 50 MPa,
+/// 0.0026 + 0.035·((90 − fck)/100)^4 for 50 < fck ≤ 90 MPa).
+fn ec2_ecu3<T: Real>(fck_mpa: T) -> T {
+    let fifty = T::exact(50.0);
+    branch(
+        fck_mpa.le(fifty),
+        || T::lit(0.0035),
+        || {
+            let r = (T::exact(90.0) - fck_mpa).dv(T::exact(100.0)).max(T::exact(0.0));
+            T::lit(0.0026) + T::lit(0.035) * r.sq().sq()
+        },
+    )
+}
 
-    // Using simplified rectangular stress block (EC2 3.1.7)
-    // lambda = 0.8 for fck <= 50 MPa, eta = 1.0
+/// Flexural resistance by strain compatibility (EN 1992-1-1 6.1 & 3.1.7).
+/// Generic over `Real` so the certified check (`certify::design`) evaluates
+/// the same formula in interval arithmetic.
+pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+    let zero = T::exact(0.0);
+    let one = T::exact(1.0);
+    let two = T::exact(2.0);
+    let fifty = T::exact(50.0);
+
+    let es_f = m.es.unwrap_or(200e9);
+    let gamma_c_f = m.gamma_c.unwrap_or(1.5);
+    let gamma_s_f = m.gamma_s.unwrap_or(1.15);
+    let alpha_cc_f = m.alpha_cc.unwrap_or(1.0);
+    let (as_c_f, d_p_f) = match (m.as_compression, m.d_prime) {
+        (Some(ac), Some(dp)) if ac > 0.0 && dp > 0.0 => (ac, dp),
+        _ => (0.0, 0.0),
+    };
+
+    let valid = [m.fck, m.fyk, m.b, m.h, m.d, m.as_tension, as_c_f, d_p_f, es_f, gamma_c_f, gamma_s_f, alpha_cc_f]
+        .iter()
+        .all(|v| v.is_finite())
+        && m.fck > 0.0
+        && m.fyk > 0.0
+        && m.b > 0.0
+        && m.d > 0.0
+        && m.as_tension >= 0.0
+        && es_f > 0.0
+        && gamma_c_f > 0.0
+        && gamma_s_f > 0.0
+        && alpha_cc_f > 0.0;
+    if !valid {
+        return Ec2Flexure { m_rd: zero, z: zero, x_na: zero };
+    }
+
+    let fck_mpa_f = m.fck / 1e6;
+    let lambda_f = if fck_mpa_f <= 50.0 { 0.8 } else { 0.8 - (fck_mpa_f - 50.0) / 400.0 };
+    let eta_f = if fck_mpa_f <= 50.0 { 1.0 } else { 1.0 - (fck_mpa_f - 50.0) / 200.0 };
+    let fcd_f = alpha_cc_f * m.fck / gamma_c_f;
+    let fyd_f = m.fyk / gamma_s_f;
+    let k_conc_f = eta_f * fcd_f * lambda_f * m.b;
+    let s = (m.as_tension + as_c_f) * fyd_f / k_conc_f;
+    if !(s > 0.0) || !s.is_finite() {
+        return Ec2Flexure { m_rd: zero, z: zero, x_na: zero };
+    }
+
+    let residual = |x: T| -> T {
+        let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
+        let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
+        let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
+        let ecu_es = ec2_ecu3(fck_mpa) * T::exact(es_f);
+        let cc = eta * fcd * lambda * T::exact(m.b) * x;
+        let fsc = if as_c_f > 0.0 {
+            (ecu_es * (one - T::exact(d_p_f).dv(x))).max(-fyd).min(fyd)
+        } else {
+            zero
+        };
+        let fst = (ecu_es * (T::exact(m.d).dv(x) - one)).max(-fyd).min(fyd);
+        cc + T::exact(as_c_f) * fsc - T::exact(m.as_tension) * fst
+    };
+
+    let x_na = T::increasing_root(
+        |x| {
+            let ecu_es = if fck_mpa_f <= 50.0 {
+                0.0035
+            } else {
+                0.0026 + 0.035 * ((90.0 - fck_mpa_f) / 100.0).max(0.0).powi(4)
+            } * es_f;
+            let fsc = if as_c_f > 0.0 {
+                (ecu_es * (1.0 - d_p_f / x)).clamp(-fyd_f, fyd_f)
+            } else {
+                0.0
+            };
+            let fst = (ecu_es * (m.d / x - 1.0)).clamp(-fyd_f, fyd_f);
+            k_conc_f * x + as_c_f * fsc - m.as_tension * fst
+        },
+        residual,
+        s * 1e-12,
+        2.0 * s,
+    );
+
+    let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
     let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
     let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
-
-    // Singly reinforced: force equilibrium
-    // C = eta * fcd * lambda * x * b
-    // T = As * fyd
-    // C = T => x = As * fyd / (eta * fcd * lambda * b)
-    let x_na = (as_t * fyd).dv(eta * fcd * lambda * b);
-
-    // Check compression steel contribution
-    let (m_rd, z) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
-        let (as_c, d_p) = (T::exact(as_c), T::exact(d_p));
-        // Doubly reinforced
-        // Check if compression steel yields
-        let epsilon_cu = T::lit(0.0035); // EC2 3.1.7
-        let epsilon_sc = epsilon_cu * (one - d_p.dv(x_na));
-        let fsc = branch(fyd.le(epsilon_sc * es), || fyd, || epsilon_sc * es);
-
-        // Recompute x with compression steel
-        let x = (as_t * fyd - as_c * fsc).dv(eta * fcd * lambda * b);
-        let z_val = d - (lambda * x).dv(T::exact(2.0));
-        let m_c = eta * fcd * lambda * x * b * z_val;
-        let m_s = as_c * fsc * (d - d_p);
-        (m_c + m_s, z_val)
+    let ecu_es = ec2_ecu3(fck_mpa) * T::exact(es_f);
+    let d = T::exact(m.d);
+    let z = d - (lambda * x_na).dv(two);
+    let m_c = eta * fcd * lambda * x_na * T::exact(m.b) * z;
+    let m_s = if as_c_f > 0.0 {
+        let fsc = (ecu_es * (one - T::exact(d_p_f).dv(x_na))).max(-fyd).min(fyd);
+        T::exact(as_c_f) * fsc * (d - T::exact(d_p_f))
     } else {
-        // Singly reinforced
-        let z_val = d - (lambda * x_na).dv(T::exact(2.0));
-        let m_rd_val = as_t * fyd * z_val;
-        (m_rd_val, z_val)
+        zero
     };
+    let m_rd = m_c + m_s;
     Ec2Flexure { m_rd, z, x_na }
 }
 
