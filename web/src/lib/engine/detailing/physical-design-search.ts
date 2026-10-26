@@ -458,8 +458,8 @@ function searchBeamContinuity(
       ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids)))
       : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
-  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, order: undefined as number[] | undefined }))
-    .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
+  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined }))
+    .sort((a, b) => (operator === 'harmonizeBottomLine' || coupled ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
   const nodesOf = (ids: number[]) => new Set(ids.flatMap(id => {
@@ -489,12 +489,15 @@ function searchBeamContinuity(
       if (demand) remaining = remaining.slice(1);
       if (proposalIndex++ < target.offset) continue;
       const resume = () => {
-        const next = { ...target, offset: demand ? 0 : proposalIndex, order: demand ? remaining : undefined };
-        // A known final-strength failure needs a few feedback steps to reach a small
-        // repair. Bound this preference to four proposals, then return to the fair queue.
-        if (demand && hasFinalFailure(ids) && target.consecutiveTrials < 3)
+        const promising = target.promising || (coupled && trial.blockingConflicts !== undefined
+          && trial.blockingConflicts < conflicts(result) && trial.regressions?.length === 0);
+        const next = { ...target, offset: demand ? 0 : proposalIndex, order: demand ? remaining : undefined, promising };
+        // Four proposals to follow nominal feedback. A full build with fewer conflicts
+        // and no aggregate regression earns four more, then yields to the other neighbourhoods.
+        const consecutiveLimit = coupled && promising ? 8 : 4;
+        if (demand && (coupled || hasFinalFailure(ids)) && target.consecutiveTrials + 1 < consecutiveLimit)
           ranked.splice(targetIndex + 1, 0, { ...next, consecutiveTrials: target.consecutiveTrials + 1 });
-        else ranked.push({ ...next, consecutiveTrials: 0 });
+        else ranked.push({ ...next, consecutiveTrials: 0, promising: false });
       };
       if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
         termination = 'budget'; break pairLoop;
@@ -596,13 +599,13 @@ function searchBeamContinuity(
           // change already sound joints and consume its budget on unrelated failures.
           ids.forEach(id => affected.delete(id));
           if ([...affected].some(id => eligible.has(id))) {
-            // One level of look-ahead, at most four full builds and 32 member checks,
+            // One level of look-ahead, at most six full builds and 32 member checks,
             // all charged to the outer budget. The primary proposal stays locked.
             const next = searchBeamContinuity({ ...input, outcomes: proposed, result: detailed,
               lockedMembers: new Set([...(input.lockedMembers ?? []),
                 ...[...input.contexts.keys()].filter(id => !affected.has(id))]),
               budget: { operators: ['harmonizeDemandCatalog'],
-                maxDetailingRuns: Math.min(4, input.budget.maxDetailingRuns - stats.detailingRuns),
+                maxDetailingRuns: Math.min(6, input.budget.maxDetailingRuns - stats.detailingRuns),
                 maxMemberSearches: Math.min(32, input.budget.maxMemberSearches - stats.memberSearches) } }, result);
             for (const key of ['detailingRuns', 'memberSearches', 'candidatesConsidered', 'verifierCalls'] as const) stats[key] += next.stats[key];
             trial.companionTrials = next.trials;
@@ -669,7 +672,7 @@ function searchBeamContinuity(
           if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);
         }
         ranked.splice(targetIndex + 1, 0, ...affected.map(p => ({ ...p, burden: burden(p.ids),
-          offset: 0, consecutiveTrials: 0, order: undefined })));
+          offset: 0, consecutiveTrials: 0, promising: false, order: undefined })));
       }
       break;
     }

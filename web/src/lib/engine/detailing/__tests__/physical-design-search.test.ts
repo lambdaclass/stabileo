@@ -632,6 +632,57 @@ describe('atomic top continuity repair', () => {
       operators: ['harmonizeCoupledCatalog'] as const } };
   }
 
+  it.each([
+    ['unchanged', 4], ['collateral', 8], ['otherRegression', 4],
+  ] as const)('prioritizes congestion but bounds the %s neighbourhood before yielding', (mode, limit) => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts.push(...detail([4]).assemblies[0].conflicts);
+    const next = mode === 'unchanged' ? input.result : { ...input.result,
+      assemblies: [{ ...input.result.assemblies[0], conflicts: detail([99]).assemblies[0].conflicts,
+        unsupported: mode === 'otherRegression' ? [{ key: 'detailing.cover.violated', message: 'cover', refs: [],
+          scope: { elementIds: [99] } }] : [] }] };
+    input.detail.mockReturnValue(next);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: limit + 1, maxMemberSearches: limit * 3 + 2 } });
+    expect(result.trials.map(t => t.elementId)).toEqual([...Array(limit).fill(1), 4]);
+    expect(result.stats).toMatchObject({ detailingRuns: limit + 1, memberSearches: limit * 3 + 2, structuralSolves: 0 });
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+  });
+
+  it('can complete a companion beyond four builds without exceeding the shared budget', () => {
+    const input = coupledLines();
+    const base = input.detail.getMockImplementation()!;
+    input.detail.mockImplementation((...args) => {
+      const next = base(...args);
+      const r = args[0].get(4)!.accepted!.regions!;
+      if (r.topStart!.count !== 3 || r.bottomSpan!.count !== 3)
+        next.assemblies[0].unsupported = [{ key: 'detailing.lapCheck.integrity', message: 'remote splice', refs: [],
+          scope: { elementIds: [4, 5] }, params: { joint: 'n6' } }];
+      else next.assemblies[0].unsupported = [];
+      return next;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 7, maxMemberSearches: 15 } });
+    expect(result.changed).toEqual([1, 2, 3, 4, 5]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', companionRetained: true });
+    expect(result.trials[0].companionTrials!.length).toBeGreaterThan(4);
+    expect(result.stats.detailingRuns).toBeLessThanOrEqual(7);
+    expect(result.stats.memberSearches).toBeLessThanOrEqual(15);
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+  });
+
+  it('caps a failing companion at six full builds even when the outer budget has room', () => {
+    const input = coupledLines(true);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 8, maxMemberSearches: 100 } });
+    expect(result.trials[0].companionTrials).toHaveLength(6);
+    expect(result.trials[0].companionRetained).toBe(false);
+    expect(result.stats.detailingRuns).toBeLessThanOrEqual(8);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+  });
+
   it('repairs a remote lap-only regression atomically within the shared budget', () => {
     const input = coupledLines();
     const result = searchPhysicalDesignAlternatives(input);

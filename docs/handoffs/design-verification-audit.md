@@ -6,6 +6,101 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Congestión y continuidad: de 517 a 460 bloqueantes
+
+Continuación desde `1f0f462a8` y `/tmp/design-final-depth-guided.json`. Dos pasadas
+generales de `harmonizeCoupledCatalog`, sin selección manual de miembros, reducen
+**517 → 470 → 460 conflictos bloqueantes**. Las aprobaciones válidas suben **227 → 234**:
+**134 columnas y 100 vigas**. Se conservan todas las anteriores; las nuevas son la columna
+**116** y las vigas **332–334 y 344–346**. Ningún aprobado tiene choques bloqueantes ni
+carece de reverificación final favorable. Quedan 126 miembros fallidos, 35 agotados y
+13 provisionales; siguen fallando finalmente en resistencia 192 y 195.
+
+### Qué impedía cerrar las alternativas
+
+La línea 328–331 tenía cambios de diámetro y distribución entre tramos consecutivos.
+Una búsqueda focalizada encontró una alternativa que bajaba 49 choques, pero también
+cambiaba la coordinación de la viga perpendicular 343: sus barras superiores chocaban con
+las columnas 114 y 119, antes aprobadas. Esa alternativa se rechazó correctamente. El
+problema exigía una reparación del vecindario, no sólo el mínimo local de la línea.
+
+La búsqueda conjunta ya podía intentar una viga afectada, pero el orden y el reparto del
+presupuesto impedían completar la secuencia. La cola anterior priorizaba líneas menos
+congestionadas. En el ensayo general, invertir esa prioridad y dar cuatro propuestas por
+línea tampoco bastó: con 64 detallados seguían 517 bloqueantes y 227 aprobados. En 328–331
+las primeras tres propuestas fallaban nominalmente y recién la cuarta
+mostraba una reducción construida con bloqueos nuevos en vecinos. La búsqueda volvía a
+repartirse entre otras líneas antes de llegar a la combinación viable.
+
+El operador conjunto ahora:
+
+- Empieza por las líneas con más conflictos bloqueantes, medidos sobre el detallado actual.
+- Da hasta cuatro propuestas consecutivas por vecindario. Si un detallado reduce choques
+  sin regresiones agregadas, permite hasta ocho antes de ceder el turno. Una regresión de
+  recubrimiento, resistencia u otra condición no gana esa extensión.
+- Permite hasta seis detallados para la reparación complementaria, con un máximo de 32
+  evaluaciones de miembros y un solo nivel de búsqueda. Todo se carga al presupuesto
+  restante del padre; la propuesta primaria permanece bloqueada mientras se exploran vecinos.
+
+La preferencia sólo cambia qué se prueba y cuándo. La aceptación sigue requiriendo progreso,
+reverificación de los miembros reparados, ausencia de nuevos miembros bloqueados y de
+regresiones globales. Las otras búsquedas conservan su orden anterior. Las pruebas cubren
+prioridad, cesión de turno tras cuatro u ocho propuestas, rechazo sin publicar cambios,
+continuación más allá de cuatro detallados complementarios y límite de seis incluso cuando
+el presupuesto exterior permitiría más.
+
+### Resultado construido
+
+La primera aceptación conjunta cambia 328–331 a **6Ø16 arriba y 10Ø10 abajo**, estas últimas
+en filas 8+2, y repara 343 con **4Ø16 en ambas caras**. El resultado completo baja a 472
+bloqueantes sin perder aprobaciones. Luego 344–346 verifican con **4Ø16 arriba y 7Ø12 abajo**,
+y el conteo baja a 470. Una segunda pasada ajusta 343 a **10Ø10 arriba y 7Ø12 abajo** y llega
+a 460. Cada paso se verifica contra el diseño retenido; el menor conteo no compensa una falla.
+
+Cambian sólo los armados y resultados nominales de **ocho miembros**: 328–331 y 343–346.
+Los otros 400 permanecen idénticos. La geometría coordinada de vecinos puede cambiar, y por
+eso las nuevas aprobaciones incluyen miembros cuyo armado no cambió. No se afirma mínimo
+acero. Los conflictos totales, incluidos marginales, bajan **695 → 633**; las condiciones
+agrupadas de empalme no dispuesto bajan 47 → 45 y las de integridad 8 → 6.
+
+La primera pasada consume **32 detallados / 127 verificaciones nominales** y la segunda
+**64 / 217**. Ambas terminan por presupuesto, sin nuevos análisis estructurales dentro de
+la búsqueda. Nuevo análisis, restauración, búsqueda y regeneración exacta pasan en
+**90,77 s** y **156,12 s locales**, respectivamente; no son benchmarks comparables de CPU.
+Pasan **229 pruebas dirigidas en ocho suites**. Typecheck no agrega errores: 442 existentes
+frente al baseline de 443.
+
+### Conflictos restantes
+
+Esta partición geométrica es disjunta; no equivale a una clasificación única de causas ni
+a 460 miembros fallidos:
+
+| Pareja afectada | Bloqueantes |
+| --- | ---: |
+| Longitudinales de vigas alineadas/paralelas | 296 |
+| Longitudinales de vigas que se cruzan | 54 |
+| Longitudinales con estribos de viga | 58 |
+| Longitudinales con trabas/estribos de nudo | 18 |
+| Longitudinales dentro de columnas | 32 |
+| Longitudinales de viga con longitudinales de columna | 2 |
+| Total | 460 |
+
+Los grupos 223–225 y 235–238 siguen concentrando conflictos. Sus primeras alternativas
+pueden empeorar la ocupación de filas, perder recubrimiento o atravesar barras de columnas;
+se rechazan, no se publican por reducir un subtotal. Los 32 internos de columnas se deben
+al acodado en la transición de jaulas densas a otras con menos barras: algunas barras de
+esquina se acercan a vecinos que permanecen rectos. Quedan **169 conflictos que incluyen
+miembros provisionales**; resolver geometría no implementa su cobertura resistente biaxial.
+La continuidad de esas líneas, las transiciones verticales y esa cobertura requieren trabajo
+adicional. El presupuesto agotado no prueba inviabilidad ni una convergencia a cero.
+
+Reproducción desde `web/`, sin `STABILEO_REPAIR_TARGETS`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-final-depth-guided.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_RUNS=32 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-coupled-promising-full.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-coupled-promising-full.json STABILEO_REPAIR_OPERATOR=harmonizeCoupledCatalog STABILEO_REPAIR_RUNS=64 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-coupled-next470.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Reparación guiada por los fallos resistentes finales
 
 Continuación desde `7368fb102`, con el armado de `/tmp/design-column-verified.json`.
