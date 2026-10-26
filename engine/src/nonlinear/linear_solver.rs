@@ -154,6 +154,16 @@ impl TangentSystem {
         self.matrix.values.iter_mut().for_each(|v| *v = 0.0);
     }
 
+    /// The assembled tangent.
+    pub fn matrix(&self) -> &SparseMatrix {
+        &self.matrix
+    }
+
+    /// Puts back a tangent taken earlier with [`TangentSystem::matrix`].
+    pub fn set_values(&mut self, values: &[f64]) {
+        self.matrix.values.copy_from_slice(values);
+    }
+
     pub fn add(&mut self, element: usize, ke: &[f64]) {
         for (&slot, &k) in self.slots[element].iter().zip(ke) {
             if slot != NONE {

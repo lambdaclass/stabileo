@@ -30,6 +30,8 @@ mod inclined_support_analyses;
 mod kinematics_invalid_input;
 #[path = "../modal_constrained_participation.rs"]
 mod modal_constrained_participation;
+#[path = "../nonlinear_buckling.rs"]
+mod nonlinear_buckling;
 #[path = "../nonlinear_checks.rs"]
 mod nonlinear_checks;
 #[path = "../nonlinear_framework.rs"]

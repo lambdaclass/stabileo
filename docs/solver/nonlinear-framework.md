@@ -26,6 +26,7 @@ The existing solvers stay as they are. They are the oracles the framework is tes
 | Kinematics | `Kinematics` | `Linear` (small displacements) or `Corotational` (large displacements and rotations, small strains) |
 | Model | `NonlinearModel` | `Model2D` (additive updates); `Model3D` (rotation matrices per node, updated multiplicatively) |
 | Linear solver | `TangentSystem` | sparse LDLᵀ (plain, then pivoted), sparse LU, the bordered system; one fixed policy (below) |
+| Buckling | `linear_buckling` | linear buckling factors and modes about the undeformed state; the modes as GMNIA imperfections |
 | Driver | `solve` | load control, displacement control, arc-length, Auto |
 
 The state contract is the same at every layer. `update` / `set_trial_strain` compute a trial
@@ -112,6 +113,34 @@ which have no supervariables.
 More relaxed amalgamation (2–4× CHOLMOD's defaults) gains within noise. The numeric kernel
 already runs at about 9–11 GFlop/s, so the factorization is close to what a single thread without
 SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second in debug.
+
+## Linear buckling and imperfections
+
+`linear_buckling` solves (K₀ + λ·K_σ)·φ = 0 about the undeformed state:
+- **K₀** is the tangent there. It must be positive definite; a mechanism is refused.
+- **K_σ** is the initial-stress stiffness of the linear prestress. Every element provides its own
+  (`Element::initial_stress`): the geometric part of its tangent, on the undeformed geometry, under
+  the basic forces of the trial state.
+  - The 2D frame gives the axial force's term alone, N/L on the chord's normal, as classical frame
+    LBA does.
+  - The 3D frame gives the whole geometric part of its co-rotational tangent, moments included.
+    That is what makes it see lateral-torsional buckling.
+  - The truss bars give N/L. Small-displacement kinematics gives zero.
+- **The prestress** is that of ±h·u₁, u₁ = K₀⁻¹·F, differenced. The step moves no node by more
+  than 10⁻⁶ of the model's size.
+- **The factors** come from subspace iteration on K₀⁻¹·K_σ with Rayleigh–Ritz on the symmetric
+  parts. Only positive factors are reported, lowest first: a structure with nothing in
+  compression has none.
+- **The modes** cover all DOFs, scaled so their largest translation is 1. `Model2D::translations`
+  and `Model3D::translations` give them node by node. The coordinates plus e₀ times them are an
+  imperfect geometry of amplitude e₀, the shape EN 1993-1-1 5.3.2(11) and EN 1993-1-5 Annex C
+  prescribe for GMNIA.
+
+An earlier version took K₁ = dK_T/dλ (Brendel and Ramm's linearized prebuckling), which needs
+nothing from the elements. It also carries the tangent's change with the prebuckling
+displacements, though, and it gave a cantilever under a transverse tip load, which has nothing in
+compression, a "buckling" factor of 9.9. The 2D frame's moment term (the chord's rotation) gave
+it 35,000. Classical K_σ gives none, as it should.
 
 ## The robust default
 
@@ -303,11 +332,24 @@ error in the first kinematic-hardening tangent.
 | 1,296-DOF space frame, co-rotational, small load | the linear solution, to 1e-3; stable inertia |
 | Plane-stress J2 | yield in equal biaxial tension and in pure shear; return onto the hardened surface; consistent tangent; unloading |
 | Sparse LDLᵀ and LU | dense LU; eigenvalue counts; determinant signs; bit-identical repeats |
+| LBA of a pinned column | the engine's LBA and Euler to 0.5 %; higher modes near 4× and 9×; a half sine; the driver's bifurcation of the perfect column to 0.3 % |
+| LBA of a portal frame | the engine's LBA to 0.3 %; a sway mode |
+| LBA in tension, and of a transverse-loaded cantilever | no factor |
+| LBA of a mechanism | refused |
+| LBA of a square 3D cantilever column | a double factor, π²EI/4L² to 0.2 %, modes orthogonal |
+| Lateral-torsional buckling under uniform moment (fork supports) | (π/L)·√(EI_z·GJ) to 0.5 %, its second mode at 2× to 1 %, out of plane |
+| Elastic column with the first mode as imperfection, at α·P_cr (α = 0.25, 0.5, 0.8) | e₀·α/(1 − α) to 1 % |
+| GMNIA of a solid steel column, λ̄ = 1, EN 1993-1-1 5.3.2(11) imperfection | between first yield (Perry) and the plastic M–N interaction; mesh-converged to 1 %; within 5 % of the Eurocode's χ (0.523 vs 0.540: plasticity spreads before the peak, which an elastic analysis with a linear interaction does not see) |
 | Pivoted LDLᵀ on zero pivots and on indefinite FE block matrices with zeroed diagonals, which the plain one refuses | exact on the 3×3 one; residual ≤ 10⁻¹¹; the eigenvalue count; stable pivots only; bit-identical repeats |
 | Pivoted LDLᵀ where no pivoting is needed (definite and indefinite Laplacians, SPD blocks) | no swap; bit-identical to the plain one |
 | Saddle-point matrices | refused (the limit above); LU solves them |
 
 ## Limitations
+
+- **Linear buckling of 2D frames** has the string's initial-stress stiffness, N/L, not the cubic
+  beam's 6N/5L. It converges as the mesh does, from above: 0.3 % over Euler at 16 elements per
+  member. That is the same element the nonlinear analysis uses, so the LBA and the driver's
+  bifurcation agree to 0.2 %.
 
 - **Loads.** Nodal only: no element loads, self-weight or thermal loads. Nodal moments in 3D are
   about fixed global axes.

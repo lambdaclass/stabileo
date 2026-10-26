@@ -31,6 +31,11 @@ pub trait Element3D: Send {
     fn update(&mut self, states: &[NodeState3D]) -> Result<(), String>;
     fn internal_force(&self) -> &[f64];
     fn tangent(&self) -> &[f64];
+    /// The initial-stress stiffness of a linear buckling analysis: the
+    /// geometric part of the tangent on the undeformed geometry, under the
+    /// basic forces of the trial state (row-major, like `tangent`; rotations as spatial increments). Zero
+    /// under small-displacement kinematics, which has none.
+    fn initial_stress(&self) -> Result<Vec<f64>, String>;
     fn commit(&mut self);
     fn revert(&mut self);
 }
@@ -63,6 +68,13 @@ impl Model3D {
         self.trial.push(s);
         self.committed.push(s);
         self.x0.len() - 1
+    }
+
+    /// The nodal translations of a vector over the model's DOFs (a mode, a
+    /// displacement), node by node: added to the coordinates times an
+    /// amplitude, a buckling mode is a geometric imperfection.
+    pub fn translations(&self, v: &[f64]) -> Vec<[f64; 3]> {
+        (0..self.n_dofs() / 6).map(|n| std::array::from_fn(|k| v[self.dof(n, k)])).collect()
     }
 
     pub fn coords(&self, node: usize) -> [f64; 3] {
@@ -129,6 +141,19 @@ impl NonlinearModel for Model3D {
                 f_int[d] += f;
             }
             add_tangent(ei, &dofs, e.tangent());
+        }
+        Ok(())
+    }
+    fn assemble_initial_stress(&mut self, add: &mut TangentSink<'_>) -> Result<(), String> {
+        let mut states = Vec::new();
+        let mut dofs = Vec::new();
+        for (ei, e) in self.elements.iter_mut().enumerate() {
+            states.clear();
+            states.extend(e.nodes().iter().map(|&n| self.trial[n]));
+            e.update(&states).map_err(|m| format!("element {ei}: {m}"))?;
+            dofs.clear();
+            dofs.extend(e.nodes().iter().flat_map(|&n| 6 * n..6 * n + 6));
+            add(ei, &dofs, &e.initial_stress().map_err(|m| format!("element {ei}: {m}"))?);
         }
         Ok(())
     }
