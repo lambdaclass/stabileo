@@ -15,6 +15,8 @@ import { cirsoc201Adapter } from '../../engine/design/adapters/cirsoc201-adapter
 import { beamCageContinuityAlternatives, beamContinuityAlternatives } from '../../engine/detailing/beam-continuity-alternatives';
 import { beamCornerRecord } from '../../engine/design/end-support-anchorage';
 import { designMember } from '../../engine/design/candidate-search';
+import * as coordination from '../../engine/detailing/coordination-search';
+import { candidateClears } from '../../engine/detailing/candidates';
 
 // Forensic continuation of a saved audit. Forces are solved again; only its reinforcement
 // assignment is restored. Every comparison below uses a newly generated full detail.
@@ -105,6 +107,25 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
       nominalFailures.push({ elementIds: ids, diameterMm: trial.diameterMm, counts: trial.counts, failed });
     }
   }
+  const coordinationEvidence: unknown[] = [];
+  const coordinationTargets = process.env.STABILEO_COORDINATION_TRACE?.split(',').map(Number);
+  const coordinate = coordination.coordinate;
+  const coordinationSpy = coordinationTargets ? vi.spyOn(coordination, 'coordinate').mockImplementation(input => {
+    const result = coordinate(input);
+    const members = input.members.filter(m => coordinationTargets.includes(m.elementId)).map(m => {
+      const joints = input.joints.filter(j => j.elementIds.includes(m.elementId));
+      const clears = m.domain.map(c => joints.every(j => candidateClears(c, m.diameterMm,
+        j.keepOutsFor.get(m.elementId) ?? []).ok));
+      return { elementId: m.elementId, diameterMm: m.diameterMm, domain: m.domain,
+        obstacles: joints.map(j => ({ jointId: j.jointId, keepOuts: j.keepOutsFor.get(m.elementId) })),
+        clears: clears.filter(Boolean).length,
+        retainedClears: clears.slice(0, input.limits?.maxDomain ?? coordination.DEFAULT_LIMITS.maxDomain).filter(Boolean).length,
+        selected: result.assignment.get(m.elementId) };
+    });
+    if (members.length) coordinationEvidence.push({ members, outcome: result.outcome });
+    coordinationSpy!.mockClear();
+    return result;
+  }) : undefined;
   const attempts: unknown[] = [];
   const run = detailEngine.runDetailing;
   const spy = process.env.STABILEO_REPAIR_TRACE ? vi.spyOn(detailEngine, 'runDetailing') : undefined;
@@ -116,7 +137,10 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
       const blockedBefore = physicallyBlockedMembers(initialDetail);
       const newlyBlocked = [...physicallyBlockedMembers(result)].filter(id => !blockedBefore.has(id));
       const changedIds = new Set(changed.map(m => m.id));
-      attempts.push({ changed, regressionsFromSnapshot: detailRegressionReasons(initialDetail, result), newlyBlocked,
+      const regressionsFromSnapshot = detailRegressionReasons(initialDetail, result);
+      attempts.push({ changed, regressionsFromSnapshot, newlyBlocked,
+        regressedConditions: result.assemblies.flatMap(a => a.unsupported.filter(u =>
+          u.key !== 'detailing.clash.unresolved' && regressionsFromSnapshot.includes(u.key))),
         newConflicts: result.assemblies.flatMap(a => a.conflicts).filter(c => c.elementIds.some(id => newlyBlocked.includes(id))),
         newConditions: result.assemblies.flatMap(a => a.unsupported.filter(u =>
           (u.scope?.elementIds ?? a.elementIds).some(id => newlyBlocked.includes(id)))),
@@ -151,11 +175,11 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
       operators: (process.env.STABILEO_REPAIR_OPERATOR ?? 'harmonizeTopCatalog')
         .split(',').map(s => s.trim()) as PhysicalRepairOperator[],
     } }), detailingStore.lastError ?? '').not.toBeNull();
-  } finally { spy?.mockRestore(); targetSpy?.mockRestore(); }
+  } finally { spy?.mockRestore(); targetSpy?.mockRestore(); coordinationSpy?.mockRestore(); }
   const after = currentFrameDesignQuality();
   const detail = detailingStore.lastRun!;
   const search = detailingStore.lastFeedbackLoop?.physicalSearch;
-  const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened,
+  const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened, coordinationEvidence,
     search: search ? { trials: search.trials, stats: search.stats, termination: search.termination, changed: search.changed } : undefined,
     reverification: detail.reverification,
     failedChecks: detail.reverification.filter(r => r.status === 'fail').map(r => {

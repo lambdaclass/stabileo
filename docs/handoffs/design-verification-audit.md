@@ -6,6 +6,84 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Recubrimiento de barras continuas: de 440 a 411 bloqueantes
+
+Continuación desde `085a80b38` y `/tmp/design-cage-rows-general.json`. Una pasada general
+reduce **440 → 411 bloqueantes** y **605 → 584 conflictos totales**, conservando las
+**234 aprobaciones válidas** (134 columnas y 100 vigas). Cambian sólo los armados y resultados
+nominales de **235–238**; los otros 404 permanecen idénticos. Estas cuatro vigas todavía tienen
+conflictos, por lo que la mejora no añade aprobaciones ni cierra el edificio.
+
+### Causas y cambios
+
+La búsqueda nominal corregía el anclaje inferior, pero seguía manteniendo la cara superior
+cuando sus barras bloqueaban una columna previamente aprobada. Ahora usa los choques de
+la geometría construida para priorizar cambios en la cara responsable, empezando por repartos
+y cantidades cercanas del mismo diámetro. Sólo cambia el orden del catálogo: las verificaciones,
+los límites de presupuesto y las condiciones de aceptación siguen vigentes.
+
+El bloqueo decisivo era geométrico. `samplePath` sólo aporta los extremos de un segmento
+recto; en una barra fusionada de varios tramos, ambos podían quedar dentro de columnas anchas.
+La reparación aceptaba entonces una traslación lateral de unos 22 mm que sacaba la barra de
+las vigas intermedias. La reverificación de recubrimiento rechazaba correctamente el conjunto.
+Se reprodujo la falsa aceptación llamando directamente al límite de reparación sobre la barra
+original y su desplazamiento final.
+
+El límite de reparación ahora agrega los extremos recortados y el punto medio del segmento
+dentro de cada tramo propietario. Los calcula sobre la posición candidata, de modo que también
+contempla desplazamientos longitudinales. Conserva el control de ganchos, el brazo de palanca
+y la regla que impide empeorar barras que ya llegan fuera de sección. No se modifica el
+recubrimiento exigido ni se sustituye la reverificación final.
+
+Las reparaciones complementarias incluyen todos los propietarios de una barra continua aunque
+el reporte de recubrimiento nombre sólo el primero. También admiten como objetivo un miembro
+retenido sólo por recubrimiento. La modificación sigue siendo atómica y su coste se descuenta
+del presupuesto compartido. La aceptación medida no necesita esa reparación complementaria.
+
+La traza opcional conserva las condiciones que empeoran incluso en miembros que ya estaban
+retenidos. Además permite inspeccionar dominios y obstáculos de coordinación. Esto descartó
+ampliar el límite de candidatos: en el extremo investigado el dominio completo ya carecía de
+una disposición que despejara todos los obstáculos.
+
+### Evidencia y límites
+
+La regeneración del armado inicial con el nuevo límite conserva los
+440 bloqueantes y las 234 aprobaciones (`/tmp/design-interior-restored.json`). Una alternativa
+focalizada que antes llegaba a 380 choques con recubrimientos inválidos ahora se acepta con
+**395 bloqueantes y 234 aprobados**: 9Ø16 superiores, 7Ø12 inferiores y estribos Ø6. Esa prueba
+sirvió para aislar la causa; no se confunde con el resultado de la búsqueda general.
+
+La pasada general, sin selección manual de miembros ni sustitución del catálogo, acepta
+**11Ø16 superiores** en filas declaradas 7+4, **7Ø12 inferiores** en filas conservadas 4+3,
+y **estribos Ø8 cada 175 mm** en 235–238. En los nudos de esa línea, los pares de empalme no
+dispuestos bajan 6 → 2. Los ensayos anteriores que sólo cambiaban el orden de búsqueda o
+los propietarios de las reparaciones complementarias conservaban los 440 bloqueantes.
+
+La evidencia general es `/tmp/design-interior-general.json`: **64 detallados, 188 evaluaciones
+nominales y cero análisis estructurales dentro de la búsqueda**; termina por presupuesto.
+La prueba completa pasa en **280,17 s locales**, con las fuerzas resueltas nuevamente al
+iniciar y reproducción exacta de los conteos y aprobaciones al regenerar. Ningún aprobado
+tiene un conflicto bloqueante ni carece de verificación final favorable. El tiempo no es
+un benchmark comparativo de CPU.
+
+Una segunda pasada general de 64 detallados desde 411 se interrumpió tras más de diez
+minutos sin producir el artefacto final (`/tmp/design-interior-next.log`). No se cuenta como
+prueba aprobada ni como mejora. El resultado retenido sigue siendo la primera pasada de 411;
+queda pendiente acotar mejor el coste de continuar desde ese estado y recuperar automáticamente
+la alternativa focalizada de 395.
+
+Pasan **303 pruebas dirigidas en doce suites**. Las regresiones nuevas cubren los tres posibles
+tramos angostos de una barra continua, ambos sentidos del segmento, la elección de cara a
+rediseñar y la reparación atómica de todos los propietarios de una barra. También pasan
+coordinación, reparación de colisiones, búsqueda, detallado, verificación final y documentos.
+Typecheck: **442 errores existentes frente al baseline de 443, sin errores nuevos**.
+
+Quedan **306 solapes prohibidos, 73 separaciones entre miembros y 32 separaciones internas**.
+Los focos principales pasan a 223 (40), 224 (28), 239 (27), 225/232/233 (22 cada uno).
+Persisten 126 miembros fallidos, 35 agotados y 13 provisionales; 192/195 siguen fallando en
+resistencia final. No se afirma óptimo de acero, inviabilidad de lo pendiente ni convergencia
+por agotar el presupuesto.
+
 ## Jaulas completas: de 460 a 440 bloqueantes
 
 Continuación desde `f66a09fc4` y `/tmp/design-coupled-next470.json`. Una pasada general

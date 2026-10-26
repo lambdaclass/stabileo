@@ -55,6 +55,27 @@ describe('the repair envelope', () => {
     expect(out?.by).toBeCloseTo(0.004, 6);
   });
 
+  it.each([0, 1, 2])('checks span %i of a continuous run whose ends both lie in wider columns', narrow => {
+    const nodes = [0, 2, 8, 10];
+    const beams = nodes.slice(0, -1).map((x, i): EnvelopeMember => ({ ...BEAM, elementId: i + 1,
+      start: { x, y: 0, z: 0 }, end: { x: nodes[i + 1], y: 0, z: 0 }, b: i === narrow ? 0.2 : 0.5 }));
+    const columns = nodes.map((x, i): EnvelopeMember => ({ ...COLUMN, elementId: i + 10, b: 0.6, h: 0.6,
+      start: { x, y: 0, z: -1 }, end: { x, y: 0, z: 0 } }));
+    const bounds = buildRepairEnvelope([...beams, ...columns]);
+    for (const reverse of [false, true]) {
+      const ends = [{ x: -0.1, y: 0.02, z: 0.1 }, { x: 10.1, y: 0.02, z: 0.1 }];
+      if (reverse) ends.reverse();
+      const continuous = bar('continuous', 0.02, 0.1, { ownerElementIds: [1, 2, 3],
+        segments: [straightSegment(ends[0], ends[1])] });
+      // Endpoints and (for outer narrow spans) the run's midpoint remain inside
+      // the wider concrete. The narrow span independently limits y to 59 mm.
+      expect(bounds.reject(continuous, { x: 0, y: 0.03, z: 0 })).toBeNull();
+      expect(bounds.reject(continuous, { x: 0, y: 0.06, z: 0 })).toMatchObject({
+        reason: 'outsideSection', element: narrow + 1, by: expect.closeTo(0.021, 6),
+      });
+    }
+  });
+
   it('judges the hook, not only the run: a move the straight survives can push the tail out', () => {
     // A Ø8 bar with a 90° hook turning across the beam at x = 3,6, inside the span.
     const hooked = buildStraightBarWithHooks({

@@ -704,6 +704,46 @@ describe('atomic top continuity repair', () => {
     expect(result.changed).toEqual([]);
   });
 
+  it.each(['top', 'bottom'] as const)('changes the %s face that blocks a new neighbour after nominal verification passes', face => {
+    const input = coupledLines();
+    for (const ctx of input.contexts.values()) ctx.material.longDiametersMm = [12, 16];
+    input.detail.mockImplementation(proposed => {
+      const r = proposed.get(1)!.accepted!.regions!;
+      const closed = r.topStart!.count === (face === 'top' ? 5 : 4) && r.bottomSpan!.count === (face === 'top' ? 3 : 4);
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0], unsupported: [],
+        bars: [{ id: 'primary-top', role: 'longitudinal', ownerElementIds: [1], layerId: `e1:${face}:0` }],
+        conflicts: closed ? [] : [{ elementIds: [1, 99], severity: 'overlap', barA: 'primary-top', barB: 'column' }],
+      }] } as unknown as RunDetailingResult;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 2, maxMemberSearches: 6 } });
+    expect(result.trials.map(t => [t.counts, t.bottomCounts, t.disposition])).toEqual([
+      [[4], [3], 'regression'], [[face === 'top' ? 5 : 4], [face === 'top' ? 3 : 4], 'accepted'],
+    ]);
+    expect(result.stats).toMatchObject({ detailingRuns: 2, memberSearches: 6 });
+    expect(result.result.assemblies[0].conflicts).toEqual([]);
+    expect(result.changed).toEqual([1, 2, 3]);
+  });
+
+  it('repairs every owner of a continuous bar even when its cover report names only one span', () => {
+    const input = coupledLines();
+    const base = input.detail.getMockImplementation()!;
+    input.detail.mockImplementation((...args) => {
+      const next = base(...args);
+      if (next.assemblies[0].unsupported.length) {
+        next.assemblies[0].unsupported = [{ key: 'detailing.cover.violated', message: 'cover', refs: [],
+          scope: { elementIds: [4] }, params: { bar: 'continuous' } }];
+        next.assemblies[0].bars = [{ id: 'continuous', ownerElementIds: [4, 5], role: 'longitudinal' }] as never;
+      }
+      return next;
+    });
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.changed).toEqual([1, 2, 3, 4, 5]);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', companionIds: [4, 5] });
+    expect(result.stats).toMatchObject({ detailingRuns: 2, memberSearches: 5 });
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+  });
+
   it('can complete a companion beyond four builds without exceeding the shared budget', () => {
     const input = coupledLines();
     const base = input.detail.getMockImplementation()!;

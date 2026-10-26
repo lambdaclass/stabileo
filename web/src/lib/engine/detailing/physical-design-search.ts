@@ -452,10 +452,11 @@ function searchBeamContinuity(
     const covered = new Set(lines.flatMap(p => p.ids));
     for (const id of eligible.keys()) if (!covered.has(id)) lines.push({ ids: [id], jointIds: [] });
   }
+  const companionBlocked = retained ? physicallyBlockedMembers(result) : new Set<number>();
   const hasFinalFailure = (ids: number[]) => result.reverification.some(r => ids.includes(r.elementId) && r.status === 'fail');
   const targets = operator !== 'harmonizeTop'
     ? lines.filter(p => catalog
-      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids)))
+      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids) || p.ids.some(id => companionBlocked.has(id))))
       : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
   const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined }))
@@ -604,7 +605,16 @@ function searchBeamContinuity(
             // Changed clash records can move among already blocked members without a
             // regression. Do not let that noise expand a lap repair to unrelated spans.
             if ((regressedKeys.has(u.key) || members.some(id => newlyBlocked.has(id)))
-              && !previousConditions.has(conditionKey(u.key, members, u.params?.joint))) members.forEach(id => affected.add(id));
+              && !previousConditions.has(conditionKey(u.key, members, u.params?.joint))) {
+              members.forEach(id => affected.add(id));
+              // A cover report names one member, but a continuous bar can belong to
+              // several spans. Repair its actual owners together; changing only the
+              // reported span creates a new splice at the next support.
+              if (typeof u.params?.bar === 'string') {
+                const bar = detailed.assemblies.flatMap(a => a.bars ?? []).find(b => b.id === u.params!.bar);
+                bar?.ownerElementIds.forEach(id => affected.add(id));
+              }
+            }
           }
           // Repair the affected segment first. Expanding to an entire line can needlessly
           // change already sound joints and consume its budget on unrelated failures.
@@ -633,6 +643,49 @@ function searchBeamContinuity(
       trial.regressions = detailRegressionReasons(baseline, detailed);
       trial.splicePairsBefore = splicePairs(result, jointIds);
       trial.splicePairsAfter = splicePairs(detailed, jointIds);
+      if (demand && trial.newlyBlocked.length && trial.blockingConflicts < conflicts(baseline)
+        && trial.regressions.length === 0) {
+        // Nominal feedback can keep a face fixed long after it passes strength. Read the
+        // constructed collisions before spending the remaining catalog on the other face.
+        // This only orders proposals; every candidate still passes all acceptance gates.
+        const bars = new Map(detailed.assemblies.flatMap(a => a.bars ?? []).map(b => [b.id, b]));
+        const faces = new Set<'top' | 'bottom'>();
+        for (const a of detailed.assemblies) for (const c of a.conflicts) {
+          if (c.severity === 'marginal' || !c.elementIds.some(id => trial.newlyBlocked!.includes(id))) continue;
+          for (const barId of [c.barA, c.barB]) {
+            const b = bars.get(barId);
+            if (b?.role !== 'longitudinal' || !b.ownerElementIds.some(id => ids.includes(id))) continue;
+            if (b.layerId?.includes(':top')) faces.add('top');
+            if (b.layerId?.includes(':bottom')) faces.add('bottom');
+          }
+        }
+        if (faces.size) {
+          const score = (next: BeamContinuityAlternative) => {
+            let value = 0;
+            for (const face of ['top', 'bottom'] as const) {
+              const shape = (candidate: BeamContinuityAlternative) => (face === 'top' ? candidate.layers : candidate.bottomLayers)
+                ?.map(l => `${l.row}:${l.count}:${l.diameter}`).join('|');
+              const same = shape(proposal) === shape(next);
+              if (!faces.has(face)) { value += same ? 2 : 0; continue; }
+              if (same) continue;
+              value += 4;
+              const previousLayers = face === 'top' ? proposal.layers : proposal.bottomLayers;
+              const nextLayers = face === 'top' ? next.layers : next.bottomLayers;
+              if (previousLayers?.length && nextLayers?.length) {
+                // Try a nearby arrangement before replacing an entire diameter family:
+                // redistributing the same bars or changing count parity can open a joint.
+                if (previousLayers[0].diameter === nextLayers[0].diameter) value += 2;
+                const delta = Math.abs(previousLayers.reduce((n, l) => n + l.count, 0)
+                  - nextLayers.reduce((n, l) => n + l.count, 0));
+                value += 1 / (1 + delta);
+              }
+            }
+            return value + (next.stirrupDiameterMm === proposal.stirrupDiameterMm ? 0.5 : 0);
+          };
+          const priorities = new Map(remaining.map(i => [i, score(domain![i])]));
+          remaining.sort((a, b) => priorities.get(b)! - priorities.get(a)!);
+        }
+      }
       if (trial.newlyBlocked.length || ids.some(id => !detailed.reverification.some(r => r.elementId === id
         && (r.status === 'ok' || r.status === 'warn'))) || input.regresses(baseline, detailed)) {
         trial.disposition = 'regression';

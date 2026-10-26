@@ -238,8 +238,35 @@ export function buildRepairEnvelope(members: Iterable<EnvelopeMember>): RepairEn
       if (owners.length === 0) return null;
 
       // ── Section ──
+      // samplePath emits only the endpoints of a straight. A fused run can end in
+      // two wide columns while crossing several narrower beams: checking only those
+      // endpoints lets a lateral move leave every intervening span. Probe each owned
+      // span's interval, using the candidate position so along-axis moves are bounded too.
+      const points = [...sampled(bar)];
+      for (const segment of bar.segments) {
+        if (segment.kind !== 'straight') continue;
+        const direction = sub(segment.end, segment.start);
+        for (const f of owners) {
+          if (f.vertical) continue;
+          const start = dot(sub(add(segment.start, offset), f.o), f.u);
+          const slope = dot(direction, f.u);
+          let lo = 0, hi = 1;
+          if (Math.abs(slope) < 1e-12) {
+            if (start < 0 || start > f.L) continue;
+          } else {
+            const a = -start / slope, b = (f.L - start) / slope;
+            lo = Math.max(0, Math.min(a, b)); hi = Math.min(1, Math.max(a, b));
+            if (hi <= lo) continue;
+          }
+          for (const t of [lo, (lo + hi) / 2, hi]) points.push({
+            x: segment.start.x + t * direction.x,
+            y: segment.start.y + t * direction.y,
+            z: segment.start.z + t * direction.z,
+          });
+        }
+      }
       let worst: { by: number; element: number } | null = null;
-      for (const p of sampled(bar)) {
+      for (const p of points) {
         const after = judge(owners, add(p, offset), bar.diameterMm);
         if (!after || after.e <= TOL) continue;
         const before = judge(owners, p, bar.diameterMm);
