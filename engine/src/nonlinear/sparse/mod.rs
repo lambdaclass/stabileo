@@ -12,10 +12,13 @@
 //!   detect limit and bifurcation points. It refuses a pivot too small to
 //!   divide by, which an ordering chosen for fill and not for stability can
 //!   meet on an indefinite matrix.
+//! - [`ldlt_numeric_pivoted`]: the supernodal LDLᵀ with 1×1 and 2×2 pivots
+//!   inside each supernode, on the same symbolic analysis. For the
+//!   symmetric tangents the plain one refuses: the inertia stays exact.
 //! - [`lu_numeric`]: LU with threshold partial pivoting, left-looking
 //!   (Gilbert–Peierls; Davis, *Direct Methods for Sparse Linear Systems*,
-//!   SIAM 2006, `cs_lu`). The fallback when LDLᵀ meets a tiny pivot, or when
-//!   the tangent is not symmetric. It gives the sign of the determinant, not
+//!   SIAM 2006, `cs_lu`). The fallback when both LDLᵀ refuse, or when the
+//!   tangent is not symmetric. It gives the sign of the determinant, not
 //!   the inertia.
 //!
 //! Both work on a [`SparsePattern`] built once from the element
@@ -28,7 +31,7 @@ mod lu;
 mod pattern;
 mod supervariables;
 
-pub use ldlt::{ldlt_numeric, ldlt_numeric_simplicial, ldlt_numeric_supernodal, ldlt_symbolic, ldlt_symbolic_plain, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
+pub use ldlt::{ldlt_numeric, ldlt_numeric_pivoted, ldlt_numeric_simplicial, ldlt_numeric_supernodal, ldlt_symbolic, ldlt_symbolic_plain, ldlt_symbolic_with_perm, LdltError, LdltFactor, LdltSymbolic};
 pub use lu::{lu_numeric, LuFactor};
 pub use pattern::{SparseMatrix, SparsePattern};
 pub use supervariables::supervariable_groups;

@@ -25,7 +25,7 @@ The existing solvers stay as they are. They are the oracles the framework is tes
 | Element | `Element` (2D), `Element3D` | `Frame2D`, `Truss2D`, `Frame3D`, `Truss3D`; basic responses elastic or fiber, 2D and 3D |
 | Kinematics | `Kinematics` | `Linear` (small displacements) or `Corotational` (large displacements and rotations, small strains) |
 | Model | `NonlinearModel` | `Model2D` (additive updates); `Model3D` (rotation matrices per node, updated multiplicatively) |
-| Linear solver | `TangentSystem` | sparse LDLᵀ, sparse LU, the bordered system; one fixed policy (below) |
+| Linear solver | `TangentSystem` | sparse LDLᵀ (plain, then pivoted), sparse LU, the bordered system; one fixed policy (below) |
 | Driver | `solve` | load control, displacement control, arc-length, Auto |
 
 The state contract is the same at every layer. `update` / `set_trial_strain` compute a trial
@@ -60,7 +60,8 @@ factorization of the analysis.
 | Factorization | For | Gives |
 |---|---|---|
 | Sparse LDLᵀ, no pivoting: supernodal, left-looking, with relaxed supernodes and a postordered AMD (simplicial up-looking below 32 unknowns) | symmetric tangents, definite or indefinite | the inertia: the number of negative eigenvalues |
-| Sparse LU, threshold partial pivoting (Gilbert–Peierls, `cs_lu`) | nonsymmetric tangents (3D co-rotational away from equilibrium); LDLᵀ meeting a tiny pivot | the determinant's sign |
+| Sparse LDLᵀ with 1×1 and 2×2 pivots inside each supernode (MA57's threshold test, u = 0.01) | symmetric tangents where the plain LDLᵀ meets a tiny pivot | the inertia, still exact |
+| Sparse LU, threshold partial pivoting (Gilbert–Peierls, `cs_lu`) | nonsymmetric tangents (3D co-rotational away from equilibrium); symmetric ones both LDLᵀ refuse | the determinant's sign |
 | Bordered system [K −F; e_cᵀ 0], by LU | displacement control where K itself is singular (a perfectly plastic mechanism) | δu and δλ together |
 
 Measured on Laplacian grids, release build, numeric factorization. The machine was loaded, so
@@ -72,6 +73,28 @@ the times are approximate.
 | 3D 28²×26 | 20k (nnz(L) = 4.2M) | 0.28–0.31 s | 0.88–0.94 s | 4.3 s |
 
 LU is a fallback, about 15× the supernodal LDLᵀ on 3D fill.
+
+**Pivoting.** The plain LDLᵀ divides by the diagonal in an order chosen for fill. On an
+indefinite tangent a diagonal entry can be near zero in that order although the matrix is far
+from singular, and it used to send the tangent to LU, which loses the inertia. The pivoted LDLᵀ
+then factors it again:
+- **Where it pivots.** Inside each supernode's diagonal block: a 1×1 pivot a_jj when
+  |a_jj| ≥ 0.01·max_i |a_ij| over the whole column, else a 2×2 pivot on (j, r), r the largest
+  entry of column j in the panel, when the L it makes stays below 100.
+- **Structure.** Pivots never leave their panel, so the symbolic analysis is the plain one's. Each
+  panel keeps a local permutation, which the solves apply.
+- **Inertia.** A 2×2 pivot of negative determinant is one negative and one positive eigenvalue.
+- **Near singular.** When no candidate of a panel passes the test, the most stable 1×1 pivot above
+  the refusal threshold is taken (static pivoting) and counted. A tangent that needed one is near
+  singular, and the driver reads it as it read a refusal; one with only stable pivots was an
+  artifact of the ordering, and its inertia is trusted. A panel with no pivot above the threshold
+  at all is refused, and LU takes over.
+- **Cost.** It runs only after a refusal. Where the plain factorization's pivots pass the test,
+  the pivoted one takes the same ones and its solutions are bit-identical.
+
+In the driver tests the fallback runs only in the plastic cantilever: at its collapse mechanism
+the tangent is singular and LU takes it, as before (43 times). Twice, though, the refusal was the
+ordering's: the pivoted LDLᵀ factored the tangent with stable pivots and kept its inertia.
 
 **Supervariables.** The ordering compresses supervariables (DOFs with identical structure: the 3
 or 6 of a node) and runs the engine's AMD on the quotient graph. The AMD itself is unchanged, and
@@ -150,8 +173,9 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
    - Symmetric equilibration S·K·S, S = diag(1/√|K_ii|), on every factorization. This makes the
      pivot tests independent of units and of a wide spread of stiffnesses (the buckled column of
      the tests has EA·L²/EI = 10⁸). It is a congruence, so the inertia is K's.
-   - LDLᵀ first, then LU when the tangent is nonsymmetric or a pivot is tiny. For displacement
-     control, the bordered system when K is singular.
+   - LDLᵀ first; LDLᵀ with pivoting inside the supernodes when a pivot is tiny; LU when the
+     tangent is nonsymmetric or both refuse. For displacement control, the bordered system when K
+     is singular.
    - **Stability of a slightly nonsymmetric tangent.** The 3D co-rotational tangent is slightly
      nonsymmetric away from equilibrium, which is a by-product of the rotation parametrization:
      its asymmetry vanishes at equilibrium under conservative loads. LU factors it, and the
@@ -162,7 +186,8 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
 **Detecting where a strategy cannot go.** Load control stops with `LimitPoint`, never with a
 silent jump to a distant branch, when any of these happens during a step:
 - the inertia changes;
-- the symmetric tangent becomes too nearly singular for LDLᵀ;
+- the symmetric tangent becomes too nearly singular for LDLᵀ (refused with pivoting too, or
+  factored only with an unstable pivot);
 - the converged step lands outside ¼–4 times the tangent's prediction;
 - Bergan's stiffness parameter drops below 10⁻³.
 
@@ -231,6 +256,12 @@ error in the first kinematic-hardening tangent.
   constraint on that symmetry.
 - **Branch switching under displacement control,** which today passes a bifurcation on the
   primary path.
+- **Pivots across supernodes.** A saddle-point matrix [[K, Bᵀ], [B, 0]] (Lagrange multipliers,
+  mixed elements, contact) puts each multiplier alone in a panel, with nothing to pair with there:
+  both LDLᵀ refuse it and LU solves it without the inertia. Delayed pivots (a failed column moved
+  into its parent's panel, which a multifrontal factorization does naturally), or an ordering that
+  pairs each multiplier with a variable it constrains, would factor it. The framework has no
+  multiplier DOFs yet.
 - **Multithreaded assembly** where it is available (not in WASM).
 
 ## Validation
@@ -272,6 +303,9 @@ error in the first kinematic-hardening tangent.
 | 1,296-DOF space frame, co-rotational, small load | the linear solution, to 1e-3; stable inertia |
 | Plane-stress J2 | yield in equal biaxial tension and in pure shear; return onto the hardened surface; consistent tangent; unloading |
 | Sparse LDLᵀ and LU | dense LU; eigenvalue counts; determinant signs; bit-identical repeats |
+| Pivoted LDLᵀ on zero pivots and on indefinite FE block matrices with zeroed diagonals, which the plain one refuses | exact on the 3×3 one; residual ≤ 10⁻¹¹; the eigenvalue count; stable pivots only; bit-identical repeats |
+| Pivoted LDLᵀ where no pivoting is needed (definite and indefinite Laplacians, SPD blocks) | no swap; bit-identical to the plain one |
+| Saddle-point matrices | refused (the limit above); LU solves them |
 
 ## Limitations
 
@@ -283,9 +317,10 @@ error in the first kinematic-hardening tangent.
 - **The critical-point checks are heuristics:** the ¼–4 band, the 10⁻³ stiffness parameter, the
   10⁻² load alignment and the 1/256 localisation. They are validated on the tests above, and on
   nothing else yet.
-- **LU and inertia.** Within a load step, LU gives only the determinant's sign. At converged
-  states, the inertia of a nearly symmetric tangent comes from its symmetric part; a tangent
-  further from symmetric has none.
+- **LU and inertia.** Within a load step, LU gives only the determinant's sign. LU now factors a
+  symmetric tangent only when both LDLᵀ refuse it, a tangent singular to the pivot tolerance. At
+  converged states, the inertia of a nearly symmetric tangent comes from its symmetric part
+  (pivoted when needed); a tangent further from symmetric has none.
 - **Displacement-based fiber elements** need several elements per member.
 - **Not wired to WASM or the app.**
 

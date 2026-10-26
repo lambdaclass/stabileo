@@ -5,11 +5,20 @@
 //! 1. A symmetric tangent is factored by sparse LDLᵀ, which also counts its
 //!    negative eigenvalues (Sylvester's inertia): the stability information
 //!    the driver uses to see limit and bifurcation points.
-//! 2. If LDLᵀ meets a tiny pivot (an ordering it cannot factor without
-//!    pivoting), or the tangent is not symmetric (the 3D co-rotational
-//!    tangent away from equilibrium), sparse LU with threshold partial
-//!    pivoting. It gives the determinant's sign, not the inertia.
-//! 3. Every solve takes one step of iterative refinement against the
+//! 2. If LDLᵀ meets a tiny pivot, LDLᵀ again with 1×1 and 2×2 pivots
+//!    inside each supernode (`sparse::ldlt_numeric_pivoted`): the same
+//!    structure, the inertia still exact. A tiny pivot of an indefinite
+//!    tangent is often the ordering's, not the matrix's: a diagonal entry
+//!    that happens to be near zero in an elimination order chosen for fill.
+//!    When pivoting finds a stable pivot everywhere, it was. When it had to
+//!    take one that fails its stability test, the tangent is near singular
+//!    and the factor says so (`near_singular`), as a refusal did.
+//! 3. If both refuse (a tangent singular to the pivot tolerance, at a
+//!    critical point or a mechanism), or the tangent is not symmetric (the
+//!    3D co-rotational tangent away from equilibrium), sparse LU with
+//!    threshold partial pivoting. It gives the determinant's sign, not the
+//!    inertia.
+//! 4. Every solve takes one step of iterative refinement against the
 //!    assembled matrix.
 //!
 //! The sparsity pattern comes from the elements' DOFs once; its symbolic
@@ -21,7 +30,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use super::model::NonlinearModel;
-use super::sparse::{ldlt_numeric, ldlt_symbolic, lu_numeric, LdltFactor, LdltSymbolic, LuFactor, SparseMatrix, SparsePattern};
+use super::sparse::{ldlt_numeric, ldlt_numeric_pivoted, ldlt_symbolic, lu_numeric, LdltFactor, LdltSymbolic, LuFactor, SparseMatrix, SparsePattern};
 
 const NONE: usize = usize::MAX;
 
@@ -29,6 +38,9 @@ const NONE: usize = usize::MAX;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FactorMethod {
     Ldlt,
+    /// LDLᵀ with pivoting inside the supernodes, after the plain one met a
+    /// tiny pivot.
+    LdltPivoted,
     Lu,
 }
 
@@ -51,14 +63,20 @@ pub(crate) struct Factor {
 impl Factor {
     pub fn method(&self) -> FactorMethod {
         match &self.kind {
+            FactorKind::Ldlt(f) if f.pivoted() => FactorMethod::LdltPivoted,
             FactorKind::Ldlt(_) => FactorMethod::Ldlt,
             FactorKind::Lu { .. } => FactorMethod::Lu,
         }
     }
 
-    /// Whether LDLᵀ refused this symmetric tangent for a tiny pivot.
+    /// Whether this symmetric tangent is too close to singular for a
+    /// stable LDLᵀ: refused with pivoting too, or factored only with a
+    /// pivot that failed the stability test.
     pub fn near_singular(&self) -> bool {
-        matches!(self.kind, FactorKind::Lu { near_singular: true, .. })
+        match &self.kind {
+            FactorKind::Lu { near_singular, .. } => *near_singular,
+            FactorKind::Ldlt(f) => f.unstable_pivots() > 0,
+        }
     }
 
     /// Number of negative eigenvalues, when the factorization knows it.
@@ -152,12 +170,13 @@ impl TangentSystem {
         self.matrix.values.iter().all(|v| v.is_finite())
     }
 
-    /// The default policy: LDLᵀ when symmetric, LU otherwise or when LDLᵀ
-    /// meets a tiny pivot. `Err` when both fail.
+    /// Factorizations made so far.
     pub fn factorizations(&self) -> usize {
         self.factorizations.get()
     }
 
+    /// The default policy: LDLᵀ when symmetric, pivoted LDLᵀ when it meets a
+    /// tiny pivot, LU otherwise or when both refuse. `Err` when all fail.
     pub fn factor(&self) -> Result<Factor, String> {
         self.factorizations.set(self.factorizations.get() + 1);
         if self.free.is_empty() {
@@ -174,6 +193,9 @@ impl TangentSystem {
         let symmetric = scaled.is_symmetric(1e-10);
         if symmetric {
             if let Ok(f) = ldlt_numeric(&self.symbolic, &scaled, 1e-13) {
+                return Ok(Factor { kind: FactorKind::Ldlt(f), scale });
+            }
+            if let Ok(f) = ldlt_numeric_pivoted(&self.symbolic, &scaled, 1e-13) {
                 return Ok(Factor { kind: FactorKind::Ldlt(f), scale });
             }
         }
@@ -227,7 +249,10 @@ impl TangentSystem {
                 sym.values[k] = 0.5 * (self.matrix.values[k] + t) * scale[i] * scale[j];
             }
         }
-        ldlt_numeric(&self.symbolic, &sym, 1e-13).ok().map(|f| f.inertia().0)
+        ldlt_numeric(&self.symbolic, &sym, 1e-13)
+            .or_else(|_| ldlt_numeric_pivoted(&self.symbolic, &sym, 1e-13))
+            .ok()
+            .map(|f| f.inertia().0)
     }
 
     /// x = K⁻¹·b from `f` alone, for a factorization of an earlier tangent.
