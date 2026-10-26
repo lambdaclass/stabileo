@@ -103,6 +103,41 @@ fn steel_healthy_member_reports_nothing_unevaluated() {
     assert!(r.unity_ratio > 0.0);
 }
 
+#[test]
+fn steel_invalid_shear_and_ltb_and_buckling_radii_are_unevaluated() {
+    // Aw supplied with Cv1 <= 0 under shear demand must be flagged as unevaluated.
+    let mut m_shear = steel_member(345e6);
+    m_shear.aw = Some(2.0e-3);
+    m_shear.cv1 = Some(0.0);
+    let r_shear = check_steel_members(&SteelCheckInput {
+        members: vec![m_shear],
+        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 0.0, mz: None, vy: Some(150e3) }],
+    })
+    .remove(0);
+    assert!(r_shear.unevaluated.iter().any(|u| u.contains("Shear G2")), "{:?}", r_shear.unevaluated);
+
+    // Unbraced beam (Lb > 0) with iy <= 0 must not bypass LTB and return full Mp.
+    let mut m_ltb = steel_member(345e6);
+    m_ltb.iy = 0.0;
+    let r_ltb = check_steel_members(&SteelCheckInput {
+        members: vec![m_ltb],
+        forces: vec![ElementDesignForces { element_id: 1, n: 0.0, my: 80e3, mz: None, vy: None }],
+    })
+    .remove(0);
+    assert!(r_ltb.unevaluated.iter().any(|u| u.contains("Flexure-Y F2")), "{:?}", r_ltb.unevaluated);
+
+    // Unbraced column (lby > 0) with ry <= 0 must not treat KL/r as 0 (squash load).
+    let mut m_comp = steel_member(345e6);
+    m_comp.compression_elements = Some(vec![]);
+    m_comp.ry = 0.0;
+    let r_comp = check_steel_members(&SteelCheckInput {
+        members: vec![m_comp],
+        forces: vec![ElementDesignForces { element_id: 1, n: -300e3, my: 0.0, mz: None, vy: None }],
+    })
+    .remove(0);
+    assert!(r_comp.unevaluated.iter().any(|u| u.contains("Compression")), "{:?}", r_comp.unevaluated);
+}
+
 // ==================== ACI ====================
 
 /// f'c = 0 makes the stress block depth infinite and every downstream quantity
