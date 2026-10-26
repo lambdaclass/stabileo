@@ -1,8 +1,7 @@
 //! The draft nonlinear framework (src/nonlinear): large displacements and
 //! nonlinear materials through one driver. Checked against closed forms, and
 //! against the existing solvers, which stay as they are and serve as oracles.
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::element::fiber_beam::FiberMaterial;

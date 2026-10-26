@@ -2,8 +2,7 @@
 //! co-rotational kinematics, nodal rotations updated multiplicatively.
 //! Checked against the existing 3D solvers, closed forms and the
 //! Bathe–Bolourchi 45° bend.
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::element::fiber_beam::FiberMaterial;
