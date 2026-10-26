@@ -662,6 +662,60 @@ describe('atomic top continuity repair', () => {
       operators: ['harmonizeCoupledCatalog'] as const } };
   }
 
+  it.each(['clash', 'condition'] as const)('reopens a consumed prefix after its remote %s dependency changes', mode => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts = detail([1, 4]).assemblies[0].conflicts;
+    const matches = (r: ReturnType<typeof outcome>['accepted']) => r!.regions!.topStart!.count === 4
+      && r!.regions!.bottomSpan!.count === 3;
+    input.detail.mockImplementation(proposed => {
+      const primary = matches(proposed.get(1)!.accepted), remote = matches(proposed.get(4)!.accepted);
+      const rejected = primary && !remote;
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0],
+        bars: [{ id: 'remote', role: 'longitudinal', ownerElementIds: [4, 5], layerId: 'e4:top:0' }],
+        conflicts: rejected && mode === 'clash'
+          ? [{ elementIds: [4, 99], severity: 'overlap', barA: 'remote', barB: 'column' }]
+          : detail([...(primary ? [] : [1]), ...(remote ? [] : [4])]).assemblies[0].conflicts,
+        unsupported: rejected && mode === 'condition' ? [{ key: 'detailing.cover.violated', message: 'cover', refs: [],
+          scope: { elementIds: [4] }, params: { bar: 'remote' } }] : [],
+      }] } as unknown as RunDetailingResult;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { operators: ['harmonizeDemandCatalog'], maxDetailingRuns: 3, maxMemberSearches: 8 } });
+    expect(result.trials.map(t => [t.elementId, t.counts, t.bottomCounts, t.disposition])).toEqual([
+      [1, [4], [3], 'regression'], [4, [4], [3], 'accepted'], [1, [4], [3], 'accepted'],
+    ]);
+    expect(result.changed).toEqual([1, 2, 3, 4, 5]);
+    expect(result.stats).toMatchObject({ detailingRuns: 3, memberSearches: 8 });
+    expect(result.result.assemblies[0].conflicts).toEqual([]);
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+  });
+
+  it('does not reopen a prefix because an unchanged condition shares the regressed key', () => {
+    const input = coupledLines();
+    const existing = { key: 'detailing.cover.violated', message: 'existing', refs: [],
+      scope: { elementIds: [4] }, params: { bar: 'remote' } };
+    input.result.assemblies[0].conflicts = detail([1, 4]).assemblies[0].conflicts;
+    input.result.assemblies[0].unsupported = [existing];
+    const matches = (r: ReturnType<typeof outcome>['accepted']) => r!.regions!.topStart!.count === 4
+      && r!.regions!.bottomSpan!.count === 3;
+    input.detail.mockImplementation(proposed => {
+      const primary = matches(proposed.get(1)!.accepted), remote = matches(proposed.get(4)!.accepted);
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0],
+        bars: [{ id: 'remote', role: 'longitudinal', ownerElementIds: [4, 5] }],
+        conflicts: detail([...(primary ? [] : [1]), ...(remote ? [] : [4])]).assemblies[0].conflicts,
+        unsupported: [existing, ...(primary ? [{ ...existing, message: 'new',
+          scope: { elementIds: [99] }, params: { bar: 'other' } }] : [])],
+      }] } as unknown as RunDetailingResult;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { operators: ['harmonizeDemandCatalog'], maxDetailingRuns: 3, maxMemberSearches: 8 } });
+    expect(result.trials.map(t => [t.elementId, t.disposition])).toEqual([
+      [1, 'regression'], [4, 'accepted'], [1, 'noProgress'],
+    ]);
+    expect(result.changed).toEqual([4, 5]);
+    expect(result.stats).toMatchObject({ detailingRuns: 3, memberSearches: 8 });
+  });
+
   it.each([
     ['unchanged', 4], ['collateral', 8], ['otherRegression', 4],
   ] as const)('prioritizes congestion but bounds the %s neighbourhood before yielding', (mode, limit) => {

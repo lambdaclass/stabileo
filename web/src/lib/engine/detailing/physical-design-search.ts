@@ -467,6 +467,9 @@ function searchBeamContinuity(
   // Resuming a line must not rebuild its Cartesian catalog on every failed proposal.
   // Cache only within one retained assignment; accepted changes invalidate every domain.
   const domains = new Map<string, BeamContinuityAlternative[]>();
+  // Floor coordination can move a remote line. Remember the members that actually
+  // prevented each target's acceptance, not just its topological neighbours.
+  const observedDependencies = new Map<string, Set<number>>();
   const nodesOf = (ids: number[]) => new Set(ids.flatMap(id => {
     const ctx = input.contexts.get(id), e = ctx?.modelData.elements.get(id);
     return e ? [e.nodeI, e.nodeJ] : [];
@@ -714,6 +717,34 @@ function searchBeamContinuity(
       if (trial.newlyBlocked.length || ids.some(id => !detailed.reverification.some(r => r.elementId === id
         && (r.status === 'ok' || r.status === 'warn'))) || input.regresses(baseline, detailed)) {
         trial.disposition = 'regression';
+        if (demand) {
+          const dependencies = observedDependencies.get(domainKey) ?? new Set<number>();
+          const blocked = new Set(trial.newlyBlocked);
+          const conditionKey = (u: RunDetailingResult['assemblies'][number]['unsupported'][number], members: readonly number[]) =>
+            JSON.stringify([u.key, [...members].sort((a, b) => a - b), u.params]);
+          const priorConditions = new Set(baseline.assemblies.flatMap(a => a.unsupported
+            .map(u => conditionKey(u, u.scope?.elementIds ?? a.elementIds))));
+          const bars = new Map(detailed.assemblies.flatMap(a => a.bars ?? []).map(b => [b.id, b]));
+          const addBar = (barId: string | undefined) => {
+            if (barId) bars.get(barId)?.ownerElementIds.forEach(id => dependencies.add(id));
+          };
+          for (const a of detailed.assemblies) {
+            for (const c of a.conflicts) if (c.severity !== 'marginal' && c.elementIds.some(id => blocked.has(id))) {
+              c.elementIds.forEach(id => dependencies.add(id));
+              addBar(c.barA); addBar(c.barB);
+            }
+            for (const u of a.unsupported) {
+              if (u.key === 'detailing.clash.unresolved') continue;
+              const members = u.scope?.elementIds ?? a.elementIds;
+              const changedCondition = trial.regressions.includes(u.key) && !priorConditions.has(conditionKey(u, members));
+              if (!changedCondition && !members.some(id => blocked.has(id))) continue;
+              members.forEach(id => dependencies.add(id));
+              if (typeof u.params?.bar === 'string') addBar(u.params.bar);
+            }
+          }
+          ids.forEach(id => dependencies.delete(id));
+          if (dependencies.size) observedDependencies.set(domainKey, dependencies);
+        }
         // Give every catalog neighbourhood a full trial before spending another on
         // the same line. Resume at the next proposal against the latest neighbours.
         if (catalog) { resume(); break; }
@@ -749,14 +780,15 @@ function searchBeamContinuity(
       // and all global gates before publishing either half of this tentative repair.
       if (retained) break pairLoop;
       if (demand) {
-        // A refusal was against the OLD seats. Restart adjacent lines, including their
-        // consumed prefix, after changing a shared joint. Keep unrelated queues intact.
+        // A refusal was against the OLD seats. Restart adjacent lines and those whose
+        // observed blocker changed, including their consumed prefix. Keep unrelated queues intact.
         // The assignment-aware seen key and strict progress gate still prevent cycles;
         // retries use the caller's remaining budget, never a fresh one.
         const acceptedIds = [...ids, ...companions];
         const nodes = nodesOf(acceptedIds);
         const affected = targets.filter(p => burden(p.ids) > 0 && !p.ids.some(id => acceptedIds.includes(id))
-          && [...nodesOf(p.ids)].some(node => nodes.has(node)));
+          && ([...nodesOf(p.ids)].some(node => nodes.has(node))
+            || acceptedIds.some(id => observedDependencies.get(p.ids.join(','))?.has(id))));
         const keys = new Set(affected.map(p => p.ids.join(',')));
         for (let i = ranked.length - 1; i > targetIndex; i--) {
           if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);

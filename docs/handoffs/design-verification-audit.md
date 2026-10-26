@@ -6,6 +6,68 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Dependencias observadas: de 392 a 366 bloqueantes
+
+Continuación desde `5bce291a5`. Se reducen **392 → 366 conflictos bloqueantes** y
+**555 → 509 conflictos totales**, conservando las **234 aprobaciones válidas** (134 columnas
+y 100 vigas). Frente al estado de 392 cambian sólo los armados y resultados nominales de
+**223–225 y 245–247**; los otros 402 permanecen idénticos. Las seis vigas modificadas siguen
+retenidas por el detallado, por lo que no se añaden aprobaciones.
+
+### Causa y corrección
+
+Una continuación general de 24 detallados desde 392 ya llegaba a **370** con el código
+anterior (`/tmp/design-next392-general.json`, prueba completa aprobada). Esto mostró que una
+alternativa antes rechazada podía funcionar tras cambiar otra línea, pero se necesitaba
+iniciar una búsqueda nueva para volver al comienzo de su catálogo.
+
+En el barrido anterior desde 410, una propuesta para 223–225 dejaba un choque en la columna
+60, entre barras de 238 y los estribos del nudo compartido con 253. Más tarde se modificaba
+235–238, pero 223–225 no compartía un nudo con esa línea y no se reabría. La coordinación del
+piso había creado una dependencia que la vecindad topológica no representaba.
+
+La búsqueda ahora registra, para cada línea rechazada, los miembros de los choques que
+producen nuevos bloqueos, los propietarios de sus barras y las condiciones nuevas o cambiadas
+que empeoran un control. Cuando se acepta un cambio en uno de esos miembros, se reabre el
+catálogo afectado, incluido su comienzo ya consumido. Los reportes sin cambios no crean una
+dependencia por compartir la misma clave con otro reporte que empeoró. El registro vive sólo
+durante la búsqueda. Se mantienen las exclusiones, los presupuestos compartidos, las
+verificaciones completas y el criterio de progreso estricto.
+
+### Comparación con el mismo presupuesto
+
+Ambos ensayos parten del mismo armado de 410 (`/tmp/design-fair-general.json`), sin elegir
+miembros manualmente ni sustituir propuestas:
+
+| Búsqueda | Detallados | Verificaciones nominales | Bloqueantes finales | Aprobados válidos |
+| --- | ---: | ---: | ---: | ---: |
+| Anterior, `/tmp/design-direct-general.json` | 64 | 256 | 392 | 234 |
+| Con dependencias, `/tmp/design-dependency-general.json` | 64 | 256 | 366 | 234 |
+
+La versión nueva conserva la aceptación de 235–238 que lleva a 392, reabre 223–225 y llega
+a 370; luego acepta 245–247 y llega a 366. No aumenta el presupuesto ni necesita un nuevo
+análisis estructural dentro de la búsqueda. Termina por presupuesto. La prueba completa pasa
+en **143,35 s locales**, resuelve nuevamente fuerzas y demandas y reproduce exactamente los
+conteos y aprobaciones al regenerar. La diferencia de tiempo frente a ensayos anteriores no
+se presenta como un benchmark controlado; la comparación relevante es el resultado con igual
+cantidad de detallados y verificaciones nominales.
+
+223–225 usa **11Ø16 superiores**, filas declaradas 7+4, **9Ø12 inferiores**, filas conservadas
+6+3, y **estribos Ø10**: 175 mm en 223 y 50 mm en 224–225. 245–247 usa **4Ø16 arriba y abajo**
+y conserva sus estribos Ø6 y separaciones. No se afirma mínimo acero ni óptimo de fabricación.
+Las condiciones abiertas de integridad bajan 4 → 3 respecto de 392 y el agregado de pares de
+empalme no dispuestos permanece en 194.
+
+Pasan **312 pruebas dirigidas en doce suites**. Las tres nuevas regresiones prueban la
+reapertura de líneas sin nudo compartido por choques y por condiciones, y que un reporte
+invariante no reinicie una búsqueda ajena. Comprueban además el consumo exacto del presupuesto.
+Typecheck: **442 errores existentes frente al baseline de 443, sin errores nuevos**.
+
+Quedan **267 solapes prohibidos, 67 separaciones entre miembros y 32 separaciones internas**.
+Los mayores focos pasan a 232/233 (22 cada uno), 231/234 (21) y 204/205 (20). Persisten
+126 miembros fallidos, 35 agotados y 13 provisionales; 192/195 siguen fallando en resistencia
+final. El edificio completo todavía no verifica y agotar la búsqueda no demuestra inviabilidad.
+
 ## Continuaciones del catálogo: de 411 a 392 bloqueantes
 
 Continuación desde `eb7e7c084` y `/tmp/design-interior-general.json`. Dos avances generales,
