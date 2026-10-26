@@ -148,6 +148,18 @@ export function* beamContinuityAlternatives(
             if (n > BEAM_LIMITS.maxRows || count < n * BEAM_LIMITS.minBarsPerRow) continue;
             yield Array.from({ length: n }, (_, row) => ({ row, diameter: dia,
               count: Math.floor(count / n) + (row < count % n ? 1 : 0) }));
+            // Packed and balanced rows miss intermediate populations such as 6+3
+            // between 7+2 and 5+4. An even outer row avoids a central column post
+            // without adding steel. Enumerate non-increasing partitions, bounded by
+            // the same three-row/twelve-bars-per-row limits and the common clear width.
+            function* partitions(left: number, rowsLeft: number, cap: number): Generator<number[]> {
+              if (rowsLeft === 0) { if (left === 0) yield []; return; }
+              for (let take = Math.min(cap, left - (rowsLeft - 1) * BEAM_LIMITS.minBarsPerRow);
+                take >= Math.max(BEAM_LIMITS.minBarsPerRow, Math.ceil(left / rowsLeft)); take--)
+                for (const rest of partitions(left - take, rowsLeft - 1, take)) yield [take, ...rest];
+            }
+            for (const split of partitions(count, n, limit))
+              yield split.map((count, row) => ({ row, count, diameter: dia }));
           }
         }
       }

@@ -6,6 +6,74 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Jaulas completas: de 460 a 440 bloqueantes
+
+Continuación desde `f66a09fc4` y `/tmp/design-coupled-next470.json`. Una pasada general
+conserva las **234 aprobaciones válidas** (134 columnas y 100 vigas) y reduce los
+**460 bloqueantes a 440**, sin seleccionar miembros manualmente. Los conflictos totales
+bajan **633 → 605**. Los armados y resultados nominales cambian sólo en **223–225**;
+los otros 405 permanecen idénticos. No hay nuevos miembros bloqueados ni aprobados sin
+reverificación final favorable. Estas tres vigas todavía tienen conflictos: la reducción
+no equivale a aprobarlas ni a cerrar el edificio.
+
+### Causas y cambios
+
+En 223–225, igualar sólo las barras longitudinales conservaba estribos Ø6/Ø8. Sus asientos
+no coincidían; las barras continuadas interferían repetidamente con los estribos del tramo
+siguiente. El diagnóstico geométrico de una propuesta contó 508 conflictos longitudinal–
+transversal entre los que afectaban a los miembros modificados. Se amplió la traza opcional
+para guardar también estos conflictos y estribos; mirar sólo los miembros recién bloqueados
+ocultaba la mayor parte del problema.
+
+`harmonizeCoupledCatalog` ahora intercala jaulas completas sobre el armado transversal
+retenido y sobre alternativas de diámetro común. Cada alternativa conserva o aumenta el
+acero transversal por unidad de longitud, no aumenta separaciones ni reduce ramas, y pasa
+por las verificaciones nominales y del detallado completo. Reducir el diámetro puede exigir
+estribos más próximos. Ni la igualdad de áreas ni un menor número de choques certifican el diseño.
+
+El producto de alternativas longitudinales y transversales necesita explorar más de cuatro
+propuestas de la misma línea. Para líneas con estribos de distintos diámetros se permiten
+hasta **doce propuestas consecutivas**, dentro del presupuesto global existente. Las otras
+líneas conservan sus límites de cuatro u ocho. El catálogo se reutiliza entre reintentos y
+se invalida al aceptar cualquier cambio, para no recalcular el producto en cada propuesta
+ni conservar candidatos derivados de un diseño anterior.
+
+También se completa el catálogo de filas inferiores: además del reparto más lleno y el
+balanceado, incluye particiones intermedias no crecientes, con los mismos límites de tres
+filas, doce barras por fila y ancho disponible. Para nueve barras, 6+3 puede evitar un poste
+central que intercepta 7+2 y 5+4. Una prueba geométrica demuestra esa diferencia. Esta ampliación
+no se presenta como la causa de la aceptación medida, cuyo reparto inferior es 8+5.
+
+### Evidencia y límites
+
+La alternativa aceptada usa **19Ø12 superiores**, filas declaradas 8+8+3, **13Ø10 inferiores**,
+filas 8+5 conservadas, y **estribos Ø6**: 175 mm en 223 y 50 mm en 224–225. Los empalmes no
+dispuestos contados en los nudos de esta línea bajan 13 → 0. No se afirma mínimo acero ni
+óptimo de fabricación; la geometría completa sigue retenida por los conflictos restantes.
+
+Una variante llegaba a 408 bloqueantes, pero bloqueaba las columnas 42/43 y agregaba condiciones
+abiertas: se rechazó. El primer barrido general con jaulas combinadas y el reparto anterior,
+64 detallados, no mejoró 460. Un ensayo de 128 detallados tampoco mejoró y excedió el timeout
+de la prueba; no se cuenta como validación aprobada. El ensayo focalizado posterior llegó a
+440 en ocho detallados, y la versión final reproduce esa aceptación en el barrido general.
+
+La evidencia final es `/tmp/design-cage-rows-general.json`: **64 detallados, 167 evaluaciones
+nominales y cero nuevos análisis estructurales dentro de la búsqueda**; termina por presupuesto.
+El análisis inicial se resuelve de nuevo y la regeneración posterior reproduce exactamente
+el estado publicado, conservando las 234 aprobaciones. La prueba completa pasa en 162,92 s
+locales; no es un benchmark comparativo de CPU.
+
+Pasan **246 pruebas dirigidas en nueve suites**, incluyendo tres tramos con cargas resueltas,
+ambos sentidos de numeración y comprobación de que los operadores separados dejan conflictos
+mientras el conjunto cierra el ejemplo. Se prueban también los límites de turno, presupuesto,
+reutilización del catálogo y reapertura después de cambiar un vecino. Typecheck: 442 errores
+existentes frente al baseline de 443, sin errores nuevos.
+
+Quedan **325 solapes prohibidos, 83 separaciones entre miembros y 32 separaciones internas**.
+Los mayores focos son 237 (54), 238 (49), 223 (40) y 236 (38); un conflicto puede afectar varios
+miembros. Persisten 126 miembros fallidos, 35 agotados y 13 provisionales, y los fallos de
+resistencia final de 192/195. El próximo frente sigue siendo la línea 235–238 y sus nudos.
+
 ## Congestión y continuidad: de 517 a 460 bloqueantes
 
 Continuación desde `1f0f462a8` y `/tmp/design-final-depth-guided.json`. Dos pasadas

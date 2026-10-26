@@ -13,7 +13,7 @@ import { beamCageContinuityAlternatives, beamContinuityAlternatives, type BeamCo
 import { detailRegressionReasons } from './detail-regression';
 import type { ProvidedRebarCheck } from '../station-design-forces';
 import { completeAnchorage } from '../design/anchorage-hooks';
-import { beamStirrupContinuityAlternatives } from './beam-stirrup-alternatives';
+import { beamCompatibleCageAlternatives, beamStirrupContinuityAlternatives } from './beam-stirrup-alternatives';
 
 export type PhysicalRepairOperator = 'diameterFamily' | 'columnDiameterFamily' | 'redistributeLayers' | 'preserveBottomRows' | 'harmonizeTop' | 'harmonizeTopLine' | 'harmonizeBottomLine' | 'harmonizeTopCatalog' | 'harmonizeCageCatalog' | 'harmonizeMixedCageCatalog' | 'harmonizeDemandCatalog' | 'harmonizeCoupledCatalog' | 'harmonizeStirrupCatalog' | 'retryExhausted';
 
@@ -462,6 +462,9 @@ function searchBeamContinuity(
     .sort((a, b) => (operator === 'harmonizeBottomLine' || coupled ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
+  // Resuming a line must not rebuild its Cartesian catalog on every failed proposal.
+  // Cache only within one retained assignment; accepted changes invalidate every domain.
+  const domains = new Map<string, BeamContinuityAlternative[]>();
   const nodesOf = (ids: number[]) => new Set(ids.flatMap(id => {
     const ctx = input.contexts.get(id), e = ctx?.modelData.elements.get(id);
     return e ? [e.nodeI, e.nodeJ] : [];
@@ -479,11 +482,16 @@ function searchBeamContinuity(
       || outcomes.get(id)?.outcome !== 'VERIFIED' || !outcomes.get(id)?.accepted)) continue;
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
+    const transverseFamilies = new Set(current.flatMap(r => [r.stirrups?.diameter,
+      r.regions?.stirrupsSupport?.diameter, r.regions?.stirrupsSpan?.diameter].filter(d => d !== undefined))).size;
     let proposalIndex = 0;
     const proposals = stirrupOnly ? beamStirrupContinuityAlternatives(ctx, current)
+      : coupled ? beamCompatibleCageAlternatives(ctx, current)
       : cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
-    const domain = demand ? [...proposals] : undefined;
+    const domainKey = ids.join(',');
+    const domain = demand ? domains.get(domainKey) ?? [...proposals] : undefined;
+    if (domain) domains.set(domainKey, domain);
     let remaining = domain ? [...(target.order ?? domain.map((_, i) => i))] : [];
     for (const proposal of domain ? remaining.map(i => domain[i]) : proposals) {
       if (demand) remaining = remaining.slice(1);
@@ -494,7 +502,9 @@ function searchBeamContinuity(
         const next = { ...target, offset: demand ? 0 : proposalIndex, order: demand ? remaining : undefined, promising };
         // Four proposals to follow nominal feedback. A full build with fewer conflicts
         // and no aggregate regression earns four more, then yields to the other neighbourhoods.
-        const consecutiveLimit = coupled && promising ? 8 : 4;
+        // Mixed transverse seats add another catalog dimension. Give that bounded
+        // product a first pass before yielding, without enlarging the global budget.
+        const consecutiveLimit = coupled && transverseFamilies > 1 ? 12 : coupled && promising ? 8 : 4;
         if (demand && (coupled || hasFinalFailure(ids)) && target.consecutiveTrials + 1 < consecutiveLimit)
           ranked.splice(targetIndex + 1, 0, { ...next, consecutiveTrials: target.consecutiveTrials + 1 });
         else ranked.push({ ...next, consecutiveTrials: 0, promising: false });
@@ -512,10 +522,11 @@ function searchBeamContinuity(
       ids.forEach((id, i) => proposed.set(id, { ...outcomes.get(id)!, accepted: proposal.reinforcement[i] }));
       const trialContexts = contextsFor(input.contexts, proposed);
       const trial: PhysicalSearchTrial = { elementId: ids[0], elementIds: [...ids], jointId: jointIds[0], jointIds,
-        operator, ...(stirrupOnly ? { stirrupDiameterMm: proposal.stirrupDiameterMm,
+        operator, ...(proposal.stirrupDiameterMm ? { stirrupDiameterMm: proposal.stirrupDiameterMm,
           stirrupSpacings: proposal.reinforcement.map((r, i) => ({ elementId: ids[i],
             support: r.regions!.stirrupsSupport!.spacing, span: r.regions!.stirrupsSpan!.spacing })) }
-          : { diameterMm: proposal.layers[0].diameter, counts: proposal.layers.map(l => l.count) }),
+          : {}),
+        ...(!stirrupOnly ? { diameterMm: proposal.layers[0].diameter, counts: proposal.layers.map(l => l.count) } : {}),
         ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count),
           bottomDiameterMm: proposal.bottomLayers[0].diameter } : {}),
         disposition: 'nominalFailure', nominalFailures: [] };
@@ -655,6 +666,7 @@ function searchBeamContinuity(
       }
       ids.forEach((id, i) => { if (rebarHash(proposal.reinforcement[i]) !== rebarHash(current[i])) changed.add(id); });
       outcomes = proposed; result = detailed;
+      domains.clear();
       // Return the first complete combination. The parent still checks its own members
       // and all global gates before publishing either half of this tentative repair.
       if (retained) break pairLoop;

@@ -123,6 +123,10 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
         ...(process.env.STABILEO_REPAIR_GEOMETRY ? {
           changedLongitudinal: result.assemblies.flatMap(a => a.bars.filter(b => b.role === 'longitudinal'
             && b.ownerElementIds.some(id => changedIds.has(id)))),
+          changedConflicts: result.assemblies.flatMap(a => a.conflicts.filter(c => c.severity !== 'marginal'
+            && c.elementIds.some(id => changedIds.has(id)))),
+          changedTransverse: result.assemblies.flatMap(a => a.bars.filter(b => b.role === 'transverse'
+            && b.ownerElementIds.some(id => changedIds.has(id)))),
           changedLapConditions: result.assemblies.flatMap(a => a.unsupported.filter(u => u.key.startsWith('detailing.lapCheck.')
             && (u.scope?.elementIds ?? a.elementIds).some(id => changedIds.has(id)))),
           changedLaps: result.lapping?.laps.filter(l => changedIds.has(l.fromElementId!) || changedIds.has(l.toElementId!)),

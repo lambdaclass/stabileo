@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as design from '../../design/candidate-search';
+import * as transverseAlternatives from '../beam-stirrup-alternatives';
 import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import type { MemberContext } from '../../design/member-context';
 import type { MemberDesignOutcome } from '../../design/outcome';
@@ -596,6 +597,35 @@ describe('atomic top continuity repair', () => {
     expect(input.detail).not.toHaveBeenCalled();
   });
 
+  it('repairs longitudinal steel and transverse seats together when neither isolated change works', () => {
+    const { input } = stirrupLine();
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [16]; ctx.material.stirrupDiametersMm = [6, 8];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    const closed = input.detail.getMockImplementation()!(input.outcomes, input.contexts);
+    input.detail.mockImplementation(proposed => {
+      const both = [...proposed.values()].every(o => o.accepted!.regions!.topStart!.count === 4
+        && o.accepted!.regions!.stirrupsSupport!.diameter === 8);
+      return both ? closed : input.result;
+    });
+    for (const operator of ['harmonizeDemandCatalog', 'harmonizeStirrupCatalog'] as const) {
+      const isolated = searchPhysicalDesignAlternatives({ ...input,
+        budget: { maxDetailingRuns: 2, maxMemberSearches: 6, operators: [operator] } });
+      expect(isolated.changed).toEqual([]);
+      expect(isolated.outcomes).toBe(input.outcomes);
+    }
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { maxDetailingRuns: 2, maxMemberSearches: 6, operators: ['harmonizeCoupledCatalog'] } });
+    expect(result.trials.map(t => t.disposition)).toEqual(['noProgress', 'accepted']);
+    expect(result.trials[1]).toMatchObject({ diameterMm: 16, counts: [4], stirrupDiameterMm: 8 });
+    expect(result.stats).toMatchObject({ detailingRuns: 2, memberSearches: 6, structuralSolves: 0 });
+    expect(result.changed).toEqual([1, 2, 3]);
+    expect(result.result).toBe(closed);
+  });
+
   function coupledLines(residualRegression = false) {
     const { input } = line();
     const model = input.contexts.get(1)!.modelData;
@@ -635,6 +665,12 @@ describe('atomic top continuity repair', () => {
   it.each([
     ['unchanged', 4], ['collateral', 8], ['otherRegression', 4],
   ] as const)('prioritizes congestion but bounds the %s neighbourhood before yielding', (mode, limit) => {
+    const generate = transverseAlternatives.beamCompatibleCageAlternatives;
+    const enumerated = vi.fn();
+    vi.spyOn(transverseAlternatives, 'beamCompatibleCageAlternatives').mockImplementation(function* (...args) {
+      enumerated(args[0].map(c => c.elementId));
+      yield* generate(...args);
+    });
     const input = coupledLines();
     input.result.assemblies[0].conflicts.push(...detail([4]).assemblies[0].conflicts);
     const next = mode === 'unchanged' ? input.result : { ...input.result,
@@ -645,7 +681,25 @@ describe('atomic top continuity repair', () => {
     const result = searchPhysicalDesignAlternatives({ ...input,
       budget: { ...input.budget, maxDetailingRuns: limit + 1, maxMemberSearches: limit * 3 + 2 } });
     expect(result.trials.map(t => t.elementId)).toEqual([...Array(limit).fill(1), 4]);
+    expect(enumerated.mock.calls).toEqual([[[1, 2, 3]], [[4, 5]]]);
     expect(result.stats).toMatchObject({ detailingRuns: limit + 1, memberSearches: limit * 3 + 2, structuralSolves: 0 });
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+  });
+
+  it('bounds a mixed-transverse neighbourhood at twelve proposals before yielding', () => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts.push(...detail([4]).assemblies[0].conflicts);
+    for (const id of [1, 2, 3]) {
+      const regions = input.outcomes.get(id)!.accepted!.regions!;
+      regions.stirrupsSupport = { diameter: id === 1 ? 6 : 8, legs: 2, spacing: 0.15 };
+      regions.stirrupsSpan = { ...regions.stirrupsSupport };
+    }
+    input.detail.mockReturnValue(input.result);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 13, maxMemberSearches: 38 } });
+    expect(result.trials.map(t => t.elementId)).toEqual([...Array(12).fill(1), 4]);
+    expect(result.stats).toMatchObject({ detailingRuns: 13, memberSearches: 38, structuralSolves: 0 });
     expect(result.outcomes).toBe(input.outcomes);
     expect(result.changed).toEqual([]);
   });

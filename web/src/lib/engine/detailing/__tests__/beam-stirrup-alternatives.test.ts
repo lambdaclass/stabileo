@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
-import { beamStirrupContinuityAlternatives } from '../beam-stirrup-alternatives';
+import { beamCompatibleCageAlternatives, beamStirrupContinuityAlternatives } from '../beam-stirrup-alternatives';
+import { beamCageContinuityAlternatives } from '../beam-continuity-alternatives';
+import { rebarHash } from '../../design/rebar-hash';
 
 const reinforcement = (diameter: number): ProvidedReinforcement => ({ regions: {
   topStart: { count: 4, diameter: 16 }, topEnd: { count: 4, diameter: 16 },
@@ -14,6 +16,29 @@ const reinforcement = (diameter: number): ProvidedReinforcement => ({ regions: {
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })];
 
 describe('transverse continuity alternatives', () => {
+  it('interleaves complete cages with their transverse alternatives without losing or duplicating candidates', () => {
+    const ctx = contexts(), current = [reinforcement(6), reinforcement(8)];
+    for (const c of ctx) {
+      c.material.stirrupDiametersMm = [6, 8]; c.material.longDiametersMm = [16];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    const before = structuredClone(current);
+    const proposals = [...beamCompatibleCageAlternatives(ctx, current)];
+    expect(proposals[0].reinforcement.map(r => r.regions!.stirrupsSupport!.diameter)).toEqual([6, 8]);
+    expect(proposals[1].reinforcement.map(r => r.regions!.stirrupsSupport!.diameter)).toEqual([8, 8]);
+    expect(proposals[1].stirrupDiameterMm).toBe(8);
+    expect(proposals[0].layers).toEqual(proposals[1].layers);
+    expect(proposals[0].bottomLayers).toEqual(proposals[1].bottomLayers);
+    const signature = (p: typeof proposals[number]) => p.reinforcement.map(rebarHash).join('|');
+    const expected = new Set([current, ...[...beamStirrupContinuityAlternatives(ctx, current)].map(p => p.reinforcement)]
+      .flatMap(base => [...beamCageContinuityAlternatives(ctx, base, 'all', 'demand')].map(signature)));
+    expect(new Set(proposals.map(signature))).toEqual(expected);
+    expect(proposals).toHaveLength(expected.size);
+    expect(current).toEqual(before);
+  });
+
   it('aligns different cages using common allowed diameters without weakening transverse steel', () => {
     const ctx = contexts(), current = [reinforcement(6), reinforcement(10)];
     for (const c of ctx) c.material.stirrupDiametersMm = [6, 8, 10, 12];

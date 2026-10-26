@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { layoutBarRow } from '../generate-beam';
 import { beamCageContinuityAlternatives, beamContinuityAlternatives } from '../beam-continuity-alternatives';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
 import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
@@ -57,6 +58,31 @@ describe('paired top continuity patterns', () => {
       }
     }
     expect(current).toEqual(before);
+  });
+
+  it('offers the intermediate 6+3 rows that clear a central post without adding steel', () => {
+    const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
+    for (const c of ctx) {
+      c.material.longDiametersMm = [12];
+      c.axes.bFlex = 0.35; c.section.b = 0.35;
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -170, vz: 0 }, { t: 0.5, my: 170, vz: 0 }, { t: 1, my: -170, vz: 0 },
+      ] }] } as never;
+    }
+    const proposals = [...beamContinuityAlternatives(ctx, current, 'bottom', 'demand')];
+    const nine = proposals.filter(p => p.layers.reduce((n, l) => n + l.count, 0) === 9);
+    expect(nine.map(p => p.layers.map(l => l.count))).toEqual(expect.arrayContaining([[7, 2], [6, 3], [5, 4]]));
+    const clearance = (rowCounts: number[]) => Math.min(...layoutBarRow({ count: 9,
+      rowCounts, diameterMm: 12, clearWidth: 0.28, minClear: 0.027, layerClear: 0.025,
+    }).slots.map(s => Math.abs(s.across) - 0.006 - 0.010));
+    expect(clearance([7, 2])).toBeLessThan(0);
+    expect(clearance([5, 4])).toBeLessThan(0);
+    expect(clearance([6, 3])).toBeGreaterThan(0);
+    for (const p of nine) {
+      expect(p.layers.length).toBeLessThanOrEqual(3);
+      expect(p.layers.every((l, i) => l.count >= 2 && l.count <= 7 && (!i || l.count <= p.layers[i - 1].count))).toBe(true);
+      expect(p.reinforcement.every(r => r.regions!.preserveBottomRows)).toBe(true);
+    }
   });
 
   it('keeps small repairs below the area estimate available when a retained design fails at final depth', () => {
