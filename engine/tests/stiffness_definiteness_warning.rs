@@ -3,9 +3,8 @@
 //! results carry a `StiffnessNotPositiveDefinite` warning; well-posed models
 //! never do, and the warning does not change any number.
 
-#[path = "common/mod.rs"]
-mod common;
-mod fuzz_models;
+use crate::common;
+use crate::fuzz_models;
 
 use common::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};

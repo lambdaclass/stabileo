@@ -11,7 +11,7 @@
 import { checkSteelMembers, checkEc3Members } from '../../wasm-solver';
 import { materialFamilyOf } from '../../steel/material-family';
 import { catalogueGradeFamily } from '../../steel/grade-family';
-import type { GoverningDemand } from '../../station-design-forces';
+import type { StationTuple } from './types';
 import { MOMENT_NOISE_FLOOR } from '../design-axes';
 import { steelProps, type SteelProps } from './steel-props';
 import { ec3Class, ec3Curves, ec3CurveLt } from './ec3-classify';
@@ -32,7 +32,7 @@ function steelOnly(ctx: MemberContext): { skip: string } | null {
  * so an RHS 200×100×6 under Vy = 300 kN passed at 0,84 where its side walls give 1,68. vy is now
  * scaled to the web area by the ratio of the two, which sends the same utilisation.
  */
-const shear = (d: GoverningDemand, p?: { Aw: number; AwWeak: number }) =>
+const shear = (d: StationTuple, p?: { Aw: number; AwWeak: number }) =>
   Math.max(Math.abs(d.forces.vz), Math.abs(d.forces.vy) * (p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)) * N;
 /** The bound on `shear`: max is 1-Lipschitz in each argument, so it takes the bounds the same way. */
 const shearBound = (sb: StationBound3D, p?: { Aw: number; AwWeak: number }) =>
@@ -56,8 +56,8 @@ function areasOf(ctx: MemberContext): { Aw: number; AwWeak: number } | undefined
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-const bends = (d: GoverningDemand) => Math.abs(d.forces.my) > MOMENT_NOISE_FLOOR || Math.abs(d.forces.mz) > MOMENT_NOISE_FLOOR;
-const sheared = (d: GoverningDemand) => Math.abs(d.forces.vy) + Math.abs(d.forces.vz) > 0;
+const bends = (d: StationTuple) => Math.abs(d.forces.my) > MOMENT_NOISE_FLOOR || Math.abs(d.forces.mz) > MOMENT_NOISE_FLOOR;
+const sheared = (d: StationTuple) => Math.abs(d.forces.vy) + Math.abs(d.forces.vz) > 0;
 
 /**
  * What AISC 360 requires of this shape and the checker does not do. It evaluates F2 (compact
@@ -176,6 +176,22 @@ export const AISC360: OtherCode = {
  */
 const ec3WebSlenderness = new WeakMap<object, number | null>();
 
+/** EN 1993-1-1 6.3.1.2: χ from the non-dimensional slenderness and the curve's imperfection factor. */
+const EC3_ALPHA: Record<string, number> = { a0: 0.13, a: 0.21, b: 0.34, c: 0.49, d: 0.76 };
+export function ec3Chi(lambda: number, curve: string): number {
+  if (lambda <= 0.2) return 1;
+  const a = EC3_ALPHA[curve] ?? 0.76, phi = 0.5 * (1 + a * (lambda - 0.2) + lambda * lambda);
+  return Math.min(1, 1 / (phi + Math.sqrt(phi * phi - lambda * lambda)));
+}
+
+/**
+ * 6.3.1.4, torsional buckling of a doubly symmetric I-section (its flexural-torsional mode is the
+ * torsional one): Ncr,T = (G·It + π²·E·Iw/lT²)/i0², i0² = (Iy + Iz)/A, lT the member's length (ends
+ * held against twist), G = E/2,6; λ̄T = √(A·fy/Ncr,T), χT from the z-z curve (6.3.1.4(2)), γM1 = 1,0.
+ * The checker reads flexural buckling only; this is the resistance it leaves out, kN, per member.
+ */
+const ec3TorsionalNb = new WeakMap<object, number>();
+
 export const EC3: OtherCode = {
   id: 'ec3',
   family: 'steel',
@@ -197,6 +213,11 @@ export const EC3: OtherCode = {
     webAreas.set(ctx, { Aw: p.Aw, AwWeak: p.AwWeak });
     // The web slenderness `at` checks shear buckling against, once per member, not per demand.
     ec3WebSlenderness.set(ctx, p.shape === 'CHS' ? null : (p.shape === 'RHS' ? p.h - 3 * p.tw : p.h - 2 * p.tf) / p.tw);
+    if (p.shape === 'I' && p.J > 0 && p.Cw > 0) {
+      const E = ctx.material.e * PA, G = E / 2.6, fy = ctx.material.fy! * PA, lT = ctx.L;
+      const ncrT = (G * p.J + (Math.PI ** 2 * E * p.Cw) / (lT * lT)) / ((p.Iy + p.Iz) / p.A);
+      ec3TorsionalNb.set(ctx, (ec3Chi(Math.sqrt((p.A * fy) / ncrT), curves.z) * p.A * fy) / N);
+    }
     return {
       data: {
         elementId: ctx.elementId,
@@ -237,6 +258,10 @@ export const EC3: OtherCode = {
     if (slender != null && sheared(d) && slender > (72 * Math.sqrt(235 / fy)) / 1.2) flags.push('otherCodes.check.ec3ShearBuckling');
     return { data, unevaluated: flags };
   },
+  extraParts(ctx, d) {
+    const nb = ec3TorsionalNb.get(ctx);
+    return nb && d.forces.n < 0 ? [{ kind: 'compression' as const, clause: '6.3.1.4', ratio: -d.forces.n / nb }] : [];
+  },
   forces(ctx, d) {
     return { elementId: ctx.elementId, nEd: d.forces.n * N, myEd: d.forces.my * N, mzEd: d.forces.mz * N, vEd: shear(d, areasOf(ctx)) };
   },
@@ -249,6 +274,18 @@ export const EC3: OtherCode = {
       ['shear', '6.2.6', num(r.shearRatio)], ['interaction', '6.3.3', num(r.interactionRatio)],
     ];
     const [kind, clause, ratio] = parts.reduce((a, b) => (b[2] > a[2] ? b : a));
-    return { ratio, ...gov(kind, clause), pass: r.pass === true, unevaluated: list(r.unevaluated) };
+    return { ratio, ...gov(kind, clause), pass: r.pass === true, unevaluated: list(r.unevaluated), parts: parts.map(([k, c, x]) => ({ kind: k, clause: c, ratio: x })) };
+  },
+  /*
+   * 6.3.3 is the checker's, with the Annex B factors; when the checker reports it unevaluated (a
+   * Cm outside [0,4; 1], say) a linear sum would not be a bound, since under compression the
+   * factors reach Cmy·(1 + 0,8·NEd/(χy·NRk/γM1)) > 1, so the interaction is not a check. 6.2.8 reduces the moment
+   * resistance under high shear: without it the flexural parts are not either. 6.2.6(6): the shear
+   * resistance of a slender web is not the plastic one.
+   */
+  disables: {
+    'otherCodes.check.ec3Interaction': ['interaction'],
+    'otherCodes.check.ec3ShearBending': ['flexureStrong', 'flexureWeak', 'interaction'],
+    'otherCodes.check.ec3ShearBuckling': ['shear'],
   },
 };

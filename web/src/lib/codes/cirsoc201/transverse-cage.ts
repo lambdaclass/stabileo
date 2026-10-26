@@ -203,6 +203,13 @@ export interface StirrupSetInput {
   /** Maximum nominal coarse-aggregate size, mm — §25.7.2.1(a) clear-spacing term. */
   maxAggregateSizeMm: number;
   /**
+   * The side a crosstie on the cage's centreline passes on, on `across` (`across`) and on `up`
+   * (`up`): the one free choice of its geometry (`buildCrosstie`). Absent: the positive side. A
+   * joint passes the side away from the hook tails of the beams ending there
+   * (`crosstieCentreSides`).
+   */
+  centreSides?: { across?: 1 | -1; up?: 1 | -1 };
+  /**
    * Table 9.7.6.2.2 across-width limit, m.
    *
    * Passed in because it decides whether an interior leg may be snapped to a bar position: both
@@ -396,11 +403,28 @@ const REF_AV = () => clause('cirsoc-201', '2025', '22.5.8.5.5',
  * inside radius `r` wraps a bar whose centre lies within roughly `r + d_b/2` of the corner.
  * §25.7.1.2 is a yes/no requirement, so this returns the bar rather than a distance score.
  */
+/** The fabrication tolerance `barAtCorner` allows a seated bar, m. */
+const CORNER_SEAT_TOLERANCE = 0.002;
+
+/**
+ * How far across from its seat (`seatedLongitudinalHalfExtents` `corner`) a bar on the seat's
+ * level may stand and still be held in the bend, by `barAtCorner`'s own reach: the corner is
+ * `cornerInset` off the seat both ways, so the bar is held while
+ * hypot(inset + δ, inset) ≤ r + d_s/2 + 2 mm + d_b/2. The layout candidates read this
+ * (`candidates.ts` `witnessSeats`), so a row the search offers is a row the cage holds.
+ */
+export function cornerSeatHold(stirrupDiaMm: number, barDiaMm: number): number {
+  const r = centrelineRadius(minMandrelDiameter(stirrupDiaMm, 'transverse').value, stirrupDiaMm);
+  const reach = r + stirrupDiaMm / 2000 + CORNER_SEAT_TOLERANCE + barDiaMm / 2000;
+  const inset = seatedCornerInset(stirrupDiaMm, barDiaMm);
+  return Math.max(0, Math.sqrt(Math.max(0, reach * reach - inset * inset)) - inset);
+}
+
 function barAtCorner(
   bars: readonly LongitudinalBarRef[],
   acrossOffset: number, upOffset: number,
   bendCentrelineRadius: number, stirrupDiaMm: number,
-  tolerance = 0.002,
+  tolerance = CORNER_SEAT_TOLERANCE,
 ): string | null {
   // A bar is contained by a bend when it is SEATED in the corner: nestled against the inside
   // of the bend arc, touching both legs. That is a physical condition, so the reach is the sum
@@ -761,27 +785,70 @@ export function buildCrosstie(
   const uTop = barTop ? barTop.up : halfUp;
   // Which side the shaft passes on. Toward the section centre keeps it clear of the perimeter
   // leg on the near face; at the centreline the choice is free and is fixed for determinism.
-  const side = acrossOffset > 1e-9 ? -1 : 1;
-  const aLeg = acrossOffset + side * r;
+  const SQ = Math.SQRT1_2;
+  /**
+   * The crosstie's geometry with its shaft on `side` of the bars it embraces.
+   *
+   * Tail direction after a bend of `angle` at the bar, leaving a shaft travelling `dir`: a 135°
+   * bend carries the bar round the far side of the one it embraces and back toward the core, the
+   * tail running diagonally inward. It ran outward, the arc the short 45° way round with the tail
+   * continuing over the bar toward the face: in a 40 cm column's joint the tail stood 26 mm
+   * outside the column, through the first stirrup of the beam framing in (the span fixture: 3,5 mm
+   * of overlap at each such joint).
+   */
+  const geometry = (side: 1 | -1) => {
+    const aLeg = acrossOffset + side * r;
+    const tail = (angle: HookAngle, dirUp: number): [number, number] =>
+      angle === 90 ? [-side * 1, 0] : [-side * SQ, dirUp * SQ];
+    const bendBot: [number, number] = [acrossOffset, uBot];
+    const tanBot: [number, number] = [aLeg, uBot];
+    const eBot = tail(bottomHook.angle, 1);
+    const exitBot: [number, number] = [bendBot[0] + r * -eBot[1] * side, bendBot[1] + r * eBot[0] * side];
+    const tipBot: [number, number] = [exitBot[0] + bottomHook.extension * eBot[0], exitBot[1] + bottomHook.extension * eBot[1]];
+    const tanTop: [number, number] = [aLeg, uTop];
+    const bendTop: [number, number] = [acrossOffset, uTop];
+    const eTop = tail(topHook.angle, -1);
+    const exitTop: [number, number] = [bendTop[0] + r * eTop[1] * side, bendTop[1] - r * eTop[0] * side];
+    const tipTop: [number, number] = [exitTop[0] + topHook.extension * eTop[0], exitTop[1] + topHook.extension * eTop[1]];
+    return { aLeg, bendBot, tanBot, exitBot, tipBot, tanTop, bendTop, exitTop, tipTop };
+  };
+  /**
+   * Worst surface clearance between the two hooks and the bars they do not embrace, m: each
+   * hook's arc on its circle and its tail, sampled.
+   */
+  const hookClearance = (g: ReturnType<typeof geometry>): number => {
+    const pts: Array<[number, number]> = [];
+    const line = (a: [number, number], b: [number, number]) => { for (let i = 0; i <= 12; i++) pts.push([a[0] + (b[0] - a[0]) * i / 12, a[1] + (b[1] - a[1]) * i / 12]); };
+    const arc = (c: [number, number], a: [number, number], b: [number, number]) => {
+      const a0 = Math.atan2(a[1] - c[1], a[0] - c[0]);
+      let d = Math.atan2(b[1] - c[1], b[0] - c[0]) - a0;
+      // The bend the hook makes: 90° or 135° the long way, not the short one.
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      for (let i = 0; i <= 12; i++) pts.push([c[0] + r * Math.cos(a0 + d * i / 12), c[1] + r * Math.sin(a0 + d * i / 12)]);
+    };
+    arc(g.bendBot, g.tanBot, g.exitBot); line(g.exitBot, g.tipBot);
+    arc(g.bendTop, g.tanTop, g.exitTop); line(g.exitTop, g.tipTop);
+    let worst = Number.POSITIVE_INFINITY;
+    for (const bar of input.longitudinalBars) {
+      if (bar.id === barBot?.id || bar.id === barTop?.id) continue;
+      for (const [a, u] of pts) worst = Math.min(worst, Math.hypot(bar.across - a, bar.up - u) - ds / 2000 - bar.diameterMm / 2000);
+    }
+    return worst;
+  };
+  // Which side the shaft passes on. Toward the section centre keeps it clear of the perimeter
+  // leg on the near face; at the centreline the choice is free and is fixed for determinism (the
+  // side the caller states, `centreSides`, else the positive one) — unless the hooks would then
+  // run through a bar that the other side clears, as a stirrup chooses the corner it closes on
+  // (`buildClosedStirrup`).
+  const preferred: 1 | -1 = acrossOffset > 1e-9 ? -1 : acrossOffset < -1e-9 ? 1 : (input.centreSides?.across ?? 1);
+  const first = geometry(preferred);
+  const clearFirst = hookClearance(first);
+  const other = geometry(-preferred as 1 | -1);
+  const side: 1 | -1 = clearFirst >= 0 || hookClearance(other) <= clearFirst ? preferred : -preferred as 1 | -1;
+  const { bendBot, tanBot, exitBot, tipBot, tanTop, bendTop, exitTop, tipTop } = side === preferred ? first : other;
 
   const segments: BarSegment[] = [];
-  const SQ = Math.SQRT1_2;
-  /** Tail direction after a bend of `angle` at the bar, leaving a shaft travelling `dir`. */
-  const tail = (angle: HookAngle, dirUp: number): [number, number] =>
-    angle === 90
-      ? [-side * 1, 0]
-      : [-side * SQ, -dirUp * SQ];
-
-  // Bottom end: shaft arrives travelling up; the bend curls about the bottom bar.
-  const bendBot: [number, number] = [acrossOffset, uBot];
-  const tanBot: [number, number] = [aLeg, uBot];
-  const eBot = tail(bottomHook.angle, 1);
-  const exitBot: [number, number] = [
-    bendBot[0] + r * -eBot[1] * side, bendBot[1] + r * eBot[0] * side,
-  ];
-  const tipBot: [number, number] = [
-    exitBot[0] + bottomHook.extension * eBot[0], exitBot[1] + bottomHook.extension * eBot[1],
-  ];
   segments.push(straightSegment(
     sectionPoint(input, tipBot[0], tipBot[1]), sectionPoint(input, exitBot[0], exitBot[1])));
   segments.push(arcSegment(
@@ -789,19 +856,10 @@ export function buildCrosstie(
     r, bottomHook.angle, sectionPoint(input, bendBot[0], bendBot[1])));
 
   // The shaft, between the two bends.
-  const tanTop: [number, number] = [aLeg, uTop];
   segments.push(straightSegment(
     sectionPoint(input, tanBot[0], tanBot[1]), sectionPoint(input, tanTop[0], tanTop[1])));
 
   // Top end.
-  const bendTop: [number, number] = [acrossOffset, uTop];
-  const eTop = tail(topHook.angle, -1);
-  const exitTop: [number, number] = [
-    bendTop[0] + r * eTop[1] * side, bendTop[1] - r * eTop[0] * side,
-  ];
-  const tipTop: [number, number] = [
-    exitTop[0] + topHook.extension * eTop[0], exitTop[1] + topHook.extension * eTop[1],
-  ];
   segments.push(arcSegment(
     sectionPoint(input, tanTop[0], tanTop[1]), sectionPoint(input, exitTop[0], exitTop[1]),
     r, topHook.angle, sectionPoint(input, bendTop[0], bendTop[1])));
@@ -1082,6 +1140,7 @@ export function buildColumnTieSet(input: StirrupSetInput): StirrupSetResult {
     ...input,
     b: input.h, h: input.b,
     across: input.up, up: input.across,
+    ...(input.centreSides ? { centreSides: { ...(input.centreSides.up ? { across: input.centreSides.up } : {}), ...(input.centreSides.across ? { up: input.centreSides.across } : {}) } } : {}),
     longitudinalBars: input.longitudinalBars.map((bar) => ({
       ...bar, across: bar.up, up: bar.across,
     })),

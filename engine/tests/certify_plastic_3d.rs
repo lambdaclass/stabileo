@@ -6,7 +6,7 @@
 //! heuristic, the exact checker and the solver). Refusal tests tamper with the
 //! exact candidates and with the model.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::exact::{qi, to_f64, Q};

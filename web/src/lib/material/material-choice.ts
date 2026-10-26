@@ -95,6 +95,7 @@ export function toMaterialFields(choice: MaterialChoice): MaterialFields {
       nu: p.nu,
       rho: p.rho,
       ...(p.fy !== undefined ? { fy: p.fy } : {}),
+      ...(p.fc !== undefined ? { fc: p.fc } : {}),
       ...(p.fu !== undefined ? { fu: p.fu } : {}),
       ...(p.gradeId ? { gradeId: p.gradeId } : {}),
       ...(p.standard ? { standard: p.standard } : {}),

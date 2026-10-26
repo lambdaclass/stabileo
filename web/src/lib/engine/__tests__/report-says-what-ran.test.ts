@@ -43,7 +43,6 @@ function data(over: Partial<ReportData> = {}): ReportData {
     nodes: [], elements: [], materials: [], sections: [], supports: [],
     loadCount: 0,
     results: { displacements: [], reactions: [], elementForces: [] },
-    verifications: [],
     t: (k: string) => (en as Record<string, string>)[k] ?? k,
     ...over,
   } as ReportData;
@@ -95,10 +94,7 @@ describe('advanced analyses, and which of them the report claims', () => {
 
 describe('what the report must not carry', () => {
   it('has no CIRSOC verification section — that is a design output', () => {
-    const html = generateReportHtml(data({
-      config: cfg(),
-      verifications: [{ elementId: 1, b: 0.2, h: 0.4 } as never],
-    }));
+    const html = generateReportHtml(data({ config: cfg() }));
     expect(html).not.toContain('sec-verification');
   });
 

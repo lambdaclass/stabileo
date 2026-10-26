@@ -2,8 +2,7 @@
 //! `solve_3d`/`prepare_static_3d`. Each test builds the same semicircular arch
 //! as one curved beam and verifies the solver produces finite, sensible results.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::{contact, corotational, kinematic, linear, pdelta, ssi, time_integration, winkler};

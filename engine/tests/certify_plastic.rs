@@ -6,7 +6,7 @@
 //! independent of both the LP heuristic and the exact checker. Refusal tests
 //! tamper with the exact candidates and with the model.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::exact::{q, qi, Q};

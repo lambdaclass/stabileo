@@ -135,7 +135,9 @@ export function verdictFor(
       if (k && c!.ratio > 0 && MEMBER_LEVEL_REFUSALS.has(k)) memberRefusal ??= k;
     }
     const r = steelGoverningRatio(v);
-    if (v.overallStatus === 'fail' || !(r <= target)) passes = false;
+    // A held verdict (a limit state not evaluated, or one that depends on whether the profile is
+    // rolled or welded) is not a pass, however low the ratios that ran.
+    if (v.overallStatus === 'fail' || v.overallStatus === 'held' || !(r <= target)) passes = false;
     if (!worst || r > worst.ratio) worst = { ratio: r, elementId: m.elementId };
   }
   if (!worst) return null;
@@ -210,3 +212,19 @@ export function lightestPassing(
   if (!best && list.length > 0) best = verdictFor(list[list.length - 1]!, members, material, criteria);
   return { chosen: null, best, tried, pruned };
 }
+
+/** Every profile of the search on a group, lightest first, each with its verdict: the whole series checked. */
+export function seriesVerdicts(
+  family: ProfileFamily,
+  members: readonly OptimiseMember[],
+  material: { fy?: number; e?: number; fu?: number },
+  criteria: OptimiseCriteria = {},
+): CandidateVerdict[] {
+  const out: CandidateVerdict[] = [];
+  for (const p of candidates(criteria, family)) {
+    const v = verdictFor(p, members, material, criteria);
+    if (v) out.push(v);
+  }
+  return out;
+}
+

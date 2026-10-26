@@ -36,7 +36,7 @@ else
 fi
 
 if [ "$generate" = 1 ]; then
-	(cd ../engine && cargo test -j 4 --test certify_bundle export_ -- --nocapture)
+	(cd ../engine && cargo test -j 4 --test certificates certify_bundle::export_ -- --nocapture)
 fi
 
 sha256() {

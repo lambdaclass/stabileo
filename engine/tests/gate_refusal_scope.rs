@@ -8,8 +8,7 @@
 //! back to a default reference and the model solves, as it did before the
 //! refusal existed. (`f1`/`f5`/`f9`: the review findings on PR #199.)
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::solver::linear::solve_3d;

@@ -9,8 +9,7 @@
 //! `serde_json` writes every f64 as its shortest round-trip form, so equal text is
 //! equal bits.
 
-#[path = "fuzz_models/mod.rs"]
-mod fuzz_models;
+use crate::fuzz_models;
 
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
 use dedaliano_engine::solver::{

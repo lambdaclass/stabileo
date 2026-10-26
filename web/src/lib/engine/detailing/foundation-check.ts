@@ -62,6 +62,8 @@ export interface FootingInput {
   fc: number;
   /** Allowable bearing pressure, kPa. Service-level. */
   allowableBearing: number;
+  /** The edge pressure may reach this many times the allowable while the mean stays under it (`BearingResistance`). */
+  edgeFactor?: number;
   /** Axial load from the column, kN (service level for bearing). */
   serviceAxial: number;
   /** Factored axial load, kN, for strength checks. */
@@ -235,11 +237,16 @@ interface EngineCertified {
 /** A non-finite number crosses JSON as null. */
 const inf = (x: number | null | undefined): number => (x === null || x === undefined ? Infinity : x);
 
+/** The soil's edge factor k (`FootingInput.edgeFactor`): 1 when none is stated. */
+const edgeK = (f: FootingInput) => (f.edgeFactor && f.edgeFactor > 1 ? f.edgeFactor : 1);
+
 function engineInput(f: FootingInput) {
   return {
     footingId: 0, kind: f.kind === 'pileCap' ? 'pileCap' : f.kind,
     b: f.B, l: f.L, thickness: f.thickness, d: f.d, columnB: f.columnB, columnH: f.columnH,
-    fc: f.fc, allowableBearing: f.allowableBearing,
+    // With an edge factor the engine holds the edge pressure to k times the allowable; the mean
+    // is held to the allowable itself in `bearingFrom`.
+    fc: f.fc, allowableBearing: f.allowableBearing * edgeK(f),
     serviceAxial: f.serviceAxial, factoredAxial: f.factoredAxial,
     serviceMomentB: f.serviceMomentB ?? 0, serviceMomentL: f.serviceMomentL ?? 0,
     factoredMomentB: f.factoredMomentB ?? 0, factoredMomentL: f.factoredMomentL ?? 0,
@@ -290,10 +297,17 @@ function bearingFrom(f: FootingInput, e: EngineFooting): BearingResult {
       `del momento aplicado ±${b.b.momentEccentricity.toFixed(3)} / ` +
       `±${b.l.momentEccentricity.toFixed(3)} m (envolvente de ambos signos).`);
   }
-  memo.push(
-    `qmax = ${qMax.toFixed(1)} kPa, qmin = ${qMin.toFixed(1)} kPa contra ` +
-    `qadm = ${f.allowableBearing.toFixed(1)} kPa.`);
-  const utilization = inf(b.utilization);
+  // With an edge factor the mean is held to the allowable and the edge to k times it: the edge
+  // by the engine (it was given k·qadm), the mean here.
+  const k = edgeK(f);
+  const qMean = N / (f.B * f.L);
+  memo.push(k > 1
+    ? `qmedia = ${qMean.toFixed(1)} kPa contra qadm = ${f.allowableBearing.toFixed(1)} kPa; ` +
+      `qmax = ${qMax.toFixed(1)} kPa, qmin = ${qMin.toFixed(1)} kPa contra ${k}·qadm = ${(k * f.allowableBearing).toFixed(1)} kPa.`
+    : `qmax = ${qMax.toFixed(1)} kPa, qmin = ${qMin.toFixed(1)} kPa contra ` +
+      `qadm = ${f.allowableBearing.toFixed(1)} kPa.`);
+  const meanUse = k > 1 ? qMean / f.allowableBearing : 0;
+  const utilization = Math.max(inf(b.utilization), meanUse);
   if (b.uplift) {
     return {
       status: 'UNSUPPORTED', qMax, qMin, eB, eL, ...common, uplift: true, utilization,
@@ -309,7 +323,8 @@ function bearingFrom(f: FootingInput, e: EngineFooting): BearingResult {
       unsupportedReason: 'Resultante fuera del núcleo central (despegue parcial de la base).',
     };
   }
-  return { status: b.status, qMax, qMin, eB, eL, ...common, uplift: false, utilization, memo, refs };
+  const status = b.status === 'OK' && meanUse > 1 + 1e-9 ? 'FAIL' : b.status;
+  return { status, qMax, qMin, eB, eL, ...common, uplift: false, utilization, memo, refs };
 }
 
 /** Linear bearing pressure with biaxial eccentricity, by the engine. */
@@ -570,7 +585,8 @@ export function checkFooting(f: FootingInput): FootingCheck {
     bearing, oneWayShear, punching,
     Mu: fx.mu, MuSide: fx.side ?? null, MuCantilever: fx.cantilever, MuQFace: fx.qFace, MuQEdge: fx.qEdge,
     punchingLoadInsidePerimeter: e.punchingLoadInsidePerimeter,
-    worstUtilization: e.worstUtilization,
+    // The mean pressure under an edge factor is held here, not by the engine: it can govern.
+    worstUtilization: Math.max(e.worstUtilization, bearing.utilization),
     memo, refs, unsupported,
   };
   return result.status === 'OK' ? engineGateFooting(f, result) : result;

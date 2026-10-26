@@ -10,8 +10,12 @@
  * conflict the user is stepping through, whether the sheet preview is open.
  */
 
+import { memberConformityGates } from './detailing-conformity-gates';
 import { errorText } from './engine-action';
 import { modelStore } from './model.svelte';
+import { designFingerprint } from './design-fingerprint';
+import { isModelStale, revisionAfterChange, withStamps } from './detailing-stamps';
+import { readingsOf } from './floor-readings';
 import { requestAutosave } from './autosave-service';
 import {
   applyReview, emptyDetailingStore, invalidateAffected, isDemandStale, isReviewStale,
@@ -67,7 +71,7 @@ export type { SheetSelection } from './detailing-sheet.svelte';
  * See `detailing-inputs.ts` for why they are grouped rather than threaded through arguments.
  */
 import {
-  CONCRETE_REGULATION_ID, DEFAULT_WALL_BAR_DIA_MM, bentUpPolicy, currentConcreteEdition,
+  CONCRETE_REGULATION_ID, wallBarDiameterMm, isLockedMember, writeRepaired, bentUpPolicy, currentConcreteEdition, savedMemberCuts, detailingLineInputs, wallInputs, slabInputs,
   buildProjectDocument, currentReadiness, designOutcomeMap, lockedMemberIds,
   maxPersistedRevision, presentFloorFamilies,
   regenerationImpact, resolveAggregate, type RcDocumentationScope,
@@ -76,9 +80,8 @@ import {
 import {
   analysisStaleForFloor, collectShells, collectStresses, factoredAreaLoads, scopedShells,
 } from './detailing-floor-inputs';
-import {
-  collectFootingColumns, collectFootingReactions, collectSlabColumns, footingRunFingerprint,
-} from './detailing-footing-inputs';
+import { collectSlabColumns, footingRunFingerprint } from './detailing-footing-inputs';
+import { collectFootingSupport, collectFootingSupportReactions } from './footing-support';
 function createDetailingStore() {
   let selectedId = $state<string | null>(null);
   let conflictIndex = $state(0);
@@ -99,8 +102,6 @@ function createDetailingStore() {
   let lastFootingRunFingerprint = $state<string | null>(null);
   let currentDocument = $state<DocumentModel | null>(null);
   let supersededDocs = $state<DocumentModel[]>([]);
-  /** Monotonic per project. Bumped on supersession, never reused. */
-  let documentRevision = $state(1);
   /**
    * The last design–detailing feedback loop: its outcome, iterations and full trace.
    *
@@ -113,6 +114,7 @@ function createDetailingStore() {
   let lastEdit = $state<RcEditConsequence | null>(null);
 
   const store = $derived<DetailingStore>(modelStore.model.detailing ?? emptyDetailingStore());
+  const persisted = (): DetailingStore => modelStore.model.detailing ?? emptyDetailingStore();
   const assemblies = $derived(store.assemblies);
   const selected = $derived<DetailingAssembly | null>(
     assemblies.find((a) => a.id === selectedId) ?? assemblies[0] ?? null,
@@ -123,34 +125,30 @@ function createDetailingStore() {
   );
 
   /**
-   * Anything that changes what a document describes retires it.
-   *
-   * Loads, analysis, reinforcement, detailing geometry, the spacing margin, review, and
-   * regulation settings all reach here. Non-destructive: the old revision keeps its number
-   * and content and moves to the superseded list. A stale document must never remain
-   * current, because "current" is exactly the claim a builder relies on.
+   * Anything that changes what a document describes retires it: loads, analysis, reinforcement,
+   * detailing geometry, the spacing margin, review, regulation settings, a structural edit.
+   * Non-destructive: the old revision keeps its number and content and moves to the superseded
+   * list. A stale document must never remain current: "current" is the claim a builder relies on.
    */
   function retireDocument(): void {
-    if (!currentDocument) return;
-    documentRevision += 1;
-    supersededDocs = [...supersededDocs, supersede(currentDocument, documentRevision)];
+    const p = persisted(), next = revisionAfterChange(p, currentDocument !== null);
+    if (next === null) return;
+    if (currentDocument) supersededDocs = [...supersededDocs, supersede(currentDocument, next)];
     currentDocument = null;
+    modelStore.model.detailing = { ...p, documentRevision: next };
   }
 
-  function write(next: DetailingStore): void {
-    modelStore.model.detailing = next;
-  }
+  /** Replace the stored detailing, keeping its stamps (`detailing-stamps.ts`). */
+  const write = (next: DetailingStore): void => { modelStore.model.detailing = withStamps(next, persisted()); };
 
   /**
-   * Publish a new set of assemblies — the ONE path that replaces them. Retires the current
-   * document (the old geometry is not what exists any more) and answers the edit notice (the
-   * levels it named have just been rebuilt). Its three callers each did the first by hand and
-   * none of them did the second.
+   * Publish a new set of assemblies, the ONE path that replaces them: retires the current document
+   * (the old geometry is gone) and answers the edit notice (the levels it named were rebuilt).
    */
   function publishAssemblies(next: DetailingStore): void {
     retireDocument();
     lastEdit = null;
-    write(next);
+    write({ ...next, modelFingerprint: designFingerprint() }); // stamped with the model they are made from
   }
 
   /**
@@ -168,12 +166,12 @@ function createDetailingStore() {
   ): void {
     const repaired = [...next.values()].filter((o) => {
       const prev = before.get(o.elementId)?.accepted;
-      return o.outcome === 'VERIFIED' && o.accepted && prev
+      return o.outcome === 'VERIFIED' && o.accepted && prev && !isLockedMember(o.elementId)
         && rebarHash(o.accepted) !== rebarHash(prev);
     });
     if (repaired.length === 0) return;
     modelStore.reinforcementTransaction((api) => {
-      for (const o of repaired) api.setReinforcement(o.elementId, o.accepted!);
+      writeRepaired(api, repaired);
     });
     const prev = verificationStore.runSummary;
     if (prev) {
@@ -208,6 +206,8 @@ function createDetailingStore() {
     },
 
     /** True when the selected assembly's review no longer matches its revision. */
+    /** The model changed after the detailing was generated (`detailing-stamps.ts`); persisted store, see `buildDocument`. */
+    get modelStale(): boolean { return isModelStale(persisted(), designFingerprint()); },
     get superseded(): boolean {
       return selected ? isReviewStale(selected) : false;
     },
@@ -296,7 +296,7 @@ function createDetailingStore() {
           contexts: verificationStore.contexts,
           outcomes,
           nodes: modelStore.nodes as never,
-          elements: modelStore.elements as never,
+          elements: modelStore.elements as never, sections: modelStore.sections, // with their insertions (`Element.offset`)
           edition: currentConcreteEdition(),
           /*
            * The scope the run answers for, from the same place the readiness getter reads it.
@@ -315,22 +315,10 @@ function createDetailingStore() {
           previousRevision: maxPersistedRevision(),
           maxAggregateSizeMm: resolveAggregate(),
           spacingMargin: resolveSpacingMargin(),
-          /**
-           * The production command ALWAYS supplies the authoritative verifier.
-           *
-           * Constructibility requires every member to have been rechecked at its final
-           * effective depth. A run without a verifier leaves that condition unmet and the
-           * assessment NOT_ESTABLISHED — correct as a default, and unacceptable as the
-           * behaviour of the real command.
-           *
-           * The reinforcement checked is the ASSIGNMENT'S, not the model's: mid-loop they
-           * differ, and checking the model's would re-verify the steel the repair is trying
-           * to replace.
-           */
-          reverify: (elementId, loss) => verificationStore.reverifyAtFinalDepth(
-            elementId, loss, outcomes.get(elementId)?.accepted),
+          // The member's conformity at the final geometry: strength, §24.2.2, and a load split the model establishes (its slab-column joint).
+          ...memberConformityGates(outcomes),
           lockedBars: store.assemblies.flatMap((a) => a.bars.filter((b) => b.locked)),
-          bentUp: bentUpPolicy(),
+          bentUp: bentUpPolicy(), memberCuts: savedMemberCuts(), ...detailingLineInputs(),
           /**
            * Whether the adapter that ran actually verifies torsion on beams.
            *
@@ -445,8 +433,7 @@ function createDetailingStore() {
           footings: wants('footing') ? [...modelStore.model.footings.values()] : [],
           geotechnical: modelStore.model.geotechnical,
           nodes: modelStore.model.nodes as never,
-          columns: collectFootingColumns(),
-          reactions: collectFootingReactions(),
+          ...collectFootingSupport(), reactions: collectFootingSupportReactions(),
           fc: props.fc,
           fy: props.fy,
           edition: currentConcreteEdition(),
@@ -493,7 +480,7 @@ function createDetailingStore() {
           fy: props.fy,
           cover: props.cover,
           maxAggregateSizeMm: resolveAggregate(),
-          wallBarDiameterMm: DEFAULT_WALL_BAR_DIA_MM,
+          wallBarDiameterMm: wallBarDiameterMm(), ...wallInputs(), ...slabInputs(),
           edition: currentConcreteEdition(),
           // Explicit argument wins so the golden chain can pin an identity; otherwise the
           // verification that actually ran supplies it. Never a bare '' default.
@@ -537,7 +524,7 @@ function createDetailingStore() {
         const current = modelStore.model.detailing ?? emptyDetailingStore();
         const kept = current.assemblies.filter((a) => !a.id.startsWith('FLOOR-'));
         const merged = [...kept, ...result.assemblies];
-        publishAssemblies({ ...current, assemblies: merged });
+        publishAssemblies({ ...current, assemblies: merged, floorReadings: readingsOf(result, designFingerprint(), lastFootingRun, lastFootingRunFingerprint) });
         if (!merged.some((a) => a.id === selectedId)) {
           selectedId = merged[0]?.id ?? null;
         }
@@ -554,15 +541,14 @@ function createDetailingStore() {
       }
     },
 
-    /** The last floor run, for the panel that reports what it could not design. */
+    /** The last floor run, for the panel that reports what it could not design; dropped on a project change. */
     get lastFloorRun(): RunFloorDesignResult | null { return lastFloorRun; },
+    forgetRuns(): void { lastRun = null; lastFloorRun = null; lastFootingRun = null; lastFootingRunFingerprint = null; },
 
     /**
-     * The last footing run, for the panel that reports what could not be checked and why.
-     *
-     * Separate from `lastFloorRun` because the two answer different questions: a shell is
-     * unsupported for reasons about its geometry and its stresses, a footing for reasons
-     * about its soil, its reaction and its column.
+     * The last footing run, for the panel that reports what could not be checked and why. Apart
+     * from `lastFloorRun`: a shell is unsupported for its geometry and stresses, a footing for its
+     * soil, its reaction and its column.
      */
     get lastFootingRun(): RunFootingDesignResult | null { return lastFootingRun; },
 
@@ -707,10 +693,6 @@ function createDetailingStore() {
         selected.unsupported.map((u) => `${u.key}: ${u.message}`));
     },
 
-    // `get titleBlock()` was here: the schedule's own rótulo, built on every read and rendered by
-    // nobody — grepped across the tree before removing. The one that DOES reach a schedule comes
-    // from the document, through `renderSchedule`. Computed and never rendered, fifth instance.
-
     /**
      * Build the DocumentModel from the CURRENT coordinated state.
      *
@@ -751,18 +733,24 @@ function createDetailingStore() {
        */
       const persisted = modelStore.model.detailing ?? emptyDetailingStore();
       if (persisted.assemblies.length === 0) return null;
+      const outdated = isModelStale(persisted, designFingerprint()), revisionNow = persisted.documentRevision ?? 1;
       const doc = buildProjectDocument({
         assemblies: persisted.assemblies,
         laps: lastRun?.lapping.laps ?? [],
-        revisionNumber: documentRevision,
+        revisionNumber: revisionNow,
         author: opts.author,
         at: opts.at,
         scope: opts.scope ?? null,
+        ...(outdated ? { outdated: true } : {}),
       });
       currentDocument = doc;
+      if (persisted.documentBuiltRevision !== revisionNow) modelStore.model.detailing = { ...persisted, documentRevision: revisionNow, documentBuiltRevision: revisionNow };
       return doc;
     },
 
+    /** The document revision, persisted; and whether any document was ever built (`detailing-stamps.ts`). */
+    get documentRevision(): number { return persisted().documentRevision ?? 1; },
+    get documentEverBuilt(): boolean { return persisted().documentBuiltRevision !== undefined; },
     /** The document built by the last `buildDocument`, if any. */
     get document(): DocumentModel | null { return currentDocument; },
 

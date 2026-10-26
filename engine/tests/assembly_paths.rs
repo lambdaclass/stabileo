@@ -23,7 +23,7 @@
 //! reproduction below. New findings have their own minimal tests. See
 //! docs/verification/ASSEMBLY.md.
 
-mod fuzz_models;
+use crate::fuzz_models;
 
 use dedaliano_engine::certify::solver::reduced_sparse_2d;
 use dedaliano_engine::certify::solver::reduced_sparse_3d;

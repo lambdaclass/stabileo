@@ -108,6 +108,37 @@ describe('reinforced concrete under other codes', () => {
     if (row.status === 'checked') expect(row.reading.ratio).toBeGreaterThan(0);
   });
 
+  /*
+   * The cover and the bar steel are the project's design data, not the CIRSOC defaults. Both
+   * codes read the bars 25 mm in and at 420 MPa whatever the project stated, so a project with
+   * 40 mm of cover and ADN 500 was checked with other bars at other depths than it designs with.
+   */
+  it('ACI 318 and EN 1992 read the project\'s cover and fy when the design data states them', () => {
+    const ctxs = frame();
+    const COVER = 0.04, FY2 = 500;
+    const own = ctxs.map((c) => ({ ...c, cover: COVER, rebarFy: FY2 }));
+    const D2 = H - (COVER + 0.008 + 0.008);
+    const aci = runOtherCode(ACI318, own).rows[0]!;
+    expect(aci.status).toBe('checked');
+    const a = (AS * FY2) / (0.85 * FC * B);
+    const phiMn = 0.9 * AS * FY2 * 1e3 * (D2 - a / 2);
+    if (aci.status === 'checked') expect(aci.reading.ratio / (((Q * L * L) / 8) / phiMn)).toBeCloseTo(1, 2);
+    const ec2 = runOtherCode(EC2, own).rows[0]!;
+    const fcd = FC / 1.5, fyd = FY2 / 1.15;
+    const x = (AS * fyd) / (0.8 * fcd * B);
+    const MRd = AS * fyd * 1e3 * (D2 - 0.4 * x);
+    if (ec2.status === 'checked') expect(ec2.reading.ratio / (((Q * L * L) / 8) / MRd)).toBeCloseTo(1, 2);
+  });
+
+  it('memberContexts carries the design data to each member, by its kind', () => {
+    frame();
+    const r = modelStore.solveCombinations3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    const ctxs = memberContexts(modelStore.model as never, r.perCombo, modelStore.combinations, undefined,
+      { designData: { cover: { beam: 0.035, column: 0.045 }, rebarFy: 500 } });
+    expect(ctxs[0]).toMatchObject({ kind: 'beam', cover: 0.035, rebarFy: 500 });
+  });
+
   it('a member without bars is left out, with the reason', () => {
     const ctxs = frame();
     const ctx = { ...ctxs[0]!, element: { ...ctxs[0]!.element, reinforcement: undefined } };

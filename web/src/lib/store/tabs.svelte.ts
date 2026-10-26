@@ -17,6 +17,20 @@ import { t, isDefaultName } from '../i18n';
 import { hydrateProjectProvenance } from './project-provenance';
 import { seedProStarterLibrary } from '../pro/pro-starter-library';
 import { whatIf } from './whatif.svelte';
+import { deskUi, type DeskViewState } from './design-desk-ui.svelte';
+import { designDrafts, type DraftsState } from './design-drafts.svelte';
+import { tp } from '../i18n';
+
+/**
+ * Design's view of the project in a tab: the desk's level, filter, editor and member, the drafts
+ * left in its editors, and the members selected. Optional, so a tab kept by an older session
+ * restores with design's defaults.
+ */
+export interface DesignTabState {
+  desk: DeskViewState;
+  drafts: DraftsState;
+  selectedElements: number[];
+}
 
 export interface TabState {
   id: string;
@@ -64,7 +78,7 @@ export interface TabState {
   showSecondarySelector: boolean;
   showAxes: boolean;
   // 3D config
-  renderMode3D: 'wireframe' | 'solid' | 'sections';
+  renderMode3D: 'wireframe' | 'solid' | 'sections' | 'physical';
   momentStyle3D: 'double-arrow' | 'curved';
   cameraMode3D: 'perspective' | 'orthographic';
   showGrid3D: boolean;
@@ -89,6 +103,7 @@ export interface TabState {
   // Camera state (3D)
   cameraPosition3D: { x: number; y: number; z: number };
   cameraTarget3D: { x: number; y: number; z: number };
+  design?: DesignTabState;
 }
 
 let tabIdCounter = 0;
@@ -176,11 +191,29 @@ function createTabManager() {
       panY: uiStore.panY,
       cameraPosition3D: { ...uiStore.cameraPosition3D },
       cameraTarget3D: { ...uiStore.cameraTarget3D },
+      design: {
+        desk: deskUi.capture(),
+        drafts: designDrafts.capture(),
+        selectedElements: [...uiStore.selectedElements].sort((a, b) => a - b),
+      },
     };
   }
 
-  /** Restore a TabState back into all stores */
-  function restoreState(state: TabState): void {
+  /**
+   * The drafts the tab being left still holds, said once the next tab is on screen (a session
+   * reset clears the toasts, so saying it before would say it to nobody).
+   */
+  function draftsLeftBehind(): (() => void) {
+    const n = designDrafts.count;
+    const name = modelStore.model.name;
+    return () => { if (n > 0) uiStore.toast(tp('desk.draftsKeptInTab', { n, name }), 'info'); };
+  }
+
+  /**
+   * Restore a TabState back into all stores. `reopenDesign` false keeps design closed: a session
+   * restored at boot lands on the model, whatever was open when it was saved.
+   */
+  function restoreState(state: TabState, reopenDesign = true): void {
     // Cancel any pending deferred operations from a previous restore
     if (pendingAbort) pendingAbort.abort();
     pendingAbort = new AbortController();
@@ -197,6 +230,7 @@ function createTabManager() {
 
       // Restore model
       modelStore.restore(state.modelSnapshot);
+      modelStore.announceNewProject();
       // Each tab is its own project, so its emission list and hand-edit set travel with it.
       // Not done by `restore()`, which is also the undo path — see project-provenance.ts.
       hydrateProjectProvenance(state.modelSnapshot);
@@ -268,6 +302,12 @@ function createTabManager() {
       uiStore.panY = state.panY;
       uiStore.cameraPosition3D = { ...state.cameraPosition3D };
       uiStore.cameraTarget3D = { ...state.cameraTarget3D };
+      // Design's own view of this project, and the members selected in it.
+      deskUi.restore(state.design?.desk, reopenDesign);
+      designDrafts.restore(state.design?.drafts);
+      const picked = (state.design?.selectedElements ?? []).filter((id) => modelStore.elements.has(id));
+      if (picked.length > 0) uiStore.setSelection(new Set(), new Set(picked), true);
+
       // Notify 3D viewport to update its Three.js camera
       queueMicrotask(() => {
         if (typeof window !== 'undefined') {
@@ -384,6 +424,7 @@ function createTabManager() {
 
     /** Create a new empty tab, inheriting visualization settings from current tab */
     createTab(): void {
+      const announce = draftsLeftBehind();
       // Save current tab state first
       if (activeTabId) {
         const idx = tabs.findIndex(t => t.id === activeTabId);
@@ -465,6 +506,7 @@ function createTabManager() {
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
       uiStore.resetSession();
+      announce();
     },
 
     /** Switch to a different tab */
@@ -475,6 +517,7 @@ function createTabManager() {
 
       // Set switching flag to suppress liveCalc $effect during restore
       _tabSwitching = true;
+      const announce = draftsLeftBehind();
 
       // Save current tab (reassign array for Svelte 5 reactivity)
       if (activeTabId) {
@@ -490,6 +533,7 @@ function createTabManager() {
       // Re-find target from the updated array (in case it was the same reference)
       const freshTarget = tabs.find(t => t.id === id)!;
       restoreState(freshTarget);
+      announce();
 
       // Clear switching flag after microtask so $effects see the final state
       queueMicrotask(() => { _tabSwitching = false; });
@@ -576,7 +620,7 @@ function createTabManager() {
       const targetId = savedTabs.find(t => t.id === savedActiveId) ? savedActiveId : savedTabs[0].id;
       activeTabId = targetId;
       const target = savedTabs.find(t => t.id === targetId)!;
-      restoreState(target);
+      restoreState(target, false);
     },
   };
 }

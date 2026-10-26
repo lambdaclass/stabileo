@@ -13,7 +13,7 @@
  *   5. that a member picked in the list is the member the viewer reports, through ONE channel.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Frames only: no shells, no footings, and fast enough to set up per test. */
@@ -36,10 +36,8 @@ async function coordinated(page: Page): Promise<void> {
 }
 
 async function openDetailing(page: Page): Promise<void> {
-  const section = page.getByTestId('detailing-disclosure');
-  if (await section.getAttribute('open') === null) {
-    await section.locator('> summary').click();
-  }
+  await designPlace(page, 'detailing');
+  const section = page.getByTestId('desk-detailing');
   await expect(page.getByTestId('rc-member-list')).toBeVisible();
 }
 
@@ -145,7 +143,9 @@ test.describe('@smoke focus comes back to the control that opened the viewer', (
   for (const opener of ['cmd-open-3d', 'overview-open-3d', 'member-list-open-3d'] as const) {
     test(`Escape returns focus to ${opener}`, async ({ pro: page }) => {
       await coordinated(page);
+      // Each opener in its place of design: the list's toolbar, the project status, the detailing.
       if (opener === 'member-list-open-3d') await openDetailing(page);
+      else await designPlace(page, opener === 'overview-open-3d' ? 'prepare' : 'list');
 
       const button = page.getByTestId(opener);
       await button.focus();
@@ -187,8 +187,9 @@ test.describe('@smoke focus comes back to the control that opened the viewer', (
     // The LAST row, which is the one most likely to be below the fold in the panel's list.
     const target = Number(rows[rows.length - 1]);
 
-    await page.getByTestId('cmd-open-3d').focus();
-    await page.getByTestId('cmd-open-3d').click();
+    // The opener on the same screen as the member list: the Detail step's rail (interface A).
+    await page.getByTestId('desk-rail-3d').focus();
+    await page.getByTestId('desk-rail-3d').click();
     await waitForScene(page);
     await page.getByTestId(`rebar-element-${target}`).click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.rebarSelection()))
@@ -197,10 +198,10 @@ test.describe('@smoke focus comes back to the control that opened the viewer', (
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('rebar-workspace')).toBeHidden();
 
-    expect(await focused(page), 'the keyboard is back on the opener').toBe('cmd-open-3d');
+    expect(await focused(page), 'the keyboard is back on the opener').toBe('desk-rail-3d');
     const visible = await page.getByTestId(`rc-member-${target}`).evaluate((el) => {
       const box = el.getBoundingClientRect();
-      const panel = el.closest('.rc-workflow');
+      const panel = el.closest('.dd-canvas-body');
       if (!panel) return false;
       const p = panel.getBoundingClientRect();
       return box.bottom > p.top && box.top < p.bottom;

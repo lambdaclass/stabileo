@@ -395,6 +395,9 @@ describe('rule 4 — no component re-mixes a tinted status surface', () => {
  */
 describe('--st-accent stays an action, not a status', () => {
   const ALLOWED: Record<string, string> = {
+    'DetailCatalog.svelte|li.on { border-color: var(--st-accent); }':
+      'selection — the border of a catalogue detail the set carries, set by its own checkbox. '
+      + 'It says the person chose it, nothing about the detail itself.',
     'DesignToolbar.svelte|.cmd-cancel { background: var(--st-hair-strong); border-color: var(--st-accent); color: var(--st-text); }':
       'action — cancelling a run is destructive, and the accent is what this application '
       + 'outlines destructive controls with. A border, so the 3:1 bar applies and it clears it.',

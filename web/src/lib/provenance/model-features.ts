@@ -35,12 +35,12 @@ export const UNTRACKED_ANALYSES: readonly AnalysisKind[] = ['timeHistory', 'nonl
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'plane2D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers',
-  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection',
+  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'curvedShells', 'shellEdgeLoads',
+  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements',
   'connectors', 'connectorsWithShear',
-  'memberLoads', 'pointOrPartialMemberLoads', 'areaDeadLoads',
+  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads',
   'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -55,6 +55,8 @@ interface Elem {
   tensionConnection?: { i?: unknown; j?: unknown };
   /** Set on the members of a curve drawn as one (`lib/model/curved-member.ts`). */
   arc?: unknown;
+  /** Insertion offsets at the two ends, global m (`model/element-3d-metadata.ts`). */
+  offset?: { i?: Offset3; j?: Offset3 };
 }
 interface Sup {
   nodeId: number; type?: string; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
@@ -72,8 +74,8 @@ export interface FeatureSnapshot {
   loadCases?: Array<{ id: number; type?: string; spectral?: unknown }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
-  plates?: Entries<unknown>;
-  quads?: Entries<{ curved?: boolean }>;
+  plates?: Entries<{ offset?: Offset3 }>;
+  quads?: Entries<{ curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -91,6 +93,8 @@ export interface FeatureContext {
   analysesRun?: readonly string[] | null;
 }
 
+interface Offset3 { x?: number; y?: number; z?: number }
+
 const values = <T>(e: Entries<T>): T[] => (Array.isArray(e) ? e.map((x) => x?.[1]).filter((x): x is T => !!x) : []);
 const nonZero = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v !== 0;
 const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -102,6 +106,11 @@ function isInclined(s: Sup): boolean {
   if (s.isGlobal === false || s.dofFrame === 'local') return true;
   if (nonZero(s.angle) && (s.angle as number) % 360 !== 0) return true;
   return false;
+}
+
+/** A member insertion (`offset.i` / `offset.j`) or a shell offset that moves anything. */
+function offsetMoves(o: Offset3 | undefined): boolean {
+  return !!o && [o.x, o.y, o.z].some(nonZero);
 }
 
 function hasRelease(r: Record<string, unknown> | undefined): boolean {
@@ -140,7 +149,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) f.add('hinges');
     if (e.arc) f.add('arcMembers');
+    if (offsetMoves(e.offset?.i) || offsetMoves(e.offset?.j)) f.add('eccentricities');
     const fam = familyOf(e.materialId);
+    if (fam === 'timber' || fam === 'aluminium') f.add('timberOrAluminiumMembers');
     if (fam === 'steel') {
       steel++;
       if (!e.tensionConnection?.i || !e.tensionConnection?.j) steelWithoutConnection++;
@@ -168,6 +179,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length) f.add('shells');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
+  if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
   const supportedNodes = new Map<number, number>();
@@ -194,6 +206,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const d = l.data ?? {};
     if (/^(distributed|pointOnElement|thermal)/.test(t)) f.add('memberLoads');
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
+    if (t === 'thermal') f.add('memberThermalLoads');
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');

@@ -13,7 +13,7 @@
  *   R5  a load-regulation change silently relabelling existing results
  */
 
-import { test, expect, loadModel, solveModel, alSection } from './fixtures';
+import { test, expect, loadModel, solveModel, alSection, clickStage, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -26,7 +26,7 @@ type Page = import('@playwright/test').Page;
  * stable testid does the whole job and the label matching goes away.
  */
 async function openProTab(page: Page, stage: string, cmd: string) {
-  await page.getByTestId(`pr-stage-${stage}`).click();
+  await clickStage(page, stage);
   await page.getByTestId(`pr-cmd-${cmd}`).click();
 }
 
@@ -54,9 +54,8 @@ async function openLoads(page: Page) {
 const aggregateBox = (page: Page) => page.getByTestId(/^mat-aggregate-\d+$/);
 
 async function openRegulations(page: Page) {
-  await openDesign(page);
-  const d = page.locator('details').filter({ hasText: 'Project regulations' }).first();
-  await d.locator('summary').first().click();
+  // Prepare › Design data: the regulations and the design data together (interface A).
+  await designPlace(page, 'designData');
   await expect(page.getByTestId('project-regulations')).toBeVisible();
 }
 
@@ -302,6 +301,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await page.getByTestId('al-preview-btn').click();
     const planned = Number(await page.getByTestId('al-after-dist').innerText());
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     await expect(page.getByTestId('al-preview')).toBeHidden();
     expect(planned).toBeGreaterThan(0);
   });
@@ -407,6 +407,8 @@ test.describe('@slow revision invalidation is precise', () => {
 
     // No solve was triggered: the forces are still the forces.
     expect(await page.evaluate(() => window.__stabileo.solveCount())).toBe(before);
+    // The check command lives in the list of pieces, a separate place of design (interface A).
+    await designPlace(page, 'list');
     await expect(page.getByTestId('cmd-code-check')).toBeEnabled();
   });
 });

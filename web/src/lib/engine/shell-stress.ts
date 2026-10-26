@@ -6,6 +6,8 @@
 // identically — the quad solver struct does not carry them, and deriving in the
 // UI keeps shell results consistent without any solver change.
 
+import { woodArmer } from './wood-armer';
+
 /** The membrane/bending fields shared by PlateStress and QuadStress. */
 export interface ShellStressLike {
   sigmaXx: number;
@@ -15,6 +17,8 @@ export interface ShellStressLike {
   my: number;
   mxy: number;
   vonMises: number;
+  /** For the required-steel components: the effective depth, m, and the bars' fy, MPa. */
+  steelBasis?: { d: number; fy: number };
 }
 
 export interface PrincipalStress {
@@ -79,14 +83,15 @@ export type ShellContourComponent =
   | 'vonMises'
   | 'sigmaXx' | 'sigmaYy' | 'tauXy'
   | 'sigma1' | 'sigma2'
-  | 'mx' | 'my' | 'mxy';
+  | 'mx' | 'my' | 'mxy'
+  | 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY';
 
 /**
  * Family a component belongs to. Drives selector/table grouping AND the
  * unit-consistent "negligible" test (membrane/principal/equiv are all stresses
  * in kN/m²; bending moments are kN·m/m and must be judged against each other).
  */
-export type ShellComponentGroup = 'equiv' | 'membrane' | 'principal' | 'bending';
+export type ShellComponentGroup = 'equiv' | 'membrane' | 'principal' | 'bending' | 'steel';
 
 export interface ShellComponentMeta {
   key: ShellContourComponent;
@@ -114,6 +119,10 @@ export const SHELL_CONTOUR_COMPONENTS: ShellComponentMeta[] = [
   { key: 'mx',       label: 'mx (bending)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
   { key: 'my',       label: 'my (bending)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
   { key: 'mxy',      label: 'mxy (twist)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
+  { key: 'asBotX',   label: 'As bottom x', unit: 'cm²/m', signed: false, group: 'steel' },
+  { key: 'asBotY',   label: 'As bottom y', unit: 'cm²/m', signed: false, group: 'steel' },
+  { key: 'asTopX',   label: 'As top x', unit: 'cm²/m', signed: false, group: 'steel' },
+  { key: 'asTopY',   label: 'As top y', unit: 'cm²/m', signed: false, group: 'steel' },
 ];
 
 export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> = {
@@ -121,7 +130,19 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
   membrane: 'Membrane (in-plane) stress',
   principal: 'Principal stress',
   bending: 'Bending moment / unit width',
+  steel: 'Required steel (Wood-Armer)',
 };
+
+/**
+ * Steel a face and direction needs, cm²/m: the Wood–Armer design moment over φ·0,9·d·fy, the same
+ * lever arm the slab design uses. Zero without a basis (a shell with no thickness or bars known).
+ */
+export function requiredSteel(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
+  if (!s.steelBasis || !(s.steelBasis.d > 0) || !(s.steelBasis.fy > 0)) return 0;
+  const w = woodArmer(s.mx, s.my, s.mxy);
+  const m = key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+  return (m * 1000) / (0.9 * 0.9 * s.steelBasis.d * s.steelBasis.fy * 1e6) * 1e4;
+}
 
 /** i18n keys for a component's and a group's name; `label` above stays as the symbol fallback. */
 export const shellComponentLabelKey = (key: ShellContourComponent) => `shell.comp.${key}`;
@@ -143,6 +164,7 @@ export function shellComponentValue(s: ShellStressLike, key: ShellContourCompone
     case 'mxy': return s.mxy;
     case 'sigma1': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma1;
     case 'sigma2': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma2;
+    case 'asBotX': case 'asBotY': case 'asTopX': case 'asTopY': return requiredSteel(s, key);
     default: return 0;
   }
 }

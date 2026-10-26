@@ -24,7 +24,7 @@ python3 -m venv tools/symbolic/.venv
 tools/symbolic/.venv/bin/pip install -r tools/symbolic/requirements.txt
 tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py          # write the test
 tools/symbolic/.venv/bin/python -I tools/symbolic/gen.py --check  # CI's check
-cd engine && cargo test --release --test symbolic_elements
+cd engine && cargo test --release --test derivations symbolic_elements::
 ```
 
 ## How the comparison is exact

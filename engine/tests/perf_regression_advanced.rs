@@ -4,7 +4,7 @@
 //! reduction. Bounds are deliberately generous (5-10x expected time) so they
 //! pass on slow CI machines but still catch catastrophic regressions.
 //!
-//! Run selectively:  cargo test --test perf_regression_advanced -- --nocapture
+//! Run selectively:  cargo test --test gates perf_regression_advanced:: -- --nocapture
 
 use dedaliano_engine::solver::{linear, modal, buckling, harmonic, reduction};
 use dedaliano_engine::solver::reduction::{GuyanInput3D, CraigBamptonInput3D};

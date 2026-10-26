@@ -14,7 +14,7 @@
   import type { MemberContext } from '../../../lib/engine/design/member-context';
   import {
     getRegionLayers, setRegionLayers, addLayerRow, removeLayerRow, updateLayer,
-    getStirrups, setStirrups, type LayerField, type StirrupField,
+    getStirrups, setStirrups, getSkin, setSkin, getBottomHooks, setBottomHook, type LayerField, type StirrupField,
   } from '../../../lib/store/rebar-edit';
 
   interface Props { elementId: number; ctx: MemberContext; version: number }
@@ -42,6 +42,10 @@
     void version;
     return STIRRUPS.map(s => ({ ...s, def: getStirrups(elementId, s.field) }));
   });
+
+  const skin = $derived.by(() => { void version; return getSkin(elementId); });
+  const hooks = $derived.by(() => { void version; return getBottomHooks(elementId); });
+  const deep = $derived(ctx.axes.hFlex > 0.9 + 1e-9);
 
   function perRow(dia: number): number {
     return maxBarsPerRow(ctx.axes.bFlex, ctx.material.cover, ctx.material.stirrupDia, dia);
@@ -104,6 +108,13 @@
                   onclick={() => removeLayerRow(elementId, reg.field, layer.row)}>×</button>
         </div>
       {/each}
+      {#if reg.field === 'bottomSpanLayers' && reg.layers.length > 0}
+        <div class="line" data-testid={`bottom-hooks-${elementId}`}>
+          <span class="sub">{t('beamHooks.label')}</span>
+          <label class="sub"><input type="checkbox" checked={hooks.start} onchange={(e) => setBottomHook(elementId, 'start', e.currentTarget.checked)} /> {t('beamHooks.start')}</label>
+          <label class="sub"><input type="checkbox" checked={hooks.end} onchange={(e) => setBottomHook(elementId, 'end', e.currentTarget.checked)} /> {t('beamHooks.end')}</label>
+        </div>
+      {/if}
       {#if reg.layers.length === 0}
         <div class="line empty">{t('design.badge.noRebar')}</div>
       {/if}
@@ -133,6 +144,30 @@
       </div>
     </div>
   {/each}
+
+  {#if deep || skin}
+    <div class="region" data-testid={`skin-${elementId}`}>
+      <div class="region-head"><span class="region-title" title={t('beamSkin.hint')}>{t('beamSkin.title')}</span></div>
+      {#if skin}
+        <div class="line">
+          <span class="sub">Ø</span>
+          <select class="sel sel-sm" value={skin.diameter} aria-label={t('design.batch.diameter')}
+                  onchange={(e) => setSkin(elementId, { diameter: +e.currentTarget.value })}>
+            {#each LONG_DIAS.filter((d) => d <= 16) as d (d)}<option value={d}>{d}</option>{/each}
+          </select>
+          <span class="sub">c/</span>
+          <QuantityInput quantity="length" cls="num num-sp" min={0.05} max={0.5} value={skin.spacing}
+                 testid={`skin-spacing-${elementId}`} ariaLabel={t('design.batch.spacingShort')}
+                 onchange={(v) => setSkin(elementId, { spacing: v })} />
+          <button class="mini mini-rm" onclick={() => setSkin(elementId, null)}>{t('beamSkin.remove')}</button>
+        </div>
+      {:else}
+        <div class="line empty">{t('beamSkin.none')}
+          <button class="mini" onclick={() => setSkin(elementId, {})} data-testid={`skin-add-${elementId}`}>+ {t('beamSkin.add')}</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>

@@ -3,8 +3,7 @@
 //! every SP-n discrepancy there has a test here. FIXED items are regression
 //! tests that failed before the fix; OPEN items are `#[ignore]`d reproductions.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_3d_beam, make_3d_input, make_beam};
 use dedaliano_engine::element::fiber_beam::*;

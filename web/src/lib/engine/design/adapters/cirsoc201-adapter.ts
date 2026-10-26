@@ -24,17 +24,37 @@ import type { ProvidedReinforcement } from '../../../store/model.svelte';
 import { peakMy, peakMz, peakVy, peakVz, peakAxial } from '../design-axes';
 import type { MemberContext } from '../member-context';
 import type { CandidateGenerator } from '../candidate-generator';
-import { createBeamCandidateGenerator } from '../candidate-enumerate-beam';
+import { createBeamCandidateGenerator, BEAM_LIMITS } from '../candidate-enumerate-beam';
+import { demonstratedInsufficiency } from '../section-bounds';
 import { createColumnCandidateGenerator, COLUMN_LIMITS } from '../candidate-enumerate-column';
 import { recommendSection, type AdviceDemands } from '../section-advice';
-import { DEFAULT_OBJECTIVE, type ObjectiveSpec } from '../objective';
-import { UTILIZATION_CONVENTION, type LimitingConstraint, type SectionRecommendation, type DesignReason } from '../outcome';
+import { wallMemberMinimumChecks } from '../wall-minimum-steel';
+import { DEFAULT_OBJECTIVE, STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, type ObjectiveSpec } from '../objective';
+import { UTILIZATION_CONVENTION, type LimitingConstraint, type SectionRecommendation, type DesignReason, type InsufficiencyProof } from '../outcome';
 import {
   minClearSpacingFor,
 } from '../../../codes/cirsoc201/spacing';
 import {
   transverseSpacingSupportedForEdition,
 } from '../../../codes/cirsoc201/transverse-spacing';
+import { jointThreading, jointThreadingChecks } from '../joint-threading-check';
+import { supportInputOf, bottomReach, endSupportChecks, endSupportVerdicts, inflectionChecks, type EndSupportInput } from '../end-support-anchorage';
+
+/**
+ * Every row of bars that ends in a column, checked by `planSupportEnd` on that column, and
+ * §9.7.3.8.3 for the positive steel. An end no column can anchor fails here, so the search looks
+ * for bars that anchor.
+ */
+function withSupportAnchorage(ctx: MemberContext, input: EndSupportInput, res: ProvidedRebarResult): ProvidedRebarResult {
+  const verdicts = endSupportVerdicts(input);
+  const extra = [...endSupportChecks(verdicts, input.lateral), ...inflectionChecks({ ...input, ...(ctx.stations ? { stations: ctx.stations } : {}), axes: ctx.axes, L: ctx.L })];
+  // The bars through the column cages at its joints, as the detailing coordinates them.
+  const threading = jointThreading(ctx, input.rebar, input);
+  const checks = [...res.checks, ...extra, ...jointThreadingChecks(threading)];
+  const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
+  const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
+  return { ...res, checks, overallStatus, supportAnchorage: verdicts, jointThreading: threading };
+}
 import type { RegulationEdition } from '../../../codes/regulation';
 import {
   CIRSOC201_CAPABILITIES_2005, CIRSOC201_CAPABILITIES_2025, CIRSOC201_CLAUSES,
@@ -56,10 +76,10 @@ export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v2';
  * matrix in ./cirsoc201-capabilities.ts, which is the authority.
  */
 const CAPABILITIES: CodeCapabilities = {
-  beams: { flexure: true, shear: true, torsion: false, regions: true, curtailment: false, anchorage: true },
+  beams: { flexure: true, shear: true, torsion: true, regions: true, curtailment: false, anchorage: true },
   columns: { axialFlexure: true, biaxial: true, slenderness: true, ties: true },
   walls: false,
-  sectionShapes: ['rect'],
+  sectionShapes: ['rect', 'circular', 'T', 'L'],
   candidateGeneration: true,
   sectionRecommendation: true,
 };
@@ -153,7 +173,8 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   },
 
   verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
-    return verifyProvidedReinforcement(
+    const support = supportInputOf(ctx, rebar);
+    const res = verifyProvidedReinforcement(
       ctx.elementId,
       ctx.elementType,
       rebar,
@@ -173,7 +194,10 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
       ctx.modelData as never,
       {
         axes: ctx.axes,
-        slenderDeltaNs: ctx.slenderDeltaNs,
+        // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
+        slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
+        ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
+        ...(ctx.shape ? { shape: ctx.shape } : {}),
         spacingRule: {
           edition: ctx.codeEdition,
           maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
@@ -181,8 +205,21 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
         // Present only after coordination has moved this member's steel. It shifts the
         // layer centroids and nothing else — the section and its true cover are unchanged.
         finalGeometry: ctx.finalGeometry,
+        // The bottom bars' ends as the detailing lays them: the region rows measure to there.
+        ...(support ? { bottomReach: bottomReach(support) } : {}),
       },
     );
+    if (support && res.hasProvided) return withSupportAnchorage(ctx, support, res);
+    // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
+    if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
+    const { b, h } = ctx.section;
+    const vu = h >= b ? peakVz(ctx.demands) : peakVy(ctx.demands);
+    const extra = wallMemberMinimumChecks(rebar, { b, h, L: ctx.L, fc: ctx.material.fc, fy: ctx.material.fy, vu });
+    if (!extra.length) return res;
+    const checks = [...res.checks, ...extra];
+    const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
+    const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
+    return { ...res, checks, overallStatus };
   },
 
   classifyFailure(v: ProvidedRebarResult, ctx: MemberContext): LimitingConstraint[] {
@@ -203,7 +240,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
     const primaryM = ctx.axes.flexure === 'My' ? peakMy(ctx.demands) : peakMz(ctx.demands);
     const primaryV = ctx.axes.shear === 'Vy' ? peakVy(ctx.demands) : peakVz(ctx.demands);
     return {
-      Mu: primaryM * ctx.slenderDeltaNs,
+      Mu: primaryM * ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
       Vu: primaryV,
       Nu: peakAxial(ctx.demands),
     };
@@ -211,6 +248,21 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
 
   recommendSection(ctx: MemberContext, limiting: LimitingConstraint[]): SectionRecommendation | null {
     return recommendSection(ctx, limiting, this.adviceDemands(ctx));
+  },
+
+  insufficiency(ctx: MemberContext): InsufficiencyProof | null {
+    return demonstratedInsufficiency(ctx);
+  },
+
+  alternatives(ctx: MemberContext) {
+    const beam = ctx.elementType !== 'column';
+    return {
+      longDiametersMm: [...(ctx.material.longDiametersMm?.length ? ctx.material.longDiametersMm : STANDARD_LONG_DIAS)],
+      maxRows: beam ? BEAM_LIMITS.maxRows : 1,
+      optionsRetained: beam ? BEAM_LIMITS.maxRegionOptions : COLUMN_LIMITS.maxLongOptions,
+      stirrupDiametersMm: [...(ctx.material.stirrupDiametersMm?.length ? ctx.material.stirrupDiametersMm : STANDARD_STIRRUP_DIAS)],
+      maxLegs: beam ? BEAM_LIMITS.maxLegs : COLUMN_LIMITS.maxLegs,
+    };
   },
 
   unsupported(ctx: MemberContext): LimitingConstraint[] {

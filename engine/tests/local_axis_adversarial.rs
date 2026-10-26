@@ -7,8 +7,7 @@
 //!   - normal (non-degenerate) elements
 //!   - elements at various angles near the degenerate direction
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use std::collections::HashMap;
 use common::make_3d_input;

@@ -3,14 +3,14 @@
  * regenerated in place from their group, and templates saved and placed again. The geometry is
  * pinned in `structures.test.ts`; regeneration in `generated-structures.test.ts`.
  */
-import { test, expect } from './fixtures';
+import { test, expect, ribbonCmd } from './fixtures';
 import { insertGenerated, openGenSections, pickGenerator, placeButton } from './generator-helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
 async function openGenerators(page: import('@playwright/test').Page) {
   await page.getByTestId('pr-stage-model').click();
-  await page.getByTestId('pr-cmd-generators').click();
+  await ribbonCmd(page, 'generators');
   await pickGenerator(page, 'truss');
 }
 

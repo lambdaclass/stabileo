@@ -338,7 +338,13 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
      * member must have longitudinal bars, and they must be bars of its own rather than another
      * member's joint ties claiming its id — which is what the 24-to-48 transverse bars were.
      */
+    // 146 is refused since the design reads the column cages: no arrangement of its bars both
+    // passes the 35 cm columns' 16 bars and anchors in them (SEARCH_EXHAUSTED on anchorage). It
+    // has no steel, and says why; every other reported member has its own.
+    expect(REPORTED.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')
+      .map((id) => [id, verificationStore.outcomeFor(id)?.outcome, verificationStore.outcomeFor(id)?.limiting])).toEqual([[146, 'SEARCH_EXHAUSTED', ['anchorage']]]);
     for (const id of REPORTED) {
+      if (id === 146) continue;
       const bars = scene.bars.filter((b) => b.elementIds.includes(id));
       expect(bars.length, `member ${id} has bars in the scene`).toBeGreaterThan(0);
       const long = bars.filter((b) => b.role === 'longitudinal');
@@ -350,9 +356,22 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
   });
 
   it('leaves no beam in the building with a cage and no main steel', () => {
+    // Bare only where the design refused the beam, and said why. Since the design reads the column
+    // cages, 41 of the 119 refuse: 16 on congestion (no layout of their bars passes the columns'
+    // bars) and 25 on anchorage (the layouts that pass need a second top row the 35 cm columns
+    // cannot develop). Before, all 119 were designed and the detailing laid them through the
+    // columns' bars; after, those 41 have no steel and every one names its cause.
     const bare = rows.filter((r) =>
       !scene.bars.some((b) => b.elementIds.includes(r.id) && b.role === 'longitudinal'));
-    expect(bare.map((r) => r.id)).toEqual([]);
+    expect(bare).toHaveLength(41);
+    for (const r of bare) {
+      const o = verificationStore.outcomeFor(r.id)!;
+      // An exhausted search on both causes: no bound proves any of these sections inadequate
+      // (`section-bounds.ts`); the 16 on congestion read SECTION_INADEQUATE before.
+      expect([o.outcome, o.limiting.some((l) => l === 'congestion' || l === 'anchorage'), o.exhaustion?.scope], `member ${r.id}`)
+        .toEqual(['SEARCH_EXHAUSTED', true, 'implementedAlternatives']);
+      expect(o.certificate, `member ${r.id}`).toBeUndefined();
+    }
   });
 
   it('gives the bottom-only beams a marked hanger pair, and only those beams', () => {
@@ -373,7 +392,8 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
         { regions?: { topStart?: { count: number }; topEnd?: { count: number } } } | undefined;
       return (r?.regions?.topStart?.count ?? 0) + (r?.regions?.topEnd?.count ?? 0);
     };
-    const bottomOnly = REPORTED.filter((id) => topSteel(id) === 0);
+    // Among the designed ones: 146 is refused and has no steel at all (above).
+    const bottomOnly = REPORTED.filter((id) => verificationStore.outcomeFor(id)?.outcome === 'VERIFIED' && topSteel(id) === 0);
     expect(bottomOnly, 'the bottom-only beams among the reported ones')
       .toEqual([197, 199, 201, 203, 198, 140, 143]);
     for (const id of REPORTED) {
@@ -383,7 +403,14 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
         expect(hangers, `member ${id} designed top steel, so no hanger`).toEqual([]);
         continue;
       }
-      expect(hangers.length, `member ${id} hanger pair`).toBe(2);
+      // The pair is marked unless it runs on through a joint as a neighbour's hogging steel:
+      // since the line's laps are built (the coordination no longer reads joint ties as column
+      // bars), a top bar of a bottom-only beam that lines up with the next span's is ONE bar,
+      // owned by both, and resists that span's moment — so it is not a hanger, and still two.
+      const top = scene.bars.filter((b) => b.elementIds.includes(id) && b.role === 'longitudinal'
+        && /^top/.test(b.layerId?.split(':')[1] ?? ''));
+      const through = top.filter((b) => b.purpose !== 'stirrupHanger' && b.elementIds.some((o) => o !== id && topSteel(o) > 0));
+      expect(hangers.length + through.length, `member ${id} hanger pair`).toBe(2);
       for (const h of hangers) {
         expect(h.role).toBe('longitudinal');
         expect(h.diameterMm, `member ${id} hanger Ø`).toBeGreaterThan(0);
@@ -417,14 +444,23 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
      * honest name — the exact failure `assertOutcomeInvariants` exists to stop, reasserted here
      * on the real building because that is where the 62 of them are.
      *
-     * 28 members carry a hanger since self-weight became a member load (74 before): a beam's
+     * 28 members carried a hanger once self-weight became a member load (74 before): a beam's
      * own weight now gives most supports a hogging moment and the top steel that answers it.
-     * The building has no proposal left, so what this still guards is the VERIFIED half.
+     * Twenty since the line's laps are built: a hanger that lines up with a neighbour's hogging
+     * steel is fused into it, one bar resisting that moment; one that does not is lapped and stays
+     * a hanger. Twelve since a member's rows are laid at its widest group's bar: eight more pairs
+     * line up with the neighbour's row (the same twelve `top-steel-projections` lists). The
+     * building has no proposal left, so what this still guards is the VERIFIED half.
+     *
+     * Twenty-seven since the design reads the column cages: 41 beams are refused and carry no
+     * steel, so the pairs of the beams beside them have no neighbour's hogging steel to fuse into
+     * and stay hangers (before: 12; after: 27, every one of them sharing a joint with a refused
+     * beam, measured).
      */
     const hangers = new Set(scene.bars
       .filter((b) => b.purpose === 'stirrupHanger')
       .flatMap((b) => b.elementIds));
-    expect(hangers.size).toBeGreaterThan(20);
+    expect(hangers.size).toBe(27);
     for (const id of hangers) {
       const o = verificationStore.outcomeFor(id);
       if (!o) continue;

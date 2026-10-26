@@ -23,6 +23,7 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
+  import { combinationsUnsolved } from '../../../lib/store/active-results';
   import FoundationsPanel from './FoundationsPanel.svelte';
   import FloorFamilyStateCard from './FloorFamilyStateCard.svelte';
   import {
@@ -92,6 +93,7 @@
       nodeId: number; columnElementId: number; status: string;
       position: string | null; utilization: number; Vu: number;
       governingCombination: string | null;
+      reinforcement?: { legs: number; legDiameter: number; spacing: number; lines: number; overCeiling: boolean };
     }>>();
     for (const a of detailingStore.assemblies) {
       for (const r of a.families ?? []) {
@@ -100,6 +102,7 @@
           nodeId: p.nodeId, columnElementId: p.columnElementId, status: p.status,
           position: p.position, utilization: p.utilization, Vu: p.Vu,
           governingCombination: p.governingCombination,
+          ...(p.reinforcement ? { reinforcement: p.reinforcement } : {}),
         })));
       }
     }
@@ -193,6 +196,14 @@
         <li>{tp(r.message.key, r.message.params ?? {})}</li>
       {/each}
     </ul>
+  {/if}
+
+  <!--
+    Combinations defined and none solved (an edit live calc re-solved without them): a footing or
+    a punching joint has no factored reaction to read, and says only that it has none.
+  -->
+  {#if combinationsUnsolved()}
+    <p class="warn" role="status" data-testid="floor-design-unsolved">{t('design.error.combinationsUnsolved')}</p>
   {/if}
 
   {#if detailingStore.lastError}
@@ -314,6 +325,7 @@
                 <th>Vu</th>
                 <th>{t('detailing.floorRun.shearUtil')}</th>
                 <th>{t('detailing.floorRun.combination')}</th>
+                <th>{t('detailing.floorRun.punchingBars')}</th>
               </tr>
             </thead>
             <tbody>
@@ -335,6 +347,7 @@
                     {un ? '—' : j.utilization.toFixed(2)}
                   </td>
                   <td>{j.governingCombination ?? '—'}</td>
+                  <td data-testid="slab-punching-bars-{j.nodeId}">{j.reinforcement ? (j.reinforcement.overCeiling ? t('detailing.floorRun.punchingOverCeiling') : `${j.reinforcement.legs}Ø${j.reinforcement.legDiameter} c/${(j.reinforcement.spacing * 100).toFixed(1)} ×${j.reinforcement.lines}`) : '—'}</td>
                 </tr>
               {/each}
             </tbody>

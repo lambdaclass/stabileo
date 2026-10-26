@@ -15,6 +15,7 @@
   import type { Element } from '../../lib/store/model.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import ProSteelBracingEditor from './ProSteelBracingEditor.svelte';
 
   /** `bare`: inside a card that already names it (Specifications › Members). */
   let { steelIds, bare = false }: { steelIds: ReadonlySet<number>; bare?: boolean } = $props();
@@ -89,6 +90,7 @@
       <button class="pk-btn" onclick={() => write({ kStrong: undefined, kWeak: undefined })}
         disabled={!anyDeclared('kStrong') && !anyDeclared('kWeak')} data-testid="steel-k-clear">{t('steel.k.clear')}</button>
     </div>
+    <ProSteelBracingEditor {selected} />
   {/if}
 </div>
 

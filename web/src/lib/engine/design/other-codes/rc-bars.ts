@@ -19,8 +19,8 @@
 import type { ProvidedReinforcement, RebarLayer } from '../../../store/model.svelte';
 import {
   resolveLayers, layersTotalArea, layerCentroid, resolveBarGroups, resolveColumnReinf,
-  type GoverningDemand,
 } from '../../station-design-forces';
+import type { StationTuple } from './types';
 import type { MomentAxis } from '../design-axes';
 import { tupleMoment, tupleShear } from '../design-axes';
 import { DEFAULT_STIRRUP_DIA } from '../member-context';
@@ -52,7 +52,7 @@ const continuing = <T extends { continueStart?: boolean; continueEnd?: boolean }
 /** A beam at one demand, bending about `axis` over the section's depth h. */
 export function beamBarsAt(
   r: ProvidedReinforcement, sec: { b: number; h: number }, cover: number,
-  d: GoverningDemand, axis: MomentAxis, shearAxis: 'Vy' | 'Vz',
+  d: StationTuple, axis: MomentAxis, shearAxis: 'Vy' | 'Vz',
 ): RcAt {
   const reg = r.regions;
   const bottom = resolveLayers(reg?.bottomSpanLayers, reg?.bottomSpan ?? r.bottom);
@@ -90,7 +90,7 @@ export function beamBarsAt(
 /** A column at one demand, bending about `axis`: My over the depth h, Mz over the width b. */
 export function columnBarsAt(
   r: ProvidedReinforcement, sec: { b: number; h: number }, cover: number,
-  d: GoverningDemand, axis: MomentAxis, shearAxis: 'Vy' | 'Vz',
+  d: StationTuple, axis: MomentAxis, shearAxis: 'Vy' | 'Vz',
 ): RcAt | null {
   const col = resolveColumnReinf(r.column, r.longitudinal);
   if (!col) return null;

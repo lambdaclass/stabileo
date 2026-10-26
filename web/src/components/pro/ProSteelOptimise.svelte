@@ -13,11 +13,18 @@
   import { steelOptimise, type OptimiseScope, type OptimiseSettings } from '../../lib/store/steel-optimise.svelte';
   import { I_FAMILIES } from '../../lib/engine/steel/profile-optimise';
   import type { ProfileFamily } from '../../lib/data/steel-profiles';
-  import { runSolve3D } from '../../lib/actions/solve';
+  import { solveNow } from '../../lib/actions/solve';
 
   let scope = $state<OptimiseScope>('section');
   let onlySelection = $state(false);
   let chosen = $state<Set<string>>(new Set());
+  /** The row whose whole series is open, and that series. */
+  let seriesKey = $state<string | null>(null);
+  let series = $state<import('../../lib/engine/steel/profile-optimise').CandidateVerdict[]>([]);
+  function toggleSeries(key: string) {
+    if (seriesKey === key) { seriesKey = null; return; }
+    seriesKey = key; series = steelOptimise.series(key);
+  }
   let busy = $state(false);
 
   /**
@@ -62,7 +69,7 @@
   async function reverify() {
     busy = true;
     try {
-      await runSolve3D();
+      await solveNow();
       steelOptimise.recheck();
     } finally {
       busy = false;
@@ -107,10 +114,11 @@
   {#if !hasResults}<p class="so-warn">{t('opt.needSolve')}</p>{/if}
   {#if steelOptimise.error}<p class="so-warn" role="alert" data-testid="so-error">{t(steelOptimise.error)}{steelOptimise.errorDetail ? ` ${steelOptimise.errorDetail}` : ''}</p>{/if}
   {#if steelOptimise.outOfScope > 0}<p class="so-warn" data-testid="opt-out-of-scope">{tp('opt.onlySteel', { n: steelOptimise.outOfScope })}</p>{/if}
+  {#if steelOptimise.variableLeftOut > 0}<p class="so-warn" data-testid="opt-variable-left-out">{tp('opt.variableLeftOut', { n: steelOptimise.variableLeftOut })}</p>{/if}
 
   {#if rows.length > 0}
     <table class="so-table" data-testid="opt-rows">
-      <thead><tr><th></th><th>{scope === 'section' ? t('opt.section') : scope === 'group' ? t('opt.group') : t('pro.elemLabel')}</th><th>{t('opt.members')}</th><th>{t('opt.current')}</th><th>{t('opt.proposed')}</th><th>{t('opt.ratio')}</th>{#if withDeflection}<th>{t('opt.deflectionCol')}</th>{/if}<th>{t('opt.weight')}</th></tr></thead>
+      <thead><tr><th></th><th>{scope === 'section' ? t('opt.section') : scope === 'group' ? t('opt.group') : t('pro.elemLabel')}</th><th>{t('opt.members')}</th><th>{t('opt.current')}</th><th>{t('opt.proposed')}</th><th>{t('opt.ratio')}</th>{#if withDeflection}<th>{t('opt.deflectionCol')}</th>{/if}<th>{t('opt.weight')}</th><th></th></tr></thead>
       <tbody>
         {#each rows as r (r.key)}
           {@const c = r.result.chosen}
@@ -124,7 +132,23 @@
             <td class="num">{c ? pct(c.ratio) : '—'}</td>
             {#if withDeflection}<td class="num">{c?.deflectionRatio != null ? pct(c.deflectionRatio) : '—'}</td>{/if}
             <td class="num">{c ? `${c.profile.weight.toFixed(1)} kg/m` : '—'}</td>
+            <td><button class="pk-btn" onclick={() => toggleSeries(r.key)} aria-expanded={seriesKey === r.key} data-testid="opt-series-{r.key}">{t('opt.series')}</button></td>
           </tr>
+          {#if seriesKey === r.key}
+            <tr class="so-series"><td colspan="9">
+              <table data-testid="opt-series-table">
+                <thead><tr><th>{t('opt.proposed')}</th><th class="num">kg/m</th><th class="num">{t('opt.ratio')}</th><th></th></tr></thead>
+                <tbody>
+                  {#each series as v (v.profile.name)}
+                    <tr class:so-fail={!v.passes} class:so-pick={c?.profile.name === v.profile.name}>
+                      <td>{v.profile.name}</td><td class="num">{v.profile.weight.toFixed(1)}</td><td class="num">{pct(v.ratio)}</td>
+                      <td>{#if v.passes && c?.profile.name !== v.profile.name}<button class="pk-btn" onclick={() => steelOptimise.choose(r.key, v)}>{t('opt.use')}</button>{:else if !v.passes}{t('opt.seriesFails')}{/if}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </td></tr>
+          {/if}
         {/each}
       </tbody>
     </table>

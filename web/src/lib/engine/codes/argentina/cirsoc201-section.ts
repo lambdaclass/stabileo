@@ -41,7 +41,9 @@ export interface Bar {
 export type Outline =
   | { kind: 'rect'; b: number; h: number; hole?: { b: number; h: number } }
   | { kind: 'tee'; bf: number; hf: number; bw: number; h: number }
-  | { kind: 'circle'; D: number; Dint?: number };
+  | { kind: 'circle'; D: number; Dint?: number }
+  /** Any outline, its vertices around it, in section coordinates about its centroid (an L column). */
+  | { kind: 'polygon'; outer: Pt[] };
 
 export interface Materials {
   /** MPa. */
@@ -70,6 +72,8 @@ export function outlineRings(o: Outline): { outer: Pt[]; holes: Pt[][] } {
       return { outer: teePolygon(o.bf, o.hf, o.bw, o.h), holes: [] };
     case 'circle':
       return { outer: circlePolygon(o.D), holes: o.Dint && o.Dint > 0 ? [circlePolygon(o.Dint)] : [] };
+    case 'polygon':
+      return { outer: o.outer.map((p) => ({ ...p })), holes: [] };
   }
 }
 

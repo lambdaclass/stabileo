@@ -22,8 +22,9 @@
 import { describe, it, expect } from 'vitest';
 import { buildProStages, proCmds, PRO_TAB_STAGE, type ProStage } from '../stages';
 
-/** The context shape the real callers pass; values do not matter here. */
+/** The context shape the real callers pass; values do not matter here. The whole tree, design on. */
 const stages: ProStage[] = buildProStages({
+  design: true,
   solved: true,
   canSolve: true,
   canReport: true,

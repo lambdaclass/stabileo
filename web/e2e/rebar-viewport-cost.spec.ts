@@ -51,14 +51,14 @@
  */
 
 import { test, expect, openPreparedWorkspace } from './prepared-building';
-import { designAll, loadModel, openDocumentsStage } from './fixtures';
+import { designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
 async function openWorkspace(page: Page, example: string, withFloors: boolean) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const gen = page.getByTestId('cmd-generate-detailing');
   await expect(gen).toBeEnabled();
   await gen.click();
@@ -67,7 +67,7 @@ async function openWorkspace(page: Page, example: string, withFloors: boolean) {
       .detailingAssemblies().length), { timeout: 60_000 }).toBeGreaterThan(0);
 
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const f = page.getByTestId('floor-design-run');
     await expect(f).toBeEnabled();
     await f.click();
@@ -719,10 +719,8 @@ for (const [label, register] of [
       // ── The sheet, which is a different renderer entirely ──────
       await page.getByTestId('rebar-workspace-close').click();
       await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
-      const disclosure = page.getByTestId('detailing-disclosure');
-      if (await disclosure.getAttribute('open') === null) {
-        await disclosure.locator('> summary').click();
-      }
+      await designPlace(page, 'detailing');
+      const disclosure = page.getByTestId('desk-detailing');
       const expand = page.getByTestId('sheet-expand');
       if (await expand.count()) {
         /**
@@ -762,6 +760,7 @@ for (const [label, register] of [
        * `docs/handoffs/f6-viewer-and-f7-performance.md` §4.
        */
       const regen = page.getByTestId('cmd-generate-detailing');
+      if (!(await regen.isVisible())) await designPlace(page, 'detailing');
       if (await regen.isEnabled()) {
         const regenerated = await timed(page, () => regen.click(),
           () => expect

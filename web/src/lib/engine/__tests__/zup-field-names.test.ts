@@ -173,14 +173,8 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(tabsStore, 'tabs.svelte.ts should restore viewportPresentation3D after analysisMode').toContain('viewportPresentation3D ?? ');
     expect(app, 'App.svelte should restore viewportPresentation3D from autosave').toContain('autosaveData.viewportPresentation3D');
   });
-
-  it('the report combo summary gives the strong-axis Mu', () => {
-    // The stress sign convention (σ = N/A − My·y/Iy + Mz·z/Iz) is `section-stress-3d.test.ts`'s, and
-    // a column's Mu = Mz, Muy = My is `auto-verify.test.ts`'s. The report's combo summary has no
-    // entry point of its own yet (comboForces is private), so its one line stays pinned here.
-    const proReportInputs = readFileSync(new URL('../pro-report-inputs.ts', import.meta.url), 'utf8');
-    expect(proReportInputs, 'the report combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
-  });
+  // The report's per-combination Mu summary fed only its retired design section and went with it;
+  // the memoria reads the design's own rows (`engine/design/check-rows.ts`).
 });
 
 // ─── Bug 2: 3D self-weight loads use wrong axis ────────────────
@@ -403,12 +397,11 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
      * rather than kept in sync forever.
      */
     const solveAction = readFileSync(new URL('../../actions/solve.ts', import.meta.url), 'utf8');
+    const manualSolve = readFileSync(new URL('../live-calc.ts', import.meta.url), 'utf8');
 
-    expect(solveAction, 'actions/solve.ts must call ensureWasmReady or initSolver before solve3D')
-      .toMatch(/ensureWasmReady|initSolver/);
-
-    // The extracted action keeps the async 3D entry point.
-    expect(solveAction, 'runSolve3D must be async').toMatch(/export\s+async\s+function\s+runSolve3D/);
+    // The action's 3D arm is the manual solve, `runGlobalSolve`, which readies WASM first.
+    expect(solveAction, 'actions/solve.ts must solve 3D through runGlobalSolve').toMatch(/runGlobalSolve\(/);
+    expect(manualSolve, 'runGlobalSolve must call ensureWasmReady before solve3D').toMatch(/await ensureWasmReady\(/);
 
     // And nothing may call solve3D without going through it: ToolbarResults is
     // the button every toolbar (desktop or mobile) renders, and it delegates.

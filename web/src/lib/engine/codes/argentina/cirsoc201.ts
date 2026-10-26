@@ -1,17 +1,22 @@
 // CIRSOC 201 — Reinforced Concrete Verification Engine
-// Implements design checks for flexure, shear, and flexo-compression
-// per Argentine code CIRSOC 201-2005 (based on ACI 318)
+// Implements design checks for flexure, shear, and flexo-compression per Argentine code CIRSOC
+// 201 (based on ACI 318). Flexure, shear, columns and biaxial bending are sized against the
+// engine (`cirsoc201_design_beam`, `cirsoc201_check`, the section engine) by the edition asked
+// for, 2025 when none is. Torsion is computed here: §22.7 with the 2025 material limits
+// (§22.7.2) when the edition is 2025, and the cross-section limit of §22.7.7.1 from the shared
+// §22.7 module.
 //
 // Units: kN, m, MPa, cm² (for reinforcement areas)
 
-import { deriveDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
+import { deriveDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
 import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
-import { minFlexuralSteelCm2, tensionControlledStrain, COLUMN_STEEL_RATIO } from './cirsoc201-basis';
+import { minFlexuralSteelCm2, tensionControlledStrain, COLUMN_STEEL_RATIO, editionCode, shearFy, shearSqrtFc, type Cirsoc201EditionLike } from './cirsoc201-basis';
 import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
+import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -99,6 +104,8 @@ export interface ShearResult {
   Vs: number;          // steel contribution required (kN)
   AvOverS: number;     // required Av/s (cm²/m)
   AvOverSMin: number;  // minimum Av/s (cm²/m)
+  /** Av/s the shear asks before the minimum applies (cm²/m). */
+  AvOverSReq?: number;
   spacing: number;     // proposed stirrup spacing (m)
   stirrupDia: number;  // mm
   stirrupLegs: number;
@@ -573,6 +580,7 @@ export function checkShear(
   return {
     Vu: VuAbs, d, phiVc, Vs: VsReq,
     AvOverS: Math.max(AvOverSReq, AvOverSMin),
+    AvOverSReq,
     AvOverSMin,
     spacing, stirrupDia: stirrupBar.diameter, stirrupLegs: legs,
     phiVn, ratio, status, steps,
@@ -679,9 +687,18 @@ export function checkColumn(
 
 // ─── Torsion Check (CIRSOC 201 §11.5) ────────────────────────────
 
-export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: number = 0): TorsionResult {
-  const { fc, fy, b, h, cover, stirrupDia } = params;
+/**
+ * `edition` '2025' applies §22.7.2: √f'c ≤ 8,3 MPa in Tcr (22.7.2.1) and in Vc (22.5.3.1), fy and
+ * fyt ≤ 420 MPa in the torsion steel (22.7.2.2 → 20.2.1.3). The default '2005' is unchanged.
+ */
+export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: number = 0, edition: Cirsoc201EditionLike = '2005'): TorsionResult {
+  const { fc, b, h, cover, stirrupDia } = params;
+  const lim = editionCode(edition) === 2025;
+  const fy = lim ? shearFy(params.fy) : params.fy;
+  const sqT = lim ? shearSqrtFc(fc) : Math.sqrt(fc);
   const steps: string[] = [];
+  if (lim && fy < params.fy) steps.push(`fy, fyt = ${fy} MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)`);
+  if (lim && sqT < Math.sqrt(fc)) steps.push(`√f'c = ${sqT} MPa en Tcr y Vc (§22.7.2.1, §22.5.3.1)`);
   const TuAbs = Math.abs(Tu);
   steps.push(`Tu = ${TuAbs.toFixed(3)} kN·m`);
 
@@ -690,7 +707,7 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
   const pcp = 2 * (b + h); // m — perimeter
 
   // Cracking torsion: Tcr = 0.33·√f'c · Acp² / pcp (CIRSOC 201 §11.5.1)
-  const Tcr = 0.33 * Math.sqrt(fc) * (Acp * Acp * 1e6) / (pcp) / 1000; // kN·m
+  const Tcr = 0.33 * sqT * (Acp * Acp * 1e6) / (pcp) / 1000; // kN·m
   steps.push(`Tcr = 0.33·√f'c·Acp²/pcp = ${Tcr.toFixed(3)} kN·m`);
 
   // Neglect torsion if Tu < φ·Tcr/4 (§11.5.1)
@@ -712,33 +729,47 @@ export function checkTorsion(params: ConcreteDesignParams, Tu: number, Vu: numbe
 
   steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`);
 
-  // Check combined shear + torsion limit (§11.5.3.1)
+  /*
+   * The cross-section limit is §22.7.7.1(a) for a solid section, evaluated below through the
+   * shared §22.7 module. The limit this function kept added the two stresses linearly, which is
+   * (b), the hollow-section form, and took the torsion stress in kN/m² divided by 1e6 instead of
+   * 1e3, a thousand times too small: it never bound (Tu = 120 kN·m on a 30×60 passed). It is
+   * removed, not repaired: one limit, one place.
+   */
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
-  const vShear = VuAbs / (b * d) / 1000; // MPa
-  const vTorsion = TuAbs / (1.7 * Aoh * Aoh * 1e6) * ph; // approx
-  const Vc = 0.17 * Math.sqrt(fc); // MPa — simplified Vc/(bw·d)
-  const vLimit = PHI_SHEAR * (Vc + 0.66 * Math.sqrt(fc));
 
-  // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fy·cotθ)
-  // cotθ = 1.0 (θ=45°, simplified)
-  const AtOverS = (TuAbs / (PHI_SHEAR * 2 * Ao * fy * 1000)) * 1e6; // cm²/m
+  // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fyt·cotθ), cotθ = 1 (θ = 45°).
+  // kN·m / (m²·kN/m²) = m²/m; ×1e4 is cm²/m. It was ×1e6, a hundred times too large.
+  const AtOverS = (TuAbs / (PHI_SHEAR * 2 * Ao * fy * 1000)) * 1e4; // cm²/m
   steps.push(`At/s,req = ${AtOverS.toFixed(2)} cm²/m (una rama)`);
 
-  // Longitudinal steel for torsion: Al = (At/s)·ph·(fy_stirrup/fy_long)·cotθ²
-  // Assuming same fy: Al = (At/s)·ph
-  const AlReq = AtOverS * ph * 100; // cm² (converting consistently)
+  // Longitudinal steel for torsion: Al = (At/s)·ph·(fyt/fy)·cot²θ, the same fy for both.
+  // cm²/m × m = cm². It was ×100 on top of the ×1e6 above: ten thousand times too large.
+  const AlReq = AtOverS * ph; // cm²
   steps.push(`Al,req = ${AlReq.toFixed(2)} cm² (longitudinal por torsión)`);
 
-  // Capacity: φTn = φ·2·Ao·At·fy/s (using provided stirrups)
-  // For now compute with required At/s
-  const phiTn = TuAbs; // at design level, capacity = demand when At/s is designed for it
-  const ratio = TuAbs > 0 ? 1.0 : 0; // designed exactly for Tu
+  /*
+   * The capacity this row states. It was the demand itself (φTn = Tu, ratio 1,00 for any Tu): the
+   * stirrups are sized here for Tu, so φ·2·Ao·At·fyt/s equals Tu by construction and says nothing.
+   * What can bind at this stage is the cross-section (§22.7.7.1): the torque the section admits
+   * alongside its Vu, from the same §22.7 module the provided-steel verifier uses. With the
+   * section ratio r(T) = √(vV² + vT²)/φ(vc + 0,66√f'c), linear in T under the root, that torque is
+   * Tu·√(1 − r(0)²)/√(r(Tu)² − r(0)²), nil when the shear alone fills the section.
+   */
+  const section = (t: number) => checkTorsion2025({
+    b, h, d, cover, stirrupDiaMm: stirrupDia, fc, fy: params.fy, fyt: params.fy, Vu: VuAbs, Tu: t,
+  }).sectionRatio;
+  const r0 = section(0), r1 = section(TuAbs);
+  const phiTn = r0 >= 1 ? 0 : TuAbs * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
+  const ratio = phiTn > 0 ? TuAbs / phiTn : Number.POSITIVE_INFINITY;
+  steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${VuAbs.toFixed(2)} kN (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
 
+  // The status the ratio states: a section the torque overfills fails (§22.7.7.1(a)).
   let status: VerifStatus = 'ok';
-  if (vShear + vTorsion > vLimit) {
+  if (!(ratio <= 1 + 1e-6)) {
     status = 'fail';
-    steps.push(`⚠ Tensiones combinadas V+T exceden límite`);
+    steps.push(`⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)`);
   }
 
   return {
@@ -858,6 +889,9 @@ export function computeJointPsiFromModel(
 ): { psiA: number; psiB: number } {
   const col = elements.get(columnId);
   if (!col) return { psiA: 1.0, psiB: 1.0 };
+  // A 3D model is Z-up; a model with no Z at all is a plane frame, Y-up.
+  let zUp = false;
+  for (const [, n] of nodes) if (Math.abs(n.z ?? 0) > 1e-9) { zUp = true; break; }
 
   function computeAtJoint(jointNodeId: number): number {
     // Check if joint has a support
@@ -889,13 +923,15 @@ export function computeJointPsiFromModel(
       const mat = materials.get(elem.materialId);
       if (!sec || !mat) continue;
 
-      // Use Iz for strong-axis bending
-      const Ig = sec.iz;
       const E = mat.e * 1000; // MPa → kN/m²
 
-      // Classify: vertical elements are columns, horizontal are beams
-      const horizLen = Math.sqrt(dx * dx + dz * dz);
-      const isVert = Math.abs(dy) > horizLen;
+      // Classify: vertical elements are columns, horizontal are beams, along the model's up axis.
+      const up = zUp ? dz : dy;
+      const horizLen = zUp ? Math.sqrt(dx * dx + dy * dy) : Math.sqrt(dx * dx + dz * dz);
+      const isVert = Math.abs(up) > horizLen;
+      // One Ψ serves both planes: a beam bends about its strong axis (Iz), and a column takes its
+      // larger inertia, which gives the larger Ψ and so the larger magnifier.
+      const Ig = isVert ? Math.max(sec.iz, sec.iy ?? sec.iz) : sec.iz;
 
       if (isVert) {
         // Column: 0.70·E·Ig / L
@@ -1135,20 +1171,17 @@ export interface VerificationInput {
  * 30 % more for a top bar. A column's bars are vertical: ψt = 1.
  */
 function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia: number, barDiameters: number[], member: { isBeam: boolean; h: number }): DetailingResult {
-  const sqrtFc = Math.sqrt(fc);
   const uniqueDias = [...new Set(barDiameters)].sort((a, b) => a - b);
 
   const bars = uniqueDias.map(db => {
-    const dbM = db / 1000; // mm → m
     // ld from Tabla 25.4.2.3, the same source as the design check and the drawings. The 2005
     // fy·db/(3,2·√f'c) printed about half of it in the report's detailing table.
     const concreteBelowM = member.isBeam ? concreteBelowTopBars(member.h, cover, stirrupDia, db) : 0;
     const ld = deriveDevelopment({
       diameterMm: db, fy, fc, favourableSpacing: false, psiT: topBarFactor(concreteBelowM), edition: '2025',
     }).ldM;
-    // ldh per CIRSOC 201 12.5: ldh = (0.24 × fy × db) / √f'c
-    const ldhCalc = (0.24 * fy * dbM) / sqrtFc;
-    const ldh = Math.max(ldhCalc, 8 * dbM, 0.15); // min 8db or 150mm per 12.5.1
+    // ldh by §25.4.3.1 with √f'c ≤ 8,3 MPa (§25.4.1.4), the one implementation.
+    const ldh = deriveHookedDevelopment({ diameterMm: db, fy, fc, edition: '2025' }).ldhM;
     // Lap splice Class B = 1.3 × ld (CIRSOC 201 12.15.1)
     const lapSplice = 1.3 * ld;
 
@@ -1232,7 +1265,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
 
   // Torsion check if Tu is provided
   if (input.Tu && Math.abs(input.Tu) > 0.001) {
-    torsionResult = checkTorsion(params, input.Tu, input.Vu);
+    torsionResult = checkTorsion(params, input.Tu, input.Vu, edition);
   }
 
   // Overall status
@@ -1318,26 +1351,30 @@ export function verifyElement(input: VerificationInput): ElementVerification {
 
 // ─── Classify element as beam or column ─────────────────────────
 
-/** Heuristic: if element is more vertical than horizontal, it's a column.
- *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall.
- *  Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention. */
+/**
+ * Heuristic: if a bar is more vertical than horizontal, it's a column; otherwise a beam.
+ * Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention.
+ *
+ * A bar is never a wall. Walls are modelled with shells and designed by the floor pass; a bar
+ * whose section is longer than three times its width (a 20×70 column, common in practice) used
+ * to come back 'wall' here and be refused by the design. It is a column, designed with the
+ * column rules, and `isElongatedSection` lets the design surface say so.
+ * The section arguments are kept for the callers' signature and no longer change the answer.
+ */
 export function classifyElement(
   x1: number, y1: number, z1: number,
   x2: number, y2: number, z2: number,
-  sectionB?: number, sectionH?: number,
+  _sectionB?: number, _sectionH?: number,
 ): 'beam' | 'column' | 'wall' {
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
   const dz = Math.abs(z2 - z1);
   const horizontal = Math.sqrt(dx * dx + dy * dy);
-  // If vertical (Z) component dominates, it's a column or wall
-  if (dz > horizontal) {
-    // Detect wall: vertical element with high section aspect ratio
-    if (sectionB && sectionH) {
-      const ratio = Math.max(sectionB, sectionH) / Math.min(sectionB, sectionH);
-      if (ratio > 3) return 'wall';
-    }
-    return 'column';
-  }
-  return 'beam';
+  return dz > horizontal ? 'column' : 'beam';
+}
+
+/** A section longer than three times its width: designed as a column, flagged as such. */
+export function isElongatedSection(b?: number, h?: number): boolean {
+  if (!b || !h) return false;
+  return Math.max(b, h) / Math.min(b, h) > 3;
 }

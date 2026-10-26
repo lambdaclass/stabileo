@@ -13,6 +13,7 @@
  *   SVG     an XML comment after the opening tag, and the JSON in `<metadata>`
  *   PNG     a `tEXt` chunk (`stabileo-provenance`) with the JSON record
  *   XLSX    a status line on the summary and a Provenance sheet (`export/excel.ts`)
+ *   reports (DOCX, XLSX, CSV of a report) as `report-formats.ts` carries `reportProvenanceLines`
  */
 import { uiStore } from '../store/ui.svelte';
 import { downloadText } from '../store/file';
@@ -44,6 +45,11 @@ export function provenanceLines(p: ResultProvenance): Array<[string, string]> {
 export function csvWithProvenance(csv: string, p: ResultProvenance): string {
   const head = provenanceLines(p).map(([k, v]) => `# ${k}: ${v.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${head}\n${csv}`;
+}
+
+/** The record's title and its `key: value` lines, the status line first, for a format that prints them. */
+export function reportProvenanceLines(p: ResultProvenance): { title: string; lines: Array<[string, string]> } {
+  return { title: provenanceLabels().title, lines: provenanceLines(p) };
 }
 
 export function htmlWithProvenance(html: string, p: ResultProvenance): string {

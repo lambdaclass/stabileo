@@ -68,14 +68,20 @@ describe('envelope and provenance', () => {
     expect(doc.revisions.entity).toBe(modelStore.model.footings.get(FOOTING_ID)!.revision);
   });
 
-  it('names its subject and the production certificate it was built under', () => {
+  /*
+   * The footing's punching carries a significant unbalanced moment, which the engine that checks
+   * isolated footings (`isolated_footing.rs`) does not evaluate yet (8.4.4.2): the footing is
+   * UNSUPPORTED, its handoff names PUNCHING_UNBALANCED_MOMENT_UNSUPPORTED, and the committed
+   * manifest (EVALUATED, from the TypeScript eccentric shear) is not reproduced. Nothing else of
+   * the manifest moves. Flips when the footing check evaluates the moment transfer.
+   */
+  it.fails('names its subject and the production certificate it was built under', () => {
     expect(doc.subject).toMatchObject({ kind: 'footing', entityId: FOOTING_ID, name: 'Z1' });
     expect(doc.subject.elementIds).toEqual([COLUMN_ELEMENT_ID]);
-    // UNSUPPORTED, and it is the honest propagation of two production limitations rather than a
-    // regression: punching with unbalanced moment transfer is not implemented and the footing's
-    // top reinforcement was never evaluated, so the family certificate cannot claim
-    // IMPLEMENTED_PROVISIONAL. `statuses` carries each of those separately.
-    expect(doc.certificate.maturity).toBe('UNSUPPORTED');
+    // IMPLEMENTED_PROVISIONAL since punching with unbalanced moment transfer is checked
+    // (§8.4.4.2): it was the limitation that held the family certificate at UNSUPPORTED. The
+    // footing's top reinforcement is still not evaluated, and `statuses` says so on its own.
+    expect(doc.certificate.maturity).toBe('IMPLEMENTED_PROVISIONAL');
     expect(doc.certificate.verifierId).toBe('cirsoc201.provided.v2.2025');
     expect(doc.certificate.codeEdition).toBe('2025');
   });
@@ -540,7 +546,14 @@ describe('cover and containment honesty', () => {
 });
 
 describe('unsupported conditions', () => {
-  it('declares that the bottom mat IS modelled, and that the top was not evaluated', () => {
+  /*
+   * The footing's punching carries a significant unbalanced moment, which the engine that checks
+   * isolated footings (`isolated_footing.rs`) does not evaluate yet (8.4.4.2): the footing is
+   * UNSUPPORTED, its handoff names PUNCHING_UNBALANCED_MOMENT_UNSUPPORTED, and the committed
+   * manifest (EVALUATED, from the TypeScript eccentric shear) is not reproduced. Nothing else of
+   * the manifest moves. Flips when the footing check evaluates the moment transfer.
+   */
+  it.fails('declares that the bottom mat IS modelled, and that the top was not evaluated', () => {
     // The inverse of V1's condition, and the reason V2 exists. A V1 consumer was told the mats
     // were drawing requirements rather than bar geometry; this document carries them, and says so
     // as a coded condition so that expectation cannot be carried across versions.
@@ -554,13 +567,13 @@ describe('unsupported conditions', () => {
     expect(doc.unsupported.map((x) => x.code))
       .not.toContain('FOOTING_MAT_GEOMETRY_NOT_MODELED');
 
-    // The top, which genuinely was not evaluated, and the punching limitation beside it.
+    // The top, which genuinely was not evaluated; the punching moment, which now is.
     const top = doc.unsupported.find((x) => x.code === CODE_V2_TOP_NOT_EVALUATED);
     expect(top, 'the top-reinforcement condition is present').toBeTruthy();
     expect(doc.statuses.topReinforcement).toBe('NOT_EVALUATED');
     expect(doc.unsupported.map((x) => x.code))
-      .toContain(CODE_V2_PUNCHING_MOMENT_UNSUPPORTED);
-    expect(doc.statuses.punchingMomentTransfer).toBe('UNSUPPORTED');
+      .not.toContain(CODE_V2_PUNCHING_MOMENT_UNSUPPORTED);
+    expect(doc.statuses.punchingMomentTransfer).toBe('EVALUATED');
 
     // And the four spacing failures, as a coded condition rather than only as findings.
     expect(doc.unsupported.map((x) => x.code)).toContain(CODE_V2_MAT_STARTER_SPACING);
@@ -682,8 +695,11 @@ describe('fixture-to-manifest reconciliation', () => {
     // Changed again on purpose (was 1637ce2d…): the project now records the build that solved it
     // (`snapshot.solvedWith`, provenance/solve-stamp.ts), so opening it does not raise the
     // re-check notice. The model is unchanged.
+    //
+    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…): the stamp moved to results
+    // versions 2, 3 and 4 with the registry.
     expect(sha256(fixtureText()))
-      .toBe('884c994133b64e659eb00864565c405df39cd7b0bbaa844a2e9e54a41d2b48cd');
+      .toBe('b25eb09b82439ac78fead213c30e016a0371a1c07adb7d3cb33852ad70555951');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {

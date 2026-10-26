@@ -7,7 +7,7 @@
    * make one, the model's list under it.
    */
   import { modelStore } from '../../lib/store';
-  import { detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
+  import { addLevelDiaphragms } from '../../lib/model/building/diaphragms';
   import DataTable from '../DataTable.svelte';
   import { t, tp } from '../../lib/i18n';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -213,52 +213,8 @@
   }
 
 
-  function autoDetectDiaphragms() {
-    const tolerance = 0.05;
-    const levels = detectFloorLevels(modelStore.nodes as any, tolerance);
-    if (levels.length === 0) return;
-
-    for (const z of levels) {
-      // Collect nodes at this level
-      const nodeIds: number[] = [];
-      for (const [id, n] of modelStore.nodes) {
-        if (Math.abs((n.z ?? 0) - z) < tolerance) {
-          nodeIds.push(id);
-        }
-      }
-      if (nodeIds.length < 2) continue;
-
-      // Find centroid to pick master node
-      let sx = 0, sy = 0;
-      for (const id of nodeIds) {
-        const n = modelStore.nodes.get(id)!;
-        sx += n.x;
-        sy += n.y;
-      }
-      const cx = sx / nodeIds.length;
-      const cy = sy / nodeIds.length;
-
-      // Master = node closest to centroid
-      let masterId = nodeIds[0];
-      let minDist = Infinity;
-      for (const id of nodeIds) {
-        const n = modelStore.nodes.get(id)!;
-        const dist = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2);
-        if (dist < minDist) {
-          minDist = dist;
-          masterId = id;
-        }
-      }
-
-      const slaveIds = nodeIds.filter(id => id !== masterId);
-      modelStore.addConstraint({
-        type: 'diaphragm',
-        masterNode: masterId,
-        slaveNodes: slaveIds,
-        plane: 'XY',
-      });
-    }
-  }
+  /** One diaphragm per level above the base, none twice (`model/building/diaphragms.ts`). */
+  function autoDetectDiaphragms() { addLevelDiaphragms(); }
 
 
 

@@ -4,7 +4,7 @@
  * reason — the proven-bound badge from the engine gate, and the calculation in the interface
  * language. An angle strut is not evaluated until its end condition (E.5) is stated.
  */
-import { test, expect, CURRENT_STAMP } from './fixtures';
+import { test, expect, designPlace, CURRENT_STAMP } from './fixtures';
 
 test.use({ viewport: { width: 1400, height: 1000 } });
 
@@ -49,7 +49,7 @@ test('every steel member with every CIRSOC 301 check, from the engine', async ({
   await expect.poll(() => page.evaluate(() => { const c = window.__stabileo.modelCensus(); return `${c.nodes}/${c.elements}/${c.loads}`; })).toBe('6/3/3');
   await page.evaluate(async () => { await window.__stabileoActions.solve(); });
   await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-steel').click();
+  await designPlace(page, 'steel');
   await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
 
   const table = page.getByTestId('steel-results');

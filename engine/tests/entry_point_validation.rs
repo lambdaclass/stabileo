@@ -6,8 +6,7 @@
 //! `.ok()` a prepare failure into an all-zero result. `f8`: the 2D nonlinear,
 //! Winkler and reduction entry points that went straight to assembly.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::types::*;

@@ -285,12 +285,20 @@ test.describe('@smoke blog', () => {
      * post now names the button for what it does and keeps the explanation.
      */
     expect(caption).toContain('Calcular acero requerido');
-    expect(caption).toContain('Diseñar todo');
+    // «Size…» is the one design command of interface A (it was «Diseñar todo»).
+    expect(caption).toContain('Dimensionar…');
 
     await embed.locator('.post-embed-start').click();
     await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
 
     const app = page.frameLocator('.post-embed iframe');
+    // Design is off in a fresh browser: the link asks, and nothing of design is on until the
+    // reader answers. The caption names the answer, in this language.
+    expect(caption).toContain('Activar el diseño en esta visita');
+    const ask = app.getByTestId('toast-enable-design-link');
+    await expect(ask).toHaveText('Activar el diseño en esta visita', { timeout: 60_000 });
+    await expect(app.getByTestId('pr-stage-design')).toHaveCount(0);
+    await ask.click();
     await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
     // The buttons the caption promises are really there, in this language.
     await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
@@ -311,9 +319,15 @@ test.describe('@smoke blog', () => {
 
     const embed = page.locator('.post-embed');
     await embed.scrollIntoViewIfNeeded();
+    // The numbers read back below are the ones the caption quotes.
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('D/C = 0,90');
+    expect(caption).toContain('gobernados por el corte en el tramo');
     await embed.locator('.post-embed-start').click();
 
     const app = page.frameLocator('.post-embed iframe');
+    // The reader's answer to the link's question first: design is off in a fresh browser.
+    await app.getByTestId('toast-enable-design-link').click({ timeout: 60_000 });
     await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
 
     // Exactly the three presses the caption asks for, in its order. Each wait is
@@ -323,15 +337,21 @@ test.describe('@smoke blog', () => {
     await app.getByTestId('cmd-compute-demands').click();
     await expect(app.getByTestId('cmd-code-check')).toBeEnabled({ timeout: 60_000 });
     await app.getByTestId('cmd-code-check').click();
-    await expect(app.getByTestId('cmd-design-all')).toBeEnabled({ timeout: 60_000 });
-    await app.getByTestId('cmd-design-all').click();
+    await expect(app.getByTestId('cmd-autodesign')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-autodesign').click();
+    await app.getByTestId('desk-run').click();
 
-    // Verified, not "sin verificar", and at the utilisation the caption quotes.
+    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
+    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
+    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
+    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
+    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
     const table = app.locator('body');
-    await expect(table).toContainText('0.89', { timeout: 90_000 });
-    await expect(table).toContainText('0.87');
-    // Both rows are governed by the anchorage of the bars, which names no combination.
-    await expect(table).toContainText('Anchorage');
+    for (const id of [1, 2]) {
+      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
+      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
+      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+    }
     await expect(table).not.toContainText('sin armadura');
   });
 

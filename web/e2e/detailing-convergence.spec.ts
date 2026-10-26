@@ -28,16 +28,25 @@
  * members; here it is held on the ordinary path.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage } from './fixtures';
+import {
+  test, expect, designAll, loadModel, openDocumentsStage, setAppLanguage, declareBeamsNotLateral, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const notice = (page: Page) => page.getByTestId('detailing-convergence');
 
+/*
+ * CONVERGES. The specs that read a CONVERGED claim declare qa-8's beams not part of the lateral
+ * system first (`declareBeamsNotLateral`). Since 292b87f68 an undeclared beam is designed as part
+ * of it, and e5 and e6 then refuse (SEARCH_EXHAUSTED on the anchorage of their bottom bars, fy at
+ * the column face): the claim read «incomplete», which is true of that reading (the incomplete
+ * claim is `h1e-refused-state`'s subject). Declared, all eight verify and the claim converges.
+ */
+
 /** Open DETALLE. Direct child only: the stage contains nested disclosures of its own. */
 async function openDetailing(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 test.describe('@smoke the strip states what the next run will produce', () => {
@@ -59,6 +68,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
 
@@ -86,6 +96,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
     await expect(notice(page)).toHaveAttribute('data-state', 'converged');
@@ -98,7 +109,10 @@ test.describe('@smoke the strip states what the next run will produce', () => {
      * out-of-scope line. A global denominator would have reported this as INCOMPLETE — a
      * complete piece of work declared unfinished for something nobody asked for.
      */
+    // The families are chosen on the member list (interface A); the claim is read on the detailing.
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-beam').uncheck();
+    await openDetailing(page);
 
     const n = notice(page);
     await expect(n).toHaveAttribute('data-state', 'converged');
@@ -108,7 +122,9 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     await expect(out).toContainText('beams');
 
     // And putting it back re-opens the denominator rather than leaving a narrowed claim behind.
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-beam').check();
+    await openDetailing(page);
     await expect(page.getByTestId('detailing-convergence-out-of-scope')).toHaveCount(0);
     await expect(notice(page)).toContainText('beams');
   });
@@ -116,9 +132,9 @@ test.describe('@smoke the strip states what the next run will produce', () => {
   test('DC-F selecting nothing is not a vacuous success', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await openDetailing(page);
-
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-none').click();
+    await openDetailing(page);
     const n = notice(page);
     await expect(n).toHaveAttribute('data-state', 'empty_scope');
     // "Converged over no families" would read as success and mean nothing was done. The command
@@ -146,6 +162,7 @@ test.describe('@smoke the strip states what the next run will produce', () => {
     { pro: page },
   ) => {
     await loadModel(page, 'rc-design-qa-8');
+    await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
     await designAll(page);
     await openDetailing(page);
     await expect(notice(page)).toHaveAttribute('data-state', 'converged');
@@ -201,6 +218,7 @@ test.describe('the claim holds its layout and its three languages', () => {
       { pro: page },
     ) => {
       await loadModel(page, 'rc-design-qa-8');
+      await declareBeamsNotLateral(page);   // a design that converges: see CONVERGES
       await designAll(page);
       await openDetailing(page);
       await setAppLanguage(page, locale);

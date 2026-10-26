@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { engineStatus } from '../../lib/store/engine-status.svelte';
-  import { isWasmReady } from '../../lib/engine/wasm-solver';
+  import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -13,7 +12,7 @@
   import {
     buildLoadPlan, describePlanDelta, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
-  import { OCCUPANCY_TABLE_2025 } from '../../lib/codes/cirsoc101/live-loads';
+  import { OCCUPANCY_TABLE_2025, PARTITION_LIVE_MINIMUM_KNM2, partitionLiveAllowance } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
   import ProDeadLoadBuilder from './ProDeadLoadBuilder.svelte';
   import type { ComboSource, DeadRow, GravityMode } from './auto-loads-sections';
@@ -56,7 +55,7 @@
    * behind it, inside a dialog that cites a clause for everything else.
    */
   import {
-    designSpectrum, isBlocked, RISK_FACTOR, SIMULTANEITY_F1,
+    isBlocked, RISK_FACTOR, SIMULTANEITY_F1,
     type SeismicZone, type SiteClass, type DestinationGroup, type OccupancyProbability,
   } from '../../lib/codes/cirsoc103/spectrum';
   import { BEHAVIOUR_TABLE_2018, findBehaviour, R_ELASTIC } from '../../lib/codes/cirsoc103/behaviour';
@@ -112,6 +111,13 @@
   let selectedOccupancy = $state(start.selectedOccupancy);
   const occupancyEntry = $derived(OCCUPANCY_TABLE_2025.find(o => o.key === selectedOccupancy));
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
+  /*
+   * §4.3.2 — the partition live load ("sobrecarga de repartición"), 0,75 kN/m² of floor at least.
+   * A live load, entered here with Lo; it was a dead row of the build-up. The weight of known
+   * partitions stays in the dead load (§3.1.4).
+   */
+  let partitionLive = $state(start.partitionLive);
+  const partitionAllowance = $derived(partitionLiveAllowance(occupancyQ, partitionLive.on ? partitionLive.q : 0));
   // §4.7.2 reduction inputs — a real code feature the legacy path did not have at all.
   let applyLiveReduction = $state(start.applyLiveReduction);
   let reductionElementKind = $state<ElementKind>(start.reductionElementKind);
@@ -165,12 +171,7 @@
   let seismicDirectionZ = $state(start.seismicDirectionZ);
 
   /** The spectrum, live, so the panel can show what the zone and site imply. */
-  const spectrumPreview = $derived(
-    // The spectrum is the engine's: until it is loaded the code spectrum is refused, by name.
-    (engineStatus.ready || isWasmReady())
-      ? designSpectrum({ zone: seismicZone, site: siteClass })
-      : { blocked: { key: 'engine.unavailable' }, refs: [] },
-  );
+  const spectrumPreview = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
   const behaviourEntry = $derived(findBehaviour(systemKey));
   const effectiveR = $derived(elasticDesign ? R_ELASTIC : behaviourEntry?.r ?? null);
 
@@ -322,6 +323,21 @@
     : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
+  /**
+   * What the dialog is doing while it works, step by step, so the reader sees it is working and
+   * which step it is on. The modal analyses of the wind and the earthquake take seconds on a
+   * building; the steps yield a frame between them so the panel paints, and Cancel stops at the
+   * next step (`working.cancelled`).
+   */
+  let working = $state<{ label: string; step: number; total: number; cancelled: boolean } | null>(null);
+  const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+  /** Show a step and let it paint; false when the reader cancelled in the meantime. */
+  async function stepTo(label: string, step: number, total: number): Promise<boolean> {
+    if (working?.cancelled) return false;
+    working = { label, step, total, cancelled: false };
+    await nextFrame();
+    return !(working as { cancelled: boolean } | null)?.cancelled;
+  }
 
   // A preview describes the model it was built against. Kept across a close, it came back on
   // reopening, after any edit to the model, and Apply would commit it: closing drops it.
@@ -375,6 +391,7 @@
       model: modelSlice(),
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       occupancyKey: selectedOccupancy,
+      partitionLive: partitionLive.on ? partitionLive.q : 0,
       tributaryWidth,
       gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
       patterns: livePatterns,
@@ -454,7 +471,7 @@
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
       // The dialog's own state, to start from next time (`restoreFromRoles`).
-      dialog: $state.snapshot({ deadRows, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
+      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
     }, true);
     if (enableWind) {
       regulationsStore.configureRole('wind', {
@@ -492,7 +509,7 @@
     selectedOccupancy = m.selectedOccupancy; tributaryWidth = m.tributaryWidth;
     applyLiveReduction = m.applyLiveReduction; reductionElementKind = m.reductionElementKind;
     floorsSupported = m.floorsSupported;
-    deadRows = m.deadRows; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
+    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
     roofCfg = m.roofCfg; livePatterns = m.livePatterns; special = m.special;
     enableWind = m.enableWind; windV = m.windV; windExposure = m.windExposure; windEnclosure = m.windEnclosure;
     windAltitude = m.windAltitude; windKzt = m.windKzt; windKztSurveyed = m.windKztSurveyed;
@@ -509,35 +526,46 @@
     windModal = null;
   }
 
-  /** Step 1 — build the preview. Pure; the model is untouched. */
-  function handlePreview() {
+  /** Step 1 — build the preview. Pure; the model is untouched. Shown step by step (`working`). */
+  async function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
-    let p = buildLoadPlan(planInput());
     const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
     const seismicModes = enableSeismic && seismicMethod.method === 'modal';
-    // A member's design live-load reduction does not reduce the mass that moves with the
-    // floor. Both modal methods must use Lo at the stated participation.
-    const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
-      ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
-    // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
-    if (windModes && p.outcome === 'READY') {
-      const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
-      if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
-      windModal = f;
-      p = buildLoadPlan(planInput());
+    const total = 2 + (windModes ? 1 : 0) + (seismicModes ? 1 : 0);
+    let at = 1;
+    working = null;
+    try {
+      if (!(await stepTo(t('autoLoad.work.plan'), at++, total))) return;
+      let p = buildLoadPlan(planInput());
+      // A member's design live-load reduction does not reduce the mass that moves with the
+      // floor. Both modal methods must use Lo at the stated participation.
+      const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
+        ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
+      // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
+      if (windModes && p.outcome === 'READY') {
+        if (!(await stepTo(t('autoLoad.work.windModes'), at++, total))) return;
+        const f = windFrequenciesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
+        if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
+        windModal = f;
+        p = buildLoadPlan(planInput());
+      }
+      if (seismicModes && p.outcome === 'READY') {
+        if (!(await stepTo(t('autoLoad.work.seismicModes'), at++, total))) return;
+        const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
+        if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
+        const base = planInput();
+        p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
+      }
+      if (!(await stepTo(t('autoLoad.work.compare'), total, total))) return;
+      plan = p;
+      planGust = p.factors.windGust;
+      // The flag has to go in: the same plan produces a different model depending on it, and
+      // reporting the plan's own counts as "after" was the defect the audit caught.
+      delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
+    } finally {
+      working = null;
     }
-    if (seismicModes && p.outcome === 'READY') {
-      const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
-      if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
-      const base = planInput();
-      p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
-    }
-    plan = p;
-    planGust = p.factors.windGust;
-    // The flag has to go in: the same plan produces a different model depending on it, and
-    // reporting the plan's own counts as "after" was the defect the audit caught.
-    delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
   }
 
   /**
@@ -582,8 +610,8 @@
     });
   });
 
-  /** Step 2 — commit the previewed plan and invalidate downstream. */
-  function handleApply() {
+  /** Step 2 — commit the previewed plan and invalidate downstream; said while it runs and until it is drawn. */
+  async function handleApply() {
     const p = plan;
     if (!p || p.outcome !== 'READY') return;
     if (delta && (delta.replaceExisting !== clearExisting || delta.alsoUnmarked !== alsoUnmarked)) {
@@ -593,6 +621,8 @@
       return;
     }
     applyError = null;
+    const count = p.distributed.length + p.nodal.length + p.surface.length + p.thermal.length;
+    if (!(await stepTo(tp('autoLoad.work.apply', { n: count }), 1, 2))) { working = null; return; }
 
     applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
 
@@ -603,6 +633,10 @@
       regulationsStore.noteChange('loadEdit');
     }
 
+    // The viewer draws the new loads on the next frame: the dialog says so until it has.
+    working = { label: t('autoLoad.work.draw'), step: 2, total: 2, cancelled: false };
+    await nextFrame();
+    working = null;
     uiStore.toast(t('autoLoad.applied'), 'success');
     plan = null;
     delta = null;
@@ -626,7 +660,7 @@
     ] },
     { titleKey: 'autoLoad.nav.actions', items: [
       { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: aq(totalDead) },
-      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ) },
+      { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ + partitionAllowance.qKNm2) },
       { id: 'roof', symbol: 'Lr', labelKey: 'autoLoad.roof.title', on: roofCfg.enabled,
         status: !roofCfg.enabled ? null : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
       { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}` : null },
@@ -744,6 +778,9 @@
               {/if}
               <p><strong>{t('autoLoad.designLive')}:</strong> {aq(plan.factors.liveReduced.value)}
                 ({tp('autoLoad.fromTableLo', { lo: plan.factors.occupancy.value.toFixed(2) })})</p>
+              {#if plan.factors.partitionLive && plan.factors.partitionLive.value > 0}
+                <p data-testid="al-partition-live-plan">{tp('autoLoad.live.partitionInPlan', { q: aq(plan.factors.partitionLive.value) })}</p>
+              {/if}
               {#if plan.factors.baseShear}
                 <p data-testid="al-base-shear">{tp('autoLoad.baseShear', {
                   w: (plan.factors.seismicWeight?.value ?? 0).toFixed(1),
@@ -821,14 +858,14 @@
               <span class="al-sec-value" data-testid="dead-total">{aq(totalDead)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-dead-section">
-              <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} /></div>
+              <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} liveAllowance={partitionAllowance.qKNm2} /></div>
             </div>
 
           {:else if section === 'live'}
             <div class="al-pane-head">
               <h3><span class="al-head-sym">L</span>{t('autoLoad.liveLoads')}</h3>
               <span class="al-sec-code">{codeHead('loads', 'live')}</span>
-              <span class="al-sec-value">{aq(occupancyQ)}</span>
+              <span class="al-sec-value" data-testid="live-total">{aq(occupancyQ + partitionAllowance.qKNm2)}</span>
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
@@ -839,6 +876,19 @@
                     {/each}
                   </select>
                 </label>
+                <div class="al-sub" data-testid="al-partition-live">
+                  <span class="al-sub-title">{t('autoLoad.live.partitionTitle')}</span>
+                  <label class="al-check">
+                    <input type="checkbox" bind:checked={partitionLive.on} data-testid="al-partition-live-on" />
+                    {t('autoLoad.live.partitionOn')}
+                  </label>
+                  {#if partitionLive.on}
+                    <label class="al-field"><span class="al-label">{t('autoLoad.live.partitionValue')}</span>
+                      <QuantityInput bind:value={partitionLive.q} quantity="areaLoad" min={PARTITION_LIVE_MINIMUM_KNM2} testid="al-partition-live-q" wrap="al-unit-field" />
+                    </label>
+                  {/if}
+                  <p class="al-hint" data-testid="al-partition-live-note">{te(partitionAllowance.message)}</p>
+                </div>
                 <div class="al-sub">
                   <span class="al-sub-title">{t('autoLoad.live.reductionTitle')}</span>
                   <label class="al-check">
@@ -1154,13 +1204,21 @@
       {#if applyError}
         <p class="al-error" role="alert" data-testid="al-apply-error">{applyError}</p>
       {/if}
-      <button class="al-btn al-btn-secondary" onclick={onclose} data-testid="al-cancel">{t('report.cancel')}</button>
-      {#if !plan}
-        <button class="al-btn al-btn-primary" onclick={handlePreview} data-testid="al-preview-btn">{t('autoLoad.preview')}</button>
+      {#if working}
+        <span class="al-working" role="status" aria-live="polite" data-testid="al-working">
+          <span class="al-spinner" aria-hidden="true"></span>
+          {tp('autoLoad.work.step', { step: working.step, total: working.total })} · {working.label}
+        </span>
+        <button class="al-btn al-btn-secondary" onclick={() => { if (working) working = { ...working, cancelled: true }; }} data-testid="al-working-cancel">{t('autoLoad.work.cancel')}</button>
       {:else}
-        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; }} data-testid="al-back">{t('autoLoad.back')}</button>
+        <button class="al-btn al-btn-secondary" onclick={onclose} data-testid="al-cancel">{t('report.cancel')}</button>
+      {/if}
+      {#if !plan}
+        <button class="al-btn al-btn-primary" onclick={handlePreview} disabled={!!working} data-testid="al-preview-btn">{t('autoLoad.preview')}</button>
+      {:else}
+        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; }} disabled={!!working} data-testid="al-back">{t('autoLoad.back')}</button>
         <button class="al-btn al-btn-primary" onclick={handleApply}
-                disabled={plan.outcome !== 'READY'} data-testid="al-apply">{t('autoLoad.apply')}</button>
+                disabled={plan.outcome !== 'READY' || !!working} data-testid="al-apply">{t('autoLoad.apply')}</button>
       {/if}
     </div>
   </div>
@@ -1302,6 +1360,10 @@
   .al-summary { margin-right: auto; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
   .al-chip { font-family: var(--st-mono); font-size: 0.64rem; padding: 1px 6px; border-radius: 3px; background: var(--st-surface-3); color: var(--st-text-2); }
   .al-footer > .al-error { max-width: 40%; }
+  .al-working { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-size: 0.72rem; color: var(--st-text-2); }
+  .al-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--st-hair-strong); border-top-color: var(--st-text); animation: al-spin 0.8s linear infinite; }
+  @keyframes al-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .al-spinner { animation: none; } }
   .al-btn { height: 30px; padding: 0 16px; border-radius: var(--st-radius); font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
   .al-btn-primary { background: var(--st-accent); color: var(--st-text-on-accent, #fff); }
   .al-btn-primary:hover:not(:disabled) { background: var(--st-accent-hover, var(--st-accent)); }

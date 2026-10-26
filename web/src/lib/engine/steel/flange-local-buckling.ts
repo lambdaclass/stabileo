@@ -37,22 +37,25 @@
  * reader holding the printed table could act on.
  */
 
-/** Which of F.6.2's branches applies. `undetermined` is the honest answer today. */
+import { b41Case } from '../../codes/cirsoc301/table-b41';
+
+/** Which of F.6.2's branches applies; `undetermined` without Fy. */
 export type F62Branch = 'notApplicableCompact' | 'nonCompact' | 'slender' | 'undetermined';
 
 /** Why F.6.2 does not yield a capacity for this member — or `classified` when it does. */
 export type F62State =
   /**
    * Fy given: the branch is selected with Table B.4.1b case 14, λpf = 0,38·√(E/Fy) and
-   * λrf = 1,00·√(E/Fy), transcribed from the official PDF (Cap. B p. 22) — the same limits the
-   * CIRSOC 301 checker applies in F.6.2 (`cirsoc301.ts`).
+   * λrf = 1,00·√(E/Fy), transcribed from the official PDF (Cap. B p. 22) and read from the one
+   * transcription of the table (`codes/cirsoc301/table-b41.ts`) — the same limits the engine's
+   * CIRSOC 301 check applies in F.6.2.
    */
   | 'classified'
   /** The section is not one F.6 covers. Nothing is missing; the clause does not reach it. */
   | 'outOfScope'
   /** `bf` or `tf` absent, so even the slenderness cannot be formed. */
   | 'geometryUnavailable'
-  /** Geometry is there, the branch is not — λpf and λrf are in an image table. */
+  /** Geometry is there, the branch is not — no Fy to read the limits with. */
   | 'classificationUnavailable';
 
 export interface F62Report {
@@ -146,15 +149,14 @@ export function f62Report(input: F62Input): F62Report {
   const sy = iMinor != null && iMinor > 0 && b != null && b > 0 ? iMinor / (b / 2) : null;
 
   if (input.fy != null && input.fy > 0) {
-    const r = Math.sqrt((input.e ?? 2e5) / input.fy);
-    const branch: F62Branch = lambdaF <= 0.38 * r ? 'notApplicableCompact'
-      : lambdaF <= 1.0 * r ? 'nonCompact' : 'slender';
+    const c = b41Case(14), i = { E: input.e ?? 2e5, Fy: input.fy };
+    const lp = c.lambdaP!(i), lr = c.lambdaR(i);
+    const branch: F62Branch = lambdaF <= lp ? 'notApplicableCompact' : lambdaF <= lr ? 'nonCompact' : 'slender';
     return {
       state: 'classified', branch, reasonKey: 'steel.f62.classified',
       flangeSlenderness: lambdaF, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
     };
   }
-
   return {
     state: 'classificationUnavailable',
     branch: 'undetermined',

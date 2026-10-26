@@ -36,6 +36,9 @@
  * Pure: no store, no runes, no i18n.
  */
 
+import { checkPanel, proposePanel, panelMaxSpacing, type PanelElement, type PanelInput } from './slab-panel';
+import type { RibbedGeometry } from '../design/slabs/ribbed';
+import type { SlabBarLayer } from './slab-design';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
 import { msg, type EngineMessage } from '../../codes/message';
@@ -97,6 +100,18 @@ export interface RunFloorDesignInput {
   factoredAreaLoad: ReadonlyMap<number, number>;
   /** Factored in-plane demands per wall shell, when the caller can supply them. */
   wallDemands?: ReadonlyMap<number, { pu: number; muInPlane: number; vuInPlane: number }>;
+  /** The slab panel (physical element) a shell belongs to; with it the panel is designed whole, by strips. */
+  slabPanelOf?: (shellId: number) => string | undefined;
+  /** A ribbed (waffle) panel's rib geometry, by panel id; its bars are then set per rib. */
+  slabRibs?: (panelId: string) => RibbedGeometry | undefined;
+  /** A panel's reinforcement a person set, by panel id; absent, the design proposes it. */
+  slabReinforcement?: (panelId: string) => import('../../design-contract/reinforcement').SlabPanelReinforcement | undefined;
+  /** The project's predetermined base mat, deducted before any band is added. */
+  slabBase?: import('../../design-contract/reinforcement').SlabPanelReinforcement['base'];
+  /** A wall's reinforcement a person set, by wall id; absent, the design proposes it. */
+  wallReinforcement?: (wallId: string) => import('../../design-contract/reinforcement').WallReinforcement | undefined;
+  /** The openings of the wall made of these shells, along it from its start and up from its base, m. */
+  wallOpenings?: (shellIds: readonly number[]) => ReadonlyArray<{ offset: number; width: number; sill: number; height: number }>;
   fc: number;
   fy: number;
   cover: number;
@@ -178,6 +193,8 @@ export interface RunFloorDesignResult {
   assemblies: DetailingAssembly[];
   slabs: SlabDesignResult[];
   walls: WallDesignResult[];
+  /** Each designed wall's geometry, by wall id: the wall editor draws it. */
+  wallGeometry?: Record<string, WallGeometry>;
   classifications: ShellClassification[];
   /** Conditions that stopped a shell from being designed, each naming its element. */
   unsupported: Array<{ elementId: number; message: EngineMessage }>;
@@ -235,12 +252,26 @@ export function planExtent(pts: readonly FloorNode[]): {
   const y0 = Math.min(...ys);
   const lx = Math.max(...xs) - x0;
   const ly = Math.max(...ys) - y0;
-  // Every corner must sit on a corner of the bounding box, or the panel is not the
-  // rectangle the slab generator lays bars across.
-  const axisAligned = pts.every((p) =>
+  // Four corners, each on a corner of the bounding box, or the panel is not the rectangle the
+  // slab generator lays bars across (a right triangle has its three on the box's corners too).
+  const axisAligned = pts.length === 4 && pts.every((p) =>
     (Math.abs(p.x - x0) < 1e-6 || Math.abs(p.x - (x0 + lx)) < 1e-6)
     && (Math.abs(p.y - y0) < 1e-6 || Math.abs(p.y - (y0 + ly)) < 1e-6));
   return { x0, y0, lx, ly, axisAligned };
+}
+
+/** Plan centroid and area of a shell's outline (shoelace), m and m². */
+export function planCentroid(pts: readonly FloorNode[]): { x: number; y: number; area: number } {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!, q = pts[(i + 1) % pts.length]!;
+    const cr = p.x * q.y - q.x * p.y;
+    a += cr; cx += (p.x + q.x) * cr; cy += (p.y + q.y) * cr;
+  }
+  if (Math.abs(a) < 1e-12) {
+    return { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length, area: 0 };
+  }
+  return { x: cx / (3 * a), y: cy / (3 * a), area: Math.abs(a) / 2 };
 }
 
 /**
@@ -291,6 +322,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
   const classifications: ShellClassification[] = [];
   const slabs: SlabDesignResult[] = [];
   const walls: WallDesignResult[] = [];
+  const wallGeometry: Record<string, WallGeometry> = {};
 
   const stressOf = new Map(input.stresses.map((s) => [s.elementId, s]));
   const ptsOf = (shell: FloorShell): FloorNode[] | null => {
@@ -308,6 +340,10 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
     record: FamilyRecordDraft<WallDesignRecord>;
   };
   const slabsByLevel = new Map<number, SlabEntry[]>();
+  const panelParts = new Map<string, Array<{
+    shell: FloorShell; level: number; punching: SlabPunchingResult[]; qu: number; stress: FloorShellStress;
+    design: SlabDesignResult; el: PanelElement; box: { x0: number; x1: number; y0: number; y1: number }; rectangular: boolean;
+  }>>();
   const wallsByLevel = new Map<number, WallEntry[]>();
 
   /** Levels are grouped to the millimetre so floating-point noise cannot split a floor. */
@@ -343,6 +379,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
       // Deterministic: the sector merge walks the caller's order.
       .sort((a, b) => a.elementId - b.elementId);
 
+  const wallPieces: WallPiece[] = [];
   for (const shell of input.shells) {
     const pts = ptsOf(shell);
     if (!pts) {
@@ -380,7 +417,10 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
 
     if (cls.family === 'slab') {
       const ext = planExtent(pts);
-      if (!ext.axisAligned || ext.lx <= 0 || ext.ly <= 0) {
+      // An element of a physical panel is read by the panel's strips at its centroid, so it need
+      // not be a rectangle: a slab meshed around columns or an irregular outline has triangles.
+      const pk = input.slabPanelOf?.(shell.id);
+      if ((!ext.axisAligned && !pk) || ext.lx <= 0 || ext.ly <= 0) {
         unsupported.push({
           elementId: shell.id,
           message: msg('detailing.floorRun.nonRectangularPanel', { element: shell.id }),
@@ -438,11 +478,19 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
           thickness: shell.thickness,
           cover: input.cover,
           topBarDiameterMm: averageTopBarDiameter(design),
-          fc: input.fc,
+          fc: input.fc, fy: input.fy,
           qu,
           staleAnalysis: input.analysisStale === true,
         }));
 
+      if (pk) {
+        const c = planCentroid(pts);
+        panelParts.set(pk, [...(panelParts.get(pk) ?? []), {
+          shell, level: cls.level, punching: punchingResults, qu, stress, design, rectangular: ext.axisAligned,
+          el: { id: shell.id, cx: c.x, cy: c.y, sx: ext.lx, sy: ext.ly, thickness: shell.thickness, area: c.area, sets: stress.sets?.length ? stress.sets : [{ mx: stress.mx, my: stress.my, mxy: stress.mxy }] },
+          box: { x0: ext.x0, x1: ext.x0 + ext.lx, y0: ext.y0, y1: ext.y0 + ext.ly },
+        }]);
+      }
       const entry: SlabEntry = {
         geometry: panelGeometry,
         design,
@@ -458,79 +506,164 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
       continue;
     }
 
-    // ── Wall ──
-    const zs = pts.map((p) => p.z ?? 0);
-    const height = Math.max(...zs) - Math.min(...zs);
-    const baseZ = Math.min(...zs);
-    const onBase = pts.filter((p) => Math.abs((p.z ?? 0) - baseZ) < 1e-6);
-    if (height <= 0 || onBase.length < 2) {
-      unsupported.push({
-        elementId: shell.id,
-        message: msg('detailing.floorRun.wallGeometryNotResolved', { element: shell.id }),
-      });
-      continue;
-    }
-    // The two base corners furthest apart define the wall's length and direction.
-    let start = onBase[0];
-    let end = onBase[0];
-    let best = -1;
-    for (const a of onBase) {
-      for (const b of onBase) {
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (d > best) { best = d; start = a; end = b; }
-      }
-    }
-    const length = best;
-    if (!(length > 0)) {
-      unsupported.push({
-        elementId: shell.id,
-        message: msg('detailing.floorRun.wallGeometryNotResolved', { element: shell.id }),
-      });
-      continue;
-    }
+    // ── Wall piece ──
+    // A wall is designed whole, so its pieces are gathered here and grouped after the loop.
+    wallPieces.push({ shell, pts, stress, normal: cls.normal });
+  }
 
-    // In-plane demands, when the caller resolved them from the element forces. Absent
-    // them the membrane stresses give the in-plane shear directly: τ_xy over the section.
-    const supplied = input.wallDemands?.get(shell.id);
-    const demands = supplied ?? {
-      pu: Math.max(0, -stress.sigmaYy) * shell.thickness * length,
-      muInPlane: 0,
-      vuInPlane: Math.abs(stress.tauXy) * shell.thickness * length,
+  /*
+   * Walls: the pieces of one plane that touch, within one storey, are one wall.
+   *
+   * Each mesh element used to be designed as a wall of its own, and a single element has no
+   * in-plane moment to give: its centre stress is a mean, so the moment came out 0 for every
+   * wall in production. A wall's base section takes the pieces of its bottom row, and their
+   * membrane forces integrated along the length give P, the in-plane moment about the centre
+   * of the length, and V. A wall one element long still has no moment to resolve, and says so.
+   */
+  const storeyLevels = [...slabPlanByLevel.keys()].sort((a, b) => a - b);
+  const storeyOf = (z: number): number => {
+    let s = -Infinity;
+    for (const lv of storeyLevels) if (lv <= z + 1e-6) s = lv;
+    return s;
+  };
+  /*
+   * Panels: the elements of one physical slab designed whole, by strips (`slab-panel.ts`). Their
+   * per-element entries give way to one entry for the panel, drawn as its base mat and its bands.
+   */
+  for (const [pk, parts] of panelParts) {
+    const level = parts[0]!.level, key = levelKey(level);
+    const ids = new Set(parts.map((p) => p.shell.id));
+    const x0 = Math.min(...parts.map((p) => p.box.x0)), x1 = Math.max(...parts.map((p) => p.box.x1));
+    const y0 = Math.min(...parts.map((p) => p.box.y0)), y1 = Math.max(...parts.map((p) => p.box.y1));
+    const thickness = Math.min(...parts.map((p) => p.shell.thickness));
+    const ribs = input.slabRibs?.(pk);
+    // A structured mesh keeps its rows to the centimetre and its plain means (as it always has);
+    // an unstructured one gathers rows a typical element wide and weighs them by area.
+    const structured = parts.every((p) => p.rectangular);
+    const sizes = parts.map((p) => Math.sqrt(p.el.area ?? 0)).sort((a, b) => a - b);
+    const pInput: PanelInput = {
+      panelId: pk, x0, x1, y0, y1, thickness, cover: input.cover, fy: input.fy,
+      elements: parts.map((p) => (structured ? (({ area: _a, ...e }) => e)(p.el) : p.el)),
+      ...(structured ? {} : { rowStep: Math.max(0.05, sizes[Math.floor(sizes.length / 2)] ?? 0.5) }),
+      ...(ribs ? { ribs: { geometry: ribs, fc: input.fc } } : {}),
     };
-    if (!supplied) {
+    // CIRSOC 201-2025 §8.7.2.2: min(2h, 300 mm) at the critical sections (`panelMaxSpacing`).
+    const sMax = panelMaxSpacing(thickness);
+    const saved = input.slabReinforcement?.(pk);
+    const reinforcement = saved ?? proposePanel(pInput, { sMax, ...(input.slabBase ? { base: input.slabBase } : {}) });
+    const check = checkPanel(pInput, reinforcement);
+    const gov = parts.reduce((m, p) => (p.design.shear.utilization > m.design.shear.utilization ? p : m), parts[0]!);
+    const baseLayers: SlabBarLayer[] = (['bottomX', 'bottomY', 'topX', 'topY'] as const).flatMap((k) => {
+      const b = reinforcement.base[k];
+      if (!b) return [];
+      const area = Math.PI * (b.diameter / 2000) ** 2;
+      return [{ face: k.startsWith('top') ? 'top' as const : 'bottom' as const, direction: k.endsWith('X') ? 'x' as const : 'y' as const, diameterMm: b.diameter, spacing: b.spacing, asProvided: area / b.spacing, asRequired: area / b.spacing, minimumGoverns: true, refs: [] }];
+    });
+    const failing = check.strips.filter((c) => c.utilization > 1 + 1e-9);
+    const design: SlabDesignResult = {
+      ...gov.design, panelId: pk,
+      aspect: Math.max(x1 - x0, y1 - y0) / Math.max(Math.min(x1 - x0, y1 - y0), 1e-9),
+      layers: baseLayers,
+      memo: [`Paño ${pk}: ${parts.length} elemento(s), ${(x1 - x0).toFixed(2)} × ${(y1 - y0).toFixed(2)} m, armado por fajas: base y ${reinforcement.bands.length} banda(s); utilización máxima por faja ${check.worst.toFixed(2)}.`, ...gov.design.memo],
+      unsupported: [...new Set(parts.flatMap((p) => p.design.unsupported)), ...failing.map((c) => `Faja ${c.kind} ${c.dir} ${c.face}: necesita ${(c.need * 1e4).toFixed(2)} cm²/m y tiene ${(c.given * 1e4).toFixed(2)} cm²/m.`), ...(check.minimumOk ? [] : ['La armadura base inferior no alcanza la mínima de 24.4.3.2.']), ...check.spacing.filter((c) => !c.ok).map((c) => `${c.source === 'base' ? 'Malla base' : `Banda ${c.id}`} ${c.face} ${c.dir}: separación ${(c.spacing * 100).toFixed(1)} cm, mayor que s,máx = ${(c.limit * 100).toFixed(1)} cm (8.7.2.2).`)],
+      panel: { reinforcement, check, input: pInput, saved: !!saved },
+    };
+    const geometry: SlabPanelGeometry = { panelId: pk, origin: { x: x0, y: y0, z: level }, lx: x1 - x0, ly: y1 - y0, thickness, cover: input.cover, elementIds: [...ids].sort((a, b) => a - b) };
+    const punching = parts.flatMap((p) => p.punching).filter((j, i, all) => all.findIndex((q) => q.nodeId === j.nodeId) === i);
+    const entry: SlabEntry = {
+      geometry, design,
+      record: slabRecord({ shell: gov.shell, geometry, design, stress: gov.stress, qu: gov.qu, supportedSides: Math.max(1, supportedSideCount(gov.shell, input.shells)), punching, input }),
+    };
+    slabsByLevel.set(key, [...(slabsByLevel.get(key) ?? []).filter((e) => !e.geometry.elementIds.some((id) => ids.has(id))), entry]);
+    for (let i = slabs.length - 1; i >= 0; i--) if (parts.some((p) => p.design === slabs[i])) slabs.splice(i, 1);
+    slabs.push(design);
+  }
+
+  for (const group of groupWallPieces(wallPieces, storeyOf)) {
+    const first = group[0]!;
+    const n = first.normal;
+    // Horizontal direction along the wall: the plan normal turned a quarter.
+    const ux = -n.y, uy = n.x;
+    const ul = Math.hypot(ux, uy) || 1;
+    const u = (p: FloorNode) => (p.x * ux + p.y * uy) / ul;
+    const all = group.flatMap((g) => g.pts);
+    const zs = all.map((p) => p.z ?? 0);
+    const baseZ = Math.min(...zs);
+    const height = Math.max(...zs) - baseZ;
+    const base = all.filter((p) => Math.abs((p.z ?? 0) - baseZ) < 1e-6);
+    let start = base[0], end = base[0];
+    for (const p of base) {
+      if (start === undefined || u(p) < u(start)) start = p;
+      if (end === undefined || u(p) > u(end)) end = p;
+    }
+    const length = start && end ? u(end) - u(start) : 0;
+    const ids = group.map((g) => g.shell.id).sort((a, b) => a - b);
+    const wallId = `W${ids[0]}`;
+    if (!(height > 0) || !(length > 0) || !start || !end) {
+      for (const id of ids) {
+        unsupported.push({ elementId: id, message: msg('detailing.floorRun.wallGeometryNotResolved', { element: id }) });
+      }
+      continue;
+    }
+    const thickness = Math.min(...group.map((g) => g.shell.thickness));
+    const centre = (u(start) + u(end)) / 2;
+    const bottom = group.filter((g) => Math.abs(Math.min(...g.pts.map((p) => p.z ?? 0)) - baseZ) < 1e-6);
+
+    const supplied = input.wallDemands?.get(first.shell.id);
+    let pu = 0, mu = 0, vu = 0;
+    for (const g of bottom) {
+      const us = g.pts.map(u);
+      const w = Math.max(...us) - Math.min(...us);
+      const uc = us.reduce((s, x) => s + x, 0) / us.length;
+      // Compression is a negative σyy; the wall carries it as a positive Pu.
+      const f = -g.stress.sigmaYy * g.shell.thickness * w;
+      pu += f;
+      mu += f * (uc - centre);
+      vu += g.stress.tauXy * g.shell.thickness * w;
+    }
+    const resolvedMoment = bottom.length > 1;
+    const demands = supplied ?? { pu: Math.max(0, pu), muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
+    if (!supplied && !resolvedMoment) {
       unsupported.push({
-        elementId: shell.id,
-        message: msg('detailing.floorRun.wallMomentFromMembraneOnly', { element: shell.id }),
+        elementId: first.shell.id,
+        message: msg('detailing.floorRun.wallMomentFromMembraneOnly', { element: first.shell.id }),
       });
     }
 
     const design = designWall({
-      wallId: `W${shell.id}`,
+      wallId,
       length, height,
-      thickness: shell.thickness,
+      thickness,
       cover: input.cover,
       fc: input.fc, fy: input.fy,
       barDiameterMm: input.wallBarDiameterMm,
       edition: input.edition,
       pu: demands.pu, muInPlane: demands.muInPlane, vuInPlane: demands.vuInPlane,
+      // Out of the plane: the largest bending of the bottom row's verticals (my) and horizontals (mx).
+      muOutOfPlane: Math.max(0, ...bottom.map((g) => Math.abs(g.stress.my))),
+      muOutOfPlaneHorizontal: Math.max(0, ...group.map((g) => Math.abs(g.stress.mx))),
+      ...(input.wallReinforcement?.(wallId) ? { provided: input.wallReinforcement(wallId)! } : {}),
+      openingCount: input.wallOpenings?.(ids).length ?? 0,
       seismicRequired: input.seismicRequired,
     });
     walls.push(design);
+    wallGeometry[wallId] = { wallId, start: { x: start.x, y: start.y, z: baseZ }, end: { x: end.x, y: end.y, z: baseZ }, height, thickness, cover: input.cover, elementIds: ids, ...(input.wallOpenings?.(ids).length ? { openings: [...input.wallOpenings(ids)] } : {}) };
     const key = levelKey(baseZ);
     const wallGeom: WallGeometry = {
-      wallId: `W${shell.id}`,
+      wallId,
       start: { x: start.x, y: start.y, z: baseZ },
       end: { x: end.x, y: end.y, z: baseZ },
-      height, thickness: shell.thickness, cover: input.cover,
-      elementIds: [shell.id],
+      height, thickness, cover: input.cover,
+      elementIds: ids,
+      ...(input.wallOpenings?.(ids).length ? { openings: [...input.wallOpenings(ids)] } : {}),
     };
     const entry: WallEntry = {
-      wallId: `W${shell.id}`, design, elementIds: [shell.id],
+      wallId, design, elementIds: ids,
       geometry: wallGeom,
       barDiameterMm: input.wallBarDiameterMm,
       record: wallRecord({
-        shell, geometry: wallGeom, design, stress, demands,
-        fromMembraneOnly: !supplied, input,
+        pieces: bottom, geometry: wallGeom, design, demands,
+        fromMembraneOnly: !supplied && !resolvedMoment, input,
       }),
     };
     const list = wallsByLevel.get(key);
@@ -570,7 +703,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
     `Piso: ${slabs.length} losa(s), ${walls.length} tabique(s), ` +
     `${assemblies.length} conjunto(s) de nivel, ${unsupported.length} condición(es) no soportada(s).`);
 
-  return { assemblies, slabs, walls, classifications, unsupported, trace };
+  return { assemblies, slabs, walls, wallGeometry, classifications, unsupported, trace };
 }
 
 // ─── Family records ──────────────────────────────────────────────
@@ -827,6 +960,7 @@ function slabRecord(args: {
     coverageDeg: p.coverageDeg,
     openBearingDeg: p.openBearingDeg,
     perimeter: p.perimeter,
+    ...(p.reinforcement ? { reinforcement: { ...p.reinforcement } } : {}),
     contributions: p.contributions.map((c) => ({ ...c })),
     residualDenominator: p.contributions.find(
       (c) => c.combinationName === p.governingCombination)?.residualDenominator,
@@ -872,15 +1006,15 @@ function slabRecord(args: {
 
 /** The wall's design evidence. */
 function wallRecord(args: {
-  shell: FloorShell;
+  /** The pieces of the wall's base row, whose stresses the demands integrate. */
+  pieces: readonly WallPiece[];
   geometry: WallGeometry;
   design: WallDesignResult;
-  stress: FloorShellStress;
   demands: { pu: number; muInPlane: number; vuInPlane: number };
   fromMembraneOnly: boolean;
   input: RunFloorDesignInput;
 }): FamilyRecordDraft<WallDesignRecord> {
-  const { design, geometry, stress } = args;
+  const { design, geometry } = args;
   const length = Math.hypot(geometry.end.x - geometry.start.x, geometry.end.y - geometry.start.y);
   const geometrySnapshot = {
     wallId: geometry.wallId,
@@ -891,17 +1025,19 @@ function wallRecord(args: {
     // designed, not off a flag a caller could set.
     twoCurtains: geometry.thickness > 0.25,
   };
-  const demandSnapshot: WallDesignRecord['demands'] = [{
-    elementId: args.shell.id,
+  // One row per base piece, each with the wall's resolved demands: the stresses are the
+  // evidence, the forces are the wall's.
+  const demandSnapshot: WallDesignRecord['demands'] = args.pieces.map(({ shell, stress }) => ({
+    elementId: shell.id,
     sigmaXx: stress.sigmaXx, sigmaYy: stress.sigmaYy, tauXy: stress.tauXy,
     pu: args.demands.pu, muInPlane: args.demands.muInPlane, vuInPlane: args.demands.vuInPlane,
     governingCombination: null,
     fromMembraneOnly: args.fromMembraneOnly,
-  }];
+  }));
   const axialFlexure: WallDesignRecord['axialFlexure'] = {
     status: design.axialFlexure.ok ? 'OK' : 'FAIL',
     pu: design.axialFlexure.pu,
-    phiMn: design.axialFlexure.mn,
+    phiMn: design.axialFlexure.phiMn ?? design.axialFlexure.mn,
     utilization: design.axialFlexure.utilization,
   };
   const inPlaneShear: WallDesignRecord['inPlaneShear'] = {
@@ -1041,4 +1177,45 @@ export function floorDesignReadiness(input: {
     withResults,
     reasons,
   };
+}
+
+/** One wall shell, before it is grouped into its wall. */
+interface WallPiece {
+  shell: FloorShell;
+  pts: FloorNode[];
+  stress: FloorShellStress;
+  normal: { x: number; y: number; z: number };
+}
+
+/**
+ * The walls: pieces of one plane, of one thickness, within one storey, that share an edge.
+ * Deterministic: pieces are taken in element order, and so are the groups.
+ */
+export function groupWallPieces<P extends { shell: FloorShell; pts: FloorNode[]; normal: { x: number; y: number; z: number } }>(
+  pieces: readonly P[], storeyOf: (z: number) => number,
+): P[][] {
+  const sorted = [...pieces].sort((a, b) => a.shell.id - b.shell.id);
+  const parent = sorted.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const offset = (p: P) => p.normal.x * p.pts[0]!.x + p.normal.y * p.pts[0]!.y + p.normal.z * (p.pts[0]!.z ?? 0);
+  const storey = (p: P) => storeyOf(Math.min(...p.pts.map((q) => q.z ?? 0)));
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const a = sorted[i]!, b = sorted[j]!;
+      const dot = a.normal.x * b.normal.x + a.normal.y * b.normal.y + a.normal.z * b.normal.z;
+      if (Math.abs(dot) < 0.999) continue;
+      if (Math.abs(Math.abs(offset(a)) - Math.abs(offset(b))) > 1e-3) continue;
+      if (Math.abs(a.shell.thickness - b.shell.thickness) > 1e-6) continue;
+      if (storey(a) !== storey(b)) continue;
+      const shared = a.shell.nodes.filter((n) => b.shell.nodes.includes(n)).length;
+      if (shared >= 2) parent[find(i)] = find(j);
+    }
+  }
+  const groups = new Map<number, P[]>();
+  sorted.forEach((p, i) => {
+    const r = find(i);
+    const g = groups.get(r);
+    if (g) g.push(p); else groups.set(r, [p]);
+  });
+  return [...groups.values()].sort((a, b) => a[0]!.shell.id - b[0]!.shell.id);
 }

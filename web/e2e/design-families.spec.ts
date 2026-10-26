@@ -9,14 +9,30 @@
  * and stacking project loads into one describe block has already broken a whole spec through
  * leftover autosaved state.
  */
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
 async function ready(page: Page, example: string) {
   await loadModel(page, example);
   await designAll(page);
+  await designPlace(page, 'list');
   await expect(page.getByTestId('design-families')).toBeVisible();
+}
+
+/*
+ * «Size…», from the member list's toolbar: the one design command (interface A), its dialog
+ * naming the families it will run before it runs. The classic strip's «Design all» with its scope
+ * read-out beside it is this dialog now.
+ */
+async function openSize(page: Page) {
+  await page.getByTestId('cmd-autodesign').click();
+  await expect(page.getByTestId('desk-run-options')).toBeVisible();
+}
+async function runSize(page: Page) {
+  await openSize(page);
+  if (await page.getByTestId('desk-run-resize').count()) await page.getByTestId('desk-run-resize').setChecked(false);
+  await page.getByTestId('desk-run').click();
 }
 
 test.describe('the family selector drives the whole run', () => {
@@ -46,6 +62,7 @@ test.describe('the family selector drives the whole run', () => {
         await expect(page.getByTestId(`design-family-${f}`),
           `${f} is not offered by a model without them`).toHaveCount(0);
       }
+      await openSize(page);
       await expect(page.getByTestId('cmd-design-scope')).toBeVisible();
     });
 
@@ -56,8 +73,9 @@ test.describe('the family selector drives the whole run', () => {
     await expect(page.getByTestId('design-family-beam')).toBeChecked();
     await page.getByTestId('design-family-none').click();
     await expect(page.getByTestId('design-family-column')).not.toBeChecked();
-    // Nothing selected means nothing to run, and the button says so by being unavailable.
-    await expect(page.getByTestId('cmd-design-all')).toBeDisabled();
+    // Nothing selected means nothing to run, and the command says so by being unavailable.
+    await openSize(page);
+    await expect(page.getByTestId('desk-run')).toBeDisabled();
   });
 
   test('the summary names exactly what will be designed', async ({ pro: page }) => {
@@ -76,7 +94,7 @@ test.describe('the family selector drives the whole run', () => {
       await page.getByTestId('design-family-none').click();
       await page.getByTestId('design-family-column').check();
       await page.getByTestId('design-family-beam').check();
-      await page.getByTestId('cmd-design-all').click();
+      await runSize(page);
 
       const result = page.getByTestId('design-family-result');
       await expect(result).toBeVisible();
@@ -110,6 +128,7 @@ test.describe('the family selector drives the whole run', () => {
         'no box for a family the model does not have').toHaveCount(0);
 
       // And the omission is stated rather than left to be noticed: the scope names what runs.
+      await openSize(page);
       const scope = (await page.getByTestId('cmd-design-scope').innerText()).trim();
       expect(scope.length, 'the scope is named before the run').toBeGreaterThan(5);
       expect(scope.toLowerCase(), 'and it does not claim footings')
@@ -126,7 +145,7 @@ test.describe('the family selector drives the whole run', () => {
       await ready(page, 'rc-qa-diagnostic');
       await page.getByTestId('design-family-none').click();
       await page.getByTestId('design-family-column').check();
-      await page.getByTestId('cmd-design-all').click();
+      await runSize(page);
       await expect(page.getByTestId('design-family-result')).toBeVisible();
       await expect(page.getByTestId('design-result-beam'),
         'beam exists, was not ticked, and is reported').toContainText(/omitida|skipped/);
@@ -135,7 +154,7 @@ test.describe('the family selector drives the whole run', () => {
   test('the 3-D view is one click from the result', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await ready(page, 'rc-qa-diagnostic');
-    await page.getByTestId('cmd-design-all').click();
+    await runSize(page);
     const view = page.getByTestId('design-result-view-3d');
     await expect(view).toBeVisible();
     await view.click();

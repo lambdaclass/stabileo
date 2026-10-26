@@ -147,6 +147,8 @@ export interface FlexOutput {
    * 8 %, or (with `invalid`) the inputs describe no section at all.
    */
   impossible?: boolean;
+  /** No arrangement of the bars this calculator tries fits: its search ended, nothing was proven. */
+  exhausted?: boolean;
   /**
    * The inputs were refused before anything was computed — a material that
    * is not a positive number, a geometry that is not a section, a layout
@@ -648,10 +650,16 @@ export function solveFlex(input: FlexInput): FlexOutput {
      * supplied the steel, so a shortfall is not the section being too small
      * — it is their bars being too few, and the ratio is what says so.
      */
-    const cannotPlace =
-      total > AstMaxHere
-      || chosen.placeable === false
-      || (chosenComp?.placeable === false);
+    /*
+     * Two different answers hide in "cannot place". Over the ratio ceiling is a bound: no steel
+     * makes the section work. No arrangement of the bars this calculator tries fitting in
+     * `maxLayers` is the end of ITS search (one diameter a face, its diameter list, its layer
+     * count), not a proof: bundles, mixed diameters or another detailing may still fit. The
+     * first is `impossible`; the second is `exhausted`, and says so.
+     */
+    const overCeiling = total > AstMaxHere;
+    const notPlaced = chosen.placeable === false || chosenComp?.placeable === false;
+    const cannotPlace = overCeiling || notPlaced;
     const shortOfDemand = st.phiMn < MuAbs * 0.999;
     /*
      * §10.3.5: a flexural member has εt ≥ 4 ‰ at nominal strength. Design
@@ -661,7 +669,8 @@ export function solveFlex(input: FlexInput): FlexOutput {
      * there is no strain to speak of, and the moment check says why it fails.
      */
     const overReinforced = total > 0 && st.c > 0 && st.epsilonT < epsDuctile - 1e-9;
-    const impossible = i.mode === 'verify' ? cannotPlace : (cannotPlace || shortOfDemand || overReinforced);
+    const impossible = i.mode === 'verify' ? overCeiling : (overCeiling || shortOfDemand || overReinforced);
+    const exhausted = notPlaced && !impossible;
     const verifies = !cannotPlace && !shortOfDemand && !overReinforced;
 
     return {
@@ -677,6 +686,7 @@ export function solveFlex(input: FlexInput): FlexOutput {
       ratio: st.phiMn > 0 ? MuAbs / st.phiMn : Infinity,
       ok: verifies,
       impossible,
+      ...(exhausted ? { exhausted: true } : {}),
       bars,
       barChoice: chosen,
       barChoiceComp: chosenComp ?? undefined,
@@ -717,6 +727,7 @@ export function solveFlex(input: FlexInput): FlexOutput {
           ? [msg('flex.step.fails', { phiMn: st.phiMn, mu: MuAbs })] : []),
         ...(overReinforced ? [msg('flex.step.notDuctile', { epsT: st.epsilonT * 1000 })] : []),
         ...(impossible && i.mode !== 'verify' ? [msg('flex.step.impossible')] : []),
+        ...(exhausted ? [msg('flex.step.exhausted')] : []),
         ...(i.mode === 'verify' && AsReq < AsMin
           ? [msg('flex.step.belowMin', { as: AsReq, asMin: AsMin })] : []),
       ],

@@ -1,7 +1,7 @@
 // PRO Report Generator — HTML-based report with KaTeX math rendering
-// Generates a complete structural analysis + verification report
+// Generates the structural analysis report; the design is reported by the memoria
+// (`lib/report/memoria`).
 // Uses window.print() for PDF output (browser native)
-// Groups identical element designs to reduce report length
 
 import { provenanceBlockHtml, type ResultProvenance as ProvenanceRecord, type ProvenanceLabels } from '../provenance/result-provenance';
 import { memberSectionLabel } from '../section/variable';
@@ -11,10 +11,6 @@ import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import { formatPDeltaFactor } from './pdelta-result';
-import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
-import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
-import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { ProjectQuantities } from './quantities';
 import { quantitiesSectionHtml } from './report/quantities-section';
 import {
@@ -57,7 +53,6 @@ export interface ReportConfig {
   sections: {
     modelData: boolean;
     results: boolean;
-    verification: boolean;
     advancedAnalysis: boolean;
     storyDrift: boolean;
     diagnostics: boolean;
@@ -120,12 +115,8 @@ export interface ReportData {
   loads?: Array<{ type: string; target: string; values: string; caseLabel?: string }>;
   // Results
   results: AnalysisResults3D;
-  // Verification
-  verifications: ElementVerification[];
   // Quantities
   quantities?: ProjectQuantities;
-  // Element lengths for elevation drawings
-  elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
@@ -140,30 +131,10 @@ export interface ReportData {
     ratioX: number; ratioY: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
-  /** The Design panel's verification, member by member (`reportDesignChecks`). */
-  designChecks?: Array<{
-    elementId: number; elementType: string; section: string;
-    status: 'ok' | 'warn' | 'fail' | 'none'; worstUtilization: number; checks: number;
-    governing?: string; demand?: number; capacity?: number; unit?: string; comboName?: string;
-  }>;
   /** What the story drift was checked against: C_d, the group, Tabla 6.4's limit, the cases. */
   storyDriftBasis?: { cd: number; group: string; limit: number; cases: string[] };
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
-  // Serviceability check results
-  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string; spanOverDelta?: number; limitDivisor?: number; over?: string } }>;
-  // Upgraded joint detail opts (detailing-aware, multiple types)
-  jointDetailOpts?: JointDetailSvgOpts[];
-  // Beam continuity frame-line elevation opts
-  beamContinuityOpts?: FrameLineElevationOpts[];
-  // Column stack continuity elevation opts
-  columnStackOpts?: ColumnStackElevationOpts[];
-  // Slender column summary
-  slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
-  // Bar marks
-  barMarks?: Array<{ mark: string; diameter: number; shape: string; cuttingLength: number; count: number; totalLength: number; weight: number; overStock: boolean; stockLength: number; needsStockSplice: boolean; nStockSplices: number }>;
-  // Per-element per-combo forces for detailed report
-  comboForces?: Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -195,175 +166,6 @@ function km(expr: string, display = false): string {
   } catch {
     return `<code>${escHtml(expr)}</code>`;
   }
-}
-
-/** Convert a plain-text calculation step to KaTeX-rendered HTML.
- *  Steps follow the pattern: "LHS = formula = value unit"
- *  e.g. "d = 60 - 4 - 1 - 0.5 = 54.5 cm"
- *  e.g. "Vc = 0.17·√f'c·bw·d = 123.45 kN"
- */
-function renderStep(step: string): string {
-  let tex = step;
-
-  // ── Normalize accented Spanish chars to ASCII (before any LaTeX conversion) ──
-  // These appear mid-equation in terms like mín, máx, compresión, flexión, etc.
-  // KaTeX decomposes accented chars in math mode into broken glyphs (e.g. í → ıˊ)
-  tex = tex.replace(/á/g, 'a');
-  tex = tex.replace(/é/g, 'e');
-  tex = tex.replace(/í/g, 'i');
-  tex = tex.replace(/ó/g, 'o');
-  tex = tex.replace(/ú/g, 'u');
-  tex = tex.replace(/ñ/g, 'n');
-  tex = tex.replace(/ü/g, 'u');
-
-  // ── Named substitutions (do these BEFORE symbol replacements) ──
-  tex = tex.replace(/As,req/g, 'A_{s,req}');
-  tex = tex.replace(/As,min/g, 'A_{s,min}');
-  tex = tex.replace(/As,max/g, 'A_{s,max}');
-  tex = tex.replace(/As,prov/g, 'A_{s,prov}');
-  tex = tex.replace(/Av\/s,req/g, 'A_{v}/s_{req}');
-  tex = tex.replace(/Av\/s/g, 'A_{v}/s');
-  tex = tex.replace(/Vs,req/g, 'V_{s,req}');
-  tex = tex.replace(/Vs,max/g, 'V_{s,max}');
-  tex = tex.replace(/At\/s,req/g, 'A_{t}/s_{req}');
-  tex = tex.replace(/At\/s/g, 'A_{t}/s');
-  tex = tex.replace(/Al,req/g, 'A_{l,req}');
-  tex = tex.replace(/Acp/g, 'A_{cp}');
-  tex = tex.replace(/pcp/g, 'p_{cp}');
-  tex = tex.replace(/Aoh/g, 'A_{oh}');
-  tex = tex.replace(/Ao(?=[·\s=)])/g, 'A_{o}');
-  tex = tex.replace(/Al /g, 'A_{l} ');
-  tex = tex.replace(/ph /g, 'p_{h} ');
-  tex = tex.replace(/Nu/g, 'N_{u}');
-  tex = tex.replace(/Mu/g, 'M_{u}');
-  tex = tex.replace(/Vu/g, 'V_{u}');
-  tex = tex.replace(/Tu/g, 'T_{u}');
-  tex = tex.replace(/Rn/g, 'R_{n}');
-  tex = tex.replace(/Ag/g, 'A_{g}');
-  tex = tex.replace(/Vc(?=[·\s=)])/g, 'V_{c}');
-  tex = tex.replace(/Vs(?=[·\s=,)])/g, 'V_{s}');
-  tex = tex.replace(/Tcr/g, 'T_{cr}');
-  tex = tex.replace(/Mc /g, 'M_{c} ');
-  tex = tex.replace(/Pn0/g, 'P_{n0}');
-  tex = tex.replace(/Pnx/g, 'P_{nx}');
-  tex = tex.replace(/Pny/g, 'P_{ny}');
-  tex = tex.replace(/Pn(?=[·\s=)])/g, 'P_{n}');
-  tex = tex.replace(/Lu/g, 'L_{u}');
-  tex = tex.replace(/δns/g, '\\delta_{ns}');
-  tex = tex.replace(/βdns/g, '\\beta_{dns}');
-  tex = tex.replace(/f'c/g, "f'_{c}");
-  tex = tex.replace(/bw/g, 'b_{w}');
-  tex = tex.replace(/ρ_min/g, '\\rho_{min}');
-  tex = tex.replace(/ρ_max/g, '\\rho_{max}');
-  tex = tex.replace(/ρ_b/g, '\\rho_{b}');
-  tex = tex.replace(/λm,lim/g, '\\lambda_{m,lim}');
-  tex = tex.replace(/EI,eff/g, 'EI_{eff}');
-  tex = tex.replace(/M2C/g, 'M_{2C}');
-  tex = tex.replace(/M2,min/g, 'M_{2,min}');
-  tex = tex.replace(/M1\/M2/g, 'M_1/M_2');
-
-  // ── √ handling: match √ followed by a "token" (letters/digits/'/_ until · or space or = or )) ──
-  // e.g. "√f'c" → "\sqrt{f'_{c}}", "√(d² - X)" → "\sqrt{(d² - X)}"
-  tex = tex.replace(/√\(([^)]+)\)/g, '\\sqrt{($1)}');       // √(expr) → \sqrt{(expr)}
-  tex = tex.replace(/√([A-Za-z0-9'_{}\\.]+)/g, '\\sqrt{$1}'); // √token → \sqrt{token}
-
-  // ── Unicode symbol replacements ──
-  tex = tex.replace(/·/g, ' \\cdot ');
-  tex = tex.replace(/φ/g, '\\phi ');
-  tex = tex.replace(/ρ/g, '\\rho ');
-  tex = tex.replace(/θ/g, '\\theta ');
-  tex = tex.replace(/ε/g, '\\varepsilon ');
-  tex = tex.replace(/Δ/g, '\\Delta ');
-  tex = tex.replace(/β/g, '\\beta ');
-  tex = tex.replace(/δ/g, '\\delta ');
-  tex = tex.replace(/λ/g, '\\lambda ');
-  tex = tex.replace(/Ψ/g, '\\Psi ');
-  tex = tex.replace(/π/g, '\\pi ');
-  tex = tex.replace(/²/g, '^{2}');
-  tex = tex.replace(/³/g, '^{3}');
-  tex = tex.replace(/⁴/g, '^{4}');
-  tex = tex.replace(/≥/g, '\\geq ');
-  tex = tex.replace(/≤/g, '\\leq ');
-  tex = tex.replace(/≈/g, '\\approx ');
-  tex = tex.replace(/→/g, '\\rightarrow ');
-  tex = tex.replace(/⚠/g, '\\triangle\\!');
-  tex = tex.replace(/×/g, '\\times ');
-  tex = tex.replace(/Ø/g, '\\varnothing');
-  tex = tex.replace(/‰/g, '\\text{\\u2030}');
-  tex = tex.replace(/°/g, '^{\\circ}');
-  tex = tex.replace(/—/g, '\\text{---}');
-
-  // ── Units at end of expression → \text{} ──
-  // Use \text{kN}\cdot\text{m} to avoid literal · inside \text{} (causes \cdotp leak)
-  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN}{\\cdot}\\text{m}');
-  tex = tex.replace(/\s+kN\s*\\cdot\s*m\^{2}\s*$/, ' \\text{ kN}{\\cdot}\\text{m}^{2}');
-  tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm}^{2}\\text{/m}');
-  tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m}^{2}\\text{/m}');
-  tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm}^{2}');
-  tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m}^{2}');
-  tex = tex.replace(/\s+(kN|MPa|cm|mm|m|rad)\s*$/, ' \\text{ $1}');
-  tex = tex.replace(/\s+(%)\s*$/, ' \\text{$1}');
-
-  // ── Wrap text fragments (Armadura propuesta:, Estribos:, etc.) ──
-  // Detect lines that are descriptive text, not equations
-  const isTextLine = /^(Armadura|Estribos|Momento|Seccion|Columna|No se|zona |compresion |Ratio )/.test(tex)
-    || (/^[A-Za-z]/.test(tex) && !tex.includes('=') && !tex.includes('\\'));
-  if (isTextLine) {
-    tex = `\\text{${escHtml(step.replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').replace(/Ø/g, 'ø'))}}`;
-  }
-
-  return `<div class="memo-step">${km(tex)}</div>`;
-}
-
-// ─── Verification grouping ───────────────────────────────────────
-
-interface VerifGroup {
-  /** Representative verification (used for steps, SVG, etc.) */
-  representative: ElementVerification;
-  /** All element IDs in this group */
-  elementIds: number[];
-  /** Stirrup variants: map from stirrup description to element IDs */
-  stirrupVariants: Map<string, number[]>;
-}
-
-function groupVerifications(verifications: ElementVerification[]): VerifGroup[] {
-  const groupMap = new Map<string, VerifGroup>();
-
-  for (const v of verifications) {
-    const bars = v.column ? v.column.bars : v.flexure.bars;
-    const secKey = `${v.elementType}_${(v.b * 100).toFixed(0)}x${(v.h * 100).toFixed(0)}`;
-    const key = `${secKey}_${bars}`;
-    const stirrupDesc = `eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`;
-
-    let group = groupMap.get(key);
-    if (!group) {
-      group = {
-        representative: v,
-        elementIds: [],
-        stirrupVariants: new Map(),
-      };
-      groupMap.set(key, group);
-    }
-
-    group.elementIds.push(v.elementId);
-
-    const existing = group.stirrupVariants.get(stirrupDesc);
-    if (existing) {
-      existing.push(v.elementId);
-    } else {
-      group.stirrupVariants.set(stirrupDesc, [v.elementId]);
-    }
-  }
-
-  return [...groupMap.values()];
-}
-
-function typeLabel(type: string, tr: TFunc): string {
-  return type === 'beam' ? tr('report.typeBeam') : type === 'wall' ? tr('report.typeWall') : tr('report.typeColumn');
-}
-
-function typeLabelShort(type: string, tr: TFunc): string {
-  return type === 'beam' ? tr('report.typeBeamShort') : type === 'wall' ? tr('report.typeWallShort') : tr('report.typeColumnShort');
 }
 
 // ─── CSS for report ──────────────────────────────────────────────
@@ -453,7 +255,7 @@ const REPORT_CSS = `
 // ─── Report HTML generation ──────────────────────────────────────
 
 export function generateReportHtml(data: ReportData): string {
-  const { projectName, date, nodes, elements, materials, sections, supports, loadCount, results, verifications, quantities, screenshot } = data;
+  const { projectName, date, nodes, elements, materials, sections, supports, loadCount, results, quantities, screenshot } = data;
   // Use provided translation function or fallback to identity (returns key)
   const tr: TFunc = data.t ?? ((k: string) => k);
 
@@ -530,26 +332,14 @@ export function generateReportHtml(data: ReportData): string {
   const tocEntries: { label: string; anchor: string }[] = [];
   if (showSection('modelData')) tocEntries.push({ label: tr('report.modelData'), anchor: 'sec-model-data' });
   if (showSection('results')) tocEntries.push({ label: tr('report.results'), anchor: 'sec-results' });
-  if (showSection('verification') && verifications.length > 0) tocEntries.push({ label: tr('report.verification'), anchor: 'sec-verification' });
-  if (showSection('verification') && verifications.length === 0) tocEntries.push({ label: tr('report.design.title'), anchor: 'sec-design' });
-  if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: '4. ' + (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
-  if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
-  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
-  if (showSection('quantities') && quantities) tocEntries.push({ label: '7. ' + (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
-  if (showSection('figures') && cfg?.figures?.length) tocEntries.push({ label: '8. ' + tr('report.figures'), anchor: 'sec-figures' });
-  // Insert Design Summary into TOC if verification data exists AND the user
-  // didn't opt out of the verification section in the report config.
-  if (showSection('verification') && verifications.length > 0) {
-    tocEntries.unshift({ label: tr('report.designSummary') || 'Design Summary', anchor: 'sec-design-summary' });
-    // Renumber all subsequent entries
-    for (let i = 1; i < tocEntries.length; i++) {
-      const old = tocEntries[i].label;
-      const dotIdx = old.indexOf('.');
-      if (dotIdx > 0) tocEntries[i].label = `${i + 1}${old.substring(dotIdx)}`;
-    }
-    tocEntries[0].label = `1. ${tr('report.designSummary') || 'Design Summary'}`;
-  }
-
+  if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
+  if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
+  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
+  if (showSection('quantities') && quantities) tocEntries.push({ label: (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
+  if (showSection('figures') && cfg?.figures?.length) tocEntries.push({ label: tr('report.figures'), anchor: 'sec-figures' });
+  // Numbered as printed: leaving a section out renumbers the rest.
+  // Some titles carry their own number («1. Model Data»): it is dropped and written again in order.
+  tocEntries.forEach((e, i) => { e.label = `${i + 1}. ${e.label.replace(/^\d+\.\s*/, '')}`; });
   for (const entry of tocEntries) {
     html.push(`<div class="toc-entry"><a href="#${entry.anchor}">${escHtml(entry.label)}</a><span class="toc-dots"></span></div>`);
   }
@@ -564,95 +354,6 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<li>${escHtml(a)}</li>`);
     }
     html.push('</ul>');
-  }
-
-  // ─── Design Summary (when verification data exists and section is enabled) ───
-  if (showSection('verification') && verifications.length > 0) {
-    html.push(`<div class="page-break"></div>`);
-    html.push(`<h1 id="sec-design-summary">${escHtml(tr('report.designSummary') || 'Design Summary')}</h1>`);
-
-    // Overall status counts
-    const okCount = verifications.filter(v => v.overallStatus === 'ok').length;
-    const warnCount = verifications.filter(v => v.overallStatus === 'warn').length;
-    const failCount = verifications.filter(v => v.overallStatus === 'fail').length;
-    const total = verifications.length;
-
-    html.push(`<div class="summary-status-bar">`);
-    html.push(`<div class="summary-stat"><span class="status-ok">${okCount}</span> <span class="summary-stat-label">${escHtml(tr('report.pass') || 'Pass')}</span></div>`);
-    if (warnCount > 0) html.push(`<div class="summary-stat"><span class="status-warn">${warnCount}</span> <span class="summary-stat-label">${escHtml(tr('report.warning') || 'Warning')}</span></div>`);
-    if (failCount > 0) html.push(`<div class="summary-stat"><span class="status-fail">${failCount}</span> <span class="summary-stat-label">${escHtml(tr('report.fail') || 'Fail')}</span></div>`);
-    html.push(`<div class="summary-stat"><span>${total}</span> <span class="summary-stat-label">${escHtml(tr('report.totalElements') || 'Total elements checked')}</span></div>`);
-    html.push(`</div>`);
-
-    // Design code reference
-    html.push(`<p class="design-code-ref">${escHtml(tr('report.designCodeRef') || 'Design code')}: <strong>${escHtml(tr('report.coverCode'))}</strong></p>`);
-
-    // Utilization summary table
-    html.push(`<h2>${escHtml(tr('report.utilizationSummary') || 'Member Utilization Summary')}</h2>`);
-    html.push(`<table><thead><tr>`);
-    html.push(`<th>${escHtml(tr('report.elemLabel') || 'Element')}</th>`);
-    html.push(`<th>${escHtml(tr('report.typeLabel') || 'Type')}</th>`);
-    html.push(`<th>${escHtml(tr('report.sectionLabel') || 'Section')}</th>`);
-    html.push(`<th>${escHtml(tr('report.governingCheck') || 'Governing Check')}</th>`);
-    html.push(`<th>${escHtml(tr('report.governingCombo') || 'Governing Combo')}</th>`);
-    html.push(`<th>${escHtml(tr('report.utilizationLabel') || 'Utilization')}</th>`);
-    html.push(`<th>${escHtml(tr('report.statusLabel') || 'Status')}</th>`);
-    html.push(`</tr></thead><tbody>`);
-
-    // Sort by utilization descending (most critical first)
-    const sorted = [...verifications].sort((a, b) => {
-      const ua = Math.max(a.flexure.ratio ?? 0, a.shear.ratio ?? 0, a.column?.ratio ?? 0);
-      const ub = Math.max(b.flexure.ratio ?? 0, b.shear.ratio ?? 0, b.column?.ratio ?? 0);
-      return ub - ua;
-    });
-
-    for (const v of sorted) {
-      const utilization = Math.max(v.flexure.ratio ?? 0, v.shear.ratio ?? 0, v.column?.ratio ?? 0);
-      const govCheck = (v.column?.ratio ?? 0) >= (v.flexure.ratio ?? 0) && (v.column?.ratio ?? 0) >= (v.shear.ratio ?? 0)
-        ? (tr('report.axialFlexure') || 'Axial+Flexure')
-        : (v.flexure.ratio ?? 0) >= (v.shear.ratio ?? 0)
-          ? (tr('report.flexure') || 'Flexure')
-          : (tr('report.shear') || 'Shear');
-      const section = data.sections.find(s => {
-        const elem = data.elements.find(e => e.id === v.elementId);
-        return elem && s.id === elem.sectionId;
-      });
-      const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
-      const statusIcon = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
-      const typeLabel = v.elementType === 'beam' ? (tr('report.beam') || 'Beam')
-        : v.elementType === 'column' ? (tr('report.column') || 'Column')
-        : v.elementType === 'wall' ? (tr('report.wall') || 'Wall') : v.elementType;
-
-      html.push(`<tr>`);
-      html.push(`<td style="text-align:center">${v.elementId}</td>`);
-      html.push(`<td>${escHtml(typeLabel)}</td>`);
-      html.push(`<td>${escHtml(section?.name ?? '—')}</td>`);
-      html.push(`<td>${escHtml(govCheck)}</td>`);
-      // Governing combo — pick from the check type that governs
-      const govComboName = govCheck === (tr('report.shear') || 'Shear')
-        ? (v.governingCombos?.shear?.comboName ?? '—')
-        : govCheck === (tr('report.axialFlexure') || 'Axial+Flexure')
-          ? (v.governingCombos?.axial?.comboName ?? v.governingCombos?.flexure?.comboName ?? '—')
-          : (v.governingCombos?.flexure?.comboName ?? '—');
-      // Show if different checks have different governing combos
-      const allCombos = new Set([
-        v.governingCombos?.flexure?.comboName,
-        v.governingCombos?.shear?.comboName,
-        v.governingCombos?.axial?.comboName,
-      ].filter(Boolean));
-      const multiGov = allCombos.size > 1;
-      html.push(`<td style="font-size:9px${multiGov ? ';color:#d09030;font-weight:600' : ''}">${escHtml(govComboName)}${multiGov ? ' *' : ''}</td>`);
-      html.push(`<td style="text-align:right"><strong>${(utilization * 100).toFixed(0)}%</strong></td>`);
-      html.push(`<td class="${statusCls}" style="text-align:center;font-weight:bold">${statusIcon}</td>`);
-      html.push(`</tr>`);
-    }
-    html.push(`</tbody></table>`);
-
-    // Footnotes
-    html.push(`<p style="font-size:9px;color:#888;margin-top:6px">* ${escHtml(tr('report.multiGovNote') || 'Different checks (flexure/shear/axial) governed by different combinations — see detailed verification for full breakdown')}</p>`);
-    if (data.combinations && data.combinations.length > 0) {
-      html.push(`<p style="font-size:9px;color:#888;margin-top:4px">${escHtml(tr('report.combosUsed') || 'Load combinations checked')}: ${data.combinations.map(c => escHtml(c.name)).join(', ')}</p>`);
-    }
   }
 
   // ─── Model Data ─────────────────────────────────────────
@@ -944,389 +645,6 @@ export function generateReportHtml(data: ReportData): string {
 
   } // end showSection('results')
 
-  // ─── Verification ───────────────────────────────────────
-  if (showSection('verification') && verifications.length > 0) {
-    html.push(`<div class="page-break"></div>`);
-    html.push(`<h1 id="sec-verification">${escHtml(tr('report.verification'))}</h1>`);
-
-    const ok = verifications.filter(v => v.overallStatus === 'ok').length;
-    const fail = verifications.filter(v => v.overallStatus === 'fail').length;
-    const warn = verifications.filter(v => v.overallStatus === 'warn').length;
-    html.push(`<p><span class="status-ok">${escHtml(interp(tr('report.statusOk'), { n: ok }))}</span> · <span class="status-warn">${escHtml(interp(tr('report.statusWarn'), { n: warn }))}</span> · <span class="status-fail">${escHtml(interp(tr('report.statusFail'), { n: fail }))}</span></p>`);
-
-    // Summary table — grouped by element with per-combo force rows
-    const comboForces = data.comboForces;
-    const typeOrd: Record<string, number> = { column: 0, wall: 1, beam: 2 };
-    const sortedVerifs = [...verifications].sort((a, b) => {
-      const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
-      return t !== 0 ? t : a.elementId - b.elementId;
-    });
-
-    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.summary'))}</h2>`);
-
-    for (const v of sortedVerifs) {
-      const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
-      const statusTxt = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
-      const asReq = v.column ? v.column.AsTotal : v.flexure.AsReq;
-      const asProv = v.column ? v.column.AsProv : v.flexure.AsProv;
-      const bars = v.column ? v.column.bars : v.flexure.bars;
-      const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp) ? ` + ${v.flexure.barsComp} (A's)` : '';
-      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
-      const govComboId = v.governingCombos?.flexure?.comboId;
-
-      // Element header — print-friendly light background
-      html.push(`<div style="margin-top:12px;padding:5px 8px;background:#eef3f9;border:1px solid #ccc;border-radius:3px;color:#222">`);
-      html.push(`<strong>${typeLabel(v.elementType, tr)} ${v.elementId}</strong> — ${secStr} cm — <span class="${statusCls}" style="font-weight:700">${statusTxt} ${v.overallStatus.toUpperCase()}</span>`);
-      html.push(`</div>`);
-
-      // Per-combo force rows
-      const elemCombos = comboForces?.get(v.elementId);
-      if (elemCombos && elemCombos.length > 0) {
-        html.push(`<table style="margin:0;font-size:9px;width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:2px 4px;width:40%">Combination</th><th style="text-align:right;padding:2px 4px">${km('M_u')} (kN·m)</th><th style="text-align:right;padding:2px 4px">${km('V_u')} (kN)</th><th style="text-align:right;padding:2px 4px">${km('N_u')} (kN)</th></tr></thead><tbody>`);
-        for (const cf of elemCombos) {
-          const isGov = cf.comboId === govComboId;
-          const rowBg = isGov ? 'background:#e8f5f3;font-weight:600' : '';
-          const marker = isGov ? ' ◄' : '';
-          html.push(`<tr style="${rowBg}"><td style="padding:1px 4px">${escHtml(cf.comboName)}${marker}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Mu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Vu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Nu)}</td></tr>`);
-        }
-        html.push(`</tbody></table>`);
-      }
-
-      // Reinforcement / design summary (from envelope/governing verification)
-      html.push(`<div style="padding:3px 8px;font-size:9px;color:#555;border-bottom:1px solid #ddd;background:#fafafa">`);
-      html.push(`Design (envelope): ${km('A_{s,req}')} = ${asReq.toFixed(1)} cm² → ${bars}${compNote} (${asProv.toFixed(1)} cm²) · eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`);
-      html.push(`</div>`);
-    }
-
-    // ─── Grouped detail ──────────────────────────────────
-    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.detailByType'))}</h2>`);
-
-    const groups = groupVerifications(verifications);
-    const colGroup = groups.find(g => g.representative.elementType === 'column');
-
-    for (const group of groups) {
-      const v = group.representative;
-      const lbl = typeLabel(v.elementType, tr);
-      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
-      const bars = v.column ? v.column.bars : v.flexure.bars;
-      const elemList = group.elementIds.join(', ');
-
-      html.push(`<div class="group-header">`);
-      html.push(`<h3 style="margin:0">${lbl} ${secStr} cm — ${bars} — ${km("f'_c = " + v.fc + " \\text{ MPa}")}</h3>`);
-      html.push(`<div class="group-elems">${escHtml(tr('report.elementsLabel'))}: ${elemList} (${group.elementIds.length})</div>`);
-
-      // Stirrup variants
-      if (group.stirrupVariants.size === 1) {
-        const [desc] = [...group.stirrupVariants.keys()];
-        html.push(`<div class="group-elems">${escHtml(tr('report.stirrups'))}: ${desc}</div>`);
-      } else {
-        html.push(`<div class="group-elems">${escHtml(tr('report.stirrups'))}:`);
-        for (const [desc, ids] of group.stirrupVariants) {
-          html.push(`<span class="stirrup-note">${desc} → elem. ${ids.join(', ')}</span>`);
-        }
-        html.push(`</div>`);
-      }
-      html.push(`</div>`);
-
-      // Cross section SVG
-      const svgStr = generateCrossSectionSvg({
-        b: v.b,
-        h: v.h,
-        cover: v.cover,
-        flexure: v.flexure,
-        shear: v.shear,
-        column: v.column,
-        isColumn: v.elementType === 'column' || v.elementType === 'wall',
-      });
-      html.push(`<div class="svg-container">${svgStr}</div>`);
-
-      // Calculation steps with KaTeX
-      html.push(`<h4>${escHtml(tr('report.flexureCheck'))} <span class="code-ref">CIRSOC 201 §10.2</span></h4>`);
-      html.push(`<div class="step-block">`);
-      for (const step of v.flexure.steps) {
-        html.push(renderStep(step));
-      }
-      html.push(`</div>`);
-
-      html.push(`<h4>${escHtml(tr('report.shearCheck'))} <span class="code-ref">CIRSOC 201 §11.1</span></h4>`);
-      html.push(`<div class="step-block">`);
-      for (const step of v.shear.steps) {
-        html.push(renderStep(step));
-      }
-      html.push(`</div>`);
-
-      if (v.column) {
-        html.push(`<h4>${escHtml(tr('report.compressionCheck'))} <span class="code-ref">CIRSOC 201 §10.3.6</span></h4>`);
-        html.push(`<div class="step-block">`);
-        for (const step of v.column.steps) {
-          html.push(renderStep(step));
-        }
-        html.push(`</div>`);
-
-        // Interaction diagram for columns
-        try {
-          if (v.b && v.h && v.column.AsProv > 0) {
-            const diagram = generateInteractionDiagram({
-              b: v.b,
-              h: v.h,
-              fc: v.fc,
-              fy: v.fy,
-              cover: v.cover,
-              AsProv: v.column.AsProv,
-              barCount: v.column.barCount,
-              barDia: v.column.barDia,
-            });
-            if (diagram) {
-              const svgDiag = generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu });
-              html.push(`<h4>${escHtml(tr('report.interactionDiagram') || 'Diagrama de Interacción P-M')}</h4>`);
-              html.push(`<div class="interaction-container">${svgDiag}</div>`);
-              html.push(`<p class="dim" style="font-size:8px;color:#888;margin-top:2px">Point shown is envelope maximum (conservative — Nu and Mu may come from different combinations)</p>`);
-            }
-          }
-        } catch { /* diagram generation is optional */ }
-      }
-
-      if (v.torsion) {
-        html.push(`<h4>${escHtml(tr('report.torsionCheck'))} <span class="code-ref">CIRSOC 201 §11.5</span>${v.torsion.neglect ? ` (${escHtml(tr('report.torsionNeglect'))})` : ''}</h4>`);
-        html.push(`<div class="step-block">`);
-        for (const step of v.torsion.steps) {
-          html.push(renderStep(step));
-        }
-        html.push(`</div>`);
-      }
-
-      if (v.biaxial) {
-        html.push(`<h4>${escHtml(tr('report.biaxialCheck'))} <span class="code-ref">CIRSOC 201 §10.3.6 (Bresler)</span></h4>`);
-        html.push(`<div class="step-block">`);
-        for (const step of v.biaxial.steps) {
-          html.push(renderStep(step));
-        }
-        html.push(`</div>`);
-      }
-
-      if (v.slender) {
-        html.push(`<h4>${escHtml(tr('report.slenderCheck'))}${v.slender.isSlender ? ` (${escHtml(tr('report.slenderColumn'))})` : ` (${escHtml(tr('report.shortColumn'))})`}</h4>`);
-        html.push(`<div class="step-block">`);
-        for (const step of v.slender.steps) {
-          html.push(renderStep(step));
-        }
-        html.push(`</div>`);
-      }
-    }
-
-    // ─── Elevation views (longitudinal sections) ─────────────
-    html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.longitudinalSections'))}</h2>`);
-
-    const drawnGroupKeys = new Set<string>();
-    for (const group of groups) {
-      const v = group.representative;
-      const lbl = typeLabel(v.elementType, tr);
-      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
-      const groupKey = `${v.elementType}_${secStr}`;
-      if (drawnGroupKeys.has(groupKey)) continue;
-      drawnGroupKeys.add(groupKey);
-
-      // Get element length (from the first element in the group)
-      const elemLen = data.elementLengths?.get(v.elementId) ?? 3.0;
-
-      // Determine support types for beam elevation
-      const elem = elements.find(e => e.id === v.elementId);
-      const supI = elem ? supports.find(s => s.nodeId === elem.nodeI) : undefined;
-      const supJ = elem ? supports.find(s => s.nodeId === elem.nodeJ) : undefined;
-      const supTypeI = supI ? (supI.type === 'fixed' ? 'fixed' as const : 'pinned' as const) : 'free' as const;
-      const supTypeJ = supJ ? (supJ.type === 'fixed' ? 'fixed' as const : 'pinned' as const) : 'free' as const;
-
-      if (v.elementType === 'beam' || v.elementType === 'wall') {
-        html.push(`<h3>${lbl} ${secStr} cm — ${escHtml(tr('report.longitudinalView'))}</h3>`);
-        const elevSvg = generateBeamElevationSvg({
-          length: elemLen,
-          b: v.b,
-          h: v.h,
-          cover: v.cover,
-          flexure: v.flexure,
-          shear: v.shear,
-          supportI: supTypeI,
-          supportJ: supTypeJ,
-        });
-        html.push(`<div class="svg-container">${elevSvg}</div>`);
-      } else if (v.elementType === 'column' && v.column) {
-        html.push(`<h3>${lbl} ${secStr} cm — ${escHtml(tr('report.longitudinalView'))}</h3>`);
-        const colElevSvg = generateColumnElevationSvg({
-          height: elemLen,
-          b: v.b,
-          h: v.h,
-          cover: v.cover,
-          column: v.column,
-          shear: v.shear,
-        });
-        html.push(`<div class="svg-container">${colElevSvg}</div>`);
-      }
-    }
-
-    // ─── Joint details (upgraded: detailing-aware, multiple types) ──
-    if (data.jointDetailOpts && data.jointDetailOpts.length > 0) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.jointDetails'))}</h2>`);
-      for (const jd of data.jointDetailOpts.slice(0, 4)) {
-        html.push(`<div class="svg-container">${generateJointDetailSvg(jd)}</div>`);
-      }
-    } else {
-      // Fallback: old single-representative joint
-      const beamGroup = groups.find(g => g.representative.elementType === 'beam');
-      if (beamGroup && colGroup) {
-        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.jointDetails'))}</h2>`);
-        const bv = beamGroup.representative;
-        const cv = colGroup.representative;
-        html.push(`<div class="svg-container">${generateJointDetailSvg({ beamB: bv.b, beamH: bv.h, colB: cv.b, colH: cv.h, cover: bv.cover, beamBars: bv.flexure.bars, colBars: cv.column?.bars ?? cv.flexure.bars, stirrupDia: cv.shear.stirrupDia, stirrupSpacing: cv.shear.spacing })}</div>`);
-      }
-    }
-
-    // ─── Beam continuity elevations ──────────────────────────
-    if (data.beamContinuityOpts && data.beamContinuityOpts.length > 0) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
-      for (const fl of data.beamContinuityOpts.slice(0, 3)) {
-        html.push(`<div class="svg-container" style="overflow-x:auto">${generateFrameLineElevationSvg(fl)}</div>`);
-      }
-    }
-
-    // ─── Column continuity elevations ──────────────────────────
-    if (data.columnStackOpts && data.columnStackOpts.length > 0) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.columnContinuity') || 'Column Continuity')}</h2>`);
-      for (const cs of data.columnStackOpts.slice(0, 3)) {
-        html.push(`<div class="svg-container">${generateColumnStackElevationSvg(cs)}</div>`);
-      }
-    }
-
-    // ─── Slender column summary ──────────────────────────────
-    if (data.slenderSummary && data.slenderSummary.length > 0) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slenderSummary') || 'Slender Column Summary')}</h2>`);
-      html.push(`<table><thead><tr><th>Elem</th><th>k</th><th>Lu (m)</th><th>k·Lu/r</th><th>λ lim</th><th>${escHtml(tr('report.slenderClass') || 'Class')}</th><th>δ_ns</th><th>C_m</th><th>Mc (kN·m)</th></tr></thead><tbody>`);
-      for (const s of data.slenderSummary) {
-        const cls = s.isSlender ? 'status-warn' : 'status-ok';
-        const label = s.isSlender ? tr('pro.slenderCol') || 'Slender' : tr('pro.shortCol') || 'Short';
-        html.push(`<tr><td>${s.elementId}</td><td class="num">${s.k.toFixed(2)}</td><td class="num">${s.lu.toFixed(2)}</td><td class="num">${s.klu_r.toFixed(1)}</td><td class="num">${s.lambda_lim.toFixed(0)}</td><td class="${cls}">${label}</td><td class="num">${s.isSlender ? s.delta_ns.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Cm.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Mc.toFixed(1) : '—'}</td></tr>`);
-      }
-      html.push(`</tbody></table>`);
-    }
-
-    // ─── Slab reinforcement ─────────────────────────────────
-    /*
-     * This section used to print slab steel it had made up: q = 10 kN/m² whatever the loads,
-     * Mu = q·L²/10 with L the edge of ONE mesh quad (not the slab's span), f'c = 25 MPa whatever
-     * the material, fy = 420, and "horizontal" judged on the y axis in a Z-up model. None of it
-     * came from the analysis, and a report is what a building is built from. Slab steel is
-     * designed from the analysis moments by the slab design (detailing/slab-design.ts); the
-     * report says so instead of printing a number nobody computed.
-     */
-    if (data.quads && data.quads.length > 0) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.slabReinforcement'))}</h2>`);
-      html.push(`<p>${escHtml(tr('report.slabNotDesignedHere'))}</p>`);
-    }
-
-    // Detailing summary (anchorage / splice / spacing)
-    if (verifications.some(v => v.detailing)) {
-      html.push(`<h2>${subNo(3)} ${escHtml(tr('report.detailing'))}</h2>`);
-      const allBars = new Map<number, { ld: number; ldh: number; lapSplice: number }>();
-      let minSpacing = 0;
-      let stirrupHook = '';
-      for (const v of verifications) {
-        if (!v.detailing) continue;
-        for (const b of v.detailing.bars) {
-          if (!allBars.has(b.diameter)) allBars.set(b.diameter, { ld: b.ld, ldh: b.ldh, lapSplice: b.lapSplice });
-        }
-        if (v.detailing.minClearSpacing > minSpacing) minSpacing = v.detailing.minClearSpacing;
-        if (!stirrupHook) stirrupHook = v.detailing.stirrupHook;
-      }
-      if (allBars.size > 0) {
-        html.push(`<table><thead><tr><th>${escHtml(tr('report.bar'))}</th><th>${escHtml(tr('report.devLength'))} (cm)</th><th>${escHtml(tr('report.hookedDev'))} (cm)</th><th>${escHtml(tr('report.splice'))} (cm)</th></tr></thead><tbody>`);
-        for (const [dia, vals] of [...allBars.entries()].sort((a, b) => a[0] - b[0])) {
-          html.push(`<tr><td>Ø${dia}</td><td class="num">${(vals.ld * 100).toFixed(0)}</td><td class="num">${(vals.ldh * 100).toFixed(0)}</td><td class="num">${(vals.lapSplice * 100).toFixed(0)}</td></tr>`);
-        }
-        html.push(`</tbody></table>`);
-        html.push(`<p>${escHtml(tr('report.minSpacing'))}: ${(minSpacing * 1000).toFixed(0)} mm · ${escHtml(tr('report.stirrupHook'))}: ${escHtml(stirrupHook)}</p>`);
-      }
-    }
-
-    // Serviceability checks
-    if (data.serviceability && data.serviceability.length > 0) {
-      const svcItems = data.serviceability.filter(s => s.crack || s.deflection);
-      if (svcItems.length > 0) {
-        html.push(`<h2>${subNo(3)} ${escHtml(tr('report.serviceability') || 'Serviceability')}</h2>`);
-        html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.crackWidth') || 'Crack w_k')} (mm)</th><th>${escHtml(tr('report.crackLimit') || 'Limit')} (mm)</th><th>${escHtml(tr('report.deflRatio') || 'Defl. ratio')}</th><th>${escHtml(tr('report.deflLimit') || 'Limit')}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
-        for (const s of svcItems) {
-          const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
-          const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
-          // L/δ against L/n. `ratio` is δ/δ_adm and `limit` is δ_adm in metres: neither is a
-          // fraction of the span, and printing 1/ratio as one gave "L/2" for a beam at half its limit.
-          // Both over the length the check used — 2L for a cantilever — or the row read
-          // "L/200 vs L/360 ✓" for a cantilever that passed against 2L/360.
-          const over = s.deflection?.over ?? 'L';
-          const sod = s.deflection?.spanOverDelta;
-          const deflR = s.deflection && sod !== undefined ? (Number.isFinite(sod) ? `${over}/${Math.round(sod)}` : `${over}/∞`) : '—';
-          const deflLim = s.deflection?.limitDivisor ? `${over}/${s.deflection.limitDivisor}` : '—';
-          const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
-          const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
-          html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
-        }
-        html.push(`</tbody></table>`);
-      }
-    }
-
-    // Rebar schedule (grouped)
-    html.push(`<div class="page-break"></div>`);
-    html.push(`<h2>${subNo(3)} ${escHtml(tr('report.rebarSchedule'))}</h2>`);
-    html.push(`<table><thead><tr><th>${escHtml(tr('report.elementsLabel'))}</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.sections'))}</th><th>${escHtml(tr('report.longBottom'))}</th><th>${escHtml(tr('report.longTop'))}</th><th>${escHtml(tr('report.stirrups'))}</th></tr></thead><tbody>`);
-    for (const group of groups) {
-      const v = group.representative;
-      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
-      const longBars = v.column ? v.column.bars : v.flexure.bars;
-      /**
-       * The top steel this table does NOT have, said rather than filled in.
-       *
-       * It read `2 Ø10 (mín.)` for every beam in the model — a diameter, a count and the word
-       * "minimum", none of which came from anywhere. `ElementVerification` carries no top-region
-       * reinforcement at all, so the row was stating a design decision the verification never
-       * made, on the strength of nothing. CIRSOC fixes neither that count nor that diameter for a
-       * face the analysis requires no tension steel on (§9.6.1.1 scopes §9.6.1.2 away from it),
-       * so there was not even a clause to have been quoting.
-       *
-       * The beam's real top steel — with its diameter, its count, its mark and whether it
-       * resists a moment or holds a stirrup — is in the detailing schedule and the document
-       * report, which read the bars that exist. This cell points there instead of competing
-       * with it.
-       */
-      const topBars = v.column ? tr('report.symmetric') : tr('report.topFromDetailing');
-      const elemList = group.elementIds.join(', ');
-
-      if (group.stirrupVariants.size === 1) {
-        const [desc] = [...group.stirrupVariants.keys()];
-        html.push(`<tr><td>${elemList}</td><td>${typeLabelShort(v.elementType, tr)}</td><td>${secStr}</td><td>${longBars}</td><td>${topBars}</td><td>${desc}</td></tr>`);
-      } else {
-        // Multiple stirrup patterns
-        const variants = [...group.stirrupVariants.entries()].map(([desc, ids]) => `${desc} (${ids.join(', ')})`).join('<br>');
-        html.push(`<tr><td>${elemList}</td><td>${typeLabelShort(v.elementType, tr)}</td><td>${secStr}</td><td>${longBars}</td><td>${topBars}</td><td>${variants}</td></tr>`);
-      }
-    }
-    html.push(`</tbody></table>`);
-
-    // Bar marks table
-    if (data.barMarks && data.barMarks.length > 0) {
-      html.push(`<h3>${escHtml(tr('report.barMarks') || 'Bar Marks — Estimated Cutting Lengths')}</h3>`);
-      const shapeL = (s: string) => s === 'stirrup' ? (tr('report.bmStirrup') || 'Stirrup') : s === 'hooked' ? (tr('report.bmHooked') || 'Hooked') : (tr('report.bmStraight') || 'Straight');
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.bmMark') || 'Mark')}</th><th>Ø (mm)</th><th>${escHtml(tr('report.bmShape') || 'Shape')}</th><th>${escHtml(tr('report.bmCutLen') || 'Cut. L')} (m)</th><th>${escHtml(tr('report.bmCount') || 'Count')}</th><th>${escHtml(tr('report.bmTotalLen') || 'Total L')} (m)</th><th>${escHtml(tr('report.bmWeight') || 'Weight')} (kg)</th><th>Stock</th></tr></thead><tbody>`);
-      for (const m of data.barMarks) {
-        const note = m.overStock ? ' <span style="color:#f0a500">⚠ &gt;12m</span>' : '';
-        const stockNote = m.needsStockSplice ? `${m.stockLength}m (${m.nStockSplices}sp)` : m.shape !== 'stirrup' ? `${m.stockLength}m` : '';
-        html.push(`<tr><td><strong>${escHtml(m.mark)}</strong></td><td class="num">${m.diameter}</td><td>${escHtml(shapeL(m.shape))}</td><td class="num">${m.cuttingLength.toFixed(2)}</td><td class="num">${m.count}</td><td class="num">${m.totalLength.toFixed(1)}</td><td class="num">${m.weight.toFixed(1)}${note}</td><td class="num">${stockNote}</td></tr>`);
-      }
-      const tw = data.barMarks.reduce((s, m) => s + m.weight, 0);
-      const tl = data.barMarks.reduce((s, m) => s + m.totalLength, 0);
-      html.push(`<tr style="font-weight:bold;border-top:2px solid #444"><td colspan="5"></td><td class="num">${tl.toFixed(1)}</td><td class="num">${tw.toFixed(1)}</td><td></td></tr>`);
-      html.push(`</tbody></table>`);
-    }
-
-  }
-
   // ─── Figures ────────────────────────────────────────────
   if (showSection('figures') && cfg?.figures?.length) html.push(...figuresSectionHtml(cfg.figures, tr, tr('report.figures'), figureNo + 1));
 
@@ -1428,26 +746,6 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<tr${cls}><td class="num">${d.level.toFixed(2)}</td><td class="num">${d.height.toFixed(2)}</td><td class="num">${(d.driftX * 1000).toFixed(2)}</td><td class="num">${(d.driftY * 1000).toFixed(2)}</td><td class="num">${d.ratioX.toFixed(4)}</td><td class="num">${d.ratioY.toFixed(4)}</td><td>${statusStr}</td></tr>`);
     }
     html.push(`</tbody></table>`);
-  }
-
-  // ─── The Design panel's verification ──────────────────
-  if (showSection('verification') && verifications.length === 0) {
-    const checks = data.designChecks ?? [];
-    html.push(`<div class="page-break"></div>`);
-    html.push(`<h1 id="sec-design">${escHtml(tr('report.design.title'))}</h1>`);
-    if (checks.length === 0) {
-      html.push(`<p>${escHtml(tr('report.design.none'))}</p>`);
-    } else {
-      html.push(`<p>${escHtml(tr('report.design.basis'))}</p>`);
-      html.push(`<table><thead><tr><th>ID</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.sectionLabel') || 'Section')}</th><th>${escHtml(tr('report.design.governing'))}</th><th>${escHtml(tr('report.design.demand'))}</th><th>${escHtml(tr('report.design.capacity'))}</th><th>u</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
-      for (const c of checks) {
-        const cls = c.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : c.status === 'warn' ? ' style="color:#f0a500"' : '';
-        const st = c.status === 'ok' ? '✓ OK' : c.status === 'fail' ? `✗ ${tr('report.fail')}` : c.status === 'warn' ? `⚠ ${tr('report.attention')}` : '—';
-        const num = (v: number | undefined) => (v === undefined ? '—' : fmtNum(v));
-        html.push(`<tr${cls}><td>${c.elementId}</td><td>${escHtml(c.elementType)}</td><td>${escHtml(c.section)}</td><td>${escHtml(c.governing ?? '—')}${c.comboName ? ` <span class="muted">(${escHtml(c.comboName)})</span>` : ''}</td><td class="num">${num(c.demand)} ${escHtml(c.unit ?? '')}</td><td class="num">${num(c.capacity)} ${escHtml(c.unit ?? '')}</td><td class="num">${Number.isFinite(c.worstUtilization) ? c.worstUtilization.toFixed(3) : '∞'}</td><td>${st}</td></tr>`);
-      }
-      html.push(`</tbody></table>`);
-    }
   }
 
   // ─── Diagnostics ──────────────────────────────────────

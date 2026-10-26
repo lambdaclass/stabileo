@@ -755,10 +755,10 @@ function createResultsStore() {
      * nothing is drawn as its result. The engine hands back the first-order
      * solution in that case, and drawing it as P-Δ showed a deformed shape
      * and diagrams for an equilibrium that does not exist. The static view
-     * stays as it was.
+     * stays as it was, and so does the project's stamp: no analysis was
+     * published (`recheck.svelte.ts`).
      */
     setPDeltaWithoutEquilibrium(r: PDeltaResult | PDeltaResult3D, is3D: boolean) {
-      _onAnalysisPublish?.('pdelta');
       hold();
       this.clearAdvanced();
       if (is3D) {

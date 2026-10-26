@@ -3,6 +3,7 @@ import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
 interface IndexedBar {
   id: string;
   diameterMm: number;
+  role: BarPath['role'];
   x: number;
   y: number;
   minZ: number;
@@ -44,7 +45,7 @@ export class ColumnBarIndex {
         maxZ = Math.max(maxZ, segment.start.z, segment.end.z);
       }
       const entry: IndexedBar = {
-        id: bar.id, diameterMm: bar.diameterMm, x: p.x, y: p.y, minZ, maxZ,
+        id: bar.id, diameterMm: bar.diameterMm, role: bar.role, x: p.x, y: p.y, minZ, maxZ,
         memberOrder: member.order, barOrder,
       };
       this.all.push(entry);

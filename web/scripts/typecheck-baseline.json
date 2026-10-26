@@ -1,5 +1,5 @@
 {
-	"total": 249,
+	"total": 247,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -674,18 +674,6 @@
 			"count": 1
 		},
 		{
-			"file": "src/lib/engine/bar-marks.ts",
-			"code": "TS6133",
-			"message": "'legs' is declared but its value is never read.",
-			"count": 1
-		},
-		{
-			"file": "src/lib/engine/bar-marks.ts",
-			"code": "TS6196",
-			"message": "'DetailingResult' is declared but never used.",
-			"count": 1
-		},
-		{
 			"file": "src/lib/engine/design/__tests__/autodesign-regression.test.ts",
 			"code": "TS2345",
 			"message": "Argument of type '{ elementId: number; elementType: \"beam\"; L: number; section: { id: number; name: string; b: number; h: number; }; material: { fc: number; fy: number; cover: number; stirrupDia: number; }; demands: undefined; ... 10 more ...; modelData: ContextModelData; }[]' is not assignable to parameter of type 'Iterable<MemberContext>'.",
@@ -712,7 +700,7 @@
 		{
 			"file": "src/lib/engine/detailing/__tests__/design-feedback-loop.test.ts",
 			"code": "TS2367",
-			"message": "This comparison appears to be unintentional because the types '\"warn\" | \"fail\"' and '\"ok\"' have no overlap.",
+			"message": "This comparison appears to be unintentional because the types '\"fail\" | \"warn\"' and '\"ok\"' have no overlap.",
 			"count": 1
 		},
 		{

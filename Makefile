@@ -1,5 +1,5 @@
-.PHONY: check-pins worktree worktree-prune dev dev-backend dev-web wasm build build-backend build-web \
-       test test-engine test-backend test-web test-inventory \
+.PHONY: check-pins worktree worktree-prune hooks dev dev-backend dev-web wasm build build-backend build-web \
+       test test-changed test-engine test-backend test-web test-inventory \
        docker-build docker-up docker-down \
        clean fmt check
 
@@ -28,6 +28,13 @@ worktree:
 worktree-prune:
 	scripts/worktree-prune.sh
 
+## Use the versioned git hooks (scripts/hooks): pre-push runs the web typecheck and the related
+## unit tests. Set in the repository's config, so every worktree of this clone gets it; skip one
+## push with `git push --no-verify`; undo with `git config --unset core.hooksPath`.
+hooks:
+	git config core.hooksPath scripts/hooks
+	@echo "hooks: core.hooksPath = scripts/hooks (pre-push: typecheck + related unit tests)"
+
 # ── Build ────────────────────────────────────────────────────
 
 build: build-backend build-web
@@ -46,6 +53,11 @@ check-pins:
 
 test: test-engine test-backend test-web
 
+## Only the tests your changes most likely affect (vs origin/main, uncommitted work included);
+## prints what it runs and what it skips. BASE=<rev> to compare with something else.
+test-changed:
+	scripts/test-changed.sh $(if $(BASE),--base $(BASE))
+
 test-engine:
 	cargo test -p dedaliano-engine
 
@@ -59,9 +71,11 @@ test-web:
 ## Engine-coupled = every target except `reference`, whose tests recompute
 ## textbook/code formulas inline and never call the engine (see
 ## engine/tests/reference/main.rs). Single pass: attributes each `test result`
-## line to the target announced by the preceding `Running` line.
+## line to the target announced by the preceding `Running` line. A complete run
+## reports every [[test]] binary in engine/Cargo.toml plus the library's unit tests.
 test-inventory:
-	@cd engine && cargo test 2>&1 | awk -v sha="$$(git rev-parse --short HEAD)" -v day="$$(date +%Y-%m-%d)" ' \
+	@cd engine && cargo test 2>&1 | awk -v sha="$$(git rev-parse --short HEAD)" -v day="$$(date +%Y-%m-%d)" \
+		-v expected="$$(( $$(grep -c '^\[\[test\]\]' Cargo.toml) + 1 ))" ' \
 		/^[[:space:]]*Running / { target = $$2 } \
 		/^[[:space:]]*Doc-tests / { target = "doc-tests" } \
 		/^test result:/ { \
@@ -70,7 +84,7 @@ test-inventory:
 			failed += $$6; seen++; \
 		} \
 		END { \
-			if (seen < 20 || ref == 0) { \
+			if (seen < expected || ref == 0) { \
 				printf "INCOMPLETE RUN (%d target(s) reported, reference=%d) — do not publish these numbers.\n", seen, ref; \
 				exit 1; \
 			} \

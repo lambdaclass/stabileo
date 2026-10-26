@@ -1,4 +1,4 @@
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, ribbonCmd } from './fixtures';
 import { pickGenerator, placeButton } from './generator-helpers';
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -18,7 +18,7 @@ test.describe('@smoke PRO nodes on screen and the panel scrollbars', () => {
     await expect.poll(() => style(page)).toBe('points');
 
     await page.getByTestId('pr-stage-model').click();
-    await page.getByTestId('pr-cmd-generators').click();
+    await ribbonCmd(page, 'generators');
     await pickGenerator(page, 'truss');
     await placeButton(page).click();
     await expect.poll(() => style(page)).toBe('spheres');

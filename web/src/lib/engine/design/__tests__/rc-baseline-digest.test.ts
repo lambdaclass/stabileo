@@ -90,9 +90,24 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * 10 % lateral-to-strong ratio that makes a beam biaxial: 0,104–0,125 before, 0,080–0,097
      * after. They are designed and verified. No member went the other way.
      */
+    /*
+     * 373 and 22 since the design reads the column cages (`joint-threading-check.ts`): 22 beams
+     * whose bars no layout passes through the columns' bars at their joints refuse on
+     * congestion (13 of them on anchorage as well), where they were certified and then laid
+     * through those bars. Before: 395 verified, 0 inadequate; after: 373 and 22.
+     */
     expect(summary.total).toBe(408);
-    expect(summary.verified).toBe(395);
-    expect(summary.searchExhausted).toBe(0);
+    /*
+     * 379 and 16 since the verifier checks the ductility of a flexural member (§9.3.3.1): six of
+     * the 22 reach a passing arrangement that threads the cages (see the fingerprint).
+     */
+    // 383 and 12 since the minimum shear reinforcement of §9.6.3.1 (see the fingerprint).
+    // 372 and 23 since the design met main's concrete in the engine (see the fingerprint): the
+    // columns are read on the engine's load contour and carry bars on every face, and 11 more
+    // edge beams find no layout through those cages.
+    expect(summary.verified).toBe(372);
+    // The 23 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
+    expect(summary.searchExhausted).toBe(23);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
@@ -151,6 +166,41 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      *
      * Up: a beam now carries its weight's wL²/8 and its fixed-end moments reach the columns.
      * Down: where wind governs a support region, the added gravity moment opposes it there.
+     *
+     * And again, for the design reading the column cages at each beam's joints. Checked across
+     * all 408 against the previous commit before re-recording:
+     *
+     *   outcome changed              22  (VERIFIED → SECTION_INADEQUATE, congestion)
+     *   limiting constraint changed  22  (the same 22)
+     *   utilisation changed          15  (all down, to −0,193: beams redesigned to bars that pass,
+     *                                     and to support rows whose hooks anchor where they are laid)
+     *   worst utilisation after   0,998 — the gate above still holds
+     *
+     * And again, for the ductility check of a flexural member (CIRSOC 201-2025 §9.3.3.1, from
+     * main with the beam check moved into the engine). Checked across all 408 against the same
+     * run with only that check switched off, before re-recording:
+     *
+     *   outcome changed               6  (SEARCH_EXHAUSTED → VERIFIED: 169, 170, 171, 172, 197, 198)
+     *   limiting constraint changed   2  (164 and 165 trade «anchorage», both still congestion)
+     *   utilisation changed           7  (162, 163 up 0,812 → 0,851; 173, 192, 195, 254, 257
+     *                                     down by 0,001 to 0,003)
+     *   worst utilisation after   0,998 — the gate above still holds
+     *
+     * A check added: over-reinforced candidates are rejected for maxSteel before the joint stage,
+     * and the search reaches, for the six, bars that pass every check and thread the cages.
+     *
+     * And again, for the minimum shear reinforcement of §9.6.3.1 on beams deeper than 250 mm
+     * (Av,min where Vu > φ·0,085·√f'c·bw·d). Checked across all 408 against the run without it:
+     *
+     *   outcome changed               4  (165–168 SEARCH_EXHAUSTED → VERIFIED)
+     *   limiting constraint changed   6  (those four; 182 and 188 add «anchorage», still congestion)
+     *   stirrups changed            169  (closer spacing where Av,min governs)
+     *   utilisation changed         135  (125 down to −0,363; 10 up to +0,251, all ≤ 0,974)
+     *   worst utilisation after   0,998 — the gate above still holds
+     *
+     * The generator no longer offers stirrups under Av,min, so its first 30 options per region
+     * reach arrangements it used to cut off: the four that now verify, and lighter Ø6 sets in
+     * place of Ø8 c/30 on the ten that move up.
      */
     /*
      * And again for refactor/concrete-in-engine (#390), which IS that branch's change: the
@@ -179,7 +229,22 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // words: the SET did not change, the SIZE did not change, the REASON did not change. Only
     // the name the engine gives that refusal did.
     // 13 since self-weight bends the beams: nine of the 22 left the biaxial band (see above).
-    const refused = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED');
+    // 22 more since the design reads the column cages: congestion, never a certificate.
+    // 16 of them since the ductility check (see the fingerprint): 169–172, 197 and 198 verify.
+    // 12 since the minimum shear reinforcement (§9.6.3.1, see the fingerprint): 165–168 verify.
+    const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
+    // 23 since main's concrete in the engine (see the fingerprint): 162, 163, 165–172 and 185.
+    expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual([
+      161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 180, 181, 182, 183, 184, 185, 186, 187, 188, 196, 199,
+    ]);
+    for (const o of congested) {
+      expect(o.limiting).toContain('congestion');
+      expect(o.insufficiency).toBeUndefined();
+      expect(o.exhaustion?.scope).toBe('implementedAlternatives');
+      expect(o.certificate).toBeUndefined();
+      expect(o.accepted).toBeUndefined();
+    }
+    const refused = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED' && o.outcome !== 'SEARCH_EXHAUSTED');
     expect(refused).toHaveLength(13);
     for (const o of refused) {
       expect(o.outcome).toBe('PROVISIONAL_BIAXIAL');
@@ -268,4 +333,82 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // or limiting constraint changed; 395 verified and 13 provisional, as before. M2,min for
 // slender columns (§6.6.4.5.4), in the same change, was measured on its own first: it moves no
 // member of this frame.
-const RECORDED_FINGERPRINT = 'fa8e6e36ba649044';
+// And (was `f8a66e1b74ca71f1`) when column ties took one rule for every caller, CIRSOC 201-2025
+// art. 25.7.2.1(b): 16·db of the longitudinal bar instead of the 12·db the verifier and the
+// candidate search carried over from 2005 (the detailing already used 16), with the widest tie
+// spacing the search offers held at the design target (0,95 of the maximum, O5) so a column does
+// not land at 0,977 of the limit. The 160 columns take other tie spacings (eØ6 c/12,5 → c/17,5,
+// c/27,5 → c/25 and the like). No outcome or limiting constraint changed, utilization moved by
+// −0,07 to 0, and the counts stay 395 verified and 13 provisional.
+// And (was `dd765d21f22a3ccd`) when the verifier checked the minimum top steel at a support that
+// hogs (§9.6.1, waived by §9.6.1.3 where the bars give 4/3 of what the moment asks). The 35×65
+// H-30 beams carried 8Ø10 = 6,28 cm² over supports whose ρmin·b·d = 0,00333·0,35·0,61 = 7,12 cm²,
+// with 4/3·As,req ≈ 8,3 cm² above it, so the minimum governed and was not met. 110 beams of 408
+// take more top steel at one or both supports (50 both, 60 one; 8Ø10 → 7Ø12 the usual step),
+// and nothing else of theirs moves: no bottom bar, no stirrup, no outcome, no limiting
+// constraint. Utilization moved on 37, all down (−0,047 to −0,043); the worst is 0,998, and the
+// counts stay 395 verified and 13 provisional.
+// And (was `b7b912467b15bd76`) when a beam built with its column took its support moments at the
+// column's face (§9.4.2.1), interpolated per combination between the stations either side of
+// it, instead of at the node. The columns are 50×50, so the face sits 0,25 m from the node
+// whichever way the column turns. 163 beams of 408 take less top steel at one or both supports
+// (3 822 → 3 200 cm² over the changed beams; 4 lose a little bottom steel with it, 1 a stirrup
+// step); no column moves, no outcome or limiting constraint changes. Utilization moved on 93
+// (62 up, 31 down, −0,056 to +0,051); the worst stays 0,998, and the counts stay 395 verified
+// and 13 provisional.
+// And (was `b67513c0500dfd36`) when the design checked every bar end in a column as the detailing
+// builds it (`end-support-anchorage.ts`): a top bar's 90° hook turned inside the column's bars
+// with §25.2.3's clearance, clear of the crossing beams' corner bars, at the row it lies in. The
+// detailing had been left 36 ends it could not anchor, all Ø32 (top bars, and bottom bars the design
+// hooked) of beams 161–200 in the 50×50 edge columns: 35,0–40,7 cm against ldh 58,9 cm. 30 beams of 408
+// move, all on the frame's edges (161–265): their top steel at the edge columns goes from 3Ø32,
+// 6Ø20 or 7Ø16 in one row to Ø16 or Ø12 in two or three, whose hooks fit; top area over them
+// 1 177 → 1 198 cm², bottom 286 → 475 cm² as the search settles on other families. No column,
+// no outcome, no limiting constraint changes; utilization moved on 30 (9 up, 21 down, −0,180 to
+// +0,062), the worst stays 0,998, and the counts stay 395 verified and 13 provisional.
+// And (was `f6e258764bc2bd5a`) when SECTION_INADEQUATE came to require a proof (a code bound no
+// reinforcement lifts, `section-bounds.ts`) and an exhausted search was labelled as one: the 22
+// beams refused on congestion and anchorage (161, 164–172, 180–184, 186–188, 196–199) read
+// SEARCH_EXHAUSTED. Compared line by line against f2f2bdb38, those 22 lines are the only ones
+// that change, and only in the outcome word: no limiting constraint, no utilization, no other
+// member moves.
+// And (was `412d42e8c8633856`) when a support's second top layer stepped from the continuous
+// pair where the pair is the larger bar (§25.2.2, `stackedLayerDepth`): the design read the Ø10
+// layer under a Ø12 pair 10 + 25 mm below the Ø10 bars, the detailing laid it there, and it stood
+// inside the pair's clear distance. Compared line by line against 7bbab5dcb: no outcome, no
+// limiting constraint, no bar changes; utilization moved on 4, all up (328 and 331, 8Ø10 + 6Ø10
+// under a Ø12 pair: 0,773 → 0,774; 347 and 350, 8Ø10 + 8Ø10 under a Ø16 pair: 0,731 → 0,735);
+// the worst stays 0,998, and the counts stay 373 verified, 22 exhausted, 13 provisional.
+// And (was `9b015fe44bba30f4`) when the design stack met main, whose verifier checks the
+// ductility of a flexural member (CIRSOC 201-2025 §9.3.3.1, εt ≥ εty + 0,003) and takes φMn and
+// φVn from the engine's kernel. The kernel reproduces the TypeScript capacities on this frame
+// (checked on the sections and bars of the members that moved); the ductility check is what
+// moves it. Compared line by line with only that check switched off: beams 169–172, 197 and 198
+// SEARCH_EXHAUSTED → VERIFIED, 164 and 165 trade «anchorage», utilization moves on 7 (162, 163
+// up to 0,851; five down by at most 0,003); the worst stays 0,998, and the counts are 379
+// verified, 16 exhausted, 13 provisional.
+// And (was `ebe350998ab46447`) when the provided-reinforcement verifier checks the minimum shear
+// reinforcement of CIRSOC 201-2025 §9.6.3.1 on beams deeper than 250 mm: Av,min (§9.6.3.4,
+// max(0,062·√f'c, 0,35)·bw·s/fyt) wherever Vu > φ·0,085·√f'c·bw·d, and the generator stops
+// offering stirrups under it. Compared line by line against the run without it: 165, 166, 167
+// and 168 SEARCH_EXHAUSTED → VERIFIED (0,743, 0,733, 0,733, 0,743); 182 and 188 add «anchorage» to «congestion», still
+// exhausted; stirrups change on 169 members (Ø6 c/25–c/30 → c/17,5 where Av,min governs, and
+// several Ø8 c/30 → Ø6 c/17,5, lighter and meeting it); utilization moves on 135, 125 down (to
+// −0,363: more Vs) and 10 up (to +0,251, the Ø8 → Ø6 ones, all ≤ 0,974); the worst stays 0,998.
+// The counts are 383 verified, 12 exhausted, 13 provisional.
+// And (was `43cfaf49844937cb` on the design stack and `fa8e6e36ba649044` on main) when the design
+// stack met main's concrete in the engine: flexure, shear and columns sized against the engine,
+// the station verifier's beam flexure with the axial force acting with each moment, and columns
+// checked on the engine's load contour instead of Bresler. Compared line by line against the
+// stack before it (a6013dcf1): 11 members SEARCH_EXHAUSTED ← VERIFIED (162, 163, 165–172, 185),
+// and on 4 that were already exhausted «anchorage» comes or goes (161, 164, 180, 186). The cause
+// is the columns: 2, 3, 4, 6, 10 and 18 take main's longitudinal steel (6 and 10: 4Ø32 → 24Ø16;
+// 2 and 4: 16Ø20 → 28Ø16; 18: 8Ø20 → 24Ø12; 3: 24Ø16 → 16Ø20), because the stack's bars fail
+// the load contour (4Ø32 on 6 and 10 at Nu = 2 923 kN, Mu = 345,9 kN·m). Cages with bars on
+// every face leave the edge beams that cross them no layout through: run alone, 162, 165 and
+// 185 verify, and the stack's own bars pass the merged verifier, so it is the cage. 169–172
+// also lose the flexural strength their axial tension takes: with that check off they verify
+// and the other seven stay exhausted. 173, 347 and 350 change bars and stay verified (347 and
+// 350: bottom 7Ø12 → 5Ø25). Utilization moved on 85 (57 up, 28 down, −0,224 to +0,032); the
+// worst stays 0,998. The counts are 372 verified, 23 exhausted, 13 provisional.
+const RECORDED_FINGERPRINT = '71413f54c7416874';

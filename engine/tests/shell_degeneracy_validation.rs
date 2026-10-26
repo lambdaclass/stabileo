@@ -1,7 +1,6 @@
 //! Invalid shell properties must be refused even when a surrounding frame
 //! makes the assembled system invertible. Small valid properties stay valid.
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::element::quad9::quad9_check_jacobian;

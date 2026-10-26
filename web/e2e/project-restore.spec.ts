@@ -48,7 +48,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { turnRolledBeams } from './fixtures';
+import { turnRolledBeams, declareBeamsNotLateral, designPlace, openFloorPass } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -229,6 +229,8 @@ async function boot(page: Page) {
   await page.addInitScript(() => {
     try {
       localStorage.clear();
+      // Cleared with the rest: the normative design is turned back on, as the specs use it.
+      localStorage.setItem('stabileo-design-in-pro', '1');
       localStorage.setItem('stabileo-lang', 'es');
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -318,9 +320,9 @@ async function openViewer(page: Page, step: string) {
    * `pro` fixture, so pulling in a fixtures helper here would give it a dependency it does not
    * otherwise have. Two lines are cheaper than that.
    */
-  const docs = page.getByTestId('documents-disclosure');
+  await designPlace(page, 'documents');
+  const docs = page.getByTestId('desk-canvas');
   if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
-    await docs.locator('> summary').click();
   }
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
@@ -423,6 +425,14 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
     .toBeGreaterThan(0);
   // Five beams turned, so the design carries the provisional state step 10 asserts on.
   await turnRolledBeams(page);
+  /*
+   * And the beams declared not part of the lateral system, saved with the project. Undeclared,
+   * since 292b87f68 they are designed as part of it (fy developed at the column face) and all
+   * 119 refuse on that anchorage, the five turned ones with them: step 10 found no PROVISIONAL
+   * row, because a refused beam proposes nothing. The declaration travels through the autosave
+   * and the restore with the rest of the design data.
+   */
+  await declareBeamsNotLateral(page);
 
   // The autosave is written by the app's own 30 s timer. Waited for rather than faked: the
   // defect lived in what that timer wrote and in what the banner did with it.
@@ -455,7 +465,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   expect(runCounts.verified, 'members were verified').toBeGreaterThan(0);
   await assertClean(page, w, 'design all');
 
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -464,7 +474,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 180_000 })
     .toBeGreaterThan(0);
 
-  await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+  await openFloorPass(page);
   const floors = page.getByTestId('floor-design-run');
   await expect(floors).toBeEnabled();
   await floors.click();
@@ -499,7 +509,12 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   // its own, so step 1 turns five beams 20° (`ROLLED_BEAMS`), which bend biaxially for a real
   // reason. Their proposals are reported, not hidden, their cause is stated once rather than
   // once per member, and the sheet-level consequence is on screen.
-  await expect(page.getByTestId('rebar-status-MODELLED'), 'the other beams are modelled').toBeVisible();
+  // The other members' local checks pass, and none of them is MODELLED: the building's slab mesh
+  // sends its load straight into the columns, so the analysis of all 203 is not validated
+  // (`analysis-validity.ts`) and their verdict holds them (`member-verdict.ts`). They read HELD,
+  // never as finished work.
+  await expect(page.getByTestId('rebar-status-HELD'), 'the other members are held by their analysis').toBeVisible();
+  await expect(page.getByTestId('rebar-status-MODELLED'), 'and none reads as modelled while held').toHaveCount(0);
   const provisional = page.getByTestId('rebar-status-PROVISIONAL');
   await expect(provisional, 'provisional members keep their own row').toBeVisible();
   const cause = page.getByTestId('rebar-status-cause-PROVISIONAL');
@@ -570,7 +585,7 @@ test('@slow restore, design, view in 3-D — then reload and do it again', async
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.total ?? 0),
     { timeout: 180_000 }).toBeGreaterThan(0);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const regenerate = page.getByTestId('cmd-generate-detailing');
   await expect(regenerate).toBeEnabled();
   await regenerate.click();

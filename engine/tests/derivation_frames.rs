@@ -2,7 +2,7 @@
 //! Each test pins a convention or a formula that the document states, or a
 //! discrepancy it records (FR-n).
 
-mod common;
+use crate::common;
 use common::*;
 use dedaliano_engine::postprocess::beam_stations::{extract_beam_stations, BeamMemberInfo, BeamStationInput, LabeledResults};
 use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;

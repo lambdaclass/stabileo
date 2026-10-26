@@ -11,7 +11,7 @@
  * parallel state" stops being a promise in a comment.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, designAll, setAppLanguage } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designAll, setAppLanguage, designPlace, open3D } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** Frames only: no shells and no footings. */
@@ -26,10 +26,8 @@ async function classify(page: Page, model: string): Promise<void> {
 }
 
 async function openDetailing(page: Page): Promise<void> {
-  const section = page.getByTestId('detailing-disclosure');
-  if (await section.getAttribute('open') === null) {
-    await section.locator('> summary').click();
-  }
+  await designPlace(page, 'detailing');
+  const section = page.getByTestId('desk-detailing');
   await expect(page.getByTestId('rc-member-list')).toBeVisible();
 }
 
@@ -182,7 +180,7 @@ test.describe('@slow the viewer highlights the member the list named', () => {
     await page.getByTestId(`rc-member-${target}`).click();
 
     // Open the viewer on that selection and let it say which member it is showing.
-    await page.getByTestId('cmd-open-3d').click();
+    await open3D(page);
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
 
     /*
@@ -226,21 +224,21 @@ test.describe('a building with several families', () => {
 });
 
 test.describe('the list is reachable from both ways in', () => {
-  test('from the stage strip, and from the section itself', async ({ pro: page }) => {
+  test('from the Detail step, and coming back to it from another place', async ({ pro: page }) => {
     await classify(page, FRAMES);
 
-    // 1. Through the strip, which is how a user navigates stages.
-    await page.getByTestId('rc-stage-detailing').locator('button').click();
+    // 1. Through the step at the top, which is how a user moves between the steps of design.
+    await page.getByTestId('desk-step-detail').click();
+    await page.getByTestId('desk-rail-detailing').click();
     await expect(page.getByTestId('rc-member-list')).toBeVisible();
     const ids = await rowIds(page, 'beam');
     await page.getByTestId(`rc-member-${ids[0]}`).click();
     expect(await channel(page)).toEqual([Number(ids[0])]);
 
-    // 2. Collapse the section and reopen it by hand: the same list, the same channel, no reset
-    // of what was selected.
-    const section = page.getByTestId('detailing-disclosure');
-    await section.locator('> summary').click();
-    await section.locator('> summary').click();
+    // 2. Leave for another place and come back: the same list, the same channel, no reset of
+    // what was selected.
+    await designPlace(page, 'list');
+    await designPlace(page, 'detailing');
     await expect(page.getByTestId('rc-member-list')).toBeVisible();
     expect(await channel(page), 'the selection survived the round trip')
       .toEqual([Number(ids[0])]);

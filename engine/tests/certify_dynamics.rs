@@ -6,7 +6,7 @@
 //! Jacobi eigen-solve of L⁻¹KL⁻ᵀ; the stability verdict with the trajectory's
 //! actual growth. Refusals tamper with the recorded trajectory and parameters.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::dynamics::*;

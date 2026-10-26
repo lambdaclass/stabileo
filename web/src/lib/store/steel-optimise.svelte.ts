@@ -18,10 +18,10 @@ import { isEngineError, isEngineUnavailable, engineFailureText } from '../engine
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { activePerCombo3D, activeCombinations } from './active-results';
-import { computeStationDemands, steelDemandOf, steelSegmentDiagram } from '../engine/verification-service';
+import { computeStationDemands, steelDemandOf, steelMemberLengths, steelSegmentDiagram } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
 import { memberEndsFor } from '../engine/steel/tension-connection';
-import { lightestPassing, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict, type OptimiseCriteria } from '../engine/steel/profile-optimise';
+import { lightestPassing, seriesVerdicts, verdictFor, type OptimiseMember, type OptimiseResult, type CandidateVerdict, type OptimiseCriteria } from '../engine/steel/profile-optimise';
 import { deflectionChecks } from './serviceability';
 import { ALL_PROFILES, profileToSectionFull, type ProfileFamily, type SteelProfile } from '../data/steel-profiles';
 import type { AnalysisResults3D } from '../engine/types-3d';
@@ -29,7 +29,7 @@ import { isDesignedMember, maskAxialDemand } from '../engine/design/behaviour-de
 import { isVariableMember } from '../section/variable';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
-import { isColdFormedSection } from '../profiles/cold-formed-catalogue';
+import { steelCheckerFor } from '../engine/steel/member-checkers';
 
 export type OptimiseScope = 'section' | 'member' | 'group';
 
@@ -93,7 +93,7 @@ const byName = new Map(ALL_PROFILES.map((p) => [p.name, p]));
  * declared section (its own properties under a catalogue-looking name), a drawn one or a built-up
  * one is not, whatever its name.
  */
-function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown; built?: unknown } | undefined): SteelProfile | null {
+export function catalogueProfileOf(sec: { name: string; profileFamily?: string; composition?: unknown; declared?: boolean; drawn?: unknown; built?: unknown } | undefined): SteelProfile | null {
   if (!sec || sec.composition || sec.declared || sec.drawn || sec.built) return null;
   const p = byName.get(sec.name);
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
@@ -118,18 +118,14 @@ export function membersFor(ids: readonly number[]): { members: OptimiseMember[];
     const e = modelStore.elements.get(id);
     if (!ef || !e || !isDesignedMember(e, modelStore.sections)) continue;
     const len = lengths.get(id);
-    const k = { ...(e.kStrong !== undefined ? { Kx: e.kStrong } : {}), ...(e.kWeak !== undefined ? { Ky: e.kWeak } : {}) };
     members.push({
       elementId: id,
       // As the check reads it: a tension-only brace is not sized for buckling.
       demand: maskAxialDemand(steelDemandOf(ef, demands.get(id), stations.get(id)), e.behaviour),
-      lengths: {
-        ...(len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length }), ...k,
-        // The member's end connections, resolved per candidate section for tension rupture (D.3).
-        tensionEnds: memberEndsFor(id, modelStore.model as never, len?.chain),
-        // How an angle is loaded and connected (E.5, E.6), stated on the member.
-        ...(e.angleCompression ? { angle: e.angleCompression } : {}),
-      },
+      // The same lengths, bracing, end connections and angle data the check reads
+      // (`steelMemberLengths`); the end connections are resolved per candidate section (D.3).
+      lengths: steelMemberLengths(e, len ? { L: len.L, Lb: len.Lb, freeEnd: len.freeEnd } : { L: ef.length, Lb: ef.length },
+        memberEndsFor(id, modelStore.model as never, len?.chain)),
       // Cb reads the whole unbraced segment, which on a chained member spans sibling elements.
       segment: steelSegmentDiagram(id, len, stations, md as never),
     });
@@ -148,11 +144,14 @@ export function membersFor(ids: readonly number[]): { members: OptimiseMember[];
  */
 /** Members the last grouping left out because the checker does not cover their material or section. */
 const outOfScope = new Set<number>();
+/** Members of variable section the last grouping left out: they keep their sections, and are not designed. */
+const variableLeftOut = new Set<number>();
 
 function groups(scope: OptimiseScope, ids?: readonly number[]) {
   const wanted = ids ? new Set(ids) : null;
   const out = new Map<string, { sectionId: number; materialId: number; profile: SteelProfile; elementIds: number[]; groupName?: string }>();
   outOfScope.clear();
+  variableLeftOut.clear();
   /*
    * A named group is a design group: one profile for all its steel members. A member in two
    * groups is optimised with the first, so no member receives two answers.
@@ -170,12 +169,12 @@ function groups(scope: OptimiseScope, ids?: readonly number[]) {
     // The checker is CIRSOC 301's hot-rolled steel one: aluminium is out of its scope, and so is
     // a cold-formed section (CIRSOC 303), whatever a catalogue lookup of its name returns.
     if (materialFamilyOf(m as never, catalogueGradeFamily).family !== 'steel') { outOfScope.add(e.id); continue; }
-    if (isColdFormedSection(modelStore.sections.get(e.sectionId))) { outOfScope.add(e.id); continue; }
+    if (!steelCheckerFor(modelStore.sections.get(e.sectionId)).implemented) { outOfScope.add(e.id); continue; }
     const p = catalogueProfileOf(modelStore.sections.get(e.sectionId));
     if (!p) continue;
     // A member of variable section is not designed (`isDesignedMember`), and is not resized with
     // its end I's section: it keeps it, and a row's section it names at either end is shared.
-    if (isVariableMember(modelStore.sections, e)) continue;
+    if (isVariableMember(modelStore.sections, e)) { variableLeftOut.add(e.id); continue; }
     const grp = groupOf.get(e.id);
     if (scope === 'group' && !grp) continue;
     const key = scope === 'section' ? `s${e.sectionId}m${e.materialId}` : scope === 'group' ? `g${grp!.id}m${e.materialId}` : `e${e.id}`;
@@ -211,6 +210,7 @@ function createSteelOptimise() {
    */
   let ranOn = $state<{ epoch: number; version: number } | null>(null);
   let skipped = $state(0);
+  let skippedVariable = $state(0);
   let appliedEpoch = $state<number | null>(null);
   const fresh = () => ranOn !== null && ranOn.epoch === modelStore.loadEpoch && ranOn.version === modelStore.modelVersion;
   /** The analysis the proposals were checked against: a new solve makes them stale too. */
@@ -228,6 +228,8 @@ function createSteelOptimise() {
     get appliedAt() { return appliedAt; },
     /** Members of the last run left out: aluminium or cold-formed, which the checker does not cover. */
     get outOfScope() { return fresh() ? skipped : 0; },
+    /** Members of variable section the last run left out, said apart so none is dropped silently. */
+    get variableLeftOut() { return fresh() ? skippedVariable : 0; },
 
     /** Propose the lightest passing profile per group, against the analysis on hand. */
     run(scope: OptimiseScope, ids?: readonly number[], settings: OptimiseSettings = {}): void {
@@ -257,7 +259,26 @@ function createSteelOptimise() {
       }
       rows = out;
       skipped = outOfScope.size;
+      skippedVariable = variableLeftOut.size;
       ranOn = { epoch: modelStore.loadEpoch, version: modelStore.modelVersion };
+    },
+
+    /** The whole series of a row's family against its members, lightest first. */
+    series(key: string): CandidateVerdict[] {
+      const r = rows.find((x) => x.key === key);
+      if (!r || !fresh()) return [];
+      const { members } = membersFor(r.elementIds);
+      const material = modelStore.materials.get(modelStore.elements.get(r.elementIds[0]!)!.materialId)!;
+      return seriesVerdicts(r.family, members, material, criteriaFor(lastSettings, r.elementIds));
+    },
+
+    /** Take a passing profile of the series for a row, in place of the lightest. */
+    choose(key: string, v: CandidateVerdict): void {
+      if (!v.passes) return;
+      rows = rows.map((r) => (r.key !== key ? r : {
+        ...r, result: { ...r.result, chosen: v },
+        changes: r.elementIds.some((id) => modelStore.sections.get(modelStore.elements.get(id)!.sectionId)?.name !== v.profile.name),
+      }));
     },
 
     /**

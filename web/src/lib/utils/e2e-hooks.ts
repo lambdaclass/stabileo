@@ -23,11 +23,12 @@
  *  - the revision counters replace arbitrary waits with `expect.poll` on real state.
  *
  * Nothing here mutates app state except `loadExample` (the same call the
- * examples menu makes) and `clearSelection` (the same call pressing Escape
- * makes). The bundle cost is trivial and the object is absent unless the
+ * examples menu makes), `clearSelection` (the same call pressing Escape
+ * makes) and the actions below, each the same operation a UI control performs. The bundle cost is trivial and the object is absent unless the
  * query flag is present, so production pages never expose it.
  */
 
+import { openDeskAt } from '../pro/design-navigation';
 import { viewportCanvas } from './viewport-canvas';
 import { discretizationStore } from '../store/discretization.svelte';
 import { drawState } from '../store/draw-state.svelte';
@@ -36,6 +37,7 @@ import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { readCamera } from '../viewport3d/camera-probe';
+import { verificationVisual } from '../three/selection-helpers';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
 import { exportRecordStore } from '../store/export-record.svelte';
@@ -54,7 +56,7 @@ import {
 import { sceneCacheStats } from '../engine/detailing/scene-cache';
 import { openTimeline, type OpenPhase } from './open-timeline';
 import { autosaveRevisions as storedAutosaveRevisions } from '../store/autosave-db';
-import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, type DedalFile } from '../store/file';
+import { autosaveFingerprint, clearAutosave, deserializeProject, loadAutosave, serializeProject, type DedalFile } from '../store/file';
 import { lastAutosaveOutcome, requestAutosave } from '../store/autosave-service';
 import { loadFixture } from '../templates/load-fixture';
 import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
@@ -96,6 +98,10 @@ export interface StabileoTestHooks {
   modelVersion(): number;
   designRunId(): string | null;
   displayStatus(elementId: number): string;
+  /** The member's verdict and its local status (`member-verdict.ts`). */
+  memberVerdict(elementId: number): { status: string; local: string; holds: string[]; assumptions: string[] };
+  /** What the verification overlay paints and writes for the member (`verificationVisual`). */
+  verificationVisual(elementId: number): { color: number; label: string | null };
   displayRatio(elementId: number): number | null;
   outcome(elementId: number): string | null;
   hasCertificate(elementId: number): boolean;
@@ -268,6 +274,10 @@ export interface StabileoTestHooks {
    * which is the whole reason a stair spec needs the position in model space.
    */
   nodeIds(): number[];
+  /** A node's coordinates, m. */
+  nodePosition(id: number): { x: number; y: number; z: number } | null;
+  /** What a member states beyond its geometry: buckling factors and end releases. */
+  memberStatement(id: number): { kStrong?: number; kWeak?: number; releaseI?: { my: boolean; mz: boolean }; releaseJ?: { my: boolean; mz: boolean } } | null;
   nodePos(id: number): { x: number; y: number; z: number } | null;
   /** The shells, and whether a quad carries curvature into the solve. */
   quadIds(): number[];
@@ -405,6 +415,8 @@ export interface StabileoTestHooks {
    * into the database's private layout.
    */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
+  /** The project as File → Save writes it, as JSON text. */
+  serializeProject(): string;
   /** The family census of the newest readable stored project, plus how it was read. */
   autosaveStored(): Promise<{
     revision: number | null;
@@ -429,6 +441,8 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   loadExample(name: string): Promise<void>;
+  /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
+  moveNode(id: number, x: number, y: number, z: number): void;
   /**
    * Load a model given as an example's JSON (`templates/load-fixture.ts`), as an example loads:
    * for a spec that builds its own model, a large one to time the tables, say.
@@ -581,6 +595,15 @@ export function installE2EHooks(): void {
       return s ? `${s.codeId}:${s.total}:${s.verified}:${s.wallMs.toFixed(0)}` : null;
     },
     displayStatus: (id) => verificationStore.getDisplayStatus(id),
+    memberVerdict: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      return { status: v.status, local: v.local, holds: v.holds.map((h) => h.kind), assumptions: v.assumptions.map((a) => a.key) };
+    },
+    verificationVisual: (id) => {
+      const v = verificationStore.memberVerdict(id);
+      const x = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) });
+      return { color: x.color, label: x.label?.text ?? null };
+    },
     displayRatio: (id) => verificationStore.getDisplayRatio(id),
     outcome: (id) => verificationStore.outcomeFor(id)?.outcome ?? null,
     hasCertificate: (id) => !!verificationStore.outcomeFor(id)?.certificate,
@@ -740,6 +763,13 @@ export function installE2EHooks(): void {
     rebarSummary,
     elementIds: () => [...modelStore.elements.keys()].sort((a, b) => a - b),
     nodeIds: () => [...modelStore.nodes.keys()].sort((a, b) => a - b),
+    memberStatement: (id: number) => {
+      const e = modelStore.elements.get(id);
+      if (!e) return null;
+      return { ...(e.kStrong !== undefined ? { kStrong: e.kStrong } : {}), ...(e.kWeak !== undefined ? { kWeak: e.kWeak } : {}),
+        ...(e.releaseI ? { releaseI: { my: e.releaseI.my, mz: e.releaseI.mz } } : {}), ...(e.releaseJ ? { releaseJ: { my: e.releaseJ.my, mz: e.releaseJ.mz } } : {}) };
+    },
+    nodePosition: (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; },
     nodePos: (id: number) => {
       const n = modelStore.nodes.get(id);
       return n ? { x: n.x, y: n.y ?? 0, z: (n as { z?: number }).z ?? 0 } : null;
@@ -804,6 +834,7 @@ export function installE2EHooks(): void {
     canvasCount: () => document.querySelectorAll('canvas').length,
     sceneCacheStats,
     openTimeline,
+    serializeProject: () => serializeProject(),
     autosaveRevisions: async () => (await storedAutosaveRevisions())
       .map(({ revision, timestamp, status }) => ({ revision, timestamp, status })),
     autosaveStored: async () => {
@@ -868,6 +899,7 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    moveNode: (id: number, x: number, y: number, z: number) => { historyStore.pushState(); modelStore.updateNode(id, x, y, z); },
     loadModelData: (json: Record<string, unknown>) => {
       modelStore.clear();
       modelStore.bulkMutate(() => loadFixture(json as never, modelStore.fixtureApi() as never));
@@ -900,7 +932,8 @@ export function installE2EHooks(): void {
       }
       return currentResultProvenance().resultsHash;
     },
-    openDesignTab: () => { uiStore.proActiveTab = 'design'; },
+    // Design, on the member list: the screen the RC specs were written against.
+    openDesignTab: () => { openDeskAt('list'); },
     computeDemands: () => designRunStore.computeDemands(),
     codeCheck: () => designRunStore.runCodeCheck(),
     autoDesign: (ids: number[]) => designRunStore.autoDesign(ids),

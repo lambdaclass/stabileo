@@ -22,21 +22,16 @@
 import { modelStore } from './model.svelte';
 import { verificationStore } from './verification.svelte';
 import { regulationsStore } from './regulations.svelte';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { REGULATION_ROLES } from '../codes/roles';
 import {
   rcTitleBlockCodes, type RcTitleBlockConfig,
 } from '../engine/detailing/title-block-config';
 import { membersFromModel } from '../engine/detailing/member-geometry';
 import type { MemberGeometry } from '../engine/detailing/scene-model';
-import {
-  ELEVATION_X, LAYERS, drawElevation, drawSection, type Sheet,
-} from '../engine/detailing/drawings';
-import {
-  elevationDimensions, memberAtStation, memberOutlines, sectionDimensions, sectionOutline,
-  sectionStations, sheetGeometryNotes,
-} from '../engine/detailing/sheet-geometry';
-import { samplePath } from '../codes/cirsoc201/bar-geometry';
+import type { Sheet } from '../engine/detailing/drawings';
+import { memberAtStation, sectionStations } from '../engine/detailing/sheet-geometry';
+import { assemblyProjection, memberElevationSheet, memberSectionSheet } from '../engine/detailing/member-sheets';
 import { clause } from '../codes/regulation';
 import type { DetailingAssembly } from '../engine/detailing/assembly';
 import type { RcTitleBlockCode } from '../engine/detailing/title-block-config';
@@ -117,7 +112,7 @@ export function stationsFor(
   assembly: DetailingAssembly | null, members: readonly MemberGeometry[],
 ) {
   return assembly
-    ? sectionStations(assembly.elementIds ?? [], members, ELEVATION_X)
+    ? sectionStations(assembly.elementIds ?? [], members, assemblyProjection(assembly))
     : null;
 }
 
@@ -139,30 +134,11 @@ function clausesFor(assembly: DetailingAssembly) {
 export function buildElevationSheet(
   assembly: DetailingAssembly, members: readonly MemberGeometry[], rotulo?: SheetRotulo,
 ): Sheet {
-  const ids = assembly.elementIds ?? [];
-  const { outlines, refused } = memberOutlines(ids, members, ELEVATION_X);
-  const { dimensions, undimensioned } = elevationDimensions({
-    layer: LAYERS.dim,
-    outlines,
-    // The assembly's own sampled centrelines, so the cover measured on the sheet is measured
-    // off the same polyline the clash check measured.
-    bars: assembly.bars.map((b) => ({
-      diameterMm: b.diameterMm,
-      ownerElementIds: b.ownerElementIds,
-      polyline: samplePath(b),
-    })),
-    projection: ELEVATION_X,
-    coverOf: coverForMember,
-  });
-  return drawElevation({
-    assembly,
-    outlines: outlines.map((o) => ({ points: o.points, closed: true as const })),
-    dimensions,
-    extraNotes: sheetGeometryNotes(refused, undimensioned),
-    projection: ELEVATION_X,
+  return memberElevationSheet({
+    assembly, members, projection: assemblyProjection(assembly), coverOf: coverForMember,
     clauses: clausesFor(assembly),
     sheetNumber: `${assembly.id}-E`,
-    title: `${assembly.label} — elevación`,
+    title: `${assembly.label} — ${t('detailing.sheet.elevation')}`,
     rotulo,
   });
 }
@@ -182,45 +158,16 @@ export function buildSectionSheet(
   assembly: DetailingAssembly, members: readonly MemberGeometry[], station: number,
   rotulo?: SheetRotulo,
 ): Sheet {
-  const ids = assembly.elementIds ?? [];
-  /*
-   * Which member the cut passes through, and its real rectangle.
-   *
-   * `null` when the station misses every member the assembly claims — a real answer, and why
-   * the sheet says so rather than falling back to a box. The old outline WAS that fallback,
-   * permanently on.
-   */
-  const cut = memberAtStation(ids, members, station, ELEVATION_X);
-  const outline = cut ? sectionOutline(cut, station, ELEVATION_X) : null;
-  const { dimensions, coverLine } = outline
-    ? sectionDimensions({
-      layer: LAYERS.dim, outline, cover: cut ? coverForMember(cut.elementId) : undefined,
-    })
-    : { dimensions: [], coverLine: null };
-
-  return drawSection({
-    assembly,
-    atX: station,
-    outline: outline ?? [],
-    // The steel of the member the cut passes through, and no other. Without it the section
-    // carries every bar in the LEVEL that happens to cross the plane — measured on
-    // `rc-design-qa-8`, one at u = −4,84 m against an outline 300 mm wide.
-    restrictToMembers: cut ? [cut.elementId] : undefined,
-    dimensions,
-    coverLine: coverLine ?? undefined,
-    extraNotes: outline ? [] : [
-      `SIN CONTORNO — el corte en x = ${station.toFixed(2)} m no atraviesa ningún elemento de `
-      + 'este conjunto cuya sección esté definida. Las barras que se ven están dibujadas en su '
-      + 'posición real; el hormigón que las rodea no se conoce.',
-    ],
-    projection: ELEVATION_X,
+  const projection = assemblyProjection(assembly);
+  const cut = memberAtStation(assembly.elementIds ?? [], members, station, projection);
+  return memberSectionSheet({
+    assembly, members, projection, station, coverOf: coverForMember,
+    noOutlineNote: tp('detailing.sheet.noOutline', { x: station.toFixed(2) }),
     clauses: clausesFor(assembly),
     sheetNumber: `${assembly.id}-S`,
-    // The member and the station, on the sheet. A section titled only "sección" does not say
-    // what it is a section OF, and every one of them looks like the others.
     title: cut
-      ? `${assembly.label} — sección elem. ${cut.elementId} en x = ${station.toFixed(2)} m`
-      : `${assembly.label} — sección en x = ${station.toFixed(2)} m`,
+      ? `${assembly.label} — ${tp('detailing.sheet.sectionOfElement', { element: cut.elementId, x: station.toFixed(2) })}`
+      : `${assembly.label} — ${tp('detailing.sheet.sectionAt', { x: station.toFixed(2) })}`,
     rotulo,
   });
 }

@@ -31,13 +31,14 @@
   import { t, i18n, setLocale } from './lib/i18n';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
+  import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
     loadWorkspaceFromLocalStorage, saveWorkspaceToLocalStorage,
-    downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded,
+    downloadCanvasPNG, downloadDataUrlPNG, onProjectOpened, noteBasicSelfWeightRuleIfNeeded, adoptStoredProject,
     type DedalFile,
   } from './lib/store/file';
   import { requestAutosave } from './lib/store/autosave-service';
@@ -323,6 +324,46 @@
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
+  import DesignDesk from './components/pro/desk/DesignDesk.svelte';
+  import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
+  import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
+  import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { rebarWorkspace } from './lib/store/rebar-workspace.svelte';
+  /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
+  const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
+  /*
+   * The Design stage IS the desk: a design view opens it, any other view closes it, and opening or
+   * closing it directly moves the view (`design-navigation.ts`). Outside PRO there is no desk.
+   */
+  $effect(() => {
+    const tab = uiStore.proActiveTab, pro = uiStore.appMode === 'pro';
+    untrack(() => { if (pro) syncDeskWithTab(tab); else if (deskUi.open) deskUi.open = false; });
+  });
+  $effect(() => {
+    const open = deskUi.open;
+    untrack(() => { if (uiStore.appMode === 'pro') syncTabWithDesk(open); });
+  });
+  /*
+   * Design switched off in PRO's settings (or restored off from storage): its desk, its 3-D
+   * reinforcement workspace and its verification colouring go, and a design view goes back to the
+   * model. What the project holds of design stays as it was.
+   */
+  $effect(() => {
+    if (uiStore.designInPro) return;
+    untrack(() => {
+      if (deskUi.open) deskUi.open = false;
+      if (rebarWorkspace.open) rebarWorkspace.close();
+      if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
+    });
+  });
+  /*
+   * The verification colouring is design's, and a restored tab or session can ask for it after
+   * the switch was read: watched on its own, so it never paints verdicts while design is off.
+   */
+  $effect(() => {
+    if (uiStore.designInPro || uiStore.appMode !== 'pro') return;
+    if (resultsStore.diagramType === 'verification') untrack(() => { resultsStore.diagramType = 'none'; });
+  });
   import ProProjectFileActions from './components/pro/ProProjectFileActions.svelte';
   import ProRibbon from './components/pro/ProRibbon.svelte';
   import ProDrawBar from './components/pro/ProDrawBar.svelte';
@@ -517,8 +558,10 @@
     const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
       'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
       'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
-      'otherCodes'];
+      'otherCodes', 'designData', 'desk'];
     if (!VALID.includes(tab)) return;
+    // A link to a place of design while design is off asks the reader; it turns nothing on.
+    if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
     uiStore.proActiveTab = tab;
   }
 
@@ -680,8 +723,8 @@
 
   function restoreAutosave() {
     if (autosaveData) {
-      modelStore.restore(autosaveData.snapshot);
-      modelStore.model.name = autosaveData.name;
+      // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
+      adoptStoredProject(autosaveData.snapshot, autosaveData.name);
       // Same convention note as a .ded open — an autosave predating the metadata
       // is restored under the corrected convention, so warn if it's a legacy 3D model.
       onProjectOpened(autosaveData.snapshot, autosaveData.analysisMode);
@@ -758,6 +801,12 @@
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const key = e.key.toUpperCase();
+
+    // With the design desk, the 3-D workspace or a modal dialog over the model, the keys that edit
+    // the model or its selection are the overlay's, not the model's (`lib/utils/modal-overlay.ts`).
+    if (overlayWasOpenAtKeydown() && (e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace'
+      || ((e.ctrlKey || e.metaKey) && (key === 'X' || key === 'V')))) return;
 
     // Escape leaves whatever is being drawn: the pending member end, the plate corners, the tool.
     // With nothing being drawn it clears the selection.
@@ -768,7 +817,6 @@
     }
 
     // Ctrl/Cmd+Z: Undo
-    const key = e.key.toUpperCase();
     if ((e.ctrlKey || e.metaKey) && key === 'Z' && !e.shiftKey) {
       e.preventDefault();
       historyStore.undo();
@@ -1238,6 +1286,59 @@
     }
     const w = uiStore.proPanelVisible ? uiStore.proPanelWidth : 0;
     root.style.setProperty('--st-right-panel-w', `${w}px`);
+  });
+
+  /*
+   * In PRO the toasts stand at the viewer's foot, measured, above its legends. Design docked: at
+   * the viewer's bottom-right corner rather than the window's. Anchored to the window they landed
+   * on design's canvas, over the plan and the editors, and took the clicks meant for them.
+   */
+  let mainAreaEl = $state<HTMLDivElement | null>(null);
+  /** The viewers' legends, which the toasts keep clear of. */
+  const LEGEND_SELECTOR = '.diagram-legend, .shell-legend, .cs-legend';
+  $effect(() => {
+    const root = document.documentElement;
+    const el = mainAreaEl;
+    const docked = deskDocked && deskUi.open;
+    // The 3-D reinforcement view covers the viewer: the toasts go back to the window's corner.
+    if (uiStore.appMode !== 'pro' || !el || rebarWorkspace.open) {
+      root.style.removeProperty('--st-toast-right');
+      root.style.removeProperty('--st-toast-bottom');
+      return;
+    }
+    /*
+     * Above the viewer's legends, not over them: the status legend runs along the viewer's foot
+     * and the contour and colour-scale legends stand at its right, and a toast anchored to the
+     * corner covered whichever was there (the solve's toast over the verification legend).
+     */
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      let lift = 12;
+      for (const lg of el.querySelectorAll<HTMLElement>(LEGEND_SELECTOR)) {
+        const b = lg.getBoundingClientRect();
+        if (b.width === 0 || b.height === 0) continue;
+        // Only a legend under the toast column (the viewer's right 26 rem, all of it on a phone) is in its way.
+        if (!uiStore.isMobile && b.right < r.right - 26 * 16) continue;
+        lift = Math.max(lift, Math.round(r.bottom - b.top + 8));
+      }
+      if (docked) root.style.setProperty('--st-toast-right', `${Math.round(window.innerWidth - r.right + 16)}px`);
+      else root.style.removeProperty('--st-toast-right');
+      root.style.setProperty('--st-toast-bottom', `${Math.round(window.innerHeight - r.bottom + lift)}px`);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    // A legend appears or goes with the diagram drawn: placed again when the viewer's content changes.
+    const mo = new MutationObserver(() => requestAnimationFrame(place));
+    mo.observe(el, { childList: true, subtree: true });
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener('resize', place);
+      root.style.removeProperty('--st-toast-right');
+      root.style.removeProperty('--st-toast-bottom');
+    };
   });
 
   function startProResize(e: MouseEvent) {
@@ -1772,9 +1873,22 @@
       </div>
     {/if}
 
-    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
+    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'} class:desk-docked={deskDocked && deskUi.open}
+      style:--dd-canvas-h={deskDocked && deskUi.open ? `${deskLayout.canvasH}px` : undefined}>
 
-    <div class="main-area">
+    <!--
+      Design, docked around the viewer.
+      ─────────────────────────────────
+      On a desktop the design desk is the body of the Design stage rather than a sheet over the
+      window: its rail, canvas and piece sheet take the cells of this row's grid around
+      `.main-area`, which stays where it is, so the viewer is never remounted and keeps the
+      model's camera (`DesignDesk.svelte`). The PRO panel is hidden while it is open, not
+      unmounted (the ribbon is bound to it). On a phone the desk is still the full-screen sheet
+      mounted at the root below.
+    -->
+    {#if deskDocked}<DesignDesk docked />{/if}
+
+    <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
         {#if !uiStore.is3DWorkspace}
           <Viewport />
@@ -2119,6 +2233,7 @@
   and closing costs the model nothing.
 -->
 <RebarWorkspace />
+{#if !deskDocked}<DesignDesk />{/if}
 
 {#if uiStore.toasts.length > 0}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
@@ -2129,6 +2244,16 @@
           <!-- The one command that connects members to the nodes they pass (Edit › Cut). -->
           <button class="toast-action" data-testid="toast-split-at-nodes" onclick={() => { splitAtNodesFromToast(); uiStore.dismissToast(toast.id); }}>
             {t('app.splitAtNodesAction')}
+          </button>
+        {/if}
+        {#if toast.actionId === 'enable-design'}
+          <button class="toast-action" data-testid="toast-enable-design" onclick={() => { uiStore.designInPro = true; uiStore.dismissToast(toast.id); announceDesignOn(); }}>
+            {t('design.enable')}
+          </button>
+        {/if}
+        {#if toast.actionId === 'enable-design-link'}
+          <button class="toast-action" data-testid="toast-enable-design-link" onclick={() => { enableDesignForLink(); uiStore.dismissToast(toast.id); }}>
+            {t('design.enableForVisit')}
           </button>
         {/if}
         {#if toast.actionId === 'kinematic'}
@@ -2939,6 +3064,30 @@
     flex: 1;
     overflow: hidden;
   }
+  /*
+   * Design docked: the row becomes a grid of design's parts around the viewer. Head across the
+   * top; the rail on the left and the piece sheet on the right, both full height; the viewer in
+   * the centre with the canvas under it (the canvas sets its own height, dragged from its edge).
+   */
+  .app-body-inner.pro-body-row.desk-docked {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* The viewer keeps at least a strip on a short window; the canvas takes its height up to what it was dragged to. */
+    grid-template-rows: auto minmax(80px, 1fr) minmax(0, min(var(--dd-canvas-h, 40vh), 60vh));
+    grid-template-areas: 'head head head' 'rail view sheet' 'rail canvas sheet';
+    min-height: 0;
+  }
+  .desk-docked > .main-area { grid-area: view; min-width: 0; min-height: 0; }
+  /*
+   * A short window (≤ 600 px): the canvas takes at most half of what is left, so the viewer keeps
+   * room for the model and its legend whatever height the canvas was dragged to on a taller one.
+   */
+  @media (max-height: 600px) {
+    .app-body-inner.pro-body-row.desk-docked {
+      grid-template-rows: auto minmax(140px, 1fr) minmax(0, min(var(--dd-canvas-h, 40vh), 45vh));
+    }
+  }
+  .desk-docked > :global(.pro-sidebar), .desk-docked > :global(.pro-panel-reopen) { display: none !important; }
 
   .sidebar {
     width: 250px;
@@ -3095,9 +3244,9 @@
        next. Anchored to the bottom-right instead: out of the command surface,
        and out of the way of the model's left-anchored drawing.
     */
-    bottom: 46px;
+    bottom: var(--st-toast-bottom, 46px);
     /* Clear of the right panel when one is open — BasicPanel publishes its width. */
-    right: calc(24px + var(--st-right-panel-w, 0px));
+    right: var(--st-toast-right, calc(24px + var(--st-right-panel-w, 0px)));
     z-index: 1100;
     display: flex;
     flex-direction: column;
@@ -3863,7 +4012,8 @@
          model; the sheet's top edge is the one place that is neither.
       */
       top: auto;
-      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      /* Measured in PRO, above the viewer's legends (see `LEGEND_SELECTOR`). */
+      bottom: var(--st-toast-bottom, calc(12px + env(safe-area-inset-bottom, 0px)));
     }
 
     .toast-container.toast-over-sheet {

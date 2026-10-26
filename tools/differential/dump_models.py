@@ -7,7 +7,7 @@ writes OUT_DIR/<generator>-<seed>.json for seeds 0..N-1 of every generator in
 common/gen.py and the per-program gen.py files. Used to run the end-to-end
 certificate on them (docs/verification/CERTIFY.md, "End-to-end certificates"):
 
-    E2E_DIR=OUT_DIR cargo test --release --test certify_end_to_end e2e_dir -- --ignored --nocapture
+    E2E_DIR=OUT_DIR cargo test --release --test certificates certify_end_to_end::e2e_dir -- --ignored --nocapture
 """
 import importlib.util
 import json

@@ -15,11 +15,26 @@
  * on a timer, and no timeout is widened to make a slow thing pass.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, openClassicDesign, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
 const SMALL = 'rc-qa-diagnostic';
+
+/**
+ * What the open 3-D workspace draws, once it draws something.
+ *
+ * The workspace shows before its scene exists: the viewport paints first and builds the cage two
+ * animation frames later (the deferred first build in `RebarViewport3D.svelte`), and only then
+ * publishes the scene the census is read off. Read the moment the workspace was visible, the
+ * census was null whenever those frames came late, as on a machine busy with a full e2e run.
+ * The wait is for that publication, the same one `rebar-toggles.spec.ts` waits for.
+ */
+async function openWorkspaceCensus(page: Page) {
+  await expect.poll(() => page.evaluate(() => window.__stabileo.rebarSceneCensus() !== null),
+    { message: 'the open workspace published its scene' }).toBe(true);
+  return page.evaluate(() => window.__stabileo.rebarSceneCensus());
+}
 
 test.describe('@smoke PRO shell — settings', () => {
   /*
@@ -123,6 +138,9 @@ test.describe('@smoke PRO shell — closing the panel', () => {
    * Which is why this asserts the box and not the flag: a state test passed
    * throughout.
    */
+  // The right panel is the model's and the analysis's: Design is the desk (interface A).
+  test.beforeEach(async ({ pro: page }) => { await page.getByTestId('pr-stage-model').click(); });
+
   test('the panel actually leaves the screen, and comes back', async ({ pro: page }) => {
     const panel = page.locator('.pro-sidebar');
     await expect(panel).toBeVisible();
@@ -161,6 +179,8 @@ test.describe('@smoke PRO shell — a toast does not land on the panel', () => {
    * landed semi-transparent over the results table it was announcing, with
    * the numbers showing through it.
    */
+  test.beforeEach(async ({ pro: page }) => { await page.getByTestId('pr-stage-model').click(); });
+
   test('the toast stack clears the open panel, and takes the room back when it closes',
     async ({ pro: page }) => {
       const read = () => page.evaluate(() =>
@@ -276,15 +296,16 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
   test('the viewer is reachable from every valid entry point', async ({ pro: page }) => {
     await loadModel(page, SMALL);
     await designAll(page);
-    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await designPlace(page, 'detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect
       .poll(() => page.evaluate(() => (window.__stabileo as unknown as
         { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
       .toBeGreaterThan(0);
 
-    // The three in the RC panel. `doc-3d` sits in the Documents stage, which has to be opened.
-    for (const id of ['cmd-open-3d', 'overview-open-3d'] as const) {
+    // The entries in the places of design: the list's toolbar, the project status, the documents.
+    for (const [id, place] of [['cmd-open-3d', 'list'], ['overview-open-3d', 'prepare']] as const) {
+      await designPlace(page, place);
       await expect(page.getByTestId(id), `${id} is present`).toBeVisible();
       await expect(page.getByTestId(id), `${id} is enabled once there is a document`).toBeEnabled();
     }
@@ -292,12 +313,11 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
     await expect(page.getByTestId('doc-3d')).toBeEnabled();
 
     /*
-     * And the ribbon's, which is the entry the metallic flow shares. Its stage has to be opened
-     * first: the ribbon renders only the active stage's groups, so the command does not exist in
-     * the DOM until then — which is why this asserts nothing about its absence beforehand.
+     * And the rail's, in the Detail step (interface A): the entry that is always one press from
+     * the top of the Design stage, whatever place is on screen.
      */
-    await page.getByTestId('pr-stage-design').click();
-    await expect(page.getByTestId('pr-cmd-rebar3d')).toBeEnabled();
+    await designPlace(page, 'detailing');
+    await expect(page.getByTestId('desk-rail-3d')).toBeEnabled();
 
     /*
      * And this is the one that makes the other three safe to leave inside disclosures.
@@ -309,16 +329,16 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
      * conveniences and one of them has to move.
      */
     const outsideAnyDisclosure = await page.evaluate(() =>
-      !document.querySelector('[data-testid="pr-cmd-rebar3d"]')?.closest('details'));
+      !document.querySelector('[data-testid="desk-rail-3d"]')?.closest('details'));
     expect(outsideAnyDisclosure,
-      'the ribbon entry is reachable with every panel section collapsed').toBe(true);
+      'the rail entry is reachable with every section collapsed').toBe(true);
   });
 
   test('it enables once detailing exists, reports the count, and opens the workspace',
     async ({ pro: page }) => {
       await loadModel(page, SMALL);
       await designAll(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled();
       await generate.click();
@@ -327,6 +347,7 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
           { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
         .toBeGreaterThan(0);
 
+      await designPlace(page, 'list');
       const btn = page.getByTestId('cmd-open-3d');
       await expect(btn).toBeEnabled();
 
@@ -354,25 +375,26 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
      */
     await loadModel(page, SMALL);
     await designAll(page);
-    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await designPlace(page, 'detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect
       .poll(() => page.evaluate(() => (window.__stabileo as unknown as
         { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
       .toBeGreaterThan(0);
 
+    await designPlace(page, 'list');
     await page.getByTestId('cmd-open-3d').click();
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-    const viaToolbar = await page.evaluate(() => window.__stabileo.rebarSceneCensus());
+    const viaToolbar = await openWorkspaceCensus(page);
     await page.getByTestId('rebar-workspace-close').click();
     await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
 
     // `doc-3d` moved into the Documents stage, which is collapsed by default.
-    const docs = page.getByTestId('documents-disclosure');
-    if (await docs.getAttribute('open') === null) await docs.locator('> summary').click();
+    await designPlace(page, 'documents');
+    const docs = page.getByTestId('desk-canvas');
     await page.getByTestId('doc-3d').click();
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-    const viaPanel = await page.evaluate(() => window.__stabileo.rebarSceneCensus());
+    const viaPanel = await openWorkspaceCensus(page);
     await page.getByTestId('rebar-workspace-close').click();
     await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
 
@@ -383,9 +405,11 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
      * to mean opening detailing and scrolling. Three ways in is only acceptable while all three
      * are ONE operation — so the census is compared across all of them, not just two.
      */
+    // The overview is in «Prepare» (interface A).
+    await designPlace(page, 'prepare');
     await page.getByTestId('overview-open-3d').click();
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-    const viaOverview = await page.evaluate(() => window.__stabileo.rebarSceneCensus());
+    const viaOverview = await openWorkspaceCensus(page);
 
     expect(viaPanel, 'the same scene, from either button').toEqual(viaToolbar);
     expect(viaOverview, 'and from the one at the top of the panel').toEqual(viaToolbar);

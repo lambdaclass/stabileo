@@ -21,12 +21,13 @@
  */
 
 import type { MemberGeometry } from './scene-model';
+import { memberReferenceLine, type OffsetCarrier } from '../member-offsets';
 
 /** The minimum this module needs from a node. */
 export interface MemberNode { id: number; x: number; y: number; z?: number }
 
 /** The minimum it needs from an element. */
-export interface MemberElement {
+export interface MemberElement extends OffsetCarrier {
   id: number;
   nodeI: number;
   nodeJ: number;
@@ -113,8 +114,12 @@ export function membersFromModel(input: {
       continue;
     }
 
-    const start = { x: ni.x, y: ni.y, z: ni.z ?? 0 };
-    const end = { x: nj.x, y: nj.y, z: nj.z ?? 0 };
+    // The concrete stands on the member's axis — the nodes plus its declared insertion
+    // (`memberReferenceLine`), the line the analysis and the bars use — so a top-flush beam's
+    // box is flush with the node and its bars inside it. On the nodes where it declares none.
+    const line = memberReferenceLine(el, ni, nj, sectionById);
+    const start = line.i;
+    const end = line.j;
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const dz = end.z - start.z;

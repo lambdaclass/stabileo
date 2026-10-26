@@ -23,16 +23,16 @@
  * and there is no control, so the test is the ABSENCE of one plus the sentence that explains it.
  */
 import {
-  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands, setAppLanguage } from './fixtures';
+  test, expect, designAll, loadModel, openDocumentsStage, solveModel, computeDemands, setAppLanguage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const QA = 'rc-design-qa-8';
 
 /** Open DETALLE. Direct child only: the stage contains nested disclosures of its own. */
 async function openDetailing(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
 }
 
 /**
@@ -183,8 +183,10 @@ test.describe('the design scope is the only way to widen', () => {
     await preparedProject(page);
     const before = await offeredIds(page);
 
-    // Diseñar owns the families. Unticking one there is the ONLY thing that moves the base.
+    // Sizing owns the families (the member list). Unticking one there is the ONLY thing that moves the base.
+    await designPlace(page, 'list');
     await page.getByTestId('design-family-column').uncheck();
+    await designPlace(page, 'documents');
 
     const excluded = page.getByTestId('doc-scope-excluded');
     await expect(excluded).toBeVisible();

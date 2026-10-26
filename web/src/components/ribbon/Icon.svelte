@@ -125,6 +125,20 @@
     <circle cx="6" cy="18" r="2.4" />
     <circle cx="6" cy="6" r="2.4" />
     <path d="M8 7.4L20 16.5M8 16.6L20 7.5" />
+  {:else if name === 'foundation'}
+    <!-- A column on its footing, the ground line across. -->
+    <rect x="10" y="3" width="4" height="11" /><rect x="4" y="14" width="16" height="5" />
+    <line x1="2" y1="12" x2="8" y2="12" stroke-dasharray="1.6 1.4" /><line x1="16" y1="12" x2="22" y2="12" stroke-dasharray="1.6 1.4" />
+  {:else if name === 'building'}
+    <!-- Two storeys of a frame on its grid: columns, floors and the axis below. -->
+    <line x1="5" y1="20" x2="5" y2="5" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="19" y1="20" x2="19" y2="5" />
+    <line x1="4" y1="12.5" x2="20" y2="12.5" stroke-width="2.2" /><line x1="4" y1="5" x2="20" y2="5" stroke-width="2.2" />
+    <line x1="2" y1="21.5" x2="22" y2="21.5" stroke-dasharray="2 1.6" />
+  {:else if name === 'physical'}
+    <!-- A column and a beam drawn as solids over their thin axis: the element over its bars. -->
+    <rect x="4" y="6" width="4" height="14" rx="0.6" />
+    <rect x="4" y="4" width="16" height="4" rx="0.6" />
+    <line x1="6" y1="20" x2="6" y2="8" stroke-dasharray="1.6 1.4" />
   {:else if name === 'groups'}
     <!-- Three joints inside one dashed boundary: a named set. -->
     <rect x="3" y="4" width="18" height="16" rx="3" stroke-dasharray="2.4 1.8" />

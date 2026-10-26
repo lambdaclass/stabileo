@@ -21,15 +21,15 @@
  * against source survives until someone renders it differently.
  */
 
-import { test, expect, PRO_URL, loadModel, solveModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
 
 async function openTab(page: Page, tab: keyof typeof STAGE_OF): Promise<void> {
-  await page.getByTestId(`pr-stage-${STAGE_OF[tab]}`).click();
-  await page.getByTestId(`pr-cmd-${tab}`).click();
+  await clickStage(page, STAGE_OF[tab]);
+  await ribbonCmd(page, tab);
 }
 
 /** Generate a steel truss, which is the shortest route to a model with metallic members. */

@@ -19,10 +19,11 @@ describe('§22.6.4 — the critical section', () => {
     const interior = criticalSection(0.40, 0.40, 0.20, 'interior');
     const edge = criticalSection(0.40, 0.40, 0.20, 'edge');
     const corner = criticalSection(0.40, 0.40, 0.20, 'corner');
-    expect(edge.bo).toBeCloseTo(1.8, 9);      // 2·0.6 + 0.6
-    expect(corner.bo).toBeCloseTo(1.2, 9);    // 0.6 + 0.6
-    expect(edge.bo / interior.bo).toBeCloseTo(0.75, 9);
-    expect(corner.bo / interior.bo).toBeCloseTo(0.5, 9);
+    // The sides that meet a free edge run c + d/2 to it, not c + d.
+    expect(edge.bo).toBeCloseTo(1.6, 9);      // 2·0.5 + 0.6
+    expect(corner.bo).toBeCloseTo(1.0, 9);    // 0.5 + 0.5
+    expect(edge.bo / interior.bo).toBeCloseTo(2 / 3, 9);
+    expect(corner.bo / interior.bo).toBeCloseTo(5 / 12, 9);
   });
 
   it('truncates the ENCLOSED AREA with the perimeter — the d/2 strip past a free edge stands on air', () => {
@@ -210,15 +211,15 @@ describe('the complete check', () => {
     expect(corner.utilization).toBeGreaterThan(interior.utilization);
   });
 
-  it('refuses rather than approximates when an unbalanced moment is present', () => {
-    // Checking only direct shear here would report a pass on a connection that the
-    // eccentric-shear transfer of §8.4.4.2 might well fail.
+  it('checks an unbalanced moment by the eccentric shear of §8.4.4.2 instead of direct shear alone', () => {
+    const direct = checkPunchingShear({ ...base, demand: { axialBelow: 400 } });
     const r = checkPunchingShear({
       ...base, demand: { axialBelow: 400, unbalancedMomentX: 60 },
     });
-    expect(r.status).toBe('UNSUPPORTED');
-    expect(r.unsupportedReason).toMatch(/8\.4\.4\.2/);
-    expect(r.memo.join(' ')).toMatch(/NO VERIFICADO/);
+    expect(r.momentTransfer.status).toBe('EVALUATED');
+    expect(r.status).not.toBe('UNSUPPORTED');
+    expect(r.vu).toBeGreaterThan(direct.vu);
+    expect(r.memo.join(' ')).toMatch(/8\.4\.4\.2/);
   });
 
   it('tolerates a negligible unbalanced moment', () => {
@@ -297,12 +298,12 @@ describe('moment transfer outcome', () => {
     expect(r.memo.join(' ')).toMatch(/umbral de significancia/);
   });
 
-  it('refuses above the threshold and cites 8.4.4.2', () => {
+  it('evaluates above the threshold and cites 8.4.4.2', () => {
     const r = checkPunchingShear({
       ...base, demand: { supportReaction: 600, unbalancedMomentX: 7 },
     });
-    expect(r.momentTransfer.status).toBe('UNSUPPORTED_MOMENT_TRANSFER_NOT_EVALUATED');
-    expect(r.status).toBe('UNSUPPORTED');
+    expect(r.momentTransfer.status).toBe('EVALUATED');
+    expect(r.eccentric!.vMomentX).toBeGreaterThan(0);
     expect(r.refs.some((x) => x.clause === '8.4.4.2')).toBe(true);
   });
 

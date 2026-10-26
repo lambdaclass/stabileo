@@ -5,7 +5,7 @@
 //!   on it stayed on the left piece with its old extent, so part of the load vanished;
 //! - the 2D diagram certificate took N as constant between axial point loads and certified a
 //!   zero sampling gap for it, which an axial span load makes false.
-mod common;
+use crate::common;
 use common::make_input;
 use dedaliano_engine::certify::stations::diagram_gaps_2d;
 use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};

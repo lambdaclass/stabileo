@@ -17,6 +17,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import ConflictInspector from './ConflictInspector.svelte';
+  import BarEditPanel from './BarEditPanel.svelte';
   import type {
     SceneBar, SceneConflictMarker, SceneSolid,
   } from '../../../lib/engine/detailing/scene-model';
@@ -106,6 +107,7 @@
       {/if}
     </dd>
   </dl>
+  {#if bar.role === 'longitudinal'}<BarEditPanel barId={bar.barId} elementIds={bar.elementIds} />{/if}
 {:else if conflict}
   <!--
     A clicked marker answers about the CONFLICT, not about whichever bar happens to be behind

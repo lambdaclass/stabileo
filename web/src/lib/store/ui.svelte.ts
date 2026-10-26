@@ -158,6 +158,18 @@ function createUIStore() {
   let eduInBasic = $state(
     hasLocalStorage() ? localStorage.getItem('stabileo-edu-in-basic') === '1' : false,
   );
+  /**
+   * Whether PRO offers the normative design (members, reinforcement, detailing, drawings).
+   *
+   * It is still being built, and PRO's modelling and analysis stand on their own: a model is
+   * drawn or imported, solved, read and exported without it. So it is off by default and turned
+   * on from PRO's settings, as Basic's Educational is, and remembered per browser for the same
+   * reason. Off, its stage, desk and places are not offered and nothing of it runs; what a project
+   * holds of it (bars, decisions, sheets) stays in the file untouched.
+   */
+  let designInPro = $state(
+    hasLocalStorage() ? localStorage.getItem('stabileo-design-in-pro') === '1' : false,
+  );
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -328,8 +340,8 @@ function createUIStore() {
   let showSecondarySelector = $state<boolean>(true);
 
   // 3D rendering mode — per-mode
-  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
-  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
 
   // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
   // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
@@ -342,6 +354,18 @@ function createUIStore() {
 
   // 3D camera mode
   let cameraMode3D = $state<'perspective' | 'orthographic'>('perspective');
+  /**
+   * The plan view: the model seen from above on the working level, the view held there (no
+   * orbit), a drag sliding over the floor and the storeys above it cut away.
+   */
+  let planView3D = $state<boolean>(false);
+  /**
+   * Where the plan view cuts the storeys above away, m: its own cut, apart from the cut plane a
+   * person sets (`clippingEnabled`). Null outside the plan view.
+   */
+  let planCutZ = $state<number | null>(null);
+  /** What a left drag does with the Pan tool in 3D: orbit the model, or slide over the view's plane. */
+  let dragMode3D = $state<'orbit' | 'slide'>('orbit');
 
   // 3D clipping plane
   let clippingEnabled = $state<boolean>(false);
@@ -729,6 +753,17 @@ function createUIStore() {
       try { localStorage.setItem('stabileo-edu-in-basic', v ? '1' : '0'); } catch { /* private mode */ }
     },
 
+    get designInPro() { return designInPro; },
+    set designInPro(v: boolean) {
+      designInPro = v;
+      try { localStorage.setItem('stabileo-design-in-pro', v ? '1' : '0'); } catch { /* private mode */ }
+    },
+    /**
+     * Design on for this session only, the browser's setting untouched. Called from the reader's
+     * own answer to a link that names a place of design (`askDesignForLink`), never by the link.
+     */
+    designForSession() { designInPro = true; },
+
     get moveMode() { return moveMode; },
     set moveMode(v: 'view' | 'nodes') { moveMode = v; },
 
@@ -984,7 +1019,7 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections' | 'physical') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 
@@ -993,6 +1028,12 @@ function createUIStore() {
 
     get cameraMode3D() { return cameraMode3D; },
     set cameraMode3D(v: 'perspective' | 'orthographic') { cameraMode3D = v; },
+    get planView3D() { return planView3D; },
+    set planView3D(v: boolean) { planView3D = v; },
+    get planCutZ() { return planCutZ; },
+    set planCutZ(v: number | null) { planCutZ = v; },
+    get dragMode3D() { return dragMode3D; },
+    set dragMode3D(v: 'orbit' | 'slide') { dragMode3D = v; },
 
     get clippingEnabled() { return clippingEnabled; },
     set clippingEnabled(v: boolean) { clippingEnabled = v; },
@@ -1183,9 +1224,11 @@ function createUIStore() {
     set contextMenu(v: { x: number; y: number; nodeId?: number; elementId?: number } | null) { contextMenu = v; },
 
     get toasts() { return toasts; },
-    toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string) {
+    /** `sticky`: kept until it is acted on or dismissed, for a question the reader has to answer. */
+    toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string, sticky = false) {
       const id = ++toastCounter;
       toasts.push({ id, message, type, actionId });
+      if (sticky) return;
       setTimeout(() => {
         const idx = toasts.findIndex(t => t.id === id);
         if (idx >= 0) toasts.splice(idx, 1);

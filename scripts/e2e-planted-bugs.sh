@@ -64,14 +64,15 @@ BUGS=(
   "thermal: alpha 12e-6 as 1.2e-6 @@ src/solver/assembly.rs @@                         let alpha = 12e-6; // Steel default @@                         let alpha = 1.2e-6;"
 )
 
-TESTS=(--test certify_end_to_end --test certify_end_to_end_mutations)
+# Both files are modules of the certificates test binary; the filters select them.
+TESTS=(--test certificates -- certify_end_to_end:: certify_end_to_end_mutations::)
 only="${1:-}"
 if [[ "$only" == "--noop" ]]; then
   BUGS=("no-op (must not be caught) @@ src/element/fef.rs @@ /// Fixed-end forces @@ /// Fixed-end forces")
   only=""
 fi
 # The end-to-end suite's test names (a catch must name one of them).
-SUITE_RE='^(end_to_end_|correct_engine_|planted_|non_finite_|agreement_)'
+SUITE_RE='^certify_end_to_end(_mutations)?::(end_to_end_|correct_engine_|planted_|non_finite_|agreement_)'
 caught=0
 missed=()
 errors=()
@@ -98,7 +99,7 @@ PY
   log="$logs/planted-$n.log"
   "$cargo_bin" test --release -q "${TESTS[@]}" >"$log" 2>&1
   status=$?
-  fails=$(awk '/^failures:$/{f=1;next} f&&/^    [a-z_0-9]+$/{print $1} /^test result/{f=0}' "$log" | sort -u | grep -E "$SUITE_RE" | tr '\n' ' ')
+  fails=$(awk '/^failures:$/{f=1;next} f&&/^    [a-z_0-9:]+$/{print $1} /^test result/{f=0}' "$log" | sort -u | grep -E "$SUITE_RE" | tr '\n' ' ')
   if [[ $status -eq 0 ]] && grep -q "^test result: ok" "$log"; then
     echo "#$n $name: NOT CAUGHT"
     missed+=("#$n $name")

@@ -6,7 +6,7 @@
 //! same structure without the feature (the slack brace removed, the closed
 //! gap replaced by the spring and offset it amounts to). The two must agree.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::solver::contact::*;

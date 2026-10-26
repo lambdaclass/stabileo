@@ -3,7 +3,8 @@
  *
  * Tabla 3.1   unit weights of materials and constructive elements
  * §3.1.3      fixed service equipment is part of the dead load
- * §3.1.4      the allowance for interior partitions
+ * §3.1.4      the weight of interior partitions (the §4.3.2 minimum is a LIVE load,
+ *             `live-loads.ts`, and is checked here only as part of what §3.1.4 asks for)
  *
  * ── What this replaces ─────────────────────────────────────────
  *
@@ -39,6 +40,7 @@
 
 import { clause, type ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
+import { PARTITION_LIVE_MINIMUM_KNM2 } from './live-loads';
 
 const T31 = clause('cirsoc-101', '2025', 'Tabla 3.1',
   'pesos unitarios de los materiales y elementos constructivos');
@@ -152,7 +154,6 @@ export const DEAD_TABLE_2025: readonly DeadEntry[] = Object.freeze([
   d('vid_armado', 'glazing', 0.15, null),]);
 
 export function findDeadEntry(key: string): DeadEntry | undefined {
-  if (key === PARTITION_MINIMUM_ENTRY.key) return PARTITION_MINIMUM_ENTRY;
   return DEAD_TABLE_2025.find((e) => e.key === key);
 }
 
@@ -227,26 +228,16 @@ export const PARTITION_REF = clause('cirsoc-101', '2025', '3.1.4',
 /**
  * §4.3.2 — the least partition load, kN/m²: "La carga de dichos elementos deberá ser mayor o
  * igual que 0,75 kN/m²". §3.1.4 only says one is owed; this is the number. (§4.3.2 releases
- * live loads over 3,85 kN/m², §3.1.4 those over 4: the stricter, 4, is kept.)
+ * live loads over 3,85 kN/m², §3.1.4 those over 4: the stricter, 4, is kept for this check.)
+ *
+ * The allowance itself is a live load and is applied there (`partitionLiveAllowance`). It used
+ * to be a dead row of this catalogue, `tabiques_minimo_432`, in the default build-up; that row
+ * is gone, and a project that saved it gets the live allowance instead (`auto-loads-memory`).
  */
-export const PARTITION_MINIMUM_KNM2 = 0.75;
+export const PARTITION_MINIMUM_KNM2 = PARTITION_LIVE_MINIMUM_KNM2;
 
 export const PARTITION_MINIMUM_REF = clause('cirsoc-101', '2025', '4.3.2',
   'requerimientos para elementos divisorios');
-
-/**
- * §4.3.2 — the partition allowance itself, as a catalogue row: 0,75 kN/m² of FLOOR.
- *
- * Not a Tabla 3.1 row, and kept out of `DEAD_TABLE_2025` for that reason. The table's
- * "Tabiques" rows weigh a square metre of WALL (a 120 mm double plasterboard partition is
- * 0,55 kN/m² of its own face); none of them reaches 0,75, and none is a load per square
- * metre of floor. What §4.3.2 prints is the least floor allowance, so this row carries that
- * number with that clause, and the default build-up uses it.
- */
-export const PARTITION_MINIMUM_ENTRY: DeadEntry = Object.freeze({
-  key: 'tabiques_minimo_432', labelKey: 'loads.dead.tabiques_minimo_432', group: 'partition',
-  areaKNm2: PARTITION_MINIMUM_KNM2, volumeKNm3: null, refs: [PARTITION_MINIMUM_REF],
-});
 
 export interface PartitionCheck {
   /** True when §3.1.4 requires an allowance and the build-up carries none. */
@@ -263,9 +254,13 @@ export interface PartitionCheck {
  * A dead load with no partition line, on a floor whose live load is 2 kN/m², is a floor
  * missing a load the regulation requires — and it is invisible, because what is missing
  * shows up as nothing at all. Answering is arithmetic; it costs one comparison.
+ *
+ * `partitionAllowanceKNm2` is the weight of the known partitions in the dead load;
+ * `liveAllowanceKNm2` the §4.3.2 partition live load the floor takes. Either provides for the
+ * partitions, and together they must reach the §4.3.2 minimum.
  */
 export function checkPartitionAllowance(
-  liveLoKNm2: number, partitionAllowanceKNm2: number,
+  liveLoKNm2: number, partitionAllowanceKNm2: number, liveAllowanceKNm2 = 0,
 ): PartitionCheck {
   const exempt = liveLoKNm2 > PARTITION_EXEMPTION_LKNM2;
   if (exempt) {
@@ -277,11 +272,21 @@ export function checkPartitionAllowance(
       refs: [PARTITION_REF],
     };
   }
-  if (partitionAllowanceKNm2 > 0 && partitionAllowanceKNm2 < PARTITION_MINIMUM_KNM2) {
+  const total = partitionAllowanceKNm2 + liveAllowanceKNm2;
+  if (total > 0 && total < PARTITION_MINIMUM_KNM2) {
     return {
       missing: true, exempt: false,
       message: msg('loads.cirsoc101.dead.partitionBelowMinimum', {
-        q: round(partitionAllowanceKNm2, 2), min: PARTITION_MINIMUM_KNM2,
+        q: round(total, 2), min: PARTITION_MINIMUM_KNM2,
+      }),
+      refs: [PARTITION_REF, PARTITION_MINIMUM_REF],
+    };
+  }
+  if (liveAllowanceKNm2 > 0) {
+    return {
+      missing: false, exempt: false,
+      message: msg('loads.cirsoc101.dead.partitionIncludedLive', {
+        dead: round(partitionAllowanceKNm2, 2), live: round(liveAllowanceKNm2, 2),
       }),
       refs: [PARTITION_REF, PARTITION_MINIMUM_REF],
     };

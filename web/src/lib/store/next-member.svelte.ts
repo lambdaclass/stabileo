@@ -7,14 +7,23 @@
  * project; `null` means "as the last member", or the model's first when there is none.
  *
  * Everything else a member is told (truss or frame, released ends, offsets) is a specification,
- * set in Specifications › Members once the member exists: in PRO a member is born a frame.
+ * set in Specifications › Members once the member exists: in PRO a member is born a frame. What
+ * it is to the engineer (a beam, a column, a brace) can be chosen too, and it is born declared.
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
+import { declareDrawnBar, type DrawnRun } from '../model/building/declare';
+
+/** What a drawn member is to the engineer (`model/physical`): kind and typology. */
+export interface DrawnKind { kind: 'column' | 'beam' | 'brace'; typology?: string }
 
 function createNextMember() {
   let materialId = $state<number | null>(null);
   let sectionId = $state<number | null>(null);
+  /** In PRO, what the next member IS; null: a plain bar, declared nothing. */
+  let physical = $state<DrawnKind | null>(null);
+  /** The element the last drawn member joined, so a chain continues it. */
+  let run: DrawnRun | null = null;
 
   /**
    * The choice when it still names something in the model; else what the last member has, which
@@ -35,6 +44,8 @@ function createNextMember() {
     get sectionId() { return sectionId; },
     set sectionId(v: number | null) { sectionId = v; },
     /** The material the next member takes, as the pickers show it. */
+    get physical() { return physical; },
+    set physical(v: DrawnKind | null) { physical = v; run = null; },
     get resolvedMaterialId() { return resolve(materialId, modelStore.materials.keys(), lastMember()?.materialId); },
     get resolvedSectionId() { return resolve(sectionId, modelStore.sections.keys(), lastMember()?.sectionId); },
     /**
@@ -51,6 +62,8 @@ function createNextMember() {
         id = modelStore.addElement(nodeI, nodeJ, pro ? 'frame' : type);
         if (mat !== null && modelStore.materials.has(mat)) modelStore.updateElementMaterial(id, mat);
         if (sec !== null && modelStore.sections.has(sec)) modelStore.updateElementSection(id, sec);
+        // Declared as it is drawn: a chained beam or column continues the element it extends.
+        run = pro && physical ? declareDrawnBar(id, physical.kind, physical.typology, run) : null;
       });
       return id;
     },

@@ -48,6 +48,10 @@
  * the test is the only proof that a production artifact does not ship the browser-test
  * hooks.
  *
+ * The project-scale timing budgets also run in the serial pass. In the parallel pool,
+ * report generation exceeded its 2,000 ms budget by 26 ms while other workers were busy.
+ * Isolating that measurement keeps the fixture and thresholds intact.
+ *
  * ── What was deliberately NOT done ─────────────────────────────────
  *
  * No RPC timeout was raised, no retry was added, no worker error was demoted to a warning,
@@ -68,7 +72,7 @@ const filtered = forwarded.length > 0;
 
 const PASSES = [
   { project: 'unit', label: 'unit + integration (bounded parallel pool)' },
-  { project: 'build', label: 'production builds (serial, whole machine)' },
+  { project: 'build', label: 'production builds and performance budgets (serial, whole machine)' },
 ];
 
 const results = [];

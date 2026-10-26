@@ -115,8 +115,8 @@ jobs:
         # The assembly oracle's other ignored tests are minimal reproductions
         # of open bugs, so only its sweep runs here.
         run: |
-          cargo test --release --test certify --test certify_plastic_3d -- --ignored --nocapture
-          cargo test --release --test assembly_paths assembly_paths_agree_large -- --ignored --nocapture
+          cargo test --release --test certificates -- --ignored --nocapture certify:: certify_plastic_3d::
+          cargo test --release --test solver assembly_paths::assembly_paths_agree_large -- --ignored --nocapture
 
   # Metamorphic tests, exhaustive tier (docs/verification/METAMORPHIC.md):
   # the whole corpus and ~200 random models through every analysis, checking

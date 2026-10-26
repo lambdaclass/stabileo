@@ -60,7 +60,8 @@ describe('tension is not checked as compression', () => {
     // Without the connection the tension check is refused (D.2(b) cannot be evaluated).
     const blind = checkSteelMember(1, { ...noDemand, Nt: 20 }, sec, steel, { L: 6, Lb: 6 })!;
     expect(blind.tension?.notEvaluated).toBeTruthy();
-    expect(blind.overallStatus).toBe('fail');
+    // held, not failed: a refused check is never a pass and proves no failure (`cirsoc301-verdict.ts`).
+    expect(blind.overallStatus).toBe('held');
   });
 
   it('a member that sees both is checked for both and reports the worse', () => {

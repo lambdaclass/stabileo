@@ -5,6 +5,10 @@ edition = "2021"
 license = "AGPL-3.0-only"
 publish = false
 authors = ["Dedaliano Team"]
+# Test binaries are listed below rather than discovered: each top-level tests/*.rs used to be its
+# own binary, and building 100+ binaries that each link the engine was most of `cargo test`.
+# scripts/check-test-targets.py (CI lint) fails when a test file is in no binary or in two.
+autotests = false
 description = "High-performance 2D structural analysis engine"
 
 [lib]
@@ -53,6 +57,58 @@ proptest = "1"
 # CBOR values hold NaN and ±∞, which JSON cannot: the certificate property
 # tests inject them into typed inputs (tests/certify_nonfinite.rs).
 ciborium = "0.2"
+
+[[test]]
+name = "core"
+path = "tests/core/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[[test]]
+name = "reference"
+path = "tests/reference/main.rs"
+
+[[test]]
+name = "validation"
+path = "tests/validation/main.rs"
+
+[[test]]
+name = "metamorphic"
+path = "tests/metamorphic/main.rs"
+
+[[test]]
+name = "property"
+path = "tests/property/main.rs"
+
+[[test]]
+name = "gates"
+path = "tests/gates/main.rs"
+
+[[test]]
+name = "certificates"
+path = "tests/certificates/main.rs"
+
+[[test]]
+name = "shells"
+path = "tests/shells/main.rs"
+
+[[test]]
+name = "derivations"
+path = "tests/derivations/main.rs"
+
+[[test]]
+name = "solver"
+path = "tests/solver/main.rs"
+
+[[test]]
+name = "elements"
+path = "tests/elements/main.rs"
+
+[[test]]
+name = "robustness"
+path = "tests/robustness/main.rs"
 
 [[bench]]
 name = "solver_bench"

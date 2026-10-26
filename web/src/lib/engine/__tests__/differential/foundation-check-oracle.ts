@@ -44,7 +44,7 @@ import { clause, type ClauseRef } from '../../../codes/regulation';
 import {
   PHI_SHEAR, checkPunchingShear, sizeEffectFactor, sqrtFcCapped,
   type ColumnPosition, type PunchingCheck,
-} from '../../detailing/punching-shear';
+} from './oracle/punching-shear';
 import {
   axisPressure, footingCentroidActions, footingUnbalancedMoment, planPressure,
   type FootingCentroidActions, type FootingUnbalancedMoment,

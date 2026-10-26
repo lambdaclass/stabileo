@@ -52,6 +52,8 @@ describe('optimiser with a section that is a tapered member\'s end J', () => {
     const before = { ...modelStore.sections.get(s600)! };
 
     steelOptimise.run('section');
+    // The two tapered members are left out, and the run says so instead of dropping them silently.
+    expect(steelOptimise.variableLeftOut).toBe(2);
     const row = steelOptimise.rows.find((x) => x.sectionId === s600)!;
     expect(row.elementIds.sort()).toEqual([...portal].sort());
     steelOptimise.apply([row.key]);

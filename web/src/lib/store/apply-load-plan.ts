@@ -11,6 +11,7 @@ import { addGeneratedCombinations, takeBackCompositeCases } from './generated-co
 import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
+import { patchDesignData } from './design-data';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -142,6 +143,14 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
   modelStore.batch(() => {
+    // The basis of what is about to be written, for the memoria (`LoadBasis`).
+    const { windGust: _gust, ...scalars } = p.factors;
+    const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
+    patchDesignData({ loadBasis: {
+      at: new Date().toISOString(), ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
+      levels: p.levels.map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
+      derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
+    } });
     if (opts.clearExisting) {
       const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, { alsoUnmarked: opts.alsoUnmarked, nameOf: opts.nameOf });
       const ids = new Set(gone.loads);

@@ -7,7 +7,7 @@
 //! Model: a 4 m horizontal bar, pinned at node 1, on a horizontal roller at node 2 (free along
 //! the bar), pulled at node 2 by 50 kN, with 10 kN/m along it toward node 2. Then
 //! N(x) = 50 + 10·(4 − x): 90 at node 1, 50 at node 2, all tension (so a cable takes it too).
-mod common;
+use crate::common;
 use common::make_input;
 use dedaliano_engine::solver::{
     corotational::solve_corotational_2d, linear::solve_2d, moving_loads::solve_moving_loads_2d,

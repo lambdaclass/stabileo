@@ -38,6 +38,7 @@
 import { msg, type EngineMessage } from '../codes/message';
 import type { FootingKind } from '../engine/detailing/foundation-check';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
+import { migrateFootingLocks, type FootingLocks, type FootingMats } from './foundation/locks';
 
 export const FOOTING_SCHEMA_VERSION = 1;
 
@@ -108,6 +109,39 @@ export interface Footing {
   /** The stratum this footing bears on — an id into `ProjectGeotechnical.profiles`. */
   soilProfileId: number | null;
   /**
+   * The other supported nodes the footing carries: a combined footing's second column, a
+   * strip footing's wall base. Their reactions add to `nodeId`'s. Absent: only `nodeId`.
+   */
+  supportedNodeIds?: number[];
+  /**
+   * The point of the footing's plan that stays under the column, as (B, L) each −1, 0 or 1:
+   * (0, 0) centred, one of them ±1 at a property line, both at a corner. The eccentricity is
+   * worked out from it when the footing is sized; absent, the eccentricity is as typed.
+   */
+  anchor?: [number, number];
+  /** The wall a strip footing runs under (a `physicalMember` group). */
+  wallGroupId?: number;
+  /**
+   * The strap beams that tie this footing to others: what lies along each, its offset from its
+   * column and the column's moment, is then the strap's to carry, and with straps both ways it is
+   * checked centred (`engine/foundation/strap-footing.ts`). `nodeId`: where the strap reaches the
+   * partner, when not at its own node (a strip's wall); b × h, its section, m.
+   */
+  straps?: Array<{ toFootingId: number; nodeId?: number; b?: number; h?: number }>;
+  /**
+   * The offset across a footing taken by the structure above it rather than by the soil: a basement
+   * wall on an eccentric strip, propped by the floor at its head, carries the moment of the offset as
+   * a couple between its foot and that floor. The footing is then checked centred across, and the
+   * couple stated for the wall and the floor (`strap-footing.ts`). Height: the prop's above the
+   * footing's top, m.
+   */
+  balanced?: { by: 'structure'; height?: number };
+  /** A pile cap's piles. */
+  piles?: PileLayout;
+  /** What the design may not change; and the bars fixed by hand, checked rather than designed. */
+  locked?: FootingLocks;
+  mats?: FootingMats;
+  /**
    * Bumped on every edit that changes an outcome.
    *
    * Per-footing rather than only project-wide so invalidation can be targeted: editing Z7
@@ -115,6 +149,13 @@ export interface Footing {
    */
   revision: number;
 }
+
+/**
+ * The piles under a pile cap: how many, their diameter and length, and the spacing between
+ * centres, m. Laid out by count: one, two in a line, three in a triangle, four in a square,
+ * more in a grid of two rows.
+ */
+export interface PileLayout { count: number; diameter: number; length: number; spacing: number }
 
 /** Default thickness for a new footing, m. A starting point, not a design. */
 export const NEW_FOOTING_THICKNESS_M = 0.5;
@@ -393,7 +434,7 @@ export function validateFooting(f: Footing): FootingIssue[] {
     }));
   }
 
-  if (f.kind !== 'isolated') {
+  if (f.kind === 'mat') {
     // Not an error — a modelled intent the engine cannot yet check. It must be visible as
     // an unsupported capability rather than silently checked as if it were isolated.
     advisory(msg('footing.issue.kindUnsupported', { footing: f.name, kind: f.kind }));
@@ -415,7 +456,7 @@ export interface FootingMigration {
   notices: EngineMessage[];
 }
 
-const FOOTING_KINDS: readonly FootingKind[] = ['isolated', 'combined', 'strip', 'mat', 'pileCap'];
+export const FOOTING_KINDS: readonly FootingKind[] = ['isolated', 'combined', 'strip', 'mat', 'pileCap'];
 
 /**
  * Read any persisted shape, including none.
@@ -478,6 +519,26 @@ export function migrateFootings(raw: unknown, defaults: { cover: number }): Foot
       cover: num(e.cover, defaults.cover),
       foundingElevation: num(e.foundingElevation, 0),
       soilProfileId: nullableId(e.soilProfileId),
+      ...(Array.isArray(e.supportedNodeIds) && e.supportedNodeIds.every((x) => typeof x === 'number' && Number.isFinite(x))
+        ? { supportedNodeIds: [...(e.supportedNodeIds as number[])] } : {}),
+      ...(Array.isArray(e.anchor) && e.anchor.length === 2 && e.anchor.every((x) => x === -1 || x === 0 || x === 1)
+        ? { anchor: [e.anchor[0], e.anchor[1]] as [number, number] } : {}),
+      ...(typeof e.wallGroupId === 'number' && Number.isFinite(e.wallGroupId) ? { wallGroupId: e.wallGroupId } : {}),
+      ...(e.balanced && (e.balanced as { by?: unknown }).by === 'structure' ? { balanced: { by: 'structure' as const, ...(typeof (e.balanced as { height?: unknown }).height === 'number' ? { height: (e.balanced as { height: number }).height } : {}) } } : {}),
+      ...(Array.isArray(e.straps) ? (() => {
+        const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : undefined);
+        const list = (e.straps as Array<Record<string, unknown>>).filter((x) => x && n(x.toFootingId) !== undefined).map((x) => ({
+          toFootingId: n(x.toFootingId)!, ...(n(x.nodeId) !== undefined ? { nodeId: n(x.nodeId)! } : {}),
+          ...(n(x.b) !== undefined ? { b: n(x.b)! } : {}), ...(n(x.h) !== undefined ? { h: n(x.h)! } : {}),
+        }));
+        return list.length ? { straps: list } : {};
+      })() : {}),
+      ...(e.piles && typeof e.piles === 'object' ? (() => {
+        const p = e.piles as Record<string, unknown>;
+        const piles = { count: num(p.count, 0), diameter: num(p.diameter, 0), length: num(p.length, 0), spacing: num(p.spacing, 0) };
+        return piles.count > 0 ? { piles } : {};
+      })() : {}),
+      ...migrateFootingLocks(e),
       revision: num(e.revision, 1),
     });
   }

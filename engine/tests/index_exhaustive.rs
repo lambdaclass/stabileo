@@ -5,7 +5,7 @@
 //! cover the same properties symbolically where CBMC is fast enough; see
 //! docs/verification/KANI.md).
 
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::linalg::amd::{amd_order, inverse_perm};

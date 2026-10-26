@@ -11,11 +11,12 @@
   // simply closes. The generated model carries a 'cad-draft-unreviewed'
   // provenance tag with the full assumption list (including the v1
   // one-plan-replicated-to-all-floors assumption).
-  import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
+  import { modelStore, uiStore, resultsStore } from '../lib/store';
   import { fragmentFromSnapshot } from '../lib/model/edit/fragment-code';
   import { placementStore } from '../lib/store/placement.svelte';
   import { t, tp } from '../lib/i18n';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent, cadImportProblem } from '../lib/cad/parse';
+  import { organizeImported } from '../lib/model/building/organize-import';
   import { meshSettingsValid } from '../lib/cad/draft';
   import { suggestLayerMappings, extractArchPlan } from '../lib/cad/classify';
   import {
@@ -557,14 +558,22 @@
     if (!draft) return;
     const frag = fragmentFromSnapshot(draft.snapshot);
     if (frag.nodes.length === 0) return;
-    placementStore.start({ fragment: frag, label: fileName || 'DXF' });
+    placementStore.start({
+      fragment: frag, label: fileName || 'DXF',
+      // In PRO the pieces placed are recognised as elements on the model's levels.
+      onCommit: (r) => { if (r && uiStore.appMode === 'pro') modelStore.batch(() => organizeImported()); },
+    });
     onclose();
   }
 
   function handleApply(): void {
     if (!draft) return;
-    historyStore.pushState();
-    modelStore.restore(draft.snapshot);
+    const snap = draft.snapshot;
+    // One undo step: the drawing, and in PRO its grid and its elements read off it.
+    modelStore.batch(() => {
+      modelStore.restore(snap);
+      if (uiStore.appMode === 'pro') organizeImported();
+    });
     resultsStore.clear();
     viewVisibility.showAll();
     if (uiStore.appMode !== 'pro') askAboutOverlapsInModel();

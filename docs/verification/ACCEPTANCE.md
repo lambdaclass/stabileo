@@ -4,7 +4,7 @@ Layer 9 of [`VERIFICATION.md`](../VERIFICATION.md): building-like models from
 **public benchmarks with published reference results**, solved by stabileo
 and compared against those results. Every release must pass it.
 
-- Test target: `engine/tests/acceptance.rs` (`cargo test --release --test acceptance -- --nocapture`
+- Test target: `engine/tests/acceptance.rs` (`cargo test --release --test gates acceptance:: -- --nocapture`
   prints the full comparison table).
 - Cases: `engine/tests/acceptance/models/*.json`, one file per case: the model
   in stabileo's solver JSON, the analysis, the source of every reference

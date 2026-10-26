@@ -1,8 +1,7 @@
 //! Gates: reactions, displacements, and equilibrium sums are reported in
 //! GLOBAL axes on every analysis path, including inclined supports.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use dedaliano_engine::solver::{linear, corotational, material_nonlinear, reduction, cable, staged};
 use dedaliano_engine::solver::winkler::{self, WinklerInput3D, FoundationSpring3D};

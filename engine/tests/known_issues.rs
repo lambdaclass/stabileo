@@ -1,7 +1,7 @@
 //! Containment of the known issues (src/known_issues.rs): a result the issue can make wrong
 //! carries a `KnownIssue` warning naming it, and a result it cannot affect carries none.
 
-mod common;
+use crate::common;
 use common::{make_3d_beam, make_beam};
 use dedaliano_engine::known_issues::{for_3d, Analysis};
 use dedaliano_engine::solver::linear::{prepare_static_2d, solve_2d};

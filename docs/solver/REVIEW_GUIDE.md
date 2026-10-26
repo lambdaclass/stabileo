@@ -114,14 +114,14 @@ warning:
 ```sh
 cd engine
 export CARGO_BUILD_JOBS=2
-cargo test --test symbolic_elements          # frame family vs SymPy
-cargo test --test derivation_frames          # this documentation's frame checks
-cargo test --test derivation_shells
-cargo test --test derivation_special_elements
-cargo test --test derivation_assembly_constraints
-cargo test --test derivation_mass_geometric_dynamics
-cargo test --test derivation_nonlinear
-cargo test --test derivation_mass_geometric_dynamics -- --include-ignored   # see open questions fail
+cargo test --test derivations symbolic_elements::          # frame family vs SymPy
+cargo test --test derivations derivation_frames::          # this documentation's frame checks
+cargo test --test derivations derivation_shells::
+cargo test --test derivations derivation_special_elements::
+cargo test --test derivations derivation_assembly_constraints::
+cargo test --test derivations derivation_mass_geometric_dynamics::
+cargo test --test derivations derivation_nonlinear::
+cargo test --test derivations derivation_mass_geometric_dynamics:: -- --include-ignored   # see open questions fail
 ```
 
 To regenerate the symbolic test, see [SYMBOLIC.md](../verification/SYMBOLIC.md)

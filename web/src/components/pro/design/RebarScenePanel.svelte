@@ -19,12 +19,14 @@
    * reason each one has none. A user who never opens the workspace still has to know they
    * exist — that was the original defect and closing the overlay must not bring it back.
    */
+  import { coverForMember, sheetMembers } from '../../../lib/store/detailing-sheet-inputs';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { buildOutcomeSummaries } from '../../../lib/store/element-status-join';
   import { modelStore } from '../../../lib/store/model.svelte';
   import { verificationStore } from '../../../lib/store/verification.svelte';
   import { rebarWorkspace } from '../../../lib/store/rebar-workspace.svelte';
   import { summariseScene } from '../../../lib/engine/detailing/scene-model';
+  import { projectPhysicalFrame } from '../../../lib/store/physical-frame';
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
@@ -59,7 +61,7 @@
        * the only question that matters — same document, same members — so a checkbox, a
        * slider or a selection no longer rebuilds the projection.
        */
-      return { scene: cachedSceneModel(doc, members), refused };
+      return { scene: cachedSceneModel(doc, members, { physical: projectPhysicalFrame() }), refused };
   });
 
   const summary = $derived(built ? summariseScene(built.scene) : null);
@@ -90,6 +92,7 @@
     if (!doc || assemblyIds.length === 0) return;
     const set = renderDrawings(doc, {
       locale: i18n.locale, projectName: t('detailing.doc.project'),
+      members: sheetMembers(), coverOf: coverForMember,
     });
     ondownload(`detailing-rev${doc.revision.number}-3d.dxf`, 'application/dxf', set.dxf);
   }

@@ -33,6 +33,8 @@ export interface OfficeTemplate {
   combinationRules?: unknown[];
   regulations?: unknown;
   deflectionLimits?: DeflectionLimits;
+  /** The project's design data (`model/design-data.ts`): steel, covers, bar sets. */
+  designData?: unknown;
 }
 
 export interface TemplateSource {
@@ -43,6 +45,8 @@ export interface TemplateSource {
   combinationRules?: readonly unknown[];
   regulations?: unknown;
   deflectionLimits?: DeflectionLimits;
+  /** The project's design data (`model/design-data.ts`): steel, covers, bar sets. */
+  designData?: unknown;
 }
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -60,6 +64,7 @@ export function templateFrom(src: TemplateSource, name: string, savedAt = new Da
     ...(src.combinationRules?.length ? { combinationRules: clone([...src.combinationRules]) } : {}),
     ...(src.regulations ? { regulations: clone(src.regulations) } : {}),
     ...(kindRules.length ? { deflectionLimits: { rules: clone(kindRules) } } : {}),
+    ...(src.designData ? { designData: clone(src.designData) } : {}),
   };
 }
 
@@ -85,6 +90,7 @@ export interface TemplatePlan {
   combinationRules: unknown[];
   regulations?: unknown;
   deflectionLimits?: DeflectionLimits;
+  designData?: unknown;
   skipped: { materials: number; sections: number; loadCases: number; combinations: number };
 }
 
@@ -110,6 +116,8 @@ export function planTemplate(t: OfficeTemplate, into: TemplateSource): TemplateP
     combinationRules: (t.combinationRules ?? []).filter((r) => !ruleIds.has((r as { id?: string }).id)),
     ...(t.regulations ? { regulations: t.regulations } : {}),
     ...(t.deflectionLimits && kindRulesHere === 0 ? { deflectionLimits: t.deflectionLimits } : {}),
+    // The template's design data, unless the project already states its own.
+    ...(t.designData && !into.designData ? { designData: t.designData } : {}),
     skipped: {
       materials: t.materials.length - materials.length,
       sections: t.sections.length - sections.length,

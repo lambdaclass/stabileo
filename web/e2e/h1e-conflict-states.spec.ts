@@ -16,7 +16,10 @@
  *
  * ── What no fixture produces, and is therefore NOT covered here ────
  *
- *   `refused` / unreinforced members — zero in all three.
+ *   `refused` / unreinforced members — zero in all three when this was written. No longer: since
+ *   the design reads the bars' anchorage in the columns and designs a beam that declares no role
+ *   in the lateral system as part of it (292b87f68), `rc-qa-diagnostic` refuses beams on its own
+ *   (`what these fixtures now reach` below), and so does `rc-design-qa-8` (e5, e6).
  *   `doc-error` — all three build a document successfully.
  *   `ConflictInspector` WAS unreachable — it renders from a marker click in the WebGL scene,
  *   which raycasts. `__stabileoActions.selectConflict` now stands in for that click, and the
@@ -26,7 +29,7 @@
  * faked, and no engine or solver change was made to manufacture one.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Hooks = {
@@ -37,10 +40,16 @@ type Hooks = {
   };
 };
 
-async function generate(page: Page, model: string) {
+async function generate(page: Page, model: string, opts: { beamsNotLateral?: boolean } = {}) {
   await loadModel(page, model);
+  if (opts.beamsNotLateral) {
+    // The beams declared not part of the lateral-force-resisting system, through the design data.
+    await designPlace(page, 'designData');
+    await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  }
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  if (opts.beamsNotLateral) await designPlace(page, 'list');
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -138,7 +147,14 @@ test.describe('@slow the failed state, on the only model that reaches it', () =>
   test('the 7-storey building shows failed members alongside modelled ones',
     async ({ pro: page }) => {
       test.setTimeout(600_000);
-      await generate(page, 'pro-edificio-7p');
+      /*
+       * Its beams declared not part of the lateral system. Undeclared, they are designed as part
+       * of it (292b87f68), fy developed at the column face, and all 119 refuse on that anchorage
+       * (SEARCH_EXHAUSTED): the failed members this state is read on were beams, so the rail
+       * read refused 119 · modelled 84 · failed 0. Declared, 41 refuse and the failed state is
+       * back beside the modelled ones (failed 1 · refused 41 · modelled 161, measured).
+       */
+      await generate(page, 'pro-edificio-7p', { beamsNotLateral: true });
       await openViewer(page);
 
       const failed = page.locator('.st-failed');
@@ -166,23 +182,45 @@ test.describe('@slow the failed state, on the only model that reaches it', () =>
     });
 });
 
-test.describe('@slow what these fixtures cannot reach', () => {
+test.describe('@slow what these fixtures now reach, and what they cannot', () => {
   test.slow();
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test('no RC fixture produces a refused member, and the premise is asserted',
+  /*
+   * This was «no RC fixture produces a refused member», asserted as a premise so that the day a
+   * fixture did produce one it would fail and the unreinforced filter and the `.unreinforced`
+   * block would be exercised instead. That day came. Since the design reads the bars' anchorage
+   * in the columns (3980d8402) and designs a beam that declares no role in the lateral system as
+   * part of it, fy developed at the column face (292b87f68), `rc-qa-diagnostic` refused seven
+   * beams — e13 to e18 and e20, SEARCH_EXHAUSTED on the anchorage of their top and bottom bars —
+   * and e19 at the biaxial gate with nothing to propose (UNSUPPORTED). Before: 0 refused; after:
+   * those eight, none with steel.
+   *
+   * Since the search stopped offering stirrups below Av,min (CIRSOC 201 §9.6.3.1, c16090225),
+   * the options it retains per region reach 6 Ø12 top, 5 Ø12 bottom, Ø6 c/20–22,5 on e14 and
+   * e18, which pass every check, anchorage included (worst 0,992). Their refusal listed
+   * `optionsBeyondRetained` as not explored: a search that ran out (48 tried), never a proof.
+   * The verifier only gained a row in that change. Now five SEARCH_EXHAUSTED (e13, e15–e17,
+   * e20) and the same UNSUPPORTED e19.
+   */
+  test('rc-qa-diagnostic now refuses members, and the rail, the block and the filter say so',
     async ({ pro: page }) => {
       await generate(page, 'rc-qa-diagnostic');
+      const counts = await page.evaluate(() => window.__stabileo.runCounts());
+      expect([counts?.searchExhausted, counts?.unsupported], 'the refusals the engine reached').toEqual([5, 1]);
       await openViewer(page);
-      /*
-       * `refused` is zero on all three RC fixtures. Asserted rather than annotated, so that the
-       * day a fixture DOES produce one this fails and the unreinforced filter and the
-       * `.unreinforced` block get exercised instead of staying source-only.
-       */
-      expect(await page.locator('.st-refused').count(), 'still no refused member').toBe(0);
-      expect(await page.locator('.unreinforced').count(), 'and no unreinforced block').toBe(0);
-      // The controls are still offered, which is correct — they are not dead, they are unused.
-      await expect(page.getByTestId('rebar-hide-unreinforced')).toBeAttached();
+      expect(await page.locator('.st-refused').count(), 'the rail reports them').toBeGreaterThan(0);
+      const block = page.getByTestId('rebar-unreinforced');
+      await expect(block, 'and the block names them').toBeVisible();
+      for (const id of [13, 15, 16, 17, 19, 20]) await expect(block).toContainText(String(id));
+
+      // The filter is no longer unused: it takes their bare concrete out of the scene.
+      type Census = { solids: Record<string, number> };
+      const solids = () => page.evaluate(() =>
+        (window.__stabileo as unknown as { rebarSceneCensus(): Census }).rebarSceneCensus().solids.beam ?? 0);
+      const shown = await solids();
+      await page.getByTestId('rebar-hide-unreinforced').check();
+      await expect.poll(solids, { timeout: 60_000 }).toBeLessThan(shown);
     });
 
   test('the inspector is closed until a marker is chosen', async ({ pro: page }) => {

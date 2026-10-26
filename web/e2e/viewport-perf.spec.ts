@@ -149,10 +149,16 @@ async function sampleCleanWindow(
       : 'Flush advanced but too slowly: the render loop is stopping between input events.');
 
   // Only the self-driven row is required. The mouse/wheel rows are dispatched BY
-  // Playwright, and on a heavy model a single `mouse.move` has been measured taking
-  // ~5s — 3 steps in 15s on 3d-nave-industrial — so the harness cannot keep the
-  // gesture alive at all. That is a limitation of driving input from outside the
-  // page, not a result, and it must not void the rows that did measure cleanly.
+  // Playwright, so they can only run as fast as input reaches the page, and that must
+  // not void the rows that did measure cleanly.
+  //
+  // The ~5 s per `mouse.move` once recorded here (3 steps in 15 s on 3d-nave-industrial)
+  // was NOT a harness limitation. The render loop used to queue two frames per
+  // continuing frame, so the held arrow key of the row before doubled the renders on
+  // every tick (up to 65536 in one window). The GPU process was still draining that
+  // backlog during the mouse row, and coalesced input waits for a frame. With one frame
+  // pending at most (Viewport3D `renderOnce`), a step costs 25–90 ms with five copies
+  // of this spec running at once. A row that goes unavailable again is worth a look.
   if (!required) throw new UnavailableRow(why);
   throw new Error(why);
 }
@@ -231,9 +237,13 @@ interface ModelCase {
 }
 
 const MODELS: ModelCase[] = [
-  // 2476 elements collapse into ONE batched draw call; measured 6 total. The bound
-  // has wide headroom on purpose: if batching regressed to per-element draws this
-  // would be in the hundreds even after culling, nowhere near 20.
+  // 2476 elements collapse into ONE batched draw call; measured 7 total. CAUTION: that
+  // is at the camera the app boots with, (12, 8, 12) looking at the origin, which on a
+  // stadium this size sees almost nothing, because this spec never frames the model.
+  // Framed (zoom-to-fit), full detail is ~3300 calls: 205 support gizmos of 7 objects,
+  // 1005 node-label sprites, 514 load-value sprites, 240 shell objects. So this bound
+  // guards the boot framing, not element batching, and the "814 calls" failure it once
+  // reported came from the doubling render loop spinning the camera to a random angle.
   { name: 'la-bombonera', maxFullDetailCalls: 20 },
   // 24 elements, and every drawable object survives culling at this framing, so the
   // total is reproducibly 55 (28 supports + 12 load arrows + 12 node labels + 3).
@@ -242,7 +252,9 @@ const MODELS: ModelCase[] = [
   // No bound on the mid-size models. Their draw calls are dominated by which
   // supports/loads/labels happen to be inside the frustum at the sampled moment,
   // and that swings with camera angle: 3d-nave-industrial measured 102 in one run
-  // and 294 in the next. Any threshold here would be a flake, not a guard.
+  // and 294 in the next. Much of that swing was the doubling render loop turning the
+  // camera 0.02 rad per render; since the fix it reads 138–142 run after run, but the
+  // angle still depends on how many frames fit in the window, so no bound yet.
   { name: '3d-nave-industrial' },
   { name: '3d-building' },
 ];

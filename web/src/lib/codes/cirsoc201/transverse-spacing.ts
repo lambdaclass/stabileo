@@ -130,6 +130,7 @@
 
 import { msg, round, type EngineMessage } from '../message';
 import { clause, type ClauseRef, type RegulationEdition } from '../regulation';
+import { shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
 /**
  * Which row of the table applies.
@@ -376,7 +377,8 @@ const FORCE_EPS = 1e-9;
  * copy, the three disagreed.
  */
 export function requiredVsForTable(Vu: number, bw: number, d: number, fc: number): number {
-  const Vc = (1 / 6) * Math.sqrt(fc) * (bw * 1000) * (d * 1000) / 1000;
+  // Vc with √f'c ≤ 8,3 MPa (§22.5.3.1).
+  const Vc = (1 / 6) * shearSqrtFc(fc) * (bw * 1000) * (d * 1000) / 1000;
   return Math.max(0, Math.abs(Vu) / PHI_SHEAR - Vc);
 }
 
@@ -505,5 +507,27 @@ export function checkTransverseSpacing(
     alongUtilization: limits.alongMax > 0 ? provided.spacing / limits.alongMax : Number.POSITIVE_INFINITY,
     acrossUtilization: limits.acrossMax > 0 ? acrossProvided / limits.acrossMax : Number.POSITIVE_INFINITY,
     limits, reasons,
+  };
+}
+
+/**
+ * Column ties, centre to centre: the least of a number of longitudinal bar diameters (16 in the
+ * 2025 edition, art. 25.7.2.1(b); 12 in the 2005 one, art. 7.10.5.2), 48 tie diameters and the
+ * least dimension of the member. The one rule the verifier, the candidate search, the batch edit
+ * and the detailing all read: they had three, with 12 and 16 mixed.
+ */
+export function columnTieSpacing(
+  edition: RegulationEdition, longDiameterMm: number, tieDiameterMm: number, leastDimension: number,
+): { spacing: number; barFactor: number; governedBy: 'longBar' | 'tie' | 'leastDimension'; ref: ClauseRef } {
+  const barFactor = edition === '2005' ? 12 : 16;
+  const cands: Array<[number, 'longBar' | 'tie' | 'leastDimension']> = [
+    [barFactor * longDiameterMm / 1000, 'longBar'],
+    [48 * tieDiameterMm / 1000, 'tie'],
+    [leastDimension, 'leastDimension'],
+  ];
+  cands.sort((x, y) => x[0] - y[0]);
+  return {
+    spacing: cands[0]![0], barFactor, governedBy: cands[0]![1],
+    ref: clause('cirsoc-201', edition, edition === '2005' ? '7.10.5.2' : '25.7.2.1', 'separación de los estribos de columnas'),
   };
 }

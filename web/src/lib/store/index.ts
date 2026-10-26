@@ -1,4 +1,5 @@
 import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
+import { clearMaterialChecks } from './material-check.svelte';
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
@@ -10,7 +11,12 @@ import { fmStepsStore } from './fmSteps.svelte';
 import { tabManager } from './tabs.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
+import { storedRefusal } from './design-refusals';
 import { detailingStore } from './detailing.svelte';
+import { designRunStore } from './design-run.svelte';
+import { deflectionChecks } from './serviceability';
+import { seismicState } from './seismic-design.svelte';
+import { seismicMemberCheckRows } from '../engine/design/check-rows-families';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 // Registering the design-code adapters at store-wiring time guarantees the registry
 // is populated before any component queries it. Importing for side effects only.
@@ -19,6 +25,11 @@ import '../engine/design/adapters/unsupported-adapter';
 import { connectionPrompt } from './connection-prompt.svelte';
 import { scheduleDefinedLoadsSync, flushDefinedLoadsSync } from './defined-loads';
 import { viewVisibility } from './view-state.svelte';
+import { deskUi } from './design-desk-ui.svelte';
+import { otherCodesRun } from './other-codes-run.svelte';
+import { designDrafts } from './design-drafts.svelte';
+import { rebarWorkspace } from './rebar-workspace.svelte';
+import { pruneDeletedMembers } from './selection-prune';
 import { recheckStore } from './recheck.svelte';
 import { noteBaseSolve } from './result-provenance';
 
@@ -42,18 +53,67 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
 modelStore._setOnNewProject(() => {
   viewVisibility.showAll();
   uiStore.selfWeightCaseId = null;
+  // The last floor and footing runs were the previous project's; its own are in its file.
+  detailingStore.forgetRuns();
+  /*
+   * Which members a person edited by hand was the previous project's too: kept, it marked the new
+   * project's members with the same ids as edited, and «Size…» keeps edited members unless told
+   * otherwise. A file or a tab then adopts its own (`hydrateProjectProvenance`, after this).
+   */
+  designRunStore.resetMarks();
+  // Another project in this tab: design stays on the place it was (a new tab starts from the plan).
+  forgetDesignView(true);
+  // The other materials' checks were the previous project's too.
+  clearMaterialChecks();
   // A new project was made in this build: nothing of it is stale.
   recheckStore.reset();
 });
+
+/*
+ * Design's view of a project (its level, filter, editor, drafts) and the 3-D reinforcement
+ * view's selection belong to that project. A new project or another tab starts from nothing;
+ * a tab switch then restores the tab's own (`tabs.svelte.ts`).
+ */
+function forgetDesignView(keepPlace = false): void {
+  deskUi.reset(keepPlace);
+  otherCodesRun.reset();
+  designDrafts.clear();
+  rebarWorkspace.reset();
+  rebarWorkspace.close();
+}
+uiStore.onSessionReset(() => forgetDesignView());
 
 // An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
 modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 
 modelStore._setOnMutation(() => {
+  // A deleted member leaves every selection, once the edit that deletes it has run.
+  queueMicrotask(pruneDeletedMembers);
   resultsStore.clear();
   verificationStore.invalidateAnalysis();
+  // The other materials' checks read the results just cleared.
+  clearMaterialChecks();
+  /*
+   * A structural edit retires the current document, as a footing edit does: its drawings and
+   * schedule describe the structure before the edit. The bars themselves stay, and say they are
+   * out of date through the design fingerprint (`detailingStore.modelStale`); retiring them here
+   * would throw away the reinforcement a person may only want to re-check.
+   */
+  detailingStore.supersedeDocuments();
   // Floor loads kept as definitions follow the edit once the model is still, in its undo step (`defined-loads.ts`).
   scheduleDefinedLoadsSync();
+});
+
+/*
+ * A design-only edit: a physical element's kind, typology or grouping, a group's name. The solve
+ * survives it, because the analysis reads none of it; the design does not, because member kinds,
+ * flange widths and slab panels come from it. The verdicts and the retained member contexts are
+ * dropped (they are rebuilt from the kept results by computing the demands again), and the
+ * current document is retired, as on a structural edit.
+ */
+modelStore._setOnDesignChange(() => {
+  verificationStore.invalidateAnalysis('design');
+  detailingStore.supersedeDocuments();
 });
 
 // A reinforcement transaction is NOT a model mutation: forces are unaffected, so
@@ -143,6 +203,8 @@ resultsStore._setOnAnalysisPublish((kind) => recheckStore.noteSolved(kind));
 
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();
+  // A new analysis: the other materials' checks read the previous one.
+  clearMaterialChecks();
 });
 
 // Let verificationStore read the current provided reinforcement without importing
@@ -150,6 +212,61 @@ resultsStore._setOnResultsPublish(() => {
 verificationStore._setReinforcementProvider(
   (elementId) => modelStore.elements.get(elementId)?.reinforcement,
 );
+
+// The refusals kept with the project, for a member that has no bars now (an edit after the
+// refusal is its own verdict, read from the bars).
+verificationStore._setRefusalProvider(
+  (elementId) => (modelStore.elements.get(elementId)?.reinforcement ? undefined : storedRefusal(elementId)),
+);
+
+// The members the detailing left an unresolved anchorage, a bar outside the section or a clash the
+// repair could not separate on: read from the persisted assemblies, as the memoria reads them, and
+// indexed once per set.
+const DETAILING_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
+let issueIndex: { of: unknown; ids: Map<number, string[]> } | null = null;
+verificationStore._setDetailingIssueProvider((elementId) => {
+  const assemblies = modelStore.model.detailing?.assemblies ?? detailingStore.assemblies;
+  if (issueIndex?.of !== assemblies) {
+    const ids = new Map<number, string[]>();
+    for (const a of assemblies ?? []) for (const u of a.unsupported ?? []) {
+      // A lap held open (`detailing.lapCheck.*`, `splice-checks.ts`) holds its members as well.
+      if (DETAILING_ISSUES.has(u.key) || u.key.startsWith('detailing.lapCheck.')) for (const id of u.scope.elementIds ?? []) ids.set(id, [...(ids.get(id) ?? []), u.key]);
+    }
+    issueIndex = { of: assemblies, ids };
+  }
+  return issueIndex.ids.get(elementId) ?? [];
+});
+
+// The members the seismic report checks only as a substitute (ACI 318-19 chapter 18 standing in
+// for INPRES-CIRSOC 103 Parte II, `check-rows-families.ts`): their capacity checks and, for a
+// column, the strong-column check at its joints are not verified, so neither is the member.
+let seismicIndex: { of: unknown; ids: Set<number> } | null = null;
+verificationStore._setSeismicSubstituteProvider((elementId) => {
+  const rep = seismicState.report;
+  if (!rep) return false;
+  if (seismicIndex?.of !== rep) {
+    const ids = new Set<number>();
+    for (const m of rep.members) if (seismicMemberCheckRows(m).length) ids.add(m.id);
+    for (const j of rep.joints) if (!j.strongColumn.roof) for (const c of j.columns) ids.add(c);
+    seismicIndex = { of: rep, ids };
+  }
+  return seismicIndex.ids.has(elementId);
+});
+
+// The members whose deflection check fails, from the same check the memoria prints
+// (`serviceability.ts`), computed once per solve, deflection limits and reinforcement.
+let deflectionIndex: { key: unknown[]; fail: Set<number> } | null = null;
+verificationStore._setServiceabilityProvider((elementId) => {
+  const key = [resultsStore.perCase3D, resultsStore.perCombo3D, resultsStore.results3D, modelStore.deflectionLimits, modelStore.elements];
+  const reinf = [...modelStore.elements.values()].map((e) => e.reinforcement);
+  if (!deflectionIndex || deflectionIndex.key.length !== key.length + reinf.length
+    || ![...key, ...reinf].every((k, i) => k === deflectionIndex!.key[i])) {
+    const fail = new Set<number>();
+    for (const [id, r] of deflectionChecks().rows) if (r.check.status === 'fail') fail.add(id);
+    deflectionIndex = { key: [...key, ...reinf], fail };
+  }
+  return deflectionIndex.fail.has(elementId);
+});
 
 // Let uiStore ask modelStore whether the current model is flat 2D, without
 // importing modelStore directly (which would create a circular dependency).

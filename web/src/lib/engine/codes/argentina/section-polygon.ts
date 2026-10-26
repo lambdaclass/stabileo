@@ -38,6 +38,20 @@ export interface Pt {
   y: number;
 }
 
+/**
+ * Whether the vertices run counter-clockwise (x right, y up): the order of the drawing, read from
+ * the sign of the shoelace sum. The section's area is the engine's; this only says which way the
+ * outline turns, for the callers that offset or walk it.
+ */
+export function isCounterClockwise(poly: readonly Pt[]): boolean {
+  let s = 0;
+  for (let i = 0, n = poly.length; i < n; i++) {
+    const p = poly[i], q = poly[(i + 1) % n];
+    s += p.x * q.y - q.x * p.y;
+  }
+  return s > 0;
+}
+
 /** A rectangle centred on the origin, counter-clockwise. */
 export function rectPolygon(b: number, h: number): Pt[] {
   const x = b / 2;

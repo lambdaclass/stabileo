@@ -20,27 +20,36 @@
   import type { StationSpec } from '../../../lib/engine/station-forces';
   import { ensureProResults, hasShells } from '../../../lib/pro/export-results';
   import CheckGroup from './CheckGroup.svelte';
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
 
   let { open = $bindable(false), format = $bindable('xlsx') }: { open: boolean; format: 'xlsx' | 'csv' } = $props();
 
-  const MODEL: string[] = [...MODEL_SHEET_NAMES, 'Specifications'];
-  const RESULTS: string[] = [...RESULT_SHEET_NAMES];
+  /** The design as it stands (`store/design-exchange.ts`): decisions, every check, the verdict. */
+  const DESIGN_SHEETS = ['Design elements', 'Design checks', 'Design verdict'];
+  const MODEL: string[] = [...MODEL_SHEET_NAMES, 'Specifications', ...DESIGN_SHEETS];
+  const RESULTS: string[] = [...RESULT_SHEET_NAMES, 'Physical member forces'];
   /** The sheets by topic, in the order a reader looks for them. */
   const MODEL_GROUPS: Array<{ key: string; sheets: string[] }> = [
     { key: 'geometry', sheets: ['Nodes', 'Members', 'Shells', 'Supports', 'Constraints', 'Groups'] },
     { key: 'properties', sheets: ['Materials', 'Sections', 'Specifications'] },
     { key: 'loads', sheets: ['LoadCases', 'LoadData', 'SelfWeight', 'Combinations'] },
+    { key: 'design', sheets: DESIGN_SHEETS },
   ];
   const RESULT_GROUPS: Array<{ key: string; sheets: string[] }> = [
     { key: 'atNodes', sheets: ['Displacements', 'Reactions'] },
-    { key: 'inMembers', sheets: ['EndForces', 'Stations', 'Deflections', 'Stresses'] },
+    { key: 'inMembers', sheets: ['EndForces', 'Stations', 'Deflections', 'Stresses', 'Physical member forces'] },
     { key: 'inShells', sheets: ['ShellCentres', 'ShellNodes', 'ShellCorners'] },
     { key: 'summaries', sheets: ['Maxima', 'Envelope', 'Statics', 'SecondOrder', 'OneWay', 'Cables'] },
   ];
   /** The sheets whose name alone does not say what is in them. */
   const HINTED = new Set(['Stations', 'ShellCentres', 'ShellNodes', 'ShellCorners', 'OneWay', 'Constraints']);
+  /** Sheet names with spaces, as the workbook writes them, and the key that labels them. */
+  const LABEL_KEY: Record<string, string> = {
+    'Design elements': 'proExport.sheet.DesignElements', 'Design checks': 'proExport.sheet.DesignChecks',
+    'Design verdict': 'proExport.sheet.DesignVerdict', 'Physical member forces': 'proExport.sheet.PhysicalForces',
+  };
   const itemsOf = (sheets: string[], shown: string[]) => sheets.filter((n) => shown.includes(n))
-    .map((n) => ({ id: n, label: t(`proExport.sheet.${n}`), hint: HINTED.has(n) ? t(`proExport.hint.${n}`) : undefined }));
+    .map((n) => ({ id: n, label: t(LABEL_KEY[n] ?? `proExport.sheet.${n}`), hint: HINTED.has(n) ? t(`proExport.hint.${n}`) : undefined }));
   const SHELL_RESULTS = new Set(['ShellCentres', 'ShellNodes', 'ShellCorners']);
   /** The sheets read at points along the members. */
   const AT_STATIONS = new Set(['Stations', 'Deflections', 'Stresses', 'Maxima']);
@@ -106,9 +115,10 @@
         results = false;
         uiStore.toast(t('proExport.dataNoResults'), 'info');
       }
-      const sheets = new Set([...modelShown, ...(results ? resultsShown : [])].filter(on));
+      // Design's sheets only where design is on in PRO's settings (`uiStore.designInPro`).
+      const sheets = new Set([...modelShown, ...(results ? resultsShown : [])].filter(on).filter((n) => uiStore.designInPro || !DESIGN_SHEETS.includes(n)));
       const opts = {
-        results, sheets,
+        results, sheets, design: uiStore.designInPro,
         sources: {
           cases: casesOff.size ? new Set(cases.map((c) => c.id).filter((id) => !casesOff.has(id))) : undefined,
           combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
@@ -135,7 +145,7 @@
     <div class="dx-cols">
       <div class="dx-col">
         <span class="dx-head">{t('proExport.groupModel')}</span>
-        {#each MODEL_GROUPS as g (g.key)}
+        {#each MODEL_GROUPS.filter((g) => g.key !== 'design' || uiStore.designInPro) as g (g.key)}
           <CheckGroup title={t(`proExport.grp.${g.key}`)} items={itemsOf(g.sheets, modelShown)} on={on} toggle={flip}
             setAll={(v) => setAll(g.sheets.filter((n) => modelShown.includes(n)), v)} testid="pro-data-sheet" />
         {/each}
@@ -149,6 +159,8 @@
       </div>
     </div>
     {#if wantsResults && !resultsStore.results3D}<p class="xs-note">{t('proExport.dataSolves')}</p>{/if}
+    <!-- The design sheets describe the model the design and its detailing were generated from. -->
+    {#if open && uiStore.designInPro && DESIGN_SHEETS.some(on)}<OutdatedNotice what="workbook" testid="pro-data-export-outdated" />{/if}
   </ExportSection>
 
   {#if wantsResults && (cases.length > 1 || combos.length > 0)}

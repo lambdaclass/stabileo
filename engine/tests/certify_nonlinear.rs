@@ -4,7 +4,7 @@
 //! P-Delta by Newton's method with the residual evaluated in double-double
 //! arithmetic (so the reference fixed point is accurate to ~κ·ε²).
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::certify::pdelta::{

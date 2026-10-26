@@ -75,7 +75,7 @@ export function resetAutosaveService(): void {
  */
 function statesProjectData(): boolean {
   const m = modelStore.model as unknown as Record<string, unknown>;
-  return ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes'].some((k) => m[k] !== undefined && m[k] !== null);
+  return ['grid', 'analysis', 'projectInfo', 'deflectionLimits', 'dynamics', 'notes', 'underlays', 'designData'].some((k) => m[k] !== undefined && m[k] !== null);
 }
 
 export function requestAutosave(reason: AutosaveReason): Promise<AutosaveWriteResult | null> {

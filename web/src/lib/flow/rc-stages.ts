@@ -12,7 +12,8 @@
  * So `demands` and `check` were drawn as stages with no destination of their own; `floors` was a
  * destination with no stage; and `model` and `design` both fell through to the same `scrollTo`.
  * Three stages navigating to one disclosure is not a numbering bug — it is three names for a
- * place that has one.
+ * place that has one. (Those disclosures are gone: each stage names the place of the Design stage
+ * it is worked in, `RcStageDef.place`, and the steps at the top of the stage read these stages.)
  *
  * ── The correction that is not cosmetic ────────────────────────────
  *
@@ -183,13 +184,13 @@ export interface RcStageDef {
    */
   optional?: boolean;
   /**
-   * The `data-testid` of the `<details>` this stage owns.
-   *
-   * One stage, one disclosure, and no two stages share one. That bijection is the whole
-   * correction — `RC_STAGE_DISCLOSURES` below asserts it holds, and the F0 test asserts the
-   * elements exist.
+   * The place of the Design stage this stage is worked in (`DeskTab`): the model and its pieces,
+   * the design data with the regulations, the member list, the coordinated detailing, the
+   * documents. It was the `<details>` of the classic concrete screen that owned the stage; those
+   * screens are places of the desk now (`DesignDesk.svelte`). One stage, one place, and no two
+   * stages share one: `RC_STAGE_PLACES` below asserts it holds.
    */
-  disclosure: string;
+  place: string;
 }
 
 /** A stage with the project's progress against it resolved. */
@@ -217,46 +218,38 @@ export const RC_STAGES: readonly RcStageDef[] = [
     id: 'model',
     labelKey: 'design.stage.model',
     todoKey: 'design.stage.needModel',
-    disclosure: 'design-overview-disclosure',
+    place: 'prepare',
   },
   {
     id: 'codes',
     labelKey: 'design.stage.codes',
     todoKey: 'design.stage.needCode',
-    disclosure: 'code-settings-disclosure',
+    place: 'designData',
   },
   {
     id: 'design',
     labelKey: 'design.stage.design',
     todoKey: 'design.stage.needDemands',
-    /*
-     * The design surface itself, not the floor pass.
-     *
-     * It used to be `floor-families-disclosure`, which was the only `<details>` the stage had —
-     * beams and columns were designed in `ProDesignTab`, mounted below every other stage. So the
-     * stage's own destination was an OPTIONAL sub-step of it, and clicking DISEÑAR took you past
-     * the design table to the floor families. `ProDesignTab` now lives inside this disclosure and
-     * the floor pass is a sub-step within it.
-     */
-    disclosure: 'design-stage-disclosure',
+    // The member table, with the floor pass as a sub-step under it.
+    place: 'list',
   },
   {
     id: 'detailing',
     labelKey: 'design.stage.detailing',
     todoKey: 'design.stage.needDesign',
-    disclosure: 'detailing-disclosure',
+    place: 'detailing',
   },
   {
     id: 'documents',
     labelKey: 'design.stage.documents',
     todoKey: 'design.stage.needDetailing',
     optional: true,
-    disclosure: 'documents-disclosure',
+    place: 'documents',
   },
 ] as const;
 
-/** Every disclosure a stage can navigate to. Exported so the bijection is assertable. */
-export const RC_STAGE_DISCLOSURES: readonly string[] = RC_STAGES.map((s) => s.disclosure);
+/** Every place a stage is worked in. Exported so the bijection is assertable. */
+export const RC_STAGE_PLACES: readonly string[] = RC_STAGES.map((s) => s.place);
 
 /**
  * Which model readiness a set of readings describes.
@@ -371,30 +364,8 @@ export function currentRcStage(stages: readonly RcStage[]): RcStage | null {
   return stages.find((s) => s.state === 'current') ?? null;
 }
 
-/** The disclosure a stage id owns, or null for an id that is not a stage. */
-export function rcStageDisclosure(id: string): string | null {
-  return RC_STAGES.find((s) => s.id === id)?.disclosure ?? null;
+/** The place a stage id is worked in, or null for an id that is not a stage. */
+export function rcStagePlace(id: string): string | null {
+  return RC_STAGES.find((s) => s.id === id)?.place ?? null;
 }
 
-/**
- * The five states, narrowed to the four `StageSection` accepts.
- *
- * `StageSection.svelte` is shared with the metallic flow — `ProConnectionsTab` renders it — so
- * its `State` union is not this branch's to widen. The mapping is here rather than inline at
- * the call site so that there is still exactly ONE derivation of stage state in the concrete
- * flow: the timeline and the five disclosures read the same `rcStages()` array, and a section
- * cannot come to disagree with the strip above it about whether its step is finished.
- *
- * `pending` narrows to `blocked` because that is the closest thing the shared component can
- * draw. The distinction survives where it is visible — in the timeline, which is this branch's
- * own component and does render all five.
- */
-export function rcStageSectionState(s: RcStage): 'done' | 'current' | 'blocked' | 'optional' {
-  switch (s.state) {
-    case 'complete': return 'done';
-    case 'current': return 'current';
-    case 'optional': return 'optional';
-    case 'pending':
-    case 'blocked': return 'blocked';
-  }
-}

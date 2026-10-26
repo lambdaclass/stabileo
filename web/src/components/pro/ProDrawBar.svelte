@@ -16,6 +16,7 @@
   import { t, tp } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
+  import DrawnKindField from './building/DrawnKindField.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
 
   const pick = $derived(uiStore.shellNodePick);
@@ -71,6 +72,7 @@
         </label>
       {:else if tool === 'element'}
         <NextMemberFields />
+        <DrawnKindField />
         <label class="db-check" title={t('drawBar.chainHint')}>
           <input type="checkbox" bind:checked={drawState.memberChain} data-testid="draw-chain" /> {t('drawBar.chain')}
         </label>

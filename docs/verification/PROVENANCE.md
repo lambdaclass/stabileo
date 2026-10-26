@@ -24,12 +24,23 @@ not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRS
 analyses a project does not record count as run.
 
 **Adding a change**: add an entry with `resultsVersion` one above the current
-`currentResultsVersion` and bump `currentResultsVersion`. `registry.test.ts` fails on unknown
-features, missing translations or a heading that does not exist.
+`currentResultsVersion` and bump `currentResultsVersion`; changes merged together share the new
+version. Never add an entry to a version already on main: every merge to main is deployed and
+stamps what it solves with that version, so an entry added to it later is never shown to those
+projects. `results-version.test.ts` pins each version's entries and fails on such an addition
+(add the new version's set there), and the committed `.ded` fixture's stamp must follow the
+bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
+not exist.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
-all at results version 1.
+all at results version 1 (#328, 2026-10-21). Version 2 holds the fixes merged with 0.3.0 after
+that (SA-2026-013 to 017 and 019) and the first entries taken under the rule above (the free-roof
+wind minimum and the earth-pressure dead load, #581 and #593); version 3, the column moment sign
+(SA-2026-023) and design on unfactored results (SA-2026-024), merged together (#590, #588);
+version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
+reached main without entries and their builds stamped 3, so their changes are told at 4 with
+those of #462–#475, which entered with the design switch (#624) in one merge.
 
 ## Solve stamps and the re-check prompt
 

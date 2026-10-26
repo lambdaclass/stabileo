@@ -4,8 +4,7 @@
 //! constraint that transmitted load made a correct solution report `ResidualHigh` — a Warning
 //! the diagnostics panel shows. Reduced by Cᵀ it is the solve's own error.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};

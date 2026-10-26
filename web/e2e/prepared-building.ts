@@ -64,8 +64,7 @@
 
 import {
   test as proTest, expect, designAll, loadModel, bootPro, SOLID_FAMILIES, turnRolledBeams,
-  type RebarSceneCensus,
-} from './fixtures';
+  type RebarSceneCensus, designPlace } from './fixtures';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /** The example every heavy spec in this suite sets up. */
@@ -165,7 +164,10 @@ export async function readPieces(page: Page): Promise<Record<string, number>> {
  */
 export async function openWorkspaceFromCommandRow(page: Page): Promise<void> {
   const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
-  const open = page.getByTestId('cmd-open-3d');
+  // Interface A: the list's command row holds `cmd-open-3d`; the Detail step's rail holds the
+  // same operation. From the detailing, where the setup leaves design, the rail's is the one.
+  const open = await page.getByTestId('desk-rail-3d').isVisible()
+    ? page.getByTestId('desk-rail-3d') : page.getByTestId('cmd-open-3d');
   await expect(open, 'the 3-D command is enabled once a document exists').toBeEnabled();
   await open.click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
@@ -205,12 +207,9 @@ export async function openPreparedWorkspace(
    * So the prepared setup leaves the page in the same shape the old one did, and the test bodies
    * stay untouched.
    */
-  const disclosure = page.getByTestId('detailing-disclosure');
-  if (await disclosure.getAttribute('open') === null) {
-    await disclosure.locator('> summary').click();
-  }
-  await expect(disclosure, 'the detailing panel is open, as the setup it replaces left it')
-    .toHaveAttribute('open', '');
+  await designPlace(page, 'detailing');
+  const disclosure = page.getByTestId('desk-detailing');
+  await expect(disclosure, 'the detailing is on screen, as the setup it replaces left it').toBeVisible();
 
   await openWorkspaceFromCommandRow(page);
 }
@@ -264,7 +263,7 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   // both — that is the app's real shape, and a preparation that ran only the first would hand
   // every observer a building with no floors in it.
   await stage('detailing', async () => {
-    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await designPlace(page, 'detailing');
     const generate = page.getByTestId('cmd-generate-detailing');
     await expect(generate).toBeEnabled();
     await generate.click();
@@ -274,6 +273,8 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   // A frame without slabs or walls has no floor families to run.
   const hasFloors = (await page.evaluate(() => window.__stabileo.quadIds().length)) > 0;
   if (hasFloors) await stage('floor design', async () => {
+    // The floor pass is a sub-step of the member list (interface A).
+    await designPlace(page, 'list');
     await page.getByTestId('floor-families-disclosure').locator('> summary').click();
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
@@ -288,6 +289,7 @@ async function prepare(page: Page, building: string): Promise<Omit<PreparedProje
   // The scene as the design produced it, recorded so an observer can assert that the restore
   // reproduces it rather than assume so.
   const { tally, pieces, census, provisionalBanner } = await stage('scene census', async () => {
+    await designPlace(page, 'detailing');
     await openWorkspaceFromCommandRow(page);
     await expect(page.getByTestId('rebar-tally')).toBeVisible();
     const t = await readTally(page);

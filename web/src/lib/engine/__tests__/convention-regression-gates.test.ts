@@ -175,15 +175,12 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src).toContain('if (isVertical)');
   });
 
-  it('the report\'s combo summary computes Mu from mzStart/mzEnd only', () => {
-    // F5 moved this out of `ProPanel.svelte`, where the assembly used to live, into
-    // `pro-report-inputs.ts`. The claim is unchanged: the report's per-combination Mu is the
-    // STRONG-axis moment, never the larger of the two. Only the file it is asserted against
-    // moved — which is the same shape as the three location assertions §7.7 records.
+  it('the report no longer computes a per-combination Mu of its own', () => {
+    // The combo summary fed only the retired design section of the report. The memoria reads the
+    // design's own check rows, whose Mu is the checker's; there is no second reading to keep axis-true.
     const src = readSource('../pro-report-inputs.ts');
-    expect(src).toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
-    expect(src, 'must not magnitude-sort My against Mz')
-      .not.toContain('Math.max(Math.abs(ef.mzStart), Math.abs(ef.myStart))');
+    expect(src).not.toMatch(/Math\.max\(Math\.abs\(ef\.mzStart\), Math\.abs\(ef\.myStart\)\)/);
+    expect(src).not.toContain('comboForces');
   });
 
   it('section-stress-3d.ts Navier formula uses PR [12] axis pairing', () => {

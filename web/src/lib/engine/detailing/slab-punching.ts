@@ -98,11 +98,11 @@ export interface SlabJointForce {
    * Step in the column end moments across the joint, kN·m — the unbalanced moment the
    * connection transfers, about global x and y.
    *
-   * Collected and PASSED rather than omitted. §8.4.4.2 eccentric-shear moment transfer is
-   * not implemented, and the engine refuses a joint whose unbalanced moment is significant
-   * instead of reporting a direct-shear pass. Dropping these two numbers would turn that
-   * refusal into exactly the false pass it exists to prevent: an eccentric joint approved on
-   * a check that never saw its eccentricity.
+   * Collected and PASSED rather than omitted. The punching check evaluates the §8.4.4.2
+   * eccentric-shear moment transfer with them when the moment is significant
+   * (`checkPunchingShear`). Dropping these two numbers would turn that check into exactly the
+   * false pass it exists to prevent: an eccentric joint approved on a check that never saw its
+   * eccentricity.
    */
   unbalancedMomentX: number;
   unbalancedMomentY: number;
@@ -374,6 +374,10 @@ export interface SlabPunchingResult {
     halfX: number;
     halfY: number;
   } | null;
+  /** Stirrups the governing case needs, when the concrete alone does not carry it (§22.6.7). */
+  reinforcement?: import('./punching-moment').PunchingReinforcement;
+  /** The moment transfer's share of the governing stress, MPa (§8.4.4.2), when evaluated. */
+  momentStress?: number;
   maturity: Maturity;
   unsupported: EngineMessage[];
   assumptions: EngineMessage[];
@@ -395,6 +399,8 @@ export interface SlabPunchingInput {
    */
   topBarDiameterMm: number;
   fc: number;
+  /** Yield strength of punching stirrups, MPa: given, a shortfall is designed for (§22.6.7). */
+  fy?: number;
   /** Factored area load on the panel, kPa. */
   qu: number;
   /** True when the panel's own stresses came from an analysis older than the model. */
@@ -612,35 +618,38 @@ export function checkSlabJointPunching(input: SlabPunchingInput): SlabPunchingRe
     }));
   }
 
-  // Governing = largest V_u; ties broken by combination id so the answer is deterministic.
-  const governing = contributions.reduce((m, c) => (
-    c.Vu > m.Vu || (c.Vu === m.Vu && c.combinationId < m.combinationId) ? c : m),
-  contributions[0]);
-
-  const governingForce = ordered.find((f) => f.combinationId === governing.combinationId)!;
-
-  // Run the ENGINE's own check on the governing case, so the status and the utilisation the
+  // Run the ENGINE's own check on every combination, so the status and the utilisation the
   // record carries are the engine's numbers rather than this module's restatement of them.
   // `loadInsidePerimeter` is handed the equivalent pressure of everything deducted, so the
   // engine solves the same free body: the beam shears and the nodal load are a real part of
   // it, and folding them into the pressure is how they enter a signature that takes kPa.
-  const totalDeducted = governing.directlyDelivered + insideLoad;
-  const engineCheck = checkPunchingShear({
-    fc: input.fc,
-    columnB: joint.b, columnH: joint.h,
-    d, position: position.position,
-    demand: {
-      axialBelow: governing.axialBelow ?? 0,
-      axialAbove: governing.axialAbove ?? 0,
-      loadInsidePerimeter: totalDeducted / critical.enclosedArea,
-      unbalancedMomentX: governingForce.unbalancedMomentX,
-      unbalancedMomentY: governingForce.unbalancedMomentY,
-    },
-  });
+  // With moments transferred the largest Vu is not necessarily the worst case, so the one
+  // that uses the joint hardest governs; ties go to the larger Vu, then the combination id.
+  const engineFor = (c: (typeof contributions)[number]) => {
+    const f = ordered.find((x) => x.combinationId === c.combinationId)!;
+    return checkPunchingShear({
+      fc: input.fc,
+      columnB: joint.b, columnH: joint.h,
+      d, position: position.position!,
+      ...(input.fy ? { fyt: input.fy } : {}),
+      demand: {
+        axialBelow: c.axialBelow ?? 0,
+        axialAbove: c.axialAbove ?? 0,
+        loadInsidePerimeter: (c.directlyDelivered + insideLoad) / critical.enclosedArea,
+        unbalancedMomentX: f.unbalancedMomentX,
+        unbalancedMomentY: f.unbalancedMomentY,
+      },
+    });
+  };
+  const runs = contributions.map((c) => ({ c, ck: engineFor(c) }));
+  const { c: governing, ck: engineCheck } = runs.reduce((m, r) => {
+    const um = Number.isFinite(m.ck.utilization) ? m.ck.utilization : Infinity, ur = Number.isFinite(r.ck.utilization) ? r.ck.utilization : Infinity;
+    return ur > um + 1e-12 || (Math.abs(ur - um) <= 1e-12 && (r.c.Vu > m.c.Vu || (r.c.Vu === m.c.Vu && r.c.combinationId < m.c.combinationId))) ? r : m;
+  }, runs[0]!);
 
-  // The engine's third outcome is a REFUSAL, not a failure: a joint transferring a
-  // significant unbalanced moment is unverified under §8.4.4.2, and reporting it as FAIL
-  // would claim a capacity comparison that was never made.
+  // The engine's third outcome is a REFUSAL, not a failure: a moment the caller could not
+  // form leaves the joint unverified, and reporting it as FAIL would claim a capacity
+  // comparison that was never made. A formed moment is checked by §8.4.4.2.
   if (engineCheck.status === 'UNSUPPORTED') {
     unsupported.push(msg('detailing.slabPunching.momentTransfer', {
       panel: panelId, node: joint.nodeId, column: joint.columnElementId,
@@ -680,6 +689,8 @@ export function checkSlabJointPunching(input: SlabPunchingInput): SlabPunchingRe
       halfX: joint.b / 2 + d / 2,
       halfY: joint.h / 2 + d / 2,
     },
+    ...(engineCheck.reinforcement ? { reinforcement: engineCheck.reinforcement } : {}),
+    ...(engineCheck.eccentric ? { momentStress: engineCheck.eccentric.vMomentX + engineCheck.eccentric.vMomentY } : {}),
     // The demand is exact and the resistance is clause-grounded, but no worked example has
     // been reproduced against it, which is the same bar every other family row is held to. A
     // joint the engine refused carries UNSUPPORTED: it has no verified check to be provisional

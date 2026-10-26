@@ -12,12 +12,11 @@
  * is the wrong screen — a selector that hides the limits, or a wall of refusals with no selector.
  */
 
-import { test, expect, PRO_URL } from './fixtures';
+import { test, expect, PRO_URL, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 async function openSteelPanel(page: Page): Promise<void> {
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-steel').click();
+  await designPlace(page, 'steel');
   await expect(page.getByTestId('pro-steel-panel')).toBeVisible();
 }
 

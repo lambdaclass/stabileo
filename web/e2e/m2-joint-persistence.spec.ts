@@ -21,15 +21,14 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, PRO_URL, loadModel, solveModel } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /** A temp path unique to this file, so a parallel spec's download cannot collide with it. */
 const SAVED = new URL('./.artifacts/joint-persistence.ded.json', import.meta.url).pathname;
 
 async function openConnections(page: Page): Promise<void> {
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-connections').click();
+  await designPlace(page, 'connections');
   await expect(page.getByTestId('conn-sec-joints')).toBeVisible();
 }
 

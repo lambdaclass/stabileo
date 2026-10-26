@@ -279,7 +279,7 @@ properties a member type does not use.
 | differential generators (`tools/differential`, 14 generators × 200, `e2e_dir`, run by hand) | 2800 | 2193; 201 out of scope (settlements on DOFs their support leaves free, refused); of the rest, every model the assembled-level certificate certifies except 6 (two `rich3d` models in three variants, singular in exact arithmetic, see findings) | identical |
 
 The differential models: `python3 tools/differential/dump_models.py DIR 200`, then
-`E2E_DIR=DIR cargo test --release --test certify_end_to_end e2e_dir -- --ignored --nocapture`.
+`E2E_DIR=DIR cargo test --release --test certificates certify_end_to_end::e2e_dir -- --ignored --nocapture`.
 
 The stable generators cover every feature in scope: jittered multi-bay frames, braces,
 hinges and releases, shear areas, reference vectors, roll angles,

@@ -38,7 +38,7 @@
  * which is precisely why it caught nothing.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -54,21 +54,21 @@ async function maxRevision(page: Page): Promise<number> {
   return list.length === 0 ? 0 : Math.max(...list.map((a) => Number(a.detailingRevision)));
 }
 
-/** Open every sibling disclosure the RC tab offers on this branch. */
+/**
+ * Fill design's canvas with everything it can hold at once: the member list with the floor pass
+ * open under it (interface A has no column of five disclosures any more; each is a place of the
+ * desk, and the canvas under the viewer is the one that scrolls), then the coordinated detailing.
+ */
 async function openEveryDisclosure(page: Page): Promise<string[]> {
   const opened: string[] = [];
-  for (const id of ['code-settings-disclosure', 'detailing-disclosure',
-    'floor-families-disclosure', 'seismic-disclosure']) {
-    const d = page.getByTestId(id);
-    // The seismic disclosure exists only once PR19 is in the tree; this spec is meaningful on
-    // either branch and must not depend on the count.
-    if (await d.count() === 0) continue;
-    if (await d.evaluate((el) => !(el as HTMLDetailsElement).open)) {
-      await d.locator('> summary').click();
-    }
-    await expect(d).toHaveJSProperty('open', true);
-    opened.push(id);
-  }
+  await designPlace(page, 'list');
+  const floors = page.getByTestId('floor-families-disclosure');
+  if (await floors.evaluate((el) => !(el as HTMLDetailsElement).open)) await floors.locator('> summary').click();
+  await expect(floors).toHaveJSProperty('open', true);
+  opened.push('desk-list', 'floor-families-disclosure');
+  await designPlace(page, 'detailing');
+  await expect(page.getByTestId('desk-detailing')).toBeVisible();
+  opened.push('desk-detailing');
   return opened;
 }
 
@@ -130,7 +130,7 @@ test.describe('@smoke the RC command surface stays reachable', () => {
       // scrolling rather than clipped away. A container that cannot scroll and hides its
       // overflow is how an enabled control ends up outside every pointer's reach.
       const scrollable = await page.evaluate(() => {
-        const col = document.querySelector('.rc-workflow');
+        const col = document.querySelector('.dd-canvas-body');
         if (!col) return null;
         const style = getComputedStyle(col);
         return {
@@ -139,7 +139,7 @@ test.describe('@smoke the RC command surface stays reachable', () => {
           reachable: style.overflowY === 'auto' || style.overflowY === 'scroll',
         };
       });
-      expect(scrollable, 'the RC workflow column must exist').not.toBeNull();
+      expect(scrollable, 'design\'s canvas must exist').not.toBeNull();
       expect(scrollable!.reachable,
         `overflow-y is "${scrollable!.overflowY}"; overflowing commands would be unreachable`)
         .toBe(true);

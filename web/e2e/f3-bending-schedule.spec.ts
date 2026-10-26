@@ -16,7 +16,7 @@
  * why, and that a reader who cannot see the picture is told the same thing it says.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Json = Record<string, unknown>;
@@ -85,9 +85,9 @@ async function ready(page: Page) {
   await page.evaluate((a) => {
     (window.__stabileoActions as unknown as { seedDetailing(x: unknown): void }).seedDetailing(a);
   }, [assembly()]);
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
   await expect(page.getByTestId('schedule')).toBeVisible();
 }
 
@@ -167,10 +167,9 @@ test.describe('@slow a real building’s ties are drawn, not refused', () => {
     const { designAll, loadModel } = await import('./fixtures');
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await page.getByTestId('pr-stage-design').click();
-    await page.getByTestId('pr-cmd-design').click();
-    const d = page.getByTestId('detailing-disclosure');
-    if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+    await designPlace(page, 'list');
+    await designPlace(page, 'detailing');
+    const d = page.getByTestId('desk-detailing');
     await expect(page.getByTestId('schedule')).toBeVisible({ timeout: 30_000 });
 
     // Every drawn shape on a designed floor, and at least one of them a hooked tie.

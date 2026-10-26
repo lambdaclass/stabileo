@@ -11,6 +11,7 @@
    * belongs to the results it was made from: when those change the table says so rather than
    * showing numbers for a model that has moved on.
    */
+  import VariableSectionNotice from './design/VariableSectionNotice.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { isEngineUnavailable, engineFailureText } from '../../lib/engine/engine-unavailable';
   import ProDesignCompleteness from './design/ProDesignCompleteness.svelte';
@@ -20,57 +21,58 @@
   import ProDirectAnalysis from './ProDirectAnalysis.svelte';
   import {
     OTHER_CODES, otherCode, memberContexts, runOtherCode, certifyOtherCode,
-    type OtherCodeId, type OtherCodeRun, type OtherCodeRow, type MemberCertificate,
+    type OtherCodeId, type OtherCodeRow, type MemberCertificate,
   } from '../../lib/engine/design/other-codes';
-  import type { MemberContext } from '../../lib/engine/design/other-codes/types';
   import { certificateStore } from '../../lib/store/certificate.svelte';
   import { runCertify, hasCertify } from '../../lib/engine/certify-jobs';
   import { formatEnclosure } from '../../lib/utils/certificate-format';
   import { untrack } from 'svelte';
+  import { otherCodesRun } from '../../lib/store/other-codes-run.svelte';
+  import { otherCodesDesignData } from '../../lib/store/design-data';
 
   const FAMILIES = ['steel', 'coldFormed', 'concrete'] as const;
   const CAP = 200;
 
-  let codeId = $state<OtherCodeId>('aisc360');
-  let run = $state<OtherCodeRun | null>(null);
-  let runOf = $state<unknown>(null);
-  let failed = $state(false);
-  /** Why the check could not run: "engine not available", or the engine's own message. */
-  let failure = $state<{ key: string; message: string } | null>(null);
+  /*
+   * The chosen code, the source of the forces and the last run live in `otherCodesRun`, not here:
+   * leaving this panel kept nothing, and on return the run was gone without a word.
+   */
+  const codeId = $derived(otherCodesRun.codeId);
+  const run = $derived(otherCodesRun.run);
+  const runOf = $derived(otherCodesRun.runOf);
+  const failed = $derived(otherCodesRun.failed);
+  const failure = $derived(otherCodesRun.failure);
   /**
    * Where the forces come from. The direct analysis is AISC 360's own method (Chapter C), so it
    * is offered with that code only; with it every member is checked at K = 1.
    */
-  let source = $state<'linear' | 'direct'>('linear');
+  const source = $derived(otherCodesRun.source);
   const direct = $derived(codeId === 'aisc360' && source === 'direct');
-  let ranDirect = $state(false);
+  const ranDirect = $derived(otherCodesRun.ranDirect);
   /** Active combinations the last check had no forces for. */
-  let missing = $state<number[]>([]);
+  const missing = $derived(otherCodesRun.missing);
 
   const code = $derived(otherCode(codeId)!);
   const solved = $derived(resultsStore.perCombo3D.size > 0);
   const stale = $derived(run !== null && (ranDirect ? runOf !== directAnalysis.result || !directAnalysis.fresh : runOf !== resultsStore.perCombo3D));
 
   function verify() {
-    failed = false;
-    failure = null;
     try {
       const forces = direct ? directAnalysis.forces() : activePerCombo3D();
-      if (!forces) { run = null; failed = true; return; }
+      if (!forces) { otherCodesRun.fail(); return; }
       // Direct forces are available only when every active combination is fit for design. Linear
       // ones only for the combinations that solved: an unstable one publishes none, and is named.
       const active = activeCombinations();
       const combos = direct ? active : active.filter((c) => forces.has(c.id));
-      missing = direct ? [] : active.filter((c) => !forces.has(c.id)).map((c) => c.id);
-      const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct });
-      run = runOtherCode(code, ctxs);
-      runContexts = ctxs;
-      runOf = direct ? directAnalysis.result : resultsStore.perCombo3D;
-      ranDirect = direct;
+      const missingNow = direct ? [] : active.filter((c) => !forces.has(c.id)).map((c) => c.id);
+      // The concrete is read with the project's cover and bar steel, as the CIRSOC design reads it.
+      const ctxs = memberContexts(modelStore.model as never, forces, combos, undefined, { unitK: direct, designData: otherCodesDesignData() });
+      otherCodesRun.record({
+        run: runOtherCode(code, ctxs), contexts: ctxs, missing: missingNow, ranDirect: direct,
+        runOf: direct ? directAnalysis.result : resultsStore.perCombo3D,
+      });
     } catch (err) {
-      run = null;
-      failed = true;
-      failure = { key: isEngineUnavailable(err) ? 'engine.unavailable' : 'otherCodes.error.engine', message: engineFailureText(err) };
+      otherCodesRun.fail({ key: isEngineUnavailable(err) ? 'engine.unavailable' : 'otherCodes.error.engine', message: engineFailureText(err) });
     }
   }
 
@@ -83,7 +85,6 @@
    * certified to pass or to fail. Only the linear forces the results on screen hold; the direct
    * analysis is not certified.
    */
-  let runContexts: MemberContext[] = [];
   let certRows = $state<Map<number, MemberCertificate> | null>(null);
   let certPending = $state(false);
   let certGeneration = 0;
@@ -96,7 +97,7 @@
       if (!r || !live || m.status === 'idle' || !c.certify || !hasCertify(c.certify.name)) return;
       certPending = true;
       if (m.status === 'pending') return; // the combinations are being certified; this effect runs again
-      const ctxs = runContexts;
+      const ctxs = otherCodesRun.contexts;
       setTimeout(async () => {
         if (gen !== certGeneration) return;
         let rows: Map<number, MemberCertificate>;
@@ -135,8 +136,8 @@
 
   function choose(id: OtherCodeId) {
     if (id === codeId) return;
-    codeId = id;
-    run = null;
+    otherCodesRun.codeId = id;
+    otherCodesRun.drop();
   }
 
   type Checked = Extract<OtherCodeRow, { status: 'checked' }>;
@@ -168,6 +169,7 @@
 </script>
 
 <div class="oc" data-testid="other-codes-panel">
+  <VariableSectionNotice testid="other-codes-variable-section" />
   <section class="pk-card">
     <h4 class="pk-heading">{t('otherCodes.pick')}</h4>
     {#each FAMILIES as fam (fam)}
@@ -190,8 +192,8 @@
     {#if codeId === 'aisc360'}
       <div class="pk-row oc-source" role="radiogroup" aria-label={t('direct.source')}>
         <span class="pk-label">{t('direct.source')}</span>
-        <button class="pk-btn" class:on={source === 'linear'} role="radio" aria-checked={source === 'linear'} onclick={() => (source = 'linear')} data-testid="other-codes-source-linear">{t('direct.source.linear')}</button>
-        <button class="pk-btn" class:on={source === 'direct'} role="radio" aria-checked={source === 'direct'} onclick={() => (source = 'direct')} data-testid="other-codes-source-direct">{t('direct.source.direct')}</button>
+        <button class="pk-btn" class:on={source === 'linear'} role="radio" aria-checked={source === 'linear'} onclick={() => (otherCodesRun.source = 'linear')} data-testid="other-codes-source-linear">{t('direct.source.linear')}</button>
+        <button class="pk-btn" class:on={source === 'direct'} role="radio" aria-checked={source === 'direct'} onclick={() => (otherCodesRun.source = 'direct')} data-testid="other-codes-source-direct">{t('direct.source.direct')}</button>
       </div>
       {#if source === 'direct'}<ProDirectAnalysis />{/if}
     {/if}
@@ -235,6 +237,8 @@
             {t('otherCodes.cert.summary').replace('{ok}', String(certCounts.ok)).replace('{fail}', String(certCounts.fail)).replace('{open}', String(certCounts.open))}
           </p>
         {/if}
+        <!-- A comparison under another code: its ✓ is that code's local checks, never the member's verdict. -->
+        <p class="pk-hint" data-testid="other-codes-scope">{t('verdict.otherCodes.scope')}</p>
         <table class="oc-table">
           <thead>
             <tr>
@@ -252,7 +256,7 @@
               <tr class="oc-row {v}" onclick={() => select(r.elementId)} data-testid="other-codes-row-{r.elementId}">
                 <td class="num">{r.elementId}</td>
                 <td class="num">{ratioText(r.reading.ratio)}</td>
-                <td><span class="oc-state {v}">{v === 'pass' ? '✓' : v === 'fail' ? '✗' : '◐'} {t(`otherCodes.status.${v}`)}</span></td>
+                <td><span class="oc-state {v}">{v === 'pass' ? '✓' : v === 'fail' ? '✗' : '◐'} {t(v === 'pass' ? 'verdict.otherCodes.pass' : `otherCodes.status.${v}`)}</span></td>
                 <td>{t(r.reading.governing)}{r.reading.clause ? ` · ${r.reading.clause}` : ''}</td>
                 <td>{r.comboName} · x = {r.stationX.toFixed(2)} m</td>
                 {#if certRows}

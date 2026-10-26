@@ -17,13 +17,15 @@
  * an error: the panel is what words it.
  */
 
+import { downloadReport } from '../export/report-download';
 import { i18n, tp } from '../i18n';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../engine/detailing/document-render';
 import { exportToExcel } from '../export/excel';
 import { captureProvenanceToken, provenanceForExport, ExportChangedError } from './result-provenance';
-import { htmlWithProvenance, dxfWithProvenance } from '../export/provenance-attach';
+import { htmlWithProvenance, dxfWithProvenance, reportProvenanceLines } from '../export/provenance-attach';
 import { uiStore } from './ui.svelte';
 import { retouchedIn, withExportLog } from './export-log';
+import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
 import type { DocumentModel } from '../engine/detailing/document-model';
 
 /** Hand a blob to the browser under a name. The browser then loses sight of it — see
@@ -58,8 +60,9 @@ function said(p: Promise<unknown>): Promise<void> {
   });
 }
 
-export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext): Promise<void> {
-  const filename = `detailing-rev${doc.revision.number}.html`;
+export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext, format: import('../export/report-formats').ReportFormat = 'pdf'): Promise<void> {
+  const ext = format === 'pdf' ? 'html' : format === 'csv' ? 'csv' : format;
+  const filename = `detailing-rev${doc.revision.number}.${ext}`;
   // Taken now, with the document; checked again once the engine hashes are in.
   const token = captureProvenanceToken();
   return said(withExportLog({ kind: 'report', doc, filename, at: ctx.at }, async () => {
@@ -74,10 +77,11 @@ export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext): P
         Object.entries(params).map(([n, v]) => [n, typeof v === 'number' ? v : String(v)]),
       )),
     );
-    // Printed through the browser rather than a bundled PDF writer: better typography, no
-    // dependency, and the user picks the paper size. The tab is opened inside the click, before
-    // the await: one opened after it is one the pop-up blocker refuses.
-    const w = window.open('', '_blank');
+    // The PDF is printed through the browser rather than a bundled PDF writer: better
+    // typography, no dependency, and the user picks the paper size. Its tab is opened inside the
+    // click, before the await: one opened after it is one the pop-up blocker refuses. The other
+    // four formats are the same report as a file (`report-formats.ts`), with the same provenance.
+    const w = format === 'pdf' ? window.open('', '_blank') : null;
     let record;
     try {
       record = await provenanceForExport(token);
@@ -86,8 +90,12 @@ export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext): P
       throw e;
     }
     const withProv = htmlWithProvenance(html, record);
-    if (w) { w.document.write(withProv); w.document.close(); w.focus(); w.print(); }
-    else downloadBlob(filename, 'text/html', withProv);
+    if (format === 'pdf') {
+      if (w) { w.document.write(withProv); w.document.close(); w.focus(); w.print(); }
+      else downloadBlob(filename, 'text/html', withProv);
+    } else {
+      await downloadReport(format, { title: `${ctx.projectName} · rev. ${doc.revision.number}`, html: withProv, stem: `detailing-rev${doc.revision.number}`, provenance: reportProvenanceLines(record) });
+    }
   }));
 }
 
@@ -97,6 +105,7 @@ export function exportDetailingDxf(doc: DocumentModel, ctx: ExportContext): Prom
   return said(withExportLog({ kind: 'dxf', doc, filename, at: ctx.at }, async () => {
     const set = renderDrawings(doc, {
       locale: i18n.locale, projectName: ctx.projectName, retouched: retouchedIn(doc),
+      members: sheetMembers(), coverOf: coverForMember,
     });
     downloadBlob(filename, 'application/dxf', dxfWithProvenance(set.dxf, await provenanceForExport(token)));
   }));

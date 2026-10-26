@@ -1,4 +1,4 @@
-import { test, expect, loadModel, alSection } from './fixtures';
+import { test, expect, loadModel, alSection, designPlace } from './fixtures';
 
 /**
  * The code-backed load generator, on the two halves that were not code-backed.
@@ -19,12 +19,8 @@ import { test, expect, loadModel, alSection } from './fixtures';
  */
 async function openWithSeismic(page: import('@playwright/test').Page) {
   await loadModel(page, 'rc-design-qa-8');
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
-  await expect(page.getByTestId('design-toolbar')).toBeVisible();
-  /* The roles live in a collapsed disclosure inside the design panel. */
-  const d = page.locator('details').filter({ hasText: 'Project regulations' }).first();
-  await d.locator('summary').first().click();
+  /* The roles live in the project regulations, beside the design data (Prepare › Design data). */
+  await designPlace(page, 'designData');
   await expect(page.getByTestId('project-regulations')).toBeVisible();
   await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
   await page.getByTestId('pending-review-in-loads').click();
@@ -70,19 +66,28 @@ test.describe('@smoke the permanent load comes from CIRSOC 101 Tabla 3.1', () =>
   test('§3.1.4 says when the partition allowance is missing', async ({ pro: page }) => {
     await openDialog(page);
     const check = page.getByTestId('dead-partition-check');
-    // The default build-up carries one, on a 2 kN/m² dwelling, at the §4.3.2 minimum of 0,75.
-    await expect(check).toContainText(/incluida|included|inclu/i);
+    // On a 2 kN/m² dwelling the §4.3.2 minimum of 0,75 is provided for, as the live load it is
+    // (CIRSOC 101-2025 §4.3.2, "sobrecarga de repartición"); it used to be a dead row.
+    await expect(check).toContainText(/4\.3\.2/);
+    await expect(check).not.toHaveClass(/warn/);
 
-    // Take it off and the article speaks up: what is missing shows as nothing at all.
-    await page.getByTestId('dead-is-partition').last().uncheck();
+    // Take it off in the live pane and the article speaks up: what is missing shows as nothing at all.
+    await page.getByTestId('al-nav-live').click();
+    await expect(page.getByTestId('al-partition-live-note')).toContainText(/4\.3\.2/);
+    await expect(page.getByTestId('live-total')).toContainText('2.75');
+    await page.getByTestId('al-partition-live-on').uncheck();
+    await expect(page.getByTestId('live-total')).toContainText('2.00');
+    await page.getByTestId('al-nav-dead').click();
     await expect(check).toContainText(/3\.1\.4/);
     await expect(check).toHaveClass(/warn/);
   });
 
   test('the total is the sum of the rows, to two decimals', async ({ pro: page }) => {
     await openDialog(page);
-    // 1,440 + 0,280 + 0,05 + 0,75 (the §4.3.2 partition minimum) = 2,52 kN/m².
-    await expect(page.getByTestId('dead-total')).toContainText('2.52');
+    // 1,440 + 0,280 + 0,05 = 1,77 kN/m². Changed from 2,52: the §4.3.2 partition minimum (0,75)
+    // is a live load and is no longer one of the dead rows.
+    await expect(page.getByTestId('dead-row')).toHaveCount(3);
+    await expect(page.getByTestId('dead-total')).toContainText('1.77');
   });
 });
 
@@ -205,6 +210,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await page.getByTestId('al-wind-service-v50').fill('40');
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
       const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
       const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
       expect(wind.length).toBeGreaterThan(0);
@@ -219,6 +225,7 @@ test.describe('@smoke story drift is checked on the seismic cases', () => {
     await openWithSeismic(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('res-tab-drift').click();
@@ -283,6 +290,7 @@ test.describe('@smoke the project states its own combination rules', () => {
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(typed + 1);
   });
 });
@@ -299,6 +307,7 @@ test.describe('@smoke snow from CIRSOC 104', () => {
     await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names.some((n) => /^Balanced snow/.test(n))).toBe(true);
   });

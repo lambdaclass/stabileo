@@ -6,10 +6,12 @@
 //   - DIAGRAM_3D_TYPES (constant)
 //   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
+import { designData } from '../store/design-data';
 import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
+import { tp } from '../i18n';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -19,7 +21,7 @@ import { deformedView, nodesToLabel } from '../store/deformed-view.svelte';
 import { viewState, memberLabelText, nodeLabelText, viewVisibility, visibleElements, visiblePlates, visibleQuads, visibleNodes } from '../store/view-state.svelte';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
 import { structureNodes } from '../three/node-scale';
-import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationStateColor, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationVisual, createTextSpriteCached, heatmapColor } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
@@ -596,10 +598,9 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     // construction) and therefore stayed green after a user weakened rebar.
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
-      const ds = verificationStore.getDisplayStatus(id);
-      const state = ds === 'unavailable' ? 'unavailable' : ds === 'stale' ? 'stale' : 'current';
-      const ratio = state === 'unavailable' ? null : verificationStore.getDisplayRatio(id);
-      const c = verificationStateColor(ratio, state);
+      // The colour follows the member's verdict, not its worst local ratio (`verificationVisual`).
+      const v = verificationStore.memberVerdict(id);
+      const c = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).color;
       if (group) setGroupColor(group, c);
       eb.setBaseColor(id, c);
     });
@@ -636,10 +637,9 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   // Same partial-registry trap as the colour maps: in wireframe the labels
   // would appear only on the handful of members that happen to have a group.
   forEachElementVisual(ctx, (id) => {
-    const ds = verificationStore.getDisplayStatus(id);
-    if (ds === 'unavailable') return;
-    const ratio = verificationStore.getDisplayRatio(id);
-    if (ratio === null) return;
+    const v = verificationStore.memberVerdict(id);
+    const label = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label;
+    if (!label) return;
 
     const elem = modelStore.elements.get(id);
     if (!elem) return;
@@ -654,13 +654,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const my = (sceneI.y + sceneJ.y) / 2;
     const mz = (sceneI.z + sceneJ.z) / 2;
 
-    // Colour + glyph carry the state so it is never colour-only (a11y).
-    const status = verificationStore.getStatus(id);
-    const baseColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
-    const textColor = ds === 'stale' ? '#b9b9a8' : baseColor;
-    const glyph = ds === 'stale' ? '⌛ ' : status === 'fail' ? '✗ ' : status === 'warn' ? '⚠ ' : '';
-
-    const sprite = createTextSpriteCached(`${glyph}${ratio.toFixed(2)}`, textColor, 32);
+    // Colour + glyph carry the verdict so it is never colour-only (a11y); ⊘ marks a held member.
+    const sprite = createTextSpriteCached(label.text, label.color, 32);
     sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
     sprite.scale.set(0.45, 0.45, 1);
     group.add(sprite);
@@ -907,7 +902,12 @@ function applyShellContour(
   ctx: ResultsSyncContext,
   r3d: NonNullable<typeof resultsStore.results3D>,
 ): void {
-  const plates = r3d.plateStresses ?? [], quads = r3d.quadStresses ?? [];
+  const steel = resultsStore.shellContourComponent.startsWith('as');
+  const dd = steel ? designData() : null;
+  // The required-steel components read each shell's depth (thickness less the slab cover) and the project's fy.
+  const basis = (t: number | undefined) => (dd && t ? { steelBasis: { d: t - dd.covers.slab - 0.006, fy: dd.rebarFy } } : {});
+  const plates = (r3d.plateStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.plates.get(s.elementId)?.thickness) } : s));
+  const quads = (r3d.quadStresses ?? []).map((s) => (steel ? { ...s, ...basis(modelStore.quads.get(s.elementId)?.thickness) } : s));
   if (plates.length === 0 && quads.length === 0) return;
   const field = shellContourField(
     { plates, quads },
@@ -1082,8 +1082,24 @@ export function keepLabelBeside(
   };
 }
 
+/**
+ * The most labels of one kind drawn at once. Each is a canvas texture on the GPU: the 20 000
+ * nodes of a building's exchange file, all numbered, took the tab's graphics memory with them.
+ * Past it, a kind is labelled on the selection only, and the view says so once.
+ */
+const LABEL_BUDGET = 2000;
+let crowdedNotice = '';
+
 export function syncLabels3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
+  /** Whether a kind with `count` items is labelled on the selection only (asked, or too many). */
+  const crowded: string[] = [];
+  const selectionOnly = (count: number, kind: string) => {
+    if (viewState.labelsOnSelection) return true;
+    if (count <= LABEL_BUDGET) return false;
+    crowded.push(kind);
+    return true;
+  };
 
   // Clear old labels
   if (ctx.nodeLabelsGroup) {
@@ -1124,8 +1140,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup = new THREE.Group();
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
-    const only = viewState.labelsOnSelection;
-    for (const [id, node] of visibleNodes()) {
+    const nodes = visibleNodes();
+    const only = selectionOnly(nodes.size, 'nodes');
+    for (const [id, node] of nodes) {
       if (only && !uiStore.selectedNodes.has(id)) continue;
       const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSpriteCached(nodeLabelText(viewState.memberLabel, node), '#ffffff', 28, true);
@@ -1142,8 +1159,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.elementLabelsGroup = new THREE.Group();
     ctx.elementLabelsGroup.name = 'elementLabels';
 
+    const only = selectionOnly(visibleElements().size, 'elements');
     for (const [, elem] of visibleElements()) {
-      if (viewState.labelsOnSelection && !uiStore.selectedElements.has(elem.id)) continue;
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1171,7 +1189,9 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.lengthLabelsGroup = new THREE.Group();
     ctx.lengthLabelsGroup.name = 'lengthLabels';
 
+    const only = selectionOnly(visibleElements().size, 'lengths');
     for (const [, elem] of visibleElements()) {
+      if (only && !uiStore.selectedElements.has(elem.id)) continue;
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
@@ -1224,8 +1244,15 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       ctx.shellLabelsGroup!.add(sprite);
     };
 
-    for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
-    for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    // Shells have no selection of their own to fall back on: past the budget they go unlabelled.
+    if (!selectionOnly(visiblePlates().size + visibleQuads().size, 'shells')) {
+      for (const [id, p] of visiblePlates()) centroidLabel(p.nodes, String(id));
+      for (const [id, q] of visibleQuads()) centroidLabel(q.nodes, String(id));
+    }
     ctx.scene.add(ctx.shellLabelsGroup);
   }
+
+  const notice = crowded.join(',');
+  if (notice && notice !== crowdedNotice) uiStore.toast(tp('viewport.labelsCrowded', { n: LABEL_BUDGET }), 'info');
+  crowdedNotice = notice;
 }

@@ -18,9 +18,11 @@
  * Pure: no store access, no side effects.
  */
 
+import { proposeSkin } from '../../codes/cirsoc201/skin';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
-import { layerCentroid, transverseSpacingFor } from '../station-design-forces';
+import { layerCentroid, transverseSpacingFor, SHALLOW_BEAM_MAX_H } from '../station-design-forces';
+import { shearSqrtFc } from '../codes/argentina/cirsoc201-basis';
 import type { MemberContext } from './member-context';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
 import type { Candidate, CandidateFeedback, CandidateGenerator } from './candidate-generator';
@@ -66,7 +68,7 @@ export function buildRegionOptions(ctx: MemberContext, AsSeed: number): LongOpti
   const { bFlex: b, hFlex: h } = ctx.axes;
   const { cover, stirrupDia } = ctx.material;
   const out: LongOption[] = [];
-  for (const dia of STANDARD_LONG_DIAS) {
+  for (const dia of ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS) {
     const perRow = maxBarsPerRow(b, cover, stirrupDia, dia);
     if (perRow < BEAM_LIMITS.minBarsPerRow) continue;
     const a = areaOf(dia);
@@ -126,7 +128,20 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[
   const { cover, stirrupDia } = ctx.material;
   const d = h - cover - stirrupDia / 1000 - 0.008;
   const out: StirrupDef[] = [];
-  for (const dia of STANDARD_STIRRUP_DIAS) {
+  /*
+   * §9.6.3.1, as the verifier reads it (`verifyProvidedReinforcement`): on a beam deeper than
+   * 250 mm, Av,min wherever Vu > φ·0,085·√f'c·bw·d (2005: φVc/2), Av,min/s of §9.6.3.4
+   * (2025 max(0,062·√f'c, 0,35)·bw/fyt; 2005 max(√f'c/16, 0,33)·bw/fyt). Options under it are
+   * not generated: the verifier would refuse each one, and walking through them cost the
+   * 408-member run seven times its time. `Vu` is the region's peak, so «required here» agrees.
+   */
+  const sq = shearSqrtFc(ctx.material.fc);
+  const e2005 = ctx.codeEdition === '2005';
+  const threshold = e2005 ? 0.5 * 0.75 * 0.17 * sq * b * d * 1000 : 0.75 * 0.085 * sq * b * d * 1000;
+  const avMinPerS = h > SHALLOW_BEAM_MAX_H + 1e-9 && Math.abs(Vu) > threshold
+    ? (e2005 ? Math.max(sq / 16, 0.33) : Math.max(0.062 * sq, 0.35)) * b / ctx.material.fy // m²/m
+    : 0;
+  for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
     // The table's across-width limit depends on the stirrup diameter (it sets the leg
     // centre), so the limits are evaluated per diameter rather than once per member.
     const table = transverseSpacingFor(Vu, b, d, ctx.material.fc, cover, dia, ctx.codeEdition);
@@ -135,7 +150,9 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number): StirrupDef[
       // A wide member needs more legs; a narrow one cannot host them.
       const perRow = maxBarsPerRow(b, cover, dia, dia);
       if (legs > 2 && perRow < legs) continue;
+      const legArea = (REBAR_DB.find((r) => r.diameter === dia)?.area ?? (Math.PI / 4) * (dia / 10) ** 2) * 1e-4; // m²
       for (let s = top; s >= BEAM_LIMITS.minSpacing - 1e-9; s -= SPACING_GRID) {
+        if (avMinPerS > 0 && (legs * legArea) / s < avMinPerS * (1 - 1e-9)) continue;
         out.push({ diameter: dia, legs, spacing: +s.toFixed(4) });
       }
     }
@@ -226,6 +243,9 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
   let exhausted = false;
   let lastCandidate: Candidate | null = null;
 
+  // A deep beam carries skin bars on its side faces (§9.7.2.3), the same for every candidate.
+  const skin = proposeSkin(ctx.codeEdition, ctx.axes.hFlex, ctx.material.fy, ctx.material.cover, ctx.material.stirrupDia);
+
   const build = (): Candidate | null => {
     if (len.span === 0) return null;
     const span = spanOpts[Math.min(idx.span, len.span - 1)];
@@ -248,6 +268,7 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
         } : {}),
         ...(ssup ? { stirrupsSupport: { ...ssup } } : {}),
         ...(sspan ? { stirrupsSpan: { ...sspan } } : {}),
+        ...(skin ? { skin: { ...skin } } : {}),
       },
     };
     const spacings = [ssup?.spacing, sspan?.spacing].filter((s): s is number => s !== undefined);
@@ -280,6 +301,11 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
       // continuing into the supports.
       else if (cat.startsWith('Top Span')) { want.add('start'); want.add('end'); }
       else if (cat.startsWith('Bottom Start') || cat.startsWith('Bottom End')) want.add('span');
+      // Torsion: its longitudinal steel from the bars of the region, its transverse from the stirrups.
+      else if (cat.startsWith('Torsion Al Support')) { want.add('span'); want.add('start'); want.add('end'); }
+      else if (cat.startsWith('Torsion Al Span')) want.add('span');
+      else if (cat.startsWith('Torsion Support')) want.add('stirSup');
+      else if (cat.startsWith('Torsion Span')) want.add('stirSpan');
       else if (cat.startsWith('Shear Support')) want.add('stirSup');
       else if (cat.startsWith('Shear Span')) want.add('stirSpan');
       else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');

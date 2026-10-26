@@ -8,8 +8,7 @@
 //!   - Invalid chains (circular, over-constrained) emit diagnostics, never panic
 //!   - Chain depth does not cause stack overflow (max 10-pass substitution)
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use common::make_input;

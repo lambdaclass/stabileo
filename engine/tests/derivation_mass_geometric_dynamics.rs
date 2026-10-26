@@ -5,7 +5,7 @@
 //! `#[ignore = "open question MD-n: ..."]` demonstrate a discrepancy that is left
 //! for review; run them with `--include-ignored` to see them fail.
 
-mod common;
+use crate::common;
 use common::*;
 use dedaliano_engine::element::Hinge3D;
 use dedaliano_engine::solver::geometric_stiffness::{frame_kg_local_2d, frame_kg_local_3d, truss_kg_3d, KgSection};

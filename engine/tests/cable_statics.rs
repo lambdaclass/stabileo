@@ -7,7 +7,7 @@
 //! displacements solved with Ernst's E_eq·A, and the reactions used the full E: 2 % off on a steel
 //! tripod, and a slack cable kept its stiffness in the reactions.
 
-mod common;
+use crate::common;
 
 use common::make_input;
 use dedaliano_engine::solver::cable;

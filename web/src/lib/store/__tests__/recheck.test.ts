@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { recheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
+import { resultsStore } from '../results.svelte';
+import '../index';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
 const steelTruss = () => ({
@@ -66,5 +68,25 @@ describe('recheckStore', () => {
   it('a malformed stamp reads as none (the conservative reading)', () => {
     recheckStore.openProject({ ...(steelTruss() as object), solvedWith: { resultsVersion: 'x' } } as never, 'pro');
     expect(recheckStore.noticeOpen).toBe(true);
+  });
+});
+
+describe('what ends the stale state', () => {
+  beforeEach(() => recheckStore.reset());
+
+  it('a modal run alone does not: the static results are still the older version\'s', () => {
+    recheckStore.openProject(steelTruss(), 'pro');
+    recheckStore.noteSolved('modal');
+    expect(recheckStore.stale).toBe(true);
+    recheckStore.noteSolved('linear');
+    expect(recheckStore.stale).toBe(false);
+  });
+
+  it('a P-Δ run with no second-order equilibrium does not', () => {
+    recheckStore.openProject(steelTruss(), 'pro');
+    const unconverged = { converged: false, isStable: false, iterations: 50, b2Factor: Infinity, results: { displacements: [], reactions: [], elementForces: [] } };
+    resultsStore.setPDeltaWithoutEquilibrium(unconverged as never, true);
+    expect(recheckStore.stale).toBe(true);
+    expect(recheckStore.capture()?.analyses).toEqual([]);
   });
 });

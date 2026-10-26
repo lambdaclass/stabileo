@@ -21,6 +21,10 @@
 // The store owns no model access: `_setReinforcementProvider` is wired in
 // store/index.ts, mirroring the existing `_setModelFlatnessProvider` pattern.
 
+import { columnBarsOf } from '../engine/detailing/joint-threading';
+import type { BeamCornerRecord } from '../engine/design/end-support-anchorage';
+import { beamCornerRecord, columnCageDia } from '../engine/design/end-support-anchorage';
+import { detailableReinforcement } from '../engine/design/outcome';
 import type { ElementVerification } from '../engine/codes/argentina/cirsoc201';
 import type { SteelVerification } from '../engine/codes/argentina/cirsoc301';
 import type { MemberDesignResult, DesignCheckSummary } from '../engine/design-check-results';
@@ -30,6 +34,7 @@ import type { MemberContext } from '../engine/design/member-context';
 import { regulationsStore } from './regulations.svelte';
 import type { DesignRunSummary, MemberDesignOutcome } from '../engine/design/outcome';
 import { utilizationStatus } from '../engine/design/outcome';
+import { steelMemberStatus, steelUtilization } from '../engine/steel/steel-utilization';
 import { rebarHash } from '../engine/design/rebar-hash';
 import { getDesignCode } from '../engine/design/code-adapter';
 import type { OrientationIssue } from '../engine/design/orientation-diagnostic';
@@ -68,8 +73,86 @@ export type DisplayStatus =
   /** The code-check baseline predates the current analysis. */
   | 'stale';
 
+/**
+ * Something that holds a member short of conformity that is not one of its own section checks.
+ *
+ * A member's checks (flexure, shear, anchorage, …) are LOCAL: each states that one provision is
+ * met at the section it was evaluated on. Whether the MEMBER conforms also depends on the forces
+ * it was checked against, on the steel as it can be built, on its service behaviour and on the
+ * provisions only a substitute evaluates. Each of these is a hold, with the reason as an i18n key.
+ *
+ *   analysis   — its slab is joined to the columns at one node, so the split of the slab's load
+ *                between beams and columns it was designed from is not established (`analysis-validity.ts`);
+ *   detailing  — the detailing left a condition open on it: an anchorage, a bar outside the
+ *                section, a clash or a lap it could not resolve or check (`detailing.*`);
+ *   deflection — its deflection exceeds the limit (Tabla 24.2.2);
+ *   refused    — the design refused it (SEARCH_EXHAUSTED, SECTION_INADEQUATE, UNSUPPORTED, …);
+ *   seismic    — its chapter-18 checks run only as a substitute, which does not verify them;
+ *   enginePending — a provision the engine's checker does not apply yet, which the member needs:
+ *                a shallow beam (h ≤ 250 mm) with Vu > φVc and Av < Av,min, which CIRSOC 201-2025
+ *                §9.6.3.1 does not exempt and the engine does (`ProvidedRebarResult.shallowMinShear`).
+ */
+export type MemberHoldKind = 'analysis' | 'detailing' | 'deflection' | 'refused' | 'seismic' | 'enginePending';
+export interface MemberHold { kind: MemberHoldKind; key: string; params?: Record<string, string | number> }
+
+/**
+ * The member's verdict, apart from its local checks.
+ *
+ * `local` is what the member's own section checks say read alone (`ok` there means «the local
+ * checks of the section pass», never «the member conforms»); `status` is the member's verdict,
+ * the one every count, colour and badge follows: never `ok` or `warn` while a hold applies.
+ * `assumptions` are readings the verdict was reached under and states (an undeclared lateral
+ * role, designed as part of the system: the more demanding reading, so it does not hold).
+ */
+export interface MemberVerdict {
+  status: DisplayStatus;
+  local: DisplayStatus;
+  holds: MemberHold[];
+  assumptions: MemberAssumption[];
+}
+/** A reading the verdict was reached under, stated beside it (i18n key). */
+export interface MemberAssumption { key: string }
+
+/**
+ * What holds a steel member, from its CIRSOC 301 verification: each limit state its checks left
+ * out, and an undeclared fabrication its verdict depends on. Both are `refused` holds (a required
+ * check the design could not run), never failing ones: they leave the member not verified.
+ */
+export function steelHolds(v: SteelVerification): MemberHold[] {
+  const holds: MemberHold[] = [];
+  for (const n of v.notEvaluated ?? []) {
+    // The engine's refusal (`c301.refuse.*`) with its parameters; a parameter that is itself a
+    // message is kept as its key, which the hold's text translates (`holdText`).
+    const flat: Record<string, string | number> = {};
+    for (const [k, x] of Object.entries(n.params ?? {})) {
+      flat[k] = typeof x === 'object' && x && 'key' in x ? String((x as { key: string }).key) : (x as string | number);
+    }
+    const params = { clause: n.clause || '—', what: n.key, ...flat };
+    // One hold per refusal: the same refusal of two checks (flexure about each axis) is one reason.
+    if (!holds.some((h) => JSON.stringify(h.params) === JSON.stringify(params))) holds.push({ kind: 'refused', key: 'verdict.hold.steelNotEvaluated', params });
+  }
+  const fab = v.fabrication;
+  if (fab?.basis === 'undeclared' && fab.dependsOnIt) {
+    holds.push({ kind: 'refused', key: 'verdict.hold.steelFabrication', params: { rolled: fab.rolled.ratio.toFixed(2), welded: fab.welded.ratio.toFixed(2) } });
+  }
+  const lh = v.loadHeight;
+  if (lh?.basis === 'undeclared' && lh.dependsOnIt) {
+    holds.push({ kind: 'refused', key: 'verdict.hold.steelLoadHeight', params: { top: lh.top.ratio.toFixed(2), web: (lh.web?.ratio ?? 0).toFixed(2) } });
+  }
+  return holds;
+}
+
+/** Holds that fail the member (its steel as built or its service behaviour does not conform). */
+const FAILING_HOLDS: ReadonlySet<MemberHoldKind> = new Set(['detailing', 'deflection']);
+
 export interface ProvidedSummaryCounts {
   ok: number; warn: number; fail: number;
+  /**
+   * Members whose LOCAL checks pass (ok or near the limit) and whose verdict a hold keeps from
+   * passing. Already counted in `fail` or `unavailable`; stated apart so a reader sees how many
+   * favourable local checks are not approvals.
+   */
+  held: number;
   /** Members carrying a proposal. Counted apart from both the passes and the failures. */
   provisional: number;
   unavailable: number; stale: number;
@@ -109,12 +192,37 @@ function createVerificationStore() {
   // ── Design outcomes (VERIFIED / SECTION_INADEQUATE / …) ──
   let runSummary = $state<DesignRunSummary | null>(null);
 
+  /*
+   * ── Out of date, and why ──
+   *
+   * A model change clears the analysis, and with it every member context and verdict. A member
+   * that had been checked then read «not checked», as if nobody had designed it, and design's
+   * list emptied: nothing said the design it holds no longer matches the model. The members that
+   * had a design read against the old analysis are kept here, with what changed, until a new
+   * analysis gives them a context again (`setDemandData`) or a new steel check a verdict.
+   */
+  let outOfDate = $state<Set<number>>(new Set());
+  let outOfDateReason = $state<'model' | 'design' | null>(null);
+  /**
+   * The members design listed without a design of their own (never checked, or missing data) when
+   * a change cleared the analysis. Kept listed «not checked» beside the out-of-date ones, so the
+   * list does not lose part of the structure until the next analysis gives them a context again.
+   */
+  let stillListed = $state<Set<number>>(new Set());
+
   // ── Provided-verification memo cache (NOT reactive: keyed, rebuilt on demand) ──
   const providedCache = new Map<number, { key: string; result: ProvidedRebarResult }>();
   /** Bumped whenever the cache is invalidated, so $derived consumers recompute. */
   let providedRevision = $state(0);
 
   let reinforcementProvider: ((elementId: number) => ProvidedReinforcement | undefined) | null = null;
+  /** The conditions the detailing left open on the member, by key (wired in index.ts). */
+  let detailingIssueProvider: ((elementId: number) => readonly string[]) | null = null;
+  /** Whether the member's seismic checks ran only as a substitute (wired in index.ts). */
+  let seismicSubstituteProvider: ((elementId: number) => boolean) | null = null;
+  let serviceabilityProvider: ((elementId: number) => boolean) | null = null;
+  /** A refusal kept with the project (`design-refusals.ts`), for a member this session has not designed. */
+  let refusalProvider: ((elementId: number) => MemberDesignOutcome | undefined) | null = null;
 
   function rebuildLegacyMaps() {
     const cm = new Map<number, ElementVerification>();
@@ -136,11 +244,28 @@ function createVerificationStore() {
     providedRevision++;
   }
 
+  /**
+   * A beam's context with the columns' bars it threads (`joint-threading-check.ts`), read off the
+   * columns' saved reinforcement when no design run has set them (`setDesignOutcomes`): a
+   * reopened project checks its saved beams against its saved columns, as the run that designed
+   * them did. Without it the reopened memoria lost each beam's two «bars through the joint» rows.
+   */
+  function withSavedColumns(ctx: MemberContext | undefined): MemberContext | undefined {
+    if (!ctx || ctx.elementType !== 'beam' || ctx.columnBars) return ctx;
+    const colBars = new Map<number, { count: number; diameterMm: number }>();
+    for (const [id, c] of contexts) {
+      if (c.elementType !== 'column') continue;
+      const bars = columnBarsOf(reinforcementProvider?.(id));
+      if (bars) colBars.set(id, bars);
+    }
+    return colBars.size > 0 ? { ...ctx, columnBars: colBars } : ctx;
+  }
+
   /** Compute (or reuse) the authoritative provided-rebar verification. */
   function providedFor(elementId: number): ProvidedRebarResult | null {
     void providedRevision;   // explicit reactive dependency
     void demandRevision;
-    const ctx = contexts.get(elementId);
+    const ctx = withSavedColumns(contexts.get(elementId));
     if (!ctx) return null;
     const reinf = reinforcementProvider?.(elementId);
     if (!reinf) return null;
@@ -186,7 +311,7 @@ function createVerificationStore() {
      */
     reinforcement?: ProvidedReinforcement,
   ): 'ok' | 'warn' | 'fail' {
-    const ctx = contexts.get(elementId);
+    const ctx = withSavedColumns(contexts.get(elementId));
     const reinf = reinforcement ?? reinforcementProvider?.(elementId);
     if (!ctx || !reinf) return 'fail';
     // Same source as every other design decision: the project's `concrete` role.
@@ -282,6 +407,26 @@ function createVerificationStore() {
     _setReinforcementProvider(fn: (elementId: number) => ProvidedReinforcement | undefined) {
       reinforcementProvider = fn;
     },
+    /** Wired in store/index.ts, for the same reason: this store never imports the detailing. */
+    _setDetailingIssueProvider(fn: (elementId: number) => readonly string[]) {
+      detailingIssueProvider = fn;
+    },
+    /** Wired in store/index.ts: whether the seismic report checks the member only as a substitute. */
+    _setSeismicSubstituteProvider(fn: (elementId: number) => boolean) {
+      seismicSubstituteProvider = fn;
+    },
+    /** Wired in store/index.ts: the refusals kept with the project (`design-refusals.ts`). */
+    _setRefusalProvider(fn: (elementId: number) => MemberDesignOutcome | undefined) {
+      refusalProvider = fn;
+    },
+    /** Wired in store/index.ts: whether the member's deflection check fails (`serviceability.ts`). */
+    _setServiceabilityProvider(fn: (elementId: number) => boolean) {
+      serviceabilityProvider = fn;
+    },
+    /** Whether the member's deflection check (CIRSOC 201 Tabla 24.2.2, CIRSOC 301 L) fails. */
+    serviceabilityFails(elementId: number): boolean {
+      return serviceabilityProvider?.(elementId) ?? false;
+    },
 
     /**
      * A real model mutation happened (or a fresh solve landed): the analysis moved
@@ -289,7 +434,16 @@ function createVerificationStore() {
      * verification. Replaces the old unconditional `clear()` in the mutation hook —
      * unconditional so the revision counter can never silently fail to advance.
      */
-    invalidateAnalysis() {
+    invalidateAnalysis(reason: 'model' | 'design' = 'model') {
+      const was = new Set(outOfDate);
+      for (const id of contexts.keys()) if (reinforcementProvider?.(id)) was.add(id);
+      for (const id of steelMap.keys()) was.add(id);
+      const listed = new Set(stillListed);
+      for (const id of contexts.keys()) if (!was.has(id)) listed.add(id);
+      for (const id of was) listed.delete(id);
+      outOfDate = was;
+      stillListed = listed;
+      if (was.size > 0) outOfDateReason = reason;
       analysisRevision++;
       contexts = new Map();
       orientationIssues = [];
@@ -333,12 +487,33 @@ function createVerificationStore() {
     // ── Retained demand ──
     /** Publish freshly computed member contexts (station demands + geometry). */
     setDemandData(next: Map<number, MemberContext>, issues: OrientationIssue[] = []) {
+      if (outOfDate.size > 0) {
+        const left = new Set([...outOfDate].filter((id) => !next.has(id) && !steelMap.has(id)));
+        outOfDate = left;
+        if (left.size === 0) outOfDateReason = null;
+      }
+      if (stillListed.size > 0) stillListed = new Set([...stillListed].filter((id) => !next.has(id)));
       contexts = next;
       orientationIssues = issues;
       demandRevision++;
       dropCache();
     },
     get contexts() { return contexts; },
+    /** Members whose design was read against an analysis a change has since cleared. */
+    get outOfDate(): ReadonlySet<number> { return outOfDate; },
+    /** Members listed without a design when the analysis was cleared; read «not checked». */
+    get stillListed(): ReadonlySet<number> { return stillListed; },
+    /** What cleared it: a change to the structure, or to what design reads of it. */
+    get outOfDateReason() { return outOfDateReason; },
+    /** A member stops being out of date: it has a verdict against the analysis in force. */
+    _settleOutOfDate(ids: Iterable<number>) {
+      if (outOfDate.size === 0) return;
+      const left = new Set(outOfDate);
+      for (const id of ids) left.delete(id);
+      if (left.size === outOfDate.size) return;
+      outOfDate = left;
+      if (left.size === 0) outOfDateReason = null;
+    },
     contextFor(elementId: number): MemberContext | undefined { return contexts.get(elementId); },
     hasDemandFor(elementId: number): boolean { return contexts.has(elementId); },
     get orientationIssues() { return orientationIssues; },
@@ -361,21 +536,17 @@ function createVerificationStore() {
       concreteVerifs = concrete;
       steelVerifs = steel;
       rebuildLegacyMaps();
+      if (steel.length) this._settleOutOfDate(steel.map((v) => v.elementId));
       designResults = normalized;
       designSummary = summary;
       rebuildDesignMap();
       baselineRevision = analysisRevision;
     },
 
-    /** Legacy setter kept for the report path; no longer wipes unified results. */
-    setConcrete(verifs: ElementVerification[]) {
-      concreteVerifs = verifs;
-      rebuildLegacyMaps();
-      if (baselineRevision === 0) baselineRevision = analysisRevision;
-    },
     setSteel(verifs: SteelVerification[]) {
       steelVerifs = verifs;
       rebuildLegacyMaps();
+      this._settleOutOfDate(verifs.map((v) => v.elementId));
     },
     /** Set unified design-check results (multi-code baseline). */
     setDesignResults(results: MemberDesignResult[], summary: DesignCheckSummary) {
@@ -388,11 +559,42 @@ function createVerificationStore() {
     // ── Design outcomes ──
     setDesignOutcomes(summary: DesignRunSummary | null) {
       runSummary = summary;
+      // The designed columns' cages, on every beam's context: a beam's hooks keep clear of them
+      // (`end-support-anchorage.ts`), as they did in the design run that produced these outcomes.
+      const cages = new Map<number, number>();
+      const colBars = new Map<number, { count: number; diameterMm: number }>();
+      for (const [id, o] of summary?.outcomes ?? []) {
+        if (contexts.get(id)?.elementType !== 'column') continue;
+        const dia = columnCageDia(detailableReinforcement(o)?.rebar);
+        if (dia > 0) cages.set(id, dia);
+        const bars = columnBarsOf(detailableReinforcement(o)?.rebar);
+        if (bars) colBars.set(id, bars);
+      }
+      const corners = new Map<number, BeamCornerRecord>();
+      for (const [id, o] of summary?.outcomes ?? []) {
+        const c = contexts.get(id);
+        if (c?.elementType !== 'beam') continue;
+        const rec = beamCornerRecord(detailableReinforcement(o)?.rebar, c.material.stirrupDia);
+        if (rec) corners.set(id, rec);
+      }
+      // The beams the detailing will not lay: no design to detail (`detailableReinforcement`).
+      const absent = new Set<number>();
+      for (const [id, c] of contexts) {
+        if (c.elementType === 'beam' && !detailableReinforcement(summary?.outcomes.get(id))) absent.add(id);
+      }
+      if ([...contexts.values()].some((c) => c.elementType === 'beam')) {
+        contexts = new Map([...contexts].map(([id, c]) => [id, c.elementType === 'beam' ? { ...c, columnCages: cages, columnBars: colBars, beamCorners: corners, absentBeams: absent } : c]));
+      }
       dropCache();
     },
     get runSummary() { return runSummary; },
+    /**
+     * The member's design outcome: this session's run, or else a refusal kept with the project.
+     * A verified member comes back from its saved bars; a refused one has none, and without the
+     * kept refusal it read, after a reopen, as a member with nothing wrong.
+     */
     outcomeFor(elementId: number): MemberDesignOutcome | undefined {
-      return runSummary?.outcomes.get(elementId);
+      return runSummary?.outcomes.get(elementId) ?? refusalProvider?.(elementId);
     },
 
     // ── Provided-reinforcement verification (the PRIMARY status) ──
@@ -414,10 +616,15 @@ function createVerificationStore() {
      * code REQUIRES, not the steel the member HAS. Reading the baseline was the
      * actual trust bug: the viewport stayed green after a user weakened rebar.
      */
-    getDisplayStatus(elementId: number): DisplayStatus {
+    localStatus(elementId: number): DisplayStatus {
       void providedRevision;
+      // A steel member: its CIRSOC 301 verdict, when one ran against this analysis. A limit state
+      // it left out reads «not evaluated» (`unavailable`), whatever the ratios that did run say.
+      const steel = steelMap.get(elementId);
+      if (steel) return steelMemberStatus(steel);
       const reinf = reinforcementProvider?.(elementId);
-      if (!contexts.has(elementId)) return 'unavailable';
+      // Designed against an analysis a change cleared: out of date, not «never checked».
+      if (!contexts.has(elementId)) return outOfDate.has(elementId) ? 'stale' : 'unavailable';
       if (!reinf) return 'unavailable';
       const pv = providedFor(elementId);
       if (!pv || pv.strengthCheckCount === 0) return 'unavailable';
@@ -452,6 +659,61 @@ function createVerificationStore() {
     },
 
     /**
+     * What holds the member short of conformity beyond its own section checks (`MemberHold`).
+     * Read whatever the local checks say: a failing member held by an unvalidated analysis says
+     * both things.
+     */
+    memberHolds(elementId: number): MemberHold[] {
+      const holds: MemberHold[] = [];
+      const v = contexts.get(elementId)?.slabColumnJoint;
+      if (v?.verdict === 'pointJoint') holds.push({ kind: 'analysis', key: 'verdict.hold.analysis', params: { ...(v.params ?? {}) } });
+      const open = detailingIssueProvider?.(elementId) ?? [];
+      if (open.length) holds.push({ kind: 'detailing', key: 'verdict.hold.detailing', params: { n: open.length, keys: [...new Set(open)].join(', ') } });
+      if (contexts.has(elementId) && serviceabilityProvider?.(elementId)) holds.push({ kind: 'deflection', key: 'verdict.hold.deflection' });
+      const o = this.outcomeFor(elementId)?.outcome;
+      if (o && o !== 'VERIFIED' && o !== 'PROVISIONAL_BIAXIAL') holds.push({ kind: 'refused', key: 'verdict.hold.refused', params: { outcome: o } });
+      if (seismicSubstituteProvider?.(elementId)) holds.push({ kind: 'seismic', key: 'verdict.hold.seismic' });
+      // §9.6.3.1 on a shallow beam: the engine exempts it, the clause does not. Held, never approved
+      // and never failed on a rule the engine has not applied; the worst region names the numbers.
+      const shallow = this.providedFor(elementId)?.shallowMinShear;
+      if (shallow?.length) {
+        const w = shallow.reduce((a, b) => (b.Vu / Math.max(b.phiVc, 1e-9) > a.Vu / Math.max(a.phiVc, 1e-9) ? b : a));
+        holds.push({ kind: 'enginePending', key: 'verdict.hold.shallowMinShear', params: {
+          h: Math.round(w.h * 1000), vu: w.Vu.toFixed(1), phiVc: w.phiVc.toFixed(1),
+          av: w.Av.toFixed(2), avMin: w.AvMin.toFixed(2), s: (w.spacing * 100).toFixed(1),
+        } });
+      }
+      return holds;
+    },
+
+    /**
+     * The member's verdict: its local checks, what holds it, and the one status every count,
+     * colour and badge follows. A favourable local status never survives a hold: a hold that
+     * says the steel as built or the service behaviour does not conform fails the member; one
+     * that says the member could not be verified (its analysis, its seismic provisions)
+     * leaves it not verified. A refusal already reads as not verified (it has no bars).
+     */
+    memberVerdict(elementId: number): MemberVerdict {
+      const local = this.localStatus(elementId);
+      const sv = steelMap.get(elementId);
+      const holds = sv ? steelHolds(sv) : this.memberHolds(elementId);
+      const ctx = contexts.get(elementId);
+      const assumptions: MemberAssumption[] = ctx?.elementType === 'beam' && ctx.lateral?.role === 'undeclared'
+        ? [{ key: 'verdict.assume.lateral' }] : [];
+      let status = local;
+      if (local === 'ok' || local === 'warn') {
+        if (holds.some((h) => FAILING_HOLDS.has(h.kind))) status = 'fail';
+        else if (holds.length) status = 'unavailable';
+      }
+      return { status, local, holds, assumptions };
+    },
+
+    /** The member's verdict as one word (`memberVerdict`): what the table, the counts and the viewport read. */
+    getDisplayStatus(elementId: number): DisplayStatus {
+      return this.memberVerdict(elementId).status;
+    },
+
+    /**
      * Utilization for display: ALWAYS demand/capacity.
      *
      * Null when nothing can answer: no provided verification CARRYING A STRENGTH CHECK, and no
@@ -478,6 +740,10 @@ function createVerificationStore() {
      */
     getDisplayRatio(elementId: number): number | null {
       void providedRevision;
+      const steel = steelMap.get(elementId);
+      // A held steel member has no utilisation to show: the ratios that ran leave a limit state
+      // out, or differ with a datum the section does not declare.
+      if (steel) { const u = steelUtilization(steel); return steel.overallStatus !== 'held' && Number.isFinite(u) ? u : null; }
       const pv = providedFor(elementId);
       if (pv && pv.strengthCheckCount > 0) {
         return Number.isFinite(pv.worstUtilization) ? pv.worstUtilization : null;
@@ -485,20 +751,24 @@ function createVerificationStore() {
       // Fall back to the code-check baseline only for members with no rebar, and
       // only so the viewport can show *something* — the status stays 'unavailable'.
       const dr = designMap.get(elementId);
-      return dr ? dr.utilization : null;
+      // The baseline's ∞ (a check it could not evaluate) is no utilization either.
+      return dr && Number.isFinite(dr.utilization) ? dr.utilization : null;
     },
 
     /** Aggregate counts for the summary bar. Never merges non-passing into pass. */
     get providedSummary(): ProvidedSummaryCounts {
       void providedRevision;
       const counts: ProvidedSummaryCounts = {
-        ok: 0, warn: 0, fail: 0, provisional: 0,
+        ok: 0, warn: 0, fail: 0, held: 0, provisional: 0,
         unavailable: 0, stale: 0, total: 0, withReinforcement: 0,
       };
       for (const id of contexts.keys()) {
         counts.total++;
         if (reinforcementProvider?.(id)) counts.withReinforcement++;
-        switch (this.getDisplayStatus(id)) {
+        // Counted by the member's verdict, never by its local checks: a held member is not a pass.
+        const v = this.memberVerdict(id);
+        if ((v.local === 'ok' || v.local === 'warn') && v.status !== v.local) counts.held++;
+        switch (v.status) {
           case 'ok': counts.ok++; break;
           case 'warn': counts.warn++; break;
           case 'fail': counts.fail++; break;
@@ -545,11 +815,12 @@ function createVerificationStore() {
     /** Status derived purely from the code-check baseline (reports/back-compat). */
     getBaselineStatus(elementId: number): VerificationStatus | null {
       const dr = designMap.get(elementId);
-      if (dr) return dr.status;
+      if (dr) return dr.status === 'held' ? null : dr.status;
       const cv = concreteMap.get(elementId);
       if (cv) return cv.overallStatus;
       const sv = steelMap.get(elementId);
-      if (sv) return sv.overallStatus;
+      // A held steel verdict is neither of the three words: no baseline status.
+      if (sv) return sv.overallStatus === 'held' ? null : sv.overallStatus;
       return null;
     },
 
@@ -572,6 +843,9 @@ function createVerificationStore() {
       orientationIssues = [];
       runSummary = null;
       baselineRevision = 0;
+      outOfDate = new Set();
+      outOfDateReason = null;
+      stillListed = new Set();
       dropCache();
     },
   };

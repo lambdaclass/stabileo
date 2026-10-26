@@ -13,15 +13,14 @@
  * with different words, and that a count which is not known is not printed as zero.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, designPlace, openFloorPass } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });
 
 /** Reach Design → the floors stage, through the ribbon a user has. */
 async function openFloors(page: Page) {
-  await page.getByTestId('pr-stage-design').click();
-  await page.getByTestId('pr-cmd-design').click();
+  await designPlace(page, 'list');
   const section = page.getByTestId('floor-families');
   /*
    * Opened by testid, not by its prose.
@@ -32,7 +31,7 @@ async function openFloors(page: Page) {
    * Every other spec that reaches this panel already addresses the disclosure directly.
    */
   if (!(await section.isVisible().catch(() => false))) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
   }
   await expect(section).toBeVisible();
 }

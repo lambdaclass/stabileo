@@ -32,7 +32,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, openBasicProjectPanel, acknowledgeRecheck } from './fixtures';
+import { test, expect, openBasicProjectPanel } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const FIXTURE = new URL(
@@ -59,8 +59,6 @@ async function openFixtureFromPro(page: Page, path = FIXTURE) {
   await expect(openBtn).toBeEnabled();
   // The button drives this input; setting files on it is the same event the picker raises.
   await page.getByTestId('pp-open-file').setInputFiles(path);
-  // A committed project, solved with an earlier results version: it raises the re-check notice.
-  await acknowledgeRecheck(page);
   await expect
     .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
     .toBe(8);

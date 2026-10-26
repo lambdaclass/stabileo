@@ -15,8 +15,12 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
+  import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { syncUnderlays } from '../lib/three/underlay-3d';
+  import { syncFootings } from '../lib/three/footings-3d';
+  import { snapToUnderlays } from '../lib/model/underlay';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
   import { editPreview } from '../lib/store/edit-preview.svelte';
@@ -35,6 +39,7 @@
   import { activeStretchHandles, handleUnder, stationOnRay, moveStretchEnd, handleMeshes, type StretchHandles } from '../lib/viewport3d/load-handles';
   import { drawState } from '../lib/store/draw-state.svelte';
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
+  import PlanViewChip from './viewport/PlanViewChip.svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
@@ -49,6 +54,7 @@
   import { nodeRadiusFor, diagonalOf, structureNodes } from '../lib/three/node-scale';
   import { jointSceneLayout, hasSceneContent } from '../lib/three/joint-layout';
   import { buildJointMeshes } from '../lib/three/joint-meshes';
+  import { buildTypologyMeshes } from '../lib/three/joint-typology-meshes';
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
@@ -70,6 +76,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
   import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
+  import { meshHidden } from '../lib/viewport3d/shell-members';
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
   import { createTimelapseCompositor } from '../lib/viewport3d/timelapse-compositor';
@@ -87,7 +94,8 @@
   let perspCamera: THREE.PerspectiveCamera;
   let orthoCamera: THREE.OrthographicCamera;
   let controls: OrbitControls;
-  let animFrameId: number;
+  /** Drops the render loop's pending frame; assigned once the loop exists. */
+  let cancelRenderLoop: () => void = () => {};
   let initialized = false;
 
   // ─── Invalidation-based rendering ───────────────────────────
@@ -138,6 +146,8 @@
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
+  /** The plan view's cut: everything above `planCutZ` is cut away. */
+  const planPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
 
   // ─── Raycaster ───────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
@@ -176,7 +186,9 @@
   /** The render's aspect while the timelapse draws at its own size; null otherwise. */
   let timelapseAspect: number | null = null;
   let toolBeforeTimelapse: typeof uiStore.currentTool | null = null;
-  let renderModeBeforeSections: 'wireframe' | 'solid' = 'wireframe';
+  /** How the bars can be drawn, one at a time, from the lightest to the building as built. */
+  const RENDER_MODES = ['wireframe', 'solid', 'sections', 'physical'] as const;
+  const RENDER_GLYPH: Record<(typeof RENDER_MODES)[number], string> = { wireframe: '╱', solid: '▬', sections: '⬡', physical: '▣' };
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
@@ -382,7 +394,7 @@
      * the scene graph. Both branches of this rebase hid the markers in sections mode
      * and each did it its own way; this is the one that says why.
      */
-    const drawn = uiStore.renderMode3D !== 'sections';
+    const drawn = uiStore.renderMode3D !== 'sections' && uiStore.renderMode3D !== 'physical';
     nodesInstanced.setDrawn(drawn);
     publishMarkerState(drawn, drawn ? undefined : null);
     if (!drawn) return;
@@ -498,6 +510,19 @@
       ? { x: b.x - a.x, y: b.y - a.y, z: ((b as { z?: number }).z ?? 0) - ((a as { z?: number }).z ?? 0) }
       : { x: 1, y: 0, z: 0 };
 
+    // A joint with a typology draws its parts (plates, bolts, fillets, stiffeners, anchors).
+    if (design.typology?.parts.length) {
+      const built = buildTypologyMeshes(design.typology.parts, nodeId);
+      for (const mesh of built.meshes) jointsParent.add(mesh);
+      nodesInstanced.suppress(nodeId);
+      jointBoundingRadiusM = built.boundingRadiusM;
+      jointCentreM = built.centreM;
+      uiStore.jointSceneEmptyReasons = [];
+      (window as unknown as { __jointMeshCount?: number }).__jointMeshCount = built.meshes.length;
+      (window as unknown as { __jointScene?: unknown }).__jointScene = { typology: design.typology.kind, parts: design.typology.parts.map((p) => p.kind) };
+      invalidate();
+      return;
+    }
     const layout = jointSceneLayout(design, axis);
     /*
      * Why nothing is drawn, published rather than swallowed.
@@ -641,6 +666,7 @@
     controls.zoomToCursor = true;
     // Close in on a small part, the near plane follows (see nearPlaneFor).
     controls.addEventListener('change', syncNearPlane);
+    applyNavigation();
 
     // ── Keyboard camera navigation ──
     // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
@@ -755,24 +781,28 @@
     }
 
     /*
-     * One frame pending at most. While the loop renders continuously it reschedules itself, and
-     * `needsRender` is false between frames, so an invalidate then used to start a second chain
-     * beside it: every effect that fired during an animation added one, and the scene was drawn
-     * that many times per frame.
+     * At most ONE frame is ever pending, whoever asks for it.
+     *
+     * `renderOnce` clears `needsRender` on entry, and inside the same frame
+     * `controls.update()` fires `change` whenever the camera moved, which
+     * invalidates again. With two independent schedulers (here and the
+     * "keep looping" request at the end of `renderOnce`) every frame that both
+     * moved the camera and needed to continue queued TWO next frames, so a held
+     * arrow key doubled the number of render chains on every tick: 2^n renders
+     * of the scene per display frame after n frames, each one turning the camera
+     * another step. Measured in viewport-perf.spec: 8192 renders in one half-second
+     * keyboard-orbit window on the 24-member tower (65536 at 4x CPU throttling),
+     * the main thread blocked up to 59 s in a GL call while the GPU process
+     * drained the backlog, and input stalled behind it. The coalescer drops a
+     * second request while one is pending, so the loop is one chain by
+     * construction.
      */
-    let framePending = false;
-    function scheduleFrame() {
-      if (framePending) return;
-      framePending = true;
-      animFrameId = requestAnimationFrame(renderOnce);
-    }
+    const frame = createFrameCoalescer<void>(() => renderOnce());
 
-    /** Mark the scene as needing a re-render. Schedules a frame if one isn't pending. */
+    /** Mark the scene as needing a re-render and make sure a frame is pending. */
     function _invalidate() {
-      if (!needsRender) {
-        needsRender = true;
-        scheduleFrame();
-      }
+      needsRender = true;
+      frame.schedule();
     }
     // Expose invalidate to the outer scope for use in $effect blocks
     invalidate = _invalidate;
@@ -787,16 +817,23 @@
       const panSpeed = dist * 0.012 * boost;   // scale with zoom level
       const orbitSpeed = 0.02 * boost;          // radians per frame
 
-      // WASD — pan relative to camera orientation
-      const forward = _panVec.set(0, 0, 0);
-      if (keysPressed.has('w')) forward.z -= panSpeed;
-      if (keysPressed.has('s')) forward.z += panSpeed;
-      if (keysPressed.has('a')) forward.x -= panSpeed;
-      if (keysPressed.has('d')) forward.x += panSpeed;
-      if (forward.lengthSq() > 0) {
-        // Transform pan vector from camera-local to world space
-        forward.applyQuaternion(camera.quaternion);
-        forward.z = 0; // keep horizontal
+      // WASD — pan over the floor, relative to the camera. W/S move along the view's depth laid
+      // flat; looking down from above that depth is vertical, so they use the screen's up instead
+      // (laid flat it had shrunk to a sliver, and W/S barely moved the plan view).
+      const fw = (keysPressed.has('w') ? 1 : 0) - (keysPressed.has('s') ? 1 : 0);
+      const rt = (keysPressed.has('d') ? 1 : 0) - (keysPressed.has('a') ? 1 : 0);
+      if (fw || rt) {
+        // The camera's own axes in the world: right, screen-up, and back (it looks down its −back).
+        const side = new THREE.Vector3(), screenUp = new THREE.Vector3(), back = new THREE.Vector3();
+        camera.updateMatrixWorld();
+        camera.matrixWorld.extractBasis(side, screenUp, back);
+        const look = back.negate();
+        const ahead = Math.abs(look.z) > 0.9 ? screenUp : look;
+        ahead.z = 0;
+        side.z = 0;
+        if (ahead.lengthSq() > 1e-12) ahead.normalize();
+        if (side.lengthSq() > 1e-12) side.normalize();
+        const forward = _panVec.copy(ahead.multiplyScalar(fw * panSpeed)).add(side.multiplyScalar(rt * panSpeed));
         controls.target.add(forward);
         camera.position.add(forward);
       }
@@ -827,7 +864,6 @@
     }
 
     function renderOnce() {
-      framePending = false;
       if (!needsRender && !needsContinuous()) return;
       needsRender = false;
 
@@ -969,9 +1005,10 @@
         }
       }
 
-      // Keep looping if continuous rendering is needed
+      // Keep looping if continuous rendering is needed (a no-op when an
+      // invalidate during this frame already queued the next one).
       if (needsContinuous() || needsRender) {
-        scheduleFrame();
+        frame.schedule();
       } else if (perfHud.on) {
         // The loop is about to STOP. This viewport renders on demand, so the next
         // frame may be seconds away — and without this, that idle gap would be
@@ -988,7 +1025,8 @@
       }
     }
     // Kick off the first frame
-    scheduleFrame();
+    frame.schedule();
+    cancelRenderLoop = () => frame.cancel();
 
     // When OrbitControls interaction ends, allow damping frames to settle
     // During camera manipulation, drop to pixelRatio=1 so the GPU pushes ~4× fewer
@@ -1182,7 +1220,7 @@
       ghost?.dispose(); ghost = null; ghostFragment = null;
       previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
-      cancelAnimationFrame(animFrameId);
+      cancelRenderLoop();
       ro.disconnect();
       /*
        * The context is released, not just the renderer's own objects.
@@ -1293,6 +1331,10 @@
   function syncShellOffsets() { if (draggedNodeId3D !== null) return; perfTimed(() => _syncShellOffsets(sceneCtx)); }
   /** Run the drag-suppressed decorative syncs once after a node drag finishes. */
   function finalizeDecorAfterDrag() {
+    // The concrete followed the drag at a lower rate: drawn once more where the node was left.
+    setGeometryDrag(false);
+    syncElements();
+    syncShells();
     syncLocalAxes();
     syncMemberOffsets();
     syncShellOffsets();
@@ -1300,6 +1342,8 @@
   }
   function syncSelection() {
     _syncSelection(sceneCtx);
+    // Drawn as members, a shell shows its offset while selected (`shell-members.ts`).
+    if (meshHidden()) syncShellOffsets();
     // Re-apply color map if active (syncSelection overwrites element colors)
     const dt = resultsStore.diagramType;
     if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
@@ -1440,6 +1484,14 @@
     modelStore.quads;
     uiStore.renderMode3D; // flat ↔ extruded slab rebuild
     syncShells();
+    invalidate();
+  });
+
+  // The slabs and walls as members or as their mesh (`shell-members.ts`): results arriving or
+  // cleared, the view's switch, the model crossing the size, all redraw them and the mesh's nodes.
+  $effect(() => {
+    meshHidden();
+    untrack(() => { syncShells(); syncNodes(); syncShellOffsets(); });
     invalidate();
   });
 
@@ -1842,6 +1894,26 @@
     invalidate();
   });
 
+  // The footings, at their founding levels (PRO).
+  let footingsGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.model.footings.values() : [];
+    const nodes = modelStore.nodes;
+    if (!scene) return;
+    footingsGroup = syncFootings(scene, footingsGroup, list, nodes);
+    invalidate();
+  });
+
+  // The background drawings, each at its level (PRO).
+  let underlaysGroup: THREE.Group | null = null;
+  $effect(() => {
+    const list = uiStore.analysisMode === 'pro' ? modelStore.underlays : [];
+    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    if (!scene) return;
+    underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
+    invalidate();
+  });
+
   // The structural grid, drawn on the active level (PRO).
   function syncStructGrid() {
     const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
@@ -1884,6 +1956,8 @@
     uiStore.clippingEnabled;
     uiStore.clippingAxis;
     uiStore.clippingPosition;
+    uiStore.planView3D;
+    uiStore.planCutZ;
     invalidate();
   });
 
@@ -1986,8 +2060,33 @@
   }
 
   // ─── Context menu (right-click) ──────────────────────────
+  /**
+   * A right DRAG pans the view and must not open the menu; a right CLICK opens it. Where the
+   * browser fires the menu event on the press (Chrome on macOS) nothing has moved yet, so the
+   * menu waits for the release and opens only if the pointer stayed put; where it fires on the
+   * release, the distance is already known.
+   */
+  let rightDownAt: { x: number; y: number } | null = null;
+  let rightHeld = false;
+  let pendingMenu: MouseEvent | null = null;
+  const RIGHT_CLICK_PX = 5;
+  function onRightDown(e: PointerEvent) { if (e.button === 2) { rightDownAt = { x: e.clientX, y: e.clientY }; rightHeld = true; pendingMenu = null; } }
+  function onRightUp(e: PointerEvent) {
+    if (e.button !== 2) return;
+    rightHeld = false;
+    const moved = rightDownAt ? Math.hypot(e.clientX - rightDownAt.x, e.clientY - rightDownAt.y) : 0;
+    const pending = pendingMenu;
+    pendingMenu = null;
+    if (pending && moved <= RIGHT_CLICK_PX) openContextMenu3D(pending);
+  }
   function handleContextMenu3D(e: MouseEvent) {
     e.preventDefault();
+    if (rightHeld) { pendingMenu = e; return; }
+    if (rightDownAt && Math.hypot(e.clientX - rightDownAt.x, e.clientY - rightDownAt.y) > RIGHT_CLICK_PX) { rightDownAt = null; return; }
+    rightDownAt = null;
+    openContextMenu3D(e);
+  }
+  function openContextMenu3D(e: MouseEvent) {
     updateMouseNDC(e);
     if (!camera) return;
     raycaster.setFromCamera(mouse, camera);
@@ -2078,6 +2177,12 @@
    * grid when one is within a few pixels (PRO, horizontal plane), else to the drawing grid.
    */
   function snapToStructure(pos: THREE.Vector3): { x: number; y: number; z: number; label?: string } {
+    // A point of the background drawing on this level, when one is within a few pixels.
+    if (uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' && modelStore.underlays.length > 0 && camera && container) {
+      const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
+      const hit = snapToUnderlays(modelStore.underlays, pos.x, pos.y, tol, uiStore.nodeCreateZ);
+      if (hit) return { x: hit.x, y: hit.y, z: uiStore.nodeCreateZ, label: t('underlay.point') };
+    }
     const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
     if (grid && camera && container) {
       const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
@@ -3367,6 +3472,7 @@
         if (delta.lengthSq() < 1e-18) return;
         if (!dragMoved3D) {
           historyStore.pushState();
+          setGeometryDrag(true);
           // Dragging a node that is not selected takes it (shift adds it).
           if (!uiStore.selectedNodes.has(draggedNodeId3D)) uiStore.selectNode(draggedNodeId3D, e.shiftKey);
         }
@@ -3711,6 +3817,78 @@
     invalidate();
   }
 
+  // ─── Navigation: what a drag does, and the plan view ──────────
+  /**
+   * What the mouse does to the camera. By default a left drag orbits (right drag and Shift slide).
+   * With the Pan tool set to slide, or in the plan view, a left drag slides the view over its own
+   * plane, which seen from above is the floor; the plan view also holds the camera there (no orbit).
+   */
+  function applyNavigation() {
+    if (!controls) return;
+    const plan = uiStore.planView3D;
+    // In the plan view the Pan tool slides over the floor; another tool keeps its own drag.
+    const leftSlides = uiStore.currentTool === 'pan' && (plan || uiStore.dragMode3D === 'slide');
+    controls.enableRotate = !plan;
+    controls.screenSpacePanning = true;
+    controls.mouseButtons = {
+      LEFT: leftSlides ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: leftSlides && !plan ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+    };
+    controls.touches = { ONE: leftSlides ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+  }
+  $effect(() => {
+    void uiStore.planView3D; void uiStore.dragMode3D; void uiStore.currentTool;
+    untrack(applyNavigation);
+  });
+
+  /** What the plan view replaced, put back when it is left. */
+  let beforePlan: { mode: 'perspective' | 'orthographic'; tool: typeof uiStore.currentTool } | null = null;
+  /** Above the working level, a little over its floor: the beams and the slab on it stay, the storeys above go. */
+  const PLAN_CUT_M = 0.15;
+  /**
+   * The plan view on level `z`: the camera over it and the plan's own cut a little above its floor.
+   * The cut plane a person set stays as it was: the two are separate (QA of 20-oct).
+   */
+  function followLevel(z: number) {
+    if (!camera || !controls) return;
+    uiStore.planCutZ = z + PLAN_CUT_M;
+    const dz = z - controls.target.z;
+    controls.target.z += dz;
+    camera.position.z += dz;
+    controls.update();
+    invalidate();
+  }
+  function enterPlanView() {
+    if (!camera || !controls || beforePlan) return;
+    beforePlan = { mode: uiStore.cameraMode3D, tool: uiStore.currentTool };
+    setView('top');
+    if (uiStore.cameraMode3D === 'perspective') toggleCameraMode();
+    followLevel(uiStore.nodeCreateZ);
+    // On entering, a drag slides over the floor (the Pan tool); any other tool can still be taken.
+    uiStore.currentTool = 'pan';
+    applyNavigation();
+  }
+  function exitPlanView() {
+    if (!beforePlan) return;
+    const b = beforePlan;
+    beforePlan = null;
+    uiStore.planCutZ = null;
+    if (uiStore.currentTool === 'pan' && b.tool !== 'pan') uiStore.currentTool = b.tool;
+    if (uiStore.cameraMode3D !== b.mode) toggleCameraMode();
+    applyNavigation();
+    invalidate();
+  }
+  $effect(() => {
+    const on = uiStore.planView3D;
+    untrack(() => { if (on) enterPlanView(); else exitPlanView(); });
+  });
+  // The working level moves the plan view with it: the camera and the cut follow.
+  $effect(() => {
+    const z = uiStore.nodeCreateZ;
+    untrack(() => { if (uiStore.planView3D && beforePlan) followLevel(z); });
+  });
+
   function handleCameraViewEvent(e: Event) {
     const which = (e as CustomEvent<PresetView>).detail;
     if (['top', 'bottom', 'front', 'back', 'right', 'left', 'side', 'iso'].includes(which)) setView(which);
@@ -3754,6 +3932,8 @@
   }
 
   function setView(view: PresetView) {
+    // Another standard view leaves the plan view (which holds the camera above the floor).
+    if (view !== 'top' && uiStore.planView3D) uiStore.planView3D = false;
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }
@@ -3867,6 +4047,12 @@
 
   function updateClippingPlane() {
     if (!renderer) return;
+    const planes: THREE.Plane[] = [];
+    // The plan view's own cut, beside the cut plane a person set.
+    if (uiStore.planView3D && uiStore.planCutZ !== null) {
+      planPlane.constant = uiStore.planCutZ;
+      planes.push(planPlane);
+    }
     if (uiStore.clippingEnabled) {
       // Normal vector: axis direction (clips on negative side of plane)
       const normal = new THREE.Vector3(
@@ -3876,10 +4062,9 @@
       );
       clippingPlane.normal.copy(normal);
       clippingPlane.constant = uiStore.clippingPosition;
-      renderer.clippingPlanes = [clippingPlane];
-    } else {
-      renderer.clippingPlanes = [];
+      planes.push(clippingPlane);
     }
+    renderer.clippingPlanes = planes;
   }
 
   function syncOrthoFrustum(aspect?: number) {
@@ -3980,12 +4165,15 @@
   bind:this={container}
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
+  onpointerdowncapture={onRightDown}
+  onpointerupcapture={onRightUp}
   onmouseup={handleMouseUp}
   ondblclick={handleDoubleClick3D}
   onmousemove={handleMouseMove}
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  {#if uiStore.planView3D}<PlanViewChip />{/if}
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
   {#if resultsStore.diagramType === 'despiece'}
     <canvas class="fb-overlay" bind:this={fbCanvas} aria-hidden="true"></canvas>
@@ -4119,6 +4307,11 @@
             a reader turning clipping on usually wants to reach for the axis
             next, and a menu that vanished would make them open it again.
           -->
+          <!-- The plan view and what a drag does: states too, how the reader holds the view while modelling. -->
+          <button class="cam-item" class:on={uiStore.planView3D} onclick={() => { uiStore.planView3D = !uiStore.planView3D; }}
+                  title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
+            <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
+          </button>
           <button class="cam-item" onclick={toggleCameraMode}>
             <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
             <span>{uiStore.cameraMode3D === 'perspective'
@@ -4140,21 +4333,22 @@
             <span>{uiStore.measureMode
               ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
           </button>
-          <button
-            class="cam-item" class:on={uiStore.renderMode3D === 'sections'}
-            onclick={() => {
-              if (uiStore.renderMode3D === 'sections') {
-                uiStore.renderMode3D = renderModeBeforeSections;
-              } else {
-                renderModeBeforeSections = uiStore.renderMode3D === 'solid' ? 'solid' : 'wireframe';
-                uiStore.renderMode3D = 'sections';
-              }
-            }}
-          >
-            <span class="cam-glyph">{uiStore.renderMode3D === 'sections' ? '◫' : '⬡'}</span>
-            <span>{uiStore.renderMode3D === 'sections'
-              ? t('config.wireframe') : t('config.sections')}</span>
-          </button>
+          <div class="cam-sep"></div>
+          <!--
+            How the bars are drawn: one choice of four (QA of 20-oct: «Modelo con secciones» and
+            «Geometría física» read as two things on at once). Each says what it draws.
+          -->
+          <div class="cam-group" role="radiogroup" aria-label={t('viewport.render.title')} data-testid="cam-render">
+            <span class="cam-group-title">{t('viewport.render.title')}</span>
+            {#each RENDER_MODES as m (m)}
+              <button class="cam-item" class:on={uiStore.renderMode3D === m} role="radio" aria-checked={uiStore.renderMode3D === m}
+                      onclick={() => { uiStore.renderMode3D = m; }} title={t(`viewport.render.${m}Hint`)}
+                      data-testid={m === 'physical' ? 'cam-physical' : `cam-render-${m}`}>
+                <span class="cam-glyph">{RENDER_GLYPH[m]}</span>
+                <span class="cam-two"><span>{t(`config.${m}`)}</span><small>{t(`viewport.render.${m}Hint`)}</small></span>
+              </button>
+            {/each}
+          </div>
           <div class="cam-sep"></div>
           <button
             class="cam-item" class:on={buildTimelapse.active} data-testid="cam-build-timelapse"
@@ -4557,6 +4751,10 @@
   }
 
   .cam-item:hover { background: var(--st-surface-3); color: var(--st-text); }
+  .cam-group { display: flex; flex-direction: column; }
+  .cam-group-title { font-size: 0.66rem; color: var(--st-text-3); padding: 2px 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cam-two { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 1px; }
+  .cam-two small { font-size: 0.64rem; color: var(--st-text-3); white-space: normal; max-width: 15rem; line-height: 1.25; }
 
   .cam-item.on { color: var(--st-accent); }
 

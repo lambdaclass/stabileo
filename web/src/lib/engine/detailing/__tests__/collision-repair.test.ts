@@ -107,11 +107,13 @@ describe('incremental collision repair', () => {
     }
   });
 
-  it.each([false, true])('restores original geometry when the first rung worsens it (incremental=%s)', incremental => {
+  it.each([false, true])('keeps the original geometry when the first rung would worsen it (incremental=%s)', incremental => {
     const bars = [bar('a', 0, { locked: true }), bar('b', 0.04),
       bar('c', 0.086, { locked: true }), bar('d', 0.087, { locked: true })];
     const result = repairConflicts(bars, need25, undefined, undefined, { incremental });
-    expect(result.attempts[0].cleared).toBeLessThan(0);
+    // The move that would worsen it is measured and refused instead of made and rolled back, so
+    // the rung clears nothing rather than a negative count (it was < 0 when moves were blind).
+    expect(result.attempts[0].cleared).toBe(0);
     expect(result.bars).toEqual(bars);
     expect(result.conflicts).toEqual(detectCollisions(result.bars, { requiredClearFor: need25 }).conflicts);
   });
@@ -136,7 +138,10 @@ describe('incremental collision repair', () => {
         if (++calls > 1) throw new Error('update failed');
         return 0.025;
       }, undefined, undefined, { incremental: true })).toThrow('update failed');
-      expect(freed).toHaveBeenCalledTimes(3);
+      // The policy now throws while the ladder MEASURES its candidate (a sweep of the moved bar
+      // and its neighbours, with a geometry of its own) rather than in the session's update, so
+      // two geometries are released here: the candidate's and the session's (3 → 4).
+      expect(freed).toHaveBeenCalledTimes(4);
     } finally { freed.mockRestore(); }
   });
 

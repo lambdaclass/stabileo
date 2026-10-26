@@ -13,7 +13,30 @@
 // Reinforcement is written exclusively through `modelStore.reinforcementTransaction`,
 // so one command is one undo step, results survive, and no structural solve fires.
 
+import { emptyStoredDecisions, migrateStoredDecisions, withProposals } from '../design-contract/decisions';
+import { lateralResolver } from './lateral-system';
+import type { ProvidedReinforcement } from '../design-contract/reinforcement';
+import { designContextOptions, designData, verifyOptions } from './design-data';
+import { beamFlanges, beamsInSlabPlane } from '../engine/design/beam-flange';
+import { solveStiffnessFactors } from '../engine/member-behaviour';
+import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
+
+/** The flanges of the model's beams, from its slabs' shells and its physical beams' spans. */
+function modelFlanges() {
+  if (modelStore.quads.size === 0) return new Map();
+  const spans = new Map<number, number[]>();
+  for (const g of modelStore.model.groups.values()) {
+    if (g.kind !== PHYSICAL_GROUP_KIND || (g.data as { kind?: string } | undefined)?.kind !== 'beam') continue;
+    for (const id of g.members.elements ?? []) spans.set(id, g.members.elements ?? []);
+  }
+  return beamFlanges({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads, spanOf: (id) => spans.get(id) });
+}
+import { physicalKindIndex } from '../model/physical';
+import { groupSpanContexts, oneContextPerSpan, spanOutcomesToPieces, withSpanPieces } from './design-spans-store';
+import { applySlabColumnJoints } from './analysis-validity-store';
 import { activePerCombo3D, activeCombinations, noLinearCombinationActive } from './active-results';
+import { applyStoreySway } from './storey-sway';
+import { applySoftStoreys } from './seismic-design.svelte';
 import { modelStore } from './model.svelte';
 import { isEngineUnavailable } from '../engine/engine-unavailable';
 import { requestAutosave } from './autosave-service';
@@ -22,6 +45,7 @@ import type { RegulationEdition } from '../codes/regulation';
 import { detailingStore } from './detailing.svelte';
 import { resultsStore } from './results.svelte';
 import { verificationStore } from './verification.svelte';
+import { isKeptRefusal, recordRefusals } from './design-refusals';
 import { computeStationDemands, runCirsocDesign } from '../engine/verification-service';
 import { censusRcCheckability } from '../engine/auto-verify';
 import { concreteStrengthWarnings } from '../engine/model-diagnostics';
@@ -154,7 +178,9 @@ function createDesignRunStore() {
       const contexts = buildAllMemberContexts(md, {
         demands: stationData.demands,
         stations: stationData.stations,
-        criticalSections: buildCriticalSectionMap(md),
+        criticalSections: buildCriticalSectionMap(md, designData().covers.beam, designData().stirrupDiaMm),
+        // The project's steel, covers, stirrup and the bars it lets the design choose from.
+        ...designContextOptions(),
         orientationSuspect: orient.suspect,
         analysisRevision: verificationStore.analysisRevision,
         demandRevision: verificationStore.demandRevision + 1,
@@ -163,6 +189,17 @@ function createDesignRunStore() {
         // than under what the project states it is designed to.
         codeEdition: concreteEdition(),
         concrete: modelStore.model.codeSettings?.concrete,
+        // A beam cast with its slab acts as a T or an L (Table 6.3.2.1).
+        flangeOf: ((f) => (id: number) => f.get(id))(modelFlanges()),
+        // The J the analysis gave each member (its own modifier, or the project's on concrete beams).
+        torsionStiffnessOf: ((md) => (id: number) => solveStiffnessFactors(md as never, id).j)({ nodes: modelStore.nodes, elements: modelStore.elements, materials: modelStore.materials, sections: modelStore.sections, analysis: modelStore.analysis }),
+        // Its in-plane bending carried by the slab's diaphragm, flange or not.
+        inSlabPlane: ((s) => (id: number) => s.has(id))(modelStore.quads.size ? beamsInSlabPlane({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads }) : new Set<number>()),
+        // The model's physical elements say what each bar is; geometry only where none does.
+        physicalKindOf: ((idx) => (id: number) => idx.get(id))(physicalKindIndex(modelStore.model.groups.values())),
+        // Each member's role in the lateral system, as the project declares it; none is read off
+        // the geometry (`model/lateral-system.ts`).
+        lateralOf: lateralResolver(),
         solveGeneration: verificationStore.solveGeneration,
         /*
          * A DECLARED grade decides the material family. An inferred one is the fallback.
@@ -197,6 +234,16 @@ function createDesignRunStore() {
          */
         lookupGrade: catalogueGradeFamily,
       });
+      // A sway storey magnifies its slender columns' moments by δs (§6.6.4.6); a soft storey's
+      // members take their amplification in the seismic combinations.
+      applyStoreySway(contexts); applySoftStoreys(contexts);
+      // A beam the analysis cut into pieces (a slab's mesh nodes) is designed as its span: each
+      // piece's context becomes the span's, under the piece's own id (`design-spans.ts`).
+      groupSpanContexts(contexts);
+      // How each member's floor joins its slab to the columns (`analysis-validity.ts`): a one-node
+      // joint leaves the split of the slab's load between beams and columns unestablished, and that
+      // is stated on the member, the certificate and the document, never read as a pass.
+      applySlabColumnJoints(contexts);
       verificationStore.setDemandData(contexts, orient.issues);
       resultsStore.diagramType = 'verification';
       /*
@@ -252,6 +299,7 @@ function createDesignRunStore() {
         stationDemands.size > 0 ? stationDemands : undefined,
         sectionNames,
         resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
+        verifyOptions(),
       );
       if (normalized.length === 0 || !summary) return failNothingChecked(a.name);
       verificationStore.setDesignBaseline(concrete, normalized, summary);
@@ -262,6 +310,11 @@ function createDesignRunStore() {
     }
   }
 
+  /** What the last run left alone: locked members, and edited ones it was told to keep. */
+  let lastSkipped = $state<{ locked: number; edited: number }>({ locked: 0, edited: 0 });
+  const currentDecisions = () => (modelStore.designDecisions ? migrateStoredDecisions(modelStore.designDecisions) : emptyStoredDecisions());
+  const lockedNow = () => new Set(currentDecisions().locked);
+
   /**
    * 3. Auto-design. Only VERIFIED results are written to the model; provisional
    *    (failing) candidates are retained on the outcome for review and are never
@@ -269,7 +322,13 @@ function createDesignRunStore() {
    */
   function autoDesign(
     elementIds: Iterable<number>,
-    opts: { maxRunMs?: number; deferDetailing?: boolean } = {},
+    /**
+     * `edited`: what to do with members a person edited and did not lock, keep their bars or
+     * design over them. Kept unless the caller says to overwrite: one rule for every design
+     * command, so no button designs over a person's bars without asking. Locked members are
+     * never redesigned.
+     */
+    opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
   ): CommandResult {
     lastError = null;
     const a = adapter();
@@ -279,9 +338,22 @@ function createDesignRunStore() {
       const r = computeDemands();
       if (!r.ok) return r;
     }
-    const wanted = new Set(elementIds);
-    const ctxs: MemberContext[] = [];
-    for (const [id, ctx] of verificationStore.contexts) if (wanted.has(id)) ctxs.push(ctx);
+    // A piece of a span is designed as the span, so asking for one asks for all of them.
+    const ctxOf = (id: number) => verificationStore.contextFor(id);
+    const asked = withSpanPieces(elementIds, ctxOf);
+    const locked = lockedNow();
+    const keepEdited = opts.edited !== 'overwrite';
+    lastSkipped = {
+      locked: asked.filter((id) => locked.has(id)).length,
+      edited: keepEdited ? asked.filter((id) => !locked.has(id) && manualOverrides.has(id)).length : 0,
+    };
+    const held = (id: number) => locked.has(id) || (keepEdited && manualOverrides.has(id));
+    // A span with one piece held is held whole: its pieces carry one arrangement.
+    const wanted = new Set(asked.filter((id) => !withSpanPieces([id], ctxOf).some(held)));
+    if (wanted.size === 0 && asked.length > 0) return fail('design.error.allLocked');
+    const all: MemberContext[] = [];
+    for (const [id, ctx] of verificationStore.contexts) if (wanted.has(id)) all.push(ctx);
+    const ctxs = oneContextPerSpan(all);
     if (ctxs.length === 0) return fail('design.error.emptySelection');
 
     running = true;
@@ -294,6 +366,7 @@ function createDesignRunStore() {
         maxRunMs: opts.maxRunMs ?? DEFAULT_RUN_MS,
         onProgress: (p) => { progress = p; },
       });
+      summary.outcomes = spanOutcomesToPieces(summary.outcomes, ctxOf);
       publishOutcomes(summary, opts.deferDetailing ?? false);
       return { ok: true };
     } finally {
@@ -312,6 +385,8 @@ function createDesignRunStore() {
     // Recount after the merge so the summary bar reflects every known member.
     recount(merged);
     verificationStore.setDesignOutcomes(merged);
+    // The refusals, kept with the project: a refused member has no bars to come back from.
+    recordRefusals(merged.outcomes.values());
 
     /**
      * Two populations get steel written into the model, and they are not the same claim.
@@ -346,9 +421,14 @@ function createDesignRunStore() {
     provisionalIds = provisional;
     provisionalBiaxialIds = biaxial;
 
-    if (withSteel.length > 0) {
+    // Never over a lock, whatever asked for the run.
+    const locked = lockedNow();
+    const writes = withSteel.filter((w) => !locked.has(w.id));
+    if (writes.length > 0) {
       const written = modelStore.reinforcementTransaction((api) => {
-        for (const w of withSteel) api.setReinforcement(w.id, w.rebar);
+        for (const w of writes) api.setReinforcement(w.id, w.rebar);
+        // What was proposed, kept to revert to — also after the project is reopened.
+        api.setDecisions(withProposals(currentDecisions(), writes.map((w) => [w.id, w.rebar] as [number, ProvidedReinforcement])));
       });
       const auto = new Set(autoDesigned);
       const manual = new Set(manualOverrides);
@@ -387,18 +467,51 @@ function createDesignRunStore() {
     }
   }
 
-  /** Design all: the convenience chain. Progress + cancellation + partial honesty. */
-  function designAll(): CommandResult {
+  /**
+   * Design all: the convenience chain. Progress + cancellation + partial honesty.
+   *
+   * `maxRunMs`: the run's wall-clock cap, the user's 20 s by default (`DEFAULT_RUN_MS`). A caller
+   * that needs the whole model designed whatever the machine, a test on the 408-member flagship,
+   * passes its own, as the engine's tests pass theirs to `runDesign`.
+   */
+  function designAll(opts: { maxRunMs?: number } = {}): CommandResult {
     const d = computeDemands();
     if (!d.ok) return d;
     const c = runCodeCheck();
     if (!c.ok) return c;
-    const undesigned: number[] = [];
-    for (const id of verificationStore.contexts.keys()) {
-      if (!modelStore.elements.get(id)?.reinforcement) undesigned.push(id);
+    /*
+     * Undesigned: no bars, and no refusal either. A refused member has no bars because the design
+     * ran on it and refused, and its refusal is kept with the project (`design-refusals.ts`). Read
+     * as undesigned, one refusal anywhere turned every later «design all» into a retry of the
+     * refused members alone: after a reopen the members with bars were never designed again, had
+     * no outcome, and the detailing read all of them as not verified (rc-qa-diagnostic, 26 of 26).
+     */
+    const all = [...verificationStore.contexts.keys()];
+    /*
+     * Bars the design wrote and has no answer for any more: a structural change (a member
+     * deleted, a section changed) clears every outcome, and the kept refusals with them, since
+     * they were reached on another model. Reading those bars as «designed» made «design all»
+     * redesign only the members that had none, the refused ones (qa-8 with a beam deleted: 2 of
+     * the 7 left), and the detailing then refused the rest as not verified. So, as after a
+     * reopen, the whole model is designed again, except the bars a person wrote
+     * (`manualOverrides`), which stay theirs. Not only the lost ones: a run records the
+     * refusals it holds (`recordRefusals`), and one that left the refused members out would
+     * drop theirs.
+     */
+    const answerLost = all.some((id) => !!modelStore.elements.get(id)?.reinforcement
+      && !verificationStore.outcomeFor(id) && !manualOverrides.has(id));
+    if (answerLost) {
+      const again = all.filter((id) => !manualOverrides.has(id));
+      return autoDesign(again.length > 0 ? again : all, { maxRunMs: opts.maxRunMs });
     }
-    const target = undesigned.length > 0 ? undesigned : [...verificationStore.contexts.keys()];
-    return autoDesign(target);
+    const undesigned: number[] = [];
+    for (const id of all) {
+      if (modelStore.elements.get(id)?.reinforcement) continue;
+      if (isKeptRefusal(verificationStore.outcomeFor(id))) continue;
+      undesigned.push(id);
+    }
+    const target = undesigned.length > 0 ? undesigned : all;
+    return autoDesign(target, { maxRunMs: opts.maxRunMs });
   }
 
   /**
@@ -428,7 +541,7 @@ function createDesignRunStore() {
    */
   function designFamilies(
     selection: DesignFamilySelection,
-    opts: { verifierId?: string } = {},
+    opts: { verifierId?: string; edited?: 'keep' | 'overwrite' } = {},
   ): DesignRunReport {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
@@ -465,7 +578,7 @@ function createDesignRunStore() {
         if (target.length > 0) {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
-          autoDesign(target, { deferDetailing: true });
+          autoDesign(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
           detailingStore.generate({ verifierId: opts.verifierId });
         }
 
@@ -521,9 +634,11 @@ function createDesignRunStore() {
     const ctx = verificationStore.contextFor(elementId);
     if (!a || !ctx) return null;
     const o = designMember(a, ctx);
+    // A piece of a span is designed as the span: the outcome and the steel go to all its pieces.
+    const pieces = withSpanPieces([elementId], (id) => verificationStore.contextFor(id));
     const prev = verificationStore.runSummary;
     const outcomes = new Map(prev?.outcomes ?? []);
-    outcomes.set(elementId, o);
+    for (const id of pieces) outcomes.set(id, id === elementId ? o : { ...o, elementId: id });
     const s: DesignRunSummary = prev
       ? { ...prev, outcomes }
       // `emptyRunSummary` rather than a literal: a counter added to the summary must not be
@@ -536,20 +651,26 @@ function createDesignRunStore() {
     // member re-designed alone stays flagged provisional after verifying (or
     // never gets flagged when it becomes provisional).
     const prov = new Set(provisionalIds);
-    if (o.outcome !== 'VERIFIED' && o.provisional) prov.add(elementId);
-    else prov.delete(elementId);
-    provisionalIds = prov;
-
     const biax = new Set(provisionalBiaxialIds);
-    if (o.outcome === 'PROVISIONAL_BIAXIAL') biax.add(elementId); else biax.delete(elementId);
+    for (const id of pieces) {
+      if (o.outcome !== 'VERIFIED' && o.provisional) prov.add(id);
+      else prov.delete(id);
+      if (o.outcome === 'PROVISIONAL_BIAXIAL') biax.add(id); else biax.delete(id);
+    }
+    provisionalIds = prov;
     provisionalBiaxialIds = biax;
 
     const steel = o.outcome === 'VERIFIED' ? o.accepted
       : o.outcome === 'PROVISIONAL_BIAXIAL' ? o.provisional?.candidate : undefined;
-    if (steel) {
-      modelStore.reinforcementTransaction((api) => api.setReinforcement(elementId, steel));
-      const auto = new Set(autoDesigned); auto.add(elementId); autoDesigned = auto;
-      const manual = new Set(manualOverrides); manual.delete(elementId); manualOverrides = manual;
+    const locked = lockedNow();
+    if (steel && !pieces.some((id) => locked.has(id))) {
+      modelStore.reinforcementTransaction((api) => {
+        for (const id of pieces) api.setReinforcement(id, steel);
+        api.setDecisions(withProposals(currentDecisions(), pieces.map((id) => [id, steel] as [number, ProvidedReinforcement])));
+      });
+      const auto = new Set(autoDesigned), manual = new Set(manualOverrides);
+      for (const id of pieces) { auto.add(id); manual.delete(id); }
+      autoDesigned = auto; manualOverrides = manual;
     }
     return o;
   }
@@ -672,10 +793,19 @@ function createDesignRunStore() {
     get autoDesigned() { return autoDesigned; },
     get provisionalIds() { return provisionalIds; },
     get provisionalBiaxialIds() { return provisionalBiaxialIds; },
+    get lastSkipped() { return lastSkipped; },
     markManual(ids: Iterable<number>) {
       const m = new Set(manualOverrides);
       const a = new Set(autoDesigned);
       for (const id of ids) { m.add(id); a.delete(id); }
+      manualOverrides = m;
+      autoDesigned = a;
+    },
+    /** Bars put back to the design run's own arrangement: designed, not retouched. */
+    markAuto(ids: Iterable<number>) {
+      const m = new Set(manualOverrides);
+      const a = new Set(autoDesigned);
+      for (const id of ids) { m.delete(id); a.add(id); }
       manualOverrides = m;
       autoDesigned = a;
     },
@@ -701,6 +831,8 @@ function createDesignRunStore() {
     autoDesign,
     designAll,
     designOne,
+    /** The bound concrete design code, or none. */
+    currentAdapter: adapter,
   };
 }
 

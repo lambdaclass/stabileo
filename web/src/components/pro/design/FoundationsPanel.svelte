@@ -21,12 +21,14 @@
   import { t, tp } from '../../../lib/i18n';
   import { identifyMessages } from '../../../lib/codes/message';
   import { modelStore } from '../../../lib/store/model.svelte';
+  import { uiStore } from '../../../lib/store/ui.svelte';
   import {
     validateFooting, FOOTING_LAYER_ORDER_PREFERENCES, SUPPORTED_MAT_DIAMETERS_MM,
   } from '../../../lib/model/footing';
   import { validateSoilProfile } from '../../../lib/model/geotechnical';
   import FootingCadHandoffPanel from './FootingCadHandoffPanel.svelte';
   import FootingMatPanel from './FootingMatPanel.svelte';
+  import FootingGeometryFields from './FootingGeometryFields.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
 
@@ -49,22 +51,15 @@
       .sort((a, b) => a - b),
   );
 
+  /*
+   * The footing being edited. With none chosen, the first: the panel is a place of design now and
+   * is mounted again each time it is shown, and a return that showed no footing at all read as if
+   * the one being edited had gone.
+   */
   let selectedId = $state<number | null>(null);
   const selected = $derived(
-    selectedId === null ? undefined : modelStore.model.footings.get(selectedId),
+    selectedId === null ? modelStore.model.footings.values().next().value : modelStore.model.footings.get(selectedId),
   );
-
-  /**
-   * Columns landing on a footing's node, so the reference is chosen from what exists.
-   *
-   * A free-text element id would let a footing point at a beam.
-   */
-  function columnsAt(nodeId: number): number[] {
-    return [...modelStore.model.elements.values()]
-      .filter((e) => e.nodeI === nodeId || e.nodeJ === nodeId)
-      .map((e) => e.id)
-      .sort((a, b) => a - b);
-  }
 
   function addFooting(nodeId: number) {
     selectedId = modelStore.addFooting(nodeId);
@@ -113,8 +108,8 @@
         {#each footings as f (f.id)}
           {@const issues = validateFooting(f).filter((i) => i.severity === 'blocking')}
           <li>
-            <button role="option" aria-selected={f.id === selectedId}
-                    class:selected={f.id === selectedId}
+            <button role="option" aria-selected={f.id === selected?.id}
+                    class:selected={f.id === selected?.id}
                     data-testid={`footing-${f.id}`}
                     onclick={() => (selectedId = f.id)}>
               <span class="label">{f.name || tp('footing.ui.unnamed', { id: f.id })}</span>
@@ -134,121 +129,7 @@
     {#if selected}
       {@const f = selected}
       <div class="editor" data-testid="footing-editor">
-        <div class="grid">
-          <label>{t('footing.ui.name')}
-            <input type="text" value={f.name} data-testid="footing-name"
-                   oninput={(e) => modelStore.updateFooting(f.id, { name: e.currentTarget.value })} />
-          </label>
-          <label>{t('footing.ui.field.B')}
-            <QuantityInput quantity="length" min={0} value={f.B} testid="footing-B"
-                   onchange={(v) => modelStore.updateFooting(f.id, { B: v })} />
-          </label>
-          <label>{t('footing.ui.field.L')}
-            <QuantityInput quantity="length" min={0} value={f.L} testid="footing-L"
-                   onchange={(v) => modelStore.updateFooting(f.id, { L: v })} />
-          </label>
-          <label>{t('footing.ui.field.thickness')}
-            <QuantityInput quantity="length" min={0} value={f.thickness} testid="footing-thickness"
-                   onchange={(v) => modelStore.updateFooting(f.id, { thickness: v })} />
-          </label>
-          <label>{t('footing.ui.field.cover')}
-            <QuantityInput quantity="length" min={0} value={f.cover} testid="footing-cover"
-                   onchange={(v) => modelStore.updateFooting(f.id, { cover: v })} />
-          </label>
-          <label>{t('footing.ui.field.foundingElevation')}
-            <QuantityInput quantity="length" value={f.foundingElevation} testid="footing-elevation"
-                   onchange={(v) => modelStore.updateFooting(f.id, { foundingElevation: v })} />
-          </label>
-          <label>{t('footing.ui.rotation')}
-            <input type="number" step="5" value={f.rotationDeg} data-testid="footing-rotation"
-                   oninput={(e) => modelStore.updateFooting(f.id, { rotationDeg: num(e.currentTarget.value) })} />
-          </label>
-          <label>{t('footing.ui.field.eccentricityB')}
-            <QuantityInput quantity="length" value={f.eccentricityB} testid="footing-ecc-b"
-                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityB: v })} />
-          </label>
-          <label>{t('footing.ui.field.eccentricityL')}
-            <QuantityInput quantity="length" value={f.eccentricityL} testid="footing-ecc-l"
-                   onchange={(v) => modelStore.updateFooting(f.id, { eccentricityL: v })} />
-          </label>
-          <label>{t('footing.ui.column')}
-            <select data-testid="footing-column"
-                    onchange={(e) => {
-                      const v = e.currentTarget.value;
-                      modelStore.updateFooting(f.id, {
-                        columnElementId: v === '' ? undefined : Number(v),
-                      });
-                    }}>
-              <option value="" selected={f.columnElementId === undefined}>
-                {t('footing.ui.noColumn')}
-              </option>
-              {#each columnsAt(f.nodeId) as e (e)}
-                <option value={e} selected={f.columnElementId === e}>
-                  {tp('footing.ui.elementOption', { element: e })}
-                </option>
-              {/each}
-            </select>
-          </label>
-          <label>{t('footing.ui.soilProfile')}
-            <select data-testid="footing-soil"
-                    onchange={(e) => {
-                      const v = e.currentTarget.value;
-                      modelStore.updateFooting(f.id, {
-                        soilProfileId: v === '' ? null : Number(v),
-                      });
-                    }}>
-              <option value="" selected={f.soilProfileId === null}>
-                {t('footing.ui.noSoilProfile')}
-              </option>
-              {#each profiles as p (p.id)}
-                <option value={p.id} selected={f.soilProfileId === p.id}>{p.name}</option>
-              {/each}
-            </select>
-          </label>
-        </div>
-
-        <!--
-          The pedestal is optional, so it is opt-in rather than a set of zeroed fields that
-          would fail validation for a footing that simply does not have one.
-        -->
-        <label class="check">
-          <input type="checkbox" checked={f.pedestal !== undefined} data-testid="footing-pedestal-on"
-                 onchange={(e) => modelStore.updateFooting(f.id, {
-                   pedestal: e.currentTarget.checked
-                     ? { B: f.B > 0 ? Math.min(0.5, f.B) : 0.5, L: f.L > 0 ? Math.min(0.5, f.L) : 0.5, height: 0.5 }
-                     : undefined,
-                 })} />
-          {t('footing.ui.hasPedestal')}
-        </label>
-        {#if f.pedestal}
-          {@const p = f.pedestal}
-          <div class="grid">
-            <label>{t('footing.ui.field.pedestalB')}
-              <QuantityInput quantity="length" min={0} value={p.B} testid="footing-pedestal-b"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, B: v } })} />
-            </label>
-            <label>{t('footing.ui.field.pedestalL')}
-              <QuantityInput quantity="length" min={0} value={p.L} testid="footing-pedestal-l"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, L: v } })} />
-            </label>
-            <label>{t('footing.ui.field.pedestalHeight')}
-              <QuantityInput quantity="length" min={0} value={p.height} testid="footing-pedestal-h"
-                     onchange={(v) => modelStore.updateFooting(f.id, { pedestal: { ...p, height: v } })} />
-            </label>
-          </div>
-        {/if}
-
-        {#each [validateFooting(f)] as issues (f.id)}
-          {#if issues.length > 0}
-            <ul class="issues" data-testid="footing-issues">
-              {#each identifyMessages(issues.map((i) => i.message)) as m, ix (m.id)}
-                <li class={issues[ix].severity}>
-                  {tp(m.message.key, m.message.params ?? {})}
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {/each}
+        <FootingGeometryFields footing={f} />
 
 
         <!--
@@ -264,9 +145,12 @@
           `FootingMatPanel` was split out before it, and the same boundary: this file owns footing
           geometry and the ground, that one owns what follows from them.
         -->
-        <FootingCadHandoffPanel footingId={f.id} />
+        <!-- The footing's design (its mat and its drawing) with design on; its geometry and ground either way. -->
+        {#if uiStore.designInPro}
+          <FootingCadHandoffPanel footingId={f.id} />
 
-        <FootingMatPanel footingId={f.id} />
+          <FootingMatPanel footingId={f.id} />
+        {/if}
 
         <button class="danger" data-testid="footing-delete"
                 onclick={() => { modelStore.removeFooting(f.id); selectedId = null; }}>
@@ -285,6 +169,7 @@
     check in the project and that no user could see. The note says out loud what it is — a
     preference — so nobody reads Ø16 as something the design chose.
   -->
+  {#if uiStore.designInPro}
   <section class="mat-prefs" data-testid="footing-mat-prefs">
     <header><h4>{t('footing.ui.matTitle')}</h4></header>
     <p class="note">{t('footing.ui.matNote')}</p>
@@ -349,6 +234,7 @@
       </label>
     </div>
   </section>
+  {/if}
 
   <!--
     The ground. A PROJECT entity referenced by footings, never copied into them: a bearing
@@ -385,10 +271,20 @@
                          modelStore.updateSoilProfile(p.id, {
                            bearing: v === null
                              ? { kind: 'unstated' }
-                             : { kind: 'allowablePressure', allowableBearingKPa: v },
+                             : { kind: 'allowablePressure', allowableBearingKPa: v, ...(p.bearing.kind === 'allowablePressure' && p.bearing.edgeFactor ? { edgeFactor: p.bearing.edgeFactor } : {}) },
                          });
                        }} />
               </label>
+              {#if p.bearing.kind === 'allowablePressure'}
+                {@const b = p.bearing}
+                <label title={t('geotechnical.ui.field.edgeFactorHint')}>{t('geotechnical.ui.field.edgeFactor')}
+                  <input type="number" min="1" max="1.5" step="0.05" value={b.edgeFactor ?? 1} data-testid={`soil-${p.id}-edge`}
+                         onchange={(e) => {
+                           const k = Number(e.currentTarget.value);
+                           modelStore.updateSoilProfile(p.id, { bearing: { kind: 'allowablePressure', allowableBearingKPa: b.allowableBearingKPa, ...(k > 1 && k <= 1.5 ? { edgeFactor: k } : {}) } });
+                         }} />
+                </label>
+              {/if}
               <label>{t('geotechnical.ui.source')}
                 <select data-testid={`soil-${p.id}-source`}
                         onchange={(e) => modelStore.updateSoilProfile(p.id, {

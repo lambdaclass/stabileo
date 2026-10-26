@@ -144,12 +144,32 @@ describe('PR15 review fix (B) — solve-generation staleness', () => {
     expect(status).not.toBe('stale');
   });
 
-  it('a real model mutation (invalidateAnalysis) yields unavailable, not stale', () => {
+  /*
+   * A structural mutation clears the analysis and every member context. This read «unavailable»
+   * (not checked) here, which is what design then said of a member a person had designed: the
+   * interaction contracts C12/C12b pinned it as a defect. The member is out of date, and says why
+   * (`outOfDate`, reason `model`), until a new analysis gives it a context again.
+   */
+  it('a real model mutation (invalidateAnalysis) leaves a designed member out of date, saying the model changed', () => {
     reSolveWithoutRebuildingContexts(false);
     expect(verificationStore.getDisplayStatus(beam)).toBe('stale');
 
     modelStore.addNode(999, 999, 999); // structural mutation → invalidateAnalysis()
 
-    expect(verificationStore.getDisplayStatus(beam)).toBe('unavailable');
+    expect(verificationStore.contexts.has(beam), 'the analysis is gone').toBe(false);
+    expect(verificationStore.getDisplayStatus(beam)).toBe('stale');
+    expect(verificationStore.outOfDate.has(beam)).toBe(true);
+    expect(verificationStore.outOfDateReason).toBe('model');
+  });
+
+  it('a member nobody designed reads unavailable after a model change, not out of date', () => {
+    const other = [...modelStore.elements.keys()].find((id) => id !== beam && !modelStore.elements.get(id)?.reinforcement);
+    if (other === undefined) return;
+    const listed = verificationStore.contexts.has(other);
+    modelStore.addNode(998, 998, 998);
+    expect(verificationStore.getDisplayStatus(other)).toBe('unavailable');
+    // Still listed in design, «not checked», so the list does not lose part of the structure.
+    expect(verificationStore.outOfDate.has(other)).toBe(false);
+    expect(verificationStore.stillListed.has(other)).toBe(listed);
   });
 });

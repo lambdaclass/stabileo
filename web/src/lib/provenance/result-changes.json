@@ -1,11 +1,220 @@
 {
-  "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, and bump currentResultsVersion when the entry's resultsVersion is new. Feature ids are defined in web/src/lib/provenance/model-features.ts.",
+  "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 2,
+  "currentResultsVersion": 4,
   "changes": [
     {
+      "id": "dynamic-analyses-refuse-eccentricities",
+      "resultsVersion": 4,
+      "date": "2026-10-25",
+      "prs": [460],
+      "area": "analysis",
+      "when": { "allOf": [["eccentricities"], ["analysis:modal", "analysis:spectral", "analysis:timeHistory", "seismic", "wind"]] },
+      "title": {
+        "en": "Dynamic analyses refuse models with insertion offsets or shell offsets",
+        "es": "Los análisis dinámicos rechazan modelos con excentricidades de barras o de cáscaras",
+        "pt": "As análises dinâmicas recusam modelos com excentricidades de barras ou de cascas"
+      },
+      "explanation": {
+        "en": "Modal, response-spectrum and time-history analyses, and the modal step of the seismic and wind load plans, now refuse a model with member insertion offsets or shell offsets and say why. Before, they were solved on the node lines, ignoring the offsets the static analysis did take: modal and spectral results of such a model did not include its eccentricities.",
+        "es": "Los análisis modal, espectral y de historia en el tiempo, y el paso modal de los planes de cargas sísmicas y de viento, ahora rechazan un modelo con excentricidades de barras o de cáscaras y dicen por qué. Antes se resolvían sobre las líneas de los nodos, sin las excentricidades que el análisis estático sí tomaba: los resultados modales y espectrales de esos modelos no las incluían.",
+        "pt": "As análises modal, espectral e de histórico no tempo, e o passo modal dos planos de cargas sísmicas e de vento, agora recusam um modelo com excentricidades de barras ou de cascas e dizem por quê. Antes eram resolvidas sobre as linhas dos nós, sem as excentricidades que a análise estática considerava: os resultados modais e espectrais desses modelos não as incluíam."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Dynamic analyses refuse member insertion offsets and shell offsets" }
+    },
+    {
+      "id": "cirsoc301-refused-limit-state-holds",
+      "resultsVersion": 4,
+      "date": "2026-10-25",
+      "prs": [461],
+      "area": "design",
+      "when": { "any": ["steelCirsoc301"] },
+      "title": {
+        "en": "Steel: a limit state that cannot be evaluated holds the member instead of failing it",
+        "es": "Acero: un estado límite que no se puede evaluar retiene la barra en lugar de hacerla fallar",
+        "pt": "Aço: um estado-limite que não pode ser avaliado retém a barra em vez de reprová-la"
+      },
+      "explanation": {
+        "en": "A CIRSOC 301 member whose limit state the engine refused (out of its scope, missing data) read as failed with an infinite ratio. It now reads «not evaluated»: held, with its reason, with no utilisation and never counted as passing. A member that failed only for that reason is no longer reported as failed, and it is not verified either.",
+        "es": "Una barra CIRSOC 301 con un estado límite que el motor rechazaba (fuera de su alcance, datos faltantes) figuraba como no verifica, con razón infinita. Ahora figura «no evaluada»: retenida, con su motivo, sin utilización y nunca contada como aprobada. Una barra que fallaba sólo por eso ya no figura como no verifica, y tampoco queda verificada.",
+        "pt": "Uma barra CIRSOC 301 com um estado-limite que o motor recusava (fora do seu alcance, dados faltantes) aparecia como reprovada, com razão infinita. Agora aparece «não avaliada»: retida, com o motivo, sem utilização e nunca contada como aprovada. Uma barra que falhava só por isso deixa de aparecer como reprovada, e também não fica verificada."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: a limit state the engine cannot evaluate holds the member instead of failing it" }
+    },
+    {
+      "id": "cirsoc301-undeclared-fabrication-and-load-height",
+      "resultsVersion": 4,
+      "date": "2026-10-25",
+      "prs": [461],
+      "area": "design",
+      "when": { "any": ["steelCirsoc301"] },
+      "title": {
+        "en": "Steel: undeclared fabrication and load height are checked both ways",
+        "es": "Acero: la fabricación y la altura de carga no declaradas se verifican de las dos maneras",
+        "pt": "Aço: a fabricação e a altura de carga não declaradas são verificadas das duas maneiras"
+      },
+      "explanation": {
+        "en": "A section that does not state whether it is rolled or welded was taken as welded unless it came from a rolled catalogue; both readings are now checked and the member is held where they disagree. A member that does not state where its transverse load acts is checked with the load on the top flange; a failure there is checked again on the web: failing both, it fails; passing on the web, it is held.",
+        "es": "Una sección que no dice si es laminada o soldada se tomaba como soldada salvo que viniera de un catálogo de laminados; ahora se verifican las dos lecturas y la barra queda retenida donde difieren. Una barra que no dice dónde actúa su carga transversal se verifica con la carga en el ala superior; si falla ahí, se vuelve a verificar con la carga en el alma: si falla en las dos, no verifica; si pasa en el alma, queda retenida.",
+        "pt": "Uma seção que não diz se é laminada ou soldada era tomada como soldada, salvo se viesse de um catálogo de laminados; agora as duas leituras são verificadas e a barra fica retida onde diferem. Uma barra que não diz onde atua a sua carga transversal é verificada com a carga na mesa superior; se falhar ali, é verificada de novo com a carga na alma: falhando nas duas, é reprovada; passando na alma, fica retida."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: undeclared fabrication and load height are read both ways" }
+    },
+    {
+      "id": "cirsoc301-concurrent-forces-and-lengths",
+      "resultsVersion": 4,
+      "date": "2026-10-25",
+      "prs": [461],
+      "area": "design",
+      "when": { "any": ["steelCirsoc301"] },
+      "title": {
+        "en": "Steel: H.1 on forces that act together, lengths per axis and per flange, weak-axis shear",
+        "es": "Acero: H.1 con esfuerzos simultáneos, longitudes por eje y por ala, corte en el eje débil",
+        "pt": "Aço: H.1 com esforços simultâneos, comprimentos por eixo e por mesa, cortante no eixo fraco"
+      },
+      "explanation": {
+        "en": "The H.1 interaction is rated on the forces that act together, each combination at each station, instead of maxima from different combinations, so some ratios fall. Unbraced lengths are read per axis and per flange from the member's bracing (none declared: the member's length, as before). Weak-axis shear (G.6) is now checked and can only lower a verdict. A ratio between 0.95 and 1.00 reads as a warning, still a pass.",
+        "es": "La interacción H.1 se evalúa con los esfuerzos que actúan juntos, cada combinación en cada estación, en lugar de máximos de combinaciones distintas, así que algunas razones bajan. Las longitudes no arriostradas se leen por eje y por ala desde los arriostramientos de la barra (sin declarar: la longitud de la barra, como antes). El corte en el eje débil (G.6) ahora se verifica y sólo puede empeorar un veredicto. Una razón entre 0,95 y 1,00 figura como advertencia, y sigue verificando.",
+        "pt": "A interação H.1 é avaliada com os esforços que atuam juntos, cada combinação em cada estação, em vez de máximos de combinações diferentes, então algumas razões caem. Os comprimentos não contraventados são lidos por eixo e por mesa a partir do contraventamento da barra (sem declarar: o comprimento da barra, como antes). O cortante no eixo fraco (G.6) agora é verificado e só pode piorar um veredicto. Uma razão entre 0,95 e 1,00 aparece como aviso, e continua aprovada."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "CIRSOC 301: H.1 on forces that act together, lengths per axis and per flange, weak-axis shear" }
+    },
+    {
+      "id": "cold-formed-not-checked-by-cirsoc301",
+      "resultsVersion": 4,
+      "date": "2026-10-25",
+      "prs": [461],
+      "area": "design",
+      "when": { "any": ["steelMembers"] },
+      "title": {
+        "en": "Cold-formed sections are no longer checked with CIRSOC 301",
+        "es": "Las secciones conformadas en frío ya no se verifican con CIRSOC 301",
+        "pt": "As seções formadas a frio não são mais verificadas com o CIRSOC 301"
+      },
+      "explanation": {
+        "en": "Cold-formed sections were checked by CIRSOC 301 as if they were hot-rolled. That code sends them to CIRSOC 303, which is not implemented yet, so these members are now reported as not designed, with the reason. A pass obtained before for a cold-formed member is not a valid verification.",
+        "es": "Las secciones conformadas en frío se verificaban con CIRSOC 301 como si fueran laminadas en caliente. Ese reglamento las remite al CIRSOC 303, que todavía no está implementado, así que ahora esas barras figuran como no diseñadas, con el motivo. Una verificación aprobada antes para una barra conformada en frío no es válida.",
+        "pt": "As seções formadas a frio eram verificadas pelo CIRSOC 301 como se fossem laminadas a quente. Essa norma as remete ao CIRSOC 303, que ainda não está implementado, então essas barras agora aparecem como não dimensionadas, com o motivo. Uma aprovação obtida antes para uma barra formada a frio não é uma verificação válida."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Cold-formed sections are no longer checked with CIRSOC 301" }
+    },
+    {
+      "id": "other-materials-not-checked-as-steel",
+      "resultsVersion": 4,
+      "date": "2026-10-26",
+      "prs": [463],
+      "area": "design",
+      "when": { "any": ["timberOrAluminiumMembers", "steelMembers"] },
+      "title": {
+        "en": "Aluminium, timber and composite members are no longer checked as steel",
+        "es": "Las barras de aluminio, madera y mixtas ya no se verifican como acero",
+        "pt": "As barras de alumínio, madeira e mistas não são mais verificadas como aço"
+      },
+      "explanation": {
+        "en": "A member of aluminium, timber or composite material was checked as CIRSOC 301 steel. It is now checked by its own checker, and until that check has run it is not shown as verified anywhere. EC3 lateral-torsional buckling (6.3.3) is read with the engine's Annex B, and certificates of other codes read «partial» where the certified checker does not cover the whole reading.",
+        "es": "Una barra de aluminio, madera o material mixto se verificaba como acero CIRSOC 301. Ahora la verifica su propio verificador y, hasta que esa verificación corra, no figura como verificada en ningún lado. El pandeo lateral torsional de EC3 (6.3.3) se lee con el Anexo B del motor, y los certificados de otras normas figuran como «parciales» donde el verificador certificado no cubre toda la lectura.",
+        "pt": "Uma barra de alumínio, madeira ou material misto era verificada como aço CIRSOC 301. Agora é verificada pelo seu próprio verificador e, até essa verificação rodar, não aparece como verificada em lugar nenhum. A flambagem lateral com torção do EC3 (6.3.3) é lida com o Anexo B do motor, e os certificados de outras normas aparecem como «parciais» onde o verificador certificado não cobre toda a leitura."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Aluminium, timber and composite members are no longer checked as steel" }
+    },
+    {
+      "id": "rc-beams-lateral-role-shear-minimum-torsion",
+      "resultsVersion": 4,
+      "date": "2026-10-26",
+      "prs": [462],
+      "area": "design",
+      "when": { "any": ["cirsoc201"] },
+      "title": {
+        "en": "Concrete beams: lateral role, minimum shear reinforcement and torsion",
+        "es": "Vigas de hormigón: rol lateral, armadura mínima de corte y torsión",
+        "pt": "Vigas de concreto: papel lateral, armadura mínima de cisalhamento e torção"
+      },
+      "explanation": {
+        "en": "A concrete beam that does not declare its role in the lateral system is designed as part of it, with that system's anchorage requirements; declare it as not lateral to design it for gravity alone. Beams deeper than 250 mm fail below the minimum shear reinforcement where CIRSOC 201 §9.6.3.1 requires it. Beam torsion is checked on CIRSOC models. A member whose analysis joins a slab to a column at a single node reads held.",
+        "es": "Una viga de hormigón que no declara su rol en el sistema lateral se diseña como parte de él, con los requisitos de anclaje de ese sistema; declarala como no lateral para diseñarla sólo para gravedad. Las vigas de más de 250 mm de altura no verifican por debajo de la armadura mínima de corte donde el CIRSOC 201 §9.6.3.1 la exige. En los modelos CIRSOC se verifica la torsión de las vigas. Una barra cuyo análisis une una losa a una columna en un solo nodo queda retenida.",
+        "pt": "Uma viga de concreto que não declara o seu papel no sistema lateral é dimensionada como parte dele, com os requisitos de ancoragem desse sistema; declare-a como não lateral para dimensioná-la só para gravidade. Vigas com mais de 250 mm de altura são reprovadas abaixo da armadura mínima de cisalhamento onde o CIRSOC 201 §9.6.3.1 a exige. Nos modelos CIRSOC a torção das vigas é verificada. Uma barra cuja análise une uma laje a um pilar em um só nó fica retida."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Concrete beams: lateral role, minimum shear reinforcement and torsion" }
+    },
+    {
+      "id": "rc-flanged-beams-designed-about-depth",
+      "resultsVersion": 4,
+      "date": "2026-10-26",
+      "prs": [475],
+      "area": "design",
+      "when": { "allOf": [["cirsoc201"], ["shells"]] },
+      "title": {
+        "en": "Concrete beams with a slab on them are designed about their depth",
+        "es": "Las vigas de hormigón con losa encima se diseñan según su altura",
+        "pt": "As vigas de concreto com laje por cima são dimensionadas segundo a sua altura"
+      },
+      "explanation": {
+        "en": "An upright beam with a slab cast on it was refused as biaxial because of the in-plane moment the slab's diaphragm action puts in it. It is now designed about its depth, and the in-plane moment is the diaphragm's, as the detail says. A beam turned about its axis, or one without a slab, keeps the biaxial check.",
+        "es": "Una viga derecha con una losa hormigonada encima se rechazaba como biaxial por el momento en el plano que le induce el diafragma de la losa. Ahora se diseña según su altura, y ese momento en el plano lo toma el diafragma, como dice el detalle. Una viga girada sobre su eje, o sin losa, conserva la verificación biaxial.",
+        "pt": "Uma viga reta com uma laje concretada por cima era recusada como biaxial pelo momento no plano que o diafragma da laje induz nela. Agora é dimensionada segundo a sua altura, e esse momento no plano fica com o diafragma, como diz o detalhe. Uma viga girada em torno do seu eixo, ou sem laje, mantém a verificação biaxial."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Concrete beams with a slab on them are designed about their depth" }
+    },
+    {
+      "id": "strip-footings-under-walls-whole-strip",
+      "resultsVersion": 4,
+      "date": "2026-10-26",
+      "prs": [475],
+      "area": "design",
+      "when": { "any": ["footings"] },
+      "title": {
+        "en": "Strip footings under walls are checked along the whole strip",
+        "es": "Las zapatas corridas bajo muros se verifican a lo largo de toda la zapata",
+        "pt": "As sapatas corridas sob paredes são verificadas ao longo de toda a sapata"
+      },
+      "explanation": {
+        "en": "A strip footing under a wall was checked under each of the wall's feet on its own, so along the strip the resultant fell far off centre and the edge pressure doubled. The wall spreads that load along the strip, as a wall footing is designed per metre: its feet are now one length of wall over the whole strip, at their resultant across it. An edge-pressure factor of the soil changes nothing unless declared.",
+        "es": "Una zapata corrida bajo un muro se verificaba bajo cada pie del muro por separado, así que a lo largo de la zapata la resultante caía muy fuera del centro y la presión de borde se duplicaba. El muro reparte esa carga a lo largo de la zapata, como se diseña una zapata de muro por metro: ahora sus pies son un tramo de muro sobre toda la zapata, en su resultante transversal. Un factor de presión de borde del suelo no cambia nada si no se declara.",
+        "pt": "Uma sapata corrida sob uma parede era verificada sob cada pé da parede separadamente, então ao longo da sapata a resultante caía muito fora do centro e a pressão de borda dobrava. A parede distribui essa carga ao longo da sapata, como uma sapata de parede é dimensionada por metro: agora os seus pés são um trecho de parede sobre toda a sapata, na sua resultante transversal. Um fator de pressão de borda do solo não muda nada se não for declarado."
+      },
+      "changelog": { "file": "docs/results-changes/2026-10-design-chain.md", "heading": "Strip footings under walls are checked along the whole strip" }
+    },
+    {
+      "id": "design-on-unfactored-results",
+      "resultsVersion": 3,
+      "date": "2026-10-22",
+      "prs": [588],
+      "area": "design",
+      "when": { "allOf": [["footings", "jointDesigns"], ["combinations"]] },
+      "title": {
+        "en": "Footings and joints are not designed for the unfactored loads when the combinations are not solved",
+        "es": "Las bases y los nudos no se diseñan con las cargas sin mayorar cuando las combinaciones no están resueltas",
+        "pt": "As sapatas e os nós não são dimensionados com as cargas sem majorar quando as combinações não estão resolvidas"
+      },
+      "explanation": {
+        "en": "With combinations defined and none of them solved (after an edit with live calc on, or when the combination solve failed and the single solve stood in), footings and joints were designed for every load at factor 1, the service loads, instead of the factored combinations (a footing's reaction 15 % low in a portal under 1.2D + 1.6W; 29 to 38 % low for dead and live load). They now refuse and say why until the combinations are solved: re-solve and re-run their design (SA-2026-024).",
+        "es": "Con combinaciones definidas y ninguna resuelta (después de una edición con el cálculo en vivo activado, o cuando falló el cálculo de combinaciones y quedó el cálculo simple), las bases y los nudos se diseñaban con todas las cargas a factor 1, las de servicio, en lugar de las combinaciones mayoradas (la reacción de una base un 15 % baja en un pórtico con 1,2D + 1,6W; entre 29 y 38 % baja con carga permanente y sobrecarga). Ahora se niegan y dicen por qué hasta que las combinaciones estén resueltas: volvé a calcular y a diseñarlas (SA-2026-024).",
+        "pt": "Com combinações definidas e nenhuma resolvida (depois de uma edição com o cálculo ao vivo ligado, ou quando o cálculo das combinações falhou e ficou o cálculo simples), as sapatas e os nós eram dimensionados com todas as cargas a fator 1, as de serviço, em vez das combinações majoradas (a reação de uma sapata 15 % baixa num pórtico com 1,2D + 1,6W; entre 29 e 38 % baixa com carga permanente e sobrecarga). Agora se recusam e dizem por quê até as combinações estarem resolvidas: calcule de novo e refaça o dimensionamento (SA-2026-024)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-024-design-on-unfactored-results.md", "heading": "SA-2026-024: footings and joints were designed for the unfactored loads when the combinations had not been re-solved" }
+    },
+    {
+      "id": "column-capacity-both-signs",
+      "resultsVersion": 3,
+      "date": "2026-10-22",
+      "prs": [590],
+      "area": "design",
+      "when": { "any": ["cirsoc201"] },
+      "title": {
+        "en": "RC columns are checked for both signs of the moment",
+        "es": "Las columnas de hormigón armado se verifican con los dos signos del momento",
+        "pt": "Os pilares de concreto armado são verificados com os dois sinais do momento"
+      },
+      "explanation": {
+        "en": "A CIRSOC 201 column whose bars are not symmetric about the bending axis (6, 10, 14… bars, or faces with different counts) was checked with one face compressed only; the other side is weaker (30×30, 6 Ø20, Nu 100 kN: 78.57 instead of 101.57 kN·m), so columns may now fail or need more bars (SA-2026-023).",
+        "es": "Una columna CIRSOC 201 con barras no simétricas respecto del eje de flexión (6, 10, 14… barras, o caras con distinta cantidad) se verificaba con una sola cara comprimida; el otro lado es más débil (30×30, 6 Ø20, Nu 100 kN: 78,57 en lugar de 101,57 kN·m), así que hay columnas que ahora no verifican o piden más barras (SA-2026-023).",
+        "pt": "Um pilar CIRSOC 201 com barras não simétricas em relação ao eixo de flexão (6, 10, 14… barras, ou faces com quantidades diferentes) era verificado com uma só face comprimida; o outro lado é mais fraco (30×30, 6 Ø20, Nu 100 kN: 78,57 em vez de 101,57 kN·m), então há pilares que agora não verificam ou pedem mais barras (SA-2026-023)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-023-column-moment-sign.md", "heading": "SA-2026-023: the RC column check read one sign of the moment, and an uneven bar layout is weaker the other way" }
+    },
+    {
       "id": "curved-shell-moments-and-thermal",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [522],
       "area": "analysis",
@@ -24,7 +233,7 @@
     },
     {
       "id": "arc-member-local-axes",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [523],
       "area": "analysis",
@@ -43,7 +252,7 @@
     },
     {
       "id": "plastic-3d-element-order",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [524],
       "area": "analysis",
@@ -62,7 +271,7 @@
     },
     {
       "id": "cable-tension-chord-law",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [525],
       "area": "analysis",
@@ -81,7 +290,7 @@
     },
     {
       "id": "soil-curves-references",
-      "resultsVersion": 1,
+      "resultsVersion": 2,
       "date": "2026-10-21",
       "prs": [526],
       "area": "analysis",
@@ -97,6 +306,25 @@
         "pt": "A curva de argila mole omitia o termo J de Matlock (resistência última do solo entre um terço e a metade baixa perto da superfície), a areia usava sempre o fator cíclico A = 0,9 e uma tabela de k em degraus, e a curva de argila rígida saltava da metade para a resistência total em y50 e caía a 70 % depois (SA-2026-017). Afeta modelos resolvidos com molas de solo no PRO Avançado; resolva-os novamente."
       },
       "changelog": { "file": "docs/advisories/SA-2026-017-soil-curves.md", "heading": "SA-2026-017: Soil-structure interaction p-y, t-z and q-z curves departed from their references" }
+    },
+    {
+      "id": "frame-thermal-alpha-depth",
+      "resultsVersion": 2,
+      "date": "2026-10-21",
+      "prs": [531],
+      "area": "loads",
+      "when": { "any": ["memberThermalLoads"] },
+      "title": {
+        "en": "Member temperature loads take the material's α and the section's depth",
+        "es": "Las cargas de temperatura en barras toman el α del material y la altura de la sección",
+        "pt": "As cargas de temperatura em barras tomam o α do material e a altura da seção"
+      },
+      "explanation": {
+        "en": "Projects solved before 2026-10-07 took steel's α for every material and the depth of the section's equivalent solid rectangle (an I section's gradient moment about 30 % low, aluminium's thermal force about half). The app has compensated since, so most results do not move; a gradient on a member of a flat model whose section is turned a quarter or half turn in its plane now acts across b or h instead of the equivalent rectangle (SA-2026-019).",
+        "es": "Los proyectos resueltos antes del 2026-10-07 tomaban el α del acero para todo material y la altura del rectángulo macizo equivalente de la sección (en un perfil doble T el momento por gradiente salía un 30 % bajo, en aluminio la fuerza térmica casi la mitad). Desde entonces la app lo compensa, así que la mayoría de los resultados no cambia; un gradiente sobre una barra de un modelo plano cuya sección está girada un cuarto o media vuelta en su plano ahora actúa sobre b o h en lugar del rectángulo equivalente (SA-2026-019).",
+        "pt": "Os projetos resolvidos antes de 2026-10-07 tomavam o α do aço para todo material e a altura do retângulo maciço equivalente da seção (num perfil I o momento por gradiente saía 30 % baixo, no alumínio a força térmica quase a metade). Desde então o app compensa, então a maioria dos resultados não muda; um gradiente numa barra de um modelo plano cuja seção está girada um quarto ou meia volta no seu plano agora atua sobre b ou h em vez do retângulo equivalente (SA-2026-019)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-019-frame-thermal-alpha-depth.md", "heading": "SA-2026-019: frame and truss temperature loads assumed steel's α and a solid rectangle's depth" }
     },
     {
       "id": "spectral-cqc-and-participation",

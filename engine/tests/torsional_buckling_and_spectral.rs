@@ -6,7 +6,7 @@
 //! them while ignored are reproduced here, passing. Every expected value is a closed form or
 //! a hand calculation written out in the test.
 
-mod common;
+use crate::common;
 use common::*;
 use dedaliano_engine::element::Hinge3D;
 use dedaliano_engine::solver::dof::DofNumbering;

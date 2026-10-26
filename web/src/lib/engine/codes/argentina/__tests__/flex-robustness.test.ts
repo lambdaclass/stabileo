@@ -137,7 +137,11 @@ function problems(i: FlexInput, r: FlexOutput): string[] {
   }
   if (r.ok && r.ratio > 1 + 1e-6) p.push(`ok with ratio ${r.ratio}`);
   if (r.ok && r.phi !== undefined && (r.phi < 0.65 - 1e-9 || r.phi > 0.9 + 1e-9)) p.push(`ok with φ = ${r.phi}`);
-  if (i.mode === 'design' && !r.ok && !r.impossible) p.push('design: neither an answer nor a refusal');
+  // A design answers, or refuses: proven (`impossible`, a bound no steel lifts) or with its search
+  // exhausted (`exhausted`, no arrangement this calculator tries fits), and an exhausted one says so.
+  if (i.mode === 'design' && !r.ok && !r.impossible && !r.exhausted) p.push('design: neither an answer nor a refusal');
+  if (r.exhausted && !keys.includes('flex.step.exhausted')) p.push('exhausted without saying so');
+  if (r.exhausted && r.impossible) p.push('both exhausted and impossible');
   if (r.barChoice && /NaN|undefined/.test(r.barChoice.label)) p.push(`bar label ${r.barChoice.label}`);
   for (const s of printed(i, r)) {
     if (TEXT_BAD.test(s)) p.push(`prints "${s}"`);
@@ -1143,7 +1147,7 @@ describe('3 · design is the least steel, and monotonic', () => {
       const top = 0.9 * 0.85 * s.fc * 1000 * s.b * s.h * s.h * 0.45;
       for (let Mu = 1; Mu <= top; Mu += top / 80) {
         const r = solve({ ...s, dPrime: 0.05, dPrimeS: 0.05, Mu });
-        if (r.impossible) break;
+        if (r.impossible || r.exhausted) break; // no answer past here: proven or not, nothing was designed
         expect(r.AstCm2, `${JSON.stringify(s)} Mu ${Mu.toFixed(1)}`).toBeGreaterThanOrEqual(prev - 1e-6);
         prev = r.AstCm2;
       }
@@ -1168,7 +1172,7 @@ describe('3 · design is the least steel, and monotonic', () => {
       let prev = 0;
       for (let Mu = 5; Mu <= 250; Mu += 5) {
         const r = solve({ kase: 'FCR', b: 0.3, h: 0.4, Pu, Mu });
-        if (r.impossible) break;
+        if (r.impossible || r.exhausted) break; // no answer past here: proven or not, nothing was designed
         expect(r.AstCm2, `Pu ${Pu} Mu ${Mu}`).toBeGreaterThanOrEqual(prev - 1e-6);
         prev = r.AstCm2;
       }

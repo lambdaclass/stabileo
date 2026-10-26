@@ -25,7 +25,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage } from './fixtures';
+import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage, designPlace, openFloorPass } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -51,7 +51,12 @@ type Offered = (typeof OFFERED)[number];
  */
 async function bootDetecting(page: Page) {
   await page.addInitScript(() => {
-    try { localStorage.clear(); } catch { /* private mode */ }
+    try {
+      localStorage.clear();
+      // The language is left to the browser; design is turned on as `bootPro` does, since the
+      // surface read below is design's.
+      localStorage.setItem('stabileo-design-in-pro', '1');
+    } catch { /* private mode */ }
   });
   await page.goto(PRO_URL);
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
@@ -105,10 +110,10 @@ test.describe('@smoke the language a browser gets', () => {
         await bootDetecting(page);
         expect(await pickerValue(page), 'the picker agrees with what the app chose')
           .toBe(expected);
-        // And the screen is actually in that language: the RC design command row is the first
-        // PRO surface a user sees.
-        await expect(page.getByTestId('cmd-design-all'))
-          .toHaveText(DICTS[expected]['design.cmd.designAll']);
+        // And the screen is actually in that language: the steps of design are the first PRO
+        // surface the boot lands on (interface A).
+        await expect(page.getByTestId('desk-step-size'))
+          .toContainText(DICTS[expected]['desk.step.size']);
       });
     });
   }
@@ -153,8 +158,8 @@ test.describe('the rest of the detection sweep', () => {
       test(`opens PRO in ${expected}`, async ({ page }) => {
         await bootDetecting(page);
         expect(await pickerValue(page)).toBe(expected);
-        await expect(page.getByTestId('cmd-design-all'))
-          .toHaveText(DICTS[expected]['design.cmd.designAll']);
+        await expect(page.getByTestId('desk-step-size'))
+          .toContainText(DICTS[expected]['desk.step.size']);
       });
     });
   }
@@ -171,7 +176,7 @@ test.describe('changing language keeps the work', () => {
     }));
 
     await setAppLanguage(page, 'pt');
-    await expect(page.getByTestId('cmd-design-all')).toHaveText(pt['design.cmd.designAll']);
+    await expect(page.getByTestId('desk-design')).toHaveText(pt['desk.size']);
 
     const after = await page.evaluate(() => ({
       elements: window.__stabileo.elementIds(),
@@ -196,6 +201,9 @@ test.describe('changing language keeps the work', () => {
       try {
         if (!sessionStorage.getItem('e2e-storage-cleared')) {
           localStorage.clear();
+          // The step it reads is the design desk's, off by default in PRO: turned on, as a reader
+          // turns it on, before the language is chosen. The language is what this test follows.
+          localStorage.setItem('stabileo-design-in-pro', '1');
           sessionStorage.setItem('e2e-storage-cleared', '1');
         }
       } catch { /* private mode */ }
@@ -205,13 +213,13 @@ test.describe('changing language keeps the work', () => {
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
 
     await setAppLanguage(page, 'pt');
-    await expect(page.getByTestId('cmd-design-all')).toHaveText(pt['design.cmd.designAll']);
+    await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);
 
     await page.reload();
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
     expect(await pickerValue(page)).toBe('pt');
-    await expect(page.getByTestId('cmd-design-all')).toHaveText(pt['design.cmd.designAll']);
+    await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);
   });
 });
 
@@ -239,7 +247,8 @@ test.describe('changing language keeps the work', () => {
 const COMMAND_ROW: Array<[string, string]> = [
   ['cmd-compute-demands', 'design.cmd.computeDemands'],
   ['cmd-code-check', 'design.cmd.requiredSteel'],
-  ['cmd-design-all', 'design.cmd.designAll'],
+  // «Size…», the one design command (interface A), at the top of the Design stage.
+  ['desk-design', 'desk.size'],
 ];
 
 /** Rail switches: a checkbox whose text sits on the surrounding <label>. */
@@ -267,6 +276,9 @@ for (const locale of OFFERED) {
       test.setTimeout(300_000);
 
       // ── A. Shell and empty states ──────────────────────────────
+      // A frame loaded and not solved: the member list says what it waits on.
+      await loadModel(page, 'rc-design-qa-8');
+      await designPlace(page, 'list');
       await expect(page.getByTestId('design-placeholder-solve'))
         .toHaveText(D['design.error.solveFirst']);
       for (const [id, key] of COMMAND_ROW) {
@@ -277,14 +289,14 @@ for (const locale of OFFERED) {
         .toBe(D['detailing.scene.openBlocked']);
 
       // ── B. The design flow ─────────────────────────────────────
-      await loadModel(page, 'rc-design-qa-8');
       await designAll(page);
+      await designPlace(page, 'prepare');
       await expect(page.getByTestId('summary-count-verified'))
         .toContainText(D['design.counts.verified']);
       await expect(page.getByTestId('summary-count-provisional'))
         .toContainText(D['design.counts.provisional']);
 
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       /**
        * Generate OR Regenerate, in this language.
@@ -301,8 +313,9 @@ for (const locale of OFFERED) {
           { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 })
         .toBeGreaterThan(0);
 
-      // The floor-design command and its panel title.
-      await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+      // The floor-design command and its panel title, under the member list.
+      await designPlace(page, 'list');
+      await openFloorPass(page);
       await expect(page.getByTestId('floor-design-run'))
         .toHaveText(D['detailing.floorRun.designAndDetail']);
 
@@ -314,6 +327,7 @@ for (const locale of OFFERED) {
 
       // ── C. The 3-D viewer ──────────────────────────────────────
       const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
+      await designPlace(page, 'list');
       await page.getByTestId('cmd-open-3d').click();
       await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
       await expect
@@ -350,8 +364,7 @@ for (const locale of OFFERED) {
       await expect(page.getByTestId('pp-autosave'))
         .toContainText(D['proProject.autosaveSection']);
 
-      await page.evaluate(() => { window.__stabileoActions.openDesignTab(); });
-      await page.getByTestId('code-settings-disclosure').locator('> summary').click();
+      await designPlace(page, 'designData');
       await expect(page.getByTestId('project-regulations'))
         .toContainText(D['regulations.title']);
 

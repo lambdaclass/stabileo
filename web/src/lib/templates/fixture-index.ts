@@ -103,6 +103,8 @@ const fixtures3D: Record<string, FixtureLoader> = {
   // Stating 22 on top of the weight gives 300×550 beams Ø16 bottom bars, and then the 135°
   // tails of every stirrup reach the second layer of the crossing beams' bars at every corner.
   'rc-design-qa-8': () => import('./fixtures/rc-design-qa-8.json'),
+  // qa-8 with its lateral case read as an earthquake, for the seismic design journeys.
+  'rc-design-qa-seismic': () => import('./fixtures/rc-design-qa-seismic.json'),
   // Same family, sized so the SUPPORT regions land in row 2 of Table 9.7.6.2.2 (V_s required
   // above 0,33·√f'c·bw·d). A 300 mm web has 242 mm between its two leg centres against row
   // 2's 200 mm across-width limit, so a third leg — a crosstie — is mandatory. qa-8 is

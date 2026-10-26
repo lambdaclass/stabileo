@@ -18,7 +18,7 @@
  * fired; it says nothing about whether the file has a bar in it.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 type Json = Record<string, unknown>;
@@ -29,9 +29,9 @@ function assemblies(page: Page): Promise<Json[]> {
 }
 
 async function openPanel(page: Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
-  await d.locator('> summary').click();
   return d;
 }
 
@@ -100,6 +100,11 @@ test.describe('the downloaded files have content', () => {
     expect(dxf).toContain('SECTION');
     expect(dxf).toContain('ENTITIES');
     expect(dxf).toContain('EOF');
+    // One file a CAD program reads whole: a single header and a single EOF, every sheet in it.
+    const pairs = dxf.replace(/\n$/, '').split('\n').map((l) => l.trim());
+    const eofs = pairs.filter((l, i) => i % 2 === 1 && l === 'EOF' && pairs[i - 1] === '0').length;
+    expect(eofs).toBe(1);
+    expect(pairs.filter((l, i) => i % 2 === 1 && l === 'HEADER' && pairs[i - 1] === '2').length).toBe(1);
     expect(dxf.length).toBeGreaterThan(2000);
     // Group code 10 is an X ordinate. No ordinates means nothing was drawn.
     const ordinates = dxf.split('\n').filter((l) => l.trim() === '10').length;

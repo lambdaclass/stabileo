@@ -2,7 +2,7 @@
 //! (docs/verification/CERTIFY.md). Honesty is checked against double-double
 //! reference solutions of the same reduced f64 systems.
 
-mod certify_ref;
+use crate::certify_ref;
 
 use certify_ref::*;
 use dedaliano_engine::certify::combinations::{

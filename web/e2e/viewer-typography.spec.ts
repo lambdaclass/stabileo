@@ -24,7 +24,7 @@
  * pass a font test and undo the reason the overlay exists.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const first = (family: string) => family.split(',')[0].trim().replace(/^["']|["']$/g, '');
@@ -32,7 +32,7 @@ const first = (family: string) => family.split(',')[0].trim().replace(/^["']|["'
 async function openWorkspace(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();

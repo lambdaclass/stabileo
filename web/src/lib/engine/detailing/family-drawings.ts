@@ -26,9 +26,10 @@
  * Pure: no store, no runes, no i18n. Lengths m.
  */
 
+import { msg } from '../../codes/message';
 import type { BarPath } from '../../codes/cirsoc201/bar-geometry';
 import type { ClauseRef } from '../../codes/regulation';
-import {
+import { noteKey,
   LAYERS, buildTitleBlock,
   type DrawnCircle, type DrawnDimension, type DrawnPolyline, type DrawnText,
   type Pt2, type Sheet,
@@ -339,6 +340,7 @@ export function drawFootingSection(
     layer: LAYERS.text, height: 0.08,
     at: { x: centreU - width / 2, y: z0 - 0.4 },
     text: `NF ${g.foundingElevation.toFixed(2)} m`,
+    msg: msg('drawing.footing.foundingLevel', { z: g.foundingElevation.toFixed(2) }),
   });
 
   return {
@@ -388,8 +390,8 @@ function planNotes(r: FootingRecord): string[] {
   if (r.demand) notes.push(`combination:${r.demand.governingCombination}`);
   // Every unverified condition on the face of the sheet. A limitation that lives only in the
   // report is a limitation the person holding the drawing does not know about.
-  for (const m of r.unsupported) notes.push(m.key);
-  for (const m of r.assumptions) notes.push(m.key);
+  for (const m of r.unsupported) notes.push(noteKey(m.key, m.params as never));
+  for (const m of r.assumptions) notes.push(noteKey(m.key, m.params as never));
   return notes;
 }
 

@@ -10,19 +10,18 @@
  * Moving it here gives one implementation with one set of 3D handling, NaN
  * checks and toasts, callable from anywhere. Duplicating it into the ribbon
  * would have been the other option, and two copies of a solver entry point is
- * how they drift apart.
+ * how they drift apart. In 3D that implementation is Calcular's
+ * (`engine/live-calc.ts` `runGlobalSolve`), for that reason.
  */
 
 import { uiStore, resultsStore, modelStore } from '../store';
-import { instability } from '../store/instability.svelte';
-import { publishCombinations3D } from '../store/active-results';
 import { t } from '../i18n';
-import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
-import { initSolver, isWasmReady } from '../engine/wasm-solver';
+import { hasInvalid2DDisplacements } from '../geometry/coordinate-system';
 import { reportModelDiagnostics } from '../engine/solve-diagnostics';
+import { runGlobalSolve, lastSolveFailure } from '../engine/live-calc';
 import { requestAutosave } from '../store/autosave-service';
-import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralCaseResults } from '../store/spectral-cases';
+import { errorText } from '../utils/error-text';
 
 /**
  * The spectral cases' results, or nothing (said) when they cannot be had: those cases are left out.
@@ -43,20 +42,13 @@ export type SolveOutcome = { ok: true } | { ok: false; error: string };
 export function runSolve(): void {
   /*
    * This is the solve entry point the Basic UI actually uses — Enter, the
-   * ribbon's Solve command and Calcular all land here, NOT in
-   * `runGlobalSolve` (which serves the `stabileo-solve` event path). The
-   * pre-solve hygiene report therefore has to fire here too, or the user in
-   * issue #181 keeps getting numbers in silence on the paths they take.
-   * One call covers both branches: the 3D arm below delegates to
-   * `runSolve3D`, which has no other caller. The PRO exclusion is inside the
-   * reporter itself.
+   * ribbon's Solve command and Calcular all land here. In 3D it is the manual
+   * solve every other entry point uses (`runGlobalSolve`): a copy of its own
+   * took no part in that solve's guard, so an older Enter solve landing after
+   * a newer one was published. The pre-solve hygiene report (issue #181) fires
+   * in both arms; the PRO exclusion is inside the reporter itself.
    */
-  reportModelDiagnostics();
-  if (uiStore.is3DWorkspace) {
-    void runSolve3D();
-    return;
-  }
-  runSolve2D();
+  void solveNow();
 }
 
 /** Whether the results on hand are the current model's: an edit clears them. */
@@ -69,12 +61,32 @@ export function hasCurrentResults(): boolean {
  *
  * For the exports: a workbook or a report asked for before Calcular solves first, rather than
  * coming out without results and without saying why. The failure is the message the reader was
- * also shown as a toast, so the export can carry it.
+ * also shown as a toast, so the export can carry it. A solve that just failed on this very model
+ * (PRO's export solves first, `pro/export-results.ts`) is not run again: it fails the same way.
  */
 export async function ensureResults(): Promise<SolveOutcome> {
   if (hasCurrentResults()) return { ok: true };
-  reportModelDiagnostics();
-  return uiStore.is3DWorkspace ? runSolve3D() : runSolve2D();
+  const failed = lastSolveFailure();
+  if (failed !== null) return { ok: false, error: failed };
+  return solveNow();
+}
+
+/**
+ * Solve now and say how it went. In 3D through `runGlobalSolve`, with the base solved directly as
+ * this entry point always had it (a provenance names it, `store/result-provenance.ts`).
+ */
+export async function solveNow(): Promise<SolveOutcome> {
+  if (!uiStore.is3DWorkspace) {
+    reportModelDiagnostics();
+    return runSolve2D();
+  }
+  try {
+    return await runGlobalSolve({ directBase: true });
+  } catch (e) {
+    const error = errorText(e, t('toast.solverInitFailed'));
+    uiStore.toast(error, 'error');
+    return { ok: false, error };
+  }
 }
 
 function runSolve2D(): SolveOutcome {
@@ -132,66 +144,4 @@ function runSolve2D(): SolveOutcome {
    * sheet that `ProPanel.solve()` had just opened. The panel is now opened by
    * the bar's own button, and only when it is asked for.
    */
-}
-
-export async function runSolve3D(): Promise<SolveOutcome> {
-  if (!isWasmReady()) {
-    try { await initSolver(); } catch (e: any) {
-      const error = e?.message || t('toast.solverInitFailed');
-      uiStore.toast(error, 'error');
-      return { ok: false, error };
-    }
-  }
-  const isPro = uiStore.analysisMode === 'pro';
-  // Floor loads kept as definitions, rewritten if the model moved under them (`defined-loads.ts`).
-  syncDefinedLoadsForAnalysis();
-  const versionAtStart = modelStore.modelVersion;
-  const results = await modelStore.solve3DAsync(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-  // Stale: the model was edited mid-solve, and these results are not its own.
-  if (modelStore.modelVersion !== versionAtStart) return { ok: false, error: t('results.editedDuringSolve') };
-  if (typeof results === 'string') {
-    uiStore.toast(results, 'error');
-    // Name the mechanism, when that is what stopped it (`store/instability.svelte.ts`).
-    if (isPro) instability.explain(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
-    return { ok: false, error: results };
-  } else if (results) {
-    instability.clear();
-    // Validate results aren't degenerate
-    const hasNaN = hasInvalid3DDisplacements(results.displacements as Array<{ ux: number; uy: number; uz: number }>);
-    if (hasNaN) {
-      uiStore.toast(t('results.numericError3d'), 'error');
-      return { ok: false, error: t('results.numericError3d') };
-    }
-    resultsStore.setResults3D(results);
-    // Auto-solve 3D combinations if they exist
-    let comboText = '';
-    // Basic with load cases off shows no combinations: none are solved.
-    if (modelStore.model.combinations.length > 0 && uiStore.showLoadCasePicker) {
-      const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro, isPro ? spectralOrSay() : undefined);
-      if (comboResult && typeof comboResult !== 'string') {
-        publishCombinations3D(comboResult);
-        comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
-      } else if (typeof comboResult === 'string') {
-        // Refused (an empty active list, say): the solve stands, the combinations are not there.
-        uiStore.toast(comboResult, 'info');
-      }
-    }
-    // Show diagnostics warnings if present
-    const diagWarnings3D = [
-      ...(results.diagnostics ?? []).filter((d: { metric: string }) => d.metric === 'negative_jacobian').map((d: { message: string }) => d.message),
-      ...(results.solverDiagnostics ?? []).filter((d: { severity: string }) => d.severity === 'warning').map((d: { message: string }) => d.message),
-    ];
-    if (diagWarnings3D.length > 0) {
-      uiStore.toast(diagWarnings3D.join(' | '), 'info');
-    }
-    uiStore.toast(
-      `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,
-      'success',
-    );
-    void requestAutosave('solve');
-    return { ok: true };
-  }
-  uiStore.toast(t('results.emptyModelError'), 'error');
-  // Same as above: a solve opens no panel of its own on a phone.
-  return { ok: false, error: t('results.emptyModelError') };
 }

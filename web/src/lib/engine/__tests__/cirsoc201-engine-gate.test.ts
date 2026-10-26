@@ -69,8 +69,8 @@ describe('engine re-check gate', () => {
     const g = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2025' });
     expect(g.engineRecheck.ductilityRatio!).toBeGreaterThan(1);
     expect(g.flexure.status).toBe('fail');
-    // Its εt, with the bars it chose, is 2,6 ‰: below the 2005 floor of 4 ‰ (10.3.5) as well.
-    // The TypeScript reported the εt of the REQUIRED steel (2,9 ‰) and checked neither.
+    // The legacy designer (the oracle) chose bars with εt = 2,6 ‰: below the 2005 floor of 4 ‰
+    // (10.3.5) as well. The TypeScript reported the εt of the REQUIRED steel (2,9 ‰) and checked neither.
     const g05 = engineRecheckElement(v, { stirrupDia: 8, NuShear: 0, edition: '2005' });
     expect(g05.engineRecheck.disagreements).toContain('ductility');
     expect(g05.engineRecheck.ductilityRatio!).toBeCloseTo(0.004 / 0.00255, 2);

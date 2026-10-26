@@ -31,6 +31,17 @@ describe('bearing pressure', () => {
     expect(r.uplift).toBe(false);
   });
 
+  it('with an edge factor, holds the mean to the allowable and the edge to k times it', () => {
+    // 1250 kN on 2,5 × 2,5: mean 200 kPa; e = 250/1250 = 0,2 m: qmax = 200·(1 + 6·0,2/2,5) = 296 kPa.
+    const ecc = { serviceAxial: 1250, serviceMomentB: 250 };
+    expect(checkBearing(footing(ecc)).status).toBe('FAIL');
+    const r = checkBearing(footing({ ...ecc, edgeFactor: 1.25 }));
+    expect(r.status).toBe('OK');
+    expect(r.utilization).toBeCloseTo(296 / 312.5, 6);
+    // The mean still governs: 1700 kN is 272 kPa over the whole base.
+    expect(checkBearing(footing({ serviceAxial: 1700, edgeFactor: 1.25 })).status).toBe('FAIL');
+  });
+
   it('fails when the peak exceeds the allowable', () => {
     expect(checkBearing(footing({ serviceAxial: 2000 })).status).toBe('FAIL');
   });
@@ -534,6 +545,23 @@ describe('punching moment transfer', () => {
     expect(r.unsupported.join(' ')).toMatch(/8\.4\.4\.2/);
     // The direct-shear numbers survive for the report; what is refused is the VERDICT.
     expect(r.punching!.utilization).toBeGreaterThan(0);
+  });
+
+  /*
+   * The isolated footing is checked by the engine (`isolated_footing.rs`), which does not evaluate
+   * 8.4.4.2: a significant moment leaves the punching UNSUPPORTED, never a pass. The TypeScript
+   * eccentric shear (`punching-moment.ts`) evaluates it for slabs, and evaluated it for footings
+   * before the engine took them over. Flips when the footing check evaluates the moment transfer.
+   */
+  it.fails('checks the punching with its moment once the moment is significant (§8.4.4.2)', () => {
+    const plain = checkFooting(footing());
+    const r = checkFooting(footing({ factoredMomentB: 125 }));
+    expect(r.punching!.momentTransfer.status).toBe('EVALUATED');
+    expect(r.punching!.momentTransfer.significant).toBe(true);
+    expect(r.punching!.status).not.toBe('UNSUPPORTED');
+    // The moment's eccentric shear raises the stress over the direct shear alone.
+    expect(r.punching!.utilization).toBeGreaterThan(plain.punching!.utilization);
+    expect(r.unsupported.join(' ')).not.toMatch(/8\.4\.4\.2/);
   });
 
   it('reports the moment a plan eccentricity alone transfers, and names the tolerance', () => {

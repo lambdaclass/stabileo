@@ -2,8 +2,7 @@
 //! allocation or a loop. A hostile project must get an `Err` back, not exhaust
 //! memory, spin forever, or wrap an id into an existing one.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_3d_input;
 use dedaliano_engine::types::*;

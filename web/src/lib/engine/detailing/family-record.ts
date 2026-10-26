@@ -495,6 +495,8 @@ export interface SlabDesignRecord extends FamilyRecordCommon {
     /** Bearing of the free edge the perimeter is truncated at, degrees CCW from +x. */
     openBearingDeg?: number | null;
     /** The critical perimeter the check was run on. */
+    /** The shear reinforcement the joint needs, when the concrete alone does not carry it. */
+    reinforcement?: import('./punching-moment').PunchingReinforcement;
     perimeter?: {
       bo: number;
       beta: number;

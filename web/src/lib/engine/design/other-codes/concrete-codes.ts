@@ -10,8 +10,9 @@
  *     bottom bars, which are the faces across its depth;
  *   · a face in tension with no bars under a moment fails, with that as the reason.
  *
- * The rebar grade and the cover are the ones the CIRSOC design assumes when the model states
- * none (`member-context.ts`), so both codes read the same bars at the same depths.
+ * The rebar grade and the cover are the project's (its design data, `MemberContext.cover` and
+ * `rebarFy`), and the ones the CIRSOC design assumes when it states none (`member-context.ts`),
+ * so both codes read the same bars at the same depths as the CIRSOC design.
  *
  * EN 1992 here: the engine's flexure ignores the axial force (it enters shear only), so vertical
  * members are not checked and a beam demand with an axial force above 0,1·fcd·Ac comes back
@@ -22,9 +23,10 @@
 import { checkRcMembers, checkEc2Members } from '../../wasm-solver';
 import { materialFamilyOf } from '../../steel/material-family';
 import { catalogueGradeFamily } from '../../steel/grade-family';
-import type { GoverningDemand } from '../../station-design-forces';
+import type { StationTuple } from './types';
 import { resolveDesignAxes, tupleMoment, tupleShear, MOMENT_NOISE_FLOOR } from '../design-axes';
 import { DEFAULT_COVER, DEFAULT_REBAR_FY } from '../member-context';
+import { concreteFc } from '../../../model/design-data';
 import { beamBarsAt, columnBarsAt, hasLongitudinalBars, type RcAt } from './rc-bars';
 import { N, PA, gov, upScaled, type CheckReading, type MemberContext, type OtherCode } from './types';
 
@@ -38,8 +40,9 @@ const EC2_AXIAL_SHARE = 0.1;
 function rcMember(ctx: MemberContext): { skip: string } | { data: Record<string, unknown> } {
   const fam = materialFamilyOf(ctx.material as never, catalogueGradeFamily).family;
   if (fam !== 'concrete') return { skip: 'otherCodes.skip.notConcrete' };
-  // In this model a concrete material's fy is its f'c.
-  if (!(ctx.material.fy && ctx.material.fy > 0)) return { skip: 'otherCodes.skip.noFc' };
+  // A concrete's f'c: its own field, or the `fy` older projects kept it in.
+  const fc = concreteFc(ctx.material as never);
+  if (!(fc && fc > 0)) return { skip: 'otherCodes.skip.noFc' };
   const s = ctx.section;
   if (!(s.shape === undefined || s.shape === 'rect') || !(s.b && s.b > 0 && s.h && s.h > 0)) {
     return { skip: 'otherCodes.skip.notRectangular' };
@@ -53,13 +56,13 @@ function rcMember(ctx: MemberContext): { skip: string } | { data: Record<string,
 }
 
 /** The bars at `d`, or the failing reading when the face in tension has none. */
-function barsAt(ctx: MemberContext, d: GoverningDemand, data: Record<string, unknown>): RcAt | { reading: CheckReading } {
+function barsAt(ctx: MemberContext, d: StationTuple, data: Record<string, unknown>): RcAt | { reading: CheckReading } {
   const r = ctx.element.reinforcement!;
   const sec = { b: ctx.section.b!, h: ctx.section.h! };
   const axis = data.axis as 'My' | 'Mz', shearAxis = data.shearAxis as 'Vy' | 'Vz';
   const at = ctx.kind === 'beam'
-    ? beamBarsAt(r, sec, DEFAULT_COVER, d, axis, shearAxis)
-    : columnBarsAt(r, sec, DEFAULT_COVER, d, axis, shearAxis);
+    ? beamBarsAt(r, sec, ctx.cover ?? DEFAULT_COVER, d, axis, shearAxis)
+    : columnBarsAt(r, sec, ctx.cover ?? DEFAULT_COVER, d, axis, shearAxis);
   if (!at || (at.asTension <= 0 && Math.abs(at.M) > MOMENT_NOISE_FLOOR)) {
     return { reading: { ratio: Number.POSITIVE_INFINITY, ...gov('noTensionSteel'), pass: false, unevaluated: [] } };
   }
@@ -74,7 +77,7 @@ const shape = (ctx: MemberContext, at: RcAt) => ({
 });
 
 /** Moment and shear about the axis `member` chose, in N·m and N. */
-function bending(d: GoverningDemand, data: Record<string, unknown>) {
+function bending(d: StationTuple, data: Record<string, unknown>) {
   return {
     M: tupleMoment(d.forces, data.axis as 'My' | 'Mz') * N,
     V: tupleShear(d.forces, data.shearAxis as 'Vy' | 'Vz') * N,
@@ -94,7 +97,7 @@ export const ACI318: OtherCode = {
     return {
       data: {
         ...shape(ctx, at),
-        fc: ctx.material.fy! * PA, fy: DEFAULT_REBAR_FY * PA,
+        fc: concreteFc(ctx.material as never)! * PA, fy: (ctx.rebarFy ?? DEFAULT_REBAR_FY) * PA,
         sectionType: 'rectangular',
         ...(at.av !== undefined ? { av: at.av, sStirrup: at.s } : {}),
       },
@@ -138,13 +141,13 @@ export const EC2: OtherCode = {
   at(ctx, d, data) {
     const at = barsAt(ctx, d, data);
     if ('reading' in at) return at;
-    const fck = ctx.material.fy!;
+    const fck = concreteFc(ctx.material as never)!;
     // fcd = αcc·fck/γc with the engine's defaults (1,0 and 1,5), in kN over the section.
     const nLimit = EC2_AXIAL_SHARE * (fck / 1.5) * 1e3 * ctx.section.b! * ctx.section.h!;
     return {
       data: {
         ...shape(ctx, at),
-        fck: fck * PA, fyk: DEFAULT_REBAR_FY * PA,
+        fck: fck * PA, fyk: (ctx.rebarFy ?? DEFAULT_REBAR_FY) * PA,
         ...(at.av !== undefined ? { asw: at.av, sStirrup: at.s } : {}),
       },
       ...(Math.abs(d.forces.n) > nLimit ? { unevaluated: ['otherCodes.check.ec2Axial'] } : {}),

@@ -32,6 +32,9 @@
  * Pure: no store, no runes. Forces kN, moments kN·m, lengths m, pressures kPa.
  */
 
+import { shearSqrtFc } from '../codes/argentina/cirsoc201-basis';
+import { strapAdjust } from '../foundation/strap-footing';
+import { GRAVITY_CASES, LATERAL_CASES, serviceGravity } from './service-reaction';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import type { Maturity } from '../../codes/maturity';
@@ -66,6 +69,8 @@ import {
   FAMILY_RECORD_SCHEMA_VERSION, recordStatusFor,
 } from './family-record';
 import type { SoilProfile } from '../../model/geotechnical';
+import { runGeneralFooting, type GeneralFootingDesign } from './run-general-footing';
+import { pileCapacity } from '../../model/foundation/piles';
 
 export interface FootingNode { x: number; y: number; z?: number }
 
@@ -113,6 +118,10 @@ export interface RunFootingDesignInput {
   nodes: ReadonlyMap<number, FootingNode>;
   /** Columns by element id, for the punching perimeter and the dowels. */
   columns: ReadonlyMap<number, FootingColumn>;
+  /** The column on any supported node: a combined footing's other columns. */
+  columnAt?: (nodeId: number) => FootingColumn | undefined;
+  /** Wall thickness by wall group, for strip footings, m. */
+  wallThickness?: ReadonlyMap<number, number>;
   reactions: ReadonlyMap<number, NodeReactions>;
   /** Project-resolved concrete strength, MPa. */
   fc: number;
@@ -232,6 +241,8 @@ export interface FootingDesignOutcome {
    * certificate is UNSUPPORTED — which blocks readiness rather than passing quietly.
    */
   record: FamilyRecordDraft<FootingDesignRecord>;
+  /** The general path's design: combined, strip, turned, partly lifting or on piles. */
+  general?: GeneralFootingDesign;
 }
 
 export interface RunFootingDesignResult {
@@ -254,10 +265,6 @@ export interface RunFootingDesignResult {
   trace: string[];
 }
 
-/** Load-case types that contribute to the service gravity sum. */
-const GRAVITY_CASES: ReadonlySet<string> = new Set(['D', 'L', 'Lr', 'S', 'R']);
-/** Load-case types whose SERVICE combination factors this project does not model. */
-const LATERAL_CASES: ReadonlySet<string> = new Set(['W', 'E']);
 
 /**
  * Where the critical punching perimeter sits relative to the footing edges.
@@ -304,7 +311,36 @@ export function punchingPosition(
   return { position: null, truncatedSides, pattern: 'doesNotFit' };
 }
 
-export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesignResult {
+export function runFootingDesign(given: RunFootingDesignInput): RunFootingDesignResult {
+  // An eccentric footing tied by a strap beam is checked centred and its partner relieved
+  // (`strap-footing.ts`): the reactions and offsets the rest of the run reads are the strap's.
+  const strapped = strapAdjust(given.footings, given.nodes, given.reactions);
+  const input: RunFootingDesignInput = { ...given, footings: strapped.footings, reactions: strapped.reactions };
+  const nameOf = (id: number) => given.footings.find((x) => x.id === id)?.name ?? `F${id}`;
+  const strapNotes = (f: Footing): { assumptions: EngineMessage[]; unsupported: EngineMessage[] } => {
+    const a: EngineMessage[] = [], u: EngineMessage[] = [];
+    const own = strapped.straps.filter((x) => x.footingId === f.id);
+    if (own.length) a.push(msg(own[0]!.bothWays ? 'footing.assumption.strapCentred' : 'footing.assumption.strapOneWay', { footing: f.name, factor: +own[0]!.factor.toFixed(3) }));
+    for (const x of own) {
+      a.push(msg('footing.assumption.strap', { footing: f.name, partner: nameOf(x.partnerId), L: +x.L.toFixed(2), e: +x.e.toFixed(2), M: +x.M.toFixed(1), V: +x.V.toFixed(1) }));
+      const sec = f.straps?.find((k) => k.toFootingId === x.partnerId && (k.nodeId === undefined || k.nodeId === x.partnerNodeId));
+      if (sec?.b && sec.h) {
+        const d = sec.h - 0.05;
+        const as = (x.M / (0.9 * 0.9 * d * input.fy * 1000)) * 1e4;
+        // A first estimate for the strap, which is not a designed member yet: √f'c ≤ 8,3 MPa (§22.5.3.1).
+        const phiVc = 0.75 * 0.17 * shearSqrtFc(input.fc) * sec.b * d * 1000;
+        a.push(msg('footing.assumption.strapSteel', { footing: f.name, partner: nameOf(x.partnerId), b: Math.round(sec.b * 100), h: Math.round(sec.h * 100), as: +as.toFixed(2), V: +x.V.toFixed(1), phiVc: +phiVc.toFixed(1) }));
+      }
+    }
+    for (const x of strapped.straps.filter((k) => k.partnerId === f.id)) {
+      a.push(msg(x.relief >= 0 ? 'footing.assumption.strapRelief' : 'footing.assumption.strapLoad', { footing: f.name, partner: nameOf(x.footingId), dR: +Math.abs(x.relief).toFixed(1) }));
+    }
+    const bal = strapped.balanced.find((x) => x.footingId === f.id);
+    if (bal) a.push(msg(bal.h !== undefined ? 'footing.assumption.balancedProp' : 'footing.assumption.balanced', { footing: f.name, e: +bal.e.toFixed(2), m: +bal.m.toFixed(1), h: +(bal.h ?? 0).toFixed(1) }));
+    const refused = strapped.refused.find((x) => x.footingId === f.id);
+    if (refused) u.push(msg(refused.reason === 'noPartner' ? 'footing.run.strapNoPartner' : 'footing.run.strapNotToward', { footing: f.name }));
+    return { assumptions: a, unsupported: u };
+  };
   const outcomes: FootingDesignOutcome[] = [];
   const entriesByLevel = new Map<number, FootingAssemblyEntry[]>();
   const unverifiedByLevel = new Map<number, Array<FamilyRecordDraft<FootingDesignRecord>>>();
@@ -316,8 +352,9 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
   const ordered = [...input.footings].sort((a, b) => a.id - b.id);
 
   for (const f of ordered) {
-    const unsupported: EngineMessage[] = [];
-    const assumptions: EngineMessage[] = [];
+    const notes = strapNotes(f);
+    const unsupported: EngineMessage[] = [...notes.unsupported];
+    const assumptions: EngineMessage[] = [...notes.assumptions];
     const level = levelKey(f.foundingElevation);
 
     // ── Everything the record needs is accumulated as the run proceeds ──────────
@@ -461,9 +498,9 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       fail(null, 'footing.geometry');
       continue;
     }
-    if (f.kind !== 'isolated') {
-      // `checkFooting` would return UNSUPPORTED for this anyway; refusing here keeps the
-      // reason attached to the footing rather than buried in a check result.
+    if (f.kind === 'mat') {
+      // A mat is a slab on the ground, not a rigid base: the general path does not take it,
+      // and refusing here keeps the reason attached to the footing.
       unsupported.push(msg('footing.run.kindNotImplemented', { footing: f.name, kind: f.kind }));
       fail(null, 'footing.kind');
       continue;
@@ -485,14 +522,30 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
     // reaches the record and the document with its name and its provenance. "Stratum E-2,
     // capacity not stated, assumed" is actionable; a footing with no ground at all is not.
     ground = groundSnapshot(profile);
-    if (profile.bearing.kind !== 'allowablePressure') {
+    if (profile.bearing.kind !== 'allowablePressure' && f.kind !== 'pileCap') {
       unsupported.push(msg('footing.run.bearingUnstated', {
         footing: f.name, profile: profile.name,
       }));
       fail(null, 'footing.bearing');
       continue;
     }
-    const allowableBearing = profile.bearing.allowableBearingKPa;
+    const allowableBearing = profile.bearing.kind === 'allowablePressure' ? profile.bearing.allowableBearingKPa : 0;
+    const edgeFactor = profile.bearing.kind === 'allowablePressure' ? profile.bearing.edgeFactor : undefined;
+    /** The general path, and what it leaves on the run. */
+    const general = (): void => {
+      const cap = f.kind === 'pileCap' && f.piles && profile.strata?.length
+        ? pileCapacity(profile.strata, f.piles.diameter, f.piles.length).total : undefined;
+      if (f.kind === 'pileCap' && cap === undefined) unsupported.push(msg('footing.general.noStrata', { footing: f.name }));
+      const g = runGeneralFooting({
+        f, input, level, allowable: f.kind === 'pileCap' ? null : allowableBearing, ...(edgeFactor ? { edgeFactor } : {}),
+        ...(cap !== undefined ? { pileCapacity: cap } : {}), unsupported, assumptions, draft: draftRecord,
+      });
+      if (!g.outcome || !g.entry) { fail(demand?.governingCombination ?? null, 'footing.design'); return; }
+      outcomes.push(g.outcome);
+      const list = entriesByLevel.get(level);
+      if (list) list.push(g.entry); else entriesByLevel.set(level, [g.entry]);
+    };
+    if (f.kind !== 'isolated') { general(); continue; }
     assumptions.push(...geotechnicalAssumptions(profile));
 
     // ── The reaction ────────────────────────────────────────────
@@ -505,32 +558,32 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       continue;
     }
 
-    // The governing strength combination is the one with the largest downward vertical.
-    // `Math.abs` because the solver's sign convention for a support reaction depends on the
-    // support type, and the magnitude is what the footing carries either way.
-    const governing = r.factored.reduce(
+    // Until the footing is checked, the combination named is the one with the largest
+    // downward vertical (`Math.abs`: the sign of a support reaction depends on the support
+    // type). Every strength combination is checked below, and the worst one replaces it.
+    let governing = r.factored.reduce(
       (best, c) => (Math.abs(c.fz) > Math.abs(best.fz) ? c : best), r.factored[0]);
-    const factoredAxial = Math.abs(governing.fz);
+    let factoredAxial = Math.abs(governing.fz);
 
     // Service reaction for bearing: unit-factor sum over gravity cases.
     let serviceAxial: number | null = null;
     let serviceMomentB = 0;
     let serviceMomentL = 0;
     if (r.cases && r.cases.length > 0) {
-      const gravity = r.cases.filter((c) => GRAVITY_CASES.has(c.caseType));
+      const service = serviceGravity(r.cases);
       const lateral = r.cases.filter((c) => LATERAL_CASES.has(c.caseType)
         && (c.fz !== 0 || c.mx !== 0 || c.my !== 0));
-      if (gravity.length === 0) {
+      if (!service) {
         unsupported.push(msg('footing.run.noGravityCase', { footing: f.name }));
       } else {
-        serviceAxial = Math.abs(gravity.reduce((s, c) => s + c.fz, 0));
+        serviceAxial = service.axial;
         // Reaction moments about global X and Y map onto the footing's L and B axes
         // respectively for an unrotated footing.
-        serviceMomentL = gravity.reduce((s, c) => s + c.mx, 0);
-        serviceMomentB = gravity.reduce((s, c) => s + c.my, 0);
+        serviceMomentL = service.mx;
+        serviceMomentB = service.my;
         assumptions.push(msg('footing.assumption.serviceFromGravityCases', {
           footing: f.name,
-          cases: gravity.map((c) => c.caseType).join(' + '),
+          cases: service.caseTypes.join(' + '),
         }));
         if (lateral.length > 0) {
           // Refusing to state a bearing result would be wrong — the gravity check is real.
@@ -579,14 +632,10 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       continue;
     }
 
-    if (f.rotationDeg !== 0) {
-      // The reaction moments are global. Resolving them onto rotated footing axes is
-      // defensible arithmetic, but it is not implemented, and silently treating a rotated
-      // footing's global moments as local ones would mis-assign the eccentricity.
-      unsupported.push(msg('footing.run.rotationNotResolved', {
-        footing: f.name, rotation: f.rotationDeg,
-      }));
-      fail(governing.combinationName, 'footing.geometry');
+    if (f.rotationDeg !== 0 || f.mats) {
+      // The reaction moments are global; the general path turns them into the footing's axes.
+      // Bars fixed by hand are checked there too, as given.
+      general();
       continue;
     }
 
@@ -629,7 +678,7 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
     }
 
     // ── The check ───────────────────────────────────────────────
-    const fi: FootingInput = {
+    const fiFor = (c: typeof governing): FootingInput => ({
       kind: 'isolated',
       B: f.B, L: f.L,
       thickness: f.thickness,
@@ -637,14 +686,15 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       columnB: column.b, columnH: column.h,
       fc: input.fc,
       allowableBearing,
+      ...(edgeFactor ? { edgeFactor } : {}),
       serviceAxial,
-      factoredAxial,
+      factoredAxial: Math.abs(c.fz),
       serviceMomentB, serviceMomentL,
       // Factored moments of the GOVERNING combination, so the strength checks see
       // the trapezoid the soil actually imposes — same axis mapping as the service
       // values (reaction mx → footing L axis, my → B axis, unrotated footing).
-      factoredMomentB: governing.my,
-      factoredMomentL: governing.mx,
+      factoredMomentB: c.my,
+      factoredMomentL: c.mx,
       // The plan offset of the centroid from the node. These moments and reactions are the
       // SUPPORT's, so they are expressed at the NODE — `reactions` is a nodal quantity and
       // nothing upstream reduces it to the footing centroid. The `N · e` term
@@ -654,8 +704,28 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       eccentricityB: f.eccentricityB,
       eccentricityL: f.eccentricityL,
       position,
-    };
-    const check = checkFooting(fi);
+    });
+    /*
+     * Every strength combination is checked, and the one that governs is the worst outcome:
+     * one the check cannot resolve, then a failure, then the highest utilization. Taking only
+     * the largest vertical missed a combination with less axial and more moment, which is the
+     * one that loads a footing's edge and its punching perimeter hardest.
+     */
+    const rank = (k: FootingCheck): number =>
+      k.status === 'UNSUPPORTED' ? 3e9 : k.status === 'FAIL' ? 2e9 + k.worstUtilization : k.worstUtilization;
+    let check = checkFooting(fiFor(governing));
+    for (const c of r.factored) {
+      if (c === governing) continue;
+      const k = checkFooting(fiFor(c));
+      if (rank(k) > rank(check)) { check = k; governing = c; }
+    }
+    factoredAxial = Math.abs(governing.fz);
+    demand = { ...demand, governingCombination: governing.combinationName, factoredAxial };
+    if (check.status === 'UNSUPPORTED' && check.bearing.uplift) {
+      // The base lifts in part: the linear trapezoid does not hold, the rigid base does.
+      general();
+      continue;
+    }
 
     // ── The bottom mat ──────────────────────────────────────────
     //
@@ -664,15 +734,15 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
     // X reproduces `check.Mu` exactly — same cantilever, same distribution width, same
     // trapezoid — which is what makes the pair auditable; direction Y is the one the check
     // never had.
-    mat = designFootingMat({
+    const matFor = (c: typeof governing) => designFootingMat({
       B: f.B, L: f.L,
       thickness: f.thickness, cover: f.cover,
       columnB: column.b, columnH: column.h,
       eccentricityB: f.eccentricityB, eccentricityL: f.eccentricityL,
       fc: input.fc, fy: input.fy,
-      factoredAxial,
-      factoredMomentB: governing.my,
-      factoredMomentL: governing.mx,
+      factoredAxial: Math.abs(c.fz),
+      factoredMomentB: c.my,
+      factoredMomentL: c.mx,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,
       preferences: input.matPreferences,
@@ -681,6 +751,18 @@ export function runFootingDesign(input: RunFootingDesignInput): RunFootingDesign
       // models none.
       developmentLengthFor: (diameterMm) => starterDevelopment(diameterMm, input).ldM,
     });
+    // The mat answers the combination that asks for the most steel, which need not be the one
+    // that governs the check; the assumptions say so when they differ.
+    mat = matFor(governing);
+    const steelOf = (m: FootingMatDesign) => m.x.asGoverning + m.y.asGoverning;
+    for (const c of r.factored) {
+      if (c === governing) continue;
+      const m = matFor(c);
+      if (steelOf(m) > steelOf(mat) + 1e-12) {
+        mat = m;
+        assumptions.push(msg('footing.assumption.matCombination', { footing: f.name, combination: c.combinationName }));
+      }
+    }
     assumptions.push(...mat.assumptions);
     // A mat that could not be designed is a named condition on the footing, not a silent
     // absence — the whole point of the status split is that "designed" and "drawn" are

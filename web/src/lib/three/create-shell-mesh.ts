@@ -10,10 +10,14 @@
 // heatmap / contour code uses it to colour ALL vertices of the (possibly
 // extruded) geometry instead of assuming the flat-fan layout.
 import * as THREE from 'three';
+import type { PrismLayer } from '../engine/physical/physical-frame';
+import { prismLayersGeometry } from './physical-mesh';
 
 const SHELL_COLOR = 0x4ecdc4;
 
 const EDGE_COLOR = 0x88ddcc;
+/** The shells' outline colour, for what draws them other than here. */
+export const SHELL_EDGE_COLOR = EDGE_COLOR;
 
 // Per-material palette so different shell materials read distinctly in 3D.
 // materialId 0 keeps the historic teal; others cycle a calm, high-contrast set.
@@ -28,7 +32,7 @@ export function shellColorForMaterial(materialId: number | undefined): number {
   return SHELL_PALETTE[((materialId % n) + n) % n];
 }
 
-export type ShellRenderMode = 'wireframe' | 'solid' | 'sections';
+export type ShellRenderMode = 'wireframe' | 'solid' | 'sections' | 'physical';
 
 export interface ShellRenderOpts {
   renderMode: ShellRenderMode;
@@ -36,6 +40,8 @@ export interface ShellRenderOpts {
   thickness: number;
   /** Face colour (defaults to the material palette / teal). */
   faceColor?: number;
+  /** In `physical` mode, the slab net of the frame (`store/physical-frame.ts`); absent, drawn as `sections`. */
+  physicalLayers?: readonly PrismLayer[];
 }
 
 type Vec3 = { x: number; y: number; z: number };
@@ -43,7 +49,7 @@ type Vec3 = { x: number; y: number; z: number };
 /** Build a per-shell face material (cloned per mesh so selection/contour code
  *  can mutate colour/vertexColors without touching other shells). */
 function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
-  const sections = mode === 'sections';
+  const sections = mode === 'sections' || mode === 'physical';
   const wire = mode === 'wireframe';
   return new THREE.MeshStandardMaterial({
     color,
@@ -197,13 +203,31 @@ function buildPrismGeometry(verts: Vec3[], normal: THREE.Vector3, t: number): TH
 
 /** Crisp outline geometry (coplanar fan diagonals suppressed for flat faces). */
 function buildEdges(geo: THREE.BufferGeometry, mode: ShellRenderMode): THREE.LineSegments {
-  const thresholdDeg = mode === 'sections' ? 20 : 1;
+  const thresholdDeg = mode === 'sections' || mode === 'physical' ? 20 : 1;
   const eg = new THREE.EdgesGeometry(geo, thresholdDeg);
   const mat = new THREE.LineBasicMaterial({ color: EDGE_COLOR, linewidth: 1 });
   const edges = new THREE.LineSegments(eg, mat);
   edges.userData.shellEdge = true;
   edges.raycast = () => {};
   return edges;
+}
+
+/**
+ * A net slab's painters' maps: each vertex's nearest corner (`vertexNodeIndex`) and that corner
+ * alone as its weight (`vertexNodeWeights`), so a result contour still reads on a cut outline.
+ */
+function withCornerMaps(geo: THREE.BufferGeometry, verts: Vec3[]): THREE.BufferGeometry {
+  const pos = geo.getAttribute('position');
+  const idx: number[] = [], weights: number[][] = [];
+  for (let i = 0; i < pos.count; i++) {
+    let best = 0, d = Infinity;
+    verts.forEach((v, k) => { const e = Math.hypot(pos.getX(i) - v.x, pos.getY(i) - v.y); if (e < d) { d = e; best = k; } });
+    idx.push(best);
+    const w = new Array(verts.length).fill(0); w[best] = 1; weights.push(w);
+  }
+  geo.userData.vertexNodeIndex = idx;
+  geo.userData.vertexNodeWeights = weights;
+  return geo;
 }
 
 /** Shared builder for plate (3 nodes) and quad (4 nodes). */
@@ -217,9 +241,12 @@ function buildShellGroup(
   const faceColor = opts.faceColor ?? SHELL_COLOR;
   const mode = opts.renderMode;
 
-  const geo = mode === 'sections'
-    ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
-    : buildFlatGeometry(verts);
+  const net = mode === 'physical' && opts.physicalLayers ? prismLayersGeometry(opts.physicalLayers) : null;
+  // A slab the frame covers whole keeps its flat face, so it can still be picked.
+  const geo = mode === 'physical' && opts.physicalLayers ? (net ? withCornerMaps(net, verts) : buildFlatGeometry(verts))
+    : mode === 'sections' || mode === 'physical'
+      ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
+      : buildFlatGeometry(verts);
 
   const faceMat = makeFaceMaterial(faceColor, mode);
   const mesh = new THREE.Mesh(geo, faceMat);

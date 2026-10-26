@@ -131,10 +131,12 @@ describe('RC QA Diagnostic Shells — every contour component varies somewhere',
     expect(bendingPeak).toBeLessThan(membranePeak); // bending is not the governing field
   });
 
-  it('every one of the 9 components has a finite, non-trivial peak across the model', () => {
+  it('every component has a finite, non-trivial peak across the model', () => {
     const lines: string[] = [];
+    // The required-steel components read a depth and an fy; given those, they live too.
+    const withBasis = allShells.map((s) => ({ ...s, steelBasis: { d: 0.15, fy: 420 } }));
     for (const c of SHELL_CONTOUR_COMPONENTS) {
-      const r = shellComponentRange(allShells, c.key);
+      const r = shellComponentRange(c.group === 'steel' ? withBasis : allShells, c.key);
       const peak = Math.max(Math.abs(r.min), Math.abs(r.max));
       lines.push(`${c.key.padEnd(9)} min=${r.min.toFixed(2)} max=${r.max.toFixed(2)} peak=${peak.toFixed(2)} ${c.unit}`);
       expect(Number.isFinite(peak)).toBe(true);

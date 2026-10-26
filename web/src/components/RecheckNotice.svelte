@@ -10,7 +10,7 @@
    * and a banner says so with the same re-run action and a way back to the list.
    */
   import { recheckStore } from '../lib/store/recheck.svelte';
-  import { rerunAnalysisAndDesign } from '../lib/actions/recheck';
+  import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
@@ -101,7 +101,7 @@
         {:else}
           <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
         {/if}
-        <button class="rc-btn rc-primary" disabled={(recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t('recheck.rerun')}</button>
+        <button class="rc-btn rc-primary" disabled={(recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
       </div>
     </div>
   </div>

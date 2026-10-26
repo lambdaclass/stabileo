@@ -13,8 +13,7 @@
 //! details. A failure here means the solver is producing wrong results.
 //! Do not weaken tolerances without updating SOLVER_ROADMAP.md baseline.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_input, make_beam, make_portal_frame, make_3d_input, make_3d_beam};
 use dedaliano_engine::solver::linear;

@@ -64,7 +64,8 @@ export interface Bar {
 export type Outline =
   | { kind: 'rect'; b: number; h: number; hole?: { b: number; h: number } }
   | { kind: 'tee'; bf: number; hf: number; bw: number; h: number }
-  | { kind: 'circle'; D: number; Dint?: number };
+  | { kind: 'circle'; D: number; Dint?: number }
+  | { kind: 'polygon'; outer: Pt[] };
 
 export interface Materials {
   /** MPa. */
@@ -103,6 +104,8 @@ export function outlineRings(o: Outline): { outer: Pt[]; holes: Pt[][] } {
         outer: circlePolygon(o.D),
         holes: o.Dint && o.Dint > 0 ? [circlePolygon(o.Dint)] : [],
       };
+    case 'polygon':
+      return { outer: o.outer.map((p) => ({ ...p })), holes: [] };
   }
 }
 

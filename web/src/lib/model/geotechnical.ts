@@ -43,8 +43,12 @@ export const GEOTECHNICAL_SCHEMA_VERSION = 1;
  * would be a menu entry that produces no numbers.
  */
 export type BearingResistance =
-  /** Service-level allowable bearing pressure, kPa. The ordinary case. */
-  | { kind: 'allowablePressure'; allowableBearingKPa: number }
+  /**
+   * Service-level allowable bearing pressure, kPa. The ordinary case. `edgeFactor`: under an
+   * eccentric load the edge pressure may reach this many times it while the mean stays under it,
+   * as many reports allow (1 to 1,5; absent, the edge pressure is held to the allowable itself).
+   */
+  | { kind: 'allowablePressure'; allowableBearingKPa: number; edgeFactor?: number }
   /**
    * Not stated. A footing founded on this profile cannot be verified for bearing, and
    * says so. This is the initial state of a new profile — not an error condition.
@@ -97,8 +101,16 @@ export interface SoilProfile {
    * recorded rather than acted on until then, so the assumption is at least visible.
    */
   groundwaterDepthM: number | null;
+  /**
+   * The strata below the founding level, top down, for piles: each its thickness and the
+   * allowable shaft friction and tip resistance a pile gets in it, kPa, as the soil report
+   * states them. Absent: no strata stated, and a pile's capacity cannot be estimated.
+   */
+  strata?: SoilStratum[];
   provenance: GeotechnicalProvenance;
 }
+
+export interface SoilStratum { name: string; thickness: number; shaftFrictionKPa: number; tipResistanceKPa: number }
 
 export interface ProjectGeotechnical {
   version: number;
@@ -291,7 +303,8 @@ export function migrateGeotechnical(raw: unknown): GeotechnicalMigration {
     if (rawBearing && rawBearing.kind === 'allowablePressure') {
       const v = rawBearing.allowableBearingKPa;
       if (typeof v === 'number' && Number.isFinite(v)) {
-        bearing = { kind: 'allowablePressure', allowableBearingKPa: v };
+        const k = rawBearing.edgeFactor;
+        bearing = { kind: 'allowablePressure', allowableBearingKPa: v, ...(typeof k === 'number' && k > 1 && k <= 1.5 ? { edgeFactor: k } : {}) };
       } else {
         // A stored pressure that is not a finite number is dropped to `unstated` and the
         // user is told, rather than carried as NaN into a utilisation.
@@ -320,6 +333,12 @@ export function migrateGeotechnical(raw: unknown): GeotechnicalMigration {
       unitWeightKNm3: num(e.unitWeightKNm3),
       subgradeModulusKNm3: num(e.subgradeModulusKNm3),
       groundwaterDepthM: num(e.groundwaterDepthM),
+      ...(Array.isArray(e.strata) ? { strata: (e.strata as Array<Record<string, unknown>>).filter((x) => x && typeof x === 'object').map((x) => ({
+        name: typeof x.name === 'string' ? x.name : '',
+        thickness: Number(x.thickness) > 0 ? Number(x.thickness) : 0,
+        shaftFrictionKPa: Number(x.shaftFrictionKPa) >= 0 ? Number(x.shaftFrictionKPa) : 0,
+        tipResistanceKPa: Number(x.tipResistanceKPa) >= 0 ? Number(x.tipResistanceKPa) : 0,
+      })) } : {}),
       provenance: { source, reference },
     });
   }

@@ -8,8 +8,7 @@
 //! Each constrained model is compared with the same structure tied physically by very stiff,
 //! massless truss links. They must agree on period, Γ, effective mass, cumulative mass ratio
 //! and spectral displacement, and Σ effective mass can never exceed the total mass.
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::solver::{modal, spectral};

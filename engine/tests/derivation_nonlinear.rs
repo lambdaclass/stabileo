@@ -8,7 +8,7 @@
 //! `#[ignore = "open question NL-k: ..."]` demonstrate a discrepancy that is
 //! listed, with its analysis, in the open-questions section of the document.
 
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::solver::dof::DofNumbering;

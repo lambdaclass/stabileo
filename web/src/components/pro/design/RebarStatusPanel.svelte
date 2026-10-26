@@ -249,6 +249,8 @@
     border: 1px solid var(--st-hair-strong); color: var(--st-text-2); white-space: nowrap;
   }
   .st-refused .dot { background: #d4762a; }
+  /* Held: favourable local checks the member's verdict does not take as a pass. */
+  .st-held .dot { background: var(--st-text-3); border: 1px solid var(--st-warn); }
   .st-designed-not-modelled .dot { background: #d9c04a; }
   .st-not-evaluated .dot { background: #8b93a3; }
   .st-modelled .dot { background: #4caf72; }

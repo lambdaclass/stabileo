@@ -11,6 +11,9 @@
 import { test, expect, loadModel, solveModel } from './fixtures';
 import type { Page } from '@playwright/test';
 
+// This spec is about the notice: it must open untouched (fixtures.ts acknowledges it elsewhere).
+test.use({ recheckNotice: 'assert' });
+
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
 const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
 

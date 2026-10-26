@@ -20,8 +20,7 @@
 //!   broken-line beams) with nodal forces and moments: section forces from cut
 //!   sums, exact in ℚ.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::make_input;
 use dedaliano_engine::solver::linear::solve_2d;

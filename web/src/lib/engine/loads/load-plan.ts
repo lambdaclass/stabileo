@@ -34,7 +34,7 @@
 import { engineFailureMessage } from '../engine-unavailable';
 import { memberMeanArea } from '../../section/variable';
 import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
-import type { ElementKind, OccupancyEntry } from '../../codes/cirsoc101/live-loads';
+import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, type GravityLayout } from './plan-gravity';
@@ -122,6 +122,12 @@ export interface LoadPlanInput {
   dead: DeadComponent[];
   /** Occupancy key from the CIRSOC 101 Table 4.1 catalogue. */
   occupancyKey: string;
+  /**
+   * The CIRSOC 101-2025 §4.3.2 partition live load asked for, kN/m² of floor (absent or 0: none).
+   * A live load: it goes into L with the floor's Lo, unreduced (§4.7.1 reduces Tabla 4.1 values
+   * only), patterned with it, and not at all when Lo is over 3,85 kN/m² (`partitionLiveAllowance`).
+   */
+  partitionLive?: number;
   /** Tributary width used to convert area loads to line loads on beams, m. */
   tributaryWidth: number;
   /**
@@ -414,6 +420,8 @@ export interface LoadPlan {
     occupancy: ProvenancedValue<number>;
     liveReduced: ProvenancedValue<number>;
     deadTotal: ProvenancedValue<number>;
+    /** The §4.3.2 partition live load added to the floor's L, when one was asked for. */
+    partitionLive?: ProvenancedValue<number>;
     windQh?: ProvenancedValue<number>;
     /** Each wind axis's gust effect factor and its derivation, when computed (§1.9). */
     windGust?: Partial<Record<'x' | 'y', import('../../codes/cirsoc102/gust').GustResult>>;
@@ -689,6 +697,20 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     derivation.push(msg('loadPlan.derivation.reductionDisabled'));
   }
 
+  /*
+   * §4.3.2 — the partition live load, on the floors' L beside Lo. Unreduced, so it is added after
+   * the reduction, member by member; the roofs take their own loads, not this one.
+   */
+  const partitionAsked = input.partitionLive ?? 0;
+  const partition = partitionLiveAllowance(lo, partitionAsked);
+  if (partitionAsked > 0) {
+    derivation.push(partition.message);
+    refs.push(...partition.refs);
+  }
+  const partitionQ = partition.qKNm2;
+  /** The floor's live load before §4.7, kN/m²: Lo and the partition allowance. */
+  const floorLo = lo + partitionQ;
+
   // ── Cases ──
   /*
    * The live load, reduced here, never goes into a live case the user reduces by hand: the case's
@@ -737,9 +759,10 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   // Without roof settings a roof is a floor: its area counts as floor area.
   const floorAreas = input.roof ? layout.areaOf : new Map([...layout.areaOf].map(([id, a]) => [id, a + (layout.roofAreaOf.get(id) ?? 0)]));
   for (const [id, a] of layout.roofAreaOf) if (!input.roof && !floorAreas.has(id)) floorAreas.set(id, a);
-  const liveOf = reducedFor(occ, lo, liveDesign, floorAreas);
+  const liveOfTable = reducedFor(occ, lo, liveDesign, floorAreas);
+  const liveOf = partitionQ > 0 ? (id: number) => liveOfTable(id) + partitionQ : liveOfTable;
   if (input.applyLiveReduction) {
-    const ls = [...floorAreas.keys()].map(liveOf);
+    const ls = [...floorAreas.keys()].map(liveOfTable);
     if (ls.length) derivation.push(msg('loadPlan.derivation.reductionPerMember', { min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), n: ls.length }));
   }
   let roofLoads: RoofLoads | undefined;
@@ -783,7 +806,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   }
   const area = planAreaLoads({
     layout, tributaryWidth: input.tributaryWidth,
-    floor: { dead: deadTotal, lo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
+    floor: { dead: deadTotal, lo: floorLo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
   refs.push(...area.refs);
@@ -899,7 +922,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     const atRoof = byExtent && roofLevel(i);
     const area = byExtent ? lv.planAreaM2 : ba.area;
     const superimposed = byExtent ? (atRoof ? roofLoads!.dead : deadTotal) * area : ba.dead;
-    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : lo) * area : ba.live;
+    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : floorLo) * area : ba.live;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
@@ -1062,6 +1085,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       occupancy: fromProject(lo, 'kN/m²'),
       liveReduced: fromProject(liveDesign, 'kN/m²'),
       deadTotal: fromProject(deadTotal, 'kN/m²'),
+      ...(partitionAsked > 0 ? { partitionLive: fromProject(partitionQ, 'kN/m²') } : {}),
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
     levels,

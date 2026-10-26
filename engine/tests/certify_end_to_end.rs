@@ -3,8 +3,8 @@
 //! (`certify::reassembly`) agrees with the engine on every example model,
 //! fixture and random model it covers, and catches planted assembly bugs.
 
-mod e2e_models;
-mod fuzz_models;
+use crate::e2e_models;
+use crate::fuzz_models;
 
 use dedaliano_engine::certify::reassembly::EndToEnd;
 use dedaliano_engine::certify::{certify_linear_2d_full, certify_linear_3d_full, CertificateLevel};
@@ -263,7 +263,7 @@ fn end_to_end_stable_3d() {
     assert!(t.certified >= 135, "only {} stable 3D models certified end to end", t.certified);
 }
 
-/// `E2E_SEED=161 cargo test --release --test certify_end_to_end stable_one -- --ignored --nocapture`
+/// `E2E_SEED=161 cargo test --release --test certificates certify_end_to_end::stable_one -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn stable_one() {

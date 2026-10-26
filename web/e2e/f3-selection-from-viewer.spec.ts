@@ -12,7 +12,7 @@
  * and the claim here is about which member — not about hit-testing geometry.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, designAll } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designAll, designPlace, open3D } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const FRAMES = 'rc-design-qa-8';
@@ -34,10 +34,8 @@ function channel(page: Page): Promise<number[]> {
 }
 
 async function openDetailing(page: Page): Promise<void> {
-  const section = page.getByTestId('detailing-disclosure');
-  if (await section.getAttribute('open') === null) {
-    await section.locator('> summary').click();
-  }
+  await designPlace(page, 'detailing');
+  const section = page.getByTestId('desk-detailing');
   await expect(page.getByTestId('rc-member-list')).toBeVisible();
 }
 
@@ -51,7 +49,7 @@ async function detailedWithViewer(page: Page): Promise<void> {
     .poll(() => page.evaluate(() => (window.__stabileo as unknown as
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
     .toBeGreaterThan(0);
-  await page.getByTestId('cmd-open-3d').click();
+  await open3D(page);
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
 }
 
@@ -105,7 +103,7 @@ test.describe('@slow selecting in the viewer marks the row', () => {
     // Inside its scrolling container, not merely possessing a box somewhere.
     const visible = await row.evaluate((el) => {
       const box = el.getBoundingClientRect();
-      const panel = el.closest('.rc-workflow');
+      const panel = el.closest('.dd-canvas-body');
       if (!panel) return false;
       const p = panel.getBoundingClientRect();
       return box.bottom > p.top && box.top < p.bottom;
@@ -134,7 +132,7 @@ test.describe('@slow selecting in the viewer marks the row', () => {
     await page.getByTestId(`rc-member-${b}`).click();
     expect(await channel(page)).toEqual([Number(b)]);
 
-    await page.getByTestId('cmd-open-3d').click();
+    await open3D(page);
     await expect(page.getByTestId('rebar-workspace')).toBeVisible();
     // The viewer opens on what the list selected, rather than on its own remembered pick.
     await expect(page.getByTestId('rebar-sel-parent')).toContainText(b);

@@ -12,6 +12,7 @@
  * Pure: no store access, no side effects.
  */
 
+import { regroupBars } from './rebar-groups';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
 import { resolveLayers, resolveColumnReinf } from '../station-design-forces';
 import type { DesignCodeAdapter } from './code-adapter';
@@ -31,6 +32,13 @@ export interface BatchPatch {
   // ── Beam transverse (per region) ──
   stirrupsSupport?: Partial<StirrupDef>;
   stirrupsSpan?: Partial<StirrupDef>;
+  // ── Beam: skin bars (§9.7.2.3), support region length, end shape of the bottom bars ──
+  /** Skin bars on the side faces; null takes them off. */
+  skin?: { diameter: number; spacing: number } | null;
+  /** Where the support regions end, as a share of the span (0,10 to 0,45). */
+  regionT?: number;
+  /** How the bottom bars end at both supports. */
+  bottomEnds?: 'hook' | 'straight';
   // ── Column ──
   column?: { cornerDia?: number; faceDia?: number; perFace?: number };
   ties?: Partial<StirrupDef>;
@@ -119,7 +127,7 @@ function layersFor(count: number, diameter: number, perRow: number): RebarLayer[
 
 /** True when the patch touches any beam-only field. */
 export function patchTouchesBeam(p: BatchPatch): boolean {
-  return !!(p.bottomSpan || p.topStart || p.topEnd || p.stirrupsSupport || p.stirrupsSpan);
+  return !!(p.bottomSpan || p.topStart || p.topEnd || p.stirrupsSupport || p.stirrupsSpan || p.skin !== undefined || p.regionT !== undefined || p.bottomEnds);
 }
 /** True when the patch touches any column-only field. */
 export function patchTouchesColumn(p: BatchPatch): boolean {
@@ -194,9 +202,11 @@ export function applyPatch(
       }
       reg[rs.layersKey] = layers;
       reg[rs.key] = { count, diameter };
-      // Keep the group form consistent with the flat layers so the two cannot diverge.
+      // The cut groups follow the new layers, so the two cannot diverge and the cut-offs are kept.
       const groupsKey = rs.key === 'bottomSpan' ? 'bottomGroups' : rs.key === 'topStart' ? 'topStartGroups' : 'topEndGroups';
-      if (reg[groupsKey]) delete reg[groupsKey];
+      const regrouped = regroupBars(reg[groupsKey], layers);
+      if (regrouped) reg[groupsKey] = regrouped;
+      else delete reg[groupsKey];
       if (beforeCount !== count || beforeDia !== diameter) {
         changes.push({ field: rs.label, before: fmtLayers(beforeLayers), after: fmtLayers(layers) });
       }
@@ -223,6 +233,37 @@ export function applyPatch(
       if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
         changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
       }
+    }
+
+    if (patch.skin !== undefined) {
+      const before = reg.skin;
+      const fmt = (x?: { diameter: number; spacing: number }) => (x ? `Ø${x.diameter} c/${(x.spacing * 100).toFixed(0)}` : '—');
+      if (patch.skin === null) delete reg.skin;
+      else if (!(patch.skin.spacing >= BEAM_LIMITS.minSpacing - 1e-9)) blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.spacingTooSmall', params: { field: 'skin', spacing: patch.skin.spacing } });
+      else reg.skin = { diameter: patch.skin.diameter, spacing: patch.skin.spacing };
+      if (fmt(before) !== fmt(reg.skin)) changes.push({ field: 'skin', before: fmt(before), after: fmt(reg.skin) });
+    }
+    if (patch.regionT !== undefined) {
+      const before = reg.regionT ?? 0.25;
+      if (patch.regionT < 0.1 - 1e-9 || patch.regionT > 0.45 + 1e-9) {
+        blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.regionOutOfRange', params: { value: patch.regionT } });
+      } else {
+        reg.regionT = patch.regionT;
+        if (Math.abs(before - patch.regionT) > 1e-9) changes.push({ field: 'support region', before: `${(before * 100).toFixed(0)} %`, after: `${(patch.regionT * 100).toFixed(0)} %` });
+      }
+    }
+    if (patch.bottomEnds) {
+      const groups = reg.bottomGroups?.length ? reg.bottomGroups : [{ layers: resolveLayers(reg.bottomSpanLayers, reg.bottomSpan) }];
+      const end = patch.bottomEnds;
+      const before = groups.map((g) => `${g.anchorageStart ?? 'auto'}/${g.anchorageEnd ?? 'auto'}`).join(' ');
+      // The groups that run into the supports take the end shape; the cut-off ones end where they end.
+      reg.bottomGroups = groups.map((g) => ({
+        ...g,
+        ...(g.continueStart !== false ? { anchorageStart: end } : {}),
+        ...(g.continueEnd !== false ? { anchorageEnd: end } : {}),
+      }));
+      const after = reg.bottomGroups.map((g) => `${g.anchorageStart ?? 'auto'}/${g.anchorageEnd ?? 'auto'}`).join(' ');
+      if (before !== after) changes.push({ field: 'bottom ends', before, after });
     }
   }
 
@@ -260,7 +301,7 @@ export function applyPatch(
         spacing: patch.ties.spacing ?? before?.spacing ?? 0.15,
       };
       const cornerDia = next.column?.cornerDia ?? beforeCol?.cornerDia ?? 16;
-      const sMax = maxTieSpacing(cornerDia, merged.diameter, b, h);
+      const sMax = maxTieSpacing(cornerDia, merged.diameter, b, h, ctx.codeEdition);
       if (merged.spacing < COLUMN_LIMITS.minSpacing - 1e-9) {
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.spacingTooSmall', params: { field: 'ties', spacing: merged.spacing } });
       } else if (merged.spacing > sMax + 1e-9) {

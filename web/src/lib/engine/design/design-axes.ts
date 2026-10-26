@@ -49,6 +49,31 @@ export interface DesignAxes {
   basis: 'stress-proxy' | 'dominant-moment' | 'no-demand';
   /** Ratio secondary/primary governing moment (0 when no demand). */
   secondaryRatio: number;
+  /**
+   * The secondary axis's demand is carried by the slab cast with the beam, as its diaphragm: a
+   * beam bending in its strong axis under a slab takes the in-plane moment through the slab, not
+   * through its own width, and is not checked biaxially for it (`withSlabDiaphragm`).
+   */
+  secondaryCarriedBy?: 'slab';
+}
+
+/**
+ * A beam with a slab cast on it (its flange) bends in the slab's plane only together with the slab,
+ * which as a diaphragm is far stiffer and stronger in that plane than the beam's width: the
+ * in-plane moment (Mz) and its shear go to the slab. So the beam bending about its strong axis
+ * (My, vertical loads) is designed for it alone, and the secondary axis is stated as the slab's.
+ * A beam with no slab, or turned about its axis, keeps its biaxial check (`resolveDesignAxes`
+ * with `slab` designs an upright beam under its slab about My whatever its in-plane moment).
+ */
+/** A beam with its section upright, turned less than 5° about its axis: its My bends it vertically. */
+export function uprightBeam(e: { rollAngle?: number } | undefined): boolean {
+  const roll = (((e?.rollAngle ?? 0) % 180) + 180) % 180;
+  return roll < 5 || roll > 175;
+}
+
+export function withSlabDiaphragm(axes: DesignAxes, hasFlange: boolean): DesignAxes {
+  if (!hasFlange || axes.flexure !== 'My' || !axes.biaxial) return axes;
+  return { ...axes, biaxial: false, secondaryCarriedBy: 'slab' };
 }
 
 /** Minimal geometric input — a rectangular section. */
@@ -109,6 +134,8 @@ export function resolveDesignAxes(
   elementType: 'beam' | 'column' | 'wall',
   section: AxisSectionInput,
   demands: ElementDesignDemands | undefined,
+  /** A beam with a slab cast on it, upright: its in-plane axis is the slab's (`withSlabDiaphragm`). */
+  o: { slab?: boolean } = {},
 ): DesignAxes {
   const my = peakMy(demands);
   const mz = peakMz(demands);
@@ -151,6 +178,10 @@ export function resolveDesignAxes(
     // check then covers the pair. Deterministic tie-break: My wins ties.
     return forAxis(my >= mz ? 'My' : 'Mz', 'dominant-moment');
   }
+
+  // A beam under its slab bends vertically; whatever the in-plane moment, the slab takes it. The
+  // stress proxy would put a 15 cm edge band's design on its width for the slab's in-plane action.
+  if (o.slab) return withSlabDiaphragm(forAxis('My', 'stress-proxy'), true);
 
   // Beams: elastic-stress proxy with the axis-correct section orientation.
   // stressMy = My / (b · h²)   — bending over depth h

@@ -20,9 +20,11 @@
   import type { FigureView } from '../../lib/export/view-figure';
   import type { InkStyle } from '../../lib/export/paper-ink';
   import { SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey } from '../../lib/engine/shell-stress';
+  import { reportStoryDrifts } from '../../lib/engine/pro-report-inputs';
   import { reportFigures } from '../../lib/store/report-figures.svelte';
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
+  import { REPORT_FORMATS, type ReportFormat } from '../../lib/export/report-formats';
 
   interface Props {
     open: boolean;
@@ -32,7 +34,7 @@
     advancedRan: string[];
     hasDiagnostics: boolean;
     hasQuantities: boolean;
-    ongenerate: (config: ReportConfig, figures: ReportFigureChoices) => void;
+    ongenerate: (config: ReportConfig, figures: ReportFigureChoices, format?: ReportFormat) => void;
   }
 
   let { open = $bindable(false), hasResults, hasAdvanced, advancedRan, hasDiagnostics, hasQuantities, ongenerate }: Props = $props();
@@ -58,11 +60,13 @@
   let companyName = $state(saved.companyName ?? '');
   let companyLogo = $state<string | null>(saved.companyLogo ?? null);
   let sec = $state<Sections>({
-    modelData: true, results: true, verification: false, advancedAnalysis: true, storyDrift: false,
+    modelData: true, results: true, advancedAnalysis: true, storyDrift: true,
     diagnostics: true, quantities: true, loads: true, envelope: true, statics: true, deflections: true, figures: true,
     ...(saved.sections ?? {}),
-    // Never offered here: a code check is reported from the design, and story drift was never implemented.
+    // Never offered here: a code check is a design output, reported by the memoria (Documents).
   });
+  // The CIRSOC 103 drift check runs when the seismic settings and a solved seismic case exist.
+  const hasDrift = $derived(open && (reportStoryDrifts().drifts?.length ?? 0) > 0);
   let parts = $state<Record<ReportPart, boolean>>({
     nodes: true, materials: true, sections: true, members: true, supports: true, shells: true, combinations: true, ...(saved.parts ?? {}),
   });
@@ -128,8 +132,9 @@
   const SUMMARIES = [
     { id: 'envelope', key: 'report.env.title' }, { id: 'statics', key: 'proExport.sheet.Statics' }, { id: 'deflections', key: 'defl.title' },
   ] as const;
-  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics';
+  type SecKey = 'envelope' | 'statics' | 'deflections' | 'quantities' | 'diagnostics' | 'storyDrift';
   const otherItems = $derived([
+    { id: 'storyDrift', label: t('report.secDrift'), disabled: !hasDrift, hint: hasDrift ? undefined : t('report.noData') },
     { id: 'quantities', label: t('report.secQuantities'), disabled: !hasQuantities },
     { id: 'diagnostics', label: t('report.secDiagnostics'), disabled: !hasDiagnostics, hint: hasDiagnostics ? undefined : t('proReport.noneFound') },
   ]);
@@ -153,6 +158,7 @@
     if (sec.advancedAnalysis && hasAdvanced) out.push(t('proReport.partAdvanced'));
     if (sec.quantities && hasQuantities) out.push(t('proReport.partQuantities'));
     if (sec.diagnostics && hasDiagnostics) out.push(t('proReport.partDiagnostics'));
+    if (sec.storyDrift && hasDrift) out.push(t('report.secDrift'));
     return out.join(' · ') || '—';
   });
   const figuresSummary = $derived([
@@ -162,6 +168,8 @@
     reportFigures.list.length ? tp('proReport.addedN', { n: reportFigures.list.length }) : null,
   ].filter(Boolean).join(' · '));
 
+  /** The report's format: the PDF opens it to print (as before); the other four download it. */
+  let format = $state<ReportFormat>('pdf');
   function handleGenerate() {
     persist();
     ongenerate({
@@ -171,15 +179,16 @@
       hasProjectInfo,
       advancedPicked: { ...advancedPicked },
       sections: {
-        ...$state.snapshot(sec), verification: false, storyDrift: false, parts: $state.snapshot(parts),
+        ...$state.snapshot(sec), parts: $state.snapshot(parts),
         // The model's section goes when any of its tables does; what has no data is not asked for.
         modelData: partsShown.some((p) => partOn(p.id)),
         advancedAnalysis: sec.advancedAnalysis && hasAdvanced,
         quantities: sec.quantities && hasQuantities,
         diagnostics: sec.diagnostics && hasDiagnostics,
+        storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
-    }, $state.snapshot(figs));
+    }, $state.snapshot(figs), format);
   }
 </script>
 
@@ -286,11 +295,15 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('report.cancel')}</button>
+    <label class="rpt-format">{t('export.formats')}
+      <select bind:value={format} data-testid="rpt-format">{#each REPORT_FORMATS as f (f)}<option value={f}>{t(`export.format.${f}`)}</option>{/each}</select>
+    </label>
     <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{t('proReport.generate')}</button>
   {/snippet}
 </ExportDialog>
 
 <style>
+  .rpt-format { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--st-text-2); }
   .rpt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; align-items: start; }
   .rpt-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   @media (max-width: 560px) { .rpt-cols { grid-template-columns: 1fr; } }

@@ -11,8 +11,7 @@
 //! 4. Models that should fail diagnostically
 //! 5. Conditioning boundary probing
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_input, make_beam, make_3d_input, make_3d_beam};
 use dedaliano_engine::solver::linear;

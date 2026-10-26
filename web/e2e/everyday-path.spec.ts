@@ -10,7 +10,7 @@
  *
  *   example → CIRSOC loads and combinations → solve → steel checks → report
  */
-import { test, expect, loadModel, solveModel, alSection } from './fixtures';
+import { test, expect, loadModel, solveModel, alSection, designPlace } from './fixtures';
 
 test.describe('@smoke the everyday path', () => {
   test('a steel portal frame, from code loads to the report', async ({ pro: page }) => {
@@ -37,8 +37,8 @@ test.describe('@smoke the everyday path', () => {
     await solveModel(page);
 
     // The steel checks pick the solve up: every member has a row, and each row a verdict.
-    await page.getByTestId('pr-stage-design').click();
-    await page.getByTestId('pr-cmd-steel').click();
+    // Design is one workspace: the profiles are its place in sizing.
+    await designPlace(page, 'steel');
     await expect(page.getByTestId('pro-steel-workflow')).toBeVisible();
     const table = page.getByTestId('steel-results');
     await table.scrollIntoViewIfNeeded();

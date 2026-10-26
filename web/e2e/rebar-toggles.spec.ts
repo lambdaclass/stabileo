@@ -29,7 +29,7 @@
  * carries the cases that need their own page: reopening, reloading, isolation, picking.
  */
 
-import { test, expect, designAll, loadModel, SOLID_FAMILIES, openDocumentsStage } from './fixtures';
+import { test, expect, designAll, loadModel, SOLID_FAMILIES, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 import type { RebarSceneCensus } from './fixtures';
 
 type Page = import('@playwright/test').Page;
@@ -53,14 +53,14 @@ async function assemblyCount(page: Page): Promise<number> {
 async function openWorkspace(page: Page, example: string, withFloors = false) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
   await expect.poll(() => assemblyCount(page), { timeout: 60_000 }).toBeGreaterThan(0);
 
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
     await floors.click();
@@ -254,8 +254,8 @@ test.describe('a family switch reaches the scene', () => {
         await setSwitch(page, id, true);
       }
       // A counter that did not move cannot be explained away as a fast machine. Visibility is a
-      // flag on a mesh, and eighteen clicks must cost eighteen flags.
-      expect(await counters(page), 'eighteen switch clicks changed nothing structural')
+      // flag on a mesh, and every click must cost one flag.
+      expect(await counters(page), 'twenty switch clicks changed nothing structural')
         .toEqual(before);
     });
 });
@@ -280,7 +280,9 @@ test.describe('the rail survives what is put above it', () => {
       await page.setViewportSize({ width: 1280, height: 720 });
       await openWorkspace(page, SMALL);
       await expect(page.getByTestId('rebar-provisional-banner')).toBeVisible();
-      await expect(page.getByTestId('rebar-torsion-banner')).toBeVisible();
+      // The torsion banner said torsion went unchecked. The CIRSOC adapter checks it now
+      // (§22.7), so the banner no longer rises on this fixture; the provisional one still does.
+      await expect(page.getByTestId('rebar-torsion-banner')).toHaveCount(0);
 
       // Every section of the rail, top to bottom, with a real box.
       for (const id of ['rebar-tally', 'rebar-status-panel', 'rebar-layer-column']) {
@@ -427,7 +429,7 @@ test.describe('what the switches survive', () => {
        */
       await page.evaluate(() => window.__stabileoActions.openDesignTab());
       await designAll(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       const generate = page.getByTestId('cmd-generate-detailing');
       await expect(generate).toBeEnabled({ timeout: 60_000 });
       await generate.click();

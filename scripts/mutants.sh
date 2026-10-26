@@ -49,10 +49,18 @@ case $scope in
   *) echo "MUTANTS_SCOPE must be certify, solver, element or all" >&2; exit 64 ;;
 esac
 
+# The test binary a test file belongs to: the top-level engine/tests/*.rs files are modules of a
+# few binaries (engine/tests/<binary>/main.rs, `#[path = "../<file>.rs"]`); a directory target
+# (core, integration) is its own binary. A binary runs all its modules, a superset of the file.
+binary_of() {
+  local main
+  main=$(grep -l "^#\[path = \"\.\./$1\.rs\"\]" engine/tests/*/main.rs) || { echo "$1"; return; }
+  basename "$(dirname "$main")"
+}
 # -C passes each test-target flag to both `cargo test --no-run` and `cargo test`,
 # so only the listed targets are built per mutant (`-- …` reaches only the run).
 cargo_args=(-C --lib)
-for t in $(printf '%s\n' "${tests[@]}" | sort -u); do cargo_args+=(-C --test -C "$t"); done
+for t in $(for t in "${tests[@]}"; do binary_of "$t"; done | sort -u); do cargo_args+=(-C --test -C "$t"); done
 # Equivalent mutants in constant index arithmetic (k[0 * 6 + 0] -> k[0 * 6 - 0]):
 # found on the current source by scripts/mutants-equivalent.py, which keeps a
 # mutant out only when the mutated index has exactly the same value.

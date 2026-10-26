@@ -30,7 +30,7 @@
  * standing at slab nodes, so punching genuinely applies — and seven fixed supports to found.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 const SHELLS = 'rc-qa-diagnostic-shells';
@@ -128,16 +128,15 @@ async function designFloor(page: Page) {
 // ─── Documents ──────────────────────────────────────────────────
 
 async function openDetailingPanel(page: Page) {
-  await ensureOpen(page, 'detailing-disclosure');
   /**
    * The exports and the professional review moved OUT of the detailing panel.
    *
-   * They are a stage of the workflow now — `documents-disclosure` — rather than the tail of the
+   * They are a step of design now (Document, interface A) rather than the tail of the
    * coordinated-detailing panel, so reaching `doc-report`, `doc-dxf`, `doc-xlsx` and the review
-   * controls means opening that disclosure too. Every assertion in this file is unchanged; only
+   * controls means going to that place. Every assertion in this file is unchanged; only
    * which container holds the controls is.
    */
-  await ensureOpen(page, 'documents-disclosure');
+  await designPlace(page, 'documents');
   await expect(page.getByTestId('documents')).toBeVisible();
 }
 
@@ -154,6 +153,9 @@ async function captureReport(page: Page): Promise<string> {
     page.getByTestId('doc-report').click(),
   ]);
   await popup.waitForLoadState('domcontentloaded');
+  // The tab is opened inside the click and written once the provenance is in (an await later),
+  // so its first document is the empty one: read it once the report is there.
+  await popup.waitForFunction(() => (document.body?.textContent ?? '').trim().length > 0, null, { timeout: 60_000 });
   const html = await popup.content();
   await popup.close();
   return html;
@@ -314,12 +316,13 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
       await expect(blockers).not.toContainText('engineer');
       await expect(page.getByTestId('review-record')).toHaveCount(0);
 
-      // And the blocking conditions are visible, so the reason is actionable rather than a
-      // bare refusal. Punching is one of them on this fixture.
+      // Punching is no longer one of the blockers: it carries its unbalanced moment since the
+      // slab and punching work, so every slab-column joint on this fixture reads as evaluated.
       await openFloorFamilies(page);
       await page.getByTestId('floor-family-slabs').click();
       const cells = await page.locator('[data-testid^="slab-punching-P"]').allInnerTexts();
-      expect(cells.some((t) => /not verified/i.test(t))).toBe(true);
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells.some((t) => /not verified/i.test(t))).toBe(false);
     });
 
   test('FD-F editing the footing SUPERSEDES the document, and regeneration issues a new one',

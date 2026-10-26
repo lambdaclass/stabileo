@@ -21,8 +21,7 @@
 //! against NaN is false, so a NaN in the first case is never replaced and
 //! silently poisons that field of the envelope.
 
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::{make_3d_input, make_input};
 use dedaliano_engine::solver::linear;

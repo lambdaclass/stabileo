@@ -377,7 +377,7 @@ fn rel_diff_3d(a: &AnalysisResults3D, b: &AnalysisResults3D) -> f64 {
 /// Measurement (Phase 3.3 decision input): which preconditioner does PCG
 /// actually use on the 2D beam (whose pattern breaks strict IC(0)) and on a
 /// large MITC4 shell, with explicit `ics`/`mic` and with the auto chain?
-///   cargo test --release --test pcg_solver_tests diagnose_ics_dispatch -- --ignored --nocapture
+///   cargo test --release --test solver pcg_solver_tests::diagnose_ics_dispatch -- --ignored --nocapture
 #[test]
 #[ignore]
 fn diagnose_ics_dispatch() {

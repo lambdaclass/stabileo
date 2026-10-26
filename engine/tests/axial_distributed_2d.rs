@@ -5,7 +5,7 @@
 //! plane solve as equivalent loads at the end nodes: displacements and reactions were right,
 //! but the member saw no span load and N came out constant — the average of its true end
 //! values. Every number below is closed form, from the member's free body.
-mod common;
+use crate::common;
 use common::make_input;
 use dedaliano_engine::postprocess::{
     combinations::{combine_results_refs, CombinationFactor},

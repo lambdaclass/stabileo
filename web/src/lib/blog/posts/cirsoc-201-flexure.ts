@@ -20,20 +20,25 @@
  * ── What the embed actually shows, which is not the same thing ──
  *
  * The 0.81 above is this post's beam WITH 2 Ø25. The embed does not assume a
- * reinforcement, it designs one, and its own bars give D/C = 0.89. The caption
- * quotes 0.89 and the closing note explains the two.
+ * reinforcement, it designs one, and its own bars give D/C = 0.90. The caption
+ * quotes 0.90 and the closing note explains the two.
  *
  * Two things were wrong here before, both found by driving the frame rather
  * than by reading it:
  *
  *   · The caption named two buttons. It takes three. After "Compute demands"
  *     and "Run code check" the table still reads "no reinforcement / not
- *     verified" — there is nothing to check until "Design all" places bars.
+ *     verified" — there is nothing to check until «Size…» places bars.
  *   · It promised D/C = 0.81 on screen. Nothing on screen said 0.81 after the
  *     full flow, and Mu = 92.5 is never displayed at all.
  *
- * The 5 m span is two elements, so there are two rows, 0.89 and 0.87, both governed by the
- * anchorage of the bars since development length follows Tabla 25.4.2.3 (before that: 0.89
+ * The 5 m span is two elements, designed as one span, so there are two rows, both 0.90 and
+ * governed by shear in the span (bending 0.89 just below it). Measured after the second top layer
+ * at the 6Ø10 support was stepped from the Ø12 continuous pair (`stackedLayerDepth`): before
+ * that both rows read "No verifica", the layer laid 1.7 mm inside the pair's clear distance, and
+ * the caption still quoted 0.89 and 0.87 governed by the anchorage of the bars, which the screen
+ * had stopped showing. Earlier still, since development length followed Tabla 25.4.2.3: 0.89 and
+ * 0.87 by anchorage (before that: 0.89
  * governed by positive bending and 0.88 by shear; 0.86 while self-weight was lumped at the nodes,
  * where the share at the supports went straight into the reactions and never through the beam's
  * shear). Shear governs the summary line
@@ -142,7 +147,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Tres botones y en este orden: "Calcular solicitaciones", "Calcular acero requerido" y "Diseñar todo". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice "sin armadura". El tramo de 5 m está modelado con dos elementos; el primero cierra en D/C = 0,89 y el segundo en 0,87, los dos gobernados por el anclaje de las barras (Tabla 25.4.2.3): la flexión y el corte quedan por debajo. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
+          label: 'La viga en Stabileo, en el flujo de diseño de PRO. Si el diseño está apagado, tocá "Activar el diseño en esta visita" en el aviso. Tres botones y en este orden: "Calcular solicitaciones", "Calcular acero requerido" y "Dimensionar…". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice "sin armadura". El tramo de 5 m está modelado con dos elementos; los dos cierran en D/C = 0,90, gobernados por el corte en el tramo: la flexión y el anclaje de las barras quedan por debajo. Cambiá la carga y volvé a correrlo. PRO está en desarrollo; el módulo de hormigón es la parte implementada y testeada.',
         },
 
         { k: 'h', t: 'En resumen' },
@@ -156,7 +161,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Todas las cifras salen del módulo CIRSOC 201 de Stabileo, corrido sobre las secciones que se indican, y no de una tabla. Una advertencia que vale la pena, porque la primera versión de esta nota se equivocó ahí: el cálculo a mano daba D/C = 0,74 y la aplicación 0,81. La diferencia era el peso propio, 2 kN/m que la aplicación suma a la carga permanente. Tenía razón la aplicación. Y una aclaración sobre el editor de arriba, para que los dos números no se pisen: ese 0,81 supone 2 Ø25, que es la armadura con la que trabaja esta nota; el 0,89 que muestra el editor es con las barras que elige él mismo al diseñar. Misma viga, dos armaduras. Si alguna vez un número de acá no coincide con lo que muestra el editor, creele al editor.' },
+        { k: 'note', t: 'Todas las cifras salen del módulo CIRSOC 201 de Stabileo, corrido sobre las secciones que se indican, y no de una tabla. Una advertencia que vale la pena, porque la primera versión de esta nota se equivocó ahí: el cálculo a mano daba D/C = 0,74 y la aplicación 0,81. La diferencia era el peso propio, 2 kN/m que la aplicación suma a la carga permanente. Tenía razón la aplicación. Y una aclaración sobre el editor de arriba, para que los dos números no se pisen: ese 0,81 supone 2 Ø25, que es la armadura con la que trabaja esta nota; el 0,90 que muestra el editor es con las barras que elige él mismo al diseñar. Misma viga, dos armaduras. Si alguna vez un número de acá no coincide con lo que muestra el editor, creele al editor.' },
       ],
     },
 
@@ -241,7 +246,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'The beam in Stabileo, in PRO\'s design workflow. Three buttons, in this order: "Compute demands", "Run code check" and "Design all". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; the first closes at D/C = 0.89 and the second at 0.87, both governed by the anchorage of the bars (Table 25.4.2.3): bending and shear stay below. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
+          label: 'The beam in Stabileo, in PRO\'s design workflow. If design is off, press "Turn on design for this visit" in the notice. Three buttons, in this order: "Compute demands", "Compute required steel" and "Size…". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says "no reinforcement". The 5 m span is modelled as two elements; both close at D/C = 0.90, governed by shear in the span: bending and the anchorage of the bars stay below. Change the load and run it again. PRO is in development; the concrete module is the part that is implemented and tested.',
         },
 
         { k: 'h', t: 'In short' },
@@ -255,7 +260,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Every figure here comes from Stabileo\'s CIRSOC 201 module, run on the sections named, and not from a table. One warning worth passing on, because the first draft of this post got it wrong: the hand calculation gave D/C = 0.74 and the application 0.81. The difference was self-weight, 2 kN/m that the application adds to the dead case. The application was right. And one note on the editor above, so the two numbers do not collide: that 0.81 assumes 2 Ø25, the reinforcement this post works with; the 0.89 the editor shows is with the bars it chooses for itself when it designs. Same beam, two different reinforcements. If a number here ever stops matching the editor, believe the editor.' },
+        { k: 'note', t: 'Every figure here comes from Stabileo\'s CIRSOC 201 module, run on the sections named, and not from a table. One warning worth passing on, because the first draft of this post got it wrong: the hand calculation gave D/C = 0.74 and the application 0.81. The difference was self-weight, 2 kN/m that the application adds to the dead case. The application was right. And one note on the editor above, so the two numbers do not collide: that 0.81 assumes 2 Ø25, the reinforcement this post works with; the 0.90 the editor shows is with the bars it chooses for itself when it designs. Same beam, two different reinforcements. If a number here ever stops matching the editor, believe the editor.' },
       ],
     },
 
@@ -340,7 +345,7 @@ export const cirsoc201Flexure: Post = {
           k: 'embed',
           mode: 'pro',
           query: 'example=rc-beam-flexure&proTab=design',
-          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Três botões, nesta ordem: "Calcular solicitações", "Executar verificação normativa" e "Dimensionar tudo". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz "sem armadura". O vão de 5 m está modelado com dois elementos; o primeiro fecha em D/C = 0,89 e o segundo em 0,87, ambos governados pela ancoragem das barras (Tabela 25.4.2.3): a flexão e o cortante ficam abaixo. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
+          label: 'A viga no Stabileo, no fluxo de projeto do PRO. Se o dimensionamento estiver desativado, toque em "Ativar o dimensionamento nesta visita" no aviso. Três botões, nesta ordem: "Calcular solicitações", "Calcular aço requerido" e "Dimensionar…". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz "sem armadura". O vão de 5 m está modelado com dois elementos; os dois fecham em D/C = 0,90, governados pelo cortante no vão: a flexão e a ancoragem das barras ficam abaixo. Mude a carga e rode de novo. O PRO está em desenvolvimento; o módulo de concreto é a parte implementada e testada.',
         },
 
         { k: 'h', t: 'Em resumo' },
@@ -354,7 +359,7 @@ export const cirsoc201Flexure: Post = {
           ],
         },
 
-        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado nas seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 e a aplicação 0,81. A diferença era o peso próprio, 2 kN/m que a aplicação soma à carga permanente. A aplicação estava certa. E um esclarecimento sobre o editor acima, para que os dois números não se confundam: esse 0,81 supõe 2 Ø25, que é a armadura com que esta nota trabalha; o 0,89 que o editor mostra é com as barras que ele mesmo escolhe ao dimensionar. Mesma viga, duas armaduras. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
+        { k: 'note', t: 'Todos os valores vêm do módulo CIRSOC 201 do Stabileo, rodado nas seções indicadas, e não de uma tabela. Um aviso que vale a pena, porque a primeira versão desta nota errou nisso: o cálculo à mão dava D/C = 0,74 e a aplicação 0,81. A diferença era o peso próprio, 2 kN/m que a aplicação soma à carga permanente. A aplicação estava certa. E um esclarecimento sobre o editor acima, para que os dois números não se confundam: esse 0,81 supõe 2 Ø25, que é a armadura com que esta nota trabalha; o 0,90 que o editor mostra é com as barras que ele mesmo escolhe ao dimensionar. Mesma viga, duas armaduras. Se algum número daqui deixar de coincidir com o editor, acredite no editor.' },
       ],
     },
   },

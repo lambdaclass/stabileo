@@ -12,7 +12,7 @@
  * exactly what would be untestable if these assertions were about styling.
  */
 
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, declareBeamsNotLateral, designPlace, solveModel } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -25,165 +25,135 @@ const DICTS: Record<string, Record<string, string>> = {
 };
 
 /**
- * FIVE stages now, and the concrete flow's own strip.
- *
- * `demands` and `check` are gone as stages: demands are the solver's output and belong to
- * MODELADO, and the code check is what FINISHES Diseñar rather than a step before it. A
- * completed *Verificación* drawn ahead of DISEÑAR said the reinforcement had been verified
- * before it existed. See `lib/flow/rc-stages.ts`.
+ * FOUR steps, at the top of the Design stage (interface A). The concrete flow's own strip of
+ * five stages is gone with the classic screen; preparing is the model and the code together
+ * (they gate one thing), and the strip's other claims are the steps' now. Read from
+ * `rc-stages.ts` all the same: the code check is still what FINISHES sizing, never a step
+ * before it.
  */
-const STAGES = ['model', 'codes', 'design', 'detailing', 'documents'] as const;
+const STEPS = ['prepare', 'size', 'detail', 'document'] as const;
 
-/** The state a stage advertises, as the strip records it. */
-function stageState(page: Page, id: string) {
-  return page.getByTestId(`rc-stage-${id}`).getAttribute('data-state');
+/** The state a step advertises, as the bar records it. */
+function stepState(page: Page, id: string) {
+  return page.getByTestId(`desk-step-${id}`).getAttribute('data-state');
 }
 
 test.describe('@smoke the workflow says where you are', () => {
-  test('an empty project shows every stage, in order, with the first one current',
+  test('an empty project shows every step, in order, with the first one current',
     async ({ pro: page }) => {
-      const strip = page.getByTestId('rc-stage-timeline');
-      await expect(strip).toBeVisible();
-
-      // Order is the claim: a strip that renders the six stages in a different order every time
-      // would still pass a per-stage assertion.
-      const ids = await strip.locator('[data-testid^="rc-stage-"]').evaluateAll(
-        (els) => els.filter((e) => e.tagName === 'LI')
-          .map((e) => e.getAttribute('data-testid')));
-      expect(ids).toEqual(STAGES.map((s) => `rc-stage-${s}`));
-
-      // Nothing is done, and the first step is where you are.
-      // `complete` and not `done`: the strip says what the USER did, never that a calculation
-      // is certified. The word changed with the vocabulary.
-      for (const s of STAGES) expect(await stageState(page, s)).not.toBe('complete');
-      expect(await stageState(page, 'model')).toBe('current');
+      const bar = page.getByTestId('desk-process');
+      await expect(bar).toBeVisible();
+      const ids = await bar.locator('[data-testid^="desk-step-"][data-state]').evaluateAll(
+        (els) => els.map((e) => e.getAttribute('data-testid')));
+      expect(ids).toEqual(STEPS.map((s) => `desk-step-${s}`));
+      for (const s of STEPS) expect(await stepState(page, s)).not.toBe('complete');
+      expect(await stepState(page, 'prepare')).toBe('current');
       // Nothing can start without a model, so this is unreachable rather than merely not-yet.
-      expect(await stageState(page, 'detailing')).toBe('blocked');
-
-      // And the panel states the next thing to do, in words, not only as a grey button.
-      await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needModel']);
+      expect(await stepState(page, 'detail')).toBe('blocked');
+      // And the bar states the next thing to do, in words, not only as a grey button.
+      await expect(page.getByTestId('desk-step-next')).toHaveText(en['design.stage.needModel']);
     });
 
-  test('the stages advance as the work is done, and the hint follows', async ({ pro: page }) => {
+  test('the steps advance as the work is done, and the hint follows', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
-    // A model but no results: the instruction changes to the thing that is now missing.
-    await expect(page.getByTestId('rc-stage-next')).toHaveText(en['design.stage.needSolve']);
-
+    await expect(page.getByTestId('desk-step-next')).toHaveText(en['design.stage.needSolve']);
+    /*
+     * Sizing completes when every member verifies. Since 292b87f68 qa-8's undeclared beams are
+     * designed as part of the lateral system and e5 and e6 refuse; the beams declare their role
+     * here, so the run the bar follows is one that completes.
+     */
+    await declareBeamsNotLateral(page);
     await designAll(page);
-    for (const s of ['model', 'codes', 'design'] as const) {
-      expect(await stageState(page, s), `${s} is complete after a design run`).toBe('complete');
+    for (const s of ['prepare', 'size'] as const) {
+      expect(await stepState(page, s), `${s} is complete after a design run`).toBe('complete');
     }
-    // Detailing is now reachable rather than unreachable.
-    expect(await stageState(page, 'detailing')).not.toBe('blocked');
+    expect(await stepState(page, 'detail')).not.toBe('blocked');
   });
 
-  test('a stage opens the section that owns it, and does not run anything',
-    async ({ pro: page }) => {
-      await loadModel(page, 'rc-design-qa-8');
-      const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
-
-      await page.getByTestId('rc-stage-detailing').locator('button').click();
-      await expect(page.getByTestId('detailing-disclosure')).toHaveAttribute('open', '');
-
-      // Navigation only. A strip that also ran commands would be a second command surface, and
-      // the two would be able to disagree about what is allowed.
-      expect(await page.evaluate(() => window.__stabileo.solveCount())).toBe(solvesBefore);
-      expect(await page.evaluate(() => window.__stabileo.runCounts())).toBeNull();
-    });
+  test('a step opens its places, and does not run anything', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    const solvesBefore = await page.evaluate(() => window.__stabileo.solveCount());
+    await page.getByTestId('desk-step-detail').click();
+    await expect(page.getByTestId('desk-detailing')).toBeVisible();
+    // Navigation only: pressing a step is not pressing the command of the step.
+    expect(await page.evaluate(() => window.__stabileo.solveCount())).toBe(solvesBefore);
+    expect(await page.evaluate(() => window.__stabileo.runCounts())).toBeNull();
+  });
 });
 
 test.describe('@smoke commands are grouped, and none of them is ambiguous', () => {
-  test('the command row is three named groups in pipeline order', async ({ pro: page }) => {
+  test('the member list\'s command row is two named groups in pipeline order', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await designPlace(page, 'list');
+    await expect(page.getByTestId('cmd-group-verify')).toHaveCount(0);
     for (const [id, key] of [
-      ['cmd-group-verify', 'design.group.verify'],
       ['cmd-group-design', 'design.group.design'],
       ['cmd-group-detailing', 'design.group.detailing'],
     ] as const) {
       await expect(page.getByTestId(id)).toContainText(en[key]);
     }
-    // The regulation is a read-out and sits outside the groups — it is not a fourth command.
     const groups = page.locator('[data-testid^="cmd-group-"]');
-    await expect(groups).toHaveCount(3);
+    await expect(groups).toHaveCount(2);
     await expect(groups.filter({ has: page.getByTestId('active-concrete-code') })).toHaveCount(0);
   });
 
   test('there is ONE design command, and it states its own scope', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
+    await solveModel(page);
+    await designPlace(page, 'list');
     /*
-     * This used to assert that the two Design buttons did not share a LABEL. F2 removed the
-     * second one instead: `cmd-design-families` sat beside the family boxes and
-     * `cmd-design-all` in the command bar, and two commands that design different scopes is the
-     * contradiction §2 names — a different label does not fix it, it only makes the ambiguity
-     * legible.
+     * One command, «Size…», reached from the top of the stage and from the list's toolbar, the
+     * same dialog behind both. The classic strip's «Design all», the toolbar's «Design selected»
+     * and its «design all the undesigned» were three commands with two rules for the edited bars.
      */
-    await expect(page.getByTestId('cmd-design-families'),
-      'the second design command is gone').toHaveCount(0);
-    await expect(page.getByTestId('cmd-design-all')).toHaveCount(1);
-
-    // And the scope it will run is on screen BEFORE it runs, next to the button.
-    const scope = page.getByTestId('cmd-design-scope');
-    await expect(scope).toBeVisible();
-    const text = (await scope.innerText()).trim();
-    expect(text.length, 'the scope is named, not implied').toBeGreaterThan(5);
-    expect(text, 'and it names the families').toMatch(/column|beam/i);
+    await expect(page.getByTestId('cmd-design-families'), 'the second design command is gone').toHaveCount(0);
+    await expect(page.getByTestId('cmd-design-all'), 'the strip\'s «Design all» is gone').toHaveCount(0);
+    await expect(page.getByTestId('cmd-autodesign-menu'), 'and so is the toolbar\'s menu').toHaveCount(0);
+    await expect(page.getByTestId('desk-design')).toHaveText(en['desk.size']);
+    await expect(page.getByTestId('cmd-autodesign')).toHaveText(new RegExp(`^${en['desk.size'].replace('…', '\\u2026')}`));
+    // The scope it will run is on screen BEFORE it runs: the dialog names it, and the families.
+    await page.getByTestId('desk-design').click();
+    await expect(page.getByTestId('desk-run-scope')).toBeVisible();
+    await expect(page.getByTestId('desk-run-scope-all')).toBeChecked();
+    const families = (await page.getByTestId('desk-run-families').innerText()).trim();
+    expect(families, 'and it names the families').toMatch(/column|beam/i);
+    await page.getByTestId('desk-run-cancel').click();
   });
 
-  test('the auto-detailing preference sits with the command it governs', async ({ pro: page }) => {
+  test('the auto-detailing preference sits with what it governs, once', async ({ pro: page }) => {
     /*
-     * It used to float between the commands and the counts, belonging to neither. PR20 put it in
-     * `cmd-group-detailing` beside the button, and this asserted that containment.
-     *
-     * F3 step 4 moved the pair again, together: the command is in the stage strip now, because in
-     * `DesignToolbar` it could not be reached with DISEÑAR closed. The CLAIM is unchanged and is
-     * the reason they travelled as a pair — what changed is which container holds them.
+     * The command and the preference that governs it travelled as a pair; with interface A the
+     * command is the Detail step's action at the top and the preference sits over the detailing
+     * it produces, one of each.
      */
-    const actions = page.getByTestId('rc-stage-actions');
-    await expect(actions.getByTestId('detailing-auto')).toBeVisible();
-    await expect(actions.getByTestId('cmd-generate-detailing')).toBeVisible();
-    // And no copy stayed behind, which would let the two disagree about the preference.
+    await designPlace(page, 'detailing');
+    await expect(page.getByTestId('desk-detailing').getByTestId('detailing-auto')).toBeVisible();
+    await expect(page.getByTestId('desk-step-actions').getByTestId('cmd-generate-detailing')).toBeVisible();
     await expect(page.getByTestId('cmd-generate-detailing')).toHaveCount(1);
     await expect(page.getByTestId('detailing-auto')).toHaveCount(1);
   });
 
-  test('every stage states its step, its purpose and its state in words', async ({ pro: page }) => {
-    /**
-     * The repeatable pattern, asserted on the three stages that use it.
-     *
-     * The sections used to be identical grey bars: no number, no purpose, no state. `optional` in
-     * particular was carried by a separate inline tag; it is now the stage's own state chip, which
-     * is where every other stage says the same kind of thing. The chip carries a glyph AND a word,
-     * so this assertion is on TEXT — a state told only in colour would pass nothing here.
+  test('every step states its state, and what it waits on, in words', async ({ pro: page }) => {
+    /*
+     * The steps say their state as text (a tick or the number, and a word a screen reader reads)
+     * and, while unfinished, what they wait on: a state told only in colour would pass nothing.
      */
-    await expect(page.getByTestId('floor-families-disclosure-state'))
-      .toContainText(en['design.stageCard.optional']);
-    await expect(page.getByTestId('floor-families-disclosure-purpose'))
-      .toHaveText(en['design.stagePurpose.floors']);
-
-    await expect(page.getByTestId('code-settings-disclosure-purpose'))
-      .toHaveText(en['design.stagePurpose.regulations']);
-
-    // Detailing cannot run before a design exists, and the shell says what it is waiting for
-    // instead of showing its purpose.
-    await expect(page.getByTestId('detailing-disclosure')).toHaveAttribute('data-state', 'blocked');
-    await expect(page.getByTestId('detailing-disclosure-purpose'))
-      .toHaveText(en['design.stage.needDesign']);
+    await expect(page.getByTestId('desk-step-detail')).toHaveAttribute('data-state', 'blocked');
+    await expect(page.getByTestId('desk-step-detail')).toHaveAttribute('title', en['design.stage.needDesign']);
+    await expect(page.getByTestId('desk-step-detail').locator('.sr-only')).toContainText(en['design.stage.srBlocked']);
+    // The floor pass is still an optional sub-step of the list, and says so.
+    await loadModel(page, 'rc-design-qa-8');
+    await designPlace(page, 'list');
+    await expect(page.getByTestId('floor-families-disclosure-state')).toContainText(en['design.stageCard.optional']);
+    await expect(page.getByTestId('floor-families-disclosure-purpose')).toHaveText(en['design.stagePurpose.floors']);
   });
 
-  test('a stage that has run says so, and carries its count', async ({ pro: page }) => {
+  test('a step that has run says so', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await expect(page.getByTestId('detailing-disclosure')).toHaveAttribute('data-state', 'done');
-    await expect(page.getByTestId('detailing-disclosure-state'))
-      .toContainText(en['design.stageCard.done']);
-    /**
-     * The badge is the assembly count, visible without opening the stage.
-     *
-     * Addressed by `detailing-count` and not by the shell's default `…-badge`: that id predates
-     * the shell and `floor-design.spec.ts` asserts on it. The chip moved into a new container;
-     * renaming its id would have broken coverage for no user-visible reason, so the shell takes
-     * the id as a prop.
-     */
-    expect(Number(await page.getByTestId('detailing-count').innerText())).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('desk-step-detail').locator('.sr-only')).not.toContainText(en['design.stage.srBlocked']);
+    expect(await stepState(page, 'detail')).not.toBe('blocked');
   });
 });
 
@@ -194,7 +164,7 @@ test.describe('@slow the detailing panel fits, and the sheet can be read', () =>
     test.setTimeout(300_000);
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
-    await page.getByTestId('detailing-disclosure').locator('> summary').click();
+    await designPlace(page, 'detailing');
     await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as
       { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 })
       .toBeGreaterThan(0);
@@ -214,8 +184,9 @@ test.describe('@slow the detailing panel fits, and the sheet can be read', () =>
     expect(overflow.scroll, 'the detailing panel does not overflow sideways')
       .toBeLessThanOrEqual(overflow.client + 1);
 
-    // And every command in it stays inside the panel's own box.
-    const panel = await page.locator('.pro-panel').boundingBox();
+    // And every command in it stays inside the canvas it is shown in.
+    await designPlace(page, 'documents');
+    const panel = await page.getByTestId('desk-canvas').boundingBox();
     for (const id of ['doc-report', 'doc-dxf', 'doc-xlsx', 'doc-3d']) {
       const box = await page.getByTestId(id).boundingBox();
       if (!box) continue;
@@ -229,7 +200,7 @@ test.describe('@slow the detailing panel fits, and the sheet can be read', () =>
       test.setTimeout(300_000);
       await loadModel(page, 'rc-design-qa-8');
       await designAll(page);
-      await page.getByTestId('detailing-disclosure').locator('> summary').click();
+      await designPlace(page, 'detailing');
       await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as
         { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 })
         .toBeGreaterThan(0);
@@ -274,25 +245,19 @@ test.describe('@slow the detailing panel fits, and the sheet can be read', () =>
     });
 });
 
-// ─── The strip in three languages ────────────────────────────────
+// ─── The steps in three languages ────────────────────────────────
 
 for (const locale of ['en', 'es', 'pt'] as const) {
-  test.describe(`the workflow strip in ${locale}`, () => {
+  test.describe(`the workflow steps in ${locale}`, () => {
     test.use({ appLocale: locale });
 
-    test('names every stage and its instruction in this language', async ({ pro: page }) => {
+    test('names every step and its instruction in this language', async ({ pro: page }) => {
       const D = DICTS[locale];
-      for (const [id, key] of [
-        ['rc-stage-model', 'design.stage.model'],
-        ['rc-stage-codes', 'design.stage.codes'],
-        ['rc-stage-design', 'design.stage.design'],
-        ['rc-stage-detailing', 'design.stage.detailing'],
-        ['rc-stage-documents', 'design.stage.documents'],
-      ] as const) {
-        await expect(page.getByTestId(id)).toContainText(D[key]);
-      }
-      await expect(page.getByTestId('rc-stage-next')).toHaveText(D['design.stage.needModel']);
-      await expect(page.getByTestId('cmd-group-verify')).toContainText(D['design.group.verify']);
+      for (const s of STEPS) await expect(page.getByTestId(`desk-step-${s}`)).toContainText(D[`desk.step.${s}`]!);
+      await expect(page.getByTestId('desk-step-next')).toHaveText(D['design.stage.needModel']!);
+      await loadModel(page, 'rc-design-qa-8');
+      await designPlace(page, 'list');
+      await expect(page.getByTestId('cmd-group-design')).toContainText(D['design.group.design']!);
     });
   });
 }

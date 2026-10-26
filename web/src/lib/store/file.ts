@@ -1,5 +1,6 @@
 // File operations: save/load projects, export results, autosave
 
+import { noteDesignHeldIfOff } from './design-presence';
 import { adoptLoadCases } from './load-cases-mode';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
@@ -175,7 +176,7 @@ export function sessionPayload(): { content: string; filename: string } {
     type: 'session',
     timestamp: new Date().toISOString(),
     activeTabId: tabManager.activeTabId ?? '',
-    tabs: $state.snapshot(tabManager.tabs),
+    tabs: sessionTabsCopy(),
   };
   return {
     content: JSON.stringify(session, null, 2),
@@ -286,18 +287,7 @@ export function deserializeProject(text: string): boolean {
   if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
-  forgetSessionDemandRevisions(data.snapshot);
-  historyStore.pushState();
-  modelStore.restore(data.snapshot);
-  // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
-  // A file written before these fields existed hydrates to "we do not know", not to "none".
-  hydrateProjectProvenance(data.snapshot);
-  adoptLoadCases();
-  modelStore.model.name = data.name;
-  // A different model now occupies the store: any 3D original held for the
-  // simplified-2D round trip belongs to the model that was just replaced, and
-  // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
-  resetSwitchBackup();
+  adoptStoredProject(data.snapshot, data.name);
   // appMode is derived from analysisMode (getter-only) — assigning it throws
   // in strict mode, which broke opening any .ded that carried appMode.
   // Restoring analysisMode below already yields the right appMode.
@@ -318,6 +308,29 @@ export function deserializeProject(text: string): boolean {
 }
 
 /**
+ * A stored project made the one in the store, as a `.ded` open and an autosave restore both make
+ * it: one undo step back to what was there, the project announced as new (the previous one's
+ * runs, marks and design view forgotten), and its provenance (hand edits, exports) adopted. The
+ * autosave restore used to do only the `restore()`, so the hand-edit record was the session's
+ * empty one: «Size…» then replaced bars edited by hand, and the next autosave wrote it empty.
+ */
+export function adoptStoredProject(snapshot: ModelSnapshot, name: string): void {
+  forgetSessionDemandRevisions(snapshot);
+  historyStore.pushState();
+  modelStore.restore(snapshot);
+  modelStore.announceNewProject();
+  // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
+  // A file written before these fields existed hydrates to "we do not know", not to "none".
+  hydrateProjectProvenance(snapshot);
+  adoptLoadCases();
+  modelStore.model.name = name;
+  // A different model now occupies the store: any 3D original held for the
+  // simplified-2D round trip belongs to the model that was just replaced, and
+  // restoring it from here on would wipe THIS one. (See switch-2d.ts.)
+  resetSwitchBackup();
+}
+
+/**
  * What every load path does once a stored project is the one on screen: the one-time notes about
  * conventions it was saved under, and the re-check of results it was last solved with
  * (`recheck.svelte.ts`). Shared by `.ded` open, tab activation, autosave restore and share links,
@@ -326,6 +339,8 @@ export function deserializeProject(text: string): boolean {
 export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: string | undefined): void {
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
   if (snap) recheckStore.openProject(snap as never, analysisMode);
+  // Design kept in the project while it is off in PRO's settings: offered, not switched on.
+  noteDesignHeldIfOff(analysisMode);
 }
 
 /**
@@ -407,6 +422,33 @@ export function forgetSessionDemandRevisions(snapshot: unknown): void {
 const SESSION_TAB_MODES = new Set(['2d', '3d', 'pro', 'edu']);
 
 /**
+ * Every tab, as plain data.
+ *
+ * This module is plain TypeScript, so the Svelte compiler never sees it and `$state.snapshot`
+ * was a bare global reference: a `ReferenceError` at runtime, in the browser as under Vitest.
+ * `saveWorkspaceToLocalStorage` swallowed it, so the workspace was never written, and
+ * `saveSession`/`sessionPayload` threw it at the user. `plainDeepCopy` is what the project
+ * payload already uses for the same job.
+ */
+function sessionTabsCopy(): TabState[] {
+  return plainDeepCopy(tabManager.tabs);
+}
+
+/** A stored tab the project gate refused: where it was and what it was called. */
+export interface DroppedSessionTab {
+  index: number;
+  /** The tab's own name, or null when the record did not carry a usable one. */
+  name: string | null;
+}
+
+export interface SessionTabsVerdict {
+  /** The tabs that passed, in their stored order. May be empty. */
+  tabs: TabState[];
+  /** The tabs that did not, so the caller can say which. */
+  dropped: DroppedSessionTab[];
+}
+
+/**
  * Validate a stored session (a session `.ded` or the localStorage workspace) before any of it
  * reaches the stores, and stamp it as foreign to this session.
  *
@@ -414,12 +456,28 @@ const SESSION_TAB_MODES = new Set(['2d', '3d', 'pro', 'edu']);
  * `restoreSession`, so the same file wrapped in `{type:'session', tabs:[…]}` skipped every
  * structural and referential check. Each tab's snapshot now passes the project gate, and the
  * undo/redo stacks — also snapshots, restored on Ctrl+Z — are dropped if any entry would not.
- * Returns null when any tab is refused: half a session is not what was saved.
+ *
+ * Tab by tab, not all or nothing. Refusing the whole session over one tab used to cost every
+ * other tab: for the workspace, App restored nothing and the next save wrote the empty session
+ * over the stored one. The refused tabs are returned by name so the caller tells the user.
  */
-export function acceptSessionTabs(rawTabs: unknown): TabState[] | null {
-  if (!Array.isArray(rawTabs) || rawTabs.length === 0) return null;
-  const tabs: TabState[] = [];
-  for (const raw of rawTabs) {
+export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
+  const verdict: SessionTabsVerdict = { tabs: [], dropped: [] };
+  if (!Array.isArray(rawTabs)) return verdict;
+  rawTabs.forEach((raw, index) => {
+    const tab = acceptSessionTab(raw);
+    if (tab) {
+      verdict.tabs.push(tab);
+    } else {
+      const name = (raw as { name?: unknown } | null)?.name;
+      verdict.dropped.push({ index, name: typeof name === 'string' && name.trim() !== '' ? name : null });
+    }
+  });
+  return verdict;
+}
+
+function acceptSessionTab(raw: unknown): TabState | null {
+  try {
     if (!raw || typeof raw !== 'object') return null;
     const tab = raw as TabState;
     if (typeof tab.id !== 'string' || typeof tab.name !== 'string') return null;
@@ -438,9 +496,18 @@ export function acceptSessionTabs(rawTabs: unknown): TabState[] | null {
     for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
       forgetSessionDemandRevisions(snap);
     }
-    tabs.push(tab);
+    return tab;
+  } catch {
+    // A record shaped badly enough to throw inside the gate is refused like any other.
+    return null;
   }
-  return tabs;
+}
+
+/** "«A», «B»" for the toast; a tab without a name is called by its position. */
+function droppedTabNames(dropped: DroppedSessionTab[]): string {
+  return dropped
+    .map((d) => `«${d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1))}»`)
+    .join(', ');
 }
 
 function validateDedalFile(data: unknown): data is DedalFile {
@@ -549,7 +616,7 @@ export function saveSession(): void {
     type: 'session',
     timestamp: new Date().toISOString(),
     activeTabId: tabManager.activeTabId ?? '',
-    tabs: $state.snapshot(tabManager.tabs),
+    tabs: sessionTabsCopy(),
   };
   const json = JSON.stringify(session, null, 2);
   const tabCount = session.tabs.length;
@@ -573,10 +640,18 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
   }
 
   if (isSessionFile(data)) {
-    // Session file: restore all tabs — through the same gate a single-tab file passes.
-    const tabs = acceptSessionTabs(data.tabs);
-    if (!tabs) throw new Error(t('file.invalidFormat'));
-    tabManager.restoreSession(tabs, typeof data.activeTabId === 'string' ? data.activeTabId : '');
+    // Session file: restore its tabs — through the same gate a single-tab file passes.
+    //
+    // The tabs that pass are opened and the others named, rather than refusing the file over
+    // one of them. Nothing is lost either way, since the file stays on disk as it was; but
+    // refusing it kept every good tab out of reach, and the toast says what did not open.
+    const { tabs, dropped } = acceptSessionTabs(data.tabs);
+    if (tabs.length === 0) throw new Error(t('file.invalidFormat'));
+    const activeTabId = typeof data.activeTabId === 'string' ? data.activeTabId : '';
+    tabManager.restoreSession(tabs, activeTabId);
+    if (dropped.length > 0) {
+      uiStore.toast(t('file.sessionTabsDropped').replace('{names}', droppedTabNames(dropped)), 'error');
+    }
     return { type: 'session', count: tabs.length };
   } else if (deserializeProject(text)) {
     askAboutOverlapsInModel();
@@ -921,7 +996,96 @@ export async function clearAutosave(): Promise<void> {
 
 export { autosaveStatus };
 
+// ─── Workspace (every open tab, localStorage) ───────────────────
+
+/** Where the stored workspace is copied when it cannot be restored whole. */
+export const WORKSPACE_BACKUP_KEY = 'stabileo-workspace-backup';
+/** Copies kept, newest first. Older ones are evicted first when the quota is short. */
+export const WORKSPACE_BACKUP_LIMIT = 3;
+
+export interface WorkspaceBackup {
+  /** When the copy was taken (ISO 8601). */
+  savedAt: string;
+  /** `tabs-dropped`: some or all tabs were refused; `unreadable`: the text is not a session. */
+  reason: 'tabs-dropped' | 'unreadable';
+  /** Names of the refused tabs (empty for `unreadable`). */
+  dropped: string[];
+  /** The stored workspace text, exactly as it was found. */
+  raw: string;
+}
+
+/**
+ * Set when the stored workspace could not be restored whole AND no copy of it could be kept.
+ * The workspace is then left as it was for the rest of this page's life: overwriting it is the
+ * loss the backup exists to prevent. The project autosave (IndexedDB) is unaffected.
+ */
+let workspaceOverwriteHeld = false;
+
+/** Test seam: forget a hold from an earlier load. */
+export function resetWorkspaceGuard(): void {
+  workspaceOverwriteHeld = false;
+}
+
+/** The kept copies, newest first. Never throws; unreadable storage reads as none. */
+export function readWorkspaceBackups(): WorkspaceBackup[] {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_BACKUP_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { entries?: unknown };
+    return Array.isArray(parsed?.entries)
+      ? (parsed.entries as WorkspaceBackup[]).filter((e) => e && typeof e.raw === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Keep `raw` before anything can overwrite it. Returns whether a copy is now stored.
+ *
+ * Bounded twice: at most `WORKSPACE_BACKUP_LIMIT` copies, and when the quota refuses the write
+ * the oldest are evicted one at a time until the newest fits or nothing else is left to evict.
+ * The same text read twice is one copy (a reload before the next save would otherwise fill the
+ * list with one workspace).
+ */
+function backupStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], dropped: string[]): boolean {
+  const previous = readWorkspaceBackups();
+  if (previous[0]?.raw === raw) return true;
+  const entry: WorkspaceBackup = { savedAt: new Date().toISOString(), reason, dropped, raw };
+  let entries = [entry, ...previous].slice(0, WORKSPACE_BACKUP_LIMIT);
+  for (;;) {
+    try {
+      localStorage.setItem(WORKSPACE_BACKUP_KEY, JSON.stringify({ version: 1, entries }));
+      return true;
+    } catch {
+      if (entries.length <= 1) break;
+      entries = entries.slice(0, -1);
+    }
+  }
+  // Not even the newest copy fits. Put back what was there rather than leave a half state.
+  try {
+    if (previous.length > 0) localStorage.setItem(WORKSPACE_BACKUP_KEY, JSON.stringify({ version: 1, entries: previous }));
+  } catch { /* unchanged on failure */ }
+  return false;
+}
+
+/**
+ * The stored workspace could not be restored whole: keep a copy, and say so either way.
+ * Called before App's first save, which is the first moment it could be overwritten.
+ */
+function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], dropped: DroppedSessionTab[]): void {
+  const names = dropped.map((d) => d.name ?? t('file.sessionTabUnnamed').replace('{n}', String(d.index + 1)));
+  const kept = backupStoredWorkspace(raw, reason, names);
+  if (!kept) workspaceOverwriteHeld = true;
+  const head = reason === 'unreadable'
+    ? t('file.workspaceUnreadable')
+    : t('file.workspaceTabsDropped').replace('{names}', droppedTabNames(dropped));
+  const tail = kept ? t('file.workspaceBackupKept') : t('file.workspaceBackupFailed');
+  uiStore.toast(`${head} ${tail}`, 'error');
+}
+
 export function saveWorkspaceToLocalStorage(): void {
+  if (workspaceOverwriteHeld) return;
   try {
     tabManager.syncCurrentTab();
     const session: DedalSessionFile = {
@@ -929,28 +1093,51 @@ export function saveWorkspaceToLocalStorage(): void {
       type: 'session',
       timestamp: new Date().toISOString(),
       activeTabId: tabManager.activeTabId ?? '',
-      tabs: $state.snapshot(tabManager.tabs),
+      // The tabs without their undo stacks: a reload does not undo across it, and the stacks (up to
+      // 50 snapshots a tab, the detailing in each) are what overflowed localStorage on a designed
+      // project.
+      tabs: sessionTabsCopy().map((tab) => ({ ...tab, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] })),
     };
     localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
   } catch {
-    // localStorage might be full or unavailable — silently ignore
+    // localStorage is full or unavailable. The workspace written before stays behind otherwise, and
+    // at the next start it would be restored over the newer autosave: withdrawn, so the autosave is
+    // offered instead.
+    clearWorkspaceFromLocalStorage();
   }
 }
 
 export function loadWorkspaceFromLocalStorage(): DedalSessionFile | null {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(WORKSPACE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!isSessionFile(data)) return null;
-    // localStorage is shared by everything served from this origin and survives the session
-    // that wrote it: read back through the same gate as a session file.
-    const tabs = acceptSessionTabs(data.tabs);
-    if (!tabs) return null;
-    return { ...data, tabs };
+    raw = localStorage.getItem(WORKSPACE_KEY);
   } catch {
     return null;
   }
+  if (!raw) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    protectStoredWorkspace(raw, 'unreadable', []);
+    return null;
+  }
+  if (!isSessionFile(data)) {
+    protectStoredWorkspace(raw, 'unreadable', []);
+    return null;
+  }
+  // An empty session holds nothing to lose.
+  if (data.tabs.length === 0) return null;
+  // localStorage is shared by everything served from this origin and survives the session
+  // that wrote it: read back through the same gate as a session file.
+  const { tabs, dropped } = acceptSessionTabs(data.tabs);
+  if (dropped.length > 0) {
+    protectStoredWorkspace(raw, 'tabs-dropped', dropped);
+  }
+  if (tabs.length === 0) return null;
+  // The active tab may be one of the refused; then the first survivor, as `restoreSession` does.
+  const activeTabId = tabs.some((tab) => tab.id === data.activeTabId) ? data.activeTabId : tabs[0].id;
+  return { ...data, activeTabId, tabs };
 }
 
 export function clearWorkspaceFromLocalStorage(): void {

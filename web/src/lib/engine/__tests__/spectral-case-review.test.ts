@@ -23,8 +23,7 @@ import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { regulationsStore } from '../../store/regulations.svelte';
 import '../../store';
-import { initSolver, solveModal3D, solveSpectral3D } from '../wasm-solver';
-import { spectralModesFrom, modalUntilMass } from '../dynamics/requests';
+import { initSolver } from '../wasm-solver';
 import { dynamicInput } from '../../store/dynamic-input';
 import * as spectralCase from '../spectral-case';
 import { userSa, userSpectrumPointsInG, G, type UserSpectrum } from '../spectral-case';
@@ -34,7 +33,6 @@ import { staticsRows } from '../../store/statics-rows';
 import { singleSolveFactors } from '../case-effects';
 import { t } from '../../i18n';
 import type { AnalysisResults3D } from '../types-3d';
-import type { ModalResult3D } from '../result-types';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -316,26 +314,20 @@ describe('the structure the mode shapes are imposed on', () => {
     for (const b of [b1, b2]) expect(ef(oneWay, b).nStart).toBeCloseTo(ef(linear, b).nStart, 9);
   });
 
-  it('on the centerline the modes are found on: member offsets as the engine’s spectral analysis reads them', () => {
-    // Outside PRO: in PRO the engine's spectral analysis read this column's N as 6.68 for the same
-    // input and modes, where K·u, and the same analysis outside PRO, give 2.83 (the engine's own,
-    // not looked into here).
+  it('member offsets: the spectral case is refused by name, not solved on the centerline', () => {
+    /*
+     * Changed with the design stack (`store/dynamic-input.ts`): the modes, the mass source and the
+     * spectral cases are built on the node lines, without the helper nodes and rigid arms that carry
+     * a declared insertion. This read the centred answer as the model's (and pinned that it equals
+     * the engine's spectral analysis of the same centred input); the dynamic input now refuses a
+     * model with member or shell offsets by name, as it refuses sliding and 3D joints, while the
+     * static solve and the combinations expand the offsets. The stricter reading is kept.
+     */
     uiStore.analysisMode = '3d';
     const grid = frame(2); flat();
     modelStore.setElementsOffset([1, 2, 3, 4], { frame: 'global', i: { x: 0.2, y: 0, z: 0 }, j: { x: 0.2, y: 0, z: 0 } });
-    const e = spectral('E', { x: 1, y: 0, z: 0 }, { rule: 'srss' });
-    // The modes the case is worked out on: the project's dynamic input, as many as X asks for.
-    const { input, densities } = dynamicInput();
-    const modal = modalUntilMass((n) => solveModal3D(input, densities, n) as never, 12, 0.9, 200, ['x']).result as unknown as ModalResult3D;
-    const engine = solveSpectral3D({
-      solver: input, modes: spectralModesFrom(modal), densities,
-      spectrum: { name: 'flat', points: [{ period: 0, sa: 0.4 }, { period: 5, sa: 0.4 }], inG: true },
-      direction: 'X', rule: 'SRSS', xi: 0.05, importanceFactor: 1, reductionFactor: 1,
-    }) as unknown as { elementForces: Array<{ elementId: number; nMax: number }> };
-    // Each member's axial force is one value along it, in every mode: the engine's is its SRSS.
-    const ours = results().get(e)!;
-    expect(engine.elementForces.find((x) => x.elementId === 1)!.nMax).toBeGreaterThan(1);
-    for (const id of [1, 2, 3, 4, 9, 10, 11, 12]) expect(Math.abs(ef(ours, id).nStart)).toBeCloseTo(engine.elementForces.find((x) => x.elementId === id)!.nMax, 6);
+    spectral('E', { x: 1, y: 0, z: 0 }, { rule: 'srss' });
+    expect(() => dynamicInput()).toThrow(t('advanced.offsetsUnsupported'));
     void grid;
   });
 });

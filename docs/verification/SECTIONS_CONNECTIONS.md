@@ -127,7 +127,7 @@ Worked examples exist for most of these ([E18] Ex 1, 3, 4, 5, 7, 8; [A15] II.A-2
 
 ## Reproducing
 
-- `cargo test --release -j 4 --test section_exact --test section_fe_reference` (engine)
+- `cargo test --release -j 4 --test derivations -- section_exact:: section_fe_reference::` (engine)
 - `npx vitest run src/lib/connection src/lib/section src/lib/data src/lib/grades src/lib/material` (web, after `make wasm`)
 - `python -I verify/sections/derive_closed_forms.py` (SymPy)
 - `python -I verify/sections/sp_reference.py geom.json 4000` (sectionproperties ≥ 3.x)

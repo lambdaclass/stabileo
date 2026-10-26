@@ -32,7 +32,7 @@ use proptest::prelude::*;
 use proptest::sample::Index;
 use std::collections::{BTreeSet, HashMap};
 
-mod properties_common;
+use crate::properties_common;
 use properties_common::*;
 
 // ======================================================================

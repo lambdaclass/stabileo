@@ -161,6 +161,10 @@ ones. `npm run build` also prerenders every public route by driving the
 page in headless Chromium, so it needs `npx playwright install chromium` first; `dev`, `test` and
 `build:only` do not.
 
+`make test-changed` runs only the tests your branch most likely affects (related web unit tests,
+the engine's unit tests and the changed test targets) and says what it skipped; `make hooks` adds
+a pre-push hook that runs the web typecheck and related unit tests (`git push --no-verify` skips it).
+
 ## Contributing
 
 Stabileo is built in the open, with the people who use it. Reports, ideas, discussions and code

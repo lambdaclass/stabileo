@@ -24,6 +24,7 @@ import { resolve } from 'node:path';
  *   npm run test:e2e:install     # one-time: fetch the Chromium build
  *   npm run test:e2e:smoke       # blocking suite (fast, runs on every PR)
  *   npm run test:e2e:slow        # heavy suite (408-member model, screenshots)
+ *   npm run test:e2e:flaky       # the quarantined @flaky tests, with retries (e2e/README.md)
  *   npm run test:e2e:ui          # interactive runner
  *   npm run test:e2e:update-snapshots
  */
@@ -153,10 +154,20 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
   reporter: process.env.CI
-    ? [['github'], ['html', { outputFolder: './e2e/.report', open: 'never' }], ['json', { outputFile: './e2e/.artifacts/results.json' }]]
+    // E2E_JSON_REPORT names the JSON report per suite (CI: e2e/.results/smoke.json, slow.json) for
+    // the shard timing tables (scripts/e2e-shard.mjs). The default sat in `.artifacts`, which every
+    // run empties first, so the slow suite's run threw away the smoke suite's timings.
+    ? [['github'], ['html', { outputFolder: './e2e/.report', open: 'never' }], ['json', { outputFile: process.env.E2E_JSON_REPORT ?? './e2e/.artifacts/results.json' }]]
     : [['list'], ['html', { outputFolder: './e2e/.report', open: 'on-failure' }]],
   use: {
     baseURL: BASE_URL,
+    /*
+     * The normative design is off by default in PRO (`uiStore.designInPro`, a per-browser
+     * preference) and most PRO specs exercise it: every browser starts with it turned on, as a
+     * reader turns it on. A spec that clears the storage restores it (`bootPro`, and the few that
+     * boot on their own); `design-optional.spec.ts` starts from an empty storage for the default.
+     */
+    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: 'stabileo-design-in-pro', value: '1' }] }] },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

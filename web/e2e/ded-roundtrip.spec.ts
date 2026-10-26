@@ -34,7 +34,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { acknowledgeRecheck, bootPro } from './fixtures';
+import { bootPro } from './fixtures';
 import {
   test, expect, openPreparedWorkspace, openWorkspaceFromCommandRow, readTally, readPieces,
 } from './prepared-building';
@@ -53,8 +53,6 @@ async function openProjectView(page: Page) {
 async function openDed(page: Page, path: string) {
   await openProjectView(page);
   await page.getByTestId('pp-open-file').setInputFiles(path);
-  // The small fixture was solved with an earlier results version.
-  await acknowledgeRecheck(page);
 }
 
 /** Save through the ribbon's button and keep the file. */

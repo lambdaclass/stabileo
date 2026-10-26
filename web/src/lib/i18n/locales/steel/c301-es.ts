@@ -95,6 +95,15 @@ const c301Es: Record<string, string> = {
   'c301.g.cvElastic': '  Alma esbelta: Cv = 1,51·E·kv/((h/tw)²·Fy) = {Cv}  (G.2.5)',
   'c301.g.angle': '  Ala de ángulo (G.4): b = {b} mm, t = {t} mm, Aw = {Aw} mm², b/t = {bt}, límite {lim} → Cv = {Cv}  (kv = 1,2)',
   'c301.g.vn': '  Vn = 0,6·Fy·Aw·Cv = 0,6·{Fy}·{Aw}·{Cv} = {Vn} kN; φVn = 0,90·Vn = {phiVn} kN',
+  'c301.g6.title': '§G.6 — Corte según el eje débil (alas):',
+  'c301.g6.flanges': '  bf = {bf} mm, tf = {tf} mm, Aw = 2·bf·tf = {Aw} mm², b/tf = {bt}',
+  'c301.g6.cv': '  kv = 1,2: 1,10·√(kv·E/Fy) = {lim1}, 1,37·√(kv·E/Fy) = {lim2} → Cv = {Cv}',
+  'c301.lengthsPerAxis': '  Longitudes de pandeo flexional por eje: Lx = {Lx} m, Ly = {Ly} m (se aplican como Kx·Lx/L = {kx} y Ky·Ly/L = {ky} sobre L = {L} m)',
+  'c301.flangeLb': '  Momento {sign}: ala {flange} comprimida, Lb = {Lb} m',
+  'c301.word.positive': 'positivo',
+  'c301.word.negative': 'negativo',
+  'c301.word.top': 'superior',
+  'c301.word.bottom': 'inferior',
 
   // §H
   'c301.h.title': '§H.1 — Interacción:',

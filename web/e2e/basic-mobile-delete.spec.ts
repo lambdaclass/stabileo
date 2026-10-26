@@ -18,7 +18,32 @@ test.describe('@smoke deleting on a phone', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')));
     await expect(page.getByTestId('selection-delete')).toHaveCount(0);
 
+    /*
+     * Selection opens its panel, which on a phone is the bottom sheet: the canvas gives up its
+     * lower half to it, and the model is re-framed into what is left a couple of frames later
+     * (App.svelte, the sheet effect). Everything below is read once that framing has landed. Read
+     * before it, the transform is still the one for the full-height canvas, and the tap goes
+     * where the beam used to be: empty grid, nothing selected, no delete button.
+     */
+    await page.evaluate(() => {
+      const w = window as unknown as { __e2eRefits: number };
+      w.__e2eRefits = 0;
+      window.addEventListener('stabileo-zoom-to-fit', () => { w.__e2eRefits++; });
+    });
     await page.getByTestId('rb-cmd-select').tap();
+    await expect(page.getByTestId('basic-panel')).toHaveAttribute('data-panel', 'selection');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __e2eRefits: number }).__e2eRefits)).toBeGreaterThan(0);
+    // The fit can wait up to three frames for the canvas to settle: past those, the whole
+    // model must sit inside the canvas the sheet leaves.
+    await expect.poll(() => page.evaluate(async () => {
+      for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r));
+      const s = window.__stabileo;
+      const r = document.querySelector('canvas:not(.axis-gizmo)')!.getBoundingClientRect();
+      return s.nodeIds().every((id) => {
+        const p = s.nodeScreenPos(id);
+        return !!p && p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
+      });
+    }), 'the model is framed inside what the sheet leaves').toBe(true);
     const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
     const before = await page.evaluate(() => window.__stabileo.elementIds().length);
     // The beam of the portal, at the middle of its span: where it is drawn, not

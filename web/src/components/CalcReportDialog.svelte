@@ -198,7 +198,8 @@
       analysisMode: modeLabel,
       provenance: deriveProvenance(),
       unitSystem: us,
-      hasDesignChecks: verificationStore.hasResults,
+      // The design's checks go into the report only while design is on in PRO's settings.
+      hasDesignChecks: uiStore.designInPro && verificationStore.hasResults,
       nodes: [...modelStore.nodes.values()],
       elements: [...modelStore.elements.values()],
       materials: [...modelStore.materials.values()],

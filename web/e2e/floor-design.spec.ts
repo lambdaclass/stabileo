@@ -7,7 +7,7 @@
  * unsupported conditions surface with their own message.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, designPlace } from './fixtures';
 
 type Json = Record<string, unknown>;
 
@@ -61,11 +61,11 @@ async function seedInto(page: import('@playwright/test').Page, assemblies: Json[
 }
 
 async function openPanel(page: import('@playwright/test').Page) {
-  const d = page.getByTestId('detailing-disclosure');
+  await designPlace(page, 'detailing');
+  const d = page.getByTestId('desk-detailing');
   await expect(d).toBeVisible();
   // Direct child only: the detailing panel now nests disclosures of its own
   // (the longitudinal bar list), so a descendant match is ambiguous.
-  await d.locator('> summary').click();
 }
 
 /**
@@ -77,8 +77,8 @@ async function openPanel(page: import('@playwright/test').Page) {
  * the controls, so they open that one too.
  */
 async function openDocuments(page: import('@playwright/test').Page) {
-  const d = page.getByTestId('documents-disclosure');
-  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await designPlace(page, 'documents');
+  const d = page.getByTestId('desk-canvas');
 }
 
 test.describe('@smoke floor design', () => {
@@ -243,6 +243,8 @@ test.describe('@smoke floor conflicts and review', () => {
     await expect(page.getByTestId('review-submit')).toBeEnabled();
     await page.getByTestId('review-submit').click();
     await expect(page.getByTestId('review-error')).toBeHidden();
+    // The assembly's state is read on the detailing, where the assemblies are listed.
+    await openPanel(page);
     await expect(page.getByTestId('assembly-state')).toContainText('Reviewed');
   });
 

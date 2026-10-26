@@ -30,7 +30,7 @@
  * rather than through the test process, and why a page of one's own is not a shared page.
  */
 
-import { designAll, loadModel, openDocumentsStage } from './fixtures';
+import { designAll, loadModel, openDocumentsStage, designPlace, openFloorPass } from './fixtures';
 import {
   test, expect, openPreparedWorkspace, readTally, readPieces,
 } from './prepared-building';
@@ -57,7 +57,7 @@ async function openWorkspace(
 ) {
   await loadModel(page, example);
   await designAll(page);
-  await page.getByTestId('detailing-disclosure').locator('> summary').click();
+  await designPlace(page, 'detailing');
   const generate = page.getByTestId('cmd-generate-detailing');
   await expect(generate).toBeEnabled();
   await generate.click();
@@ -65,7 +65,7 @@ async function openWorkspace(
     .toBeGreaterThan(0);
 
   if (withFloors) {
-    await page.getByTestId('floor-families-disclosure').locator('> summary').click();
+    await openFloorPass(page);
     const floors = page.getByTestId('floor-design-run');
     await expect(floors).toBeEnabled();
     await floors.click();
@@ -289,8 +289,8 @@ test.describe('nothing is hidden because it has no steel', () => {
     await openWorkspace(page, 'rc-qa-diagnostic');
     const counts = page.getByTestId('rebar-status-counts');
     await expect(counts).toBeVisible();
-    // This fixture has three beams the verifier refuses to certify about their secondary
-    // axis (four until self-weight became a member load and took one under the threshold). They carry a PROVISIONAL proposal — a state of their own, not folded into
+    // This fixture has beams the verifier refuses to certify about their secondary axis (two
+    // with a proposal since the design reads anchorage, see below). They carry a PROVISIONAL proposal — a state of their own, not folded into
     // MODELLED, not folded into a generic "not ready", and not absent.
     await expect(page.getByTestId('rebar-status-PROVISIONAL')).toBeVisible();
     await expect(page.getByTestId('rebar-status-MODELLED')).toBeVisible();
@@ -301,7 +301,14 @@ test.describe('nothing is hidden because it has no steel', () => {
       await openWorkspace(page, 'rc-qa-diagnostic');
       await page.getByTestId('rebar-status-PROVISIONAL').click();
       const rows = page.getByTestId('rebar-element-list').locator('button');
-      await expect(rows).toHaveCount(3);
+      /*
+       * Two: e24 and e26. Three until the design read the bars' anchorage in the columns
+       * (3980d8402): e19 (25×50 into a 40 cm column with a Ø16 cage) has no primary-axis design
+       * to propose any more, since its Ø16 top bars need ldh 32,3 cm where 31,1 cm is available
+       * and the Ø12 rows that do anchor are short of its 119 kN·m. A member with nothing to
+       * propose is refused at the biaxial gate (UNSUPPORTED), not proposed.
+       */
+      await expect(rows).toHaveCount(2);
       // And they can still be selected and looked at — carrying a proposal does not make a
       // member unreachable, which was the original defect.
       await rows.first().click();
@@ -316,10 +323,10 @@ test.describe('nothing is hidden because it has no steel', () => {
       // A user who never opens the overlay must still be told. Closing it cannot re-hide the
       // members the whole change exists to surface.
       await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toBeVisible();
-      // `rebar-unreinforced` is now EMPTY on this fixture, and that is the improvement: the
-      // three beams have steel. What the sidebar must still say is that the steel is a
-      // proposal — the workspace banner is not on screen, because the workspace is closed.
-      await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toContainText('3');
+      // What the sidebar must say is that the steel of the two proposed beams (e24, e26; e19
+      // has no proposal since the design reads anchorage, see above) is a proposal — the
+      // workspace banner is not on screen, because the workspace is closed.
+      await expect(page.getByTestId('rebar-panel-state-PROVISIONAL')).toContainText('2');
     });
 });
 

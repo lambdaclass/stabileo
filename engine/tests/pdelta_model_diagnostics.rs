@@ -2,8 +2,7 @@
 //! only those: pre-solve gates, constraints, conditioning of K. The linear
 //! pass's solution diagnostics — `ResidualOk`, the factorization path — say
 //! nothing about the second-order state and must not appear on it.
-#[path = "common/mod.rs"]
-mod common;
+use crate::common;
 
 use common::*;
 use dedaliano_engine::solver::{linear, pdelta};

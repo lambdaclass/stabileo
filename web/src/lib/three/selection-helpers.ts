@@ -222,8 +222,12 @@ export function createTextSprite(
 // the CPU/GPU-memory cost that makes syncLoads rebuilds stutter, so textures
 // are shared by (text, color, fontSize). Sprites made here carry
 // userData.sharedTexture so disposeObject() leaves the shared map alive.
-const TEXTURE_CACHE_MAX = 500;
+// Above the label budget (`LABEL_BUDGET`, 2000 in results-sync.ts): a cache smaller than the
+// labels on screen evicted textures still in use, which WebGL then uploaded again every frame.
+const TEXTURE_CACHE_MAX = 4096;
 const textTextureCache = new Map<string, THREE.CanvasTexture>();
+/** One material per cached texture and sizing (see `createTextSpriteCached`), freed with its texture. */
+const labelMaterials = new Map<string, THREE.SpriteMaterial>();
 
 function labelTexture(text: string, color: string, fontSize: number, strip = false): THREE.CanvasTexture {
   const key = `${text}|${color}|${strip ? 'strip' : fontSize}`;
@@ -242,13 +246,23 @@ function labelTexture(text: string, color: string, fontSize: number, strip = fal
   textTextureCache.set(key, texture);
   if (textTextureCache.size > TEXTURE_CACHE_MAX) {
     const oldest = textTextureCache.keys().next().value!;
-    textTextureCache.get(oldest)?.dispose();
+    const gone = textTextureCache.get(oldest);
+    if (gone) {
+      // Its materials go with it: kept, they held the disposed texture and were never freed.
+      for (const sizing of ['s', 'w']) {
+        const k = `${gone.uuid}|${sizing}`;
+        labelMaterials.get(k)?.dispose();
+        labelMaterials.delete(k);
+      }
+      gone.dispose();
+    }
     textTextureCache.delete(oldest);
   }
   return texture;
 }
 
 /** Like createTextSprite but with a shared cached texture (see above). */
+
 export function createTextSpriteCached(
   text: string,
   color: string = '#ffffff',
@@ -269,9 +283,18 @@ export function createTextSpriteCached(
   screenSized = false,
 ): THREE.Sprite {
   const texture = labelTexture(text, color, fontSize, screenSized);
-  const mat = withLabelScale(new THREE.SpriteMaterial({
-    map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
-  }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
+  // One material per label texture, shared and kept: a view that rebuilds its labels on every
+  // edit (the load arrows) would otherwise free the last label material, which makes WebGL drop
+  // the label program and compile it again on the next frame.
+  const key = `${texture.uuid}|${screenSized ? 's' : 'w'}`;
+  let mat = labelMaterials.get(key);
+  if (!mat) {
+    mat = withLabelScale(new THREE.SpriteMaterial({
+      map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
+    }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
+    mat.userData.shared = true;
+    labelMaterials.set(key, mat);
+  }
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(0.6, 0.6, 1);
   sprite.userData.sharedTexture = true;
@@ -315,6 +338,40 @@ export function desaturateTowardGray(hex: number, amount = 0.55): number {
   const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
   const mix = (c: number) => Math.round(c + (lum - c) * amount);
   return (mix(r) << 16) | (mix(g) << 8) | mix(b);
+}
+
+/**
+ * What the viewport paints and writes for a member under the verification overlay, from the
+ * member's VERDICT (`verificationStore.memberVerdict`) and its worst LOCAL ratio.
+ *
+ * The colour follows the verdict, never the ratio alone: a member whose local checks pass and
+ * that a hold fails (a detailing condition open, its deflection) is painted as failing, one a
+ * hold leaves not verified (its analysis, its seismic checks, a refusal) grey. A held member's
+ * label keeps its local ratio behind ⊘, in grey, so the number is never read as a pass.
+ */
+export interface VerificationVisual { color: number; label: { text: string; color: string } | null }
+export function verificationVisual(v: {
+  status: 'ok' | 'warn' | 'fail' | 'provisional' | 'unavailable' | 'stale';
+  local: 'ok' | 'warn' | 'fail' | 'provisional' | 'unavailable' | 'stale';
+  ratio: number | null;
+}): VerificationVisual {
+  const r = v.ratio;
+  const held = (v.local === 'ok' || v.local === 'warn') && v.status !== v.local;
+  if (v.status === 'unavailable') {
+    return { color: VERIFICATION_UNAVAILABLE_COLOR, label: held && r !== null ? { text: `⊘ ${r.toFixed(2)}`, color: '#9a9a9a' } : null };
+  }
+  if (v.status === 'stale') {
+    return { color: desaturateTowardGray(verificationColor(r)), label: r !== null ? { text: `⌛ ${r.toFixed(2)}`, color: '#b9b9a8' } : null };
+  }
+  if (v.status === 'fail' && held) {
+    return { color: 0xee2222, label: r !== null ? { text: `✗ ⊘ ${r.toFixed(2)}`, color: '#ff4444' } : null };
+  }
+  const color = verificationColor(r);
+  if (r === null) return { color, label: null };
+  // A proposal reads as the verifier reads its steel: refused (`verificationStore.getStatus`).
+  if (v.status === 'fail' || v.status === 'provisional') return { color, label: { text: `✗ ${r.toFixed(2)}`, color: '#ff4444' } };
+  if (v.status === 'warn') return { color, label: { text: `⚠ ${r.toFixed(2)}`, color: '#ffaa00' } };
+  return { color, label: { text: r.toFixed(2), color: '#44ff88' } };
 }
 
 /** Three-state verification colour for the viewport overlay. */
@@ -377,7 +434,12 @@ export function disposeObject(obj: THREE.Object3D): void {
       if (!child.userData?.sharedTexture) {
         (child.material as THREE.SpriteMaterial).map?.dispose();
       }
-      child.material.dispose();
+      disposeIfPrivate(child.material);
     }
   });
+}
+
+/** The label caches' sizes, for the tests that hold them bounded. */
+export function labelCacheSizes(): { textures: number; materials: number } {
+  return { textures: textTextureCache.size, materials: labelMaterials.size };
 }

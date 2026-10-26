@@ -53,6 +53,7 @@ web/e2e/__probe*.spec.ts
 
 web/e2e/.artifacts/
 web/e2e/.report/
+web/e2e/.results/
 web/test-results/
 web/playwright-report/
 # Playwright writes these at the repo root too when it is invoked from here.

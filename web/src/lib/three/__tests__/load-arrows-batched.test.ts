@@ -180,4 +180,19 @@ describe('load-arrows-batched', () => {
     disposeObject(g);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it('keeps one set of materials across rebuilds, so an edit never makes WebGL compile them again', () => {
+    const make = () => {
+      const b = createLoadArrowsBatched();
+      b.addSurfaceLoad([{ x: 0, y: 0, z: 3 }, { x: 5, y: 0, z: 3 }, { x: 5, y: 5, z: 3 }, { x: 0, y: 5, z: 3 }], 5, 10);
+      return b.build();
+    };
+    const mats = (g: THREE.Object3D) => { const out: THREE.Material[] = []; g.traverse((o) => { const m = (o as THREE.Mesh).material; if (m instanceof THREE.Material) out.push(m); }); return out; };
+    const g1 = make(), m1 = mats(g1);
+    const spies = m1.map((m) => vi.spyOn(m, 'dispose'));
+    disposeObject(g1);
+    for (const s of spies) expect(s).not.toHaveBeenCalled();
+    // The next build, as the next edit makes, draws with the very same materials.
+    expect(mats(make())).toEqual(m1);
+  });
 });
