@@ -24,6 +24,7 @@
 //! converged state (`u`, `lambda`, reactions), never an unconverged iterate,
 //! and says why it stopped ([`Termination`]).
 
+pub mod check;
 mod driver;
 mod element;
 mod frame2d;
@@ -45,5 +46,5 @@ pub use linear_solver::FactorMethod;
 pub use material::{Elastic1D, FiberLaw1D, UniaxialMaterial};
 pub use model::{DofKind, Model2D, NonlinearModel, TangentSink};
 pub use model3d::{Element3D, Model3D, NodeState3D};
-pub use plane_stress::{PlaneStressElastic, PlaneStressJ2, PlaneStressMaterial};
+pub use plane_stress::{Hardening, PlaneStressElastic, PlaneStressJ2, PlaneStressMaterial};
 pub use section::{Fiber2D, Fiber3D, FiberSection2D, FiberSection3D};
