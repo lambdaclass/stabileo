@@ -1,5 +1,8 @@
 /** Atomic longitudinal patterns for a beam segment; demand-based repair also admits one member. */
 import type { ProvidedReinforcement, RebarLayer } from '../../design-contract/reinforcement';
+import { minClearSpacingInLayer } from '../../codes/cirsoc201/spacing';
+import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
+import { DEFAULT_TOLERANCES } from './collision';
 import type { MemberContext } from '../design/member-context';
 import { STANDARD_LONG_DIAS } from '../design/objective';
 import { BEAM_LIMITS, computeBeamSeed, maxBarsPerRow, seedAreaFor } from '../design/candidate-enumerate-beam';
@@ -76,6 +79,21 @@ export function* beamContinuityAlternatives(
   if (current.some(r => !r.regions || r.regions.continuity || (face === 'top'
     ? r.regions.topStartGroups || r.regions.topEndGroups
     : r.regions.bottomGroups && r.regions.bottomGroups.length !== 1))) return;
+  // Preserved bottom rows must fit between the actual bend seats, not the straight
+  // stirrup legs. Read the same aggregate/edition spacing and placement margin as the
+  // generator; otherwise a nominally feasible row is silently repacked during detailing.
+  const rowLimit = (ctx: MemberContext, r: ProvidedReinforcement, dia: number) => {
+    const stirrup = Math.max(ctx.material.stirrupDia, r.regions!.stirrupsSupport?.diameter ?? 0,
+      r.regions!.stirrupsSpan?.diameter ?? 0, r.stirrups?.diameter ?? 0);
+    const limit = maxBarsPerRow(ctx.axes.bFlex, ctx.material.cover, stirrup, dia);
+    if (face !== 'bottom') return limit;
+    const half = seatedLongitudinalHalfExtents(ctx.axes.bFlex, ctx.axes.hFlex,
+      ctx.material.cover, stirrup, dia).corner.halfAcross;
+    const gap = minClearSpacingInLayer(ctx.codeEdition, {
+      barDiameterMm: dia, maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
+    }).minClear + DEFAULT_TOLERANCES.placement;
+    return Math.min(limit, Math.floor((2 * half + dia / 1000 + gap) / (dia / 1000 + gap)));
+  };
   const seen = new Set<string>();
   const regions = face === 'top' ? ['topStart', 'topEnd'] as const : ['bottomSpan'] as const;
   const existing: RebarLayer[][] = [];
@@ -118,9 +136,7 @@ export function* beamContinuityAlternatives(
     const allowed = contexts[0].material.longDiametersMm ?? STANDARD_LONG_DIAS;
     for (const dia of [...new Set([16, 12, 20, 10, ...allowed])]) {
       if (contexts.some(c => !(c.material.longDiametersMm ?? STANDARD_LONG_DIAS).includes(dia))) continue;
-      const limit = Math.min(...contexts.map((c, i) => maxBarsPerRow(c.axes.bFlex, c.material.cover,
-        Math.max(c.material.stirrupDia, current[i].regions!.stirrupsSupport?.diameter ?? 0,
-          current[i].regions!.stirrupsSpan?.diameter ?? 0, current[i].stirrups?.diameter ?? 0), dia)));
+      const limit = Math.min(...contexts.map((c, i) => rowLimit(c, current[i], dia)));
       if (limit < BEAM_LIMITS.minBarsPerRow) continue;
       const minimum = Math.max(BEAM_LIMITS.minBarsPerRow, Math.ceil(area / dia ** 2));
       // The demand estimate orders alternatives; it is not a lower bound on required area.
@@ -172,11 +188,8 @@ export function* beamContinuityAlternatives(
     if (!Number.isFinite(dia) || dia <= 0 || ordered.some((l, i) => l.row !== i
       || l.diameter !== dia || !Number.isSafeInteger(l.count) || l.count < BEAM_LIMITS.minBarsPerRow)) continue;
     if (contexts.some((ctx, i) => {
-      const stirrup = Math.max(ctx.material.stirrupDia,
-        current[i].regions!.stirrupsSupport?.diameter ?? 0,
-        current[i].regions!.stirrupsSpan?.diameter ?? 0, current[i].stirrups?.diameter ?? 0);
       return !(ctx.material.longDiametersMm ?? STANDARD_LONG_DIAS).includes(dia)
-        || ordered.some(l => l.count > maxBarsPerRow(ctx.axes.bFlex, ctx.material.cover, stirrup, dia));
+        || ordered.some(l => l.count > rowLimit(ctx, current[i], dia));
     })) continue;
     const key = ordered.map(l => `${l.row}:${l.count}:${l.diameter}`).join('|');
     if (seen.has(key)) continue;

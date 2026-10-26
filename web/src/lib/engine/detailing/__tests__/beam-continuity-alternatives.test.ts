@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { minClearSpacingInLayer } from '../../../codes/cirsoc201/spacing';
+import { seatedLongitudinalHalfExtents } from '../../../codes/cirsoc201/transverse-cage';
+import { DEFAULT_TOLERANCES } from '../collision';
 import { layoutBarRow } from '../generate-beam';
 import { beamCageContinuityAlternatives, beamContinuityAlternatives } from '../beam-continuity-alternatives';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
@@ -12,6 +15,45 @@ const reinforcement = (count: number, diameter: number): ProvidedReinforcement =
 const contexts = () => [syntheticBeamContext(), syntheticBeamContext({ elementId: 2 })] as const;
 
 describe('paired top continuity patterns', () => {
+  it.each([
+    ['2025', 20, 8], ['2025', 32, 8], ['2005', 32, 8], ['2025', 19, 12],
+  ] as const)('fits preserved bottom rows in the real bend seats (%s, aggregate %s, stirrup %s)',
+    (edition, aggregate, stirrup) => {
+    const ctx = contexts(), current = [reinforcement(10, 16), reinforcement(10, 16)];
+    for (const c of ctx) {
+      c.codeEdition = edition;
+      c.axes.bFlex = 0.35; c.section.b = 0.35;
+      c.material.longDiametersMm = [12];
+      c.material.maxAggregateSize.value = aggregate;
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -170, vz: 0 }, { t: 0.5, my: 150, vz: 0 }, { t: 1, my: -170, vz: 0 },
+      ] }] } as never;
+    }
+    // The larger span stirrup is relevant even when the support cage is thinner.
+    current[1].regions!.stirrupsSpan = { diameter: stirrup, legs: 2, spacing: 0.15 };
+    const before = structuredClone(current);
+    const proposals = [...beamContinuityAlternatives(ctx, current, 'bottom', 'demand')];
+    expect(proposals.length).toBeGreaterThan(0);
+    for (const p of proposals) for (let i = 0; i < ctx.length; i++) {
+      const c = ctx[i], r = p.reinforcement[i].regions!;
+      const tie = Math.max(c.material.stirrupDia, r.stirrupsSupport!.diameter, r.stirrupsSpan?.diameter ?? 0);
+      const half = seatedLongitudinalHalfExtents(c.axes.bFlex, c.axes.hFlex, c.material.cover, tie, 12).corner.halfAcross;
+      const layout = layoutBarRow({ count: r.bottomSpan!.count, rowCounts: p.layers.map(l => l.count),
+        diameterMm: 12, clearWidth: 2 * half + 0.012,
+        minClear: minClearSpacingInLayer(edition, { barDiameterMm: 12, maxAggregateSizeMm: aggregate }).minClear,
+        placementTolerance: DEFAULT_TOLERANCES.placement, layerClear: 0.025 });
+      expect(layout.fits).toBe(true);
+      expect(layout.layers).toBe(p.layers.length);
+    }
+    if (edition === '2025' && aggregate === 20 && stirrup === 8) {
+      const eight = proposals.filter(p => p.layers.reduce((sum, l) => sum + l.count, 0) === 8);
+      expect(eight.length).toBeGreaterThan(0);
+      expect(eight.every(p => p.layers.length >= 2)).toBe(true);
+      expect(eight.map(p => p.layers.map(l => l.count))).toContainEqual([6, 2]);
+    }
+    expect(current).toEqual(before);
+  });
+
   it('tries every diameter pair before spending another trial on its population variants', () => {
     const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
     for (const c of ctx) {

@@ -6,6 +6,68 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Filas inferiores construibles: de 366 a 318 bloqueantes
+
+Continuación desde `482b2304e`. Se reducen **366 → 318 conflictos bloqueantes** y
+**509 → 428 conflictos totales**. Las aprobaciones finales suben **234 → 238**, sin pérdidas:
+**231–234** pasan ahora a `ok`, con resistencia final comprobada y sin bloqueos de detallado.
+Son 134 columnas y 104 vigas aprobadas. Sólo cambian los armados y resultados nominales de
+**231–234 y 242–244**; los otros 401 permanecen idénticos. 242–244 siguen retenidas.
+
+### Causa y corrección
+
+El catálogo de continuidad calculaba la capacidad de una fila con el ancho hasta los tramos
+rectos del estribo y una separación de `max(diámetro, 25 mm)`. El generador coloca las barras
+extremas dentro de los dobleces y lee además la edición normativa, el agregado del proyecto
+y la tolerancia de colocación. Para 231–234 se proponían ocho barras Ø12 en una fila que,
+al construirla, tenía sólo 278 mm libres: el generador la redistribuía y registraba un fallo.
+El intento pasaba la verificación nominal, pero no construía la distribución solicitada.
+
+La capacidad de las filas inferiores conservadas usa ahora los mismos asientos de doblez,
+la misma regla de separación por edición y agregado y el mismo margen de colocación que el
+generador. Se considera el mayor estribo de los apoyos y del tramo. El catálogo propone filas
+que entran desde el comienzo, manteniendo el acero y explorando sus particiones. Las filas
+superiores siguen sujetas a su coordinación existente. No se modifica ninguna tolerancia,
+regla de resistencia, anclaje ni criterio de aceptación.
+
+El primer cambio aceptado deja **10Ø16 superiores** (filas declaradas 7+3) y **8Ø12 inferiores
+en dos filas 4+4**, con estribos Ø8 y las separaciones anteriores en 231–234. Cierra diez pares
+de empalme antes no dispuestos y lleva el conjunto a 328 bloqueantes. La reapertura existente
+permite después cambiar 242–244 a 4Ø16 en ambas caras, manteniendo sus estribos Ø6 y
+separaciones, y llegar a **318**. No se afirma óptimo de acero ni de fabricación.
+
+### Validación
+
+La prueba general sobre 408 elementos, sin seleccionar miembros manualmente, pasa en
+**92,87 s locales**, con **40 detallados, 183 verificaciones nominales y cero análisis
+estructurales internos**. Las fuerzas y demandas se recalculan al iniciar la auditoría;
+una regeneración independiente reproduce exactamente los conteos y las aprobaciones.
+Artefacto: `/tmp/design-seat-general.json`, desde `/tmp/design-dependency-general.json`.
+
+La comparación controlada parte del mismo estado de 366 y mantiene el presupuesto de
+24 detallados y 512 verificaciones nominales máximas, sin selección manual de miembros:
+
+| Búsqueda | Detallados usados | Verificaciones nominales usadas | Bloqueantes | Aprobados |
+| --- | ---: | ---: | ---: | ---: |
+| Anterior, `/tmp/design-next366-general.json` | 24 | 120 | 366 | 234 |
+| Filas construibles, `/tmp/design-seat24-general.json` | 24 | 107 | 318 | 238 |
+
+La segunda prueba pasa en **55,58 s locales** y retiene exactamente los mismos registros de
+miembros que la de 40 detallados. Su regeneración también reproduce conteos y aprobaciones;
+no se presenta el tiempo como un benchmark controlado. No hace falta ampliar el presupuesto
+para obtener la mejora.
+
+Pasan **316 pruebas dirigidas en doce suites**. Las cuatro regresiones nuevas contrastan las
+filas propuestas con `layoutBarRow`, incluyendo agregado de 20/32 mm, ediciones 2005/2025
+y un estribo de tramo mayor que el de apoyo. Typecheck: **442 errores existentes frente al
+baseline de 443, sin errores nuevos**.
+
+Quedan **227 solapes prohibidos, 59 separaciones entre miembros y 32 separaciones internas**.
+Los principales focos pasan a 204–207, 225 y 248. Los reportes de empalme no dispuesto bajan
+44 → 40 y sus pares agregados 194 → 181. Persisten dos condiciones de generación, tres de
+integridad, siete de separación y dos de paso de empalmes; siguen fallando en resistencia
+final 192/195. El edificio conserva 122 miembros fallidos, 35 agotados y 13 provisionales.
+
 ## Dependencias observadas: de 392 a 366 bloqueantes
 
 Continuación desde `5bce291a5`. Se reducen **392 → 366 conflictos bloqueantes** y
