@@ -452,16 +452,33 @@ function searchBeamContinuity(
     const covered = new Set(lines.flatMap(p => p.ids));
     for (const id of eligible.keys()) if (!covered.has(id)) lines.push({ ids: [id], jointIds: [] });
   }
+  // A cage can have a construction failure without any blocking collision (for example
+  // a stirrup bend with no longitudinal bar). Such members still need a repair catalog.
+  // Clash reports are handled by burden, so marginal-only contacts do not create a target.
+  const hasOpenCondition = (ids: number[]) => result.assemblies.some(a => a.unsupported.some(u =>
+    u.key !== 'detailing.clash.unresolved' && (u.scope?.elementIds ?? a.elementIds).some(id => ids.includes(id))));
   const companionBlocked = retained ? physicallyBlockedMembers(result) : new Set<number>();
   const hasFinalFailure = (ids: number[]) => result.reverification.some(r => ids.includes(r.elementId) && r.status === 'fail');
   const targets = operator !== 'harmonizeTop'
     ? lines.filter(p => catalog
-      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids) || p.ids.some(id => companionBlocked.has(id))))
+      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (hasOpenCondition(p.ids) || hasFinalFailure(p.ids) || p.ids.some(id => companionBlocked.has(id))))
       : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
-  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined,
+  // A member-local generation defect can be repaired without changing its whole line.
+  // Keep cover, strength and joint conditions atomic: their bars can have several owners
+  // even when the report names only one span.
+  if (demand) for (const id of eligible.keys()) {
+    const local = result.assemblies.some(a => a.unsupported.some(u => u.key === 'generation'
+      && u.scope?.elementIds?.length === 1 && u.scope.elementIds[0] === id));
+    if (local && burden([id]) === 0 && !targets.some(p => p.ids.length === 1 && p.ids[0] === id))
+      targets.push({ ids: [id], jointIds: [] });
+  }
+  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids),
+    conditionOnly: demand && burden(p.ids) === 0 && hasOpenCondition(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined,
     deferredProposal: undefined as BeamContinuityAlternative | undefined }))
-    .sort((a, b) => (operator === 'harmonizeBottomLine' || coupled ? b.burden - a.burden : a.burden - b.burden)
+    .sort((a, b) => Number(b.conditionOnly) - Number(a.conditionOnly)
+      || (a.conditionOnly && b.conditionOnly ? a.ids.length - b.ids.length : 0)
+      || (operator === 'harmonizeBottomLine' || coupled ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
   // Resuming a line must not rebuild its Cartesian catalog on every failed proposal.
@@ -479,6 +496,9 @@ function searchBeamContinuity(
     const { ids, jointIds } = target;
     const open = (r: RunDetailingResult) => jointIds.reduce((n, j) => n + conditions(r, j), 0);
     if (!catalog && !open(result)) continue;
+    // A preceding local repair may have cleared the condition that queued this line.
+    if (demand && burden(ids) === 0 && !hasOpenCondition(ids) && !hasFinalFailure(ids)
+      && !ids.some(id => companionBlocked.has(id))) continue;
     const contexts = new Map(contextsFor(input.contexts, outcomes));
     for (const r of result.reverification) if (r.status === 'fail' && r.finalGeometry && contexts.has(r.elementId))
       contexts.set(r.elementId, { ...contexts.get(r.elementId)!, finalGeometry: r.finalGeometry });
@@ -496,7 +516,12 @@ function searchBeamContinuity(
       r.regions?.stirrupsSupport?.diameter, r.regions?.stirrupsSpan?.diameter].filter(d => d !== undefined))).size;
     let proposalIndex = 0;
     const proposals = stirrupOnly ? beamStirrupContinuityAlternatives(ctx, current)
-      : coupled ? beamCompatibleCageAlternatives(ctx, current)
+      : coupled ? (function* () {
+        // With no blocking collision, first try changing the transverse seats alone.
+        // Replacing both longitudinal faces can fix an empty bend but create new splices.
+        if (target.conditionOnly) yield* beamStirrupContinuityAlternatives(ctx, current, 'all');
+        yield* beamCompatibleCageAlternatives(ctx, current);
+      })()
       : cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
     const domainKey = ids.join(',');
@@ -544,7 +569,7 @@ function searchBeamContinuity(
           stirrupSpacings: proposal.reinforcement.map((r, i) => ({ elementId: ids[i],
             support: r.regions!.stirrupsSupport!.spacing, span: r.regions!.stirrupsSpan!.spacing })) }
           : {}),
-        ...(!stirrupOnly ? { diameterMm: proposal.layers[0].diameter, counts: proposal.layers.map(l => l.count) } : {}),
+        ...(proposal.layers.length ? { diameterMm: proposal.layers[0].diameter, counts: proposal.layers.map(l => l.count) } : {}),
         ...(proposal.bottomLayers ? { bottomCounts: proposal.bottomLayers.map(l => l.count),
           bottomDiameterMm: proposal.bottomLayers[0].diameter } : {}),
         disposition: 'nominalFailure', nominalFailures: [] };
@@ -761,8 +786,15 @@ function searchBeamContinuity(
         trial.progressBefore = physicalProgressMeasure(baseline);
         trial.progressAfter = physicalProgressMeasure(detailed);
       }
+      // Clearing a construction condition is progress even if another hold remains and
+      // no clash/splice count changes. Do not trade it for more unresolved splice pairs:
+      // grouped reports can hide an increase even when their record count stays constant.
+      const constructionConditions = (r: RunDetailingResult) => r.assemblies.reduce((n, a) =>
+        n + a.unsupported.filter(u => u.key !== 'detailing.clash.unresolved').length, 0);
+      const conditionProgress = demand && constructionConditions(detailed) < constructionConditions(baseline)
+        && trial.progressAfter![3] <= trial.progressBefore![3];
       if ((demand && !strictlyImproves(trial.progressBefore!, trial.progressAfter!))
-        || (!retained && !localProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore)) {
+        || (!retained && !localProgress && !conditionProgress && open(detailed) >= open(result) && trial.splicePairsAfter >= trial.splicePairsBefore)) {
         trial.disposition = 'noProgress';
         if (catalog) { resume(); break; }
         continue;
@@ -786,7 +818,7 @@ function searchBeamContinuity(
         // retries use the caller's remaining budget, never a fresh one.
         const acceptedIds = [...ids, ...companions];
         const nodes = nodesOf(acceptedIds);
-        const affected = targets.filter(p => burden(p.ids) > 0 && !p.ids.some(id => acceptedIds.includes(id))
+        const affected = targets.filter(p => (burden(p.ids) > 0 || hasOpenCondition(p.ids)) && !p.ids.some(id => acceptedIds.includes(id))
           && ([...nodesOf(p.ids)].some(node => nodes.has(node))
             || acceptedIds.some(id => observedDependencies.get(p.ids.join(','))?.has(id))));
         const keys = new Set(affected.map(p => p.ids.join(',')));
@@ -794,6 +826,7 @@ function searchBeamContinuity(
           if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);
         }
         ranked.splice(targetIndex + 1, 0, ...affected.map(p => ({ ...p, burden: burden(p.ids),
+          conditionOnly: burden(p.ids) === 0 && hasOpenCondition(p.ids),
           offset: 0, consecutiveTrials: 0, promising: false, order: undefined, deferredProposal: undefined })));
       }
       break;

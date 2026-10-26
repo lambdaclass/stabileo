@@ -5,6 +5,7 @@ import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import type { MemberContext } from '../../design/member-context';
 import type { MemberDesignOutcome } from '../../design/outcome';
 import type { RunDetailingResult } from '../run-detailing';
+import type { UnsupportedCondition } from '../assembly';
 import { detailRegresses, runDesignFeedbackLoop } from '../design-feedback-loop';
 import { continuityLines, searchPhysicalDesignAlternatives } from '../physical-design-search';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
@@ -661,6 +662,123 @@ describe('atomic top continuity repair', () => {
     return { ...input, budget: { maxDetailingRuns: 2, maxMemberSearches: 5,
       operators: ['harmonizeCoupledCatalog'] as const } };
   }
+
+  it.each(['generation', 'detailing.cover.violated', 'detailing.lapCheck.spacing', 'unscoped'] as const)(
+    'repairs a %s condition even when no member has blocking collisions', kind => {
+    const { input } = line();
+    for (const ctx of input.contexts.values()) ctx.stations = { comboResults: [{ stations: [
+      { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+    ] }] } as never;
+    input.result.assemblies[0].conflicts = [];
+    // Older serialized conditions can omit scope; they conservatively hold the assembly.
+    input.result.assemblies[0].unsupported = [{ key: kind === 'unscoped' ? 'generation' : kind,
+      message: 'cannot construct', refs: [], ...(kind === 'unscoped' ? {} : { scope: { elementIds: [1] } }) } as UnsupportedCondition];
+    const before = structuredClone(input.outcomes);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { operators: ['harmonizeCoupledCatalog'], maxDetailingRuns: 2, maxMemberSearches: 4 } });
+    // The queued whole-line target must disappear once the local generation hold clears.
+    expect(result.trials).toHaveLength(1);
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', elementIds: kind === 'generation' ? [1] : [1, 2, 3] });
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: kind === 'generation' ? 1 : 3 });
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+    expect(input.outcomes).toEqual(before);
+  });
+
+  it('gives a line held only by a construction condition a turn before congested lines', () => {
+    const input = coupledLines();
+    input.result.assemblies[0].unsupported = [{ key: 'generation', message: 'empty bend', refs: [],
+      scope: { elementIds: [4] } }];
+    input.detail.mockImplementation(() => ({ ...input.result,
+      assemblies: [{ ...input.result.assemblies[0], unsupported: [] }] }));
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 1, maxMemberSearches: 2 } });
+    expect(result.trials.map(t => [t.elementIds, t.disposition])).toEqual([[[4], 'accepted']]);
+    expect(result.changed).toEqual([4]);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 1 });
+    expect(result.result.assemblies[0].conflicts).toEqual(input.result.assemblies[0].conflicts);
+  });
+
+  it('repairs a generation-only defect with transverse steel before introducing new longitudinal patterns', () => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts = [];
+    input.result.assemblies[0].unsupported = [{ key: 'generation', message: 'empty bend', refs: [],
+      scope: { elementIds: [1] } }];
+    for (const id of [1, 2, 3]) {
+      const r = input.outcomes.get(id)!.accepted!.regions!;
+      r.stirrupsSupport = { diameter: 8, legs: 2, spacing: 0.15 };
+      r.stirrupsSpan = { diameter: 6, legs: 2, spacing: 0.15 };
+    }
+    const before = structuredClone(input.outcomes);
+    input.detail.mockImplementation(proposed => ({ ...input.result, assemblies: [{ ...input.result.assemblies[0],
+      unsupported: proposed.get(1)!.accepted!.regions!.stirrupsSpan!.diameter === 8
+        ? [] : input.result.assemblies[0].unsupported,
+    }] }));
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 1, maxMemberSearches: 3 } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'accepted', stirrupDiameterMm: 8 });
+    expect(result.trials[0].counts).toBeUndefined();
+    expect(result.trials[0].diameterMm).toBeUndefined();
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+    for (const id of [1, 2, 3]) {
+      const r = result.outcomes.get(id)!.accepted!.regions!, old = before.get(id)!.accepted!.regions!;
+      expect(r.topStart).toEqual(old.topStart);
+      expect(r.topEnd).toEqual(old.topEnd);
+      expect(r.bottomSpan).toEqual(old.bottomSpan);
+      expect(r.stirrupsSpan).toEqual({ diameter: id === 1 ? 8 : 6, legs: 2, spacing: 0.15 });
+    }
+    expect(input.outcomes).toEqual(before);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 1 });
+    expect(result.changed).toEqual([1]);
+  });
+
+  it.each([true, false])('retains a generation repair only when its global condition measure improves (%s)', improves => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts = [{ ...input.result.assemblies[0].conflicts[0], severity: 'marginal' }];
+    const marginal = { key: 'detailing.clash.unresolved', message: 'unchanged contact', refs: [], scope: { elementIds: [1, 2] } };
+    const generation = { key: 'generation', message: 'empty bend', refs: [], scope: { elementIds: [1] } };
+    input.result.assemblies[0].unsupported = [marginal, generation];
+    input.detail.mockImplementation(() => ({ ...input.result, assemblies: [{ ...input.result.assemblies[0],
+      unsupported: improves ? [marginal] : [marginal, generation],
+    }] }));
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 1, maxMemberSearches: 1 } });
+    expect(result.trials[0]).toMatchObject({ disposition: improves ? 'accepted' : 'noProgress',
+      progressBefore: [2, 0, 2, 0], progressAfter: [2, 0, improves ? 1 : 2, 0] });
+    expect(result.changed).toEqual(improves ? [1] : []);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 1 });
+    expect(result.result.assemblies[0].conflicts).toEqual(input.result.assemblies[0].conflicts);
+  });
+
+  it('does not trade a generation condition for more unresolved pairs hidden in one splice report', () => {
+    const input = coupledLines();
+    input.result.assemblies[0].conflicts = [];
+    const lap = { key: 'detailing.lapCheck.unarranged', message: 'unarranged', refs: [],
+      scope: { elementIds: [1, 2] }, params: { joint: 'n2', pairs: 2 } };
+    input.result.assemblies[0].unsupported = [lap,
+      { key: 'generation', message: 'empty bend', refs: [], scope: { elementIds: [1] } }];
+    input.detail.mockImplementation(() => ({ ...input.result, assemblies: [{ ...input.result.assemblies[0],
+      unsupported: [{ ...lap, params: { ...lap.params, pairs: 3 } }],
+    }] }));
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 1, maxMemberSearches: 1 } });
+    expect(result.trials[0]).toMatchObject({ disposition: 'noProgress',
+      progressBefore: [2, 0, 2, 2], progressAfter: [2, 0, 1, 3] });
+    expect(result.changed).toEqual([]);
+    expect(result.outcomes).toBe(input.outcomes);
+  });
+
+  it('does not create a repair target from a marginal-only clash report', () => {
+    const { input } = line();
+    input.result.assemblies[0].conflicts = input.result.assemblies[0].conflicts
+      .map(c => ({ ...c, severity: 'marginal' }));
+    input.result.assemblies[0].unsupported = [{ key: 'detailing.clash.unresolved', message: 'marginal', refs: [],
+      scope: { elementIds: [1, 2, 3] } }];
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, operators: ['harmonizeCoupledCatalog'] } });
+    expect(result.changed).toEqual([]);
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.stats).toMatchObject({ detailingRuns: 0, memberSearches: 0 });
+  });
 
   it.each(['clash', 'condition'] as const)('reopens a consumed prefix after its remote %s dependency changes', mode => {
     const input = coupledLines();

@@ -6,6 +6,79 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Reparaciones de generación sin choques bloqueantes
+
+Continuación desde `9036edbc0`, usando el estado de **304 conflictos bloqueantes y 240
+aprobaciones válidas** (`/tmp/design-next312-general.json`). Se corrige un vacío en la búsqueda:
+las líneas **177–179 y 189–191** no tenían choques bloqueantes, pero 177 y 189 tenían cada una
+un fallo de generación por un doblez de estribo sin barra longitudinal. No se incluían en el
+catálogo porque el selector miraba choques, ciertas condiciones de empalme y fallos finales.
+
+### Tres correcciones complementarias
+
+- Los operadores guiados por demanda incluyen las condiciones de construcción sin choques.
+  Los reportes de choques marginales, por sí solos, no crean un objetivo nuevo.
+- Un fallo de generación con alcance explícito de un solo miembro admite una reparación local
+  antes de modificar su línea completa. Se prueban primero los estribos, conservando el
+  longitudinal. Recubrimiento, resistencia y condiciones compartidas mantienen su ámbito
+  atómico; no se separan los propietarios de una barra continua por el alcance parcial de un
+  reporte. Los objetivos pendientes que ya quedaron resueltos se omiten.
+- Se reconoce como progreso eliminar una condición de construcción aunque otro reporte siga
+  reteniendo al miembro. Antes, el progreso global disminuía pero una segunda regla exigía
+  además reducir choques o empalmes del nudo y descartaba la mejora como `noProgress`.
+  Se mantienen el progreso global estricto, todas las verificaciones, las restricciones y
+  los presupuestos. Esta vía no puede aumentar los pares de empalme no dispuestos, aunque
+  queden ocultos dentro del mismo número de reportes agrupados.
+
+La reproducción previa a corregir la regla muestra la alternativa local de 177 con
+`progressBefore = [133, 304, 466, 181]` y `progressAfter = [133, 304, 465, 181]`, sin regresiones
+ni miembros nuevos bloqueados, pero disposición `noProgress`
+(`/tmp/design-local-condition-seats-general.json`). La prueba de regresión correspondiente
+falló con esa regla y pasa con la corrección. Probar sólo jaulas completas introducía nuevos
+choques y empalmes, por lo que no se retuvo (`/tmp/design-conditions-general.json`).
+
+### Resultado y diagnóstico restante
+
+El cambio aceptado en **177 y 189** usa **Ø8 en los estribos de tramo**, manteniendo los
+estribos Ø8 de apoyo, las separaciones de **225 mm en apoyo y 75 mm en tramo**, las patas y
+todo el armado longitudinal. Los fallos de generación bajan **2 → 0**. Los conflictos
+permanecen en **304 bloqueantes / 411 totales** y se conservan las **240 aprobaciones**.
+No se presenta la eliminación de esos dos defectos como una reducción del conteo de choques
+ni como una aprobación nueva: ambos miembros aún tienen otros reportes de detallado.
+
+305, 311 y 339 tienen una causa distinta: son `PROVISIONAL_BIAXIAL`. Su demanda secundaria
+activa una comprobación que el verificador de vigas aún no implementa; la búsqueda física
+no los puede certificar. Se conserva ese estado y no se cambia el umbral ni se omite el eje
+secundario. La exploración de familias de columnas, 24 detallados desde el mismo estado,
+no produjo una mejora aceptable (`/tmp/design-next304-columns.json`).
+
+### Validación
+
+La implementación final obtiene ambas reparaciones con **dos detallados completos y dos
+verificaciones nominales**, sin selección manual de miembros ni análisis estructurales
+internos (`/tmp/design-generation-final-general.json`, entrada
+`/tmp/design-next312-general.json`, `harmonizeCoupledCatalog`, presupuesto de dos detallados).
+La prueba de los 408 elementos pasa en **89,05 s locales**: recalcula fuerzas y demandas,
+conserva todas las aprobaciones y reproduce exactamente los conteos y las aprobaciones al
+regenerar. Sólo cambian los armados y resultados nominales de 177/189; los otros 406 permanecen
+idénticos. **Todos los registros de barras longitudinales del edificio permanecen idénticos**.
+
+Retiene exactamente los mismos registros de miembros que la exploración de 24 detallados
+(`/tmp/design-generation-progress-general.json`), que consumió 122 verificaciones nominales.
+El tiempo local no se presenta como benchmark; el resultado necesita únicamente las dos
+construcciones y verificaciones nominales iniciales.
+
+Pasan **326 pruebas dirigidas en doce suites**. Las diez regresiones nuevas cubren selección
+de condiciones sin choques, alcance local y de conjunto, prioridad, descarte de objetivos ya
+resueltos, reparación transversal sin cambiar longitudinales, progreso real y rechazo de una
+mejora aparente que aumenta pares de empalme dentro de un reporte. Typecheck: **442 errores
+existentes frente al baseline de 443, sin errores nuevos**. `git diff --check` limpio.
+
+Un sondeo nominal separado encontró nuevas propuestas verificadas para cinco miembros antes
+agotados (196–198, 324 y 327; `/tmp/design-next304-reopen.json`). No se instalaron ni se cuentan
+como recuperaciones: todavía necesitan superar el detallado completo. Siguen pendientes los
+304 choques, los empalmes y la comprobación biaxial de las propuestas provisionales.
+
 ## Continuación del catálogo: de 318 a 304 bloqueantes
 
 Continuación general desde `3fc335302`, sin cambios en el algoritmo ni selección manual de
