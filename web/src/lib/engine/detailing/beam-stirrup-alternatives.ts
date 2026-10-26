@@ -13,7 +13,7 @@ export function* beamCompatibleCageAlternatives(
   contexts: readonly MemberContext[], current: readonly ProvidedReinforcement[],
 ): Generator<BeamContinuityAlternative> {
   const bases = [{ reinforcement: current, stirrupDiameterMm: undefined as number | undefined },
-    ...beamStirrupContinuityAlternatives(contexts, current)];
+    ...beamStirrupContinuityAlternatives(contexts, current, 'all')];
   const domains = bases.map(base => ({ base,
     iterator: beamCageContinuityAlternatives(contexts, base.reinforcement, 'all', 'demand') }));
   const seen = new Set<string>();
@@ -37,6 +37,7 @@ export function* beamCompatibleCageAlternatives(
  */
 export function* beamStirrupContinuityAlternatives(
   contexts: readonly MemberContext[], current: readonly ProvidedReinforcement[],
+  scope: 'mixed' | 'all' = 'mixed',
 ): Generator<BeamContinuityAlternative> {
   if (!contexts.length || contexts.length !== current.length
     || contexts.some(c => c.elementType !== 'beam' || c.span)
@@ -50,13 +51,16 @@ export function* beamStirrupContinuityAlternatives(
     || current.some(r => r.stirrups && !valid(r.stirrups))) return;
   const diameters = new Set(zones.flatMap((z, i) => [z.support!.diameter, z.span!.diameter,
     ...(current[i].stirrups ? [current[i].stirrups!.diameter] : [])]));
-  if (diameters.size < 2) return;
+  // Equal seats can still be congested. A coupled repair may change their diameter
+  // again together with the longitudinal layout; equality is not a terminal state.
+  if (scope === 'mixed' && diameters.size < 2) return;
   const largestCurrent = Math.max(...diameters);
   const allowed = contexts[0].material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS;
   const options = [...new Set(allowed)].filter(d => Number.isFinite(d) && d > 0);
   const ordered = [largestCurrent, ...options.filter(d => d < largestCurrent).sort((a, b) => b - a),
     ...options.filter(d => d > largestCurrent).sort((a, b) => a - b)];
   for (const diameter of ordered) {
+    if (diameters.size === 1 && diameters.has(diameter)) continue;
     if (contexts.some(c => !(c.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS).includes(diameter))) continue;
     const resize = (s: StirrupDef): StirrupDef => ({ ...s, diameter,
       spacing: diameter >= s.diameter ? s.spacing

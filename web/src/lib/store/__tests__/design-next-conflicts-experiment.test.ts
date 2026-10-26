@@ -1,10 +1,10 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { frameDesignQuality, currentFrameDesignQuality } from './design-quality-fixture';
+import { frameDesignInputs, currentFrameDesignQuality } from './design-quality-fixture';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { detailingStore } from '../detailing.svelte';
-import { detailableReinforcement, type MemberDesignOutcome } from '../../engine/design/outcome';
+import { detailableReinforcement, tallyRunSummary, type MemberDesignOutcome } from '../../engine/design/outcome';
 import type { PhysicalRepairOperator } from '../../engine/detailing/physical-design-search';
 import { physicallyBlockedMembers } from '../../engine/detailing/physical-design-search';
 import * as physicalSearch from '../../engine/detailing/physical-design-search';
@@ -17,11 +17,19 @@ import { beamCornerRecord } from '../../engine/design/end-support-anchorage';
 import { designMember } from '../../engine/design/candidate-search';
 import * as coordination from '../../engine/detailing/coordination-search';
 import { candidateClears } from '../../engine/detailing/candidates';
+import * as cageCatalog from '../../engine/detailing/beam-stirrup-alternatives';
 
 // Forensic continuation of a saved audit. Forces are solved again; only its reinforcement
 // assignment is restored. Every comparison below uses a newly generated full detail.
 it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforcement assignment', async () => {
-  const saved = JSON.parse(readFileSync(process.env.STABILEO_REPAIR_SNAPSHOT!, 'utf8'));
+  const profile = !!process.env.STABILEO_REPAIR_PROFILE;
+  const mark = (stage: string, data?: unknown) => {
+    if (profile) appendFileSync(`${process.env.STABILEO_REPAIR_AUDIT ?? '/tmp/design-next-conflicts.json'}.progress.jsonl`,
+      JSON.stringify({ stage, at: Date.now(), data }) + '\n');
+  };
+  mark('load:start');
+  const { after: savedAfter, members, reverification } = JSON.parse(readFileSync(process.env.STABILEO_REPAIR_SNAPSHOT!, 'utf8'));
+  const saved = { after: savedAfter, members, reverification }; // Release the snapshot's full geometry before rebuilding it.
   // Older reports could approve a nominal pass despite a failed final-depth check.
   // Preserve actual approvals, and expose those reporting errors rather than treating
   // their correction as a lost valid design.
@@ -30,7 +38,9 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     .map((r: { elementId: number }) => r.elementId));
   const priorApproved: number[] = saved.after.verifiedIds.filter((id: number) => priorFinalPasses.has(id));
   const priorInvalidApprovals: number[] = saved.after.verifiedIds.filter((id: number) => !priorFinalPasses.has(id));
-  await frameDesignQuality();
+  mark('fresh-demands:start');
+  await frameDesignInputs();
+  mark('restore:start');
   const outcomes = new Map<number, MemberDesignOutcome>(saved.members.map((m: { id: number; outcome: MemberDesignOutcome }) => [m.id, m.outcome]));
   modelStore.reinforcementTransaction(api => {
     for (const [id, o] of outcomes) {
@@ -39,8 +49,10 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
       api.setReinforcement(id, rebar);
     }
   });
-  verificationStore.setDesignOutcomes({ ...verificationStore.runSummary!, outcomes });
+  verificationStore.setDesignOutcomes(tallyRunSummary(cirsoc201Adapter.id, cirsoc201Adapter.version,
+    [...outcomes.values()], 0, false, 0));
   expect(detailingStore.generate(), detailingStore.lastError ?? '').not.toBeNull();
+  mark('restore:end');
   const restored = currentFrameDesignQuality();
   const initialDetail = detailingStore.lastRun!;
   // Diagnose whether exhausted nominal searches can recover against the retained neighbours.
@@ -126,11 +138,25 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     coordinationSpy!.mockClear();
     return result;
   }) : undefined;
+  const catalogs: unknown[] = [];
+  const cages = cageCatalog.beamCompatibleCageAlternatives;
+  const cageSpy = profile ? vi.spyOn(cageCatalog, 'beamCompatibleCageAlternatives').mockImplementation(function* (...args) {
+    const started = performance.now();
+    let count = 0;
+    mark('catalog:start', args[0].map(c => c.elementId));
+    for (const proposal of cages(...args)) { count++; yield proposal; }
+    const entry = { ids: args[0].map(c => c.elementId), count, ms: performance.now() - started };
+    catalogs.push(entry); mark('catalog:end', entry);
+    cageSpy!.mockClear();
+  }) : undefined;
   const attempts: unknown[] = [];
   const run = detailEngine.runDetailing;
-  const spy = process.env.STABILEO_REPAIR_TRACE ? vi.spyOn(detailEngine, 'runDetailing') : undefined;
+  const spy = process.env.STABILEO_REPAIR_TRACE || profile ? vi.spyOn(detailEngine, 'runDetailing') : undefined;
   spy?.mockImplementation(input => {
+    const started = performance.now();
+    mark('detail:start', attempts.length);
     const result = run(input);
+    mark('detail:end', { ms: performance.now() - started });
     const changed = [...input.outcomes].filter(([id, o]) => rebarHash(detailableReinforcement(o)?.rebar)
       !== rebarHash(detailableReinforcement(outcomes.get(id))?.rebar)).map(([id, o]) => ({ id, reinforcement: detailableReinforcement(o)?.rebar }));
     if (changed.length) {
@@ -138,6 +164,8 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
       const newlyBlocked = [...physicallyBlockedMembers(result)].filter(id => !blockedBefore.has(id));
       const changedIds = new Set(changed.map(m => m.id));
       const regressionsFromSnapshot = detailRegressionReasons(initialDetail, result);
+      mark('trial', { changed: [...changedIds], newlyBlocked, regressions: regressionsFromSnapshot,
+        blockingConflicts: result.assemblies.reduce((n, a) => n + a.conflicts.filter(c => c.severity !== 'marginal').length, 0) });
       attempts.push({ changed, regressionsFromSnapshot, newlyBlocked,
         regressedConditions: result.assemblies.flatMap(a => a.unsupported.filter(u =>
           u.key !== 'detailing.clash.unresolved' && regressionsFromSnapshot.includes(u.key))),
@@ -170,16 +198,18 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
     searchImpl({ ...input, lockedMembers: new Set([...(input.lockedMembers ?? []),
       ...[...input.contexts.keys()].filter(id => !targets.includes(id))]) })) : undefined;
   try {
+    mark('search:start');
     if (runs) expect(detailingStore.generate({ physicalSearch: {
       maxDetailingRuns: Number(runs), maxMemberSearches: 512,
       operators: (process.env.STABILEO_REPAIR_OPERATOR ?? 'harmonizeTopCatalog')
         .split(',').map(s => s.trim()) as PhysicalRepairOperator[],
     } }), detailingStore.lastError ?? '').not.toBeNull();
-  } finally { spy?.mockRestore(); targetSpy?.mockRestore(); coordinationSpy?.mockRestore(); }
+  } finally { spy?.mockRestore(); targetSpy?.mockRestore(); coordinationSpy?.mockRestore(); cageSpy?.mockRestore(); }
+  mark('search:end');
   const after = currentFrameDesignQuality();
   const detail = detailingStore.lastRun!;
   const search = detailingStore.lastFeedbackLoop?.physicalSearch;
-  const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened, coordinationEvidence,
+  const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened, coordinationEvidence, catalogs,
     search: search ? { trials: search.trials, stats: search.stats, termination: search.termination, changed: search.changed } : undefined,
     reverification: detail.reverification,
     failedChecks: detail.reverification.filter(r => r.status === 'fail').map(r => {

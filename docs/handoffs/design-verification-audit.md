@@ -6,6 +6,95 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Continuaciones del catálogo: de 411 a 392 bloqueantes
+
+Continuación desde `eb7e7c084` y `/tmp/design-interior-general.json`. Dos avances generales,
+sin selección manual de miembros ni sustitución de propuestas, reducen **411 → 410 → 392
+conflictos bloqueantes** y **584 → 583 → 555 conflictos totales**. Se conservan las **234
+aprobaciones válidas** (134 columnas y 100 vigas). Cambian los resultados nominales y armados
+de **235–238 y 248–250**; los otros 401 permanecen idénticos. Las siete vigas modificadas
+siguen retenidas por el detallado: no se cuentan como nuevas aprobaciones.
+
+### Causas y cambios
+
+El catálogo transversal sólo se abría cuando una línea mezclaba diámetros de estribos.
+Después de aceptar Ø8 en toda 235–238, dejaba de proponer Ø6 aunque esa combinación pudiera
+resolver los choques restantes. El operador conjunto ahora reabre también líneas uniformes.
+Descarta la alternativa idéntica y conserva el catálogo permitido por cada miembro, el número
+de ramas, el mínimo de separación y el acero transversal por unidad de longitud. Un diámetro
+menor exige estribos más próximos. Cada jaula pasa igualmente por las verificaciones nominales
+y del detallado completo.
+
+Un barrido de 24 detallados con esa ampliación todavía quedaba en 411: todos se gastaban en
+223–225. Las reparaciones complementarias se descontaban del presupuesto global pero contaban
+como un solo intento al decidir cuándo ceder el turno. Ahora su coste completo cuenta también
+para ese turno. El producto longitudinal/transversal dispone de hasta doce propuestas primarias consecutivas incluso
+cuando el armado retenido ya tiene un diámetro transversal uniforme, dentro del presupuesto
+global. También se comprueba que alcance el presupuesto antes de construir un catálogo entero.
+
+Había además una confusión entre la causa del choque y los propietarios del nudo. Un reporte
+podía incluir una viga perpendicular porque era propietaria de los estribos del nudo, aunque
+la barra que causaba el nuevo bloqueo perteneciera a la línea que se estaba modificando.
+Ahora se intenta primero cambiar esas barras. La alternativa de reparar vecinos se conserva
+en una cola diferida; cuando le toca, se comprueba de nuevo con el estado vigente y todos
+los controles. Una regresión específica prueba que esa ruta diferida todavía puede cerrar
+un caso que los cambios directos no resuelven. Las reparaciones de fallos realmente colaterales
+siguen disponibles inmediatamente.
+
+### Coste del ensayo
+
+Las mediciones separan preparación, catálogo y detallado. En el control inicial de dieciséis
+detallados, los catálogos tardaron alrededor de 0,1 s cada uno; el coste dominante fue reconstruir
+y verificar la geometría completa. El registro incremental `STABILEO_REPAIR_PROFILE=1` guarda
+los tiempos y el resultado de cada propuesta sin esperar al final del ensayo.
+
+La auditoría de un armado retenido ya no diseña un modelo inicial que inmediatamente descarta.
+Carga el mismo ejemplo, resuelve nuevamente las fuerzas y combinaciones, reconstruye demandas
+y controles, restaura los resultados retenidos y genera el detallado completo. El resumen se
+recalcula a partir de esos resultados. La comparación del estado restaurado reproduce los
+conteos y aprobaciones del camino anterior. Se deja de conservar en memoria la geometría
+completa del archivo de entrada. Esta mejora pertenece al ensayo; no se presenta como una
+aceleración equivalente del motor de detallado.
+
+### Evidencia y límites
+
+La ampliación transversal por sí sola encuentra **395** en el ensayo focalizado de 235–238
+(`/tmp/design-uniform235.json`, nueve detallados y cuarenta verificaciones nominales), pero el
+primer barrido general de 24 detallados no mejora 411 y consume todo el presupuesto en 223–225.
+Tras contabilizar las reparaciones complementarias en los turnos, un barrido de 40 detallados
+acepta el cambio de **248–250** y llega a **410**: 4Ø16 arriba y abajo, estribos Ø10 y las
+separaciones retenidas. Ese ensayo pasa en 303,45 s (`/tmp/design-fair-general.json`).
+
+La versión final agrega la prioridad de reparación directa, su alternativa diferida y el
+turno para catálogos transversales uniformes. Desde 410, un barrido general acepta **9Ø16
+superiores**, filas declaradas 7+2, **7Ø12 inferiores**, filas conservadas 4+3, y **estribos
+Ø6 cada 75 mm** en 235–238. Llega a **392** y conserva todas las aprobaciones.
+La evidencia es `/tmp/design-direct-general.json`: **64 detallados, 256 verificaciones
+nominales y cero análisis estructurales dentro de la búsqueda**; termina por presupuesto.
+La prueba completa pasa en **520,36 s locales**, con fuerzas resueltas nuevamente y reproducción
+exacta de conteos y aprobaciones al regenerar. Los tiempos reflejan el entorno local, no un
+benchmark controlado ni una garantía de latencia.
+
+Se mantiene el criterio lexicográfico existente. La segunda aceptación reduce bloqueos y
+condiciones abiertas, pero los pares de empalme no dispuestos de los nudos de 235–238 pasan
+2 → 3. Su agregado pasa 193 → 194, igual al estado inicial de 411. No se afirma una mejora
+simultánea de cada métrica ni un óptimo de fabricación; ninguna de esas vigas se publica como
+verificada físicamente. No se relajaron recubrimientos, resistencia, tolerancias ni controles
+de aceptación.
+
+Pasan **309 pruebas dirigidas en doce suites**, incluidas reapertura de estribos uniformes,
+catálogo común a todos los miembros, conservación del acero transversal, presupuestos antes
+de enumerar, coste de los vecinos dentro del turno, reparación directa y recuperación de la
+ruta diferida. También pasan integración con fuerzas resueltas, coordinación, colisiones,
+detallado, verificación final y documentos. Typecheck: **442 errores existentes frente al
+baseline de 443, sin errores nuevos**.
+
+Quedan **286 solapes prohibidos, 74 separaciones entre miembros y 32 separaciones internas**.
+Los mayores focos son 223 (40), 224 (28), 239 (25) y 225/232/233 (22 cada uno). Persisten
+126 miembros fallidos, 35 agotados y 13 provisionales; 192/195 siguen fallando en resistencia
+final. El coste dominante sigue siendo el detallado completo y no se garantiza convergencia
+por ampliar o agotar el presupuesto.
+
 ## Recubrimiento de barras continuas: de 440 a 411 bloqueantes
 
 Continuación desde `085a80b38` y `/tmp/design-cage-rows-general.json`. Una pasada general

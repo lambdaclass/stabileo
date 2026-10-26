@@ -687,12 +687,24 @@ describe('atomic top continuity repair', () => {
     expect(result.changed).toEqual([]);
   });
 
-  it('bounds a mixed-transverse neighbourhood at twelve proposals before yielding', () => {
+  it.each(['member', 'detail'] as const)('does not build a coupled catalog without enough %s budget for one proposal', kind => {
+    const input = coupledLines();
+    const catalog = vi.spyOn(transverseAlternatives, 'beamCompatibleCageAlternatives');
+    const result = searchPhysicalDesignAlternatives({ ...input, budget: { ...input.budget,
+      maxDetailingRuns: kind === 'detail' ? 0 : 2, maxMemberSearches: kind === 'member' ? 2 : 5 } });
+    expect(catalog).not.toHaveBeenCalled();
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.termination).toBe('budget');
+    expect(result.stats).toMatchObject({ detailingRuns: 0, memberSearches: 0 });
+    expect(result.outcomes).toBe(input.outcomes);
+  });
+
+  it.each(['mixed', 'uniform'] as const)('bounds a %s transverse catalog at twelve proposals before yielding', mode => {
     const input = coupledLines();
     input.result.assemblies[0].conflicts.push(...detail([4]).assemblies[0].conflicts);
     for (const id of [1, 2, 3]) {
       const regions = input.outcomes.get(id)!.accepted!.regions!;
-      regions.stirrupsSupport = { diameter: id === 1 ? 6 : 8, legs: 2, spacing: 0.15 };
+      regions.stirrupsSupport = { diameter: mode === 'mixed' && id === 1 ? 6 : 8, legs: 2, spacing: 0.15 };
       regions.stirrupsSpan = { ...regions.stirrupsSupport };
     }
     input.detail.mockReturnValue(input.result);
@@ -712,7 +724,7 @@ describe('atomic top continuity repair', () => {
       const closed = r.topStart!.count === (face === 'top' ? 5 : 4) && r.bottomSpan!.count === (face === 'top' ? 3 : 4);
       return { ...input.result, assemblies: [{ ...input.result.assemblies[0], unsupported: [],
         bars: [{ id: 'primary-top', role: 'longitudinal', ownerElementIds: [1], layerId: `e1:${face}:0` }],
-        conflicts: closed ? [] : [{ elementIds: [1, 99], severity: 'overlap', barA: 'primary-top', barB: 'column' }],
+        conflicts: closed ? [] : [{ elementIds: [1, 4, 99], severity: 'overlap', barA: 'primary-top', barB: 'joint-tie' }],
       }] } as unknown as RunDetailingResult;
     });
     const result = searchPhysicalDesignAlternatives({ ...input,
@@ -723,6 +735,30 @@ describe('atomic top continuity repair', () => {
     expect(result.stats).toMatchObject({ detailingRuns: 2, memberSearches: 6 });
     expect(result.result.assemblies[0].conflicts).toEqual([]);
     expect(result.changed).toEqual([1, 2, 3]);
+  });
+
+  it('retains the deferred companion route when changing the primary bars cannot close the joint', () => {
+    const input = coupledLines();
+    const generate = transverseAlternatives.beamCompatibleCageAlternatives;
+    vi.spyOn(transverseAlternatives, 'beamCompatibleCageAlternatives').mockImplementation(function* (...args) {
+      const first = generate(...args).next();
+      if (!first.done) yield first.value;
+    });
+    input.detail.mockImplementation(proposed => {
+      const closed = proposed.get(4)!.accepted!.regions!.topStart!.count === 4;
+      return { ...input.result, assemblies: [{ ...input.result.assemblies[0], unsupported: [],
+        bars: [{ id: 'primary', role: 'longitudinal', ownerElementIds: [1], layerId: 'e1:top:0' }],
+        conflicts: closed ? [] : [{ elementIds: [1, 4, 5, 99], severity: 'overlap', barA: 'primary', barB: 'joint-tie' }],
+      }] } as unknown as RunDetailingResult;
+    });
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 3, maxMemberSearches: 8 } });
+    expect(result.trials.map(t => t.disposition)).toEqual(['regression', 'accepted']);
+    expect(result.trials[0].companionTrials).toBeUndefined();
+    expect(result.trials[1].companionRetained).toBe(true);
+    expect(result.changed).toEqual([1, 2, 3, 4, 5]);
+    expect(result.stats).toMatchObject({ detailingRuns: 3, memberSearches: 8 });
+    expect(result.result.assemblies[0].conflicts).toEqual([]);
   });
 
   it('repairs every owner of a continuous bar even when its cover report names only one span', () => {
@@ -764,6 +800,19 @@ describe('atomic top continuity repair', () => {
     expect(result.stats.detailingRuns).toBeLessThanOrEqual(7);
     expect(result.stats.memberSearches).toBeLessThanOrEqual(15);
     expect(result.result.assemblies[0].unsupported).toEqual([]);
+  });
+
+  it('charges failed companion builds to the primary line turn before visiting another blocked line', () => {
+    const input = coupledLines(true);
+    input.result.assemblies[0].conflicts.push(...detail([4]).assemblies[0].conflicts);
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...input.budget, maxDetailingRuns: 8, maxMemberSearches: 100 } });
+    expect(result.trials.map(t => t.elementId)).toEqual([1, 4]);
+    expect(result.trials[0].companionTrials).toHaveLength(6);
+    expect(result.trials[0].companionRetained).toBe(false);
+    expect(result.stats.detailingRuns).toBe(8);
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
   });
 
   it('caps a failing companion at six full builds even when the outer budget has room', () => {

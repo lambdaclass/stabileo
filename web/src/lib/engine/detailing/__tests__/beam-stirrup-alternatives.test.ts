@@ -39,6 +39,34 @@ describe('transverse continuity alternatives', () => {
     expect(current).toEqual(before);
   });
 
+  it('reopens uniform transverse seats in coupled cages without weakening or duplicating them', () => {
+    const ctx = contexts(), current = [reinforcement(8), reinforcement(8)];
+    for (const r of current) r.regions!.stirrupsSupport!.spacing = 0.175;
+    for (const c of ctx) {
+      c.material.stirrupDiametersMm = [6, 8, 10]; c.material.longDiametersMm = [16];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    const before = structuredClone(current);
+    const alternatives = [...beamStirrupContinuityAlternatives(ctx, current, 'all')];
+    expect(alternatives.map(p => p.stirrupDiameterMm)).toEqual([6, 10]);
+    for (const p of alternatives) for (const [i, r] of p.reinforcement.entries())
+      for (const key of ['stirrupsSupport', 'stirrupsSpan'] as const) {
+        const old = current[i].regions![key]!, next = r.regions![key]!;
+        expect(next.spacing).toBeLessThanOrEqual(old.spacing);
+        expect(next.legs).toBe(old.legs);
+        expect(next.legs * next.diameter ** 2 / next.spacing)
+          .toBeGreaterThanOrEqual(old.legs * old.diameter ** 2 / old.spacing);
+      }
+    const proposals = [...beamCompatibleCageAlternatives(ctx, current)];
+    expect(proposals.slice(0, 3).map(p => p.reinforcement[0].regions!.stirrupsSupport!.diameter)).toEqual([8, 6, 10]);
+    expect(new Set(proposals.map(p => p.reinforcement.map(rebarHash).join('|'))).size).toBe(proposals.length);
+    expect(current).toEqual(before);
+    ctx[1].material.stirrupDiametersMm = [8];
+    expect([...beamStirrupContinuityAlternatives(ctx, current, 'all')]).toEqual([]);
+  });
+
   it('aligns different cages using common allowed diameters without weakening transverse steel', () => {
     const ctx = contexts(), current = [reinforcement(6), reinforcement(10)];
     for (const c of ctx) c.material.stirrupDiametersMm = [6, 8, 10, 12];

@@ -4,16 +4,31 @@ import { verificationStore } from '../verification.svelte';
 import { detailingStore } from '../detailing.svelte';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 
-/** Full production path with the example’s own lateral declaration, including final holds. */
-export async function frameDesignQuality() {
+/** Load the example and solve fresh forces with its own lateral declaration. */
+async function loadSolvedFrame() {
   await modelStore.loadExample('rc-design-frame');
   uiStore.analysisMode = 'pro';
   const combo = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
   resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);
   resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+}
+
+/** Full production path, including nominal design and final holds. */
+export async function frameDesignQuality() {
+  await loadSolvedFrame();
   designRunStore.designAll({ maxRunMs: 180_000 });
   return currentFrameDesignQuality();
+}
+
+/** Re-solve and rebuild demands for a retained-assignment audit, without designing
+ * and detailing a seed that the audit immediately discards. */
+export async function frameDesignInputs() {
+  await loadSolvedFrame();
+  const demands = designRunStore.computeDemands();
+  if (!demands.ok) throw new Error(JSON.stringify(demands));
+  const check = designRunStore.runCodeCheck();
+  if (!check.ok) throw new Error(JSON.stringify(check));
 }
 
 /** Read the published design after a further production detailing/repair command. */

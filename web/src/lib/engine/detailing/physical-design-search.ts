@@ -459,7 +459,8 @@ function searchBeamContinuity(
       ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids) || p.ids.some(id => companionBlocked.has(id))))
       : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
-  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined }))
+  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, promising: false, order: undefined as number[] | undefined,
+    deferredProposal: undefined as BeamContinuityAlternative | undefined }))
     .sort((a, b) => (operator === 'harmonizeBottomLine' || coupled ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
@@ -481,6 +482,11 @@ function searchBeamContinuity(
     if (ids.some(id => !contexts.has(id) || contexts.get(id)!.elementType !== 'beam'
       || contexts.get(id)!.span || input.lockedMembers?.has(id)
       || outcomes.get(id)?.outcome !== 'VERIFIED' || !outcomes.get(id)?.accepted)) continue;
+    // Do not construct a Cartesian catalog when the caller cannot afford even one
+    // complete proposal. Keep the inner check for operators that consume several here.
+    if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
+      termination = 'budget'; break pairLoop;
+    }
     const ctx = ids.map(id => contexts.get(id)!);
     const current = ids.map(id => outcomes.get(id)!.accepted!);
     const transverseFamilies = new Set(current.flatMap(r => [r.stirrups?.diameter,
@@ -491,23 +497,30 @@ function searchBeamContinuity(
       : cage ? beamCageContinuityAlternatives(ctx, current, demand ? 'all' : mixed ? 'mixed' : 'common', demand ? 'demand' : 'retained')
       : beamContinuityAlternatives(ctx, current, operator === 'harmonizeBottomLine' ? 'bottom' : 'top', catalog ? 'catalog' : 'existing');
     const domainKey = ids.join(',');
-    const domain = demand ? domains.get(domainKey) ?? [...proposals] : undefined;
-    if (domain) domains.set(domainKey, domain);
+    const domain = target.deferredProposal ? [target.deferredProposal]
+      : demand ? domains.get(domainKey) ?? [...proposals] : undefined;
+    if (domain && !target.deferredProposal) domains.set(domainKey, domain);
     let remaining = domain ? [...(target.order ?? domain.map((_, i) => i))] : [];
     for (const proposal of domain ? remaining.map(i => domain[i]) : proposals) {
       if (demand) remaining = remaining.slice(1);
       if (proposalIndex++ < target.offset) continue;
+      const runsBeforeProposal = stats.detailingRuns;
       const resume = () => {
+        if (target.deferredProposal) return;
         const promising = target.promising || (coupled && trial.blockingConflicts !== undefined
           && trial.blockingConflicts < conflicts(result) && trial.regressions?.length === 0);
         const next = { ...target, offset: demand ? 0 : proposalIndex, order: demand ? remaining : undefined, promising };
         // Four proposals to follow nominal feedback. A full build with fewer conflicts
         // and no aggregate regression earns four more, then yields to the other neighbourhoods.
-        // Mixed transverse seats add another catalog dimension. Give that bounded
-        // product a first pass before yielding, without enlarging the global budget.
-        const consecutiveLimit = coupled && transverseFamilies > 1 ? 12 : coupled && promising ? 8 : 4;
-        if (demand && (coupled || hasFinalFailure(ids)) && target.consecutiveTrials + 1 < consecutiveLimit)
-          ranked.splice(targetIndex + 1, 0, { ...next, consecutiveTrials: target.consecutiveTrials + 1 });
+        // Transverse alternatives add another catalog dimension even after the seats
+        // have become uniform. Give that bounded product a first pass before yielding.
+        const hasTransverseAlternatives = coupled && domain?.some(p => p.stirrupDiameterMm !== undefined);
+        const consecutiveLimit = coupled && (transverseFamilies > 1 || hasTransverseAlternatives) ? 12 : coupled && promising ? 8 : 4;
+        // A companion can spend six complete builds. Charge those to this line's
+        // turn as well as the global budget, or one line monopolizes the whole sweep.
+        const used = target.consecutiveTrials + Math.max(1, stats.detailingRuns - runsBeforeProposal);
+        if (demand && (coupled || hasFinalFailure(ids)) && used < consecutiveLimit)
+          ranked.splice(targetIndex + 1, 0, { ...next, consecutiveTrials: used });
         else ranked.push({ ...next, consecutiveTrials: 0, promising: false });
       };
       if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
@@ -516,7 +529,8 @@ function searchBeamContinuity(
       if (proposal.reinforcement.every((r, i) => rebarHash(r) === rebarHash(current[i]))) continue;
       // Neighbours are part of the key: a refusal from an earlier assignment is not final.
       const hash = [...outcomes].map(([id, o]) => `${id}:${o.accepted ? rebarHash(o.accepted) : o.outcome}`).join('|')
-        + `>${ids.join(',')}:${proposal.reinforcement.map(rebarHash).join(',')}`;
+        + `>${ids.join(',')}:${proposal.reinforcement.map(rebarHash).join(',')}`
+        + (target.deferredProposal ? ':companion' : '');
       if (seen.has(hash)) continue;
       seen.add(hash);
       let proposed = new Map(outcomes);
@@ -587,7 +601,18 @@ function searchBeamContinuity(
         && stats.detailingRuns < input.budget.maxDetailingRuns && stats.memberSearches < input.budget.maxMemberSearches) {
         const beforeBlocked = physicallyBlockedMembers(result);
         const newlyBlocked = new Set([...physicallyBlockedMembers(detailed)].filter(id => !beforeBlocked.has(id)));
-        if (newlyBlocked.size || input.regresses(result, detailed)) {
+        const primaryBars = new Set(detailed.assemblies.flatMap(a => a.bars ?? [])
+          .filter(b => b.role === 'longitudinal' && b.ownerElementIds.some(id => ids.includes(id))).map(b => b.id));
+        const directClash = detailed.assemblies.some(a => a.conflicts.some(c => c.severity !== 'marginal'
+          && c.elementIds.some(id => newlyBlocked.has(id)) && [c.barA, c.barB].some(id => primaryBars.has(id))));
+        if (directClash && !target.deferredProposal) {
+          // First change the primary bars causing the new hold. Joint tie ownership can
+          // otherwise send six builds to perpendicular beams that did not cause it.
+          // Keep the coupled route in the queue: a neighbour may still be the solution
+          // if the direct alternatives fail. Replay uses fresh neighbours and all gates.
+          ranked.push({ ...target, offset: 0, consecutiveTrials: 0, promising: false,
+            order: undefined, deferredProposal: proposal });
+        } else if (newlyBlocked.size || input.regresses(result, detailed)) {
           // Use the actual collateral failures, even when floor coordination moved a line
           // that does not directly share a node with the primary change.
           const affected = new Set<number>();
@@ -737,7 +762,7 @@ function searchBeamContinuity(
           if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);
         }
         ranked.splice(targetIndex + 1, 0, ...affected.map(p => ({ ...p, burden: burden(p.ids),
-          offset: 0, consecutiveTrials: 0, promising: false, order: undefined })));
+          offset: 0, consecutiveTrials: 0, promising: false, order: undefined, deferredProposal: undefined })));
       }
       break;
     }
