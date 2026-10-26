@@ -6,6 +6,72 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Recuperaciones verificadas que no llegaban al modelo
+
+Continuación desde `53d2f7de9`, con **304 conflictos bloqueantes, 240 aprobaciones válidas y
+cero fallos de generación** (`/tmp/design-generation-final-general.json`). Se ejecutó
+`retryExhausted` para comprobar las propuestas que antes sólo habían pasado nominalmente.
+
+### Causa y corrección
+
+La viga **197** superaba la búsqueda nominal, el detallado completo y la verificación final.
+La búsqueda la marcaba como aceptada, sin regresiones ni miembros nuevos bloqueados, pero
+`publishRepairedReinforcement` exigía que existiera un armado *aceptado anterior*. Al venir de
+`SEARCH_EXHAUSTED`, el filtro la descartaba. El modelo conservaba el rechazo y ninguna barra,
+aunque la geometría del último detallado contenía la solución. La reproducción anterior a la
+corrección es `/tmp/design-recovery304-general.json`: `search.changed = [197]`, verificación
+final `ok`, pero resultado publicado `SEARCH_EXHAUSTED` y 240 aprobaciones.
+
+La publicación ahora admite una recuperación verificada sin armado aceptado previo. Guarda
+las barras y la propuesta, publica el resultado y vuelve a contar los estados. Retira el
+rechazo guardado de ese miembro y conserva los de los demás, incluso si no hay resumen de
+sesión o éste sólo contiene una parte de los resultados conocidos. Se mantienen los bloqueos
+manuales y el requisito de que el resultado retenido sea `VERIFIED`; no se publican propuestas
+rechazadas por el motor. Ningún control de aceptación física cambia.
+
+La auditoría tenía otro punto ciego: comparar los conteos antes y después de regenerar no
+revelaba una recuperación que nunca se había guardado. Ahora contrasta cada miembro de
+`search.changed` con su resultado publicado y sus barras reales, y comprueba que el resumen
+coincida con todos sus resultados.
+
+### Resultado retenido
+
+- **240 → 241 aprobaciones válidas**: 135 columnas y **106 vigas**. La nueva aprobación es 197.
+- **35 → 34 búsquedas agotadas**. Quedan 120 miembros fallidos y 13 provisionales.
+- **304 bloqueantes / 411 conflictos totales**, sin aumentos, y cero fallos de generación.
+- Ninguna aprobación previa perdida; ninguna aprobación con choque bloqueante o sin pase final.
+- Sólo cambia el registro de 197; los otros **407 miembros permanecen idénticos**.
+
+197 retiene **11Ø16 superiores**, declarados en filas 7+2+2 en ambos extremos,
+**11Ø12 inferiores** en filas 8+3 y estribos **Ø10 de dos patas cada 250 mm** en apoyo y tramo.
+Es una asignación de diseño que se coordina y verifica de nuevo en la geometría construida;
+no se reutiliza una capacidad nominal como certificado final.
+
+Las propuestas de 196, 324 y 327 siguen rechazadas: generan choques, empalmes o fallos finales
+y bloquean vecinos que ya verificaban. 198 no recupera verificación nominal después de incorporar
+197 al conjunto. No se cuentan estas propuestas descartadas como mejoras.
+
+### Validación
+
+La reproducción general usa la entrada `/tmp/design-generation-final-general.json`, operador
+`retryExhausted` y presupuesto de **dos detallados**, sin selección manual de miembros:
+`/tmp/design-recovery-retained-general.json`. Requiere **26 búsquedas de miembros y 1268
+llamadas al verificador**, sin análisis estructurales internos. El fixture vuelve a resolver las
+fuerzas antes de restaurar los armados y regenera al final sin búsqueda: conserva exactamente
+los conteos y las aprobaciones. La exploración con presupuesto de ocho hizo cuatro detallados
+(`/tmp/design-recovery-persisted-general.json`) y retuvo el mismo armado, resultado y aprobación;
+sólo difiere el tiempo medido de la búsqueda nominal de 197.
+
+Pasan **183 pruebas dirigidas en seis suites** de búsqueda física, ciclo de verificación,
+publicación, edición retroactiva y persistencia de rechazos. Las seis pruebas nuevas cubren
+recuperación sin barras anteriores, regeneración idempotente, restauración del modelo, ausencia
+o parcialidad del resumen de sesión, bloqueos manuales y propuestas aún rechazadas. Tres casos
+de recuperación fallan contra la implementación anterior y pasan con la corrección
+(`/tmp/design-persistence-regression-red.log`). El edificio completo se comprueba además con
+el fixture de 408 miembros y las nuevas aserciones de persistencia; pasa en **16,89 s locales**,
+sin presentar ese tiempo como benchmark. Typecheck: **442 errores existentes frente al baseline
+de 443, sin errores nuevos**. `git diff --check` limpio.
+
 ## Reparaciones de generación sin choques bloqueantes
 
 Continuación desde `9036edbc0`, usando el estado de **304 conflictos bloqueantes y 240

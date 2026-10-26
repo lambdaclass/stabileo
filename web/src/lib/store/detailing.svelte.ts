@@ -54,7 +54,8 @@ import type { EngineMessage } from '../codes/message';
 // name is a plain string because a user-given combination name is not translatable; only
 // the synthetic "active result set" stand-in needs a locale.
 import { t, tp } from '../i18n';
-import type { MemberDesignOutcome } from '../engine/design/outcome';
+import { tallyRunSummary, type MemberDesignOutcome } from '../engine/design/outcome';
+import { recordRefusals } from './design-refusals';
 import { DAGG_ASSUMED_MM } from '../codes/project-code-settings';
 
 /**
@@ -166,22 +167,22 @@ function createDetailingStore() {
     before: ReadonlyMap<number, MemberDesignOutcome>,
   ): void {
     const repaired = [...next.values()].filter((o) => {
-      const prev = before.get(o.elementId)?.accepted;
+      const prev = before.get(o.elementId);
       return o.outcome === 'VERIFIED' && o.accepted && prev && !isLockedMember(o.elementId)
-        && rebarHash(o.accepted) !== rebarHash(prev);
+        && (prev.outcome !== 'VERIFIED' || !prev.accepted || rebarHash(o.accepted) !== rebarHash(prev.accepted));
     });
     if (repaired.length === 0) return;
     modelStore.reinforcementTransaction((api) => {
       writeRepaired(api, repaired);
     });
     const prev = verificationStore.runSummary;
-    if (prev) {
-      verificationStore.setDesignOutcomes({
-        ...prev,
-        outcomes: new Map([...prev.outcomes, ...repaired.map(
-          (o) => [o.elementId, o] as const)]),
-      });
-    }
+    // A reopened refusal has no session summary. Keep every known outcome, recount
+    // transitions from refusal to acceptance, and retire the recovered saved refusals.
+    const merged = new Map([...before, ...(prev?.outcomes ?? []), ...repaired.map((o) => [o.elementId, o] as const)]);
+    const summary = tallyRunSummary(prev?.codeId ?? repaired[0].codeId, prev?.codeVersion ?? repaired[0].codeVersion,
+      [...merged.values()], prev?.wallMs ?? 0, prev?.aborted ?? false, prev?.notReached ?? 0);
+    verificationStore.setDesignOutcomes(summary);
+    recordRefusals(merged.values());
   }
 
   function replace(assembly: DetailingAssembly): void {

@@ -209,6 +209,18 @@ it.runIf(!!process.env.STABILEO_REPAIR_SNAPSHOT)('reverifies a retained reinforc
   const after = currentFrameDesignQuality();
   const detail = detailingStore.lastRun!;
   const search = detailingStore.lastFeedbackLoop?.physicalSearch;
+  // An accepted trial is progress only after the model and the published outcomes keep it.
+  // Comparing counts before/after regeneration alone misses an entirely discarded recovery.
+  for (const id of search?.changed ?? []) {
+    const retained = search!.outcomes.get(id)!;
+    expect(verificationStore.outcomeFor(id), `published recovery ${id}`).toEqual(retained);
+    expect(modelStore.elements.get(id)!.reinforcement, `saved reinforcement ${id}`).toEqual(retained.accepted);
+  }
+  if (search) {
+    const summary = verificationStore.runSummary!;
+    expect(summary).toEqual(tallyRunSummary(summary.codeId, summary.codeVersion,
+      [...summary.outcomes.values()], summary.wallMs, summary.aborted, summary.notReached));
+  }
   const evidence = { before: saved.after, priorInvalidApprovals, restored, after, attempts, nominalFailures, reopened, coordinationEvidence, catalogs,
     search: search ? { trials: search.trials, stats: search.stats, termination: search.termination, changed: search.changed } : undefined,
     reverification: detail.reverification,
