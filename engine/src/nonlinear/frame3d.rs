@@ -255,6 +255,8 @@ pub struct Frame3D {
     f: Vec<f64>,
     k: Vec<f64>,
     q: [f64; 7],
+    /// The nodes' undeformed positions.
+    x0: [[f64; 3]; 2],
 }
 
 impl Frame3D {
@@ -271,13 +273,45 @@ impl Frame3D {
         let (l0, r0) = initial_frame(xi, xj, reference)?;
         let s0 = |x| NodeState3D { x0: x, u: [0.0; 3], r: IDENTITY };
         let (_, b0) = corotational(&s0(xi), &s0(xj), l0, &r0)?;
-        let mut e = Frame3D { nodes, l0, r0, kinematics, basic, b0, f: vec![0.0; 12], k: vec![0.0; 144], q: [0.0; 7] };
+        let mut e = Frame3D { nodes, l0, r0, kinematics, basic, b0, f: vec![0.0; 12], k: vec![0.0; 144], q: [0.0; 7], x0: [xi, xj] };
         e.update(&[s0(xi), s0(xj)])?;
         Ok(e)
     }
 
     pub fn basic_forces(&self) -> [f64; 7] {
         self.q
+    }
+}
+
+impl Frame3D {
+    /// ∂(Bᵀ·q)/∂d at the states `s` with q frozen, by central differences
+    /// of B: the geometric part of the co-rotational tangent.
+    fn geometric(&self, s: &[NodeState3D], q: &[f64; 7]) -> Result<Vec<f64>, String> {
+        let mut k = vec![0.0; 144];
+        let ht = 1e-5 * self.l0;
+        let hr = 1e-5;
+        for j in 0..12 {
+            let node = j / 6;
+            let local = j % 6;
+            let h = if local < 3 { ht } else { hr };
+            let mut cols = [[0.0; 12]; 2];
+            for (c, sign) in [(0, 1.0), (1, -1.0)] {
+                let mut st = [s[0], s[1]];
+                if local < 3 {
+                    st[node].u[local] += sign * h;
+                } else {
+                    let mut dth = [0.0; 3];
+                    dth[local - 3] = sign * h;
+                    st[node].r = mat_mul(&exp(dth), &st[node].r);
+                }
+                let (_, bp) = corotational(&st[0], &st[1], self.l0, &self.r0)?;
+                cols[c] = btq(&bp, q);
+            }
+            for i in 0..12 {
+                k[12 * i + j] = (cols[0][i] - cols[1][i]) / (2.0 * h);
+            }
+        }
+        Ok(k)
     }
 }
 
@@ -330,29 +364,9 @@ impl Element3D for Frame3D {
             }
         }
         if self.kinematics == Kinematics::Corotational {
-            // ∂(Bᵀ·q)/∂d at frozen q, by central differences of B.
-            let ht = 1e-5 * self.l0;
-            let hr = 1e-5;
-            for j in 0..12 {
-                let node = j / 6;
-                let local = j % 6;
-                let h = if local < 3 { ht } else { hr };
-                let mut cols = [[0.0; 12]; 2];
-                for (c, sign) in [(0, 1.0), (1, -1.0)] {
-                    let mut st = [s[0], s[1]];
-                    if local < 3 {
-                        st[node].u[local] += sign * h;
-                    } else {
-                        let mut dth = [0.0; 3];
-                        dth[local - 3] = sign * h;
-                        st[node].r = mat_mul(&exp(dth), &st[node].r);
-                    }
-                    let (_, bp) = corotational(&st[0], &st[1], self.l0, &self.r0)?;
-                    cols[c] = btq(&bp, &q);
-                }
-                for i in 0..12 {
-                    self.k[12 * i + j] += (cols[0][i] - cols[1][i]) / (2.0 * h);
-                }
+            let g = self.geometric(s, &q)?;
+            for (k, g) in self.k.iter_mut().zip(g) {
+                *k += g;
             }
         }
         self.f.copy_from_slice(&f);
@@ -365,6 +379,13 @@ impl Element3D for Frame3D {
     }
     fn tangent(&self) -> &[f64] {
         &self.k
+    }
+    fn initial_stress(&self) -> Result<Vec<f64>, String> {
+        if self.kinematics == Kinematics::Linear {
+            return Ok(vec![0.0; 144]);
+        }
+        let s0 = |x| NodeState3D { x0: x, u: [0.0; 3], r: IDENTITY };
+        self.geometric(&[s0(self.x0[0]), s0(self.x0[1])], &self.q)
     }
     fn commit(&mut self) {
         self.basic.commit();
@@ -462,6 +483,22 @@ impl Element3D for Truss3D {
     }
     fn tangent(&self) -> &[f64] {
         &self.k
+    }
+    fn initial_stress(&self) -> Result<Vec<f64>, String> {
+        let mut k = vec![0.0; 144];
+        if self.kinematics == Kinematics::Corotational {
+            let e1 = self.e10;
+            for a in 0..3 {
+                for c in 0..3 {
+                    let kk = self.n / self.l0 * ((a == c) as u8 as f64 - e1[a] * e1[c]);
+                    k[12 * a + c] = kk;
+                    k[12 * (6 + a) + 6 + c] = kk;
+                    k[12 * a + 6 + c] = -kk;
+                    k[12 * (6 + a) + c] = -kk;
+                }
+            }
+        }
+        Ok(k)
     }
     fn commit(&mut self) {
         self.material.commit();

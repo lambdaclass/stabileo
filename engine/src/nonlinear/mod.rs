@@ -10,9 +10,11 @@
 //! |---|---|---|
 //! | Material | [`UniaxialMaterial`], [`PlaneStressMaterial`] | stress and consistent tangent at one point, from a trial strain and the last committed state |
 //! | Section | [`FiberSection2D`], [`FiberSection3D`] | resultants and their tangent, integrating materials over a cross-section |
+//! | Shell | [`LayeredSection`], [`Shell4`] | plane-stress materials through the thickness, on a four-node shell (MITC4 shear) under small-displacement or co-rotational kinematics |
 //! | Element | [`Element`], [`Element3D`] | internal force and tangent; the kinematics ([`Kinematics`]) is the element's choice, not the material's |
 //! | Model | [`NonlinearModel`] | assembly, and moving the trial configuration (multiplicative rotations in 3D) |
 //! | Linear solver | (`linear_solver`, [`sparse`]) | sparse LDLᵀ with inertia, LU fallback, the bordered system |
+//! | Buckling | [`linear_buckling`] | the linear buckling factors and modes about the undeformed state, the shape of GMNIA imperfections |
 //! | Driver | [`solve`] | `R(u, λ) = λ·F − f_int(u) = 0` by Newton under load, displacement or arc-length control, with the escalation ladder of the robust default |
 //!
 //! State follows one rule everywhere: `update` computes a *trial* state from
@@ -24,6 +26,7 @@
 //! converged state (`u`, `lambda`, reactions), never an unconverged iterate,
 //! and says why it stopped ([`Termination`]).
 
+mod buckling;
 pub mod check;
 mod driver;
 mod element;
@@ -36,8 +39,10 @@ mod model3d;
 mod plane_stress;
 pub mod rotation;
 mod section;
+mod shell;
 pub mod sparse;
 
+pub use buckling::{linear_buckling, Buckling, BucklingOptions};
 pub use driver::{solve, CriticalKind, CriticalPoint, Iteration, NewtonOptions, Outcome, Phase, StepRecord, StopReason, Strategy, Termination};
 pub use element::{Element, Kinematics};
 pub use frame2d::{BasicResponse2D, ElasticBasic2D, FiberBasic2D, Frame2D, Truss2D};
@@ -48,3 +53,4 @@ pub use model::{DofKind, Model2D, NonlinearModel, TangentSink};
 pub use model3d::{Element3D, Model3D, NodeState3D};
 pub use plane_stress::{Hardening, PlaneStressElastic, PlaneStressJ2, PlaneStressMaterial};
 pub use section::{Fiber2D, Fiber3D, FiberSection2D, FiberSection3D};
+pub use shell::{LayeredSection, Shell4};

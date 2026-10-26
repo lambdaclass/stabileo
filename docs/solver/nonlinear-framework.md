@@ -25,7 +25,9 @@ The existing solvers stay as they are. They are the oracles the framework is tes
 | Element | `Element` (2D), `Element3D` | `Frame2D`, `Truss2D`, `Frame3D`, `Truss3D`; basic responses elastic or fiber, 2D and 3D |
 | Kinematics | `Kinematics` | `Linear` (small displacements) or `Corotational` (large displacements and rotations, small strains) |
 | Model | `NonlinearModel` | `Model2D` (additive updates); `Model3D` (rotation matrices per node, updated multiplicatively) |
-| Linear solver | `TangentSystem` | sparse LDLᵀ, sparse LU, the bordered system; one fixed policy (below) |
+| Linear solver | `TangentSystem` | sparse LDLᵀ (plain, then pivoted), sparse LU, the bordered system; one fixed policy (below) |
+| Shell | `LayeredSection`, `Shell4` | plane-stress materials through the thickness, on a four-node shell (MITC4 shear), small-displacement or co-rotational |
+| Buckling | `linear_buckling` | linear buckling factors and modes about the undeformed state; the modes as GMNIA imperfections |
 | Driver | `solve` | load control, displacement control, arc-length, Auto |
 
 The state contract is the same at every layer. `update` / `set_trial_strain` compute a trial
@@ -60,7 +62,8 @@ factorization of the analysis.
 | Factorization | For | Gives |
 |---|---|---|
 | Sparse LDLᵀ, no pivoting: supernodal, left-looking, with relaxed supernodes and a postordered AMD (simplicial up-looking below 32 unknowns) | symmetric tangents, definite or indefinite | the inertia: the number of negative eigenvalues |
-| Sparse LU, threshold partial pivoting (Gilbert–Peierls, `cs_lu`) | nonsymmetric tangents (3D co-rotational away from equilibrium); LDLᵀ meeting a tiny pivot | the determinant's sign |
+| Sparse LDLᵀ with 1×1 and 2×2 pivots inside each supernode (MA57's threshold test, u = 0.01) | symmetric tangents where the plain LDLᵀ meets a tiny pivot | the inertia, still exact |
+| Sparse LU, threshold partial pivoting (Gilbert–Peierls, `cs_lu`) | nonsymmetric tangents (3D co-rotational away from equilibrium); symmetric ones both LDLᵀ refuse | the determinant's sign |
 | Bordered system [K −F; e_cᵀ 0], by LU | displacement control where K itself is singular (a perfectly plastic mechanism) | δu and δλ together |
 
 Measured on Laplacian grids, release build, numeric factorization. The machine was loaded, so
@@ -72,6 +75,28 @@ the times are approximate.
 | 3D 28²×26 | 20k (nnz(L) = 4.2M) | 0.28–0.31 s | 0.88–0.94 s | 4.3 s |
 
 LU is a fallback, about 15× the supernodal LDLᵀ on 3D fill.
+
+**Pivoting.** The plain LDLᵀ divides by the diagonal in an order chosen for fill. On an
+indefinite tangent a diagonal entry can be near zero in that order although the matrix is far
+from singular, and it used to send the tangent to LU, which loses the inertia. The pivoted LDLᵀ
+then factors it again:
+- **Where it pivots.** Inside each supernode's diagonal block: a 1×1 pivot a_jj when
+  |a_jj| ≥ 0.01·max_i |a_ij| over the whole column, else a 2×2 pivot on (j, r), r the largest
+  entry of column j in the panel, when the L it makes stays below 100.
+- **Structure.** Pivots never leave their panel, so the symbolic analysis is the plain one's. Each
+  panel keeps a local permutation, which the solves apply.
+- **Inertia.** A 2×2 pivot of negative determinant is one negative and one positive eigenvalue.
+- **Near singular.** When no candidate of a panel passes the test, the most stable 1×1 pivot above
+  the refusal threshold is taken (static pivoting) and counted. A tangent that needed one is near
+  singular, and the driver reads it as it read a refusal; one with only stable pivots was an
+  artifact of the ordering, and its inertia is trusted. A panel with no pivot above the threshold
+  at all is refused, and LU takes over.
+- **Cost.** It runs only after a refusal. Where the plain factorization's pivots pass the test,
+  the pivoted one takes the same ones and its solutions are bit-identical.
+
+In the driver tests the fallback runs only in the plastic cantilever: at its collapse mechanism
+the tangent is singular and LU takes it, as before (43 times). Twice, though, the refusal was the
+ordering's: the pivoted LDLᵀ factored the tangent with stable pivots and kept its inertia.
 
 **Supervariables.** The ordering compresses supervariables (DOFs with identical structure: the 3
 or 6 of a node) and runs the engine's AMD on the quotient graph. The AMD itself is unchanged, and
@@ -89,6 +114,70 @@ which have no supervariables.
 More relaxed amalgamation (2–4× CHOLMOD's defaults) gains within noise. The numeric kernel
 already runs at about 9–11 GFlop/s, so the factorization is close to what a single thread without
 SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second in debug.
+
+## Layered shell
+
+**Section** (`LayeredSection`). Layers at heights z from the mid-surface, each with its own
+`PlaneStressMaterial` and history:
+- **Layer strain and resultants.** A layer's strain is ε + z·κ. The resultants are N = Σ σ·t and
+  M = Σ σ·z·t, with their 6×6 consistent tangent.
+- **Unsymmetric layups.** A layup that isn't symmetric (rebar layers, a cracked slab) couples
+  membrane and bending.
+- **`uniform`.** One material at n Gauss–Lobatto points through the thickness. The elastic
+  section is integrated exactly from 3 points up, and the surfaces, where a plate yields first,
+  are sampled.
+- **Transverse shear.** Elastic, κ·G·t.
+
+**Element** (`Shell4`):
+- **Geometry.** Four nodes, flat: the initial geometry projected on its mean plane.
+- **Integration.** 2×2 Gauss points, each with its own section.
+- **Membrane and bending.** Bilinear membrane and curvatures.
+- **Transverse shear.** Bathe and Dvorkin's MITC4 tying, so thin plates don't lock.
+- **Drilling.** The Hughes–Brezzi penalty at 10⁻³ of the in-plane shear stiffness.
+- **Match with the engine's MITC4.** At the undeformed state its bending, shear and drilling
+  stiffness is the engine's linear MITC4's to round-off. The membrane differs: the engine's has
+  EAS modes.
+
+**Kinematics:**
+- **Small-displacement.** The nodal displacements and rotation vectors in the element's initial
+  axes.
+- **Co-rotational.** The element-independent formulation (Rankin and Nour-Omid; Felippa and
+  Haugen):
+  - A frame from the current nodes removes the rigid motion, and the local element sees the
+    deformational displacements and rotations log(Rᵀ·R_i·R₀).
+  - B = ∂d_l/∂d is taken by central differences, and the geometric stiffness ∂(Bᵀ·f_l)/∂d by
+    differences of B, as the 3D frame does. Its tangent agrees with central differences of the
+    internal force to 10⁻⁵, elastic and yielded.
+  - It is objective to round-off.
+  - The geometric part also gives the shell's initial-stress stiffness for `linear_buckling`.
+
+## Linear buckling and imperfections
+
+`linear_buckling` solves (K₀ + λ·K_σ)·φ = 0 about the undeformed state:
+- **K₀** is the tangent there. It must be positive definite; a mechanism is refused.
+- **K_σ** is the initial-stress stiffness of the linear prestress. Every element provides its own
+  (`Element::initial_stress`): the geometric part of its tangent, on the undeformed geometry, under
+  the basic forces of the trial state.
+  - The 2D frame gives the axial force's term alone, N/L on the chord's normal, as classical frame
+    LBA does.
+  - The 3D frame gives the whole geometric part of its co-rotational tangent, moments included.
+    That is what makes it see lateral-torsional buckling.
+  - The truss bars give N/L. Small-displacement kinematics gives zero.
+- **The prestress** is that of ±h·u₁, u₁ = K₀⁻¹·F, differenced. The step moves no node by more
+  than 10⁻⁶ of the model's size.
+- **The factors** come from subspace iteration on K₀⁻¹·K_σ with Rayleigh–Ritz on the symmetric
+  parts. Only positive factors are reported, lowest first: a structure with nothing in
+  compression has none.
+- **The modes** cover all DOFs, scaled so their largest translation is 1. `Model2D::translations`
+  and `Model3D::translations` give them node by node. The coordinates plus e₀ times them are an
+  imperfect geometry of amplitude e₀, the shape EN 1993-1-1 5.3.2(11) and EN 1993-1-5 Annex C
+  prescribe for GMNIA.
+
+An earlier version took K₁ = dK_T/dλ (Brendel and Ramm's linearized prebuckling), which needs
+nothing from the elements. It also carries the tangent's change with the prebuckling
+displacements, though, and it gave a cantilever under a transverse tip load, which has nothing in
+compression, a "buckling" factor of 9.9. The 2D frame's moment term (the chord's rotation) gave
+it 35,000. Classical K_σ gives none, as it should.
 
 ## The robust default
 
@@ -150,8 +239,9 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
    - Symmetric equilibration S·K·S, S = diag(1/√|K_ii|), on every factorization. This makes the
      pivot tests independent of units and of a wide spread of stiffnesses (the buckled column of
      the tests has EA·L²/EI = 10⁸). It is a congruence, so the inertia is K's.
-   - LDLᵀ first, then LU when the tangent is nonsymmetric or a pivot is tiny. For displacement
-     control, the bordered system when K is singular.
+   - LDLᵀ first; LDLᵀ with pivoting inside the supernodes when a pivot is tiny; LU when the
+     tangent is nonsymmetric or both refuse. For displacement control, the bordered system when K
+     is singular.
    - **Stability of a slightly nonsymmetric tangent.** The 3D co-rotational tangent is slightly
      nonsymmetric away from equilibrium, which is a by-product of the rotation parametrization:
      its asymmetry vanishes at equilibrium under conservative loads. LU factors it, and the
@@ -162,7 +252,8 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
 **Detecting where a strategy cannot go.** Load control stops with `LimitPoint`, never with a
 silent jump to a distant branch, when any of these happens during a step:
 - the inertia changes;
-- the symmetric tangent becomes too nearly singular for LDLᵀ;
+- the symmetric tangent becomes too nearly singular for LDLᵀ (refused with pivoting too, or
+  factored only with an unstable pivot);
 - the converged step lands outside ¼–4 times the tangent's prediction;
 - Bergan's stiffness parameter drops below 10⁻³.
 
@@ -231,6 +322,12 @@ error in the first kinematic-hardening tangent.
   constraint on that symmetry.
 - **Branch switching under displacement control,** which today passes a bifurcation on the
   primary path.
+- **Pivots across supernodes.** A saddle-point matrix [[K, Bᵀ], [B, 0]] (Lagrange multipliers,
+  mixed elements, contact) puts each multiplier alone in a panel, with nothing to pair with there:
+  both LDLᵀ refuse it and LU solves it without the inertia. Delayed pivots (a failed column moved
+  into its parent's panel, which a multifrontal factorization does naturally), or an ordering that
+  pairs each multiplier with a variable it constrains, would factor it. The framework has no
+  multiplier DOFs yet.
 - **Multithreaded assembly** where it is available (not in WASM).
 
 ## Validation
@@ -272,8 +369,40 @@ error in the first kinematic-hardening tangent.
 | 1,296-DOF space frame, co-rotational, small load | the linear solution, to 1e-3; stable inertia |
 | Plane-stress J2 | yield in equal biaxial tension and in pure shear; return onto the hardened surface; consistent tangent; unloading |
 | Sparse LDLᵀ and LU | dense LU; eigenvalue counts; determinant signs; bit-identical repeats |
+| Shell stiffness at the undeformed state, skewed quad | the engine's MITC4 (bending, transverse shear, drilling), to 10⁻¹⁶ (small-displacement) and 10⁻¹² (co-rotational) |
+| Layered section | Gauss–Lobatto exact on the elastic section; the yielded section's tangent against central differences, 10⁻⁵ |
+| Shell tangent and objectivity (skewed quad in space, elastic and J2, up to 0.2 rad) | central differences to 2·10⁻⁵; a rotated state's force rotated, to 10⁻⁹; a rigid motion strains nothing |
+| Simply supported square plate, uniform pressure, a/t = 100 | Navier's centre deflection to 0.1 % (8×8 per quarter) and 0.05 % (16×16) |
+| The same plate, perfectly plastic (von Mises) | collapse between 24·m_p/a² (yield line) and 24·(2/√3)·m_p/a²: 24.45 (4×4) and 24.04 (8×8) |
+| Cantilever strip, end moment π·EI/L, co-rotational | a half circle: the tip over the root at 2L/π, to 0.5 % |
+| Simply supported square plate in uniaxial compression, LBA | 4π²D/b², converging as h²: 3.4 % (8×8), 1.4 % (12×12), Richardson 0.25 % |
+| LBA of a pinned column | the engine's LBA and Euler to 0.5 %; higher modes near 4× and 9×; a half sine; the driver's bifurcation of the perfect column to 0.3 % |
+| LBA of a portal frame | the engine's LBA to 0.3 %; a sway mode |
+| LBA in tension, and of a transverse-loaded cantilever | no factor |
+| LBA of a mechanism | refused |
+| LBA of a square 3D cantilever column | a double factor, π²EI/4L² to 0.2 %, modes orthogonal |
+| Lateral-torsional buckling under uniform moment (fork supports) | (π/L)·√(EI_z·GJ) to 0.5 %, its second mode at 2× to 1 %, out of plane |
+| Elastic column with the first mode as imperfection, at α·P_cr (α = 0.25, 0.5, 0.8) | e₀·α/(1 − α) to 1 % |
+| GMNIA of a solid steel column, λ̄ = 1, EN 1993-1-1 5.3.2(11) imperfection | between first yield (Perry) and the plastic M–N interaction; mesh-converged to 1 %; within 5 % of the Eurocode's χ (0.523 vs 0.540: plasticity spreads before the peak, which an elastic analysis with a linear interaction does not see) |
+| Pivoted LDLᵀ on zero pivots and on indefinite FE block matrices with zeroed diagonals, which the plain one refuses | exact on the 3×3 one; residual ≤ 10⁻¹¹; the eigenvalue count; stable pivots only; bit-identical repeats |
+| Pivoted LDLᵀ where no pivoting is needed (definite and indefinite Laplacians, SPD blocks) | no swap; bit-identical to the plain one |
+| Saddle-point matrices | refused (the limit above); LU solves them |
 
 ## Limitations
+
+- **The shell's membrane is plain bilinear,** without the EAS modes of the engine's MITC4. Plates
+  are unaffected; in-plane bending of a coarse mesh is too stiff (shear locking), as in any Q4.
+- **The shell's transverse shear is elastic,** outside the layers' plasticity.
+- **Warped quads** are taken flat on their mean plane, with no rigid-link correction (the
+  engine's MITC4 has one).
+- **The co-rotational shell's differences** cost about 2,300 evaluations of its kinematics per
+  update. Fine for plates of hundreds of elements; an analytic projector is the plan for
+  thousands.
+- **Pressure** is nodal loads (tributary areas): no follower pressure.
+- **Linear buckling of 2D frames** has the string's initial-stress stiffness, N/L, not the cubic
+  beam's 6N/5L. It converges as the mesh does, from above: 0.3 % over Euler at 16 elements per
+  member. That is the same element the nonlinear analysis uses, so the LBA and the driver's
+  bifurcation agree to 0.2 %.
 
 - **Loads.** Nodal only: no element loads, self-weight or thermal loads. Nodal moments in 3D are
   about fixed global axes.
@@ -283,19 +412,22 @@ error in the first kinematic-hardening tangent.
 - **The critical-point checks are heuristics:** the ¼–4 band, the 10⁻³ stiffness parameter, the
   10⁻² load alignment and the 1/256 localisation. They are validated on the tests above, and on
   nothing else yet.
-- **LU and inertia.** Within a load step, LU gives only the determinant's sign. At converged
-  states, the inertia of a nearly symmetric tangent comes from its symmetric part; a tangent
-  further from symmetric has none.
+- **LU and inertia.** Within a load step, LU gives only the determinant's sign. LU now factors a
+  symmetric tangent only when both LDLᵀ refuse it, a tangent singular to the pivot tolerance. At
+  converged states, the inertia of a nearly symmetric tangent comes from its symmetric part
+  (pivoted when needed); a tangent further from symmetric has none.
 - **Displacement-based fiber elements** need several elements per member.
 - **Not wired to WASM or the app.**
 
 ## Next
 
-1. **Layered shell.** A layered section integrating `PlaneStressMaterial` through the thickness,
-   and a flat shell element (MITC4) with linear and co-rotational kinematics. With `PlaneStressJ2`
-   this gives EN 1993-1-5 Annex C / EN 1993-1-14 plate analysis, and GMNIA with imperfections
-   shaped like the buckling modes.
-2. **The rungs still planned above,** starting with softening regularization once a softening
+1. **Plate GMNIA** (EN 1993-1-5 Annex C, EN 1993-1-14). The pieces are here: the layered J2
+   shell, its LBA, and the modes as imperfections. Next is a validation against a stiffened or
+   unstiffened plate of the literature (ultimate strength of a plate in compression against
+   Winter's or the EN 1993-1-5 reduction factor).
+2. **Cracked-slab deflection** as a concrete-with-rebar layer law (secant, tension stiffening) on
+   the same shell.
+3. **The shell's membrane with EAS,** and an analytic co-rotational projector.
+4. **The rungs still planned above,** starting with softening regularization once a softening
    plane-stress law exists.
-3. **Cracked-slab deflection** as a secant concrete-with-rebar layer law on the same shell.
-4. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.
+5. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.

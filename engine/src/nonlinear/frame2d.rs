@@ -290,6 +290,23 @@ impl Element for Frame2D {
     fn tangent(&self) -> &[f64] {
         &self.k
     }
+    fn initial_stress(&self) -> Result<Vec<f64>, String> {
+        // The axial force's term alone, as classical frame LBA has it: in the
+        // plane a member does not buckle under its moments, and the
+        // tangent's moment term (the chord's rotation) would report a
+        // bending-only member buckling at loads beyond any use.
+        let mut k = vec![0.0; 36];
+        if self.kinematics == Kinematics::Corotational {
+            let (c, s, l) = (self.chord.c0, self.chord.s0, self.chord.l0);
+            let z = [s, -c, 0.0, -s, c, 0.0];
+            for i in 0..6 {
+                for j in 0..6 {
+                    k[6 * i + j] = self.q[0] * z[i] * z[j] / l;
+                }
+            }
+        }
+        Ok(k)
+    }
     fn commit(&mut self) {
         self.basic.commit();
     }
@@ -372,6 +389,19 @@ impl Element for Truss2D {
     }
     fn tangent(&self) -> &[f64] {
         &self.k
+    }
+    fn initial_stress(&self) -> Result<Vec<f64>, String> {
+        let mut k = vec![0.0; 16];
+        if self.kinematics == Kinematics::Corotational {
+            let (c, s, l) = (self.chord.c0, self.chord.s0, self.chord.l0);
+            let z = [s, -c, -s, c];
+            for i in 0..4 {
+                for j in 0..4 {
+                    k[4 * i + j] = self.n * z[i] * z[j] / l;
+                }
+            }
+        }
+        Ok(k)
     }
     fn commit(&mut self) {
         self.material.commit();

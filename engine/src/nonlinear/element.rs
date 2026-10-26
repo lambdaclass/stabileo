@@ -27,6 +27,11 @@ pub trait Element: Send {
     fn update(&mut self, u: &[f64]) -> Result<(), String>;
     fn internal_force(&self) -> &[f64];
     fn tangent(&self) -> &[f64];
+    /// The initial-stress stiffness of a linear buckling analysis: the
+    /// geometric part of the tangent on the undeformed geometry, under the
+    /// basic forces of the trial state (row-major, like `tangent`). Zero
+    /// under small-displacement kinematics, which has none.
+    fn initial_stress(&self) -> Result<Vec<f64>, String>;
     fn commit(&mut self);
     fn revert(&mut self);
 }

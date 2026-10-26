@@ -606,3 +606,169 @@ fn supervariable_timings_on_block_matrices() {
         }
     }
 }
+
+// ==================== Pivoting ====================
+
+/// The saddle-point matrix [[K, Bᵀ], [B, 0]]: K the shifted Laplacian on an
+/// nx × ny grid, B `m` rows of three random entries. Its zero diagonal block
+/// has no pivot in any order that reaches it first; its inertia is
+/// (m, 0, n) when K is positive definite and B has full rank.
+fn saddle(nx: usize, ny: usize, m: usize, seed: u64) -> SparseMatrix {
+    let k = laplacian(nx, ny, 1, 0.5);
+    let n = nx * ny;
+    let mut r = Lcg(seed);
+    let mut rows: Vec<Vec<(usize, f64)>> = Vec::new();
+    for _ in 0..m {
+        let mut row: Vec<(usize, f64)> = Vec::new();
+        while row.len() < 3 {
+            let j = ((r.next() + 1.0) / 2.0 * n as f64) as usize % n;
+            if !row.iter().any(|&(c, _)| c == j) {
+                row.push((j, 1.0 + r.next().abs()));
+            }
+        }
+        rows.push(row);
+    }
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    let kp = &*k.pattern;
+    for j in 0..n {
+        for &i in &kp.row_idx[kp.col_ptr[j]..kp.col_ptr[j + 1]] {
+            groups.push(vec![i, j]);
+        }
+    }
+    for (c, row) in rows.iter().enumerate() {
+        let mut g = vec![n + c];
+        g.extend(row.iter().map(|&(j, _)| j));
+        groups.push(g);
+    }
+    let p = Rc::new(SparsePattern::from_groups(n + m, &groups));
+    let mut a = SparseMatrix::zeros(Rc::clone(&p));
+    for j in 0..n {
+        for q in kp.col_ptr[j]..kp.col_ptr[j + 1] {
+            a.values[p.position(kp.row_idx[q], j).unwrap()] = k.values[q];
+        }
+    }
+    for (c, row) in rows.iter().enumerate() {
+        for &(j, v) in row {
+            a.values[p.position(n + c, j).unwrap()] = v;
+            a.values[p.position(j, n + c).unwrap()] = v;
+        }
+    }
+    a
+}
+
+/// The indefinite FE matrices of `block_matrix` with some diagonal entries
+/// zeroed: no pivot in the AMD order, every one inside the nodes' panels.
+fn indefinite_blocks() -> Vec<(String, SparseMatrix)> {
+    [(3.0, 7usize), (6.0, 5), (9.0, 3)]
+        .into_iter()
+        .map(|(shift, every)| {
+            let (mut a, _) = block_matrix((4, 4, 3), 6, false, None, shift);
+            let p = Rc::clone(&a.pattern);
+            for d in (0..p.n).step_by(every) {
+                a.values[p.position(d, d).unwrap()] = 0.0;
+            }
+            (format!("shift {shift}, every {every}th diagonal zero"), a)
+        })
+        .collect()
+}
+
+/// What the plain factorization refuses for a zero pivot, the pivoted one
+/// factors with a 2×2 pivot: exactly, with Sylvester's inertia.
+#[test]
+fn pivoted_ldlt_factors_the_zero_pivots_the_plain_one_refuses() {
+    let p = Rc::new(SparsePattern::from_groups(3, &[vec![0, 1], vec![2]]));
+    let mut a = SparseMatrix::zeros(Rc::clone(&p));
+    a.values[p.position(0, 1).unwrap()] = 1.0;
+    a.values[p.position(1, 0).unwrap()] = 1.0;
+    a.values[p.position(2, 2).unwrap()] = 2.0;
+    let sym = Rc::new(ldlt_symbolic_with_perm(&p, &[0, 1, 2]));
+    let f = ldlt_numeric_pivoted(&sym, &a, 1e-14).unwrap();
+    assert_eq!(f.solve(&[3.0, 5.0, 4.0]), vec![5.0, 3.0, 2.0]);
+    assert_eq!((f.inertia(), f.two_by_two_pivots(), f.unstable_pivots()), ((1, 0, 2), 1, 0));
+
+    // The 42-unknown chain of `supernodal_refuses_the_same_zero_pivot`.
+    let n = 42;
+    let mut groups = vec![vec![0, 1]];
+    for i in 2..n - 1 {
+        groups.push(vec![i, i + 1]);
+    }
+    let p = Rc::new(SparsePattern::from_groups(n, &groups));
+    let mut a = SparseMatrix::zeros(Rc::clone(&p));
+    a.values[p.position(0, 1).unwrap()] = 1.0;
+    a.values[p.position(1, 0).unwrap()] = 1.0;
+    for i in 2..n {
+        a.values[p.position(i, i).unwrap()] = 2.5;
+        if i + 1 < n {
+            a.values[p.position(i, i + 1).unwrap()] = -1.0;
+            a.values[p.position(i + 1, i).unwrap()] = -1.0;
+        }
+    }
+    let natural: Vec<usize> = (0..n).collect();
+    let sym = Rc::new(ldlt_symbolic_with_perm(&p, &natural));
+    assert!(ldlt_numeric_supernodal(&sym, &a, 1e-14).is_err());
+    let f = ldlt_numeric_pivoted(&sym, &a, 1e-14).unwrap();
+    let b = rhs(n, 4);
+    assert!(rel_residual(&a, &f.solve(&b), &b) < 1e-14);
+    assert_eq!(f.inertia(), (1, 0, n - 1));
+}
+
+/// Indefinite FE matrices with zero diagonal entries: the plain
+/// factorization refuses every one; the pivoted one factors them with the
+/// count of negative eigenvalues, stable pivots only, and the same bits
+/// every time.
+#[test]
+fn pivoted_ldlt_keeps_the_inertia_of_indefinite_fe_matrices() {
+    for (label, a) in indefinite_blocks() {
+        let n = a.pattern.n;
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        assert!(ldlt_numeric(&sym, &a, 1e-13).is_err(), "{label}: the plain factorization refuses it");
+        let f = ldlt_numeric_pivoted(&sym, &a, 1e-13).unwrap_or_else(|e| panic!("{label}: {e:?}"));
+        let eig = jacobi_eigen(&a.to_dense(), n, 300);
+        let neg = eig.values.iter().filter(|&&v| v < 0.0).count();
+        assert_eq!(f.inertia(), (neg, 0, n - neg), "{label}");
+        assert_eq!(f.unstable_pivots(), 0, "{label}");
+        assert!(f.two_by_two_pivots() > 0, "{label}");
+        let b = rhs(n, 9);
+        let x = f.solve(&b);
+        assert!(rel_residual(&a, &x, &b) < 1e-11, "{label}: residual {:.1e}", rel_residual(&a, &x, &b));
+        let again = ldlt_numeric_pivoted(&sym, &a, 1e-13).unwrap().solve(&b);
+        assert!(x.iter().zip(&again).all(|(p, q)| p.to_bits() == q.to_bits()), "{label}: deterministic");
+    }
+}
+
+/// Where the plain factorization's pivots pass the threshold test, the
+/// pivoted one takes the same: no swap, and bit-identical solutions.
+#[test]
+fn pivoted_ldlt_is_the_plain_one_where_no_pivoting_is_needed() {
+    for (a, label) in [(laplacian(12, 10, 2, 0.01), "SPD Laplacian"), (laplacian(6, 5, 2, -0.9), "indefinite Laplacian"), (block_matrix((4, 4, 3), 6, false, None, 0.0).0, "SPD blocks")] {
+        let n = a.pattern.n;
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        let plain = ldlt_numeric_supernodal(&sym, &a, 1e-14).unwrap();
+        let piv = ldlt_numeric_pivoted(&sym, &a, 1e-14).unwrap();
+        assert!(!piv.pivoted(), "{label}");
+        let b = rhs(n, 2);
+        let (x, y) = (plain.solve(&b), piv.solve(&b));
+        assert!(x.iter().zip(&y).all(|(p, q)| p.to_bits() == q.to_bits()), "{label}");
+        assert_eq!(plain.inertia(), piv.inertia(), "{label}");
+    }
+}
+
+/// The limit of pivoting inside the panels: a saddle-point matrix's
+/// multipliers each sit alone in a panel, with nothing to pair with there.
+/// Refused, as the plain factorization refuses it; LU solves it. Pivots
+/// delayed to the parent panel (or an ordering that pairs each multiplier
+/// with a variable it constrains) would factor it.
+#[test]
+fn saddle_points_need_pivots_across_panels() {
+    for (nx, ny, m, seed) in [(6, 6, 5, 1u64), (12, 12, 20, 3)] {
+        let a = saddle(nx, ny, m, seed);
+        let n = a.pattern.n;
+        let sym = Rc::new(ldlt_symbolic(&a.pattern));
+        assert!(ldlt_numeric(&sym, &a, 1e-13).is_err());
+        assert!(matches!(ldlt_numeric_pivoted(&sym, &a, 1e-13), Err(LdltError::TinyPivot { value, .. }) if value == 0.0));
+        let order: Vec<usize> = sym.perm.clone();
+        let lu = lu_numeric(&a, &order, 0.5).unwrap();
+        let b = rhs(n, 6);
+        assert!(rel_residual(&a, &lu.solve(&b), &b) < 1e-12);
+    }
+}
