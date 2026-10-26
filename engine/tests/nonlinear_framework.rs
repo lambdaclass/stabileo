@@ -485,8 +485,12 @@ fn arc_length_follows_a_snap_back() {
     let (mut m, _, top) = build();
     let dof = m.dof(top, 1);
     let dc = solve(&mut m, &Strategy::DisplacementControl { dof, target: -3.0 * h, increments: 60 }, &NewtonOptions::default()).unwrap();
+    // It stops: by the jump check if Newton lands on the far branch, or by the
+    // divergence check if it is caught heading there.
     let Termination::Stopped { reason, .. } = &dc.termination else { panic!("displacement control got through a snap-back") };
-    assert_eq!(*reason, StopReason::LimitPoint);
+    assert!(matches!(reason, StopReason::LimitPoint | StopReason::NoConvergence), "{reason:?}");
+    let w = -dc.u[m.dof(top, 1)];
+    assert!(w < 2.0 * h, "it stopped before the snap-back, not past it");
 }
 
 fn w_final(out: &Outcome, m: &Model2D, apex: usize) -> f64 {
@@ -629,7 +633,9 @@ fn modified_newton_and_bfgs_agree_with_fewer_factorizations() {
         let (mut m, end) = cantilever(10, l, Kinematics::Linear, &fiber_basic(b, h));
         m.add_load(end, [0.0, 1.0, 0.0]);
         let opts = NewtonOptions { iteration, max_iterations: 200, ..NewtonOptions::default() };
-        let out = solve(&mut m, &Strategy::LoadControl { target: 0.95 * p_c, increments: 10 }, &opts).unwrap();
+        // Two large steps: full Newton needs several iterations each, which is
+        // where reusing a factorization pays.
+        let out = solve(&mut m, &Strategy::LoadControl { target: 0.95 * p_c, increments: 2 }, &opts).unwrap();
         assert!(out.completed(), "{iteration:?}: {:?}", out.termination);
         (out.u[m.dof(end, 1)], out.factorizations)
     };
@@ -825,4 +831,103 @@ fn roorda_frame_bifurcates_asymmetrically() {
     assert!(slopes[0] * slopes[1] < 0.0, "one direction rises, the other falls: {slopes:?}");
     let ratio = (slopes[0] / slopes[1]).abs();
     assert!((0.3..3.0).contains(&ratio), "comparable slopes: {slopes:?}");
+}
+
+// ==================== Convergence and step control ====================
+
+fn elastica_tip(opts: NewtonOptions, strategy: Strategy) -> (Outcome, [f64; 2]) {
+    let (mut m, end) = cantilever(20, 1.0, Kinematics::Corotational, &elastic(1e8, 1.0));
+    m.add_load(end, [0.0, 1.0, 0.0]);
+    let out = solve(&mut m, &strategy, &opts).unwrap();
+    let tip = [out.u[m.dof(end, 0)], out.u[m.dof(end, 1)]];
+    (out, tip)
+}
+
+/// The displacement criterion is required alongside the force one: with a
+/// loose force tolerance it still holds the answer to the tight one.
+#[test]
+fn the_displacement_criterion_holds_accuracy_when_the_force_one_is_loose() {
+    let strategy = Strategy::LoadControl { target: 5.0, increments: 10 };
+    let (_, reference) = elastica_tip(NewtonOptions::default(), strategy.clone());
+    let loose_force = NewtonOptions { tolerance: 1e-3, energy_tolerance: None, ..NewtonOptions::default() };
+    let (_, held) = elastica_tip(NewtonOptions { displacement_tolerance: 1e-9, ..loose_force.clone() }, strategy.clone());
+    let (_, unheld) = elastica_tip(NewtonOptions { displacement_tolerance: 1e3, ..loose_force }, strategy);
+    let err = |t: [f64; 2]| (t[0] - reference[0]).abs().max((t[1] - reference[1]).abs());
+    assert!(err(held) < 1e-9, "held: {}", err(held));
+    assert!(err(unheld) > 10.0 * err(held), "the force criterion alone stops earlier: {} vs {}", err(unheld), err(held));
+}
+
+/// An iteration budget stops the analysis on its last converged state.
+#[test]
+fn an_iteration_budget_stops_on_the_last_converged_state() {
+    let opts = NewtonOptions { max_total_iterations: Some(12), ..NewtonOptions::default() };
+    let (out, _) = elastica_tip(opts, Strategy::LoadControl { target: 5.0, increments: 10 });
+    let Termination::Stopped { reason, .. } = &out.termination else { panic!("completed within 12 iterations") };
+    assert_eq!(*reason, StopReason::IterationBudget);
+    assert!(out.newton_iterations <= 12);
+    assert_eq!(out.steps.last().map(|s| s.lambda), Some(out.lambda));
+    assert!(out.lambda > 0.0 && out.lambda < 5.0);
+}
+
+/// A linear material that reports its tangent with the wrong sign: Newton
+/// walks away from the solution, its residual growing every iteration — a
+/// stand-in for any element whose tangent has gone bad.
+#[derive(Clone)]
+struct WrongTangent {
+    e: f64,
+    strain: f64,
+}
+
+impl UniaxialMaterial for WrongTangent {
+    fn set_trial_strain(&mut self, strain: f64) {
+        self.strain = strain;
+    }
+    fn stress(&self) -> f64 {
+        self.e * self.strain
+    }
+    fn tangent(&self) -> f64 {
+        -self.e
+    }
+    fn commit(&mut self) {}
+    fn revert(&mut self) {}
+    fn boxed_clone(&self) -> Box<dyn UniaxialMaterial> {
+        Box::new(self.clone())
+    }
+}
+
+/// With a diverging Newton, the check cuts each attempt after two growths of
+/// the residual instead of spending all its iterations; both runs stop on the
+/// same (initial) state.
+#[test]
+fn the_divergence_check_cuts_a_diverging_step_early() {
+    let run = |divergence_check: bool| {
+        let mut m = Model2D::new();
+        let (a, b) = (m.add_node(0.0, 0.0), m.add_node(1.0, 0.0));
+        m.fix(a, [true, true, true]);
+        m.fix(b, [false, true, true]);
+        let bar = Truss2D::new(m.truss_dofs(a, b), m.coords(a), m.coords(b), Kinematics::Linear, 1.0, Box::new(WrongTangent { e: 100.0, strain: 0.0 })).unwrap();
+        m.add_element(Box::new(bar));
+        m.add_load(b, [1.0, 0.0, 0.0]);
+        let opts = NewtonOptions { divergence_check, line_search: false, extrapolate: false, max_cuts: 3, ..NewtonOptions::default() };
+        solve(&mut m, &Strategy::LoadControl { target: 1.0, increments: 1 }, &opts).unwrap()
+    };
+    let (on, off) = (run(true), run(false));
+    assert!(!on.completed() && !off.completed());
+    assert_eq!((on.lambda, off.lambda), (0.0, 0.0));
+    let Termination::Stopped { message, .. } = &on.termination else { unreachable!() };
+    assert!(message.contains("grew"), "{message}");
+    // Two growths and out, against the full 30 iterations, at each of 4 attempts.
+    assert!(on.newton_iterations * 5 < off.newton_iterations, "with the check {}, without {}", on.newton_iterations, off.newton_iterations);
+}
+
+/// Starting each load step from the previous one extrapolated saves Newton
+/// iterations along a smooth path, to the same answer.
+#[test]
+fn the_extrapolated_predictor_saves_iterations() {
+    let strategy = Strategy::LoadControl { target: 10.0, increments: 40 };
+    let (with, tip_with) = elastica_tip(NewtonOptions::default(), strategy.clone());
+    let (without, tip_without) = elastica_tip(NewtonOptions { extrapolate: false, ..NewtonOptions::default() }, strategy);
+    assert!(with.completed() && without.completed());
+    assert!((tip_with[0] - tip_without[0]).abs() < 1e-8 && (tip_with[1] - tip_without[1]).abs() < 1e-8);
+    assert!(with.newton_iterations < without.newton_iterations, "extrapolated {}, from the committed state {}", with.newton_iterations, without.newton_iterations);
 }

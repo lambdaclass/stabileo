@@ -43,8 +43,15 @@ pub enum Iteration {
 pub struct NewtonOptions {
     /// Newton iterations per step before the step counts as failed.
     pub max_iterations: usize,
-    /// ‖R_free‖ ≤ tolerance · max(|λ|·‖F‖, ‖f_int‖), or the rounding floor.
+    /// The force criterion, separately on forces and on moments:
+    /// ‖R_forces‖ ≤ tolerance·S_F and ‖R_moments‖ ≤ tolerance·S_M, each scale
+    /// the largest of the applied load, the internal force and the reactions
+    /// of that kind seen so far in the analysis; or the rounding floor.
     pub tolerance: f64,
+    /// The displacement criterion, also required: the next correction is at
+    /// most this fraction of the step's increment, separately on translations
+    /// and on rotations.
+    pub displacement_tolerance: f64,
     /// Halvings of a failed step before the analysis stops.
     pub max_cuts: usize,
     /// When a load-controlled step fails with plain Newton, retry it with
@@ -53,12 +60,23 @@ pub struct NewtonOptions {
     /// The first rung for load-controlled steps; a step that fails with
     /// `Modified` or `Bfgs` is retried with `Full` before anything else.
     pub iteration: Iteration,
-    /// Also converged when the work of the correction, |δu·R|, falls to this
-    /// fraction of the step's first: a criterion with consistent units.
+    /// The energy criterion, also required when set: the work of the next
+    /// correction |δu·R| is at most this fraction of the step's first, a
+    /// measure with consistent units by construction.
     pub energy_tolerance: Option<f64>,
-    /// The length that turns moments into forces (M / L) in the force norms,
-    /// so that kN and kN·m do not add. Default: the model's characteristic
-    /// length (its bounding-box diagonal).
+    /// Cut a step back as soon as its residual grows in two consecutive
+    /// iterations, instead of spending the remaining iterations on it.
+    pub divergence_check: bool,
+    /// Newton iterations the whole analysis may spend, failed attempts
+    /// included; the analysis stops with `IterationBudget` past it.
+    pub max_total_iterations: Option<usize>,
+    /// Start a load step from the previous one extrapolated (Δu·Δλ/Δλ_prev)
+    /// instead of the committed state; a failure retries it without.
+    pub extrapolate: bool,
+    /// The length that turns moments into forces (M / L) where one kind has
+    /// no scale of its own (a model that carries no moment), and in the norms
+    /// that mix them. Default: the model's characteristic length (its
+    /// bounding-box diagonal).
     pub rotation_length: Option<f64>,
     /// ψ of the spherical arc-length constraint ‖Δu‖² + ψ²·Δλ²·‖F‖² = Δs²
     /// (length per force); 0 is the cylindrical one.
@@ -80,10 +98,14 @@ impl Default for NewtonOptions {
         NewtonOptions {
             max_iterations: 30,
             tolerance: 1e-9,
+            displacement_tolerance: 1e-6,
             max_cuts: 10,
             line_search: true,
             iteration: Iteration::Full,
-            energy_tolerance: None,
+            energy_tolerance: Some(1e-12),
+            divergence_check: true,
+            max_total_iterations: None,
+            extrapolate: true,
             rotation_length: None,
             arc_psi: 0.0,
             branch_switching: true,
@@ -134,6 +156,8 @@ pub enum StopReason {
     LimitPoint,
     /// Arc-length ran `max_steps` steps without reaching the target.
     StepLimit,
+    /// The analysis spent `max_total_iterations` Newton iterations.
+    IterationBudget,
 }
 
 /// What a change of stability on the path is.
@@ -189,6 +213,9 @@ pub struct Outcome {
     pub total_iterations: usize,
     /// Tangent factorizations performed (LDLᵀ, LU and bordered).
     pub factorizations: usize,
+    /// Newton iterations performed, failed attempts included
+    /// (`total_iterations` counts the converged steps' only).
+    pub newton_iterations: usize,
     /// λ at each bifurcation where arc-length switched branch.
     pub branch_switches: Vec<f64>,
     /// Every critical point arc-length crossed, in order.
@@ -243,6 +270,18 @@ const MAX_ARC_FRACTION: f64 = 0.1;
 /// model's characteristic length.
 const BRANCH_STEP: f64 = 1e-3;
 
+/// Step control by iteration count: two steps in a row that converge in at
+/// most `EASY_ITERATIONS` grow the next one by `GROWTH`; a step that needs
+/// more than `HARD_ITERATIONS` shrinks it by `SHRINK`; a failed one is cut by
+/// `CUT`. Steps never cross the strategy's nominal points (λ or the control
+/// displacement at each of its increments), so those are always results.
+const EASY_ITERATIONS: usize = 4;
+const HARD_ITERATIONS: usize = 8;
+const GROWTH: f64 = 1.5;
+const SHRINK: f64 = 0.75;
+const CUT: f64 = 0.25;
+const MIN_SHRUNK: f64 = 16.0;
+
 /// Arc-length aims each step at this many iterations, scaling the arc by
 /// √(target / iterations) within [½, 2].
 const ARC_TARGET_ITERATIONS: f64 = 5.0;
@@ -279,7 +318,12 @@ fn norm(v: &[f64]) -> f64 {
 struct Eval {
     f_int: Vec<f64>,
     r: Vec<f64>,
+    /// The force criterion holds (or the residual is at the rounding floor).
     ok: bool,
+    /// The residual is at the rounding floor: no criterion can ask for more.
+    at_floor: bool,
+    /// ‖R‖ with moments as M / L: the measure the divergence check follows.
+    norm: f64,
 }
 
 /// What a converged step hands back.
@@ -302,12 +346,18 @@ struct Ctx<'a, M: NonlinearModel> {
     f_free: Vec<f64>,
     /// 1 on free translational DOFs, 0 on rotations: the arc-length metric.
     weight: Vec<f64>,
-    /// Force-norm weights: 1 on translations, 1/L on rotations (free DOFs,
-    /// then all DOFs).
+    /// Force-norm weights on the free DOFs: 1 on translations, 1/L on
+    /// rotations (the norm the rounding floor and the divergence check use).
     fscale_free: Vec<f64>,
-    fscale_all: Vec<f64>,
     /// The model's characteristic length.
     length: f64,
+    /// Whether each DOF (all of them) is a rotation.
+    rotation: Vec<bool>,
+    /// The largest force and moment norms seen: the force criterion's scales.
+    seen_force: f64,
+    seen_moment: f64,
+    /// Newton iterations spent, failed attempts included.
+    iterations_used: usize,
     opts: NewtonOptions,
 }
 
@@ -346,18 +396,98 @@ impl<M: NonlinearModel> Ctx<'_, M> {
             return Err(fail(StopReason::ElementFailure, "non-finite internal force or tangent"));
         }
         let r: Vec<f64> = self.sys.free.iter().zip(&self.f_free).map(|(&d, &f)| lambda * f - f_int[d]).collect();
-        // Moments enter as M / L: forces and moments in one consistent norm.
-        let scale = (lambda.abs() * scaled_norm(&self.f_free, &self.fscale_free)).max(scaled_norm(&f_int, &self.fscale_all));
+        // Forces and moments each against their own scale: the largest
+        // applied load, internal force or reaction of that kind seen so far.
+        let (mut r_f, mut r_m, mut a_f, mut a_m) = (0.0, 0.0, 0.0, 0.0);
+        for ((&d, &ri), &fi) in self.sys.free.iter().zip(&r).zip(&self.f_free) {
+            let applied = lambda * fi;
+            if self.rotation[d] {
+                r_m += ri * ri;
+                a_m += applied * applied;
+            } else {
+                r_f += ri * ri;
+                a_f += applied * applied;
+            }
+        }
+        let (mut i_f, mut i_m) = (0.0, 0.0);
+        for (d, &fi) in f_int.iter().enumerate() {
+            if self.rotation[d] { i_m += fi * fi } else { i_f += fi * fi }
+        }
+        self.seen_force = self.seen_force.max(a_f.sqrt()).max(i_f.sqrt());
+        self.seen_moment = self.seen_moment.max(a_m.sqrt()).max(i_m.sqrt());
+        let s_f = if self.seen_force > 0.0 { self.seen_force } else { self.seen_moment / self.length };
+        let s_m = if self.seen_moment > 0.0 { self.seen_moment } else { self.seen_force * self.length };
+        let force_ok = r_f.sqrt() <= self.opts.tolerance * s_f && r_m.sqrt() <= self.opts.tolerance * s_m;
         let u_norm = self.model.displacements().iter().fold(0.0f64, |a, x| a.max(x.abs()));
         let k_floor = 16.0 * f64::EPSILON * self.sys.norm_inf() * u_norm * (self.sys.free.len() as f64).sqrt();
         let rn = scaled_norm(&r, &self.fscale_free);
         let floor = if rn > 0.0 { k_floor * rn / norm(&r) } else { k_floor };
-        let ok = rn <= self.opts.tolerance * scale || rn <= floor;
-        Ok(Eval { f_int, r, ok })
+        let at_floor = rn <= floor;
+        Ok(Eval { f_int, r, ok: force_ok || at_floor, at_floor, norm: rn })
     }
 
     fn factor(&self) -> Result<Factor, Failure> {
         self.sys.factor().map_err(|m| fail(StopReason::SingularTangent, m))
+    }
+
+    /// Counts one Newton iteration against the analysis' budget.
+    fn spend_iteration(&mut self) -> Result<(), Failure> {
+        if let Some(budget) = self.opts.max_total_iterations {
+            if self.iterations_used >= budget {
+                return Err(fail(StopReason::IterationBudget, format!("the analysis spent its {budget} Newton iterations")));
+            }
+        }
+        self.iterations_used += 1;
+        Ok(())
+    }
+
+    /// The displacement criterion: the next correction `du` is at most
+    /// `displacement_tolerance` of the step so far (`step`), translations and
+    /// rotations each on their own; or below what the displacements can
+    /// resolve (64·ε of their size, or of the model's): a step cut very short
+    /// has corrections at the round-off of the total displacement, not of the
+    /// step.
+    fn correction_small(&self, du: &[f64], step: &[f64]) -> bool {
+        let u = self.model.displacements();
+        let (mut dt, mut dr, mut st, mut sr, mut ut, mut ur) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        for (((d, s), w), &g) in du.iter().zip(step).zip(&self.weight).zip(&self.sys.free) {
+            if *w > 0.0 {
+                dt += d * d;
+                st += s * s;
+                ut += u[g] * u[g];
+            } else {
+                dr += d * d;
+                sr += s * s;
+                ur += u[g] * u[g];
+            }
+        }
+        let tol = self.opts.displacement_tolerance;
+        let resolution = 64.0 * f64::EPSILON;
+        let bound_t = (tol * st.sqrt()).max(resolution * ut.sqrt().max(self.length));
+        let bound_r = (tol * sr.sqrt()).max(resolution * ur.sqrt().max(1.0));
+        dt.sqrt() <= bound_t && dr.sqrt() <= bound_r
+    }
+
+    /// The energy criterion on the next correction, against the step's first
+    /// (`None` on the first iteration: nothing to compare with yet).
+    fn energy_small(&self, du: &[f64], ev: &Eval, first: Option<f64>) -> bool {
+        match (self.opts.energy_tolerance, first) {
+            (None, _) => true,
+            _ if ev.at_floor => true,
+            (Some(_), None) => true,
+            (Some(te), Some(e0)) => dot(du, &ev.r).abs() <= te * e0,
+        }
+    }
+
+    /// The step is diverging: its residual grew in two consecutive
+    /// iterations and is now above where the step started. (Growth alone is
+    /// not enough: near convergence, and when fibers or layers change state,
+    /// the residual wobbles at a level far below its start.)
+    fn diverging(&self, norms: &[f64]) -> bool {
+        self.opts.divergence_check && norms.len() >= 3 && {
+            let k = norms.len();
+            norms[k - 1] > norms[k - 2] && norms[k - 2] > norms[k - 3] && norms[k - 1] > norms[0]
+        }
     }
 
     fn solve(&self, f: &Factor, b: &[f64]) -> Result<Vec<f64>, Failure> {
@@ -632,6 +762,7 @@ impl<M: NonlinearModel> Ctx<'_, M> {
     }
 
     /// One load-controlled step from the committed state.
+    #[allow(clippy::too_many_arguments)]
     fn load_step(
         &mut self,
         lambda_c: f64,
@@ -640,17 +771,25 @@ impl<M: NonlinearModel> Ctx<'_, M> {
         sign_c: i8,
         line_search: bool,
         iteration: Iteration,
+        extrapolated: Option<&[f64]>,
     ) -> Result<Converged, Failure> {
         let lambda = lambda_c + d_lambda;
         let mut step = vec![0.0; self.sys.free.len()];
         let mut predictor = 0.0;
+        if let Some(p) = extrapolated {
+            self.move_by(p, 1.0);
+            step.copy_from_slice(p);
+            predictor = norm(p);
+        }
         let mut iterations = 0;
         let mut cur = self.evaluate(lambda)?;
+        let mut norms = vec![cur.norm];
         let mut factor: Option<Factor> = None;
         let mut since_refactor = 0;
         let mut pairs: Vec<(Vec<f64>, Vec<f64>, f64)> = Vec::new();
-        let mut energy0 = 0.0;
+        let mut energy0: Option<f64> = None;
         loop {
+            self.spend_iteration()?;
             let refactor = match iteration {
                 Iteration::Full => true,
                 Iteration::Modified { refactor_every } => factor.is_none() || since_refactor >= refactor_every.max(1),
@@ -669,29 +808,28 @@ impl<M: NonlinearModel> Ctx<'_, M> {
             }
             // The factorization is of the current tangent only under full Newton.
             let current_is_factored = refactor && since_refactor == 0;
-            if cur.ok {
-                let current = if current_is_factored { factor.take() } else { None };
-                return self.finish_load(lambda, iterations, cur, step, predictor, current, negative_c, sign_c);
-            }
-            if iterations == self.opts.max_iterations {
-                return Err(fail(StopReason::NoConvergence, format!("no convergence in {iterations} iterations at λ = {lambda}")));
-            }
             let f = factor.as_ref().expect("factored on the first iteration");
             let du = match iteration {
                 Iteration::Full => self.solve(f, &cur.r)?,
                 Iteration::Modified { .. } => self.solve_raw(f, &cur.r)?,
                 Iteration::Bfgs { .. } => self.bfgs_direction(f, &pairs, &cur.r)?,
             };
-            if let Some(te) = self.opts.energy_tolerance {
-                let e = dot(&du, &cur.r).abs();
-                if iterations == 0 {
-                    energy0 = e;
-                } else if e <= te * energy0 {
-                    let current = if current_is_factored { factor.take() } else { None };
-                    return self.finish_load(lambda, iterations, cur, step, predictor, current, negative_c, sign_c);
-                }
+            // Converged when the force criterion holds and the correction
+            // Newton would add next is negligible, in size and in work.
+            if cur.ok && self.correction_small(&du, &step) && self.energy_small(&du, &cur, energy0) {
+                let current = if current_is_factored { factor.take() } else { None };
+                return self.finish_load(lambda, iterations, cur, step, predictor, current, negative_c, sign_c);
             }
-            if iterations == 0 {
+            if iterations == self.opts.max_iterations {
+                return Err(fail(StopReason::NoConvergence, format!("no convergence in {iterations} iterations at λ = {lambda}")));
+            }
+            if self.diverging(&norms) {
+                return Err(fail(StopReason::NoConvergence, format!("the residual grew in two consecutive iterations at λ = {lambda}")));
+            }
+            if energy0.is_none() {
+                energy0 = Some(dot(&du, &cur.r).abs());
+            }
+            if predictor == 0.0 {
                 predictor = norm(&du);
             }
             let (alpha, next) = if line_search {
@@ -715,18 +853,19 @@ impl<M: NonlinearModel> Ctx<'_, M> {
                 *s += alpha * d;
             }
             cur = next;
+            norms.push(cur.norm);
             iterations += 1;
             since_refactor += 1;
         }
     }
 
     /// (δu, δλ) for displacement control: the control DOF moves by `dd`.
-    /// From K when it factors (u_R + δλ·u_F with δu_c = dd), from the
-    /// bordered system when K is singular.
-    fn displacement_correction(&self, bordered: &Bordered, c: usize, r: &[f64], dd: f64) -> Result<(Vec<f64>, f64), Failure> {
-        if let Ok(fac) = self.sys.factor() {
-            let ur = self.solve(&fac, r)?;
-            let uf = self.solve(&fac, &self.f_free)?;
+    /// From K's factorization when there is one (u_R + δλ·u_F with
+    /// δu_c = dd), from the bordered system when K is singular.
+    fn displacement_correction(&self, fac: Option<&Factor>, bordered: &Bordered, c: usize, r: &[f64], dd: f64) -> Result<(Vec<f64>, f64), Failure> {
+        if let Some(fac) = fac {
+            let ur = self.solve(fac, r)?;
+            let uf = self.solve(fac, &self.f_free)?;
             if uf[c] != 0.0 {
                 let dl = (dd - ur[c]) / uf[c];
                 return Ok((ur.iter().zip(&uf).map(|(a, b)| a + dl * b).collect(), dl));
@@ -738,15 +877,22 @@ impl<M: NonlinearModel> Ctx<'_, M> {
     /// One displacement-controlled step: the control DOF moves by `delta`.
     fn displacement_step(&mut self, bordered: &Bordered, lambda_c: f64, c: usize, delta: f64) -> Result<Converged, Failure> {
         let ev = self.evaluate(lambda_c)?;
-        let (du, dl) = self.displacement_correction(bordered, c, &ev.r, delta)?;
+        let fac = self.sys.factor().ok();
+        let (du, dl) = self.displacement_correction(fac.as_ref(), bordered, c, &ev.r, delta)?;
         self.move_by(&du, 1.0);
         let predictor = norm(&du);
         let mut step = du;
         let mut lambda = lambda_c + dl;
         let mut iterations = 1;
+        let mut norms = Vec::new();
+        let mut energy0: Option<f64> = None;
         loop {
+            self.spend_iteration()?;
             let ev = self.evaluate(lambda)?;
-            if ev.ok {
+            norms.push(ev.norm);
+            let fac = self.sys.factor().ok();
+            let (du, dl) = self.displacement_correction(fac.as_ref(), bordered, c, &ev.r, 0.0)?;
+            if ev.ok && self.correction_small(&du, &step) && self.energy_small(&du, &ev, energy0) {
                 // As under load control: a converged step far from the
                 // tangent's prediction jumped to another branch, here past a
                 // snap-back (a limit point in the control displacement).
@@ -757,13 +903,17 @@ impl<M: NonlinearModel> Ctx<'_, M> {
                         format!("the step to λ = {lambda} left the branch the tangent predicts (‖Δu‖ / ‖predictor‖ = {ratio:.3}): a snap-back, which displacement control cannot pass"),
                     ));
                 }
-                let fac = self.sys.factor().ok();
                 return self.converged(lambda, iterations, ev, fac.as_ref(), step);
             }
             if iterations == self.opts.max_iterations {
                 return Err(fail(StopReason::NoConvergence, format!("no convergence in {iterations} iterations at λ = {lambda}")));
             }
-            let (du, dl) = self.displacement_correction(bordered, c, &ev.r, 0.0)?;
+            if self.diverging(&norms) {
+                return Err(fail(StopReason::NoConvergence, format!("the residual grew in two consecutive iterations at λ = {lambda}")));
+            }
+            if energy0.is_none() {
+                energy0 = Some(dot(&du, &ev.r).abs());
+            }
             self.move_by(&du, 1.0);
             for (s, d) in step.iter_mut().zip(&du) {
                 *s += d;
@@ -808,15 +958,13 @@ impl<M: NonlinearModel> Ctx<'_, M> {
         self.move_by(&step, 1.0);
         let mut lambda = lambda_c + dls;
         let mut iterations = 1;
+        let mut norms = Vec::new();
+        let mut energy0: Option<f64> = None;
         loop {
+            self.spend_iteration()?;
             let ev = self.evaluate(lambda)?;
+            norms.push(ev.norm);
             let fac = self.factor()?;
-            if ev.ok {
-                return self.converged(lambda, iterations, ev, Some(&fac), step);
-            }
-            if iterations == self.opts.max_iterations {
-                return Err(fail(StopReason::NoConvergence, format!("arc-length: no convergence in {iterations} iterations at λ = {lambda}")));
-            }
             let ur = self.solve(&fac, &ev.r)?;
             let uf = self.solve(&fac, &self.f_free)?;
             // ‖Δu + u_R + δλ·u_F‖² + ψ²·(Δλ + δλ)²·‖F‖² = ds² over the translations.
@@ -826,6 +974,9 @@ impl<M: NonlinearModel> Ctx<'_, M> {
             let c = self.wdot(&w, &w) + f2 * dls * dls - ds * ds;
             let disc = b * b - 4.0 * a * c;
             if a == 0.0 || disc < 0.0 {
+                if ev.ok && self.correction_small(&ur, &step) {
+                    return self.converged(lambda, iterations, ev, Some(&fac), step);
+                }
                 return Err(fail(StopReason::NoConvergence, format!("arc-length: the constraint has no real root at λ = {lambda}")));
             }
             let sq = disc.sqrt();
@@ -837,6 +988,18 @@ impl<M: NonlinearModel> Ctx<'_, M> {
             let (r1, r2) = ((-b + sq) / (2.0 * a), (-b - sq) / (2.0 * a));
             let dl = if along(r1) >= along(r2) { r1 } else { r2 };
             let du: Vec<f64> = ur.iter().zip(&uf).map(|(r, f)| r + dl * f).collect();
+            if ev.ok && self.correction_small(&du, &step) && self.energy_small(&du, &ev, energy0) {
+                return self.converged(lambda, iterations, ev, Some(&fac), step);
+            }
+            if iterations == self.opts.max_iterations {
+                return Err(fail(StopReason::NoConvergence, format!("arc-length: no convergence in {iterations} iterations at λ = {lambda}")));
+            }
+            if self.diverging(&norms) {
+                return Err(fail(StopReason::NoConvergence, format!("arc-length: the residual grew in two consecutive iterations at λ = {lambda}")));
+            }
+            if energy0.is_none() {
+                energy0 = Some(dot(&du, &ev.r).abs());
+            }
             self.move_by(&du, 1.0);
             for (s, d) in step.iter_mut().zip(&du) {
                 *s += d;
@@ -859,6 +1022,9 @@ struct Run {
     steps: Vec<StepRecord>,
     total_iterations: usize,
     last_du: Option<Vec<f64>>,
+    /// The last step's increment and Δλ, when it was a load step: what the
+    /// next one extrapolates.
+    last_load: Option<(Vec<f64>, f64)>,
     branch_switches: Vec<f64>,
     critical_points: Vec<CriticalPoint>,
 }
@@ -867,6 +1033,7 @@ impl Run {
     fn accept<M: NonlinearModel>(&mut self, ctx: &mut Ctx<'_, M>, conv: Converged, phase: Phase) {
         ctx.model.commit();
         self.total_iterations += conv.iterations;
+        self.last_load = (phase == Phase::LoadControl).then(|| (conv.du.clone(), conv.lambda - self.lambda));
         self.lambda = conv.lambda;
         self.f_int = conv.f_int;
         self.negative = conv.negative;
@@ -886,11 +1053,46 @@ impl Run {
     }
 }
 
+/// The next step: `step` at most, never past the next nominal point
+/// (`start` + k·`full`) nor `target`.
+fn next_step(start: f64, full: f64, progress: f64, target: f64, step: f64) -> f64 {
+    let k = ((progress - start) / full + 1e-9).floor() + 1.0;
+    let mut milestone = start + k * full;
+    if (milestone - progress).abs() < 1e-12 * full.abs() {
+        milestone += full;
+    }
+    if (milestone - target) * full.signum() > 0.0 {
+        milestone = target;
+    }
+    let room = milestone - progress;
+    if step.abs() > room.abs() { room } else { step.abs() * full.signum() }
+}
+
+/// Step control by the iteration count of the step that just converged:
+/// returns the next step size (by magnitude, at most `full`) and whether this
+/// one was easy. A converged step never shrinks the next below
+/// `full / MIN_SHRUNK` (only a failure cuts further): steps shrinking
+/// geometrically on success would add up to less than the distance left, and
+/// the analysis would never get there.
+fn grow(step: f64, full: f64, iterations: usize, last_easy: bool) -> (f64, bool) {
+    let easy = iterations <= EASY_ITERATIONS;
+    let next = if easy && last_easy {
+        step * GROWTH
+    } else if iterations > HARD_ITERATIONS {
+        (step * SHRINK).max(step.min(full.abs() / MIN_SHRUNK))
+    } else {
+        step
+    };
+    (next.abs().min(full.abs()), easy)
+}
+
 /// Load control from the current state toward `target`.
 fn run_load<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64, increments: usize) -> Termination {
-    let full = (target - run.lambda) / increments as f64;
-    let mut step = full;
+    let start = run.lambda;
+    let full = (target - start) / increments as f64;
+    let mut step = full.abs();
     let mut cuts = 0;
+    let mut last_easy = false;
     while (target - run.lambda).abs() > 1e-12 * target.abs().max(full.abs()) {
         if run.stiffness_parameter < MIN_STIFFNESS_PARAMETER {
             return Termination::Stopped {
@@ -901,37 +1103,60 @@ fn run_load<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64,
                 ),
             };
         }
-        let remaining = target - run.lambda;
-        let this = if step.abs() > remaining.abs() { remaining } else { step };
-        // The escalation ladder: the configured iteration (full Newton by
-        // default); on a failure to converge, full Newton; then full Newton
-        // with line search; then a cut.
+        let this = next_step(start, full, run.lambda, target, step);
+        // The escalation ladder, cheapest first: the previous step
+        // extrapolated, with the configured iteration; from the committed
+        // state; full Newton; full Newton with line search; then a cut. An
+        // extrapolated attempt falls through on any failure (its guess may
+        // have crossed something the committed state would not); the others
+        // only on a failure to converge.
+        let extrapolated: Option<Vec<f64>> = match (&run.last_load, ctx.opts.extrapolate) {
+            (Some((du, dl)), true) if *dl != 0.0 => Some(du.iter().map(|x| x * this / dl).collect()),
+            _ => None,
+        };
         let first = ctx.opts.iteration;
-        let mut result = ctx.load_step(run.lambda, this, run.negative, run.det_sign, false, first);
-        let no_convergence = |r: &Result<Converged, Failure>| matches!(r, Err(f) if f.reason == StopReason::NoConvergence);
-        if first != Iteration::Full && no_convergence(&result) {
-            ctx.model.revert();
-            result = ctx.load_step(run.lambda, this, run.negative, run.det_sign, false, Iteration::Full);
+        let mut rungs: Vec<(bool, Iteration, bool)> = Vec::new();
+        if extrapolated.is_some() {
+            rungs.push((true, first, false));
         }
-        if ctx.opts.line_search && no_convergence(&result) {
-            ctx.model.revert();
-            result = ctx.load_step(run.lambda, this, run.negative, run.det_sign, true, Iteration::Full);
+        rungs.push((false, first, false));
+        if first != Iteration::Full {
+            rungs.push((false, Iteration::Full, false));
+        }
+        if ctx.opts.line_search {
+            rungs.push((false, Iteration::Full, true));
+        }
+        let mut result = Err(fail(StopReason::NoConvergence, "no attempt"));
+        for (k, &(extrapolate, iteration, line_search)) in rungs.iter().enumerate() {
+            if k > 0 {
+                let fall_through = match &result {
+                    Err(f) if f.reason == StopReason::IterationBudget => false,
+                    Err(f) => rungs[k - 1].0 || f.reason == StopReason::NoConvergence,
+                    Ok(_) => false,
+                };
+                if !fall_through {
+                    break;
+                }
+                ctx.model.revert();
+            }
+            let p = if extrapolate { extrapolated.as_deref() } else { None };
+            result = ctx.load_step(run.lambda, this, run.negative, run.det_sign, line_search, iteration, p);
         }
         match result {
             Ok(conv) => {
+                let iterations = conv.iterations;
                 run.accept(ctx, conv, Phase::LoadControl);
                 cuts = 0;
-                if step.abs() < full.abs() {
-                    step = (2.0 * step).clamp(-full.abs(), full.abs());
-                }
+                (step, last_easy) = grow(step, full, iterations, last_easy);
             }
             Err(f) => {
                 ctx.model.revert();
-                if cuts >= ctx.opts.max_cuts || step.abs() < MIN_STEP_FRACTION * full.abs() {
+                if f.reason == StopReason::IterationBudget || cuts >= ctx.opts.max_cuts || step < MIN_STEP_FRACTION * full.abs() {
                     return Termination::Stopped { reason: f.reason, message: f.message };
                 }
                 cuts += 1;
-                step /= 2.0;
+                step *= CUT;
+                last_easy = false;
             }
         }
     }
@@ -941,28 +1166,28 @@ fn run_load<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64,
 fn run_displacement<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, c: usize, target: f64, increments: usize) -> Termination {
     let bordered = ctx.sys.bordered(c, &ctx.f_free);
     let full = target / increments as f64;
-    let mut step = full;
+    let mut step = full.abs();
     let mut progress = 0.0;
     let mut cuts = 0;
+    let mut last_easy = false;
     while (target - progress).abs() > 1e-12 * target.abs().max(full.abs()) {
-        let remaining = target - progress;
-        let this = if step.abs() > remaining.abs() { remaining } else { step };
+        let this = next_step(0.0, full, progress, target, step);
         match ctx.displacement_step(&bordered, run.lambda, c, this) {
             Ok(conv) => {
+                let iterations = conv.iterations;
                 run.accept(ctx, conv, Phase::DisplacementControl);
                 progress += this;
                 cuts = 0;
-                if step.abs() < full.abs() {
-                    step = (2.0 * step).clamp(-full.abs(), full.abs());
-                }
+                (step, last_easy) = grow(step, full, iterations, last_easy);
             }
             Err(f) => {
                 ctx.model.revert();
-                if cuts >= ctx.opts.max_cuts || step.abs() < MIN_STEP_FRACTION * full.abs() {
+                if f.reason == StopReason::IterationBudget || cuts >= ctx.opts.max_cuts || step < MIN_STEP_FRACTION * full.abs() {
                     return Termination::Stopped { reason: f.reason, message: f.message };
                 }
                 cuts += 1;
-                step /= 2.0;
+                step *= CUT;
+                last_easy = false;
             }
         }
     }
@@ -1033,7 +1258,7 @@ fn run_arc<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64, 
                 ds = (ds * (ARC_TARGET_ITERATIONS / iterations).sqrt().clamp(0.5, 2.0)).min(max_ds);
                 if (run.lambda - target) * sign >= 0.0 {
                     if run.lambda != target {
-                        match ctx.load_step(run.lambda, target - run.lambda, run.negative, run.det_sign, false, Iteration::Full) {
+                        match ctx.load_step(run.lambda, target - run.lambda, run.negative, run.det_sign, false, Iteration::Full, None) {
                             Ok(c) => run.accept(ctx, c, Phase::LoadControl),
                             Err(_) => ctx.model.revert(),
                         }
@@ -1043,7 +1268,7 @@ fn run_arc<M: NonlinearModel>(ctx: &mut Ctx<'_, M>, run: &mut Run, target: f64, 
             }
             Err(f) => {
                 ctx.model.revert();
-                if cuts >= ctx.opts.max_cuts || ds < MIN_STEP_FRACTION * ds0 {
+                if f.reason == StopReason::IterationBudget || cuts >= ctx.opts.max_cuts || ds < MIN_STEP_FRACTION * ds0 {
                     return Termination::Stopped { reason: f.reason, message: f.message };
                 }
                 cuts += 1;
@@ -1075,8 +1300,15 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
         | Strategy::ArcLength { target, increments, .. }
         | Strategy::Auto { target, increments, .. } => (target, increments),
     };
-    if increments == 0 || !target.is_finite() || opts.max_iterations == 0 || opts.tolerance.is_nan() || opts.tolerance <= 0.0 {
-        return Err("increments, target, max_iterations and tolerance must be positive and finite".into());
+    if increments == 0
+        || !target.is_finite()
+        || opts.max_iterations == 0
+        || opts.tolerance.is_nan()
+        || opts.tolerance <= 0.0
+        || opts.displacement_tolerance.is_nan()
+        || opts.displacement_tolerance <= 0.0
+    {
+        return Err("increments, target, max_iterations and the tolerances must be positive and finite".into());
     }
     let control = match *strategy {
         Strategy::DisplacementControl { dof, .. } => {
@@ -1092,7 +1324,20 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
     let length = opts.rotation_length.unwrap_or_else(|| model.characteristic_length()).max(f64::MIN_POSITIVE);
     let fscale_all: Vec<f64> = (0..n).map(|d| if model.dof_kind(d) == DofKind::Translation { 1.0 } else { 1.0 / length }).collect();
     let fscale_free: Vec<f64> = sys.free.iter().map(|&d| fscale_all[d]).collect();
-    let mut ctx = Ctx { model, sys, f_free, weight, fscale_free, fscale_all, length, opts: opts.clone() };
+    let rotation: Vec<bool> = (0..n).map(|d| model.dof_kind(d) == DofKind::Rotation).collect();
+    let mut ctx = Ctx {
+        model,
+        sys,
+        f_free,
+        weight,
+        fscale_free,
+        length,
+        rotation,
+        seen_force: 0.0,
+        seen_moment: 0.0,
+        iterations_used: 0,
+        opts: opts.clone(),
+    };
 
     let ev = ctx.evaluate(0.0).map_err(|f| f.message)?;
     ctx.model.commit();
@@ -1108,6 +1353,7 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
         steps: Vec::new(),
         total_iterations: 0,
         last_du: None,
+        last_load: None,
         branch_switches: Vec::new(),
         critical_points: Vec::new(),
     };
@@ -1149,6 +1395,7 @@ pub fn solve<M: NonlinearModel>(model: &mut M, strategy: &Strategy, opts: &Newto
         steps: run.steps,
         total_iterations: run.total_iterations,
         factorizations: ctx.sys.factorizations(),
+        newton_iterations: ctx.iterations_used,
         branch_switches: run.branch_switches,
         critical_points: run.critical_points,
     })

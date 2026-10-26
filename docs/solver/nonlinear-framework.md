@@ -94,6 +94,11 @@ SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second i
 
 Every strategy applies the same policy, cheapest first and escalating only on failure:
 
+0. **The previous step, extrapolated** (`extrapolate`, on by default). A load step starts from
+   the last one scaled by Δλ/Δλ_prev instead of from the committed state. Any failure of an
+   extrapolated attempt retries the step from the committed state, since its guess may have
+   crossed something the committed state would not. On the elastica it saves Newton iterations
+   to the same answer.
 1. **The configured iteration.** `NewtonOptions::iteration` selects one of:
    - `Full` Newton–Raphson, the default;
    - `Modified` Newton, which refactors every k iterations;
@@ -105,8 +110,17 @@ Every strategy applies the same policy, cheapest first and escalating only on fa
    retry of the same step. Running it on every iteration made the end-moment test 40× slower,
    because early in a large-rotation step Newton's residual energy often rises before it
    converges quadratically.
-3. **Step cutting.** The step is halved, then grows back after successes. There is a floor of
-   10⁻⁸ of the nominal step, so a step that keeps failing and growing back cannot loop forever.
+3. **Step control by iteration count.**
+   - A failed step is cut to a quarter.
+   - Two steps in a row that converge in at most 4 iterations grow the next by 1.5×.
+   - A step that needs more than 8 shrinks the next by 0.75×, but never below 1/16 of the
+     nominal step. Steps shrinking geometrically on success would add up to less than the
+     distance left, and the analysis would never arrive; this happened at a plastic plateau.
+   - Steps never cross the strategy's nominal points (λ, or the control displacement, at each
+     increment), so those are always results.
+   - Cuts have a floor of 10⁻⁸ of the nominal step, and the whole analysis can be given a Newton
+     iteration budget (`max_total_iterations`, failed attempts included). It stops with
+     `IterationBudget`.
 4. **Arc-length past critical points.** `Strategy::Auto` runs load control, and continues by
    arc-length from the last converged state when load control meets a limit or bifurcation point
    (as a change of stability, a failure to converge, or a singular tangent). When the arc passes
@@ -152,22 +166,54 @@ silent jump to a distant branch, when any of these happens during a step:
 - the converged step lands outside ¼–4 times the tangent's prediction;
 - Bergan's stiffness parameter drops below 10⁻³.
 
-Displacement control stops with `LimitPoint` at a snap-back, by the same prediction check.
+Displacement control stops at a snap-back: with `LimitPoint` if Newton lands on the far branch (the prediction check), or with `NoConvergence` if the divergence check catches it heading there.
 Arc-length follows snap-through and snap-back. It is cylindrical by default, or spherical with
 `arc_psi`. Its arc grows by at most 32× the first arc, or 10% of the model's length if that is
 larger.
 
-**Convergence test.**
-- **Force norm.** Moments are divided by a length (`rotation_length`, by default the model's
-  bounding-box diagonal), so kN and kN·m do not add.
-- **Criterion.** Converged when the force norm of R ≤ tol·max(|λ|·‖F‖, ‖f_int‖) in the same
-  norm, or when R is down to the rounding floor ε·‖K‖·‖u‖.
-- **Optional energy criterion.** |δu·R| ≤ tol_E·|δu₀·R₀|, which has consistent units by
+**Convergence test.** Three criteria, all required, each evaluated on the correction Newton would
+add next. That correction is computed anyway, so the test costs one more solve per step:
+- **Force.** The residual is measured separately on forces and on moments, each against its own
+  scale: the largest applied load, internal force or reaction of that kind seen so far in the
+  analysis (default tolerance 10⁻⁹). A model that carries no moment takes the moment scale from
+  the force scale through `rotation_length`, by default the model's bounding-box diagonal.
+- **Displacement.** The next correction is at most 10⁻⁶ of the step's increment, again
+  separately for translations and rotations (`displacement_tolerance`). Below 64·ε of the total
+  displacement the correction cannot be resolved, so it passes there: a step cut very short has
+  corrections at the round-off of the displacement, not of the step.
+- **Energy.** |δu·R| ≤ 10⁻¹² of the step's first (`energy_tolerance`), consistent in units by
   construction.
 
+At the rounding floor ε·‖K‖·‖u‖ the force and energy criteria pass: no criterion can ask for
+more. In a test with a force tolerance loosened to 10⁻³, the displacement criterion alone holds
+the answer to 10⁻⁹.
+
+**Divergence.** A step is cut as soon as its residual has grown in two consecutive iterations
+and is above where the step started (`divergence_check`). Growth alone is not enough: near
+convergence, and when fibers change state, the residual wobbles far below its start.
+
 **Failure contract.** The outcome is always the last converged state, with why the analysis
-stopped. It also reports the number of factorizations and the loads at which the analysis
-switched branch. `Err` is only for an invalid request.
+stopped. It also reports the number of factorizations, the Newton iterations including failed
+attempts, and the critical points. `Err` is only for an invalid request.
+
+**Checks for every element and material** (`nonlinear::check`, applied in
+`tests/nonlinear_checks.rs`):
+- the tangent against central differences of the internal force or stress (3D with spatial
+  rotation increments);
+- symmetry where the formulation is symmetric;
+- objectivity: a rigid motion strains nothing, and a rigidly rotated state has the rotated
+  internal force, moments included.
+
+A new element or material is expected to go through the same functions. The check caught a sign
+error in the first kinematic-hardening tangent.
+
+**Plane-stress J2.**
+- **Isotropic hardening:** linear or tabulated (`Hardening::Table`, flat past the last point).
+- **Kinematic hardening:** linear, Prager's.
+- **Return mapping:** Newton on Δγ inside a bisection bracket, robust to a 1000·ε_y increment
+  and to the kinks of a table.
+- **Softening:** a slope with 3G + H ≤ 0 has no unique return and is refused.
+- **Tangent:** the consistent tangent is derived for combined hardening.
 
 ### Still planned
 
@@ -175,6 +221,11 @@ switched branch. `Err` is only for an invalid request.
   regularization, and crack-band scaling at the material. This waits for a softening
   plane-stress law; the uniaxial Hognestad concrete's descending branch is the only softening
   so far.
+- **Oscillating divergence.** The divergence check sees monotone growth (two growths in a
+  row), as fieldcraft's does. Newton oscillating outward (atan-like responses) alternates small
+  and large residuals and runs to the iteration limit before the step is cut.
+- **3D linear kinematics.** It takes log R as the rotation, while the driver updates rotations
+  multiplicatively. The two agree to O(θ²), which is inherent in small-displacement kinematics.
 - **Continuous symmetry.** A doubly symmetric column has a neutral mode on its buckled branch:
   the plane of buckling can turn. Its two modes are found, but following a branch there needs a
   constraint on that symmetry.
@@ -201,6 +252,12 @@ switched branch. `Err` is only for an invalid request.
 | Roorda's frame (nearly inextensible) | P_cr from `solver::buckling::solve_buckling_2d` (1.407·π²EI/L²) within 2 %; the two mode directions give opposite load slopes, the falling branch unstable and the rising one stable |
 | Snap-back crossings | classified as limit points (load alignment > 0.1) |
 | Square 3D column | two independent lateral modes orthogonal to the load, within 1 % of P_cr; stability through LU and the symmetric part |
+| Every element (2D/3D frames and trusses, elastic and fiber, linear and co-rotational) and material (uniaxial laws; J2 with each hardening, fresh and after history) | `nonlinear::check`: tangents against central differences; symmetry; objectivity under rigid motion |
+| J2: kinematic hardening; table; huge increment; steep softening | re-yield at τ_max − 2τ_y (Bauschinger); σ_eq on the table; a 1000·ε_y step converges; refused |
+| Loose force tolerance (10⁻³) with the displacement criterion | the answer of the tight one to 10⁻⁹; without it, at least 10× further off |
+| Iteration budget | stops with `IterationBudget` on the last converged state |
+| A material with a wrong-sign tangent | the divergence check cuts each attempt after two growths, at a fifth of the iterations or less |
+| Elastica in 40 steps, extrapolated vs not | the same answer to 10⁻⁸ with fewer Newton iterations |
 | Modified Newton and BFGS on the plastic cantilever | the same displacement as full Newton to 1e-6, with fewer factorizations |
 | Energy criterion; moment scaling of 10⁻³ and 10³ | the same converged path to 1e-7 |
 | Spherical arc-length (ψ = 10⁻³) through the snap-back | the closed form |
