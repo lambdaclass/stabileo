@@ -196,6 +196,98 @@ describe('atomic top continuity repair', () => {
       operators: ['harmonizeTopLine'] as const } }, verify };
   }
 
+  function finalDepthLine() {
+    const { input, verify } = line();
+    for (const ctx of input.contexts.values()) {
+      ctx.material.longDiametersMm = [16];
+      ctx.stations = { comboResults: [{ stations: [
+        { t: 0, my: -120, vz: 0 }, { t: 0.5, my: 60, vz: 0 }, { t: 1, my: -120, vz: 0 },
+      ] }] } as never;
+    }
+    input.result.assemblies[0].conflicts = [];
+    input.result.assemblies[0].unsupported = [{ key: 'detailing.finalVerification.failed',
+      message: 'final flexure', refs: [], scope: { elementIds: [1] } }];
+    input.result.reverification[0] = { ...input.result.reverification[0], status: 'fail',
+      finalGeometry: { topLower: 0.02, bottomRaise: 0, depthTolerance: 0.015 } };
+    return { verify, input: { ...input, budget: { maxDetailingRuns: 1, maxMemberSearches: 3,
+      operators: ['harmonizeDemandCatalog'] as const } } };
+  }
+
+  it('repairs a line with a final-depth failure even when it has no clashes or open splices', () => {
+    const { input, verify } = finalDepthLine();
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials[0]).toMatchObject({ elementIds: [1, 2, 3], disposition: 'accepted' });
+    expect(result.result.assemblies[0].unsupported).toEqual([]);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 3, structuralSolves: 0 });
+    expect(verify.mock.calls.find(([c]) => c.elementId === 1)![0].finalGeometry)
+      .toEqual(input.result.reverification[0].finalGeometry);
+    expect(verify.mock.calls.filter(([c]) => c.elementId !== 1).every(([c]) => c.finalGeometry === undefined)).toBe(true);
+    expect(input.contexts.get(1)!.finalGeometry).toBeUndefined();
+  });
+
+  it('rejects a candidate that still fails at the known final depth before spending a full build', () => {
+    const { input, verify } = finalDepthLine();
+    verify.mockImplementation(c => ({ overallStatus: c.finalGeometry ? 'fail' : 'ok', strengthCheckCount: 2,
+      checks: [{ status: c.finalGeometry ? 'fail' : 'ok', limiting: 'flexure', category: 'Top Start (My-)' }],
+      worstUtilization: c.finalGeometry ? 1.01 : 0.8, checkedAxes: ['My'],
+    } as never));
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials[0]).toMatchObject({ disposition: 'nominalFailure', nominalFailures: [1] });
+    expect(input.detail).not.toHaveBeenCalled();
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.stats).toMatchObject({ detailingRuns: 0, memberSearches: 3 });
+  });
+
+  it('tries a small opposite-face increment for flexure before adding a tensile row', () => {
+    const { input, verify } = finalDepthLine();
+    input.budget.maxMemberSearches = 6;
+    for (const id of [1, 2, 3]) {
+      const o = outcome(id, 16);
+      for (const region of ['topStart', 'topEnd', 'bottomSpan'] as const) o.accepted!.regions![region]!.count = 3;
+      input.outcomes.set(id, o);
+    }
+    verify.mockImplementation((_c, r) => ({ overallStatus: r.regions!.bottomSpan!.count >= 4 ? 'ok' : 'fail',
+      strengthCheckCount: 2, checks: [{ category: 'Top Start (My-)', limiting: 'flexure',
+        status: r.regions!.bottomSpan!.count >= 4 ? 'ok' : 'fail' }],
+      worstUtilization: r.regions!.bottomSpan!.count >= 4 ? 0.99 : 1.005, checkedAxes: ['My'],
+    } as never));
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials).toEqual([
+      expect.objectContaining({ counts: [3], bottomCounts: [3], disposition: 'nominalFailure' }),
+      expect.objectContaining({ counts: [3], bottomCounts: [4], disposition: 'accepted' }),
+    ]);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 6 });
+  });
+
+  it('bounds consecutive final-depth trials before giving another line its turn', () => {
+    const { input, verify } = finalDepthLine();
+    input.contexts.set(4, { ...input.contexts.get(3)!, elementId: 4 });
+    input.outcomes.set(4, outcome(4, 16));
+    input.result.assemblies[0].conflicts = detail([4]).assemblies[0].conflicts;
+    input.result.reverification.push({ ...input.result.reverification[1], elementId: 4 });
+    input.budget.maxMemberSearches = 16;
+    verify.mockReturnValue({ overallStatus: 'fail', strengthCheckCount: 2,
+      checks: [{ category: 'Top Start (My-)', limiting: 'flexure', status: 'fail' }],
+      worstUtilization: 1.1, checkedAxes: ['My'],
+    } as never);
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials.slice(0, 5).map(t => t.elementId)).toEqual([1, 1, 1, 1, 4]);
+    expect(result.stats.memberSearches).toBeLessThanOrEqual(16);
+    expect(result.stats.detailingRuns).toBe(0);
+    expect(result.changed).toEqual([]);
+    expect(result.outcomes).toBe(input.outcomes);
+  });
+
+  it('still requires a new final-depth verification after building the candidate', () => {
+    const { input } = finalDepthLine();
+    input.detail.mockReturnValue(input.result);
+    const result = searchPhysicalDesignAlternatives(input);
+    expect(result.trials[0].disposition).toBe('regression');
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.result).toBe(input.result);
+    expect(result.changed).toEqual([]);
+  });
+
   it('includes an already fused continuation with no lap record and certifies all three members', () => {
     const { input, verify } = line();
     expect(continuityLines(input.contexts, input.result)).toEqual([{ ids: [1, 2, 3], jointIds: ['n2', 'n3'] }]);

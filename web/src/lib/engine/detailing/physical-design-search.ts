@@ -101,6 +101,7 @@ function strictlyImproves(before: number[], after: number[]): boolean {
 /** Prefer a bounded alternative addressing the failed constraint; never prune or certify it. */
 function nominalRepairPriority(
   previous: BeamContinuityAlternative, next: BeamContinuityAlternative, checks: readonly ProvidedRebarCheck[],
+  finalDepthRepair = false,
 ): number {
   const instructions = checks.flatMap(check => {
     const more = check.limiting === 'flexure' || check.limiting === 'minSteel';
@@ -110,7 +111,7 @@ function nominalRepairPriority(
     const category = check.category.toLowerCase();
     const faces = check.anchorHook?.face === 'bottom' || category.includes('bottom') || category === 'min steel (span)'
       ? ['bottom'] as const : category.includes('top') ? ['top'] as const : ['top', 'bottom'] as const;
-    return faces.map(face => ({ face, more, anchor }));
+    return faces.map(face => ({ face, more, anchor, flexure: check.limiting === 'flexure' }));
   });
   if (!instructions.length) return 0;
   let score = 0;
@@ -121,7 +122,17 @@ function nominalRepairPriority(
     const area = (ls: typeof a) => ls.reduce((n, l) => n + l.count * l.diameter ** 2, 0);
     const count = (ls: typeof a) => ls.reduce((n, l) => n + l.count, 0);
     const relevant = instructions.filter(i => i.face === face);
-    if (!relevant.length) { if (JSON.stringify(a) !== JSON.stringify(b)) score--; continue; }
+    if (!relevant.length) {
+      // Opposite-face steel also enters the flexural calculation. Try one extra bar
+      // without moving the tensile face before forcing it into another row.
+      const tensileUnchanged = instructions.filter(i => i.flexure && JSON.stringify(i.face === 'top' ? previous.layers : previous.bottomLayers)
+        === JSON.stringify(i.face === 'top' ? next.layers : next.bottomLayers)).length;
+      const oneMore = a.length === b.length && b.every((l, i) => l.diameter === a[i].diameter
+        && l.row === a[i].row && l.count >= a[i].count && l.count <= a[i].count + 1) && count(b) === count(a) + 1;
+      if (finalDepthRepair && tensileUnchanged && oneMore) score += 6 * tensileUnchanged;
+      else if (JSON.stringify(a) !== JSON.stringify(b)) score--;
+      continue;
+    }
     for (const i of relevant) {
       const helpful = i.more ? area(b) > area(a) : b[0].diameter < a[0].diameter || b.length < a.length
         || (!i.anchor && (count(b) < count(a) || Math.max(...b.map(l => l.count)) < Math.max(...a.map(l => l.count))));
@@ -441,12 +452,13 @@ function searchBeamContinuity(
     const covered = new Set(lines.flatMap(p => p.ids));
     for (const id of eligible.keys()) if (!covered.has(id)) lines.push({ ids: [id], jointIds: [] });
   }
+  const hasFinalFailure = (ids: number[]) => result.reverification.some(r => ids.includes(r.elementId) && r.status === 'fail');
   const targets = operator !== 'harmonizeTop'
     ? lines.filter(p => catalog
-      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && p.jointIds.some(j => conditions(result, j)))
+      ? (cage ? burden(p.ids) : topClashes(p.ids)) > 0 || (demand && (p.jointIds.some(j => conditions(result, j)) || hasFinalFailure(p.ids)))
       : p.jointIds.some(j => conditions(result, j)))
     : [...pairs.values()].map(p => ({ ids: [...p.ids], jointIds: [p.jointId] }));
-  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, order: undefined as number[] | undefined }))
+  const ranked = targets.map(p => ({ ...p, burden: burden(p.ids), offset: 0, consecutiveTrials: 0, order: undefined as number[] | undefined }))
     .sort((a, b) => (operator === 'harmonizeBottomLine' ? b.burden - a.burden : a.burden - b.burden)
       || a.ids[0] - b.ids[0] || a.ids[1] - b.ids[1]);
   const seen = new Set<string>();
@@ -459,7 +471,9 @@ function searchBeamContinuity(
     const { ids, jointIds } = target;
     const open = (r: RunDetailingResult) => jointIds.reduce((n, j) => n + conditions(r, j), 0);
     if (!catalog && !open(result)) continue;
-    const contexts = contextsFor(input.contexts, outcomes);
+    const contexts = new Map(contextsFor(input.contexts, outcomes));
+    for (const r of result.reverification) if (r.status === 'fail' && r.finalGeometry && contexts.has(r.elementId))
+      contexts.set(r.elementId, { ...contexts.get(r.elementId)!, finalGeometry: r.finalGeometry });
     if (ids.some(id => !contexts.has(id) || contexts.get(id)!.elementType !== 'beam'
       || contexts.get(id)!.span || input.lockedMembers?.has(id)
       || outcomes.get(id)?.outcome !== 'VERIFIED' || !outcomes.get(id)?.accepted)) continue;
@@ -474,8 +488,14 @@ function searchBeamContinuity(
     for (const proposal of domain ? remaining.map(i => domain[i]) : proposals) {
       if (demand) remaining = remaining.slice(1);
       if (proposalIndex++ < target.offset) continue;
-      const resume = () => ranked.push({ ...target, offset: demand ? 0 : proposalIndex,
-        order: demand ? remaining : undefined });
+      const resume = () => {
+        const next = { ...target, offset: demand ? 0 : proposalIndex, order: demand ? remaining : undefined };
+        // A known final-strength failure needs a few feedback steps to reach a small
+        // repair. Bound this preference to four proposals, then return to the fair queue.
+        if (demand && hasFinalFailure(ids) && target.consecutiveTrials < 3)
+          ranked.splice(targetIndex + 1, 0, { ...next, consecutiveTrials: target.consecutiveTrials + 1 });
+        else ranked.push({ ...next, consecutiveTrials: 0 });
+      };
       if (stats.detailingRuns >= input.budget.maxDetailingRuns || stats.memberSearches + ids.length > input.budget.maxMemberSearches) {
         termination = 'budget'; break pairLoop;
       }
@@ -498,7 +518,10 @@ function searchBeamContinuity(
         disposition: 'nominalFailure', nominalFailures: [] };
       trials.push(trial);
       for (let i = 0; i < ids.length; i++) {
-        const c = trialContexts.get(ids[i])!;
+        const retainedFailure = result.reverification.find(r => r.elementId === ids[i] && r.status === 'fail');
+        const c = retainedFailure?.finalGeometry
+          ? { ...trialContexts.get(ids[i])!, finalGeometry: retainedFailure.finalGeometry }
+          : trialContexts.get(ids[i])!;
         let reinforcement = proposal.reinforcement[i];
         let verdict = input.adapter.verify(c, reinforcement);
         let verifierCalls = 1;
@@ -536,7 +559,7 @@ function searchBeamContinuity(
         // the nominal budget before the other lines get even their first proposal.
         if (demand) {
           const checks = trial.nominalChecks!.flatMap(f => f.checks);
-          const priorities = new Map(remaining.map(i => [i, nominalRepairPriority(proposal, domain![i], checks)]));
+          const priorities = new Map(remaining.map(i => [i, nominalRepairPriority(proposal, domain![i], checks, hasFinalFailure(ids))]));
           remaining.sort((a, b) => priorities.get(b)! - priorities.get(a)!);
         }
         if (mixed || demand) { resume(); break; }
@@ -646,7 +669,7 @@ function searchBeamContinuity(
           if (keys.has(ranked[i].ids.join(','))) ranked.splice(i, 1);
         }
         ranked.splice(targetIndex + 1, 0, ...affected.map(p => ({ ...p, burden: burden(p.ids),
-          offset: 0, order: undefined })));
+          offset: 0, consecutiveTrials: 0, order: undefined })));
       }
       break;
     }

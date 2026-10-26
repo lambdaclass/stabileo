@@ -59,6 +59,34 @@ describe('paired top continuity patterns', () => {
     expect(current).toEqual(before);
   });
 
+  it('keeps small repairs below the area estimate available when a retained design fails at final depth', () => {
+    const ctx = contexts(), current = [reinforcement(3, 16), reinforcement(3, 16)];
+    for (const c of ctx) {
+      c.material.longDiametersMm = [16];
+      c.stations = { comboResults: [{ stations: [
+        { t: 0, my: -300, vz: 0 }, { t: 0.5, my: 300, vz: 0 }, { t: 1, my: -300, vz: 0 },
+      ] }] } as never;
+    }
+    expect([...beamContinuityAlternatives(ctx, current, 'top', 'demand')]
+      .every(p => p.layers.reduce((n, l) => n + l.count, 0) > 4)).toBe(true);
+    ctx[0].finalGeometry = { topLower: 0, bottomRaise: 0, depthTolerance: 0.015 };
+    const before = structuredClone(current);
+    const proposals = [...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')];
+    expect(proposals).toContainEqual(expect.objectContaining({ layers: [{ count: 3, diameter: 16, row: 0 }],
+      bottomLayers: [{ count: 4, diameter: 16, row: 0 }] }));
+    expect(proposals).toContainEqual(expect.objectContaining({ layers: [{ count: 4, diameter: 16, row: 0 }],
+      bottomLayers: [{ count: 3, diameter: 16, row: 0 }] }));
+    expect(current).toEqual(before);
+    expect(new Set(proposals.map(p => JSON.stringify(p.reinforcement))).size).toBe(proposals.length);
+    // Retained repairs still obey the common project catalog and row fit limits.
+    for (const p of proposals) for (const l of [...p.layers, ...p.bottomLayers!]) {
+      expect(l.diameter).toBe(16);
+      expect(l.count).toBeLessThanOrEqual(6);
+    }
+    ctx[1].material.longDiametersMm = [12];
+    expect([...beamCageContinuityAlternatives(ctx, current, 'all', 'demand')]).toEqual([]);
+  });
+
   it('seeds from forces instead of ratcheting up the retained steel, and requires force data', () => {
     const ctx = contexts(), current = [reinforcement(6, 16), reinforcement(6, 16)];
     for (const c of ctx) {

@@ -6,6 +6,68 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Reparación guiada por los fallos resistentes finales
+
+Continuación desde `7368fb102`, con el armado de `/tmp/design-column-verified.json`.
+La búsqueda general obtiene **227 aprobaciones válidas (133 columnas y 94 vigas)**,
+conserva las 225 anteriores y cierra las vigas **262 y 265**. Los conflictos físicos
+permanecen en **517 bloqueantes / 695 totales**; los fallos resistentes finales bajan
+**4 → 2**, y quedan 133 miembros fallidos, 35 agotados y 13 provisionales. Los aprobados
+no tienen conflictos bloqueantes ni una reverificación final fallida o ausente.
+
+### Causa y guía de búsqueda
+
+Una línea sin choques podía quedar fuera de las alternativas aunque su resistencia
+fallara al verificar la geometría final. Además, las propuestas volvían a comprobarse
+con la geometría nominal, sin aprovechar el fallo final ya conocido. En 262/265 la
+relación demanda/capacidad era 1,005. La estimación por demanda arrancaba en 9Ø16 arriba,
+frente a los 7Ø16 retenidos, y omitía ajustes pequeños del armado existente.
+
+Los operadores de continuidad guiados por demanda incluyen ahora las líneas con fallos
+finales. Usan la geometría del fallo retenido para ordenar y filtrar las propuestas,
+además de volver a verificar la geometría efectivamente construida. Se ofrecen las filas
+existentes y aumentos de una barra por fila, sujetos al catálogo y al espacio disponible;
+las alternativas por demanda siguen disponibles. Ante flexión fallida, la guía también
+prueba un pequeño aumento de la cara opuesta conservando la cara traccionada. Es una
+propuesta que debe verificar, no una supuesta garantía de capacidad.
+
+Ese incremento opuesto aislado **no** resuelve 262/265: la capacidad apenas cambia y el
+verificador detecta congestión al atravesar la columna. Ese rechazo orienta los siguientes
+intentos hacia menos barras por fila. La combinación aceptada cambia atómicamente la
+línea **262–265** a **8Ø16 superiores** y mantiene **7Ø12 inferiores**, repartidas en dos
+filas **4+3** con conservación explícita de esa distribución. Los estribos siguen siendo
+Ø6 cada 175 mm. Las cuatro vigas pasan la reverificación final; sólo 262/265 eran fallidas.
+Los otros 404 resultados y armados permanecen idénticos. No se afirma mínimo acero.
+
+La prueba focalizada necesitó cuatro propuestas, dos de ellas materializadas. En la cola
+general, el reparto de un intento por línea consumía 64 detallados antes de llegar a esos
+cuatro pasos: no había mejora aceptada. Se admite ahora un máximo de **cuatro propuestas
+consecutivas** para una línea con fallo resistente final, y luego vuelve a la cola general.
+Todas las llamadas consumen el mismo presupuesto. Las pruebas comprueban que otra línea
+recibe su turno, que no se modifican los contextos retenidos y que la verificación final
+puede rechazar una propuesta aun después de pasar el filtro previo.
+
+### Medición y límites
+
+La corrida general, sin selección manual de miembros, consume **16 detallados y 80
+verificaciones nominales**, sin nuevos análisis estructurales dentro de la búsqueda.
+Termina por presupuesto. Nuevo análisis de los 408 elementos, restauración, búsqueda y
+regeneración exacta pasan en **107,59 s locales**. No es un benchmark de rendimiento.
+Pasan **224 pruebas dirigidas en ocho suites** y typecheck no agrega errores (442 existentes
+frente al baseline de 443).
+
+Los fallos finales restantes son 192 y 195. Esta entrega no disminuye los choques físicos
+ni resuelve la cobertura biaxial. Una prueba de cambios conjuntos de columnas y vigas,
+con 64 detallados, tampoco logró una mejora aceptable: seguían apareciendo regresiones de
+empalme. Esa extensión se descartó y no forma parte del código publicado. Agotar estos
+presupuestos no demuestra inviabilidad ni convergencia a cero.
+
+Reproducción desde `web/`:
+
+```sh
+STABILEO_REPAIR_SNAPSHOT=/tmp/design-column-verified.json STABILEO_REPAIR_OPERATOR=harmonizeDemandCatalog STABILEO_REPAIR_RUNS=16 STABILEO_REPAIR_TRACE=1 STABILEO_REPAIR_AUDIT=/tmp/design-final-depth-guided.json npx vitest run --project unit src/lib/store/__tests__/design-next-conflicts-experiment.test.ts
+```
+
 ## Diagnóstico de los 533 conflictos y reparación de columnas
 
 Auditoría desde `d398c4c56`, con el armado de `/tmp/design-owner-restored.json`. Los 533

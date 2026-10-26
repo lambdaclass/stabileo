@@ -95,6 +95,16 @@ export function* beamContinuityAlternatives(
     // area in each common diameter family, and one extra bar to explore count parity.
     if (!orderedExisting.every(valid)) return;
     if (patterns === 'demand' && contexts.some(c => !c.stations?.comboResults.some(r => r.stations.length))) return;
+    // A nearly passing final-depth design may lie below the approximate area seed.
+    // Explore its existing rows and one-bar increments before replacing both faces.
+    // These are bounded proposals; the same catalog/spacing and verification gates apply.
+    if (patterns === 'demand' && contexts.some(c => c.finalGeometry)) {
+      for (const layers of orderedExisting) {
+        yield layers;
+        for (let row = 0; row < layers.length; row++)
+          yield layers.map((l, i) => ({ ...l, count: l.count + (i === row ? 1 : 0) }));
+      }
+    }
     // Retained steel is not a lower bound on required steel. Repeated area-preserving
     // repairs can ratchet up congestion. Demand seeds reopen lighter alternatives; only
     // the authoritative verifier, including opposite-sign moments and torsion, accepts them.
