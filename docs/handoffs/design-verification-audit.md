@@ -6,6 +6,78 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Continuación del catálogo: de 318 a 304 bloqueantes
+
+Continuación general desde `3fc335302`, sin cambios en el algoritmo ni selección manual de
+miembros. Dos barridos del catálogo existente reducen **318 → 312 → 304 conflictos
+bloqueantes** y **428 → 421 → 411 conflictos totales**. Se conservan las 238 aprobaciones
+válidas y se añaden la **columna 112 y la viga 325**: quedan **240 aprobaciones** (135 columnas
+y 105 vigas). Sólo cambian los armados y resultados nominales de **248–250, 325–326 y 337**;
+los otros 402 permanecen idénticos, incluido el armado de la columna 112.
+
+### Alternativas aceptadas
+
+1. **248–250: 318 → 312.** Se conservan 4Ø16 longitudinales en ambas caras y se sustituyen
+   los estribos Ø10 por **Ø6 a 50 mm en apoyos y 75 mm en tramo**. El catálogo conserva o
+   aumenta el acero transversal por unidad de longitud, conserva las patas y vuelve a
+   comprobar resistencia, anclajes y geometría final. Los nuevos asientos reducen choques con
+   225. Las tres vigas siguen retenidas; no se suman aprobaciones en este paso.
+2. **337: 312 → 310.** Usa **6Ø12 superiores y 4Ø16 inferiores en filas 2+2**, conservando
+   sus estribos Ø6 y separaciones. Se libera la columna 112; 337 todavía tiene otros bloqueos.
+3. **325–326: 310 → 304.** Se adopta una jaula común con **8Ø16 superiores**, filas
+   declaradas 6+2, **7Ø12 inferiores en filas 4+3**, y **estribos Ø6 a 150 mm** en apoyos y
+   tramo. 325 pasa a `ok`, con verificación final válida; 326 sigue retenida.
+
+Se trata de reducciones verificadas de bloqueos, no de una afirmación de mínimo acero,
+cantidad de piezas ni costo de fabricación.
+
+### Comparación de estrategias descartadas
+
+Se investigaron también los choques de 204–207 contra las columnas 38/40 y contra las vigas
+211–219. La distribución inferior 6+3 evitaba varios de esos cruces, pero seguía bloqueando
+40: barras superiores e inferiores chocaban con los crossties del nudo 60. Cambiar solamente
+cantidades, variar los asientos transversales o reparar 222 como vecino no produjo un cierre
+completo aceptable en los ensayos realizados.
+
+| Desde la misma entrada de 318 | Detallados | Bloqueantes retenidos | Aprobados |
+| --- | ---: | ---: | ---: |
+| Algoritmo publicado, `/tmp/design-next318-general.json` | 40 | **312** | **238** |
+| Guiar también con intentos globalmente peores, `/tmp/design-rejected-feedback-general.json` | 40 | 316 | 238 |
+| Guiar además los cambios de asiento transversal, `/tmp/design-transverse-feedback-general.json` | 40 | 316 | 238 |
+
+La guía nueva encontraba una distribución inferior 4+3+2 para 223–225 que reducía dos choques,
+pero su aceptación reabría vecinos y consumía presupuesto antes de llegar a la alternativa de
+248–250. No superó el mejor resultado existente. Una continuación de esa guía desde 312,
+con 24 detallados, tampoco redujo el conteo (`/tmp/design-rejected-feedback312-general.json`).
+Adelantar el intento complementario tras cuatro pruebas directas tampoco cerró el nudo 60.
+**Se revirtieron todos esos cambios de producción y sus pruebas experimentales.** No basta
+con encontrar un candidato con menos choques: debe superar las verificaciones completas y
+mejorar el resultado retenido con un presupuesto comparable.
+
+### Validación y pendientes
+
+La continuación de 318 a 312 pasa la prueba completa en **104,10 s locales**, con **40
+construcciones de geometría y 190 verificaciones nominales** (`/tmp/design-next318-general.json`,
+entrada `/tmp/design-seat24-general.json`). El barrido posterior de 312 a 304 pasa en
+**133,52 s**, con **64 construcciones y 183 verificaciones nominales**
+(`/tmp/design-next312-general.json`, entrada `/tmp/design-next318-general.json`). Ambos usan
+`harmonizeCoupledCatalog`, tienen un límite de 512 verificaciones nominales y terminan por
+presupuesto de detallado; ninguno selecciona miembros manualmente.
+
+Ambas pruebas recalculan fuerzas y demandas al iniciar, conservan cada aprobación anterior y
+reproducen exactamente los conteos y las aprobaciones al regenerar. No realizan análisis
+estructurales dentro de la búsqueda. No se incorporan cambios a la implementación publicada
+en `3fc335302`; esta entrega documenta resultados y diagnóstico. Los tiempos no se presentan
+como un benchmark controlado de rendimiento.
+
+Quedan **218 solapes prohibidos, 54 separaciones entre miembros y 32 separaciones internas**.
+Los focos principales son 204–207, 305, 311 y 339. Permanecen 120 miembros fallidos, 35 agotados
+y 13 provisionales. Los fallos resistentes finales siguen en 192/195. Los reportes de empalme
+no dispuesto bajan 40 → 39 y sus pares agregados terminan en 181, igual que al inicio de esta
+continuación. Persisten dos condiciones de generación, tres de integridad, siete de separación
+y dos de paso de empalmes. Los rechazos de 204–207 se conservan como diagnóstico, no como
+mejoras aceptadas.
+
 ## Filas inferiores construibles: de 366 a 318 bloqueantes
 
 Continuación desde `482b2304e`. Se reducen **366 → 318 conflictos bloqueantes** y
