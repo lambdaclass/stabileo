@@ -10,6 +10,7 @@
 //! |---|---|---|
 //! | Material | [`UniaxialMaterial`], [`PlaneStressMaterial`] | stress and consistent tangent at one point, from a trial strain and the last committed state |
 //! | Section | [`FiberSection2D`], [`FiberSection3D`] | resultants and their tangent, integrating materials over a cross-section |
+//! | Shell | [`LayeredSection`], [`Shell4`] | plane-stress materials through the thickness, on a four-node shell (MITC4 shear) under small-displacement or co-rotational kinematics |
 //! | Element | [`Element`], [`Element3D`] | internal force and tangent; the kinematics ([`Kinematics`]) is the element's choice, not the material's |
 //! | Model | [`NonlinearModel`] | assembly, and moving the trial configuration (multiplicative rotations in 3D) |
 //! | Linear solver | (`linear_solver`, [`sparse`]) | sparse LDLᵀ with inertia, LU fallback, the bordered system |
@@ -38,6 +39,7 @@ mod model3d;
 mod plane_stress;
 pub mod rotation;
 mod section;
+mod shell;
 pub mod sparse;
 
 pub use buckling::{linear_buckling, Buckling, BucklingOptions};
@@ -51,3 +53,4 @@ pub use model::{DofKind, Model2D, NonlinearModel, TangentSink};
 pub use model3d::{Element3D, Model3D, NodeState3D};
 pub use plane_stress::{Hardening, PlaneStressElastic, PlaneStressJ2, PlaneStressMaterial};
 pub use section::{Fiber2D, Fiber3D, FiberSection2D, FiberSection3D};
+pub use shell::{LayeredSection, Shell4};

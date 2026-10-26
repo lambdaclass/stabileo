@@ -26,6 +26,7 @@ The existing solvers stay as they are. They are the oracles the framework is tes
 | Kinematics | `Kinematics` | `Linear` (small displacements) or `Corotational` (large displacements and rotations, small strains) |
 | Model | `NonlinearModel` | `Model2D` (additive updates); `Model3D` (rotation matrices per node, updated multiplicatively) |
 | Linear solver | `TangentSystem` | sparse LDLᵀ (plain, then pivoted), sparse LU, the bordered system; one fixed policy (below) |
+| Shell | `LayeredSection`, `Shell4` | plane-stress materials through the thickness, on a four-node shell (MITC4 shear), small-displacement or co-rotational |
 | Buckling | `linear_buckling` | linear buckling factors and modes about the undeformed state; the modes as GMNIA imperfections |
 | Driver | `solve` | load control, displacement control, arc-length, Auto |
 
@@ -113,6 +114,42 @@ which have no supervariables.
 More relaxed amalgamation (2–4× CHOLMOD's defaults) gains within noise. The numeric kernel
 already runs at about 9–11 GFlop/s, so the factorization is close to what a single thread without
 SIMD gives. A 1,296-DOF space frame solves in the test suite in under a second in debug.
+
+## Layered shell
+
+**Section** (`LayeredSection`). Layers at heights z from the mid-surface, each with its own
+`PlaneStressMaterial` and history:
+- **Layer strain and resultants.** A layer's strain is ε + z·κ. The resultants are N = Σ σ·t and
+  M = Σ σ·z·t, with their 6×6 consistent tangent.
+- **Unsymmetric layups.** A layup that isn't symmetric (rebar layers, a cracked slab) couples
+  membrane and bending.
+- **`uniform`.** One material at n Gauss–Lobatto points through the thickness. The elastic
+  section is integrated exactly from 3 points up, and the surfaces, where a plate yields first,
+  are sampled.
+- **Transverse shear.** Elastic, κ·G·t.
+
+**Element** (`Shell4`):
+- **Geometry.** Four nodes, flat: the initial geometry projected on its mean plane.
+- **Integration.** 2×2 Gauss points, each with its own section.
+- **Membrane and bending.** Bilinear membrane and curvatures.
+- **Transverse shear.** Bathe and Dvorkin's MITC4 tying, so thin plates don't lock.
+- **Drilling.** The Hughes–Brezzi penalty at 10⁻³ of the in-plane shear stiffness.
+- **Match with the engine's MITC4.** At the undeformed state its bending, shear and drilling
+  stiffness is the engine's linear MITC4's to round-off. The membrane differs: the engine's has
+  EAS modes.
+
+**Kinematics:**
+- **Small-displacement.** The nodal displacements and rotation vectors in the element's initial
+  axes.
+- **Co-rotational.** The element-independent formulation (Rankin and Nour-Omid; Felippa and
+  Haugen):
+  - A frame from the current nodes removes the rigid motion, and the local element sees the
+    deformational displacements and rotations log(Rᵀ·R_i·R₀).
+  - B = ∂d_l/∂d is taken by central differences, and the geometric stiffness ∂(Bᵀ·f_l)/∂d by
+    differences of B, as the 3D frame does. Its tangent agrees with central differences of the
+    internal force to 10⁻⁵, elastic and yielded.
+  - It is objective to round-off.
+  - The geometric part also gives the shell's initial-stress stiffness for `linear_buckling`.
 
 ## Linear buckling and imperfections
 
@@ -332,6 +369,13 @@ error in the first kinematic-hardening tangent.
 | 1,296-DOF space frame, co-rotational, small load | the linear solution, to 1e-3; stable inertia |
 | Plane-stress J2 | yield in equal biaxial tension and in pure shear; return onto the hardened surface; consistent tangent; unloading |
 | Sparse LDLᵀ and LU | dense LU; eigenvalue counts; determinant signs; bit-identical repeats |
+| Shell stiffness at the undeformed state, skewed quad | the engine's MITC4 (bending, transverse shear, drilling), to 10⁻¹⁶ (small-displacement) and 10⁻¹² (co-rotational) |
+| Layered section | Gauss–Lobatto exact on the elastic section; the yielded section's tangent against central differences, 10⁻⁵ |
+| Shell tangent and objectivity (skewed quad in space, elastic and J2, up to 0.2 rad) | central differences to 2·10⁻⁵; a rotated state's force rotated, to 10⁻⁹; a rigid motion strains nothing |
+| Simply supported square plate, uniform pressure, a/t = 100 | Navier's centre deflection to 0.1 % (8×8 per quarter) and 0.05 % (16×16) |
+| The same plate, perfectly plastic (von Mises) | collapse between 24·m_p/a² (yield line) and 24·(2/√3)·m_p/a²: 24.45 (4×4) and 24.04 (8×8) |
+| Cantilever strip, end moment π·EI/L, co-rotational | a half circle: the tip over the root at 2L/π, to 0.5 % |
+| Simply supported square plate in uniaxial compression, LBA | 4π²D/b², converging as h²: 3.4 % (8×8), 1.4 % (12×12), Richardson 0.25 % |
 | LBA of a pinned column | the engine's LBA and Euler to 0.5 %; higher modes near 4× and 9×; a half sine; the driver's bifurcation of the perfect column to 0.3 % |
 | LBA of a portal frame | the engine's LBA to 0.3 %; a sway mode |
 | LBA in tension, and of a transverse-loaded cantilever | no factor |
@@ -346,6 +390,15 @@ error in the first kinematic-hardening tangent.
 
 ## Limitations
 
+- **The shell's membrane is plain bilinear,** without the EAS modes of the engine's MITC4. Plates
+  are unaffected; in-plane bending of a coarse mesh is too stiff (shear locking), as in any Q4.
+- **The shell's transverse shear is elastic,** outside the layers' plasticity.
+- **Warped quads** are taken flat on their mean plane, with no rigid-link correction (the
+  engine's MITC4 has one).
+- **The co-rotational shell's differences** cost about 2,300 evaluations of its kinematics per
+  update. Fine for plates of hundreds of elements; an analytic projector is the plan for
+  thousands.
+- **Pressure** is nodal loads (tributary areas): no follower pressure.
 - **Linear buckling of 2D frames** has the string's initial-stress stiffness, N/L, not the cubic
   beam's 6N/5L. It converges as the mesh does, from above: 0.3 % over Euler at 16 elements per
   member. That is the same element the nonlinear analysis uses, so the LBA and the driver's
@@ -368,11 +421,13 @@ error in the first kinematic-hardening tangent.
 
 ## Next
 
-1. **Layered shell.** A layered section integrating `PlaneStressMaterial` through the thickness,
-   and a flat shell element (MITC4) with linear and co-rotational kinematics. With `PlaneStressJ2`
-   this gives EN 1993-1-5 Annex C / EN 1993-1-14 plate analysis, and GMNIA with imperfections
-   shaped like the buckling modes.
-2. **The rungs still planned above,** starting with softening regularization once a softening
+1. **Plate GMNIA** (EN 1993-1-5 Annex C, EN 1993-1-14). The pieces are here: the layered J2
+   shell, its LBA, and the modes as imperfections. Next is a validation against a stiffened or
+   unstiffened plate of the literature (ultimate strength of a plate in compression against
+   Winter's or the EN 1993-1-5 reduction factor).
+2. **Cracked-slab deflection** as a concrete-with-rebar layer law (secant, tension stiffening) on
+   the same shell.
+3. **The shell's membrane with EAS,** and an analytic co-rotational projector.
+4. **The rungs still planned above,** starting with softening regularization once a softening
    plane-stress law exists.
-3. **Cracked-slab deflection** as a secant concrete-with-rebar layer law on the same shell.
-4. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.
+5. **A WASM entry point and the failure contract in the app,** behind `feature_gates`.

@@ -40,6 +40,8 @@ mod nonlinear_framework;
 mod nonlinear_framework_3d;
 #[path = "../nonlinear_sparse.rs"]
 mod nonlinear_sparse;
+#[path = "../nonlinear_shell.rs"]
+mod nonlinear_shell;
 #[path = "../nonlinear_solver_findings.rs"]
 mod nonlinear_solver_findings;
 #[path = "../pcg_solver_tests.rs"]
