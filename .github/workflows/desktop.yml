@@ -1,0 +1,232 @@
+name: Desktop
+
+# The desktop app (desktop/, docs/desktop/README.md): unsigned installers for Windows, macOS and
+# Linux on every push to the `desktop` branch, as artifacts. A manual run with a `version` also
+# publishes them as the prerelease `desktop-v<version>` (never the repository's latest release),
+# and refreshes `desktop-latest`, the fixed release whose latest.json the in-app updater reads.
+# GitHub's runners only: never self-hosted.
+on:
+  push:
+    branches: [desktop]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Prerelease version to publish, e.g. 0.1.0-alpha.1 (empty: build only)"
+        required: false
+        default: ""
+      notes:
+        description: "Release notes shown by the in-app updater"
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.version || 'build' }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wasm:
+    name: WASM engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+          shared-key: wasm
+      # The same target the web build uses, so the desktop app ships the engine stabileo.com runs.
+      - run: make wasm
+      - run: sha256sum web/src/lib/wasm/dedaliano_engine_bg.wasm | tee wasm.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wasm
+          path: |
+            web/src/lib/wasm/
+            wasm.sha256
+          include-hidden-files: true
+          retention-days: 7
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: wasm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-22.04
+            bundles: appimage,deb
+            target: ""
+            rust_targets: ""
+          - name: macos
+            os: macos-latest
+            bundles: app,dmg
+            target: universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - name: windows
+            os: windows-latest
+            bundles: nsis
+            target: ""
+            rust_targets: ""
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: wasm
+          path: .
+      - name: Linux system libraries
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev patchelf file xvfb
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+          targets: ${{ matrix.rust_targets }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: desktop/src-tauri
+          key: ${{ matrix.name }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npm ci --no-audit --no-fund
+        working-directory: desktop
+      - name: Build
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VERSION: ${{ inputs.version }}
+          TARGET: ${{ matrix.target }}
+          BUNDLES: ${{ matrix.bundles }}
+        run: |
+          conf='{"bundle":{"createUpdaterArtifacts":'"$( [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && echo true || echo false )"'}}'
+          if [ -n "$VERSION" ]; then
+            conf=$(node -e 'const c=JSON.parse(process.argv[1]); c.version=process.argv[2]; console.log(JSON.stringify(c))' "$conf" "$VERSION")
+          fi
+          args=(--bundles "$BUNDLES" --config "$conf")
+          [ -n "$TARGET" ] && args+=(--target "$TARGET")
+          npx tauri build "${args[@]}"
+      - name: The bundled engine is the one built for the web
+        run: |
+          want=$(cut -d' ' -f1 wasm.sha256)
+          got=$(node -e 'console.log(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' web/dist-desktop/assets/dedaliano_engine_bg-*.wasm)
+          echo "web: $want  desktop: $got"
+          [ "$want" = "$got" ]
+      - name: Launch test
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+          STABILEO_EXIT_AFTER_SELFCHECK: "1"
+          TARGET_DIR: ${{ matrix.target && format('desktop/src-tauri/target/{0}/release', matrix.target) || 'desktop/src-tauri/target/release' }}
+        run: |
+          case "${{ matrix.name }}" in
+            linux) run=(xvfb-run -a "$TARGET_DIR/stabileo-desktop") ;;
+            macos) run=("$TARGET_DIR/bundle/macos/Stabileo.app/Contents/MacOS/stabileo-desktop") ;;
+            windows) run=("$TARGET_DIR/stabileo-desktop.exe") ;;
+          esac
+          set +e
+          if [ "${{ matrix.name }}" = macos ]; then perl -e 'alarm shift; exec @ARGV' 300 "${run[@]}"; else timeout 300 "${run[@]}"; fi
+          rc=$?
+          set -e
+          cat "$STABILEO_SELFCHECK_OUT" 2>/dev/null || echo "no self-check output"
+          [ "$rc" -eq 0 ] && grep -q '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+      - name: Collect installers
+        env:
+          TARGET_DIR: ${{ matrix.target && format('desktop/src-tauri/target/{0}/release', matrix.target) || 'desktop/src-tauri/target/release' }}
+        run: |
+          mkdir -p out
+          b="$TARGET_DIR/bundle"
+          case "${{ matrix.name }}" in
+            linux) cp "$b"/appimage/*.AppImage* "$b"/deb/*.deb out/ ;;
+            macos)
+              cp "$b"/dmg/*.dmg out/
+              for f in "$b"/macos/*.app.tar.gz*; do
+                cp "$f" "out/$(basename "$f" | sed "s/^Stabileo\.app/Stabileo_$(ls "$b"/dmg/*.dmg | sed 's/.*Stabileo_\(.*\)\.dmg/\1/')/")"
+              done ;;
+            windows) cp "$b"/nsis/*-setup.exe* out/ ;;
+          esac
+          ls -la out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stabileo-desktop-${{ matrix.name }}
+          path: out/
+          retention-days: 30
+
+  release:
+    name: Publish prerelease
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: stabileo-desktop-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums, update manifest and Homebrew cask
+        env:
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          cd dist
+          ls -la
+          sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS
+          cat SHA256SUMS
+          node ../desktop/release/latest-json.mjs "$VERSION" "$NOTES" . > latest.json
+          cat latest.json
+          mkdir -p ../cask
+          node ../desktop/release/cask.mjs "$VERSION" . > ../cask/stabileo.rb
+          cat ../cask/stabileo.rb
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: homebrew-cask
+          path: cask/stabileo.rb
+      - name: Publish desktop-v${{ inputs.version }} and refresh desktop-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          tag="desktop-v$VERSION"
+          body=$(printf '%s\n\nUnsigned prerelease of the Stabileo desktop app. Install: docs/desktop/README.md#install\n' "${NOTES:-Stabileo desktop $VERSION}")
+          gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Stabileo desktop $VERSION" --notes "$body" --prerelease --latest=false
+          if ! gh release view desktop-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create desktop-latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Stabileo desktop: update feed" --prerelease --latest=false \
+              --notes "The in-app updater reads latest.json from here. Downloads are on the desktop-v* releases."
+          fi
+          gh release upload desktop-latest dist/latest.json --repo "$GITHUB_REPOSITORY" --clobber

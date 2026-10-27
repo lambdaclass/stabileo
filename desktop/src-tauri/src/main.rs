@@ -135,9 +135,23 @@ fn exit_app<R: Runtime>(app: AppHandle<R>) {
     app.exit(0);
 }
 
+/// The page's log lines. The launch test (`.github/workflows/desktop.yml`) sets
+/// `STABILEO_SELFCHECK_OUT` to collect them (a Windows release build has no console) and
+/// `STABILEO_EXIT_AFTER_SELFCHECK` to leave with the self-check's verdict.
 #[tauri::command]
-fn log_line(line: String) {
+fn log_line<R: Runtime>(app: AppHandle<R>, line: String) {
     println!("{line}");
+    if let Some(out) = std::env::var_os("STABILEO_SELFCHECK_OUT") {
+        use std::io::Write;
+        if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(out) {
+            let _ = writeln!(f, "{line}");
+        }
+    }
+    if std::env::var_os("STABILEO_EXIT_AFTER_SELFCHECK").is_some() {
+        if let Some(verdict) = line.strip_prefix("stabileo-selfcheck ") {
+            app.exit(if verdict.starts_with("ok") { 0 } else { 1 });
+        }
+    }
 }
 
 fn build_menu<R: Runtime>(app: &AppHandle<R>, recent: &[PathBuf]) -> tauri::Result<Menu<R>> {
