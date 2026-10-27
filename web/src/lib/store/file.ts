@@ -137,6 +137,9 @@ export async function saveTextTo(
   mime: string,
   opts: { chooseLocation?: boolean } = {},
 ): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  if (import.meta.env.VITE_DESKTOP === '1') {
+    return (await import('../platform/desktop.svelte')).saveTextAs(content, filename);
+  }
   if (opts.chooseLocation && canChooseSaveLocation()) {
     try {
       const picker = (window as unknown as {
@@ -592,6 +595,10 @@ function validateAxisSafety(data: DedalFile): void {
 // ─── Save / Load ────────────────────────────────────────────────
 
 export function saveProject(): void {
+  if (import.meta.env.VITE_DESKTOP === '1') {
+    void import('../platform/desktop.svelte').then((m) => m.runCommand('save'));
+    return;
+  }
   const json = serializeProject();
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultProject');
   downloadText(json, `${safeName}.ded`, 'application/json');
@@ -609,6 +616,10 @@ export async function loadProject(file: File): Promise<void> {
 // ─── Session Save / Load (all tabs) ─────────────────────────────
 
 export function saveSession(): void {
+  if (import.meta.env.VITE_DESKTOP === '1') {
+    void import('../platform/desktop.svelte').then((m) => m.runCommand('save_session'));
+    return;
+  }
   // Ensure the active tab is up-to-date before serializing
   tabManager.syncCurrentTab();
   const session: DedalSessionFile = {

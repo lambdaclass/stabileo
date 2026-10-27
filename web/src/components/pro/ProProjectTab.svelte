@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProProjectInfo from './ProProjectInfo.svelte';
+  import { chooseProjectFile } from '../../lib/platform';
   import ProExampleGallery from './ProExampleGallery.svelte';
   import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
   import ProOfficeTemplates from './ProOfficeTemplates.svelte';
@@ -302,7 +303,7 @@
                 data-testid="pp-save">{t('project.save')}</button>
       </HelpTip>
       <HelpTip text={t('project.openTooltip')}>
-        <button class="pp-btn" onclick={() => fileInput?.click()}
+        <button class="pp-btn" onclick={() => chooseProjectFile(fileInput)}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
       <HelpTip text={t('provenance.reproduce.intro')}>

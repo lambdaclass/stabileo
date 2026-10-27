@@ -1,0 +1,85 @@
+/** The desktop app's own sentences, in the locales its first testers use; English otherwise. */
+const EN = {
+  untitled: 'Untitled',
+  unsavedTitle: 'Unsaved changes',
+  unsavedBody: 'This project has changes that are not saved. Save them before continuing?',
+  save: 'Save',
+  dontSave: "Don't save",
+  cancel: 'Cancel',
+  saved: 'Saved',
+  saveFailed: 'Could not save the file',
+  aboutTitle: 'About Stabileo',
+  copy: 'Copy',
+  close: 'Close',
+  version: 'Version',
+  engine: 'Engine (WASM SHA-256)',
+  system: 'System',
+  updateTitle: 'Update available',
+  updateBody: 'Stabileo {version} is available (you have {current}).',
+  updateInstall: 'Install and restart',
+  updateLater: 'Later',
+  updateNone: 'Stabileo is up to date.',
+  updateFailed: 'Could not check for updates',
+  updateBusy: 'A calculation is running. Install the update when it finishes.',
+  updateDebLinux: 'This installation (.deb) does not update itself. Download the new version from:',
+  updateInstalling: 'Downloading the update…',
+} as const;
+
+type Key = keyof typeof EN;
+
+const ES: Record<Key, string> = {
+  untitled: 'Sin título',
+  unsavedTitle: 'Cambios sin guardar',
+  unsavedBody: 'Este proyecto tiene cambios sin guardar. ¿Guardarlos antes de continuar?',
+  save: 'Guardar',
+  dontSave: 'No guardar',
+  cancel: 'Cancelar',
+  saved: 'Guardado',
+  saveFailed: 'No se pudo guardar el archivo',
+  aboutTitle: 'Acerca de Stabileo',
+  copy: 'Copiar',
+  close: 'Cerrar',
+  version: 'Versión',
+  engine: 'Motor (SHA-256 del WASM)',
+  system: 'Sistema',
+  updateTitle: 'Actualización disponible',
+  updateBody: 'Stabileo {version} está disponible (tenés la {current}).',
+  updateInstall: 'Instalar y reiniciar',
+  updateLater: 'Más tarde',
+  updateNone: 'Stabileo está actualizado.',
+  updateFailed: 'No se pudo buscar actualizaciones',
+  updateBusy: 'Hay un cálculo en curso. Instalá la actualización cuando termine.',
+  updateDebLinux: 'Esta instalación (.deb) no se actualiza sola. Descargá la nueva versión de:',
+  updateInstalling: 'Descargando la actualización…',
+};
+
+const PT: Record<Key, string> = {
+  untitled: 'Sem título',
+  unsavedTitle: 'Alterações não salvas',
+  unsavedBody: 'Este projeto tem alterações não salvas. Salvá-las antes de continuar?',
+  save: 'Salvar',
+  dontSave: 'Não salvar',
+  cancel: 'Cancelar',
+  saved: 'Salvo',
+  saveFailed: 'Não foi possível salvar o arquivo',
+  aboutTitle: 'Sobre o Stabileo',
+  copy: 'Copiar',
+  close: 'Fechar',
+  version: 'Versão',
+  engine: 'Motor (SHA-256 do WASM)',
+  system: 'Sistema',
+  updateTitle: 'Atualização disponível',
+  updateBody: 'O Stabileo {version} está disponível (você tem a {current}).',
+  updateInstall: 'Instalar e reiniciar',
+  updateLater: 'Depois',
+  updateNone: 'O Stabileo está atualizado.',
+  updateFailed: 'Não foi possível verificar atualizações',
+  updateBusy: 'Há um cálculo em andamento. Instale a atualização quando terminar.',
+  updateDebLinux: 'Esta instalação (.deb) não se atualiza sozinha. Baixe a nova versão em:',
+  updateInstalling: 'Baixando a atualização…',
+};
+
+export function desktopText(locale: string, key: Key): string {
+  const table = locale.startsWith('es') ? ES : locale.startsWith('pt') ? PT : EN;
+  return table[key];
+}

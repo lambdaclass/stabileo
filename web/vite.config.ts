@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
+import { copyFileSync, cpSync, existsSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
@@ -104,6 +104,34 @@ const PRODUCTION_BUILD_TESTS = [
 
 const ADMIN = process.env.VITE_APP_TYPE === 'admin';
 
+/**
+ * The desktop app's build (`vite build --mode desktop`, which loads `.env.desktop`): its own output
+ * folder, no third-party script, no files only the web host serves. Every other mode is untouched.
+ */
+function desktopPlugin(): Plugin {
+  let on = false;
+  let out = '';
+  return {
+    name: 'desktop',
+    config(_, env) {
+      on = env.mode === 'desktop';
+      return on ? { build: { outDir: 'dist-desktop' } } : undefined;
+    },
+    configResolved(cfg) {
+      out = resolve(cfg.root, cfg.build.outDir);
+    },
+    transformIndexHtml(html) {
+      return on ? html.replace(/\s*<script src="https:\/\/challenges\.cloudflare\.com[^"]*"[^>]*><\/script>/, '') : html;
+    },
+    closeBundle() {
+      if (!on || !existsSync(out)) return;
+      for (const f of readdirSync(out)) {
+        if (f === '404.html' || /^google.*\.html$/.test(f)) rmSync(resolve(out, f));
+      }
+    },
+  };
+}
+
 const ADMIN_PUBLIC_ASSETS = ['fonts', 'favicon.svg'];
 
 function adminPublicAssetsPlugin(): Plugin {
@@ -183,7 +211,7 @@ function appVersion(): string {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []), desktopPlugin()],
   define: {
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),

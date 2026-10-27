@@ -6,6 +6,9 @@ node_modules
 # Build output
 web/dist/
 web/dist-admin/
+web/dist-desktop/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
 
 # IDE / OS
 .DS_Store
