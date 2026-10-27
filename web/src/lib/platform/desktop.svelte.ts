@@ -270,6 +270,7 @@ export function runCommand(cmd: string): void {
       case 'about': return showAbout();
       case 'report': return reportProblem();
       case 'check_updates': return checkForUpdates(true);
+      default: return undefined;
     }
   };
   running = cmd;
