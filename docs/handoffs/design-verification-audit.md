@@ -6,6 +6,84 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Cierre de los pórticos pequeños: jaulas rectangulares y primer estribo
+
+Continuación desde `a785f60a1`, evaluando diseños nuevos mediante el comando de dimensionamiento
+con crecimiento y recálculo. El problema de QA-8 no necesitaba más intentos de catálogo: dos
+inconsistencias de geometría impedían construir el armado que el dimensionamiento encontraba.
+
+### Dimensiones de los estribos en el sistema de coordenadas de la jaula
+
+La jaula longitudinal rectangular usa `b` en X y `h` en Y. Los estribos de columna y nudo se
+construyen con `across = Y` y `up = X`, pero recibían `b` como ancho transversal y `h` como alto.
+Al crecer de una columna cuadrada a **55 × 60 cm**, se dibujaba el estribo girado respecto de sus
+barras. La prueba anterior a la corrección midió **542 mm en X donde correspondían 492 mm** entre
+ejes de los tramos del estribo. Los ejemplos cuadrados ocultaban el intercambio.
+
+Se pasan las dimensiones en el mismo sistema de coordenadas que usa cada estribo: `h` en across,
+`b` en up. El cambio alcanza tanto la altura libre de la columna como el nudo. Elimina **416
+solapes** del pórtico —320 con estribos de columna y 96 con los del nudo— y los cuatro fallos de
+generación. QA-8 pasa de cero a dos aprobaciones finales; todavía quedan cuatro separaciones
+insuficientes con los primeros estribos de las vigas.
+
+### Separación contra las barras realmente construidas
+
+El primer estribo de viga se ubicaba desde la mitad del lado menor de la columna. Al llegar por
+el lado de 60 cm, la reserva quedaba **25 mm corta**: 15 mm libres en lugar de los 40 mm exigidos
+por el control existente. Cambiar el diámetro del armado no corrige esa referencia geométrica.
+
+`columnStirrupClearanceInset` proyecta las barras longitudinales efectivas en la dirección de
+entrada a la viga y reserva el espacio hasta la superficie del primer estribo, incluyendo el
+saliente axial de su cierre. Usa la altura real de la viga para ignorar tramos alejados del nudo;
+considera desplazamientos de inserción, el sentido de ambos extremos y los dobleces. El error
+de muestreo de un arco se agrega a la reserva, nunca se descuenta de la separación requerida.
+La cara usada para verificar el anclaje permanece igual: esta reserva corresponde al estribo.
+
+Con ambas correcciones, **QA-8 verifica 8/8 desde cero**, con cero conflictos y cero condiciones
+abiertas. La regeneración sin búsqueda conserva las ocho aprobaciones. La misma corrección
+cierra **QA sísmico, 8/8**. No se modifican cargas, tolerancias ni filtros de colisiones.
+
+### Evaluación y regresiones
+
+Los dos primeros tests nuevos fallaron contra el código previo: dimensión X incorrecta y 416
+solapes. Ahora pasan, junto con el cierre completo del pórtico y su regeneración. Cinco pruebas
+puras cubren distancia a las superficies, extremo invertido, inserción, alturas ajenas al nudo,
+acodados y extremos interiores de un arco.
+
+| Ejemplo | Aprobados antes → después | Bloqueantes antes → después | Estado final |
+| --- | ---: | ---: | --- |
+| `rc-beam-flexure` | 2 → 2 | 0 → 0 | completo |
+| `rc-design-qa-8` | 0 → 8 | 420 → 0 | completo |
+| `rc-design-qa-row2` | 0 → 0 | 172 → 172 | blocked |
+| `rc-design-qa-seismic` | 0 → 8 | 420 → 0 | completo |
+| `rc-design-frame` | 83 → 87 | 3996 → 2876 | maxRounds |
+| `pro-edificio-7p` | 0 → 0 | 2547 → 620 | maxRounds |
+
+Se conservan todas las aprobaciones anteriores por identidad. Los agotados del edificio grande
+siguen en dos y los del edificio de siete plantas en cinco. **3/6 ejemplos verifican completos**,
+frente a 1/6 antes de esta corrección. En el edificio grande las nuevas aprobaciones son las
+columnas 16, 32, 36 y 40. Los dos edificios todavía agotan las seis rondas de crecimiento.
+
+La corrida conjunta aprobó cinco casos; el de siete plantas se interrumpió en la cuarta pasada
+por el presupuesto nominal de 180 segundos, dejando 79 miembros sin dimensionar. Sus 492
+bloqueantes parciales **no** se cuentan como mejora. La repetición aislada, con el mismo límite y
+sin suspensión por inactividad durante el comando, completó todas las pasadas y aprobó los
+controles de conservación y regeneración: 620 bloqueantes finales. Se registraron unos 43 s de
+tiempo transcurrido de diseño y 54 s de CPU acumulada del proceso; no se infiere un benchmark de
+la comparación con la corrida interrumpida. La matriz ahora guarda ambas métricas.
+
+Evidencia: `/tmp/design-rectangular-matrix.json` (incluye el aborto original),
+`/tmp/design-rectangular-7p-isolated.json` y `/tmp/design-rectangular-matrix-validated.json`
+(agregado de los cinco casos aprobados y la repetición aislada, con procedencia por registro).
+El presupuesto nominal ampliado es sólo el de esta auditoría; el test ordinario de cierre de
+QA-8 usa el límite interactivo existente.
+
+Validación: **80 pruebas dirigidas aprobadas en 13 suites**, los seis casos de la matriz
+validados en las dos corridas indicadas, typecheck sin errores nuevos (442 frente al baseline
+de 443) y `git diff --check` limpio. Permanecen los 172 conflictos del caso de dos filas, los
+bloqueos de los edificios y sus condiciones de verificación/empalme aún abiertas.
+
+
 ## Generación desde cero y reparación en el flujo de dimensionamiento
 
 El seguimiento vuelve al objetivo de generar diseños para distintas estructuras. Las **241

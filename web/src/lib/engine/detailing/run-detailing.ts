@@ -35,6 +35,7 @@
  */
 
 import { shapedHoops, shapedPlanBars, shapedSpiral } from './shaped-ties';
+import { columnStirrupClearanceInset } from './column-stirrup-clearance';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { memberReferenceLine, referenceLineNote, type MemberReferenceLine, type OffsetCarrier } from '../member-offsets';
 import { clause, formatClause, type RegulationEdition } from '../../codes/regulation';
@@ -1583,7 +1584,9 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
             cageId: `col-${lift.elementId}:cage`,
             zoneId: `col-${lift.elementId}:ties`,
             station: stations[si],
-            b: lift.b, h: lift.h,
+            // Longitudinal plan coordinates use b along X and h along Y. This tie's
+            // across is Y and up is X, so its section dimensions must follow that frame.
+            b: lift.h, h: lift.b,
             cover: lift.cover, stirrupDiaMm: zone.diameterMm,
             // As at the joint: `legs` does not decide a column cage. The builder reads the
             // bars that are there and braces every interior line that carries one.
@@ -2295,6 +2298,16 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       // Half the stirrup, and half again for its closing tails, which stand that far out of its
       // plane (`buildClosedStirrup`'s `gap`).
       inset = Math.max(inset, stirrupDiaMm / 1000 + clear - cctx.material.cover - cctx.material.stirrupDia / 1000);
+      const beam = input.elements.get(id), line = memberLine(id);
+      if (beam && line) {
+        const origin = nodeId === beam.nodeI ? line.i : line.j;
+        const toward = nodeId === beam.nodeI ? line.j : line.i;
+        inset = Math.max(inset, columnStirrupClearanceInset({
+          bars: memberBarsById.get(cid)?.bars ?? [], origin, axis: unit(origin, toward),
+          beamHeight: input.contexts.get(id)?.section.h ?? 0,
+          supportFace: supportFaceOffset(nodeId, id), clear, stirrupDiaMm,
+        }));
+      }
     }
     return inset;
   };
@@ -2957,7 +2970,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         cageId: `joint-${top.id}:cage`,
         zoneId,
         station,
-        b: cCtx.section.b, h: cCtx.section.h,
+        // Same plan frame as the lift ties: across=Y carries h, up=X carries b.
+        b: cCtx.section.h, h: cCtx.section.b,
         cover: cCtx.material.cover, stirrupDiaMm: cCtx.material.stirrupDia,
         // `legs` is not what decides a COLUMN cage. `buildColumnTieSet` reads the bars that
         // are there and adds a crosstie on every interior line that carries one at each end,

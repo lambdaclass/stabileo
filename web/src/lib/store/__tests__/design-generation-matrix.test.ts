@@ -54,18 +54,21 @@ it.runIf(process.env.STABILEO_DESIGN_MATRIX === '1').each(examples)('generates a
     return result;
   });
   const designStart = performance.now();
+  const designCpuStart = process.cpuUsage();
   const resize = useResize
     ? await designWithResizing({ families: ['column', 'beam'], edited: 'keep', steel: false,
       maxRunMs: nominalBudgetMs }) : undefined;
   if (resize) expect(resize.report.concrete?.ok).toBe(true);
   else expect(designRunStore.designAll({ maxRunMs: nominalBudgetMs })).toMatchObject({ ok: true });
   const designMs = performance.now() - designStart;
+  const designCpu = process.cpuUsage(designCpuStart);
+  const designCpuMs = (designCpu.user + designCpu.system) / 1000;
   const quality = currentFrameDesignQuality();
   const complete = verificationStore.contexts.size > 0 && quality.verifiedIds.length === verificationStore.contexts.size
     && !quality.output.aborted && quality.output.notReached === 0;
   if (resize?.stopped === 'verified') expect(complete, 'a completed sizing run needs every final member verdict').toBe(true);
   const search = detailingStore.lastFeedbackLoop?.physicalSearch;
-  const record = { example, nominalBudgetMs, beforeRepair, elements: modelStore.elements.size, complete, analysisMs, designMs, detailPasses: [...detailPasses], ...quality,
+  const record = { example, nominalBudgetMs, beforeRepair, elements: modelStore.elements.size, complete, analysisMs, designMs, designCpuMs, detailPasses: [...detailPasses], ...quality,
     resize: resize ? { rounds: resize.rounds, stopped: resize.stopped, changes: resize.changes } : null,
     search: search ? { stats: search.stats, changed: search.changed, termination: search.termination, trials: search.trials } : null,
     members: [...verificationStore.contexts].map(([id, ctx]) => ({ id, kind: ctx.elementType, section: ctx.section,
