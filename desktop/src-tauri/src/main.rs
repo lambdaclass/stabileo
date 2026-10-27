@@ -44,13 +44,8 @@ fn queue_open<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
         return;
     }
     let scope = app.fs_scope();
-    let mut pending = app.state::<Pending>().0.lock().unwrap();
-    for p in paths {
-        if scope.allow_file(&p).is_ok() {
-            pending.push(p);
-        }
-    }
-    drop(pending);
+    let allowed: Vec<PathBuf> = paths.into_iter().filter(|p| scope.allow_file(p).is_ok()).collect();
+    app.state::<Pending>().0.lock().unwrap().extend(allowed);
     let _ = app.emit("desktop://open-pending", ());
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -231,18 +226,18 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 }
 
 fn main() {
-    let mut builder = tauri::Builder::default();
+    let builder = tauri::Builder::default();
 
     #[cfg(any(windows, target_os = "linux"))]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+    let builder = {
+        builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             queue_open(app, project_args(&args, Path::new(&cwd)));
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();
                 let _ = w.set_focus();
             }
-        }));
-    }
+        }))
+    };
 
     let app = builder
         .plugin(tauri_plugin_fs::init())
