@@ -530,7 +530,7 @@
         <label class="cfg-check">
           <input
             type="checkbox"
-            checked={usageConsent.granted}
+            checked={usageConsent.sharing}
             onchange={(e) => setUsageSharing(e.currentTarget.checked)}
             data-testid="cfg-usage-sharing"
           />

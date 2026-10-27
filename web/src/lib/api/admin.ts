@@ -60,7 +60,8 @@ export interface InsightsSummary {
   usage: {
     events: number;
     installs: number;
-    daily: { day: string; events: number; installs: number }[];
+    visits: number;
+    daily: { day: string; events: number; visits: number }[];
     top_events: Count[];
     modes: Count[];
     versions: Count[];

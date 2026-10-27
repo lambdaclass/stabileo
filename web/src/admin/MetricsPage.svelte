@@ -46,6 +46,7 @@
       <div class="ins-card"><span class="ins-card-value" data-testid="metric-accounts">{s.accounts.total}</span><span class="ins-card-label">{t('admin.metrics.accounts')}</span></div>
       <div class="ins-card"><span class="ins-card-value">{signUps}</span><span class="ins-card-label">{tp('admin.metrics.signUps', { n: s.days })}</span></div>
       <div class="ins-card"><span class="ins-card-value">{s.accounts.active_7d}</span><span class="ins-card-label">{t('admin.metrics.active7d')}</span></div>
+      <div class="ins-card"><span class="ins-card-value" data-testid="metric-visits">{s.usage.visits}</span><span class="ins-card-label">{tp('admin.metrics.visits', { n: s.days })}</span></div>
       <div class="ins-card"><span class="ins-card-value" data-testid="metric-installs">{s.usage.installs}</span><span class="ins-card-label">{tp('admin.metrics.installs', { n: s.days })}</span></div>
       <div class="ins-card"><span class="ins-card-value">{s.usage.events}</span><span class="ins-card-label">{t('admin.metrics.events')}</span></div>
       <div class="ins-card"><span class="ins-card-value">{s.projects.total}</span><span class="ins-card-label">{tp('admin.metrics.projects', { n: s.projects.accounts })}</span></div>
@@ -62,12 +63,12 @@
         <svg class="ins-chart" viewBox={`0 0 ${slots * 12} 100`} preserveAspectRatio="none" role="img" aria-label={t('admin.metrics.daily')}>
           {#each daily as d, i (d.day)}
             <rect x={i * 12 + 1} y={100 - (d.events / peak) * 100} width="5" height={(d.events / peak) * 100}><title>{d.day}: {d.events}</title></rect>
-            <rect class="alt" x={i * 12 + 6} y={100 - (d.installs / peak) * 100} width="5" height={(d.installs / peak) * 100}><title>{d.day}: {d.installs}</title></rect>
+            <rect class="alt" x={i * 12 + 6} y={100 - (d.visits / peak) * 100} width="5" height={(d.visits / peak) * 100}><title>{d.day}: {d.visits}</title></rect>
           {/each}
         </svg>
         <div class="ins-legend">
           <span><span class="sw ev"></span>{t('admin.metrics.events')}</span>
-          <span><span class="sw in"></span>{t('admin.metrics.installsShort')}</span>
+          <span><span class="sw in"></span>{t('admin.metrics.visitsShort')}</span>
           <span class="range">{daily[0].day} – {daily[daily.length - 1].day}</span>
         </div>
       {/if}

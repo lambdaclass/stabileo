@@ -35,27 +35,52 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const ON = { appMode: () => 'basic', locale: () => 'es', enabled: () => true };
+
 describe('anonymous usage', () => {
-  it('queues nothing until the user agrees', async () => {
-    const { trackUsage, pendingUsage, flushUsage } = await load();
+  it('shares by default, naming only the visit and storing nothing in the browser', async () => {
+    const { usageConsent, trackUsage, flushUsage, setUsageContext, INSTALL_ID_KEY } = await load();
+    setUsageContext(ON);
+    expect(usageConsent.choice).toBe('undecided');
     trackUsage('solve', { outcome: 'ok' });
+    await flushUsage();
+
+    expect(sent).toHaveLength(1);
+    expect(String(sent[0].body.install_id)).toMatch(/^v-/);
+    expect(sent[0].body.install_id).toBe(`v-${sent[0].body.session_id}`);
+    expect(storage.has(INSTALL_ID_KEY)).toBe(false);
+  });
+
+  it('sends nothing once the user turns it off', async () => {
+    const { usageConsent, trackUsage, flushUsage, setUsageContext, pendingUsage } = await load();
+    setUsageContext(ON);
+    usageConsent.set('denied');
+    trackUsage('solve');
     expect(pendingUsage()).toEqual([]);
     await flushUsage();
     expect(sent).toEqual([]);
   });
 
-  it('sends a batch with the shared fields and a stable random install id', async () => {
+  it('sends nothing while the server has not switched usage on', async () => {
+    const { trackUsage, flushUsage, setUsageContext } = await load();
+    setUsageContext({ ...ON, enabled: () => false });
+    trackUsage('solve');
+    await flushUsage();
+    expect(sent).toEqual([]);
+  });
+
+  it('after "Got it", sends a stable random id kept in the browser', async () => {
     const { usageConsent, trackUsage, flushUsage, setUsageContext, INSTALL_ID_KEY } = await load();
+    setUsageContext(ON);
     usageConsent.set('granted');
-    setUsageContext({ appMode: () => 'basic', locale: () => 'es' });
     trackUsage('tool.select', { tool: 'member' });
     trackUsage('solve', { outcome: 'ok', ms: 12 });
     await flushUsage();
 
-    expect(sent).toHaveLength(1);
     const body = sent[0].body;
     expect(sent[0].url).toMatch(/\/api\/v1\/insights\/events$/);
     expect(body.install_id).toBe(storage.get(INSTALL_ID_KEY));
+    expect(String(body.install_id)).not.toMatch(/^v-/);
     expect(body.app_mode).toBe('basic');
     expect(body.locale).toBe('es');
     expect((body.events as { name: string; props: unknown }[]).map((e) => [e.name, e.props])).toEqual([
@@ -84,16 +109,15 @@ describe('anonymous usage', () => {
   });
 
   it('ignores malformed event names', async () => {
-    const { usageConsent, trackUsage, pendingUsage } = await load();
-    usageConsent.set('granted');
+    const { trackUsage, pendingUsage } = await load();
     trackUsage('Not A Name');
     trackUsage('ok.name');
     expect(pendingUsage().map((e) => e.name)).toEqual(['ok.name']);
   });
 
   it('stops queueing for the visit once the server says it is switched off', async () => {
-    const { usageConsent, trackUsage, flushUsage, pendingUsage } = await load();
-    usageConsent.set('granted');
+    const { trackUsage, flushUsage, pendingUsage, setUsageContext } = await load();
+    setUsageContext(ON);
     reply = () => json(202, { accepted: 0, rejected: 0, enabled: false });
     trackUsage('solve');
     await flushUsage();
@@ -102,7 +126,8 @@ describe('anonymous usage', () => {
   });
 
   it('drops the queue when the user stops sharing, and sends on hide with keepalive', async () => {
-    const { usageConsent, trackUsage, pendingUsage, installUsageLifecycle } = await load();
+    const { usageConsent, trackUsage, pendingUsage, installUsageLifecycle, setUsageContext } = await load();
+    setUsageContext(ON);
     const listeners: Record<string, () => void> = {};
     vi.stubGlobal('document', {
       visibilityState: 'visible',
@@ -110,7 +135,6 @@ describe('anonymous usage', () => {
       removeEventListener: () => {},
     });
     const stop = installUsageLifecycle();
-    usageConsent.set('granted');
     trackUsage('solve');
     usageConsent.set('denied');
     expect(pendingUsage()).toEqual([]);
@@ -126,8 +150,8 @@ describe('anonymous usage', () => {
 
   it('flushes on its own after the interval', async () => {
     vi.useFakeTimers();
-    const { usageConsent, trackUsage } = await load();
-    usageConsent.set('granted');
+    const { trackUsage, setUsageContext } = await load();
+    setUsageContext(ON);
     trackUsage('solve');
     expect(sent).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(30_000);
@@ -136,9 +160,10 @@ describe('anonymous usage', () => {
 });
 
 describe('the usage consent', () => {
-  it('starts undecided and remembers the choice', async () => {
+  it('starts undecided, which shares, and remembers the choice', async () => {
     let { usageConsent, USAGE_CONSENT_KEY } = await load();
     expect(usageConsent.choice).toBe('undecided');
+    expect(usageConsent.sharing).toBe(true);
     usageConsent.set('denied');
     expect(JSON.parse(storage.get(USAGE_CONSENT_KEY)!).choice).toBe('denied');
 
@@ -146,6 +171,7 @@ describe('the usage consent', () => {
     expect(usageConsent.choice).toBe('denied');
     expect(usageConsent.decided).toBe(true);
     expect(usageConsent.granted).toBe(false);
+    expect(usageConsent.sharing).toBe(false);
   });
 
   it('reads a corrupt record as undecided', async () => {

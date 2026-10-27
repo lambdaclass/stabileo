@@ -20,6 +20,8 @@ export const usageConsent = {
   get choice() { return choice; },
   get granted() { return choice === 'granted'; },
   get decided() { return choice !== 'undecided'; },
+  /** On by default: anything but an explicit "no" shares. */
+  get sharing() { return choice !== 'denied'; },
 
   set(next: 'granted' | 'denied'): void {
     choice = next;

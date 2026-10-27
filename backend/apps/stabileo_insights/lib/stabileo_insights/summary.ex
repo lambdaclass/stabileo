@@ -1,7 +1,11 @@
 defmodule StabileoInsights.Summary do
   @moduledoc """
   The admin site's metrics over the last `days` days: accounts and consents,
-  anonymous usage (installs, events, what is used) and cloud projects.
+  anonymous usage and cloud projects.
+
+  A browser sends a per-visit id prefixed `v-` until its user acknowledges
+  sharing, and a stable one after: `installs` counts only stable ids, and
+  `visits` counts sessions of either kind.
   """
 
   import Ecto.Query
@@ -74,7 +78,19 @@ defmodule StabileoInsights.Summary do
 
     %{
       events: Repo.aggregate(events, :count),
-      installs: Repo.one(from(e in events, select: count(e.install_id, :distinct))),
+      installs:
+        Repo.one(
+          from(e in events,
+            where: not like(e.install_id, "v-%"),
+            select: count(e.install_id, :distinct)
+          )
+        ),
+      visits:
+        Repo.one(
+          from(e in events,
+            select: count(fragment("COALESCE(?, ?)", e.session_id, e.install_id), :distinct)
+          )
+        ),
       daily:
         from(e in events,
           group_by: fragment("date_trunc('day', ?)", e.occurred_at),
@@ -82,7 +98,7 @@ defmodule StabileoInsights.Summary do
           select: %{
             day: fragment("date_trunc('day', ?)::date", e.occurred_at),
             events: count(e.id),
-            installs: count(e.install_id, :distinct)
+            visits: count(fragment("COALESCE(?, ?)", e.session_id, e.install_id), :distinct)
           }
         )
         |> Repo.all(),

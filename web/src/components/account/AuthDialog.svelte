@@ -14,7 +14,7 @@
   let password = $state('');
   let name = $state('');
   let acceptTerms = $state(false);
-  let shareUsage = $state(false);
+  let shareUsage = $state(usageConsent.sharing);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
@@ -48,9 +48,9 @@
           name: name.trim(),
           locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
           accept_terms: acceptTerms,
-          ...(shareUsage ? { usage_analytics: true } : {}),
+          usage_analytics: shareUsage,
         });
-        if (shareUsage) usageConsent.set('granted');
+        usageConsent.set(shareUsage ? 'granted' : 'denied');
       }
       close();
     } catch (err) {

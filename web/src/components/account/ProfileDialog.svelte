@@ -299,7 +299,7 @@
           <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a>
         </p>
         <label class="acc-check">
-          <input type="checkbox" checked={usageConsent.granted} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
+          <input type="checkbox" checked={usageConsent.sharing} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
           <span>{t('usage.registerOptIn')}</span>
         </label>
         <label class="acc-check">

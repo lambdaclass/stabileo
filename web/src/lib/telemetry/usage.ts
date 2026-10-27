@@ -14,6 +14,7 @@ interface QueuedEvent {
 export interface UsageContext {
   appMode(): string | null;
   locale(): string | null;
+  enabled(): boolean;
 }
 
 export const INSTALL_ID_KEY = 'stabileo-install-id';
@@ -28,7 +29,7 @@ const EVENT_NAME = /^[a-z][a-z0-9_.:-]{0,63}$/;
 let queue: QueuedEvent[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let serverOff = false;
-let context: UsageContext = { appMode: () => null, locale: () => null };
+let context: UsageContext = { appMode: () => null, locale: () => null, enabled: () => false };
 const sessionId = randomId();
 
 function randomId(): string {
@@ -72,7 +73,7 @@ export function setUsageContext(next: UsageContext): void {
 }
 
 export function trackUsage(name: string, props: Record<string, unknown> = {}): void {
-  if (!usageConsent.granted || serverOff || automated() || !EVENT_NAME.test(name)) return;
+  if (!usageConsent.sharing || serverOff || automated() || !EVENT_NAME.test(name)) return;
   queue.push({ name, at: new Date().toISOString(), props: cleanProps(props) });
   if (queue.length >= MAX_QUEUE) void flushUsage();
   else if (!timer) timer = setTimeout(() => void flushUsage(), FLUSH_MS);
@@ -82,9 +83,10 @@ export function pendingUsage(): readonly QueuedEvent[] {
   return queue;
 }
 
+/** Until the user acknowledges sharing, nothing is stored in the browser: the id names the visit only. */
 function payload(events: QueuedEvent[]) {
   return {
-    install_id: installId(),
+    install_id: usageConsent.granted ? installId() : `v-${sessionId}`,
     session_id: sessionId,
     app_version: APP_VERSION,
     app_mode: context.appMode(),
@@ -101,7 +103,7 @@ export async function flushUsage(opts: { keepalive?: boolean } = {}): Promise<vo
   if (queue.length === 0) return;
   const events = queue;
   queue = [];
-  if (!usageConsent.granted) return;
+  if (!usageConsent.sharing || !context.enabled()) return;
   try {
     const resp = await fetch(`${API_URL}${EVENTS_PATH}`, {
       method: 'POST',
@@ -125,7 +127,7 @@ export function installUsageLifecycle(): () => void {
   };
   document.addEventListener('visibilitychange', onHide);
   const off = usageConsent.onChange((c) => {
-    if (c !== 'granted') queue = [];
+    if (c === 'denied') queue = [];
   });
   return () => {
     document.removeEventListener('visibilitychange', onHide);

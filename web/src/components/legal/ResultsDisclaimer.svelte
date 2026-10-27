@@ -3,17 +3,18 @@
   import { shouldShowDisclaimer, acknowledgeDisclaimer } from '../../lib/legal/disclaimer';
   import { legalHref, TERMS_PATH } from '../../lib/legal/legal';
   import { solveSignal } from '../../lib/telemetry/solve-signal.svelte';
-
-  let { onAcknowledged }: { onAcknowledged?: () => void } = $props();
+  import { legalNotices } from '../../lib/legal/notices.svelte';
 
   const automated = typeof navigator !== 'undefined' && navigator.webdriver === true;
   let pending = $state(!automated && shouldShowDisclaimer());
   const open = $derived(pending && solveSignal.count > 0 && solveSignal.lastOk);
+  $effect(() => {
+    legalNotices.disclaimerOpen = open;
+  });
 
   function dismiss() {
     acknowledgeDisclaimer();
     pending = false;
-    onAcknowledged?.();
   }
 </script>
 

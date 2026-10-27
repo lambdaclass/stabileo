@@ -111,7 +111,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 
     await page.getByTestId('auth-accept-terms').check();
-    await page.getByTestId('auth-share-usage').check();
+    await expect(page.getByTestId('auth-share-usage')).toBeChecked();
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
@@ -121,40 +121,63 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
   });
 
-  test('the first solve shows the disclaimer, the next asks about usage, and shared usage carries no model data', async ({ page }) => {
+  test('usage is shared by default under a visit id, the notice gives way to the disclaimer, and "Got it" adds a stable id', async ({ page }) => {
     const backend = await boot(page);
+    const flush = () =>
+      page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      });
+
+    await expect(page.getByTestId('usage-notice')).toBeVisible();
     await solvePortal(page);
     await expect(page.getByTestId('results-disclaimer')).toBeVisible();
-    await expect(page.getByTestId('usage-consent')).toHaveCount(0);
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
     await page.getByTestId('results-disclaimer-ok').click();
-    await expect(page.getByTestId('results-disclaimer')).toHaveCount(0);
-
-    await page.getByTestId('rb-cmd-solve').click();
-    await expect(page.getByTestId('usage-consent')).toBeVisible();
-    await page.getByTestId('usage-consent-share').click();
-    await expect(page.getByTestId('usage-consent')).toHaveCount(0);
+    await expect(page.getByTestId('usage-notice')).toBeVisible();
 
     await page.getByTestId('rb-cmd-momentY').click();
-    await page.getByTestId('rb-cmd-solve').click();
-    await page.evaluate(() => {
-      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
-      document.dispatchEvent(new Event('visibilitychange'));
-    });
-
+    await flush();
     await expect.poll(() => backend.events.length).toBeGreaterThan(0);
+    const before = backend.events[0];
+    expect(String(before.install_id)).toMatch(/^v-/);
+    expect(await page.evaluate(() => localStorage.getItem('stabileo-install-id'))).toBeNull();
     const events = backend.events.flatMap((b) => b.events as { name: string; props: Record<string, unknown> }[]);
     expect(events.map((e) => e.name)).toEqual(expect.arrayContaining(['diagram.show', 'solve']));
     expect(events.find((e) => e.name === 'solve')!.props).toMatchObject({ outcome: 'ok', dim3: false, elements: '1-10' });
-    const sent = JSON.stringify(backend.events);
-    expect(sent).not.toMatch(/Portal|nodes|"x"|coordinates/i);
-    expect(backend.events[0]).toMatchObject({ app_mode: 'basic', locale: 'es' });
+    expect(JSON.stringify(backend.events)).not.toMatch(/Portal Frame|"nodes"|"x"|coordinates/);
+    expect(events.find((e) => e.name === 'example.open')?.props).toEqual({ example: 'portal-frame' });
+
+    await page.getByTestId('usage-notice-ok').click();
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+    await page.getByTestId('rb-cmd-shearZ').click();
+    await flush();
+    await expect.poll(() => backend.events.length).toBeGreaterThan(1);
+    const after = backend.events.at(-1)!;
+    expect(String(after.install_id)).not.toMatch(/^v-/);
+    expect(after.install_id).toBe(await page.evaluate(() => localStorage.getItem('stabileo-install-id')));
 
     await page.reload();
     await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
     await solvePortal(page);
-    await page.getByTestId('rb-cmd-solve').click();
     await expect(page.getByTestId('results-disclaimer')).toHaveCount(0);
-    await expect(page.getByTestId('usage-consent')).toHaveCount(0);
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+  });
+
+  test('"Turn off" on the notice stops sending', async ({ page }) => {
+    const backend = await boot(page);
+    await page.getByTestId('usage-notice-off').click();
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+    await solvePortal(page);
+    await page.getByTestId('results-disclaimer-ok').click();
+    await page.getByTestId('rb-cmd-momentY').click();
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(500);
+    expect(backend.events).toEqual([]);
   });
 
   test('an account under older terms is asked to accept the ones in force', async ({ page }) => {
@@ -184,7 +207,7 @@ test.describe('accounts, legal and anonymous usage', () => {
   for (const [locale, path, title] of [
     ['es', '/es/terms/', 'Términos de uso de Stabileo'],
     ['en', '/en/privacy/', 'Stabileo Privacy Policy'],
-    ['pt', '/pt/usage-data/', 'O que o Stabileo envia quando você compartilha uso anônimo'],
+    ['pt', '/pt/usage-data/', 'Quais dados de uso anônimos o Stabileo envia'],
   ] as const) {
     test(`the ${path} page is published in ${locale}`, async ({ page }) => {
       await page.goto(path);

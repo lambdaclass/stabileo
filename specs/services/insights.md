@@ -2,14 +2,16 @@
 
 ## Description
 
-What the team learns from the product: anonymous usage events from browsers whose users chose to share usage, feedback sent by signed-in users, and the metrics the admin site shows. Usage events are never tied to an account and never carry model contents; the full list of what is sent is published at `/usage-data`.
+What the team learns from the product: anonymous usage events, feedback sent by signed-in users, and the metrics the admin site shows. Usage events are never tied to an account and never carry model contents; the full list of what is sent is published at `/usage-data`.
+
+Sharing is on by default and the user turns it off from a notice, Settings or the profile. Until the user answers the notice, the browser stores nothing: each event names only the visit (`install_id` is `v-<session id>`). After "Got it", the browser keeps a random `install_id` so distinct browsers can be counted. "Turn off" stops sending.
 
 ## Features
 
 - Batch ingestion of usage events, validated event by event: a malformed event is dropped and counted, never stored
 - A server-side switch, `usage_telemetry_enabled` (off by default): while off, batches are answered and nothing is stored, and the app stops asking for consent
 - Feedback from signed-in users (bug, idea, question, other), optionally with a link to the open model
-- Admin metrics over 1–365 days: accounts, sign-ups, consents, installs, events per day, what is used, cloud projects, unread feedback
+- Admin metrics over 1–365 days: accounts, sign-ups, consents, visits (distinct `session_id`), identified browsers (distinct `install_id` without the `v-` prefix), events and visits per day, what is used, cloud projects, unread feedback
 - Admin feedback inbox with status (`new`, `read`, `done`)
 - `StabileoInsights.Usage.prune/1` deletes events older than 395 days (13 months); there is no scheduler yet, so it runs from a release console
 
@@ -72,4 +74,4 @@ None.
 | Mixed batch | Valid events stored with the batch's shared fields; nested props, bad names, long strings, old timestamps dropped and counted |
 | Feedback without a session | 401, nothing stored |
 | Feedback status change | Updated, and an `feedback.status` audit row |
-| Summary | Counts match the rows: installs are distinct `install_id`, consents are each account's latest decision |
+| Summary | Counts match the rows: installs are distinct stable `install_id`, visits are distinct sessions, consents are each account's latest decision |

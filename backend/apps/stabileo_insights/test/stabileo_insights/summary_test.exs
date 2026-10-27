@@ -16,14 +16,15 @@ defmodule StabileoInsights.SummaryTest do
     {:ok, _} = Consents.record(b, "usage_analytics", false)
     {:ok, _} = Consents.record(b, "model_research", true)
 
-    for {install, tool} <- [
-          {"11111111-aaaa", "member"},
-          {"11111111-aaaa", "member"},
-          {"22222222-bbbb", "load"}
+    for {install, session, tool} <- [
+          {"11111111-aaaa", "s-11111111", "member"},
+          {"11111111-aaaa", "s-11111111", "member"},
+          {"22222222-bbbb", "s-22222222", "load"}
         ] do
       {:ok, _} =
         Usage.ingest(%{
           "install_id" => install,
+          "session_id" => session,
           "app_mode" => "basic",
           "app_version" => "0.3.0",
           "events" => [%{"name" => "tool.select", "props" => %{"tool" => tool}}]
@@ -32,7 +33,8 @@ defmodule StabileoInsights.SummaryTest do
 
     {:ok, _} =
       Usage.ingest(%{
-        "install_id" => "22222222-bbbb",
+        "install_id" => "v-33333333",
+        "session_id" => "v-33333333",
         "app_mode" => "pro",
         "events" => [%{"name" => "solve", "props" => %{"outcome" => "ok"}}]
       })
@@ -51,12 +53,13 @@ defmodule StabileoInsights.SummaryTest do
     assert [%{count: 2}] = s.accounts.sign_ups
     assert s.usage.events == 4
     assert s.usage.installs == 2
+    assert s.usage.visits == 3
     assert s.usage.breakdowns.tools == [%{label: "member", count: 2}, %{label: "load", count: 1}]
     assert s.usage.breakdowns.solve_outcomes == [%{label: "ok", count: 1}]
     assert %{label: "basic", count: 2} in s.usage.modes
 
-    assert [%{events: 4, installs: 2}] =
-             Enum.map(s.usage.daily, &Map.take(&1, [:events, :installs]))
+    assert [%{events: 4, visits: 3}] =
+             Enum.map(s.usage.daily, &Map.take(&1, [:events, :visits]))
 
     assert s.projects.total == 1
     assert s.projects.by_mode == [%{label: "pro", count: 1}]

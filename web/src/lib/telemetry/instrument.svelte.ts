@@ -1,6 +1,7 @@
 import { untrack } from 'svelte';
 import { uiStore, resultsStore, modelStore } from '../store';
 import { i18n } from '../i18n';
+import { authStore } from '../store/auth.svelte';
 import { setUsageContext, trackUsage, installUsageLifecycle } from './usage';
 import { solveSignal } from './solve-signal.svelte';
 
@@ -28,7 +29,7 @@ export function noteSolve(ok: boolean, startedAt: number): void {
 }
 
 export function installUsageTracking(): () => void {
-  setUsageContext({ appMode: appModeLabel, locale: () => i18n.locale });
+  setUsageContext({ appMode: appModeLabel, locale: () => i18n.locale, enabled: () => authStore.usageTelemetryEnabled });
   const stopLifecycle = installUsageLifecycle();
   const stopEffects = $effect.root(() => {
     let firstTool = true;

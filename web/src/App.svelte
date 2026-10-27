@@ -22,7 +22,7 @@
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
   import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
-  import UsageConsentDialog from './components/legal/UsageConsentDialog.svelte';
+  import UsageNotice from './components/legal/UsageNotice.svelte';
   import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
   import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
@@ -893,8 +893,6 @@
     if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
     if (canvas) downloadCanvasPNG(canvas, embed);
   }
-
-  let disclaimerDone = $state(false);
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
@@ -2143,8 +2141,8 @@
 
   {#if !uiStore.embedMode && !showLanding && !showBlog}
     <WhatsNewNotice />
-    <ResultsDisclaimer onAcknowledged={() => (disclaimerDone = true)} />
-    <UsageConsentDialog {disclaimerDone} />
+    <ResultsDisclaimer />
+    <UsageNotice />
     <TermsUpdateDialog />
   {/if}
 
