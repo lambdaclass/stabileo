@@ -28,7 +28,7 @@ import { migrateStoredDecisions } from '../design-contract/decisions';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
 import { verificationStore } from './verification.svelte';
-import { designEverything, type DeskReport, type DeskRunOptions } from './design-desk';
+import { designEverything, finalReport, type DeskReport, type DeskRunOptions } from './design-desk';
 import { publishCombinations3D } from './active-results';
 import { syncDefinedLoadsForAnalysis } from './defined-loads';
 import { spectralCaseResults } from './spectral-cases';
@@ -246,13 +246,22 @@ export async function designWithResizing(o: DeskRunOptions & { resize?: boolean;
   const changes: ResizeChange[] = [];
   hooks.progress?.({ phase: 'design', round: 0, changed: 0 });
   await pause();
-  let report = designEverything(o);
+  // Preserve the nominal growth trajectory; alternative bars are evaluated only once,
+  // against the final sections and forces, so an early repair cannot lose later approvals.
+  let repair: (() => void) | undefined;
+  const design = () => {
+    repair = undefined;
+    return designEverything(o, next => { repair = next; });
+  };
+  let report = design();
   const max = o.resize === false ? 0 : o.maxRounds ?? RESIZE_MAX_ROUNDS;
   let stopped: ResizeRun['stopped'] = 'verified';
   let round = 0;
   // The last step before the rounds, by identity: the stack is capped, so its length does not move.
   const mark = historyStore.getStacks().undo.at(-1);
   while (true) {
+    // A partial nominal pass cannot justify the next section change.
+    if (verificationStore.runSummary?.aborted) { stopped = 'blocked'; break; }
     // Read before the batch opens: opening it records the undo step, and recording it drops the
     // verification of the model as it was, which is what the plan reads.
     const plan = plannedGrowth();
@@ -273,7 +282,14 @@ export async function designWithResizing(o: DeskRunOptions & { resize?: boolean;
     if (!solved) { stopped = 'solveFailed'; break; }
     hooks.progress?.({ phase: 'design', round, changed: changes.length });
     await pause();
-    report = designEverything(o);
+    report = design();
+  }
+  if (repair && stopped !== 'solveFailed' && stopped !== 'cancelled'
+    && !hooks.cancelled?.() && !verificationStore.runSummary?.aborted) {
+    repair();
+    report = { ...report, levels: finalReport() };
+    if (designChecksPass(report)) stopped = 'verified';
+    else if (stopped === 'verified') stopped = 'blocked';
   }
   // One undo step for the whole run: the rounds' steps folded into the first one after the mark.
   if (round > 0) {

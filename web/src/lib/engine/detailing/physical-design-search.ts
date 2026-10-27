@@ -30,6 +30,12 @@ export const DEFAULT_PHYSICAL_SEARCH_BUDGET: PhysicalSearchBudget = {
   maxDetailingRuns: 8, maxMemberSearches: 64,
 };
 
+/** One bounded repair pass after sizing; regeneration alone does not start a search. */
+export const DESIGN_PHYSICAL_SEARCH_BUDGET: PhysicalSearchBudget = {
+  maxDetailingRuns: 4, maxMemberSearches: 64,
+  operators: ['harmonizeCoupledCatalog', 'columnDiameterFamily'],
+};
+
 export interface PhysicalSearchTrial {
   elementId: number;
   /** Atomic replacement; elementId remains the representative for single-member readers. */

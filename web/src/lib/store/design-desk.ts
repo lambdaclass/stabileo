@@ -8,7 +8,7 @@
 import type { ResizeChange, ResizeRun } from './design-resize';
 import { materialCheckState, runMaterialChecks, type MaterialMemberResult, type OtherMaterialFamily } from './material-check.svelte';
 import { modelStore } from './model.svelte';
-import { designRunStore } from './design-run.svelte';
+import { designRunStore, type DeferredPhysicalRepair } from './design-run.svelte';
 import { verificationStore, type DisplayStatus } from './verification.svelte';
 import { runSteelCheck } from './steel-check';
 import { POINT_SLAB_COLUMN_JOINT, noticesOf, STEEL_INPUTS_MISSING } from '../engine/design/notice-catalogue';
@@ -28,6 +28,8 @@ export interface DeskRunOptions {
   /** What to do with members a person edited and did not lock. */
   edited: 'keep' | 'overwrite';
   steel: boolean;
+  /** Optional per-pass nominal search budget; omitted uses the normal interactive limit. */
+  maxRunMs?: number;
 }
 
 export interface DeskMember { id: number; status: DisplayStatus; ratio: number | null; codes: string[]; material: 'concrete' | 'steel' | OtherMaterialFamily }
@@ -141,7 +143,7 @@ export function undesignedMembers(): number[] {
  * ones as the whole run, then the steel check when asked, and report as the whole run does.
  */
 export function designMembers(ids: readonly number[], o: Omit<DeskRunOptions, 'families'>): DeskReport {
-  designRunStore.autoDesign([...ids], { edited: o.edited });
+  designRunStore.autoDesign([...ids], { edited: o.edited, maxRunMs: o.maxRunMs });
   const skipped = { ...designRunStore.lastSkipped };
   const s = o.steel ? runSteelCheck() : null;
   if (o.steel) runMaterialChecks();
@@ -149,8 +151,8 @@ export function designMembers(ids: readonly number[], o: Omit<DeskRunOptions, 'f
 }
 
 /** Design everything the project designs, and report. */
-export function designEverything(o: DeskRunOptions): DeskReport {
-  const concrete = designRunStore.designFamilies(o.families ?? designRunStore.familySelection, { edited: o.edited });
+export function designEverything(o: DeskRunOptions, deferPhysicalRepair?: DeferredPhysicalRepair): DeskReport {
+  const concrete = designRunStore.designFamilies(o.families ?? designRunStore.familySelection, { edited: o.edited, maxRunMs: o.maxRunMs, deferPhysicalRepair });
   const skipped = { ...designRunStore.lastSkipped };
   const s = o.steel ? runSteelCheck() : null;
   if (o.steel) runMaterialChecks();

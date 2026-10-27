@@ -6,6 +6,190 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Generación desde cero y reparación en el flujo de dimensionamiento
+
+El seguimiento vuelve al objetivo de generar diseños para distintas estructuras. Las **241
+aprobaciones / 304 choques** anteriores corresponden a una asignación continuada y reparada de
+un solo edificio; no son el resultado de pulsar «Dimensionar» con armaduras vacías.
+
+Se contrastó el recorrido con `origin/main` en `7a71f7a3b`, integración de Bauti mediante #624.
+El recorrido del espacio de diseño es `designWithResizing → designEverything → designFamilies`:
+propone armados, modifica secciones donde encuentra una limitación nominal y vuelve a resolver
+la estructura. En este follow-up la búsqueda física existía, pero ese recorrido no la activaba.
+Esta entrega sigue en PR536; no afirma haber integrado el follow-up en `main`.
+
+### Integración y límites
+
+El dimensionamiento activa una búsqueda física de hasta **cuatro reconstrucciones completas y
+64 búsquedas nominales**, compartidas por el catálogo de jaulas compatibles y las alternativas
+de columnas. En el recorrido con crecimiento, esta búsqueda se difiere hasta terminar las
+rondas: usa las secciones y fuerzas finales y el alcance de la última pasada nominal. No se
+ejecuta tras cancelar, fallar el recálculo o abortar el dimensionamiento. Los comandos sin ciclo
+de crecimiento la ejecutan al terminar su pasada. El límite anterior probado, ocho
+reconstrucciones, obtenía la misma mejora en la primera pasada del edificio grande; cuatro evita
+duplicar ese trabajo.
+
+Sólo pueden repararse los miembros efectivamente alcanzados por la pasada nominal. Se conservan
+los bloqueos, las ediciones manuales que se pidió mantener, las familias no seleccionadas y los
+miembros no alcanzados al agotar el presupuesto. Se detalla una sola vez por comando de familias.
+Regenerar planos no inicia otra búsqueda. Los comandos de selección respetan la opción de
+desactivar el detallado automático; el comando global conserva su detallado explícito.
+La búsqueda de miembros agotados no se ejecuta indiscriminadamente: probarla en el edificio de
+siete plantas añadió 5370 verificaciones sin recuperar ningún miembro y se descartó del recorrido
+predeterminado. Su operador explícito continúa disponible para las continuaciones justificadas.
+
+Los cambios de sección siguen pasando por el recálculo y el diseño completo existentes. No se
+incorporó el ensayo de aumentar el canto por choques persistentes: en `rc-design-qa-row2` pasó de
+172 a 208 interferencias bloqueantes y dejó tres búsquedas agotadas tras seis rondas
+(`/tmp/design-generation-resize-row2-trial.json`). Una guía que mejora sólo algunos miembros
+no constituye un cierre fiable del diseño.
+
+### Primera pasada, sin cambiar secciones
+
+Medida desde armaduras vacías, cargas y declaración lateral propias de cada ejemplo. El control
+es la pasada habitual antes de activar la reparación; no se restaura ningún armado auditado.
+
+| Ejemplo | Miembros | Aprobaciones finales antes → después | Choques antes → después |
+| --- | ---: | ---: | ---: |
+| `rc-design-qa-8` | 8 | 6 → 6 | 0 → 0 |
+| `rc-design-qa-row2` | 8 | 0 → 0 | 172 → 172 |
+| `rc-design-qa-seismic` | 8 | 6 → 6 | 0 → 0 |
+| `rc-design-frame` | 408 | 83 → 83 | **2844 → 2499** |
+| `pro-edificio-7p` | 203 | 0 → 0 | 0 → 0 |
+
+La reducción de 345 interferencias del edificio grande cambia sólo 204–210 y se obtiene con
+cuatro detallados / 19 verificaciones nominales. No crea nuevas aprobaciones. Los casos sin
+choques tampoco se consideran completos por eso: los rechazos, la cobertura de verificación y
+los empalmes siguen formando parte del resultado.
+
+Evidencia de primera pasada: `/tmp/design-generation-matrix-before.json`,
+`/tmp/design-generation-matrix-after.json` (ocho detallados) y
+`/tmp/design-generation-frame4.json` (cuatro detallados, mismo resultado retenido).
+
+### Evaluación del ciclo completo
+
+`design-generation-matrix.test.ts` cubre seis ejemplos —una viga simple, tres casos de pórtico
+pequeño y dos edificios— desde armaduras vacías. Por defecto llama al ciclo de dimensionamiento
+del espacio de diseño, con cambio de secciones y recálculo. El alcance medido son sus vigas y
+columnas; no certifica losas, fundaciones ni el proyecto completo. Se registran resultados
+finales, causa de parada, rondas, cambios de sección y trabajo acumulado de reparación. Las
+aserciones comprueban persistencia y ausencia de falsas aprobaciones; que el test pase no
+significa que todos sus modelos hayan convergido.
+
+El modo `STABILEO_DESIGN_MATRIX_CONTROL=1` desactiva únicamente la nueva búsqueda para obtener
+un control comparable. `STABILEO_DESIGN_MATRIX_RESIZE=0` aísla la primera pasada sin crecimiento.
+`STABILEO_DESIGN_MATRIX_BASELINE` exige conservar las aprobaciones del control y no aumentar los
+choques ni los agotados. Una regeneración posterior, sin buscar, debe reproducir el resultado.
+
+### Resultado final de la comparación dentro de cada corrida
+
+Seis pruebas aprobadas con el código final de reparación diferida, presupuesto nominal explícito
+**180 000 ms por pasada** y timeout de ensayo de 30 minutos. Todas las pasadas alcanzaron su
+alcance, sin abortos ni miembros no alcanzados. Se conserva cada aprobación previa por identidad,
+no aumentan choques ni agotados y la regeneración sin búsqueda reproduce el resultado.
+
+| Ejemplo | Aprobados antes → después de reparar | Bloqueantes antes → después | Rondas | Parada |
+| --- | ---: | ---: | ---: | --- |
+| `rc-beam-flexure` | 2 → 2 | 0 → 0 | 0 | `verified` |
+| `rc-design-qa-8` | 0 → 0 | 420 → 420 | 4 | `blocked` |
+| `rc-design-qa-row2` | 0 → 0 | 172 → 172 | 0 | `blocked` |
+| `rc-design-qa-seismic` | 0 → 0 | 420 → 420 | 4 | `blocked` |
+| `rc-design-frame` | 83 → 83 | 3996 → 3996 | 6 | `maxRounds` |
+| `pro-edificio-7p` | 0 → 0 | 2547 → 2547 | 6 | `maxRounds` |
+
+**Sólo 1 de los 6 casos verifica completo: la viga simple.** La búsqueda física al cierre no
+consiguió mejorar el resultado final de estos seis ciclos; no se presenta como convergencia.
+El edificio grande conserva 83 aprobaciones, dos búsquedas agotadas y cuatro provisionales;
+el de siete plantas conserva cero aprobaciones y cinco búsquedas agotadas. Su evidencia es
+`/tmp/design-generation-workspace-paired.json` y el log homónimo, seis pruebas aprobadas.
+
+La mejora de 2844 → 2499 corresponde a la primera pasada sin cambiar secciones, que sigue
+siendo un recorrido disponible en los comandos de diseño directo. No debe confundirse con el
+resultado del ciclo completo de crecimiento ni con el snapshot histórico de 304 bloqueantes.
+
+Validación adicional: **195 pruebas dirigidas en nueve suites**, incluidas protección del alcance,
+publicación, geometría, tramos, crecimiento, cancelación y aborto por presupuesto. Typecheck sin
+errores nuevos (442 existentes frente al baseline de 443), y `git diff --check` limpio. El control
+exploratorio anterior que excedió diez minutos se conserva como incidencia del ensayo, no como
+una prueba aprobada ni como benchmark comparable.
+
+### Control del recorrido completo
+
+Una corrida exploratoria de seis casos, con la nueva búsqueda desactivada, produjo
+los siguientes resultados. Estos registros anteriores no incluían el estado de cada pasada
+intermedia; no constituyen una referencia determinista para atribuir diferencias entre corridas:
+
+| Ejemplo | Aprobados finales | Bloqueantes | Rondas de crecimiento | Parada |
+| --- | ---: | ---: | ---: | --- |
+| `rc-beam-flexure` | 2/2 | 0 | 0 | verificado |
+| `rc-design-qa-8` | 0/8 | 420 | 4 | bloqueado |
+| `rc-design-qa-row2` | 0/8 | 172 | 0 | bloqueado |
+| `rc-design-qa-seismic` | 0/8 | 420 | 4 | bloqueado |
+| `rc-design-frame` | 86/408 | 4754 | 6 | límite de rondas |
+| `pro-edificio-7p` | 0/203 | 2294 | 6 | límite de rondas |
+
+El control del edificio de siete plantas excedió el timeout de prueba de diez minutos.
+Su resultado final quedó escrito, pero la suite de control terminó con cinco pruebas aprobadas
+y una fallida por tiempo. La evaluación extendida permite configurar
+`STABILEO_DESIGN_MATRIX_TIMEOUT_MS`; eso sólo modifica el timeout del ensayo, nunca los
+presupuestos de producción. Los tiempos observados en esta máquina no son un benchmark.
+
+En QA-8 y QA sísmico, 416 de los 420 conflictos finales son solapes con estribos de columnas
+(320) o nudos (96); quedan cuatro separaciones insuficientes entre miembros. En el caso de dos
+filas, hay 168 solapes y cuatro separaciones insuficientes. El edificio grande termina con
+4402 solapes, 342 separaciones entre miembros, cuatro dentro de una fila y seis entre filas.
+Estos son resultados de diseños nuevos, distintos del snapshot continuado de 304 bloqueantes.
+
+La prioridad siguiente es coordinar las semillas y los cambios de sección con la geometría de
+estribos y nudos, y aceptar las rondas por su resultado final completo. El crecimiento nominal
+actual puede eliminar rechazos nominales y aumentar los bloqueos físicos; la reparación local
+no implica que ese ciclo global converja.
+
+### Aislamiento de la reparación y de los presupuestos
+
+La primera integración ejecutaba la búsqueda física después de cada pasada nominal. Una
+comparación entre corridas del edificio de 408 miembros mostró 4754 → 3996 choques, pero
+86 → 83 aprobaciones. Se rechazó publicar ese resultado como mejora suficiente. Al diferir la
+búsqueda hasta el cierre, otra corrida produjo 83 aprobaciones y 4095 choques **sin aceptar
+ninguna alternativa física**: sus cambios de sección ya diferían a partir de la tercera ronda.
+Por tanto, esas diferencias entre corridas no se pueden atribuir sólo a la nueva búsqueda.
+Los registros originales no capturaban si las pasadas intermedias agotaban su tiempo.
+
+La implementación final difiere la búsqueda hasta cerrar el crecimiento. La función diferida
+captura sólo los miembros alcanzados en la última pasada; se reemplaza en cada ronda y no se
+invoca después de cancelar o fallar el análisis. El informe de niveles se vuelve a leer tras
+reparar. Además, **una pasada nominal abortada detiene el crecimiento**: no se agrandan
+secciones a partir de un dimensionamiento parcial y no se inicia la reparación diferida.
+
+La matriz registra ahora `aborted` y `notReached` en todas las pasadas, y compara las aprobaciones,
+conflictos y agotados inmediatamente antes y después de reparar **dentro de la misma corrida**.
+Esto aísla el efecto de la reparación de las diferencias en el recorrido estructural. La opción
+`STABILEO_DESIGN_MATRIX_RUN_MS` permite extender explícitamente el presupuesto nominal de cada
+pasada para una auditoría completa; queda registrada en el artefacto. El límite interactivo
+predeterminado no cambia. Una evaluación con ese presupuesto extendido no es una medición de
+la experiencia bajo el límite de tiempo predeterminado.
+
+### Próximas correcciones guiadas por esta matriz
+
+1. **Elegir el operador por la geometría bloqueante.** En la última pasada de QA-8,
+   los cuatro intentos de `harmonizeCoupledCatalog` cambian la viga 7 y quedan en
+   `noProgress` con los mismos 420 choques; no queda presupuesto para el operador de columnas.
+   Hace falta repartir o priorizar el presupuesto por las barras realmente implicadas,
+   conservando una aceptación sobre el detallado completo.
+2. **Hacer coincidir las semillas con la jaula construida.** Los solapes de longitudinales
+   con estribos de columna y nudo deben reproducirse como casos pequeños, contrastando
+   posiciones y dobleces nominales con los segmentos que genera el detallado. Corregir el
+   lugar donde se proponen las barras, sin excluir esos pares de la verificación.
+3. **Evaluar la ronda de crecimiento completa.** Una sección mayor cambia fuerzas, armados,
+   anclajes y geometría vecina. Se debe comparar la solución recalculada completa y conservar
+   una alternativa válida cuando el crecimiento empeora el resultado; terminar sin rechazos
+   nominales no basta para aceptar la ronda.
+4. **Acotar el trabajo global.** La nueva búsqueda se limita a cuatro reconstrucciones al
+   cierre, pero el crecimiento existente todavía puede requerir siete pasadas y sus detallados.
+   La matriz registra ese trabajo y el tiempo; el siguiente paso de rendimiento debe medir qué
+   reconstrucciones se repiten y permitir interrumpir entre evaluaciones. Aumentar el timeout
+   del ensayo no resuelve la latencia del comando.
+
 ## Recuperaciones verificadas que no llegaban al modelo
 
 Continuación desde `53d2f7de9`, con **304 conflictos bloqueantes, 240 aprobaciones válidas y

@@ -283,7 +283,8 @@ function createDetailingStore() {
      * persistence, revision invalidation, review, drawings, exports — hangs off the
      * assemblies it writes.
      */
-    generate(opts: { verifierId?: string; physicalSearch?: PhysicalSearchBudget } = {}): RunDetailingResult | null {
+    generate(opts: { verifierId?: string; physicalSearch?: PhysicalSearchBudget;
+      repairMemberIds?: readonly number[] } = {}): RunDetailingResult | null {
       generating = true;
       lastError = null;
       try {
@@ -338,6 +339,7 @@ function createDetailingStore() {
         const concreteCode = regulationsStore.concreteDesignCode();
         const adapter = concreteCode ? getDesignCode(concreteCode) : undefined;
         const initial = designOutcomeMap();
+        const repairScope = opts.repairMemberIds === undefined ? undefined : new Set(opts.repairMemberIds);
         /**
          * Close the design–detailing loop.
          *
@@ -351,7 +353,8 @@ function createDetailingStore() {
             contexts: verificationStore.contexts,
             outcomes: initial,
             detail,
-            lockedMembers: lockedMemberIds(),
+            lockedMembers: new Set([...lockedMemberIds(), ...(repairScope === undefined ? []
+              : [...initial.keys()].filter(id => !repairScope.has(id)))]),
             physicalSearch: opts.physicalSearch,
           })
           : null;

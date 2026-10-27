@@ -39,6 +39,7 @@ import { applyStoreySway } from './storey-sway';
 import { applySoftStoreys } from './seismic-design.svelte';
 import { modelStore } from './model.svelte';
 import { requestAutosave } from './autosave-service';
+import { DESIGN_PHYSICAL_SEARCH_BUDGET } from '../engine/detailing/physical-design-search';
 import { regulationsStore } from './regulations.svelte';
 import type { RegulationEdition } from '../codes/regulation';
 import { detailingStore } from './detailing.svelte';
@@ -63,6 +64,11 @@ import {
   needsFloorPass, needsFramePass,
   type DesignFamily, type DesignFamilySelection, type DesignRunReport, type FamilyRunResult,
 } from '../engine/design/design-families';
+
+/** The sizing cycle can retain a scoped repair until its final structural solve. */
+export type DeferredPhysicalRepair = (repair: () => void) => void;
+
+interface DesignDetailingOptions { force?: boolean; verifierId?: string; deferPhysicalRepair?: DeferredPhysicalRepair }
 
 export interface CommandResult {
   ok: boolean;
@@ -323,7 +329,8 @@ function createDesignRunStore() {
      * command, so no button designs over a person's bars without asking. Locked members are
      * never redesigned.
      */
-    opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
+    opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite';
+      detailing?: DesignDetailingOptions } = {},
   ): CommandResult {
     lastError = null;
     const a = adapter();
@@ -362,7 +369,7 @@ function createDesignRunStore() {
         onProgress: (p) => { progress = p; },
       });
       summary.outcomes = spanOutcomesToPieces(summary.outcomes, ctxOf);
-      publishOutcomes(summary, opts.deferDetailing ?? false);
+      publishOutcomes(summary, opts.deferDetailing ?? false, opts.detailing);
       return { ok: true };
     } finally {
       running = false;
@@ -371,7 +378,8 @@ function createDesignRunStore() {
   }
 
   /** Merge a run's outcomes into the store and assign the verified reinforcement. */
-  function publishOutcomes(summary: DesignRunSummary, deferDetailing: boolean) {
+  function publishOutcomes(summary: DesignRunSummary, deferDetailing: boolean,
+    detailing?: DesignDetailingOptions) {
     // Merge with any previous run so designing a selection does not erase the rest.
     const prev = verificationStore.runSummary;
     const merged: DesignRunSummary = prev
@@ -430,11 +438,17 @@ function createDesignRunStore() {
       for (const id of written) { auto.add(id); manual.delete(id); }
       autoDesigned = auto;
       manualOverrides = manual;
+    }
 
-      // A user who has just verified a floor wants its bars. Detailing runs automatically
-      // unless the project has opted out — the explicit Generate command stays either way,
-      // so the automatic path is a convenience, never the only way in.
-      if (!deferDetailing && detailingStore.autoGenerate) detailingStore.generate();
+    // Repair only the members reached by this sizing command. Skipped edits, locks,
+    // unselected families and unreached members remain neighbours, never repair targets.
+    if (!deferDetailing && (detailing?.force || detailingStore.autoGenerate)) {
+      const scope = { verifierId: detailing?.verifierId, repairMemberIds: [...summary.outcomes.keys()] };
+      const repair = () => { detailingStore.generate({ ...scope, physicalSearch: DESIGN_PHYSICAL_SEARCH_BUDGET }); };
+      if (detailing?.deferPhysicalRepair) {
+        detailingStore.generate(scope);
+        detailing.deferPhysicalRepair(repair);
+      } else repair();
     }
 
     // A design run is the operation that made the old autosave fail — it is both the most
@@ -536,7 +550,7 @@ function createDesignRunStore() {
    */
   function designFamilies(
     selection: DesignFamilySelection,
-    opts: { verifierId?: string; edited?: 'keep' | 'overwrite' } = {},
+    opts: { verifierId?: string; edited?: 'keep' | 'overwrite'; maxRunMs?: number; deferPhysicalRepair?: DeferredPhysicalRepair } = {},
   ): DesignRunReport {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
@@ -573,8 +587,8 @@ function createDesignRunStore() {
         if (target.length > 0) {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
-          autoDesign(target, { deferDetailing: true, ...(opts.edited ? { edited: opts.edited } : {}) });
-          detailingStore.generate({ verifierId: opts.verifierId });
+          autoDesign(target, { maxRunMs: opts.maxRunMs, detailing: { force: true, verifierId: opts.verifierId, deferPhysicalRepair: opts.deferPhysicalRepair },
+            ...(opts.edited ? { edited: opts.edited } : {}) });
         }
 
         for (const f of FRAME_FAMILIES) {
