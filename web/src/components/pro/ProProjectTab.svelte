@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
   import ProProjectInfo from './ProProjectInfo.svelte';
   import ProExampleGallery from './ProExampleGallery.svelte';
   import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
@@ -214,6 +216,7 @@
     }
     input.value = '';
   }
+  let cloudOpen = $state(false);
 </script>
 
 <div class="pp" data-testid="pro-project-tab">
@@ -314,6 +317,9 @@
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
+      {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      <button class="pp-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+    {/if}
       <HelpTip text={t('provenance.reproduce.intro')}>
         <button class="pp-btn" onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))}
                 data-testid="pp-reproduce">{t('provenance.reproduce.menu')}</button>
@@ -584,6 +590,8 @@
   style="display:none"
   onchange={handleLoad}
 />
+
+<CloudProjectsDialog bind:open={cloudOpen} />
 
 <style>
   .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }

@@ -1,11 +1,13 @@
 import { API_URL, request } from './client';
-import type { Account, LoginInput, Session } from './auth';
+import type { Account, Consents, LoginInput, Session } from './auth';
 
 export interface AdminAccount extends Account {
   is_active: boolean;
   last_sign_in_at: string | null;
   active_sessions: number;
   is_admin: boolean;
+  consents?: Consents;
+  project_count?: number;
 }
 
 export type AdminSession = Session;
@@ -41,6 +43,91 @@ export interface AdminAuthConfig {
 
 export interface AdminSettings {
   user_login_enabled: boolean;
+  usage_telemetry_enabled?: boolean;
+  cloud_projects_enabled?: boolean;
+  terms_version?: string;
+}
+
+export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled';
+
+export interface Count { label: string; count: number }
+export interface Daily { day: string; count: number }
+
+export interface InsightsSummary {
+  days: number;
+  since: string;
+  accounts: { total: number; active_7d: number; sign_ups: Daily[]; consents: { usage_analytics: number; model_research: number } };
+  usage: {
+    events: number;
+    installs: number;
+    daily: { day: string; events: number; installs: number }[];
+    top_events: Count[];
+    modes: Count[];
+    versions: Count[];
+    locales: Count[];
+    breakdowns: Record<'tools' | 'diagrams' | 'advanced' | 'examples' | 'exports' | 'solve_outcomes' | 'step_methods', Count[]>;
+  };
+  projects: { total: number; accounts: number; by_mode: Count[]; created: Daily[] };
+  feedback: { new: number };
+}
+
+export interface AdminProject {
+  id: string;
+  name: string;
+  app_mode: 'basic' | 'pro';
+  content_bytes: number;
+  node_count: number | null;
+  element_count: number | null;
+  app_version: string | null;
+  inserted_at: string;
+  updated_at: string;
+  owner: { id: string; email: string; name: string };
+  research_consent: boolean;
+}
+
+export type FeedbackStatus = 'new' | 'read' | 'done';
+
+export interface AdminFeedback {
+  id: string;
+  kind: 'bug' | 'idea' | 'question' | 'other';
+  message: string;
+  contact_email: string | null;
+  page: string | null;
+  app_version: string | null;
+  user_agent: string | null;
+  model_link: string | null;
+  status: FeedbackStatus;
+  account: { id: string; email: string; name: string } | null;
+  inserted_at: string;
+  updated_at: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  details: Record<string, unknown>;
+  admin: { id: string; email: string } | null;
+  inserted_at: string;
+}
+
+export interface Page<T> {
+  data: T[];
+  meta: ListMeta;
+}
+
+export type ListParams = Record<string, string | number | undefined>;
+
+export function listQuery(params: ListParams = {}): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    const text = String(value).trim();
+    if (text !== '') qs.set(key, text);
+  }
+  const out = qs.toString();
+  return out ? `?${out}` : '';
 }
 
 export interface AllowedEmail {
@@ -151,8 +238,28 @@ export const adminApi = {
     return (await request<{ data: AdminSettings }>('GET', `${ADMIN_BASE}/settings`, { auth: true })).data;
   },
 
-  async updateSettings(settings: AdminSettings): Promise<AdminSettings> {
+  async updateSettings(settings: Partial<Record<AdminFlag, boolean>>): Promise<AdminSettings> {
     return (await request<{ data: AdminSettings }>('PUT', `${ADMIN_BASE}/settings`, { body: settings, auth: true })).data;
+  },
+
+  async insightsSummary(days: number): Promise<InsightsSummary> {
+    return (await request<{ data: InsightsSummary }>('GET', `${ADMIN_BASE}/insights/summary?days=${days}`, { auth: true })).data;
+  },
+
+  listProjects(params: ListParams = {}): Promise<Page<AdminProject>> {
+    return request<Page<AdminProject>>('GET', `${ADMIN_BASE}/projects${listQuery(params)}`, { auth: true });
+  },
+
+  listFeedback(params: ListParams = {}): Promise<Page<AdminFeedback>> {
+    return request<Page<AdminFeedback>>('GET', `${ADMIN_BASE}/insights/feedback${listQuery(params)}`, { auth: true });
+  },
+
+  async setFeedbackStatus(id: string, status: FeedbackStatus): Promise<AdminFeedback> {
+    return (await request<{ data: AdminFeedback }>('PUT', `${ADMIN_BASE}/insights/feedback/${encodeURIComponent(id)}`, { body: { status }, auth: true })).data;
+  },
+
+  listAuditLog(params: ListParams = {}): Promise<Page<AuditEntry>> {
+    return request<Page<AuditEntry>>('GET', `${ADMIN_BASE}/audit-log${listQuery(params)}`, { auth: true });
   },
 
   listAllowedEmails(params: ListAllowedEmailsParams = {}): Promise<AllowedEmailPage> {

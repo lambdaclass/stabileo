@@ -28,6 +28,8 @@
     { key: 'inserted_at', label: 'admin.col.created' },
     { key: 'last_sign_in_at', label: 'admin.col.lastSignIn' },
     { key: null, label: 'admin.col.sessions', numeric: true },
+    { key: null, label: 'admin.col.terms' },
+    { key: null, label: 'admin.col.projects', numeric: true },
   ];
 
   function setQuery(next: ListQuery, replace = false) {
@@ -188,6 +190,8 @@
             <td class="adm-date">{formatDateTime(user.inserted_at)}</td>
             <td class="adm-date">{formatDateTime(user.last_sign_in_at)}</td>
             <td class="num">{user.active_sessions}</td>
+            <td><span class="adm-badge" class:off={!user.consents?.terms_current} data-testid="admin-user-terms">{user.consents?.terms ? user.consents.terms.version : '—'}</span></td>
+            <td class="num" data-testid="admin-user-projects">{user.project_count ?? 0}</td>
           </tr>
         {:else}
           <tr>

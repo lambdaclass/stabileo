@@ -5,6 +5,7 @@
  * the figures that do not need results still come out and the reason is told. The figures are
  * drawn as vectors (`view-figure.ts`), in 2D and in 3D.
  */
+import { trackUsage } from '../telemetry/usage';
 import { captureProvenanceToken, provenanceForExport, ExportChangedError } from '../store/result-provenance';
 import { svgWithProvenance, imageWithProvenance } from './provenance-attach';
 import { zipSync } from 'fflate';
@@ -85,6 +86,7 @@ async function files(req: ViewExportRequest, onDrawn?: () => void): Promise<Arra
 
 /** Download what the request makes: one file, or a zip of several. */
 export async function exportView(req: ViewExportRequest): Promise<boolean> {
+  trackUsage('export', { format: `view-${req.format}`, sheet: req.sheet });
   // Taken when the figures are drawn (after any solve); checked again once the hashes are in.
   let token = captureProvenanceToken();
   const drawn = await files(req, () => { token = captureProvenanceToken(); });

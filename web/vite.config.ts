@@ -139,7 +139,7 @@ function instance(): number {
 const INST = instance();
 const DEV_API_URL = process.env.VITE_API_URL || `http://localhost:${4100 + INST * 10}`;
 
-const ADMIN_CLIENT_ROUTES = ['/', '/settings', '/allowlist', '/oauth/callback'];
+const ADMIN_CLIENT_ROUTES = ['/', '/metrics', '/projects', '/feedback', '/audit-log', '/settings', '/allowlist', '/oauth/callback'];
 
 function adminRootPlugin(): Plugin {
   const rewrite = (req: { url?: string }) => {

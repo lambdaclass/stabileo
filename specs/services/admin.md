@@ -50,7 +50,8 @@ Prefix `/api/v1/admin`, router `StabileoAuth.AdminRouter`. `/auth/*` sign-in rou
 | `POST` | `/users/:id/enable` | `200 {data: <admin account>}` | 401, 404 |
 | `POST` | `/users/:id/force-logout` | `200 {data: <admin account>, revoked: <count>}` | 401, 404 |
 | `GET` | `/settings` | `200 {data: <settings>}` | 401 |
-| `PUT` | `/settings` | `200 {data: <settings>}` | 401, 422 `validation_error` (`details.user_login_enabled`) |
+| `PUT` | `/settings` | `200 {data: <settings>}`; any subset of the three flags, recorded in the audit log | 401, 422 `validation_error` (a flag that is not a boolean, or no known flag) |
+| `GET` | `/audit-log` | `200 {data: [<admin action>], meta}`; newest first, filters `action`, `admin_id`, `target_id` | 401 |
 | `GET` | `/allowed-emails` | `200 {data: [<allowed email>], meta: {total, limit, offset}}` | 401 |
 | `POST` | `/allowed-emails` | `201 {data: <allowed email>}` (also reactivates a removed one) | 401, 422 `validation_error` (`details.email`: bad format, domain not allowed, already allowed) |
 | `DELETE` | `/allowed-emails/:id` | `200 {data: <allowed email>}` (`is_active: false`) | 401, 404, 422 `cannot_remove_self` |
@@ -73,8 +74,11 @@ List params (`GET /users`, `GET /allowed-emails`):
 Shapes:
 
 - `<admin session>`: `{ "access_token", "refresh_token", "expires_in", "account": <account> }`, same as the product session (`specs/services/accounts.md`).
-- `<admin account>`: `<account>` plus `{ "is_active", "last_sign_in_at", "active_sessions", "is_admin" }`.
-- `<settings>`: `{ "user_login_enabled": bool }`.
+- `<admin account>`: `<account>` plus `{ "is_active", "last_sign_in_at", "active_sessions", "is_admin", "consents", "project_count" }`.
+- `<settings>`: `{ "user_login_enabled": bool, "usage_telemetry_enabled": bool, "cloud_projects_enabled": bool, "terms_version": string }`; `terms_version` is read-only, set in `StabileoAuth.Consents`.
+- `<admin action>`: `{ "id", "action", "target_type", "target_id", "details", "admin": {"id", "email"} | null, "inserted_at" }`. Actions: `account.disable`, `account.enable`, `account.force_logout`, `settings.update`, `allowlist.add`, `allowlist.remove`, `feedback.status`.
+
+Projects (`/api/v1/admin/projects`) and metrics and feedback (`/api/v1/admin/insights`) are their own routers: `specs/services/projects.md`, `specs/services/insights.md`.
 - `<allowed email>`: `{ "id", "email", "is_active", "added_by": {"id", "email"} | null, "inserted_at", "updated_at" }`.
 
 401 bodies from the admin pipeline: `missing_token`, `invalid_token` (bad, expired, or a product token), `not_admin` (the email left the allowlist or the allowed domains), `account_disabled`.

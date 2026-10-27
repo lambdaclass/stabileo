@@ -105,6 +105,11 @@
       <dt>{t('admin.col.lastSignIn')}</dt><dd>{formatDateTime(user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.sessions')}</dt><dd class="mono" data-testid="admin-drawer-sessions">{user.active_sessions}</dd>
       <dt>{t('admin.detail.adminAccess')}</dt><dd>{user.is_admin ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.col.terms')}</dt>
+      <dd data-testid="admin-drawer-terms">{user.consents?.terms ? `${user.consents.terms.version} · ${formatDateTime(user.consents.terms.accepted_at)}` : '—'}</dd>
+      <dt>{t('admin.detail.usageAnalytics')}</dt><dd>{user.consents?.usage_analytics ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.detail.modelResearch')}</dt><dd>{user.consents?.model_research ? t('admin.yes') : t('admin.no')}</dd>
+      <dt>{t('admin.col.projects')}</dt><dd class="mono">{user.project_count ?? 0}</dd>
     </dl>
 
     {#if done}

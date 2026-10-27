@@ -22,6 +22,7 @@ import { runGlobalSolve, lastSolveFailure } from '../engine/live-calc';
 import { requestAutosave } from '../store/autosave-service';
 import { spectralCaseResults } from '../store/spectral-cases';
 import { errorText } from '../utils/error-text';
+import { noteSolve } from '../telemetry/instrument.svelte';
 
 /**
  * The spectral cases' results, or nothing (said) when they cannot be had: those cases are left out.
@@ -77,8 +78,11 @@ export async function ensureResults(): Promise<SolveOutcome> {
  */
 export async function solveNow(): Promise<SolveOutcome> {
   if (!uiStore.is3DWorkspace) {
+    const startedAt = performance.now();
     reportModelDiagnostics();
-    return runSolve2D();
+    const outcome = runSolve2D();
+    noteSolve(outcome.ok, startedAt);
+    return outcome;
   }
   try {
     return await runGlobalSolve({ directBase: true });

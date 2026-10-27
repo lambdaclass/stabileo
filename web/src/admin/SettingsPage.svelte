@@ -3,6 +3,12 @@
   import { adminSettings } from './admin-settings.svelte';
   import { adminErrorText } from './error-text';
   import { t } from '../lib/i18n';
+  import type { AdminFlag } from '../lib/api/admin';
+
+  const EXTRA_FLAGS: { key: AdminFlag; label: string; help: string; testid: string }[] = [
+    { key: 'usage_telemetry_enabled', label: 'admin.settings.usageTelemetry', help: 'admin.settings.usageTelemetryHelp', testid: 'admin-settings-usage' },
+    { key: 'cloud_projects_enabled', label: 'admin.settings.cloudProjects', help: 'admin.settings.cloudProjectsHelp', testid: 'admin-settings-projects' },
+  ];
 
   onMount(() => {
     void adminSettings.load();
@@ -42,6 +48,36 @@
         </span>
       </label>
       <p class="adm-help">{t('admin.settings.userLoginHelp')}</p>
+    </div>
+
+    {#each EXTRA_FLAGS as flag (flag.key)}
+      <div class="adm-card">
+        <label class="adm-toggle">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={adminSettings.flag(flag.key)}
+            disabled={adminSettings.saving}
+            onchange={(e) => adminSettings.setFlag(flag.key, e.currentTarget.checked)}
+            data-testid={flag.testid}
+          />
+          <span class="adm-toggle-label">{t(flag.label)}</span>
+          <span class="adm-badge" class:off={!adminSettings.flag(flag.key)}>
+            {adminSettings.flag(flag.key) ? t('admin.settings.on') : t('admin.settings.off')}
+          </span>
+        </label>
+        <p class="adm-help">{t(flag.help)}</p>
+      </div>
+    {/each}
+
+    {#if adminSettings.settings.terms_version}
+      <div class="adm-card">
+        <span class="adm-toggle-label">{t('admin.settings.termsVersion')}</span>
+        <p class="adm-help"><code>{adminSettings.settings.terms_version}</code> · {t('admin.settings.termsVersionHelp')}</p>
+      </div>
+    {/if}
+
+    <div class="adm-status">
       {#if adminSettings.saving}
         <p class="adm-muted" role="status" data-testid="admin-settings-saving">{t('admin.settings.saving')}</p>
       {:else if adminSettings.saveError}

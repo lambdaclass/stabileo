@@ -1,5 +1,5 @@
 import { ApiError, setAuthHooks, type RefreshOutcome } from '../api/client';
-import { authApi, type Account, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
+import { authApi, type Account, type AuthConfig, type ConsentKind, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
 import { accounts } from '../features';
 
 export type AuthStatus = 'anonymous' | 'loading' | 'authenticated';
@@ -26,6 +26,7 @@ function writeRefreshToken(token: string | null): void {
 let account = $state<Account | null>(null);
 let status = $state<AuthStatus>('anonymous');
 let userLoginEnabled = $state(false);
+let serverConfig = $state<AuthConfig | null>(null);
 let accessToken: string | null = null;
 // The refresh token this tab last stored. Other tabs share the stored key and may replace it.
 let ownRefreshToken: string | null = null;
@@ -78,8 +79,10 @@ setAuthHooks({ accessToken: () => accessToken, refresh: refreshSession });
 
 async function loadConfig(): Promise<void> {
   try {
-    userLoginEnabled = (await authApi.config()).user_login_enabled === true;
+    serverConfig = await authApi.config();
+    userLoginEnabled = serverConfig.user_login_enabled === true;
   } catch {
+    serverConfig = null;
     userLoginEnabled = false;
   }
 }
@@ -109,6 +112,10 @@ export const authStore = {
   get isAuthenticated() { return status === 'authenticated'; },
   get userLoginEnabled() { return userLoginEnabled; },
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
+  get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
+  get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
+  get termsVersion() { return serverConfig?.terms_version ?? null; },
+  get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
   async init(): Promise<void> {
     if (!accounts()) return;
@@ -146,6 +153,12 @@ export const authStore = {
 
   async updateProfile(patch: ProfileUpdate): Promise<Account> {
     const next = await authenticated(() => authApi.updateMe(patch));
+    account = next;
+    return next;
+  },
+
+  async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    const next = await authenticated(() => authApi.recordConsent(kind, granted));
     account = next;
     return next;
   },

@@ -1,10 +1,10 @@
-import { adminApi, type AdminSettings } from '../lib/api/admin';
+import { adminApi, type AdminFlag, type AdminSettings } from '../lib/api/admin';
 import { adminAuth } from './admin-auth.svelte';
 
 let settings = $state<AdminSettings | null>(null);
 let loading = $state(false);
 let loadError = $state<unknown>(null);
-let pending = $state<boolean | null>(null);
+let pending = $state<{ key: AdminFlag; value: boolean } | null>(null);
 let saveError = $state<unknown>(null);
 let savedAt = $state<number | null>(null);
 let loadSeq = 0;
@@ -16,7 +16,12 @@ export const adminSettings = {
   get saving() { return pending !== null; },
   get saveError() { return saveError; },
   get savedAt() { return savedAt; },
-  get userLoginEnabled() { return pending ?? settings?.user_login_enabled ?? false; },
+  get userLoginEnabled() { return this.flag('user_login_enabled'); },
+
+  flag(key: AdminFlag): boolean {
+    if (pending?.key === key) return pending.value;
+    return settings?.[key] === true;
+  },
 
   async load(): Promise<void> {
     const seq = ++loadSeq;
@@ -34,12 +39,16 @@ export const adminSettings = {
     }
   },
 
-  async setUserLoginEnabled(value: boolean): Promise<boolean> {
+  setUserLoginEnabled(value: boolean): Promise<boolean> {
+    return this.setFlag('user_login_enabled', value);
+  },
+
+  async setFlag(key: AdminFlag, value: boolean): Promise<boolean> {
     if (pending !== null || !settings) return false;
-    pending = value;
+    pending = { key, value };
     saveError = null;
     try {
-      settings = await adminAuth.call(() => adminApi.updateSettings({ ...settings!, user_login_enabled: value }));
+      settings = await adminAuth.call(() => adminApi.updateSettings({ [key]: value }));
       savedAt = Date.now();
       return true;
     } catch (e) {

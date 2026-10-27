@@ -2,6 +2,8 @@
   import { authStore } from '../../lib/store/auth.svelte';
   import { errorText, fieldErrors } from '../../lib/api/error-text';
   import { t, i18n, isOfferedLocale } from '../../lib/i18n';
+  import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
+  import { usageConsent } from '../../lib/telemetry/consent.svelte';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -11,6 +13,8 @@
   let email = $state('');
   let password = $state('');
   let name = $state('');
+  let acceptTerms = $state(false);
+  let shareUsage = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
@@ -43,7 +47,10 @@
           password,
           name: name.trim(),
           locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
+          accept_terms: acceptTerms,
+          ...(shareUsage ? { usage_analytics: true } : {}),
         });
+        if (shareUsage) usageConsent.set('granted');
       }
       close();
     } catch (err) {
@@ -121,13 +128,31 @@
           {/if}
         </label>
 
+        {#if mode === 'register'}
+          <label class="acc-check" class:bad={fields.accept_terms}>
+            <input type="checkbox" bind:checked={acceptTerms} data-testid="auth-accept-terms" />
+            <span>
+              {t('legal.acceptTerms')}
+              <span class="acc-legal-links">
+                <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a> ·
+                <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
+              </span>
+            </span>
+          </label>
+          {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
+          <label class="acc-check">
+            <input type="checkbox" bind:checked={shareUsage} data-testid="auth-share-usage" />
+            <span>{t('usage.registerOptIn')}</span>
+          </label>
+        {/if}
+
         {#if error}
           <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
         {/if}
 
         <div class="acc-footer">
           <button type="button" class="acc-btn" onclick={close}>{t('account.cancel')}</button>
-          <button type="submit" class="acc-btn acc-primary" disabled={busy} data-testid="auth-submit">
+          <button type="submit" class="acc-btn acc-primary" disabled={busy || (mode === 'register' && !acceptTerms)} data-testid="auth-submit">
             {busy ? t('account.working') : mode === 'login' ? t('account.signIn') : t('account.register')}
           </button>
         </div>
@@ -205,6 +230,11 @@
   .acc-field input.bad { border-color: var(--st-bad, #e06c75); }
 
   .acc-hint { font-size: 0.62rem; color: var(--st-text-3); }
+  .acc-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
+  .acc-check input { margin-top: 2px; }
+  .acc-check.bad { color: var(--st-bad, #e06c75); }
+  .acc-legal-links { display: block; margin-top: 2px; font-size: 0.66rem; }
+  .acc-legal-links a { color: var(--st-interactive, var(--st-accent)); }
   .acc-field-err { font-size: 0.64rem; color: var(--st-bad, #e06c75); }
   .acc-error { margin: 0; font-size: 0.7rem; color: var(--st-bad, #e06c75); }
 

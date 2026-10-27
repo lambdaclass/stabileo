@@ -21,6 +21,10 @@
   import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
+  import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
+  import UsageConsentDialog from './components/legal/UsageConsentDialog.svelte';
+  import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
+  import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
@@ -890,8 +894,11 @@
     if (canvas) downloadCanvasPNG(canvas, embed);
   }
 
+  let disclaimerDone = $state(false);
+
   onMount(() => {
     if (accountsEnabled) void authStore.init();
+    const stopUsageTracking = installUsageTracking();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1127,6 +1134,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
+      stopUsageTracking();
       saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
@@ -2135,6 +2143,9 @@
 
   {#if !uiStore.embedMode && !showLanding && !showBlog}
     <WhatsNewNotice />
+    <ResultsDisclaimer onAcknowledged={() => (disclaimerDone = true)} />
+    <UsageConsentDialog {disclaimerDone} />
+    <TermsUpdateDialog />
   {/if}
 
   <!--
