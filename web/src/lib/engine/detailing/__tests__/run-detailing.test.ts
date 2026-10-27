@@ -355,10 +355,9 @@ describe('call-graph: no advertised capability is unreachable', () => {
     expect(surface).toContain('detailingStore.generate');
   });
 
-  it('a successful design run triggers detailing unless the project opted out', () => {
-    const run = readFileSync(`${SRC}/lib/store/design-run.svelte.ts`, 'utf8');
-    expect(run).toMatch(/autoGenerate[\s\S]{0,60}detailingStore\.generate\(\)/);
-  });
+  // Automatic generation and the project opt-out are exercised at runtime by
+  // store/__tests__/design-automatic-repair.test.ts. A source regex for generate()
+  // rejected the scoped generate(options) call even while those behaviours passed.
 
   it('the empty state offers the command instead of describing one', () => {
     // The detailing panel plus the Documents stage extracted from it.

@@ -6,6 +6,82 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Cierre del pórtico de dos filas: paso por los dobleces inferiores
+
+Continuación desde `cc511b968`. Los tres bloqueantes restantes del diseño nuevo de
+`rc-design-qa-row2` eran solapes de `e7-bot-cut-0` con los dobleces de `e5-bot-cont-0`,
+`e5-bot-cont-2` y `e6-bot-cont-1`. No se resolvían repitiendo la búsqueda de diámetros. La
+coordinación calculaba el espacio ocupado por los arcos superiores, pero omitía los inferiores.
+
+Se reutiliza `bendCrossing` para ambas caras, reflejando la distancia vertical: el gancho
+superior baja y el inferior sube. Se consideran las filas, los diámetros, las inserciones y
+las elevaciones asignadas a las líneas. La reserva se transforma al eje local de cada viga y
+se combina en ambos extremos: la barra mantiene una posición transversal a lo largo del vano.
+
+La disposición compartida de las dos caras requiere dos precauciones. Las nuevas alternativas
+deben despejar todos los obstáculos existentes, incluidos los de columnas y armadura superior;
+si ninguna lo logra, se conserva el dominio anterior. Además, la reparación se limita por ahora
+a vigas sin continuidad colineal y con diámetro longitudinal uniforme. Con caras de distintos diámetros, el generador
+adapta los asientos de manera diferente y una misma lista de posiciones no describe ambas
+jaulas con suficiente fidelidad. Esos casos conservan sus conflictos y necesitan una reparación
+que verifique simultáneamente las dos caras. No se presentan como resueltos ni se filtran sus
+choques de la comprobación física.
+
+### Resultado y pruebas rechazadas
+
+El pórtico pasa de **5/8 a 8/8 aprobaciones finales** y de **tres a cero bloqueantes**, sin
+condiciones abiertas. Conserva tres avisos marginales; no se afirma ausencia de todos los
+conflictos. El corte inferior sigue midiendo **2,87 m** y los ganchos vecinos se mantienen.
+La prueba mide directamente la separación física de las tres parejas, además del estado final.
+La búsqueda sigue consumiendo cuatro reconstrucciones, ocho búsquedas nominales y 212
+verificaciones. Regenerar sin búsqueda conserva el cierre completo.
+
+La primera aplicación incondicional de la reserva también cerró el pórtico, pero hizo perder
+las aprobaciones 50, 100 y 104 del edificio grande y aumentó sus bloqueantes a 2951. Separar
+por completo las posiciones inferiores conservó el armado superior, pero dejó once choques
+contra los estribos del pórtico: ambas caras también deben coordinar esa jaula transversal.
+Exigir alternativas compatibles con los obstáculos existentes recuperó la columna 50, pero
+seguía perdiendo 100 y 104 por la adaptación de asientos en jaulas mixtas. Ninguna de esas
+versiones se publica. La restricción a diámetro uniforme evita introducir esa reparación
+incompleta en las jaulas mixtas.
+
+La versión restringida a diámetro uniforme conservó las 87 aprobaciones del edificio grande,
+pero introdujo doce choques entre barras de vanos colineales y dos condiciones de integridad
+de empalmes. Por eso la nueva reserva tampoco modifica líneas continuas: deben repararse como
+grupo, incluyendo sus empalmes físicos. La corrección de esta entrega cubre los vanos aislados
+de diámetro uniforme, con todos sus obstáculos existentes; no pretende cerrar las líneas
+continuas o las jaulas mixtas mediante un cambio local.
+
+### Validación final
+
+| Ejemplo | Aprobados antes → después | Bloqueantes antes → después |
+| --- | ---: | ---: |
+| `rc-beam-flexure` | 2 → 2 | 0 → 0 |
+| `rc-design-qa-8` | 8 → 8 | 0 → 0 |
+| `rc-design-qa-row2` | 5 → 8 | 3 → 0 |
+| `rc-design-qa-seismic` | 8 → 8 | 0 → 0 |
+| `rc-design-frame` | 87 → 87 | 2876 → 2876 |
+| `pro-edificio-7p` | 0 → 0 | 620 → 620 |
+
+**4/6 ejemplos verifican completos**, frente a 3/6 en `cc511b968`. Se conservan las aprobaciones
+por identidad, sin más bloqueantes ni búsquedas agotadas. Todas las pasadas alcanzan su alcance
+sin abortos y la regeneración conserva los seis resultados. Los edificios siguen alcanzando
+seis rondas, con dos y cinco búsquedas agotadas, respectivamente. Se evalúan vigas y columnas;
+no se certifica el proyecto completo.
+
+Evidencia final: `/tmp/design-bottom-bends-final-matrix.json`, contra
+`/tmp/design-local-first-matrix.json`. Las pruebas más amplias rechazadas están en
+`/tmp/design-bottom-bends-matrix.json`, `/tmp/design-bottom-bends-compatible-matrix.json` y
+`/tmp/design-bottom-bends-uniform-matrix.json`; no forman parte de la medición publicada. La
+matriz usa 180 segundos por pasada nominal; el límite interactivo no cambia.
+
+**130 pruebas dirigidas aprobadas en diez suites**, typecheck sin errores nuevos (442 frente
+al baseline de 443) y `git diff --check` limpio. La prueba reforzada de row2 falla contra
+`cc511b968`, que sólo aprueba 1–4 y 8, y pasa con esta corrección. Se retiró una prueba estática
+que exigía literalmente `generate()` y rechazaba la llamada vigente con opciones; la generación
+automática y su desactivación están cubiertas por las pruebas de comportamiento de la store.
+
+
 ## Guiar la búsqueda por los conflictos internos de las vigas
 
 Continuación desde `e7706b349`: el siguiente caso es `rc-design-qa-row2`, generado desde cero

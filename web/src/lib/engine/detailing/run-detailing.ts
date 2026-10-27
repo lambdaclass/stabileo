@@ -2086,21 +2086,22 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       }
     }
 
-    // ── The hook bends of the mats above, now that the ranks are known ──
+    const bottomExtra = new Map<number, KeepOut[]>();
+    const bottomByJoint = new Map<string, Map<number, KeepOut[]>>();
+    // ── Crossing hook bends on both faces, now that the ranks are known ──
     //
-    // A crossing beam that ends here turns its top bars down past the node: each row's bend
-    // sweeps from its run down to its tail, between `at − r` and `at` past the node, across this
-    // beam. A layer of this beam's top steel lying below that row's run passes under the bend and
-    // through it; one above passes over. So a layer below keeps off the bend, and only one below:
-    // the ranks (`layerDropOf`) and the rows' own depths decide which. Measured on qa-8: the lower
-    // mat's bar ran through the upper beam's corner bend by 2,6 mm. Read before the ranks, as a
-    // keep-out of every layer, it would bar both beams from the band each other's bends sweep.
+    // Top hooks turn down and bottom hooks turn up. A row on the inward side of a crossing
+    // hook's run must pass around its bend; a row on the outward side already clears it.
+    // Reflect the vertical distance for bottom bars, retaining the actual row seats, insertion
+    // and allocated movement of each face. Checking only top hooks left three bottom-bend
+    // overlaps in qa-row2 even after its individual cages had been repaired. Read after the
+    // ranks: keeping every row off every bend would unnecessarily constrain both beams.
     {
       // From the node line, each beam's rows on its own axis (the node plus its declared
       // insertion): a top-flush beam's rows stand h/2 lower than a centred one's. Its rows at
-      // that support stepped as the generator lays them (`supportRowInto`).
+      // that support stepped inward as the generator lays them (`supportRowInto`).
       const rowsAt = new Map<string, readonly SupportRow[]>();
-      const zTop = (id: number, dMm: number, layer: number, nodeId: number) => {
+      const zFace = (id: number, dMm: number, layer: number, nodeId: number, face: 'top' | 'bottom') => {
         const c = input.contexts.get(id)!;
         const halfUp = (d: number) => seatedLongitudinalHalfExtents(c.section.b, c.section.h, c.material.cover, c.material.stirrupDia, d).corner.halfUp;
         const key = `${id}|${nodeId}`;
@@ -2110,8 +2111,10 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
           rows = (el ? supportPlanOf(id)?.rows[el.nodeI === nodeId ? 'I' : 'J'] : undefined) ?? [];
           rowsAt.set(key, rows);
         }
-        return axisOffsetAt(id, nodeId).z + halfUp(dMm)
-          - (layerDropOf.get(id) ?? 0) - supportRowInto(rows, 'top', layer, dMm, (d) => -halfUp(d), input.edition);
+        const inward = supportRowInto(rows, face, layer, dMm, (d) => -halfUp(d), input.edition);
+        return axisOffsetAt(id, nodeId).z + (face === 'top'
+          ? halfUp(dMm) - (layerDropOf.get(id) ?? 0) - inward
+          : -halfUp(dMm) + (layerRaiseOf.get(id) ?? 0) + inward);
       };
       const extra = new Map<number, KeepOut[]>();
       for (const j of joints) {
@@ -2119,8 +2122,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         for (const id of j.elementIds) {
           const info = perBeam.get(id);
           const el = input.elements.get(id);
-          if (!info || !el || info.topDia <= 0) continue;
-          const posts: KeepOut[] = [];
+          if (!info || !el) continue;
+          const posts: KeepOut[] = [], bottomPosts: KeepOut[] = [];
           for (const other of j.elementIds) {
             if (other === id || j.relation(id, other) !== 'crossing') continue;
             const o = input.elements.get(other)!;
@@ -2128,17 +2131,25 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
             const side = o.nodeI === nodeId ? 'I' : 'J';
             const k = (side === 'I' ? -1 : 1) * (v.x * info.t.x + v.y * info.t.y);
             for (const t of supportPlanOf(other)?.hookTails(side) ?? []) {
-              if (t.position !== 'top') continue;
+              const ourDia = t.position === 'top' ? info.topDia : info.botDia;
+              if (ourDia <= 0) continue;
               const r = standardHook(t.diameterMm, 90, 'longitudinal').centrelineRadius;
-              const zRow = zTop(other, t.diameterMm, t.row, nodeId);
-              const contact = (t.diameterMm + info.topDia) / 2000;
+              const zRow = zFace(other, t.diameterMm, t.row, nodeId, t.position);
+              const contact = (t.diameterMm + ourDia) / 2000;
               for (const layer of [0, 1, 2]) {
-                const delta = zRow - zTop(id, info.topDia, layer, nodeId);
+                const zOurs = zFace(id, ourDia, layer, nodeId, t.position);
+                const delta = t.position === 'top' ? zRow - zOurs : zOurs - zRow;
                 if (delta < contact - 1e-9) continue;
                 const band = bendCrossing(t.at, r, contact, delta);
-                if (band) posts.push({ at: ((band.lo + band.hi) / 2) * k, halfWidth: (band.hi - band.lo) / 2 - info.dia / 2000 + placement, layers: [layer] });
+                if (band) (t.position === 'top' ? posts : bottomPosts).push({ at: ((band.lo + band.hi) / 2) * k, halfWidth: (band.hi - band.lo) / 2 - info.dia / 2000 + placement, layers: [layer] });
               }
             }
+          }
+          if (bottomPosts.length) {
+            const onBottom = onAxis(id, nodeId, info.t, bottomPosts);
+            bottomExtra.set(id, [...(bottomExtra.get(id) ?? []), ...onBottom]);
+            if (!bottomByJoint.has(j.jointId)) bottomByJoint.set(j.jointId, new Map());
+            bottomByJoint.get(j.jointId)!.set(id, onBottom);
           }
           if (posts.length === 0) continue;
           const onOurs = onAxis(id, nodeId, info.t, posts);
@@ -2153,6 +2164,31 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         if (!more || !args) continue;
         const again = beamLayoutDomain({ ...args, obstacles: [...args.obstacles, ...more] });
         if (again.length > 0) m.domain = again;
+      }
+    }
+    // A new bottom constraint may leave no layout that still threads the column/top
+    // obstacles. Do not replace a usable domain with a fallback that introduces those
+    // clashes; keep its unresolved bottom bend visible until another repair can address it.
+    for (const m of members) {
+      const more = bottomExtra.get(m.elementId), args = domainArgsOf.get(m.elementId);
+      if (!more || !args) continue;
+      const info = perBeam.get(m.elementId)!;
+      // Shared slots have one seat and one clearance diameter. Mixed-diameter faces
+      // remap those slots differently in the generator; moving them for a bottom bend
+      // can strand a top bar against a column or crosstie. Preserve that arrangement
+      // until a face-aware repair can verify both cages together.
+      if (info.botDia !== info.topDia || info.botDia !== info.topMinDia) continue;
+      // A continuous line also needs its physical laps replanned as a group. A locally
+      // clear row is insufficient: changing it alone can break an existing splice.
+      if (m.lineId) continue;
+      const keep = [...args.obstacles, ...joints.flatMap(j => j.keepOutsFor.get(m.elementId) ?? []), ...more];
+      const domain = beamLayoutDomain({ ...args, obstacles: keep })
+        .filter(c => candidateClears(c, m.diameterMm, keep).ok);
+      if (!domain.length) continue;
+      m.domain = domain;
+      for (const j of joints) {
+        const extra = bottomByJoint.get(j.jointId)?.get(m.elementId);
+        if (extra) j.keepOutsFor.set(m.elementId, [...(j.keepOutsFor.get(m.elementId) ?? []), ...extra]);
       }
     }
     const result = coordinate({ members, joints });
