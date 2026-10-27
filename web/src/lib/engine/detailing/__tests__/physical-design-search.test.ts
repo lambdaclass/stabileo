@@ -7,7 +7,7 @@ import type { MemberDesignOutcome } from '../../design/outcome';
 import type { RunDetailingResult } from '../run-detailing';
 import type { UnsupportedCondition } from '../assembly';
 import { detailRegresses, runDesignFeedbackLoop } from '../design-feedback-loop';
-import { continuityLines, searchPhysicalDesignAlternatives } from '../physical-design-search';
+import { continuityLines, DESIGN_PHYSICAL_SEARCH_BUDGET, physicalRepairOrder, searchPhysicalDesignAlternatives } from '../physical-design-search';
 import { syntheticBeamContext } from '../../design/__tests__/helpers';
 import { rebarHash } from '../../design/rebar-hash';
 
@@ -43,6 +43,64 @@ function harness() {
 }
 
 afterEach(() => vi.restoreAllMocks());
+
+describe('constraint-guided operator order', () => {
+  it('prioritizes eligible beam self-conflicts without changing the requested operators', () => {
+    const { input } = harness();
+    const budget = { ...DESIGN_PHYSICAL_SEARCH_BUDGET };
+    expect(physicalRepairOrder({ ...input, budget })).toEqual([
+      'diameterFamily', 'harmonizeCoupledCatalog', 'columnDiameterFamily',
+    ]);
+    expect(budget.operators).toEqual(['harmonizeCoupledCatalog', 'columnDiameterFamily', 'diameterFamily']);
+    expect(physicalRepairOrder({ ...input, budget: { ...budget, prioritizeBeamSelfConflicts: false } }))
+      .toEqual(budget.operators);
+    expect(physicalRepairOrder({ ...input, budget: { ...budget, operators: ['columnDiameterFamily'] } }))
+      .toEqual(['columnDiameterFamily']);
+  });
+
+  it.each(['jointMajority', 'tie', 'noConflicts', 'marginal', 'locked', 'span', 'column',
+    'exhausted', 'provisional', 'noAccepted', 'noContext'] as const)(
+    'preserves joint-first exploration for %s', reason => {
+      const { input } = harness();
+      const cs = input.result.assemblies[0].conflicts;
+      if (reason === 'jointMajority' || reason === 'tie') {
+        cs.push(...Array.from({ length: reason === 'tie' ? 2 : 3 }, () => ({ ...cs[0], elementIds: [1, 2] })));
+      }
+      if (reason === 'noConflicts') cs.length = 0;
+      if (reason === 'marginal') cs.forEach(c => { c.severity = 'marginal'; });
+      if (reason === 'span') input.contexts.get(1)!.span = { representative: 1, elements: [1, 2] } as never;
+      if (reason === 'column') input.contexts.get(1)!.elementType = 'column';
+      if (reason === 'exhausted') input.outcomes.get(1)!.outcome = 'SEARCH_EXHAUSTED';
+      if (reason === 'provisional') input.outcomes.get(1)!.outcome = 'PROVISIONAL_BIAXIAL';
+      if (reason === 'noAccepted') input.outcomes.get(1)!.accepted = undefined;
+      if (reason === 'noContext') input.contexts.delete(1);
+      expect(physicalRepairOrder({ ...input, budget: DESIGN_PHYSICAL_SEARCH_BUDGET,
+        lockedMembers: reason === 'locked' ? new Set([1]) : undefined }))
+        .toEqual(DESIGN_PHYSICAL_SEARCH_BUDGET.operators);
+    });
+
+  it('ignores marginal joint pairs and counts duplicate ownership only once', () => {
+    const { input } = harness();
+    const cs = input.result.assemblies[0].conflicts;
+    cs[0].elementIds = [1, 1];
+    cs.push(...Array.from({ length: 10 }, () => ({ ...cs[0], elementIds: [1, 2], severity: 'marginal' as const })));
+    expect(physicalRepairOrder({ ...input, budget: DESIGN_PHYSICAL_SEARCH_BUDGET })[0]).toBe('diameterFamily');
+  });
+
+  it('spends the shared budget on the first prioritized repair and preserves regression gates', () => {
+    const { input, generate } = harness();
+    input.detail.mockReturnValue(detail([2])); // A neighbour would acquire a new clash.
+    const result = searchPhysicalDesignAlternatives({ ...input,
+      budget: { ...DESIGN_PHYSICAL_SEARCH_BUDGET, maxDetailingRuns: 1 } });
+    expect(result.trials).toHaveLength(1);
+    expect(result.trials[0]).toMatchObject({ operator: 'diameterFamily', disposition: 'regression', newlyBlocked: [2] });
+    expect(result.outcomes).toBe(input.outcomes);
+    expect(result.changed).toEqual([]);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(result.stats).toMatchObject({ detailingRuns: 1, memberSearches: 1, structuralSolves: 0 });
+    expect(result.termination).toBe('budget');
+  });
+});
 
 describe('column diameter repair', () => {
   function column() {

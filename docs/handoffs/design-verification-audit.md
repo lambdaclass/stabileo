@@ -6,6 +6,73 @@ entre las alternativas que explora el diseño y las geometrías que finalmente c
 La prioridad es cerrar esa distancia y medir todos los bloqueos físicos antes de ampliar
 presupuestos de búsqueda.
 
+## Guiar la búsqueda por los conflictos internos de las vigas
+
+Continuación desde `e7706b349`: el siguiente caso es `rc-design-qa-row2`, generado desde cero
+con el ciclo normal de crecimiento y recálculo. De sus 172 bloqueantes, **144 eran internos a
+las vigas** (36 por viga) y 28 entre miembros. Los cierres de estribos atravesaban barras de la
+segunda fila. La prioridad fija de reparación conjunta gastaba intentos en un problema que
+necesitaba revisar primero la armadura individual.
+
+La política del dimensionamiento incluye ahora `diameterFamily` y lo adelanta sólo cuando los
+conflictos internos de vigas reparables son mayoría estricta entre los no marginales. Se exige
+armado nominal verificado y aceptado, sin bloqueo ni tramo compuesto. Las parejas con otros
+miembros, columnas, elementos no elegibles y empates conservan el orden conjunto primero. Los
+conflictos marginales no votan. El cambio es optativo mediante `prioritizeBeamSelfConflicts`;
+los llamadores explícitos conservan su orden por defecto y nunca se agrega un operador que no
+hayan solicitado. Todos comparten el mismo presupuesto, sin reiniciarlo al cambiar de operador.
+
+### Resultado del pórtico de dos filas
+
+La búsqueda ordinaria prueba Ø16 y luego Ø12 en cada una de las cuatro vigas. Ø16 no pasa la
+verificación nominal; Ø12 sí mejora el armado con los vecinos actuales: pasa de 12 barras
+inferiores (6+6) a 10 (6+4), y de 9 superiores por extremo (6+3) a 6 en una fila. También cambia
+la armadura transversal. No se supone que aumentar diámetro resuelva la congestión ni se omite
+la familia actual: un mismo diámetro puede producir otra cantidad y disposición verificable.
+
+Los bloqueantes bajan **172 → 128 → 86 → 46 → 3**. Se eliminan todos los choques internos de
+viga y se recuperan **cinco aprobaciones finales: columnas 1–4 y viga 8**. Se consumen cuatro
+reconstrucciones completas, ocho búsquedas nominales y 212 verificaciones, dentro del límite
+ordinario de cuatro reconstrucciones y 64 búsquedas. Las verificaciones y los controles de
+regresión siguen intactos. Regenerar sin búsqueda conserva exactamente el resultado.
+
+Quedan tres solapes de `e7-bot-cut-0` con `e5-bot-cont-0`, `e5-bot-cont-2` y `e6-bot-cont-1`,
+dentro de los nudos. Las vigas 5, 6 y 7 siguen rechazadas. Hay además dos conflictos marginales;
+por tanto, son **tres bloqueantes de cinco conflictos**, no un diseño cerrado. El siguiente
+problema es coordinar la terminación de las barras inferiores con las armaduras del nudo.
+
+Una segunda exploración de familias y una exploración conjunta no mejoraron esos tres casos.
+Se probó también aplicar el plan de anclaje del apoyo a cortes automáticos que lo alcanzan:
+ese cambio aumentó los bloqueantes iniciales a 248 y dejó 31 después de la búsqueda, frente a
+los 172/3 del generador vigente. Se retiró la prueba geométrica; no se incorporó un cambio de
+anclaje que empeoraba el resultado. Este ensayo no demuestra cuál debe ser la solución final.
+
+### Conservación de los demás diseños
+
+| Ejemplo | Aprobados antes → después | Bloqueantes antes → después |
+| --- | ---: | ---: |
+| `rc-beam-flexure` | 2 → 2 | 0 → 0 |
+| `rc-design-qa-8` | 8 → 8 | 0 → 0 |
+| `rc-design-qa-row2` | 0 → 5 | 172 → 3 |
+| `rc-design-qa-seismic` | 8 → 8 | 0 → 0 |
+| `rc-design-frame` | 87 → 87 | 2876 → 2876 |
+| `pro-edificio-7p` | 0 → 0 | 620 → 620 |
+
+La comparación usa `/tmp/design-rectangular-matrix-validated.json` como baseline y guarda
+`/tmp/design-local-first-matrix.json`. Se conservan las aprobaciones por identidad, sin más
+agotados, abortos ni miembros sin alcanzar en ninguna pasada. Los seis ejemplos conservan el
+resultado al regenerar. Siguen cerrados tres de seis ejemplos; los edificios mantienen sus
+límites de seis rondas y dos/cinco agotados, respectivamente. La auditoría declara 180 segundos
+por pasada nominal; no modifica el límite interactivo. La prueba ordinaria de row2 usa ese
+límite interactivo y no llama manualmente a una reparación adicional.
+
+Validación: **152 pruebas dirigidas en cinco suites**, los seis casos de la matriz, typecheck
+sin errores nuevos (442 frente a un baseline de 443) y `git diff --check` limpio. Las nuevas
+pruebas cubren mayoría, empate, marginales, elegibilidad, orden explícito, presupuesto compartido,
+rechazo de regresiones y generación/regeneración del ejemplo. La regresión de generación falla
+contra `e7706b349` porque no obtiene ninguna de las cinco aprobaciones requeridas; pasa con
+la nueva prioridad. No hay relajación de verificaciones.
+
 ## Cierre de los pórticos pequeños: jaulas rectangulares y primer estribo
 
 Continuación desde `a785f60a1`, evaluando diseños nuevos mediante el comando de dimensionamiento

@@ -24,6 +24,8 @@ export interface PhysicalSearchBudget {
   maxMemberSearches: number;
   /** Ordered repair operators. Omitted preserves the original diameter search. */
   operators?: readonly PhysicalRepairOperator[];
+  /** Try individual beam cages first when eligible self-conflicts are the majority. */
+  prioritizeBeamSelfConflicts?: boolean;
 }
 
 export const DEFAULT_PHYSICAL_SEARCH_BUDGET: PhysicalSearchBudget = {
@@ -33,7 +35,8 @@ export const DEFAULT_PHYSICAL_SEARCH_BUDGET: PhysicalSearchBudget = {
 /** One bounded repair pass after sizing; regeneration alone does not start a search. */
 export const DESIGN_PHYSICAL_SEARCH_BUDGET: PhysicalSearchBudget = {
   maxDetailingRuns: 4, maxMemberSearches: 64,
-  operators: ['harmonizeCoupledCatalog', 'columnDiameterFamily'],
+  operators: ['harmonizeCoupledCatalog', 'columnDiameterFamily', 'diameterFamily'],
+  prioritizeBeamSelfConflicts: true,
 };
 
 export interface PhysicalSearchTrial {
@@ -90,6 +93,25 @@ export function physicallyBlockedMembers(result: RunDetailingResult): Set<number
 
 const conflicts = (r: RunDetailingResult) => r.assemblies.reduce((n, a) =>
   n + a.conflicts.filter(c => c.severity !== 'marginal').length, 0);
+
+/** Choose the first constraint to explore; acceptance still requires full verification. */
+export function physicalRepairOrder(input: Pick<Parameters<typeof searchPhysicalDesignAlternatives>[0],
+  'budget' | 'result' | 'contexts' | 'outcomes' | 'lockedMembers'>): PhysicalRepairOperator[] {
+  const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
+  if (!input.budget.prioritizeBeamSelfConflicts || !operators.includes('diameterFamily')) return operators;
+  let total = 0, beamSelf = 0;
+  for (const assembly of input.result.assemblies) for (const conflict of assembly.conflicts) {
+    if (conflict.severity === 'marginal') continue;
+    total++;
+    const ids = [...new Set(conflict.elementIds)];
+    if (ids.length !== 1) continue;
+    const id = ids[0], ctx = input.contexts.get(id), outcome = input.outcomes.get(id);
+    if (ctx?.elementType === 'beam' && !ctx.span && outcome?.outcome === 'VERIFIED'
+      && outcome.accepted && !input.lockedMembers?.has(id)) beamSelf++;
+  }
+  return beamSelf > total - beamSelf
+    ? ['diameterFamily', ...operators.filter(o => o !== 'diameterFamily')] : operators;
+}
 
 /** Non-negative counts: accepting only a strict decrease prevents repair cycles. */
 function physicalProgressMeasure(r: RunDetailingResult): number[] {
@@ -190,7 +212,7 @@ export function searchPhysicalDesignAlternatives(input: {
   for (const value of [input.budget.maxDetailingRuns, input.budget.maxMemberSearches]) {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('Physical search budgets must be non-negative integers');
   }
-  const operators = [...new Set<PhysicalRepairOperator>(input.budget.operators ?? ['diameterFamily'])];
+  const operators = physicalRepairOrder(input);
   if (operators.some(o => o !== 'diameterFamily' && o !== 'columnDiameterFamily' && o !== 'redistributeLayers' && o !== 'preserveBottomRows' && o !== 'harmonizeTop' && o !== 'harmonizeTopLine' && o !== 'harmonizeBottomLine' && o !== 'harmonizeTopCatalog' && o !== 'harmonizeCageCatalog' && o !== 'harmonizeMixedCageCatalog' && o !== 'harmonizeDemandCatalog' && o !== 'harmonizeCoupledCatalog' && o !== 'harmonizeStirrupCatalog' && o !== 'retryExhausted')) {
     throw new Error('Unknown physical repair operator');
   }
