@@ -36,6 +36,19 @@ defmodule StabileoUtils.FallbackController do
     error(conn, :forbidden, "user_login_disabled", "Sign-in is currently disabled")
   end
 
+  def call(conn, {:error, :cloud_projects_disabled}) do
+    error(conn, :forbidden, "cloud_projects_disabled", "Cloud projects are currently disabled")
+  end
+
+  def call(conn, {:error, :project_limit_reached}) do
+    error(
+      conn,
+      :conflict,
+      "project_limit_reached",
+      "You have reached the maximum number of cloud projects"
+    )
+  end
+
   def call(conn, {:error, :cannot_remove_self}) do
     error(conn, :unprocessable_entity, "cannot_remove_self", "You cannot remove your own email")
   end

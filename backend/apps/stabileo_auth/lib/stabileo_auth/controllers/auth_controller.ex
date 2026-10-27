@@ -3,7 +3,7 @@ defmodule StabileoAuth.Controllers.AuthController do
 
   action_fallback(StabileoUtils.FallbackController)
 
-  @register_fields ~w(email password name locale)
+  @register_fields ~w(email password name locale accept_terms usage_analytics model_research)
 
   def config(conn, _params), do: json(conn, StabileoAuth.config())
 

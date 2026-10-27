@@ -5,7 +5,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
 
   import Ecto.Query
 
-  @keys ~w(active_sessions company country email email_verified_at id inserted_at is_active is_admin job_title last_sign_in_at locale name)
+  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_sign_in_at locale name project_count)
 
   setup do
     admin = Factory.insert(:admin)
@@ -27,6 +27,9 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       assert row["is_active"] == true
       assert row["is_admin"] == false
       assert is_binary(row["last_sign_in_at"])
+      assert row["project_count"] == 0
+      assert row["consents"]["terms"] == nil
+      assert row["consents"]["terms_current"] == false
     end
 
     test "filters, sorts and pages", %{token: token} do

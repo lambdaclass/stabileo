@@ -7,6 +7,8 @@ defmodule StabileoRepo.Features do
   alias StabileoRepo.SystemSettings
 
   @user_login "user_login_enabled"
+  @usage_telemetry "usage_telemetry_enabled"
+  @cloud_projects "cloud_projects_enabled"
 
   @doc """
   Whether product users may sign up and sign in. Off when the row is unset or
@@ -23,6 +25,39 @@ defmodule StabileoRepo.Features do
       @user_login,
       enabled,
       "Product user sign-up and sign-in (existing sessions keep working when off)"
+    )
+  end
+
+  @doc """
+  Whether anonymous usage events are stored. Users still choose whether their
+  browser sends them; this is the server-side switch, off when unset.
+  """
+  def usage_telemetry_enabled? do
+    SystemSettings.get_flag(@usage_telemetry, false) == true
+  rescue
+    _ -> false
+  end
+
+  def set_usage_telemetry_enabled(enabled) when is_boolean(enabled) do
+    SystemSettings.set_flag(
+      @usage_telemetry,
+      enabled,
+      "Store anonymous usage events from browsers whose users opted in"
+    )
+  end
+
+  @doc "Whether signed-in users may save projects to the cloud. Off when unset."
+  def cloud_projects_enabled? do
+    SystemSettings.get_flag(@cloud_projects, false) == true
+  rescue
+    _ -> false
+  end
+
+  def set_cloud_projects_enabled(enabled) when is_boolean(enabled) do
+    SystemSettings.set_flag(
+      @cloud_projects,
+      enabled,
+      "Signed-in users may save, open and delete projects in the cloud"
     )
   end
 end

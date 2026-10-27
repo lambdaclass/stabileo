@@ -22,6 +22,23 @@ defmodule StabileoRepo.FeaturesTest do
     assert %{"enabled" => false} = Repo.get_by!(SystemSetting, key: "user_login_enabled").value
   end
 
+  for {flag, getter, setter} <- [
+        {"usage_telemetry_enabled", :usage_telemetry_enabled?, :set_usage_telemetry_enabled},
+        {"cloud_projects_enabled", :cloud_projects_enabled?, :set_cloud_projects_enabled}
+      ] do
+    test "#{flag} starts off and persists both ways" do
+      refute Repo.get_by(SystemSetting, key: unquote(flag))
+      refute apply(Features, unquote(getter), [])
+
+      {:ok, _} = apply(Features, unquote(setter), [true])
+      assert apply(Features, unquote(getter), [])
+
+      {:ok, _} = apply(Features, unquote(setter), [false])
+      refute apply(Features, unquote(getter), [])
+      assert %{"enabled" => false} = Repo.get_by!(SystemSetting, key: unquote(flag)).value
+    end
+  end
+
   test "a malformed value reads as off" do
     {:ok, _} = SystemSettings.set("user_login_enabled", %{"enabled" => "yes"})
     refute Features.user_login_enabled?()
