@@ -1,12 +1,29 @@
 # Nightly verification
 
 The checks too slow for a pull request run every night on `main`, on GitHub-hosted runners,
-and on demand from the Actions tab or with `gh workflow run <file>`. A failed scheduled run
-opens a GitHub issue labelled `verification-failure`, one per job, or comments on the one
-already open for that job (`.github/workflows/verification-alert.yml`,
-`.github/scripts/verification-alert.cjs`). These issues are never closed automatically: the
-random seeds and the mutants shards change every night, so a green run the next day does not
-mean the finding is fixed. Close the issue in the PR that fixes it.
+and on demand from the Actions tab or with `gh workflow run <file>`.
+
+**Alerting** (`.github/workflows/verification-alert.yml`, `.github/scripts/verification-alert.cjs`).
+A failed, timed-out or cancelled scheduled run of `nightly.yml`, `differential.yml`, `verify.yml`,
+`mutation-ts.yml`, `verification-dashboard.yml` or `supply-chain.yml` opens **one issue per
+workflow**, titled `CI failure: <workflow>` and labelled `ci-failure`, with the run link and the
+failing jobs, or comments on the one already open. The next green scheduled run closes it, so
+each new red spell opens a fresh issue (which is what notifies the repository's watchers; a
+comment on a months-old issue notifies nobody). Once a day (13:00 UTC) a staleness check does
+the same for a workflow that has not completed a scheduled run in its window (32 h; 8 days for
+the weekly dashboard), or that is disabled or renamed.
+
+The `ci-failure` issue only says that the workflow is red. Each real finding behind it (a
+differential mismatch, a metamorphic violation, a fuzz crash, a missed mutant, a failing proof)
+is triaged into its own issue, labelled `bug` and also `safety` when a result could be wrong,
+with its reproduction (the seed is printed in the log), and linked from the `ci-failure` issue.
+Those finding issues are never closed automatically: the random seeds and the mutants shards
+change every night, so a green run the next day does not mean the finding is fixed. (The
+`verification-failure` issues opened per job before October 2026 are such finding issues.)
+
+Negative case: `gh workflow run nightly.yml -f force_failure=true` (or `differential.yml`) fails
+at once, without running anything, and must open `CI failure: <workflow> [forced failure]`, an
+issue of its own that the real alerts never touch; close it by hand.
 
 | Workflow | Jobs | Schedule (UTC) | Wall clock | Runner time |
 |---|---|---|---|---|
@@ -53,6 +70,8 @@ Run particular shards by hand:
     gh workflow run differential.yml -f seed=744000      # reproduce a night's seeds
     gh workflow run verification-alert.yml -f run_id=<id>               # what it would report (dry run)
     gh workflow run verification-alert.yml -f run_id=<id> -f dry_run=false
+    gh workflow run verification-alert.yml -f dry_run=false                # staleness check now
+    gh workflow run nightly.yml -f force_failure=true                       # negative case
 
 ## What cannot run on GitHub-hosted runners
 

@@ -62,6 +62,7 @@ jobs:
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
     steps:
       - id: plan
+        name: Plan
         env:
           ONLY: ${{ inputs.only }}
           SHARDS: ${{ inputs.mutants_shards }}
