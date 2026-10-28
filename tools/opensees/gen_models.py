@@ -133,9 +133,16 @@ def _rich_2d(seed):
             if rng.random() < 0.4:
                 s["angle"] = rng.uniform(-1.2, 1.2)
         elif rng.random() < 0.3:
-            s["dx"] = rng.uniform(-0.01, 0.01)
-            s["dz"] = rng.uniform(-0.01, 0.01)
-            s["dry"] = rng.uniform(-0.002, 0.002)
+            # Settlements only on the DOFs the support type restrains
+            # (engine/src/solver/dof.rs): the engine refuses one on a free DOF
+            # (it would not be applied) and the references drop it, so such a
+            # model only ever showed up as a false_reject.
+            restrained = {"fixed": (0, 1, 2), "pinned": (0, 1), "rollerX": (1,), "rollerZ": (0,),
+                          "guidedX": (1, 2), "guidedZ": (0, 2)}[typ]
+            for k, (key, amp) in enumerate((("dx", 0.01), ("dz", 0.01), ("dry", 0.002))):
+                v = rng.uniform(-amp, amp)  # drawn either way: the stream stays as it was
+                if k in restrained:
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}
@@ -218,10 +225,11 @@ def _rich_3d(seed):
                 if rng.random() < 0.4:
                     s[key] = rng.uniform(1e3, 1e6)
         if rng.random() < 0.3:
-            for key in ("dx", "dy", "dz"):
-                s[key] = rng.uniform(-0.01, 0.01)
-            for key in ("drx", "dry", "drz"):
-                s[key] = rng.uniform(-0.002, 0.002)
+            # Only on restrained DOFs without a spring (see rich_2d).
+            for k, key in enumerate(("dx", "dy", "dz", "drx", "dry", "drz")):
+                v = rng.uniform(-0.01, 0.01) if k < 3 else rng.uniform(-0.002, 0.002)
+                if s[flag[k]] and not s.get(("kx", "ky", "kz", "krx", "kry", "krz")[k]):
+                    s[key] = v
         sups[str(k)] = s
     loads = []
     lengths = {e["id"]: math.dist(pts[e["nodeI"] - 1], pts[e["nodeJ"] - 1]) for e in elems.values()}
