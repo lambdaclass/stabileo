@@ -376,7 +376,7 @@ web.build: wasm research.wasm
 ## The site kept under its commit, /@<first 7 of the commit>/ (docs/DEPLOY.md "Snapshots"), in
 ## web/dist-snapshot/. Same inputs as web.build; the normal build is not touched.
 web.build.snapshot: wasm research.wasm
-	$(NIX_RUN) bash -c 'cd web && commit=$${GITHUB_SHA:-$$(git rev-parse HEAD)} && export BASE_PATH=/@$${commit:0:7}/ SNAPSHOT_COMMIT=$$commit && npx vite build --outDir dist-snapshot --emptyOutDir && PRERENDER_OUT=dist-snapshot npx tsx scripts/prerender.ts'
+	$(NIX_RUN) web/scripts/build-snapshot.sh
 
 admin.run:
 	$(NIX_RUN) bash -c "cd web && VITE_APP_TYPE=admin VITE_API_URL=http://localhost:$(BACKEND_PORT) npx vite --port $(ADMIN_PORT)"
