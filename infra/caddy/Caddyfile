@@ -16,9 +16,12 @@ import /etc/caddy/sites.d/*.caddy
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
-		X-Robots-Tag "{$ROBOTS_TAG}"
 		-Server
 	}
+	# Snapshots (/@<commit>/, below) are never indexed: each page's canonical names the latest site.
+	@notSnapshot not path /@*
+	header @notSnapshot X-Robots-Tag "{$ROBOTS_TAG}"
+	header /@* X-Robots-Tag "noindex"
 
 	handle /api/* {
 		reverse_proxy 127.0.0.1:{$BACKEND_PORT:4100}
@@ -50,8 +53,6 @@ import /etc/caddy/sites.d/*.caddy
 	@snapshot path_regexp snap ^/@([0-9a-f]{7})(/.*)?$
 	handle @snapshot {
 		root * {$STABILEO_ROOT}/snapshots
-		# The latest site is the one to index; each page's canonical names it.
-		header X-Robots-Tag "noindex"
 		route {
 			@bare path_regexp ^/@[0-9a-f]{7}$
 			redir @bare {path}/ 301
