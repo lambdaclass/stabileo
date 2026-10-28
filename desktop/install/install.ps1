@@ -1,6 +1,6 @@
 # Install the Stabileo desktop app on Windows (x64) from its newest prerelease:
 #
-#   irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop/desktop/install/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 | iex
 #
 # Downloads the installer, checks it against the release's SHA256SUMS, and runs it for the current
 # user (no administrator rights). The app updates itself afterwards.

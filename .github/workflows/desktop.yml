@@ -203,6 +203,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           NOTES: ${{ inputs.notes }}
         run: |
+          cp desktop/install/install.sh desktop/install/install.ps1 dist/
           cd dist
           ls -la
           sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS
@@ -223,19 +224,34 @@ jobs:
           NOTES: ${{ inputs.notes }}
         run: |
           tag="desktop-v$VERSION"
-          body=$(printf '%s\n\nUnsigned prerelease of the Stabileo desktop app (not a release of stabileo.com). Install: https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/README.md#install\n' "${NOTES:-Stabileo desktop $VERSION}")
+          # Every prerelease opens with the install guide (desktop/release/release-body.md).
+          node -e '
+            const fs = require("fs");
+            const [tpl, version, notes] = process.argv.slice(1);
+            const body = fs.readFileSync(tpl, "utf8")
+              .replaceAll("@VERSION@", version)
+              .replace("@NOTES@", () => notes.trim() || `Stabileo desktop ${version}`);
+            fs.writeFileSync("release-body.md", body);
+          ' desktop/release/release-body.md "$VERSION" "$NOTES"
           gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Stabileo desktop $VERSION" --notes "$body" --prerelease --latest=false
-      # The updater reads latest.json from the desktop-update-feed branch (a fixed URL; GitHub's
-      # "latest release" skips prereleases). Written through the contents API, so the commit is
-      # signed by GitHub, as the repository's rules require of every branch.
-      - name: Point the update feed at desktop-v${{ inputs.version }}
+            --title "Stabileo desktop $VERSION" --notes-file release-body.md --prerelease --latest=false
+      # The desktop-update-feed branch holds what must stay at a fixed address whatever branch the
+      # code is on: latest.json, which the in-app updater reads (GitHub's "latest release" skips
+      # prereleases), and the install scripts the docs point to. Written through the contents
+      # API, so each commit is signed by GitHub, as the repository's rules require of every branch.
+      # latest.json goes last: installed apps see the new version only once everything is there.
+      - name: Point the update feed and install scripts at desktop-v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
-          api="repos/$GITHUB_REPOSITORY/contents/latest.json"
-          sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null || true)
-          args=(-f branch=desktop-update-feed -f message="Update feed: desktop-v$VERSION" -f content="$(base64 -w0 dist/latest.json)")
-          [ -n "$sha" ] && args+=(-f sha="$sha")
-          gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
+          put() {
+            api="repos/$GITHUB_REPOSITORY/contents/$1"
+            sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null) || sha=""
+            args=(-f branch=desktop-update-feed -f message="Update feed: $1 for desktop-v$VERSION" -f content="$(base64 -w0 "$2")")
+            [ -n "$sha" ] && args+=(-f sha="$sha")
+            gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
+          }
+          put install.sh dist/install.sh
+          put install.ps1 dist/install.ps1
+          put latest.json dist/latest.json

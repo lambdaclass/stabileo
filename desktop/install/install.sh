@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install the Stabileo desktop app (Linux x86_64 AppImage, or macOS) from its newest prerelease:
 #
-#   curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop/desktop/install/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh
 #
 # Linux: the AppImage goes to ~/.local/bin/stabileo, with a menu entry and .ded files opening in
 # it; the app updates itself. macOS: Stabileo.app goes to /Applications (or ~/Applications).
