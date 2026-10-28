@@ -10,10 +10,10 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { buildProjectFile, loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
+import { loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
 import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
-import { tabManager } from '../store/tabs.svelte';
+import { tabManager, type TabState } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { i18n, isDefaultName, t } from '../i18n';
 import { desktopText, menuLabels } from './desktop-text';
@@ -22,15 +22,12 @@ import { showAbout, reportProblem } from './about';
 import { runSelfCheck } from './self-check';
 import { routeExternalLinks } from './external-links';
 import { logToFile } from './log';
+import { DocumentState, hash, type TabDoc } from './document-state';
 
 const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
 
-/** The file each tab was opened from or last saved to. */
-const tabPaths = new Map<string, string>();
-/** Each tab's content when it was opened or saved, as a hash. */
-const baselines = new Map<string, number>();
-/** Tabs that may differ from their file; cleared only by a check that finds them equal. */
-const changed = new Set<string>();
+/** Each tab's file and saved state (`./document-state.ts`). */
+const docs = new DocumentState();
 
 let dirty = $state(false);
 let titleName = $state('');
@@ -43,79 +40,73 @@ function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-/** cyrb53: enough to tell a project from its saved copy without keeping the text. */
-function hash(text: string): number {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 2654435761);
-    h2 = Math.imul(h2 ^ c, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+/** What Save writes for the active tab: its name and model, from the live stores. */
+function liveFingerprint(): number {
+  return hash(JSON.stringify({ name: modelStore.model.name, snapshot: modelStore.snapshot() }));
 }
 
-function fingerprint(): number {
-  const file = buildProjectFile();
-  file.timestamp = '';
-  return hash(JSON.stringify(file));
+/** The same for a tab that is not active, from the state the tab manager keeps for it. */
+function storedFingerprint(tab: TabState): number {
+  return hash(JSON.stringify({ name: tab.name, snapshot: tab.modelSnapshot }));
 }
 
 function activeTab(): string {
   return tabManager.activeTabId ?? '';
 }
 
-function markClean(tab = activeTab()): void {
-  baselines.set(tab, fingerprint());
-  changed.delete(tab);
-  refreshState();
+function tabDocs(): TabDoc[] {
+  const active = activeTab();
+  return tabManager.tabs.map((tab) => ({
+    id: tab.id,
+    fingerprint: tab.id === active ? liveFingerprint : () => storedFingerprint(tab),
+  }));
 }
 
-/** Compare the active tab with its file now; true when they differ. */
-function checkActive(): boolean {
-  const tab = activeTab();
-  const base = baselines.get(tab);
-  if (base === undefined) {
-    baselines.set(tab, fingerprint());
-    changed.delete(tab);
-  } else if (fingerprint() === base) {
-    changed.delete(tab);
-  } else {
-    changed.add(tab);
-  }
-  refreshState();
-  return changed.has(tab);
+function activeDoc(): TabDoc {
+  return { id: activeTab(), fingerprint: liveFingerprint };
 }
 
-function anyUnsaved(): boolean {
-  checkActive();
-  return changed.size > 0;
+/** The tabs with changes their file does not have, decided from their content now. */
+export function unsavedTabs(): string[] {
+  docs.track(tabDocs());
+  return docs.unsaved(tabDocs()).map((d) => d.id);
 }
 
 function refreshState(): void {
   const tab = activeTab();
-  dirty = changed.has(tab);
-  const path = tabPaths.get(tab);
+  dirty = docs.isUnsaved(activeDoc());
+  const path = docs.path(tab);
   const name = modelStore.model.name;
   // A default name, saved in whatever language (or as its bare key), reads in the current one.
   titleName = path ? baseName(path) : !name ? tx('untitled') : isDefaultName(name) ? t('tabBar.newStructure') : name;
 }
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null;
+let shownTab = '';
 
 function watchChanges(): void {
   $effect.root(() => {
     $effect(() => {
+      // New tabs get their baseline when they appear, closed ones are forgotten.
+      void tabManager.tabs.length;
+      const active = activeTab();
+      if (active !== shownTab) {
+        // A tab that was clean as stored stays clean as loaded into the model.
+        const stored = tabManager.tabs.find((tab) => tab.id === active);
+        if (stored) docs.rebase(active, storedFingerprint(stored), liveFingerprint());
+        shownTab = active;
+      }
+      docs.track(tabDocs());
+      refreshState();
+    });
+    $effect(() => {
+      // The title's dot follows edits after a pause; the save questions never wait for it.
       void modelStore.modelVersion;
       void historyStore.undoCount;
       void historyStore.redoCount;
-      const tab = activeTab();
-      if (baselines.has(tab)) changed.add(tab);
-      refreshState();
+      dirty = true;
       if (checkTimer) clearTimeout(checkTimer);
-      checkTimer = setTimeout(checkActive, 800);
+      checkTimer = setTimeout(refreshState, 800);
     });
     $effect(() => {
       void modelStore.model.name;
@@ -141,34 +132,37 @@ async function noteRecent(path: string): Promise<void> {
   }
 }
 
-/** Save / Don't save / Cancel, for unsaved changes about to be replaced or closed. */
-async function confirmDiscard(): Promise<boolean> {
-  if (!anyUnsaved()) return true;
+/**
+ * Save / Don't save / Cancel, for unsaved changes in any tab (the inactive ones too) about to be
+ * replaced or closed. True when it is fine to go on.
+ */
+export async function confirmDiscard(): Promise<boolean> {
+  const unsaved = unsavedTabs();
+  if (unsaved.length === 0) return true;
   const answer = await message(tx('unsavedBody'), {
     title: tx('unsavedTitle'),
     kind: 'warning',
     buttons: { yes: tx('save'), no: tx('dontSave'), cancel: tx('cancel') },
   });
   if (answer === tx('save') || answer === 'Yes') {
-    if (changed.size > (changed.has(activeTab()) ? 1 : 0)) {
-      return saveSessionAs();
-    }
-    return saveActive();
+    if (unsaved.length === 1 && unsaved[0] === activeTab()) return saveActive();
+    return saveSessionAs();
   }
   return answer === tx('dontSave') || answer === 'No';
 }
 
-async function openPath(path: string): Promise<void> {
+export async function openPath(path: string): Promise<void> {
   try {
     const text = await readTextFile(path);
     const result = await loadFile(new File([text], baseName(path), { type: 'application/json' }));
     if (result.type === 'session') {
       uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
-      for (const tab of tabManager.tabs) markClean(tab.id);
+      shownTab = activeTab();
+      docs.replaceAll(tabDocs());
     } else {
-      tabPaths.set(activeTab(), path);
-      markClean();
+      docs.markSaved(activeDoc(), path);
     }
+    refreshState();
     await noteRecent(path);
   } catch (err) {
     uiStore.toast(`${t('toast.loadFileError')}: ${err instanceof Error ? err.message : String(err)}`, 'error');
@@ -199,21 +193,23 @@ function withDed(path: string): string {
 
 /** Save the active tab to its file, or ask where when it has none. */
 export async function saveActive(): Promise<boolean> {
-  const path = tabPaths.get(activeTab());
+  const path = docs.path(activeTab());
   if (!path) return saveActiveAs();
+  const doc = activeDoc();
   if (!(await writeTo(path, serializeProject()))) return false;
-  markClean();
+  docs.markSaved(doc, path);
+  refreshState();
   return true;
 }
 
 export async function saveActiveAs(): Promise<boolean> {
   const { content, filename } = projectPayload();
-  const picked = await save({ defaultPath: tabPaths.get(activeTab()) ?? filename, filters: DED_FILTERS });
+  const picked = await save({ defaultPath: docs.path(activeTab()) ?? filename, filters: DED_FILTERS });
   if (!picked) return false;
   const path = withDed(picked);
   if (!(await writeTo(path, content))) return false;
-  tabPaths.set(activeTab(), path);
-  markClean();
+  docs.markSaved(activeDoc(), path);
+  refreshState();
   return true;
 }
 
@@ -223,10 +219,7 @@ export async function saveSessionAs(): Promise<boolean> {
   const picked = await save({ defaultPath: filename, filters: DED_FILTERS });
   if (!picked) return false;
   if (!(await writeTo(withDed(picked), content))) return false;
-  for (const tab of tabManager.tabs) {
-    if (tab.id === activeTab()) markClean(tab.id);
-    else changed.delete(tab.id);
-  }
+  for (const doc of tabDocs()) docs.markSaved(doc);
   refreshState();
   return true;
 }
@@ -240,7 +233,8 @@ export async function saveTextAs(content: string, filename: string): Promise<'sa
 
 function newProject(): void {
   tabManager.createTab();
-  markClean();
+  docs.track(tabDocs());
+  refreshState();
 }
 
 let closing = false;
@@ -352,5 +346,5 @@ export async function startDesktop(): Promise<void> {
   });
   await takePendingFiles();
   void runSelfCheck();
-  void startUpdater();
+  void startUpdater(confirmDiscard);
 }
