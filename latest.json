@@ -1,23 +1,23 @@
 {
-  "version": "0.1.0-alpha.2",
-  "notes": "Second alpha: tests that the first alpha updates itself. The macOS app keeps its install instructions for macOS 15 and later, and the Homebrew cask cleans up its logs on zap.",
-  "pub_date": "2026-10-28T16:25:44.052Z",
+  "version": "0.1.0-alpha.3",
+  "notes": "Third alpha: the window title reads in your language, links open in your browser, and every release is install-tested on Windows, macOS and Linux.",
+  "pub_date": "2026-10-28T19:37:05.909Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkpoU0owZ0o4UXU5bWdpcFhjSGVYQzlmbUlrME54VndSbzl1V1MwcTRuTTJjcEZxZEU5ekRLZ1hIeGJZMTZHaVB4U1Q4bkt5SDJvN3g3U1lTckl1YUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjA0NjUzCWZpbGU6U3RhYmlsZW8uYXBwLnRhci5negl2ZXJzaW9uOjAuMS4wLWFscGhhLjIKUUNlTi81KzlBQkYwYzdwNmU3UTQwZlJiV1grMmdtOTVGVFhJYWpDNituS3l5SXVJd2JCSjlrUDdWTVRkMlRER1Q4SUlVTW9pMTBRSjZhOEVjZWZtQ2c9PQo=",
-      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.2/Stabileo_0.1.0-alpha.2_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkxwTkc3UXRRMC9yWHZmazM3L25XSTJDbjVFam80SFpiOWIrc1NXWjU0STRUc2ZTT0JZUjB5cjZOQWRrZkR6eHA2MVo3NG1uL01IZmVPZStFN25xSFFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE2MTUxCWZpbGU6U3RhYmlsZW8uYXBwLnRhci5negl2ZXJzaW9uOjAuMS4wLWFscGhhLjMKYkdDbThGYThxQzZwOE1XMWREYkNoeVVOZk9iM09QQXNuaFpwRVF4UHUxcEVrZUY4TlYxYTduMTVSRnJzVmNmbVRUWkRHSnhIQk9vQlpGSUJGK3NuRGc9PQo=",
+      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.3/Stabileo_0.1.0-alpha.3_universal.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkpoU0owZ0o4UXU5bWdpcFhjSGVYQzlmbUlrME54VndSbzl1V1MwcTRuTTJjcEZxZEU5ekRLZ1hIeGJZMTZHaVB4U1Q4bkt5SDJvN3g3U1lTckl1YUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjA0NjUzCWZpbGU6U3RhYmlsZW8uYXBwLnRhci5negl2ZXJzaW9uOjAuMS4wLWFscGhhLjIKUUNlTi81KzlBQkYwYzdwNmU3UTQwZlJiV1grMmdtOTVGVFhJYWpDNituS3l5SXVJd2JCSjlrUDdWTVRkMlRER1Q4SUlVTW9pMTBRSjZhOEVjZWZtQ2c9PQo=",
-      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.2/Stabileo_0.1.0-alpha.2_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkxwTkc3UXRRMC9yWHZmazM3L25XSTJDbjVFam80SFpiOWIrc1NXWjU0STRUc2ZTT0JZUjB5cjZOQWRrZkR6eHA2MVo3NG1uL01IZmVPZStFN25xSFFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE2MTUxCWZpbGU6U3RhYmlsZW8uYXBwLnRhci5negl2ZXJzaW9uOjAuMS4wLWFscGhhLjMKYkdDbThGYThxQzZwOE1XMWREYkNoeVVOZk9iM09QQXNuaFpwRVF4UHUxcEVrZUY4TlYxYTduMTVSRnJzVmNmbVRUWkRHSnhIQk9vQlpGSUJGK3NuRGc9PQo=",
+      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.3/Stabileo_0.1.0-alpha.3_universal.app.tar.gz"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkd5Ujd2ejRQdXRYaG9VZ2tqaTdxZURHazZmVURycHZnUEI3SVRON2Q3aENuMndwbnVhTmhJbTkrSnp2ais4QkxCN1VlUno3aHhmbjN6K1hZSjhueHc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjA0Njg0CWZpbGU6U3RhYmlsZW9fMC4xLjAtYWxwaGEuMl9hbWQ2NC5BcHBJbWFnZQl2ZXJzaW9uOjAuMS4wLWFscGhhLjIKNkVqd1NyT1JYNjhnYXpMQXhEQW5zZ2pwSXpZK0MrRjk3OEs5Q3ZaejhqcGduYXBJczBsa3plMUtqazJrQ1JYUGtaV2RyaG4zaUhPWTNzTEhCWVMyRFE9PQo=",
-      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.2/Stabileo_0.1.0-alpha.2_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkFnWVNxd3Bia3dtR0d1RC9rZkllMndNWUYyUTFWRUhPNExmYzN6bE5iMmdlTkVweHFPcWNVSFVwQ25Da2NRM2dpOXZ5YUR2YUwwT3hBbjAzRjAyRVFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE1OTYwCWZpbGU6U3RhYmlsZW9fMC4xLjAtYWxwaGEuM19hbWQ2NC5BcHBJbWFnZQl2ZXJzaW9uOjAuMS4wLWFscGhhLjMKTGo1Q3I5UzF1a1ZJZkRzQ3paTWVTUVVoTDlqd3NaRVVCdEVkOFh6RzdhTTI1ejl0VFI5L2E0V1ovWncrcXdzMm54RFlQS3lmRGMyMW9GQy93MzNyREE9PQo=",
+      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.3/Stabileo_0.1.0-alpha.3_amd64.AppImage"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdkZsYnJzdjZwa3kxdlVQWm42QmdwdzZvUTFmUiszcThLUFVnejl5d3dTODJWZEYxN3Z1NlJYVWRxUERFVU1qTnltczV3bW5peXZ1Tk9DQjU5b0w4WUE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjA0NjY5CWZpbGU6U3RhYmlsZW9fMC4xLjAtYWxwaGEuMl94NjQtc2V0dXAuZXhlCXZlcnNpb246MC4xLjAtYWxwaGEuMgp4aE52TmptcVlBS1RTOTR2MzVXcFp3UXg0eWdvV2NzWGNETkVqMlFSemx6MzgzN3BaWUlJaHdQR01DRjhwcldlWnhyVko3eUowNDM0RXczMlZTWldCQT09Cg==",
-      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.2/Stabileo_0.1.0-alpha.2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYW5KckdOWnhsdktuYkIyS2NCWVVSQ2E1R0Q5MUFpWk9lOVBIRDBUY0c3NnNxNVpKTDRlUDZFWXZQc0hyNm9pZUpHR2ZwWHJ1ZHFOcXAvNFc0eTI3MVdSVXVDYkkrU0FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjE1ODU3CWZpbGU6U3RhYmlsZW9fMC4xLjAtYWxwaGEuM194NjQtc2V0dXAuZXhlCXZlcnNpb246MC4xLjAtYWxwaGEuMwpJYTFCYnRZRHhndkM1c1JSUHZOV0pSWWtwYTJ1VnVlWmMzcFJ3dEErRjJsTHF4REFLNEpVUm4rMjV5MytuY0hvZmNuQzhGeW4wN1JGUytmLzg1RWJEUT09Cg==",
+      "url": "https://github.com/lambdaclass/stabileo/releases/download/desktop-v0.1.0-alpha.3/Stabileo_0.1.0-alpha.3_x64-setup.exe"
     }
   }
 }
