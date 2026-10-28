@@ -92,22 +92,28 @@ It downloads the newest version, checks its fingerprint, and copies Stabileo to 
 
 ### First open on macOS
 
-Double-clicking an unsigned app the first time shows *"Stabileo" cannot be opened because Apple
-cannot check it for malicious software* (or *"Apple could not verify..."*) with only **Done** or
-**Move to Trash**. Do not move it to the Trash. Instead, either:
+Stabileo is not signed with an Apple Developer ID yet, so the first time you open it macOS says
+*"Stabileo" Not Opened* (or *Apple could not verify "Stabileo" is free of malware...*) and offers
+only **Done** or **Move to Trash**. Choose **Done**, not the Trash. Then, once:
 
-- In **Finder** ▸ **Applications**, **right-click** (or Control-click) **Stabileo** ▸ **Open**, then
-  **Open** again in the dialog; or
-- On macOS 15 (Sequoia) and later, where right-click ▸ Open no longer offers the button: after the
-  first attempt, open **System Settings** ▸ **Privacy & Security**, scroll to *"Stabileo" was
-  blocked...*, click **Open Anyway**, and confirm with your password; or
-- In **Terminal**, run once:
+**macOS 15 (Sequoia) and later**
 
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/Stabileo.app
-  ```
+1. Open **System Settings** ▸ **Privacy & Security**.
+2. Scroll down to *"Stabileo" was blocked to protect your Mac* and click **Open Anyway**.
+3. Confirm with **Open Anyway** again and your password or Touch ID.
 
-From then on it opens normally.
+**macOS 14 (Sonoma) and earlier**
+
+In **Finder** ▸ **Applications**, **right-click** (or Control-click) **Stabileo** ▸ **Open**, then
+**Open** again in the dialog.
+
+**Any version, in Terminal**
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Stabileo.app
+```
+
+From then on it opens normally, updates included.
 
 ## Linux
 

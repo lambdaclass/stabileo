@@ -94,23 +94,29 @@ Descarga la versión más nueva, verifica su huella y copia Stabileo a Aplicacio
 
 ### Primera apertura en macOS
 
-Al hacer doble clic en una app sin firmar la primera vez aparece *No se puede abrir "Stabileo"
-porque Apple no puede comprobar si contiene software malicioso* (o *Apple no pudo verificar...*),
-solo con **OK** o **Trasladar a la papelera**. No la mandes a la papelera. En cambio, hacé una de
-estas cosas:
+Stabileo todavía no está firmado con un Apple Developer ID, así que la primera vez que lo abrís
+macOS dice *No se abrió "Stabileo"* (o *Apple no pudo verificar que "Stabileo" no contenga
+malware...*) y solo ofrece **OK** o **Trasladar a la papelera**. Elegí **OK**, no la papelera.
+Después, una sola vez:
 
-- En el **Finder** ▸ **Aplicaciones**, **clic derecho** (o Control-clic) en **Stabileo** ▸
-  **Abrir**, y otra vez **Abrir** en el cuadro; o
-- En macOS 15 (Sequoia) y posteriores, donde clic derecho ▸ Abrir ya no ofrece el botón: después
-  del primer intento, abrí **Configuración del Sistema** ▸ **Privacidad y seguridad**, bajá hasta
-  *Se bloqueó "Stabileo"...*, hacé clic en **Abrir de todos modos** y confirmá con tu contraseña; o
-- En la **Terminal**, ejecutá una vez:
+**macOS 15 (Sequoia) y posteriores**
 
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/Stabileo.app
-  ```
+1. Abrí **Configuración del Sistema** ▸ **Privacidad y seguridad**.
+2. Bajá hasta *Se bloqueó "Stabileo" para proteger tu Mac* y hacé clic en **Abrir igualmente**.
+3. Confirmá con **Abrir igualmente** otra vez y tu contraseña o Touch ID.
 
-A partir de ahí se abre normalmente.
+**macOS 14 (Sonoma) y anteriores**
+
+En el **Finder** ▸ **Aplicaciones**, **clic derecho** (o Control-clic) en **Stabileo** ▸ **Abrir**,
+y otra vez **Abrir** en el cuadro.
+
+**Cualquier versión, en la Terminal**
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Stabileo.app
+```
+
+A partir de ahí se abre normalmente, también después de actualizarse.
 
 ## Linux
 

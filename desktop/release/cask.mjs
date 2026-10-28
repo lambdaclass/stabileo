@@ -30,10 +30,14 @@ process.stdout.write(`cask "stabileo" do
   ]
 
   caveats <<~EOS
-    Stabileo is not signed or notarized yet, so macOS blocks it on first open.
-    Right-click Stabileo in Applications and choose Open (on macOS 15 and later:
-    try to open it, then System Settings > Privacy & Security > Open Anyway), or run:
+    Stabileo is not signed with an Apple Developer ID yet, so macOS blocks it the first time.
+    macOS 15 (Sequoia) and later: open Stabileo once, then go to System Settings >
+      Privacy & Security, find "Stabileo was blocked...", click Open Anyway and confirm.
+    macOS 14 and earlier: right-click Stabileo in Applications, choose Open, then Open.
+    Any version, in Terminal:
       xattr -dr com.apple.quarantine /Applications/Stabileo.app
+    Only once: updates open without asking. Guide:
+      https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/INSTALL.md
   EOS
 end
 `);
