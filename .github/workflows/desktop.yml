@@ -218,7 +218,8 @@ jobs:
           cp desktop/install/install.sh desktop/install/install.ps1 dist/
           cd dist
           ls -la
-          find . -maxdepth 1 -type f ! -name '*.sig' -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
+          find . -maxdepth 1 -type f ! -name '*.sig' ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > ../SHA256SUMS
+          mv ../SHA256SUMS SHA256SUMS
           cat SHA256SUMS
           node ../desktop/release/latest-json.mjs "$VERSION" "$NOTES" . > latest.json
           cat latest.json
