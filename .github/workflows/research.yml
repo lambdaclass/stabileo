@@ -12,6 +12,12 @@ on:
       - 'web/src/lib/engine/**'
       - 'web/src/components/research/**'
       - 'web/src/components/viewport/**'
+      # The rest of the viewer the research pages share (research/DESIGN.md §3: replay on viewer changes).
+      - 'web/src/components/Viewport*.svelte'
+      - 'web/src/lib/three/**'
+      - 'web/src/lib/viewport3d/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
     paths:
       - 'research/**'
@@ -20,6 +26,12 @@ on:
       - 'web/src/lib/engine/**'
       - 'web/src/components/research/**'
       - 'web/src/components/viewport/**'
+      # The rest of the viewer the research pages share (research/DESIGN.md §3: replay on viewer changes).
+      - 'web/src/components/Viewport*.svelte'
+      - 'web/src/lib/three/**'
+      - 'web/src/lib/viewport3d/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   schedule:
     - cron: '17 6 * * 1'
 
@@ -88,3 +100,19 @@ jobs:
           assert not extra, extra
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
+
+  # Every paper's validation against its reference outputs, replayed whenever research/, the engine
+  # or the viewer changes (research/DESIGN.md §3). A failure names the paper and the quantity that
+  # moved, with the value now, the tolerance and the committed value (research/tools/replay.py).
+  replay:
+    name: Research replay (every paper's reference checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Replay
+        run: python3 -I research/tools/replay.py
