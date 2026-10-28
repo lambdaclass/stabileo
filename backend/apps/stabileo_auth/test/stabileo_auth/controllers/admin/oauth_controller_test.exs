@@ -148,7 +148,8 @@ defmodule StabileoAuth.Controllers.Admin.OAuthControllerTest do
       request(:post, "/register", %{
         "email" => "staff@example.com",
         "password" => "long-enough",
-        "name" => "Squatter"
+        "name" => "Squatter",
+        "accept_terms" => true
       })
       |> json_body(201)
 

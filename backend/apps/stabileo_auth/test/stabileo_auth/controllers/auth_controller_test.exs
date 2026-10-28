@@ -5,13 +5,19 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
 
   alias StabileoRepo.Schemas.{Account, Session}
 
-  @account_keys ~w(id email name company job_title country locale email_verified_at inserted_at)
+  @account_keys ~w(id email name company job_title country locale email_verified_at inserted_at consents)
 
   describe "user sign-in turned off" do
     @describetag user_login: false
 
     test "GET /config reports it" do
-      assert request(:get, "/config") |> json_body(200) == %{"user_login_enabled" => false}
+      assert request(:get, "/config") |> json_body(200) == %{
+               "user_login_enabled" => false,
+               "terms_version" => StabileoAuth.Consents.terms_version(),
+               "usage_telemetry_enabled" => false,
+               "cloud_projects_enabled" => false,
+               "save_requires_account" => false
+             }
     end
 
     test "register and login answer 403 user_login_disabled and write nothing" do
@@ -39,7 +45,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "email" => "New@Example.com",
           "password" => "long-enough",
           "name" => "New User",
-          "locale" => "en"
+          "locale" => "en",
+          "accept_terms" => true
         })
 
       body = json_body(conn, 201)
@@ -52,6 +59,7 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
 
       saved = Repo.get!(Account, body["account"]["id"])
       assert saved.name == "New User"
+      assert %DateTime{} = saved.last_sign_in_at
       assert Repo.get_by!(Session, account_id: saved.id).user_agent == "conn-case"
     end
 
@@ -62,7 +70,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "password" => "long-enough",
           "name" => "Sneaky",
           "is_active" => false,
-          "email_verified_at" => "2026-01-01T00:00:00Z"
+          "email_verified_at" => "2026-01-01T00:00:00Z",
+          "accept_terms" => true
         })
 
       body = json_body(conn, 201)
@@ -81,7 +90,59 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
       assert body["details"]["email"] == ["must have @ sign and no spaces"]
       assert body["details"]["password"] == ["should be at least 8 character(s)"]
       assert body["details"]["name"] == ["can't be blank"]
+      assert body["details"]["accept_terms"] == ["must be accepted"]
       assert Repo.aggregate(Account, :count) == before
+    end
+
+    test "422 accept_terms, and nothing written, when the terms are not accepted" do
+      before = Repo.aggregate(Account, :count)
+
+      for accept <- [nil, false, "true"] do
+        params =
+          %{"email" => "no-terms@example.com", "password" => "long-enough", "name" => "No Terms"}
+          |> then(&if(accept == nil, do: &1, else: Map.put(&1, "accept_terms", accept)))
+
+        body = request(:post, "/register", params) |> json_body(422)
+        assert body["error"] == "validation_error"
+        assert body["details"] == %{"accept_terms" => ["must be accepted"]}
+      end
+
+      assert Repo.aggregate(Account, :count) == before
+      assert Repo.aggregate(StabileoRepo.Schemas.Consent, :count) == 0
+    end
+
+    test "records the terms accepted and the optional consents given" do
+      body =
+        request(:post, "/register", %{
+          "email" => "consents@example.com",
+          "password" => "long-enough",
+          "name" => "Consents",
+          "accept_terms" => true,
+          "usage_analytics" => true,
+          "model_research" => false
+        })
+        |> json_body(201)
+
+      version = StabileoAuth.Consents.terms_version()
+
+      assert %{
+               "terms" => %{"version" => ^version},
+               "terms_current" => true,
+               "usage_analytics" => true,
+               "model_research" => false
+             } = body["account"]["consents"]
+
+      rows =
+        from(c in StabileoRepo.Schemas.Consent,
+          where: c.account_id == ^body["account"]["id"],
+          order_by: c.kind
+        )
+        |> Repo.all()
+
+      assert Enum.map(rows, &{&1.kind, &1.granted}) ==
+               [{"model_research", false}, {"terms", true}, {"usage_analytics", true}]
+
+      assert Enum.all?(rows, &(&1.user_agent == "conn-case"))
     end
 
     test "422 for an email already registered" do
@@ -91,7 +152,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
         request(:post, "/register", %{
           "email" => String.upcase(existing.email),
           "password" => "long-enough",
-          "name" => "Dup"
+          "name" => "Dup",
+          "accept_terms" => true
         })
         |> json_body(422)
 

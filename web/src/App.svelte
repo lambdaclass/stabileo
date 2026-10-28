@@ -21,6 +21,12 @@
   import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
+  import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
+  import UsageNotice from './components/legal/UsageNotice.svelte';
+  import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
+  import AccountGateDialog from './components/account/AccountGateDialog.svelte';
+  import FeedbackDialog from './components/account/FeedbackDialog.svelte';
+  import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
@@ -892,6 +898,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
+    const stopUsageTracking = installUsageTracking();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1127,6 +1134,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
+      stopUsageTracking();
       saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
@@ -2135,7 +2143,11 @@
 
   {#if !uiStore.embedMode && !showLanding && !showBlog}
     <WhatsNewNotice />
+    <ResultsDisclaimer />
+    <UsageNotice />
+    <TermsUpdateDialog />
   {/if}
+  {#if accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.

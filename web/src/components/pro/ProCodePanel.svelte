@@ -9,6 +9,7 @@
    */
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { modelToCode, type CodeError } from '../../lib/model/code/format';
   import { applyCode } from '../../lib/model/code/apply';
   import { DERIVED_FIELDS } from '../../lib/model/code/coverage';
@@ -82,8 +83,8 @@
   <div class="cp-bar">
     <button class="cp-primary" onclick={apply} disabled={!dirty} data-testid="cp-apply">{t('code.apply')}</button>
     <button onclick={regenerate} data-testid="cp-regenerate">{t('code.fromModel')}</button>
-    <button onclick={copy}>{t('code.copy')}</button>
-    <button onclick={download}>{t('code.download')}</button>
+    <button onclick={() => accountGate.guard('code', copy)}>{t('code.copy')}</button>
+    <button onclick={() => accountGate.guard('code', download)}>{t('code.download')}</button>
     <button onclick={() => fileInput?.click()}>{t('code.open')}</button>
     <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={openFile} hidden />
   </div>

@@ -8,6 +8,9 @@
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
@@ -185,6 +188,7 @@
    * what they explicitly asked to see.
    */
   let { flat = false }: { flat?: boolean } = $props();
+  let cloudOpen = $state(false);
 </script>
 
 <div class="toolbar-section" data-tour="project-section">
@@ -195,12 +199,15 @@
   {#if flat || showProject}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
   <div class="file-grid">
-    <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
+    <button class="file-btn" onclick={() => accountGate.guard('save', () => (showSave = true))} title={t('project.saveTooltip')} data-testid="save-open">
       {t('project.save')}
     </button>
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
+    {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      <button class="file-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+    {/if}
     <!--
       Beside Abrir, because that is the pair a reader thinks in: a model
       arrives as a file or as a link, and the two ways in belong together.
@@ -218,7 +225,7 @@
       <button
         class="file-btn"
         data-testid="project-share-link"
-        onclick={handleCopyShareLink}
+        onclick={() => accountGate.guard('share', handleCopyShareLink)}
         aria-disabled={linkTooLong ? 'true' : undefined}
         aria-describedby={linkTooLong ? 'project-share-too-long' : undefined}
       >
@@ -389,7 +396,7 @@
         </span>
         <div class="file-grid">
           <!-- Both solve first when there are no results (`lib/export/results-export.ts`). -->
-          <button class="file-btn" onclick={exportWorkbook} title={t('project.exportExcelTooltip')} data-testid="export-excel">
+          <button class="file-btn" onclick={() => accountGate.guard('export', exportWorkbook)} title={t('project.exportExcelTooltip')} data-testid="export-excel">
             Excel
           </button>
           <button class="file-btn" onclick={exportResultsCsv} title={t('project.exportCsvTooltip')} data-testid="export-csv">
@@ -481,6 +488,8 @@
 
 <CalcReportDialog bind:open={showCalcReport} />
 {#if viewExport}<ExportViewDialog bind:open={viewExportOpen} format={viewExport} />{/if}
+
+<CloudProjectsDialog bind:open={cloudOpen} />
 
 <style>
   /* ─── The Excel import report ────────────────────────────────────

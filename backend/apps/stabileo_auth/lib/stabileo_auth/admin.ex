@@ -8,7 +8,7 @@ defmodule StabileoAuth.Admin do
 
   alias StabileoAuth.{Accounts, AdminAccess, Sessions}
   alias StabileoRepo.{Listing, Repo}
-  alias StabileoRepo.Schemas.Account
+  alias StabileoRepo.Schemas.{Account, Project}
 
   @sortable [:inserted_at, :last_sign_in_at, :email, :name]
 
@@ -88,4 +88,17 @@ defmodule StabileoAuth.Admin do
   end
 
   defp search(query, _term), do: query
+
+  @doc "Active cloud projects per account, for the accounts given; accounts with none are absent."
+  def project_counts([]), do: %{}
+
+  def project_counts(account_ids) do
+    from(p in Project,
+      where: p.account_id in ^account_ids and p.is_active,
+      group_by: p.account_id,
+      select: {p.account_id, count(p.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
 end

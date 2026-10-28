@@ -28,6 +28,8 @@
         <PublicLink to="/cirsoc">CIRSOC</PublicLink>
         <PublicLink to="/reliability">{t('landing.footReliability')}</PublicLink>
         <PublicLink to="/sap2000-alternative">{t('landing.footSap2000')}</PublicLink>
+        <PublicLink to="/terms">{t('landing.footTerms')}</PublicLink>
+        <PublicLink to="/privacy">{t('landing.footPrivacy')}</PublicLink>
         <button onclick={() => enterApp()}>{t('landing.footLaunch')}</button>
       </nav>
 

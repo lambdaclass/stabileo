@@ -1,7 +1,11 @@
-export type AdminPage = 'users' | 'settings' | 'allowlist';
+export type AdminPage = 'users' | 'metrics' | 'projects' | 'feedback' | 'audit' | 'settings' | 'allowlist';
 
 export const PAGE_PATHS: Record<AdminPage, string> = {
   users: '/',
+  metrics: '/metrics',
+  projects: '/projects',
+  feedback: '/feedback',
+  audit: '/audit-log',
   settings: '/settings',
   allowlist: '/allowlist',
 };

@@ -1,4 +1,5 @@
 import { migrateDesignData } from '../model/design-data';
+import { trackUsage } from '../telemetry/usage';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -4684,6 +4685,7 @@ function createModelStore() {
     },
 
     async loadExample(name: string): Promise<void> {
+      trackUsage('example.open', { example: name });
       const loader = getFixture(name);
       if (!loader) return;
 

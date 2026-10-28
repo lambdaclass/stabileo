@@ -7,6 +7,7 @@
    * storage; a template that has to travel with a project is better saved as a group in it.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import { uiStore } from '../../../lib/store/ui.svelte';
   import { placementStore } from '../../../lib/store/placement.svelte';
   import { selectionSet } from '../../../lib/store/model-clipboard';
@@ -76,7 +77,7 @@
         <li data-testid="tpl-{tpl.name}">
           <span class="tp-name">{tpl.name}</span>
           <button type="button" onclick={() => place(tpl)} data-testid="tpl-place-{tpl.name}">{t('templates.place')}</button>
-          <button type="button" onclick={() => copy(tpl)}>{t('templates.copyCode')}</button>
+          <button type="button" onclick={() => accountGate.guard('code', () => copy(tpl))}>{t('templates.copyCode')}</button>
           <button type="button" onclick={() => save(templates.filter((x) => x !== tpl))}>{t('templates.delete')}</button>
         </li>
       {/each}

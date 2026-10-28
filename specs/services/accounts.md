@@ -9,6 +9,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 ## Features
 
 - Sign-in is behind the runtime flag `user_login_enabled` (`system_settings`, toggled from the admin site, off by default). While off, `/register` and `/login` answer 403 `user_login_disabled`; existing sessions keep working (refresh, `/me`, profile) until they expire or an admin forces them out
+- Saving or exporting a model can require an account: runtime flag `save_requires_account`, off by default, read by the browser from `/config`. The browser applies it only while `user_login_enabled` is on and the config was read, so a closed sign-in or an unreachable server never keeps anyone from their file. Gated (`accountGate.guard` in `web/src/lib/store/account-gate.svelte.ts`): the project and session file (buttons and Ctrl+S), the share link, the model code and saved fragments, the Básico workbook, PRO's data export when it carries model tables, DXF, IFC, the solver input from Reproduce and exercise files and links. Open: results CSV, reports, view images and videos, office templates, the browser autosave and opening any file. After signing in, the action the user asked for runs
 - Self sign-up with email, password and name
 - Password login, refresh-token rotation, logout
 - Read and edit one's own profile
@@ -20,6 +21,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 |-------|---------------------|-----------|
 | `accounts` | `email` (unique, lowercased), `password_hash`, `name`, `company`, `job_title`, `country` (ISO 3166-1 alpha-2), `locale` (`es`/`en`/`pt`, the app's `OFFERED_LOCALES`), `email_verified_at`, `last_sign_in_at`, `is_active` | The account itself. `email`, `password_hash`, `email_verified_at` and `is_active` never change through the profile endpoint |
 | `sessions` | `account_id`, `expires_at`, `revoked_at`, `ip_address`, `user_agent` | Reaches its account through `account_id` |
+| `consents` | `kind` (`terms`, `usage_analytics`, `model_research`), `version` (required for `terms`), `granted` (`terms` is always granted), `ip_address`, `user_agent`; append-only, microsecond `inserted_at` | Reaches its account through `account_id`; the current state of a kind is its latest row |
 
 ## Endpoints
 
@@ -27,20 +29,23 @@ Prefix `/api/v1/auth`, router `StabileoAuth.Router`. Public routes run the `:api
 
 | Method | Path | Auth | Success | Errors |
 |--------|------|------|---------|--------|
-| `GET` | `/config` | public | `200 {user_login_enabled: bool}` | — |
-| `POST` | `/register` | public | `201 <session>` | 403 `user_login_disabled`, 422 `validation_error` (email taken, short password, …) |
+| `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account}` | — |
+| `POST` | `/register` | public | `201 <session>` | 403 `user_login_disabled`, 422 `validation_error` (email taken, short password, `accept_terms` not true, …) |
 | `POST` | `/login` | public | `200 <session>` | 403 `user_login_disabled`, 401 `invalid_credentials`, 403 `account_disabled` |
 | `POST` | `/refresh` | public | `200 <session>` | 401 `refresh_failed` |
 | `DELETE` | `/logout` | public | `200 {message}` | never fails |
 | `GET` | `/me` | bearer | `200 {data: <account>}` | 401 |
 | `PUT` | `/me` | bearer | `200 {data: <account>}` | 401, 422 `validation_error` |
 | `PUT` | `/password` | bearer | `200 {message}` | 401, 401 `invalid_current_password`, 422 `validation_error` |
+| `POST` | `/consents` | bearer | `201 {data: <account>}` | 401, 422 `validation_error` (`kind` unknown or missing, `granted` not a boolean) |
 
 Bodies:
 
 ```jsonc
-// POST /register
-{ "email": "ada@example.com", "password": "at-least-8-chars", "name": "Ada", "locale": "es" }
+// POST /register: accept_terms must be true; usage_analytics and model_research are optional
+{ "email": "ada@example.com", "password": "at-least-8-chars", "name": "Ada", "locale": "es", "accept_terms": true, "usage_analytics": true }
+// POST /consents: terms records the version in force and ignores granted
+{ "kind": "usage_analytics", "granted": false }
 // POST /login
 { "email": "ada@example.com", "password": "..." }
 // POST /refresh, DELETE /logout
@@ -56,6 +61,8 @@ Bodies:
 ```json
 { "access_token": "...", "refresh_token": "...", "expires_in": 900, "account": <account> }
 ```
+
+`<account>` in a session, `/me` and `/consents` also carries `consents`: `{ "terms": {"version", "accepted_at"} | null, "terms_current": bool, "usage_analytics": bool, "model_research": bool }`. The app asks an account whose `terms_current` is false to accept again before anything else.
 
 `<account>`:
 

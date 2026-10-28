@@ -1,5 +1,14 @@
 import { request } from './client';
 
+export interface Consents {
+  terms: { version: string; accepted_at: string } | null;
+  terms_current: boolean;
+  usage_analytics: boolean;
+  model_research: boolean;
+}
+
+export type ConsentKind = 'terms' | 'usage_analytics' | 'model_research';
+
 export interface Account {
   id: string;
   email: string;
@@ -10,6 +19,7 @@ export interface Account {
   locale: string;
   email_verified_at: string | null;
   inserted_at: string;
+  consents?: Consents;
 }
 
 export interface Session {
@@ -24,6 +34,8 @@ export interface RegisterInput {
   password: string;
   name: string;
   locale?: string;
+  accept_terms: boolean;
+  usage_analytics?: boolean;
 }
 
 export interface LoginInput {
@@ -33,6 +45,10 @@ export interface LoginInput {
 
 export interface AuthConfig {
   user_login_enabled: boolean;
+  terms_version?: string;
+  usage_telemetry_enabled?: boolean;
+  cloud_projects_enabled?: boolean;
+  save_requires_account?: boolean;
 }
 
 export type ProfileUpdate = Partial<{
@@ -72,6 +88,10 @@ export const authApi = {
 
   async updateMe(patch: ProfileUpdate): Promise<Account> {
     return (await request<{ data: Account }>('PUT', `${BASE}/me`, { body: patch, auth: true })).data;
+  },
+
+  async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    return (await request<{ data: Account }>('POST', `${BASE}/consents`, { body: { kind, granted }, auth: true })).data;
   },
 
   async changePassword(currentPassword: string, password: string): Promise<void> {

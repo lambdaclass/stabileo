@@ -11,6 +11,7 @@
    * sheets is chosen, and says which they are.
    */
   import { t, tp } from '../../../lib/i18n';
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import { modelStore, resultsStore, uiStore } from '../../../lib/store';
   import ExportDialog from '../../export/ExportDialog.svelte';
   import ExportSection from '../../export/ExportSection.svelte';
@@ -196,7 +197,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={run} disabled={busy || modelCount + resultCount === 0} data-testid="pro-data-export-download">{t('viewExport.download')}</button>
+    <button type="button" class="primary" onclick={() => (modelCount > 0 ? accountGate.guard('export', run) : run())} disabled={busy || modelCount + resultCount === 0} data-testid="pro-data-export-download">{t('viewExport.download')}</button>
   {/snippet}
 </ExportDialog>
 

@@ -5,10 +5,13 @@
 import { cirsocPage, type StandingPage } from './cirsoc';
 import { reliabilityPage } from './reliability';
 import { sap2000AlternativePage } from './sap2000-alternative';
+import { termsPage } from './terms';
+import { privacyPage } from './privacy';
+import { usageDataPage } from './usage-data';
 
 export type { StandingPage };
 
-export const STANDING_PAGES: StandingPage[] = [cirsocPage, reliabilityPage, sap2000AlternativePage];
+export const STANDING_PAGES: StandingPage[] = [cirsocPage, reliabilityPage, sap2000AlternativePage, termsPage, privacyPage, usageDataPage];
 
 export function findStandingPage(path: string): StandingPage | undefined {
   const p = path.replace(/\/$/, '');

@@ -11,6 +11,9 @@
    * twenty thousand line segments.
    */
   const GRID_EXTENTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { usageConsent } from '../../lib/telemetry/consent.svelte';
+  import { legalHref, USAGE_DATA_PATH } from '../../lib/legal/legal';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
   import HelpTip from '../HelpTip.svelte';
@@ -58,6 +61,11 @@
       window.removeEventListener('stabileo-close-config', closeConfig);
     };
   });
+
+  function setUsageSharing(granted: boolean) {
+    usageConsent.set(granted ? 'granted' : 'denied');
+    if (authStore.isAuthenticated) void authStore.recordConsent('usage_analytics', granted).catch(() => {});
+  }
 </script>
 
 <div class="toolbar-section" data-tour="config-section">
@@ -516,6 +524,22 @@
       </div>
     {/if}
 
+    {#if authStore.usageTelemetryEnabled}
+      <div class="cfg-privacy" data-testid="cfg-privacy">
+        <h4 class="cfg-privacy-heading">{t('usage.settingsHeading')}</h4>
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={usageConsent.sharing}
+            onchange={(e) => setUsageSharing(e.currentTarget.checked)}
+            data-testid="cfg-usage-sharing"
+          />
+          <span>{t('usage.share')}</span>
+        </label>
+        <p class="cfg-privacy-hint">{t('usage.settingsHint')} <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a></p>
+      </div>
+    {/if}
+
     {#if !inline}
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
@@ -528,6 +552,10 @@
 </div>
 
 <style>
+  .cfg-privacy { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0 0.6rem; }
+  .cfg-privacy-hint { margin: 0; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-3); }
+  .cfg-privacy-hint a { color: var(--st-interactive, var(--st-accent)); }
+  .cfg-privacy-heading { margin: 0.6rem 0 0.3rem; font-family: var(--st-mono); font-size: 0.66rem; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--st-text-3); }
   .cfg-check {
     display: flex;
     align-items: center;
