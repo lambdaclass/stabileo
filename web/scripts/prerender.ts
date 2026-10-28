@@ -395,6 +395,12 @@ async function main() {
     written.push('/');
 
     if (PREFIX) {
+      // The research pages this snapshot holds, for the host's index (/@/): a permanent link to an
+      // experiment names the newest snapshot that has its page.
+      const meta = join(DIST, 'SNAPSHOT.json');
+      const snapshot = JSON.parse(await readFile(meta, 'utf8'));
+      snapshot.research = paths.filter((p) => p.startsWith('/research/'));
+      await writeFile(meta, JSON.stringify(snapshot, null, 2) + '\n');
       console.log(`✅ prerendered ${written.length} pages under ${PREFIX}/`);
       return;
     }

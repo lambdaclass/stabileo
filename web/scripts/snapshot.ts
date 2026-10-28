@@ -86,7 +86,8 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
     } catch {
       return u;
     }
-    if (url.origin !== L.origin || under(url.pathname) || url.pathname === '/api' || url.pathname.indexOf('/api/') === 0) return u;
+    // Not the backend (/api) and not another snapshot or the index (/@…).
+    if (url.origin !== L.origin || under(url.pathname) || /^\/(api(\/|$)|@)/.test(url.pathname)) return u;
     return P + url.pathname + url.search + url.hash;
   };
 
