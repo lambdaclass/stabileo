@@ -35,7 +35,7 @@ pub struct Ctx<'a> {
 }
 
 fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
-    guarded(|| (a.run)(c))
+    guarded(|| (a.run)(c)).map(|r| r.tag_shell_families(&c.s))
 }
 
 fn judge(res: Result<Report, String>, rel: f64) -> Verdict {

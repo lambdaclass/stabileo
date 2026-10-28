@@ -9,11 +9,10 @@ def _only(bad, quantity):
 
 
 RULES = [
-    # P-Delta member end forces were K·u - FEF, without the geometric
-    # stiffness, so they did not balance the reactions (which come from
-    # K + Kg). Displacements and reactions agree; only end forces differ.
-    ("#283 (3a55ff49): P-Delta end forces omit Kg*u",
-     lambda analysis, bad: analysis == "pdelta" and _only(bad, "force")),
+    # Empty: the P-Delta end-force rule (#283, 3a55ff49: end forces omitted
+    # Kg*u) was left here after its fix merged on 2026-10-17, and from then on
+    # it reported every P-Delta model whose only disagreement is in the end
+    # forces as `known` instead of `mismatch`.
 ]
 
 

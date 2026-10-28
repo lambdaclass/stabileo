@@ -2,14 +2,24 @@ name: Verification alert
 
 # A verification job that fails at night and that nobody looks at protects
 # nothing. After every run of the scheduled verification workflows, this opens
-# (or comments on) one GitHub issue per failed job, labelled
-# `verification-failure`, with the run link and the failing step
-# (.github/scripts/verification-alert.cjs). Only scheduled runs alert: manual
-# and PR runs have someone watching them.
+# ONE GitHub issue per workflow, labelled `ci-failure`, with the run link and
+# the failing jobs, or comments on the one already open; a green scheduled run
+# closes it (.github/scripts/verification-alert.cjs). Once a day it also
+# alerts for a workflow that has not completed a scheduled run in its window.
+# Only scheduled runs (and the forced-failure test runs) alert: manual and PR
+# runs have someone watching them. Real findings are triaged into their own
+# issues; this one only says the workflow is red.
+#
+# Negative case: `gh workflow run nightly.yml -f force_failure=true` (or
+# differential.yml) fails at once and opens "CI failure: <workflow> [forced
+# failure]"; close it by hand.
 #
 # workflow_run always runs this file as it is on main. To re-alert for a
-# past run, or to try the script, use the manual trigger with its run id
-# (dry run by default).
+# past run, or to try the script from a branch, use the manual trigger with
+# its run id (dry run by default).
+#
+# GitHub-hosted runner only, and it never checks out or runs code from the
+# triggering run: it reads the run through the API.
 
 on:
   workflow_run:
@@ -18,15 +28,19 @@ on:
       - Verify
       - Differential
       - Mutation testing (TypeScript engine logic)
+      - Verification dashboard
       - Supply chain
     types: [completed]
+  schedule:
+    - cron: "0 13 * * *" # staleness check, after every nightly run has finished
   workflow_dispatch:
     inputs:
       run_id:
-        description: "Workflow run id to alert for"
-        required: true
+        description: "Workflow run id to alert for (empty: run the staleness check)"
+        required: false
+        default: ""
       dry_run:
-        description: "Only print what would be opened or commented"
+        description: "Only print what would be opened, commented or closed"
         type: boolean
         default: true
       any_event:
@@ -37,13 +51,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Two runs of the same workflow finishing together must not open two issues (a third one
+  # waiting is dropped by GitHub: at most one run per group is pending).
+  group: verification-alert-${{ github.event.workflow_run.name || inputs.run_id || github.event_name }}
+  cancel-in-progress: false
+
 jobs:
   alert:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'schedule' &&
-       github.event.workflow_run.conclusion != 'success' &&
-       github.event.workflow_run.conclusion != 'skipped')
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.event == 'schedule' ||
+      startsWith(github.event.workflow_run.display_title, '[forced failure]')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -57,6 +76,7 @@ jobs:
           sparse-checkout: .github/scripts
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         env:
+          ALERT_MODE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_id == '')) && 'stale' || 'run' }}
           ALERT_RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
           ALERT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
           ALERT_ANY_EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.any_event }}

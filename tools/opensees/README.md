@@ -189,7 +189,15 @@ make the two Kg the same matrix, linear in N:
   Euler–Bernoulli one the engine uses (φ ~ 1e-12);
 * trusses: an `elasticBeamColumn` released at both ends on a `PDelta`
   transformation: the string stiffness N/L of the engine's truss Kg (`Truss`
-  has none, `corotTruss` is not linear in N).
+  has none, `corotTruss` is not linear in N);
+* the Wagner term of the engine's 3D frame Kg, P·r0²/L·[1, −1; −1, 1] on the
+  member twist with r0² = (Iy + Iz)/A, which no OpenSees beam has: added to
+  Kg in numpy (`_wagner`, P = EA·elongation/L), and in P-Delta as a parallel
+  torsion-only `elasticBeamColumn` whose J = P·r0²/G is iterated to the fixed
+  point. Without it every 3D buckling and P-Delta model with a compressed
+  frame mismatched by 1e-5..1e-2 from 2026-10-18, when the engine added the
+  term. Sections with a shear-centre offset are unsupported (the engine's
+  bending–twist coupling is not built).
 
 Not compared (unsupported): hinges/releases (the engine condenses Kg with the
 elastic map of the released rotation; OpenSees would keep the rotation as an

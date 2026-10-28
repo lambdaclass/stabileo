@@ -63,11 +63,13 @@ fn check_doc(section: &str, table: &str) {
 fn finish(name: &str, t: &Tally) {
     let rep = t.report();
     println!("== {name} (seed {})\n{rep}", seed());
+    let f = t.failures();
     if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(format!("{dir}/{name}.txt"), &rep);
+        // One violation per line, for the job summary and the triage issues.
+        let _ = std::fs::write(format!("{dir}/{name}-violations.txt"), f.iter().map(|v| format!("{v}\n")).collect::<String>());
     }
-    let f = t.failures();
     assert!(f.is_empty(), "{} metamorphic violation(s) (seed {}):\n{}", f.len(), seed(), f.join("\n"));
 }
 
