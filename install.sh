@@ -104,7 +104,7 @@ Comment=Structural analysis of 2D and 3D frames and trusses
 Exec="$BIN_DIR/stabileo" %f
 Icon=stabileo
 Terminal=false
-Categories=Development;Engineering;Science;
+Categories=Science;Engineering;
 MimeType=application/x-stabileo-project;
 EOF
 	refresh_desktop
