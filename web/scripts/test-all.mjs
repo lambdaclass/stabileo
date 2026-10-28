@@ -1,5 +1,6 @@
 /**
- * The full Vitest gate: two passes, both always run, either failure propagates.
+ * The full Vitest gate: three passes (unit, build, and the results snapshots), all always run,
+ * any failure propagates. The history below is of the first two.
  *
  * ── Why two passes and not one run ─────────────────────────────────
  *
@@ -61,7 +62,7 @@
 
 import { spawnSync } from 'node:child_process';
 
-/** Extra argv is forwarded to both passes; see `passWithNoTests` below. */
+/** Extra argv is forwarded to every pass; see `passWithNoTests` below. */
 const forwarded = process.argv.slice(2);
 
 /**
@@ -101,7 +102,7 @@ for (const r of results) {
     + `  ${r.seconds}s${r.signal ? `  (signal ${r.signal})` : ''}`);
 }
 
-// Either failure fails the gate. Reported after both passes have run, so one broken pass
+// Any failure fails the gate. Reported after every pass has run, so one broken pass
 // does not hide the state of the other.
 const failed = results.filter((r) => r.code !== 0);
 if (failed.length > 0) {

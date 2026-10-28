@@ -52,7 +52,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
   path against `results-snapshots/`; after a deliberate result change, `npm run snapshots:update`
   and register it (`docs/verification/PROVENANCE.md`, "Results snapshot gate").
 - `npm run test:watch` — Watch mode (the `unit` pass)
-- In CI the two passes run as separate jobs: `web-unit` shards the unit pass two ways
+- In CI the three passes run as separate jobs (`results` as Results Snapshot): `web-unit` shards the unit pass two ways
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test
   file is the unit of parallelism, so one file that runs a minute of heavy cases serially sets
   the floor for everyone — split it (see `design-families-fixture.ts`) rather than let it grow.
