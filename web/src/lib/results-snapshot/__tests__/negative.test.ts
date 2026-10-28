@@ -27,6 +27,28 @@ const REGISTRY = JSON.parse(readFileSync(new URL('../../provenance/result-change
 
 beforeAll(async () => { await initSolver(); });
 
+describe('a change to the envelope alone', () => {
+  it('NEGATIVE: is reported, and fails the gate without registration', async () => {
+    const name = '3d-building';
+    const base = parseSnapshot(readFileSync(snapshotFile(name), 'utf8'));
+    // The case has combinations, so its snapshot carries their envelope and governing combinations.
+    const envelopePaths = Object.keys(base.values).filter((p) => p.startsWith('envelope.') && typeof base.values[p] === 'number' && base.values[p] !== 0);
+    expect(envelopePaths.length).toBeGreaterThan(0);
+    expect(Object.keys(base.values).some((p) => p.startsWith('envelope.governing['))).toBe(true);
+    // The fresh capture produces the same envelope as committed.
+    const fresh = await capture(CORPUS.find((c) => c.name === name)!);
+    expect(compareValues(base.values, fresh.values).differs).toBe(false);
+
+    const path = envelopePaths.find((p) => /posValues|negValues/.test(p))!;
+    const head = { ...base, values: { ...base.values, [path]: (base.values[path] as number) * 1.01 } };
+    const diff = compareValues(base.values, head.values);
+    expect(diff.changed.map((c: { path: string }) => c.path)).toEqual([path]);
+    const r = decide({ snapshots: [{ file: `web/results-snapshots/${name}.json`, base, head }], baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
+    expect(r.ok).toBe(false);
+    expect(r.report).toContain(path);
+  });
+});
+
 describe('a deliberate result change', () => {
   it('is reported by the snapshot test, value by value', async () => {
     const committed = parseSnapshot(readFileSync(snapshotFile(CASE.name), 'utf8'));

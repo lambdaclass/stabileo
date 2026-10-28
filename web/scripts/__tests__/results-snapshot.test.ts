@@ -31,9 +31,26 @@ describe('the tolerance', () => {
     expect(compareValues({ 'solve.refusal': 'a' }, { 'solve.refusal': 'b' }).differs).toBe(true);
     expect(compareValues({ ok: true }, { ok: false }).differs).toBe(true);
   });
-  it('counts a value no longer produced as a change, and a new one as an addition', () => {
+  it('counts a value no longer produced as a change', () => {
     expect(compareValues({ a: 1, b: 2 }, { a: 1 })).toMatchObject({ differs: true, removed: ['b'] });
-    expect(compareValues({ a: 1 }, { a: 1, b: 2 })).toMatchObject({ differs: false, added: ['b'] });
+  });
+  it('NEGATIVE: counts a newly produced value as a change (another combination, mode or limit state)', () => {
+    const before = { 'combo[1].reactions[n1].fz': 10 };
+    const d = compareValues(before, { ...before, 'combo[2].reactions[n1].fz': 12 });
+    expect(d).toMatchObject({ differs: true, added: ['combo[2].reactions[n1].fz'] });
+    expect(compareValues({ 'design.steel[e1].flexure.ratio': 0.5 }, { 'design.steel[e1].flexure.ratio': 0.5, 'design.steel[e1].ltb.ratio': 0.7 }).differs).toBe(true);
+  });
+  it('compares a spectral mode participation by magnitude: an eigenvector sign flip is not a change', () => {
+    const p = 'spectral.X.perMode[0].participation';
+    const f = 'spectral.X.perMode[0].modalForce';
+    expect(compareValues({ [p]: -0.9229, [f]: -12.5 }, { [p]: 0.9229, [f]: 12.5 }).differs).toBe(false);
+    // NEGATIVE: a changed magnitude is.
+    expect(compareValues({ [p]: -0.9229 }, { [p]: 0.9300 }).differs).toBe(true);
+    // Stored as a magnitude, and regenerating writes the magnitude.
+    expect(flatten({ participation: -0.9229 }, 'spectral.X.perMode[0]', {})).toEqual({ [p]: 0.9229 });
+    expect(mergeValues({ [p]: -0.9229 }, { [p]: 0.9229 })).toEqual({ [p]: 0.9229 });
+    // Other quantities keep their sign.
+    expect(compareValues({ 'base.reactions[n1].fz': -1 }, { 'base.reactions[n1].fz': 1 }).differs).toBe(true);
   });
 });
 
@@ -56,6 +73,12 @@ describe('storing', () => {
     const text = serialiseSnapshot(s);
     expect(text).toContain('"base.d[n1]": {"ux":1,"uz":2}');
     expect(text).toContain('"design.s[e1]": {"c.Fcr":3}');
+    // An array inside a record stays in the record's row.
+    const env = { case: 'x', covers: 'y', format: 2, values: { 'envelope.momentY[e1].posValues[0]': 1, 'envelope.momentY[e1].negValues[0]': -1, 'buckling.factors[0]': 5 } };
+    const t2 = serialiseSnapshot(env);
+    expect(t2).toContain('"envelope.momentY[e1]": {"negValues[0]":-1,"posValues[0]":1}');
+    expect(t2).toContain('"buckling.factors[0]": 5');
+    expect(parseSnapshot(t2)).toEqual(env);
     expect(parseSnapshot(text)).toEqual(s);
   });
 });
@@ -68,8 +91,23 @@ describe('the gate', () => {
   const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1.01 }) }];
 
   it('passes a pull request whose snapshots did not move', () => {
-    const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12, w: 2 }) }];
+    const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12 }) }];
     expect(decide({ snapshots: same, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(true);
+  });
+  it('NEGATIVE: fails a value newly produced in an existing snapshot without a registry entry', () => {
+    const added = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1, 'combo[9].v': 2 }) }];
+    const r = decide({ snapshots: added, baseRegistry: registry, headRegistry: registry, fragments: [] });
+    expect(r.ok).toBe(false);
+    expect(r.report).toContain('combo[9].v: newly produced');
+  });
+  it('a snapshot format bump lets the harness record more, but not move or drop a value', () => {
+    const v2 = (values: Record<string, unknown>) => ({ ...snap(values), format: 2 });
+    const more = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: v2({ v: 1, 'envelope.m[e1].posValues[0]': 3 }) }];
+    expect(decide({ snapshots: more, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(true);
+    const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: v2({ v: 2, w: 3 }) }];
+    expect(decide({ snapshots: moved, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
+    const dropped = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1, u: 2 }), head: v2({ v: 1 }) }];
+    expect(decide({ snapshots: dropped, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
   });
   it('passes a new case without a registry entry: coverage is not a change', () => {
     const added = [{ file: 'web/results-snapshots/new.json', base: null, head: snap({ v: 1 }) }];
