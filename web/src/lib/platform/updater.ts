@@ -57,11 +57,11 @@ export async function checkForUpdates(manual: boolean): Promise<void> {
     update = await check();
   } catch (err) {
     console.warn('[stabileo] update check:', err);
-    if (manual) await message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, { title: tx('updateTitle'), kind: 'error' });
+    if (manual) await message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, { title: tx('updateCheckTitle'), kind: 'error' });
     return;
   }
   if (update) await offer(update);
-  else if (manual) await message(tx('updateNone'), { title: tx('updateTitle'), kind: 'info' });
+  else if (manual) await message(tx('updateNone'), { title: tx('updateCheckTitle'), kind: 'info' });
 }
 
 export async function startUpdater(): Promise<void> {
