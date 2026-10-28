@@ -93,8 +93,10 @@ impl Resp {
         Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect())
     }
     /// Keep only items on the given nodes/elements (drop padding).
+    /// `elems` are frame element ids: shell stresses are keyed by shell id
+    /// (the padding adds no shells), so they are kept.
     pub fn retain_ids(&mut self, nodes: &std::collections::HashSet<usize>, elems: &std::collections::HashSet<usize>) {
-        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| elems.contains(&e)));
+        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| matches!(i.kind, Kind::Stress) || elems.contains(&e)));
     }
 
     pub fn iso2(&self, iso: &Iso2) -> Result<Resp, String> {
@@ -220,17 +222,49 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             it.node = it.node.map(|n| rl.n(n));
-            let table = match it.tag.as_str() {
-                "vm_plate" => Some(&rl.plate),
-                "vm_quad" => Some(&rl.quad),
-                _ => None,
+            // `quad_stresses` holds the MITC4 quads, the MITC9 quads, the
+            // solid shells and the curved shells, each keyed by the id of its
+            // own family: `tag_shell_families` splits them by family; an
+            // untagged one maps through whichever table holds the id.
+            let tables: &[&std::collections::BTreeMap<usize, usize>] = match it.tag.as_str() {
+                "vm_plate" => &[&rl.plate],
+                "vm_quad" => &[&rl.quad, &rl.quad9, &rl.solid_shell, &rl.curved_shell],
+                "vm_quad9" => &[&rl.quad9],
+                "vm_solid_shell" => &[&rl.solid_shell],
+                "vm_curved_shell" => &[&rl.curved_shell],
+                _ => &[],
             };
-            it.elem = it.elem.map(|e| match table {
-                Some(t) => *t.get(&e).unwrap_or(&e),
-                None => rl.e(e),
+            it.elem = it.elem.map(|e| {
+                if tables.is_empty() {
+                    rl.e(e)
+                } else {
+                    tables.iter().find_map(|t| t.get(&e)).copied().unwrap_or(e)
+                }
             });
         }
         o
+    }
+
+    /// `quad_stresses` lists the MITC4 quads, then the MITC9 quads, the
+    /// solid shells and the curved shells (compute_quad_stresses), each by
+    /// the id of its own family, and ids repeat across families (a model
+    /// may hold quad 1 and solid shell 1). Tag each entry with its family,
+    /// so a relabelling maps it through the right table and the comparison
+    /// pairs it with the same element. Left as is when the counts do not
+    /// match the model.
+    pub fn tag_shell_families(mut self, s: &SolverInput3D) -> Resp {
+        let idx: Vec<usize> = self.0.iter().enumerate().filter(|(_, i)| i.tag == "vm_quad").map(|(k, _)| k).collect();
+        let fams = [("vm_quad", s.quads.len()), ("vm_quad9", s.quad9s.len()), ("vm_solid_shell", s.solid_shells.len()), ("vm_curved_shell", s.curved_shells.len())];
+        if idx.len() != fams.iter().map(|f| f.1).sum::<usize>() {
+            return self;
+        }
+        let mut k = idx.into_iter();
+        for (tag, n) in fams {
+            for j in k.by_ref().take(n) {
+                self.0[j].tag = tag.into();
+            }
+        }
+        self
     }
 
     pub fn units(&self, u: &Units) -> Resp {
