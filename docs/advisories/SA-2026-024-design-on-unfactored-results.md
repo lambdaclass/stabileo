@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Fixed on `main`; to be published with the next release |
+| Status | Published 2026-10-28 (fixed in 0.4.0; live on stabileo.com since 2026-10-25 for footings and joints, 2026-10-26 for the rest) |
 | Issue | — (W2-01 in the 2026-10 audit) |
-| Fix | PR [#588](https://github.com/lambdaclass/stabileo/pull/588) (footings and joints), merged with the integration PR of #589, #590, #588 and #487; the follow-up PR [#649](https://github.com/lambdaclass/stabileo/pull/649) (slabs, walls, the steel optimiser, an empty active list) |
+| Fix | PR [#588](https://github.com/lambdaclass/stabileo/pull/588) (footings and joints), merged with the integration PR [#629](https://github.com/lambdaclass/stabileo/pull/629) of #589, #590, #588 and #487 (2026-10-25); the follow-up PR [#649](https://github.com/lambdaclass/stabileo/pull/649) (slabs, walls, the steel optimiser, an empty active list; 2026-10-26) |
 | Affected versions | 0.2.0 and 0.3.0 (the single result set design falls back to, `activeResultSet3D`, is in both); earlier deployments not yet bisected |
 | Re-check registry | entry `design-on-unfactored-results` (models with footings, joint designs, shells or steel members, and combinations) |
 
@@ -67,8 +67,9 @@ combination solved)" while the model has combinations was designed this way.
 
 ## Fixed in
 
-On `main` with PR #588 (footings and joints), and with its follow-up #649 (slabs, walls, the steel
-optimiser, an empty active list), to ship in the next release. With combinations to design for
+PR #588 (footings and joints, through #629) and its follow-up #649 (slabs, walls, the steel
+optimiser, an empty active list), deployed to stabileo.com on 2026-10-25 and 2026-10-26; released
+in 0.4.0. With combinations to design for
 and none of them there to read, every design refuses and says why (`designCombinationsWithheld`,
 `active-results.ts`): not solved; only SRSS or ABS combinations active; or an active list that
 names no solved combination. The model has combinations to design for when its active list names

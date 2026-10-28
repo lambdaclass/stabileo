@@ -15,6 +15,7 @@ signed Nix closure, and swapped into place over SSH.
 |---|---|
 | `deploy.yml` | every push to `main` deploys production; a manual run picks the environment (default staging) |
 | `rollback.yml` | manual, picks the environment (typed `CONFIRM` for a migration rollback) |
+| `production-health.yml` | after every successful deploy or rollback, and hourly: checks production and staging from outside |
 
 Per environment, a newer build cancels an older one still building, and the deploy and
 rollback jobs share one group, so neither starts while the other holds the host.
@@ -124,6 +125,20 @@ RELEASE_DISTRIBUTION=none ./backend/bin/stabileo eval 'StabileoAuth.Release.allo
 
 Logs: `journalctl -u stabileo-backend -f` (the `app` user is in `systemd-journal`) and
 `journalctl -u caddy -f`.
+
+## Health check
+
+`production-health.yml` runs `scripts/production-health.mjs` against https://stabileo.com and
+https://staging.stabileo.com after every successful deploy or rollback and every hour: the landing,
+`/en/blog/` and `/api/v1/health` answer; in headless Chromium `/app/basic` mounts the application,
+the engine's WASM is served as `application/wasm` and instantiates, and the deployed engine (the
+module the page loaded, called through its public `solve_2d`; production carries no test hooks)
+solves a cantilever to its closed-form tip deflection, rotation and support reactions. A failing
+site opens one issue, `Production health check failing: <site>` (labels `ci-failure`,
+`production`), refreshed while it stays red and closed when it passes again.
+
+    node scripts/production-health.mjs https://stabileo.com          # locally (web/ installed)
+    gh workflow run production-health.yml -f sites=https://stabileo.com/no-such-site   # negative case
 
 ## Rollback
 

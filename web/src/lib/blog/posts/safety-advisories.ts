@@ -19,7 +19,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories'
 export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
-  updated: '2026-10-22',
+  updated: '2026-10-28',
   order: 6,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
@@ -31,7 +31,7 @@ export const safetyAdvisories: Post = {
       blocks: [
         { k: 'p', t: 'Los resultados de Stabileo se usan para dimensionar estructuras reales. Cuando encontramos un error que pudo dar un resultado equivocado, y en particular uno del lado inseguro, lo publicamos como aviso de seguridad: qué estaba mal, qué modelos afecta, cómo reconocerlos, qué hacer hasta que la corrección esté publicada y qué revisar en los resultados que ya se usaron.' },
         { k: 'p', t: 'Casi todos estos errores los encontró nuestro propio programa de verificación: comparación contra otros siete programas de elementos finitos, ejemplos resueltos publicados, pruebas de invariantes físicos y revisión de las derivaciones de cada elemento. Publicarlos es parte de ese trabajo: un error que no se informa sigue en los cálculos que ya se entregaron.' },
-        { k: 'note', t: 'Estado al 22 de octubre de 2026: los avisos SA-2026-001 a 020 están corregidos en la versión 0.3.0, SA-2026-021 y 022 en stabileo.com desde el 22 de octubre y SA-2026-023 y 024 desde su corrección (se publican con la próxima versión). Publicarlos es parte de cómo verificamos los resultados, no una señal de que sigan abiertos. Un aviso cuenta como corregido cuando la corrección está publicada en stabileo.com, no cuando existe el cambio. Mientras un aviso esté abierto, usá la alternativa que indica y revisá a mano el resultado afectado antes de firmar.' },
+        { k: 'note', t: 'Estado al 28 de octubre de 2026: los avisos SA-2026-001 a 020 están corregidos en la versión 0.3.0 y SA-2026-021 a 024 en la versión 0.4.0 (en stabileo.com, SA-2026-021 y 022 desde el 22 de octubre y SA-2026-023 y 024 desde el 25 y el 26). Publicarlos es parte de cómo verificamos los resultados, no una señal de que sigan abiertos. Un aviso cuenta como corregido cuando la corrección está publicada en stabileo.com, no cuando existe el cambio. Mientras un aviso esté abierto, usá la alternativa que indica y revisá a mano el resultado afectado antes de firmar.' },
 
         { k: 'h', t: 'Resumen' },
         {
@@ -39,10 +39,10 @@ export const safetyAdvisories: Post = {
           caption: 'Avisos publicados. Severidad: crítica cuando la capacidad o la demanda podían quedar muy del lado inseguro sin señal visible.',
           head: ['Aviso', 'Qué', 'Severidad', 'Estado'],
           rows: [
-            ['SA-2026-021', 'Cubiertas aisladas: sin viento en la dirección de la cumbrera y, en la otra, menos que el mínimo del §2.1.5 (el 17 % a 20 m/s)', 'Alta', 'Corregido en stabileo.com el 22/10/2026'],
-            ['SA-2026-022', 'Con empuje de suelo H faltaba la combinación en que el peso propio lo resiste (27 a 45 % bajo en un ejemplo)', 'Alta', 'Corregido en stabileo.com el 22/10/2026'],
-            ['SA-2026-023', 'Columnas de hormigón armado: la verificación leía un solo signo del momento; con barras desparejas (6, 10, 14…) aprobaba con el lado más fuerte', 'Crítica', 'Corregido en stabileo.com; se publica con la próxima versión'],
-            ['SA-2026-024', 'Bases y nudos diseñados con las cargas sin mayorar cuando las combinaciones estaban definidas y sin resolver (cálculo en vivo, o un cálculo de combinaciones fallido)', 'Alta', 'Corregido en stabileo.com; se publica con la próxima versión'],
+            ['SA-2026-021', 'Cubiertas aisladas: sin viento en la dirección de la cumbrera y, en la otra, menos que el mínimo del §2.1.5 (el 17 % a 20 m/s)', 'Alta', 'Corregido en 0.4.0'],
+            ['SA-2026-022', 'Con empuje de suelo H faltaba la combinación en que el peso propio lo resiste (27 a 45 % bajo en un ejemplo)', 'Alta', 'Corregido en 0.4.0'],
+            ['SA-2026-023', 'Columnas de hormigón armado: la verificación leía un solo signo del momento; con barras desparejas (6, 10, 14…) aprobaba con el lado más fuerte', 'Crítica', 'Corregido en 0.4.0'],
+            ['SA-2026-024', 'Bases, nudos, losas, tabiques y el optimizador de acero diseñados con las cargas sin mayorar cuando las combinaciones estaban definidas y sin resolver (cálculo en vivo, un cálculo de combinaciones fallido o una lista activa vacía)', 'Alta', 'Corregido en 0.4.0'],
             ['SA-2026-013', 'Láminas curvas: momentos flectores informados como cero; tensiones con la deformación térmica libre', 'Alta', 'Corregido en 0.3.0'],
             ['SA-2026-014', 'Colapso plástico 3D: el factor dependía de la numeración de las barras (hasta 2,4 veces la carga de colapso)', 'Alta', 'Corregido en 0.3.0'],
             ['SA-2026-015', 'Cables con peso propio con tracción baja en estructuras hiperestáticas', 'Alta', 'Corregido en 0.3.0'],
@@ -103,12 +103,12 @@ export const safetyAdvisories: Post = {
           items: [
             'Cómo saber si te afecta: el modelo tiene columnas de hormigón verificadas con CIRSOC 201 cuyas barras no son simétricas respecto del eje de flexión: 6, 10, 14, 18 o 22 barras del diseñador, o caras cargadas a mano con distinta cantidad de barras en caras opuestas.',
             'Qué hacer: en una versión anterior a la corrección, usá disposiciones simétricas (4, 8, 12, 16, 20 o 24 barras, o caras opuestas iguales), o verificá la columna también con las barras espejadas: manda la menor de las dos capacidades.',
-            'Estado: corregido en stabileo.com, se publica con la próxima versión. El motor calcula los dos signos y toma el más débil; las disposiciones simétricas dan exactamente lo mismo que antes.',
+            'Estado: corregido en la versión 0.4.0, en stabileo.com desde el 25 de octubre de 2026. El motor calcula los dos signos y toma el más débil; las disposiciones simétricas dan exactamente lo mismo que antes.',
           ],
         },
         { k: 'ext', href: `${REPO}/SA-2026-023-column-moment-sign.md`, label: 'SA-2026-023 completo', t: 'El aviso, con el caso de prueba:' },
-        { k: 'h', t: 'SA-2026-024: bases y nudos diseñados con las cargas sin mayorar' },
-        { k: 'p', t: 'Con combinaciones definidas y ninguna resuelta, las bases y los nudos tomaban el resultado en pantalla, que entonces es todas las cargas a factor 1: se diseñaban con las cargas de servicio en lugar de las combinaciones mayoradas. Pasaba con el cálculo en vivo activado (después de una edición recalcula sólo «Todas las cargas» mientras se ve la vista simple) o cuando falló el cálculo de combinaciones y quedó el cálculo simple. En un pórtico con 1,2D + 1,6W la reacción de una base salía un 15 % baja; con permanente y sobrecarga, entre 29 y 38 %. Ahora se niegan a diseñar y dicen por qué hasta que las combinaciones estén resueltas.' },
+        { k: 'h', t: 'SA-2026-024: bases, nudos, losas y tabiques diseñados con las cargas sin mayorar' },
+        { k: 'p', t: 'Con combinaciones definidas y ninguna resuelta, las bases y los nudos tomaban el resultado en pantalla, que entonces es todas las cargas a factor 1: se diseñaban con las cargas de servicio en lugar de las combinaciones mayoradas. Pasaba con el cálculo en vivo activado (después de una edición recalcula sólo «Todas las cargas» mientras se ve la vista simple) o cuando falló el cálculo de combinaciones y quedó el cálculo simple. En un pórtico con 1,2D + 1,6W la reacción de una base salía un 15 % baja; con permanente y sobrecarga, entre 29 y 38 %. Lo mismo pasaba con las losas y los tabiques, con el optimizador de acero y con una lista de combinaciones activas vacía. Ahora todo diseño se niega y dice por qué hasta que las combinaciones estén resueltas.' },
         { k: 'ext', href: `${REPO}/SA-2026-024-design-on-unfactored-results.md`, label: 'SA-2026-024 completo', t: 'El aviso, con el ejemplo:' },
 
         { k: 'h', t: 'SA-2026-014: colapso plástico 3D dependiente de la numeración' },
@@ -249,7 +249,7 @@ export const safetyAdvisories: Post = {
       blocks: [
         { k: 'p', t: 'Stabileo’s results are used to design real structures. When we find a defect that could have produced a wrong result, and especially an unconservative one, we publish it as a safety advisory: what was wrong, which models it affects, how to recognise them, what to do until the fix is live, and what to re-check in results that were already used.' },
         { k: 'p', t: 'Almost all of these defects were found by our own verification programme: comparison against seven other finite-element programs, published worked examples, physical-invariant tests and a review of every element’s derivation. Publishing them is part of that work: a defect that is not reported stays in the calculations that were already delivered.' },
-        { k: 'note', t: 'Status as of 22 October 2026: SA-2026-001 to 020 are fixed in version 0.3.0, SA-2026-021 and 022 on stabileo.com since 22 October, and SA-2026-023 and 024 since their fix (they ship with the next release). Publishing them is part of how we verify the results, not a sign that they are still open. An advisory counts as fixed when the fix is live on stabileo.com, not when the change exists. While an advisory is open, use its workaround and check the affected result by hand before signing.' },
+        { k: 'note', t: 'Status as of 28 October 2026: SA-2026-001 to 020 are fixed in version 0.3.0 and SA-2026-021 to 024 in version 0.4.0 (live on stabileo.com, SA-2026-021 and 022 since 22 October and SA-2026-023 and 024 since 25 and 26 October). Publishing them is part of how we verify the results, not a sign that they are still open. An advisory counts as fixed when the fix is live on stabileo.com, not when the change exists. While an advisory is open, use its workaround and check the affected result by hand before signing.' },
 
         { k: 'h', t: 'Summary' },
         {
@@ -257,10 +257,10 @@ export const safetyAdvisories: Post = {
           caption: 'Published advisories. Severity: critical when capacity or demand could be far on the unsafe side with no visible sign.',
           head: ['Advisory', 'What', 'Severity', 'Status'],
           rows: [
-            ['SA-2026-021', 'Free roofs: no wind along the ridge and, across it, less than the §2.1.5 minimum (17 % of it at 20 m/s)', 'High', 'Fixed on stabileo.com on 2026-10-22'],
-            ['SA-2026-022', 'With earth pressure H, the combination where the dead load resists it was missing (27 to 45 % low in an example)', 'High', 'Fixed on stabileo.com on 2026-10-22'],
-            ['SA-2026-023', 'RC columns: the check read one sign of the moment; uneven bar layouts (6, 10, 14…) passed on the stronger side', 'Critical', 'Fixed on stabileo.com; ships with the next release'],
-            ['SA-2026-024', 'Footings and joints designed for the unfactored loads when combinations were defined and not solved (live calc, or a failed combination solve)', 'High', 'Fixed on stabileo.com; ships with the next release'],
+            ['SA-2026-021', 'Free roofs: no wind along the ridge and, across it, less than the §2.1.5 minimum (17 % of it at 20 m/s)', 'High', 'Fixed in 0.4.0'],
+            ['SA-2026-022', 'With earth pressure H, the combination where the dead load resists it was missing (27 to 45 % low in an example)', 'High', 'Fixed in 0.4.0'],
+            ['SA-2026-023', 'RC columns: the check read one sign of the moment; uneven bar layouts (6, 10, 14…) passed on the stronger side', 'Critical', 'Fixed in 0.4.0'],
+            ['SA-2026-024', 'Footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when combinations were defined and not solved (live calc, a failed combination solve, or an empty active list)', 'High', 'Fixed in 0.4.0'],
             ['SA-2026-013', 'Curved shells: bending moments reported as zero; stresses kept the free thermal strain', 'High', 'Fixed in 0.3.0'],
             ['SA-2026-014', '3D plastic collapse: the factor depended on the element numbering (up to 2.4 times the collapse load)', 'High', 'Fixed in 0.3.0'],
             ['SA-2026-015', 'Cables with self-weight got too little tension in indeterminate structures', 'High', 'Fixed in 0.3.0'],
@@ -321,12 +321,12 @@ export const safetyAdvisories: Post = {
           items: [
             'How to tell if it affects you: the model has concrete columns checked by CIRSOC 201 whose bars are not symmetric about the bending axis: 6, 10, 14, 18 or 22 bars from the designer, or faces entered by hand with a different number of bars on opposite faces.',
             'What to do: on a version before the fix, use symmetric layouts (4, 8, 12, 16, 20 or 24 bars, or equal opposite faces), or check the column also with the bars mirrored: the smaller of the two capacities governs.',
-            'Status: fixed on stabileo.com, ships with the next release. The engine computes both signs and takes the weaker; symmetric layouts give exactly what they gave before.',
+            'Status: fixed in 0.4.0, live on stabileo.com since 25 October 2026. The engine computes both signs and takes the weaker; symmetric layouts give exactly what they gave before.',
           ],
         },
         { k: 'ext', href: `${REPO}/SA-2026-023-column-moment-sign.md`, label: 'Full SA-2026-023', t: 'The advisory, with the test case:' },
-        { k: 'h', t: 'SA-2026-024: footings and joints designed for the unfactored loads' },
-        { k: 'p', t: 'With combinations defined and none of them solved, footings and joints read the result on screen, which is then every load at factor 1: they were designed for the service loads instead of the factored combinations. It happened with live calc on (after an edit it re-solves only “All loads” while the single view is on screen) or when the combination solve failed and the single solve stood in. In a portal under 1.2D + 1.6W a footing’s reaction came out 15 % low; with dead and live load, 29 to 38 %. They now refuse to design, and say why, until the combinations are solved.' },
+        { k: 'h', t: 'SA-2026-024: footings, joints, slabs and walls designed for the unfactored loads' },
+        { k: 'p', t: 'With combinations defined and none of them solved, footings and joints read the result on screen, which is then every load at factor 1: they were designed for the service loads instead of the factored combinations. It happened with live calc on (after an edit it re-solves only “All loads” while the single view is on screen) or when the combination solve failed and the single solve stood in. In a portal under 1.2D + 1.6W a footing’s reaction came out 15 % low; with dead and live load, 29 to 38 %. The same happened to slabs and walls, to the steel optimiser and with an empty list of active combinations. Every design now refuses, and says why, until the combinations are solved.' },
         { k: 'ext', href: `${REPO}/SA-2026-024-design-on-unfactored-results.md`, label: 'Full SA-2026-024', t: 'The advisory, with the example:' },
 
         { k: 'h', t: 'SA-2026-014: 3D plastic collapse depended on the numbering' },
@@ -467,7 +467,7 @@ export const safetyAdvisories: Post = {
       blocks: [
         { k: 'p', t: 'Os resultados do Stabileo são usados para dimensionar estruturas reais. Quando encontramos um defeito que pode ter produzido um resultado errado, e em especial um contra a segurança, publicamos um aviso de segurança: o que estava errado, quais modelos afeta, como reconhecê-los, o que fazer até a correção estar publicada e o que revisar nos resultados que já foram usados.' },
         { k: 'p', t: 'Quase todos esses defeitos foram encontrados pelo nosso próprio programa de verificação: comparação com outros sete programas de elementos finitos, exemplos resolvidos publicados, testes de invariantes físicos e revisão da derivação de cada elemento. Publicá-los faz parte desse trabalho: um defeito que não é informado continua nos cálculos já entregues.' },
-        { k: 'note', t: 'Situação em 22 de outubro de 2026: os avisos SA-2026-001 a 020 estão corrigidos na versão 0.3.0, SA-2026-021 e 022 em stabileo.com desde 22 de outubro e SA-2026-023 e 024 desde a sua correção (saem com a próxima versão). Publicá-los faz parte de como verificamos os resultados, não um sinal de que continuam abertos. Um aviso conta como corrigido quando a correção está publicada em stabileo.com, não quando a mudança existe. Enquanto um aviso estiver aberto, use a alternativa indicada e confira à mão o resultado afetado antes de assinar.' },
+        { k: 'note', t: 'Situação em 28 de outubro de 2026: os avisos SA-2026-001 a 020 estão corrigidos na versão 0.3.0 e SA-2026-021 a 024 na versão 0.4.0 (em stabileo.com, SA-2026-021 e 022 desde 22 de outubro e SA-2026-023 e 024 desde 25 e 26). Publicá-los faz parte de como verificamos os resultados, não um sinal de que continuam abertos. Um aviso conta como corrigido quando a correção está publicada em stabileo.com, não quando a mudança existe. Enquanto um aviso estiver aberto, use a alternativa indicada e confira à mão o resultado afetado antes de assinar.' },
 
         { k: 'h', t: 'Resumo' },
         {
@@ -475,10 +475,10 @@ export const safetyAdvisories: Post = {
           caption: 'Avisos publicados. Severidade: crítica quando a capacidade ou a solicitação podiam ficar muito contra a segurança sem sinal visível.',
           head: ['Aviso', 'O quê', 'Severidade', 'Situação'],
           rows: [
-            ['SA-2026-021', 'Coberturas isoladas: sem vento na direção da cumeeira e, na outra, menos que o mínimo do §2.1.5 (17 % dele a 20 m/s)', 'Alta', 'Corrigido em stabileo.com em 22/10/2026'],
-            ['SA-2026-022', 'Com empuxo de solo H faltava a combinação em que o peso próprio o resiste (27 a 45 % baixo num exemplo)', 'Alta', 'Corrigido em stabileo.com em 22/10/2026'],
-            ['SA-2026-023', 'Pilares de concreto armado: a verificação lia um só sinal do momento; com barras desiguais (6, 10, 14…) aprovava com o lado mais forte', 'Crítica', 'Corrigido em stabileo.com; sai com a próxima versão'],
-            ['SA-2026-024', 'Sapatas e nós dimensionados com as cargas sem majorar quando as combinações estavam definidas e não resolvidas (cálculo ao vivo, ou um cálculo de combinações que falhou)', 'Alta', 'Corrigido em stabileo.com; sai com a próxima versão'],
+            ['SA-2026-021', 'Coberturas isoladas: sem vento na direção da cumeeira e, na outra, menos que o mínimo do §2.1.5 (17 % dele a 20 m/s)', 'Alta', 'Corrigido em 0.4.0'],
+            ['SA-2026-022', 'Com empuxo de solo H faltava a combinação em que o peso próprio o resiste (27 a 45 % baixo num exemplo)', 'Alta', 'Corrigido em 0.4.0'],
+            ['SA-2026-023', 'Pilares de concreto armado: a verificação lia um só sinal do momento; com barras desiguais (6, 10, 14…) aprovava com o lado mais forte', 'Crítica', 'Corrigido em 0.4.0'],
+            ['SA-2026-024', 'Sapatas, nós, lajes, paredes e o otimizador de aço dimensionados com as cargas sem majorar quando as combinações estavam definidas e não resolvidas (cálculo ao vivo, um cálculo de combinações que falhou ou uma lista ativa vazia)', 'Alta', 'Corrigido em 0.4.0'],
             ['SA-2026-013', 'Cascas curvas: momentos fletores informados como zero; tensões com a deformação térmica livre', 'Alta', 'Corrigido na 0.3.0'],
             ['SA-2026-014', 'Colapso plástico 3D: o fator dependia da numeração das barras (até 2,4 vezes a carga de colapso)', 'Alta', 'Corrigido na 0.3.0'],
             ['SA-2026-015', 'Cabos com peso próprio com tração baixa em estruturas hiperestáticas', 'Alta', 'Corrigido na 0.3.0'],
@@ -539,12 +539,12 @@ export const safetyAdvisories: Post = {
           items: [
             'Como saber se afeta você: o modelo tem pilares de concreto verificados com CIRSOC 201 cujas barras não são simétricas em relação ao eixo de flexão: 6, 10, 14, 18 ou 22 barras do dimensionador, ou faces preenchidas à mão com quantidades diferentes de barras em faces opostas.',
             'O que fazer: numa versão anterior à correção, use disposições simétricas (4, 8, 12, 16, 20 ou 24 barras, ou faces opostas iguais), ou verifique o pilar também com as barras espelhadas: vale a menor das duas capacidades.',
-            'Situação: corrigido em stabileo.com, sai com a próxima versão. O motor calcula os dois sinais e toma o mais fraco; as disposições simétricas dão exatamente o mesmo que antes.',
+            'Situação: corrigido na versão 0.4.0, em stabileo.com desde 25 de outubro de 2026. O motor calcula os dois sinais e toma o mais fraco; as disposições simétricas dão exatamente o mesmo que antes.',
           ],
         },
         { k: 'ext', href: `${REPO}/SA-2026-023-column-moment-sign.md`, label: 'SA-2026-023 completo', t: 'O aviso, com o caso de teste:' },
-        { k: 'h', t: 'SA-2026-024: sapatas e nós dimensionados com as cargas sem majorar' },
-        { k: 'p', t: 'Com combinações definidas e nenhuma resolvida, as sapatas e os nós liam o resultado na tela, que então é todas as cargas a fator 1: eram dimensionados com as cargas de serviço em vez das combinações majoradas. Acontecia com o cálculo ao vivo ligado (depois de uma edição recalcula só «Todas as cargas» enquanto se vê a vista simples) ou quando o cálculo das combinações falhou e ficou o cálculo simples. Num pórtico com 1,2D + 1,6W a reação de uma sapata saía 15 % baixa; com permanente e sobrecarga, entre 29 e 38 %. Agora se recusam a dimensionar, e dizem por quê, até as combinações estarem resolvidas.' },
+        { k: 'h', t: 'SA-2026-024: sapatas, nós, lajes e paredes dimensionados com as cargas sem majorar' },
+        { k: 'p', t: 'Com combinações definidas e nenhuma resolvida, as sapatas e os nós liam o resultado na tela, que então é todas as cargas a fator 1: eram dimensionados com as cargas de serviço em vez das combinações majoradas. Acontecia com o cálculo ao vivo ligado (depois de uma edição recalcula só «Todas as cargas» enquanto se vê a vista simples) ou quando o cálculo das combinações falhou e ficou o cálculo simples. Num pórtico com 1,2D + 1,6W a reação de uma sapata saía 15 % baixa; com permanente e sobrecarga, entre 29 e 38 %. O mesmo acontecia com as lajes e as paredes, com o otimizador de aço e com uma lista de combinações ativas vazia. Agora todo dimensionamento se recusa, e diz por quê, até as combinações estarem resolvidas.' },
         { k: 'ext', href: `${REPO}/SA-2026-024-design-on-unfactored-results.md`, label: 'SA-2026-024 completo', t: 'O aviso, com o exemplo:' },
 
         { k: 'h', t: 'SA-2026-014: colapso plástico 3D dependente da numeração' },

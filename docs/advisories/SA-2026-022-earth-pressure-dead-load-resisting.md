@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Fixed on `main` (2026-10-22); to be published with the next release |
+| Status | Published 2026-10-28 (fixed in 0.4.0; live on stabileo.com since 2026-10-22) |
 | Issue | [#580](https://github.com/lambdaclass/stabileo/issues/580) |
-| Fix | PRs [#581](https://github.com/lambdaclass/stabileo/pull/581) and this advisory's PR |
+| Fix | PRs [#581](https://github.com/lambdaclass/stabileo/pull/581) and [#593](https://github.com/lambdaclass/stabileo/pull/593) (both merged 2026-10-22) |
 | Affected versions | 0.2.0 and 0.3.0 |
 | Re-check registry | entry `earth-pressure-dead-load-resisting` (models with CIRSOC combinations) |
 
@@ -46,8 +46,8 @@ somewhere: overturning or sliding of a wall, uplift, a basement wall's reverse m
 
 ## Fixed in
 
-#581 drops the principal load too in every combination that has H (1,2 D + 1,6 H, and
-0,9 D + 1,6 H from 6 and 7 when there is wind or earthquake). This advisory's PR emits
+#581 and #593 (merged and deployed to stabileo.com on 2026-10-22); released in 0.4.0. #581 drops the principal load too in every combination that has H (1,2 D + 1,6 H, and
+0,9 D + 1,6 H from 6 and 7 when there is wind or earthquake). #593 emits
 0,9 D + H all the same when the model has neither wind nor earthquake. The Rust generator and its
 TypeScript oracle changed together. Tests: `loads_cirsoc.rs`
 (`with_earth_pressure_the_principal_load_not_acting_is_generated`), `cirsoc101.test.ts` and the
@@ -65,5 +65,5 @@ Re-run models with H and check the walls' overturning, sliding and reverse-momen
 ## Credits and references
 
 Recorded as an open item of the loads verification (docs/verification/LOADS.md, "Loads not
-acting, with H"), fixed by #581, and completed when this advisory was written. CIRSOC 101-2025
+acting, with H"), fixed by #581, and completed when this advisory was written (#593). CIRSOC 101-2025
 §2.3.2.

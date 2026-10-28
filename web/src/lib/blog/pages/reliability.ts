@@ -5,7 +5,7 @@
  * Every claim has a source and must stay no stronger than it:
  *  - the how-stabileo-checks-its-results post (five ways, certificates, what they do not say);
  *  - the end-to-end-certificates post and docs/verification/CERTIFY.md (frames and trusses);
- *  - docs/advisories/README.md (SA-2026-001…004 fixed in 0.2.0, 005…020 in 0.3.0);
+ *  - docs/advisories/README.md (SA-2026-001…004 fixed in 0.2.0, 005…020 in 0.3.0, 021…024 in 0.4.0);
  *  - the 0.3.0 release notes (known limitations: material-nonlinear secant model, #428);
  *  - docs/verification/MATURITY.md (the level of every analysis, element and design code).
  */
@@ -15,14 +15,14 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
 
 export const reliabilityPage: StandingPage = {
   path: '/reliability',
-  updated: '2026-10-22',
+  updated: '2026-10-28',
   i18n: {
     es: {
       title: '¿Qué tan confiable es Stabileo? Cómo se verifican sus resultados',
       description:
         'Cómo verifica Stabileo sus resultados: siete programas de elementos finitos, ejemplos publicados, cotas probadas en Lean y avisos públicos. Y qué no garantiza.',
       eyebrow: 'Confiabilidad',
-      lead: 'Los resultados de Stabileo se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error cuya matemática central está demostrada en Lean. Los errores que pudieron afectar resultados ya usados se publican como avisos de seguridad (algunos hallazgos siguen en evaluación, en público), y los veinte avisos publicados están corregidos en la versión 0.3.0. Como cualquier programa de cálculo, no verifica tu modelo: las cargas, los apoyos y la idealización los decide quien calcula.',
+      lead: 'Los resultados de Stabileo se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error cuya matemática central está demostrada en Lean. Los errores que pudieron afectar resultados ya usados se publican como avisos de seguridad (algunos hallazgos siguen en evaluación, en público), y los veinticuatro avisos publicados están corregidos (los últimos, en la versión 0.4.0). Como cualquier programa de cálculo, no verifica tu modelo: las cargas, los apoyos y la idealización los decide quien calcula.',
       blocks: [
         { k: 'h', t: 'Cinco formas de buscar errores' },
         {
@@ -45,6 +45,7 @@ export const reliabilityPage: StandingPage = {
           items: [
             'SA-2026-001 a 004 se corrigieron en la versión 0.2.0.',
             'SA-2026-005 a 020 se corrigieron en la versión 0.3.0.',
+            'SA-2026-021 a 024 se corrigieron en la versión 0.4.0.',
             'La aplicación avisa una vez cuando los resultados pueden haber cambiado, y los proyectos guardados antes de un cambio que los afecta piden revisión al abrirlos.',
           ],
         },
@@ -68,7 +69,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: '¿Stabileo es confiable para un cálculo estructural real?', a: 'Sus resultados se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error demostradas en Lean, y los errores que pudieron afectar resultados ya usados se publican; los que siguen en evaluación son públicos en GitHub. Todavía no tuvo una revisión independiente de un ingeniero matriculado y el módulo PRO sigue en desarrollo, así que, como con cualquier programa, quien calcula revisa el modelo y los resultados que gobiernan.' },
         { q: '¿Por qué Stabileo publica avisos de seguridad?', a: 'Porque su programa de verificación encontró errores reales, muchos del lado inseguro, y un error que no se informa sigue en los cálculos ya entregados. Cada aviso dice cómo reconocer un modelo afectado y qué revisar.' },
-        { q: '¿Los avisos publicados están corregidos?', a: 'Sí. SA-2026-001 a 004 se corrigieron en la versión 0.2.0 y SA-2026-005 a 020 en la 0.3.0.' },
+        { q: '¿Los avisos publicados están corregidos?', a: 'Sí. SA-2026-001 a 004 se corrigieron en la versión 0.2.0, SA-2026-005 a 020 en la 0.3.0 y SA-2026-021 a 024 en la 0.4.0.' },
       ],
     },
     en: {
@@ -76,7 +77,7 @@ export const reliabilityPage: StandingPage = {
       description:
         'How Stabileo checks its results: seven other FE programs, published examples, error bounds proved in Lean and public advisories. And what no check can promise.',
       eyebrow: 'Reliability',
-      lead: 'Stabileo’s results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds whose core mathematics is proved in Lean. Defects that could have affected results already in use are published as safety advisories (some findings are still being triaged, in public), and all twenty published advisories are fixed in version 0.3.0. Like any analysis program, it does not check your model: loads, supports and idealisation are the engineer’s decisions.',
+      lead: 'Stabileo’s results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds whose core mathematics is proved in Lean. Defects that could have affected results already in use are published as safety advisories (some findings are still being triaged, in public), and all twenty-four published advisories are fixed (the latest four in version 0.4.0). Like any analysis program, it does not check your model: loads, supports and idealisation are the engineer’s decisions.',
       blocks: [
         { k: 'h', t: 'Five ways of looking for errors' },
         {
@@ -99,6 +100,7 @@ export const reliabilityPage: StandingPage = {
           items: [
             'SA-2026-001 to 004 were fixed in version 0.2.0.',
             'SA-2026-005 to 020 were fixed in version 0.3.0.',
+            'SA-2026-021 to 024 were fixed in version 0.4.0.',
             'The app says once when results may have changed, and projects saved before a change that concerns them ask for a re-check when opened.',
           ],
         },
@@ -122,7 +124,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: 'Is Stabileo reliable for real structural design work?', a: 'Its results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds proved in Lean, and defects that could have affected results already in use are published; those still being triaged are public on GitHub. It has not yet had an independent review by a licensed engineer and the PRO module is in development, so, as with any program, the engineer reviews the model and the governing results.' },
         { q: 'Why does Stabileo publish safety advisories?', a: 'Because its verification found real defects, many of them unconservative, and a defect nobody reports stays in calculations already delivered. Each advisory says how to recognise an affected model and what to re-check.' },
-        { q: 'Are the published advisories fixed?', a: 'Yes. SA-2026-001 to 004 were fixed in version 0.2.0 and SA-2026-005 to 020 in 0.3.0.' },
+        { q: 'Are the published advisories fixed?', a: 'Yes. SA-2026-001 to 004 were fixed in version 0.2.0, SA-2026-005 to 020 in 0.3.0 and SA-2026-021 to 024 in 0.4.0.' },
       ],
     },
     pt: {
@@ -130,7 +132,7 @@ export const reliabilityPage: StandingPage = {
       description:
         'Como o Stabileo verifica resultados: sete programas de elementos finitos, exemplos publicados, cotas provadas em Lean e avisos públicos. E o que não garante.',
       eyebrow: 'Confiabilidade',
-      lead: 'Os resultados do Stabileo são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro cuja matemática central está provada em Lean. Os erros que podem ter afetado resultados já usados são publicados como avisos de segurança (alguns achados seguem em avaliação, em público), e os vinte avisos publicados estão corrigidos na versão 0.3.0. Como qualquer programa de cálculo, ele não verifica o seu modelo: as cargas, os apoios e a idealização são decisões de quem calcula.',
+      lead: 'Os resultados do Stabileo são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro cuja matemática central está provada em Lean. Os erros que podem ter afetado resultados já usados são publicados como avisos de segurança (alguns achados seguem em avaliação, em público), e os vinte e quatro avisos publicados estão corrigidos (os últimos, na versão 0.4.0). Como qualquer programa de cálculo, ele não verifica o seu modelo: as cargas, os apoios e a idealização são decisões de quem calcula.',
       blocks: [
         { k: 'h', t: 'Cinco formas de procurar erros' },
         {
@@ -153,6 +155,7 @@ export const reliabilityPage: StandingPage = {
           items: [
             'SA-2026-001 a 004 foram corrigidos na versão 0.2.0.',
             'SA-2026-005 a 020 foram corrigidos na versão 0.3.0.',
+            'SA-2026-021 a 024 foram corrigidos na versão 0.4.0.',
             'O aplicativo avisa uma vez quando os resultados podem ter mudado, e os projetos salvos antes de uma mudança que os afeta pedem revisão ao serem abertos.',
           ],
         },
@@ -176,7 +179,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: 'O Stabileo é confiável para um cálculo estrutural real?', a: 'Seus resultados são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro provadas em Lean, e os erros que podem ter afetado resultados já usados são publicados; os que seguem em avaliação são públicos no GitHub. Ainda não teve uma revisão independente de um engenheiro habilitado e o módulo PRO segue em desenvolvimento, então, como com qualquer programa, quem calcula revisa o modelo e os resultados que governam.' },
         { q: 'Por que o Stabileo publica avisos de segurança?', a: 'Porque sua verificação encontrou erros reais, muitos contra a segurança, e um erro que não é informado continua nos cálculos já entregues. Cada aviso diz como reconhecer um modelo afetado e o que revisar.' },
-        { q: 'Os avisos publicados estão corrigidos?', a: 'Sim. SA-2026-001 a 004 foram corrigidos na versão 0.2.0 e SA-2026-005 a 020 na 0.3.0.' },
+        { q: 'Os avisos publicados estão corrigidos?', a: 'Sim. SA-2026-001 a 004 foram corrigidos na versão 0.2.0, SA-2026-005 a 020 na 0.3.0 e SA-2026-021 a 024 na 0.4.0.' },
       ],
     },
   },

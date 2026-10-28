@@ -40,14 +40,17 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
-- `npm run test` — The full Vitest gate. Runs **two passes** and fails if either fails:
-  `unit` (everything, in a bounded parallel pool) and `build` (the tests that shell out to a
-  real `vite build`, serially). See `scripts/test-all.mjs` for the measurements behind the
+- `npm run test` — The full Vitest gate. Runs **three passes** and fails if any fails:
+  `unit` (everything, in a bounded parallel pool), `build` (the tests that shell out to a
+  real `vite build`, serially) and `results` (the results snapshot gate). See `scripts/test-all.mjs` for the measurements behind the
   split — briefly: a nested production build does not occupy one worker slot, it occupies the
   machine, and Vitest's default worker count leaves the coordinator no core, which together
   made the suite exit 1 with `[vitest-worker]: Timeout calling "onTaskUpdate"` while every
   assertion passed.
-- `npm run test:unit` / `npm run test:build` — one pass on its own.
+- `npm run test:unit` / `npm run test:build` / `npm run test:results` — one pass on its own.
+  `results` is the results snapshot gate (#716): a reference corpus solved through the app's
+  path against `results-snapshots/`; after a deliberate result change, `npm run snapshots:update`
+  and register it (`docs/verification/PROVENANCE.md`, "Results snapshot gate").
 - `npm run test:watch` — Watch mode (the `unit` pass)
 - In CI the two passes run as separate jobs: `web-unit` shards the unit pass two ways
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test

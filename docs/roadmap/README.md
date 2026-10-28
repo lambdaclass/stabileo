@@ -3,10 +3,13 @@
 This is the single entry point for Stabileo's plans. Read this page first; it says which document
 answers which question, how current each one is, and where the work is tracked.
 
-**The backlog lives in one place:** the five backlog sections of
+**The backlog lives in one place:** the backlog sections of
 [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) (Multipliers, Trust and verification, Engineering
-coverage, Solver and proof depth, Release safety). Every item there links to its GitHub issue;
-the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). Each section has
+coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
+housekeeping). Every item there links to its GitHub issue;
+the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
+the **Priority now** section at the top of that backlog: the test gaps that let a wrong result
+ship unnoticed. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
 

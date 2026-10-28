@@ -7,8 +7,9 @@ severity scale, notification channels, timelines and template are in
 **SA-2026-001…020 are published** (2026-10-21, with release 0.3.0): SA-2026-001…004 are
 retroactive, for defects fixed in 0.2.0; SA-2026-005…020 were fixed in 0.3.0. Each has a GitHub
 issue labelled `safety-advisory`, a section in the release notes and an entry in the in-app
-re-check registry where the app could produce the result. **SA-2026-021…024 are not published
-yet**: they are fixed on `main` (live on stabileo.com) and are published with the next release.
+re-check registry where the app could produce the result. **SA-2026-021…024 are published**
+(2026-10-28, with release 0.4.0): they were fixed in 0.4.0, and each has its issue, release-notes
+section and re-check registry entry in the same way.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -32,10 +33,10 @@ yet**: they are fixed on `main` (live on stabileo.com) and are published with th
 | [SA-2026-018](SA-2026-018-mitc9-curved-rigid-motion.md) | MITC9 shells (engine/WASM only) on curved geometry strained by rigid-body motion (101 MPa from a 1 mrad rotation) | Medium | [#411](https://github.com/lambdaclass/stabileo/issues/411) | #528 | 0.3.0 | Published 2026-10-21 |
 | [SA-2026-019](SA-2026-019-frame-thermal-alpha-depth.md) | Frame and truss temperature loads assumed steel's α and a solid rectangle's depth (gradient moments up to ~30 % low on I sections) | Medium | [#407](https://github.com/lambdaclass/stabileo/issues/407) | #531 | 0.3.0 | Published 2026-10-21 |
 | [SA-2026-020](SA-2026-020-material-nonlinear-3d-yield-surface.md) | 3D material-nonlinear solver (engine/WASM only) used a yield surface less conservative than 2D (first yield up to 15 % late at N = 0.5·Np) | Medium | [#429](https://github.com/lambdaclass/stabileo/issues/429) | #529 | 0.3.0 | Published 2026-10-21 |
-| [SA-2026-021](SA-2026-021-free-roof-wind-minimum.md) | Free roofs: no wind along the ridge, and less than the §2.1.5 minimum across it (17 % of it at 20 m/s) | High | [#580](https://github.com/lambdaclass/stabileo/issues/580) | #581 | next release | Fixed on main, to publish |
-| [SA-2026-022](SA-2026-022-earth-pressure-dead-load-resisting.md) | With earth pressure H, the combination where the dead load resists it was missing (27–45 % low in an example) | High | [#580](https://github.com/lambdaclass/stabileo/issues/580) | #581 and this PR | next release | Fixed on main, to publish |
-| [SA-2026-023](SA-2026-023-column-moment-sign.md) | RC column check read one sign of the moment: uneven bar layouts (6, 10, 14… bars) passed on the stronger sign (φMn up to 38 % high) | Critical | — (D4-01) | #590 | next release | Fixed on main, to publish |
-| [SA-2026-024](SA-2026-024-design-on-unfactored-results.md) | Footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when combinations were defined but not solved (live calc, a failed combination solve, or an empty active list): 15 % low in an example, 29–38 % for D + L | High | — (W2-01) | #588, #649 | next release | Fixed on main, to publish |
+| [SA-2026-021](SA-2026-021-free-roof-wind-minimum.md) | Free roofs: no wind along the ridge, and less than the §2.1.5 minimum across it (17 % of it at 20 m/s) | High | [#580](https://github.com/lambdaclass/stabileo/issues/580) | #581, #593 | 0.4.0 | Published 2026-10-28 |
+| [SA-2026-022](SA-2026-022-earth-pressure-dead-load-resisting.md) | With earth pressure H, the combination where the dead load resists it was missing (27–45 % low in an example) | High | [#580](https://github.com/lambdaclass/stabileo/issues/580) | #581, #593 | 0.4.0 | Published 2026-10-28 |
+| [SA-2026-023](SA-2026-023-column-moment-sign.md) | RC column check read one sign of the moment: uneven bar layouts (6, 10, 14… bars) passed on the stronger sign (φMn up to 38 % high) | Critical | — (D4-01) | #590 (via #629) | 0.4.0 | Published 2026-10-28 |
+| [SA-2026-024](SA-2026-024-design-on-unfactored-results.md) | Footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when combinations were defined but not solved (live calc, a failed combination solve, or an empty active list): 15 % low in an example, 29–38 % for D + L | High | — (W2-01) | #588 (via #629), #649 | 0.4.0 | Published 2026-10-28 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

@@ -11,7 +11,7 @@
  */
 
 /** The last release whose fixes change analysis or design-check results. */
-export const RESULTS_CHANGED_IN = '0.3.0';
+export const RESULTS_CHANGED_IN = '0.4.0';
 
 export const WHATS_NEW_STORAGE_KEY = 'stabileo-whats-new-seen';
 

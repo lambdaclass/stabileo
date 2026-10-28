@@ -11,6 +11,346 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.4.0 (2026-10-28)
+
+Release notes: [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md) (also in
+[Spanish](docs/releases/v0.4.0.es.md) and [Portuguese](docs/releases/v0.4.0.pt.md)). Safety advisories
+SA-2026-021…024 are fixed and published in this release.
+
+### BREAKING (results)
+
+#### CIRSOC 301 steel verdicts of the design chain, registered (#461, 2026-10-25)
+
+#461 changed steel member verdicts and reached main without a changelog entry or a re-check entry;
+both are added now (results version 4, `docs/results-changes/2026-10-design-chain.md`). A limit
+state the engine refuses holds the member («not evaluated») instead of failing it with an
+infinite ratio. A section that does not state whether it is rolled or welded is checked both ways
+and held where they disagree (it was taken as welded unless it came from a rolled catalogue); an
+undeclared load height is read on the top flange and, where that fails, on the web. H.1 is rated
+on the forces that act together (each combination at each station), so some ratios fall; unbraced
+lengths are read per axis and per flange from the bracing; weak-axis shear (G.6) is checked; 0.95
+to 1.00 reads as a warning. Cold-formed sections are no longer checked by CIRSOC 301 as if they
+were hot-rolled: CIRSOC 303 is not implemented, so they read not designed, and an earlier pass is
+not a valid verification. Projects solved before are told so on opening (re-check entries
+`cirsoc301-refused-limit-state-holds`, `cirsoc301-undeclared-fabrication-and-load-height`,
+`cirsoc301-concurrent-forces-and-lengths`, `cold-formed-not-checked-by-cirsoc301`).
+
+#### Design never on the unfactored loads, completed; a NaN check and a staleness that hold on the combination path (2026-10-26)
+
+- **Slabs, walls and the steel optimiser no longer design over the unfactored solve**
+  (W2-01, SA-2026-024, which #588 fixed for footings and joints). The floor run designed slab
+  bending from the result on screen's mx and my, and the optimiser took it as its one
+  combination. With combinations to design for and none to read, every design refuses and says
+  why (`designCombinationsWithheld`): not solved, only SRSS or ABS active, or an active list that
+  names no solved one. An empty active list now counts as unsolved: the single solve stood in for
+  it and footings, joints and floors designed over it. RC design says the combinations are not
+  solved instead of "Define at least one load combination". The message no longer tells to
+  "Solve again (Calcular)", which did not help when the combinations were refused.
+- **The combination path checks for NaN displacements** before it publishes the base, the cases
+  and the combinations, as the single solve does; #588's manual solve checked only the single.
+- **Every manual solve cancels the pending live calc** (an export, the re-run), not only Enter and
+  the ribbon: a live calc firing mid-solve made it report "the model changed" for an untouched
+  model, or published its single solve in place of the combinations.
+- **A solve that left the combinations out keeps the project stale** from any entry point; a plain
+  Calcular after the refused re-run stamped it current over the same single solve. In Basic 3D the
+  combinations' failure is information, not an error, when the single solve stands in. (#649)
+
+#### Dynamic analyses refuse member insertion offsets and shell offsets (#460, 2026-10-25)
+
+Modal, response-spectrum and time-history analyses, and the modal step of the seismic and wind
+load plans, refuse a model with member insertion offsets or shell offsets and say why. They were
+solved on the node lines, without the eccentricities the static analysis takes, so their results
+for such a model did not include them. Registered with the design chain's changes (results version
+4, re-check entry `dynamic-analyses-refuse-eccentricities`).
+
+#### Free roofs get the §2.1.5 minimum wind force; with H, the dead load resisting it is checked (2026-10-22)
+
+SA-2026-021: a free roof had no horizontal wind along its ridge and, across it, less than
+CIRSOC 102-2025 §2.1.5's 0,75 kN/m² × Af at low and moderate speeds; each wind direction now has an
+"open-building minimum" load case, Af the reader's or the whole vertical projection (#581).
+SA-2026-022: with earth pressure H, 0,9 D + 1,6 H and 1,2 D + 1,6 H (the principal load not
+acting) were never generated, so an effect where the dead load resists H came out low; they are
+now, with or without wind and earthquake in the model (#581 and the advisory's PR). The site
+altitude also accepts values below sea level, where Ke > 1 (#581). Results version 2.
+
+#### RC columns are checked for both signs of the moment (D4-01, 2026-10-22)
+
+A CIRSOC 201 column whose bars are not symmetric about the bending axis gets the capacity of its
+weaker side; some columns that passed now fail, and the designer may pick more bars. The station
+moments are magnitudes, but the uniaxial column capacity was solved with the +y face compressed
+only, and the designer's 6, 10, 14… bars (and faces entered with nTop ≠ nBottom or nLeft ≠ nRight)
+put more bars on the other side: 30×30 with 6 Ø20 at Nu = 100 kN carries 101.57 kN·m one way and
+78.57 the other, and passed Mu = 100 at 0.98. The column kernel (`column_capacity_kernel.rs`) now
+solves both signs and returns the weaker, with the governing sign (`momentSign` on the column
+result); the station verifier, the designer and the engine gate all read it. Symmetric layouts are
+solved once, bit for bit as before. The biaxial check already took the worst quadrant. Projects
+solved before are told so on opening (re-check entry `column-capacity-both-signs`, results
+version 3). Advisory SA-2026-023 (#590).
+
+#### The solve path: one manual solve, design never on the unfactored loads, a re-check that says what it left out (2026-10-22)
+
+- **Footings and joints no longer design over the unfactored solve** (W2-01, SA-2026-024).
+  Live calc re-solves only "All loads" while the single view is on screen (deliberately, for a
+  large model's sake), so after one edit the combinations were gone and a footing was designed
+  for D + W at factor 1 where 1.2D + 1.6W acts. With combinations defined and none solved,
+  `activeResultSet3D` is now null and the floor and connection panels say why
+  (`combinationsUnsolved`). Re-check entry `design-on-unfactored-results`, results version 3.
+- **Enter, the ribbon, ToolbarResults, the exports and the steel optimiser's re-verify solve
+  through `runGlobalSolve`** (W5-01), Calcular's solve, and take its guard: an older Enter solve
+  landed after a newer one was published. `runSolve3D` is gone; the base is still solved directly
+  from these entry points. A view export right after PRO's solve failed no longer solves again
+  (one solve, one error toast). The manual 3D solve now checks for NaN displacements and names the
+  mechanism in PRO, as Enter did; Basic with load cases off solves no combination from any of
+  them, as Enter already did.
+- **The solve guard reads the solve settings, not only the model** (W5-03): a solve in flight
+  when self-weight (or its case, the axis convention, the mode) changed published its answer
+  under the new setting.
+- **"Re-run analysis and design" fails when the combinations were refused or failed** (W5-02),
+  and the project stays stale; it reported success over the single solve that stood in. A P-Δ
+  run with no second-order equilibrium no longer stamps the project as solved, and a modal run
+  alone no longer ends the stale state (and with it the "current" in an export's provenance).
+  (#588)
+
+### Added
+
+#### Cables: a pretension per cable, and a warning when their own weight gives most of their tension (2026-10-22)
+
+Specifications › Members › Cable takes a pretension (kN): the cable's tension on its drawn chord
+under its own weight, from which the engine sets its unstressed length. Without one, the chord is
+the unstressed length, as before. A cable given no pretension whose self-weight tension
+(T₀³ = EA·(w·l_h)²/24) is over a quarter of its reported tension is warned, in en/es/pt: a heavy
+member typed as a cable is usually a truss member (#527, #582).
+
+#### PRO curved members as whole pieces, loads along the arc, plates with curved sides, IFC export in Project (2026-10-27)
+
+An arc is picked whole (or one segment at a time), shows one local-axis triad, and has a panel with
+its radius, angle, arc length, the chord error of its segments and Remake with another count,
+keeping its id, section, material and end releases. Loads along the arc are given per metre of arc
+in a global direction and spread on the segments keeping the total force. Results read N, V, T and
+M against the length along the piece, and export as CSV. A plate side can follow an arc and share
+the curved member's nodes. Project → Export offers IFC with design on or off.
+
+#### PRO DXF templates over several levels, CAD-style snaps, assisted conversion, and per-floor plans in the CAD wizard (2026-10-27)
+
+A DXF with several plans is prepared as templates: its regions found, each laid on a level by a
+point, locked, aligned by two pairs of points (a scale mismatch is reported, never applied), its
+layers shown or hidden and snapped or not. Object snaps on templates (endpoint, midpoint, center,
+quadrant, intersection, perpendicular, nearest) are turned on one by one from the draw bar and
+remembered per browser; F3 turns them off and on. Part of a template converts to members, arcs and
+columns after a plan that reports duplicates, joins, T joints and loose ends. The CAD draft wizard
+finds the separate plans of a drawing, lays each on the one below by its columns, and gives every
+floor its plan and height in a table; the provenance records each floor's plan and the point each
+plan was laid by. The DXF and IFC import dialogs use the application's palette.
+
+#### PRO plates as physical objects, meshed on demand, with Diagnostics on the Analyse row (2026-10-27)
+
+A plate is drawn as an outline of any number of nodes, with holes, material, thickness and area
+loads kept on the plate, and holds no shells until it is meshed: from its panel or in a batch, as
+free quadrilaterals or triangles or as a grid of rectangles or squares of chosen sides, after a
+plan that lists what changes. Meshing before the analysis (on by default) meshes only plates with
+no mesh or an out-of-date one, once per solve; a plate whose old mesh carries loads put on its
+elements is never remeshed there, the analysis names it instead. A plate is picked whole or by
+element, shows one local-axis triad when picked whole, and has per-plate extremes of its moments,
+membrane forces and deflection in its own axes. Diagnostics now has its own command on the
+Analyse row. Only objects drawn this way are plates: existing shells and the slabs of the building
+generators are unchanged, and no saved result moves.
+
+#### PRO use zones per floor, their live loads from the CIRSOC 101 table, and finishes (2026-10-27)
+
+Use zones are drawn per floor or taken from a template's closed outlines, independent of the mesh.
+Each zone takes an occupancy from the CIRSOC 101 table already in the application or a stated
+value; names found in the drawing are offered as suggestions to confirm, never applied on their
+own. "No load" is a decision of its own, shown apart from a zone with no use yet. The zones' live
+loads, and finishes as a dead load of their own, are written as load definitions after a plan
+that shows what is added, changed and removed, and running it again adds nothing; loads entered
+by hand are never touched. Zones are copied between floors with their exceptions. A zone over a
+plate not yet meshed loads the slab once it is meshed; finishes in a model with no dead-load case
+are named in the plan and in Diagnostics.
+
+### Changed
+
+#### E2E runs in ten duration-balanced shards, and flaky tests have a quarantine (2026-10-23)
+
+CI's end-to-end suite runs in ten shards instead of five, and the slow suite (the merge queue's)
+is now balanced by measured duration like the smoke suite: `--shard=N/5` split it by test count
+and left the Basic advanced sweep, 54 of its 120 minutes, in one shard (49 min there, 6 in the
+lightest). The sweep is seven spec files now, none over ten minutes, over one shared harness
+(`web/e2e/basic-advanced-sweep.ts`); no test was added or removed. The required checks are
+`e2e (1)` to `e2e (10)`.
+
+A test tagged `@flaky` is left out of the blocking runs and runs in the non-required `e2e-flaky`
+job with two retries; the tag requires a linked issue (`web/e2e/README.md`). The Basic advanced
+sweep's `tower-3d-2` is quarantined (#607: the mode-shape motion check reads too little on CI;
+its frames now span a whole period before calling a shape still). The rebar workspace's
+"restored proposal is PROVISIONAL" test is fixed instead: its poll gave up after 10 s while the
+page was busy for 40 s after the filter press (#608 tracks the freeze itself).
+
+#### Normative design is optional in PRO and off by default; the design chain enters main (2026-10-26)
+
+The design stages (#462–#475: concrete design, detailing, other materials and codes, documents,
+the design workspace, polish and reliability on a real building) enter main in one merge with the
+switch of #624, so no intermediate state was deployed. PRO starts without the Design stage;
+modelling, buildings and levels, loads and combinations, the analysis and its results, the
+calculation exports and IFC need none of it. Settings → PRO → «Turn on normative design (in
+development)» adds it, with the module's open limitations listed there. A project that already
+holds design (bars, detailing, decisions) opened with design off keeps all of it and offers to turn
+design on; a link that names a place of design asks first and turns it on for that visit only.
+With design off, nothing of design runs: no sizing, no code check, no verification on a re-run.
+Concrete, other-material and footing verdicts that move with the chain are told to the projects
+they concern (results version 4, `docs/results-changes/2026-10-design-chain.md`).
+
+#### `make test-changed` and a pre-push hook, for a faster local loop (2026-10-23)
+
+`make test-changed` (scripts/test-changed.sh) runs only the tests the branch most likely affects,
+against origin/main with uncommitted work included: `vitest related` on the changed web files,
+the engine's library unit tests when engine/src changed, the integration targets whose own files
+changed plus up to six named after a changed source file, and the backend tests when backend/
+changed. It prints every command it runs and everything it skipped, and why; CI still runs it all.
+
+`make hooks` points git at the versioned hooks in scripts/hooks. The pre-push hook runs the web
+typecheck and the unit tests related to the pushed commits (usually 20 to 40 s, longer when a
+widely imported module changed); `git push --no-verify` skips it.
+
+#### IFC import keeps every straight piece of a curved edge on its own points (2026-10-27)
+
+The analytical model of an imported building joined consecutive members that were offset from
+each other, which turned the short pieces of a curved slab edge into fewer chords off the edge.
+Pieces are now joined only when they point the same way (within 0.5°). A building imported from
+now on can have more analytical members along curved edges, with the same total length; projects
+already imported are not touched.
+
+### Fixed
+
+#### The verification report's bar marks count every stirrup leg, and its table is translated (2026-10-23)
+
+The estimated bar marks of the PRO verification report read each stirrup's number of legs and
+dropped it: a 4-leg stirrup was scheduled as one 2-leg hoop, so its cut list and steel weight left
+out the inner legs. They are now listed as crossties (two per hoop for a 4-leg stirrup, across the
+depth, hooked at both ends), and beams with different leg counts are no longer grouped as one mark.
+The table's labels named keys that do not exist (`report.bm*`), so it printed the keys in every
+language; it now uses the app's `pro.bm*` strings. Quantities only: no design check changes.
+Found while clearing the type-check baseline (an unused `legs`).
+
+#### The default steel declares its ultimate strength, so a new model's steel checks run (2026-10-22)
+
+The material every new model starts with, "Acero A36", declared Fy = 250 MPa but no Fu, so every
+CIRSOC 301 check of a new model, the bundled examples included, read "not evaluated: the material
+lacks Fu" until the user typed it. It now declares Fu = 400 MPa, ASTM A36's minimum and the value
+the grade catalogue gives A36. Fu feeds the design checks only, not the analysis. Found by the new
+end-to-end test of the everyday path (#597).
+
+#### Deleting or renumbering no longer leaves a load on a number someone else takes (2026-10-21)
+
+Audit 2026-10, W1-01 to W1-05. A load names a node, a member or a definition by number, and
+numbers are reused.
+- **A deleted floor-load definition takes its loads with it.** They were kept as plain loads and
+  went on into every solve. `removeGroup` now drops the loads the definition wrote, so deleting it
+  from the panel or as a group does the same; undo brings both back. A load from a definition the
+  model never held (a link, a paste) is still kept as a plain load.
+- **Deleting a member takes its tendon, and deleting a node takes its imposed displacement.**
+  Each delete kept its own list of load types, and neither list had the newer types. They now
+  read one table, `LOAD_TARGET`, of what each load type stands on. Before, the solve skipped the
+  orphan tendon and said "solved", and the orphan displacement made every solve refuse, naming
+  the deleted node.
+- **The solve refuses a load on a member or a node the model does not have**, naming the load
+  and the number (`orphanLoadRefusal`: the single solve, both combination solves, direct
+  analysis). Such a load now comes only from an older file or a paste. Before, a member load
+  like that was skipped without a word.
+- **Renumbering refuses while a load names something the model does not have**
+  (`refused: 'orphanLoads'`, by load). The renumber left an unknown number unchanged, so a
+  deleted support's settlement ended up on another support and solved.
+- **A project spectrum's number is never given again.** Numbers were the highest in use plus
+  one, so deleting spectrum 2 and adding a new one gave 2 again, and a spectral case on the old
+  spectrum solved on the new one's placeholder table. The counter is saved with the project
+  (`nextId.spectrum`). Older files start it past every spectrum and every number a case uses. A
+  spectrum is not deleted while a spectral case uses it; the panel names the cases.
+
+#### Editing a spectrum retires the results solved on the old one (2026-10-21)
+
+A user spectrum feeds the spectral load cases of the main solve (#261), and the time history
+its own run, but `setDynamics` recorded on the views undo channel, which retires nothing, and
+the edit did not bump the model version: D + Ex solved on a 0.4 g spectrum stayed on screen
+after the spectrum became 0.8 g, live calc did not re-run, and undoing the edit kept the 0.8 g
+results (W3-01). The spectra and the time history are now a model edit: undoable, and the
+results on hand are retired on the edit, its undo and its redo; a write that changes nothing
+takes no step. Undo entries a session saved on the old channel restore them the same way.
+Test: `web/src/lib/store/__tests__/spectrum-edit-retires-results.test.ts`.
+
+#### PRO DXF of the envelope draws the envelope; no deformed shape for an envelope or SRSS set (2026-10-21)
+
+The DXF integrated the envelope's end forces as one load state: each end's largest force, from
+whichever combination gives it, with the first combination's member loads. On a portal whose
+wind combination is listed before the dead load the beam was drawn and labelled at 320.59 kN·m
+against an envelope peak of 49.16. It now draws the envelope's own positive and negative station
+curves, labelled and scaled from the envelope, as the figures do (#271); the same holds when the
+envelope is the set on screen. An envelope (each value from its own combination) and an SRSS or
+ABS set (magnitudes without a sign) are no deflected state: neither writes a deformed shape any
+more, and their reactions are written as values without an arrow. The RESULTS layer says what
+was left out (W4-01, W4-02).
+
+#### The re-check prompt names the 0.3.0 fixes to projects solved before them (2026-10 audit, V6-02)
+
+Solves have been stamped with results version 1 since #328, which is deployed; the fixes merged
+with 0.3.0 after it (#530: SA-2026-013…017) were registered at version 1 as well, so a project
+solved on a build in between opened as current and was never told that its curved-shell, arc,
+3D plastic-collapse, cable or soil-spring results had moved. Those entries are now at results
+version 2 (`currentResultsVersion` 2), with the one the registry lacked for an app workflow:
+member temperature loads (#407, FR-4, SA-2026-019; feature `memberThermalLoads`). The 3D
+material-nonlinear yield surface (SA-2026-020) stays out: no screen of the app runs that solver.
+A project solved on 0.3.0 itself also carries version 1 and is shown these entries once more.
+`results-version.test.ts` pins each version's entries, so adding one to a version already on main
+fails, and `docs/verification/PROVENANCE.md` states the rule. The committed `.ded` fixture is
+restamped at version 2. (Version 2 was taken on main first, by #582 and #597; these entries share
+it — a build stamping 2 already carries the five fixes, so it is never shown them, and a project
+stamped 1 is shown every entry that followed.)
+
+#### A member cut by a mesh keeps its loads on its pieces (2026-10-27)
+
+Meshing a region with "split members" (the quick quadrilateral mesher, slabs meshed at the
+analysis, and now physical plates) cut the members after the loads had been committed: the pieces
+came without their loads, and the loads kept naming the member that was gone. The analysis then
+refused the model ("Load N is on member M, which the model does not have"), so no result was ever
+computed on the wrong loads and none needs re-checking. Meshes made from now on keep each load on
+the pieces of its member, with its total. A project saved after hitting the defect still carries
+those loads on a member it no longer has, and still says so when solved: delete them and put them
+on the pieces.
+
+### Performance
+
+#### The landing and the blog load 0.46 MB instead of 6.4 MB (2026-10-23)
+
+Every public page downloaded and ran the whole application (3 MB of JavaScript) and the engine
+(3 MB of WASM) before it settled: Lighthouse measured performance 52 on the landing and 35 on the
+blog, with the blog's largest paint at 19 s on a mobile profile. The public pages now render on
+their own with only their share of the dictionaries, and the application and the engine load on
+the first app route; an address that is the application's mounts it at once, as before (#595).
+
+#### The engine's tests build in 7 binaries instead of 104, and rebuild three times faster (2026-10-23)
+
+Every top-level `engine/tests/*.rs` was its own test binary, and each one linked the whole
+engine: building and linking 110 binaries was most of `cargo test` and of CI's `test` and
+`suite` jobs. The files are now modules of seven binaries by area (`gates`, `certificates`,
+`shells`, `derivations`, `solver`, `elements`, `robustness`; `engine/tests/<binary>/main.rs`),
+next to the six that were already directories. The files did not move. Measured on an M-series
+Mac at 4 jobs, with the dependencies already built: building the test binaries went from 99 s
+to 48 s (CPU 336 s to 156 s), rebuilding them after an engine change from 35 s to 11 s, and
+`cargo nextest list` from 82 s to 13 s.
+
+The same 8425 tests run (8469 with the ignored ones), each once in CI: every gate step
+selects its file's module (`--test gates -E 'test(/^sparse_shell_gates::/)'`) and the suite
+excludes exactly those, checked test by test against the old filters. Test names now start
+with their file (`sparse_shell_gates::craig_bampton_deterministic`), so a single file runs
+with `cargo test --test gates sparse_shell_gates::`. Since the binaries are listed
+(`autotests = false`), `scripts/check-test-targets.py` (CI lint) fails when a test file is in
+no binary, where it would never run, or in two.
+
+#### The engine ships optimized: 25 % smaller, same results bit for bit (2026-10-23)
+
+The deployed WASM engine was built with `--no-opt` (12.0 MB). It is now optimized with
+`wasm-opt` (9.0 MB). CI checks every run that the optimized and the unoptimized builds give the
+same results on the 184 determinism cases, bit for bit, so the optimizer cannot change a number
+without failing the build.
+
 ## 0.3.0 (2026-10-21)
 
 Release notes: [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md) (also in
