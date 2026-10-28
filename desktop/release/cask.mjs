@@ -44,7 +44,7 @@ process.stdout.write(`cask "stabileo" do
     Any version, in Terminal:
       xattr -dr com.apple.quarantine /Applications/Stabileo.app
     Only once: updates open without asking. Guide:
-      https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/INSTALL.md
+      https://github.com/lambdaclass/stabileo/blob/main/docs/desktop/INSTALL.md
   EOS
 end
 `);

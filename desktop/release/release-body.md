@@ -1,6 +1,6 @@
 @NOTES@
 
-> **Alpha prerelease of the Stabileo desktop app, for testers.** It is not a release of stabileo.com and not signed yet, so Windows and macOS warn on first open (below). Same engine as stabileo.com. Step-by-step guide: [English](https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/INSTALL.md) · [Español](https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/INSTALL.es.md)
+> **Alpha prerelease of the Stabileo desktop app, for testers.** It is not a release of stabileo.com and not signed yet, so Windows and macOS warn on first open (below). Same engine as stabileo.com. Step-by-step guide: [English](https://github.com/lambdaclass/stabileo/blob/main/docs/desktop/INSTALL.md) · [Español](https://github.com/lambdaclass/stabileo/blob/main/docs/desktop/INSTALL.es.md)
 
 ## Install with one command
 

@@ -1,13 +1,28 @@
 name: Desktop
 
 # The desktop app (desktop/, docs/desktop/README.md): unsigned installers for Windows, macOS and
-# Linux on every push to the `desktop` branch, as artifacts. A manual run with a `version` also
-# publishes them as the prerelease `desktop-v<version>` (never the repository's latest release)
-# and points the in-app updater's feed (latest.json on the `desktop-update-feed` branch) at it.
-# GitHub's runners only: never self-hosted.
+# Linux, as artifacts, built when the app can change (the shell, its web build, the engine it
+# bundles, this workflow). Only a manual run with a `version` publishes: the prerelease
+# `desktop-v<version>` (never the repository's latest release), then the in-app updater's feed
+# (latest.json on the `desktop-update-feed` branch) points at it.
+# GitHub's runners only, never self-hosted (pull requests included).
 on:
   push:
-    branches: [desktop]
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "web/**"
+      - "engine/**"
+      - "Makefile"
+      - ".github/workflows/desktop.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "web/vite.desktop.ts"
+      - "web/.env.desktop"
+      - "web/src/lib/platform/**"
+      - "web/src/lib/ifc/**"
+      - ".github/workflows/desktop.yml"
   workflow_dispatch:
     inputs:
       version:
@@ -21,7 +36,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.version || 'build' }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
   contents: read
