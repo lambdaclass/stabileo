@@ -116,3 +116,5 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Replay
         run: python3 -I research/tools/replay.py
+      - name: Snapshot pruning never offers a released or still-linked snapshot
+        run: python3 -I research/tools/test_snapshots.py
