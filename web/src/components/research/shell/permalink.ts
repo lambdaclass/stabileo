@@ -6,9 +6,17 @@
  * pages each one holds). An experiment's permanent link is this build's own snapshot when it has
  * one, otherwise the newest snapshot that holds the experiment's page.
  */
-import { BUILD_COMMIT } from '../../../lib/build-info';
-import { SITE_ORIGIN, publicHref } from '../../../lib/i18n/public-routes';
+import { publicHref } from '../../../lib/i18n/public-routes';
 import type { PublicLocale } from '../../../lib/i18n/store.svelte';
+
+declare const __STABILEO_COMMIT__: string | undefined;
+
+/**
+ * The commit of this build, read from the define rather than imported from `lib/build-info`:
+ * importing it from the research chunk made Rollup split build-info into a chunk of its own and
+ * re-hash the landing's and the application's chunks. The research pages must not change them.
+ */
+export const BUILD_COMMIT: string = typeof __STABILEO_COMMIT__ === 'string' && __STABILEO_COMMIT__ ? __STABILEO_COMMIT__ : 'dev';
 
 export type SnapshotEntry = {
   short: string;
@@ -23,6 +31,15 @@ export type SnapshotEntry = {
 
 /** This build's prefix when it is itself a snapshot (`/@abc1234/`), else null. */
 export const THIS_SNAPSHOT: string | null = /^\/@[0-9a-f]{7}\/$/.test(import.meta.env.BASE_URL) ? import.meta.env.BASE_URL : null;
+
+/**
+ * `SITE_ORIGIN` of lib/i18n/public-routes, restated: importing more names, or the same names in
+ * another order, from the chunk the landing shares with the research pages changes that chunk's
+ * exports, and so the landing's bytes.
+ */
+const SITE_ORIGIN = 'https://stabileo.com';
+/** The repository (landing-utils' `REPO_URL`, restated for the same reason). */
+export const REPO = 'https://github.com/lambdaclass/stabileo';
 
 /** The site the links name: this one, except on a development machine. */
 export function siteOrigin(origin: string = location.origin): string {

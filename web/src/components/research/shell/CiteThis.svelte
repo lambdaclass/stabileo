@@ -12,10 +12,8 @@
   import { onMount } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import { engineWasmSha256, researchWasmSha256 } from 'virtual:research-build';
-  import { BUILD_COMMIT } from '../../../lib/build-info';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
-  import { REPO_URL } from '../../landing/landing-utils';
-  import { THIS_SNAPSHOT, permalinkUrl, pickSnapshot, siteOrigin, snapshotIndex, type Permalink } from './permalink';
+  import { BUILD_COMMIT, REPO, THIS_SNAPSHOT, permalinkUrl, pickSnapshot, siteOrigin, snapshotIndex, type Permalink } from './permalink';
   import { citeStrings } from './cite-i18n';
   import { citation, type CitationInput } from './citation';
 
@@ -98,7 +96,7 @@
         {/if}
       </dd>
       <dt>{s.commit}</dt>
-      <dd><a href="{REPO_URL}/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank"><code>{commit}</code></a></dd>
+      <dd><a href="{REPO}/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank"><code>{commit}</code></a></dd>
       <dt>{s.engineWasm}</dt>
       <dd><code title={input.engineWasmSha256 ?? ''}>{input.engineWasmSha256 ? short(input.engineWasmSha256) : link && !link.current ? s.inSnapshot : s.notBuilt}</code></dd>
       <dt>{s.experimentWasm}</dt>
