@@ -79,7 +79,7 @@ test.describe('@landing landing page', () => {
     // It used to be a button scrolling to the #blog section. Now a real link:
     // crawlable, middle-clickable, in the reader's language.
     await bootLanding(page, { locale: 'es' });
-    const blog = page.locator('.landing nav.nav .nav-links a.nav-link');
+    const blog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="blog"]');
     await expect(blog).toHaveText('Blog');
     await expect(blog).toHaveAttribute('href', '/es/blog/');
     // Nav items are written as words, not as the uppercase section eyebrows

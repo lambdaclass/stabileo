@@ -6,7 +6,7 @@
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
   import FieldIcon from './FieldIcon.svelte';
-  import { EXPERIMENTS, COMING_NEXT } from './experiments';
+  import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import LatestPermalink from './shell/LatestPermalink.svelte';
   import { rs, fieldName, statusName } from './i18n';
 
@@ -69,12 +69,14 @@
       {/each}
     </ul>
 
-    <h2 class="rs-g-h2">{s.comingNext}</h2>
-    <ul class="rs-g-next">
-      {#each COMING_NEXT as c (c.name)}
-        <li><FieldIcon field={c.field} size={36} /><div><strong>{c.name}</strong> <span class="rs-g-tag">{s.inProgress}</span><br /><span class="rs-g-by">{c.note}</span></div></li>
-      {/each}
-    </ul>
+    {#if SHOW_COMING_NEXT && COMING_NEXT.length}
+      <h2 class="rs-g-h2">{s.comingNext}</h2>
+      <ul class="rs-g-next">
+        {#each COMING_NEXT as c (c.name)}
+          <li><FieldIcon field={c.field} size={36} /><div><span class="rs-g-tag">{s.inProgress}</span><br /><strong>{c.name}</strong><br /><span class="rs-g-by">{c.note}</span></div></li>
+        {/each}
+      </ul>
+    {/if}
 
     <h2 class="rs-g-h2">{s.catalog}</h2>
     <div class="rs-g-filters">
@@ -83,16 +85,18 @@
         <button class:on={field === null} onclick={() => (field = null)}>{s.all}</button>
         {#each fields as f (f)}<button class:on={field === f} onclick={() => (field = f)}>{fieldName(f)}</button>{/each}
       </div>
-      <div role="group" aria-label={s.status}>
-        <span class="rs-g-flabel">{s.status}</span>
-        <button class:on={status === null} onclick={() => (status = null)}>{s.all}</button>
-        {#each statuses as st (st)}<button class:on={status === st} onclick={() => (status = st)}>{statusName(st)}</button>{/each}
-      </div>
+      {#if statuses.length > 1}
+        <div role="group" aria-label={s.status}>
+          <span class="rs-g-flabel">{s.status}</span>
+          <button class:on={status === null} onclick={() => (status = null)}>{s.all}</button>
+          {#each statuses as st (st)}<button class:on={status === st} onclick={() => (status = st)}>{statusName(st)}</button>{/each}
+        </div>
+      {/if}
     </div>
     <ul class="rs-g-list">
       {#each shown as p (p.id)}
         <li class="rs-g-card">
-          <FieldIcon field={p.area} size={40} />
+          <FieldIcon field={p.area} size={28} />
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3>{p.crossref.title}</h3>
@@ -100,8 +104,6 @@
             {#if p.summary && p.summary_source}
               <p class="rs-g-sum">{p.summary}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
-            {:else}
-              <p class="rs-g-by">{s.noAbstract}</p>
             {/if}
             {#if p.code.length}
               <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a> ({c.license === 'none' ? 'no licence' : c.license}){/each}</p>
@@ -110,6 +112,9 @@
         </li>
       {/each}
     </ul>
+    <p class="rs-g-suggest">
+      <a href="https://github.com/lambdaclass/stabileo/issues/new?template=research-paper.yml&labels=research-paper" rel="noreferrer" target="_blank">{s.suggest}</a>
+    </p>
   </div>
 </section>
 
@@ -168,6 +173,13 @@
     background: #0f1e2b;
     aspect-ratio: 16 / 10;
   }
+  @media (min-width: 52rem) {
+    .rs-g-runcard :global(.rs-g-thumb) {
+      aspect-ratio: auto;
+      height: 100%;
+      min-height: 16rem;
+    }
+  }
   .rs-g-runcard img {
     width: 100%;
     height: 100%;
@@ -196,6 +208,10 @@
   }
   .rs-g-runbody h3 :global(a) {
     text-decoration: none;
+    color: var(--fg);
+  }
+  .rs-g-runbody h3 :global(a:hover) {
+    color: var(--lp-accent, #e5482a);
   }
   .rs-g-hook {
     font-size: 1rem;
@@ -249,6 +265,8 @@
     color: var(--fg);
   }
   .rs-g-tag {
+    white-space: nowrap;
+    display: inline-block;
     font: 11px var(--lp-mono);
     color: #d9a441;
     border: 1px solid #d9a441;
@@ -286,22 +304,25 @@
   }
   .rs-g-list {
     display: grid;
-    gap: 0.6rem;
+    gap: 0;
   }
   .rs-g-card {
     display: grid;
-    grid-template-columns: 40px 1fr;
-    gap: 1rem;
-    background: var(--card);
-    border: 1px solid var(--card-hair);
-    border-radius: 4px;
-    padding: 0.85rem 1rem;
+    grid-template-columns: 28px 1fr;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--card-hair);
+    padding: 0.6rem 0.25rem;
     color: var(--fg);
   }
   .rs-g-card h3 {
-    font-size: 1.02rem;
+    font-size: 0.95rem;
+    font-weight: 500;
     line-height: 1.35;
-    margin: 0.3rem 0;
+    margin: 0.2rem 0;
+  }
+  .rs-g-suggest {
+    margin-top: 2rem;
+    color: var(--fg-2);
   }
   .rs-g-by {
     color: var(--fg-2);

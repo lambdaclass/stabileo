@@ -11,6 +11,18 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - Skip framework-scale work (JAX-FEM-style platforms), ML-training papers, and anything whose code
   has no licence or an incompatible one, unless the maintainers ask.
 
+## Research must make Stabileo better
+- Take a paper only if it **runs on Stabileo as it is** (frames, trusses, plates/shells, buckling,
+  modal, P-Δ, path-following, the viewer, the editor), or if the new code it needs **makes Stabileo
+  better for engineers** (e.g. form-finding of cable nets and gridshells, footbridge pedestrian
+  vibration, masonry thrust lines, layout/topology optimization) — and that code is built so the
+  product can use it.
+- Do not add code that has nothing to do with Stabileo's purpose (origami bar-and-hinge models,
+  exotic metamaterial physics, ML training, large-strain rubber, general FE libraries). Papers
+  needing such code are not in the catalogue.
+- Already-built research-only code (the phase-field crate) stays as long as it is isolated and
+  maintained; no new research-only machinery like it.
+
 ## The Stabileo viewer, always
 - **Every experiment shows its model and results in Stabileo's own viewer** (the app's 2D/3D
   viewport, mounted in embed mode, with the generic scalar-field-on-mesh support): same canvas,

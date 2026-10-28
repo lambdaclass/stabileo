@@ -56,7 +56,7 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
   const edgeGeometry = new THREE.BufferGeometry();
   edgeGeometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
   edgeGeometry.setIndex(new THREE.BufferAttribute(edgeIndex, 1));
-  const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x8fa3b3, transparent: true, opacity: 0.22 }));
+  const edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x8fa3b3, transparent: true, opacity: 0.13 }));
   edges.position.z = 1e-6;
 
   const group = new THREE.Group();

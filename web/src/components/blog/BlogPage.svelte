@@ -14,7 +14,7 @@
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
-  import BlogNav from './BlogNav.svelte';
+  import SiteHeader from '../site/SiteHeader.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import BlogBlocks from './BlogBlocks.svelte';
@@ -178,7 +178,7 @@
 <div class="landing blog" bind:this={pageEl}>
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
-  <BlogNav inPost={!!slug} />
+  <SiteHeader current={standing ? null : 'blog'} />
 
   {#if standing && standingBody}
     <article class="sec sec--ink post standing">

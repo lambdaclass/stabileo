@@ -235,7 +235,7 @@ web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
 typecheck.web:
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run check:gate"
+	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run check:gate && node scripts/check-site-header.mjs"
 
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $(if $(SHARD),--shard=$(SHARD))"

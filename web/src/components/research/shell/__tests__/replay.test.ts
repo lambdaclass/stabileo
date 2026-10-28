@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decodeReplay } from '../replay';
+import { decodeReplay, fetchReplay } from '../replay';
+import { gzipSync } from 'node:zlib';
 
 /** A replay of two nodes, one element (degenerate, it is only data) and one step, built by hand. */
 function sample(): ArrayBuffer {
@@ -47,5 +48,19 @@ describe('decodeReplay', () => {
     const bad = sample();
     new DataView(bad).setUint32(4, 2, true);
     expect(() => decodeReplay(bad)).toThrow();
+  });
+
+  it('fetches a gzip-compressed replay, and one the host already inflated', async () => {
+    const raw = new Uint8Array(sample());
+    for (const body of [gzipSync(raw), raw]) {
+      const orig = globalThis.fetch;
+      globalThis.fetch = (async () => new Response(body)) as typeof fetch;
+      try {
+        const r = await fetchReplay<{ step: number }>('x');
+        expect(r.frames).toHaveLength(1);
+      } finally {
+        globalThis.fetch = orig;
+      }
+    }
   });
 });

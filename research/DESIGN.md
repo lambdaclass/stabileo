@@ -104,12 +104,30 @@ page goes to production without a permanent link that serves it and a Cite this 
 
 Rule (user, 2026-10-28): **only papers that are easy to do and give great, show-off results.**
 Low implementation cost (reuse elements, solvers, viewer), honest validation that is easy to do
-(open reference code or clear published numbers), and a striking interactive demo. Queue:
-1. Shauer 2025 — phase-field fracture (validated, page in progress).
-2. Topology optimization — Sigmund 2022 benchmarks, Andreassen et al. 2011 reference results.
-3. Grossman 2026 — spring networks (trusses; validated against published numbers, no reference
-   code — said plainly).
-Each next candidate is scored on effort vs. demo impact before work starts.
+(open reference code or clear published numbers), and a striking interactive demo. A second
+criterion, weighted heavily: **the experiment shows what makes Stabileo good** — it runs on the
+production engine (frames, trusses, shells, buckling, modal, P-Δ, arc-length), uses the real
+viewer, and opens in the editor — rather than needing a separate solver.
+
+Queue (2026-10-28; candidates verified through Crossref/arXiv, licences read from the repositories;
+full report with runners-up and rejections kept with the scouting notes):
+
+| # | Experiment | Paper | Runs on | Effort | Validation |
+|---|---|---|---|---|---|
+| 1 | Phase-field fracture | Shauer 2025, doi:10.1016/j.advengsoft.2025.104013 | research crate on the engine's sparse solve | done | reference code, 29/29 checks |
+| 2 | Auxetic spring networks | Grossman & Boudaoud 2026, doi:10.1103/17sg-gzhl | research crate; editor embed on the production truss solver | done | published values + exact lattice checks, 29/29 |
+| 3 | Topology optimization (MBB beam) | Sigmund 2022 benchmarks; Andreassen et al. 2011 reference results | shared Q4 core from #1 | ~3–5 days | the 2011 reference outputs |
+| 4 | Post-buckling of frames (Koiter) | Ferrari & Sigmund 2025, IJNME 126 e70082, doi:10.1002/nme.70082 | production buckling, corotational, arc-length | ~5–7 days | Roorda frame closed-form (λ1, α, β) + our own exact arc-length path; no public code |
+| 5 | Snapping arches by curvature patterning | Zmyślony, Khan & Biggins 2026, Phys. Rev. Research 8, 033168 | production Euler buckling modes | ~3–4 days (passive) | analytic snap thresholds; Zenodo data (CC-BY-4.0) |
+| 6 | Snap-through of a cut strip | Fehér 2026, Eur. J. Mech. A/Solids 120, 106217 | 2D frame with varying stiffness | ~3–4 days, shares #5 | values read off the figures (no tables) |
+| 7 | Form-finding of cable nets and shells | Pastrana, Oktay, Bletzinger, Adams & Adriaenssens 2026, CMAME 458, 118783 | sparse solve; the found form opens in the editor as a gridshell and is checked with 3D analysis and buckling | ~5–7 days | `jax_fdm` (MIT) reference |
+| 8 | Gridshell layout under self-weight | Fairclough, Bołbotowski, He, Liew & Gilbert 2026, Computers & Structures 320, 107997 | new conic optimiser (Clarabel.rs, Apache-2.0) | ~7–10 days | Table 1 volumes |
+
+Order: 3 (quick, famous) → 4 (strongest showcase of the production engine; same DTU group) → 5 and
+6 together (shared 2D stability tooling) → 7 → 8. Known engine limits that pushed other papers
+down: arc-length is 2D only; no nonlinear shells. Before starting each, re-check: open questions
+(e.g. the Roorda geometry needs the paper's text; the Zenodo archive for #5 not yet inspected; the
+script link for #8 to ask the authors).
 
 ## 7. Integrity
 

@@ -162,13 +162,13 @@ test.describe('@smoke blog', () => {
       await boot(page, `/${from}/blog/${SLUG}`);
       await expect(page.locator('.post-title')).toHaveText(TITLES[from]);
 
-      await pickLanguage(page, 'blog-lang', to);
+      await pickLanguage(page, 'nav-lang', to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
       await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
-      await expect(page.getByTestId('blog-lang')).toHaveAttribute('data-value', to);
+      await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', to);
     });
   }
 
@@ -180,7 +180,7 @@ test.describe('@smoke blog', () => {
     const lead = page.locator('.landing.blog .lead');
     await expect(lead).toContainText(/verificaciones normativas/i);
 
-    await pickLanguage(page, 'blog-lang', 'en');
+    await pickLanguage(page, 'nav-lang', 'en');
 
     await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
@@ -196,7 +196,7 @@ test.describe('@smoke blog', () => {
      * `goBack` would return to it.
      */
     await boot(page, `/pt/blog/${SLUG}/`);
-    await pickLanguage(page, 'blog-lang', 'es');
+    await pickLanguage(page, 'nav-lang', 'es');
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();
@@ -401,32 +401,18 @@ test.describe('@smoke blog', () => {
     await expect(body).toContainText('no se puede resolver');
   });
 
-  test('a post offers the way back to the index, and the index does not', async ({ page }) => {
-    /*
-     * There was no way back. The logo goes to the landing, so returning to the
-     * index from a post meant landing → scroll to the blog section → enter
-     * again. The link is deliberately absent on the index itself, which is
-     * what made the landing's "Blog" nav item useless here in the first place.
-     */
+  test('a post marks Blog as the current section, and its Blog item goes back to the index', async ({ page }) => {
     await boot(page, `/es/blog/${SLUG}`, 'es');
-    const back = page.locator('.landing.blog .nav-blog-link');
-    await expect(back).toBeVisible();
-    await expect(back).toHaveText('Blog');
+    const blog = page.locator('nav.site-header [data-nav="blog"]');
+    await expect(blog).toHaveText('Blog');
+    await expect(blog).toHaveAttribute('aria-current', 'page');
     // A real href, so it is crawlable and middle-clickable, not a button.
-    await expect(back).toHaveAttribute('href', '/es/blog/');
-    // And it sits before the GitHub box, where the ask put it.
-    const order = await page.locator('.landing.blog .nav-actions > *').evaluateAll((els) =>
-      els.map((e) => e.className.toString().split(' ')[0]),
-    );
-    expect(order[0]).toBe('nav-blog-link');
-    expect(order[1]).toBe('nav-gh');
-
-    await back.click();
+    await expect(blog).toHaveAttribute('href', '/es/blog/');
+    await blog.click();
     await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
-    // Now on the index, it is gone.
-    await expect(page.locator('.landing.blog .nav-blog-link')).toHaveCount(0);
   });
+
 
   test('a post describes itself to a search engine', async ({ page }) => {
     // The byline on screen is prose; this is the only machine-readable

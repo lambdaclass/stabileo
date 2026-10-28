@@ -503,39 +503,6 @@
   box-shadow: inset 0 -2px 0 var(--lp-accent);
 }
 
-/*
-   The blog's header has no section links — they pointed at sections of the
-   landing — and `.nav-links` was what carried the `margin-left: auto` that
-   pushes the actions to the right. Without it they ended up against the logo.
-   Scoped to the blog on purpose: a second auto margin on the landing would
-   share the free space with the first and float its links into the middle.
-*/
-.landing.blog .nav-actions {
-  margin-left: auto;
-}
-
-/*
-   The way back to the index, shown only inside a post (BlogNav's `inPost`).
-   Same look as a landing nav item — it is the same bar and the same role —
-   but it lives inside `.nav-actions`, so it needs the rules rather than the
-   `.nav-links` wrapper that carries them.
-*/
-.landing.blog .nav-blog-link {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-family: var(--lp-sans);
-  font-size: 0.87rem;
-  color: var(--lp-slate-2);
-  padding: 0.45rem 0.6rem;
-  border-radius: var(--lp-radius);
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.landing.blog .nav-blog-link:hover {
-  color: var(--lp-paper-2);
-}
 
 .landing .nav-actions {
   display: flex;

@@ -1,38 +1,24 @@
 <script lang="ts">
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import LocaleSelect from '../LocaleSelect.svelte';
-  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from './landing-utils';
+  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from '../landing/landing-utils';
   import { publicHref } from '../../lib/i18n/public-routes';
+  import { SITE_NAV, type NavCurrent } from './site-nav';
 
   /**
-   * The site header. On the landing the section items scroll; on any other public page (the
-   * research pages) they go to the landing's section, and `current` marks the page's own item.
+   * The one header of every public page (the landing, the blog and its posts, the standing pages,
+   * Stabileo Research). On the landing the section items scroll; elsewhere they go to the
+   * landing's section, and `current` marks the page's own item.
    */
-  let { page = 'landing', current = null }: { page?: 'landing' | 'other'; current?: 'blog' | 'research' | null } = $props();
-  import BrandMark from './BrandMark.svelte';
-  import PublicLink from './PublicLink.svelte';
+  let { page = 'other', current = null }: { page?: 'landing' | 'other'; current?: NavCurrent } = $props();
+  import BrandMark from '../landing/BrandMark.svelte';
+  import PublicLink from '../landing/PublicLink.svelte';
 
   let stars = $state<number | null>(null);
   let open = $state(false);
 
   const LOCALE_NAMES: Record<string, string> = { en: 'English', es: 'Español', pt: 'Português' };
 
-  /*
-   * Five stops, one per section of the deck. `codes` and `status` went with
-   * the sections they pointed at; `ai` is new. A nav item that scrolls to
-   * nothing is worse than one that is missing.
-   *
-   * The blog is a page, not a section: its item is a real link to /blog
-   * below. It used to scroll to the blog teaser at the foot of the landing,
-   * which is not what anyone clicking "Blog" expects.
-   */
-  const links = [
-    { id: 'basic', key: 'landing.navBasic' },
-    { id: 'pro', key: 'landing.navPro' },
-    { id: 'ai', key: 'landing.navAi' },
-    { id: 'education', key: 'landing.navEducation' },
-    { id: 'pricing', key: 'landing.navPricing' },
-  ];
 
   $effect(() => {
     fetchGithubStars().then((n) => { stars = n; });
@@ -58,7 +44,7 @@
   }
 </script>
 
-<nav class="nav" aria-label={t('landing.navPrimary')}>
+<nav class="nav site-header" aria-label={t('landing.navPrimary')} data-current={current ?? ''}>
   <div class="nav-inner">
     {#if page === 'landing'}
       <button class="nav-brand" onclick={() => go('top')} aria-label={t('landing.navBackToTop')}>
@@ -73,15 +59,17 @@
     {/if}
 
     <div class="nav-links" id="nav-links" class:open>
-      {#each links as l}
-        {#if page === 'landing'}
-          <button onclick={() => go(l.id)}>{t(l.key)}</button>
+      {#each SITE_NAV as item (item.id)}
+        {#if item.kind === 'section'}
+          {#if page === 'landing'}
+            <button data-nav={item.id} onclick={() => go(item.id)}>{t(item.key)}</button>
+          {:else}
+            <a class="nav-link" data-nav={item.id} href="{publicHref('/', publicI18n.locale)}#{item.id}" onclick={(e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); go(item.id); } }}>{t(item.key)}</a>
+          {/if}
         {:else}
-          <a class="nav-link" href="{publicHref('/', publicI18n.locale)}#{l.id}" onclick={(e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); go(l.id); } }}>{t(l.key)}</a>
+          <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}
       {/each}
-      <PublicLink to="/blog" class="nav-link{current === 'blog' ? ' current' : ''}" aria-current={current === 'blog' ? 'page' : undefined}>{t('landing.navBlog')}</PublicLink>
-      <PublicLink to="/research" class="nav-link{current === 'research' ? ' current' : ''}" aria-current={current === 'research' ? 'page' : undefined}>{t('landing.navResearch')}</PublicLink>
     </div>
 
     <div class="nav-actions">

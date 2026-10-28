@@ -5,7 +5,7 @@
    */
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import LandingNav from '../landing/LandingNav.svelte';
+  import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
@@ -37,7 +37,7 @@
 </script>
 
 <div class="landing blog research">
-  <LandingNav page="other" current="research" />
+  <SiteHeader current="research" />
   {#if route === '/research'}
     <Gallery />
   {:else if route === '/research/fracture/shauer-2025'}

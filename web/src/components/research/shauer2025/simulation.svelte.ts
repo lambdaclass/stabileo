@@ -1,6 +1,6 @@
 import type { PlateConfig, Step, WorkerIn, WorkerOut } from './protocol';
 
-export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy: Float32Array };
+export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy?: Float32Array };
 
 export type RunStatus = 'running' | 'done' | 'stopped' | 'error';
 
@@ -13,6 +13,8 @@ export class Run {
   status = $state<RunStatus>('running');
   seconds = $state<number | null>(null);
   error = $state<string | null>(null);
+  /** 'live' while and after it is computed; 'cached' when shown again from memory. */
+  origin = $state<'live' | 'cached'>('live');
 
   constructor(key: string, config: PlateConfig) {
     this.key = key;
@@ -77,12 +79,14 @@ export class SimulationController {
     }
   }
 
-  run(config: PlateConfig) {
+  /** Show the run for `config`: from memory when it was completed before, unless `force`. */
+  run(config: PlateConfig, force = false) {
     const key = JSON.stringify(config);
     const cached = this.runs.get(key);
-    if (cached && cached.status === 'done') {
+    if (!force && cached && cached.status === 'done') {
       this.runs.delete(key);
       this.runs.set(key, cached);
+      cached.origin = 'cached';
       this.current = cached;
       return;
     }
@@ -107,6 +111,12 @@ export class SimulationController {
       this.runs.delete(r.key);
     }
     this.live.clear();
+  }
+
+  /** Forget the current run (the page goes back to its replay). */
+  clear() {
+    this.stop();
+    this.current = null;
   }
 
   dispose() {

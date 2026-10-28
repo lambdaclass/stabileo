@@ -49,3 +49,18 @@ export function decodeReplay<S>(buf: ArrayBuffer): Replay<S> {
   if (o !== bytes.length) throw new Error('replay has trailing bytes');
   return { header, nodes, elements, frames };
 }
+
+/**
+ * Fetch a replay. The file is stored gzip-compressed; a host may or may not have decoded it
+ * already, so the gzip magic bytes decide whether to inflate here.
+ */
+export async function fetchReplay<S>(url: string): Promise<Replay<S>> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`replay: HTTP ${r.status} for ${url}`);
+  let buf = await r.arrayBuffer();
+  const b = new Uint8Array(buf, 0, 2);
+  if (b[0] === 0x1f && b[1] === 0x8b) {
+    buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  }
+  return decodeReplay<S>(buf);
+}
