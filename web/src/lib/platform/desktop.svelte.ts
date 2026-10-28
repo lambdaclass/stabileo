@@ -15,7 +15,7 @@ import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
-import { i18n, t } from '../i18n';
+import { i18n, isDefaultName, t } from '../i18n';
 import { desktopText, menuLabels } from './desktop-text';
 import { startUpdater, checkForUpdates } from './updater';
 import { showAbout, reportProblem } from './about';
@@ -98,7 +98,9 @@ function refreshState(): void {
   const tab = activeTab();
   dirty = changed.has(tab);
   const path = tabPaths.get(tab);
-  titleName = path ? baseName(path) : modelStore.model.name || tx('untitled');
+  const name = modelStore.model.name;
+  // A default name, saved in whatever language (or as its bare key), reads in the current one.
+  titleName = path ? baseName(path) : !name ? tx('untitled') : isDefaultName(name) ? t('tabBar.newStructure') : name;
 }
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null;
@@ -117,6 +119,7 @@ function watchChanges(): void {
     });
     $effect(() => {
       void modelStore.model.name;
+      void i18n.locale;
       refreshState();
     });
     $effect(() => {
