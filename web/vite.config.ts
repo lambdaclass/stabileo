@@ -108,6 +108,9 @@ const ADMIN = process.env.VITE_APP_TYPE === 'admin';
  * The desktop app's build (`vite build --mode desktop`, which loads `.env.desktop`): its own output
  * folder, no third-party script, no files only the web host serves. Every other mode is untouched.
  */
+/** Set by desktopPlugin's `config` hook, before any worker is bundled. */
+let desktopMode = false;
+
 function desktopPlugin(): Plugin {
   let on = false;
   let out = '';
@@ -115,6 +118,7 @@ function desktopPlugin(): Plugin {
     name: 'desktop',
     config(_, env) {
       on = env.mode === 'desktop';
+      desktopMode = on;
       return on ? { build: { outDir: 'dist-desktop' } } : undefined;
     },
     configResolved(cfg) {
@@ -128,6 +132,24 @@ function desktopPlugin(): Plugin {
       for (const f of readdirSync(out)) {
         if (f === '404.html' || /^google.*\.html$/.test(f)) rmSync(resolve(out, f));
       }
+    },
+  };
+}
+
+/**
+ * Desktop-only modules that bundle a worker of their own (`src/lib/ifc/parse-in-worker.ts`): every
+ * other build gets a stub, which their callers never reach (they test VITE_DESKTOP), so the worker
+ * stays out of the web bundle. `pre`: before Vite's own resolver.
+ */
+function desktopOnlyStubPlugin(): Plugin {
+  return {
+    name: 'desktop-only-stub',
+    enforce: 'pre',
+    resolveId(id) {
+      if (!desktopMode && /\/parse-in-worker(\.ts)?$/.test(id)) return '\0desktop-only-stub';
+    },
+    load(id) {
+      if (id === '\0desktop-only-stub') return 'export function parseIfcInWorker() { throw new Error("desktop only"); }';
     },
   };
 }
@@ -211,7 +233,7 @@ function appVersion(): string {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []), desktopPlugin()],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []), desktopPlugin(), desktopOnlyStubPlugin()],
   define: {
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
@@ -224,7 +246,9 @@ export default defineConfig({
   },
   worker: {
     format: 'es',
-    plugins: () => [wasmStubPlugin()],
+    // The desktop app also parses IFC in a worker (src/lib/ifc/ifc-worker.ts), which reads the
+    // dictionaries (a `.svelte.ts` store and the public entries' virtual module).
+    plugins: () => [wasmStubPlugin(), ...(desktopMode ? [publicI18nPlugin(), svelte()] : [])],
   },
   build: ADMIN
     ? {
