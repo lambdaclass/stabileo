@@ -105,7 +105,9 @@ async function resolve({ github, core, owner, repo, dryRun }, issueTitle, body) 
 async function alertRun(ctx, runId, anyEvent) {
   const { github, core, owner, repo } = ctx;
   const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: runId });
-  const workflow = run.name;
+  // run.name is the run's display name (run-name), not the workflow's.
+  const { data: wf } = await github.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id });
+  const workflow = wf.name;
   const forced = (run.display_title || '').startsWith(FORCED);
   if (run.event !== 'schedule' && !forced && !anyEvent) {
     core.info(`${workflow} run ${runId} was triggered by ${run.event}, not schedule: no alert`);
