@@ -59,9 +59,8 @@
             <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
-              <a class="btn btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper}</a>
-              <a class="btn btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code}</a>
-              <span class="rs-g-soon" title={s.soon}>{s.openInStabileo}: {s.soon}</span>
+              <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
+              <a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>
             </div>
             <LatestPermalink path={e.path} />
           </div>
@@ -231,7 +230,9 @@
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    font: 12px var(--lp-mono);
+    font: 500 var(--rs-micro) var(--lp-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--fg-2);
   }
   .rs-g-status {
@@ -267,7 +268,7 @@
   .rs-g-tag {
     white-space: nowrap;
     display: inline-block;
-    font: 11px var(--lp-mono);
+    font: 500 0.8125rem var(--st-sans);
     color: #d9a441;
     border: 1px solid #d9a441;
     border-radius: 3px;
@@ -285,7 +286,7 @@
     align-items: center;
   }
   .rs-g-flabel {
-    font: 12px var(--lp-mono);
+    font: var(--rs-ui) var(--st-sans);
     color: var(--fg-2);
     min-width: 4rem;
   }

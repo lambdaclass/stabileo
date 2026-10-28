@@ -11,12 +11,12 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { bandValue } from '../engine/contour-scale';
-import { shellContourColor } from './shell-contour-colour';
+import { colourFor, type ColourMap } from './colour-maps';
 
 export type ScalarFieldMesh = {
   group: THREE.Group;
   /** `values` per node, or per cell when `perCell`; colours are clamped to `range`. */
-  setField(values: ArrayLike<number>, range: { min: number; max: number }, opts?: { perCell?: boolean; bands?: number }): void;
+  setField(values: ArrayLike<number>, range: { min: number; max: number }, opts?: { perCell?: boolean; bands?: number; colourMap?: ColourMap }): void;
   /** Nodal displacements [ux0, uy0, ux1, ...] times `scale`, or null for the undeformed mesh. */
   setDisplacement(u: ArrayLike<number> | null, scale: number): void;
   /** Leave out the cells for which `hide(cell)` is true (for instance a fully broken element). */
@@ -85,11 +85,11 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
   return {
     group,
     setField(values, range, opts = {}) {
-      const { perCell = false, bands = 0 } = opts;
+      const { perCell = false, bands = 0, colourMap = 'shell' } = opts;
       for (let i = 0; i < nv; i++) {
         const raw = perCell ? values[Math.floor(i / cellSize)] : values[vertexNode[i]];
         const v = Math.min(range.max, Math.max(range.min, raw));
-        tmp.setHex(shellContourColor(bands > 0 ? bandValue(v, range.min, range.max, bands) : v, range.min, range.max));
+        tmp.setHex(colourFor(colourMap, bands > 0 ? bandValue(v, range.min, range.max, bands) : v, range.min, range.max));
         color[3 * i] = tmp.r; color[3 * i + 1] = tmp.g; color[3 * i + 2] = tmp.b;
       }
       geometry.getAttribute('color').needsUpdate = true;
@@ -154,12 +154,12 @@ function createLineField(xy: ArrayLike<number>, cells: ArrayLike<number>, lineWi
   const api: ScalarFieldMesh = {
     group,
     setField(values, range, opts = {}) {
-      const { perCell = false, bands = 0 } = opts;
+      const { perCell = false, bands = 0, colourMap = 'shell' } = opts;
       for (let c = 0; c < n; c++) {
         for (let end = 0; end < 2; end++) {
           const raw = perCell ? values[c] : values[cells[2 * c + end]];
           const v = Math.min(range.max, Math.max(range.min, raw));
-          tmp.setHex(shellContourColor(bands > 0 ? bandValue(v, range.min, range.max, bands) : v, range.min, range.max));
+          tmp.setHex(colourFor(colourMap, bands > 0 ? bandValue(v, range.min, range.max, bands) : v, range.min, range.max));
           colour.set([tmp.r, tmp.g, tmp.b], 6 * c + 3 * end);
         }
       }

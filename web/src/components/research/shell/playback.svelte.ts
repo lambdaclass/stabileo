@@ -7,7 +7,7 @@
 export type Source = 'replay' | 'live' | 'cached';
 
 export const SOURCE_LABEL: Record<Source, string> = {
-  replay: 'Precomputed replay (same solver) · press Recompute live to compute it in your browser',
+  replay: 'Replay of a run precomputed with this solver',
   live: 'Live computation in your browser',
   cached: 'Cached result (computed in this browser)',
 };

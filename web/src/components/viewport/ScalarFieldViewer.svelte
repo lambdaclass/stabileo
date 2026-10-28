@@ -23,6 +23,7 @@
   import { createFrameCoalescer } from '../../lib/viewport3d/frame-coalesce';
   import { drawAxisGizmoOn } from '../../lib/viewport3d/axis-gizmo';
   import { createScalarFieldMesh, type ScalarFieldMesh } from '../../lib/three/scalar-field-mesh';
+  import type { ColourMap } from '../../lib/three/colour-maps';
   import Icon from '../ribbon/Icon.svelte';
   import ContourLegend from './ContourLegend.svelte';
 
@@ -43,6 +44,8 @@
     unit?: string;
     legendFooter?: string;
     bands?: number;
+    /** 'shell' (the app's contours), 'sequential' (viridis) or 'diverging' (symmetric about 0). */
+    colourMap?: ColourMap;
     /** Nodal displacements [ux0, uy0, ...] drawn at `deformScale`; null for the undeformed mesh. */
     displacement?: ArrayLike<number> | null;
     deformScale?: number;
@@ -73,6 +76,7 @@
     unit = '',
     legendFooter = '',
     bands = 0,
+    colourMap = 'shell',
     displacement = null,
     deformScale = 1,
     showMesh = true,
@@ -95,7 +99,7 @@
   let field: ScalarFieldMesh | null = null;
   let ro: ResizeObserver | null = null;
   let damping = 0;
-  let mode = $state<'2d' | '3d'>('2d');
+  let projection = $state<'plan' | 'orbit'>('plan');
   let menuOpen = $state(false);
   let pointer = $state<string>('—');
   let zoomText = $state<string>('—');
@@ -128,7 +132,7 @@
     return [x0, y0, x1, y1];
   }
 
-  /** Fit the region: in 2D the app's plan view (tipped 1° so Z stays the orbit axis), in 3D an oblique view. */
+  /** Fit the region: in the plan view the app's top view (tipped 1° so Z stays the orbit axis), in 3D an oblique view. */
   export function fit() {
     if (!renderer) return;
     const [x0, y0, x1, y1] = bounds();
@@ -139,7 +143,7 @@
     const aspect = container.clientWidth / Math.max(1, container.clientHeight);
     const fov = THREE.MathUtils.degToRad(camera.fov);
     const dist = (1.08 * Math.max(h, w / aspect)) / 2 / Math.tan(fov / 2);
-    if (mode === '2d') {
+    if (projection === 'plan') {
       const tip = 0.018;
       camera.position.set(cx, cy - dist * Math.sin(tip), dist * Math.cos(tip));
     } else {
@@ -149,13 +153,13 @@
     camera.far = dist * 100;
     camera.updateProjectionMatrix();
     controls.target.set(cx, cy, 0);
-    controls.enableRotate = mode === '3d';
+    controls.enableRotate = projection === 'orbit';
     camera.lookAt(cx, cy, 0);
     invalidate();
   }
 
-  function setMode(m: '2d' | '3d') {
-    mode = m;
+  function setProjection(m: 'plan' | 'orbit') {
+    projection = m;
     menuOpen = false;
     fit();
   }
@@ -226,7 +230,7 @@
 
   $effect(() => {
     if (!field) return;
-    if (values) field.setField(values, range, { perCell, bands });
+    if (values) field.setField(values, range, { perCell, bands, colourMap });
     invalidate();
   });
   $effect(() => {
@@ -255,8 +259,8 @@
 
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
-  <div class="sfv viewport-container" style:height role="img" aria-label={ariaLabel}>
-    <div class="sfv-canvas" bind:this={container}></div>
+  <div class="sfv viewport-container" style:height>
+    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     <div class="camera-controls" style="top: 10px">
       <div class="cam-menu-wrap">
@@ -269,16 +273,16 @@
           <div class="cam-menu">
             <button class="cam-item" onclick={() => { menuOpen = false; fit(); }}><span class="cam-glyph">⤢</span><span>Zoom to extents</span></button>
             <div class="cam-sep"></div>
-            <button class="cam-item" class:on={mode === '2d'} onclick={() => setMode('2d')}><span class="cam-glyph">⊤</span><span>2D (plan, orbit locked)</span></button>
-            <button class="cam-item" class:on={mode === '3d'} onclick={() => setMode('3d')}><span class="cam-glyph">◇</span><span>3D (orbit)</span></button>
+            <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>2D (plan, orbit locked)</span></button>
+            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>3D (orbit)</span></button>
           </div>
         {/if}
       </div>
-      <button class="sfv-mode" onclick={() => setMode(mode === '2d' ? '3d' : '2d')} title="Switch between 2D and 3D">{mode === '2d' ? '2D' : '3D'}</button>
+      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title="Switch between the plan view and orbiting in 3D">{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title="Zoom to extents" aria-label="Zoom to extents">⤢</button>
     </div>
     {#if values}
-      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} />
+      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
     <span class="sfv-mark">Stabileo viewer</span>
   </div>
@@ -315,6 +319,7 @@
   }
   .sfv-canvas :global(canvas) {
     display: block;
+    max-width: 100%;
     touch-action: none;
   }
   .sfv :global(.shell-legend) {
@@ -343,6 +348,14 @@
     text-transform: uppercase;
     color: var(--st-text-3);
     pointer-events: none;
+  }
+  .sfv-status :global(.status-value) {
+    font-family: var(--st-sans);
+    font-variant-numeric: tabular-nums;
+  }
+  .sfv-status :global(.status-label) {
+    color: var(--st-text-2);
+    font-size: 0.75rem;
   }
   .sfv-status {
     flex-wrap: wrap;

@@ -22,6 +22,13 @@ export type ResearchStrings = {
   notCompared: string;
   research: string;
   suggest: string;
+  onlyEnglish: string;
+  againstCode: string;
+  againstPaper: string;
+  of: string;
+  seeChecks: string;
+  disclaimer: string;
+  notComparedWhy: string;
 };
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
@@ -46,6 +53,13 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notCompared: 'Published figures not compared',
     research: 'Research',
     suggest: 'Suggest a paper to reproduce →',
+    onlyEnglish: '',
+    againstCode: 'Against the author’s code',
+    againstPaper: 'Against the paper’s figures',
+    of: 'of',
+    seeChecks: 'see the checks',
+    disclaimer: 'Research, not a design tool. Nothing here is an engineering result.',
+    notComparedWhy: 'Not compared: the full text was not accessible to us',
   },
   es: {
     sourceLabel: { 'crossref-abstract': 'a partir del resumen', 'publisher-abstract': 'a partir del resumen', 'repository-readme': 'a partir del README del código', 'full-text': 'a partir del artículo', 'reference-code': 'a partir del código de referencia' },
@@ -68,6 +82,13 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notCompared: 'Sin comparar con las figuras publicadas',
     research: 'Investigación',
     suggest: 'Sugerí un artículo para reproducir →',
+    onlyEnglish: 'Este artículo está disponible solo en inglés.',
+    againstCode: 'Frente al código del autor',
+    againstPaper: 'Frente a las figuras del artículo',
+    of: 'de',
+    seeChecks: 'ver los controles',
+    disclaimer: 'Investigación, no una herramienta de diseño. Nada de esto es un resultado de ingeniería.',
+    notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
   },
   pt: {
     sourceLabel: { 'crossref-abstract': 'a partir do resumo', 'publisher-abstract': 'a partir do resumo', 'repository-readme': 'a partir do README do código', 'full-text': 'a partir do artigo', 'reference-code': 'a partir do código de referência' },
@@ -90,6 +111,13 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notCompared: 'Sem comparar com as figuras publicadas',
     research: 'Pesquisa',
     suggest: 'Sugira um artigo para reproduzir →',
+    onlyEnglish: 'Este artigo está disponível apenas em inglês.',
+    againstCode: 'Frente ao código do autor',
+    againstPaper: 'Frente às figuras do artigo',
+    of: 'de',
+    seeChecks: 'ver as verificações',
+    disclaimer: 'Pesquisa, não uma ferramenta de projeto. Nada aqui é um resultado de engenharia.',
+    notComparedWhy: 'Não comparado: não tivemos acesso ao texto completo',
   },
 };
 

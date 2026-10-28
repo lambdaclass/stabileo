@@ -199,8 +199,8 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
   const date = new Date(`${day}T12:00:00Z`).toLocaleDateString(post.locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const html = `<!doctype html><meta charset="utf-8"><style>
-    @font-face { font-family:'Space Grotesk'; src:url('${base}/fonts/space-grotesk-700.woff2') format('woff2'); font-weight:700; }
-    @font-face { font-family:'IBM Plex Sans'; src:url('${base}/fonts/ibm-plex-sans-400.woff2') format('woff2'); font-weight:400; }
+    @font-face { font-family:'Space Grotesk'; src:url('${base}/fonts/space-grotesk.woff2') format('woff2'); font-weight:700; }
+    @font-face { font-family:'IBM Plex Sans'; src:url('${base}/fonts/ibm-plex-sans.woff2') format('woff2'); font-weight:400; }
     @font-face { font-family:'IBM Plex Mono'; src:url('${base}/fonts/ibm-plex-mono-500.woff2') format('woff2'); font-weight:500; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { width:1200px; height:630px; background:#0c1620; color:#f4f7fa; font-family:'IBM Plex Sans',sans-serif; overflow:hidden; }

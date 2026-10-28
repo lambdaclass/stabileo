@@ -3,14 +3,17 @@
   import type { Snippet } from 'svelte';
   import { useExperiment } from './context';
 
-  let { step, params, children }: { step?: number; params?: Record<string, number | string | boolean>; children: Snippet } = $props();
+  let { step, params, tab, children }: { step?: number; params?: Record<string, number | string | boolean>; tab?: string; children: Snippet } = $props();
   const exp = useExperiment();
 
   function go() {
+    if (tab) exp?.showTab(tab);
     if (params) exp?.setParams(params);
     if (step !== undefined) exp?.goToStep(step);
     const pane = document.querySelector('.rs-shell-app');
-    if (pane && window.innerWidth < 1100) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const stacked = window.matchMedia('(max-width: 69.99rem)').matches;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (pane && stacked) pane.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
 </script>
 

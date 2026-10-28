@@ -2,7 +2,7 @@
   // The contour colour scale, as a picture: a bar sampled from the same colour function the
   // field is painted with, ticks, a title and a unit. Presentational: callers work out the range.
   import { bandValue, bandEdges } from '../../lib/engine/contour-scale';
-  import { shellContourColor } from '../../lib/three/shell-contour-colour';
+  import { colourFor, type ColourMap } from '../../lib/three/colour-maps';
 
   let {
     title,
@@ -12,7 +12,9 @@
     bands = 0,
     footer = '',
     ariaLabel = title,
-  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string } = $props();
+    colourMap = 'shell',
+  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap } = $props();
+  const shellContourColor = (v: number, lo: number, hi: number) => colourFor(colourMap, v, lo, hi);
 
   function hex(n: number): string {
     return '#' + n.toString(16).padStart(6, '0');
