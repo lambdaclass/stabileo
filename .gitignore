@@ -6,6 +6,7 @@ node_modules
 # Build output
 web/dist/
 web/dist-admin/
+web/dist-snapshot/
 
 # IDE / OS
 .DS_Store

@@ -1,0 +1,88 @@
+import { test, expect, type Page } from '@playwright/test';
+
+/**
+ * A snapshot build (`/@<commit>/`, web/scripts/snapshot.ts) under `vite preview`: every page, asset,
+ * worker and WASM the site loads comes from under the prefix, navigation stays under it, and the
+ * version banner points at the latest page and at the compare view on GitHub.
+ */
+const P = process.env.SNAPSHOT_PREFIX!; // '/@abc1234/'
+const SHORT = P.slice(2, -1);
+
+/** Every same-origin request path, to check none leaves the snapshot (the backend's /api excepted). */
+function watch(page: Page, baseURL: string | undefined) {
+  const origin = new URL(baseURL!).origin;
+  const outside: string[] = [];
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.origin !== origin) return;
+    if (!u.pathname.startsWith(P) && !u.pathname.startsWith('/api/')) outside.push(u.pathname);
+  });
+  return outside;
+}
+
+test('the research page is served under the prefix, with the version banner', async ({ page, baseURL }) => {
+  const outside = watch(page, baseURL);
+  const res = await page.goto(`${P}en/research/fracture/shauer-2025/`);
+  expect(res?.status()).toBe(200);
+  await expect(page.getByRole('heading', { name: 'Phase-field fracture of a notched plate' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${P}en/research/fracture/shauer-2025/$`));
+
+  const banner = page.locator('#stabileo-snapshot-banner');
+  await expect(banner).toContainText(`(${SHORT})`);
+  await expect(banner).toContainText('You’re viewing the version of');
+  const latest = banner.getByRole('link', { name: 'The latest version is here' });
+  expect(new URL((await latest.getAttribute('href'))!).pathname).toBe('/en/research/fracture/shauer-2025/');
+  expect(await banner.getByRole('link', { name: /What changed since/ }).getAttribute('href')).toMatch(
+    new RegExp(`^https://github.com/lambdaclass/stabileo/compare/${SHORT}[0-9a-f]*\\.\\.\\.main$`),
+  );
+
+  // Every root-relative link the page renders names the snapshot.
+  const hrefs = await page.locator('a[href^="/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')!));
+  expect(hrefs.length).toBeGreaterThan(5);
+  expect(hrefs.filter((h) => !h.startsWith(P))).toEqual([]);
+
+  // The research WASM, in its worker, from the snapshot.
+  const wasm: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().endsWith('phasefield_bg.wasm')) wasm.push(new URL(r.url()).pathname);
+  });
+  await page.getByLabel('Mesh').selectOption('coarse');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect.poll(async () => Number(await page.locator('.rs-out').getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(3);
+  expect(wasm).toEqual([`${P}research-wasm/shauer-2025/phasefield_bg.wasm`]);
+  expect(outside).toEqual([]);
+});
+
+test('navigation between public pages stays in the snapshot', async ({ page, baseURL }) => {
+  const outside = watch(page, baseURL);
+  await page.goto(`${P}es/research/`);
+  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.locator('#stabileo-snapshot-banner')).toContainText('Estás viendo la versión del');
+  await page.getByRole('link', { name: /experiment|experimento/i }).first().click();
+  await expect(page).toHaveURL(new RegExp(`${P}es/research/fracture/shauer-2025/$`));
+  await expect(page.locator('#stabileo-snapshot-banner a').first()).toHaveAttribute('href', /\/es\/research\/fracture\/shauer-2025\/$/);
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${P}es/research/$`));
+  await page.goto(P);
+  await expect(page.locator('.landing')).toBeVisible();
+  expect(outside).toEqual([]);
+});
+
+test('the application mounts under the prefix and loads the engine from it', async ({ page, baseURL }) => {
+  const outside = watch(page, baseURL);
+  const wasm: { path: string; status: number; type: string }[] = [];
+  page.on('response', (r) => {
+    if (/\.wasm$/.test(new URL(r.url()).pathname)) wasm.push({ path: new URL(r.url()).pathname, status: r.status(), type: r.headers()['content-type'] ?? '' });
+  });
+  const res = await page.goto(`${P}app/basic`);
+  expect(res?.status()).toBe(200);
+  await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  await expect(page).toHaveURL(new RegExp(`${P}app/basic`));
+  await expect.poll(() => wasm.length, { timeout: 60_000 }).toBeGreaterThan(0);
+  for (const w of wasm) {
+    expect(w.path.startsWith(`${P}assets/`)).toBe(true);
+    expect(w.status).toBe(200);
+  }
+  await expect(page.locator('#stabileo-snapshot-banner')).toContainText(SHORT);
+  expect(outside).toEqual([]);
+});

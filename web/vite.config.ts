@@ -4,6 +4,7 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { snapshotFor, snapshotPlugin } from './scripts/snapshot';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -189,8 +190,17 @@ function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+/** `BASE_PATH=/@<commit>/`: the site kept under its commit (`scripts/snapshot.ts`); null otherwise. */
+const SNAPSHOT = ADMIN ? null : snapshotFor(process.env.BASE_PATH, __dirname);
+
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [
+    wasmStubPlugin(),
+    publicI18nPlugin(),
+    svelte(),
+    ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
+    ...snapshotPlugin(SNAPSHOT, __dirname),
+  ],
   define: {
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),

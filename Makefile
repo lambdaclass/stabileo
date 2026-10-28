@@ -4,7 +4,7 @@
        test.ci-scripts \
        test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
-       wasm web.setup web.run web.build admin.run admin.build \
+       wasm web.setup web.run web.build web.build.snapshot admin.run admin.build \
        ai-backend.run ai-backend.build \
        db.setup db.reset db.migrate db.rollback db.gen.migration db.psql \
        migrations.check migrations.check.file migrations.check.all \
@@ -367,6 +367,11 @@ research.wasm:
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
 web.build: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm run build"
+
+## The site kept under its commit, /@<first 7 of the commit>/ (docs/DEPLOY.md "Snapshots"), in
+## web/dist-snapshot/. Same inputs as web.build; the normal build is not touched.
+web.build.snapshot: wasm research.wasm
+	$(NIX_RUN) bash -c 'cd web && commit=$${GITHUB_SHA:-$$(git rev-parse HEAD)} && export BASE_PATH=/@$${commit:0:7}/ SNAPSHOT_COMMIT=$$commit && npx vite build --outDir dist-snapshot --emptyOutDir && PRERENDER_OUT=dist-snapshot npx tsx scripts/prerender.ts'
 
 admin.run:
 	$(NIX_RUN) bash -c "cd web && VITE_APP_TYPE=admin VITE_API_URL=http://localhost:$(BACKEND_PORT) npx vite --port $(ADMIN_PORT)"
