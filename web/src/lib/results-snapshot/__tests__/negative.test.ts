@@ -37,7 +37,8 @@ describe('a change to the envelope alone', () => {
     expect(Object.keys(base.values).some((p) => p.startsWith('envelope.governing['))).toBe(true);
     // The fresh capture produces the same envelope as committed.
     const fresh = await capture(CORPUS.find((c) => c.name === name)!);
-    expect(compareValues(base.values, fresh.values).differs).toBe(false);
+    const d0 = compareValues(base.values, fresh.values);
+    expect(d0.differs, formatCaseReport(name, d0)).toBe(false);
 
     const path = envelopePaths.find((p) => /posValues|negValues/.test(p))!;
     const head = { ...base, values: { ...base.values, [path]: (base.values[path] as number) * 1.01 } };
