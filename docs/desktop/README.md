@@ -34,19 +34,29 @@ with the warnings and troubleshooting: [INSTALL.md](INSTALL.md) (Spanish:
 [INSTALL.es.md](INSTALL.es.md)).
 
 ### How releases are made
-`.github/workflows/desktop.yml`: every push to `desktop` builds unsigned installers on GitHub's
-Linux, macOS and Windows runners and launches each app once (it must solve the startup self-check
-in the bundled engine). A manual run with a `version` publishes the prerelease
-`desktop-v<version>`: installers, the install scripts, `SHA256SUMS`, `latest.json` (the update
-manifest, signed with the updater key) and the Homebrew cask as an artifact, with the install guide
-(`desktop/release/release-body.md`) as its description. It then copies the install scripts and
-`latest.json` to the `desktop-update-feed` branch, the fixed addresses the docs and the in-app
-updater use. The cask goes to
-`lambdaclass/homebrew-tap` (`Casks/stabileo.rb`) by pull request.
+`.github/workflows/desktop.yml` runs on every pull request, in the merge queue and on pushes to
+`main`; a `changes` job builds only when something the app is made from changed (`desktop/`,
+`web/`, the engine, the toolchain, the workflow), and `Desktop OK` is the one check to require. A
+build makes unsigned installers on GitHub's Linux, macOS and Windows runners (never self-hosted)
+and launches each app once: it must solve the startup self-check in the bundled engine. An install
+test then runs the one-command installers on all three.
 
-The updater's private key and its password are repository secrets (`TAURI_SIGNING_PRIVATE_KEY`,
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`); the public key is in `desktop/src-tauri/tauri.conf.json`.
-Losing the private key means installed copies can no longer update themselves.
+A manual run from `main` with a `version` publishes the prerelease `desktop-v<version>`:
+installers, the install scripts, `SHA256SUMS`, the updater signatures (`.sig`), `latest.json` and
+the Homebrew cask as an artifact, with the install guide (`desktop/release/release-body.md`) as
+its description. `latest.json` itself is not signed: it lists, for each system, the download and
+the signature of that download, and the app installs only a download whose signature verifies
+with the public key it was built with. The job then copies the install scripts and `latest.json`
+to the `desktop-update-feed` branch, the fixed addresses the docs and the in-app updater use. The
+cask goes to `lambdaclass/homebrew-tap` (`Casks/stabileo.rb`) by pull request.
+
+The updater's private key and its password are secrets of the `desktop-release` environment
+(`TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), which only the release job
+uses: it needs a reviewer's approval and deploys only from `main` or a `desktop-v*` tag. Builds,
+pull requests included, never see the key; they make the updater artifacts with a key made for the
+run, and the release job signs those same files and checks the signatures against the public key
+in `desktop/src-tauri/tauri.conf.json`. Losing the private key means installed copies can no longer
+update themselves.
 
 ## Decisions
 
