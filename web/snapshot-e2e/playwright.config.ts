@@ -11,9 +11,17 @@ import { fileURLToPath } from 'node:url';
  *   make web.build.snapshot && make e2e.web.snapshot
  */
 const WEB = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const snapshot = JSON.parse(readFileSync(resolve(WEB, 'dist-snapshot/SNAPSHOT.json'), 'utf8')) as { prefix: string };
+/**
+ * SNAPSHOT_E2E_URL + SNAPSHOT_PREFIX test a deployed host instead (Caddy's routes, staging):
+ *   SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@abc1234/ npx playwright test -c snapshot-e2e/playwright.config.ts
+ */
+const REMOTE = process.env.SNAPSHOT_E2E_URL;
+const prefix = REMOTE
+  ? process.env.SNAPSHOT_PREFIX!
+  : (JSON.parse(readFileSync(resolve(WEB, 'dist-snapshot/SNAPSHOT.json'), 'utf8')) as { prefix: string }).prefix;
+if (!/^\/@[0-9a-f]{7}\/$/.test(prefix ?? '')) throw new Error(`snapshot prefix ${prefix}: expected /@<7 hex>/`);
 const PORT = Number(process.env.SNAPSHOT_E2E_PORT ?? 5196);
-process.env.SNAPSHOT_PREFIX = snapshot.prefix;
+process.env.SNAPSHOT_PREFIX = prefix;
 
 export default defineConfig({
   testDir: '.',
@@ -26,13 +34,13 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
-  use: { baseURL: `http://127.0.0.1:${PORT}`, viewport: { width: 1400, height: 900 } },
+  use: { baseURL: REMOTE ?? `http://127.0.0.1:${PORT}`, viewport: { width: 1400, height: 900 } },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } } }],
-  webServer: {
+  webServer: REMOTE ? undefined : {
     // --base from the build itself; no BASE_PATH, so the config does not re-derive the snapshot.
-    command: `npx vite preview --outDir dist-snapshot --base ${snapshot.prefix} --host 127.0.0.1 --port ${PORT} --strictPort`,
+    command: `npx vite preview --outDir dist-snapshot --base ${prefix} --host 127.0.0.1 --port ${PORT} --strictPort`,
     cwd: WEB,
-    url: `http://127.0.0.1:${PORT}${snapshot.prefix}SNAPSHOT.json`,
+    url: `http://127.0.0.1:${PORT}${prefix}SNAPSHOT.json`,
     reuseExistingServer: false,
     timeout: 60_000,
   },
