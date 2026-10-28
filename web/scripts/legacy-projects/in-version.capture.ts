@@ -93,7 +93,14 @@ it('session', async () => {
     await modelStore.loadExample(ex.id);
     await solve();
   }
-  writeFileSync(join(plan.out, 'session.ded'), file.sessionPayload().content);
+  // v0.2.0 and v0.3.0 could not write one: their `sessionPayload` called `$state.snapshot` from a
+  // plain .ts module, a ReferenceError in the browser too (fixed before v0.4.0, `sessionTabsCopy`).
+  // No session file of theirs exists, so none is made up: the error is recorded instead.
+  try {
+    writeFileSync(join(plan.out, 'session.ded'), file.sessionPayload().content);
+  } catch (e) {
+    writeFileSync(join(plan.out, 'session.unavailable.txt'), String((e as Error)?.message ?? e));
+  }
 }, 300_000);
 
 it('run record', () => {
