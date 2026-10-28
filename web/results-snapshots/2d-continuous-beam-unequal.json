@@ -1,7 +1,7 @@
 {
   "case": "2d-continuous-beam-unequal",
   "covers": "2D hyperstatic continuous beam",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",

@@ -1,7 +1,7 @@
 {
   "case": "2d-multi-section-frame",
   "covers": "2D frame, several sections",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",

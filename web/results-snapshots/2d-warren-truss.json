@@ -1,7 +1,7 @@
 {
   "case": "2d-warren-truss",
   "covers": "2D truss",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk",

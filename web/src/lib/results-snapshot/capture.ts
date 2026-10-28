@@ -111,16 +111,38 @@ function analysis(prefix: string, r: unknown, out: Values): void {
   out[`${prefix}.diagnosticCodes`] = [codes(solverDiagnostics), codes(structuredDiagnostics), codes(diagnostics)].filter(Boolean).join(' | ');
 }
 
+/**
+ * The combinations' envelope as the app publishes it (`resultsStore.envelope3D` / `envelope`): each
+ * diagram's maximum and minimum at every station of every member, its peak, the max-abs results,
+ * and the combination that governs each member's every component (`governing3D` / `governing2D`).
+ */
+function captureEnvelope(env: unknown, governing: Map<number, unknown>, out: Values): void {
+  if (!env || typeof env !== 'object') return;
+  const { maxAbsResults, maxAbsResults3D, ...diagrams } = env as Record<string, unknown>;
+  for (const [kind, d] of Object.entries(diagrams)) {
+    const { elements, ...rest } = (d ?? {}) as { elements?: Array<{ elementId: number; posValues: number[]; negValues: number[] }> };
+    flatten(rest, `envelope.${kind}`, out, ENVELOPE_SKIP);
+    for (const e of elements ?? []) flatten({ posValues: e.posValues, negValues: e.negValues }, `envelope.${kind}[e${e.elementId}]`, out);
+  }
+  analysis('envelope.maxAbs', maxAbsResults3D ?? maxAbsResults, out);
+  for (const [id, g] of [...governing].sort(([a], [b]) => a - b)) flatten(g, `envelope.governing[e${id}]`, out);
+}
+
+/** The station positions are each member's geometry, not a result. */
+const ENVELOPE_SKIP = new Set(['tPositions', 'kind']);
+
 function captureResults(out: Values): void {
   if (uiStore.is3DWorkspace) {
     analysis('base', resultsStore.singleResults3D ?? resultsStore.results3D, out);
     for (const [id, r] of resultsStore.perCase3D) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo3D) analysis(`combo[${id}]`, r, out);
     if (resultsStore.unstableCombinations3D.length) out['unstableCombinations'] = resultsStore.unstableCombinations3D.join(',');
+    captureEnvelope(resultsStore.envelope3D, resultsStore.governing3D as Map<number, unknown>, out);
   } else {
     analysis('base', resultsStore.singleResults ?? resultsStore.results, out);
     for (const [id, r] of resultsStore.perCase) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo) analysis(`combo[${id}]`, r, out);
+    captureEnvelope(resultsStore.envelope, resultsStore.governing2D as Map<number, unknown>, out);
   }
 }
 
