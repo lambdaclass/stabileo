@@ -34,6 +34,14 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
+  /** Stabileo Research is its own chunk: the landing and the blog never download it. */
+  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'research' && !research) {
+      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+    }
+  });
+
   function loadApp() {
     loading ??= import('./App.svelte').then(async (m) => {
       app = m.default;
@@ -88,6 +96,11 @@
   <App />
 {:else if current.kind === 'blog'}
   <BlogPage path={current.path} />
+{:else if current.kind === 'research'}
+  {#if research}
+    {@const Research = research}
+    <Research path={current.path} />
+  {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}

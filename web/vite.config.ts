@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
@@ -200,6 +200,8 @@ export default defineConfig({
   base: process.env.BASE_PATH || '/',
   server: {
     port: (ADMIN ? 4001 : 4000) + INST * 10,
+    // The /research pages import the catalog and reference results from ../research.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(__dirname, '../research')] },
   },
   worker: {
     format: 'es',

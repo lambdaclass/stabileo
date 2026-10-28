@@ -53,6 +53,7 @@
         <button onclick={() => go(l.id)}>{t(l.key)}</button>
       {/each}
       <PublicLink to="/blog" class="nav-link">{t('landing.navBlog')}</PublicLink>
+      <PublicLink to="/research" class="nav-link">{t('landing.navResearch')}</PublicLink>
     </div>
 
     <div class="nav-actions">

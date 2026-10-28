@@ -1,4 +1,4 @@
-.PHONY: help install-nix shell setup setup.run git.setup deps backend.run console routes \
+.PHONY: research.wasm help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
        test.ci-scripts \
@@ -360,8 +360,12 @@ web.setup:
 web.run: wasm
 	$(NIX_RUN) bash -c "cd web && npm install && VITE_API_URL=http://localhost:$(BACKEND_PORT) npm run dev -- --port $(WEB_PORT)"
 
+# The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
+research.wasm:
+	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
+
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
-web.build: wasm
+web.build: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm run build"
 
 admin.run:

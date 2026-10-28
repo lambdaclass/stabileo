@@ -24,7 +24,7 @@
    * was NO way back to the index at all — the logo goes to the landing, so
    * returning meant landing → scroll to the blog section → enter again.
    */
-  let { inPost = false }: { inPost?: boolean } = $props();
+  let { inPost = false, inResearch = false }: { inPost?: boolean; inResearch?: boolean } = $props();
 
   /*
    * The star count, same as the landing's header.
@@ -62,6 +62,9 @@
     <div class="nav-actions">
       {#if inPost}
         <PublicLink to="/blog" class="nav-blog-link">{t('landing.navBlog')}</PublicLink>
+      {/if}
+      {#if inResearch}
+        <PublicLink to="/research" class="nav-blog-link">{t('landing.navResearch')}</PublicLink>
       {/if}
 
       <a class="nav-gh" href={REPO_URL} target="_blank" rel="noreferrer" aria-label={t('landing.navGithubRepo')}>

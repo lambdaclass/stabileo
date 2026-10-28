@@ -1,0 +1,544 @@
+# Stabileo Research catalog. Schema and rules: research/CONTRIBUTING.md.
+# `crossref` blocks are copied from api.crossref.org and checked by `research/tools/catalog.py check`
+# in CI; never edit them by hand. `summary` is our own wording of `summary_source` (crossref-abstract, publisher-abstract,
+# repository-readme, full-text or reference-code); with no such source it stays empty.
+# `status` must be backed by files in the implementation directory (see research/README.md).
+papers:
+- id: shauer-2025
+  doi: 10.1016/j.advengsoft.2025.104013
+  crossref:
+    title: Less than 500 lines self-contained Python finite element implementation of the phase-field
+      method for fracture mechanics
+    authors:
+    - Nathan Shauer
+    year: 2025
+    venue: Advances in Engineering Software
+  area: fracture
+  keywords:
+  - phase-field
+  - AT2
+  - brittle fracture
+  - staggered scheme
+  - educational code
+  summary: 'A compact, self-contained Python finite element code for quasi-static brittle fracture with
+    the AT2 phase-field model: bilinear quadrilaterals, 2x2 Gauss quadrature, a damage-degraded elasticity
+    problem and a damage problem driven by the tensile part of the strain energy, solved alternately until
+    the elasticity residual falls below a tolerance. Examples are a bar in tension (compared with the
+    1D AT2 analytical response), a single-edge notched plate in tension and a three-point bending test.'
+  summary_source: reference-code
+  summary_note: phasefield-jr-py read in full at commit 61037c6; paper full text not accessed
+  code:
+  - url: https://github.com/nathanshauer/phasefield-jr-py
+    license: MIT
+  - url: https://github.com/nathanshauer/phasefield-jr
+    license: MIT
+  data: []
+  methods:
+  - Q4 elements
+  - AT2 phase field
+  - hybrid tensile-energy driving force
+  - alternating minimisation
+  - sparse LU
+  dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  complexity: low
+  relevance: Small enough to reproduce exactly and re-implement independently; the first Stabileo Research
+    entry and the pattern for the rest.
+  status: numerically-validated
+  reproduced_published_results: false
+  benchmarks:
+  - bar under tension vs 1D AT2 analytical stress
+  - single-edge notched tension force-displacement
+  - three-point bending force-displacement
+  implementation: fracture/shauer-2025
+  contacts: []
+- id: lopez-pamies-2025
+  doi: 10.1016/j.cma.2024.117520
+  crossref:
+    title: Classical variational phase-field models cannot predict fracture nucleation
+    authors:
+    - Oscar Lopez-Pamies
+    - John E. Dolbow
+    - Gilles A. Francfort
+    - Christopher J. Larsen
+    year: 2025
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: fracture
+  keywords:
+  - phase-field
+  - fracture nucleation
+  - strength surface
+  - variational fracture
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - phase-field fracture
+  - variational fracture theory
+  dependencies: []
+  complexity: medium
+  relevance: 'Direct caveat for any AT2 implementation, including ours: the AT2 peak stress is set by
+    the length scale, so l acts as a strength parameter. Should shape the limitations we state.'
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: kamarei-2024
+  doi: 10.1016/j.jmps.2024.105683
+  crossref:
+    title: The poker-chip experiments of synthetic elastomers explained
+    authors:
+    - Farhad Kamarei
+    - Aditya Kumar
+    - Oscar Lopez-Pamies
+    year: 2024
+    venue: Journal of the Mechanics and Physics of Solids
+  area: fracture
+  keywords:
+  - phase-field
+  - nucleation
+  - elastomers
+  - poker-chip test
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - phase-field fracture with strength surface
+  - finite elasticity
+  dependencies: []
+  complexity: high
+  relevance: A demanding nucleation benchmark beyond the AT2 setting of the first entry.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: navidtehrani-2025
+  doi: 10.1016/j.engfracmech.2025.111363
+  crossref:
+    title: 'A generalised framework for phase field-based modelling of coupled problems: Application to
+      thermo-mechanical fracture, hydraulic fracture, hydrogen embrittlement and corrosion'
+    authors:
+    - Yousef Navidtehrani
+    - Covadonga Betegón
+    - Emilio Martínez-Pañeda
+    year: 2025
+    venue: Engineering Fracture Mechanics
+  area: fracture
+  keywords:
+  - phase-field
+  - multiphysics
+  - thermo-mechanical fracture
+  - Abaqus
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - phase-field fracture
+  - coupled field problems
+  dependencies: []
+  complexity: high
+  relevance: Coupled-physics extension path once the mechanical phase-field core is validated.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: xue-2023-jax-fem
+  doi: 10.1016/j.cpc.2023.108802
+  crossref:
+    title: 'JAX-FEM: A differentiable GPU-accelerated 3D finite element solver for automatic inverse design
+      and mechanistic data science'
+    authors:
+    - Tianju Xue
+    - Shuheng Liao
+    - Zhengtao Gan
+    - Chanwook Park
+    - Xiaoyu Xie
+    - Wing Kam Liu
+    - Jian Cao
+    year: 2023
+    venue: Computer Physics Communications
+  area: differentiable-fem
+  keywords:
+  - JAX
+  - automatic differentiation
+  - GPU
+  - inverse design
+  - 3D FEM
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/deepmodeling/jax-fem
+    license: GPL-3.0
+  data: []
+  methods:
+  - automatic differentiation
+  - adjoint method
+  - GPU assembly
+  dependencies:
+  - JAX
+  complexity: high
+  relevance: 'Reference point for a differentiable Stabileo solver (long-term track). GPL-3.0: study,
+    do not copy into AGPL/MIT code without checking compatibility.'
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: wu-2023-jaxsso
+  doi: 10.1007/s00158-023-03601-0
+  crossref:
+    title: A framework for structural shape optimization based on automatic differentiation, the adjoint
+      method and accelerated linear algebra
+    authors:
+    - Gaoyuan Wu
+    year: 2023
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - shape optimization
+  - automatic differentiation
+  - adjoint
+  - JAX
+  - shells
+  - frames
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/GaoyuanWu/JaxSSO
+    license: MIT
+  data: []
+  methods:
+  - adjoint sensitivities
+  - automatic differentiation
+  - gradient-based optimization
+  dependencies:
+  - JAX
+  complexity: medium
+  relevance: Close to Stabileo's frame and shell structures; a natural first optimization entry.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: sigmund-2022
+  doi: 10.1007/s00158-022-03427-2
+  crossref:
+    title: On benchmarking and good scientific practise in topology optimization
+    authors:
+    - Ole Sigmund
+    year: 2022
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - topology optimization
+  - benchmarking
+  - scientific practice
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - benchmarking methodology
+  dependencies: []
+  complexity: low
+  relevance: Methodological guide for how Stabileo Research reports comparisons.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: woldseth-2022
+  doi: 10.1007/s00158-022-03347-1
+  crossref:
+    title: On the use of artificial neural networks in topology optimisation
+    authors:
+    - Rebekka V. Woldseth
+    - Niels Aage
+    - J. Andreas Bærentzen
+    - Ole Sigmund
+    year: 2022
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - topology optimization
+  - neural networks
+  - review
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - literature review
+  dependencies: []
+  complexity: low
+  relevance: Filter for which machine-learning optimization papers are worth reproducing.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bastek-2023
+  doi: 10.1038/s42256-023-00762-x
+  crossref:
+    title: Inverse design of nonlinear mechanical metamaterials via video denoising diffusion models
+    authors:
+    - Jan-Hendrik Bastek
+    - Dennis M. Kochmann
+    year: 2023
+    venue: Nature Machine Intelligence
+  area: metamaterials
+  keywords:
+  - inverse design
+  - diffusion models
+  - cellular metamaterials
+  - nonlinear response
+  summary: Video denoising diffusion models trained on full-field simulation data of periodic stochastic
+    cellular structures predict and tune their large-strain nonlinear stress response under compression,
+    including buckling and contact.
+  summary_source: crossref-abstract
+  code:
+  - url: https://github.com/jhbastek/VideoMetamaterials
+    license: MIT
+  data: []
+  methods:
+  - video diffusion models
+  - finite element data generation
+  dependencies:
+  - PyTorch
+  complexity: high
+  relevance: Inverse-design entry; the simulation data generation is the part Stabileo could reproduce.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: grossman-2026
+  doi: 10.1103/17sg-gzhl
+  crossref:
+    title: Predicting the mechanical properties of spring networks
+    authors:
+    - Doron Grossman
+    - Arezki Boudaoud
+    year: 2026
+    venue: Physical Review Research
+  area: metamaterials
+  keywords:
+  - spring networks
+  - homogenization
+  - nonaffine displacements
+  - continuum limit
+  summary: Derives the elastic continuum model of an arbitrary network of Hookean springs from its geometry
+    and topology alone, including the nonaffine displacements, and checks it against simulations of crystalline
+    and disordered networks.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods:
+  - discrete-to-continuum homogenization
+  dependencies: []
+  complexity: medium
+  relevance: Spring networks map directly onto truss models, which Stabileo already solves.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: linka-2023
+  doi: 10.1016/j.cma.2022.115731
+  crossref:
+    title: A new family of Constitutive Artificial Neural Networks towards automated model discovery
+    authors:
+    - Kevin Linka
+    - Ellen Kuhl
+    year: 2023
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: constitutive
+  keywords:
+  - constitutive artificial neural networks
+  - hyperelasticity
+  - model discovery
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/LivingMatterLab/CANN
+    license: none
+  data: []
+  methods:
+  - neural networks
+  - hyperelasticity
+  - sparse regression
+  dependencies:
+  - TensorFlow
+  complexity: medium
+  relevance: 'Constitutive-model discovery track. The repository has no license file: it cannot be adapted
+    without the authors'' permission.'
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: flaschel-2023
+  doi: 10.1016/j.cma.2022.115867
+  crossref:
+    title: Automated discovery of generalized standard material models with EUCLID
+    authors:
+    - Moritz Flaschel
+    - Siddhant Kumar
+    - Laura De Lorenzis
+    year: 2023
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: constitutive
+  keywords:
+  - EUCLID
+  - unsupervised learning
+  - generalized standard materials
+  - plasticity
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/EUCLID-code/EUCLID-plasticity
+    license: GPL-3.0
+  data: []
+  methods:
+  - sparse regression
+  - unsupervised model discovery
+  - finite element data
+  dependencies:
+  - Python
+  complexity: high
+  relevance: Constitutive-model discovery from full-field data, close to digital-twin use.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: torzoni-2024
+  doi: 10.1016/j.cma.2023.116584
+  crossref:
+    title: A digital twin framework for civil engineering structures
+    authors:
+    - Matteo Torzoni
+    - Marco Tezzele
+    - Stefano Mariani
+    - Andrea Manzoni
+    - Karen E. Willcox
+    year: 2024
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: digital-twins
+  keywords:
+  - digital twin
+  - structural health monitoring
+  - civil structures
+  - deep learning
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - reduced-order models
+  - deep learning
+  - structural health monitoring
+  dependencies: []
+  complexity: high
+  relevance: Digital-twin track; Stabileo's structural models could supply the physics side.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: andrej-2024-mfem
+  doi: 10.1177/10943420241261981
+  crossref:
+    title: High-performance finite elements with MFEM
+    authors:
+    - Julian Andrej
+    - Nabil Atallah
+    - Jan-Phillip Bäcker
+    - Jean-Sylvain Camier
+    - Dylan Copeland
+    - Veselin Dobrev
+    - Yohann Dudouit
+    - Tobias Duswald
+    - Brendan Keith
+    - Dohyun Kim
+    - Tzanio Kolev
+    - Boyan Lazarov
+    - Ketan Mittal
+    - Will Pazner
+    - Socratis Petrides
+    - Syun’ichi Shiraiwa
+    - Mark Stowell
+    - Vladimir Tomov
+    year: 2024
+    venue: The International Journal of High Performance Computing Applications
+  area: numerical-methods
+  keywords:
+  - MFEM
+  - high-performance computing
+  - GPU
+  - exascale
+  - finite elements
+  summary: Recent development of the MFEM C++ finite element library, centred on performance portability
+    across leadership-class and exascale machines and on new capabilities.
+  summary_source: crossref-abstract
+  code:
+  - url: https://github.com/mfem/mfem
+    license: BSD-3-Clause
+  data: []
+  methods:
+  - high-order finite elements
+  - partial assembly
+  - GPU kernels
+  dependencies:
+  - C++
+  - MPI
+  - hypre
+  complexity: high
+  relevance: Reference for high-performance solver design choices (matrix-free, partial assembly).
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: scroggs-2022-basix
+  doi: 10.21105/joss.03982
+  crossref:
+    title: 'Basix: a runtime finite element basis evaluation library'
+    authors:
+    - Matthew W. Scroggs
+    - Igor A. Baratta
+    - Chris N. Richardson
+    - Garth N. Wells
+    year: 2022
+    venue: Journal of Open Source Software
+  area: numerical-methods
+  keywords:
+  - finite element basis functions
+  - FEniCSx
+  - element library
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/FEniCS/basix
+    license: MIT
+  data: []
+  methods:
+  - finite element basis construction
+  dependencies:
+  - C++
+  - Python
+  complexity: medium
+  relevance: Independent source of shape functions to cross-check element implementations.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
