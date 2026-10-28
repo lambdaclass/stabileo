@@ -204,7 +204,7 @@ function allTranslations(key: string): Set<string> {
  * a name taken before the dictionaries were registered was saved as `tabBar.newStructure`.
  */
 export function isDefaultName(name: string): boolean {
-	return name === 'tabBar.newStructure' || allTranslations('tabBar.newStructure').has(name);
+	return (import.meta.env.VITE_DESKTOP === '1' && name === 'tabBar.newStructure') || allTranslations('tabBar.newStructure').has(name);
 }
 
 export const i18n = {

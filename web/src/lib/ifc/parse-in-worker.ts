@@ -1,7 +1,11 @@
 import { i18n } from '../i18n';
 import type { IfcParseResult } from './ifc-parser';
 
-/** Parse in `./ifc-worker.ts`, one worker per file, ended when it answers. */
+/**
+ * The desktop app's IFC parsing: in `./ifc-worker.ts` (which says why), one worker per file, ended
+ * when it answers. Callers test VITE_DESKTOP first; outside the desktop build this module is a stub
+ * (web/vite.desktop.ts), so the worker is not in the browser bundle.
+ */
 export function parseIfcInWorker(data: ArrayBuffer): Promise<IfcParseResult> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./ifc-worker.ts', import.meta.url), { type: 'module' });

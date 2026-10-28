@@ -621,8 +621,8 @@ function createTabManager() {
       activeTabId = targetId;
       const target = savedTabs.find(t => t.id === targetId)!;
       restoreState(target, false);
-      // A default name saved in another language, or as the bare key, reads in this one.
-      this.updateDefaultNames();
+      // Desktop: a default name saved in another language, or as the bare key, reads in this one.
+      if (import.meta.env.VITE_DESKTOP === '1') this.updateDefaultNames();
     },
   };
 }

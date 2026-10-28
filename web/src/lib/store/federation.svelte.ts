@@ -32,8 +32,8 @@ const patch = (p: Partial<Data>) => patchOwnDesignData({ federation: { ...federa
 
 interface Parsed { members: IfcMember[]; surfaces: IfcSurface[]; storeys: Array<{ name: string; elevation: number }> }
 async function parse(buffer: ArrayBuffer): Promise<Parsed> {
-  const { parseIfcFile } = await import('../ifc/parse');
-  return parseIfcFile(buffer);
+  const { parseIfc } = await import('../ifc/ifc-parser');
+  return parseIfc(buffer);
 }
 
 /** The links' drawings in the model, after the person's own drawings. */

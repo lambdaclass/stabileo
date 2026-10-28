@@ -1,6 +1,5 @@
 <script lang="ts">
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
-  import { chooseProjectFile, desktopSaveAs } from '../lib/platform';
   import { connectionPrompt } from '../lib/store/connection-prompt.svelte';
   import { viewState } from '../lib/store/view-state.svelte';
   import { copyTransformed } from '../lib/model/edit/transformed-copy';
@@ -239,7 +238,7 @@
     // Ctrl+Shift+S: Save session (all tabs)
     if ((e.ctrlKey || e.metaKey) && key === 'S' && e.shiftKey) {
       e.preventDefault();
-      if (!desktopSaveAs()) saveSession();
+      saveSession();
       return;
     }
 
@@ -253,7 +252,7 @@
     // Ctrl+O: Open/Load
     if ((e.ctrlKey || e.metaKey) && key === 'O') {
       e.preventDefault();
-      chooseProjectFile(fileInput);
+      fileInput?.click();
       return;
     }
 

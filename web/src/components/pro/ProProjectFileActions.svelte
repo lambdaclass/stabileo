@@ -18,7 +18,6 @@
    * about where it sits.
    */
   import { saveProject, loadFile } from '../../lib/store/file';
-  import { chooseProjectFile } from '../../lib/platform';
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
@@ -39,7 +38,7 @@
   let fileInput = $state<HTMLInputElement | undefined>();
 
   /** Open the picker. Exported so a host can drive it from its own control. */
-  export function open() { chooseProjectFile(fileInput); }
+  export function open() { fileInput?.click(); }
 
   /**
    * The same handler the Básico toolbar uses, including its session toast and its input reset
@@ -74,7 +73,7 @@
       saveProject();
     } else if ((e.ctrlKey || e.metaKey) && key === 'O') {
       e.preventDefault();
-      chooseProjectFile(fileInput);
+      fileInput?.click();
     }
   }
 </script>
@@ -84,7 +83,7 @@
 <button
   class="pfa {variant}"
   data-testid="pro-project-open"
-  onclick={() => chooseProjectFile(fileInput)}
+  onclick={() => fileInput?.click()}
   title={t('project.openTooltip')}
 >{t('project.open')}</button>
 

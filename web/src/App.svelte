@@ -1555,8 +1555,7 @@
         — so wearing it alone left the browser's own #efefef button in a dark
         header. This one is styled outright.
       -->
-      <!-- Not in the desktop app yet: its AI service is not wired there (phase 2 of docs/desktop). -->
-      {#if import.meta.env.VITE_DESKTOP !== '1' && (uiStore.appMode === 'basico' || uiStore.appMode === 'pro')}
+      {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
         <button
           class="btn-ai"
           class:on={aiPanelOpen}

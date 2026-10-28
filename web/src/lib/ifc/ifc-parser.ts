@@ -46,6 +46,10 @@ const SI_PREFIX: Record<string, number> = {
  * Returns start/end points in world coordinates, in metres.
  */
 export async function parseIfc(data: ArrayBuffer, opts?: { wasmPath?: string }): Promise<IfcParseResult> {
+  // The desktop app parses in a worker, which runs this same function (./ifc-worker.ts says why).
+  if (import.meta.env.VITE_DESKTOP === '1' && typeof document !== 'undefined') {
+    return (await import('./parse-in-worker')).parseIfcInWorker(data);
+  }
   // Dynamic import to avoid bundling 3.5MB WASM in main chunk
   const WebIFC = await import('web-ifc');
   const api = new WebIFC.IfcAPI();

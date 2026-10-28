@@ -76,8 +76,8 @@ export function importCloud(text: string, levelId: string, cutHeight: number, na
 
 /** Walls read from an IFC file's walls, on the level each starts at, with a construction of its thickness to complete. */
 export async function importIfcWalls(buffer: ArrayBuffer): Promise<number> {
-  const { parseIfcFile } = await import('../ifc/parse');
-  const p = await parseIfcFile(buffer);
+  const { parseIfc } = await import('../ifc/ifc-parser');
+  const p = await parseIfc(buffer);
   const lvs = levels(), a = architecture();
   const constructions = [...a.constructions], walls = [...a.walls];
   let n = 0;

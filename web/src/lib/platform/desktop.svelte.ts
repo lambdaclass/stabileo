@@ -295,6 +295,46 @@ async function takePendingFiles(): Promise<void> {
   }
 }
 
+/**
+ * The page's own file controls, routed to the native ones. The web components stay as they are
+ * (stabileo.com's bundle does not change): a project file input asks for the native Open dialog
+ * instead of the webview's picker, and the file shortcuts run the same commands as the menu (whose
+ * accelerators may fire too; `runCommand` runs a command once).
+ */
+const PROJECT_ACCEPT = '.ded,.json';
+
+function routePageFileControls(): void {
+  document.addEventListener(
+    'click',
+    (e) => {
+      const input = e.target as HTMLInputElement | null;
+      if (input?.tagName === 'INPUT' && input.type === 'file' && input.accept === PROJECT_ACCEPT) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        runCommand('open');
+      }
+    },
+    true,
+  );
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const cmd = key === 's' ? (e.shiftKey ? 'save_as' : 'save') : key === 'o' && !e.shiftKey ? 'open' : key === 'n' && !e.shiftKey ? 'new' : null;
+      if (!cmd) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      runCommand(cmd);
+    },
+    true,
+  );
+  // No AI button until its service is wired in the desktop app (phase 2 of docs/desktop).
+  const style = document.createElement('style');
+  style.textContent = '.btn-ai { display: none !important; }';
+  document.head.appendChild(style);
+}
+
 let started = false;
 
 export async function startDesktop(): Promise<void> {
@@ -302,6 +342,7 @@ export async function startDesktop(): Promise<void> {
   started = true;
   logToFile();
   routeExternalLinks();
+  routePageFileControls();
   watchChanges();
   await listen<string>('desktop://menu', (e) => runCommand(e.payload));
   await listen('desktop://open-pending', () => void takePendingFiles());

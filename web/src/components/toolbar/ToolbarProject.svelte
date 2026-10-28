@@ -1,6 +1,5 @@
 <script lang="ts">
   import { askAboutOverlapsInModel } from '../../lib/model/edit/connection-questions';
-  import { chooseProjectFile } from '../../lib/platform';
   import { uiStore, modelStore } from '../../lib/store';
   import {
     loadFile,
@@ -199,7 +198,7 @@
     <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
       {t('project.save')}
     </button>
-    <button class="file-btn" onclick={() => chooseProjectFile(fileInput)} title={t('project.openTooltip')}>
+    <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
     <!--
