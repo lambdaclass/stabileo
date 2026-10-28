@@ -58,6 +58,13 @@ minutes at 64 shards. So the `plan` job of `nightly.yml` splits the mutants into
 nights. Each shard has a 320-minute budget; if it does not finish, the job fails saying how far
 it got (`scripts/mutants-summary.py`), and `MUTANTS_TOTAL` in `nightly.yml` must go up.
 
+The test files are modules of a few shared binaries (`engine/tests/<binary>/main.rs`), so
+`--test <binary>` alone would run every module in it for each mutant: from 2026-10-24 to -28
+that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard finished.
+`scripts/mutants.sh` passes nextest a filterset (`-E`) that keeps the run to the listed files.
+A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
+(it reports timeouts, 3, over missed mutants, 2).
+
 Run particular shards by hand:
 
     gh workflow run nightly.yml -f only=mutants -f mutants_shards='[5,6]'
