@@ -53,7 +53,7 @@ test('the research page is served under the prefix, with the version banner', as
   page.on('request', (r) => {
     if (r.url().endsWith('phasefield_bg.wasm')) wasm.push(new URL(r.url()).pathname);
   });
-  await page.getByLabel('Mesh').selectOption('coarse');
+  await page.getByLabel('Mesh', { exact: true }).selectOption('coarse');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.locator('.rs-app')).toHaveAttribute('data-source', 'live');
   await expect.poll(async () => Number(await page.locator('.rs-app').getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(3);
