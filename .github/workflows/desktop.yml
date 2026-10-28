@@ -2,8 +2,8 @@ name: Desktop
 
 # The desktop app (desktop/, docs/desktop/README.md): unsigned installers for Windows, macOS and
 # Linux on every push to the `desktop` branch, as artifacts. A manual run with a `version` also
-# publishes them as the prerelease `desktop-v<version>` (never the repository's latest release),
-# and refreshes `desktop-latest`, the fixed release whose latest.json the in-app updater reads.
+# publishes them as the prerelease `desktop-v<version>` (never the repository's latest release)
+# and points the in-app updater's feed (latest.json on the `desktop-update-feed` branch) at it.
 # GitHub's runners only: never self-hosted.
 on:
   push:
@@ -216,19 +216,26 @@ jobs:
         with:
           name: homebrew-cask
           path: cask/stabileo.rb
-      - name: Publish desktop-v${{ inputs.version }} and refresh desktop-latest
+      - name: Publish desktop-v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           NOTES: ${{ inputs.notes }}
         run: |
           tag="desktop-v$VERSION"
-          body=$(printf '%s\n\nUnsigned prerelease of the Stabileo desktop app. Install: docs/desktop/README.md#install\n' "${NOTES:-Stabileo desktop $VERSION}")
+          body=$(printf '%s\n\nUnsigned prerelease of the Stabileo desktop app (not a release of stabileo.com). Install: https://github.com/lambdaclass/stabileo/blob/desktop/docs/desktop/README.md#install\n' "${NOTES:-Stabileo desktop $VERSION}")
           gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Stabileo desktop $VERSION" --notes "$body" --prerelease --latest=false
-          if ! gh release view desktop-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create desktop-latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "Stabileo desktop: update feed" --prerelease --latest=false \
-              --notes "The in-app updater reads latest.json from here. Downloads are on the desktop-v* releases."
-          fi
-          gh release upload desktop-latest dist/latest.json --repo "$GITHUB_REPOSITORY" --clobber
+      # The updater reads latest.json from the desktop-update-feed branch (a fixed URL; GitHub's
+      # "latest release" skips prereleases). Written through the contents API, so the commit is
+      # signed by GitHub, as the repository's rules require of every branch.
+      - name: Point the update feed at desktop-v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          api="repos/$GITHUB_REPOSITORY/contents/latest.json"
+          sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null || true)
+          args=(-f branch=desktop-update-feed -f message="Update feed: desktop-v$VERSION" -f content="$(base64 -w0 dist/latest.json)")
+          [ -n "$sha" ] && args+=(-f sha="$sha")
+          gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url

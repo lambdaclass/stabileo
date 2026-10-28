@@ -86,7 +86,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDNjU5QzM1QzY5QTlDOUEKUldTYW5KckdOWnhsdkxJRSs2NHlUR2tZVVdyQUp6ckMxM1MvUXJjSUFRMW05MmYrbGFKb0NiSVEK",
       "endpoints": [
-        "https://github.com/lambdaclass/stabileo/releases/download/desktop-latest/latest.json"
+        "https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/latest.json"
       ],
       "windows": {
         "installMode": "passive"
