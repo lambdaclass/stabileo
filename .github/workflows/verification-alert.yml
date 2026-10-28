@@ -52,8 +52,9 @@ permissions:
   contents: read
 
 concurrency:
-  # Two runs of the same workflow finishing together must not open two issues.
-  group: verification-alert-${{ github.event.workflow_run.name || 'manual' }}
+  # Two runs of the same workflow finishing together must not open two issues (a third one
+  # waiting is dropped by GitHub: at most one run per group is pending).
+  group: verification-alert-${{ github.event.workflow_run.name || inputs.run_id || github.event_name }}
   cancel-in-progress: false
 
 jobs:
