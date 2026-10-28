@@ -55,7 +55,8 @@ test('the research page is served under the prefix, with the version banner', as
   });
   await page.getByLabel('Mesh').selectOption('coarse');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect.poll(async () => Number(await page.locator('.rs-out').getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(3);
+  await expect(page.locator('.rs-app')).toHaveAttribute('data-source', 'live');
+  await expect.poll(async () => Number(await page.locator('.rs-app').getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(3);
   expect(wasm).toEqual([`${P}research-wasm/shauer-2025/phasefield_bg.wasm`]);
   expect(outside).toEqual([]);
 });
