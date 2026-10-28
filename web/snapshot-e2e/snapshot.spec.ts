@@ -65,6 +65,7 @@ test('navigation between public pages stays in the snapshot', async ({ page, bas
   await page.goto(`${P}es/research/`);
   await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
   await expect(page.locator('#stabileo-snapshot-banner')).toContainText('Estás viendo la versión del');
+  await expect(page.getByTestId('gallery-permalink').first()).toHaveAttribute('href', new RegExp(`${P}es/research/fracture/shauer-2025/$`));
   await page.locator('a[href$="/research/fracture/shauer-2025/"]:visible').first().click();
   await expect(page).toHaveURL(new RegExp(`${P}es/research/fracture/shauer-2025/$`));
   await expect(page.locator('#stabileo-snapshot-banner a').first()).toHaveAttribute('href', /\/es\/research\/fracture\/shauer-2025\/$/);

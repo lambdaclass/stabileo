@@ -33,6 +33,9 @@ host (Debian 13, infra/cloud-init/<environment>.yaml)
     +-- releases/         the previous three, for rollback
     +-- gcroots/          keeps the Nix paths those releases need from being collected
     +-- incoming/         artifacts in flight
+    +-- snapshots/        builds kept under their commit, served at /@<commit>/ (see Snapshots)
+        +-- <7 hex>/      one per commit, read-only, never overwritten
+        +-- index.json    the list, served at /@/
 ```
 
 The backend listens on `127.0.0.1:4100` only. Each site serves its static build and forwards
@@ -109,6 +112,67 @@ Without the Google pair the admin site shows no sign-in button; add them and red
    which imports the closure, pins it against GC, writes `.env`, boots the new runtime config
    once (`eval ":ok"`) while the old release still serves, installs the Caddyfile, stops the
    backend, migrates, swaps `live/`, starts, and waits for `/api/v1/health`.
+
+## Snapshots
+
+`https://stabileo.com/@<first 7 of a commit>/…` serves the whole site exactly as built at that
+commit, forever; the plain address is always the latest. This is what research citations link
+to (research/DESIGN.md §5). `/@/` lists the snapshots as JSON, newest first.
+
+**Which commits.** Every push to `main` that changes `research/`, `engine/`, the root
+`Cargo.toml`/`Cargo.lock`, `web/src/lib/engine/` or the viewer (`web/src/components/viewport/`,
+`web/src/components/Viewport*.svelte`, `web/src/lib/three/`, `web/src/components/research/`). A
+manual Deploy run builds one when **snapshot** is ticked. Nothing else changes for the plain site.
+
+**Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
+`make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
+the application's `location` reads see the address without the prefix and a small script in the
+page puts the prefix back on what it writes (history, links, images, fetches of its own files;
+never `/api/`) and shows the version banner (`web/scripts/snapshot.ts`). The normal build is
+untouched: the 211 files `vite build` emits are byte-identical with and without this change, and
+`--mode desktop` is refused as a snapshot. `SNAPSHOT.json` in it records the commit, its date and
+the research pages it holds. CI's **Snapshot Site** job builds one for every web change and runs
+`web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
+`SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@<7 hex>/`.
+
+**Ship and install.** The snapshot rides in the release tarball (`snapshot/`), so it travels with
+the same artifact, SSH session and host lock as the release; the signed Nix closure is unchanged
+(the snapshot is static files only). `deploy-app.yml`:
+
+1. before anything changes, refuses the release if its snapshot is of another commit, if the
+   prefix already holds a different commit, or if the disk would keep less than
+   `snapshot_min_free_mb` (2 GB) free;
+2. after the health check, moves it to `/srv/stabileo/snapshots/<7 hex>/` unless that exists
+   (an existing snapshot is never overwritten), hard-links the files identical to the newest
+   snapshot's, makes it read-only, and rewrites `index.json`;
+3. the workflow then checks from outside that `/@/` lists the commit and `/@<7 hex>/` answers with
+   the immutable cache header.
+
+Rollback does not touch snapshots. Caddy (`infra/caddy/Caddyfile`) serves `/@<7 hex>/…` from that
+directory with `Cache-Control: public, max-age=31536000, immutable` and `X-Robots-Tag: noindex`
+(each page's canonical names the latest site); page addresses fall back to the snapshot's own
+`index.html`; a missing file or snapshot is a plain, uncached 404.
+
+**Disk.** Measured on the build of 2026-10-28: a snapshot is 40 MB (11.3 MB engine WASM,
+11.3 MB application chunk, 2.1 MB web-ifc, 1.8 MB screenshots, 1.4 MB social cards, 0.7 MB
+research WASM, prerendered pages); 12 MB gzipped in the release tarball. With the hard links, a
+snapshot whose engine did not change adds about 15 MB, one whose engine changed about 26 MB.
+At one research or engine commit a day that is roughly 5 to 10 GB a year.
+
+**Retention.** Every snapshot is kept. Pruning, if the disk ever needs it, is manual, by the
+host's owner, from a dry-run plan:
+
+```bash
+curl -s https://stabileo.com/@/ > index.json
+python3 -I research/tools/snapshots.py protected          # never to be deleted
+python3 -I research/tools/snapshots.py plan --index index.json --older-than-days 365
+```
+
+The plan never offers a snapshot that any released experiment version names, in any commit of
+`main` (`research/<field>/<id>/versions.json`), the newest snapshot holding each research page,
+the 20 newest, or one younger than the cut-off. To remove one it offers, on the host:
+`chmod -R u+w /srv/stabileo/snapshots/<7 hex> && rm -rf /srv/stabileo/snapshots/<7 hex>`, then
+the next deploy rewrites `index.json`.
 
 ## First deploy, then the first admin
 
