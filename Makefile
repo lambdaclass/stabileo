@@ -1,6 +1,6 @@
 .PHONY: research.wasm help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky e2e.web.snapshot \
        test.ci-scripts \
        test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -283,6 +283,11 @@ e2e.web.slow:
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep @flaky --retries=2 --pass-with-no-tests'
+
+# The snapshot build (make web.build.snapshot) under vite preview at its prefix: the research page
+# and the application load everything from under /@<commit>/ and stay there.
+e2e.web.snapshot:
+	$(NIX_RUN) bash -c 'cd web && npx playwright test -c snapshot-e2e/playwright.config.ts'
 
 e2e.web.visual:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "visual baselines" $(if $(UPDATE_SNAPSHOTS),--update-snapshots)'
