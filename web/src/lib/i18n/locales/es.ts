@@ -64,7 +64,7 @@ const es: Record<string, string> = {
   'usage.share': 'Compartir uso anónimo',
   'usage.notice': 'Stabileo comparte datos de uso anónimos para mejorar la herramienta, nunca el contenido de tus modelos.',
   'usage.noticeOk': 'Entendido',
-  'usage.noticeOff': 'Desactivar',
+  'legal.usageIncluded': 'Stabileo comparte datos de uso anónimos, como explican los Términos. Si no querés compartirlos, lo apagás desde tu perfil.',
   'usage.registerOptIn': 'Compartir datos de uso anónimos para mejorar Stabileo',
   'usage.settingsHeading': 'Privacidad',
   'usage.settingsHint': 'Solo nombres de herramientas, resultados de cálculo y la versión. Nunca tus modelos.',

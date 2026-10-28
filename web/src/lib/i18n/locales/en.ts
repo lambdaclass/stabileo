@@ -64,7 +64,7 @@ const en: Record<string, string> = {
   'usage.share': 'Share anonymous usage',
   'usage.notice': 'Stabileo shares anonymous usage data to improve the tool, never what is in your models.',
   'usage.noticeOk': 'Got it',
-  'usage.noticeOff': 'Turn off',
+  'legal.usageIncluded': 'Stabileo shares anonymous usage data, as the Terms explain. If you would rather not share it, turn it off in your profile.',
   'usage.registerOptIn': 'Share anonymous usage data to help improve Stabileo',
   'usage.settingsHeading': 'Privacy',
   'usage.settingsHint': 'Only tool names, calculation outcomes and the version. Never your models.',

@@ -110,8 +110,8 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.getByTestId('auth-password').fill('long-enough-1');
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 
+    await expect(page.getByTestId('auth-usage-note')).toBeVisible();
     await page.getByTestId('auth-accept-terms').check();
-    await expect(page.getByTestId('auth-share-usage')).toBeChecked();
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
@@ -165,10 +165,20 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('usage-notice')).toHaveCount(0);
   });
 
-  test('"Turn off" on the notice stops sending', async ({ page }) => {
-    const backend = await boot(page);
-    await page.getByTestId('usage-notice-off').click();
+  test('the notice has no way to turn sharing off, and the profile does', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true });
+    await expect(page.getByTestId('usage-notice')).toBeVisible();
+    await expect(page.getByTestId('usage-notice').getByRole('button')).toHaveCount(1);
+    await page.getByTestId('usage-notice-ok').click();
     await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+
+    await page.getByTestId('account-button').click();
+    await page.getByTestId('profile-usage').uncheck();
+    await expect.poll(() => backend.consents).toEqual([
+      { kind: 'usage_analytics', granted: true },
+      { kind: 'usage_analytics', granted: false },
+    ]);
+    await page.keyboard.press('Escape');
     await solvePortal(page);
     await page.getByTestId('results-disclaimer-ok').click();
     await page.getByTestId('rb-cmd-momentY').click();

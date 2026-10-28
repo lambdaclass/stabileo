@@ -4,7 +4,7 @@
 
 What the team learns from the product: anonymous usage events, feedback sent by signed-in users, and the metrics the admin site shows. Usage events are never tied to an account and never carry model contents; the full list of what is sent is published at `/usage-data`.
 
-Sharing is on by default and the user turns it off from a notice, Settings or the profile. Until the user answers the notice, the browser stores nothing: each event names only the visit (`install_id` is `v-<session id>`). After "Got it", the browser keeps a random `install_id` so distinct browsers can be counted. "Turn off" stops sending.
+Sharing is on by default and the Terms say so; sign-up has no choice for it. A notice tells the user, with "Got it" as its only answer. Until the user acknowledges it, the browser stores nothing: each event names only the visit (`install_id` is `v-<session id>`). After "Got it", or on sign-up, the browser keeps a random `install_id` so distinct browsers can be counted. The user turns sharing off in Settings or in the profile, which stops sending.
 
 ## Features
 

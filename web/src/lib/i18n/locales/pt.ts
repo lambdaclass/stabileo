@@ -64,7 +64,7 @@ const pt: Translations = {
   'usage.share': 'Compartilhar uso anônimo',
   'usage.notice': 'O Stabileo compartilha dados de uso anônimos para melhorar a ferramenta, nunca o conteúdo dos seus modelos.',
   'usage.noticeOk': 'Entendi',
-  'usage.noticeOff': 'Desativar',
+  'legal.usageIncluded': 'O Stabileo compartilha dados de uso anônimos, como explicam os Termos. Se preferir não compartilhar, desative no seu perfil.',
   'usage.registerOptIn': 'Compartilhar dados de uso anônimos para melhorar o Stabileo',
   'usage.settingsHeading': 'Privacidade',
   'usage.settingsHint': 'Somente nomes de ferramentas, resultados de cálculo e a versão. Nunca os seus modelos.',

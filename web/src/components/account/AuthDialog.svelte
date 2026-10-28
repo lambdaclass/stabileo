@@ -19,7 +19,6 @@
   let password = $state('');
   let name = $state('');
   let acceptTerms = $state(false);
-  let shareUsage = $state(usageConsent.sharing);
   let busy = $state(false);
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
@@ -57,9 +56,9 @@
           name: name.trim(),
           locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
           accept_terms: acceptTerms,
-          usage_analytics: shareUsage,
+          usage_analytics: usageConsent.sharing,
         });
-        usageConsent.set(shareUsage ? 'granted' : 'denied');
+        if (usageConsent.sharing) usageConsent.set('granted');
       }
       close();
     } catch (err) {
@@ -154,10 +153,7 @@
             </span>
           </label>
           {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
-          <label class="acc-check">
-            <input type="checkbox" bind:checked={shareUsage} data-testid="auth-share-usage" />
-            <span>{t('usage.registerOptIn')}</span>
-          </label>
+          <p class="acc-hint acc-usage" data-testid="auth-usage-note">{t('legal.usageIncluded')}</p>
         {/if}
 
         {#if error}
@@ -247,6 +243,7 @@
   .acc-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; line-height: 1.4; color: var(--st-text-2); }
   .acc-check input { margin-top: 2px; }
   .acc-check.bad { color: var(--st-bad, #e06c75); }
+  .acc-usage { margin: -4px 0 0 21px; line-height: 1.4; }
   .acc-legal-links { display: block; margin-top: 2px; font-size: 0.66rem; }
   .acc-legal-links a { color: var(--st-interactive, var(--st-accent)); }
   .acc-field-err { font-size: 0.64rem; color: var(--st-bad, #e06c75); }

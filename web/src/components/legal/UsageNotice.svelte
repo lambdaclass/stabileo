@@ -8,9 +8,9 @@
   const automated = typeof navigator !== 'undefined' && navigator.webdriver === true;
   const open = $derived(!automated && !usageConsent.decided && authStore.usageTelemetryEnabled && !legalNotices.disclaimerOpen);
 
-  function choose(sharing: boolean) {
-    usageConsent.set(sharing ? 'granted' : 'denied');
-    if (authStore.isAuthenticated) void authStore.recordConsent('usage_analytics', sharing).catch(() => {});
+  function acknowledge() {
+    usageConsent.set('granted');
+    if (authStore.isAuthenticated) void authStore.recordConsent('usage_analytics', true).catch(() => {});
   }
 </script>
 
@@ -18,8 +18,7 @@
   <div class="un" role="region" aria-label={t('usage.settingsHeading')} data-testid="usage-notice">
     <p>{t('usage.notice')} <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a></p>
     <div class="actions">
-      <button class="btn" onclick={() => choose(false)} data-testid="usage-notice-off">{t('usage.noticeOff')}</button>
-      <button class="btn primary" onclick={() => choose(true)} data-testid="usage-notice-ok">{t('usage.noticeOk')}</button>
+      <button class="btn primary" onclick={acknowledge} data-testid="usage-notice-ok">{t('usage.noticeOk')}</button>
     </div>
   </div>
 {/if}
