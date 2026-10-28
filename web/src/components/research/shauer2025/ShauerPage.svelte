@@ -7,6 +7,7 @@
   import { onDestroy, onMount } from 'svelte';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
+  import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
   import NumberField from './NumberField.svelte';
@@ -107,8 +108,9 @@
         const k = Number(q.get('deform'));
         if (Number.isFinite(k) && k >= 0 && k <= 200 && q.has('deform')) deform = k;
         if (q.get('broken') === 'show') hideBroken = false;
-        if (q.has('step')) {
-          playback.seek(Number(q.get('step')));
+        const linkedStep = deepLinkStep(q.get('step'), d.frames.length);
+        if (linkedStep !== null) {
+          playback.seek(linkedStep);
           return;
         }
         playback.startAutoplay({
@@ -273,21 +275,8 @@
       : [],
   );
 
-  const comparison = $derived.by(() => {
-    if (!showsReference || frames.length !== reference.length) return null;
-    if (run && run.status !== 'done') return null;
-    const peak = frames.reduce((a, f) => (f.step.reaction > a.step.reaction ? f : a), frames[0]);
-    let worstPre = 0;
-    let worstAll = 0;
-    let sameIterations = 0;
-    frames.forEach((f, i) => {
-      const r = reference[i].reaction;
-      if (i <= refPeak.step) worstPre = Math.max(worstPre, Math.abs(f.step.reaction - r) / Math.abs(r));
-      worstAll = Math.max(worstAll, Math.abs(f.step.reaction - r));
-      if (f.step.iterations === reference[i].iterations) sameIterations += 1;
-    });
-    return { peak, worstPre, worstAll, sameIterations };
-  });
+  const comparison = $derived(showsReference && frames.length && (!run || run.status !== 'running')
+    ? compareReference(frames, reference) : null);
 
   const fmt = (v: number, d = 4) => (Math.abs(v) >= 1e-3 || v === 0 ? num(v, { dp: d }) : num(v, { sig: 3 }));
   const statusItems = $derived(
@@ -404,12 +393,14 @@
   {#snippet app()}
     <div class="rs-app" lang="en" bind:this={pane} data-steps={frames.length} data-source={source}>
       <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{SOURCE_LABEL[source]}</p>
-      {#if comparison}
+      {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
           <span class="ok" aria-hidden="true">✓</span>
           {source === 'replay' ? 'This replay' : 'This run'} matches the reference code: peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
           <button type="button" class="rs-textbtn" onclick={() => (tab = 'convergence')}>Details</button>
         </p>
+      {:else if comparison || run?.status === 'unconverged'}
+        <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? 'Non-converged run' : 'Reference mismatch'}: {comparison?.failures.join('; ') || run?.error}</p>
       {/if}
       <PaneTabs tabs={TABS} bind:active={tab} flash={flashTab} />
 

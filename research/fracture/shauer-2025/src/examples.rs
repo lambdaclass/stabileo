@@ -1,3 +1,6 @@
+//! Adapted from phasefield-jr-py, © 2025 Nathan Shauer (MIT).
+//! See ../LICENSE-phasefield-jr-py for the complete upstream notice.
+//!
 //! The three examples of the reference code, with its parameters as defaults.
 
 use serde::{Deserialize, Serialize};

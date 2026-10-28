@@ -8,7 +8,7 @@
    * Navigation as in the app: left drag orbits (in 3D), right drag pans, the wheel zooms to the
    * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked.
    */
-  import { onDestroy, onMount, type Snippet } from 'svelte';
+  import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
   import * as THREE from 'three';
   import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import '../../styles/viewer-chrome.css';
@@ -22,7 +22,8 @@
   } from '../../lib/viewport3d/scene-setup';
   import { createFrameCoalescer } from '../../lib/viewport3d/frame-coalesce';
   import { drawAxisGizmoOn } from '../../lib/viewport3d/axis-gizmo';
-  import { createScalarFieldMesh, type ScalarFieldMesh } from '../../lib/three/scalar-field-mesh';
+  import { type ScalarFieldMesh } from '../../lib/three/scalar-field-mesh';
+  import { ScalarFieldScene } from '../../lib/three/scalar-field-scene';
   import type { ColourMap } from '../../lib/three/colour-maps';
   import Icon from '../ribbon/Icon.svelte';
   import ContourLegend from './ContourLegend.svelte';
@@ -96,7 +97,9 @@
   let camera: THREE.PerspectiveCamera;
   let controls: OrbitControls;
   let scene: THREE.Scene;
-  let field: ScalarFieldMesh | null = null;
+  let meshScene: ScalarFieldScene;
+  let field = $state.raw<ScalarFieldMesh | null>(null);
+  let mounted = $state(false);
   let ro: ResizeObserver | null = null;
   let damping = 0;
   let projection = $state<'plan' | 'orbit'>('plan');
@@ -195,6 +198,7 @@
 
   onMount(() => {
     scene = createViewerScene();
+    meshScene = new ScalarFieldScene(scene);
     addViewerLights(scene);
     camera = createViewerPerspectiveCamera();
     renderer = createViewerRenderer(container);
@@ -210,8 +214,7 @@
     });
     controls.addEventListener('start', invalidate);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
-    field = createScalarFieldMesh(xy, cells, cellSize, lineWidth);
-    scene.add(field.group);
+    mounted = true;
     ro = new ResizeObserver(resize);
     ro.observe(container);
     resize();
@@ -221,11 +224,17 @@
 
   onDestroy(() => {
     ro?.disconnect();
-    field?.dispose();
     controls?.dispose();
     renderer?.dispose();
     renderer?.domElement.remove();
     renderer = null;
+  });
+
+  $effect(() => {
+    if (!mounted) return;
+    field = meshScene.rebuild(xy, cells, cellSize, lineWidth);
+    untrack(() => { resize(); fit(); });
+    return () => meshScene.dispose();
   });
 
   $effect(() => {

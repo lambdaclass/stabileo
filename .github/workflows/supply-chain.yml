@@ -33,7 +33,10 @@ jobs:
         run: cargo deny --locked check
       # RustSec again through cargo-audit, which also reports yanked crates.
       - name: cargo audit
-        run: cargo audit --deny warnings
+        run: |
+          cargo audit --deny warnings
+          cargo audit --deny warnings --file research/fracture/shauer-2025/Cargo.lock
+          cargo audit --deny warnings --file research/fracture/shauer-2025/wasm/Cargo.lock
 
   npm:
     runs-on: ubuntu-latest

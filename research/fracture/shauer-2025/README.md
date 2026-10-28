@@ -127,3 +127,9 @@ are this crate's own (`fe.rs`, `solver.rs`).
 - The alternating scheme can need hundreds of iterations at unstable crack growth; it is not
   accelerated.
 - Small strain, quasi-static, 2D.
+
+## Upstream licence
+
+Mesh generators, finite-element kernels, example setup and staggered solver are adapted from
+[phasefield-jr-py](https://github.com/nathanshauer/phasefield-jr-py), © 2025 Nathan Shauer.
+The complete, verbatim upstream MIT notice is in [LICENSE-phasefield-jr-py](LICENSE-phasefield-jr-py).

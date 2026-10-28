@@ -79,8 +79,18 @@ pub fn decode(bytes: &[u8]) -> Result<(Header, Vec<[f64; 2]>, Vec<[usize; 4]>, V
         return Err("replay: not a version 1 SRPL file".into());
     }
     let len = rd(8);
-    let header: Header = serde_json::from_slice(&bytes[12..12 + len]).map_err(|e| e.to_string())?;
-    let mut o = (12 + len).div_ceil(4) * 4;
+    let invalid = || "replay: truncated or invalid lengths".to_string();
+    let end = 12usize.checked_add(len).ok_or_else(invalid)?;
+    let header: Header = serde_json::from_slice(bytes.get(12..end).ok_or_else(invalid)?).map_err(|e| e.to_string())?;
+    let mut o = end.checked_add(3).ok_or_else(invalid)? / 4 * 4;
+    if header.steps.len() != header.displacement_scale.len() || !header.damage_max.is_finite()
+        || header.displacement_scale.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        return Err(invalid());
+    }
+    let mesh_bytes = header.nodes.checked_add(header.elements).and_then(|n| n.checked_mul(8)).ok_or_else(invalid)?;
+    let frame_bytes = header.nodes.checked_mul(3).and_then(|n| n.checked_mul(header.steps.len())).ok_or_else(invalid)?;
+    let total = o.checked_add(mesh_bytes).and_then(|n| n.checked_add(frame_bytes)).ok_or_else(invalid)?;
+    if total != bytes.len() { return Err(invalid()); }
     let n = header.nodes;
     let f32_at = |o: usize| f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap()) as f64;
     let nodes: Vec<[f64; 2]> = (0..n).map(|i| [f32_at(o + 8 * i), f32_at(o + 8 * i + 4)]).collect();
@@ -91,6 +101,9 @@ pub fn decode(bytes: &[u8]) -> Result<(Header, Vec<[f64; 2]>, Vec<[usize; 4]>, V
             [at(0), at(1), at(2), at(3)]
         })
         .collect();
+    if nodes.iter().flatten().any(|v| !v.is_finite()) || elements.iter().flatten().any(|&i| i >= n) {
+        return Err("replay: invalid mesh".into());
+    }
     o += 8 * header.elements;
     let mut frames = Vec::new();
     for s in &header.displacement_scale {
@@ -107,4 +120,30 @@ pub fn decode(bytes: &[u8]) -> Result<(Header, Vec<[f64; 2]>, Vec<[usize; 4]>, V
         return Err("replay: trailing bytes".into());
     }
     Ok((header, nodes, elements, frames))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncated_and_forged_replays_return_errors() {
+        let mesh = crate::mesh::rectangle(1, 1, 1.0, 1.0);
+        let bytes = encode(&mesh, serde_json::json!({}), &[], &[]).unwrap();
+        assert!(decode(&bytes).is_ok());
+        for end in 0..bytes.len() { assert!(decode(&bytes[..end]).is_err(), "length {end}"); }
+        let mut forged = bytes.clone();
+        forged[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(decode(&forged).is_err());
+        for (nodes, elements, scales, steps) in [(usize::MAX, 1, vec![], vec![]),
+            (1, usize::MAX, vec![], vec![]), (1, 0, vec![1.0], vec![])] {
+            let h = Header { nodes, elements, displacement_scale: scales, steps, damage_max: 1.0, config: serde_json::json!({}) };
+            let json = serde_json::to_vec(&h).unwrap();
+            let mut data = b"SRPL".to_vec();
+            data.extend(1u32.to_le_bytes());
+            data.extend((json.len() as u32).to_le_bytes());
+            data.extend(json);
+            assert!(decode(&data).is_err());
+        }
+    }
 }

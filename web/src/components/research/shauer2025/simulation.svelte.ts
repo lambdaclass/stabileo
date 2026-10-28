@@ -2,7 +2,7 @@ import type { PlateConfig, Step, WorkerIn, WorkerOut } from './protocol';
 
 export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy?: Float32Array };
 
-export type RunStatus = 'running' | 'done' | 'stopped' | 'error';
+export type RunStatus = 'running' | 'done' | 'stopped' | 'error' | 'unconverged';
 
 export class Run {
   readonly key: string;
@@ -40,22 +40,28 @@ export class SimulationController {
     const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     w.onmessage = (e: MessageEvent<WorkerOut>) => this.receive(e.data);
     w.onerror = (e) => {
-      this.available = false;
-      this.unavailableReason = e.message || 'the simulation worker failed to start';
+      this.failWorker(e.message || 'the simulation worker failed to start');
     };
     this.worker = w;
     return w;
   }
 
+  private failWorker(message: string) {
+    this.worker?.terminate();
+    this.worker = null;
+    this.available = false;
+    this.unavailableReason = message;
+    for (const r of this.live.values()) {
+      r.status = 'error';
+      r.error = message;
+      this.runs.delete(r.key);
+    }
+    this.live.clear();
+  }
+
   private receive(m: WorkerOut) {
     if (m.type === 'unavailable') {
-      this.available = false;
-      this.unavailableReason = m.message;
-      for (const r of this.live.values()) {
-        r.status = 'error';
-        r.error = 'simulation bundle not available';
-      }
-      this.live.clear();
+      this.failWorker(m.message);
       return;
     }
     if (m.type === 'reference-config') return;
@@ -67,6 +73,14 @@ export class SimulationController {
       run.elements = m.elements;
     } else if (m.type === 'step') {
       run.frames = [...run.frames, { step: m.step, damage: m.damage, displacement: m.displacement, syy: m.syy }];
+      if (!m.step.converged) {
+        run.status = 'unconverged';
+        run.error = `Step ${m.step.step} did not converge`;
+        this.runs.delete(run.key);
+        this.live.delete(m.runId);
+        this.worker?.terminate();
+        this.worker = null;
+      }
     } else if (m.type === 'done') {
       run.status = 'done';
       run.seconds = m.seconds;

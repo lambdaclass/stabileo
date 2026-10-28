@@ -1,3 +1,6 @@
+//! Adapted from phasefield-jr-py, © 2025 Nathan Shauer (MIT).
+//! See ../LICENSE-phasefield-jr-py for the complete upstream notice.
+//!
 //! Structured quadrilateral meshes. The generators reproduce the node and element numbering of
 //! phasefield-jr-py (MIT License, (c) 2025 Nathan Shauer), so nodal fields can be compared with
 //! the reference outputs entry by entry.
@@ -57,6 +60,9 @@ impl NotchedSquare {
     pub const REFERENCE: NotchedSquare = NotchedSquare { nx: 70, ny: 80, nx_fine: 32, ny_fine: 16, h_fine: 0.00125 };
 
     pub fn validate(&self) -> Result<(), String> {
+        if !self.h_fine.is_finite() || self.h_fine <= 0.0 {
+            return Err("fine spacing must be finite and positive".into());
+        }
         let half_ny = self.ny / 2;
         if self.nx % 2 != 0 || self.ny % 2 != 0 {
             return Err("nx and ny must be even".into());

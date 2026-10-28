@@ -66,6 +66,7 @@ impl Checks {
 }
 
 fn rel(a: f64, b: f64) -> f64 {
+    assert!(a.is_finite() && b.is_finite());
     (a - b).abs() / a.abs().max(1e-300)
 }
 
@@ -74,6 +75,9 @@ fn run(solver: &mut Solver, keep: &[usize]) -> (Vec<StepResult>, HashMap<usize, 
     let mut centers = Vec::new();
     let steps = solver
         .run(|s, sv| {
+            assert!(s.converged);
+            assert!(serde_json::to_value(s).unwrap().as_object().unwrap().values().all(|v| !v.is_null()));
+            assert!(sv.d.iter().chain(&sv.u).all(|v| v.is_finite()));
             if keep.contains(&s.step) {
                 fields.insert(s.step, (sv.d.clone(), sv.u.clone()));
             }
@@ -100,8 +104,15 @@ fn mirror_map(m: &Mesh, about_x_axis: bool) -> Vec<usize> {
         .collect()
 }
 
+fn finite_max(a: f64, b: f64) -> f64 {
+    assert!(a.is_finite() && b.is_finite(), "non-finite comparison");
+    a.max(b)
+}
+
 fn max_abs(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    assert_eq!(a.len(), b.len(), "field length mismatch");
+    assert!(a.iter().chain(b).all(|v| v.is_finite()));
+    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, finite_max)
 }
 
 fn example1(c: &mut Checks) {
@@ -113,14 +124,15 @@ fn example1(c: &mut Checks) {
     let mut solver = Solver::new(problem).unwrap();
     let (steps, fields, centers) = run(&mut solver, &[50, 73]);
     let reference = read_csv("ex1_steps.csv");
+    assert_eq!(steps.len(), reference.len());
     c.equal("ex1: same number of load steps", steps.len() == reference.len());
     c.equal(
         "ex1: same number of staggered iterations at every step",
         steps.iter().zip(&reference).all(|(s, r)| r["staggered_iterations"] == s.iterations.to_string()),
     );
-    let worst = steps.iter().zip(&reference).map(|(s, r)| rel(f(r, "damage_max"), s.damage_max)).fold(0.0, f64::max);
+    let worst = steps.iter().zip(&reference).map(|(s, r)| rel(f(r, "damage_max"), s.damage_max)).fold(0.0, finite_max);
     c.at_most("ex1: maximum damage at every step", "relative difference", worst, 1e-9);
-    let worst = centers.iter().zip(&reference).map(|((s, _), r)| (f(r, "center_sigma_xx") - s[0]).abs()).fold(0.0, f64::max);
+    let worst = centers.iter().zip(&reference).map(|((s, _), r)| (f(r, "center_sigma_xx") - s[0]).abs()).fold(0.0, finite_max);
     let sigma_c = (27.0f64 * 30.0 * 1.2e-4 / (256.0 * 10.0)).sqrt();
     c.at_most("ex1: stress at the bar centre at every step", "absolute difference / AT2 peak stress", worst / sigma_c, 1e-9);
     for k in [50usize, 73] {
@@ -130,8 +142,10 @@ fn example1(c: &mut Checks) {
     let ux = column("ex1_displacement_step050.csv", 0);
     let uy = column("ex1_displacement_step050.csv", 1);
     let u = &fields[&50].1;
+    assert_eq!(ux.len(), uy.len());
+    assert_eq!(u.len(), 2 * ux.len());
     let scale = ux.iter().chain(&uy).fold(0.0f64, |m, v| m.max(v.abs()));
-    let diff = (0..ux.len()).map(|i| (ux[i] - u[2 * i]).abs().max((uy[i] - u[2 * i + 1]).abs())).fold(0.0, f64::max);
+    let diff = (0..ux.len()).map(|i| (ux[i] - u[2 * i]).abs().max((uy[i] - u[2 * i + 1]).abs())).fold(0.0, finite_max);
     c.at_most("ex1: nodal displacement at step 50", "max absolute difference / max |u|", diff / scale, 1e-8);
 
     // The reference's own analytical comparison: before localisation the bar is homogeneous and
@@ -142,7 +156,7 @@ fn example1(c: &mut Checks) {
         .zip(&steps)
         .filter(|(_, s)| s.damage_max < 0.25)
         .map(|((s, d), _)| (s[0] - (e * gc / l0 * d * (1.0 - d).powi(3)).sqrt()).abs() / sigma_c)
-        .fold(0.0, f64::max);
+        .fold(0.0, finite_max);
     c.at_most("ex1: centre stress vs 1D AT2 homogeneous solution while max damage < 0.25", "absolute difference / AT2 peak stress", worst, 1e-3);
 }
 
@@ -158,6 +172,7 @@ fn example2(c: &mut Checks) {
     let mut solver = Solver::new(problem).unwrap();
     let (steps, fields, _) = run(&mut solver, &[56, 57, 78]);
     let reference = read_csv("ex2_steps.csv");
+    assert_eq!(steps.len(), reference.len());
     c.equal("ex2: same number of load steps", steps.len() == reference.len());
     c.equal(
         "ex2: same number of staggered iterations at every step",
@@ -168,11 +183,11 @@ fn example2(c: &mut Checks) {
     c.equal("ex2: peak force at the same load step", peak.step == peak_ref.0);
     c.at_most("ex2: peak force", "relative difference", rel(f(peak_ref.1, "reaction"), peak.reaction), 1e-9);
     let pre: Vec<_> = steps.iter().zip(&reference).filter(|(s, _)| s.step <= peak_ref.0).collect();
-    let worst = pre.iter().map(|(s, r)| rel(f(r, "reaction"), s.reaction)).fold(0.0, f64::max);
+    let worst = pre.iter().map(|(s, r)| rel(f(r, "reaction"), s.reaction)).fold(0.0, finite_max);
     c.at_most("ex2: force at every step up to the peak", "relative difference", worst, 1e-9);
-    let worst = pre.iter().map(|(s, r)| rel(f(r, "damage_max"), s.damage_max)).fold(0.0, f64::max);
+    let worst = pre.iter().map(|(s, r)| rel(f(r, "damage_max"), s.damage_max)).fold(0.0, finite_max);
     c.at_most("ex2: maximum damage at every step up to the peak", "relative difference", worst, 1e-9);
-    let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, f64::max);
+    let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, finite_max);
     c.at_most("ex2: force at every step, including fracture (bounded by the staggered tolerance)", "absolute difference, kN", worst, tol);
 
     let d_ref = column("ex2_damage_step056.csv", 0);
@@ -180,8 +195,10 @@ fn example2(c: &mut Checks) {
     let ux = column("ex2_displacement_step056.csv", 0);
     let uy = column("ex2_displacement_step056.csv", 1);
     let u = &fields[&56].1;
+    assert_eq!(ux.len(), uy.len());
+    assert_eq!(u.len(), 2 * ux.len());
     let scale = ux.iter().chain(&uy).fold(0.0f64, |m, v| m.max(v.abs()));
-    let diff = (0..ux.len()).map(|i| (ux[i] - u[2 * i]).abs().max((uy[i] - u[2 * i + 1]).abs())).fold(0.0, f64::max);
+    let diff = (0..ux.len()).map(|i| (ux[i] - u[2 * i]).abs().max((uy[i] - u[2 * i + 1]).abs())).fold(0.0, finite_max);
     c.at_most("ex2: nodal displacement at the peak step 56", "max absolute difference / max |u|", diff / scale, 1e-8);
 
     // The problem is symmetric about the notch plane, so the crack may run along the element row
@@ -206,6 +223,7 @@ fn example3(c: &mut Checks) {
     let mut solver = Solver::new(problem).unwrap();
     let (steps, fields, _) = run(&mut solver, &[56, 98]);
     let reference = read_csv("ex3_steps.csv");
+    assert_eq!(steps.len(), reference.len());
     c.equal("ex3: same number of load steps", steps.len() == reference.len());
     c.equal(
         "ex3: same number of staggered iterations at every step",
@@ -214,9 +232,9 @@ fn example3(c: &mut Checks) {
     let peak_ref = reference.iter().enumerate().max_by(|a, b| f(a.1, "reaction").total_cmp(&f(b.1, "reaction"))).unwrap();
     let peak = steps.iter().max_by(|a, b| a.reaction.total_cmp(&b.reaction)).unwrap();
     c.equal("ex3: peak force at the same load step", peak.step == peak_ref.0);
-    let worst = steps.iter().zip(&reference).filter(|(s, _)| s.step <= peak_ref.0).map(|(s, r)| rel(f(r, "reaction"), s.reaction)).fold(0.0, f64::max);
+    let worst = steps.iter().zip(&reference).filter(|(s, _)| s.step <= peak_ref.0).map(|(s, r)| rel(f(r, "reaction"), s.reaction)).fold(0.0, finite_max);
     c.at_most("ex3: force at every step up to the peak", "relative difference", worst, 1e-9);
-    let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, f64::max);
+    let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, finite_max);
     c.at_most("ex3: force at every step, including fracture (bounded by the staggered tolerance)", "absolute difference, kN", worst, tol);
     let d_ref = column("ex3_damage_step056.csv", 0);
     c.at_most("ex3: nodal damage at the peak step 56", "max absolute difference", max_abs(&d_ref, &fields[&56].0), 1e-8);
@@ -247,9 +265,18 @@ fn validation_against_reference_code() {
     assert!(c.0.iter().all(|ch| ch.passed), "a validation check failed");
 
     let committed: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir().join("VALIDATION.json")).unwrap_or_else(|_| "{}".into())).unwrap();
-    let names = |v: &serde_json::Value| -> Vec<(String, String, bool)> {
-        v["checks"].as_array().map(|a| a.iter().map(|c| (c["name"].as_str().unwrap().to_string(), c["tolerance"].to_string(), c["passed"].as_bool().unwrap())).collect()).unwrap_or_default()
-    };
     let now: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(names(&committed), names(&now), "VALIDATION.json is stale: copy target/VALIDATION.json over it");
+    assert_eq!(committed, now, "VALIDATION.json is stale: copy target/VALIDATION.json over it");
 }
+
+#[test]
+#[should_panic(expected = "field length mismatch")]
+fn field_comparison_rejects_missing_entries() { max_abs(&[1.0], &[]); }
+
+#[test]
+#[should_panic]
+fn field_comparison_rejects_nan() { max_abs(&[f64::NAN], &[0.0]); }
+
+#[test]
+#[should_panic(expected = "non-finite comparison")]
+fn maximum_rejects_nan() { finite_max(0.0, f64::NAN); }

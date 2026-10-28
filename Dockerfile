@@ -27,6 +27,12 @@ COPY Cargo.toml Cargo.lock ./
 COPY engine/ engine/
 RUN cd engine && wasm-pack build --target web --out-dir ../web-wasm --no-opt
 
+# Build the same trimmed WASM and verified replay as make research.wasm.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 binaryen \
+    && rm -rf /var/lib/apt/lists/*
+COPY research/ research/
+RUN RESEARCH_SKIP_VIEWER=1 research/fracture/shauer-2025/wasm/build.sh
+
 FROM ${NODE_IMAGE} AS web-builder
 
 WORKDIR /app/web
@@ -35,8 +41,14 @@ COPY web/package.json web/package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY web/ .
+COPY research/ /app/research/
 COPY --from=wasm-builder /app/web-wasm src/lib/wasm/
-RUN npm run build
+COPY --from=wasm-builder /app/web/public/research-wasm public/research-wasm/
+RUN npx vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer \
+    && npm run build \
+    && test -s dist/research-wasm/shauer-2025/phasefield_bg.wasm \
+    && test -s dist/research-wasm/shauer-2025/replay.srpl \
+    && test -s dist/research-wasm/viewer/viewer.js
 
 # ── Stage 3: Runtime ─────────────────────────────────────────
 FROM ${RUNTIME_IMAGE} AS runtime

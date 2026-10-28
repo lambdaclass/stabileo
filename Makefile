@@ -342,7 +342,7 @@ worktree-prune:
 web.setup:
 	$(NIX_RUN) bash -c "cd web && npm install"
 
-web.run: wasm
+web.run: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm install && VITE_API_URL=http://localhost:$(BACKEND_PORT) npm run dev -- --port $(WEB_PORT)"
 
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.

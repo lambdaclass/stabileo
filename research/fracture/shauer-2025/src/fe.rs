@@ -1,3 +1,6 @@
+//! Adapted from phasefield-jr-py, © 2025 Nathan Shauer (MIT).
+//! See ../LICENSE-phasefield-jr-py for the complete upstream notice.
+//!
 //! Bilinear quadrilateral kernels for the two fields: displacement (2 dofs per node) and the
 //! phase field d (1 dof per node), each integrated with 2x2 Gauss points.
 
@@ -42,11 +45,14 @@ pub fn gradients(x: &[[f64; 2]; 4], dn: &[[f64; 4]; 2], aligned: bool) -> Result
             }
         }
         let det = j[0][0] * j[1][1] - j[0][1] * j[1][0];
-        if det.abs() < 1e-14 {
+        if !det.is_finite() || det.abs() < 1e-14 {
             return Err("degenerate element: Jacobian determinant is zero".into());
         }
         ([[j[1][1] / det, -j[0][1] / det], [-j[1][0] / det, j[0][0] / det]], det)
     };
+    if !det.is_finite() || det.abs() < 1e-14 || jinv.iter().flatten().any(|v| !v.is_finite()) {
+        return Err("degenerate element: invalid Jacobian".into());
+    }
     let mut g = [[0.0; 4]; 2];
     for a in 0..4 {
         for r in 0..2 {

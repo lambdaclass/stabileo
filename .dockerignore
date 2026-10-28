@@ -12,4 +12,5 @@ web/src/lib/wasm/
 .vscode/
 .idea/
 screenshots/
-research/
+research/**/target/
+web/public/research-wasm/
