@@ -161,15 +161,39 @@ jobs:
           git add -N docs/verification/releases 2>/dev/null || true
           if git diff --quiet -- docs/verification; then echo "no change"; exit 0; fi
           branch=automation/verification-dashboard
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git add docs/verification/DASHBOARD.md docs/verification/dashboard.json docs/verification/MATURITY.md \
+          # The repository's rules require verified signatures, and a commit made here with git is
+          # unsigned: the push was declined (scheduled run 40280524649, 2026-10-26). A commit made
+          # through the GraphQL API (createCommitOnBranch) is signed by GitHub. The automation
+          # branch is owned by this workflow and rebuilt from main on every run (force-reset to
+          # main's head first); release snapshots of the previous pending PR were carried over above.
+          base=$(git rev-parse HEAD)
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" -f sha="$base" -F force=true >/dev/null 2>&1 ||
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base" >/dev/null
+          git add -A docs/verification/DASHBOARD.md docs/verification/dashboard.json docs/verification/MATURITY.md \
             docs/verification/releases
-          git commit -m "docs(verification): regenerate dashboard and maturity matrix (${GITHUB_REF_NAME})"
-          # The automation branch is owned by this workflow and rebuilt from main on every run;
-          # release snapshots of the previous pending PR were carried over above.
-          git push --force origin "$branch"
+          python3 -I - "$GITHUB_REPOSITORY" "$branch" "$base" "docs(verification): regenerate dashboard and maturity matrix (${GITHUB_REF_NAME})" > commit.json <<'PY'
+          import base64, json, subprocess, sys
+          repo, branch, base, headline = sys.argv[1:]
+          out = subprocess.run(["git", "diff", "--cached", "--name-status", "--no-renames", base],
+                               check=True, capture_output=True, text=True).stdout
+          adds, dels = [], []
+          for line in out.splitlines():
+              status, path = line.split("\t", 1)
+              if status == "D":
+                  dels.append({"path": path})
+              else:
+                  with open(path, "rb") as f:
+                      adds.append({"path": path, "contents": base64.b64encode(f.read()).decode()})
+          query = """mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) { commit { oid url } } }"""
+          print(json.dumps({"query": query, "variables": {"input": {
+              "branch": {"repositoryNameWithOwner": repo, "branchName": branch},
+              "expectedHeadOid": base,
+              "message": {"headline": headline},
+              "fileChanges": {"additions": adds, "deletions": dels}}}}))
+          PY
+          gh api graphql --input commit.json --jq '.data.createCommitOnBranch.commit.url'
+          rm commit.json
           # Only an OPEN pull request counts: after one is merged or closed, a new one is needed.
           open_prs=$(gh pr list --head "$branch" --base main --state open --json number --jq 'length')
           if [ "$open_prs" = "0" ]; then

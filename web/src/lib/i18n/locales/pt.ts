@@ -213,6 +213,7 @@ const pt: Translations = {
   'landing.navEducation': 'Educacional',
   'landing.navPricing': 'Preços',
   'landing.navBlog': 'Blog',
+  'landing.navResearch': 'Pesquisa',
   'landing.ebHero': 'LIVRE E ABERTO · CÁLCULO ESTRUTURAL',
   'landing.heroH': 'Cálculo estrutural, numa aba do navegador.',
   'landing.heroP': 'Uma plataforma aberta de análise estrutural. O solver roda na sua máquina: sem instalar nada e sem licenças.',

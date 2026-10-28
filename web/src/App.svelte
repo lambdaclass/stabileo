@@ -609,6 +609,12 @@
   }
 
   function syncRouteState() {
+    // Stabileo Research renders without the application (Root.svelte); reached from inside it,
+    // the page is loaded on its own.
+    if (routeKind({ pathname: location.pathname, search: '', hash: '' }).kind === 'research') {
+      location.reload();
+      return;
+    }
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
@@ -1555,7 +1561,8 @@
         — so wearing it alone left the browser's own #efefef button in a dark
         header. This one is styled outright.
       -->
-      {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
+      <!-- Not in the desktop app yet: its AI service is not wired there (phase 2 of docs/desktop). -->
+      {#if import.meta.env.VITE_DESKTOP !== '1' && (uiStore.appMode === 'basico' || uiStore.appMode === 'pro')}
         <button
           class="btn-ai"
           class:on={aiPanelOpen}

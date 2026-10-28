@@ -786,12 +786,23 @@ def opensees_3d(d, mode="static", spec=None):
 
     pieces = {}  # eid -> [sub-element tags, first .. last]
     hinge_slaves = []  # (joint node, hinge node)
+    wagner = []  # frames' torsional geometric stiffness, added in numpy (see _wagner)
     for e in elems:
         L, ex, ey, ez = geo[e["id"]]
         pi, pj = nodes[e["nodeI"]], nodes[e["nodeJ"]]
         m, sec = mats[e["materialId"]], secs[e["sectionId"]]
         E = m["e"] * 1000.0
         G = E / (2 * (1 + m["nu"]))
+        if e["type"] == "frame" and geom:
+            # A parallel torsion-only beam (J = 0 until analysis_pdelta sets
+            # it) carries the Wagner term in P-Delta; see _wagner.
+            tag += 1
+            ops.geomTransf("Linear", tag, *ez)
+            tag += 1
+            ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], 0.0, E, G, 0.0, 0.0, 0.0, tag - 1)
+            wagner.append(dict(eid=e["id"], ni=e["nodeI"], nj=e["nodeJ"], ex=ex, ea=E * sec["a"], L=L,
+                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G,
+                               j=sec.get("j") or sec["iy"] + sec["iz"], tag=tag))
         if e["type"] == "truss" and geom:
             # See opensees_2d: string Kg from a released beam on PDelta.
             ops.geomTransf("PDelta", e["id"], *ez)
@@ -939,10 +950,18 @@ def opensees_3d(d, mode="static", spec=None):
     for nid, dof, v in settlements:
         ops.sp(nid, dof + 1, v)
 
-    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {})
+    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {},
+               wagner=wagner)
     if mode != "static":
-        ctx["collect"] = lambda: _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems,
-                                            hinge_slaves, elems, truss_axial, pieces)
+        def collect():
+            r = _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial,
+                            pieces)
+            for w in wagner:  # the engine's end forces include the Wagner torque
+                f = list(ops.eleResponse(w["tag"], "localForce"))
+                r["forces"][w["eid"]]["mxStart"] += f[3]
+                r["forces"][w["eid"]]["mxEnd"] -= f[9]
+            return r
+        ctx["collect"] = collect
         return ANALYSES[mode](ctx)
     kappa = _analyze(ops, fixed)
     r = _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems, hinge_slaves, elems, truss_axial, pieces)
@@ -1043,6 +1062,10 @@ def _check_geom(d, elems, secs, has_frame):
             # released rotation as a DOF of the eigenproblem.
             raise Unsupported("hinge/release in a geometric analysis")
         sec = secs[e["sectionId"]]
+        if sec.get("shearCenterY") or sec.get("shearCenterZ"):
+            # The engine's Kg couples bending and twist through the shear
+            # centre offset (_wagner adds the centroidal Wagner term only).
+            raise Unsupported("shear centre offset in a geometric analysis")
         if sec.get("asY") or sec.get("asZ"):
             # OpenSees' Kg is the Timoshenko one, the engine's Euler-Bernoulli.
             raise Unsupported("Timoshenko section in a geometric analysis")
@@ -1159,6 +1182,39 @@ def _gen_eig_spd(a, b):
     return mu, np.linalg.solve(l.T, y)
 
 
+def _wagner_p(ops, w):
+    """A frame's axial force at the current displacements, tension positive:
+    EA*(elongation)/L, the N the engine builds its Kg from."""
+    ui, uj = ops.nodeDisp(w["ni"]), ops.nodeDisp(w["nj"])
+    return w["ea"] * sum(w["ex"][k] * (uj[k] - ui[k]) for k in range(3)) / w["L"]
+
+
+def _wagner(ctx, eq, n):
+    """The torsional part of the engine's 3D frame Kg (geometric_stiffness.rs,
+    frame_kg_local_3d), which no OpenSees beam has: the Wagner term
+    P*r0^2/L*[1, -1; -1, 1] on the member twist (theta . ex at each end),
+    r0^2 = (Iy + Iz)/A (centroidal shear centre: _check_geom refuses offsets).
+    Without it the engine's 3D load factors came out 1e-5..1e-2 below
+    OpenSees' (every buckling3d model since the engine added the term).
+    Dense n x n, in OpenSees' equation numbers; zero in 2D."""
+    np = _np()
+    kw = np.zeros((n, n))
+    for wg in ctx.get("wagner", []):
+        ni, nj, ex = wg["ni"], wg["nj"], wg["ex"]
+        w = _wagner_p(ctx["ops"], wg) * wg["r0sq"] / wg["L"]
+        for a, sa in ((ni, 1.0), (nj, -1.0)):
+            for b, sb in ((ni, 1.0), (nj, -1.0)):
+                for r in range(3):
+                    qa = eq[a][3 + r]
+                    if qa < 0:
+                        continue
+                    for c in range(3):
+                        qb = eq[b][3 + c]
+                        if qb >= 0:
+                            kw[qa, qb] += sa * sb * w * ex[r] * ex[c]
+    return kw
+
+
 def analysis_buckling(ctx):
     np = _np()
     ops = ctx["ops"]
@@ -1167,7 +1223,7 @@ def analysis_buckling(ctx):
     if ops.analyze(1) != 0:
         raise RuntimeError("OpenSees analyze failed (singular / mechanism)")
     ops.reactions()
-    kg = _tangent(ops) - k
+    kg = _tangent(ops) - k + _wagner(ctx, eq, k.shape[0])
     linear = dict(dim=ctx["dim"], art_rot=sorted(ctx["art_rot"]), **ctx["collect"]())
     # K phi = lambda (-Kg) phi  <=>  (-Kg) phi = mu K phi, lambda = 1/mu.
     mu, vec = _gen_eig_spd(-kg, k)
@@ -1215,6 +1271,30 @@ def analysis_pdelta(ctx):
     ops.analysis("Static")
     if ops.analyze(1) != 0:
         raise RuntimeError("OpenSees P-Delta did not converge")
+    # The Wagner term (see _wagner) as the parallel torsion beams' GJ/L =
+    # P*r0^2/L, P from the current displacements: fixed-point iteration to
+    # the engine's (K + Kg(N(u)))u = F, re-solving equilibrium at each step.
+    wg = ctx.get("wagner", [])
+    for i, w in enumerate(wg, start=1):
+        ops.parameter(i, "element", w["tag"], "J")
+    ops.integrator("LoadControl", 0.0)
+    # A relative increment test has nothing to be relative to at a zero load
+    # step: a few Newton iterations per update, convergence judged on P.
+    ops.test("FixedNumIter", 3)
+    for _ in range(100) if wg else ():
+        ps = [_wagner_p(ops, w) for w in wg]
+        for i, (w, p) in enumerate(zip(wg, ps), start=1):
+            ops.updateParameter(i, p * w["r0sq"] / w["g"])
+        if ops.analyze(1) != 0:
+            raise RuntimeError("OpenSees P-Delta did not converge")
+        # Converged when no Wagner stiffness moves by 1e-12 of its member's
+        # own torsional stiffness (P of round-off size never settles relatively).
+        new = [_wagner_p(ops, w) for w in wg]
+        if all(abs(a - b) * w["r0sq"] / w["g"] <= 1e-12 * w["j"] for a, b, w in zip(new, ps, wg)):
+            break
+    else:
+        if wg:
+            raise RuntimeError("OpenSees P-Delta: Wagner fixed point did not converge")
     ops.reactions()
     kt = _tangent(ops)
     r = ctx["collect"]()

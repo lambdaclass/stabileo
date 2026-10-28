@@ -253,7 +253,9 @@ async function publicPaths(): Promise<string[]> {
     const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
     if (day) POST_LASTMOD.set(pagePath, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`)];
+  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
+  const research = ['/research', '/research/fracture/shauer-2025'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
 }
 
 /**

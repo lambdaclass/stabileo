@@ -16,6 +16,12 @@ that do.
 
 | Package | Version | Licence |
 |---|---|---|
+| `@tauri-apps/api` | 2.12.3 | Apache-2.0 OR MIT |
+| `@tauri-apps/plugin-dialog` | 2.8.2 | MIT OR Apache-2.0 |
+| `@tauri-apps/plugin-fs` | 2.7.0 | MIT OR Apache-2.0 |
+| `@tauri-apps/plugin-opener` | 2.7.1 | MIT OR Apache-2.0 |
+| `@tauri-apps/plugin-process` | 2.4.0 | MIT OR Apache-2.0 |
+| `@tauri-apps/plugin-updater` | 2.13.3 | MIT OR Apache-2.0 |
 | `commander` | 8.3.0 | MIT |
 | `dxf-parser` | 1.1.2 | MIT |
 | `fflate` | 0.8.3 | MIT |
@@ -29,6 +35,211 @@ that do.
 | `three-mesh-bvh` | 0.9.9 | MIT |
 | `web-ifc` | 0.0.75 | MPL-2.0 |
 | `xlsx` | 0.20.3 | Apache-2.0 |
+
+---
+
+## @tauri-apps/api 2.12.3
+
+- **Licence:** Apache-2.0 OR MIT
+- **Homepage:** https://github.com/tauri-apps/tauri#readme
+- **Source:** https://github.com/tauri-apps/tauri
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2025, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
+
+---
+
+## @tauri-apps/plugin-dialog 2.8.2
+
+- **Licence:** MIT OR Apache-2.0
+- **Source:** https://github.com/tauri-apps/plugins-workspace
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
+
+---
+
+## @tauri-apps/plugin-fs 2.7.0
+
+- **Licence:** MIT OR Apache-2.0
+- **Source:** https://github.com/tauri-apps/plugins-workspace
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
+
+---
+
+## @tauri-apps/plugin-opener 2.7.1
+
+- **Licence:** MIT OR Apache-2.0
+- **Source:** https://github.com/tauri-apps/plugins-workspace
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
+
+---
+
+## @tauri-apps/plugin-process 2.4.0
+
+- **Licence:** MIT OR Apache-2.0
+- **Source:** https://github.com/tauri-apps/plugins-workspace
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
+
+---
+
+## @tauri-apps/plugin-updater 2.13.3
+
+- **Licence:** MIT OR Apache-2.0
+- **Source:** https://github.com/tauri-apps/plugins-workspace
+
+<details><summary>LICENSE.spdx</summary>
+
+```
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+</details>
 
 ---
 

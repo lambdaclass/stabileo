@@ -6,9 +6,8 @@
   import { resultsStore, modelStore } from '../../lib/store';
   import { contourOptions } from '../../lib/store/contour-options.svelte';
   import { shellContourField } from '../../lib/engine/shell-contour-field';
-  import { bandValue, bandEdges } from '../../lib/engine/contour-scale';
   import { t } from '../../lib/i18n';
-  import { shellContourColor } from '../../lib/three/stress-heatmap';
+  import ContourLegend from './ContourLegend.svelte';
   import { shellComponentLabelKey, shellComponentMeta, shellComponentStats } from '../../lib/engine/shell-stress';
 
   // Shell contour mode is selected (regardless of whether data exists).
@@ -56,35 +55,6 @@
   // Honest status of the selected component for THIS result set.
   const stat = $derived(shellComponentStats(allShells)[resultsStore.shellContourComponent]);
 
-  function hex(n: number): string {
-    return '#' + n.toString(16).padStart(6, '0');
-  }
-
-  // Build a CSS gradient by sampling the contour colour function across the
-  // value range, so the bar reads exactly like the painted shells.
-  const gradient = $derived.by(() => {
-    const { min, max } = range;
-    const stops: string[] = [];
-    /* Twenty stops, not ten: the ramp has five hues now, so ten samples put a
-       visible corner at each of them. Same function the shells are painted
-       with, so the bar cannot say a different thing from the model. */
-    if (bands > 0) {
-      // One hard-edged block per band, in the colour the band paints.
-      for (let k = 0; k < bands; k++) {
-        const c = hex(shellContourColor(bandValue(min + ((k + 0.5) / bands) * (max - min), min, max, bands), min, max));
-        stops.push(`${c} ${((k / bands) * 100).toFixed(2)}%`, `${c} ${(((k + 1) / bands) * 100).toFixed(2)}%`);
-      }
-      return `linear-gradient(to top, ${stops.join(', ')})`;
-    }
-    const N = 20;
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      const v = min + t * (max - min);
-      stops.push(`${hex(shellContourColor(v, min, max))} ${(t * 100).toFixed(0)}%`);
-    }
-    return `linear-gradient(to top, ${stops.join(', ')})`;
-  });
-
   function fmt(v: number): string {
     if (v === 0) return '0';
     const a = Math.abs(v);
@@ -93,6 +63,9 @@
   }
 
   const mid = $derived((range.min + range.max) / 2);
+  const footer = $derived(
+    meta.unit + (!contourOptions.auto ? ` · ${t('contour.fixedRange')}` : '') + (contourOptions.at === 'centre' ? ` · ${t('contour.atCentre')}` : ''),
+  );
 </script>
 
 {#if sayEmpty}
@@ -106,27 +79,14 @@
     <div class="legend-flat-note">{t('results.shellContourNegligible')}</div>
     <div class="legend-flat-range">{t('shell.peak')} ≈ {fmt(stat.peak)} {meta.unit}</div>
   </div>
-{:else if active}
+{:else if active && stat?.status === 'uniform'}
   <div class="shell-legend" role="img" aria-label={t('shell.legend')}>
     <div class="legend-title">{t(shellComponentLabelKey(meta.key))} <span class="legend-unit-inline">[{meta.unit}]</span></div>
-    {#if stat?.status === 'uniform'}
-      <div class="legend-flat-note">{t('results.shellContourUniform').replace('{v}', fmt(mid) + ' ' + meta.unit)}</div>
-    {:else}
-      <div class="legend-body">
-        <div class="legend-bar" style="background:{gradient}"></div>
-        <div class="legend-ticks">
-          {#if bands > 0 && bands <= 8}
-            {#each bandEdges(range.min, range.max, bands).reverse() as v, i (i)}<span>{fmt(v)}</span>{/each}
-          {:else}
-            <span>{fmt(range.max)}</span>
-            <span>{fmt(mid)}</span>
-            <span>{fmt(range.min)}</span>
-          {/if}
-        </div>
-      </div>
-    {/if}
-    <div class="legend-unit">{meta.unit}{#if !contourOptions.auto} · {t('contour.fixedRange')}{/if}{#if contourOptions.at === 'centre'} · {t('contour.atCentre')}{/if}</div>
+    <div class="legend-flat-note">{t('results.shellContourUniform').replace('{v}', fmt(mid) + ' ' + meta.unit)}</div>
+    <div class="legend-unit">{footer}</div>
   </div>
+{:else if active}
+  <ContourLegend title={t(shellComponentLabelKey(meta.key))} unit={meta.unit} min={range.min} max={range.max} {bands} {footer} ariaLabel={t('shell.legend')} />
 {/if}
 
 <style>
@@ -145,19 +105,6 @@
     user-select: none;
   }
   .legend-title { font-weight: 600; margin-bottom: 6px; text-align: center; }
-  .legend-body { display: flex; gap: 6px; }
-  .legend-bar {
-    width: 14px;
-    height: 96px;
-    border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-  }
-  .legend-ticks {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    font-variant-numeric: tabular-nums;
-  }
   .legend-unit { margin-top: 5px; text-align: center; opacity: 0.7; }
   .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 10px; }
   .legend-unavailable { font-size: 10px; opacity: 0.75; max-width: 140px; line-height: 1.3; }

@@ -1,0 +1,13 @@
+id: <catalog id>
+doi: <doi>
+reference_code: {url: <github url>, commit: <sha>, license: <spdx>}
+equations: <path or short statement>
+assumptions: []
+units: {}
+experiments:
+  - name: <name>
+    inputs: {}
+    mesh: {}
+    solver: {tolerances: {}, max_iterations: null}
+    references: []
+environment: {}

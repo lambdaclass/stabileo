@@ -497,6 +497,12 @@
   color: var(--lp-paper-2);
 }
 
+/* The section the page belongs to (the research pages, for instance). */
+.landing .nav-links .nav-link.current {
+  color: var(--lp-paper-2);
+  box-shadow: inset 0 -2px 0 var(--lp-accent);
+}
+
 /*
    The blog's header has no section links — they pointed at sections of the
    landing — and `.nav-links` was what carried the `margin-left: auto` that

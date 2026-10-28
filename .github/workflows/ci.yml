@@ -70,6 +70,8 @@ jobs:
             web:
               - *tooling
               - 'web/**'
+              # The /research pages import the catalog and reference results and ship its WASM.
+              - 'research/**'
               - 'engine/**'
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
@@ -402,6 +404,37 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+  # The Stabileo Research page's WASM (research/fracture/shauer-2025/wasm), separate from the
+  # engine's and served only to /research pages. The e2e site carries it so the research smoke
+  # test runs the real simulation.
+  research-wasm:
+    name: Research WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/free-disk
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: research/fracture/shauer-2025/wasm
+          shared-key: research-wasm
+      - name: Build the research WASM
+        run: make research.wasm
+      - name: The browser bundle reproduces the reference (Node)
+        run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
+          retention-days: 3
+          if-no-files-found: error
+
   # The site the e2e shards test, built once (each shard used to build it, prerender included,
   # inside Playwright's webServer). VITE_E2E=1 compiles the read-only test hooks in; the marker
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
@@ -409,7 +442,7 @@ jobs:
     name: E2E Site
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [changes, wasm]
+    needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -434,6 +467,11 @@ jobs:
         with:
           name: wasm
           path: web/src/lib/wasm
+      - name: Research WASM (from the research-wasm job)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
       - name: Install dependencies
         run: make web.deps
       # The build prerenders the public pages in a browser (web/scripts/prerender.ts).
@@ -806,6 +844,7 @@ jobs:
       - check-migrations-immutable
       - check-migrations
       - wasm
+      - research-wasm
       - site-e2e
       - web-unit
       - web-build

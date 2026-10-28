@@ -1,0 +1,90 @@
+name: Research
+
+# Stabileo Research (research/): experimental, not part of the required checks, never on self-hosted
+# runners. Path-filtered so product changes do not run it and research changes run nothing else.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/**'
+      - '.github/workflows/research.yml'
+      - 'engine/**'
+      - 'web/src/lib/engine/**'
+      - 'web/src/components/research/**'
+      - 'web/src/components/viewport/**'
+  pull_request:
+    paths:
+      - 'research/**'
+      - '.github/workflows/research.yml'
+      - 'engine/**'
+      - 'web/src/lib/engine/**'
+      - 'web/src/components/research/**'
+      - 'web/src/components/viewport/**'
+  schedule:
+    - cron: '17 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    name: Research isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: research/tools/check_isolation.sh
+      - name: Research pages draw models only through the shared Stabileo viewer
+        run: research/tools/check_viewer.sh
+      - name: The viewer rule rejects a page with its own canvas
+        run: research/tools/test_check_viewer.sh
+
+  catalog:
+    name: Research catalog (Crossref, licenses)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned checker dependencies
+        run: |
+          python3 -m venv /tmp/catalog-venv
+          /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
+      - name: Checker rejects bad entries
+        run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py --online
+      - name: Every DOI, title, author list, year, venue and code license matches its source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --links
+
+  phasefield:
+    name: Phase-field (Shauer 2025) validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/fracture/shauer-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Tests, including the validation against the reference outputs
+        run: cargo test --release --locked -- --nocapture
+      - name: Reference outputs match their manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          m = json.load(open("reference-results/MANIFEST.json"))
+          for name, digest in m["files_sha256"].items():
+              assert hashlib.sha256(open(os.path.join("reference-results", name), "rb").read()).hexdigest() == digest, name
+          extra = set(os.listdir("reference-results")) - set(m["files_sha256"]) - {"MANIFEST.json"}
+          assert not extra, extra
+          print(len(m["files_sha256"]), "reference files match MANIFEST.json")
+          PY

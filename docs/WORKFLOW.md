@@ -31,8 +31,9 @@ never silently wrong and verification never silently stops working.
 - **Review before merge.** Every PR gets an independent review (Codex review, plus a human
   reviewer for solver, certificate and design-check changes) before it leaves draft and merges.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
-  [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red nightly verification job
-  opens an issue labelled `verification-failure` and is triaged like a bug.
+  [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
+  opens (or updates) one `ci-failure` issue per workflow, closed when it is green again; each real
+  finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.
 - QA and evidence branches are pushed but get no PR.
@@ -47,7 +48,10 @@ never silently wrong and verification never silently stops working.
   `roadmap:release-safety`: backlog items of [roadmap/PRODUCT_ROADMAP.md](roadmap/PRODUCT_ROADMAP.md)
   (tracker [#396](https://github.com/lambdaclass/stabileo/issues/396)).
 - `derivations`: findings of the element-derivation review ([#330](https://github.com/lambdaclass/stabileo/pull/330)).
-- `verification-failure`: a scheduled verification job failed.
+- `ci-failure`: a scheduled verification workflow (or the production health check) is red;
+  opened and closed by CI.
+- `verification-failure`: a finding of a scheduled verification job (the per-job issues the alert
+  opened before October 2026).
 
 ## Releases
 

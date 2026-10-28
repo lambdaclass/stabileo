@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../../styles/viewer-chrome.css';
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs, activeMapMeasure, showStressMap, hasLiveColourScale, type MapMeasure } from '../../lib/store/result-view';
   import { showDiagram } from '../../lib/store/view-mode';
@@ -576,29 +577,6 @@
     gap: 0.2rem;
   }
 
-  .diagram-btn {
-    padding: 0.3rem 0.25rem;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
-    color: var(--st-text);
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-    transition: all 0.2s;
-  }
-
-  .diagram-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
-
-  .diagram-btn.active {
-    background: var(--st-accent);
-    border-color: var(--st-danger);
-    color: white;
-  }
 
   .no-results-msg {
     font-size: 0.72rem;

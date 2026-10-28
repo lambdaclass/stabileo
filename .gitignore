@@ -6,6 +6,9 @@ node_modules
 # Build output
 web/dist/
 web/dist-admin/
+web/dist-desktop/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
 
 # IDE / OS
 .DS_Store
@@ -29,6 +32,8 @@ engine/pkg/
 web/src/lib/wasm/
 # also match a symlinked wasm pkg (worktree setups)
 web/src/lib/wasm
+# Stabileo Research page bundle, built by research/fracture/shauer-2025/wasm/build.sh
+web/public/research-wasm/
 
 # Nix (root-level build symlinks only — anchored so source files like
 # src/lib/engine/result-query.ts are not silently ignored)

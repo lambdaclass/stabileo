@@ -228,6 +228,11 @@ def pdelta3d(seed):
         m["loads"].append({"type": "nodal", "data": {"nodeId": n, "fx": rng.uniform(-10, 10), "fy": rng.uniform(-10, 10),
                                                      "fz": -scale * rng.uniform(0.5, 1.0),
                                                      "mx": 0.0, "my": 0.0, "mz": 0.0}})
+    # J = Iy + Iz: stabileo's K_G carries the Wagner term N r0^2 / L with
+    # r0^2 = (Iy + Iz) / A about the shear centre (fe99db4aa, #404), Frame3DD's
+    # the torsional term N J / (A L); they agree when J = Iy + Iz.
+    for s in m["sections"].values():
+        s["j"] = s["iy"] + s["iz"]
     return m
 
 

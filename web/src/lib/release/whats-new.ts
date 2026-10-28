@@ -35,6 +35,11 @@ function storage(): Storage | null {
 
 /** Whether the notice for `RESULTS_CHANGED_IN` has not been dismissed in this browser. */
 export function shouldShowWhatsNew(store: Storage | null = storage()): boolean {
+  // The desktop app is updated only when its user accepts an update, after its release notes;
+  // a project saved by an older version gets the per-project re-check prompt when it is opened.
+  // So the global notice, which exists because the website changes under its users, has no job
+  // there, and on a fresh install it only announced a release the user never had.
+  if (import.meta.env.VITE_DESKTOP === '1') return false;
   if (!store) return false; // no storage: it would come back on every open
   try {
     return store.getItem(WHATS_NEW_STORAGE_KEY) !== RESULTS_CHANGED_IN;

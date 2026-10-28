@@ -11,6 +11,10 @@
     "dev:admin": "VITE_APP_TYPE=admin vite",
     "build": "vite build && npx tsx scripts/prerender.ts",
     "build:admin": "VITE_APP_TYPE=admin vite build",
+    "build:desktop": "vite build --mode desktop",
+    "dev:desktop": "vite --mode desktop",
+    "desktop:dev": "npm --prefix ../desktop run dev",
+    "desktop:build": "npm --prefix ../desktop run build",
     "preview": "vite preview",
     "wasm": "../scripts/wasm-cached.sh",
     "test": "node scripts/test-all.mjs",
@@ -57,6 +61,12 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@tauri-apps/api": "2.12.3",
+    "@tauri-apps/plugin-dialog": "2.8.2",
+    "@tauri-apps/plugin-fs": "2.7.0",
+    "@tauri-apps/plugin-opener": "2.7.1",
+    "@tauri-apps/plugin-process": "2.4.0",
+    "@tauri-apps/plugin-updater": "2.13.3",
     "dxf-parser": "^1.1.2",
     "fflate": "^0.8.2",
     "katex": "^0.16.28",

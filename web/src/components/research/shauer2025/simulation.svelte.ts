@@ -1,0 +1,116 @@
+import type { PlateConfig, Step, WorkerIn, WorkerOut } from './protocol';
+
+export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy: Float32Array };
+
+export type RunStatus = 'running' | 'done' | 'stopped' | 'error';
+
+export class Run {
+  readonly key: string;
+  readonly config: PlateConfig;
+  nodes = $state.raw<Float64Array | null>(null);
+  elements = $state.raw<Uint32Array | null>(null);
+  frames = $state.raw<Frame[]>([]);
+  status = $state<RunStatus>('running');
+  seconds = $state<number | null>(null);
+  error = $state<string | null>(null);
+
+  constructor(key: string, config: PlateConfig) {
+    this.key = key;
+    this.config = config;
+  }
+}
+
+/** Completed runs kept in memory, so returning to earlier parameters replays without solving. */
+const CACHE_RUNS = 4;
+
+export class SimulationController {
+  current = $state.raw<Run | null>(null);
+  /** null until the first attempt; false when the WASM bundle is not present in this build. */
+  available = $state<boolean | null>(null);
+  unavailableReason = $state<string | null>(null);
+  private worker: Worker | null = null;
+  private runs = new Map<string, Run>();
+  private nextId = 1;
+  private live = new Map<number, Run>();
+
+  private ensureWorker(): Worker {
+    if (this.worker) return this.worker;
+    const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (e: MessageEvent<WorkerOut>) => this.receive(e.data);
+    w.onerror = (e) => {
+      this.available = false;
+      this.unavailableReason = e.message || 'the simulation worker failed to start';
+    };
+    this.worker = w;
+    return w;
+  }
+
+  private receive(m: WorkerOut) {
+    if (m.type === 'unavailable') {
+      this.available = false;
+      this.unavailableReason = m.message;
+      for (const r of this.live.values()) {
+        r.status = 'error';
+        r.error = 'simulation bundle not available';
+      }
+      this.live.clear();
+      return;
+    }
+    if (m.type === 'reference-config') return;
+    this.available = true;
+    const run = this.live.get(m.runId);
+    if (!run) return;
+    if (m.type === 'mesh') {
+      run.nodes = m.nodes;
+      run.elements = m.elements;
+    } else if (m.type === 'step') {
+      run.frames = [...run.frames, { step: m.step, damage: m.damage, displacement: m.displacement, syy: m.syy }];
+    } else if (m.type === 'done') {
+      run.status = 'done';
+      run.seconds = m.seconds;
+      this.live.delete(m.runId);
+    } else if (m.type === 'error') {
+      run.status = 'error';
+      run.error = m.message;
+      this.live.delete(m.runId);
+      this.runs.delete(run.key);
+    }
+  }
+
+  run(config: PlateConfig) {
+    const key = JSON.stringify(config);
+    const cached = this.runs.get(key);
+    if (cached && cached.status === 'done') {
+      this.runs.delete(key);
+      this.runs.set(key, cached);
+      this.current = cached;
+      return;
+    }
+    this.stop();
+    const run = new Run(key, config);
+    const id = this.nextId++;
+    this.live.set(id, run);
+    this.runs.set(key, run);
+    while (this.runs.size > CACHE_RUNS) this.runs.delete(this.runs.keys().next().value!);
+    this.current = run;
+    const msg: WorkerIn = { type: 'run', runId: id, config: key };
+    this.ensureWorker().postMessage(msg);
+  }
+
+  /** Stopping terminates the worker: a load step cannot be interrupted from outside. */
+  stop() {
+    if (this.live.size === 0) return;
+    this.worker?.terminate();
+    this.worker = null;
+    for (const r of this.live.values()) {
+      r.status = 'stopped';
+      this.runs.delete(r.key);
+    }
+    this.live.clear();
+  }
+
+  dispose() {
+    this.worker?.terminate();
+    this.worker = null;
+  }
+}
