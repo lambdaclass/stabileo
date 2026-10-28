@@ -274,7 +274,11 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         if (c.load) modelStore.addLoadEntry(c.load);
       }
 
-      for (const g of frag.groups) {
+      // A definition that names another group of the fragment (an area load on a plate) names
+      // that group's copy, so those groups go first.
+      const groupMap = new Map<number, number>();
+      const byGroup = (g: (typeof frag.groups)[number]) => (g.data as { target?: { by?: string } } | undefined)?.target?.by === 'group' ? 1 : 0;
+      for (const g of [...frag.groups].sort((a, b) => byGroup(a) - byGroup(b))) {
         const m = g.members;
         const members = {
           ...(m.nodes ? { nodes: m.nodes.map((id: number) => nodeMap.get(id)!) } : {}),
@@ -284,11 +288,21 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         };
         const generated = generatedMetadata(g);
         const mapped = generated ? copyGeneratedMetadata(generated, T, nodeMap, elementMap, defs.section, created) : null;
-        const data = generated ? mapped as unknown as Record<string, unknown> | null : g.data;
+        let data = generated ? mapped as unknown as Record<string, unknown> | null : g.data;
+        const target = (data as { target?: { by?: string; groupId?: number } } | undefined)?.target;
+        if (g.kind === 'floorLoad' && target?.by === 'group' && groupMap.has(target.groupId!)) data = { ...data, target: { ...target, groupId: groupMap.get(target.groupId!) } };
+        // A load along an arc names the arc's copy, and its direction turns with the copy.
+        const curve = g.kind === 'curveLoad' ? (data as { arcId?: number; dir?: Vec3 } | undefined) : undefined;
+        if (curve?.arcId !== undefined && arcMap.has(curve.arcId)) {
+          const d = curve.dir ? applyVector(T, curve.dir) : undefined;
+          data = { ...data, arcId: arcMap.get(curve.arcId), ...(d ? { dir: d.map((v) => Math.round(v * 1e12) / 1e12) } : {}) };
+        }
         if (generated && mapped) members.nodes = mapped.nodes.filter((n) => n.owned).map((n) => n.id);
         if (g.data && !generated) warn('groupDataVerbatim');
         const name = frag.local || transforms.length > 1 ? `${g.name} (${k + 1})` : g.name;
-        report.groups.push(modelStore.addGroup(name, generated && !mapped ? 'selection' : g.kind, members, { origin: g.origin, ...(data ? { data } : {}) }));
+        const newId = modelStore.addGroup(name, generated && !mapped ? 'selection' : g.kind, members, { origin: g.origin, ...(data ? { data } : {}) });
+        groupMap.set(g.id, newId);
+        report.groups.push(newId);
       }
 
       if (opts.link) {

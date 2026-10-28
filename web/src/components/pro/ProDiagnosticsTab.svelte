@@ -7,6 +7,7 @@
   import { mergeFindings, selectionOf, shellRef } from '../../lib/engine/model-findings';
   import { reviewModelSanity, sanityDiagnostics } from '../../lib/engine/model-sanity';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
+  import { plateDiagnostics, zoneDiagnostics } from '../../lib/store/plate-diagnostics';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
   // allowed to speak from here on even if nothing else has happened yet.
@@ -76,7 +77,10 @@
     // Where `checkModel` found the same thing under its own code (coincident
     // nodes), `sameFinding` recognises it and it is reported once.
     const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
-    return mergeFindings([...autoModelDiags, ...sanityDiags], general, solver, fromGates);
+    // The modelling objects above the analysis entities: physical plates and their meshes.
+    void modelStore.modelVersion; void modelStore.model.groups;
+    const objects = is3D ? [...plateDiagnostics(t), ...zoneDiagnostics(t)] : [];
+    return [...objects, ...mergeFindings([...autoModelDiags, ...sanityDiags], general, solver, fromGates)];
   });
 
   // Apply severity filter
@@ -119,6 +123,24 @@
   }
 
   function handleClick(diag: SolverDiagnostic) {
+    // A modelling object: selected whole, in the panel where it is fixed.
+    const plates = (diag.objects ?? []).filter((o) => o.kind === 'plate').map((o) => o.id);
+    if (plates.length) {
+      uiStore.selectMode = 'shells';
+      uiStore.selectPlates(plates);
+      uiStore.proActiveTab = 'shells';
+      frameSelection();
+      return;
+    }
+    // A use zone: its outline's nodes selected, in the loads panel where its use is stated.
+    const zones = (diag.objects ?? []).filter((o) => o.kind === 'zone').map((o) => o.id);
+    if (zones.length) {
+      const nodes = zones.flatMap((id) => modelStore.model.groups.get(id)?.members.nodes ?? []);
+      uiStore.setSelection(new Set(nodes), new Set(), false);
+      uiStore.proActiveTab = 'loads';
+      frameSelection();
+      return;
+    }
     const sel = selectionOf(diag);
     if (!sel) return;
     // Plate and quad ids are not frame ids: they go to the shell selection.

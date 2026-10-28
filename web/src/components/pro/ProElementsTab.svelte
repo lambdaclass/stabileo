@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PiecePanel from './pieces/PiecePanel.svelte';
+  import { createArc as createArcIn } from '../../lib/store/curved-members';
   import { tick } from 'svelte';
   import LazySelect from '../tables/LazySelect.svelte';
   import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
@@ -12,7 +14,7 @@
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
   import { memberSpecifications } from '../../lib/pro/specification-list';
-  import { arcThroughThree, chordError, buildArc, NODE_MERGE_TOL } from '../../lib/model/curved-member';
+  import { arcThroughThree, chordError } from '../../lib/model/curved-member';
 
 
   interface ElemRow {
@@ -57,42 +59,10 @@
   function createArc() {
     arcError = null;
     if (!arcPts || !arcGeo) { arcError = t('pro.arcNeedsThree'); return; }
-    const startId = Number(arcStart);
-    const endId = Number(arcEnd);
-    const arcId = Date.now();
-    // The whole arc, nodes, members and tags, is one undo step.
-    let made!: ReturnType<typeof buildArc>;
-    modelStore.batch(() => { made = buildArc(
-      { start: arcPts[0], through: arcPts[1], end: arcPts[2], segments: arcSegments },
-      {
-        addNode: (x, y, z) => modelStore.addNode(x, y, z),
-        /* The arc passes through the middle point by construction, so an even
-           segment count lands a generated point exactly on the node that was
-           picked to define it. Two nodes in one place analyse as two nodes. */
-        nodeAt: (x, y, z) => {
-          for (const [id, n] of modelStore.nodes) {
-            const nz = (n as { z?: number }).z ?? 0;
-            if (Math.hypot(n.x - x, (n.y ?? 0) - y, nz - z) <= NODE_MERGE_TOL) return id;
-          }
-          return null;
-        },
-        addElement: (i, j) => modelStore.addElement(i, j),
-        /* Every member of the arc keeps the same section orientation relative to the
-           curve (#418): the default rule alone turned the near-vertical members of an
-           arch by 90°, swapping Iy and Iz on them. */
-        setLocalY: (id, v) => modelStore.updateElementLocalY(id, v.x, v.y, v.z),
-        nodePosition: (id) => {
-          const n = modelStore.nodes.get(id);
-          return n ? { x: n.x, y: n.y ?? 0, z: (n as { z?: number }).z ?? 0 } : undefined;
-        },
-        tag: (elementId, tag) => {
-          const el = modelStore.elements.get(elementId);
-          if (el) modelStore.updateElement(elementId, { arc: { id: tag.arcId, spec: tag.spec, axes: 1 } } as never);
-        },
-      },
-      arcId, startId, endId,
-    ); });
+    // The ends reuse the nodes picked; the whole arc is one undo step (`store/curved-members.ts`).
+    const made = createArcIn(Number(arcStart), arcPts[1], Number(arcEnd), arcSegments);
     if (made.length === 0) arcError = t('pro.arcFailed');
+    else uiStore.selectElements(made);
   }
 
   /** What each member is told beyond geometry, section and material (`specification-list.ts`). */
@@ -303,6 +273,7 @@
 </script>
 
 <div class="pro-elems">
+  <PiecePanel />
   <!-- What the selected members are told beyond geometry, section and material is edited in
        one place, Specifications › Members; this opens it on them. Its place is kept while it is
        hidden: appearing on the first click of a double click, it moved the table under the

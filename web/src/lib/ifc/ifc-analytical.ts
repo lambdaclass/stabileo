@@ -51,6 +51,8 @@ export interface AnalyticalIfc {
 
 const LEVEL_REACH = 1.0;
 const SNAP = 0.02;
+/** Two pieces this close to parallel lie on one line (half a degree). */
+const COLLINEAR_COS = Math.cos((0.5 * Math.PI) / 180);
 
 /** The level a member's foot stands on: the highest at or under it, within reach. */
 const levelBelow = (z: number, levels: readonly Level[]) => [...levels].filter((l) => l.z <= z + SNAP && z - l.z <= LEVEL_REACH).sort((a, b) => b.z - a.z)[0];
@@ -134,6 +136,10 @@ export function analyticalFromIfc(members: readonly IfcMember[], surfaces: reado
         const lo = Math.min(...line.flatMap((x) => [along(x.a), along(x.b)])), hi = Math.max(...line.flatMap((x) => [along(x.a), along(x.b)]));
         for (const q of here) {
           if (used.has(q) || q.m.profileName !== p.m.profileName || off(q.a) > 0.03 || off(q.b) > 0.03) continue;
+          // One line only when they point the same way: the pieces of a curved edge, a few degrees
+          // apart and within 3 cm of each other's line, were joined into chords that left the edge.
+          const Lq = Math.hypot(q.b.x - q.a.x, q.b.y - q.a.y) || 1;
+          if (Math.abs((u.x * (q.b.x - q.a.x) + u.y * (q.b.y - q.a.y)) / Lq) < COLLINEAR_COS) continue;
           const qa = Math.min(along(q.a), along(q.b)), qb = Math.max(along(q.a), along(q.b));
           const gap = Math.max(qa - hi, lo - qb);
           const bridged = gap <= 0.06 || cols.some((c) => off(c) <= c.r + p.w / 2 + 0.02 && along(c) >= Math.min(hi, qb) - c.r - 0.02 && along(c) <= Math.max(lo, qa) + c.r + 0.02 && gap <= 2 * c.r + 0.1);
@@ -175,9 +181,13 @@ export function analyticalFromIfc(members: readonly IfcMember[], surfaces: reado
       }
       cuts.sort((a, b) => a.t - b.t);
       let merged: Cut[] = [];
+      // Cuts this close are one (a column a little off a crossing). Never the two ends of a short
+      // line: a curved edge drawn as straight pieces of 25 cm lost every piece shorter than this,
+      // and the edge beam came in with gaps where the slab had none.
+      const near = Math.min(0.3, s.L / 3);
       for (const c of cuts) {
         const last = merged[merged.length - 1];
-        if (last && Math.abs(c.t - last.t) < 0.3) { if (c.col && !last.col) merged[merged.length - 1] = c; continue; }
+        if (last && Math.abs(c.t - last.t) < near) { if (c.col && !last.col) merged[merged.length - 1] = c; continue; }
         merged.push(c);
       }
       // A stub past the column a line ends at is the joint's.

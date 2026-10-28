@@ -14,6 +14,7 @@ import { uiStore } from './ui.svelte';
 import { defaultShellMaterial } from '../pro/design-home';
 import { DOF_SPRING, support3DFrom, type Dof3D } from '../model/support-3d';
 import { t, tp } from '../i18n';
+import { createPlate } from './physical-plates';
 
 type Springs = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
 
@@ -28,6 +29,9 @@ function supportRestraints(s: { dofs: Record<Dof3D, boolean>; elastic: boolean; 
   return [dofs, springs];
 }
 
+/** How many nodes a plate pick takes: three, four, or an outline of any number. */
+const capacityOf = (v: 3 | 4 | 'outline') => (v === 'outline' ? 10_000 : v);
+
 function createDrawState() {
   /** The first node of the member being drawn, once picked. */
   let memberStart = $state<number | null>(null);
@@ -37,8 +41,11 @@ function createDrawState() {
    */
   let memberChain = $state(true);
 
-  /** Three corners make a triangle, four a quad. */
-  let plateCorners = $state<3 | 4>(4);
+  /**
+   * What a plate drawn in the model is: a physical plate on an outline of any number of nodes,
+   * meshed later (`store/physical-plates.ts`), or one analysis element of three or four corners.
+   */
+  let plateCorners = $state<3 | 4 | 'outline'>('outline');
   let plateMaterialId = $state<number | null>(null);
   let plateThickness = $state(0.2);
 
@@ -91,16 +98,34 @@ function createDrawState() {
     set memberChain(v: boolean) { memberChain = v; },
 
     get plateCorners() { return plateCorners; },
-    set plateCorners(v: 3 | 4) {
+    set plateCorners(v: 3 | 4 | 'outline') {
       plateCorners = v;
       // A pick under way takes the new count; one already past it is cut to it.
       const p = uiStore.shellNodePick;
       if (p.target === 'quad' && (p.active || p.picked.length > 0)) {
-        uiStore.startShellNodePick('quad', v);
-        for (const id of p.picked.slice(0, v)) uiStore.pushShellNodePick(id);
+        uiStore.startShellNodePick('quad', capacityOf(v));
+        for (const id of p.picked.slice(0, capacityOf(v))) uiStore.pushShellNodePick(id);
         // Three picked and "3 nodes" chosen: that is a whole plate.
         this.finishPlate();
       }
+    },
+    /** A node clicked while drawing a plate: a corner, or, on an outline, the first one again to close it. */
+    pickPlateNode(id: number): void {
+      const p = uiStore.shellNodePick;
+      if (plateCorners === 'outline' && p.picked.length >= 3 && id === p.picked[0]) { this.closeOutline(); return; }
+      uiStore.pushShellNodePick(id);
+      this.finishPlate();
+    },
+    /** Make the physical plate on the outline picked so far, and start the next one. */
+    closeOutline(): void {
+      const p = uiStore.shellNodePick;
+      if (plateCorners !== 'outline' || p.target !== 'quad' || p.picked.length < 3) return;
+      const r = createPlate({ outline: [...p.picked], materialId: this.plateMaterialId, thickness: plateThickness });
+      if ('problem' in r) { uiStore.toast(t(`plates.problem.${r.problem}`), 'error'); return; }
+      this.startPlate();
+      uiStore.selectMode = 'shells';
+      uiStore.selectPlates([r.id]);
+      uiStore.toast(tp('drawBar.plateObjectCreated', { name: modelStore.model.groups.get(r.id)?.name ?? '', n: p.picked.length }), 'success');
     },
     /** The material a plate is drawn with; the model's first concrete when none was chosen. */
     get plateMaterialId() {
@@ -117,7 +142,7 @@ function createDrawState() {
      */
     finishPlate(): void {
       const p = uiStore.shellNodePick;
-      if (p.target !== 'quad' || p.picked.length < plateCorners) return;
+      if (plateCorners === 'outline' || p.target !== 'quad' || p.picked.length < plateCorners) return;
       const r = addShellOnCorners(p.picked, this.plateMaterialId, plateThickness);
       if ('error' in r) {
         uiStore.toast(t(r.error), 'error');
@@ -137,7 +162,7 @@ function createDrawState() {
       memberStart = null;
       // The pointer selects corners while a plate is drawn; setting it ends any other drawing first.
       uiStore.currentTool = 'select';
-      uiStore.startShellNodePick('quad', plateCorners);
+      uiStore.startShellNodePick('quad', capacityOf(plateCorners));
     },
 
     /** Leave whatever is being drawn: the pending member end, the plate corners, the tool. */

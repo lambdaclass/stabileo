@@ -4,11 +4,13 @@
  * so the plan is there when the project is opened again.
  *
  * A drawing is kept as plain segments in metres, in its own coordinates, with a shift and a turn
- * that lay it on the model; the points a click can capture are its segments' ends.
+ * that lay it on the model; what a click can capture on it is `osnap.ts`'s.
  */
 import type { CadDocument, CadEntity, CadPt, CadUnit } from '../cad/types';
 import { CAD_UNIT_SCALE } from '../cad/types';
 import { insertCopies } from '../cad/parse';
+import { inRegion } from './underlay-regions';
+import type { CadBBox } from '../cad/types';
 
 export interface Underlay {
   id: string;
@@ -23,6 +25,25 @@ export interface Underlay {
   visible: boolean;
   /** The layers it was read from, for the record. */
   layers?: string[];
+  /** Each segment's layer, as an index into `layers` (one per segment). Absent in older files. */
+  segLayer?: number[];
+  /** Layers not drawn: neither seen nor captured. */
+  hiddenLayers?: string[];
+  /** Layers drawn but not captured by the snaps. */
+  noSnapLayers?: string[];
+  /** Locked: its placement cannot be changed or its file replaced until unlocked. */
+  locked?: boolean;
+  /** How strongly it is drawn, 0.1 to 1 (0.9 by default on its level). */
+  opacity?: number;
+  /** The unit the file was read in, and the part of it this template is (metres, drawing coordinates). */
+  unit?: import('../cad/types').CadUnit;
+  region?: { minX: number; minY: number; maxX: number; maxY: number };
+  /** The drawing point it was laid by: (dx, dy) took it to the model point chosen. */
+  ref?: { x: number; y: number };
+  /** The entities kept for a conversion (`underlay-regions.ts`), and what the file had that is not kept. */
+  shapes?: import('./underlay-regions').UnderlayShape[];
+  leftOut?: Record<string, number>;
+  source?: string;
 }
 
 /** More than this many segments is not a plan anyone models over: the rest is left out, and said. */
@@ -32,14 +53,22 @@ const ARC_STEP = Math.PI / 18;
 
 type Xf = (p: CadPt) => CadPt;
 
-/** The segments of a drawing's entities on the layers chosen, blocks drawn through. */
-export function cadSegments(doc: CadDocument, unit: CadUnit, layers?: ReadonlySet<string>): { segments: number[]; truncated: boolean } {
+/**
+ * The segments of a drawing's entities on the layers chosen, blocks drawn through; within `box`
+ * (metres, drawing coordinates) when given. With `layerOrder`, each segment's layer as an index
+ * into it (`segLayer`).
+ */
+export function cadSegments(doc: CadDocument, unit: CadUnit, layers?: ReadonlySet<string>, opts: { box?: CadBBox | null; layerOrder?: readonly string[] } = {}): { segments: number[]; truncated: boolean; segLayer?: number[] } {
   const k = CAD_UNIT_SCALE[unit];
   const out: number[] = [];
+  const segLayer: number[] = [];
+  const order = opts.layerOrder ? new Map(opts.layerOrder.map((l, i) => [l, i])) : null;
+  let current = 0;
   let truncated = false;
   const push = (a: CadPt, b: CadPt) => {
     if (out.length / 4 >= MAX_UNDERLAY_SEGMENTS) { truncated = true; return; }
     out.push(a.x * k, a.y * k, b.x * k, b.y * k);
+    if (order) segLayer.push(current);
   };
   const arc = (xf: Xf, c: CadPt, r: number, a0: number, a1: number) => {
     const n = Math.max(2, Math.ceil(Math.abs(a1 - a0) / ARC_STEP));
@@ -99,9 +128,22 @@ export function cadSegments(doc: CadDocument, unit: CadUnit, layers?: ReadonlySe
   const id: Xf = (p) => p;
   for (const e of doc.entities) {
     if (layers && !layers.has(e.layer)) continue;
+    if (opts.box && !inRegion(e, unit, opts.box, doc)) continue;
+    current = order?.get(e.layer) ?? 0;
     draw(e, id, 0);
   }
-  return { segments: out, truncated };
+  return { segments: out, truncated, ...(order ? { segLayer } : {}) };
+}
+
+/** Whether a template's segment k is drawn, and whether it is captured by the snaps. */
+export function segmentShown(u: Underlay, k: number): boolean {
+  if (!u.hiddenLayers?.length || !u.segLayer || !u.layers) return true;
+  return !u.hiddenLayers.includes(u.layers[u.segLayer[k] ?? 0] ?? '');
+}
+export function segmentSnaps(u: Underlay, k: number): boolean {
+  if (!segmentShown(u, k)) return false;
+  if (!u.noSnapLayers?.length || !u.segLayer || !u.layers) return true;
+  return !u.noSnapLayers.includes(u.layers[u.segLayer[k] ?? 0] ?? '');
 }
 
 /** A segment's ends laid on the model. */
@@ -122,46 +164,5 @@ export function underlayExtent(segments: number[]): { minX: number; minY: number
   return { minX, minY, maxX, maxY };
 }
 
-// ─── Capturing a point ────────────────────────────────────────
+// Capturing a point on a drawing: `model/osnap.ts`, with the snaps the person chose.
 
-interface PointIndex { cell: number; cells: Map<string, Array<[number, number]>> }
-const indexCache = new WeakMap<Underlay, PointIndex>();
-
-/** The drawing's segment ends, laid, hashed into cells of a size fit to the drawing. */
-function indexOf(u: Underlay): PointIndex {
-  const hit = indexCache.get(u);
-  if (hit) return hit;
-  const ext = underlayExtent(u.segments);
-  const span = ext ? Math.max(ext.maxX - ext.minX, ext.maxY - ext.minY, 1) : 1;
-  const cell = span / 256;
-  const cells = new Map<string, Array<[number, number]>>();
-  for (let i = 0; i + 1 < u.segments.length; i += 2) {
-    const p = laidPoint(u, u.segments[i]!, u.segments[i + 1]!);
-    const key = `${Math.floor(p[0] / cell)},${Math.floor(p[1] / cell)}`;
-    (cells.get(key) ?? cells.set(key, []).get(key)!).push(p);
-  }
-  const idx = { cell, cells };
-  indexCache.set(u, idx);
-  return idx;
-}
-
-/**
- * The end of a visible drawing's segment nearest to (x, y) within `tol`, on the drawings laid at
- * elevation `z` (any elevation when `z` is null).
- */
-export function snapToUnderlays(list: readonly Underlay[], x: number, y: number, tol: number, z: number | null): { x: number; y: number } | null {
-  let best: { x: number; y: number; d: number } | null = null;
-  for (const u of list) {
-    if (!u.visible || (z !== null && Math.abs(u.z - z) > 1e-6)) continue;
-    const { cell, cells } = indexOf(u);
-    const r = Math.ceil(tol / cell);
-    const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
-    for (let i = cx - r; i <= cx + r; i++) for (let j = cy - r; j <= cy + r; j++) {
-      for (const p of cells.get(`${i},${j}`) ?? []) {
-        const d = Math.hypot(p[0] - x, p[1] - y);
-        if (d <= tol && (!best || d < best.d)) best = { x: p[0], y: p[1], d };
-      }
-    }
-  }
-  return best ? { x: best.x, y: best.y } : null;
-}

@@ -12,6 +12,7 @@
  */
 
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
+import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -155,6 +156,13 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
     return;
   }
   const isPro = uiStore.analysisMode === 'pro';
+  // A plate with no mesh, or one out of date, is not in the model the solve reads: results now would
+  // leave it out. Live calc does not mesh behind an edit; the manual analysis does.
+  const unmeshed = platesNeedingMesh();
+  if (unmeshed.length > 0) {
+    uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
+    return;
+  }
   const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
   if (isStale()) return;
   if (typeof r === 'string') {
@@ -252,6 +260,15 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
     const m = meshDeferredSlabs();
     if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
+    // once for the whole solve and before its inputs are taken, or the solve stops and says which.
+    const p = preparePlatesForAnalysis();
+    if (!p.ok) {
+      const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
+      uiStore.toast(error, 'error');
+      return { ok: false, error };
+    }
+    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).

@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parseCadDxf } from '../../cad/parse';
 import { buildDxf, dxfArc, dxfInsert, dxfLine, dxfLwPolyline, columnBlock } from '../../cad/__tests__/dxf-fixture';
-import { cadSegments, laidPoint, snapToUnderlays, type Underlay } from '../underlay';
+import { cadSegments, laidPoint, type Underlay } from '../underlay';
+import { osnapUnderlays } from '../osnap';
 import { historyStore, modelStore } from '../../store';
+
+/** The snaps a template offered before they could be chosen: segment ends and middles. */
+const ENDS = new Set(['endpoint', 'midpoint'] as const);
 
 const PLAN = buildDxf({
   layers: ['MUROS', 'COTAS', 'PILARES'],
@@ -38,11 +42,11 @@ describe('a background drawing', () => {
     const u: Underlay = { id: 'u', name: 'p', z: 3, segments: [0, 0, 2, 0], dx: 10, dy: 0, rotationDeg: 90, visible: true };
     expect(laidPoint(u, 2, 0)[0]).toBeCloseTo(10, 9);
     expect(laidPoint(u, 2, 0)[1]).toBeCloseTo(2, 9);
-    expect(snapToUnderlays([u], 10.05, 2.02, 0.1, 3)).toEqual({ x: expect.closeTo(10, 9), y: expect.closeTo(2, 9) });
+    expect(osnapUnderlays([u], 10.05, 2.02, 0.1, 3, ENDS)).toMatchObject({ x: expect.closeTo(10, 9), y: expect.closeTo(2, 9) });
     // On another level, or hidden, it captures nothing.
-    expect(snapToUnderlays([u], 10.05, 2.02, 0.1, 0)).toBeNull();
-    expect(snapToUnderlays([{ ...u, visible: false }], 10.05, 2.02, 0.1, 3)).toBeNull();
-    expect(snapToUnderlays([u], 11, 2, 0.1, 3)).toBeNull();
+    expect(osnapUnderlays([u], 10.05, 2.02, 0.1, 0, ENDS)).toBeNull();
+    expect(osnapUnderlays([{ ...u, visible: false }], 10.05, 2.02, 0.1, 3, ENDS)).toBeNull();
+    expect(osnapUnderlays([u], 11, 2, 0.1, 3, ENDS)).toBeNull();
   });
 
   it('is saved with the project and undone on the views channel', () => {

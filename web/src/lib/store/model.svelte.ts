@@ -36,6 +36,9 @@ import {
 } from './canonical-sections';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, ConnectorElement } from '../engine/types-3d';
+/** Groups that are load definitions, written into model loads by case (`store/defined-loads.ts`). */
+const DEFINED_LOAD_KINDS = new Set<string>(['floorLoad', 'curveLoad']);
+
 export type { ConnectorElement };
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
@@ -4189,6 +4192,10 @@ function createModelStore() {
       model.loadCases = model.loadCases.filter(c => c.id !== id);
       // Remove loads that belong to this case
       model.loads = model.loads.filter(l => (l.data.caseId ?? 1) !== id);
+      // And the definitions that write loads into it (an area load on a floor, a plate or a zone):
+      // left, they would be written again into a case that no longer exists.
+      const defs = [...model.groups.values()].filter((g) => DEFINED_LOAD_KINDS.has(g.kind) && (g.data as { caseId?: number } | undefined)?.caseId === id);
+      if (defs.length) { const gm = new Map(model.groups); for (const g of defs) gm.delete(g.id); model.groups = gm; }
       // Remove from combinations
       for (const combo of model.combinations) {
         combo.factors = combo.factors.filter(f => f.caseId !== id);
@@ -4780,6 +4787,11 @@ function createModelStore() {
       for (const elem of model.elements.values()) {
         if (elem.materialId === id) return false;
       }
+      // Plates, quads and the physical plates they mesh need it too: removed, the solve finds no
+      // stiffness for them.
+      for (const p of model.plates.values()) if (p.materialId === id) return false;
+      for (const q of model.quads.values()) if (q.materialId === id) return false;
+      for (const g of model.groups.values()) if ((g.data as { surface?: { materialId?: number } } | undefined)?.surface?.materialId === id) return false;
       // A drawn section made of it, or expressed in it, needs it too: removed, every solve with
       // self-weight failed on a density nobody could find.
       for (const sec of model.sections.values()) {

@@ -1,6 +1,6 @@
 .PHONY: help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
        test.ci-scripts \
        test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -243,6 +243,21 @@ test.web.unit:
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
 	$(NIX_RUN) bash -c "cd web && npx playwright install chromium && npm run build && npx vitest run --project build"
+
+# The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
+# through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
+test.web.results:
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project results"
+
+## Regenerate web/results-snapshots/ after a DELIBERATE result change, then register it:
+## an entry in web/src/lib/provenance/result-changes.json and a "BREAKING (results)" fragment.
+snapshots-update:
+	$(NIX_RUN) bash -c "cd web && RESULTS_SNAPSHOT_UPDATE=1 npx vitest run --project results"
+
+# A pull request that changes a committed snapshot must register the change. BASE=<rev>, the
+# commit the pull request is compared with (CI: the merge's first parent, or the queue's base).
+check.results-snapshot-gate:
+	$(NIX_RUN) node web/scripts/results-snapshot/gate.mjs --base $(or $(BASE),origin/main)
 
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.

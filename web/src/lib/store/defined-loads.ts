@@ -83,7 +83,7 @@ export function syncDefinedLoadsForAnalysis(): number | null {
 
 /** Whether the model has anything to keep in step: a definition, or a load one wrote. */
 function hasDefinitions(): boolean {
-  for (const g of modelStore.model.groups.values()) if (g.kind === 'floorLoad') return true;
+  for (const g of modelStore.model.groups.values()) if (g.kind === 'floorLoad' || g.kind === 'curveLoad') return true;
   return modelStore.loads.some(isDefinedLoad);
 }
 
@@ -124,11 +124,14 @@ function runPendingSync(): void {
   try { syncDefinedLoadsForAnalysis(); } finally { syncing = false; }
 }
 
-/** A new floor-load definition, with its loads, in one undo step. Returns its group id. */
-export function addFloorLoadDef(name: string, def: FloorLoadDef, own: GroupMembers = {}): number {
+/**
+ * A new load definition, with its loads, in one undo step. Returns its group id. A floor load by
+ * default; `curveLoad` for a load along an arc (`store/curved-members.ts`).
+ */
+export function addFloorLoadDef(name: string, def: FloorLoadDef, own: GroupMembers = {}, kind: 'floorLoad' | 'curveLoad' = 'floorLoad'): number {
   let id = -1;
   modelStore.batch(() => {
-    id = modelStore.addGroup(name, 'floorLoad', own, { data: def as unknown as Record<string, unknown> });
+    id = modelStore.addGroup(name, kind, own, { data: def as unknown as Record<string, unknown> });
     syncDefinedLoads();
   });
   return id;

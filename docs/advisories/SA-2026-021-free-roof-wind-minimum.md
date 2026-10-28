@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Fixed on `main` (2026-10-22); to be published with the next release |
+| Status | Published 2026-10-28 (fixed in 0.4.0; live on stabileo.com since 2026-10-22) |
 | Issue | [#580](https://github.com/lambdaclass/stabileo/issues/580) |
-| Fix | PR [#581](https://github.com/lambdaclass/stabileo/pull/581) |
+| Fix | PR [#581](https://github.com/lambdaclass/stabileo/pull/581) (merged 2026-10-22); advisory PR [#593](https://github.com/lambdaclass/stabileo/pull/593) |
 | Affected versions | 0.2.0 and 0.3.0 |
 | Re-check registry | entry `free-roof-wind-minimum` (models with wind) |
 
@@ -49,7 +49,7 @@ in the range above.
 
 ## Fixed in
 
-#581. Each wind direction gets a load case "open-building minimum (§2.1.5)": a horizontal force
+#581 (merged and deployed to stabileo.com on 2026-10-22); released in 0.4.0. Each wind direction gets a load case "open-building minimum (§2.1.5)": a horizontal force
 0,75 kN/m² × Af at the roof's nodes. Af per axis is the reader's (new fields in the free-roof
 options). Without them it is the structure's whole vertical projection, which is never less than
 the real Af and can be well above it for an open frame; give Af to use the area of the roof,

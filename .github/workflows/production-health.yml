@@ -1,0 +1,112 @@
+name: Production health
+
+# Is stabileo.com (and staging.stabileo.com) up and serving a working build? After every
+# successful deploy and every hour: the landing, a blog page and the backend's health endpoint
+# answer; /app/basic mounts the application; the engine's WASM is served as application/wasm and
+# instantiates; and the deployed engine solves a reference cantilever to its closed-form result
+# (scripts/production-health.mjs). A failing site opens one issue labelled `ci-failure` and
+# `production`, refreshed while it stays red and closed when it passes again
+# (.github/scripts/production-health-alert.cjs).
+#
+# Negative case: `gh workflow run production-health.yml -f sites=https://stabileo.com/no-such-site`
+# must fail and open "Production health check failing: https://stabileo.com/no-such-site"; close
+# it by hand. `-f dry_run=true` only prints what it would open or close.
+#
+# GitHub-hosted runner, no secrets: it only reads the public sites. A pull request that changes
+# the check runs it against the live sites in dry run (it never opens or closes an issue).
+
+on:
+  workflow_run:
+    workflows: [Deploy, Rollback]
+    types: [completed]
+  schedule:
+    - cron: "23 * * * *" # hourly
+  pull_request:
+    paths:
+      - scripts/production-health.mjs
+      - .github/scripts/production-health-alert.cjs
+      - .github/workflows/production-health.yml
+  workflow_dispatch:
+    inputs:
+      sites:
+        description: "Space-separated base URLs to check instead of production and staging"
+        required: false
+        default: ""
+      dry_run:
+        description: "Do not open, update or close issues; only print"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health-${{ inputs.sites || 'default' }}
+  cancel-in-progress: false
+
+env:
+  SITES: https://stabileo.com https://staging.stabileo.com
+
+jobs:
+  check:
+    # After a deploy or a rollback only when it succeeded: a failed deploy did not change the
+    # site (the hourly run still checks it), and alerts on its own run.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/production-health.mjs
+            .github/scripts/production-health-alert.cjs
+            web/package.json
+            .nvmrc
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # Only Playwright (the version web/package.json pins) and Chromium, not the web app's
+      # dependencies.
+      - name: Install Playwright
+        run: |
+          version=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
+          npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright@$version"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Check the sites
+        id: check
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_PREFIX: ${{ runner.temp }}/pw
+          HEALTH_RESULTS: ${{ runner.temp }}/health.jsonl
+          INPUT_SITES: ${{ inputs.sites }}
+        run: |
+          set -o pipefail
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          trap 'echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"' EXIT
+          # shellcheck disable=SC2086 # a space-separated list
+          node scripts/production-health.mjs ${INPUT_SITES:-$SITES} | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Open, update or close the issues
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          HEALTH_RESULTS: ${{ runner.temp }}/health.jsonl
+          HEALTH_SITES: ${{ inputs.sites || env.SITES }}
+          HEALTH_DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run == true }}
+        with:
+          script: |
+            const alert = require('./.github/scripts/production-health-alert.cjs');
+            await alert({ github, context, core });
+
+      - name: Fail the run if a site failed
+        if: steps.check.outcome != 'success'
+        run: |
+          echo "::error::a site failed its health check (see the step above and the issue)"
+          exit 1

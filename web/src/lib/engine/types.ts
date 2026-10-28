@@ -272,6 +272,11 @@ export interface SolverDiagnostic {
   details?: Record<string, unknown>;
   /** Shells this is about, as `uiStore.selectedShells` keys: `q{id}` quads, `p{id}` plates. */
   shellKeys?: string[];
+  /**
+   * Modelling objects this is about, above the analysis entities: a physical plate, a use zone.
+   * A click selects the object whole and opens the panel where it is fixed.
+   */
+  objects?: Array<{ kind: 'plate' | 'zone'; id: number }>;
 }
 
 

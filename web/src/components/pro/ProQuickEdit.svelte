@@ -17,6 +17,7 @@
   import { t, tp } from '../../lib/i18n';
   import EditorCard from '../EditorCard.svelte';
   import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
+  import { setShellProperties } from '../../lib/store/physical-plates';
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
   import { meshQuad } from '../../lib/model/edit/mesh-region';
   import { parseIdList } from '../../lib/model/select-ops';
@@ -115,8 +116,9 @@
   }
   function setShell(patch: { materialId?: number; thickness?: number }) {
     if (!shell || !target) return;
-    if (target.kind === 'plate') modelStore.updatePlate(shell.id, patch);
-    else modelStore.updateQuad(shell.id, patch);
+    // A shell of a physical plate's mesh is edited as the plate (`setShellProperties`).
+    const plates = setShellProperties([`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`], patch);
+    if (plates.length) uiStore.toast(tp('plates.editedWhole', { names: plates.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', '), n: plates.length }), 'info');
   }
 
   /**

@@ -91,6 +91,19 @@ export function applyMesh(input: MeshInput, o: MeshApplyOptions, mesh: MeshOutpu
     }
     return null;
   };
+  // One undo step: the shells and nodes in one bulk mutation, then the cuts. A member is cut
+  // outside the bulk mutation because the cut moves its loads onto its pieces, and a bulk
+  // mutation commits the loads it buffered at its start: cut inside it, the pieces came without
+  // their loads and the loads kept naming the member that was gone.
+  modelStore.batch(() => applyInBatch(mesh, o, out, near, put));
+  return out;
+}
+
+function applyInBatch(
+  mesh: MeshOutput, o: MeshApplyOptions, out: MeshApplyResult,
+  near: (x: number, y: number, z: number) => number | null,
+  put: (n: { id: number; x: number; y: number; z: number }) => void,
+): void {
   modelStore.bulkMutate(() => {
     const ids = mesh.points.map((p) => {
       const hit = near(p[0], p[1], p[2]);
@@ -108,16 +121,15 @@ export function applyMesh(input: MeshInput, o: MeshApplyOptions, mesh: MeshOutpu
         else out.plates.push(modelStore.addPlate(n as [number, number, number], o.materialId, o.thickness));
       }
     }
-    if (o.splitBeams) {
-      // Every mesh node a member passes through cuts it: on the region's edge (the beams round a
-      // panel) and inside it (a beam in the slab's plane, which works with the slab only where
-      // they share nodes; left whole, it crossed the slab's nodes unconnected).
-      const at = mesh.points.map((_, i) => i).filter((i) => !o.splitAt || o.splitAt(mesh.points[i]!)).map((i) => ids[i]!);
-      const cut = splitAtNodes([...modelStore.elements.keys()], at);
-      out.splitCount = cut.cut.reduce((s, x) => s + x.segments.length - 1, 0);
-    }
   });
-  return out;
+  if (o.splitBeams) {
+    // Every mesh node a member passes through cuts it: on the region's edge (the beams round a
+    // panel) and inside it (a beam in the slab's plane, which works with the slab only where
+    // they share nodes; left whole, it crossed the slab's nodes unconnected).
+    const at = mesh.points.map((_, i) => i).filter((i) => !o.splitAt || o.splitAt(mesh.points[i]!)).map((i) => out.nodeIds[i]!);
+    const cut = splitAtNodes([...modelStore.elements.keys()], at);
+    out.splitCount = cut.cut.reduce((s, x) => s + x.segments.length - 1, 0);
+  }
 }
 
 /**

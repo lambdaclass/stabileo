@@ -69,3 +69,29 @@ describe('a waffle\'s system from its type', () => {
     expect(ribbedVolume({ h: 0.35, c: 0.05, spacingX: 0.82, spacingY: 0.82, ribBottom: 0.12, filler: 'permanent' })).toBeCloseTo(0.13138, 5);
   });
 });
+
+/**
+ * A curved slab edge as an exchange file writes it: the slab's outline a polyline along a quarter
+ * circle of radius 3, and the edge beam in straight pieces of about 25 cm between the same points,
+ * each a few degrees from the next. A straight beam split in two pieces runs beside it.
+ */
+describe('a curved edge drawn as straight pieces', () => {
+  const R = 3, n = 19;
+  const arc = Array.from({ length: n + 1 }, (_, k) => { const a = (Math.PI / 2) * (k / n); return [R * Math.cos(a), R * Math.sin(a)] as [number, number]; });
+  const pieces = arc.slice(0, -1).map((_p, k) => beam(100 + k, 0, 0, 0, 0)).map((m, k) => ({
+    ...m, start: { x: arc[k]![0], y: arc[k]![1], z: 3.325 }, end: { x: arc[k + 1]![0], y: arc[k + 1]![1], z: 3.325 },
+  }));
+  const straight = [beam(200, 0, 1.5, -1, -1), beam(201, 1.5, 3, -1, -1)];
+  const a = analyticalFromIfc([...pieces, ...straight], [slab(300, [[0, 0], ...arc, [0, 0.0001]], 'Losa maciza', 0.2)], levels);
+
+  it('keeps every piece of the curved edge on its own points, and still joins the straight one', () => {
+    const onArc = a.members.filter((m) => m.type === 'beam' && Math.hypot(m.start.x, m.start.y) > R - 0.01 && Math.hypot(m.end.x, m.end.y) > R - 0.01);
+    expect(onArc).toHaveLength(n);
+    for (const m of onArc) {
+      expect(Math.hypot(m.start.x, m.start.y)).toBeCloseTo(R, 6);
+      expect(Math.hypot(m.end.x, m.end.y)).toBeCloseTo(R, 6);
+    }
+    const line = a.members.filter((m) => m.type === 'beam' && Math.abs(m.start.y + 1) < 1e-6 && Math.abs(m.end.y + 1) < 1e-6);
+    expect(line.reduce((s, m) => s + Math.abs(m.end.x - m.start.x), 0)).toBeCloseTo(3, 6);
+  });
+});

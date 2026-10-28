@@ -29,8 +29,10 @@ export function selectionSet(): EntitySet {
     if (key[0] === 'q' && modelStore.quads.has(id)) quads.push(id);
     if (key[0] === 'p' && modelStore.plates.has(id)) plates.push(id);
   }
+  // A physical plate selected whole brings its outline and holes, mesh or not.
+  const plateNodes = [...uiStore.selectedPlates].flatMap((id) => modelStore.model.groups.get(id)?.members.nodes ?? []);
   return {
-    nodes: [...uiStore.selectedNodes].filter((id) => modelStore.nodes.has(id)),
+    nodes: [...uiStore.selectedNodes, ...plateNodes].filter((id) => modelStore.nodes.has(id)),
     elements: [...uiStore.selectedElements].filter((id) => modelStore.elements.has(id)),
     quads, plates,
   };

@@ -78,3 +78,31 @@ export function classifyRoomLabel(raw: string): { category: string; q: number; r
   }
   return null;
 }
+
+/**
+ * The occupancy-table rows (`codes/cirsoc101/live-loads.ts`) a room's name may be, most likely
+ * first. A name alone does not decide the row: a corridor of a dwelling and one of an office are
+ * different rows, a kitchen of a dwelling and one of a restaurant too. Use zones offer these as a
+ * suggestion the engineer confirms (`model/use-zones.ts`); no value is read from the name.
+ */
+const ROOM_OCCUPANCY: Array<{ tokens: string[]; candidates: string[] }> = [
+  { tokens: ['DORMITORIO', 'DORM', 'BEDROOM', 'SUITE'], candidates: ['vivienda_dormitorio'] },
+  { tokens: ['PASILLO', 'CORREDOR', 'CORRIDOR', 'PALIER', 'CIRCULACION', 'CIRCULACIÓN'], candidates: ['vivienda', 'oficina_corredores_sup', 'escuela_pasillos_sup', 'hospital_corredores'] },
+  { tokens: ['ESTAR', 'COMEDOR', 'LIVING', 'DINING', 'HALL', 'RECIBIDOR', 'ESTUDIO', 'LAVADERO', 'LAUNDRY', 'VESTIDOR', 'CLOSET'], candidates: ['vivienda'] },
+  { tokens: ['BAÑO', 'BANO', 'BATH', 'BATHROOM', 'TOILETTE', 'TOILET'], candidates: ['bano_vivienda', 'bano_otros'] },
+  { tokens: ['COCINA', 'KITCHEN'], candidates: ['cocina_vivienda', 'cocina_otros'] },
+  { tokens: ['BALCON', 'BALCÓN', 'BALCONY', 'VOLADIZO'], candidates: ['balcon_vivienda', 'balcon_casa_pequena', 'balcon_otros'] },
+  { tokens: ['TERRAZA', 'AZOTEA', 'TERRACE'], candidates: ['azotea_privada', 'azotea_publica', 'azotea_inaccesible'] },
+  { tokens: ['ESCALERA', 'ESCALERAS', 'STAIR', 'STAIRS'], candidates: ['escalera_privada', 'escalera_otros'] },
+  { tokens: ['COCHERA', 'COCHERAS', 'GARAGE', 'GARAJE', 'PARKING'], candidates: ['garaje_autos', 'garaje_camiones'] },
+  { tokens: ['OFICINA', 'OFICINAS', 'OFFICE', 'DESPACHO'], candidates: ['oficina'] },
+  { tokens: ['LOCAL', 'LOCALES', 'COMERCIO', 'SHOP', 'RETAIL', 'TIENDA'], candidates: ['comercio_minorista_pb', 'comercio_minorista_sup', 'comercio_mayorista'] },
+  { tokens: ['DEPOSITO', 'DEPÓSITO', 'STORAGE', 'BODEGA', 'BAULERA'], candidates: ['deposito_liviano', 'deposito_pesado'] },
+];
+
+/** The rows a room label may be, most likely first; empty when the name says nothing known. */
+export function roomOccupancyCandidates(label: string): string[] {
+  const s = label.toUpperCase();
+  const word = (tk: string) => { const i = s.indexOf(tk); if (i < 0) return false; const b = s[i - 1] ?? '', a = s[i + tk.length] ?? ''; return !/[A-ZÁÉÍÓÚÑ]/.test(b) && !/[A-ZÁÉÍÓÚÑ]/.test(a); };
+  return ROOM_OCCUPANCY.find((r) => r.tokens.some(word))?.candidates ?? [];
+}

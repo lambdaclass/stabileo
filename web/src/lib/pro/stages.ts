@@ -296,6 +296,7 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           cmds: [
             { id: 'solve', labelKey: 'pro.solve', icon: 'solve', action: onSolve, enabled: () => canSolve },
             { id: 'advanced', labelKey: 'ribbon.advanced', icon: 'advanced', tab: 'advanced' },
+            { id: 'diagnostics', labelKey: 'pro.diagnosticsTitle', descKey: 'proRibbon.diagnosticsDesc', icon: 'diagnostics', tab: 'diagnostics' },
           ],
         },
         /*

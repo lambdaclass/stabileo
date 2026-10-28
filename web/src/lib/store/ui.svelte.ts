@@ -1,5 +1,6 @@
 // UI state store
 
+import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes';
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
@@ -263,6 +264,25 @@ function createUIStore() {
   // Shell (plate/quad) selection, keyed "p{id}" / "q{id}" to avoid colliding
   // with element ids. Separate channel from selectedElements (frames/trusses).
   let selectedShells = $state<Set<string>>(new Set());
+  /**
+   * Physical plates selected whole (`store/physical-plates.ts`), by group id. A meshed one also has
+   * its shells in `selectedShells`, so every shell tool reaches its mesh; it stays selected while
+   * all of them do. One with no mesh is selected only here.
+   */
+  let selectedPlates = $state<Set<number>>(new Set());
+  /** What a click on a plate's mesh picks: the plate whole, or the one element clicked. */
+  let shellPickScope = $state<'plate' | 'element'>('plate');
+  /** Whether a meshed physical plate is drawn with its mesh's edges, or as the piece (its outline). Picking does not depend on it. */
+  let platesShowMesh = $state(true);
+  let plateShells: ((id: number) => string[]) | null = null;
+  /** What a click on a member picks in PRO: the whole piece (an arc, a member a mesh cut) or one segment. */
+  let memberPickScope = $state<'piece' | 'segment'>('piece');
+  function setShells(v: Set<string>, keepPlates = false) {
+    selectedShells = v;
+    if (keepPlates || selectedPlates.size === 0) return;
+    const kept = [...selectedPlates].filter((id) => { const k = plateShells?.(id) ?? []; return k.length > 0 && k.every((x) => v.has(x)); });
+    if (kept.length !== selectedPlates.size) selectedPlates = new Set(kept);
+  }
   // Shell node-pick: click nodes in the 3D viewport to fill a shell/mesh
   // creator instead of typing IDs. `target` says which creator is collecting.
   let shellNodePick = $state<{ active: boolean; target: ShellPickTarget | null; picked: number[]; capacity: number }>(
@@ -620,6 +640,15 @@ function createUIStore() {
   let nodeCreateZ = $state<number>(0);
   // Snap new points to the structural grid's axes (PRO, when the model has a grid).
   let snapToAxes = $state<boolean>(true);
+  /** The object snaps on the background drawings that are on (`model/osnap.ts`), remembered per browser. */
+  const OSNAP_KEY = 'stabileo-osnap';
+  let osnapModes = $state<Set<OsnapMode>>((() => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(OSNAP_KEY) : null;
+      if (raw) return new Set((JSON.parse(raw) as string[]).filter((m): m is OsnapMode => (OSNAP_MODES as readonly string[]).includes(m)));
+    } catch { /* private mode, or a value from elsewhere */ }
+    return new Set(DEFAULT_OSNAP);
+  })());
 
   // Measurement tool
   let measureMode = $state<boolean>(false);
@@ -737,7 +766,7 @@ function createUIStore() {
     const takes = (k: SelectMode) => (multiKindSelect ? selectKinds.has(k) : selectMode === k);
     if (!takes('nodes') && selectedNodes.size) selectedNodes = new Set();
     if (!takes('elements') && !takes('stress') && selectedElements.size) selectedElements = new Set();
-    if (!takes('shells') && selectedShells.size) selectedShells = new Set();
+    if (!takes('shells') && selectedShells.size) setShells(new Set());
     if (!takes('supports') && selectedSupports.size) selectedSupports = new Set();
     if (!takes('loads') && selectedLoads.size) selectedLoads = new Set();
   }
@@ -938,6 +967,37 @@ function createUIStore() {
     set selectedSupports(v: Set<number>) { selectedSupports = v; },
     clearSelectedSupports() { selectedSupports = new Set(); },
     get selectedShells() { return selectedShells; },
+    get selectedPlates() { return selectedPlates; },
+    get shellPickScope() { return shellPickScope; },
+    get memberPickScope() { return memberPickScope; },
+    set memberPickScope(v: 'piece' | 'segment') { memberPickScope = v; },
+    /** Select several members by a click: a whole piece (`store/curved-members.ts`). */
+    selectElements(ids: readonly number[], addToSelection = false) {
+      elementSelectionManual = true;
+      if (addToSelection) { selectedElements = new Set([...selectedElements, ...ids]); return; }
+      selectedNodes = new Set();
+      selectedElements = new Set(ids);
+      setShells(new Set());
+    },
+    get platesShowMesh() { return platesShowMesh; },
+    set platesShowMesh(v: boolean) { platesShowMesh = v; },
+    set shellPickScope(v: 'plate' | 'element') { shellPickScope = v; },
+    /** How the store finds a plate's shells; set once by `physical-plates.ts`. */
+    setPlateShellResolver(fn: (id: number) => string[]) { plateShells = fn; },
+    /** Select physical plates whole: each one and its mesh, if it has one. */
+    selectPlates(ids: readonly number[], addToSelection = false) {
+      const plates = new Set(addToSelection ? [...selectedPlates, ...ids] : ids);
+      const keys = new Set(addToSelection ? selectedShells : []);
+      for (const id of ids) for (const k of plateShells?.(id) ?? []) keys.add(k);
+      if (!addToSelection) {
+        selectedNodes = new Set();
+        selectedElements = new Set();
+        selectedSupports = new Set();
+        selectedLoads = new Set();
+      }
+      selectedPlates = plates;
+      setShells(keys, true);
+    },
 
     get mouseX() { return mouseX; },
     get mouseY() { return mouseY; },
@@ -1355,6 +1415,14 @@ function createUIStore() {
     set nodeCreateZ(v: number) { nodeCreateZ = v; },
     get snapToAxes() { return snapToAxes; },
     set snapToAxes(v: boolean) { snapToAxes = v; },
+    get osnapModes(): ReadonlySet<OsnapMode> { return osnapModes; },
+    /** Turn one object snap on or off, and remember the choice. */
+    toggleOsnap(m: OsnapMode) {
+      const next = new Set(osnapModes);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      osnapModes = next;
+      try { localStorage.setItem(OSNAP_KEY, JSON.stringify([...next])); } catch { /* private mode */ }
+    },
     /** Work on a level: new points land on its plane, and the grid is drawn there. */
     setActiveLevel(z: number) { nodeCreateZ = z; workingPlane = 'XY'; },
 
@@ -1431,7 +1499,7 @@ function createUIStore() {
       } else {
         selectedNodes = new Set([id]);
         selectedElements = new Set();
-        selectedShells = new Set();
+        setShells(new Set());
         // Emptied element selection can't stay 'manual' — a stale true here
         // permanently suppresses the result-query highlight.
         elementSelectionManual = false;
@@ -1445,7 +1513,7 @@ function createUIStore() {
       } else {
         selectedNodes = new Set();
         selectedElements = new Set([id]);
-        selectedShells = new Set();
+        setShells(new Set());
       }
     },
 
@@ -1456,7 +1524,7 @@ function createUIStore() {
       shellNodePick = { active: true, target, picked: [], capacity };
       selectedNodes = new Set();
       selectedElements = new Set();
-      selectedShells = new Set();
+      setShells(new Set());
     },
     /** Push a clicked node id into the active pick buffer (ignores duplicates).
      *  Auto-stops when capacity is reached. Highlights picked nodes. */
@@ -1475,9 +1543,9 @@ function createUIStore() {
     /** Select a shell (plate/quad). `key` is "p{id}" or "q{id}". */
     selectShell(key: string, addToSelection = false) {
       if (addToSelection) {
-        selectedShells = new Set([...selectedShells, key]);
+        setShells(new Set([...selectedShells, key]));
       } else {
-        selectedShells = new Set([key]);
+        setShells(new Set([key]));
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
@@ -1491,7 +1559,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedSupports = new Set();
-        selectedShells = new Set();
+        setShells(new Set());
         elementSelectionManual = false;
       } else {
         selectedLoads = new Set([...selectedLoads, id]);
@@ -1504,7 +1572,7 @@ function createUIStore() {
         selectedNodes = new Set();
         selectedElements = new Set();
         selectedLoads = new Set();
-        selectedShells = new Set();
+        setShells(new Set());
         elementSelectionManual = false;
       } else {
         selectedSupports = new Set([...selectedSupports, id]);
@@ -1518,7 +1586,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
-      selectedShells = new Set();
+      setShells(new Set());
     },
 
     /** Bulk-set node and element selection. `manual` = true only for genuine
@@ -1529,7 +1597,7 @@ function createUIStore() {
       elementSelectionManual = manual;
       selectedNodes = nodes;
       selectedElements = elements;
-      selectedShells = shells;
+      setShells(shells);
     },
 
     /** True only when the element selection came from a manual action. */
@@ -1568,7 +1636,7 @@ function createUIStore() {
       selectedElements = new Set();
       selectedLoads = new Set();
       selectedSupports = new Set();
-      selectedShells = new Set();
+      setShells(new Set());
       elementsAside = null;
       for (const hook of sessionResetHooks) hook();
       // NOT reset: grid, showGrid, snapToGrid, zoom/pan, labels, analysisMode,

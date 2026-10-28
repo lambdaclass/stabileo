@@ -293,7 +293,15 @@
   .ifc-classes { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin: 4px 0; }
   .ifc-classes th { text-align: left; font-weight: 500; opacity: 0.75; padding: 2px 4px; }
   .ifc-classes td { padding: 2px 4px; }
-  .ifc-classes .mono { font-family: monospace; }
+  .ifc-classes .mono { font-family: var(--st-mono); color: var(--st-text); }
+  .ifc-classes select {
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    padding: 2px 6px;
+    font-size: 0.75rem;
+  }
   .ifc-hint { font-size: 0.75rem; opacity: 0.75; margin: 2px 0; }
   .ifc-overlay {
     position: fixed;
@@ -312,9 +320,9 @@
 
   .ifc-dialog {
     position: relative;
-    background: #0a1628;
-    border: 1px solid #1a4a7a;
-    border-radius: 12px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius-lg);
     width: min(500px, 90vw);
     max-height: 80vh;
     display: flex;
@@ -327,38 +335,40 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid #1a4a7a;
+    border-bottom: 1px solid var(--st-hair-strong);
   }
 
   .ifc-header h2 {
     margin: 0;
-    font-size: 1.1rem;
-    color: #eee;
+    font-size: 1rem;
+    font-family: var(--st-display);
+    font-weight: 600;
+    color: var(--st-text);
   }
 
   .ifc-close {
     background: none;
     border: none;
-    color: #888;
+    color: var(--st-text-3);
     font-size: 1.2rem;
     cursor: pointer;
     padding: 4px;
   }
 
-  .ifc-close:hover { color: #e94560; }
+  .ifc-close:hover { color: var(--st-text); }
 
   .ifc-error {
     padding: 8px 20px;
-    background: rgba(233, 69, 96, 0.15);
-    color: #ff6b6b;
+    background: var(--st-danger-bg);
+    color: var(--st-danger);
     font-size: 0.8rem;
   }
 
   .ifc-filename {
     padding: 8px 20px;
     font-size: 0.75rem;
-    color: #4ecdc4;
-    font-family: monospace;
+    color: var(--st-text-2);
+    font-family: var(--st-mono);
   }
 
   .ifc-body {
@@ -372,15 +382,15 @@
     align-items: center;
     gap: 12px;
     padding: 20px;
-    color: #aaa;
+    color: var(--st-text-2);
     font-size: 0.85rem;
   }
 
   .ifc-spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid #1a4a7a;
-    border-top-color: #4ecdc4;
+    border: 2px solid var(--st-hair-strong);
+    border-top-color: var(--st-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -413,7 +423,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.75rem;
-    color: #ccc;
+    color: var(--st-text-2);
     cursor: pointer;
   }
 
@@ -421,14 +431,14 @@
 
   .ifc-field label {
     font-size: 0.7rem;
-    color: #888;
+    color: var(--st-text-3);
   }
 
   .ifc-field input, .ifc-field select {
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    border-radius: 4px;
-    color: #eee;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
     padding: 4px 8px;
     font-size: 0.8rem;
     width: 100px;
@@ -437,14 +447,14 @@
   .ifc-preview {
     margin-top: 12px;
     padding: 10px;
-    background: rgba(15, 52, 96, 0.5);
-    border-radius: 6px;
+    background: var(--st-surface-2);
+    border-radius: var(--st-radius);
   }
 
   .ifc-preview h3 {
     margin: 0 0 8px;
     font-size: 0.85rem;
-    color: #4ecdc4;
+    color: var(--st-text);
   }
 
   .ifc-stats {
@@ -452,7 +462,7 @@
     gap: 16px;
     flex-wrap: wrap;
     font-size: 0.75rem;
-    color: #bbb;
+    color: var(--st-text-2);
   }
 
   .ifc-sections {
@@ -462,37 +472,37 @@
   .ifc-sections h4 {
     margin: 0 0 4px;
     font-size: 0.7rem;
-    color: #888;
+    color: var(--st-text-3);
   }
 
   .ifc-tag {
     display: inline-block;
     padding: 2px 6px;
     margin: 2px;
-    background: #1a4a7a;
-    border-radius: 3px;
+    background: var(--st-hair-strong);
+    border-radius: var(--st-radius);
     font-size: 0.7rem;
-    color: #ddd;
+    color: var(--st-text);
   }
 
   .ifc-warnings {
     margin-top: 12px;
     padding: 8px;
-    background: rgba(233, 69, 96, 0.1);
-    border-radius: 4px;
+    background: var(--st-warn-bg);
+    border-radius: var(--st-radius);
   }
 
   .ifc-warnings h4 {
     margin: 0 0 4px;
     font-size: 0.75rem;
-    color: #ff9800;
+    color: var(--st-warn);
   }
 
   .ifc-warnings ul {
     margin: 0;
     padding-left: 16px;
     font-size: 0.7rem;
-    color: #ddd;
+    color: var(--st-text);
   }
 
   .ifc-footer {
@@ -500,32 +510,32 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    border-top: 1px solid #1a4a7a;
+    border-top: 1px solid var(--st-hair-strong);
   }
 
   .ifc-btn-cancel {
     padding: 6px 16px;
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    border-radius: 6px;
-    color: #aaa;
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
     cursor: pointer;
     font-size: 0.8rem;
   }
 
-  .ifc-btn-cancel:hover { background: #1a4a7a; color: #eee; }
+  .ifc-btn-cancel:hover { background: var(--st-hair-strong); color: var(--st-text); }
 
   .ifc-btn-import {
     padding: 6px 16px;
-    background: #4ecdc4;
+    background: var(--st-accent);
     border: none;
-    border-radius: 6px;
-    color: #0a1628;
+    border-radius: var(--st-radius);
+    color: var(--st-text-on-accent);
     cursor: pointer;
     font-size: 0.8rem;
     font-weight: 600;
   }
 
-  .ifc-btn-import:hover { background: #6ee5dd; }
+  .ifc-btn-import:hover { background: var(--st-accent-hover); }
   .ifc-btn-import:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

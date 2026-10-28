@@ -136,7 +136,7 @@ interface P3 { x: number; y: number; z: number }
 export type NodePlacement3D =
   | { kind: 'onNode'; nodeId: number; sx: number; sy: number }
   | { kind: 'onMember'; elementId: number; t: number; midpoint: boolean; sx: number; sy: number; a: P2; b: P2 }
-  | { kind: 'free'; p: P3; sx: number; sy: number };
+  | { kind: 'free'; p: P3; sx: number; sy: number; snap?: { mode?: string; label?: string } };
 
 /**
  * What a space node-tool click does, as in the plane (`resolveNodePlacement2D`), read on the
@@ -223,7 +223,8 @@ export function resolveNodePlacement3D(a: {
   const there = nodeAtPlacement3D(null, snapped, a.plane, a.model);
   const s = a.project(snapped);
   if (there !== null) return { kind: 'onNode', nodeId: there, sx: s.x, sy: s.y };
-  return { kind: 'free', p: snapped, sx: s.x, sy: s.y };
+  const how = snapped as P3 & { mode?: string; label?: string };
+  return { kind: 'free', p: snapped, sx: s.x, sy: s.y, ...(how.mode || how.label ? { snap: { mode: how.mode, label: how.label } } : {}) };
 }
 
 /**

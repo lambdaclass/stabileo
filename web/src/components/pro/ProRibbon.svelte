@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AnalysisMeshControl from './plates/AnalysisMeshControl.svelte';
   import { deskUi } from '../../lib/store/design-desk-ui.svelte';
   import { openDeskAt } from '../../lib/pro/design-navigation';
   import { rememberStageTab, stageEntryTab } from '../../lib/pro/stage-memory.svelte';
@@ -461,6 +462,7 @@
           {:else}
             <div class="pr-cmds">
               {#each g.cmds as c (c.id)}{@render cmd(c, false)}{/each}
+              {#if g.id === 'run'}<AnalysisMeshControl />{/if}
             </div>
           {/if}
           <p class="pr-group-label">{t(g.labelKey)}</p>

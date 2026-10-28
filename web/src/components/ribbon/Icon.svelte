@@ -293,6 +293,8 @@
   {:else if name === 'trash'}
     <!-- The one bin, wherever something is deleted. -->
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+  {:else if name === 'diagnostics'}
+    <path d="M12 4l9 16H3zM12 10v4.5M12 17.2v.3" />
   {/if}
 </svg>
 

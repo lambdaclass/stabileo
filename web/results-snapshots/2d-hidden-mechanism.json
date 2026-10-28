@@ -1,0 +1,12 @@
+{
+  "case": "2d-hidden-mechanism",
+  "covers": "refusal: a mechanism the solver must refuse",
+  "format": 1,
+  "values": {
+    "model.elements": 2,
+    "model.nodes": 3,
+    "model.shells": 0,
+    "solve.ok": false,
+    "solve.refusal": "Unstable structure (mechanism): no horizontal restraint at any support."
+  }
+}

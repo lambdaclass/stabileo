@@ -16,6 +16,10 @@ import { modelStore } from './model.svelte';
 import { detailingStore } from './detailing.svelte';
 import { jointDesignStore } from './joint-design.svelte';
 import { steelJoints } from './joint-typology';
+import { plateSurfaceOf, plateGeometry } from '../model/physical/plate';
+import { plateStatus } from './physical-plates';
+import { pieceOf } from '../model/curve-entity';
+import type { IfcPrismItem } from '../ifc/ifc-writer';
 import { physicalGroups, physicalThickness } from './physical';
 import { memoriaInput } from './memoria-inputs';
 import { projectVerdict, projectVerdictLines } from './member-verdict';
@@ -167,7 +171,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       a, b, profile: profileOfSection(s), ...(s?.name ? { profileName: s.name } : {}),
       ...((e as { rollAngle?: number }).rollAngle ? { rollDeg: (e as { rollAngle?: number }).rollAngle } : {}),
       ...(m.materials.get(e.materialId)?.name ? { material: m.materials.get(e.materialId)!.name } : {}),
-      props: propsOf(e.id, s?.name ?? '—'),
+      props: { ...propsOf(e.id, s?.name ?? '—'), ...(e.arc ? arcProps(e.id, e.arc.id) : {}) },
     });
   }
 
@@ -175,12 +179,13 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   const slabs: IfcExportInput['slabs'] = [], walls: IfcExportInput['walls'] = [];
   const used = new Set<string>();
   const shells = [...[...m.quads.values()].map((q) => ({ key: `q${q.id}`, nodes: [...q.nodes], t: q.thickness, mat: q.materialId })), ...[...m.plates.values()].map((q) => ({ key: `p${q.id}`, nodes: [...q.nodes], t: q.thickness, mat: q.materialId }))];
-  const groups: Array<{ name: string; kind: 'slab' | 'wall'; keys: string[]; t?: number }> = [];
+  const groups: Array<{ name: string; kind: 'slab' | 'wall'; keys: string[]; t?: number; plate?: ReturnType<typeof physicalGroups>[number] }> = [];
   for (const gr of physicalGroups()) {
     if (gr.physical.kind !== 'slab' && gr.physical.kind !== 'wall') continue;
     const keys = [...(gr.members.quads ?? []).map((q) => `q${q}`), ...(gr.members.plates ?? []).map((p) => `p${p}`)];
     keys.forEach((k) => used.add(k));
-    groups.push({ name: gr.name, kind: gr.physical.kind === 'slab' ? 'slab' : 'wall', keys, t: physicalThickness(gr) ?? undefined });
+    const surf = plateSurfaceOf(gr);
+    groups.push({ name: gr.name, kind: gr.physical.kind === 'slab' ? 'slab' : 'wall', keys, t: surf?.thickness ?? physicalThickness(gr) ?? undefined, ...(surf ? { plate: gr } : {}) });
   }
   const loose = new Map<string, { kind: 'slab' | 'wall'; keys: string[] }>();
   for (const sh of shells) {
@@ -200,6 +205,10 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   for (const gr of loose.values()) groups.push({ name: gr.kind === 'slab' ? `L${++ns}` : `T${++nw}`, ...gr });
   const shellBy = new Map(shells.map((s) => [s.key, s]));
   for (const gr of groups) {
+    // A physical plate lying flat: its own outline and holes, curved sides drawn in 5° steps, mesh
+    // or not; net of the frame when its mesh gives that body.
+    const flatPlate = gr.plate && gr.kind === 'slab' ? plateIfcSlab(gr.plate, gr.keys.map((k) => bodies.slab(k))) : null;
+    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name }); continue; }
     const ss = gr.keys.map((k) => shellBy.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
     if (!ss.length) continue;
     const pts = ss.flatMap((s) => s.nodes.map(P)).filter((p): p is V3 => !!p);
@@ -258,4 +267,35 @@ export function exportProjectIfc(tr: Tr, locale: string, projectName: string, pr
     input.buildingProps = { ...input.buildingProps, ...Object.fromEntries(lines.map(([k, v], i) => [`Provenance_${String(i + 1).padStart(2, '0')}_${k.replace(/[^\w]+/g, '_')}`, v])) };
   }
   return writeIfc(input);
+}
+
+/** A member of a curved member: which arc, and which of its analysis segments. */
+function arcProps(elementId: number, arcId: number): Record<string, string> {
+  const p = pieceOf(modelStore.model as never, elementId);
+  const k = p ? p.segments.findIndex((x) => x.elementId === elementId) : -1;
+  return { CurvedMember: `arc ${arcId}`, CurvedMemberSegment: p && k >= 0 ? `${k + 1} of ${p.segments.length}, a straight analysis segment of the arc` : 'a straight analysis segment of the arc' };
+}
+
+/**
+ * A flat physical plate as an IFC slab (`store/physical-plates.ts`): its outline and holes at its
+ * mid-plane, swept through its thickness, or net of the frame when its mesh gives that body. Null
+ * for a plate that does not lie flat (a wall is written as one).
+ */
+function plateIfcSlab(g: ReturnType<typeof physicalGroups>[number], net: Array<IfcPrismItem[] | null>): Omit<IfcExportInput['slabs'][number], 'id' | 'name'> | null {
+  const surf = plateSurfaceOf(g);
+  const geo = surf ? plateGeometry(modelStore, g) : null;
+  if (!surf || !geo || Math.abs(geo.frame.n[2]) < 0.999) return null;
+  const z = geo.outer.reduce((a, p) => a + p[2], 0) / geo.outer.length;
+  const ring = (l: V3[], ccw: boolean) => { const r = l.map((p) => [p[0], p[1]] as [number, number]); const a = r.reduce((s, q, i) => { const b = r[(i + 1) % r.length]!; return s + q[0] * b[1] - b[0] * q[1]; }, 0); return (a > 0) === ccw ? r : r.reverse(); };
+  const own: IfcPrismItem = { z0: z - surf.thickness / 2, depth: surf.thickness, outer: ring(geo.outer, true), ...(geo.holes.length ? { holes: geo.holes.map((h) => ring(h, false)) } : {}) };
+  const material = modelStore.materials.get(surf.materialId)?.name;
+  const curved = surf.arcMids?.length ?? 0;
+  return {
+    outline: geo.outer.map((p) => [p[0], p[1], z] as V3), thickness: surf.thickness, ...(material ? { material } : {}),
+    prisms: net.length && net.every((x) => x) ? net.flatMap((x) => x!) : [own],
+    props: {
+      PhysicalPlate: g.name, Holes: geo.holes.length, MeshState: plateStatus(g.id),
+      ...(curved ? { CurvedSides: `${curved}, written as straight pieces of at most 5°` } : {}),
+    },
+  };
 }

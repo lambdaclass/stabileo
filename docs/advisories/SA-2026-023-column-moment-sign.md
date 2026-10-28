@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Critical |
-| Status | Fixed on `main`; to be published with the next release |
+| Status | Published 2026-10-28 (fixed in 0.4.0; live on stabileo.com since 2026-10-25) |
 | Issue | — (D4-01 in the 2026-10 audit) |
-| Fix | PR [#590](https://github.com/lambdaclass/stabileo/pull/590), merged with the integration PR of #589, #590, #588 and #487 |
+| Fix | PR [#590](https://github.com/lambdaclass/stabileo/pull/590), merged with the integration PR [#629](https://github.com/lambdaclass/stabileo/pull/629) of #589, #590, #588 and #487 (2026-10-25) |
 | Affected versions | the verification of provided column bars from 2026-04-19 (5ba936310, by source history; not bisected by running), 0.2.0 and 0.3.0; the column designer's own sizing from 0.3.0 (PR #402, 2026-10-21); `main` until the fix |
 | Re-check registry | `column-capacity-both-signs`, results version 3 (models with CIRSOC 201 members) |
 
@@ -57,7 +57,7 @@ whose governing check is the axial force, are not affected.
 
 ## Fixed in
 
-On `main` with PR #590, to ship in the next release. The column kernel
+PR #590, merged through #629 and deployed to stabileo.com on 2026-10-25; released in 0.4.0. The column kernel
 (`engine/src/column_capacity_kernel.rs`) solves both signs and returns the weaker, with the sign
 that governs (`momentSign` on the column result). A layout symmetric about the bending axis is
 solved once, exactly as before (bit for bit). Tests:

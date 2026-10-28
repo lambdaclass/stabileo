@@ -5,6 +5,7 @@
  * generator, keeping their ids, and leaves every one a person declared, in one undo step.
  * Declaring a kind or a typology makes the element declared, so a later recognition leaves it alone.
  */
+import { setPlateProperties } from './physical-plates';
 import { modelStore } from './model.svelte';
 import { applyRecognition, planRecognition } from './physical-recognition';
 import { physicalDataOf, type PhysicalData, type PhysicalKind } from '../model/physical';
@@ -63,6 +64,8 @@ export function setPhysicalSection(groupId: number, sectionId: number): void {
 export function setPhysicalThickness(groupId: number, thickness: number): void {
   const g = modelStore.model.groups.get(groupId);
   if (!g || !(thickness > 0)) return;
+  // A physical plate keeps its thickness in its definition too: set there, with its mesh.
+  if ((g.data as { surface?: unknown } | undefined)?.surface) { setPlateProperties(groupId, { thickness }); return; }
   modelStore.batch(() => {
     for (const id of g.members.quads ?? []) if (modelStore.quads.has(id)) modelStore.updateQuad(id, { thickness });
     for (const id of g.members.plates ?? []) if (modelStore.plates.has(id)) modelStore.updatePlate(id, { thickness });

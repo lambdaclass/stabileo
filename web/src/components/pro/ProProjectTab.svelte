@@ -8,7 +8,10 @@
   import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
   let regulationsEl: HTMLElement | undefined = $state();
   $effect(() => { if (proNav.regulationsOpen) regulationsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, i18n } from '../../lib/i18n';
+  import { exportProjectIfc } from '../../lib/store/ifc-export';
+  import { prepareExportProvenance } from '../../lib/export/provenance-attach';
+  import { downloadBlob } from '../../lib/store/document-exports';
   import { uiStore, modelStore } from '../../lib/store';
   import {
     loadFile,
@@ -191,6 +194,12 @@
   let imageFormat = $state<ViewFormat>('svg');
   function openData(f: 'xlsx' | 'csv') { dataFormat = f; dataOpen = true; }
   function openImage(f: ViewFormat) { imageFormat = f; imageOpen = true; }
+  async function exportIfc() {
+    const record = await prepareExportProvenance();
+    if (!record) return;
+    const name = modelStore.model.name || 'stabileo';
+    downloadBlob(`${name.replace(/\s+/g, '-')}.ifc`, 'application/x-step', exportProjectIfc(t, i18n.locale, name, record));
+  }
 
   async function handleLoad(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -444,6 +453,11 @@
       <div class="pp-grid">
         <HelpTip text={t('proExport.dxfTip')}>
           <button class="pp-btn" data-testid="pp-export-dxf" onclick={() => (dxfOpen = true)} disabled={!hasModel}>DXF</button>
+        </HelpTip>
+        <HelpTip text={t('proExport.ifcTip')}>
+          <!-- The model as an exchange file: physical members, plates with their outlines and
+               holes, and the results' provenance; with design off, nothing of the design. -->
+          <button class="pp-btn" data-testid="pp-export-ifc" onclick={exportIfc} disabled={!hasModel}>IFC</button>
         </HelpTip>
         {#each (['svg', 'png', 'jpg'] as const) as f (f)}
           <HelpTip text={t(`proExport.${f}Tip`)}>

@@ -183,3 +183,26 @@ export function simplePlanDxf(): string {
     entities,
   });
 }
+
+export function multiPlanDxf(): string {
+  const plan = (ox: number, oy: number, xs: number[], ys: number[]): string[] => {
+    const out: string[] = [];
+    for (const x of xs) for (const y of ys) {
+      out.push(dxfLwPolyline('PILARES', [[ox + x - 0.15, oy + y - 0.15], [ox + x + 0.15, oy + y - 0.15], [ox + x + 0.15, oy + y + 0.15], [ox + x - 0.15, oy + y + 0.15]], true));
+    }
+    for (const y of ys) for (let i = 0; i + 1 < xs.length; i++) out.push(dxfLine('VIGAS', ox + xs[i]!, oy + y, ox + xs[i + 1]!, oy + y));
+    for (const x of xs) for (let j = 0; j + 1 < ys.length; j++) out.push(dxfLine('VIGAS', ox + x, oy + ys[j]!, ox + x, oy + ys[j + 1]!));
+    return out;
+  };
+  return buildDxf({
+    insunits: 6,
+    layers: ['PILARES', 'VIGAS', 'ROTULO'],
+    entities: [
+      ...plan(0, 0, [0, 5, 10], [0, 4]),
+      ...plan(30, 0, [0, 5, 10], [0, 4]),
+      ...plan(60, 1, [0, 5], [0, 4]),
+      dxfLine('VIGAS', 45, 20, 45.5, 20),
+      dxfLwPolyline('ROTULO', [[80, -6], [86, -6], [86, -3], [80, -3]], true),
+    ].join('\n'),
+  });
+}

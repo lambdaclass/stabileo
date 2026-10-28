@@ -820,6 +820,14 @@
       return;
     }
 
+    // F3 turns the snaps on or off, as in CAD programs: grid axes and the background drawings.
+    if (e.key === 'F3') {
+      e.preventDefault();
+      uiStore.snapToAxes = !uiStore.snapToAxes;
+      uiStore.toast(t(uiStore.snapToAxes ? 'osnap.on' : 'osnap.off'), 'info');
+      return;
+    }
+
     // Ctrl/Cmd+Z: Undo
     if ((e.ctrlKey || e.metaKey) && key === 'Z' && !e.shiftKey) {
       e.preventDefault();

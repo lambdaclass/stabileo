@@ -8,6 +8,9 @@
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
   import { drawState, addShellOnCorners } from '../../lib/store/draw-state.svelte';
+  import { createPlate, plateOfShell } from '../../lib/store/physical-plates';
+  import PlatePanel from './plates/PlatePanel.svelte';
+  import PlateList from './plates/PlateList.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
@@ -84,7 +87,11 @@
    * read the empty box instead of the full one, which failed with "those
    * nodes do not exist" while quietly ignoring the id the reader had typed.
    */
-  const newGiven = $derived(newNodeIds.slice(0, drawState.plateCorners).map((v) => v.trim()).filter((v) => v !== ''));
+  /** Corner boxes of an analysis element; an outline is typed as one list (`outlineText`). */
+  const cornerBoxes = $derived(drawState.plateCorners === 'outline' ? 4 : drawState.plateCorners);
+  const newGiven = $derived(newNodeIds.slice(0, cornerBoxes).map((v) => v.trim()).filter((v) => v !== ''));
+  let outlineText = $state('');
+  const outlineIds = $derived(outlineText.split(/[,;\s]+/).map((v) => v.trim()).filter((v) => v !== '').map(Number));
 
   /** How many corners have been given — 3 makes a triangle, 4 a quad. */
   const newCount = $derived(newGiven.length);
@@ -161,8 +168,19 @@
 
   function addShell() {
     newError = null;
+    if (drawState.plateCorners === 'outline') {
+      // A physical plate on the outline typed, meshed later (`store/physical-plates.ts`).
+      const ids = outlineIds;
+      if (ids.length < 3 || ids.some((n) => !Number.isInteger(n) || !modelStore.nodes.has(n))) { newError = t('plates.problem.needNodes'); return; }
+      const r = createPlate({ outline: ids, materialId: drawState.plateMaterialId, thickness: drawState.plateThickness });
+      if ('problem' in r) { newError = t(`plates.problem.${r.problem}`); return; }
+      uiStore.selectMode = 'shells';
+      uiStore.selectPlates([r.id]);
+      outlineText = '';
+      return;
+    }
     const ids = newGiven.map((v) => Number(v));
-    if (ids.length < drawState.plateCorners) { newError = t('pro.shellNeedNodes'); return; }
+    if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
     const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, newCurved);
     if ('error' in r) { newError = t(r.error); return; }
     uiStore.selectShell(r.key, false);
@@ -199,13 +217,22 @@
       data-testid="draw-plate"
       title={drawing ? t('pro.drawStopHint') : t('pro.drawStartHint')}
     ><Icon name="shell" size={13} /><span>{drawing
-      ? `${t('pro.drawStop')} (${uiStore.shellNodePick.picked.length}/${drawState.plateCorners})`
+      ? `${t('pro.drawStop')} (${drawState.plateCorners === 'outline' ? uiStore.shellNodePick.picked.length : `${uiStore.shellNodePick.picked.length}/${drawState.plateCorners}`})`
       : `${t('pro.drawInModel')} ${t('pro.onePlate')}`}</span></button>
     <WriteInPanelButton kind="plate" label={t('pro.onePlate')} testid="write-plate" />
     </span>
   </div>
 
   <div class="pro-shells-scroll">
+    <PlatePanel />
+    {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
+      {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
+      {#if owner !== null}
+        <!-- An element of a plate's mesh: back to the plate it was made from. -->
+        <button class="pro-btn" onclick={() => { uiStore.shellPickScope = 'plate'; uiStore.selectPlates([owner]); }} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
+      {/if}
+    {/if}
+    <PlateList />
     <!-- Model-wide warning: shells with a corner attached to nothing else -->
     {#if disconnectedShells > 0}
       <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
@@ -236,15 +263,21 @@
         submitLabel={`${t('pro.add')} ${t('pro.onePlate')}`}
         onsubmit={addShell}
         error={newError}
-        disabled={newCount < drawState.plateCorners}
+        disabled={drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}
         testid="write-plate-card"
       >
         <div class="corner-seg" role="group" aria-label={t('drawBar.corners')}>
+          <button type="button" class:on={drawState.plateCorners === 'outline'} aria-pressed={drawState.plateCorners === 'outline'} onclick={() => (drawState.plateCorners = 'outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
           <button type="button" class:on={drawState.plateCorners === 3} aria-pressed={drawState.plateCorners === 3} onclick={() => (drawState.plateCorners = 3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
           <button type="button" class:on={drawState.plateCorners === 4} aria-pressed={drawState.plateCorners === 4} onclick={() => (drawState.plateCorners = 4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
         </div>
+        {#if drawState.plateCorners === 'outline'}
+          <label>{t('plates.outlineNodes')}
+            <input type="text" class="node-input outline-input" placeholder="1, 2, 3, 4" bind:value={outlineText} data-testid="plate-outline-nodes" />
+          </label>
+        {:else}
         <span class="node-row">
-          {#each Array.from({ length: drawState.plateCorners }, (_, i) => i) as i (i)}
+          {#each Array.from({ length: cornerBoxes }, (_, i) => i) as i (i)}
             <input
               type="text" inputmode="numeric"
               class="node-input"
@@ -255,6 +288,7 @@
             />
           {/each}
         </span>
+        {/if}
         <label>{t('pro.thMaterial')}
           <select value={drawState.plateMaterialId} onchange={(e) => (drawState.plateMaterialId = Number(e.currentTarget.value))} class="mat-select">
             {#each materials as m}

@@ -1,4 +1,4 @@
-# Dedaliano Product Roadmap
+# Stabileo Product Roadmap
 
 ## Purpose
 
@@ -60,6 +60,34 @@ ROI order for users:
 5. diagnostics, review, and guidance that reduce failure/debug time
 6. lightweight collaboration that makes review and sharing easier
 7. workflow polish and breadth after the above are solid
+
+## Priority now: catch wrong results before they ship (2026-10-28)
+
+Before new features, close the ways a wrong result can still reach users unnoticed. Each gap below
+was exposed in the week of 2026-10-21: a steel verdict change merged with no changelog or re-check
+entry (#461), the nightly verification failing four days with nobody told, a raw i18n key shown as
+a project name. These items come first in every section below; work on new features goes after
+them.
+
+| Order | Item | Issue | Section |
+|---|---|---|---|
+| 1 | **Results snapshot gate:** a reference corpus solved on every PR; any changed number, verdict or refusal fails CI unless the PR registers the result change | [#716](https://github.com/lambdaclass/stabileo/issues/716) | Release safety |
+| 2 | **Nightly verification that is green and alerts:** fix the runs failing since 2026-10-24; every scheduled failure opens an issue | [#717](https://github.com/lambdaclass/stabileo/issues/717), [#354](https://github.com/lambdaclass/stabileo/issues/354) | Trust and verification |
+| 3 | **Old project files:** a corpus saved by every release and file format; each opens, migrates and gives the same results | [#718](https://github.com/lambdaclass/stabileo/issues/718) | Release safety |
+| 4 | **Design checks against published worked examples,** chosen and signed off by an independent structural engineer (code manuals, INTI/CIRSOC example books, textbooks) | [#450](https://github.com/lambdaclass/stabileo/issues/450), [#360](https://github.com/lambdaclass/stabileo/issues/360) | Trust and verification |
+| 5 | **No raw i18n key visible,** web and desktop, every language | [#719](https://github.com/lambdaclass/stabileo/issues/719) | Release safety |
+| 6 | **Production health check** after every deploy and hourly (stabileo.com and staging) | [#720](https://github.com/lambdaclass/stabileo/issues/720) | Release safety |
+| 7 | **Backend security tests and a tested backup restore** | [#721](https://github.com/lambdaclass/stabileo/issues/721) | Release safety |
+| 8 | **Exported documents:** visual regression for PDF reports, DXF drawings and exports | [#722](https://github.com/lambdaclass/stabileo/issues/722) | Trust and verification |
+| 9 | **Desktop app:** install scripts, update from one version to the next, launch on each OS (macOS by hand: no WebDriver for its webview) | PR [#663](https://github.com/lambdaclass/stabileo/pull/663) | Release safety |
+| 10 | **Staging before production:** each main commit deploys to staging, passes the health check, then the same build is promoted | [#724](https://github.com/lambdaclass/stabileo/issues/724) | Release safety |
+| 11 | **Review before merge, enforced:** CODEOWNERS, a second reviewer for result and verdict changes, and a check that every required check still exists | [#725](https://github.com/lambdaclass/stabileo/issues/725), [#470](https://github.com/lambdaclass/stabileo/issues/470), [#355](https://github.com/lambdaclass/stabileo/issues/355) | Release safety |
+| 12 | **Policy for outside contributions:** bounty-style and AI-generated PRs, duplicates, credit, re-implementing low-trust fixes | [#726](https://github.com/lambdaclass/stabileo/issues/726) | Release safety |
+| 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
+
+Needs people, not only code: item 4's engineer sign-off; real users' project files for item 3's
+corpus; production access for item 7's restore test; testers on real Linux GPUs for the desktop's
+3D viewer.
 
 ## Multipliers
 
@@ -263,6 +291,36 @@ Pushes to main deploy straight to users (GitHub Pages), so a merge is a release.
 - Postmortems (item 8): 100 % of `safety` defects fixed after it lands have a postmortem within 10 working days of the fix, each naming a new or extended automated check.
 
 **Metrics** (on the [dashboard](../verification/DASHBOARD.md)): open `safety` issues (the label covers both defects and safety-relevant backlog items); safety advisories published (label `safety-advisory`); `roadmap:release-safety` issues closed; releases recorded in the dashboard history; time from confirmation to containment and postmortems written ("not yet measured" until items 7–8 land).
+
+### Platform and architecture backlog (2026-10-28)
+
+From the desktop-app plan and its reviews (Codex, Kimi): how Stabileo runs on more than the browser
+without a second implementation of anything that computes a result.
+
+1. **Desktop app** (Windows, macOS, Linux) with Tauri and the web's WASM engine; phases and install
+   in [docs/desktop/README.md](../desktop/README.md). [#728](https://github.com/lambdaclass/stabileo/issues/728), PR [#663](https://github.com/lambdaclass/stabileo/pull/663)
+2. **Accounts:** sign in once, never blocking a calculation; PRO entitlement verified offline; AI
+   enforced per account; projects stay local; privacy policy (Ley 25.326, GDPR). [#729](https://github.com/lambdaclass/stabileo/issues/729)
+3. **`.ded` as a long-term format:** schema, golden files per version, atomic saves with backup,
+   crash recovery, newer files refused clearly by older versions. [#730](https://github.com/lambdaclass/stabileo/issues/730)
+4. **Versioned engine interface and a CLI:** whole operations (solve and finish, design over
+   demands) with job ids, progress, cancellation, structured refusals and provenance, the same for
+   WASM, native or server. [#731](https://github.com/lambdaclass/stabileo/issues/731)
+5. **Ownership map, then consolidation:** which implementation owns each code check and limit
+   state; numerical rules move to Rust where they exist only in TypeScript or disagree. [#732](https://github.com/lambdaclass/stabileo/issues/732)
+
+**Exit criteria.** The desktop app ships signed on three OSes with auto-update and results
+identical to the web on the snapshot corpus (#716); every code check and limit state has one
+authoritative implementation in the ownership map; `.ded` files from every release open (#718).
+
+### Growth and housekeeping (2026-10-28)
+
+1. **Real users and independent validation:** a beta-tester program, the outreach to engineers and
+   professors, and an independent structural engineer signing off worked examples. [#733](https://github.com/lambdaclass/stabileo/issues/733)
+2. **Website and app speed:** Lighthouse 52 (landing), 35 (blog), 25 (app) on 2026-10-23; start
+   with loading only the active language (about −2 MB). [#734](https://github.com/lambdaclass/stabileo/issues/734)
+3. **Finish the rename** from Dedaliano: the engine package, CHANGELOG's absolute laptop paths,
+   comments and contact links. [#735](https://github.com/lambdaclass/stabileo/issues/735)
 
 ## Daily, Weekly, Monthly Priority Lens
 
