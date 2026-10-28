@@ -20,6 +20,7 @@ import { desktopText } from './desktop-text';
 import { startUpdater, checkForUpdates } from './updater';
 import { showAbout, reportProblem } from './about';
 import { runSelfCheck } from './self-check';
+import { routeExternalLinks } from './external-links';
 
 const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
 
@@ -291,6 +292,7 @@ let started = false;
 export async function startDesktop(): Promise<void> {
   if (started) return;
   started = true;
+  routeExternalLinks();
   watchChanges();
   await listen<string>('desktop://menu', (e) => runCommand(e.payload));
   await listen('desktop://open-pending', () => void takePendingFiles());
