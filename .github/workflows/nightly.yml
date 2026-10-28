@@ -171,7 +171,17 @@ jobs:
         run: |
           export METAMORPHIC_SEED=$(( $(date -u +%s) / 86400 ))
           echo "METAMORPHIC_SEED=$METAMORPHIC_SEED"
-          cargo test --release --test metamorphic -- --ignored --nocapture --test-threads 2
+          # Only the nightly tier: the binary's other ignored tests are debug probes.
+          cargo test --release --test metamorphic -- --ignored --nocapture --test-threads 2 metamorphic_nightly
+      # The violations stay visible on the run page (the job stays red): each distinct one is a
+      # triaged issue (#757-#762 on 2026-10-28), linked from the ci-failure issue.
+      - name: Violations to the job summary
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in metamorphic-report/*-violations.txt; do
+            { echo "### $(basename "$f")"; echo '```'; head -c 60000 "$f"; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -392,7 +402,10 @@ jobs:
           status=0
           timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
             ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
-          python3 scripts/mutants-summary.py mutants.out "$SHARD" || true
+          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          if [ -s mutants.out/missed.txt ]; then
+            { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ "$status" -eq 124 ]; then
             echo "::error::mutants shard $SHARD did not finish within ${BUDGET_MIN} min (see the summary above for how far it got); raise MUTANTS_TOTAL in nightly.yml"
             exit 1
