@@ -194,7 +194,9 @@ again.
 the signed release.
 
 **Linux: the AppImage does not start.** Run it from a terminal to see the message. `dlopen():
-error loading libfuse.so.2` means FUSE 2 is missing (see [Linux](#linux)). As a fallback,
+error loading libfuse.so.2` means FUSE 2 is missing (see [Linux](#linux)); `libEGL.so.1: cannot
+open shared object file` means the system's graphics libraries are missing (on Debian/Ubuntu:
+`sudo apt install libegl1 libgl1`; desktops normally have them, minimal and server installs may not). As a fallback,
 `./Stabileo_*.AppImage --appimage-extract-and-run` works without FUSE.
 
 **Linux: blank window, or the 3D view is black or flickers.** Usually the graphics driver and

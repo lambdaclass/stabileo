@@ -291,10 +291,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libfuse2t64 xvfb shellcheck desktop-file-utils
+          # What a desktop has and a bare runner lacks: FUSE 2 for AppImages, and the graphics
+          # libraries an AppImage takes from the system (libEGL, Mesa).
+          sudo apt-get install -y --no-install-recommends libfuse2t64 libegl1 libgl1 libgles2 xvfb shellcheck desktop-file-utils
           shellcheck -s sh desktop/install/install.sh
           sh desktop/install/install.sh
-          desktop-file-validate ~/.local/share/applications/stabileo.desktop
+          out=$(desktop-file-validate ~/.local/share/applications/stabileo.desktop) || { echo "$out"; exit 1; }
+          [ -z "$out" ] || { echo "$out"; exit 1; }
           STABILEO_EXIT_AFTER_SELFCHECK=1 timeout 300 xvfb-run -a ~/.local/bin/stabileo
           grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
           sh desktop/install/install.sh --uninstall

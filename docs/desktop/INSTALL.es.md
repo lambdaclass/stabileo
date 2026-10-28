@@ -198,7 +198,10 @@ formas**. Si no aparece el botón **Ejecutar de todas formas**, una política de
 organización bloquea las apps sin firmar; consultales, o esperá la versión firmada.
 
 **Linux: el AppImage no arranca.** Ejecutalo desde una terminal para ver el mensaje. `dlopen():
-error loading libfuse.so.2` significa que falta FUSE 2 (ver [Linux](#linux)). Como alternativa,
+error loading libfuse.so.2` significa que falta FUSE 2 (ver [Linux](#linux)); `libEGL.so.1: cannot
+open shared object file` significa que faltan las bibliotecas gráficas del sistema (en Debian/Ubuntu:
+`sudo apt install libegl1 libgl1`; los escritorios normalmente las tienen, las instalaciones mínimas
+o de servidor puede que no). Como alternativa,
 `./Stabileo_*.AppImage --appimage-extract-and-run` funciona sin FUSE.
 
 **Linux: ventana en blanco, o la vista 3D en negro o parpadeando.** Suele ser que el controlador de
