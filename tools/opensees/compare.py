@@ -801,7 +801,8 @@ def opensees_3d(d, mode="static", spec=None):
             tag += 1
             ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], 0.0, E, G, 0.0, 0.0, 0.0, tag - 1)
             wagner.append(dict(eid=e["id"], ni=e["nodeI"], nj=e["nodeJ"], ex=ex, ea=E * sec["a"], L=L,
-                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G, j=sec.get("j") or sec["iy"] + sec["iz"], tag=tag))
+                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G,
+                               j=sec.get("j") or sec["iy"] + sec["iz"], tag=tag))
         if e["type"] == "truss" and geom:
             # See opensees_2d: string Kg from a released beam on PDelta.
             ops.geomTransf("PDelta", e["id"], *ez)
