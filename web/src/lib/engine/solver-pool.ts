@@ -198,6 +198,11 @@ export async function initPool(numWorkers?: number): Promise<void> {
   return initPromise;
 }
 
+/** Whether any worker has a job running. */
+export function poolBusy(): boolean {
+  return pool.some((w) => w.pending.size > 0);
+}
+
 /** Check if the pool is initialized and ready. */
 export function isPoolReady(): boolean {
   return pool.length > 0 && pool.every(w => w.ready);

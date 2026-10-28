@@ -64,8 +64,8 @@
       try {
         const data = reader.result as ArrayBuffer;
         // Dynamic import to avoid bundling web-ifc WASM in main chunk
-        const { parseIfc } = await import('../lib/ifc/ifc-parser');
-        const result = await parseIfc(data);
+        const { parseIfcFile } = await import('../lib/ifc/parse');
+        const result = await parseIfcFile(data);
         members = result.members;
         surfaces = result.surfaces;
         storeys = result.storeys;
