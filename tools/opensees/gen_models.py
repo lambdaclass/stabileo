@@ -82,11 +82,46 @@ def _well_posed(m, seed, dim):
 
 
 def rich_2d(seed):
-    return _well_posed(_rich_2d(seed), seed, 2)
+    return _imposed_settlements_only(_well_posed(_rich_2d(seed), seed, 2), 2)
 
 
 def rich_3d(seed):
-    return _well_posed(_rich_3d(seed), seed, 3)
+    return _imposed_settlements_only(_well_posed(_rich_3d(seed), seed, 3), 3)
+
+
+# 2D support type -> the local DOFs (ux, uz, ry) it restrains rigidly, as in
+# engine/src/solver/dof.rs is_dof_restrained_2d. A "spring" support restrains
+# none (its stiffness is added to K).
+_RESTRAINED_2D = {
+    "fixed": (0, 1, 2), "pinned": (0, 1), "rollerX": (1,), "rollerY": (0,), "rollerZ": (0,),
+    "guidedX": (1, 2), "guidedY": (0, 2), "guidedZ": (0, 2), "inclinedRoller": (1,),
+}
+
+
+def _imposed_settlements_only(m, dim):
+    """Drop the settlements the engine would refuse (AC-10,
+    docs/solver/assembly-constraints.md; reject_unimposed_settlements_2d/3d in
+    engine/src/solver/linear.rs): a prescribed displacement on a DOF the
+    support leaves free (2D: by support type; 3D: flag not set, or a spring on
+    that direction). The reference programs drop such a value silently, so
+    every model carrying one was a `false_reject` (and was shrunk, which is
+    what made the PyNite and Frame3DD jobs time out). The draws stay as they
+    were, so the rest of each model is unchanged for its seed."""
+    has_frame = any(e.get("type") == "frame" for e in m["elements"].values())
+    for s in m["supports"].values():
+        if dim == 2:
+            keep = _RESTRAINED_2D.get(s.get("type"), ())
+            for i, key in enumerate(("dx", "dz", "dry")):
+                if i not in keep or (i == 2 and not has_frame):
+                    s.pop(key, None)
+        else:
+            for i, (flag, spring, key) in enumerate(zip(
+                    ("rx", "ry", "rz", "rrx", "rry", "rrz"),
+                    ("kx", "ky", "kz", "krx", "kry", "krz"),
+                    ("dx", "dy", "dz", "drx", "dry", "drz"))):
+                if not s.get(flag) or (s.get(spring) or 0.0) > 0.0 or (i >= 3 and not has_frame):
+                    s.pop(key, None)
+    return m
 
 
 def _rich_2d(seed):
