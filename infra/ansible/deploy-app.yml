@@ -185,6 +185,15 @@
           echo "kept the existing $dest"
           exit 0
         fi
+        # Files identical to those of the newest snapshot (the engine WASM when it did not change, fonts,
+        # images, unchanged chunks) become hard links to them: about 40 MB a snapshot, 15 MB new.
+        prev=$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1]))["snapshots"]; print(s[0]["short"] if s else "")' {{ snapshots_dir }}/index.json 2>/dev/null || true)
+        if [ -n "$prev" ] && [ -d "{{ snapshots_dir }}/$prev" ]; then
+          (cd "$src" && find . -type f) | while read -r f; do
+            old="{{ snapshots_dir }}/$prev/$f"
+            if [ -f "$old" ] && cmp -s "$src/$f" "$old"; then ln -f "$old" "$src/$f"; fi
+          done
+        fi
         chmod -R u+rwX,go+rX,go-w "$src"
         mv "$src" "{{ snapshots_dir }}/.incoming-$short"
         mv "{{ snapshots_dir }}/.incoming-$short" "$dest"
