@@ -58,7 +58,11 @@ PRO's design on it then runs the CIRSOC 201 code check (`designRunStore.runCodeC
 CIRSOC 301 steel check (`runSteelCheck`) and the footing run, and records each member's verdict as
 the design table reads it (`verificationStore.memberVerdict`, `getDisplayRatio`); with advanced
 analyses, P-Δ, modal, spectral and buckling with the Advanced tab's inputs. Recorded: displacements,
-reactions, member forces, shell stresses, per case and per combination; equilibrium flags and the
+reactions, member forces, shell stresses, per case and per combination; the combinations'
+envelope (each diagram's maximum and minimum at every station, the max-abs results) and the
+combination that governs each member's every component, recorded with every combination that ties
+with it (a lateral moment 1.2D + L + E and 0.9D + E give exactly, where the app names whichever
+it met first); equilibrium flags and the
 warning/error diagnostic codes; design verdicts, holds, ratios, required steel, steel limit
 states, footing checks; and every refusal with its reason (in English).
 
@@ -83,9 +87,12 @@ the snapshot exactly; what the tolerance absorbs is a refactor that reorders flo
 operations, whose error is about κ·ε ≈ 1e-8 of the peak on these models (κ up to ~1e8). Strings
 and booleans (verdicts, refusals) compare exactly. Not recorded: timings, the build that ran,
 residual magnitudes (their pass/fail flags are), the id at which an extreme occurs (a tie on a
-symmetric model), mode shapes and participation factors (arbitrary sign), and the worked
+symmetric model), mode shapes, and the worked
 explanation text of the checks (their numbers are recorded as numbers). The rule is in
-`web/scripts/results-snapshot/compare.mjs`, shared by the test and the gate.
+`web/scripts/results-snapshot/compare.mjs`, shared by the test and the gate. A spectral mode's
+participation factor and modal force carry the arbitrary sign of their eigenvector: they are
+stored and compared as magnitudes (`SIGN_FREE`), so a flipped eigenvector is not a change and a
+changed magnitude is.
 
 **The gate.** Two steps of the `Results Snapshot` job, required through CI OK:
 
@@ -94,7 +101,17 @@ explanation text of the checks (their numbers are recorded as numbers). The rule
 2. `make check.results-snapshot-gate BASE=<base>` (pull requests and the merge queue): if the
    pull request changes or deletes a committed snapshot (beyond the tolerance), it must also add
    an entry to `result-changes.json` (a change id the base does not have) and a `changelog.d/`
-   fragment under `### BREAKING (results)`. A new case or a new recorded quantity is not a change.
+   fragment under `### BREAKING (results)`. A value that moved, disappeared, or is newly produced
+   in an existing snapshot (another combination, mode, member result or limit state) is a change;
+   so is a deleted snapshot. Only a new snapshot file, a new corpus case, is coverage. When the
+   harness itself starts recording more, the snapshot `FORMAT` (`compare.mjs`) is bumped in the
+   same pull request, and the values it adds are not changes; values that moved or disappeared
+   still are.
+
+The corpus, the snapshot files and the group entry points (`__tests__/snapshot-<group>.test.ts`)
+match one to one (`results-snapshot/coverage.ts`, `coverage.test.ts`): removing a case fails until
+its snapshot is deleted, and the gate counts the deletion; a snapshot no case owns, a case without
+a snapshot, or a group without its entry point fails too.
 
 **A deliberate change**: `make snapshots-update` (or `cd web && npm run snapshots:update`)
 rewrites the snapshots, keeping every value still within the tolerance as committed so the diff
@@ -103,8 +120,10 @@ Adding a case: add it to `corpus.ts` and run the same command.
 
 The negative case (#451) is `results-snapshot/__tests__/negative.test.ts`: a 1 % change to a
 corpus case is reported value by value, and the gate fails it without a registry entry, with only
-a fragment, or with a fragment in another section, and passes it with both.
-`web/scripts/__tests__/results-snapshot.test.ts` covers the tolerance and the decision.
+a fragment, or with a fragment in another section, and passes it with both; a change to one
+envelope value alone fails it too. `web/scripts/__tests__/results-snapshot.test.ts` covers the
+tolerance, a newly produced value, the eigenvector sign, the format bump and the decision;
+`coverage.test.ts` a removed case and an orphaned snapshot.
 
 In Node the worker pool is not available and the combinations are solved by the sequential
 fallback (`solveCombinations3DParallel`), on the same WASM bytes as the workers.
