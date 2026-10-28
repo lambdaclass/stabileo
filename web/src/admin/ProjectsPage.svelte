@@ -14,6 +14,8 @@
     void adminProjects.load({ offset: 0 });
   });
 
+  const owner = $derived(adminProjects.params.account_id ? String(adminProjects.params.owner_label ?? '') : null);
+
   function onSearch() {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => void adminProjects.load({ search, offset: 0 }), 250);
@@ -28,7 +30,10 @@
     <h1 id="ins-projects-title" class="ins-h1">{t('admin.projects.title')}</h1>
     <span class="ins-sub">{tp('admin.users.total', { count: adminProjects.total })}</span>
   </div>
-  <p class="ins-muted">{t('admin.projects.lede')}</p>
+  <div class="ins-explain">
+    <p>{t('admin.projects.what')}</p>
+    <p>{t('admin.projects.privacy')}</p>
+  </div>
 
   <div class="ins-toolbar">
     <input class="ins-input" type="search" bind:value={search} oninput={onSearch} placeholder={t('admin.projects.search')} data-testid="admin-projects-search" />
@@ -37,6 +42,13 @@
       <option value="basic">{t('cloud.modeBasic')}</option>
       <option value="pro">{t('cloud.modePro')}</option>
     </select>
+    {#if owner !== null}
+      <span class="ins-tag accent" data-testid="admin-projects-owner">
+        {tp('admin.projects.ownerFilter', { owner })}
+        <button type="button" class="ins-chip-x" aria-label={t('admin.projects.clearOwner')}
+          onclick={() => adminProjects.load({ account_id: undefined, owner_label: undefined, offset: 0 })}>✕</button>
+      </span>
+    {/if}
   </div>
 
   {#if adminProjects.error}<div class="ins-banner" role="alert">{adminErrorText(adminProjects.error)}</div>{/if}
@@ -52,7 +64,7 @@
           <th class="num">{t('admin.projects.size')}</th>
           <th>{t('admin.projects.version')}</th>
           <th>{t('admin.projects.updated')}</th>
-          <th>{t('admin.projects.research')}</th>
+          <th title={t('admin.projects.researchHelp')}>{t('admin.projects.research')}</th>
         </tr>
       </thead>
       <tbody>

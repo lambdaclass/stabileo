@@ -59,6 +59,7 @@ defmodule StabileoProjects.ProjectsTest do
   end
 
   test "list shows only the owner's active projects, without content", %{account: account} do
+    {:ok, _} = Features.set_cloud_projects_limit(5)
     other = Factory.insert(:account)
     {:ok, mine} = Projects.create(account, attrs(%{"name" => "Mine"}))
     {:ok, gone} = Projects.create(account, attrs(%{"name" => "Gone"}))
@@ -130,6 +131,19 @@ defmodule StabileoProjects.ProjectsTest do
     {:ok, {[oldest | _], _}} = Projects.list(account, %{"sort_by" => "name", "sort_dir" => "asc"})
     {:ok, _} = Projects.delete(account, oldest.id)
     assert {:ok, _} = Projects.create(account, attrs())
+  end
+
+  test "one project per account unless an admin sets another limit", %{account: account} do
+    assert Projects.limits().max_projects == 1
+    assert {:ok, _} = Projects.create(account, attrs(%{"name" => "First"}))
+
+    assert {:error, :project_limit_reached} =
+             Projects.create(account, attrs(%{"name" => "Second"}))
+
+    {:ok, _} = Features.set_cloud_projects_limit(2)
+    assert Projects.limits().max_projects == 2
+    assert {:ok, second} = Projects.create(account, attrs(%{"name" => "Second"}))
+    assert Repo.get!(Project, second.id).name == "Second"
   end
 
   test "everything is refused while the flag is off", %{account: account} do

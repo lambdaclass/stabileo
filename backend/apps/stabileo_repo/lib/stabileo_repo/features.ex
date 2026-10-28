@@ -10,6 +10,8 @@ defmodule StabileoRepo.Features do
   @usage_telemetry "usage_telemetry_enabled"
   @cloud_projects "cloud_projects_enabled"
   @save_requires_account "save_requires_account"
+  @cloud_projects_limit "cloud_projects_limit"
+  @cloud_projects_limit_range 1..100
 
   @doc """
   Whether product users may sign up and sign in. Off when the row is unset or
@@ -77,6 +79,28 @@ defmodule StabileoRepo.Features do
       @save_requires_account,
       enabled,
       "Saving or exporting a model asks the user to sign in first"
+    )
+  end
+
+  @doc """
+  How many cloud projects one account may keep. 1 when unset or unreadable.
+  """
+  def cloud_projects_limit do
+    case SystemSettings.get(@cloud_projects_limit) do
+      %{"value" => n} when is_integer(n) and n in @cloud_projects_limit_range -> n
+      _ -> 1
+    end
+  rescue
+    _ -> 1
+  end
+
+  def cloud_projects_limit_range, do: @cloud_projects_limit_range
+
+  def set_cloud_projects_limit(n) when is_integer(n) and n in @cloud_projects_limit_range do
+    SystemSettings.set(
+      @cloud_projects_limit,
+      %{"value" => n},
+      "How many cloud projects one account may keep"
     )
   end
 end

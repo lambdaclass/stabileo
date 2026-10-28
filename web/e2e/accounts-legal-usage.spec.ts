@@ -36,11 +36,21 @@ interface Backend {
   consents: Record<string, unknown>[];
   events: Record<string, unknown>[];
   projects: Record<string, unknown>[];
+  updates: Record<string, unknown>[];
+  feedback: Record<string, unknown>[];
 }
 
+const savedProject = (id: string, name: string) => ({
+  id, name, app_mode: 'basic', content_bytes: 100, node_count: 2, element_count: 1, app_version: 'test',
+  inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z',
+});
+
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
-async function boot(page: Page, opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean } = {}): Promise<Backend> {
-  const backend: Backend = { register: [], consents: [], events: [], projects: [] };
+async function boot(
+  page: Page,
+  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number } = {},
+): Promise<Backend> {
+  const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     try {
@@ -86,7 +96,17 @@ async function boot(page: Page, opts: { termsCurrent?: boolean; signedIn?: boole
       backend.projects.push(b);
       return json(r, 201, { data: { id: 'p1', name: b.name, app_mode: b.app_mode, content_bytes: 100, node_count: b.node_count, element_count: b.element_count, app_version: 'test', inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z' } });
     }
-    return json(r, 200, { data: [], meta: { total: 0, limit: 100, offset: 0, max_projects: 100, max_bytes: 1 } });
+    if (r.request().method() === 'PUT') {
+      const b = body(r);
+      backend.updates.push({ url: r.request().url(), ...b });
+      return json(r, 200, { data: { ...savedProject(r.request().url().split('/').pop()!, b.name), element_count: b.element_count } });
+    }
+    const saved = opts.saved ?? [];
+    return json(r, 200, { data: saved, meta: { total: saved.length, limit: 100, offset: 0, max_projects: opts.maxProjects ?? 100, max_bytes: 1 } });
+  });
+  await page.route('**/api/v1/insights/feedback', (r) => {
+    backend.feedback.push(body(r));
+    return json(r, 201, { data: { id: 'f1' } });
   });
 
   await page.goto('/app/basic?e2e=1');
@@ -266,6 +286,47 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.locator('body').press('Control+s');
     expect((await download).suggestedFilename()).toMatch(/\.ded$/);
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  });
+
+  test('with one free project already saved, the open model replaces it', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, saved: [savedProject('p0', 'Viejo')], maxProjects: 1 });
+    page.on('dialog', (d) => d.accept());
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('hdr-project').click();
+    await page.getByTestId('cloud-projects-open').first().click();
+
+    await expect(page.getByTestId('cloud-limit')).toBeVisible();
+    await expect(page.getByTestId('cloud-save')).toHaveCount(0);
+    await page.getByTestId('cloud-replace').click();
+
+    await expect(page.getByTestId('cloud-save')).toHaveText(/Guardar cambios/);
+    await expect(page.getByTestId('cloud-save-new')).toHaveCount(0);
+    expect(backend.projects).toEqual([]);
+    expect(backend.updates).toHaveLength(1);
+    expect(backend.updates[0]).toMatchObject({ url: expect.stringMatching(/\/projects\/p0$/), app_mode: 'basic', element_count: 3 });
+    const doc = JSON.parse(gunzipSync(Buffer.from(String(backend.updates[0].content), 'base64')).toString('utf8'));
+    expect(doc.snapshot.elements).toHaveLength(3);
+  });
+
+  test('a comment from the contact menu reaches the inbox, asking for an account first', async ({ page }) => {
+    const backend = await boot(page);
+    await page.getByTestId('usage-notice-ok').click();
+    await page.getByTestId('contact-open').click();
+    await page.getByTestId('contact-feedback').click();
+
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await page.getByTestId('auth-name').fill('Ada Lovelace');
+    await page.getByTestId('auth-email').fill('ada@example.com');
+    await page.getByTestId('auth-password').fill('long-enough-1');
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('feedback-dialog')).toBeVisible();
+    await page.getByTestId('feedback-kind').selectOption('idea');
+    await page.getByTestId('feedback-message').fill('Exportar a IFC estructural');
+    await page.getByTestId('feedback-send').click();
+    await expect(page.getByTestId('feedback-msg')).toBeVisible();
+    expect(backend.feedback).toEqual([expect.objectContaining({ kind: 'idea', message: 'Exportar a IFC estructural', page: '/app/basic' })]);
   });
 
   for (const [locale, path, title] of [

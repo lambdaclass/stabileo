@@ -4,6 +4,7 @@ import type { Account, Consents, LoginInput, Session } from './auth';
 export interface AdminAccount extends Account {
   is_active: boolean;
   last_sign_in_at: string | null;
+  last_active_at?: string | null;
   active_sessions: number;
   is_admin: boolean;
   consents?: Consents;
@@ -46,30 +47,34 @@ export interface AdminSettings {
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
+  cloud_projects_limit?: number;
   terms_version?: string;
 }
 
 export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled' | 'save_requires_account';
+export type AdminSettingsUpdate = Partial<Record<AdminFlag, boolean>> & { cloud_projects_limit?: number };
 
 export interface Count { label: string; count: number }
 export interface Daily { day: string; count: number }
 
+export type UsageBreakdown =
+  | 'tools' | 'diagrams' | 'advanced' | 'examples' | 'exports' | 'step_methods' | 'gate_actions'
+  | 'solve_outcomes' | 'solve_dims' | 'modes' | 'versions' | 'locales';
+
 export interface InsightsSummary {
   days: number;
   since: string;
-  accounts: { total: number; active_7d: number; sign_ups: Daily[]; consents: { usage_analytics: number; model_research: number } };
-  usage: {
-    events: number;
-    installs: number;
+  visitors: {
     visits: number;
-    daily: { day: string; events: number; visits: number }[];
-    top_events: Count[];
-    modes: Count[];
-    versions: Count[];
-    locales: Count[];
-    breakdowns: Record<'tools' | 'diagrams' | 'advanced' | 'examples' | 'exports' | 'solve_outcomes' | 'step_methods', Count[]>;
+    browsers: number;
+    visits_with_solve: number;
+    solves: number;
+    daily: { day: string; visits: number; solving: number }[];
   };
-  projects: { total: number; accounts: number; by_mode: Count[]; created: Daily[] };
+  usage: Record<UsageBreakdown, Count[]>;
+  gate: { asked: number; passed: number };
+  accounts: { total: number; new: number; active_7d: number; sign_ups: Daily[]; consents: { usage_analytics: number; model_research: number } };
+  projects: { total: number; accounts: number; by_mode: Count[]; limit: number };
   feedback: { new: number };
 }
 
@@ -240,7 +245,7 @@ export const adminApi = {
     return (await request<{ data: AdminSettings }>('GET', `${ADMIN_BASE}/settings`, { auth: true })).data;
   },
 
-  async updateSettings(settings: Partial<Record<AdminFlag, boolean>>): Promise<AdminSettings> {
+  async updateSettings(settings: AdminSettingsUpdate): Promise<AdminSettings> {
     return (await request<{ data: AdminSettings }>('PUT', `${ADMIN_BASE}/settings`, { body: settings, auth: true })).data;
   },
 

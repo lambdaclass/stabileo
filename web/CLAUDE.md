@@ -319,52 +319,16 @@ Key test patterns:
 
 ## Feedback System
 
-Los usuarios pueden enviar feedback desde stabileo.com usando el widget flotante (botón rojo abajo a la derecha).
+Users send comments from the app with "Enviar un comentario", in the header's contact menu
+(`ContactMenu.svelte`) or in their profile. Both open `components/account/FeedbackDialog.svelte`,
+which posts to the backend inbox (`POST /api/v1/insights/feedback`, `specs/services/insights.md`).
+It needs a signed-in account: while sign-in is open, `accountGate.requireSignIn('feedback', …)`
+asks for one first. Each comment carries the sender, the page, the app version and, when the
+user ticks it, the model's share link.
 
-### Dónde se almacenan los feedbacks
-
-Los reportes se crean como **GitHub Issues** en el repo privado `Batuis/dedaliano`:
-- **URL**: https://github.com/Batuis/dedaliano/issues
-- **Arquitectura**: `FeedbackWidget.svelte` → POST `/api/feedback` → Cloudflare Pages Function (`functions/api/feedback.ts`) → GitHub Issues API
-
-### Labels automáticos
-
-| Tipo de feedback | Label en GitHub | Título del issue |
-|-----------------|----------------|------------------|
-| Bug / Error | `bug` | `[Bug] descripción...` |
-| Sugerencia | `enhancement` | `[Sugerencia] descripción...` |
-| Otro | `feedback` | `[Otro] descripción...` |
-
-### Cómo revisar feedback pendiente
-
-Ejecutar: `gh issue list --state open --label bug,enhancement,feedback`
-
-O por separado:
-```bash
-gh issue list --state open --label bug        # Bugs/errores
-gh issue list --state open --label enhancement # Sugerencias
-gh issue list --state open --label feedback    # Otros
-```
-
-Para ver el detalle de un issue: `gh issue view <número>`
-
-### Protocolo de revisión
-
-Cuando el usuario pida "revisá el feedback pendiente":
-
-1. **Primero listar bugs** (`--label bug`) con sugerencias de corrección y prioridad
-2. **Luego sugerencias** (`--label enhancement`) con opinión técnica y plan de implementación
-3. **Por último "otro"** (`--label feedback`) con análisis pertinente
-4. Cerrar issues resueltos con `gh issue close <número>` solo cuando el usuario lo apruebe
-
-### Datos incluidos en cada issue
-
-Cada feedback incluye automáticamente:
-- Nombre/alias del autor (opcional — campo en el formulario)
-- Descripción del usuario
-- Share link (URL con el estado del modelo al momento del reporte)
-- Modo (2D o 3D)
-- User agent del navegador
+The team reads and answers them on the admin site, under Comentarios (`src/admin/FeedbackPage.svelte`):
+mark them read or done, filter by sender, reply by email. The old floating widget that opened
+GitHub issues (`FeedbackWidget.svelte`, `functions/api/feedback.ts`) is no longer mounted.
 
 ## Known Limitations (3D)
 

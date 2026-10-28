@@ -8,7 +8,7 @@
   import type { FeedbackStatus } from '../lib/api/admin';
 
   const FILTERS = ['new', 'read', 'done', ''] as const;
-  let filter = $state<(typeof FILTERS)[number]>('new');
+  let filter = $state<(typeof FILTERS)[number]>((adminFeedback.params.status as (typeof FILTERS)[number] | undefined) ?? 'new');
   let actionError = $state<unknown>(null);
 
   onMount(() => {
@@ -30,6 +30,14 @@
   }
 
   const offset = $derived(Number(adminFeedback.params.offset ?? 0));
+  const sender = $derived(adminFeedback.params.account_id ? String(adminFeedback.params.owner_label ?? '') : null);
+
+  function reply(f: { kind: string; message: string; account: { email: string; name: string } | null }): string {
+    if (!f.account) return '';
+    const subject = encodeURIComponent(t('admin.feedback.replySubject'));
+    const quoted = encodeURIComponent(`\n\n> ${f.message.split('\n').join('\n> ')}`);
+    return `mailto:${f.account.email}?subject=${subject}&body=${quoted}`;
+  }
 </script>
 
 <section class="ins" aria-labelledby="ins-feedback-title" data-testid="admin-feedback">
@@ -38,12 +46,23 @@
     <span class="ins-sub">{tp('admin.users.total', { count: adminFeedback.total })}</span>
   </div>
 
+  <div class="ins-explain">
+    <p>{t('admin.feedback.what')}</p>
+  </div>
+
   <div class="ins-toolbar">
     {#each FILTERS as f (f)}
       <button class="ins-btn" class:on={filter === f} onclick={() => show(f)} data-testid={`admin-feedback-filter-${f || 'all'}`}>
         {f ? t(`admin.feedback.status.${f}`) : t('admin.status.all')}
       </button>
     {/each}
+    {#if sender !== null}
+      <span class="ins-tag accent" data-testid="admin-feedback-sender">
+        {tp('admin.feedback.senderFilter', { sender })}
+        <button type="button" class="ins-chip-x" aria-label={t('admin.projects.clearOwner')}
+          onclick={() => adminFeedback.load({ account_id: undefined, owner_label: undefined, offset: 0 })}>✕</button>
+      </span>
+    {/if}
   </div>
 
   {#if adminFeedback.error}<div class="ins-banner" role="alert">{adminErrorText(adminFeedback.error)}</div>{/if}
@@ -58,7 +77,7 @@
           <div class="ins-feed-meta">
             <span class="ins-tag accent">{t(`feedbackForm.kind.${f.kind}`)}</span>
             <span class="ins-tag">{t(`admin.feedback.status.${f.status}`)}</span>
-            <span>{f.account ? f.account.email : '—'}</span>
+            <span>{f.account ? `${f.account.name} · ${f.account.email}` : '—'}</span>
             <span>{formatDateTime(f.inserted_at)}</span>
             {#if f.page}<span class="ins-mono">{f.page}</span>{/if}
             {#if f.app_version}<span class="ins-mono">v{f.app_version}</span>{/if}
@@ -71,6 +90,7 @@
               {/if}
             {/each}
             {#if f.model_link}<a href={f.model_link} target="_blank" rel="noopener noreferrer">{t('admin.feedback.openModel')}</a>{/if}
+            {#if f.account}<a href={reply(f)} data-testid="admin-feedback-reply">{t('admin.feedback.reply')}</a>{/if}
           </div>
         </li>
       {/each}

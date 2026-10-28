@@ -25,6 +25,7 @@
   import UsageNotice from './components/legal/UsageNotice.svelte';
   import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
   import AccountGateDialog from './components/account/AccountGateDialog.svelte';
+  import FeedbackDialog from './components/account/FeedbackDialog.svelte';
   import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
@@ -2146,7 +2147,7 @@
     <UsageNotice />
     <TermsUpdateDialog />
   {/if}
-  {#if accountsEnabled}<AccountGateDialog />{/if}
+  {#if accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.

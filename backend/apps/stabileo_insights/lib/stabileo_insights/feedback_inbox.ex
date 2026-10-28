@@ -24,6 +24,7 @@ defmodule StabileoInsights.FeedbackInbox do
       from(f in Feedback, preload: [:account])
       |> filter(:status, params["status"])
       |> filter(:kind, params["kind"])
+      |> filter(:account_id, params["account_id"])
       |> filter(:search, params["search"])
 
     Listing.paginate(query, params, [:inserted_at, :status, :kind], :inserted_at,
@@ -37,7 +38,8 @@ defmodule StabileoInsights.FeedbackInbox do
          {:ok, updated} <-
            feedback |> Feedback.status_changeset(%{status: status}) |> Repo.update() do
       AdminAudit.record(admin, "feedback.status", {"feedback", updated.id}, %{
-        status: updated.status
+        status: updated.status,
+        excerpt: String.slice(updated.message, 0, 80)
       })
 
       {:ok, Repo.preload(updated, :account)}
@@ -59,6 +61,13 @@ defmodule StabileoInsights.FeedbackInbox do
   defp filter(query, _field, value) when value in [nil, ""], do: query
   defp filter(query, :status, value), do: where(query, [f], f.status == ^value)
   defp filter(query, :kind, value), do: where(query, [f], f.kind == ^value)
+
+  defp filter(query, :account_id, value) do
+    case Ecto.UUID.cast(value) do
+      {:ok, id} -> where(query, [f], f.account_id == ^id)
+      :error -> where(query, false)
+    end
+  end
 
   defp filter(query, :search, value) do
     pattern = "%" <> String.replace(String.trim(value), ~r/[\\%_]/, "\\\\\\0") <> "%"

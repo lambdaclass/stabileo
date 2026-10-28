@@ -12,9 +12,13 @@ defmodule StabileoInsights.Controllers.Admin.InsightsControllerTest do
   test "GET /summary answers the metrics for the window", %{token: token} do
     body = admin_request(:get, "/summary", %{"days" => "7"}, token) |> json_body(200)
     assert body["data"]["days"] == 7
-    assert Enum.sort(Map.keys(body["data"])) == ~w(accounts days feedback projects since usage)
+
+    assert Enum.sort(Map.keys(body["data"])) ==
+             ~w(accounts days feedback gate projects since usage visitors)
+
     assert body["data"]["accounts"]["total"] >= 1
-    assert body["data"]["usage"]["events"] == 0
+    assert body["data"]["visitors"]["visits"] == 0
+    assert body["data"]["gate"] == %{"asked" => 0, "passed" => 0}
   end
 
   test "422 for a window out of range", %{token: token} do

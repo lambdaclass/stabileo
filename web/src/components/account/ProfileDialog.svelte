@@ -6,10 +6,8 @@
   import LocaleSelect from '../LocaleSelect.svelte';
   import CloudProjectsDialog from './CloudProjectsDialog.svelte';
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
-  import { feedbackApi, type FeedbackKind } from '../../lib/api/feedback';
+  import { feedbackDialog } from '../../lib/store/feedback-dialog.svelte';
   import { legalHref, TERMS_PATH, PRIVACY_PATH, USAGE_DATA_PATH } from '../../lib/legal/legal';
-  import { generateShareURL } from '../../lib/utils/url-sharing';
-  import { APP_VERSION } from '../../lib/build-info';
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -115,11 +113,6 @@
   }
 
   let consentMsg = $state<string | null>(null);
-  let fbKind = $state<FeedbackKind>('bug');
-  let fbMessage = $state('');
-  let fbAttach = $state(false);
-  let fbBusy = $state(false);
-  let fbMsg = $state<{ kind: 'ok' | 'bad'; text: string } | null>(null);
 
   const termsDate = $derived.by(() => {
     const at = authStore.account?.consents?.terms?.accepted_at;
@@ -137,29 +130,6 @@
       await authStore.recordConsent('model_research', granted);
     } catch (e) {
       consentMsg = errorText(e);
-    }
-  }
-
-  async function sendFeedback(e: SubmitEvent) {
-    e.preventDefault();
-    if (fbBusy || !fbMessage.trim()) return;
-    fbBusy = true;
-    fbMsg = null;
-    try {
-      await feedbackApi.send({
-        kind: fbKind,
-        message: fbMessage.trim(),
-        page: location.pathname,
-        app_version: APP_VERSION,
-        model_link: fbAttach ? generateShareURL()?.url : undefined,
-      });
-      fbMessage = '';
-      fbAttach = false;
-      fbMsg = { kind: 'ok', text: t('feedbackForm.sent') };
-    } catch (err) {
-      fbMsg = { kind: 'bad', text: errorText(err) };
-    } finally {
-      fbBusy = false;
     }
   }
 
@@ -309,31 +279,13 @@
         {#if consentMsg}<p class="acc-msg bad" role="status">{consentMsg}</p>{/if}
       </section>
 
-      <form class="acc-section" onsubmit={sendFeedback} novalidate data-testid="profile-feedback">
+      <section class="acc-section">
         <h4 class="acc-section-head">{t('feedbackForm.section')}</h4>
-        <label class="acc-field">
-          <span class="acc-label">{t('feedbackForm.kind')}</span>
-          <select bind:value={fbKind} class="acc-select" data-testid="feedback-kind">
-            {#each ['bug', 'idea', 'question', 'other'] as k (k)}
-              <option value={k}>{t(`feedbackForm.kind.${k}`)}</option>
-            {/each}
-          </select>
-        </label>
-        <label class="acc-field">
-          <span class="acc-label">{t('feedbackForm.message')}</span>
-          <textarea rows="3" bind:value={fbMessage} maxlength="4000" data-testid="feedback-message"></textarea>
-        </label>
-        <label class="acc-check">
-          <input type="checkbox" bind:checked={fbAttach} />
-          <span>{t('feedbackForm.attachModel')}</span>
-        </label>
-        {#if fbMsg}<p class="acc-msg" class:bad={fbMsg.kind === 'bad'} role="status" data-testid="feedback-msg">{fbMsg.text}</p>{/if}
+        <p class="acc-hint">{t('feedbackForm.lede')}</p>
         <div class="acc-actions">
-          <button type="submit" class="acc-btn" disabled={fbBusy || !fbMessage.trim()} data-testid="feedback-send">
-            {fbBusy ? t('account.working') : t('feedbackForm.send')}
-          </button>
+          <button type="button" class="acc-btn" onclick={() => (feedbackDialog.open = true)} data-testid="profile-feedback-open">{t('feedbackForm.open')}</button>
         </div>
-      </form>
+      </section>
 
       <div class="acc-footer">
         <button type="button" class="acc-btn acc-quiet" onclick={logout} data-testid="account-logout">
@@ -352,16 +304,6 @@
   .acc-check { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: 0.74rem; color: var(--st-text-2); line-height: 1.4; }
   .acc-check input { margin-top: 2px; }
   .acc-links a { color: var(--st-interactive, var(--st-accent)); }
-  .acc-field textarea, .acc-select {
-    padding: 6px 8px;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    color: var(--st-text);
-    font: inherit;
-    font-size: 0.78rem;
-    resize: vertical;
-  }
 
   .acc-overlay {
     position: fixed;

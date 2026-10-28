@@ -74,8 +74,8 @@ List params (`GET /users`, `GET /allowed-emails`):
 Shapes:
 
 - `<admin session>`: `{ "access_token", "refresh_token", "expires_in", "account": <account> }`, same as the product session (`specs/services/accounts.md`).
-- `<admin account>`: `<account>` plus `{ "is_active", "last_sign_in_at", "active_sessions", "is_admin", "consents", "project_count" }`.
-- `<settings>`: `{ "user_login_enabled": bool, "usage_telemetry_enabled": bool, "cloud_projects_enabled": bool, "save_requires_account": bool, "terms_version": string }`; `terms_version` is read-only, set in `StabileoAuth.Consents`.
+- `<admin account>`: `<account>` plus `{ "is_active", "last_sign_in_at", "last_active_at", "active_sessions", "is_admin", "consents", "project_count" }`. `last_active_at` is the newest session's start: an open app refreshes its session every few minutes. Sign-up counts as a sign-in.
+- `<settings>`: `{ "user_login_enabled": bool, "usage_telemetry_enabled": bool, "cloud_projects_enabled": bool, "save_requires_account": bool, "cloud_projects_limit": 1..100, "terms_version": string }`; `terms_version` is read-only, set in `StabileoAuth.Consents`.
 - `<admin action>`: `{ "id", "action", "target_type", "target_id", "details", "admin": {"id", "email"} | null, "inserted_at" }`. Actions: `account.disable`, `account.enable`, `account.force_logout`, `settings.update`, `allowlist.add`, `allowlist.remove`, `feedback.status`.
 
 Projects (`/api/v1/admin/projects`) and metrics and feedback (`/api/v1/admin/insights`) are their own routers: `specs/services/projects.md`, `specs/services/insights.md`.

@@ -3,6 +3,8 @@
   import { adminErrorText } from './error-text';
   import { formatDateTime } from './format';
   import { t, tp } from '../lib/i18n';
+  import { adminProjects, adminFeedback } from './admin-insights.svelte';
+  import { adminRoute } from './admin-route.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -57,6 +59,20 @@
     }
   }
 
+  function showProjects() {
+    if (!user) return;
+    void adminProjects.load({ account_id: user.id, owner_label: user.email, offset: 0 });
+    onclose();
+    adminRoute.navigate('projects');
+  }
+
+  function showFeedback() {
+    if (!user) return;
+    void adminFeedback.load({ account_id: user.id, owner_label: user.email, status: '', offset: 0 });
+    onclose();
+    adminRoute.navigate('feedback');
+  }
+
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return;
     if (pending && !busy) pending = null;
@@ -102,15 +118,23 @@
       <dt>{t('admin.detail.emailVerified')}</dt>
       <dd>{user.email_verified_at ? formatDateTime(user.email_verified_at) : t('admin.detail.notVerified')}</dd>
       <dt>{t('admin.col.created')}</dt><dd>{formatDateTime(user.inserted_at)}</dd>
+      <dt>{t('admin.col.lastActive')}</dt><dd data-testid="admin-drawer-last-active">{formatDateTime(user.last_active_at ?? user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.lastSignIn')}</dt><dd>{formatDateTime(user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.sessions')}</dt><dd class="mono" data-testid="admin-drawer-sessions">{user.active_sessions}</dd>
       <dt>{t('admin.detail.adminAccess')}</dt><dd>{user.is_admin ? t('admin.yes') : t('admin.no')}</dd>
       <dt>{t('admin.col.terms')}</dt>
-      <dd data-testid="admin-drawer-terms">{user.consents?.terms ? `${user.consents.terms.version} · ${formatDateTime(user.consents.terms.accepted_at)}` : '—'}</dd>
+      <dd data-testid="admin-drawer-terms">{user.consents?.terms ? `${user.consents.terms.version} · ${formatDateTime(user.consents.terms.accepted_at)}` : t('admin.users.termsMissing')}</dd>
       <dt>{t('admin.detail.usageAnalytics')}</dt><dd>{user.consents?.usage_analytics ? t('admin.yes') : t('admin.no')}</dd>
       <dt>{t('admin.detail.modelResearch')}</dt><dd>{user.consents?.model_research ? t('admin.yes') : t('admin.no')}</dd>
       <dt>{t('admin.col.projects')}</dt><dd class="mono">{user.project_count ?? 0}</dd>
     </dl>
+
+    <div class="adm-links">
+      <button type="button" class="adm-linkbtn" onclick={showProjects} data-testid="admin-drawer-projects">{tp('admin.detail.seeProjects', { n: user.project_count ?? 0 })}</button>
+      <button type="button" class="adm-linkbtn" onclick={showFeedback} data-testid="admin-drawer-feedback">{t('admin.detail.seeFeedback')}</button>
+    </div>
+
+    <p class="adm-actions-help">{t('admin.detail.actionsHelp')}</p>
 
     {#if done}
       <p class="adm-done" role="status" data-testid="admin-drawer-done">{done}</p>
@@ -155,6 +179,9 @@
 </div>
 
 <style>
+  .adm-links { display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .adm-linkbtn { padding: 0; background: none; border: none; color: var(--st-interactive, var(--st-accent)); font: inherit; font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+  .adm-actions-help { margin: 0 0 8px; font-size: 0.74rem; line-height: 1.5; color: var(--st-text-2); }
   .adm-scrim {
     position: fixed;
     inset: 0;

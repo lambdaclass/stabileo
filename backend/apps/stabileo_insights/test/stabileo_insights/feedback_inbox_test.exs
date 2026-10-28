@@ -63,4 +63,18 @@ defmodule StabileoInsights.FeedbackInboxTest do
     {rows, _} = FeedbackInbox.list(%{"search" => "ifc"})
     assert [%{kind: "idea"}] = rows
   end
+
+  test "list filters by sender, and an id that is not one matches nothing" do
+    account = Factory.insert(:account)
+    {:ok, mine} = FeedbackInbox.create(%{"kind" => "bug", "message" => "a"}, account, %{})
+    {:ok, _} = FeedbackInbox.create(%{"kind" => "bug", "message" => "b"}, nil, %{})
+
+    {rows, meta} = FeedbackInbox.list(%{"account_id" => account.id})
+    assert meta.total == 1
+    assert [%{id: id}] = rows
+    assert id == mine.id
+
+    {rows, _} = FeedbackInbox.list(%{"account_id" => "nope"})
+    assert rows == []
+  end
 end

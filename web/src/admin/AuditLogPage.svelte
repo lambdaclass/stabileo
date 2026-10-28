@@ -5,16 +5,13 @@
   import { adminErrorText } from './error-text';
   import { formatDateTime } from './format';
   import { t, tp } from '../lib/i18n';
+  import { auditSentence } from './audit-text';
 
   onMount(() => {
     void adminAudit.load({ offset: 0 });
   });
 
   const offset = $derived(Number(adminAudit.params.offset ?? 0));
-  const details = (d: Record<string, unknown>) =>
-    Object.entries(d)
-      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-      .join(' · ');
 </script>
 
 <section class="ins" aria-labelledby="ins-audit-title" data-testid="admin-audit">
@@ -22,7 +19,9 @@
     <h1 id="ins-audit-title" class="ins-h1">{t('admin.audit.title')}</h1>
     <span class="ins-sub">{tp('admin.users.total', { count: adminAudit.total })}</span>
   </div>
-  <p class="ins-muted">{t('admin.audit.lede')}</p>
+  <div class="ins-explain">
+    <p>{t('admin.audit.what')}</p>
+  </div>
 
   {#if adminAudit.error}<div class="ins-banner" role="alert">{adminErrorText(adminAudit.error)}</div>{/if}
 
@@ -33,7 +32,6 @@
           <th>{t('admin.audit.when')}</th>
           <th>{t('admin.audit.who')}</th>
           <th>{t('admin.audit.action')}</th>
-          <th>{t('admin.audit.details')}</th>
         </tr>
       </thead>
       <tbody>
@@ -41,11 +39,10 @@
           <tr data-testid="admin-audit-row">
             <td>{formatDateTime(a.inserted_at)}</td>
             <td>{a.admin?.email ?? '—'}</td>
-            <td><span class="ins-tag accent">{a.action}</span></td>
-            <td class="ins-mono">{details(a.details)}</td>
+            <td data-testid="admin-audit-sentence">{auditSentence(a)}</td>
           </tr>
         {:else}
-          <tr><td colspan="4" class="ins-muted">{adminAudit.loading ? t('admin.loading') : t('admin.audit.empty')}</td></tr>
+          <tr><td colspan="3" class="ins-muted">{adminAudit.loading ? t('admin.loading') : t('admin.audit.empty')}</td></tr>
         {/each}
       </tbody>
     </table>

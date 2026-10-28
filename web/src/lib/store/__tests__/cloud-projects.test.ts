@@ -101,4 +101,24 @@ describe('cloud projects', () => {
     expect(err.code).toBe('project_limit_reached');
     expect(cloudProjects.saving).toBe(false);
   });
+
+  it('at the limit, replaces a saved project with the open model and links the tab to it', async () => {
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('p9', 'Viejo')], meta: { total: 1, limit: 50, offset: 0, max_projects: 1, max_bytes: 1 } }));
+    replies.set('PUT /api/v1/projects/p9', (body) => json(200, { data: meta('p9', String(body?.name)) }));
+
+    await cloudProjects.refresh();
+    expect(cloudProjects.maxProjects).toBe(1);
+    expect(cloudProjects.atLimit).toBe(true);
+
+    const saved = await cloudProjects.replace('p9');
+    const put = seen.find((r) => r.method === 'PUT')!;
+    expect(put.path).toBe('/api/v1/projects/p9');
+    expect(put.body).toMatchObject({ name: 'Pórtico de prueba', app_mode: 'basic', node_count: 2, element_count: 1 });
+    const sent = JSON.parse(await gunzipBase64(String(put.body!.content)));
+    expect({ ...sent, timestamp: null }).toEqual({ ...JSON.parse(serializeProject()), timestamp: null });
+    expect(saved.name).toBe('Pórtico de prueba');
+    expect(cloudProjects.linkedId).toBe('p9');
+    expect(cloudProjects.items.map((p) => p.id)).toEqual(['p9']);
+    expect(cloudProjects.total).toBe(1);
+  });
 });

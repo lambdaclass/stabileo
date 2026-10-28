@@ -59,6 +59,7 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
 
       saved = Repo.get!(Account, body["account"]["id"])
       assert saved.name == "New User"
+      assert %DateTime{} = saved.last_sign_in_at
       assert Repo.get_by!(Session, account_id: saved.id).user_agent == "conn-case"
     end
 

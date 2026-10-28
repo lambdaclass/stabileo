@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const auth = { saveRequiresAccount: false, isAuthenticated: false };
+const auth = { saveRequiresAccount: false, userLoginEnabled: false, isAuthenticated: false };
 const tracked: { name: string; props: Record<string, unknown> }[] = [];
 let accountsOn = true;
 
@@ -14,6 +14,7 @@ const { accountGate } = await import('../account-gate.svelte');
 
 beforeEach(() => {
   auth.saveRequiresAccount = false;
+  auth.userLoginEnabled = false;
   auth.isAuthenticated = false;
   accountsOn = true;
   tracked.length = 0;
@@ -87,5 +88,24 @@ describe('account gate', () => {
     accountGate.open = false;
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledOnce();
+  });
+
+  it('a comment asks for an account whenever sign-in is open, whatever the save switch says', () => {
+    auth.userLoginEnabled = true;
+    const run = vi.fn();
+    accountGate.requireSignIn('feedback', run);
+    expect(run).not.toHaveBeenCalled();
+    expect(accountGate.action).toBe('feedback');
+
+    auth.isAuthenticated = true;
+    accountGate.open = false;
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it('a comment goes straight through while sign-in is closed', () => {
+    const run = vi.fn();
+    accountGate.requireSignIn('feedback', run);
+    expect(run).toHaveBeenCalledOnce();
+    expect(accountGate.open).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 
 - Save the open project, update it, or save it as a new one
 - List, open, rename and delete (soft) the account's own projects
-- A per-account limit of 100 active projects; a compressed upload of at most 5 MB that inflates to at most 50 MB
+- A per-account limit of active projects, `cloud_projects_limit` in `system_settings` (1 to 100, 1 when unset), set from the admin site's Settings; lowering it deletes nothing. The app offers to replace a saved project with the open one at the limit; a compressed upload of at most 5 MB that inflates to at most 50 MB
 - Admin listing of every account's projects, metadata only, with whether the owner allows research use
 - Everything behind the runtime flag `cloud_projects_enabled`, off by default
 
@@ -74,7 +74,7 @@ None: seeds create accounts only.
 | Save, update, save as new | One row, updated in place; then a second row |
 | Content round trip | `GET /:id` answers the gzip that was sent |
 | Another account's id | 404 for read, update and delete; row unchanged |
-| 101st active project | 409 `project_limit_reached`; deleting one frees a slot |
+| Active project past `cloud_projects_limit` | 409 `project_limit_reached`; deleting one frees a slot, and updating one (the app's "replace") needs none |
 | Flag off | 403 `cloud_projects_disabled` everywhere |
 | Malformed or oversized content | 422 on `content`, nothing written |
 | Admin listing | Metadata and owner, no `content`; product token is a 401 |

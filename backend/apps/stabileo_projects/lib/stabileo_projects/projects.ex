@@ -12,7 +12,6 @@ defmodule StabileoProjects.Projects do
   alias StabileoRepo.{Features, Listing, Repo}
   alias StabileoRepo.Schemas.{Account, Project}
 
-  @max_projects 100
   @max_compressed 5_000_000
   @max_bytes 50_000_000
   @sortable [:updated_at, :inserted_at, :name, :content_bytes]
@@ -33,7 +32,7 @@ defmodule StabileoProjects.Projects do
 
   def limits,
     do: %{
-      max_projects: @max_projects,
+      max_projects: Features.cloud_projects_limit(),
       max_compressed_bytes: @max_compressed,
       max_bytes: @max_bytes
     }
@@ -176,7 +175,7 @@ defmodule StabileoProjects.Projects do
         :count
       )
 
-    if count < @max_projects, do: :ok, else: {:error, :project_limit_reached}
+    if count < Features.cloud_projects_limit(), do: :ok, else: {:error, :project_limit_reached}
   end
 
   defp search(query, term) when is_binary(term) and term != "" do

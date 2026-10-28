@@ -7,7 +7,7 @@ import { serializeProject, loadProject } from './file';
 
 let items = $state<CloudProject[]>([]);
 let total = $state(0);
-let maxProjects = $state(100);
+let maxProjects = $state(1);
 let loading = $state(false);
 let saving = $state(false);
 const linked = new Map<string, string>();
@@ -39,6 +39,7 @@ export const cloudProjects = {
   get maxProjects() { return maxProjects; },
   get loading() { return loading; },
   get saving() { return saving; },
+  get atLimit() { return total >= maxProjects; },
   get linkedId(): string | null {
     void linkedVersion;
     return linked.get(tabKey()) ?? null;
@@ -68,6 +69,22 @@ export const cloudProjects = {
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) total += 1;
+      return saved;
+    } finally {
+      saving = false;
+    }
+  },
+
+  /** Overwrites a saved project with the open model, name included, and links this tab to it. */
+  async replace(id: string): Promise<CloudProject> {
+    saving = true;
+    try {
+      const body = await payload();
+      const saved = await projectsApi.update(id, body);
+      linked.set(tabKey(), saved.id);
+      linkedVersion += 1;
+      trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
+      items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
     } finally {
       saving = false;

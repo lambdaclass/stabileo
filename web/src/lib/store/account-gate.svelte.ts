@@ -2,13 +2,23 @@ import { authStore } from './auth.svelte';
 import { accounts } from '../features';
 import { trackUsage } from '../telemetry/usage';
 
-export type GatedAction = 'save' | 'share' | 'code' | 'export' | 'exercise';
+export type GatedAction = 'save' | 'share' | 'code' | 'export' | 'exercise' | 'feedback';
 
 let pending = $state<{ action: GatedAction; run: () => unknown } | null>(null);
 let open = $state(false);
 
 function required(): boolean {
   return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated;
+}
+
+function signInRequired(): boolean {
+  return accounts() && authStore.userLoginEnabled && !authStore.isAuthenticated;
+}
+
+function ask(action: GatedAction, run: () => unknown): void {
+  pending = { action, run };
+  open = true;
+  trackUsage('gate.shown', { action });
 }
 
 function settle(): void {
@@ -34,12 +44,13 @@ export const accountGate = {
   },
 
   guard(action: GatedAction, run: () => unknown): void {
-    if (!required()) {
-      void run();
-      return;
-    }
-    pending = { action, run };
-    open = true;
-    trackUsage('gate.shown', { action });
+    if (required()) ask(action, run);
+    else void run();
+  },
+
+  /** Like `guard`, for what always needs an account while sign-in is open, whatever the save switch says. */
+  requireSignIn(action: GatedAction, run: () => unknown): void {
+    if (signInRequired()) ask(action, run);
+    else void run();
   },
 };

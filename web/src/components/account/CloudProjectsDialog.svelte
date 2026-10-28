@@ -55,6 +55,16 @@
     });
   }
 
+  function replace(p: CloudProject) {
+    if (!confirm(tp('cloud.confirmReplace', { name: p.name }))) return;
+    void act(p.id, async () => {
+      await cloudProjects.replace(p.id);
+      uiStore.toast(t('cloud.saved'), 'success');
+    });
+  }
+
+  const mustReplace = $derived(!cloudProjects.linkedId && cloudProjects.atLimit);
+
   function remove(p: CloudProject) {
     if (!confirm(tp('cloud.confirmDelete', { name: p.name }))) return;
     void act(p.id, () => cloudProjects.remove(p.id));
@@ -85,11 +95,15 @@
       <p class="lede">{t('cloud.lede')}</p>
 
       <div class="cp-save">
-        <button class="btn primary" onclick={() => save(false)} disabled={cloudProjects.saving} data-testid="cloud-save">
-          {cloudProjects.linkedId ? t('cloud.saveChanges') : t('cloud.saveCurrent')}
-        </button>
-        {#if cloudProjects.linkedId}
-          <button class="btn" onclick={() => save(true)} disabled={cloudProjects.saving} data-testid="cloud-save-new">{t('cloud.saveAsNew')}</button>
+        {#if mustReplace}
+          <p class="limit" data-testid="cloud-limit">{tp(cloudProjects.maxProjects === 1 ? 'cloud.limitOne' : 'cloud.limitMany', { max: cloudProjects.maxProjects })}</p>
+        {:else}
+          <button class="btn primary" onclick={() => save(false)} disabled={cloudProjects.saving} data-testid="cloud-save">
+            {cloudProjects.linkedId ? t('cloud.saveChanges') : t('cloud.saveCurrent')}
+          </button>
+          {#if cloudProjects.linkedId && !cloudProjects.atLimit}
+            <button class="btn" onclick={() => save(true)} disabled={cloudProjects.saving} data-testid="cloud-save-new">{t('cloud.saveAsNew')}</button>
+          {/if}
         {/if}
         <span class="count">{tp('cloud.count', { n: cloudProjects.total, max: cloudProjects.maxProjects })}</span>
       </div>
@@ -119,6 +133,9 @@
                 </span>
               </div>
               <div class="cp-actions">
+                {#if mustReplace}
+                  <button class="btn primary" onclick={() => replace(p)} disabled={busyId === p.id || cloudProjects.saving} data-testid="cloud-replace">{t('cloud.replace')}</button>
+                {/if}
                 <button class="btn" onclick={() => openProject(p)} disabled={busyId === p.id} data-testid="cloud-open">{t('cloud.open')}</button>
                 <button class="btn" onclick={() => startRename(p)} disabled={busyId === p.id}>{t('cloud.rename')}</button>
                 <button class="btn danger" onclick={() => remove(p)} disabled={busyId === p.id} data-testid="cloud-delete">{t('cloud.delete')}</button>
@@ -159,6 +176,7 @@
   h3 { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; }
   .lede { margin: 0 0 12px; font-size: 0.72rem; line-height: 1.5; color: var(--st-text-3); }
   .cp-save { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .limit { margin: 0; flex: 1; font-size: 0.72rem; line-height: 1.45; color: var(--st-text-2); }
   .count { margin-left: auto; font-size: 0.66rem; color: var(--st-text-3); }
   .cp-search, .cp-rename {
     width: 100%;

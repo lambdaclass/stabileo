@@ -20,7 +20,7 @@ defmodule StabileoAuth do
   def register(attrs, metadata \\ %{}) do
     with :ok <- user_login_open(),
          {:ok, account} <- create_account(attrs, metadata) do
-      start_session(account, metadata, "app")
+      sign_in(account, metadata, "app")
     end
   end
 

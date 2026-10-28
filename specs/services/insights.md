@@ -11,7 +11,8 @@ Sharing is on by default and the Terms say so; sign-up has no choice for it. A n
 - Batch ingestion of usage events, validated event by event: a malformed event is dropped and counted, never stored
 - A server-side switch, `usage_telemetry_enabled` (off by default): while off, batches are answered and nothing is stored, and the app stops asking for consent
 - Feedback from signed-in users (bug, idea, question, other), optionally with a link to the open model
-- Admin metrics over 1–365 days: accounts, sign-ups, consents, visits (distinct `session_id`), identified browsers (distinct `install_id` without the `v-` prefix), events and visits per day, what is used, cloud projects, unread feedback
+- Admin metrics over 1–365 days, `{visitors, usage, gate, accounts, projects, feedback}`. A visit is a distinct `COALESCE(session_id, install_id)`. `visitors`: visits, browsers (distinct `install_id` without the `v-` prefix), visits with a `solve`, solves, and visits and solving visits per day. `usage`: per value, the visits that used it (tools, diagrams, advanced, examples, exports, step methods, gate actions, mode, version, locale), except `solve_outcomes` and `solve_dims`, which count solves. `gate`: visits shown the account request and visits that passed it. `accounts`: total, new in the window, active in 7 days (a session started in the last week), current consents. `projects`: total, owners, by mode, the per-account limit. `feedback`: unread
+- Feedback list filters by sender with `account_id`
 - Admin feedback inbox with status (`new`, `read`, `done`)
 - `StabileoInsights.Usage.prune/1` deletes events older than 395 days (13 months); there is no scheduler yet, so it runs from a release console
 
@@ -74,4 +75,4 @@ None.
 | Mixed batch | Valid events stored with the batch's shared fields; nested props, bad names, long strings, old timestamps dropped and counted |
 | Feedback without a session | 401, nothing stored |
 | Feedback status change | Updated, and an `feedback.status` audit row |
-| Summary | Counts match the rows: installs are distinct stable `install_id`, visits are distinct sessions, consents are each account's latest decision |
+| Summary | Counts match the rows: browsers are distinct stable `install_id`, visits are distinct sessions, breakdowns count visits and solve breakdowns count solves, consents are each account's latest decision |

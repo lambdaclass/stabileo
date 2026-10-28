@@ -15,6 +15,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
         "usage_telemetry_enabled" => false,
         "cloud_projects_enabled" => false,
         "save_requires_account" => false,
+        "cloud_projects_limit" => 1,
         "terms_version" => StabileoAuth.Consents.terms_version()
       },
       overrides
@@ -114,6 +115,28 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
 
     assert body["details"] == %{"cloud_projects_enabled" => ["must be true or false"]}
     refute StabileoRepo.Features.usage_telemetry_enabled?()
+  end
+
+  test "sets how many cloud projects an account may keep", %{token: token} do
+    body =
+      admin_request(:put, "/settings", %{"cloud_projects_limit" => 3}, token) |> json_body(200)
+
+    assert body["data"]["cloud_projects_limit"] == 3
+    assert StabileoRepo.Features.cloud_projects_limit() == 3
+    assert [audit] = Repo.all(StabileoRepo.Schemas.AdminAction)
+    assert audit.details == %{"cloud_projects_limit" => 3}
+  end
+
+  test "422 for a project limit outside 1 to 100", %{token: token} do
+    for value <- [0, 101, 1.5, "2", true] do
+      body =
+        admin_request(:put, "/settings", %{"cloud_projects_limit" => value}, token)
+        |> json_body(422)
+
+      assert body["details"]["cloud_projects_limit"] == ["must be a whole number from 1 to 100"]
+    end
+
+    assert StabileoRepo.Features.cloud_projects_limit() == 1
   end
 
   test "422 when no known flag is given", %{token: token} do
