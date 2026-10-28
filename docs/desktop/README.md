@@ -1,8 +1,45 @@
 # Stabileo desktop (Windows, macOS, Linux)
 
-Status: planning, branch `desktop`. This document is the plan; the roadmap below is the order of
-work. It was reviewed against the code by Codex and Kimi (2026-10-27); their corrections are folded
+Status: phase 0 (first installable prereleases), branch `desktop`, draft PR #663. This document is
+the plan; the roadmap below is the order of work. It was reviewed against the code by Codex and Kimi (2026-10-27); their corrections are folded
 in.
+
+## Install
+
+Prereleases only, for testers: `desktop-v*` releases on GitHub, marked prerelease and never the
+repository's latest release. The app is not signed yet (see "Code signing last"), and it updates
+itself: it checks at startup and from Help ▸ Check for Updates, and installs only when you accept,
+never during a calculation.
+
+- **macOS** (11 or newer, Apple silicon or Intel):
+  `brew install --cask lambdaclass/tap/stabileo`. macOS blocks an unsigned app on first open:
+  right-click Stabileo in Applications and choose Open once, or run
+  `xattr -dr com.apple.quarantine /Applications/Stabileo.app`.
+- **Windows** (10 or 11, x64), in PowerShell:
+  `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop/desktop/install/install.ps1 | iex`.
+  It installs for the current user, without administrator rights.
+- **Linux** (x86_64), and macOS without Homebrew:
+  `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop/desktop/install/install.sh | sh`.
+  On Linux it puts the AppImage at `~/.local/bin/stabileo` with a menu entry and `.ded` files
+  opening in it (AppImages need FUSE 2: `sudo apt install libfuse2` on Debian/Ubuntu).
+  `sh install.sh --uninstall` removes it. The `.deb` on the release page installs too, but does
+  not update itself; the app links to the new version instead.
+
+The scripts download from the newest `desktop-v*` prerelease and check every file against its
+`SHA256SUMS` before installing anything (`STABILEO_VERSION=0.1.0-alpha.1` picks a version).
+
+### How releases are made
+`.github/workflows/desktop.yml`: every push to `desktop` builds unsigned installers on GitHub's
+Linux, macOS and Windows runners and launches each app once (it must solve the startup self-check
+in the bundled engine). A manual run with a `version` publishes the prerelease
+`desktop-v<version>`: installers, `SHA256SUMS`, `latest.json` (the update manifest, signed with the
+updater key) and the Homebrew cask as an artifact. It then points the update feed,
+`latest.json` on the `desktop-update-feed` branch, at that version. The cask goes to
+`lambdaclass/homebrew-tap` (`Casks/stabileo.rb`) by pull request.
+
+The updater's private key and its password are repository secrets (`TAURI_SIGNING_PRIVATE_KEY`,
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`); the public key is in `desktop/src-tauri/tauri.conf.json`.
+Losing the private key means installed copies can no longer update themselves.
 
 ## Decisions
 
