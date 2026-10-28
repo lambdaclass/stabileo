@@ -485,8 +485,17 @@ fn plastic_3d_input(c: &crate::case::Case3) -> PlasticInput3D {
     PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
 }
 
+/// A model of the exported differential corpus, or its pinned copy: a
+/// regression below pins numbers of one particular model, and the corpus is
+/// regenerated whenever the generators change (frame3d-2 lost its
+/// unrestrained-DOF settlements, and a support with them, in October 2026).
 fn corpus_3d(name: &str) -> crate::case::Case3 {
-    let f = format!("{}/tests/metamorphic_corpus/differential/{name}.json", env!("CARGO_MANIFEST_DIR"));
+    let pinned = format!("{}/tests/metamorphic/pinned/{name}.json", env!("CARGO_MANIFEST_DIR"));
+    let f = if std::path::Path::new(&pinned).exists() {
+        pinned
+    } else {
+        format!("{}/tests/metamorphic_corpus/differential/{name}.json", env!("CARGO_MANIFEST_DIR"))
+    };
     crate::case::Case3::new(name, serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap())
 }
 
