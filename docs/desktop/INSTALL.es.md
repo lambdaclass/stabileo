@@ -84,6 +84,8 @@ curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update
 ```
 
 Descarga la versión más nueva, verifica su huella y copia Stabileo a Aplicaciones.
+Los archivos que descarga un comando de la terminal no quedan marcados como bajados de internet,
+así que macOS no muestra el aviso de la primera apertura para esta copia.
 
 ### O a mano
 

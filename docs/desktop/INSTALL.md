@@ -82,6 +82,8 @@ curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update
 ```
 
 It downloads the newest version, checks its fingerprint, and copies Stabileo to Applications.
+Files downloaded by a terminal command are not marked as coming from the internet, so macOS does
+not show the first-open warning for this copy.
 
 ### Or by hand
 
