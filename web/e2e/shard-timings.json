@@ -82,6 +82,7 @@
   "m3-bolted-joint-3d.spec.ts": 48,
   "metallic-joints.spec.ts": 53,
   "move-and-view-controls.spec.ts": 51,
+  "no-raw-i18n-keys.spec.ts": 180,
   "prerender.spec.ts": 77,
   "pro-advanced-audit.spec.ts": 0,
   "pro-code-loads.spec.ts": 34,
