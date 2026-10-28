@@ -215,6 +215,7 @@ const en: Record<string, string> = {
   'landing.navEducation': 'Education',
   'landing.navPricing': 'Pricing',
   'landing.navBlog': 'Blog',
+  'landing.navResearch': 'Research',
   'landing.ebHero': 'FREE AND OPEN · STRUCTURAL ANALYSIS',
   'landing.heroH': 'Structural analysis, in a browser tab.',
   'landing.heroP': 'An open structural-analysis platform. The solver runs on your own machine: nothing to install, no licences.',

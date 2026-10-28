@@ -63,6 +63,7 @@
       {#if inPost}
         <PublicLink to="/blog" class="nav-blog-link">{t('landing.navBlog')}</PublicLink>
       {/if}
+      <PublicLink to="/research" class="nav-blog-link">{t('landing.navResearch')}</PublicLink>
 
       <a class="nav-gh" href={REPO_URL} target="_blank" rel="noreferrer" aria-label={t('landing.navGithubRepo')}>
         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true" focusable="false">

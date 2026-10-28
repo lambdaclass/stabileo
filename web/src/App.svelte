@@ -609,6 +609,12 @@
   }
 
   function syncRouteState() {
+    // Stabileo Research renders without the application (Root.svelte); reached from inside it,
+    // the page is loaded on its own.
+    if (routeKind({ pathname: location.pathname, search: '', hash: '' }).kind === 'research') {
+      location.reload();
+      return;
+    }
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;

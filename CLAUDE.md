@@ -10,6 +10,7 @@ Structural analysis in the browser, plus the SaaS around it. Conventions follow
 | `backend/` | Elixir/Phoenix umbrella: accounts, and the SaaS from here on | `backend/CLAUDE.md` |
 | `ai-backend/` | Legacy Rust/Axum AI service. Its routes move to `backend/`, then it is deleted | — |
 | `specs/` | Backend/service specs. Read before building a feature | `specs/README.md` |
+| `research/` | Stabileo Research: experimental papers, isolated from the product | `research/CLAUDE.md` |
 
 ## Setup
 

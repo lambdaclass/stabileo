@@ -1,0 +1,4 @@
+# Stabileo Research (research/): experimental code and the paper catalog, reviewed separately
+# from the solver and design-code owners.
+/research/                 @unbalancedparentheses
+/.github/workflows/research.yml @unbalancedparentheses
