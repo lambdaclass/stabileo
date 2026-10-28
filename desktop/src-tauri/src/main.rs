@@ -134,6 +134,24 @@ fn can_self_update() -> bool {
     !cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some()
 }
 
+const LOG_MAX: u64 = 1 << 20;
+
+fn append_log<R: Runtime>(app: &AppHandle<R>, line: &str) {
+    use std::io::Write;
+    let Ok(dir) = app.path().app_log_dir() else { return };
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let path = dir.join("stabileo.log");
+    if fs::metadata(&path).map(|m| m.len() > LOG_MAX).unwrap_or(false) {
+        let _ = fs::rename(&path, dir.join("stabileo.old.log"));
+    }
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let _ = writeln!(f, "{secs} {line}");
+    }
+}
+
 /// Leave after the page has dealt with unsaved changes.
 #[tauri::command]
 fn exit_app<R: Runtime>(app: AppHandle<R>) {
@@ -143,9 +161,14 @@ fn exit_app<R: Runtime>(app: AppHandle<R>) {
 /// The page's log lines. The launch test (`.github/workflows/desktop.yml`) sets
 /// `STABILEO_SELFCHECK_OUT` to collect them (a Windows release build has no console) and
 /// `STABILEO_EXIT_AFTER_SELFCHECK` to leave with the self-check's verdict.
+///
+/// Every line also goes to `stabileo.log` in the system's log folder for the app (macOS
+/// `~/Library/Logs/com.stabileo.desktop`, Windows `%LOCALAPPDATA%\com.stabileo.desktop\logs`, Linux
+/// `~/.local/share/com.stabileo.desktop/logs`), kept under 1 MB with one previous file beside it.
 #[tauri::command]
 fn log_line<R: Runtime>(app: AppHandle<R>, line: String) {
     println!("{line}");
+    append_log(&app, &line);
     if let Some(out) = std::env::var_os("STABILEO_SELFCHECK_OUT") {
         use std::io::Write;
         if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(out) {
