@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
-   * A small SVG chart: lines, points with optional vertical error bars, a highlighted current
-   * point and reference rules. Axes fit every series.
+   * A small SVG chart: lines, bands, points with optional vertical error bars, a highlighted
+   * current point and reference rules. Axes fit every series and end on a tick. Encoding: hue is
+   * the source (ours blue, the paper orange); dashes mark a variant within a source.
    */
   export type PlotSeries = {
     name: string;
@@ -35,32 +36,33 @@
   } = $props();
 
   let width = $state(480);
-  const M = { l: 52, r: 12, t: 10, b: 38 };
+  const M = { l: 44, r: 28, t: 22, b: 30 };
 
-  function ticks(lo: number, hi: number, n = 5): number[] {
-    const raw = (hi - lo) / n;
+  function step(lo: number, hi: number, n = 5): number {
+    const raw = (hi - lo) / n || 1;
     const p = 10 ** Math.floor(Math.log10(raw));
-    const step = [1, 2, 2.5, 5, 10].map((k) => k * p).find((s) => s >= raw) ?? raw;
-    const out: number[] = [];
-    for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + step * 1e-6; v += step) out.push(Number(v.toPrecision(10)));
-    return out;
+    return [1, 2, 2.5, 5, 10].map((k) => k * p).find((s) => s >= raw) ?? raw;
+  }
+  /** Domain widened outward to whole steps, and the ticks in it. */
+  function axis(lo: number, hi: number, fixed: boolean) {
+    const s = step(lo, hi);
+    const a = fixed ? lo : Math.floor(lo / s + 1e-9) * s;
+    const b = fixed ? hi : Math.ceil(hi / s - 1e-9) * s;
+    const ticks: number[] = [];
+    for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + s * 1e-6; v += s) ticks.push(Number(v.toPrecision(10)));
+    const decimals = Math.max(0, -Math.floor(Math.log10(s) + 1e-9));
+    return { domain: [a, b] as [number, number], ticks, decimals };
   }
 
   const ys = $derived(
     series.flatMap((s) => s.points.flatMap((p) => [p.y, p.lo ?? p.y, p.hi ?? p.y])).concat(current ? [current.y] : []).filter(Number.isFinite),
   );
   const xs = $derived(series.flatMap((s) => s.points.map((p) => p.x)).filter(Number.isFinite));
-  const xd = $derived<[number, number]>(xDomain ?? [Math.min(...xs), Math.max(...xs)]);
-  const yd = $derived.by<[number, number]>(() => {
-    if (yDomain) return yDomain;
-    const lo = Math.min(...ys);
-    const hi = Math.max(...ys);
-    const pad = 0.06 * (hi - lo || 1);
-    return [lo - pad, hi + pad];
-  });
-  const sx = (x: number) => M.l + ((x - xd[0]) / (xd[1] - xd[0])) * (width - M.l - M.r);
-  const sy = (y: number) => M.t + (1 - (y - yd[0]) / (yd[1] - yd[0])) * (height - M.t - M.b);
-  const fmt = (v: number) => (Math.abs(v) < 1e-12 ? '0' : Number(v.toPrecision(3)).toString());
+  const X = $derived(xDomain ? axis(xDomain[0], xDomain[1], true) : axis(Math.min(...xs), Math.max(...xs), false));
+  const Y = $derived(yDomain ? axis(yDomain[0], yDomain[1], true) : axis(Math.min(...ys), Math.max(...ys), false));
+  const sx = (x: number) => M.l + ((x - X.domain[0]) / (X.domain[1] - X.domain[0])) * (width - M.l - M.r);
+  const sy = (y: number) => M.t + (1 - (y - Y.domain[0]) / (Y.domain[1] - Y.domain[0])) * (height - M.t - M.b);
+  const fmt = (v: number, d: number) => (Math.abs(v) < 1e-12 ? '0' : v.toFixed(d).replace('-', '−'));
   const path = (pts: { x: number; y: number }[]) =>
     pts
       .filter((p) => Number.isFinite(p.y))
@@ -73,16 +75,27 @@
   };
 </script>
 
-<div class="plot" bind:clientWidth={width}>
+{#snippet mark(shape: PlotSeries['shape'], cx: number, cy: number, color: string)}
+  {#if shape === 'triangle'}
+    <path d="M{cx},{cy - 5}l4.5,8h-9z" fill={color} />
+  {:else if shape === 'square'}
+    <rect x={cx - 4} y={cy - 4} width="8" height="8" fill="none" stroke={color} stroke-width="1.6" />
+  {:else}
+    <circle {cx} {cy} r="3.2" fill={color} />
+  {/if}
+{/snippet}
+
+<figure class="plot" bind:clientWidth={width}>
   <svg {width} {height} role="img" aria-label={ariaLabel}>
-    {#each ticks(yd[0], yd[1]) as t (t)}
+    <text x={M.l - 6} y="12" class="axis" text-anchor="start">{yLabel}</text>
+    {#each Y.ticks as t (t)}
       <line x1={M.l} x2={width - M.r} y1={sy(t)} y2={sy(t)} class="grid" />
-      <text x={M.l - 6} y={sy(t) + 4} text-anchor="end" class="tick">{fmt(t)}</text>
+      <text x={M.l - 6} y={sy(t) + 4} text-anchor="end" class="tick">{fmt(t, Y.decimals)}</text>
     {/each}
-    {#each ticks(xd[0], xd[1]) as t (t)}
-      <text x={sx(t)} y={height - M.b + 15} text-anchor="middle" class="tick">{fmt(t)}</text>
+    {#each X.ticks as t, i (t)}
+      <text x={sx(t)} y={height - M.b + 15} text-anchor={i === X.ticks.length - 1 ? 'end' : 'middle'} class="tick">{fmt(t, X.decimals)}</text>
     {/each}
-    {#if yd[0] < 0 && yd[1] > 0}<line x1={M.l} x2={width - M.r} y1={sy(0)} y2={sy(0)} class="zero" />{/if}
+    {#if Y.domain[0] < 0 && Y.domain[1] > 0}<line x1={M.l} x2={width - M.r} y1={sy(0)} y2={sy(0)} class="zero" />{/if}
     {#each rules as r (r.label)}
       {#if r.x !== undefined}
         <line x1={sx(r.x)} x2={sx(r.x)} y1={M.t} y2={height - M.b} class="rule" /><text x={sx(r.x) + 4} y={M.t + 11} class="rule-t">{r.label}</text>
@@ -94,48 +107,44 @@
       {#if s.kind === 'band'}
         <path d={band(s.points)} fill={s.color} opacity="0.18" />
       {:else if s.kind === 'line'}
-        <path d={path(s.points)} fill="none" stroke={s.color} stroke-width="2" stroke-dasharray={s.dashed ? '5 4' : undefined} />
+        <path d={path(s.points)} fill="none" stroke={s.color} stroke-width="1.75" stroke-dasharray={s.dashed ? '5 4' : undefined} />
       {:else}
         {#each s.points as p, i (i)}
           {#if p.lo !== undefined && p.hi !== undefined}
             <line x1={sx(p.x)} x2={sx(p.x)} y1={sy(p.lo)} y2={sy(p.hi)} stroke={s.color} stroke-width="1.2" opacity="0.8" />
           {/if}
-          {#if Number.isFinite(p.y)}
-            {#if s.shape === 'triangle'}
-              <path d="M{sx(p.x)},{sy(p.y) - 5}l4.5,8h-9z" fill={s.color} />
-            {:else if s.shape === 'square'}
-              <rect x={sx(p.x) - 4} y={sy(p.y) - 4} width="8" height="8" fill="none" stroke={s.color} stroke-width="1.6" />
-            {:else}
-              <circle cx={sx(p.x)} cy={sy(p.y)} r="3.2" fill={s.color} />
-            {/if}
-          {/if}
+          {#if Number.isFinite(p.y)}{@render mark(s.shape, sx(p.x), sy(p.y), s.color)}{/if}
         {/each}
       {/if}
     {/each}
     {#if current && Number.isFinite(current.y)}
       <circle cx={sx(current.x)} cy={sy(current.y)} r="6" fill="none" stroke="var(--fg, #fff)" stroke-width="2" />
     {/if}
-    <text x={(M.l + width - M.r) / 2} y={height - 4} text-anchor="middle" class="axis">{xLabel}</text>
-    <text x="12" y={(M.t + height - M.b) / 2} text-anchor="middle" class="axis" transform="rotate(-90 12 {(M.t + height - M.b) / 2})">{yLabel}</text>
+    <text x={width - M.r} y={height - 2} text-anchor="end" class="axis">{xLabel}</text>
   </svg>
   <ul class="legend">
     {#each series.filter((s) => s.kind !== 'band') as s (s.name)}
-      <li><span class="sw" class:dash={s.dashed} class:pt={s.kind === 'points'} style="--c: {s.color}"></span>{s.name}</li>
+      <li>
+        <svg width="18" height="12" aria-hidden="true">
+          {#if s.kind === 'line'}<line x1="0" x2="18" y1="6" y2="6" stroke={s.color} stroke-width="2" stroke-dasharray={s.dashed ? '4 3' : undefined} />{:else}{@render mark(s.shape, 9, 7, s.color)}{/if}
+        </svg>{s.name}
+      </li>
     {/each}
-    {#if current}<li><span class="sw cur"></span>{current.label}</li>{/if}
+    {#if current}<li><svg width="18" height="14" aria-hidden="true"><circle cx="9" cy="7" r="5" fill="none" stroke="var(--fg, #fff)" stroke-width="2" /></svg>{current.label}</li>{/if}
   </ul>
-</div>
+</figure>
 
 <style>
   .plot {
     width: 100%;
+    margin: 0.5rem 0 1rem;
   }
   svg {
     display: block;
     overflow: visible;
   }
   .grid {
-    stroke: var(--hair, #333);
+    stroke: var(--st-canvas-grid, rgba(255, 255, 255, 0.13));
     stroke-width: 1;
   }
   .zero {
@@ -149,11 +158,12 @@
   .rule-t,
   .tick {
     fill: var(--fg-2, #999);
-    font: 11px var(--lp-mono, monospace);
+    font: 12px var(--lp-sans, sans-serif);
+    font-variant-numeric: tabular-nums;
   }
   .axis {
     fill: var(--fg, #ddd);
-    font: 12px var(--lp-mono, monospace);
+    font: 13px var(--lp-sans, sans-serif);
   }
   .legend {
     list-style: none;
@@ -162,31 +172,15 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem 1rem;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     color: var(--fg-2, #aaa);
   }
-  .sw {
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .legend svg {
     display: inline-block;
-    width: 18px;
-    height: 0;
-    border-top: 2px solid var(--c);
-    margin-right: 0.4rem;
-    vertical-align: middle;
-  }
-  .sw.dash {
-    border-top-style: dashed;
-  }
-  .sw.pt {
-    width: 8px;
-    height: 8px;
-    border: none;
-    border-radius: 50%;
-    background: var(--c);
-  }
-  .sw.cur {
-    width: 10px;
-    height: 10px;
-    border: 2px solid var(--fg, #fff);
-    border-radius: 50%;
   }
 </style>

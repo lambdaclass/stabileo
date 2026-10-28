@@ -21,10 +21,9 @@
 
   const SOURCE = `${REPO_URL}/tree/main/research/metamaterials/grossman-2026`;
   const DOI = 'https://doi.org/10.1103/17sg-gzhl';
+  // Hue is the source (ours blue, the paper orange); dashes mark a variant within a source.
   const OURS = '#3987e5';
-  const STRIP = '#7fb3ff';
   const PAPER = '#d95926';
-  const TEXT = '#e0b341';
 
   type Family = 'foam' | 'ordered' | 'honeycomb' | 'square';
   let family = $state<Family>('foam');
@@ -259,15 +258,15 @@
   const foamSeries = $derived<PlotSeries[]>([
     { name: `Ours, periodic ${results.foam.cells}² cells, ±1 s.d. of ${results.foam.seeds} samples`, color: OURS, kind: 'band', points: foamP.map((r) => ({ x: r.eta, y: r.nu.mean, lo: r.nu.mean - r.nu.std, hi: r.nu.mean + r.nu.std })) },
     { name: `Ours, periodic (exact moduli), mean of ${results.foam.seeds}`, color: OURS, kind: 'line', points: foamP.map((r) => ({ x: r.eta, y: r.nu.mean })) },
-    { name: 'Ours, the paper’s 13 × 52 strip protocol', color: STRIP, kind: 'line', dashed: true, points: foamS.map((r) => ({ x: r.eta, y: r.nu.mean })) },
+    { name: 'Ours, the paper’s 13 × 52 strip protocol', color: OURS, kind: 'line', dashed: true, points: foamS.map((r) => ({ x: r.eta, y: r.nu.mean })) },
     { name: 'Paper, Fig. 5 simulations (digitised, with error bars)', color: PAPER, kind: 'points', shape: 'triangle', points: fig5.filter((p) => Number.isFinite(p.y)) },
-    { name: 'Paper, text: ν = 0 at η ≃ 0.46, −0.1 as η → 0.5', color: TEXT, kind: 'points', shape: 'square', points: [{ x: 0.46, y: 0 }, { x: 0.5, y: -0.1 }] },
+    { name: 'Paper, text: ν = 0 at η ≃ 0.46, −0.1 as η → 0.5', color: PAPER, kind: 'points', shape: 'square', points: [{ x: 0.46, y: 0 }, { x: 0.5, y: -0.1 }] },
   ]);
   type Dil = { z: number; bulk: number; shear: number };
   const dil = results.dilution as Dil[];
   const dilSeries: PlotSeries[] = [
     { name: 'Bulk modulus B / k', color: OURS, kind: 'line', points: dil.map((r) => ({ x: r.z, y: r.bulk })) },
-    { name: 'Shear modulus G / k', color: PAPER, kind: 'line', points: dil.map((r) => ({ x: r.z, y: r.shear })) },
+    { name: 'Shear modulus G / k', color: OURS, kind: 'line', dashed: true, points: dil.map((r) => ({ x: r.z, y: r.shear })) },
   ];
   type Honey = { l: number; eq23: number; 'nu_k1e-3': number };
   const honeySeries: PlotSeries[] = [
@@ -280,7 +279,7 @@
     const pick = (r: PeriodicResult) => ts.map((t) => ({ x: t, y: uniaxial(r.c, Math.PI / 2 - t)?.[1] ?? NaN }));
     return [
       { name: 'Paper, Supplemental Eq. (9)', color: PAPER, kind: 'line', points: ts.map((t) => ({ x: t, y: eq9(phi, psi, t) })) },
-      { name: 'Ours, equal-weight springs (k ∝ 1/ℓ²)', color: TEXT, kind: 'line', dashed: true, points: pick(ordered.eq) },
+      { name: 'Ours, equal-weight springs (k ∝ 1/ℓ²)', color: OURS, kind: 'line', dashed: true, points: pick(ordered.eq) },
       { name: 'Ours, equal Hookean springs (Eq. 3)', color: OURS, kind: 'line', points: pick(ordered.hook) },
     ];
   });
@@ -320,6 +319,13 @@
   $effect(() => {
     if (tab === 'edit' && strip && !editorSrc && !editorLoading) void loadEditor();
   });
+  function tabKey(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const next = tab === 'experiment' ? 'edit' : 'experiment';
+    showTab(next);
+    document.getElementById(next === 'edit' ? 'sp-tab-edit' : 'sp-tab-exp')?.focus();
+  }
   async function openFullEditor() {
     if (!strip) return;
     const w = window.open('about:blank', '_blank');
@@ -369,7 +375,7 @@
       <h2>The model we solve</h2>
       <p>
         Springs <i>e</i> join nodes; each has stiffness <i>k<sub>e</sub></i>, rest length ℓ̄<sub>e</sub> and current length ℓ<sub>e</sub>, and the energy is
-        <span class="eq">E = ½ Σ<sub>e</sub> k<sub>e</sub> (ℓ<sub>e</sub> − ℓ̄<sub>e</sub>)²</span> (the paper’s Eq. 3). A spring network is a pin-jointed truss, so the right pane
+        <span class="eq"><var>E</var> = ½ Σ<sub>e</sub> <var>k</var><sub>e</sub> (<var>ℓ</var><sub>e</sub> − <var>ℓ̄</var><sub>e</sub>)²</span> (the paper’s Eq. 3). A spring network is a pin-jointed truss, so the right pane
         shows it in the Stabileo viewer: each bar coloured by its axial force, on the deformed shape. We compute two things.
       </p>
       <ul>
@@ -443,8 +449,9 @@
       <PlotXY series={dilSeries} xLabel="mean coordination z" yLabel="modulus / k" xDomain={[2.4, 6]} rules={[{ x: 4, label: 'z = 4' }]} current={family === 'foam' && eta === 0 && cell ? { x: cell.coordination, y: cell.isotropic.shear, label: 'This network: G' } : null} ariaLabel="Moduli against coordination" />
 
       <h3>All checks</h3>
-      <table class="sp-checks">
-        <thead><tr><th>Check</th><th>Observed</th><th>Tolerance</th><th></th></tr></thead>
+      <table class="sp-checks" id="checks">
+        <caption>{validation.checks.length} validation checks run in CI, each with its tolerance</caption>
+        <thead><tr><th scope="col">Check</th><th scope="col">Observed</th><th scope="col">Tolerance</th><th scope="col">Result</th></tr></thead>
         <tbody>
           {#each validation.checks as c (c.name)}
             <tr><td>{c.name}<br /><span class="m">{c.metric}</span></td><td>{fmtSci(c.observed)}</td><td>{fmtSci(c.tolerance)}</td><td>{c.passed ? 'pass' : 'FAIL'}</td></tr>
@@ -478,12 +485,14 @@
 
     <aside class="sp-app" bind:this={pane} aria-label="The experiment">
       <div class="sp-sticky">
-        <div class="sp-tabs" role="tablist" aria-label="Experiment or editor">
-          <button role="tab" aria-selected={tab === 'experiment'} class:on={tab === 'experiment'} onclick={() => showTab('experiment')}>Experiment</button>
-          <button role="tab" aria-selected={tab === 'edit'} class:on={tab === 'edit'} onclick={() => showTab('edit')}>Edit in Stabileo</button>
+        <div class="sp-tabbar">
+          <div class="sp-tabs" role="tablist" aria-label="Experiment or editor">
+            <button role="tab" id="sp-tab-exp" aria-controls="sp-panel-exp" aria-selected={tab === 'experiment'} tabindex={tab === 'experiment' ? 0 : -1} class:on={tab === 'experiment'} onclick={() => showTab('experiment')} onkeydown={tabKey}>Experiment</button>
+            <button role="tab" id="sp-tab-edit" aria-controls="sp-panel-edit" aria-selected={tab === 'edit'} tabindex={tab === 'edit' ? 0 : -1} class:on={tab === 'edit'} onclick={() => showTab('edit')} onkeydown={tabKey}>Edit in Stabileo</button>
+          </div>
           <button class="sp-full" type="button" onclick={openFullEditor} disabled={!strip}>Open full editor ↗</button>
         </div>
-          <div class="sp-editor" role="tabpanel" aria-label="Stabileo editor (production engine)" hidden={tab !== 'edit'}>
+          <div class="sp-editor" role="tabpanel" id="sp-panel-edit" aria-labelledby="sp-tab-edit" hidden={tab !== 'edit'}>
             <p class="sp-source">
               Stabileo editor (production engine): this strip as an ordinary truss, end rows pinned, the far end moved by the imposed strain. Edit and press Solve. Bar forces are
               1000 × the experiment’s (E·A/L = 1000 k kN/m).{#if prestress > 0} Prestress is not carried over.{/if}
@@ -497,14 +506,14 @@
               {/if}
             </div>
           </div>
-        <div role="tabpanel" aria-label="Experiment" hidden={tab !== 'experiment'}>
+        <div role="tabpanel" id="sp-panel-exp" aria-labelledby="sp-tab-exp" hidden={tab !== 'experiment'}>
         <p class="sp-source" aria-live="polite">
           {#if loadError}
             <span class="warnt">The simulation bundle is not part of this build ({loadError}). Build it with research/metamaterials/grossman-2026/wasm/build.sh.</span>
           {:else if !glue}
             Loading the solver…
           {:else if autoplaying}
-            Live sweep of η in your browser (our solver) · touch any control to take over
+            Live sweep of η in your browser (our solver) <button class="sp-pause" type="button" onclick={touch}>Pause sweep</button>
           {:else}
             {SOURCE_LABEL.live} · {nf(solveMs, 0)} ms
           {/if}
@@ -568,10 +577,10 @@
             <label class="chk"><input type="checkbox" bind:checked={diagonals} /> Diagonals</label>
           {/if}
           <label>Bonds kept <input type="range" min="0.4" max="1" step="0.01" bind:value={keep} aria-label="Fraction of bonds kept" /><span class="v">{nf(keep, 2)}</span></label>
-          <label>Prestress <input type="range" min="0" max="0.1" step="0.005" bind:value={prestress} aria-label="Prestress" /><span class="v">{nf(prestress, 3)}</span></label>
-          <label>Imposed strain <input type="range" min="-0.05" max="0.05" step="0.005" bind:value={strain} aria-label="Imposed strain" /><span class="v">{nf(strain, 3)}</span></label>
+          <label>Prestress (rest lengths shortened) <input type="range" min="0" max="0.1" step="0.005" bind:value={prestress} aria-label="Prestress: rest lengths shortened by" /><span class="v">{nf(prestress * 100, 1)} %</span></label>
+          <label>Imposed strain <input type="range" min="-0.05" max="0.05" step="0.005" bind:value={strain} aria-label="Imposed strain" /><span class="v">{nf(strain * 100, 1)} %</span></label>
           <label>Deformation × <input type="range" min="0" max="60" step="1" bind:value={deform} aria-label="Deformation scale" /><span class="v">{deform}</span></label>
-          <label>Seed <input type="number" min="0" max="999" step="1" bind:value={seed} aria-label="Random seed" /></label>
+          <label>Seed <input class="seed" type="number" min="0" max="999" step="1" bind:value={seed} aria-label="Random seed" /></label>
         </form>
         </div>
       </div>
@@ -643,14 +652,15 @@
       grid-template-columns: minmax(0, 1fr) minmax(24rem, 36rem);
       align-items: start;
     }
+    /* The grid item itself sticks (a sticky child of a content-height item would not). */
     .sp-app {
       order: 2;
-    }
-    .sp-sticky {
       position: sticky;
-      top: 4.5rem;
-      max-height: calc(100vh - 5rem);
-      overflow-y: auto;
+      top: calc(var(--lp-nav-h, 4rem) + 0.75rem);
+      max-height: calc(100dvh - var(--lp-nav-h, 4rem) - 1.5rem);
+      overflow: hidden auto;
+      scrollbar-gutter: stable;
+      overscroll-behavior: contain;
     }
   }
   @media (max-width: 59.99rem) {
@@ -679,16 +689,18 @@
     line-height: 1.6;
   }
   .eq {
-    font-family: var(--lp-mono);
     white-space: nowrap;
+  }
+  .eq var {
+    font-style: italic;
   }
   button.link {
     background: none;
     border: none;
     padding: 0;
-    color: var(--accent, #7fb3ff);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    color: var(--rs-link, #ff7a55);
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
     cursor: pointer;
     font: inherit;
   }
@@ -696,7 +708,7 @@
     font-size: 0.95rem;
   }
   .sp-note {
-    font-size: 0.85rem;
+    font-size: 0.9375rem;
     color: var(--fg-2);
   }
   .warnt {
@@ -745,6 +757,7 @@
     color: var(--fg-2);
   }
   .sp-readout {
+    min-height: 5.5rem;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.4rem 1rem;
@@ -783,6 +796,38 @@
     font: 13px var(--lp-mono);
     min-width: 0;
   }
+  .sp-controls input[type='range'] {
+    accent-color: var(--lp-accent, #e5482a);
+    height: 24px;
+    min-width: 0;
+  }
+  .sp-controls input.seed {
+    grid-column: 2 / 3;
+    width: 6rem;
+  }
+  .sp-pause {
+    margin-left: 0.5rem;
+    background: none;
+    border: 1px solid var(--fg-2);
+    border-radius: 3px;
+    color: var(--fg);
+    padding: 0.15rem 0.5rem;
+    font: 12px var(--lp-sans, sans-serif);
+    cursor: pointer;
+    min-height: 24px;
+  }
+  .sp-tabbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 0.6rem;
+  }
+  .sp-checks caption {
+    text-align: left;
+    color: var(--fg-2);
+    padding-bottom: 0.4rem;
+  }
   .sp-controls .v {
     font: 12px var(--lp-mono);
     color: var(--fg-2);
@@ -792,8 +837,6 @@
     display: flex;
     gap: 0.25rem;
     align-items: center;
-    border-bottom: 1px solid var(--hair);
-    margin-bottom: 0.6rem;
   }
   .sp-tabs [role='tab'] {
     background: none;
@@ -803,6 +846,7 @@
     padding: 0.45rem 0.75rem;
     font: inherit;
     font-size: 0.9rem;
+    white-space: nowrap;
     cursor: pointer;
   }
   .sp-tabs [role='tab'].on {
@@ -850,9 +894,10 @@
     .sp-panes.editing .sp-app {
       order: -1;
     }
-    .sp-panes.editing .sp-sticky {
+    .sp-panes.editing .sp-app {
       position: static;
       max-height: none;
+      overflow: visible;
     }
   }
 </style>
