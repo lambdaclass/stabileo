@@ -31,7 +31,7 @@ issue of its own that the real alerts never touch; close it by hand.
 | | `opensees-diff` (OpenSees, 2D/3D static, buckling, modal, P-Delta, time history, plates, shells) | | ~15 min | ~15 min |
 | | `codeaster-diff` (Code_Aster 18.1, 3D linear with releases, connectors, constraints, thermal, inclined supports) | | ~10 min | ~10 min |
 | | `fuzz` (4 targets × 30 min) | | ~40 min | ~2.7 h |
-| | `mutants` (8 of 128 shards) | | 1-3.5 h | 8-28 h |
+| | `mutants` (16 of 256 shards) | | 1-4 h | 16-40 h |
 | | `bench` (criterion, informational) | | ~20 min | ~20 min |
 | `differential.yml` | Frame3DD, PyNite, Mystran, Kratos, CalculiX | 04:30 | ~25 min | ~2 h |
 | `verify.yml` | `lean`, `symbolic`, `kani` (nightly tier) | 05:00 | ~2 h | ~2.2 h |
@@ -53,9 +53,10 @@ info, linked by the default linker, then every test binary in turn), and no shar
 failing test) it is ~40 s of build and a few seconds of tests, ~22 s of wall clock per mutant with
 two in parallel, for a mutant the tests catch. A mutant they miss runs the whole test set (up
 to ~2 min): a shard of the linear solver with most mutants missed tested only 269 of 363 in 320
-minutes at 64 shards. So the `plan` job of `nightly.yml` splits the mutants into 128 shards
-(~180 each) and picks 8 each night from the day number: every mutant is tested once every 16
-nights. Each shard has a 320-minute budget; if it does not finish, the job fails saying how far
+minutes at 64 shards. So the `plan` job of `nightly.yml` splits the mutants into 256 shards
+(~90 each) and picks 16 each night from the day number: every mutant is tested once every 16
+nights. (At 128 shards of ~200 a shard with many survivors did not fit: on 2026-10-28 shard 16,
+mostly missed mutants in `dkt_b_matrix`, ran out of its budget, and shard 17 took 5 h.) Each shard has a 320-minute budget; if it does not finish, the job fails saying how far
 it got (`scripts/mutants-summary.py`), and `MUTANTS_TOTAL` in `nightly.yml` must go up.
 
 The test files are modules of a few shared binaries (`engine/tests/<binary>/main.rs`), so

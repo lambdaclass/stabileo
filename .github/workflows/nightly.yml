@@ -32,7 +32,7 @@ on:
         required: false
         default: ""
       mutants_total:
-        description: "Mutants: total number of shards (default 128)"
+        description: "Mutants: total number of shards (default 256)"
         required: false
         default: ""
       force_failure:
@@ -67,8 +67,8 @@ jobs:
           ONLY: ${{ inputs.only }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
-          MUTANTS_TOTAL: 128
-          MUTANTS_SLOTS: 8
+          MUTANTS_TOTAL: 256
+          MUTANTS_SLOTS: 16
           FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
           if [ "$FORCE_FAILURE" = true ]; then
