@@ -7,6 +7,7 @@
   import PublicLink from '../landing/PublicLink.svelte';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT } from './experiments';
+  import LatestPermalink from './shell/LatestPermalink.svelte';
   import { rs, fieldName, statusName } from './i18n';
 
   type Paper = (typeof catalog.papers)[number];
@@ -62,6 +63,7 @@
               <a class="btn btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code}</a>
               <span class="rs-g-soon" title={s.soon}>{s.openInStabileo}: {s.soon}</span>
             </div>
+            <LatestPermalink path={e.path} />
           </div>
         </li>
       {/each}

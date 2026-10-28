@@ -15,7 +15,8 @@ function watch(page: Page, baseURL: string | undefined) {
   page.on('request', (r) => {
     const u = new URL(r.url());
     if (u.origin !== origin) return;
-    if (!u.pathname.startsWith(P) && !u.pathname.startsWith('/api/')) outside.push(u.pathname);
+    // The backend and the snapshot index (/@/, which Cite this reads) are the only addresses outside.
+    if (!u.pathname.startsWith(P) && !u.pathname.startsWith('/api/') && u.pathname !== '/@/') outside.push(u.pathname);
   });
   return outside;
 }
@@ -41,6 +42,12 @@ test('the research page is served under the prefix, with the version banner', as
   expect(hrefs.length).toBeGreaterThan(5);
   expect(hrefs.filter((h) => !h.startsWith(P))).toEqual([]);
 
+  // Cite this names this snapshot as the permanent link.
+  await expect(page.getByTestId('cite-permalink').getByRole('link')).toHaveAttribute('href', new RegExp(`${P}en/research/fracture/shauer-2025/$`));
+  await expect(page.getByTestId('cite-text')).toContainText(`${P}en/research/fracture/shauer-2025/`);
+  await expect(page.getByTestId('cite-bibtex')).toContainText('@misc{stabileo-shauer-2025-v1,');
+  await expect(page.getByTestId('cite-bibtex')).toContainText('doi:10.1016/j.advengsoft.2025.104013');
+
   // The research WASM, in its worker, from the snapshot.
   const wasm: string[] = [];
   page.on('request', (r) => {
@@ -58,7 +65,7 @@ test('navigation between public pages stays in the snapshot', async ({ page, bas
   await page.goto(`${P}es/research/`);
   await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
   await expect(page.locator('#stabileo-snapshot-banner')).toContainText('Estás viendo la versión del');
-  await page.getByRole('link', { name: /experiment|experimento/i }).first().click();
+  await page.locator('a[href$="/research/fracture/shauer-2025/"]:visible').first().click();
   await expect(page).toHaveURL(new RegExp(`${P}es/research/fracture/shauer-2025/$`));
   await expect(page.locator('#stabileo-snapshot-banner a').first()).toHaveAttribute('href', /\/es\/research\/fracture\/shauer-2025\/$/);
   await page.goBack();
