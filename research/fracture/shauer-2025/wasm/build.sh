@@ -20,5 +20,6 @@ mkdir -p "$out"
 cp "$tmp/opt.wasm" "$out/phasefield_bg.wasm"
 cp "$tmp/pkg/phasefield_shauer_2025_wasm.js" "$out/phasefield.js"
 cp "$root/research/fracture/shauer-2025/reference-results/ex2_steps.csv" "$out/reference_ex2_steps.csv"
-( cd "$out" && shasum -a 256 phasefield_bg.wasm phasefield.js reference_ex2_steps.csv > SHA256SUMS )
+(cd "$root/research/fracture/shauer-2025" && cargo run --release --quiet --bin replay -- write "$out/replay.bin" && cargo run --release --quiet --bin replay -- verify "$out/replay.bin")
+( cd "$out" && shasum -a 256 phasefield_bg.wasm phasefield.js reference_ex2_steps.csv replay.bin > SHA256SUMS )
 echo "research wasm: $(wc -c < "$out/phasefield_bg.wasm") bytes -> $out"

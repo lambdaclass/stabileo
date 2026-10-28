@@ -10,12 +10,16 @@ on:
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/src/lib/engine/**'
+      - 'web/src/components/research/**'
+      - 'web/src/components/viewport/**'
   pull_request:
     paths:
       - 'research/**'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/src/lib/engine/**'
+      - 'web/src/components/research/**'
+      - 'web/src/components/viewport/**'
   schedule:
     - cron: '17 6 * * 1'
 
@@ -35,6 +39,10 @@ jobs:
         with:
           persist-credentials: false
       - run: research/tools/check_isolation.sh
+      - name: Research pages draw models only through the shared Stabileo viewer
+        run: research/tools/check_viewer.sh
+      - name: The viewer rule rejects a page with its own canvas
+        run: research/tools/test_check_viewer.sh
 
   catalog:
     name: Research catalog (Crossref, licenses)

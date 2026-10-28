@@ -6,4 +6,5 @@ pub mod examples;
 pub mod fe;
 pub mod mesh;
 pub mod model;
+pub mod replay;
 pub mod solver;

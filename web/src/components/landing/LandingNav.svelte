@@ -1,7 +1,14 @@
 <script lang="ts">
   import { tPublic as t, publicI18n, PUBLIC_LOCALES } from '../../lib/i18n/store.svelte';
   import LocaleSelect from '../LocaleSelect.svelte';
-  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale } from './landing-utils';
+  import { REPO_URL, enterApp, scrollToId, fetchGithubStars, switchPublicLocale, goPublic } from './landing-utils';
+  import { publicHref } from '../../lib/i18n/public-routes';
+
+  /**
+   * The site header. On the landing the section items scroll; on any other public page (the
+   * research pages) they go to the landing's section, and `current` marks the page's own item.
+   */
+  let { page = 'landing', current = null }: { page?: 'landing' | 'other'; current?: 'blog' | 'research' | null } = $props();
   import BrandMark from './BrandMark.svelte';
   import PublicLink from './PublicLink.svelte';
 
@@ -37,23 +44,44 @@
 
   function go(id: string) {
     open = false;
-    scrollToId(id);
+    if (page === 'landing') {
+      scrollToId(id);
+      return;
+    }
+    goPublic('/');
+    let tries = 0;
+    const wait = () => {
+      if (document.getElementById(id) || tries++ > 40) scrollToId(id);
+      else setTimeout(wait, 50);
+    };
+    setTimeout(wait, 50);
   }
 </script>
 
 <nav class="nav" aria-label={t('landing.navPrimary')}>
   <div class="nav-inner">
-    <button class="nav-brand" onclick={() => go('top')} aria-label={t('landing.navBackToTop')}>
-      <span class="nav-logo"><BrandMark /></span>
-      <span class="nav-name">Stabileo</span>
-    </button>
+    {#if page === 'landing'}
+      <button class="nav-brand" onclick={() => go('top')} aria-label={t('landing.navBackToTop')}>
+        <span class="nav-logo"><BrandMark /></span>
+        <span class="nav-name">Stabileo</span>
+      </button>
+    {:else}
+      <PublicLink to="/" class="nav-brand">
+        <span class="nav-logo"><BrandMark /></span>
+        <span class="nav-name">Stabileo</span>
+      </PublicLink>
+    {/if}
 
     <div class="nav-links" id="nav-links" class:open>
       {#each links as l}
-        <button onclick={() => go(l.id)}>{t(l.key)}</button>
+        {#if page === 'landing'}
+          <button onclick={() => go(l.id)}>{t(l.key)}</button>
+        {:else}
+          <a class="nav-link" href="{publicHref('/', publicI18n.locale)}#{l.id}" onclick={(e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); go(l.id); } }}>{t(l.key)}</a>
+        {/if}
       {/each}
-      <PublicLink to="/blog" class="nav-link">{t('landing.navBlog')}</PublicLink>
-      <PublicLink to="/research" class="nav-link">{t('landing.navResearch')}</PublicLink>
+      <PublicLink to="/blog" class="nav-link{current === 'blog' ? ' current' : ''}" aria-current={current === 'blog' ? 'page' : undefined}>{t('landing.navBlog')}</PublicLink>
+      <PublicLink to="/research" class="nav-link{current === 'research' ? ' current' : ''}" aria-current={current === 'research' ? 'page' : undefined}>{t('landing.navResearch')}</PublicLink>
     </div>
 
     <div class="nav-actions">

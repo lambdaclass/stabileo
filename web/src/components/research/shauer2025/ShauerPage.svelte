@@ -7,7 +7,6 @@
   import { onDestroy } from 'svelte';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
-  import FieldView from './FieldView.svelte';
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
   import { SimulationController } from './simulation.svelte';
@@ -95,6 +94,30 @@
     return () => clearInterval(id);
   });
   const frame = $derived(frames[Math.min(shown, frames.length - 1)] ?? null);
+
+  const VIEWS: Record<'plate' | 'band' | 'tip', [number, number, number, number]> = {
+    plate: [-0.5, -0.5, 0.5, 0.5],
+    band: [-0.5, -0.12, 0.5, 0.12],
+    tip: [-0.03, -0.0225, 0.03, 0.0225],
+  };
+  const viewer = import('../../viewport/ScalarFieldViewer.svelte');
+  const fieldValues = $derived(frame ? (field === 'damage' ? frame.damage : frame.syy) : null);
+  const fieldRange = $derived.by(() => {
+    if (!frame || field === 'damage') return { min: 0, max: 1 };
+    let lo = 0;
+    let hi = 0;
+    for (const v of frame.syy) {
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+    }
+    return { min: lo, max: hi > lo ? hi : lo + 1 };
+  });
+  const hideCell = $derived.by(() => {
+    if (!hideBroken || !frame || !run?.elements) return null;
+    const d = frame.damage;
+    const el = run.elements;
+    return (c: number) => d[el[4 * c]] > 0.95 && d[el[4 * c + 1]] > 0.95 && d[el[4 * c + 2]] > 0.95 && d[el[4 * c + 3]] > 0.95;
+  });
 
   let field = $state<'damage' | 'syy'>('damage');
   let view = $state<'plate' | 'band' | 'tip'>('plate');
@@ -245,7 +268,25 @@
             <label class="rs-check"><input type="checkbox" bind:checked={showMesh} /> Mesh</label>
             <label class="rs-check"><input type="checkbox" bind:checked={hideBroken} /> Hide broken elements (d &gt; 0.95)</label>
           </div>
-          <FieldView nodes={run.nodes} elements={run.elements} {frame} {field} {view} {deform} {showMesh} {hideBroken} />
+          {#await viewer then m}
+            <m.default
+              xy={run.nodes}
+              cells={run.elements}
+              values={fieldValues}
+              perCell={field === 'syy'}
+              range={fieldRange}
+              title={field === 'damage' ? 'Damage d' : 'σyy (degraded)'}
+              unit={field === 'damage' ? '' : 'kN/mm²'}
+              legendFooter={field === 'damage' ? 'colours clamped to [0, 1]' : 'kN/mm², element centres'}
+              displacement={frame?.displacement ?? null}
+              deformScale={deform}
+              {showMesh}
+              {hideCell}
+              view={VIEWS[view]}
+              height="min(34rem, 70vw)"
+              ariaLabel="Stabileo viewer: {field === 'damage' ? 'damage' : 'opening stress'} on the deformed mesh"
+            />
+          {/await}
           {#if frames.length}
             <div class="rs-scrub">
               <button class="btn btn-sm" type="button" onclick={() => { follow = false; if (shown >= frames.length - 1) shown = 0; playing = !playing; }}>{playing ? 'Pause' : 'Play'}</button>

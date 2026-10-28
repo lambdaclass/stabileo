@@ -1,89 +1,110 @@
 <script lang="ts">
-  /** The catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI). */
+  /**
+   * /research: the experiments that run here first, then what is being built, then the
+   * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
+   */
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
+  import FieldIcon from './FieldIcon.svelte';
+  import { EXPERIMENTS, COMING_NEXT } from './experiments';
+  import { rs, fieldName, statusName } from './i18n';
 
   type Paper = (typeof catalog.papers)[number];
-  const STATUS: Record<string, { label: string; meaning: string }> = {
-    proposed: { label: 'Proposed', meaning: 'catalogued; metadata verified against Crossref' },
-    'reference-reproduced': { label: 'Reference reproduced', meaning: 'the authors’ code ran here; its outputs are committed' },
-    'implementation-in-progress': { label: 'Implementation in progress', meaning: 'a Stabileo implementation exists, not yet validated' },
-    'numerically-validated': { label: 'Numerically validated', meaning: 'our implementation matches the reproduced reference within stated tolerances, in CI' },
-    interactive: { label: 'Interactive', meaning: 'validated and runnable on this site' },
-  };
-  const AREAS: Record<string, string> = {
-    fracture: 'Fracture and damage',
-    'differentiable-fem': 'Differentiable FEM',
-    optimization: 'Optimization',
-    metamaterials: 'Metamaterials',
-    constitutive: 'Constitutive models',
-    'digital-twins': 'Digital twins',
-    'numerical-methods': 'Numerical methods',
-    seismic: 'Seismic and dynamics',
-    shells: 'Shells and buckling',
-  };
-  /** Papers with a page of their own here. */
-  const EXPERIMENTS: Record<string, string> = { 'shauer-2025': '/research/fracture/shauer-2025' };
+  const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
+  const papers: Paper[] = [...catalog.papers].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.crossref.year - a.crossref.year);
+  const byId = new Map(papers.map((p) => [p.id, p]));
+  const run = EXPERIMENTS.map((e) => ({ e, p: byId.get(e.paperId)! })).filter((x) => x.p);
+  const catalogue = papers.filter((p) => !EXPERIMENTS.some((e) => e.paperId === p.id));
 
-  const papers: Paper[] = [...catalog.papers].sort(
-    (a, b) => Object.keys(STATUS).indexOf(b.status) - Object.keys(STATUS).indexOf(a.status) || b.crossref.year - a.crossref.year,
-  );
-  const areas = [...new Set(papers.map((p) => p.area))];
-  let area = $state<string | null>(null);
-  const shown = $derived(area ? papers.filter((p) => p.area === area) : papers);
+  const fields = [...new Set(catalogue.map((p) => p.area))];
+  const statuses = [...new Set(catalogue.map((p) => p.status))];
+  let field = $state<string | null>(null);
+  let status = $state<string | null>(null);
+  const shown = $derived(catalogue.filter((p) => (!field || p.area === field) && (!status || p.status === status)));
+  let thumbFailed = $state<Record<string, boolean>>({});
 
-  function authors(list: string[]) {
-    return list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', ');
-  }
+  const authors = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
+  const base = import.meta.env.BASE_URL;
+  const s = $derived(rs());
 </script>
 
-<section class="sec sec--ink rs-g-head">
+<section class="sec sec--ink rs-g">
   <div class="wrap rs-g-col">
-    <h1>Stabileo Research</h1>
-    <p class="rs-g-lead">
-      Computational-mechanics papers you can run. Each entry is catalogued with metadata checked against Crossref; the ones marked below
-      have been reproduced from the authors’ code, re-implemented in Rust and validated against that reference, and can be run here with
-      your own parameters.
-    </p>
-    <p class="rs-g-note">
-      Research, not design: nothing on these pages is an engineering result, and agreement with a reference code is not a certification.
-      Contributions are welcome: see <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">research/CONTRIBUTING.md</a>.
-    </p>
-  </div>
-</section>
+    <header class="rs-g-head">
+      <h1>Stabileo Research</h1>
+      <p class="rs-g-lead">
+        Computational-mechanics papers you can run. We reproduce the authors’ code, re-implement the method on Stabileo’s engine,
+        validate it against that reference, and let you run it here with your own parameters, in Stabileo’s viewer.
+      </p>
+      <p class="rs-g-note"><strong>{s.notDesign}.</strong> Nothing here is an engineering result; agreement with a reference code is not a certification.
+        Contributions: <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">research/CONTRIBUTING.md</a>.</p>
+    </header>
 
-<section class="sec sec--paper rs-g-list">
-  <div class="wrap rs-g-col">
-    <div class="rs-g-filter" role="group" aria-label="Filter by area">
-      <button class:on={area === null} onclick={() => (area = null)}>All ({papers.length})</button>
-      {#each areas as a (a)}
-        <button class:on={area === a} onclick={() => (area = a)}>{AREAS[a] ?? a} ({papers.filter((p) => p.area === a).length})</button>
+    <h2 class="rs-g-h2">{s.runIt}</h2>
+    <ul class="rs-g-run">
+      {#each run as { e, p } (e.paperId)}
+        <li class="rs-g-runcard">
+          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.name}>
+            {#if !thumbFailed[e.paperId]}
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt="Damage field from our run of the experiment" onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+            {:else}
+              <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
+            {/if}
+          </PublicLink>
+          <div class="rs-g-runbody">
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <h3><PublicLink to={e.path}>{e.name}</PublicLink></h3>
+            <p class="rs-g-hook">{e.hook}</p>
+            <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
+            <div class="rs-g-actions">
+              <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
+              <a class="btn btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper}</a>
+              <a class="btn btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code}</a>
+              <span class="rs-g-soon" title={s.soon}>{s.openInStabileo}: {s.soon}</span>
+            </div>
+          </div>
+        </li>
       {/each}
+    </ul>
+
+    <h2 class="rs-g-h2">{s.comingNext}</h2>
+    <ul class="rs-g-next">
+      {#each COMING_NEXT as c (c.name)}
+        <li><FieldIcon field={c.field} size={36} /><div><strong>{c.name}</strong> <span class="rs-g-tag">{s.inProgress}</span><br /><span class="rs-g-by">{c.note}</span></div></li>
+      {/each}
+    </ul>
+
+    <h2 class="rs-g-h2">{s.catalog}</h2>
+    <div class="rs-g-filters">
+      <div role="group" aria-label={s.field}>
+        <span class="rs-g-flabel">{s.field}</span>
+        <button class:on={field === null} onclick={() => (field = null)}>{s.all}</button>
+        {#each fields as f (f)}<button class:on={field === f} onclick={() => (field = f)}>{fieldName(f)}</button>{/each}
+      </div>
+      <div role="group" aria-label={s.status}>
+        <span class="rs-g-flabel">{s.status}</span>
+        <button class:on={status === null} onclick={() => (status = null)}>{s.all}</button>
+        {#each statuses as st (st)}<button class:on={status === st} onclick={() => (status = st)}>{statusName(st)}</button>{/each}
+      </div>
     </div>
-    <ul class="rs-g-cards">
+    <ul class="rs-g-list">
       {#each shown as p (p.id)}
         <li class="rs-g-card">
-          <div class="rs-g-meta">
-            <span>{AREAS[p.area] ?? p.area}</span>
-            <span class="rs-g-status rs-g-{p.status}" title={STATUS[p.status]?.meaning}>{STATUS[p.status]?.label ?? p.status}</span>
+          <FieldIcon field={p.area} size={40} />
+          <div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <h3>{p.crossref.title}</h3>
+            <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">doi:{p.doi}</a></p>
+            {#if p.summary && p.summary_source}
+              <p class="rs-g-sum">{p.summary}</p>
+              <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
+            {:else}
+              <p class="rs-g-by">{s.noAbstract}</p>
+            {/if}
+            {#if p.code.length}
+              <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a> ({c.license === 'none' ? 'no licence' : c.license}){/each}</p>
+            {/if}
           </div>
-          <h2>{p.crossref.title}</h2>
-          <p class="rs-g-by">{authors(p.crossref.authors)} · {p.crossref.venue} · {p.crossref.year} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">doi:{p.doi}</a></p>
-          {#if p.summary}
-            <p>{p.summary}</p>
-            <p class="rs-g-basis">Summary in our words, from: {p.summary_source}</p>
-          {:else}
-            <p class="rs-g-basis">Abstract not available.</p>
-          {/if}
-          {#if p.code.length}
-            <p class="rs-g-code">
-              Code:
-              {#each p.code as c, i (c.url)}{i ? ', ' : ''}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a> ({c.license === 'none' ? 'no license' : c.license}){/each}
-            </p>
-          {/if}
-          {#if EXPERIMENTS[p.id]}
-            <p><PublicLink to={EXPERIMENTS[p.id]} class="btn btn-primary btn-sm">Open the experiment</PublicLink></p>
-          {/if}
         </li>
       {/each}
     </ul>
@@ -91,12 +112,12 @@
 </section>
 
 <style>
-  .rs-g-col {
-    max-width: 60rem;
+  .rs-g {
+    padding-top: clamp(4.5rem, 8vw, 6rem);
+    padding-bottom: 4rem;
   }
-  .rs-g-head {
-    padding-top: clamp(5rem, 9vw, 6.5rem);
-    padding-bottom: 2rem;
+  .rs-g-col {
+    max-width: 68rem;
   }
   h1 {
     font-family: var(--lp-display);
@@ -107,6 +128,7 @@
   .rs-g-lead {
     font-size: 1.1rem;
     color: var(--fg);
+    max-width: 52rem;
   }
   .rs-g-note {
     color: var(--fg-2);
@@ -114,50 +136,78 @@
   }
   a {
     color: inherit;
-    text-decoration: underline;
-    text-underline-offset: 2px;
   }
-  .rs-g-list {
-    padding-top: 2rem;
-    padding-bottom: 4rem;
-  }
-  .rs-g-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 1.5rem;
-  }
-  .rs-g-filter button {
-    font: 13px var(--lp-sans);
-    border: 1px solid var(--hair);
-    background: transparent;
+  .rs-g-h2 {
+    font-family: var(--lp-display);
     color: var(--fg);
-    border-radius: 3px;
-    padding: 0.3rem 0.6rem;
-    cursor: pointer;
+    font-size: 1.4rem;
+    margin: 2.5rem 0 1rem;
   }
-  .rs-g-filter button.on {
-    background: var(--fg);
-    color: var(--bg);
-  }
-  .rs-g-cards {
+  ul {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    gap: 1rem;
   }
-  .rs-g-card {
+  .rs-g-runcard {
+    display: grid;
+    gap: 1.25rem;
     background: var(--card);
     border: 1px solid var(--card-hair);
-    border-radius: 3px;
-    padding: 1rem 1.25rem;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  @media (min-width: 52rem) {
+    .rs-g-runcard {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    }
+  }
+  .rs-g-runcard :global(.rs-g-thumb) {
+    display: block;
+    background: #0f1e2b;
+    aspect-ratio: 16 / 10;
+  }
+  .rs-g-runcard img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .rs-g-thumb-icon {
+    display: grid;
+    place-items: center;
+    height: 100%;
+  }
+  .rs-g-runbody {
+    padding: 1.25rem 1.25rem 1.25rem 0.25rem;
     color: var(--fg);
   }
-  .rs-g-card h2 {
-    font-size: 1.15rem;
-    line-height: 1.35;
-    margin: 0.4rem 0;
+  @media (max-width: 52rem) {
+    .rs-g-runbody {
+      padding: 0 1.25rem 1.25rem;
+    }
+  }
+  .rs-g-runbody h3 {
+    font-family: var(--lp-display);
+    font-size: 1.5rem;
+    line-height: 1.2;
+    margin: 0.4rem 0 0.6rem;
+  }
+  .rs-g-runbody h3 :global(a) {
+    text-decoration: none;
+  }
+  .rs-g-hook {
+    font-size: 1rem;
+  }
+  .rs-g-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .rs-g-soon {
+    font-size: 0.8rem;
+    color: var(--fg-2);
   }
   .rs-g-meta {
     display: flex;
@@ -170,16 +220,94 @@
     border: 1px solid var(--hair);
     border-radius: 3px;
     padding: 0 0.4rem;
+    white-space: nowrap;
   }
   .rs-g-numerically-validated,
-  .rs-g-interactive {
+  .rs-g-interactive,
+  .rs-g-published-figures-compared {
     color: var(--ok);
     border-color: var(--ok);
   }
-  .rs-g-by,
-  .rs-g-basis,
-  .rs-g-code {
+  .rs-g-next {
+    display: grid;
+    gap: 0.75rem;
+  }
+  @media (min-width: 52rem) {
+    .rs-g-next {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .rs-g-next li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    border: 1px dashed var(--hair);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    color: var(--fg);
+  }
+  .rs-g-tag {
+    font: 11px var(--lp-mono);
+    color: #d9a441;
+    border: 1px solid #d9a441;
+    border-radius: 3px;
+    padding: 0 0.3rem;
+  }
+  .rs-g-filters {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .rs-g-filters div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+  }
+  .rs-g-flabel {
+    font: 12px var(--lp-mono);
     color: var(--fg-2);
-    font-size: 0.88rem;
+    min-width: 4rem;
+  }
+  .rs-g-filters button {
+    font: 13px var(--lp-sans);
+    border: 1px solid var(--hair);
+    background: transparent;
+    color: var(--fg);
+    border-radius: 3px;
+    padding: 0.25rem 0.55rem;
+    cursor: pointer;
+  }
+  .rs-g-filters button.on {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  .rs-g-list {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .rs-g-card {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 1rem;
+    background: var(--card);
+    border: 1px solid var(--card-hair);
+    border-radius: 4px;
+    padding: 0.85rem 1rem;
+    color: var(--fg);
+  }
+  .rs-g-card h3 {
+    font-size: 1.02rem;
+    line-height: 1.35;
+    margin: 0.3rem 0;
+  }
+  .rs-g-by {
+    color: var(--fg-2);
+    font-size: 0.86rem;
+    margin: 0.2rem 0;
+  }
+  .rs-g-sum {
+    font-size: 0.92rem;
+    margin: 0.4rem 0 0.2rem;
   }
 </style>
