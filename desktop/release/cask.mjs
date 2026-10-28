@@ -20,7 +20,7 @@ process.stdout.write(`cask "stabileo" do
   # Desktop versions are the desktop-v* tags; the repository's latest release is the web app's.
   livecheck do
     url "https://github.com/lambdaclass/stabileo.git"
-    regex(/^desktop-v(\d+(?:\.\d+)+(?:-(?:alpha|beta|rc)\.\d+)?)$/i)
+    regex(/^desktop-v(\\d+(?:\\.\\d+)+(?:-(?:alpha|beta|rc)\\.\\d+)?)$/i)
   end
 
   auto_updates true
