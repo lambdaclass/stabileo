@@ -199,9 +199,12 @@ function allTranslations(key: string): Set<string> {
 	return s;
 }
 
-/** Returns true if `name` matches any locale's default structure name. */
+/**
+ * Returns true if `name` matches any locale's default structure name, or is the bare key itself:
+ * a name taken before the dictionaries were registered was saved as `tabBar.newStructure`.
+ */
 export function isDefaultName(name: string): boolean {
-	return allTranslations('tabBar.newStructure').has(name);
+	return (import.meta.env.VITE_DESKTOP === '1' && name === 'tabBar.newStructure') || allTranslations('tabBar.newStructure').has(name);
 }
 
 export const i18n = {

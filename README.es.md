@@ -63,6 +63,19 @@ La interfaz está en **español, inglés y portugués**.
   </tr>
 </table>
 
+## App de escritorio (alfa)
+
+Stabileo también funciona como app en Windows, macOS y Linux, con el mismo motor y tus proyectos
+como archivos `.ded` en el disco. Es una alfa sin firmar, para quienes la prueban, y se actualiza
+sola.
+
+- **macOS:** `brew install --cask lambdaclass/tap/stabileo`
+- **Windows** (PowerShell): `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 | iex`
+- **Linux:** `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`
+
+Paso a paso, con el aviso de la primera apertura: [docs/desktop/INSTALL.es.md](docs/desktop/INSTALL.es.md).
+Descargas: [versiones preliminares de escritorio](https://github.com/lambdaclass/stabileo/releases?q=desktop-v&expanded=true).
+
 ## Documentación
 
 **La [guía de Stabileo](docs/guide/es/README.md)** explica cómo usar cada modo y la teoría que hay

@@ -1,0 +1,34 @@
+[package]
+name = "stabileo-desktop"
+version = "0.1.0"
+description = "Stabileo desktop app"
+edition = "2021"
+rust-version = "1.90"
+license = "AGPL-3.0-only"
+publish = false
+
+# Its own workspace: the engine and backend workspaces, their lockfile and their CI do not see it.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.2", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.3", features = [] }
+tauri-plugin-dialog = "=2.8.2"
+tauri-plugin-fs = "=2.7.0"
+tauri-plugin-opener = "=2.7.1"
+tauri-plugin-process = "=2.4.0"
+tauri-plugin-updater = "=2.13.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "=2.5.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

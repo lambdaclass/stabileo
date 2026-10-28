@@ -54,12 +54,16 @@ function installTestHooks() {
  * (3 MB of JavaScript and 3 MB of WASM they used to wait on) and loads it when asked.
  */
 restoreRedirectedRoute();
+if (import.meta.env.VITE_DESKTOP === '1' && routeKind().kind !== 'app') {
+  history.replaceState(null, '', '/app/basic');
+}
 const target = document.getElementById('app')!;
 let app: ReturnType<typeof mount>;
 if (routeKind().kind === 'app') {
   const { default: App } = await import('./App.svelte');
   app = mount(App, { target });
   installTestHooks();
+  if (import.meta.env.VITE_DESKTOP === '1') void import('./lib/platform/desktop.svelte').then((m) => m.startDesktop());
 } else {
   app = mount(Root, { target });
   // From a public page the application loads in place (Root.svelte), and says so when it is up.
