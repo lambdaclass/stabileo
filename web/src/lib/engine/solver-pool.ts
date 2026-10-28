@@ -203,6 +203,19 @@ export function poolBusy(): boolean {
   return pool.some((w) => w.pending.size > 0);
 }
 
+/** Desktop app: why new jobs are refused (an update being installed), or null when they are not. */
+let refusal: string | null = null;
+
+/** Desktop app: refuse new jobs with `reason` (null: accept them again). Running jobs finish. */
+export function refuseNewJobs(reason: string | null): void {
+  refusal = reason;
+}
+
+/** Desktop app: resolves when no job is running. */
+export async function poolIdle(pollMs = 200): Promise<void> {
+  while (poolBusy()) await new Promise((r) => setTimeout(r, pollMs));
+}
+
 /** Check if the pool is initialized and ready. */
 export function isPoolReady(): boolean {
   return pool.length > 0 && pool.every(w => w.ready);
@@ -235,6 +248,7 @@ async function ensurePool(): Promise<void> {
  * the failure ever leaves.
  */
 function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
+  if (import.meta.env.VITE_DESKTOP === '1' && refusal !== null) return Promise.reject(new Error(refusal));
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {

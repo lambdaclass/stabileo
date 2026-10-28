@@ -1,7 +1,10 @@
 /**
- * Updates through the Tauri updater: a check at startup and from Help ▸ Check for updates. The
- * update is offered with its notes and installed only when the user accepts, and never while the
- * engine is working on a calculation.
+ * Updates through the Tauri updater: a check at startup and from Help ▸ Check for Updates.
+ *
+ * An update is offered with its notes and installed only when the user accepts. Before anything is
+ * downloaded, unsaved work in every tab goes through Save / Don't save / Cancel, as for quitting.
+ * From then until the restart, new calculations are refused, and the install waits for the ones
+ * already running: installing replaces the app, and on Windows closes it.
  */
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
@@ -9,61 +12,112 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { i18n } from '../i18n';
-import { poolBusy } from '../engine/solver-pool';
+import { poolBusy, poolIdle, refuseNewJobs } from '../engine/solver-pool';
 import { uiStore } from '../store/ui.svelte';
 import { desktopText } from './desktop-text';
 
 const RELEASES_URL = 'https://github.com/lambdaclass/stabileo/releases';
 
+/** What the update flow needs from the rest of the app; replaced in tests. */
+export interface UpdaterDeps {
+  /** Save / Don't save / Cancel over every tab; true when it is fine to go on. */
+  confirmDiscard: () => Promise<boolean>;
+  check: () => Promise<Update | null>;
+  message: typeof message;
+  openUrl: (url: string) => Promise<void>;
+  relaunch: () => Promise<void>;
+  canSelfUpdate: () => Promise<boolean>;
+  poolBusy: () => boolean;
+  poolIdle: () => Promise<void>;
+  refuseNewJobs: (reason: string | null) => void;
+  toast: (text: string) => void;
+  locale: () => string;
+}
+
+function defaults(confirmDiscard: () => Promise<boolean>): UpdaterDeps {
+  return {
+    confirmDiscard,
+    check: () => check(),
+    message,
+    openUrl,
+    relaunch,
+    canSelfUpdate: async () => {
+      try {
+        return await invoke<boolean>('can_self_update');
+      } catch {
+        return false;
+      }
+    },
+    poolBusy,
+    poolIdle: () => poolIdle(),
+    refuseNewJobs,
+    toast: (text) => uiStore.toast(text, 'info'),
+    locale: () => i18n.locale,
+  };
+}
+
+let deps: UpdaterDeps | null = null;
+
 function tx(k: Parameters<typeof desktopText>[1]): string {
-  return desktopText(i18n.locale, k);
+  return desktopText(deps?.locale() ?? i18n.locale, k);
 }
 
-async function selfUpdating(): Promise<boolean> {
-  try {
-    return await invoke<boolean>('can_self_update');
-  } catch {
-    return false;
-  }
-}
+export type OfferOutcome = 'installed' | 'declined' | 'cancelled' | 'busy' | 'link' | 'failed';
 
-async function offer(update: Update): Promise<void> {
+/** Offer `update`; install it only after the user accepts and unsaved work is dealt with. */
+export async function offer(update: Update, d: UpdaterDeps): Promise<OfferOutcome> {
   const notes = update.body?.trim() ? `\n\n${update.body.trim()}` : '';
   const head = tx('updateBody').replace('{version}', update.version).replace('{current}', update.currentVersion);
-  if (!(await selfUpdating())) {
-    const answer = await message(`${head}\n\n${tx('updateDebLinux')}\n${RELEASES_URL}${notes}`, {
+  if (!(await d.canSelfUpdate())) {
+    const answer = await d.message(`${head}\n\n${tx('updateDebLinux')}\n${RELEASES_URL}${notes}`, {
       title: tx('updateTitle'), kind: 'info', buttons: { ok: 'GitHub', cancel: tx('close') },
     });
-    if (answer === 'GitHub' || answer === 'Ok') await openUrl(RELEASES_URL);
-    return;
+    if (answer === 'GitHub' || answer === 'Ok') await d.openUrl(RELEASES_URL);
+    return 'link';
   }
-  const answer = await message(`${head}${notes}`, {
+  const answer = await d.message(`${head}${notes}`, {
     title: tx('updateTitle'), kind: 'info', buttons: { ok: tx('updateInstall'), cancel: tx('updateLater') },
   });
-  if (answer !== tx('updateInstall') && answer !== 'Ok') return;
-  if (poolBusy()) {
-    await message(tx('updateBusy'), { title: tx('updateTitle'), kind: 'warning' });
-    return;
+  if (answer !== tx('updateInstall') && answer !== 'Ok') return 'declined';
+  if (d.poolBusy()) {
+    await d.message(tx('updateBusy'), { title: tx('updateTitle'), kind: 'warning' });
+    return 'busy';
   }
-  uiStore.toast(tx('updateInstalling'), 'info');
-  await update.downloadAndInstall();
-  await relaunch();
+  if (!(await d.confirmDiscard())) return 'cancelled';
+  d.refuseNewJobs(tx('updateRefuseJobs'));
+  try {
+    d.toast(tx('updateInstalling'));
+    await update.download();
+    // A calculation that was already running when the user accepted finishes first.
+    await d.poolIdle();
+    await update.install();
+  } catch (err) {
+    d.refuseNewJobs(null);
+    await d.message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, {
+      title: tx('updateCheckTitle'), kind: 'error',
+    });
+    return 'failed';
+  }
+  await d.relaunch();
+  return 'installed';
 }
 
 /** `manual`: asked from the menu, so "up to date" and failures are said, not only logged. */
-export async function checkForUpdates(manual: boolean): Promise<void> {
+export async function checkForUpdates(manual: boolean, d: UpdaterDeps | null = deps): Promise<void> {
+  if (!d) return;
   let update: Update | null;
   try {
-    update = await check();
+    update = await d.check();
   } catch (err) {
     console.warn('[stabileo] update check:', err);
-    if (manual) await message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, { title: tx('updateCheckTitle'), kind: 'error' });
+    if (manual) await d.message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, { title: tx('updateCheckTitle'), kind: 'error' });
     return;
   }
-  if (update) await offer(update);
-  else if (manual) await message(tx('updateNone'), { title: tx('updateCheckTitle'), kind: 'info' });
+  if (update) await offer(update, d);
+  else if (manual) await d.message(tx('updateNone'), { title: tx('updateCheckTitle'), kind: 'info' });
 }
 
-export async function startUpdater(): Promise<void> {
+export async function startUpdater(confirmDiscard: () => Promise<boolean>): Promise<void> {
+  deps = defaults(confirmDiscard);
   await checkForUpdates(false);
 }
