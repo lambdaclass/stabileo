@@ -142,6 +142,16 @@ jobs:
           got=$(node -e 'console.log(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' web/dist-desktop/assets/dedaliano_engine_bg-*.wasm)
           echo "web: $want  desktop: $got"
           [ "$want" = "$got" ]
+      # Not signed with a Developer ID yet, but sealed ad hoc (signingIdentity "-"): an unsealed
+      # bundle is reported as "damaged" on Apple silicon, with no way to open it.
+      - name: The app bundle is sealed (ad hoc)
+        if: matrix.name == 'macos'
+        env:
+          TARGET_DIR: ${{ format('desktop/src-tauri/target/{0}/release', matrix.target) }}
+        run: |
+          app="$TARGET_DIR/bundle/macos/Stabileo.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | grep -E 'Signature=adhoc|Sealed Resources version'
       - name: Launch test
         env:
           STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
@@ -169,8 +179,10 @@ jobs:
             linux) cp "$b"/appimage/*.AppImage* "$b"/deb/*.deb out/ ;;
             macos)
               cp "$b"/dmg/*.dmg out/
+              # Stabileo.app.tar.gz(.sig) -> Stabileo_<version>_universal.app.tar.gz(.sig)
+              v=$(basename "$b"/dmg/*.dmg .dmg | sed 's/^Stabileo_//')
               for f in "$b"/macos/*.app.tar.gz*; do
-                cp "$f" "out/$(basename "$f" | sed "s/^Stabileo\.app/Stabileo_$(ls "$b"/dmg/*.dmg | sed 's/.*Stabileo_\(.*\)\.dmg/\1/')/")"
+                cp "$f" "out/Stabileo_${v}.${f##*/Stabileo.}"
               done ;;
             windows) cp "$b"/nsis/*-setup.exe* out/ ;;
           esac
