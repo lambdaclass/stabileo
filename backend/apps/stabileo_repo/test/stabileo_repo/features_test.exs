@@ -24,7 +24,8 @@ defmodule StabileoRepo.FeaturesTest do
 
   for {flag, getter, setter} <- [
         {"usage_telemetry_enabled", :usage_telemetry_enabled?, :set_usage_telemetry_enabled},
-        {"cloud_projects_enabled", :cloud_projects_enabled?, :set_cloud_projects_enabled}
+        {"cloud_projects_enabled", :cloud_projects_enabled?, :set_cloud_projects_enabled},
+        {"save_requires_account", :save_requires_account?, :set_save_requires_account}
       ] do
     test "#{flag} starts off and persists both ways" do
       refute Repo.get_by(SystemSetting, key: unquote(flag))

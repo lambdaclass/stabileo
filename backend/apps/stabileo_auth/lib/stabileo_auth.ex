@@ -55,7 +55,8 @@ defmodule StabileoAuth do
       user_login_enabled: Features.user_login_enabled?(),
       terms_version: Consents.terms_version(),
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
-      cloud_projects_enabled: Features.cloud_projects_enabled?()
+      cloud_projects_enabled: Features.cloud_projects_enabled?(),
+      save_requires_account: Features.save_requires_account?()
     }
   end
 

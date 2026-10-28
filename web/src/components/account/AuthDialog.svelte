@@ -3,11 +3,16 @@
   import { errorText, fieldErrors } from '../../lib/api/error-text';
   import { t, i18n, isOfferedLocale } from '../../lib/i18n';
   import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
+  import { untrack } from 'svelte';
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
 
-  let { open = $bindable(false) }: { open?: boolean } = $props();
-
   type Mode = 'login' | 'register';
+
+  let {
+    open = $bindable(false),
+    startIn = 'login',
+    reason = null,
+  }: { open?: boolean; startIn?: Mode; reason?: { title: string; lede: string } | null } = $props();
 
   let mode = $state<Mode>('login');
   let email = $state('');
@@ -24,6 +29,10 @@
     error = null;
     fields = {};
   }
+
+  $effect(() => {
+    if (open) untrack(() => switchMode(startIn));
+  });
 
   function close() {
     open = false;
@@ -75,10 +84,15 @@
       aria-labelledby="acc-auth-title"
       data-testid="auth-dialog"
     >
-      <h3 class="acc-title" id="acc-auth-title">
-        {mode === 'login' ? t('account.signInTitle') : t('account.registerTitle')}
-      </h3>
-      <p class="acc-lede">{mode === 'login' ? t('account.signInLede') : t('account.registerLede')}</p>
+      {#if reason}
+        <h3 class="acc-title" id="acc-auth-title">{reason.title}</h3>
+        <p class="acc-lede" data-testid="auth-reason">{reason.lede}</p>
+      {:else}
+        <h3 class="acc-title" id="acc-auth-title">
+          {mode === 'login' ? t('account.signInTitle') : t('account.registerTitle')}
+        </h3>
+        <p class="acc-lede">{mode === 'login' ? t('account.signInLede') : t('account.registerLede')}</p>
+      {/if}
 
       <div class="acc-modes" role="tablist">
         <button

@@ -8,6 +8,7 @@
   const EXTRA_FLAGS: { key: AdminFlag; label: string; help: string; testid: string }[] = [
     { key: 'usage_telemetry_enabled', label: 'admin.settings.usageTelemetry', help: 'admin.settings.usageTelemetryHelp', testid: 'admin-settings-usage' },
     { key: 'cloud_projects_enabled', label: 'admin.settings.cloudProjects', help: 'admin.settings.cloudProjectsHelp', testid: 'admin-settings-projects' },
+    { key: 'save_requires_account', label: 'admin.settings.saveRequiresAccount', help: 'admin.settings.saveRequiresAccountHelp', testid: 'admin-settings-save-account' },
   ];
 
   onMount(() => {

@@ -9,7 +9,8 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
   @flags %{
     "user_login_enabled" => &Features.set_user_login_enabled/1,
     "usage_telemetry_enabled" => &Features.set_usage_telemetry_enabled/1,
-    "cloud_projects_enabled" => &Features.set_cloud_projects_enabled/1
+    "cloud_projects_enabled" => &Features.set_cloud_projects_enabled/1,
+    "save_requires_account" => &Features.set_save_requires_account/1
   }
 
   def show(conn, _params), do: json(conn, %{data: settings()})
@@ -62,6 +63,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
       user_login_enabled: Features.user_login_enabled?(),
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
+      save_requires_account: Features.save_requires_account?(),
       terms_version: Consents.terms_version()
     }
   end

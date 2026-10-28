@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { t, i18n } from '../../../lib/i18n';
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import { exportProjectIfc } from '../../../lib/store/ifc-export';
   import { physicalForcesCsv } from '../../../lib/store/design-exchange';
   import { downloadResultText, prepareExportProvenance } from '../../../lib/export/provenance-attach';
@@ -55,8 +56,8 @@
   </label>
   <p class="hint">{t('exch.ifcColumnTop.hint')}</p>
   <div class="actions">
-    <button data-testid="exchange-ifc" onclick={ifc}>{t('exch.ifc')}</button>
-    <button data-testid="exchange-xlsx" onclick={xlsx}>{t('exch.xlsx')}</button>
+    <button data-testid="exchange-ifc" onclick={() => accountGate.guard('export', ifc)}>{t('exch.ifc')}</button>
+    <button data-testid="exchange-xlsx" onclick={() => accountGate.guard('export', xlsx)}>{t('exch.xlsx')}</button>
     <button data-testid="exchange-csv" onclick={csv} disabled={!hasResults} title={hasResults ? '' : t('exch.noResults')}>{t('exch.csv')}</button>
   </div>
 </section>

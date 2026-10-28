@@ -14,6 +14,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
         "user_login_enabled" => false,
         "usage_telemetry_enabled" => false,
         "cloud_projects_enabled" => false,
+        "save_requires_account" => false,
         "terms_version" => StabileoAuth.Consents.terms_version()
       },
       overrides
@@ -69,20 +70,36 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
       admin_request(
         :put,
         "/settings",
-        %{"usage_telemetry_enabled" => true, "cloud_projects_enabled" => true},
+        %{
+          "usage_telemetry_enabled" => true,
+          "cloud_projects_enabled" => true,
+          "save_requires_account" => true
+        },
         token
       )
       |> json_body(200)
 
     assert body["data"] ==
-             settings(%{"usage_telemetry_enabled" => true, "cloud_projects_enabled" => true})
+             settings(%{
+               "usage_telemetry_enabled" => true,
+               "cloud_projects_enabled" => true,
+               "save_requires_account" => true
+             })
 
     assert StabileoRepo.Features.usage_telemetry_enabled?()
     assert StabileoRepo.Features.cloud_projects_enabled?()
+    assert StabileoRepo.Features.save_requires_account?()
+
+    assert request(:get, "/config") |> json_body(200) |> Map.get("save_requires_account") == true
 
     assert [audit] = Repo.all(StabileoRepo.Schemas.AdminAction)
     assert audit.action == "settings.update"
-    assert audit.details == %{"usage_telemetry_enabled" => true, "cloud_projects_enabled" => true}
+
+    assert audit.details == %{
+             "usage_telemetry_enabled" => true,
+             "cloud_projects_enabled" => true,
+             "save_requires_account" => true
+           }
   end
 
   test "422 and nothing written when one of several flags is not a boolean", %{token: token} do

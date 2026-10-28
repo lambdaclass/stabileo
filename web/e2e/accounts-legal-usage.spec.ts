@@ -39,7 +39,7 @@ interface Backend {
 }
 
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
-async function boot(page: Page, opts: { termsCurrent?: boolean; signedIn?: boolean } = {}): Promise<Backend> {
+async function boot(page: Page, opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean } = {}): Promise<Backend> {
   const backend: Backend = { register: [], consents: [], events: [], projects: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -62,7 +62,7 @@ async function boot(page: Page, opts: { termsCurrent?: boolean; signedIn?: boole
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
 
   await page.route('**/api/v1/auth/config', (r) =>
-    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true }),
+    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true }),
   );
   await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true)));
   await page.route('**/api/v1/auth/register', (r) => {
@@ -202,6 +202,60 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(saved).toMatchObject({ app_mode: 'basic', element_count: 3 });
     const doc = JSON.parse(gunzipSync(Buffer.from(String(saved.content), 'base64')).toString('utf8'));
     expect(doc.snapshot.elements).toHaveLength(3);
+  });
+
+  test('with saving behind an account, Ctrl+S asks for one and saves the file after sign-up', async ({ page }) => {
+    const backend = await boot(page, { saveRequiresAccount: true });
+    await page.getByTestId('usage-notice-ok').click();
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
+
+    await page.locator('body').press('Control+s');
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await expect(page.getByTestId('auth-name')).toBeVisible();
+    await page.getByTestId('auth-name').fill('Ada Lovelace');
+    await page.getByTestId('auth-email').fill('ada@example.com');
+    await page.getByTestId('auth-password').fill('long-enough-1');
+    await page.getByTestId('auth-accept-terms').check();
+    const download = page.waitForEvent('download');
+    await page.getByTestId('auth-submit').click();
+
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.ded$/);
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    expect(backend.register).toHaveLength(1);
+  });
+
+  test('with saving behind an account, closing the request saves nothing and results stay free', async ({ page }) => {
+    await boot(page, { saveRequiresAccount: true });
+    await page.getByTestId('usage-notice-ok').click();
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('hdr-project').click();
+
+    await page.getByTestId('save-open').click();
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await expect(page.getByTestId('save-confirm')).toHaveCount(0);
+
+    await page.getByTestId('export-excel').click();
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+
+    const download = page.waitForEvent('download');
+    await page.getByTestId('export-csv').click();
+    expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  });
+
+  test('a signed-in user saves without being asked', async ({ page }) => {
+    await boot(page, { signedIn: true, saveRequiresAccount: true });
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    const download = page.waitForEvent('download');
+    await page.locator('body').press('Control+s');
+    expect((await download).suggestedFilename()).toMatch(/\.ded$/);
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
   });
 
   for (const [locale, path, title] of [

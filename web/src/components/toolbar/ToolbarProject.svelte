@@ -10,6 +10,7 @@
   import ToolbarExamples from './ToolbarExamples.svelte';
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
@@ -198,7 +199,7 @@
   {#if flat || showProject}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
   <div class="file-grid">
-    <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
+    <button class="file-btn" onclick={() => accountGate.guard('save', () => (showSave = true))} title={t('project.saveTooltip')} data-testid="save-open">
       {t('project.save')}
     </button>
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
@@ -224,7 +225,7 @@
       <button
         class="file-btn"
         data-testid="project-share-link"
-        onclick={handleCopyShareLink}
+        onclick={() => accountGate.guard('share', handleCopyShareLink)}
         aria-disabled={linkTooLong ? 'true' : undefined}
         aria-describedby={linkTooLong ? 'project-share-too-long' : undefined}
       >
@@ -395,7 +396,7 @@
         </span>
         <div class="file-grid">
           <!-- Both solve first when there are no results (`lib/export/results-export.ts`). -->
-          <button class="file-btn" onclick={exportWorkbook} title={t('project.exportExcelTooltip')} data-testid="export-excel">
+          <button class="file-btn" onclick={() => accountGate.guard('export', exportWorkbook)} title={t('project.exportExcelTooltip')} data-testid="export-excel">
             Excel
           </button>
           <button class="file-btn" onclick={exportResultsCsv} title={t('project.exportCsvTooltip')} data-testid="export-csv">

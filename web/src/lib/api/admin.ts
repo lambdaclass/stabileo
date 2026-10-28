@@ -45,10 +45,11 @@ export interface AdminSettings {
   user_login_enabled: boolean;
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
+  save_requires_account?: boolean;
   terms_version?: string;
 }
 
-export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled';
+export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled' | 'save_requires_account';
 
 export interface Count { label: string; count: number }
 export interface Daily { day: string; count: number }

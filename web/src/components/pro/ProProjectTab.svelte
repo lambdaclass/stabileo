@@ -1,6 +1,7 @@
 <script lang="ts">
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import ProProjectInfo from './ProProjectInfo.svelte';
   import ProExampleGallery from './ProExampleGallery.svelte';
   import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
@@ -310,7 +311,7 @@
         click and the same click puts it away, which is the toggle Basic has.
       -->
       <HelpTip text={t('project.saveTooltip')}>
-        <button class="pp-btn pp-btn-primary" onclick={() => (showSave = true)}
+        <button class="pp-btn pp-btn-primary" onclick={() => accountGate.guard('save', () => (showSave = true))}
                 data-testid="pp-save">{t('project.save')}</button>
       </HelpTip>
       <HelpTip text={t('project.openTooltip')}>
@@ -327,7 +328,7 @@
       <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
         <button
           class="pp-btn"
-          onclick={copyShareLink}
+          onclick={() => accountGate.guard('share', copyShareLink)}
           disabled={!hasModel || linkTooLong}
           data-testid="pp-share"
         >{t('project.shareLink')}</button>

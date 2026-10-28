@@ -15,7 +15,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
                "user_login_enabled" => false,
                "terms_version" => StabileoAuth.Consents.terms_version(),
                "usage_telemetry_enabled" => false,
-               "cloud_projects_enabled" => false
+               "cloud_projects_enabled" => false,
+               "save_requires_account" => false
              }
     end
 

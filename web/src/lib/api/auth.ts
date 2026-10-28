@@ -48,6 +48,7 @@ export interface AuthConfig {
   terms_version?: string;
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
+  save_requires_account?: boolean;
 }
 
 export type ProfileUpdate = Partial<{

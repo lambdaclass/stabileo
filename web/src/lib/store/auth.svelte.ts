@@ -113,6 +113,7 @@ export const authStore = {
   get userLoginEnabled() { return userLoginEnabled; },
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
   get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
+  get saveRequiresAccount() { return userLoginEnabled && serverConfig?.save_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },

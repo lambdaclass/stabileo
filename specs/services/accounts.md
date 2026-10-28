@@ -9,6 +9,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 ## Features
 
 - Sign-in is behind the runtime flag `user_login_enabled` (`system_settings`, toggled from the admin site, off by default). While off, `/register` and `/login` answer 403 `user_login_disabled`; existing sessions keep working (refresh, `/me`, profile) until they expire or an admin forces them out
+- Saving or exporting a model can require an account: runtime flag `save_requires_account`, off by default, read by the browser from `/config`. The browser applies it only while `user_login_enabled` is on and the config was read, so a closed sign-in or an unreachable server never keeps anyone from their file. Gated (`accountGate.guard` in `web/src/lib/store/account-gate.svelte.ts`): the project and session file (buttons and Ctrl+S), the share link, the model code and saved fragments, the Básico workbook, PRO's data export when it carries model tables, DXF, IFC, the solver input from Reproduce and exercise files and links. Open: results CSV, reports, view images and videos, office templates, the browser autosave and opening any file. After signing in, the action the user asked for runs
 - Self sign-up with email, password and name
 - Password login, refresh-token rotation, logout
 - Read and edit one's own profile
@@ -28,7 +29,7 @@ Prefix `/api/v1/auth`, router `StabileoAuth.Router`. Public routes run the `:api
 
 | Method | Path | Auth | Success | Errors |
 |--------|------|------|---------|--------|
-| `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled}` | — |
+| `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account}` | — |
 | `POST` | `/register` | public | `201 <session>` | 403 `user_login_disabled`, 422 `validation_error` (email taken, short password, `accept_terms` not true, …) |
 | `POST` | `/login` | public | `200 <session>` | 403 `user_login_disabled`, 401 `invalid_credentials`, 403 `account_disabled` |
 | `POST` | `/refresh` | public | `200 <session>` | 401 `refresh_failed` |

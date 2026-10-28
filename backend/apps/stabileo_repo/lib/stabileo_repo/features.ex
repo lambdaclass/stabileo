@@ -9,6 +9,7 @@ defmodule StabileoRepo.Features do
   @user_login "user_login_enabled"
   @usage_telemetry "usage_telemetry_enabled"
   @cloud_projects "cloud_projects_enabled"
+  @save_requires_account "save_requires_account"
 
   @doc """
   Whether product users may sign up and sign in. Off when the row is unset or
@@ -58,6 +59,24 @@ defmodule StabileoRepo.Features do
       @cloud_projects,
       enabled,
       "Signed-in users may save, open and delete projects in the cloud"
+    )
+  end
+
+  @doc """
+  Whether saving or exporting a model needs a signed-in account. Off when
+  unset. The browser applies it only while sign-in is open.
+  """
+  def save_requires_account? do
+    SystemSettings.get_flag(@save_requires_account, false) == true
+  rescue
+    _ -> false
+  end
+
+  def set_save_requires_account(enabled) when is_boolean(enabled) do
+    SystemSettings.set_flag(
+      @save_requires_account,
+      enabled,
+      "Saving or exporting a model asks the user to sign in first"
     )
   end
 end
