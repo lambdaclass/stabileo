@@ -1,7 +1,8 @@
 # Stabileo desktop (Windows, macOS, Linux)
 
-Status: phase 0 (first installable prereleases), branch `desktop`, draft PR #663. This document is
-the plan; the roadmap below is the order of work. It was reviewed against the code by Codex and Kimi (2026-10-27); their corrections are folded
+Status: phase 0 is done (PR #663): unsigned alpha prereleases on Windows, macOS and Linux, installed
+with one command and updating themselves. Phases 1 to 3 continue on `desktop-next`. This document
+is the plan; the roadmap below is the order of work. It was reviewed against the code by Codex and Kimi (2026-10-27); their corrections are folded
 in.
 
 ## Install
@@ -99,7 +100,7 @@ Losing the private key means installed copies can no longer update themselves.
 
 `[x]`: done on the `desktop` branch.
 
-### Phase 0: first version, quickly (target: about a week)
+### Phase 0: first version, quickly (done)
 Goal: an installable app on the three systems that opens, calculates, and saves `.ded` files.
 1. [x] `desktop/` Tauri 2 project (`src-tauri`), loading the production build of `web/` (`npm run
    build`) from disk; the window opens straight on the application (`/app/…`), not the landing.
@@ -111,13 +112,17 @@ Goal: an installable app on the three systems that opens, calculates, and saves 
 5. [x] Native menu (in es/en/pt): New, Open, Save, Save as, recent files, Quit.
 6. [x] CI: a `desktop` workflow builds unsigned installers (Windows NSIS .exe, macOS .dmg, Linux AppImage
    and .deb) on each push to the branch, as downloadable artifacts.
-7. [ ] Smoke test on each system (automated part done: the launch test solves a cantilever in the
-   bundled engine on all three; the manual pass is pending): open an example, solve 2D and 3D, show the 3D viewer, save, reopen;
-   results identical to the web for the same file.
+7. [x] Smoke test: on every build, CI launches the packaged app on all three systems and it must
+   solve a cantilever in the bundled engine (main thread and worker) against the closed-form
+   answer; every release is installed with the one-command installers on all three and launched
+   the same way. By hand on macOS (2026-10-28): open a `.ded` from Finder (file association),
+   title, recent files, Save, Quit, reopen, and the update from alpha.2 to alpha.3 from Help ▸
+   Check for Updates. A manual pass on Windows and Linux desktops (3D viewer, IFC import, results
+   against the web) moves to phase 1.
 
 ### Phase 1: usable by early testers
-1. Fix what phase 0's smoke tests find on each webview (3D, workers, IFC import (done: it parses
-   in a worker, as the page's CSP forbids web-ifc's eval), large models,
+1. Manual smoke on Windows and Linux desktops, and fix what it finds on each webview (3D, workers,
+   IFC import (it parses in a worker, as the page's CSP forbids web-ifc's eval), large models,
    printing/PDF export).
 2. Sign in once (backend accounts), cached session, offline grace; PRO entitlement checked offline.
 3. [x] (done in phase 0, with install on accept) Update check: tells the user a new version exists, with its release notes and any new safety
