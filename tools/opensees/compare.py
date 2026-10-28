@@ -801,7 +801,7 @@ def opensees_3d(d, mode="static", spec=None):
             tag += 1
             ops.element("elasticBeamColumn", tag, e["nodeI"], e["nodeJ"], 0.0, E, G, 0.0, 0.0, 0.0, tag - 1)
             wagner.append(dict(eid=e["id"], ni=e["nodeI"], nj=e["nodeJ"], ex=ex, ea=E * sec["a"], L=L,
-                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G, tag=tag))
+                               r0sq=(sec["iy"] + sec["iz"]) / sec["a"], g=G, j=sec.get("j") or sec["iy"] + sec["iz"], tag=tag))
         if e["type"] == "truss" and geom:
             # See opensees_2d: string Kg from a released beam on PDelta.
             ops.geomTransf("PDelta", e["id"], *ez)
@@ -1286,8 +1286,10 @@ def analysis_pdelta(ctx):
             ops.updateParameter(i, p * w["r0sq"] / w["g"])
         if ops.analyze(1) != 0:
             raise RuntimeError("OpenSees P-Delta did not converge")
+        # Converged when no Wagner stiffness moves by 1e-12 of its member's
+        # own torsional stiffness (P of round-off size never settles relatively).
         new = [_wagner_p(ops, w) for w in wg]
-        if max(abs(a - b) for a, b in zip(new, ps)) <= 1e-12 * max(1e-300, max(map(abs, new))):
+        if all(abs(a - b) * w["r0sq"] / w["g"] <= 1e-12 * w["j"] for a, b, w in zip(new, ps, wg)):
             break
     else:
         if wg:
