@@ -17,8 +17,14 @@ process.stdout.write(`cask "stabileo" do
   desc "Structural analysis of 2D and 3D frames and trusses"
   homepage "https://stabileo.com/"
 
+  # Desktop versions are the desktop-v* tags; the repository's latest release is the web app's.
+  livecheck do
+    url "https://github.com/lambdaclass/stabileo.git"
+    regex(/^desktop-v(\d+(?:\.\d+)+(?:-(?:alpha|beta|rc)\.\d+)?)$/i)
+  end
+
   auto_updates true
-  depends_on macos: :big_sur
+  depends_on :macos
 
   app "Stabileo.app"
 
