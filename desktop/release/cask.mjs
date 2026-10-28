@@ -31,6 +31,8 @@ process.stdout.write(`cask "stabileo" do
   zap trash: [
     "~/Library/Application Support/com.stabileo.desktop",
     "~/Library/Caches/com.stabileo.desktop",
+    "~/Library/Logs/com.stabileo.desktop",
+    "~/Library/Saved Application State/com.stabileo.desktop.savedState",
     "~/Library/WebKit/com.stabileo.desktop",
   ]
 
