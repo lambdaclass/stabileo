@@ -31,7 +31,8 @@ process.stdout.write(`cask "stabileo" do
 
   caveats <<~EOS
     Stabileo is not signed or notarized yet, so macOS blocks it on first open.
-    Right-click Stabileo in Applications and choose Open, or run:
+    Right-click Stabileo in Applications and choose Open (on macOS 15 and later:
+    try to open it, then System Settings > Privacy & Security > Open Anyway), or run:
       xattr -dr com.apple.quarantine /Applications/Stabileo.app
   EOS
 end

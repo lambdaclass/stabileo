@@ -24,7 +24,7 @@ The `.sig`, `.app.tar.gz` and `latest.json` files are for the in-app updater; yo
 
 ## The first time you open it (unsigned app)
 
-- **macOS:** right-click Stabileo in Applications ▸ Open ▸ Open. Only once. Or in Terminal: `xattr -dr com.apple.quarantine /Applications/Stabileo.app`
+- **macOS:** right-click Stabileo in Applications ▸ Open ▸ Open, only once. On macOS 15 and later: try to open it, then System Settings ▸ Privacy & Security ▸ Open Anyway. Or in Terminal: `xattr -dr com.apple.quarantine /Applications/Stabileo.app`
 - **Windows:** if SmartScreen says "Windows protected your PC", click **More info ▸ Run anyway**.
 - **Linux:** make the AppImage executable: `chmod +x Stabileo_@VERSION@_amd64.AppImage`, then run it. It needs FUSE 2 (`sudo apt install libfuse2` on Debian/Ubuntu).
 
