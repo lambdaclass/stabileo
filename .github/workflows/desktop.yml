@@ -9,20 +9,8 @@ name: Desktop
 on:
   push:
     branches: [main]
-    paths:
-      - "desktop/**"
-      - "web/**"
-      - "engine/**"
-      - "Makefile"
-      - ".github/workflows/desktop.yml"
   pull_request:
-    paths:
-      - "desktop/**"
-      - "web/vite.desktop.ts"
-      - "web/.env.desktop"
-      - "web/src/lib/platform/**"
-      - "web/src/lib/ifc/**"
-      - ".github/workflows/desktop.yml"
+  merge_group:
   workflow_dispatch:
     inputs:
       version:
@@ -45,8 +33,44 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Whether anything the app is built from changed. A manual run always builds. Everything else
+  # is decided here rather than by trigger path filters, so `Desktop OK` always reports, on pull
+  # requests and in the merge queue alike.
+  changes:
+    name: Detect desktop changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      desktop: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.desktop == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          filters: |
+            desktop:
+              - 'desktop/**'
+              - 'web/**'
+              - 'engine/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'rust-toolchain.toml'
+              - '.nvmrc'
+              - 'Makefile'
+              - 'scripts/wasm-cached.sh'
+              - '.github/workflows/desktop.yml'
+
   wasm:
     name: WASM engine
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -133,24 +157,32 @@ jobs:
         working-directory: web
       - run: npm ci --no-audit --no-fund
         working-directory: desktop
+      # The updater artifacts (the macOS .app.tar.gz; on Linux and Windows the AppImage and the
+      # installer themselves) are made here and signed only by the release job, under the
+      # protected desktop-release environment: no build, pull requests included, ever sees the
+      # updater key. Tauri wants a key to make them, so it gets one made for this run, and its
+      # signatures are thrown away.
       - name: Build
         working-directory: desktop
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VERSION: ${{ inputs.version }}
           TARGET: ${{ matrix.target }}
           BUNDLES: ${{ matrix.bundles }}
           # The web build (beforeBuildCommand) ran out of heap on the macOS runner at Node's default.
           NODE_OPTIONS: --max-old-space-size=6144
         run: |
-          conf='{"bundle":{"createUpdaterArtifacts":'"$( [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && echo true || echo false )"'}}'
+          key="$RUNNER_TEMP/throwaway-updater.key"
+          npx tauri signer generate --ci -p throwaway -w "$key" -f > /dev/null
+          TAURI_SIGNING_PRIVATE_KEY="$(cat "$key")"
+          export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD=throwaway
+          conf='{"bundle":{"createUpdaterArtifacts":true}}'
           if [ -n "$VERSION" ]; then
             conf=$(node -e 'const c=JSON.parse(process.argv[1]); c.version=process.argv[2]; console.log(JSON.stringify(c))' "$conf" "$VERSION")
           fi
           args=(--bundles "$BUNDLES" --config "$conf")
           [ -n "$TARGET" ] && args+=(--target "$TARGET")
           npx tauri build "${args[@]}"
+          rm -f "$key" "$key.pub"
       - name: The bundled engine is the one built for the web
         run: |
           want=$(cut -d' ' -f1 wasm.sha256)
@@ -188,19 +220,21 @@ jobs:
         env:
           TARGET_DIR: ${{ matrix.target && format('desktop/src-tauri/target/{0}/release', matrix.target) || 'desktop/src-tauri/target/release' }}
         run: |
+          shopt -s nullglob
           mkdir -p out
           b="$TARGET_DIR/bundle"
           case "${{ matrix.name }}" in
-            linux) cp "$b"/appimage/*.AppImage* "$b"/deb/*.deb out/ ;;
-            macos)
-              cp "$b"/dmg/*.dmg out/
-              # Stabileo.app.tar.gz(.sig) -> Stabileo_<version>_universal.app.tar.gz(.sig)
-              v=$(basename "$b"/dmg/*.dmg .dmg | sed 's/^Stabileo_//')
-              for f in "$b"/macos/*.app.tar.gz*; do
-                cp "$f" "out/Stabileo_${v}.${f##*/Stabileo.}"
-              done ;;
-            windows) cp "$b"/nsis/*-setup.exe* out/ ;;
+            linux) files=("$b"/appimage/*.AppImage "$b"/deb/*.deb) ;;
+            macos) files=("$b"/dmg/*.dmg) ;;
+            windows) files=("$b"/nsis/*-setup.exe) ;;
           esac
+          [ "${#files[@]}" -gt 0 ] || { echo "no installers in $b"; exit 1; }
+          cp "${files[@]}" out/
+          if [ "${{ matrix.name }}" = macos ]; then
+            # Stabileo.app.tar.gz -> Stabileo_<version>_universal.app.tar.gz, when it was made.
+            v=$(basename "$b"/dmg/*.dmg .dmg | sed 's/^Stabileo_//')
+            for f in "$b"/macos/*.app.tar.gz; do cp "$f" "out/Stabileo_${v}.app.tar.gz"; done
+          fi
           ls -la out
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -208,12 +242,17 @@ jobs:
           path: out/
           retention-days: 30
 
+  # Publishing, and the only job with the updater key: the desktop-release environment holds it,
+  # needs a reviewer's approval, and deploys only from main or a desktop-v* tag.
   release:
     name: Publish prerelease
-    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.version != '' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v'))
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: desktop-release
     permissions:
       contents: write
     steps:
@@ -225,6 +264,33 @@ jobs:
           pattern: stabileo-desktop-*
           path: dist
           merge-multiple: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --no-audit --no-fund
+        working-directory: desktop
+      - name: Sign the updater artifacts
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          shopt -s nullglob
+          signed=0
+          for f in ../dist/*.AppImage ../dist/*-setup.exe ../dist/*.app.tar.gz; do
+            npx tauri signer sign --app-version "$VERSION" "$f" > /dev/null
+            signed=$((signed + 1))
+          done
+          [ "$signed" -eq 3 ] || { echo "expected 3 updater artifacts, signed $signed"; exit 1; }
+      - name: The signatures verify with the app's public key
+        run: |
+          sudo apt-get install -y --no-install-recommends minisign > /dev/null
+          node -e 'process.stdout.write(Buffer.from(require("./desktop/src-tauri/tauri.conf.json").plugins.updater.pubkey, "base64"))' > "$RUNNER_TEMP/updater.pub"
+          for sig in dist/*.sig; do
+            base64 -d < "$sig" > "$RUNNER_TEMP/one.minisig"
+            minisign -V -q -p "$RUNNER_TEMP/updater.pub" -m "${sig%.sig}" -x "$RUNNER_TEMP/one.minisig"
+          done
       - name: Checksums, update manifest and Homebrew cask
         env:
           VERSION: ${{ inputs.version }}
@@ -289,8 +355,8 @@ jobs:
   # the startup self-check.
   install:
     name: Install test (${{ matrix.os }})
-    needs: release
-    if: ${{ !cancelled() && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
+    needs: [changes, build, release]
+    if: ${{ !cancelled() && needs.changes.outputs.desktop == 'true' && needs.build.result == 'success' && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -343,3 +409,20 @@ jobs:
           if (-not $p.WaitForExit(300000)) { $p.Kill(); throw 'the app did not finish its self-check' }
           Get-Content $env:STABILEO_SELFCHECK_OUT
           if (-not (Select-String -Quiet -Pattern '^stabileo-selfcheck ok' $env:STABILEO_SELFCHECK_OUT)) { throw 'self-check failed' }
+
+  # One check to require, on pull requests and in the merge queue: everything that ran passed.
+  # When nothing the app is built from changed, the jobs are skipped and this passes.
+  desktop-ok:
+    name: Desktop OK
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [changes, wasm, build, release, install]
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) exit 1 ;; esac
+          done
