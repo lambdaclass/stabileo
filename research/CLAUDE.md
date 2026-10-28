@@ -48,6 +48,18 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - Agreement with a reference code is not experimental validation and never an engineering
   certification; say so.
 
+## Frozen versions and citation
+- **Every experiment has frozen versions and Cite this before it is published** (DESIGN.md §5).
+  The experiment shell carries Cite this (`shell/CiteThis.svelte`); a page that does not use the
+  shell includes the component itself. Each experiment has `versions.json` next to its
+  `paper.yaml`; a result change adds a version with what changed and why.
+- Snapshots (`/@<commit>/`) are made by the deploy for every commit on `main` that changes
+  `research/`, the engine or the viewer; never build or upload one by hand. The gallery card
+  shows each experiment's latest permanent link.
+- The Research workflow replays every paper's reference checks when `research/`, the engine or the
+  viewer changes (`tools/replay.py`); a paper is picked up automatically when it has a
+  `Cargo.toml` and a committed `VALIDATION.json`.
+
 ## Isolation from the product
 - Each paper is its own crate under `research/<field>/<id>/`, outside the engine's and backend's
   workspaces. Research may depend on stable engine APIs; **the engine and the app never import
