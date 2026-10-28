@@ -23,6 +23,32 @@ const EN = {
   updateBusy: 'A calculation is running. Install the update when it finishes.',
   updateDebLinux: 'This installation (.deb) does not update itself. Download the new version from:',
   updateInstalling: 'Downloading the update…',
+  menuFile: 'File',
+  menuNew: 'New',
+  menuOpen: 'Open…',
+  menuOpenRecent: 'Open Recent',
+  menuNoRecent: 'No recent projects',
+  menuClearRecent: 'Clear Menu',
+  menuSave: 'Save',
+  menuSaveAs: 'Save As…',
+  menuQuit: 'Quit',
+  menuQuitApp: 'Quit Stabileo',
+  menuEdit: 'Edit',
+  menuCut: 'Cut',
+  menuCopy: 'Copy',
+  menuPaste: 'Paste',
+  menuSelectAll: 'Select All',
+  menuHelp: 'Help',
+  menuCheckUpdates: 'Check for Updates…',
+  menuReport: 'Report a Problem…',
+  menuAbout: 'About Stabileo',
+  menuServices: 'Services',
+  menuHide: 'Hide Stabileo',
+  menuHideOthers: 'Hide Others',
+  menuShowAll: 'Show All',
+  menuWindow: 'Window',
+  menuMinimize: 'Minimize',
+  menuFullscreen: 'Enter Full Screen',
 } as const;
 
 type Key = keyof typeof EN;
@@ -51,6 +77,32 @@ const ES: Record<Key, string> = {
   updateBusy: 'Hay un cálculo en curso. Instalá la actualización cuando termine.',
   updateDebLinux: 'Esta instalación (.deb) no se actualiza sola. Descargá la nueva versión de:',
   updateInstalling: 'Descargando la actualización…',
+  menuFile: 'Archivo',
+  menuNew: 'Nuevo',
+  menuOpen: 'Abrir…',
+  menuOpenRecent: 'Abrir reciente',
+  menuNoRecent: 'No hay proyectos recientes',
+  menuClearRecent: 'Borrar menú',
+  menuSave: 'Guardar',
+  menuSaveAs: 'Guardar como…',
+  menuQuit: 'Salir',
+  menuQuitApp: 'Salir de Stabileo',
+  menuEdit: 'Edición',
+  menuCut: 'Cortar',
+  menuCopy: 'Copiar',
+  menuPaste: 'Pegar',
+  menuSelectAll: 'Seleccionar todo',
+  menuHelp: 'Ayuda',
+  menuCheckUpdates: 'Buscar actualizaciones…',
+  menuReport: 'Informar un problema…',
+  menuAbout: 'Acerca de Stabileo',
+  menuServices: 'Servicios',
+  menuHide: 'Ocultar Stabileo',
+  menuHideOthers: 'Ocultar otros',
+  menuShowAll: 'Mostrar todo',
+  menuWindow: 'Ventana',
+  menuMinimize: 'Minimizar',
+  menuFullscreen: 'Pantalla completa',
 };
 
 const PT: Record<Key, string> = {
@@ -77,9 +129,44 @@ const PT: Record<Key, string> = {
   updateBusy: 'Há um cálculo em andamento. Instale a atualização quando terminar.',
   updateDebLinux: 'Esta instalação (.deb) não se atualiza sozinha. Baixe a nova versão em:',
   updateInstalling: 'Baixando a atualização…',
+  menuFile: 'Arquivo',
+  menuNew: 'Novo',
+  menuOpen: 'Abrir…',
+  menuOpenRecent: 'Abrir recente',
+  menuNoRecent: 'Nenhum projeto recente',
+  menuClearRecent: 'Limpar menu',
+  menuSave: 'Salvar',
+  menuSaveAs: 'Salvar como…',
+  menuQuit: 'Sair',
+  menuQuitApp: 'Sair do Stabileo',
+  menuEdit: 'Editar',
+  menuCut: 'Recortar',
+  menuCopy: 'Copiar',
+  menuPaste: 'Colar',
+  menuSelectAll: 'Selecionar tudo',
+  menuHelp: 'Ajuda',
+  menuCheckUpdates: 'Verificar atualizações…',
+  menuReport: 'Relatar um problema…',
+  menuAbout: 'Sobre o Stabileo',
+  menuServices: 'Serviços',
+  menuHide: 'Ocultar Stabileo',
+  menuHideOthers: 'Ocultar outros',
+  menuShowAll: 'Mostrar tudo',
+  menuWindow: 'Janela',
+  menuMinimize: 'Minimizar',
+  menuFullscreen: 'Tela cheia',
 };
 
 export function desktopText(locale: string, key: Key): string {
   const table = locale.startsWith('es') ? ES : locale.startsWith('pt') ? PT : EN;
   return table[key];
+}
+
+/** The native menu's labels in `locale`, for the shell's `set_menu_labels`. */
+export function menuLabels(locale: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of Object.keys(EN) as Key[]) {
+    if (key.startsWith('menu')) out[key] = desktopText(locale, key);
+  }
+  return out;
 }

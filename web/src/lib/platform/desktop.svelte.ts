@@ -16,7 +16,7 @@ import { historyStore } from '../store/history.svelte';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { i18n, t } from '../i18n';
-import { desktopText } from './desktop-text';
+import { desktopText, menuLabels } from './desktop-text';
 import { startUpdater, checkForUpdates } from './updater';
 import { showAbout, reportProblem } from './about';
 import { runSelfCheck } from './self-check';
@@ -117,6 +117,10 @@ function watchChanges(): void {
     $effect(() => {
       void modelStore.model.name;
       refreshState();
+    });
+    $effect(() => {
+      const labels = menuLabels(i18n.locale);
+      void invoke('set_menu_labels', { labels }).catch((err) => console.warn('[stabileo] menu labels:', err));
     });
     $effect(() => {
       const title = `${dirty ? '• ' : ''}${titleName} — Stabileo`;

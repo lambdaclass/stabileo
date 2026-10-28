@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -15,6 +16,10 @@ const RECENT_FILE: &str = "recent.json";
 /// Files the system asked the app to open, until the page takes them.
 #[derive(Default)]
 struct Pending(Mutex<Vec<PathBuf>>);
+
+/// The menu's labels in the page's language, by key; a missing key reads in English.
+#[derive(Default)]
+struct Labels(Mutex<HashMap<String, String>>);
 
 /// Recently opened or saved projects, newest first. Only paths the user picked get in.
 #[derive(Default)]
@@ -154,60 +159,70 @@ fn log_line<R: Runtime>(app: AppHandle<R>, line: String) {
     }
 }
 
+/// Relabel the menu in the page's language (`web/src/lib/platform/desktop-text.ts`).
+#[tauri::command]
+fn set_menu_labels<R: Runtime>(app: AppHandle<R>, labels: HashMap<String, String>) -> Result<(), String> {
+    *app.state::<Labels>().0.lock().unwrap() = labels;
+    let recent = app.state::<Recent>().0.lock().unwrap().clone();
+    set_menu(&app, &recent).map_err(|e| e.to_string())
+}
+
 fn build_menu<R: Runtime>(app: &AppHandle<R>, recent: &[PathBuf]) -> tauri::Result<Menu<R>> {
-    let mut open_recent = SubmenuBuilder::new(app, "Open Recent");
+    let labels = app.state::<Labels>().0.lock().unwrap().clone();
+    let l = |key: &str, en: &str| -> String { labels.get(key).cloned().unwrap_or_else(|| en.to_string()) };
+    let mut open_recent = SubmenuBuilder::new(app, l("menuOpenRecent", "Open Recent"));
     for (i, p) in recent.iter().enumerate() {
         open_recent = open_recent.item(&MenuItemBuilder::with_id(format!("recent:{i}"), p.to_string_lossy()).build(app)?);
     }
     if recent.is_empty() {
-        open_recent = open_recent.item(&MenuItemBuilder::with_id("recent:none", "No recent projects").enabled(false).build(app)?);
+        open_recent = open_recent.item(&MenuItemBuilder::with_id("recent:none", l("menuNoRecent", "No recent projects")).enabled(false).build(app)?);
     } else {
-        open_recent = open_recent.separator().text("recent:clear", "Clear Menu");
+        open_recent = open_recent.separator().text("recent:clear", l("menuClearRecent", "Clear Menu"));
     }
 
-    let mut file = SubmenuBuilder::new(app, "File")
-        .item(&MenuItemBuilder::with_id("new", "New").accelerator("CmdOrCtrl+N").build(app)?)
-        .item(&MenuItemBuilder::with_id("open", "Open…").accelerator("CmdOrCtrl+O").build(app)?)
+    let mut file = SubmenuBuilder::new(app, l("menuFile", "File"))
+        .item(&MenuItemBuilder::with_id("new", l("menuNew", "New")).accelerator("CmdOrCtrl+N").build(app)?)
+        .item(&MenuItemBuilder::with_id("open", l("menuOpen", "Open…")).accelerator("CmdOrCtrl+O").build(app)?)
         .item(&open_recent.build()?)
         .separator()
-        .item(&MenuItemBuilder::with_id("save", "Save").accelerator("CmdOrCtrl+S").build(app)?)
-        .item(&MenuItemBuilder::with_id("save_as", "Save As…").accelerator("CmdOrCtrl+Shift+S").build(app)?);
+        .item(&MenuItemBuilder::with_id("save", l("menuSave", "Save")).accelerator("CmdOrCtrl+S").build(app)?)
+        .item(&MenuItemBuilder::with_id("save_as", l("menuSaveAs", "Save As…")).accelerator("CmdOrCtrl+Shift+S").build(app)?);
     if !cfg!(target_os = "macos") {
         file = file
             .separator()
-            .item(&MenuItemBuilder::with_id("quit", "Quit").accelerator("CmdOrCtrl+Q").build(app)?);
+            .item(&MenuItemBuilder::with_id("quit", l("menuQuit", "Quit")).accelerator("CmdOrCtrl+Q").build(app)?);
     }
 
-    let edit = SubmenuBuilder::new(app, "Edit")
-        .item(&PredefinedMenuItem::cut(app, None)?)
-        .item(&PredefinedMenuItem::copy(app, None)?)
-        .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?);
+    let edit = SubmenuBuilder::new(app, l("menuEdit", "Edit"))
+        .item(&PredefinedMenuItem::cut(app, Some(&l("menuCut", "Cut")))?)
+        .item(&PredefinedMenuItem::copy(app, Some(&l("menuCopy", "Copy")))?)
+        .item(&PredefinedMenuItem::paste(app, Some(&l("menuPaste", "Paste")))?)
+        .item(&PredefinedMenuItem::select_all(app, Some(&l("menuSelectAll", "Select All")))?);
 
-    let mut help = SubmenuBuilder::new(app, "Help")
-        .text("check_updates", "Check for Updates…")
-        .text("report", "Report a Problem…");
+    let mut help = SubmenuBuilder::new(app, l("menuHelp", "Help"))
+        .text("check_updates", l("menuCheckUpdates", "Check for Updates…"))
+        .text("report", l("menuReport", "Report a Problem…"));
     if !cfg!(target_os = "macos") {
-        help = help.separator().text("about", "About Stabileo");
+        help = help.separator().text("about", l("menuAbout", "About Stabileo"));
     }
 
     let mut menu = MenuBuilder::new(app);
     if cfg!(target_os = "macos") {
         let app_menu = SubmenuBuilder::new(app, "Stabileo")
-            .text("about", "About Stabileo")
-            .text("check_updates_app", "Check for Updates…")
+            .text("about", l("menuAbout", "About Stabileo"))
+            .text("check_updates_app", l("menuCheckUpdates", "Check for Updates…"))
             .separator()
-            .item(&PredefinedMenuItem::services(app, None)?)
+            .item(&PredefinedMenuItem::services(app, Some(&l("menuServices", "Services")))?)
             .separator()
-            .item(&PredefinedMenuItem::hide(app, None)?)
-            .item(&PredefinedMenuItem::hide_others(app, None)?)
-            .item(&PredefinedMenuItem::show_all(app, None)?)
+            .item(&PredefinedMenuItem::hide(app, Some(&l("menuHide", "Hide Stabileo")))?)
+            .item(&PredefinedMenuItem::hide_others(app, Some(&l("menuHideOthers", "Hide Others")))?)
+            .item(&PredefinedMenuItem::show_all(app, Some(&l("menuShowAll", "Show All")))?)
             .separator()
-            .item(&MenuItemBuilder::with_id("quit", "Quit Stabileo").accelerator("CmdOrCtrl+Q").build(app)?)
+            .item(&MenuItemBuilder::with_id("quit", l("menuQuitApp", "Quit Stabileo")).accelerator("CmdOrCtrl+Q").build(app)?)
             .build()?;
-        let window = SubmenuBuilder::new(app, "Window")
-            .item(&PredefinedMenuItem::minimize(app, None)?)
-            .item(&PredefinedMenuItem::fullscreen(app, None)?)
+        let window = SubmenuBuilder::new(app, l("menuWindow", "Window"))
+            .item(&PredefinedMenuItem::minimize(app, Some(&l("menuMinimize", "Minimize")))?)
+            .item(&PredefinedMenuItem::fullscreen(app, Some(&l("menuFullscreen", "Enter Full Screen")))?)
             .build()?;
         menu = menu.item(&app_menu).item(&file.build()?).item(&edit.build()?).item(&window);
     } else {
@@ -261,13 +276,15 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Pending::default())
         .manage(Recent::default())
+        .manage(Labels::default())
         .invoke_handler(tauri::generate_handler![
             take_pending_files,
             note_recent,
             system_info,
             can_self_update,
             exit_app,
-            log_line
+            log_line,
+            set_menu_labels
         ])
         .setup(|app| {
             let handle = app.handle().clone();
