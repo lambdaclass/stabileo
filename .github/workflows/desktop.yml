@@ -218,7 +218,7 @@ jobs:
           cp desktop/install/install.sh desktop/install/install.ps1 dist/
           cd dist
           ls -la
-          sha256sum $(ls | grep -v '\.sig$') > SHA256SUMS
+          find . -maxdepth 1 -type f ! -name '*.sig' -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
           cat SHA256SUMS
           node ../desktop/release/latest-json.mjs "$VERSION" "$NOTES" . > latest.json
           cat latest.json
@@ -267,3 +267,60 @@ jobs:
           put install.sh dist/install.sh
           put install.ps1 dist/install.ps1
           put latest.json dist/latest.json
+
+  # The one-command installs, as a tester runs them: this commit's scripts install the version the
+  # feed points to (on a release run, the one just published), and the installed app must pass
+  # the startup self-check.
+  install:
+    name: Install test (${{ matrix.os }})
+    needs: release
+    if: ${{ !cancelled() && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install (Linux)
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libfuse2t64 xvfb shellcheck desktop-file-utils
+          shellcheck -s sh desktop/install/install.sh
+          sh desktop/install/install.sh
+          desktop-file-validate ~/.local/share/applications/stabileo.desktop
+          STABILEO_EXIT_AFTER_SELFCHECK=1 timeout 300 xvfb-run -a ~/.local/bin/stabileo
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+          sh desktop/install/install.sh --uninstall
+          test ! -e ~/.local/bin/stabileo
+      - name: Install (macOS)
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        if: runner.os == 'macOS'
+        run: |
+          sh desktop/install/install.sh
+          codesign --verify --deep --strict /Applications/Stabileo.app
+          STABILEO_EXIT_AFTER_SELFCHECK=1 perl -e 'alarm shift; exec @ARGV' 300 /Applications/Stabileo.app/Contents/MacOS/stabileo-desktop
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+          sh desktop/install/install.sh --uninstall
+          test ! -e /Applications/Stabileo.app
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        run: |
+          Get-Content -Raw desktop/install/install.ps1 | Invoke-Expression
+          $exe = Join-Path $env:LOCALAPPDATA 'Stabileo\stabileo-desktop.exe'
+          if (-not (Test-Path $exe)) { Get-ChildItem -Recurse (Join-Path $env:LOCALAPPDATA 'Stabileo') | Select-Object -First 20; throw "not installed at $exe" }
+          $env:STABILEO_EXIT_AFTER_SELFCHECK = '1'
+          $p = Start-Process -FilePath $exe -PassThru
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); throw 'the app did not finish its self-check' }
+          Get-Content $env:STABILEO_SELFCHECK_OUT
+          if (-not (Select-String -Quiet -Pattern '^stabileo-selfcheck ok' $env:STABILEO_SELFCHECK_OUT)) { throw 'self-check failed' }
