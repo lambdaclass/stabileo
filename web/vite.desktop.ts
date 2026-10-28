@@ -5,7 +5,7 @@
  * untouched.
  *
  * In desktop mode:
- *  - output goes to `dist-desktop/`, without the third-party script and the files only the web
+ *  - output goes to `dist-desktop/` at base `/` (whatever BASE_PATH says), without the third-party script and the files only the web
  *    host serves;
  *  - IFC parsing runs in a worker (src/lib/ifc/ifc-worker.ts), so workers also get the
  *    dictionaries' plugins (a `.svelte.ts` store and the public entries' virtual module);
@@ -48,6 +48,8 @@ export function desktopPlugins(workerPlugins: () => PluginOption[]): Plugin[] {
       if (!on) return undefined;
       const base = cfg.worker?.plugins;
       return {
+        // The app loads its files from its own origin's root, whatever base a web build uses.
+        base: '/',
         build: { outDir: 'dist-desktop' },
         worker: { plugins: () => [...(base ? base() : []), ...workerPlugins()] },
       };
