@@ -1,7 +1,30 @@
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
 /** The research pages' interface strings (the articles themselves are in English for now). */
-const STRINGS = {
+export type ResearchStrings = {
+  sourceLabel: Record<'crossref-abstract' | 'publisher-abstract' | 'repository-readme' | 'full-text' | 'reference-code', string>;
+  summaryIntro: string;
+  noAbstract: string;
+  runIt: string;
+  comingNext: string;
+  inProgress: string;
+  catalog: string;
+  field: string;
+  status: string;
+  all: string;
+  readRun: string;
+  paper: string;
+  code: string;
+  openInStabileo: string;
+  soon: string;
+  notDesign: string;
+  checksPass: string;
+  notCompared: string;
+  research: string;
+  suggest: string;
+};
+
+const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   en: {
     sourceLabel: { 'crossref-abstract': 'from the abstract', 'publisher-abstract': 'from the abstract', 'repository-readme': 'from the code’s README', 'full-text': 'from the paper', 'reference-code': 'from the reference code' },
     summaryIntro: 'Summary in our words,',
@@ -68,12 +91,10 @@ const STRINGS = {
     research: 'Pesquisa',
     suggest: 'Sugira um artigo para reproduzir →',
   },
-} as const;
-
-export type ResearchStrings = (typeof STRINGS)['en'];
+};
 
 export function rs(): ResearchStrings {
-  return (STRINGS as Record<string, ResearchStrings>)[publicI18n.locale] ?? STRINGS.en;
+  return STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en;
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {

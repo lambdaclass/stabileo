@@ -344,45 +344,6 @@ ${extraScript ? `<script>${extraScript}</script>` : ''}
 `;
 }
 
-/**
- * The gallery's pictures of the experiments that run here, rendered from our own solver's
- * replay through the page's viewer (never a paper's figure). Skipped, with a note, when the
- * research WASM bundle was not built (the gallery then shows the field's drawn icon).
- */
-async function renderResearchThumbnails(browser: Browser, base: string) {
-  const src = await readFile(join(ROOT, 'src/components/research/experiments.ts'), 'utf8');
-  const entries = [...src.matchAll(/path: '([^']+)',[\s\S]*?thumbnail: '([^']+)',\s*thumbnailQuery: '([^']+)'/g)].map((m) => ({
-    path: m[1],
-    file: m[2],
-    query: m[3],
-  }));
-  if (!existsSync(join(DIST, 'research-wasm'))) {
-    console.log('   · research thumbnails skipped: the research WASM bundle is not in this build');
-    return;
-  }
-  for (const e of entries) {
-    const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
-    await page.goto(`${base}/en${e.path}/?${e.query}`, { waitUntil: 'networkidle' });
-    await page.waitForSelector('.sfv-canvas canvas', { timeout: 30000 });
-    await page.waitForTimeout(1500);
-    const dataUrl = await page.evaluate(() => {
-      const c = document.querySelector('.sfv-canvas canvas') as HTMLCanvasElement;
-      const out = document.createElement('canvas');
-      out.width = 640;
-      out.height = 400;
-      const g = out.getContext('2d')!;
-      const s = Math.max(640 / c.width, 400 / c.height);
-      g.drawImage(c, (640 - c.width * s) / 2, (400 - c.height * s) / 2, c.width * s, c.height * s);
-      return out.toDataURL('image/webp', 0.82);
-    });
-    const out = join(DIST, e.file);
-    await mkdir(dirname(out), { recursive: true });
-    await writeFile(out, Buffer.from(dataUrl.split(',')[1], 'base64'));
-    console.log(`   · ${e.file} (${Buffer.from(dataUrl.split(',')[1], 'base64').length} bytes)`);
-    await page.close();
-  }
-}
-
 async function main() {
   if (!existsSync(join(DIST, 'index.html'))) {
     // Names the directory it actually looked in: with PRERENDER_OUT set that is
@@ -492,8 +453,6 @@ async function main() {
       join(DIST, 'robots.txt'),
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
-
-    await renderResearchThumbnails(browser, base);
 
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);

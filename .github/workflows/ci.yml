@@ -424,7 +424,9 @@ jobs:
         with:
           workspaces: research/fracture/shauer-2025/wasm
           shared-key: research-wasm
-      - name: Build the research WASM
+      - name: Install web dependencies (the research viewer bundle is built with Vite)
+        run: make web.deps
+      - name: Build the research WASM and viewer
         run: make research.wasm
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv

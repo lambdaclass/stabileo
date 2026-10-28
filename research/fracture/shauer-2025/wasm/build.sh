@@ -25,4 +25,6 @@ cp "$root/research/fracture/shauer-2025/reference-results/ex2_steps.csv" "$out/r
 # Caddy with precompressed files) would add Content-Encoding and the browser would inflate it first.
 gzip -9 -n -c "$out/replay.bin" > "$out/replay.srpl" && rm "$out/replay.bin"
 ( cd "$out" && shasum -a 256 phasefield_bg.wasm phasefield.js reference_ex2_steps.csv replay.srpl > SHA256SUMS )
+# Stabileo's viewer for research pages, as its own bundle (web/vite.research-viewer.config.ts).
+(cd "$root/web" && npx vite build -c vite.research-viewer.config.ts --outDir "$(dirname "$out")/viewer" --logLevel warn)
 echo "research wasm: $(wc -c < "$out/phasefield_bg.wasm") bytes -> $out"

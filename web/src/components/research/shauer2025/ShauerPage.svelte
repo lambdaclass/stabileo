@@ -16,6 +16,7 @@
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import { Playback, SOURCE_LABEL, type Source } from '../shell/playback.svelte';
   import { fetchReplay } from '../shell/replay';
+  import StabileoViewer from '../shell/StabileoViewer.svelte';
 
   const STABILEO = '#3987e5';
   const REFERENCE = '#d95926';
@@ -97,6 +98,9 @@
         const v = q.get('view');
         if (v === 'plate' || v === 'band' || v === 'tip') view = v;
         if (q.get('deformed') === '0') deformed = false;
+        const k = Number(q.get('deform'));
+        if (Number.isFinite(k) && k >= 0 && k <= 200 && q.has('deform')) deform = k;
+        if (q.get('broken') === 'show') hideBroken = false;
         if (q.has('step')) {
           playback.seek(Number(q.get('step')));
           return;
@@ -140,7 +144,6 @@
     band: [-0.5, -0.12, 0.5, 0.12],
     tip: [-0.03, -0.0225, 0.03, 0.0225],
   };
-  const viewer = import('../../viewport/ScalarFieldViewer.svelte');
 
   const dispMag = $derived.by(() => {
     if (!frame) return null;
@@ -344,8 +347,20 @@
       <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{SOURCE_LABEL[source]}</p>
 
       {#if nodes && elements}
-        {#await viewer then m}
-          <m.default
+        <div class="rs-ribbon" role="group" aria-label="Result shown" onclickcapture={() => playback.interact()}>
+          <button class="diagram-btn" class:active={field === 'damage'} onclick={() => (field = 'damage')}>Damage d</button>
+          <button class="diagram-btn" class:active={field === 'disp'} onclick={() => (field = 'disp')}>Displacement</button>
+          <button class="diagram-btn" class:active={field === 'syy'} disabled={!frame?.syy} title={frame?.syy ? '' : 'Stress is available after a live run'} onclick={() => (field = 'syy')}>σyy</button>
+          <span class="rs-sep"></span>
+          <button class="diagram-btn" class:active={deformed} onclick={() => (deformed = !deformed)}>Deformed ×{deform}</button>
+          <button class="diagram-btn" class:active={showMesh} onclick={() => (showMesh = !showMesh)}>Mesh</button>
+          <button class="diagram-btn" class:active={hideBroken} onclick={() => (hideBroken = !hideBroken)} title="Hide elements with two or more corners at d > 0.95 (the open crack)">Hide broken</button>
+          <span class="rs-sep"></span>
+          <button class="diagram-btn" class:active={view === 'plate'} onclick={() => (view = 'plate')}>Plate</button>
+          <button class="diagram-btn" class:active={view === 'band'} onclick={() => (view = 'band')}>Crack band</button>
+          <button class="diagram-btn" class:active={view === 'tip'} onclick={() => (view = 'tip')}>Notch tip</button>
+        </div>
+          <StabileoViewer
             xy={nodes}
             cells={elements}
             values={fieldValues}
@@ -362,24 +377,8 @@
             height="min(26rem, 62vw)"
             status={statusItems}
             ariaLabel="Stabileo viewer: {field} on the {deformed ? 'deformed' : 'undeformed'} mesh"
-          >
-            {#snippet toolbar()}
-              <div class="rs-ribbon" role="group" aria-label="Result shown" onclickcapture={() => playback.interact()}>
-                <button class="diagram-btn" class:active={field === 'damage'} onclick={() => (field = 'damage')}>Damage d</button>
-                <button class="diagram-btn" class:active={field === 'disp'} onclick={() => (field = 'disp')}>Displacement</button>
-                <button class="diagram-btn" class:active={field === 'syy'} disabled={!frame?.syy} title={frame?.syy ? '' : 'Stress is available after a live run'} onclick={() => (field = 'syy')}>σyy</button>
-                <span class="rs-sep"></span>
-                <button class="diagram-btn" class:active={deformed} onclick={() => (deformed = !deformed)}>Deformed ×{deform}</button>
-                <button class="diagram-btn" class:active={showMesh} onclick={() => (showMesh = !showMesh)}>Mesh</button>
-                <button class="diagram-btn" class:active={hideBroken} onclick={() => (hideBroken = !hideBroken)} title="Hide elements with two or more corners at d > 0.95 (the open crack)">Hide broken</button>
-                <span class="rs-sep"></span>
-                <button class="diagram-btn" class:active={view === 'plate'} onclick={() => (view = 'plate')}>Plate</button>
-                <button class="diagram-btn" class:active={view === 'band'} onclick={() => (view = 'band')}>Crack band</button>
-                <button class="diagram-btn" class:active={view === 'tip'} onclick={() => (view = 'tip')}>Notch tip</button>
-              </div>
-            {/snippet}
-          </m.default>
-        {/await}
+          />
+
       {:else}
         <div class="rs-placeholder">{replayError ? 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.' : 'Loading the replay…'}</div>
       {/if}
