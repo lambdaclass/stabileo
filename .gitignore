@@ -87,3 +87,4 @@ __pycache__/
 .hex/
 .stabileo-inst
 .env.prod
+web/snapshot-e2e/.artifacts/
