@@ -585,7 +585,7 @@ jobs:
   web-build:
     name: Web Build
     runs-on: ubuntu-latest
-    needs: [changes, wasm]
+    needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -610,6 +610,17 @@ jobs:
         with:
           name: wasm
           path: web/src/lib/wasm
+      - name: Research WASM and replay (same artifact as deployment)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
+      - name: Research runtime assets exist
+        run: |
+          test -s web/public/research-wasm/shauer-2025/phasefield.js
+          test -s web/public/research-wasm/shauer-2025/phasefield_bg.wasm
+          test -s web/public/research-wasm/shauer-2025/replay.srpl
+          test -s web/public/research-wasm/viewer/viewer.js
       - name: Install dependencies
         run: make web.deps
       - name: Typecheck against its baseline and svelte-check gate
@@ -619,6 +630,12 @@ jobs:
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Build and production-build tests
         run: make test.web.build
+      - name: Built site includes the research runtime
+        run: |
+          test -s web/dist/research-wasm/shauer-2025/phasefield.js
+          test -s web/dist/research-wasm/shauer-2025/phasefield_bg.wasm
+          test -s web/dist/research-wasm/shauer-2025/replay.srpl
+          test -s web/dist/research-wasm/viewer/viewer.js
       - name: Admin site build
         run: make admin.build
 

@@ -18,6 +18,14 @@ on:
       - 'web/src/lib/viewport3d/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'web/src/styles/**'
+      - 'web/src/components/ribbon/**'
+      - 'web/src/lib/geometry/coordinate-system.ts'
+      - 'web/package*.json'
+      - 'web/vite*.ts'
+      - 'flake.*'
+      - 'rust-toolchain*'
+      - 'Makefile'
   pull_request:
     paths:
       - 'research/**'
@@ -32,6 +40,14 @@ on:
       - 'web/src/lib/viewport3d/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'web/src/styles/**'
+      - 'web/src/components/ribbon/**'
+      - 'web/src/lib/geometry/coordinate-system.ts'
+      - 'web/package*.json'
+      - 'web/vite*.ts'
+      - 'flake.*'
+      - 'rust-toolchain*'
+      - 'Makefile'
   schedule:
     - cron: '17 6 * * 1'
 

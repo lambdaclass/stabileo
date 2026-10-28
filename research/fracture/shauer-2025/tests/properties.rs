@@ -110,3 +110,17 @@ fn invalid_inputs_are_refused() {
     let m = mesh::rectangle(2, 1, 1.0, 1.0);
     assert_eq!(m.elements.len(), 2);
 }
+
+#[test]
+fn invalid_spacing_and_jacobians_are_refused() {
+    for h_fine in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 0.0, -0.001] {
+        assert!(NotchedSquare { h_fine, ..NotchedSquare::REFERENCE }.validate().is_err());
+    }
+    let (_, dn) = fe::shape(0.0, 0.0);
+    for aligned in [true, false] {
+        for width in [0.0, f64::NAN, f64::INFINITY] {
+            let x = [[0.0, 0.0], [width, 0.0], [width, 1.0], [0.0, 1.0]];
+            assert!(fe::gradients(&x, &dn, aligned).is_err());
+        }
+    }
+}

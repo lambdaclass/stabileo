@@ -1,3 +1,6 @@
+//! Adapted from phasefield-jr-py, © 2025 Nathan Shauer (MIT).
+//! See ../LICENSE-phasefield-jr-py for the complete upstream notice.
+//!
 //! Alternating (staggered) solution of the displacement and damage problems at each load step,
 //! following the loop of the reference code: assemble elasticity with the current damage; after
 //! the first pass, stop when the elasticity residual norm is below the tolerance; otherwise solve
@@ -131,6 +134,7 @@ pub struct Solver {
     pub u: Vec<f64>,
     pub d: Vec<f64>,
     history: Vec<[f64; 4]>,
+    failed: bool,
     pub pseudotime: f64,
     pub step: usize,
     elastic: Pattern,
@@ -160,7 +164,7 @@ impl Solver {
         let elastic = Pattern::new(2 * n, &problem.mesh.elements, 2);
         let damage = Pattern::new(n, &problem.mesh.elements, 1);
         let ne = problem.mesh.elements.len();
-        Ok(Solver { u: vec![0.0; 2 * n], d: vec![0.0; n], history: vec![[0.0; 4]; ne], pseudotime: 0.0, step: 0, elastic, damage, coords, problem })
+        Ok(Solver { u: vec![0.0; 2 * n], d: vec![0.0; n], history: vec![[0.0; 4]; ne], failed: false, pseudotime: 0.0, step: 0, elastic, damage, coords, problem })
     }
 
     fn element_u(&self, e: usize) -> [f64; 8] {
@@ -267,13 +271,13 @@ impl Solver {
     }
 
     pub fn finished(&self) -> bool {
-        self.pseudotime + self.problem.controls.dt > self.problem.controls.total_time
+        self.failed || self.pseudotime + self.problem.controls.dt > self.problem.controls.total_time
     }
 
     /// Advance one load step. Returns None once the next pseudo time would exceed the total.
     pub fn advance(&mut self) -> Result<Option<StepResult>, String> {
         let next = self.pseudotime + self.problem.controls.dt;
-        if next > self.problem.controls.total_time {
+        if self.failed || next > self.problem.controls.total_time {
             return Ok(None);
         }
         self.pseudotime = next;
@@ -300,7 +304,8 @@ impl Solver {
             self.u = self.elastic.solve(&rhs)?;
             self.solve_damage()?;
         }
-        if self.problem.controls.irreversibility == Irreversibility::History {
+        self.failed = !converged;
+        if converged && self.problem.controls.irreversibility == Irreversibility::History {
             for e in 0..self.coords.len() {
                 let p = self.psi_plus_qp(e)?;
                 for q in 0..4 {
@@ -334,5 +339,32 @@ impl Solver {
             out.push(s);
         }
         Ok(out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::examples::bar_reference;
+
+    #[test]
+    fn failed_step_does_not_commit_history_or_advance_on_unloading() {
+        let mut problem = bar_reference();
+        problem.controls.irreversibility = Irreversibility::History;
+        problem.controls.max_iterations = 1;
+        let mut solver = Solver::new(problem).unwrap();
+        let before = solver.history.clone();
+        let step = solver.advance().unwrap().unwrap();
+        assert!(!step.converged);
+        assert!(solver.d.iter().any(|&v| v > 0.0));
+        assert_eq!(solver.history, before);
+        for bc in &mut solver.problem.dirichlet { bc.value = 0.0; }
+        assert!(solver.finished());
+        assert!(solver.advance().unwrap().is_none());
+        // The rejected trial must not drive damage on unloading either.
+        solver.u.fill(0.0);
+        solver.solve_damage().unwrap();
+        assert!(solver.d.iter().all(|v| v.abs() < 1e-12));
+        assert_eq!(solver.history, before);
     }
 }

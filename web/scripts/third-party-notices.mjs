@@ -116,6 +116,7 @@ function build() {
   lines.push('');
   lines.push('| Package | Version | Licence |');
   lines.push('|---|---|---|');
+  lines.push('| `phasefield-jr-py` | 2025 (adapted research code) | MIT |');
   for (const [name, version] of closure) {
     lines.push(`| \`${name}\` | ${version} | ${licenceId(readPkg(name))} |`);
   }
@@ -155,6 +156,12 @@ function build() {
     lines.push('');
   }
 
+  lines.push('---', '', '## phasefield-jr-py (adapted research code)', '',
+    '- **Licence:** MIT',
+    '- **Source:** https://github.com/nathanshauer/phasefield-jr-py', '',
+    '<details><summary>LICENSE</summary>', '', '```',
+    fs.readFileSync(path.join(REPO, 'research/fracture/shauer-2025/LICENSE-phasefield-jr-py'), 'utf8').trimEnd(),
+    '```', '', '</details>', '');
   return lines.join('\n');
 }
 
