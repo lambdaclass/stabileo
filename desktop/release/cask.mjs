@@ -12,14 +12,13 @@ process.stdout.write(`cask "stabileo" do
   version "${version}"
   sha256 "${sha256}"
 
-  url "https://github.com/lambdaclass/stabileo/releases/download/desktop-v#{version}/Stabileo_#{version}_universal.dmg",
-      verified: "github.com/lambdaclass/stabileo/"
+  url "https://github.com/lambdaclass/stabileo/releases/download/desktop-v#{version}/Stabileo_#{version}_universal.dmg"
   name "Stabileo"
   desc "Structural analysis of 2D and 3D frames and trusses"
   homepage "https://stabileo.com/"
 
   auto_updates true
-  depends_on macos: ">= :big_sur"
+  depends_on macos: :big_sur
 
   app "Stabileo.app"
 
