@@ -146,6 +146,29 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
     }
   };
   const SEL = 'a[href],link[href],img[src],img[srcset],source[src],source[srcset]';
+  const fixTree = (n: unknown) => {
+    if (!(n instanceof Element) && !(n instanceof DocumentFragment)) return;
+    if (n instanceof Element && n.matches(SEL)) fix(n);
+    n.querySelectorAll(SEL).forEach(fix);
+  };
+  // Before insertion, not after: a <link rel="preload"> or an <img> starts loading the moment it is
+  // inserted, before an observer hears of it.
+  const wrap = (proto: object, names: string[]) => {
+    for (const name of names) {
+      const target = proto as Record<string, (...a: unknown[]) => unknown>;
+      const orig = target[name];
+      if (typeof orig !== 'function') continue;
+      target[name] = function (this: unknown, ...args: unknown[]) {
+        args.forEach(fixTree);
+        return orig.apply(this, args);
+      };
+    }
+  };
+  wrap(Node.prototype, ['appendChild', 'insertBefore', 'replaceChild']);
+  wrap(Element.prototype, ['append', 'prepend', 'before', 'after', 'replaceWith', 'insertAdjacentElement']);
+  wrap(CharacterData.prototype, ['before', 'after', 'replaceWith']);
+  wrap(DocumentFragment.prototype, ['append', 'prepend']);
+  // What the parser inserts, and attributes changed later.
   new MutationObserver((records) => {
     for (const r of records) {
       if (r.type === 'attributes') {
@@ -233,6 +256,10 @@ export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
     {
       name: 'stabileo-snapshot',
       enforce: 'post',
+      configResolved(c) {
+        // The desktop app (`--mode desktop`) and the admin site are never snapshots.
+        if (c.mode !== 'production') throw new Error(`a snapshot is a production build of the site, not mode ${c.mode}`);
+      },
       async transform(code, id) {
         const file = id.split('?')[0];
         if (!file.startsWith(src) || !/\.(svelte|[cm]?[jt]s)$/.test(file) || /[?&](worker|type=style)/.test(id) || /\.worker\.[jt]s$/.test(file)) return null;
