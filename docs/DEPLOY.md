@@ -121,18 +121,22 @@ to (research/DESIGN.md §5). `/@/` lists the snapshots as JSON, newest first.
 
 **Which commits.** Every push to `main` that changes `research/`, `engine/`, the root
 `Cargo.toml`/`Cargo.lock`, `web/src/lib/engine/` or the viewer (`web/src/components/viewport/`,
-`web/src/components/Viewport*.svelte`, `web/src/lib/three/`, `web/src/components/research/`). A
-manual Deploy run builds one when **snapshot** is ticked. Nothing else changes for the plain site.
+`web/src/components/Viewport*.svelte`, `web/src/lib/three/`, `web/src/lib/viewport3d/`,
+`web/src/lib/canvas/`, `web/src/lib/geometry/`, `web/src/lib/store/`, research and ribbon components,
+and shared styles). Package, Vite, Nix, Rust toolchain, Makefile and snapshot runtime changes
+also qualify. A manual Deploy run builds one when **snapshot** is ticked. Nothing else changes for the plain site.
 
 **Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
 `make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
 the application's `location` reads see the address without the prefix and a small script in the
 page puts the prefix back on what it writes (history, links, images, fetches of its own files;
-never `/api/`) and shows the version banner (`web/scripts/snapshot.ts`). The normal build is
-untouched: the 211 files `vite build` emits are byte-identical with and without this change, and
+never `/api/`) and shows the version banner (`web/scripts/snapshot.ts`). Share and embed URLs
+use the actual address, keeping the commit prefix. Snapshot Web Storage is memory-only and
+IndexedDB is disabled: no live workspace, autosave, preferences or tokens are read or written.
+Reloading discards snapshot edits; download a project file to keep them.
 `--mode desktop` is refused as a snapshot. `SNAPSHOT.json` in it records the commit, its date and
-the research pages it holds. CI's **Snapshot Site** job builds one for every web change and runs
-`web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
+the research pages it holds. CI's required **CI OK** includes **Snapshot Site**, which builds one
+for every web change and runs `web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
 `SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@<7 hex>/`.
 
 **Ship and install.** The snapshot rides in the release tarball (`snapshot/`), so it travels with

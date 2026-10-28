@@ -64,7 +64,7 @@ jobs:
           FORCE: ${{ inputs.snapshot }}
         run: |
           set -euo pipefail
-          paths='^(research/|engine/|Cargo\.(toml|lock)$|web/src/components/research/|web/src/components/viewport/|web/src/components/Viewport[^/]*\.svelte$|web/src/lib/three/|web/src/lib/engine/)'
+          paths='^(research/|engine/|Cargo\.(toml|lock)$|web/src/components/research/|web/src/components/viewport/|web/src/components/Viewport[^/]*\.svelte$|web/src/lib/(three|engine|viewport3d|canvas|geometry|store)/|web/src/styles/|web/src/components/ribbon/|web/package[^/]*\.json$|web/vite[^/]*\.ts$|flake\.[^/]*$|rust-toolchain[^/]*$|Makefile$|web/scripts/snapshot\.ts$)'
           want=false
           if [ "$FORCE" = true ]; then
             want=true

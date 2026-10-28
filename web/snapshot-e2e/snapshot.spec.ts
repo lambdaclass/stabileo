@@ -96,3 +96,69 @@ test('the application mounts under the prefix and loads the engine from it', asy
   await expect(page.locator('#stabileo-snapshot-banner')).toContainText(SHORT);
   expect(outside).toEqual([]);
 });
+
+test('snapshot edits and closing leave production workspace and autosave untouched', async ({ page, context }) => {
+  const seed = await context.newPage();
+  await seed.goto(`${P}SNAPSHOT.json`);
+  await seed.evaluate(async () => {
+    localStorage.setItem('stabileo-workspace', 'production workspace');
+    localStorage.setItem('stabileo-autosave', 'production fallback');
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('stabileo-autosave');
+      request.onupgradeneeded = () => request.result.createObjectStore('sentinel');
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('sentinel', 'readwrite');
+        tx.objectStore('sentinel').put('production revision', 'original');
+        tx.oncomplete = () => { db.close(); resolve(); };
+      };
+    });
+  });
+  await page.goto(`${P}app/basic?example=cantilever-point`);
+  await expect(page.locator('.tab.active .tab-name')).toHaveValue('Cantilever (point)');
+  await page.locator('.tab.active .tab-name').fill('Snapshot edit');
+  await page.locator('.tab.active .tab-name').press('Tab');
+  await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  await page.evaluate(() => {
+    if (localStorage.getItem('stabileo-workspace') === 'production workspace') throw new Error('restored live workspace');
+    if (indexedDB !== undefined) throw new Error('live IndexedDB available');
+    localStorage.setItem('stabileo-workspace', 'snapshot edit');
+    localStorage.setItem('stabileo-autosave', 'snapshot revision');
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  await page.close();
+  expect(await seed.evaluate(() => [localStorage.getItem('stabileo-workspace'), localStorage.getItem('stabileo-autosave')]))
+    .toEqual(['production workspace', 'production fallback']);
+  expect(await seed.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('stabileo-autosave');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction('sentinel').objectStore('sentinel').get('original');
+      read.onsuccess = () => { db.close(); resolve(read.result); };
+      read.onerror = () => reject(read.error);
+    };
+  }))).toBe('production revision');
+});
+
+test('a copied model opens with the same snapshot engine', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto(`${P}app/basic?example=cantilever-point`);
+  await expect(page.locator('.tab.active .tab-name')).toHaveValue('Cantilever (point)');
+  await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  await page.getByTestId('hdr-project').click();
+  await page.getByTestId('project-share-link').click();
+  const url = await page.evaluate(() => navigator.clipboard.readText());
+  expect(new URL(url).pathname).toBe(`${P}app/basic`);
+  expect(new URL(url).hash).toMatch(/^#(data|code)=/);
+  const recipient = await context.newPage();
+  const wasm: string[] = [];
+  recipient.on('request', r => { if (new URL(r.url()).pathname.endsWith('.wasm')) wasm.push(new URL(r.url()).pathname); });
+  await recipient.goto(url);
+  await expect(recipient.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  await expect(recipient.locator('#stabileo-snapshot-banner')).toContainText(SHORT);
+  await expect.poll(() => wasm.length).toBeGreaterThan(0);
+  expect(wasm.every(path => path.startsWith(`${P}assets/`))).toBe(true);
+});

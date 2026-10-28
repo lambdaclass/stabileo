@@ -68,6 +68,20 @@ export function snapshotRuntime(s: Snapshot): string {
 
 /* eslint-disable no-restricted-globals */
 function runtime(cfg: { prefix: string; short: string; commit: string; date: string; repo: string }) {
+  for (const name of ['localStorage', 'sessionStorage']) {
+    const values = new Map<string, string>();
+    const storage = {
+      get length() { return values.size; },
+      key(index: number) { return [...values.keys()][index] ?? null; },
+      getItem(key: string) { return values.get(String(key)) ?? null; },
+      setItem(key: string, value: string) { values.set(String(key), String(value)); },
+      removeItem(key: string) { values.delete(String(key)); },
+      clear() { values.clear(); },
+    };
+    Object.defineProperty(window, name, { value: storage });
+  }
+  Object.defineProperty(window, 'indexedDB', { value: undefined });
+
   const P = cfg.prefix;
   const L = window.location;
   const under = (p: string) => p === P || p.indexOf(P + '/') === 0;

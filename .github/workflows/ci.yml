@@ -491,10 +491,6 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # The site built under its commit (/@<commit>/, docs/DEPLOY.md "Snapshots"), as the deploy builds
-  # it for research and engine changes, served at that prefix: the research page and the
-  # application load everything from under it and stay there. Not in CI OK (yet): the deploy's own
-  # snapshot build is the gate that matters, and this job is new.
   site-snapshot:
     name: Snapshot Site
     runs-on: ubuntu-latest
@@ -917,6 +913,7 @@ jobs:
       - wasm
       - research-wasm
       - site-e2e
+      - site-snapshot
       - web-unit
       - web-build
       - results-snapshot
