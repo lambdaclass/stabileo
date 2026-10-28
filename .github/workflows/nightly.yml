@@ -1,11 +1,14 @@
 name: Nightly verification
+# The forced-failure test run is named so that verification-alert.yml files it
+# under its own issue.
+run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' || 'Nightly verification' }}
 
 # The verification that is too slow for a pull request: large certificates,
 # exhaustive metamorphic tests, differential tests against OpenSees and Code_Aster, fuzzing, mutation
 # testing of the safety-critical Rust and the criterion benchmarks. Nightly
 # on main and on demand (Actions tab, or `gh workflow run nightly.yml`, with
 # `only` to pick jobs). A failed scheduled run opens or updates a
-# `verification-failure` issue (verification-alert.yml).
+# `ci-failure` issue for this workflow (verification-alert.yml).
 #
 # Runtime budget (GitHub-hosted 4-vCPU runners, free for this public repo;
 # docs/verification/NIGHTLY.md): ~15-35 runner-hours a night, mostly mutants;
@@ -32,6 +35,10 @@ on:
         description: "Mutants: total number of shards (default 128)"
         required: false
         default: ""
+      force_failure:
+        description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -61,7 +68,12 @@ jobs:
           TOTAL: ${{ inputs.mutants_total }}
           MUTANTS_TOTAL: 128
           MUTANTS_SLOTS: 8
+          FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
+          if [ "$FORCE_FAILURE" = true ]; then
+            echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
+            exit 1
+          fi
           all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz mutants bench"
           only="${ONLY:-$all}"
           for j in $only; do
