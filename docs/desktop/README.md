@@ -97,30 +97,35 @@ Losing the private key means installed copies can no longer update themselves.
 
 ## Roadmap
 
+`[x]`: done on the `desktop` branch.
+
 ### Phase 0: first version, quickly (target: about a week)
 Goal: an installable app on the three systems that opens, calculates, and saves `.ded` files.
-1. `desktop/` Tauri 2 project (`src-tauri`), loading the production build of `web/` (`npm run
+1. [x] `desktop/` Tauri 2 project (`src-tauri`), loading the production build of `web/` (`npm run
    build`) from disk; the window opens straight on the application (`/app/…`), not the landing.
-2. The WASM engine and its worker load from the bundled files (asset protocol, module workers,
+2. [x] The WASM engine and its worker load from the bundled files (asset protocol, module workers,
    `.wasm` MIME type); no network needed to calculate.
-3. Open and save `.ded` through native dialogs (Tauri dialog + fs plugins, scoped to the files the
+3. [x] Open and save `.ded` through native dialogs (Tauri dialog + fs plugins, scoped to the files the
    user picks); autosave stays as on the web.
-4. `.ded` file association and "open with" on the three systems.
-5. Native menu: New, Open, Save, Save as, recent files, Quit.
-6. CI: a `desktop` workflow builds unsigned installers (Windows .msi, macOS .dmg, Linux AppImage
+4. [x] `.ded` file association and "open with" on the three systems.
+5. [x] Native menu (in es/en/pt): New, Open, Save, Save as, recent files, Quit.
+6. [x] CI: a `desktop` workflow builds unsigned installers (Windows NSIS .exe, macOS .dmg, Linux AppImage
    and .deb) on each push to the branch, as downloadable artifacts.
-7. Smoke test on each system: open an example, solve 2D and 3D, show the 3D viewer, save, reopen;
+7. [ ] Smoke test on each system (automated part done: the launch test solves a cantilever in the
+   bundled engine on all three; the manual pass is pending): open an example, solve 2D and 3D, show the 3D viewer, save, reopen;
    results identical to the web for the same file.
 
 ### Phase 1: usable by early testers
-1. Fix what phase 0's smoke tests find on each webview (3D, workers, IFC import, large models,
+1. Fix what phase 0's smoke tests find on each webview (3D, workers, IFC import (done: it parses
+   in a worker, as the page's CSP forbids web-ifc's eval), large models,
    printing/PDF export).
 2. Sign in once (backend accounts), cached session, offline grace; PRO entitlement checked offline.
-3. Update check: tells the user a new version exists, with its release notes and any new safety
+3. [x] (done in phase 0, with install on accept) Update check: tells the user a new version exists, with its release notes and any new safety
    advisories (no auto-install yet).
 4. Desktop e2e in CI where the platform allows it (tauri-driver on Windows and Linux).
 5. Crash and error reporting, opt-in.
-6. One-command install from our own channels, updated by the release workflow:
+6. [x] (done in phase 0; Windows uses `install.ps1` instead of Scoop) One-command install from our
+   own channels, updated by the release workflow:
    - macOS: Homebrew cask in our tap, `brew install --cask lambdaclass/tap/stabileo`.
      Until the app is notarized, macOS quarantines it on first open (right-click, Open once).
    - Windows: a Scoop bucket (`scoop install stabileo` after adding the bucket).
