@@ -35,9 +35,8 @@ export function runGroup(group: SnapshotCase['group']): void {
       }
       expect(committed, `no committed snapshot for ${c.name}: run make snapshots-update`).not.toBeNull();
       const diff = compareValues(committed!.values, fresh.values);
+      // Moved, removed or newly produced values all fail here (`compareValues`).
       if (diff.differs) throw new Error(`${formatCaseReport(c.name, diff)}\n\n${HOW_TO_REGISTER}`);
-      // A quantity recorded now and not in the file: not a result change, but the file is behind.
-      expect(diff.added, `${c.name}: ${diff.added.length} value(s) not in the committed snapshot; run make snapshots-update`).toEqual([]);
     }, 180_000);
   }
 }

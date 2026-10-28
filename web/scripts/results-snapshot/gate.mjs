@@ -12,8 +12,11 @@
  *     not have), and
  *   - adds or edits a `changelog.d/` fragment filed under `### BREAKING (results)`.
  *
- * A new case, or a new quantity recorded in a case, is not a result change: only values that
- * moved beyond the tolerance, or that are no longer produced, and snapshots deleted.
+ * A new snapshot file (a new corpus case) is coverage, not a result change. In an existing one,
+ * every value that moved beyond the tolerance, is no longer produced or is newly produced is a
+ * change, and so is a deleted snapshot (`coverage.test.ts` makes removing a case delete its
+ * snapshot). Only a bump of the snapshot format (`compare.mjs` FORMAT, the harness recording more)
+ * lets values be added without registration.
  *
  * `decide` is pure, so the negative case (#451) is a unit test: a deliberate change without a
  * registry entry fails (`scripts/__tests__/results-snapshot-gate.test.ts`). `main` is the CLI
@@ -52,7 +55,13 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments }) {
     if (s.base === null) continue; // a new case: coverage, not a change
     if (s.head === null) { changed.push({ file: s.file, report: `✗ ${s.file}: snapshot deleted` }); continue; }
     const diff = compareValues(s.base.values ?? {}, s.head.values ?? {});
-    if (diff.differs) changed.push({ file: s.file, report: formatCaseReport(s.file, diff) });
+    // A format bump (`compare.mjs` FORMAT) is the harness recording more of the case: what it
+    // adds is not a change. What moved or disappeared still is.
+    const formatBump = (s.head.format ?? 1) > (s.base.format ?? 1);
+    const counted = formatBump ? { ...diff, added: [] } : diff;
+    if (counted.changed.length || counted.removed.length || counted.added.length) {
+      changed.push({ file: s.file, report: formatCaseReport(s.file, counted) });
+    }
   }
   if (changed.length === 0) {
     return { ok: true, changed, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };

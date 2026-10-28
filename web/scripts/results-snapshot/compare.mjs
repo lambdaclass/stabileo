@@ -39,7 +39,13 @@
  * Strings and booleans (verdicts, statuses, refusal reasons, which checks ran) compare exactly.
  */
 
-export const FORMAT = 1;
+/**
+ * The snapshot format. Bumped when the harness starts recording more of each case (format 2:
+ * the combination envelopes and their governing combinations). Only then may a pull request add
+ * values to an existing snapshot without registering a result change (`gate.mjs`); a value that
+ * moved or disappeared is a change whatever the format.
+ */
+export const FORMAT = 2;
 export const RTOL = 1e-6;
 export const ATOL = 1e-7;
 export const STORED_DIGITS = 10;
@@ -72,9 +78,18 @@ export function peaks(...maps) {
   return out;
 }
 
-/** Whether two leaves are the same result under the tolerance. */
-export function sameLeaf(a, b, peak = 0) {
+/**
+ * Quantities whose sign is the arbitrary sign of an eigenvector: a mode's participation factor
+ * and the modal force it scales, per mode of a spectral run. Mode shapes are not recorded at all;
+ * these are recorded and compared by magnitude, and stored as one (`flatten`), so an equivalent
+ * eigenvector with the other sign is the same result and a changed magnitude is not.
+ */
+export const SIGN_FREE = /\.perMode\[[^\]]*\]\.(participation|modalForce)$/;
+
+/** Whether two leaves are the same result under the tolerance (`path`: for `SIGN_FREE`). */
+export function sameLeaf(a, b, peak = 0, path = '') {
   if (typeof a === 'number' && typeof b === 'number') {
+    if (SIGN_FREE.test(path)) { a = Math.abs(a); b = Math.abs(b); }
     return Math.abs(a - b) <= RTOL * Math.max(Math.abs(a), Math.abs(b)) + ATOL * peak;
   }
   return a === b;
@@ -83,8 +98,10 @@ export function sameLeaf(a, b, peak = 0) {
 /**
  * Compare a committed snapshot's values with a fresh run's.
  * `changed`: paths in both whose values differ; `removed`: in the reference only; `added`: in
- * the fresh run only. Additions are not result changes (a new case, a new quantity recorded);
- * a change or a removal is.
+ * the fresh run only. Each of the three is a result change: a solver that starts producing
+ * another combination, mode, member result or limit state has changed what the engineer is
+ * shown as surely as one that moves a number. (Only a new snapshot file, a new corpus case, is
+ * coverage rather than a change, and a format bump lets the harness record more: `gate.mjs`.)
  */
 export function compareValues(reference, current) {
   const peak = peaks(reference, current);
@@ -94,10 +111,10 @@ export function compareValues(reference, current) {
   for (const [path, a] of Object.entries(reference)) {
     if (!(path in current)) { removed.push(path); continue; }
     const b = current[path];
-    if (!sameLeaf(a, b, peak.get(groupOf(path)) ?? 0)) changed.push({ path, before: a, after: b });
+    if (!sameLeaf(a, b, peak.get(groupOf(path)) ?? 0, path)) changed.push({ path, before: a, after: b });
   }
   for (const path of Object.keys(current)) if (!(path in reference)) added.push(path);
-  return { changed, removed, added, differs: changed.length > 0 || removed.length > 0 };
+  return { changed, removed, added, differs: changed.length > 0 || removed.length > 0 || added.length > 0 };
 }
 
 /**
@@ -111,7 +128,8 @@ export function mergeValues(reference, current) {
   for (const path of Object.keys(current).sort()) {
     const b = current[path];
     const a = reference?.[path];
-    out[path] = a !== undefined && sameLeaf(a, b, peak.get(groupOf(path)) ?? 0) ? a : b;
+    const kept = a !== undefined && sameLeaf(a, b, peak.get(groupOf(path)) ?? 0, path) ? a : b;
+    out[path] = SIGN_FREE.test(path) && typeof kept === 'number' ? Math.abs(kept) : kept;
   }
   return out;
 }
@@ -123,7 +141,7 @@ export function mergeValues(reference, current) {
  */
 export function flatten(value, prefix, out, skip = DEFAULT_SKIP) {
   if (value === null || value === undefined) { out[prefix] = null; return out; }
-  if (typeof value === 'number') { out[prefix] = storeNumber(value); return out; }
+  if (typeof value === 'number') { out[prefix] = storeNumber(SIGN_FREE.test(prefix) ? Math.abs(value) : value); return out; }
   if (typeof value === 'string' || typeof value === 'boolean') { out[prefix] = value; return out; }
   if (value instanceof Map) {
     for (const [k, v] of [...value.entries()].sort(([a], [b]) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0))) {
@@ -201,6 +219,8 @@ export function formatCaseReport(name, diff, limit = 25) {
   if (diff.changed.length > limit) lines.push(`    … and ${diff.changed.length - limit} more changed`);
   for (const p of diff.removed.slice(0, limit)) lines.push(`    ${p}: no longer produced`);
   if (diff.removed.length > limit) lines.push(`    … and ${diff.removed.length - limit} more removed`);
+  for (const p of (diff.added ?? []).slice(0, limit)) lines.push(`    ${p}: newly produced`);
+  if ((diff.added ?? []).length > limit) lines.push(`    … and ${diff.added.length - limit} more added`);
   return lines.join('\n');
 }
 
@@ -221,7 +241,9 @@ export const HOW_TO_REGISTER = [
  * `design.steel[e3].compression.Fcr`.
  */
 function rowOf(path) {
-  const m = /^(.*\])\.([A-Za-z0-9_.]+)$/.exec(path);
+  // The last `[…]` followed by a field: an array inside a record stays in its record's row
+  // (`envelope.momentY.elements[e3]` and `posValues[4]`).
+  const m = /^(.*\])\.([A-Za-z0-9_]+(?:(?:\.[A-Za-z0-9_]+)|(?:\[[^\].]*\]))*)$/.exec(path);
   return m ? [m[1], m[2]] : null;
 }
 

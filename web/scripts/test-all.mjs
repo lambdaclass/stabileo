@@ -103,7 +103,7 @@ for (const r of results) {
 }
 
 // Any failure fails the gate. Reported after every pass has run, so one broken pass
-// does not hide the state of the other.
+// does not hide the state of the others.
 const failed = results.filter((r) => r.code !== 0);
 if (failed.length > 0) {
   console.error(`\n${failed.length} of ${results.length} Vitest passes failed: `
