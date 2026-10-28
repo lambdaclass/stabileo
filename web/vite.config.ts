@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { snapshotFor, snapshotPlugin } from './scripts/snapshot';
+import { researchBuildPlugin } from './scripts/research-build';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -200,6 +201,7 @@ export default defineConfig({
     svelte(),
     ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
     ...snapshotPlugin(SNAPSHOT, __dirname),
+    researchBuildPlugin(__dirname),
   ],
   define: {
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),

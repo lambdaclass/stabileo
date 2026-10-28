@@ -14,6 +14,8 @@
   import { REPO_URL } from '../../landing/landing-utils';
   import PublicLink from '../../landing/PublicLink.svelte';
   import NumberField from './NumberField.svelte';
+  // Until the experiment shell carries it (ExperimentShell's article end), the page includes it.
+  import CiteThis from '../shell/CiteThis.svelte';
 
   const SOURCE = `${REPO_URL}/tree/main/research/fracture/shauer-2025`;
   const STABILEO = '#3987e5';
@@ -405,6 +407,8 @@
       <li>Reference code: <a href="https://github.com/nathanshauer/phasefield-jr-py" rel="noreferrer" target="_blank">github.com/nathanshauer/phasefield-jr-py</a>, MIT License, © 2025 Nathan Shauer.</li>
       <li>Article: <a href="https://doi.org/10.1016/j.advengsoft.2025.104013" rel="noreferrer" target="_blank">doi:10.1016/j.advengsoft.2025.104013</a>.</li>
     </ul>
+
+    <CiteThis paperId="shauer-2025" name="Phase-field fracture of a notched plate" path="/research/fracture/shauer-2025" sourcePath="research/fracture/shauer-2025" />
   </div>
 </section>
 

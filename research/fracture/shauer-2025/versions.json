@@ -1,0 +1,11 @@
+{
+  "$comment": "Versions of this experiment (research/DESIGN.md §5). A version is released when 'commit' names the commit on main whose snapshot (/@<first 7 of it>/) holds it; that snapshot is then never pruned. Add a version, with what changed and why, whenever a fix changes a result.",
+  "versions": [
+    {
+      "version": 1,
+      "date": "2026-10-28",
+      "commit": null,
+      "changes": "First version: AT2 phase-field notched plate (examples 1 to 3 of the reference code), validated against the reference outputs; interactive page."
+    }
+  ]
+}
