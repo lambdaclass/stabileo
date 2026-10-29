@@ -65,7 +65,9 @@ ROI order for users:
 
 1. **Safety first.** Close the ways a wrong result can reach users: containment of every open
    wrong-result issue (#447), the fixes in "Priority now" below, the metamorphic invariance suite,
-   independent engineer sign-off. Growth multiplies whatever is there, including wrong results; one
+   independent engineer sign-off, and prevention (section "Prevention": results that check
+   themselves, invariance tests everywhere, nightly bug hunting, units in the type system,
+   trustworthy benchmarks). After the 2026-10-29 research and Tools wave, most capacity returns here. Growth multiplies whatever is there, including wrong results; one
    public mistake costs more than any number of good pages earn. Security belongs here too: backend
    security tests and a tested backup restore (#721), staging before production (#724), the policy for
    outside contributions (#726), supply-chain pinning, and isolation of anything that runs untrusted or
@@ -137,17 +139,60 @@ them.
 | Modal analysis skipped repeated modes of symmetric structures | #759 / PR #827 | real solver bug (a 837 Hz mode missing); fix by a Sturm-sequence count, no model-size limit |
 | 2D plastic collapse factor not invariant (up to 4.6×) | #758 | two approaches failed; needs a redesign of mechanism detection; refused until then |
 | MITC4 in-plane bending on distorted meshes (−92%) | #798 | found by the MacNeal–Harder page; contained by refusal |
-| MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | #810 | found by the shell obstacle course; under triage |
-| Mattiasson elastica: end shortening 2.5–8.8% off at loads 2 and 5, no convergence at load 10 | #845 | found by the research benchmarks as engine tests (PR #843); first checking the reference against the exact elliptic-integral solution, then fixing (branch fix/845-elastica) |
-| Shallow toggle: arc-length peak 48.75 vs 95.99, limit point not reached | #846 | found by PR #843; checking whether the reference matches the model (truss vs frame), then fixing (branch fix/846-shallow-toggle) |
+| MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | #810 / PR #859 | **test-model error, not the engine:** an extra crown support and missing corner symmetry; corrected, the roof matches to 0.0084% and the cylinder converges to −1% at 32×32. The shell obstacle course page is regenerated with the corrected models |
+| Mattiasson elastica: end shortening 2.5–8.8% off at loads 2 and 5, no convergence at load 10 | #845 / PR #849 | **test error, not the engine:** the provisional reference table was wrong; against the exact elliptic-integral solution the engine is within 0.03–0.1% at all four loads (merged) |
+| Shallow toggle: arc-length peak 48.75 vs 95.99, limit point not reached | #846 / PR #852 | **test error, not the engine:** a rigid-jointed frame compared with the pin-jointed truss formula and a 100-step budget; a true truss passes both limit points (path error 8e-11) |
 | Already fixed on main, closed with evidence | #442, #443, #444, #445 | closed |
 
-Reviews: Codex plus Kimi; while Kimi is out of quota, Grok (then an adversarial Codex review) is the
-second reviewer.
+Reviews: Codex plus Kimi (scripts/review, PR #842); Grok, then an adversarial Codex review, when Kimi
+is unavailable. Research and Tools are reviewed after they go live; engine, safety and app changes
+before main.
 
 Needs people, not only code: item 4's engineer sign-off; real users' project files for item 3's
 corpus; production access for item 7's restore test; testers on real Linux GPUs for the desktop's
 3D viewer.
+
+## Prevention: fewer safety problems (2026-10-29)
+
+What found the wrong results so far: the invariance (metamorphic) tests (#758, #760, #762), fuzzing
+(#741), a mass-orthogonality check (#759) and the research benchmarks. Prevention is doing more of
+what works, all the time, and making every test trustworthy. Started 2026-10-29 (branches named).
+
+| # | Item | Why | Workstream |
+|---|---|---|---|
+| 1 | **Every result checks itself before it is shown.** Statics: reactions balance the loads, small residual. Modal: mass-orthogonal modes and per-mode residual. Buckling: factor equals the mode's Rayleigh quotient. Time history: energy balance, reciprocity spot check. Nonlinear: the reported load factor's residual is below tolerance. Plastic collapse: mechanism equilibrium. A failed check warns or refuses (containment) instead of showing a number. | Turns unknown wrong results into visible refusals; would have caught #759, #760, #432, #433 at runtime | `safety/self-checks`: inventory + static and modal first |
+| 2 | **Invariance tests on every analysis type and the whole model corpus:** renumbering, member direction, units, rigid motion, mirror symmetry, E scaling, superposition, reciprocity. Fast subset on every PR; exhaustive tier nightly. | Needs no reference values; found three of the worst bugs | `safety/metamorphic-everywhere` (on #813) |
+| 3 | **Nightly bug hunting on our own runners** (stabileo-ci-1's 6 runners, idle at night): random models through the invariance tests, differential runs (OpenSees, Code_Aster), fuzzing at high case counts; each distinct finding opens its own issue with the seed and a minimal model. Trusted events only. | Bugs found by the machine at night, not by users | `ci/nightly-bug-farm` |
+| 4 | **Mutation gate on changed engine code:** a PR may not add surviving mutants in the engine code it touches; the backlog (#745–#752, ~1,960 mutants) is cleared in parallel. | Stops test gaps from growing | next |
+| 5 | **Trustworthy benchmarks** (the test-correctness program below) | A wrong test cries wolf or, worse, passes a wrong engine | next |
+| 6 | **New analysis types ship as experimental** (labelled, contained) until they have self-checks, invariance tests and two-source benchmarks. | Nothing new reaches users unverified | next |
+| 7 | **Units in the type system (#359)** — crucial: zero-cost unit types in Rust at the engine boundary first (wire format and results unchanged), then inward; branded TypeScript types at the UI → engine boundary; mixing units is a compile error. | Removes a whole class of bugs (#758 and #762 depend on units) | `safety/units-in-types`: survey, design, first input path |
+
+**Test-correctness program (item 5).** On 2026-10-29 all three suspected engine bugs (#845, #846,
+#810) were test models built wrong; the solver was right each time. Every benchmark must therefore:
+
+1. **Be a spec, not a hand-built model:** a data file (geometry, material, supports, symmetry planes,
+   loads, measured quantity, each with source, page and table) turned into a model by one shared,
+   tested generator.
+2. **Have two independent references that agree before it is admitted:** the paper's value and an
+   exact solution, a textbook formula or an independent program (OpenSees, Code_Aster, CalculiX) on
+   the same spec.
+3. **Pass automatic model checks before any comparison:** total applied load equals the analytic value;
+   reactions balance the loads; a symmetric quarter model matches the full model; exactly the expected
+   rigid-body modes.
+4. **Show convergence, not one mesh:** three or more meshes, the error must shrink, and a Richardson
+   estimate of the converged value is compared. A plateau or a growing error flags the model or the
+   reference, not the engine.
+5. **Triage by an independent solver:** Stabileo and OpenSees agree but miss the reference → suspect
+   the reference or model; they disagree → suspect the engine.
+6. **Prove it can fail:** mutants of the engine must make it fail; a benchmark that passes a broken
+   engine (e.g. absolute-value comparisons) tests nothing. Signed quantities always.
+7. **Justify every tolerance** from the convergence study or the reference's precision, written next
+   to it; provisional references are informational only, never pass/fail.
+8. **Reference audit in review:** numbers checked against the source text page by page; a CI lint
+   rejects a benchmark without spec, two references, model checks or convergence study.
+Every investigation keeps a written numbers report (e.g. docs/audits/810-mitc4-curved-shells.md), so a
+real engine bug is never waved off as a test problem either.
 
 ## Multipliers
 
