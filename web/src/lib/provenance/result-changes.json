@@ -7,7 +7,7 @@
       "id": "buckling-certificate-rejects-outside-factor",
       "resultsVersion": 5,
       "date": "2026-10-29",
-      "prs": [],
+      "prs": [817],
       "area": "analysis",
       "when": { "allOf": [["members", "shells", "connectors"], ["analysis:buckling"]] },
       "title": {

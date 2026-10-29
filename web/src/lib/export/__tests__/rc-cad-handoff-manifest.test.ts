@@ -687,17 +687,6 @@ describe('fixture-to-manifest reconciliation', () => {
   it('reports the fixture checksum this manifest was derived from', () => {
     // Pinned so a fixture edit cannot silently change what the manifest describes.
     //
-    // Changed once on purpose (was 15ce4e15…): the dead line load on the beams was restated as
-    // 22 − ρ·A = 17.875 kN/m with self-weight stated as a case load, which is the 22 kN/m
-    // the frame was designed around now that the weight bends the beam. The V2 golden
-    // reproduced its bytes unchanged across that edit.
-    //
-    // Changed again on purpose (was 1637ce2d…): the project now records the build that solved it
-    // (`snapshot.solvedWith`, provenance/solve-stamp.ts), so opening it does not raise the
-    // re-check notice. The model is unchanged.
-    //
-    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…): the stamp moved to results
-    // versions 2, 3 and 4 with the registry.
     expect(sha256(fixtureText()))
       .toBe('930646fc38c22d54ef187367d6f31b3dbf05bd7ffc62b21321ef1970c456fc28');
   });

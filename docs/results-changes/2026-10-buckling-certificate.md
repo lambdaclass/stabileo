@@ -2,7 +2,7 @@
 
 ## Buckling factors outside their enclosure are refused
 
-Issue #741; PR **TBD**; results version **5**.
+Issue #741; PR **#817**; results version **5**.
 
 The minimized `json_dynamics` input has three 3D frame members and 15 free DOFs.
 The raw factor is **4691.397553909858**. Before this change it was certified with
@@ -57,7 +57,7 @@ The independent eigenvalue bracket and exact checks at both original bounds run
 on the fixed code as well. The reference also checks that `K` is positive definite
 in exact arithmetic before bisecting the first loss of stability.
 
-Validation uses Nix and `CARGO_TARGET_DIR=/private/tmp/claude-501/codex-741-target`.
+Validation uses Nix.
 The affected library/certificates/robustness targets passed (572/149/231 tests;
 8 existing certificate tests and the extended generated test ignored in that run).
 The strengthened buckling unit tests then passed all 4 tests. The final generated
