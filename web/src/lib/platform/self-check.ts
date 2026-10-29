@@ -4,6 +4,9 @@
  * verdict goes to the shell's log (`stabileo-selfcheck ok|FAILED …`), which the launch test in
  * `.github/workflows/desktop.yml` reads.
  */
+import { failCalculations } from '../engine/calculation-gate';
+import { desktopText } from './desktop-text';
+import { i18n } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { initSolver, input2DToWireObject, solve } from '../engine/wasm-solver';
 import { solve2DInWorker } from '../engine/solver-pool';
@@ -11,7 +14,7 @@ import { buildIdentity } from '../provenance/build-identity';
 import type { AnalysisResults, SolverInput } from '../engine/types';
 
 /** P L³ / (3 E I) for P = 10 kN, L = 2 m, E = 200 000 MPa, I = 1e-4 m⁴. */
-const EXPECTED_TIP = (10 * 2 ** 3) / (3 * 200_000 * 1000 * 1e-4);
+const EXPECTED_TIP = (-10 * 2 ** 3) / (3 * 200_000 * 1000 * 1e-4);
 
 function cantilever(): SolverInput {
   return {
@@ -27,11 +30,22 @@ function cantilever(): SolverInput {
 function tip(r: AnalysisResults): number {
   const d = r.displacements.find((x) => x.nodeId === 2);
   if (!d) throw new Error('no displacement at the tip');
-  return Math.abs(d.uz);
+  return d.uz;
 }
 
-function close(got: number): boolean {
-  return Math.abs(got - EXPECTED_TIP) <= 1e-9 * EXPECTED_TIP;
+function close(got: number, expected: number): boolean {
+  return Number.isFinite(got) && Math.abs(got - expected) <= 1e-9 * Math.max(Math.abs(expected), 1e-6);
+}
+
+function valid(result: AnalysisResults): boolean {
+  const support = result.reactions.find(r => r.nodeId === 1);
+  return close(tip(result), EXPECTED_TIP) && result.reactions.length === 1 && !!support
+    && close(support.rx, 0) && close(support.rz, 10) && close(support.my, 20);
+}
+
+function failed(): false {
+  failCalculations(desktopText(i18n.locale, 'selfCheckFailed'));
+  return false;
 }
 
 async function log(line: string): Promise<void> {
@@ -46,13 +60,15 @@ async function log(line: string): Promise<void> {
 export async function runSelfCheck(): Promise<boolean> {
   try {
     await initSolver();
-    const main = tip(solve(cantilever()));
-    const worker = tip(await solve2DInWorker(input2DToWireObject(cantilever())));
+    const main = solve(cantilever());
+    const worker = await solve2DInWorker(input2DToWireObject(cantilever()));
     const id = buildIdentity();
-    const ok = close(main) && close(worker);
-    await log(`stabileo-selfcheck ${ok ? 'ok' : 'FAILED'} tip=${main} worker=${worker} expected=${EXPECTED_TIP} wasm=${id.wasmHash} engine=${id.engineVersion}`);
+    const ok = valid(main) && valid(worker);
+    if (!ok) failed();
+    await log(`stabileo-selfcheck ${ok ? 'ok' : 'FAILED'} tip=${tip(main)} worker=${tip(worker)} expected=${EXPECTED_TIP} wasm=${id.wasmHash} engine=${id.engineVersion}`);
     return ok;
   } catch (err) {
+    failed();
     await log(`stabileo-selfcheck FAILED ${err instanceof Error ? err.message : String(err)}`);
     return false;
   }

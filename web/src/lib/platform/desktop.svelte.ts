@@ -10,7 +10,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
-import { buildProjectFile, loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
+import { buildProjectFile, loadFileText, projectPayload, serializeProject, sessionPayload } from '../store/file';
 import { modelStore } from '../store/model.svelte';
 import { designDrafts } from '../store/design-drafts.svelte';
 import { historyStore } from '../store/history.svelte';
@@ -31,6 +31,7 @@ const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
 /** Each tab's file and saved state (`./document-state.ts`). */
 const docs = new DocumentState();
 const sessionTabs = new Set<string>();
+let sessionPath: string | null = null;
 
 let dirty = $state(false);
 let titleName = $state('');
@@ -145,16 +146,27 @@ export async function confirmDiscard(): Promise<boolean> {
   return answer === tx('dontSave') || answer === 'No';
 }
 
+function workspaceFingerprint(): string {
+  return JSON.stringify([activeTab(), tabDocs().map(doc => [doc.id, doc.fingerprint()])]);
+}
+
 export async function openPath(path: string): Promise<void> {
   try {
+    const before = workspaceFingerprint();
     const text = await readTextFile(path);
     if (updateInProgress()) return;
-    const result = await loadFile(new File([text], baseName(path), { type: 'application/json' }));
+    if (before !== workspaceFingerprint()) throw new Error(tx('openChanged'));
+    if (!(await confirmDiscard())) return;
+    if (before !== workspaceFingerprint()) throw new Error(tx('openChanged'));
+    const result = loadFileText(text);
+    historyStore.clear();
     if (result.type === 'session') {
       uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
       sessionTabs.clear();
+      sessionPath = path;
       docs.replaceAll(tabDocs());
     } else {
+      sessionPath = null;
       docs.generation++;
       sessionTabs.delete(activeTab());
       docs.markSaved(activeDoc(), path);
@@ -167,7 +179,6 @@ export async function openPath(path: string): Promise<void> {
 }
 
 export async function openProjectDialog(): Promise<void> {
-  if (!(await confirmDiscard())) return;
   const path = await open({ multiple: false, directory: false, filters: DED_FILTERS });
   if (typeof path === 'string') await openPath(path);
 }
@@ -191,6 +202,7 @@ function captured(doc: TabDoc): TabDoc {
 
 /** Save the active tab to its file, or ask where when it has none. */
 export async function saveActive(): Promise<boolean> {
+  if (sessionPath) return saveSession(sessionPath);
   if (designDrafts.count || sessionTabs.has(activeTab())) return saveSessionAs();
   const path = docs.path(activeTab());
   if (!path) return saveActiveAs();
@@ -202,7 +214,7 @@ export async function saveActive(): Promise<boolean> {
 }
 
 export async function saveActiveAs(): Promise<boolean> {
-  if (designDrafts.count || sessionTabs.has(activeTab())) return saveSessionAs();
+  if (sessionPath || designDrafts.count || sessionTabs.has(activeTab())) return saveSessionAs();
   const doc = captured(activeDoc());
   const { content, filename } = projectPayload();
   const picked = await save({ defaultPath: docs.path(activeTab()) ?? filename, filters: DED_FILTERS });
@@ -216,11 +228,17 @@ export async function saveActiveAs(): Promise<boolean> {
 
 /** Every tab in one file. */
 export async function saveSessionAs(): Promise<boolean> {
+  return saveSession(null);
+}
+
+async function saveSession(path: string | null): Promise<boolean> {
+  const generation = docs.generation;
   const { content, filename } = sessionPayload();
   const saved = tabDocs().map(captured);
-  const picked = await save({ defaultPath: filename, filters: DED_FILTERS });
+  const picked = path ?? await save({ defaultPath: sessionPath ?? filename, filters: DED_FILTERS });
   if (!picked) return false;
   if (!(await writeTo(picked, content))) return false;
+  if (generation === docs.generation) sessionPath = picked;
   for (const doc of saved) docs.markSaved(doc);
   refreshState();
   return true;
@@ -306,7 +324,7 @@ async function drainPendingFiles(): Promise<void> {
   if (updateInProgress()) return;
   const paths = await invoke<string[]>('take_pending_files');
   for (const path of paths) {
-    if (await confirmDiscard()) await openPath(path);
+    await openPath(path);
   }
 }
 
@@ -373,6 +391,9 @@ export async function startDesktop(): Promise<void> {
     await quit();
   });
   await takePendingFiles();
-  void runSelfCheck();
+  if (!(await runSelfCheck())) {
+    uiStore.toast(tx('selfCheckFailed'), 'error');
+    await message(tx('selfCheckFailed'), { kind: 'error' });
+  }
   void startUpdater(confirmDiscard);
 }

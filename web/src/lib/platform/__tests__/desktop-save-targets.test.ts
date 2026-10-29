@@ -1,9 +1,3 @@
-/**
- * Codex's review of #663: restoring a session over open tabs reused their file paths. Save session
- * A, open project B in the same tab, restore A (whose tab has the same id), press Save: A's content
- * went into B's file. Through the real desktop module, with Tauri's APIs replaced by a file system
- * in memory: B must come out untouched, and Save must ask where instead.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const files = new Map<string, string>();
@@ -16,7 +10,7 @@ vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({ setTitle: vi.fn(async () => undefined), onCloseRequested: vi.fn(async () => undefined) }),
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({
-  message: vi.fn(async () => 'Cancel'),
+  message: vi.fn(async () => 'No'),
   open: vi.fn(async () => null),
   save: vi.fn(async (opts: unknown) => {
     saveCalls.push(opts);
@@ -43,6 +37,8 @@ import { tabManager } from '../../store/tabs.svelte';
 import { deserializeProject, saveTextTo, serializeProject } from '../../store/file';
 import { uiStore } from '../../store/ui.svelte';
 import { invoke } from '@tauri-apps/api/core';
+import { readTextFile } from '@tauri-apps/plugin-fs';
+import { historyStore } from '../../store/history.svelte';
 import { message } from '@tauri-apps/plugin-dialog';
 import { confirmDiscard, openPath, routePageFileControls, runCommand, takePendingFiles, saveActive, saveActiveAs, saveSessionAs, trackDocuments, unsavedTabs } from '../desktop.svelte';
 
@@ -53,6 +49,16 @@ function nameModel(name: string): void {
   if (name === 'B') modelStore.addNode(5, 0);
 }
 
+beforeEach(async () => {
+  vi.mocked(message).mockResolvedValue('No');
+  designDrafts.clear();
+  if (!tabManager.tabs.length) tabManager.createTab();
+  nameModel('baseline');
+  files.set('/x/baseline.ded', serializeProject());
+  await openPath('/x/baseline.ded');
+  tabManager.createTab();
+});
+
 describe('desktop: a restored session does not save into the files of the tabs it replaced', () => {
   beforeEach(() => {
     files.clear();
@@ -61,7 +67,7 @@ describe('desktop: a restored session does not save into the files of the tabs i
     if (tabManager.tabs.length === 0) tabManager.createTab();
   });
 
-  it('save session A, open B in the same tab, restore A, Save: B is untouched and Save asks where', async () => {
+  it('save session A, open B in the same tab, restore A, Save: B is untouched and the session is retained', async () => {
     nameModel('A');
     saveAnswers.push('/x/A-session.ded');
     expect(await saveSessionAs()).toBe(true);
@@ -78,9 +84,9 @@ describe('desktop: a restored session does not save into the files of the tabs i
     expect(modelStore.model.name).toBe('A');
 
     saveCalls.length = 0;
-    saveAnswers.push(null); // the user cancels the Save dialog
-    expect(await saveActive()).toBe(false);
-    expect(saveCalls.length).toBe(1); // it asked where, as for a tab with no file
+    expect(await saveActive()).toBe(true);
+    expect(saveCalls.length).toBe(0);
+    expect(JSON.parse(files.get('/x/A-session.ded')!).type).toBe('session');
     expect(files.get('/x/B.ded')).toBe(bOnDisk);
   });
 
@@ -131,10 +137,10 @@ describe('desktop persistence regressions', () => {
     release();
     await saving;
     saveCalls.length = 0;
-    saveAnswers.push(null);
-    expect(await saveActive()).toBe(false);
-    expect(saveCalls).toHaveLength(1);
-    expect(JSON.parse(files.get('/x/unrelated.ded')!).name).toBe('unrelated');
+    expect(await saveActive()).toBe(true);
+    expect(saveCalls).toHaveLength(0);
+    expect(JSON.parse(files.get('/x/replacement.ded')!).type).toBe('session');
+    expect(files.get('/x/unrelated.ded')).toContain('unrelated');
   });
 
   it('keeps edits made during a write dirty and retains the originating path after switching', async () => {
@@ -356,4 +362,51 @@ it('routes only explicitly marked project pickers', () => {
   } finally {
     vi.unstubAllGlobals();
   }
+});
+
+
+it('native Open clears cross-project Undo before Save', async () => {
+  nameModel('B');
+  files.set('/x/undo-B.ded', serializeProject());
+  nameModel('A');
+  historyStore.pushState();
+  await openPath('/x/undo-B.ded');
+  expect(historyStore.undoCount).toBe(0);
+  historyStore.undo();
+  await saveActive();
+  expect(JSON.parse(files.get('/x/undo-B.ded')!).name).toBe('B');
+});
+
+it('ordinary Save retains every restored session tab at the same path', async () => {
+  tabManager.createTab();
+  nameModel('session first');
+  tabManager.createTab();
+  nameModel('session second');
+  saveAnswers.push('/x/resave.ded');
+  await saveSessionAs();
+  await openPath('/x/resave.ded');
+  const ids = tabManager.tabs.map(tab => tab.id);
+  modelStore.model.name = 'edited second';
+  saveCalls.length = 0;
+  await saveActive();
+  expect(saveCalls).toHaveLength(0);
+  const saved = JSON.parse(files.get('/x/resave.ded')!);
+  expect(saved.type).toBe('session');
+  expect(saved.tabs.map((tab: any) => tab.id)).toEqual(ids);
+  expect(saved.tabs.find((tab: any) => tab.id === tabManager.activeTabId).name).toBe('edited second');
+});
+
+it.each(['edit', 'switch'])('Open does not replace a workspace changed during reading: %s', async action => {
+  nameModel('B');
+  const incoming = serializeProject();
+  nameModel('A');
+  let release!: (text: string) => void;
+  vi.mocked(readTextFile).mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+  const opening = openPath('/x/deferred.ded');
+  if (action === 'edit') modelStore.model.name = 'keep edit';
+  else { tabManager.createTab(); modelStore.model.name = 'keep new tab'; }
+  const expected = modelStore.model.name;
+  release(incoming);
+  await opening;
+  expect(modelStore.model.name).toBe(expected);
 });

@@ -1,5 +1,7 @@
 /** The desktop app's own sentences, in the locales its first testers use; English otherwise. */
 const EN = {
+  openChanged: 'The workspace changed while opening the file. Open it again to continue.',
+  selfCheckFailed: 'The numerical self-check failed. Calculations are disabled. You can still recover and save your projects. Restart or reinstall Stabileo before calculating.',
   untitled: 'Untitled',
   unsavedTitle: 'Unsaved changes',
   unsavedBody: 'This project has changes that are not saved. Save them before continuing?',
@@ -56,6 +58,8 @@ const EN = {
 type Key = keyof typeof EN;
 
 const ES: Record<Key, string> = {
+  openChanged: 'El espacio de trabajo cambió al abrir el archivo. Volvé a abrirlo para continuar.',
+  selfCheckFailed: 'Falló la verificación numérica. Los cálculos están deshabilitados. Podés recuperar y guardar tus proyectos. Reiniciá o reinstalá Stabileo antes de calcular.',
   untitled: 'Sin título',
   unsavedTitle: 'Cambios sin guardar',
   unsavedBody: 'Este proyecto tiene cambios sin guardar. ¿Guardarlos antes de continuar?',
@@ -110,6 +114,8 @@ const ES: Record<Key, string> = {
 };
 
 const PT: Record<Key, string> = {
+  openChanged: 'O espaço de trabalho mudou ao abrir o arquivo. Abra novamente para continuar.',
+  selfCheckFailed: 'A verificação numérica falhou. Os cálculos estão desativados. Você pode recuperar e salvar seus projetos. Reinicie ou reinstale o Stabileo antes de calcular.',
   untitled: 'Sem título',
   unsavedTitle: 'Alterações não salvas',
   unsavedBody: 'Este projeto tem alterações não salvas. Salvá-las antes de continuar?',

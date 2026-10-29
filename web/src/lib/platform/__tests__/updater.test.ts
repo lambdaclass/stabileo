@@ -102,10 +102,10 @@ describe('desktop updater: installing never loses work or interrupts a calculati
     const log: string[] = [];
     let midDownload: Promise<unknown> | null = null;
     const update = fakeUpdate(log, async () => {
-      midDownload = solve2DInWorker({ any: 'model' });
+      midDownload = expect(solve2DInWorker({ any: 'model' })).rejects.toThrow(en('updateRefuseJobs'));
     });
     expect(await offer(update, deps(log))).toBe('installed');
-    await expect(midDownload).rejects.toThrow(en('updateRefuseJobs'));
+    await midDownload;
   });
 
   it('a calculation already running is finished before the install', async () => {
@@ -183,4 +183,39 @@ it('reserves the offer while its dialog is pending', async () => {
   expect(await first).toBe('installed');
   expect(update.download).toHaveBeenCalledTimes(1);
   expect(update.install).toHaveBeenCalledTimes(1);
+});
+
+it('drains a real prepared moving-load sweep before installing', async () => {
+  const { solveMovingLoadsAsync } = await import('../../engine/moving-loads');
+  const { calculationsBusy } = await import('../../engine/calculation-gate');
+  const { checkSteelMembers, computeInfluenceLine3D } = await import('../../engine/wasm-solver');
+  const input = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 6, z: 0 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]), loads: [],
+  };
+  const log: string[] = [];
+  let sweep: Promise<unknown> | undefined;
+  const update = fakeUpdate(log, async () => {
+    expect(calculationsBusy()).toBe(true);
+    expect(() => checkSteelMembers({})).toThrow(en('updateRefuseJobs'));
+    expect(() => computeInfluenceLine3D({})).toThrow(en('updateRefuseJobs'));
+  });
+  const d = deps(log, {
+    confirmDiscard: async () => {
+      if (!sweep) sweep = solveMovingLoadsAsync(input, {
+        train: { name: 'T', axles: [{ offset: 0, weight: 20 }] }, step: 0.1,
+      }).then(result => {
+        expect(typeof result).toBe('object');
+        log.push('sweep done');
+      });
+      return true;
+    },
+  });
+  expect(await offer(update, d)).toBe('installed');
+  await sweep;
+  expect(log.indexOf('sweep done')).toBeLessThan(log.indexOf('install'));
+  expect(calculationsBusy()).toBe(false);
 });

@@ -679,7 +679,10 @@ function isSessionFile(data: unknown): data is DedalSessionFile {
 
 /** Load a .ded file — auto-detects single tab vs full session */
 export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; count: number }> {
-  const text = await file.text();
+  return loadFileText(await file.text());
+}
+
+export function loadFileText(text: string): { type: 'tab' | 'session'; count: number } {
   let data: unknown;
   try {
     data = JSON.parse(text);
