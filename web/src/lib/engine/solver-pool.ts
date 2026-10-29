@@ -1,3 +1,4 @@
+import { calculationLease, calculationsBusy, calculationsIdle } from './calculation-gate';
 /**
  * solver-pool.ts — Worker pool for off-main-thread structural solving.
  *
@@ -198,6 +199,20 @@ export async function initPool(numWorkers?: number): Promise<void> {
   return initPromise;
 }
 
+/** Whether any worker has a job running. */
+export function poolBusy(): boolean {
+  return calculationsBusy() || pool.some((w) => w.pending.size > 0);
+}
+
+export { refuseNewJobs } from './calculation-gate';
+
+/** Desktop app: resolves when no job is running. */
+export async function poolIdle(pollMs = 200): Promise<void> {
+  await calculationsIdle();
+  await new Promise((r) => setTimeout(r, 0));
+  while (poolBusy()) await new Promise((r) => setTimeout(r, pollMs));
+}
+
 /** Check if the pool is initialized and ready. */
 export function isPoolReady(): boolean {
   return pool.length > 0 && pool.every(w => w.ready);
@@ -230,6 +245,8 @@ async function ensurePool(): Promise<void> {
  * the failure ever leaves.
  */
 function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
+  let release: () => void;
+  try { release = calculationLease(); } catch (err) { return Promise.reject(err); }
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
@@ -247,7 +264,7 @@ function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3
       }
       reject(err);
     }
-  });
+  }).finally(release);
 }
 
 /**

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Stabileo",
+  "version": "0.1.0-alpha.0",
+  "identifier": "com.stabileo.desktop",
+  "build": {
+    "frontendDist": "../../web/dist-desktop",
+    "devUrl": "http://localhost:4000",
+    "beforeDevCommand": "npm --prefix ../web run dev:desktop",
+    "beforeBuildCommand": "npm --prefix ../web run build:desktop"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Stabileo",
+        "url": "app/basic",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 600,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "worker-src": "'self' blob:",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'",
+        "frame-src": "'none'"
+      },
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "resources": ["legal/*"],
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Structural analysis",
+    "longDescription": "Stabileo: free, open-source structural analysis of 2D and 3D frames and trusses, with the same verified engine as stabileo.com.",
+    "copyright": "Ergodic Group",
+    "license": "AGPL-3.0-only",
+    "homepage": "https://stabileo.com",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "ded"
+        ],
+        "name": "Stabileo project",
+        "description": "Stabileo project",
+        "role": "Editor",
+        "mimeType": "application/x-stabileo-project"
+      }
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDNjU5QzM1QzY5QTlDOUEKUldTYW5KckdOWnhsdkxJRSs2NHlUR2tZVVdyQUp6ckMxM1MvUXJjSUFRMW05MmYrbGFKb0NiSVEK",
+      "endpoints": [
+        "https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

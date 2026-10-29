@@ -1,0 +1,3 @@
+Stabileo — AGPL-3.0-only; see LICENSE.
+Corresponding source: https://github.com/lambdaclass/stabileo/tree/230af339f9373bf0a4a4c78b34147363729a2df7
+Build instructions: docs/desktop/README.md in that source tree.

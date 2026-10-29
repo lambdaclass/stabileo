@@ -86,3 +86,11 @@ describe('third-party notices', () => {
     }
   });
 });
+
+it('ships the exact missing MIT copyright notices without placeholders', () => {
+  const text = fs.readFileSync(PUBLIC_COPY, 'utf8');
+  expect(text).toContain('Copyright (c) 2013 Tim Perry');
+  expect(text).toContain('Copyright (c) 2019 Alexander Milevski <info@w8r.name>');
+  expect(text).not.toContain('No licence file found');
+  expect(text).not.toContain('Resolve before the next release');
+});

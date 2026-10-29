@@ -74,8 +74,12 @@ function readLicenceText(name) {
   const dir = path.join(WEB, 'node_modules', name);
   let entries = [];
   try { entries = fs.readdirSync(dir); } catch { return null; }
-  const file = entries.find((f) => /^(LICEN[CS]E|COPYING)(\.|$)/i.test(f));
-  if (!file) return null;
+  const file = entries.find((f) => /^(LICEN[CS]E|COPYING)([.-]|$)/i.test(f));
+  if (!file) {
+    const readme = entries.find((f) => /^readme\.md$/i.test(f));
+    const text = readme && fs.readFileSync(path.join(dir, readme), 'utf8').split(/^## Licen[cs]e\s*$/im)[1]?.trim();
+    return text ? { file: readme, text } : null;
+  }
   return { file, text: fs.readFileSync(path.join(dir, file), 'utf8').trimEnd() };
 }
 
@@ -143,14 +147,12 @@ function build() {
       lines.push(`<details><summary>${lic.file}</summary>`);
       lines.push('');
       lines.push('```');
-      lines.push(lic.text);
+      lines.push(lic.text.replace(/\r\n/g, '\n'));
       lines.push('```');
       lines.push('');
       lines.push('</details>');
     } else {
-      // Loud rather than silent: a package with no licence file is a question, not a default.
-      lines.push(`> **No licence file found in \`node_modules/${name}\`.** Declared \`${id}\`.`);
-      lines.push('> Resolve before the next release.');
+      throw new Error(`Missing licence text for ${name}`);
     }
     lines.push('');
   }

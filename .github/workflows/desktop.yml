@@ -1,0 +1,496 @@
+name: Desktop
+
+# The desktop app (desktop/, docs/desktop/README.md): unsigned installers for Windows, macOS and
+# Linux, as artifacts, built when the app can change (the shell, its web build, the engine it
+# bundles, this workflow). Only a manual run with a `version` publishes: the prerelease
+# `desktop-v<version>` (never the repository's latest release), then the in-app updater's feed
+# (latest.json on the `desktop-update-feed` branch) points at it.
+# GitHub's runners only, never self-hosted (pull requests included).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Prerelease version to publish, e.g. 0.1.0-alpha.1 (empty: build only)"
+        required: false
+        default: ""
+      notes:
+        description: "Release notes shown by the in-app updater"
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.version || 'build' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Whether anything the app is built from changed. A manual run always builds. Everything else
+  # is decided here rather than by trigger path filters, so `Desktop OK` always reports, on pull
+  # requests and in the merge queue alike.
+  changes:
+    name: Detect desktop changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      desktop: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.desktop == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          filters: |
+            desktop:
+              - 'desktop/**'
+              - 'web/**'
+              - 'engine/**'
+              - '.cargo/**'
+              - 'LICENSE'
+              - 'THIRD_PARTY_NOTICES.md'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'rust-toolchain.toml'
+              - '.nvmrc'
+              - 'Makefile'
+              - 'scripts/wasm-cached.sh'
+              - '.github/workflows/desktop.yml'
+
+  wasm:
+    name: WASM engine
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - name: Cache Nix store
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+          shared-key: wasm
+      # The same target the web build uses, so the desktop app ships the engine stabileo.com runs.
+      - run: make wasm
+      - run: sha256sum web/src/lib/wasm/dedaliano_engine_bg.wasm | tee wasm.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wasm
+          path: |
+            web/src/lib/wasm/
+            wasm.sha256
+          include-hidden-files: true
+          retention-days: 7
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: wasm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-22.04
+            bundles: appimage,deb
+            target: ""
+            rust_targets: ""
+          - name: macos
+            os: macos-latest
+            bundles: app,dmg
+            target: universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - name: windows
+            os: windows-latest
+            bundles: nsis
+            target: ""
+            rust_targets: ""
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: wasm
+          path: .
+      - name: Linux system libraries
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev patchelf file xvfb
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+          targets: ${{ matrix.rust_targets }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: desktop/src-tauri
+          key: ${{ matrix.name }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npm ci --no-audit --no-fund
+        working-directory: desktop
+      - name: Release script regressions
+        run: |
+          python3 desktop/release/test_release.py
+          node --test desktop/release/audit-web.test.mjs
+      - name: Package licence and corresponding-source notices
+        shell: bash
+        run: |
+          cargo metadata --locked --manifest-path desktop/src-tauri/Cargo.toml --format-version 1 > "$RUNNER_TEMP/desktop-metadata.json"
+          python3 desktop/release/notices.py "$RUNNER_TEMP/desktop-metadata.json" "$GITHUB_SHA"
+      # The updater artifacts (the macOS .app.tar.gz; on Linux and Windows the AppImage and the
+      # installer themselves) are made here and signed only by the release job, under the
+      # protected desktop-release environment: no build, pull requests included, ever sees the
+      # updater key. Tauri wants a key to make them, so it gets one made for this run, and its
+      # signatures are thrown away.
+      - name: Build
+        working-directory: desktop
+        env:
+          VERSION: ${{ inputs.version }}
+          TARGET: ${{ matrix.target }}
+          BUNDLES: ${{ matrix.bundles }}
+          # The web build (beforeBuildCommand) ran out of heap on the macOS runner at Node's default.
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: |
+          key="$RUNNER_TEMP/throwaway-updater.key"
+          npx tauri signer generate --ci -p throwaway -w "$key" -f > /dev/null
+          TAURI_SIGNING_PRIVATE_KEY="$(cat "$key")"
+          export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD=throwaway
+          conf='{"bundle":{"createUpdaterArtifacts":true}}'
+          if [ -n "$VERSION" ]; then
+            conf=$(node -e 'const c=JSON.parse(process.argv[1]); c.version=process.argv[2]; console.log(JSON.stringify(c))' "$conf" "$VERSION")
+          fi
+          args=(--bundles "$BUNDLES" --config "$conf")
+          [ -n "$TARGET" ] && args+=(--target "$TARGET")
+          npx tauri build "${args[@]}"
+          rm -f "$key" "$key.pub"
+      - name: Native persistence and log tests
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
+      - name: The bundled engine is the one built for the web
+        run: |
+          want=$(cut -d' ' -f1 wasm.sha256)
+          got=$(node -e 'console.log(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' web/dist-desktop/assets/dedaliano_engine_bg-*.wasm)
+          echo "web: $want  desktop: $got"
+          [ "$want" = "$got" ]
+      # Not signed with a Developer ID yet, but sealed ad hoc (signingIdentity "-"): an unsealed
+      # bundle is reported as "damaged" on Apple silicon, with no way to open it.
+      - name: The app bundle is sealed (ad hoc)
+        if: matrix.name == 'macos'
+        env:
+          TARGET_DIR: ${{ format('desktop/src-tauri/target/{0}/release', matrix.target) }}
+        run: |
+          app="$TARGET_DIR/bundle/macos/Stabileo.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | grep -E 'Signature=adhoc|Sealed Resources version'
+      - name: Launch test
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+          STABILEO_EXIT_AFTER_SELFCHECK: "1"
+          TARGET_DIR: ${{ matrix.target && format('desktop/src-tauri/target/{0}/release', matrix.target) || 'desktop/src-tauri/target/release' }}
+        run: |
+          case "${{ matrix.name }}" in
+            linux) run=(xvfb-run -a "$TARGET_DIR/stabileo-desktop") ;;
+            macos) run=("$TARGET_DIR/bundle/macos/Stabileo.app/Contents/MacOS/stabileo-desktop") ;;
+            windows) run=("$TARGET_DIR/stabileo-desktop.exe") ;;
+          esac
+          set +e
+          if [ "${{ matrix.name }}" = macos ]; then perl -e 'alarm shift; exec @ARGV' 300 "${run[@]}"; else timeout 300 "${run[@]}"; fi
+          rc=$?
+          set -e
+          cat "$STABILEO_SELFCHECK_OUT" 2>/dev/null || echo "no self-check output"
+          [ "$rc" -eq 0 ] && grep -q '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+      - name: Collect installers
+        env:
+          TARGET_DIR: ${{ matrix.target && format('desktop/src-tauri/target/{0}/release', matrix.target) || 'desktop/src-tauri/target/release' }}
+        run: |
+          shopt -s nullglob
+          mkdir -p out
+          b="$TARGET_DIR/bundle"
+          case "${{ matrix.name }}" in
+            linux) files=("$b"/appimage/*.AppImage "$b"/deb/*.deb) ;;
+            macos) files=("$b"/dmg/*.dmg) ;;
+            windows) files=("$b"/nsis/*-setup.exe) ;;
+          esac
+          [ "${#files[@]}" -gt 0 ] || { echo "no installers in $b"; exit 1; }
+          cp "${files[@]}" out/
+          if [ "${{ matrix.name }}" = macos ]; then
+            # Stabileo.app.tar.gz -> Stabileo_<version>_universal.app.tar.gz, when it was made.
+            v=$(basename "$b"/dmg/*.dmg .dmg | sed 's/^Stabileo_//')
+            for f in "$b"/macos/*.app.tar.gz; do cp "$f" "out/Stabileo_${v}.app.tar.gz"; done
+          fi
+          ls -la out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stabileo-desktop-${{ matrix.name }}
+          path: out/
+          retention-days: 30
+
+  # Publishing, and the only job with the updater key: the desktop-release environment holds it,
+  # needs a reviewer's approval, and deploys only from main or a desktop-v* tag.
+  release:
+    name: Publish prerelease
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.version != '' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v'))
+    needs: [build, install]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: desktop-publication
+      cancel-in-progress: false
+    environment: desktop-release
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate reviewed release ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$ ]]
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [ "$GITHUB_REF" = "refs/tags/desktop-v$VERSION" ]
+          fi
+          tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/desktop-v$VERSION" --jq .sha)
+          [ "$tagged" = "$GITHUB_SHA" ] || { echo 'pre-create the release tag at this reviewed commit'; exit 1; }
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq .status)
+          case "$status" in identical|ahead) ;; *) echo 'release commit must be on main'; exit 1 ;; esac
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: stabileo-desktop-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci --no-audit --no-fund
+        working-directory: desktop
+      - name: Sign the updater artifacts
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          shopt -s nullglob
+          signed=0
+          for f in ../dist/*.AppImage ../dist/*-setup.exe ../dist/*.app.tar.gz; do
+            npx tauri signer sign --app-version "$VERSION" "$f" > /dev/null
+            signed=$((signed + 1))
+          done
+          [ "$signed" -eq 3 ] || { echo "expected 3 updater artifacts, signed $signed"; exit 1; }
+      - name: The signatures verify with the app's public key
+        run: |
+          sudo apt-get install -y --no-install-recommends minisign > /dev/null
+          node -e 'process.stdout.write(Buffer.from(require("./desktop/src-tauri/tauri.conf.json").plugins.updater.pubkey, "base64"))' > "$RUNNER_TEMP/updater.pub"
+          for sig in dist/*.sig; do
+            base64 -d < "$sig" > "$RUNNER_TEMP/one.minisig"
+            minisign -V -q -p "$RUNNER_TEMP/updater.pub" -m "${sig%.sig}" -x "$RUNNER_TEMP/one.minisig"
+          done
+      - name: Checksums, update manifest and Homebrew cask
+        env:
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          cp desktop/install/install.sh desktop/install/install.ps1 dist/
+          cd dist
+          ls -la
+          find . -maxdepth 1 -type f ! -name '*.sig' ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > ../SHA256SUMS
+          mv ../SHA256SUMS SHA256SUMS
+          cat SHA256SUMS
+          node ../desktop/release/latest-json.mjs "$VERSION" "$NOTES" . > latest.json
+          cat latest.json
+          mkdir -p ../cask
+          node ../desktop/release/cask.mjs "$VERSION" . > ../cask/stabileo.rb
+          cat ../cask/stabileo.rb
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: homebrew-cask
+          path: cask/stabileo.rb
+      - name: Reject stale publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
+          python3 desktop/release/check-feed.py "$RUNNER_TEMP/deployed.json" dist/latest.json
+      - name: Publish desktop-v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          tag="desktop-v$VERSION"
+          # Every prerelease opens with the install guide (desktop/release/release-body.md).
+          node -e '
+            const fs = require("fs");
+            const [tpl, version, notes] = process.argv.slice(1);
+            const body = fs.readFileSync(tpl, "utf8")
+              .replaceAll("@VERSION@", version)
+              .replace("@NOTES@", () => notes.trim() || "Stabileo desktop " + version);
+            fs.writeFileSync("release-body.md", body);
+          ' desktop/release/release-body.md "$VERSION" "$NOTES"
+          gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Stabileo desktop $VERSION" --notes-file release-body.md --prerelease --latest=false
+      # The desktop-update-feed branch holds what must stay at a fixed address whatever branch the
+      # code is on: latest.json, which the in-app updater reads (GitHub's "latest release" skips
+      # prereleases), and the install scripts the docs point to. Written through the contents
+      # API, so each commit is signed by GitHub, as the repository's rules require of every branch.
+      # latest.json goes last: installed apps see the new version only once everything is there.
+      - name: Point the update feed and install scripts at desktop-v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
+          python3 desktop/release/check-feed.py "$RUNNER_TEMP/deployed.json" dist/latest.json
+          branch="desktop-feed-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          base=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/desktop-update-feed" --jq .object.sha)
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base"
+          put() {
+            api="repos/$GITHUB_REPOSITORY/contents/$1"
+            sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null) || sha=""
+            args=(-f branch="$branch" -f message="Update feed: $1 for desktop-v$VERSION" -f content="$(base64 -w0 "$2")")
+            [ -n "$sha" ] && args+=(-f sha="$sha")
+            gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
+          }
+          put .github/workflows/desktop-feed.yml .github/workflows/desktop-feed.yml
+          put install.sh dist/install.sh
+          put install.ps1 dist/install.ps1
+          put latest.json dist/latest.json
+          gh pr create --repo "$GITHUB_REPOSITORY" --base desktop-update-feed --head "$branch" \
+            --title "Desktop feed $VERSION" --body "Publish the tested desktop-v$VERSION installers and artifact-signature manifest. Review the installer scripts before merging."
+
+  install:
+    name: Install test (${{ matrix.os }})
+    needs: [changes, build]
+    if: ${{ !cancelled() && needs.changes.outputs.desktop == 'true' && needs.build.result == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: stabileo-desktop-*
+          path: staged
+          merge-multiple: true
+      - name: Prepare current-run installer source
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version=${VERSION:-$(python3 -c 'import json; print(json.load(open("desktop/src-tauri/tauri.conf.json"))["version"])')}
+          echo "STABILEO_VERSION=$version" >> "$GITHUB_ENV"
+          echo "STABILEO_ARTIFACT_DIR=$GITHUB_WORKSPACE/staged" >> "$GITHUB_ENV"
+          python3 - <<'PYTHON'
+          import hashlib, pathlib
+          root = pathlib.Path('staged')
+          files = sorted(root.iterdir())
+          (root / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files))
+          PYTHON
+      - name: Install (Linux)
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # What a desktop has and a bare runner lacks: FUSE 2 for AppImages, and the graphics
+          # libraries an AppImage takes from the system (libEGL, Mesa).
+          sudo apt-get install -y --no-install-recommends libfuse2t64 libegl1 libgl1 libgles2 xvfb shellcheck desktop-file-utils
+          shellcheck -s sh desktop/install/install.sh
+          sh desktop/install/install.sh
+          out=$(desktop-file-validate ~/.local/share/applications/stabileo.desktop) || { echo "$out"; exit 1; }
+          [ -z "$out" ] || { echo "$out"; exit 1; }
+          STABILEO_EXIT_AFTER_SELFCHECK=1 timeout 300 xvfb-run -a ~/.local/bin/stabileo
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+          sh desktop/install/install.sh --uninstall
+          test ! -e ~/.local/bin/stabileo
+          deb=$(realpath staged/*.deb)
+          dpkg-deb -f "$deb" Depends | grep 'libwebkit2gtk-4.1'
+          dpkg-deb -f "$deb" Depends | grep 'libgtk-3'
+          sudo apt-get install -y "$deb"
+          rm -f "$STABILEO_SELFCHECK_OUT"
+          STABILEO_EXIT_AFTER_SELFCHECK=1 timeout 300 xvfb-run -a /usr/bin/stabileo-desktop
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+      - name: Install (macOS)
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        if: runner.os == 'macOS'
+        run: |
+          sh desktop/install/install.sh
+          codesign --verify --deep --strict /Applications/Stabileo.app
+          STABILEO_EXIT_AFTER_SELFCHECK=1 perl -e 'alarm shift; exec @ARGV' 300 /Applications/Stabileo.app/Contents/MacOS/stabileo-desktop
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
+          sh desktop/install/install.sh --uninstall
+          test ! -e /Applications/Stabileo.app
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
+        run: |
+          Get-Content -Raw desktop/install/install.ps1 | Invoke-Expression
+          $exe = Join-Path $env:LOCALAPPDATA 'Stabileo\stabileo-desktop.exe'
+          if (-not (Test-Path $exe)) { Get-ChildItem -Recurse (Join-Path $env:LOCALAPPDATA 'Stabileo') | Select-Object -First 20; throw "not installed at $exe" }
+          $env:STABILEO_EXIT_AFTER_SELFCHECK = '1'
+          $p = Start-Process -FilePath $exe -PassThru
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); throw 'the app did not finish its self-check' }
+          Get-Content $env:STABILEO_SELFCHECK_OUT
+          if (-not (Select-String -Quiet -Pattern '^stabileo-selfcheck ok' $env:STABILEO_SELFCHECK_OUT)) { throw 'self-check failed' }
+
+  # One check to require, on pull requests and in the merge queue: everything that ran passed.
+  # When nothing the app is built from changed, the jobs are skipped and this passes.
+  desktop-ok:
+    name: Desktop OK
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [changes, wasm, build, release, install]
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) exit 1 ;; esac
+          done

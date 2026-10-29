@@ -62,6 +62,18 @@ The interface is available in **English, Spanish and Portuguese**.
   </tr>
 </table>
 
+## Desktop app (alpha)
+
+Stabileo also runs as an app on Windows, macOS and Linux, with the same engine and your projects
+as `.ded` files on disk. It is an unsigned alpha for testers that updates itself.
+
+- **macOS:** `brew install --cask lambdaclass/tap/stabileo`
+- **Windows** (PowerShell): `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 | iex`
+- **Linux:** `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`
+
+Step by step, including the first-open warning: [docs/desktop/INSTALL.md](docs/desktop/INSTALL.md).
+Downloads: [desktop prereleases](https://github.com/lambdaclass/stabileo/releases?q=desktop-v&expanded=true).
+
 ## Documentation
 
 **The [Stabileo guide](docs/guide/en/README.md)** explains how to use each mode and the theory
