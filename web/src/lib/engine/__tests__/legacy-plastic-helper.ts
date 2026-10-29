@@ -28,4 +28,3 @@ export function runLegacyPlasticCollapse(): PlasticRun | null {
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   return { result, mps };
 }
-

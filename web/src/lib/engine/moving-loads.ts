@@ -79,6 +79,7 @@ export interface MovingLoadConfig {
 }
 
 export interface MovingLoadEnvelope {
+  structuredDiagnostics?: AnalysisResults['structuredDiagnostics'];
   /** Per-element: max positive and max negative for each force component */
   elements: Map<number, {
     mMaxPos: number; mMaxNeg: number;
@@ -537,7 +538,7 @@ export function solveMovingLoads(
     const fullEnvelope = computePointwiseEnvelope(allResults);
     elementExtremesFromPointwise(envelope, fullEnvelope);
 
-    return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+    return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
   } finally { session.free(); }
 }
 
@@ -620,7 +621,7 @@ export async function solveMovingLoadsAsync(
     const fullEnvelope = computePointwiseEnvelope(allResults);
     elementExtremesFromPointwise(envelope, fullEnvelope);
 
-    return { elements: envelope, positions, fullEnvelope, train: config.train, path };
+    return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
   } finally { session.free(); }
 }
 

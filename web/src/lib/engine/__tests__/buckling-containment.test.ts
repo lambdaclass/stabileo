@@ -63,3 +63,24 @@ it('also preserves the 2D buckling certificate refusal', () => {
   expect(mocks.certify2D).toHaveBeenCalled();
   expect(mocks.plain2D).not.toHaveBeenCalled();
 });
+
+it('the real #741 model stays warned through an ordinary certification fallback', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const json = readFileSync('../engine/tests/fixtures/buckling-741.json', 'utf8');
+  const plain = JSON.parse(native.solve_buckling_3d(json, 1));
+  expect(plain.modes[0].loadFactor).toBeCloseTo(4691.397553909858, 6);
+  expect(plain.structuredDiagnostics).toEqual(expect.arrayContaining([
+    expect.objectContaining({ phase: 'BU-ACCURACY', value: 818, severity: 'warning' }),
+  ]));
+  expect(() => native.certify_buckling_3d(json, 1)).toThrow(/BU-BOUND/);
+  const wire = JSON.parse(json);
+  for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
+    wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
+  }
+  mocks.certify.mockImplementation(() => { throw new Error('certificate unavailable'); });
+  mocks.plain.mockImplementation(native.solve_buckling_3d);
+  const result = solveBuckling3D(wire, 1);
+  expect(result.structuredDiagnostics).toEqual(expect.arrayContaining([
+    expect.objectContaining({ phase: 'BU-ACCURACY', value: 818 }),
+  ]));
+});

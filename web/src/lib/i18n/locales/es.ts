@@ -3886,6 +3886,7 @@ const es: Record<string, string> = {
   "knownIssue.SH-MITC4-DISTORTION.warning": "Los elementos MITC4 distorsionados pueden bloquearse en flexión de membrana. Verificá la convergencia de malla; los resultados con flexión de membrana significativa se bloquean.",
   "knownIssue.SH-MITC4-DISTORTION": "Resultados bloqueados: cuadriláteros MITC4 distorsionados pueden ser diez veces demasiado rígidos en flexión de membrana. Usá elementos rectangulares y verificá la convergencia de malla.",
   "knownIssue.PL-2D-INVARIANCE": "Resultados bloqueados: el factor de colapso plástico 2D puede variar hasta 4,6 veces con numeración, dirección de barras o unidades. Usá un análisis independiente verificado.",
+  "knownIssue.BU-ACCURACY": "Los factores de pandeo 3D pueden ser demasiado altos y no conservadores. Verificá el factor crítico de forma independiente antes de diseñar.",
   "knownIssue.BU-BOUND": "Resultados bloqueados: el factor de pandeo calculado está fuera de sus cotas certificadas. No lo uses para diseño.",
   "knownIssue.SP-17": "Los ejes transversales de conectores anisótropos pueden cambiar abruptamente con su dirección. Verificá las direcciones de los resortes.",
   "knownIssue.FR-5": "Las barras comparten el alabeo en sus uniones, suponiendo transmisión total. Verificá que el detalle real proporcione esa restricción.",
