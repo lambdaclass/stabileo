@@ -28,13 +28,17 @@ mkdir -p "$out"
 cp "$tmp/opt.wasm" "$out/phasefield_bg.wasm"
 cp "$tmp/pkg/phasefield_shauer_2025_wasm.js" "$out/phasefield.js"
 cp "$root/research/fracture/shauer-2025/reference-results/ex2_steps.csv" "$out/reference_ex2_steps.csv"
+# Stabileo's viewer for research pages, as its own bundle (web/vite.research-viewer.config.ts).
+if [ "${RESEARCH_SKIP_VIEWER:-0}" != 1 ]; then
+(cd "$root/web" && npx --no-install vite build -c vite.research-viewer.config.ts --outDir "$(dirname "$out")/viewer" --logLevel warn)
+fi
+export RESEARCH_BUILD_ID=$(python3 "$root/research/tools/asset_identity.py" "$root" "$out")
 (cd "$root/research/fracture/shauer-2025" && cargo run --locked --release --quiet --bin replay -- write "$out/replay.bin" && cargo run --locked --release --quiet --bin replay -- verify "$out/replay.bin")
 # Shipped gzip-compressed and inflated by the page. Not named .gz: static servers (vite preview,
 # Caddy with precompressed files) would add Content-Encoding and the browser would inflate it first.
 gzip -9 -n -c "$out/replay.bin" > "$out/replay.srpl" && rm "$out/replay.bin"
 ( cd "$out" && shasum -a 256 phasefield_bg.wasm phasefield.js reference_ex2_steps.csv replay.srpl > SHA256SUMS )
-# Stabileo's viewer for research pages, as its own bundle (web/vite.research-viewer.config.ts).
-if [ "${RESEARCH_SKIP_VIEWER:-0}" != 1 ]; then
-(cd "$root/web" && npx --no-install vite build -c vite.research-viewer.config.ts --outDir "$(dirname "$out")/viewer" --logLevel warn)
-fi
 echo "research wasm: $(wc -c < "$out/phasefield_bg.wasm") bytes -> $out"
+if [ "${RESEARCH_SKIP_VIEWER:-0}" != 1 ]; then
+  python3 "$root/research/tools/publish_assets.py" "$root" "$out"
+fi

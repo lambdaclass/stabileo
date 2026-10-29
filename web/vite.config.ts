@@ -1,9 +1,10 @@
 import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { isComplete } from './src/lib/i18n/offered';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -43,7 +44,11 @@ function publicI18nPlugin(): Plugin {
     load(resolved) {
       if (resolved !== '\0' + id) return null;
       let out = '';
-      for (const loc of ['en', 'es', 'pt']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        if (!isComplete(loc)) {
+          out += `export const ${loc} = {};\n`;
+          continue;
+        }
         const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
         this.addWatchFile(file);
         const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
@@ -76,6 +81,13 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
  *
  * `harness-architecture.test.ts` fails if a test spawns a build without being listed here.
  */
+/**
+ * The results snapshot gate (#716): the reference corpus solved through the app's path and
+ * compared with `results-snapshots/`. Its own pass and its own CI job (`Results Snapshot`), so a
+ * result change is reported as one, by name, rather than as a unit failure among hundreds.
+ */
+const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
+
 const PRODUCTION_BUILD_TESTS = [
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
@@ -183,9 +195,17 @@ function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+const researchManifest = resolve(__dirname, 'public/research-wasm/build.json');
+const researchBuildId = existsSync(researchManifest) ? JSON.parse(readFileSync(researchManifest, 'utf8')).build_id : 'unavailable';
+if (researchBuildId !== 'unavailable') {
+  const actual = execFileSync('python3', [resolve(__dirname, '../research/tools/asset_identity.py'), resolve(__dirname, '..'), resolve(__dirname, 'public/research-wasm/shauer-2025')], { encoding: 'utf8' }).trim();
+  if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
+}
+
 export default defineConfig({
   plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
+    "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
@@ -224,7 +244,7 @@ export default defineConfig({
           name: 'unit',
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
-          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS],
+          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS],
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY
@@ -278,6 +298,18 @@ export default defineConfig({
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
           fileParallelism: false,
           maxWorkers: 1,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'results',
+          setupFiles: ['./vitest.setup.ts'],
+          include: RESULTS_SNAPSHOT_TESTS,
+          // One file per corpus group, each on its own worker; the cases of a group in order,
+          // since they share the app's stores.
+          pool: 'threads',
+          testTimeout: 180_000,
         },
       },
     ],

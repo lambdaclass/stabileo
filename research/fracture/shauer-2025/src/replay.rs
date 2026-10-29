@@ -18,6 +18,8 @@ const MAGIC: &[u8; 4] = b"SRPL";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Header {
+    #[serde(default)]
+    pub build_id: String,
     pub nodes: usize,
     pub elements: usize,
     pub damage_max: f64,
@@ -39,6 +41,7 @@ pub fn encode(mesh: &Mesh, config: serde_json::Value, steps: &[StepResult], fram
     }
     let scales: Vec<f64> = frames.iter().map(|(_, u)| u.iter().fold(0.0f64, |m, v| m.max(v.abs()))).collect();
     let header = Header {
+        build_id: std::env::var("RESEARCH_BUILD_ID").unwrap_or_default(),
         nodes: n,
         elements: mesh.elements.len(),
         damage_max: DAMAGE_MAX,
@@ -148,7 +151,7 @@ mod tests {
         assert!(decode(&forged).is_err());
         for (nodes, elements, scales, steps) in [(usize::MAX, 1, vec![], vec![]),
             (1, usize::MAX, vec![], vec![]), (1, 0, vec![1.0], vec![])] {
-            let h = Header { nodes, elements, displacement_scale: scales, steps, damage_max: 1.0, config: serde_json::json!({}) };
+            let h = Header { build_id: String::new(), nodes, elements, displacement_scale: scales, steps, damage_max: 1.0, config: serde_json::json!({}) };
             let json = serde_json::to_vec(&h).unwrap();
             let mut data = b"SRPL".to_vec();
             data.extend(1u32.to_le_bytes());

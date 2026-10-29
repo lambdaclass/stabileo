@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { compareReference, deepLinkStep } from '../comparison';
+import { compareReference as compare, deepLinkStep } from '../comparison';
 import type { Frame } from '../simulation.svelte';
 
-const reference = [1, 2, 0.5].map((reaction, step) => ({ reaction, step, iterations: 3 }));
+const compareReference = (f: Frame[], r: Parameters<typeof compare>[1]) => compare(f, r, {
+  nodes: new Float64Array([0, 0]), elements: new Uint32Array(0),
+  snapshots: { damage: { 0: [0.1] }, displacement: { 0: [0, 0.001] } },
+  material: { e: 30, nu: 0.2, plane: 'stress' }, replay: true,
+});
+const reference = [1, 2, 0.5].map((reaction, step) => ({ reaction, step, iterations: 3, damageMax: 0.1 }));
 function frames(): Frame[] {
   return reference.map(r => ({
     step: { ...r, pseudotime: 0.01, displacement: 0.001, converged: true, residual: 1e-6,
@@ -13,6 +18,19 @@ function frames(): Frame[] {
 
 describe('reference match evidence', () => {
   it('requires every check to pass', () => expect(compareReference(frames(), reference).matches).toBe(true));
+  for (const key of Object.keys(frames()[0].step)) {
+    if (key === 'damageMax') continue; // Reference-only fixture metadata.
+    it(`rejects missing or invalid step field ${key}`, () => {
+      for (const value of [undefined, NaN, Infinity, -Infinity]) {
+        for (const index of [0, 2]) {
+          const f = frames();
+          const step = f[index].step as unknown as Record<string, unknown>;
+          if (value === undefined) delete step[key]; else step[key] = value;
+          expect(compareReference(f, reference).matches).toBe(false);
+        }
+      }
+    });
+  }
   it('rejects perturbed pre-fracture and post-fracture forces', () => {
     for (const i of [0, 2]) {
       const f = frames();
@@ -30,6 +48,10 @@ describe('reference match evidence', () => {
       (f: Frame[]) => { f[0].step.reaction = NaN; },
       (f: Frame[]) => { f[0].damage[0] = Infinity; },
       (f: Frame[]) => { f[0].step.step = 2; },
+      (f: Frame[]) => { f[0].step.damage_max = 0.2; },
+      (f: Frame[]) => { f[0].damage.fill(0); },
+      (f: Frame[]) => { f[0].displacement.fill(0); },
+      (f: Frame[]) => { f[0].damage = new Float32Array(0); },
     ];
     for (const mutate of mutations) {
       const f = frames(); mutate(f);

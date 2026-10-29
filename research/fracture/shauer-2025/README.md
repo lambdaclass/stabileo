@@ -149,3 +149,9 @@ are this crate's own (`fe.rs`, `solver.rs`).
 Mesh generators, finite-element kernels, example setup and staggered solver are adapted from
 [phasefield-jr-py](https://github.com/nathanshauer/phasefield-jr-py), © 2025 Nathan Shauer.
 The complete, verbatim upstream MIT notice is in [LICENSE-phasefield-jr-py](LICENSE-phasefield-jr-py).
+
+For mixed strain `[0.001, -0.1, 0]`, E=30 and ν=0.2 in plane stress, the reference split gives negative ψ+, but history mode starts H at zero and uses max(H, ψ+), so H cannot become negative or decrease and the damage solution is unchanged; reference mode intentionally retains the reference’s unclamped ψ+.
+
+Browser comparison reads the committed `reference-results/ex2_damage_step{056,057,078}.csv` and `ex2_displacement_step056.csv` snapshots, allowing the native mirror case, Float32 roundoff for live fields and half a quantization bin for replay fields; no reference stress snapshot exists for example 2, so stress is checked independently from Q4 displacement gradients and interpolated damage and is excluded from the reference-agreement wording.
+
+`wasm/build.sh` publishes JS, WASM, replay and viewer assets under immutable `research-wasm/builds/<SHA256>/` paths, retaining existing build directories locally; deployment artifacts should retain those directories for old tabs (a removed old build fails to load rather than loading a newer solver). The identity includes solver/glue/viewer bytes, research sources and committed reference data; replay headers carry it and their configuration, and Vite rejects stale build inputs before bundling the identity into the page and worker.

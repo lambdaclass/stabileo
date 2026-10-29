@@ -18,7 +18,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 
 | Table | Columns that matter | Ownership |
 |-------|---------------------|-----------|
-| `accounts` | `email` (unique, lowercased), `password_hash`, `name`, `company`, `job_title`, `country` (ISO 3166-1 alpha-2), `locale` (`es`/`en`/`pt`, the app's `OFFERED_LOCALES`), `email_verified_at`, `last_sign_in_at`, `is_active` | The account itself. `email`, `password_hash`, `email_verified_at` and `is_active` never change through the profile endpoint |
+| `accounts` | `email` (unique, lowercased), `password_hash`, `name`, `company`, `job_title`, `country` (ISO 3166-1 alpha-2), `locale` (`es`/`en`/`pt`/`de`/`fr`/`tr`, the app's `OFFERED_LOCALES`), `email_verified_at`, `last_sign_in_at`, `is_active` | The account itself. `email`, `password_hash`, `email_verified_at` and `is_active` never change through the profile endpoint |
 | `sessions` | `account_id`, `expires_at`, `revoked_at`, `ip_address`, `user_agent` | Reaches its account through `account_id` |
 
 ## Endpoints

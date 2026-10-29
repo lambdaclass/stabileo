@@ -1,11 +1,12 @@
 target/
-node_modules/
+**/node_modules/
 web/dist/
 web/src/lib/wasm/
 .git/
 .claude/
-.env
-.env.local
+**/.env
+**/.env.*
+!**/.env.example
 *.swp
 *.swo
 .DS_Store

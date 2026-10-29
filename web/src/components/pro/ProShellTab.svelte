@@ -1,7 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import DataTable from '../DataTable.svelte';
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import ProMesher from './ProMesher.svelte';
   import ProSurfaces from './ProSurfaces.svelte';
@@ -218,7 +218,7 @@
       title={drawing ? t('pro.drawStopHint') : t('pro.drawStartHint')}
     ><Icon name="shell" size={13} /><span>{drawing
       ? `${t('pro.drawStop')} (${drawState.plateCorners === 'outline' ? uiStore.shellNodePick.picked.length : `${uiStore.shellNodePick.picked.length}/${drawState.plateCorners}`})`
-      : `${t('pro.drawInModel')} ${t('pro.onePlate')}`}</span></button>
+      : capitalized(tp('pro.drawWhat', { what: t('pro.onePlate') }))}</span></button>
     <WriteInPanelButton kind="plate" label={t('pro.onePlate')} testid="write-plate" />
     </span>
   </div>
@@ -259,8 +259,8 @@
     -->
     {#if drawState.writing === 'plate'}
       <WriteCard
-        title={`${t('pro.writeIn')} ${t('pro.onePlate')}`}
-        submitLabel={`${t('pro.add')} ${t('pro.onePlate')}`}
+        title={capitalized(tp('pro.writeWhat', { what: t('pro.onePlate') }))}
+        submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.onePlate') }))}
         onsubmit={addShell}
         error={newError}
         disabled={drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}

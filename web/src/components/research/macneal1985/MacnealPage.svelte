@@ -31,22 +31,22 @@
   onMount(() => { void run(); });
 </script>
 
-<ExperimentShell paperId="macneal-harder-1985" name="MacNeal–Harder (1985): engine benchmarks"
-  lead="The production Stabileo engine, tested live against stated references. Every result below is computed in this browser; failures stay visible."
+<ExperimentShell paperId="macneal-harder-1985" name={s.title}
+  lead={s.lead}
   sourcePath="engine/tests/benchmarks"
   actions={{ goToStep: () => {}, setParams: () => {}, showTab: t => { tab = t; } }}
-  verification={{ reference: { kind: 'none', why: 'No separate reference solver: this page runs the production engine.' }, published: { kind: 'none', why: 'Numerical table provenance pending. The live table separates paper-reference cases from analytical frame adaptations.' } }}>
+  verification={{ reference: { kind: 'none', why: s.referenceWhy }, published: { kind: 'none', why: s.publishedWhy } }}>
   {#snippet article()}
-    <h2>What is tested</h2>
-    <p>MacNeal and Harder proposed accuracy problems for finite elements. This first selection runs straight cantilevers with regular, trapezoidal and parallelogram meshes using MITC4 shells, plus the existing Euler–Bernoulli frame adaptations. It is not a claim to pass the entire published problem set.</p>
-    <p>The shell strip has length 6, width 0.2, thickness 0.1, Young’s modulus 10⁷ and Poisson’s ratio 0.3, with six elements and a unit end force. The engine takes modulus divided by 1000. The frame adaptations retain their own material, section and meshes; their analytical values are not the paper’s tabulated shell values.</p>
-    <h2>One benchmark definition</h2>
-    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/macneal_harder.json">The engine-owned case file</a> contains the inputs, measurement locations, references, sources and tolerances. Native tests and this page read it. No research solver supplies these results.</p>
-    <h2>Accuracy and regression bounds</h2>
-    <p>The live table uses a strict relative error below 2%. Existing native tests also check convergence, rigid modes and regression floors. A permissive regression floor is not an accuracy pass. The Research workflow compares native and WASM values and classifications.</p>
-    <h2 id="limitations">Known limitations and registry</h2>
-    <p>Distorted low-order elements can lock. Failing rows link here and remain in the denominator. The <a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">engine known-issues registry</a> currently contains no open shell entry. <a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion">The engine test ledger records the four live failures</a>. A solver-owner decision is needed to add runtime diagnostics; this track does not edit production engine code.</p>
-    <p>Reference values retain the existing tests’ provenance. The original paper’s exact numerical table/page locators still require verification. Native shell suites also cover roof, cylinder, hemisphere and twisted-beam configurations; they are not included in this first live selection.</p>
+    <h2>{s.testedHeading}</h2>
+    <p>{s.testedDescription}</p>
+    <p>{s.modelDescription}</p>
+    <h2>{s.definitionHeading}</h2>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/macneal_harder.json">{s.definitionLink}</a>{s.definitionDescription}</p>
+    <h2>{s.accuracyHeading}</h2>
+    <p>{s.accuracyDescription}</p>
+    <h2 id="limitations">{s.limitationsHeading}</h2>
+    <p>{s.limitationsBeforeRegistry}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{s.registryLink}</a>{s.registryStatus}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion">{s.ledgerLink}</a>{s.limitationsAfterLedger}</p>
+    <p>{s.referenceProvenance}</p>
     <h2>{s.native}</h2>
     <ul>{#each nativeOnly as c}<li><strong>{c.label}</strong>: {c.reason} <code>{c.nativeTest}</code></li>{/each}</ul>
   {/snippet}

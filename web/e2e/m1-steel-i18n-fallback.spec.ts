@@ -11,19 +11,20 @@
  *     resurrect exactly the half-translated state this exists to remove"
  *
  * That comment is a product commitment. This spec is the test of it: with `stabileo-lang` set to
- * `de` and the manual flag on — the exact state a user who picked German before the narrowing
- * would have — the app has to boot in a language it can actually sustain, and the metallic
+ * `it` and the manual flag on (the state of a user who picked Italian when fourteen were listed),
+ * the app has to boot in a language it can actually sustain, and the metallic
  * surfaces have to read as one language rather than as a mixture.
  *
  * It matters for the metallic namespace specifically because those eleven dictionaries are NOT
  * empty: each already carries 22 `conn.*` labels written before the namespace existed. So the
- * failure mode is not "everything in English" — it is 22 German strings among 292 English ones,
+ * failure mode is not "everything in English" — it is 22 Italian strings among 292 English ones,
  * inside the joints panel. See `docs/handoffs/m1-steel-i18n-audit.md` §1.3.
  */
 
 import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
+import { OFFERED_LOCALES } from '../src/lib/i18n/offered';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
 
@@ -57,18 +58,17 @@ function activeLocale(page: Page): Promise<string | null> {
 
 test.describe('a stored locale the app no longer offers', () => {
   test('does not survive the boot, for any of the eleven @smoke', async ({ page }) => {
-    // One representative rather than all eleven: the barrier is `isOfferedLocale`, which does not
-    // know which code it is refusing. `de` is the one the source comment names.
-    await bootWithStoredLocale(page, 'de');
+    // One representative: the barrier is `isOfferedLocale`, which does not know which code it is refusing.
+    await bootWithStoredLocale(page, 'it');
     const settled = await activeLocale(page);
-    expect(['es', 'en', 'pt'], `settled on ${settled}`).toContain(settled);
+    expect(OFFERED_LOCALES, `settled on ${settled}`).toContain(settled);
   });
 
   test('leaves the metallic panel reading as ONE language, not a mixture', async ({ page }) => {
-    await bootWithStoredLocale(page, 'de');
+    await bootWithStoredLocale(page, 'it');
 
     // Generate a truss so the panel has rows, then read the joints panel — the one surface where
-    // a partial German dictionary would show through, because those 22 keys are its labels.
+    // a partial Italian dictionary would show through, because those 22 keys are its labels.
     await openTab(page, 'generators');
     await pickGenerator(page, 'truss');
     await pickGenerator(page, 'truss');
@@ -79,21 +79,19 @@ test.describe('a stored locale the app no longer offers', () => {
     await expect(page.getByTestId('conn-experimental-banner')).toBeVisible();
 
     /*
-     * The 22 pre-existing keys, in German, are what a mixture would look like. `conn.verify` is
-     * "Verify" in English and "Prüfen" in the German dictionary, so its German form appearing here
-     * would be the exact regression this test exists for.
+     * The 22 pre-existing keys, in Italian, are what a mixture would look like: `conn.verify` is
+     * "Check" in English and "Verifica" in the Italian dictionary.
      */
     const body = await page.getByTestId('conn-experimental-banner').innerText();
     expect(body.trim().length).toBeGreaterThan(20);
 
-    const germanLeak = await page.evaluate(() => {
+    const leak = await page.evaluate(() => {
       const root = document.querySelector('.conn-tab') ?? document.body;
       const text = root.textContent ?? '';
-      // Words that only exist in the German dictionary's version of this panel.
-      return ['Prüfen', 'Schrauben', 'Schweißnaht', 'Knoten', 'Auslastung']
+      return ['Verifica', 'Bulloni', 'Saldatura', 'Rifollamento', 'Utilizzazione']
         .filter((w) => text.includes(w));
     });
-    expect(germanLeak, `German strings leaked: ${germanLeak.join(', ')}`).toEqual([]);
+    expect(leak, `Italian strings leaked: ${leak.join(', ')}`).toEqual([]);
   });
 
   test('renders no raw key on the metallic surfaces after falling back', async ({ page }) => {
@@ -113,8 +111,8 @@ test.describe('a stored locale the app no longer offers', () => {
   });
 });
 
-test.describe('the three offered locales each hold the namespace on their own', () => {
-  for (const locale of ['es', 'en', 'pt'] as const) {
+test.describe('the offered locales each hold the namespace on their own', () => {
+  for (const locale of OFFERED_LOCALES) {
     test(`${locale} renders the metallic props card without falling through to English`, async ({ page }) => {
       await bootWithStoredLocale(page, locale);
       expect(await activeLocale(page)).toBe(locale);

@@ -1,5 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { pickLanguage } from './fixtures';
+import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
+import fullDe from '../src/lib/i18n/locales/full/de';
+import fullFr from '../src/lib/i18n/locales/full/fr';
+import fullTr from '../src/lib/i18n/locales/full/tr';
+
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR' };
+/** The Open Graph alternates a public page in `locale` declares: every other public language. */
+const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
 /**
  * Landing-page coverage.
@@ -243,17 +252,15 @@ test.describe('@landing landing page', () => {
     expect(await page.evaluate(() => localStorage.getItem('stabileo-lang-manual'))).toBe('1');
   });
 
-  test('the landing offers exactly the languages it fully speaks', async ({ page }) => {
+  test('the landing offers the application\'s languages', async ({ page }) => {
     await bootLanding(page);
 
-    // PUBLIC_LOCALES. Portuguese joined once every landing key existed — the
-    // list and the copy are kept in step by landing-i18n-parity.test.ts.
     await page.getByTestId('nav-lang-button').click();
     const names = await page
       .getByTestId('nav-lang-list')
       .getByRole('option')
       .allInnerTexts();
-    expect(names.map((n) => n.trim())).toEqual(['English', 'Español', 'Português']);
+    expect(names.map((n) => n.trim())).toEqual(PUBLIC_LOCALES.map((l) => NAME[l]));
   });
 
   test('a Brazilian browser gets the Portuguese landing', async ({ browser }) => {
@@ -273,10 +280,16 @@ test.describe('@landing landing page', () => {
     await ctx.close();
   });
 
-  test('any other browser language gets the English landing', async ({ browser }) => {
-    // French is a language the *application* speaks, so this asserts the
-    // landing's allow-list rather than a missing dictionary.
+  test('a French browser gets the French landing once French is complete, and English until then', async ({ browser }) => {
     const ctx = await browser.newContext({ locale: 'fr-FR' });
+    const page = await ctx.newPage();
+    await bootLanding(page, { manual: false });
+    await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', isComplete('fr') ? 'fr' : 'en');
+    await ctx.close();
+  });
+
+  test('any other browser language gets the English landing', async ({ browser }) => {
+    const ctx = await browser.newContext({ locale: 'it-IT' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis, in a browser tab.');
@@ -489,7 +502,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:site_name')).toBe('Stabileo');
       expect(one(h, 'og:locale')).toBe('en_US');
       // One tag per alternate language, which is how Open Graph reads them.
-      expect(h.meta['og:locale:alternate']).toEqual(['es_AR', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('en'));
       expect(one(h, 'og:title')).toBe(EN_TITLE);
       expect(one(h, 'twitter:card')).toBe('summary_large_image');
       expect(one(h, 'twitter:title')).toBe(EN_TITLE);
@@ -553,7 +566,7 @@ test.describe('@landing landing page', () => {
       expect(h.title).toBe('Stabileo — Software de cálculo estructural gratis, en el navegador');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
-      expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
@@ -576,7 +589,7 @@ test.describe('@landing landing page', () => {
       expect(h.title).toBe('Stabileo — Software de cálculo estrutural grátis, no navegador');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
-      expect(h.meta['og:locale:alternate']).toEqual(['en_US', 'es_AR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('pt'));
       expect(h.canonicals).toEqual(['https://stabileo.com/pt/']);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
     });
@@ -590,7 +603,7 @@ test.describe('@landing landing page', () => {
       await expect(page.locator('.landing')).toHaveCount(0);
 
       const h = await readHead(page);
-      expect(h.meta['og:locale:alternate']).toEqual(['es_AR', 'pt_BR']);
+      expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('en'));
       expect(one(h, 'og:locale')).toBe('en_US');
     });
 
@@ -914,7 +927,7 @@ test.describe('@landing the model the deck states', () => {
 });
 
 /*
- * The deck in the three languages it ships.
+ * The deck in every language it ships.
  *
  * `t()` falls back to English and then to the key itself, so a locale missing
  * a key does not error — it renders `landing.proCalcH` on the page, or worse,
@@ -922,15 +935,19 @@ test.describe('@landing the model the deck states', () => {
  * working page to anyone who does not read that language.
  */
 test.describe('@landing every language gets the whole deck', () => {
-  const HEADING = {
+  const HEADING: Record<Locale, string> = {
     es: 'Cómo pensamos sostener un proyecto abierto',
     en: 'How we plan to sustain an open project',
     pt: 'Como pensamos sustentar um projeto aberto',
-  } as const;
+    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'],
+  };
 
-  const FREE = { es: 'Gratis', en: 'Free', pt: 'Grátis' } as const;
+  const FREE: Record<Locale, string> = {
+    es: 'Gratis', en: 'Free', pt: 'Grátis',
+    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'],
+  };
 
-  for (const locale of ['es', 'en', 'pt'] as const) {
+  for (const locale of PUBLIC_LOCALES) {
     test(`${locale}: nine sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 

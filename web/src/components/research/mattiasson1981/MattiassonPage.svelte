@@ -57,26 +57,26 @@
   });
 </script>
 
-<ExperimentShell paperId="mattiasson-elastica" name="Mattiasson (1981): cantilever elastica"
-  lead="A cantilever under increasing tip force, traced by Stabileo’s production corotational solver. Reference transcriptions are provisional; failures remain visible."
+<ExperimentShell paperId="mattiasson-elastica" name={s.title}
+  lead={s.lead}
   sourcePath="engine/tests/benchmarks"
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: t => { tab = t; } }}
-  verification={{ reference: { kind: 'none', why: 'Production engine only; no independently reproduced reference solver.' }, published: { kind: 'none', why: 'The numerical transcription has not been checked against the paper text. Status: proposed.' } }}>
+  verification={{ reference: { kind: 'none', why: s.referenceWhy }, published: { kind: 'none', why: s.publishedWhy } }}>
   {#snippet article()}
-    <h2>Model and load path</h2>
-    <p>A fixed-root cantilever has L = 2 m, 16 frame elements, E = 200000 MPa, A = 0.01 m² and I = 10⁻⁴ m⁴. The engine converts E to kN/m². Downward tip force P is parametrized by PL²/EI; u/L = −ux/L is shortening and v/L = −uz/L is downward displacement. The viewer uses actual nodal displacements at scale 1.</p>
-    <p>Twenty independent incremental solves trace force parameters 0.5 through 10. Each uses the production <code>solveCorotational2D</code> wrapper with 50 iterations, residual tolerance 10⁻⁶ and 10 increments. Playback loops through these live results and stops on interaction. It is not an exact reference shape or an interpolated solver path.</p>
-    <h2>References and accuracy</h2>
-    <p>The four reference pairs are copied unchanged from <a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/BENCHMARK_REFERENCES.md#mattiasson-elastica--cantilever-large-deflection">BENCHMARK_REFERENCES.md</a>, which attributes them to Mattiasson’s Table 1 and explicitly says they need verification. Neither the table/page locator nor these numbers have been checked against the paper text. They must not be treated as verified exact elliptic-integral values.</p>
-    <p>The exploratory accuracy target is relative error strictly below {fmt(tolerance * 100)}% for both signed components. This new page target is separate from every existing native assertion, tolerance and regression bound. Intermediate steps have no accuracy reference. Nonconvergence or incomplete loading is a failure, never an accuracy pass.</p>
-    <h2>Tip moment</h2>
-    <p>The separate moment case uses M = EI/L = 10000 kN·m, matching the native end-moment test exactly. That test checks convergence and significant rotation. It does not establish full-circle rolling or elliptic-integral accuracy; the page makes neither claim. Under our downward-positive convention its upward displacement gives a negative v/L.</p>
-    <h2>One case file and findings</h2>
-    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/mattiasson_elastica.json">The shared engine-owned JSON</a> supplies the native end-moment test, native comparison runner and live page. Research CI compares fresh native and WASM results, including failures. No research solver is used.</p>
-    <p><a href={issue}>Findings ledger and unresolved provenance</a>: disagreement may involve transcription, model assumptions or solver accuracy. Solver-owner triage and the original numerical table are needed before attributing a defect. No runtime issue identifier is invented.</p>
+    <h2>{s.modelHeading}</h2>
+    <p>{s.modelDescription}</p>
+    <p>{s.loadPathBeforeAPI}<code>{s.solverAPI}</code>{s.loadPathAfterAPI}</p>
+    <h2>{s.referencesHeading}</h2>
+    <p>{s.referencesBeforeLink}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/BENCHMARK_REFERENCES.md#mattiasson-elastica--cantilever-large-deflection">{s.referencesLink}</a>{s.referencesAfterLink}</p>
+    <p>{s.accuracyBefore}{fmt(tolerance * 100)}{s.accuracyAfter}</p>
+    <h2>{s.momentHeading}</h2>
+    <p>{s.momentDescription}</p>
+    <h2>{s.sharedCasesHeading}</h2>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/mattiasson_elastica.json">{s.sharedCasesLink}</a>{s.sharedCasesDescription}</p>
+    <p><a href={issue}>{s.findingsLink}</a>{s.findingsDescription}</p>
     <h2>{s.native}</h2>
     <ul>{#each nativeOnly as c}<li><code>{c.nativeTest}</code>: {c.reason}</li>{/each}</ul>
-    <p>The corotational API is available in production WASM. The native-only designation above applies to regression assertions, not to an unavailable solve.</p>
+    <p>{s.nativeAvailability}</p>
   {/snippet}
   {#snippet app()}
     <div class="benchmark-pane" bind:this={pane}>

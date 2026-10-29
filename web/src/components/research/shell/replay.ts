@@ -4,6 +4,7 @@
  * at full precision in the header. See research/fracture/shauer-2025/src/replay.rs for the layout.
  */
 export type ReplayHeader<S> = {
+  build_id?: string;
   nodes: number;
   elements: number;
   damage_max: number;

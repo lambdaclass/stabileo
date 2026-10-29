@@ -117,7 +117,7 @@ impl NotchedSquare {
         }
         self.validate()?;
         let mut count = upper;
-        self.visit_upper_nodes(|node| { if mirrored_node(node).is_some() { count += 1; } });
+        count += (self.nx + 1) * (self.ny / 2) + self.nx / 2;
         if count > limit {
             return Err(format!("mesh has {count} nodes; the browser limit is {limit}"));
         }
@@ -141,7 +141,7 @@ impl NotchedSquare {
         let original = nodes.len();
         let mut map = vec![0usize; original];
         for i in 0..original {
-            if let Some(node) = mirrored_node(nodes[i]) {
+            if let Some(node) = mirrored_node(nodes[i], i % (nx + 1), i / (nx + 1), nx) {
                 map[i] = nodes.len();
                 nodes.push(node);
             } else {
@@ -221,9 +221,9 @@ fn mirror_elements(elements: &mut Vec<[usize; 4]>, map: &[usize]) {
     }
 }
 
-fn mirrored_node([x, y]: [f64; 2]) -> Option<[f64; 2]> {
-    if y.abs() > 1e-8 { Some([x, -y]) }
-    else if x < -1e-8 { Some([x, y]) }
+fn mirrored_node([x, y]: [f64; 2], column: usize, row: usize, nx: usize) -> Option<[f64; 2]> {
+    if row > 0 { Some([x, -y]) }
+    else if column < nx / 2 { Some([x, y]) }
     else { None }
 }
 
@@ -235,12 +235,23 @@ mod node_count_tests {
     fn checked_count_matches_mirrored_construction_near_browser_limit() {
         for (nx, ny, h_fine) in [(180, 180, 0.00125), (198, 198, 0.00125), (198, 200, 0.00125), (198, 198, 1e-10), (200, 200, 1e-10)] {
             let mesh = NotchedSquare { nx, ny, h_fine, ..NotchedSquare::REFERENCE };
-            let actual = mesh.build().n_nodes();
+            let built = mesh.build();
+            let actual = built.n_nodes();
+            assert_eq!(actual, (nx + 1) * (ny + 1) + nx / 2);
+            for el in &built.elements {
+                let x = el.map(|i| built.nodes[i]);
+                let det = (x[1][0] - x[0][0]) * (x[3][1] - x[0][1]) / 4.0;
+                assert!(det > 0.0);
+                assert_eq!(x[0][1], x[1][1]);
+                assert_eq!(x[2][1], x[3][1]);
+                assert_eq!(x[0][0], x[3][0]);
+                assert_eq!(x[1][0], x[2][0]);
+            }
             assert_eq!(mesh.checked_node_count(usize::MAX).unwrap(), actual);
             assert_eq!(mesh.checked_node_count(40_000).is_ok(), actual <= 40_000);
             if nx == 200 {
                 assert!((nx + 1) * (ny + 1) + nx / 2 > 40_000);
-                assert!(actual < 40_000);
+                assert!(actual > 40_000);
             }
         }
     }

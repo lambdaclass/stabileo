@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SimulationController } from '../simulation.svelte';
+import { SimulationController, pendingMeshMessage } from '../simulation.svelte';
 import type { PlateConfig, Step, WorkerOut } from '../protocol';
 
 class FakeWorker {
@@ -90,4 +90,17 @@ it('records a synchronous Worker constructor failure before mesh creation', () =
   expect(sim.current?.status).toBe('error');
   expect(sim.current?.error).toBe('Worker blocked');
   sim.dispose();
+});
+
+it('stops before a delayed mesh arrives and ignores that mesh', () => {
+  vi.stubGlobal('Worker', FakeWorker);
+  const sim = new SimulationController();
+  sim.run(config);
+  const worker = FakeWorker.instances[0];
+  sim.stop();
+  worker.send({ type: 'mesh', runId: 1, nodes: new Float64Array(8), elements: new Uint32Array(4) });
+  expect(sim.current?.nodes).toBeNull();
+  expect(sim.current?.status).toBe('stopped');
+  expect(pendingMeshMessage(sim.current, null)).toBe('Stopped. Press Recompute live to restart.');
+  expect(worker.terminate).toHaveBeenCalledOnce();
 });

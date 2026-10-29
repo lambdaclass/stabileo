@@ -112,7 +112,7 @@
       <button class="btn-small" class:active={sup.isGlobal !== false} onclick={() => updateSpringField(supId, 'isGlobal', '1')}
       >Gl</button>
       <button class="btn-small" class:active={sup.isGlobal === false} onclick={() => updateSpringField(supId, 'isGlobal', '0')}
-      >Loc</button>
+      >{t('prop.localAxesShort')}</button>
     </div>
     <div class="property-row" title={t('prop.imposedDispRollerTitle')}>
       <span>di:</span>
@@ -145,7 +145,7 @@
       <button class="btn-small" class:active={sup.isGlobal !== false} onclick={() => updateSpringField(supId, 'isGlobal', '1')}
         title={t('prop.globalAxesTitle')}>Gl</button>
       <button class="btn-small" class:active={sup.isGlobal === false} onclick={() => updateSpringField(supId, 'isGlobal', '0')}
-        title={t('prop.localAxesTitle')}>Loc</button>
+        title={t('prop.localAxesTitle')}>{t('prop.localAxesShort')}</button>
     </div>
     <div class="property-row">
       <span>α:</span>

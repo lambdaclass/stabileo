@@ -20,9 +20,9 @@
     "staggered scheme",
     "educational code"
    ],
-   "summary": "A compact, self-contained Python finite element code for quasi-static brittle fracture with the AT2 phase-field model: bilinear quadrilaterals, 2x2 Gauss quadrature, a damage-degraded elasticity problem and a damage problem driven by the tensile part of the strain energy, solved alternately until the elasticity residual falls below a tolerance. Examples are a bar in tension (compared with the 1D AT2 analytical response), a single-edge notched plate in tension and a three-point bending test.",
-   "summary_source": "reference-code",
-   "summary_note": "phasefield-jr-py read in full at commit 61037c6; paper full text not accessed",
+   "summary": "",
+   "summary_source": null,
+   "summary_note": "No permitted summary source recorded; reference code alone is insufficient.",
    "code": [
     {
      "url": "https://github.com/nathanshauer/phasefield-jr-py",
@@ -158,20 +158,27 @@
     "nonaffine displacements",
     "continuum limit"
    ],
-   "summary": "Derives the elastic continuum model of an arbitrary network of Hookean springs from its geometry and topology alone, including the nonaffine displacements, and checks it against simulations of crystalline and disordered networks.",
-   "summary_source": "crossref-abstract",
+   "summary": "Derives the elastic continuum of an arbitrary network of Hookean springs from its geometry and topology alone, with the nonaffine deformation of every triangle obtained from a linear system, and compares the resulting Poisson's ratios and Young's moduli with simulations of stretched strips of ordered triangular lattices, a honeycomb that turns re-entrant, and a foam-like disordered lattice that becomes auxetic.",
+   "summary_source": "full-text",
    "code": [],
    "data": [],
    "methods": [
-    "discrete-to-continuum homogenization"
+    "discrete-to-continuum homogenization",
+    "metric (incompatible) elasticity",
+    "strip simulations by energy minimisation"
    ],
    "dependencies": [],
    "complexity": "medium",
    "relevance": "Spring networks map directly onto truss models, which Stabileo already solves.",
-   "status": "proposed",
-   "reproduced_published_results": false,
-   "benchmarks": [],
-   "implementation": null,
+   "status": "numerically-validated",
+   "reproduced_published_results": true,
+   "benchmarks": [
+    "foam Poisson's ratio against disorder (Fig. 5, text p. 6)",
+    "honeycomb Poisson's ratio, Eq. (23)",
+    "ordered lattices, Supplemental Eq. (9) and Fig. 7",
+    "exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement"
+   ],
+   "implementation": "metamaterials/grossman-2026",
    "contacts": []
   },
   {
