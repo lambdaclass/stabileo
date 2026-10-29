@@ -721,6 +721,28 @@ fn sturm_count_above(a: &CscMatrix, b: &CscMatrix, boundary: f64) -> Option<(usi
     None
 }
 
+fn positive_spectrum_upper_bound(b: &CscMatrix) -> usize {
+    let mut active = vec![false; b.n];
+    for j in 0..b.n { for p in b.col_ptr[j]..b.col_ptr[j+1] {
+        if b.values[p] != 0.0 { active[j] = true; active[b.row_idx[p]] = true; }
+    }}
+    let mut indices = vec![0; b.n];
+    let mut rank_bound = 0;
+    for i in 0..b.n {
+        if active[i] { indices[i] = rank_bound; rank_bound += 1; }
+    }
+    if rank_bound == 0 { return 0; }
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for j in 0..b.n { for p in b.col_ptr[j]..b.col_ptr[j+1] {
+        if b.values[p] != 0.0 {
+            rows.push(indices[b.row_idx[p]]); cols.push(indices[j]); vals.push(-b.values[p]);
+        }
+    }}
+    let negative_b = CscMatrix::from_triplets(rank_bound, &rows, &cols, &vals);
+    super::sparse_chol::sparse_negative_inertia(&symbolic_cholesky(&negative_b), &negative_b)
+        .unwrap_or(rank_bound)
+}
+
 fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> Option<EigenResult> {
     let n = a.n;
     if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
@@ -737,6 +759,8 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
     };
     let a_norm = matrix_norm(a);
     let b_norm = matrix_norm(b);
+    let k = k.min(positive_spectrum_upper_bound(b));
+    if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
     let mut locked = Vec::new();
     let mut values = Vec::new();
     let mut seed = 12345u64;
@@ -1401,6 +1425,48 @@ pub fn eigen_failure_message(n: usize) -> String {
 #[cfg(test)]
 mod completeness_tests {
     use super::*;
+    #[test]
+    fn exhausted_finite_modal_spectrum_is_certified() {
+        let n = 201;
+        let ids: Vec<_> = (0..n).collect();
+        let k = CscMatrix::from_triplets(n, &ids, &ids, &vec![1.0; n]);
+        for count in [0, 1, 3] {
+            let mass_ids: Vec<_> = (0..count).collect();
+            let m = CscMatrix::from_triplets(n, &mass_ids, &mass_ids, &vec![1.0; count]);
+            let r = lanczos_generalized_eigen_sparse(&k, &m, 6, 0.0).unwrap();
+            assert_eq!(r.values.len(), count);
+            for col in 0..count {
+                assert!((r.values[col] - 1.0).abs() < 1e-10);
+                let v: Vec<_> = (0..n).map(|i| r.vectors[i*count+col]).collect();
+                let mv = m.sym_mat_vec(&v);
+                for i in 0..n { assert!((v[i] - r.values[col]*mv[i]).abs() < 1e-10); }
+                for other in 0..count {
+                    let gram: f64 = (0..n).map(|i| r.vectors[i*count+other]*mv[i]).sum();
+                    assert!((gram - if col == other { 1.0 } else { 0.0 }).abs() < 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn exhausted_positive_buckling_spectrum_is_certified() {
+        let n = 201;
+        let ids: Vec<_> = (0..n).collect();
+        let k = CscMatrix::from_triplets(n, &ids, &ids, &vec![1.0; n]);
+        for count in [0, 1, 3] {
+            let diagonal: Vec<_> = (0..n).map(|i| if i < count { 2.0 } else { -1.0 }).collect();
+            let b = CscMatrix::from_triplets(n, &ids, &ids, &diagonal);
+            let r = lanczos_buckling_eigen_sparse(&k, &b, 6).unwrap();
+            assert_eq!(r.values.len(), count);
+            for col in 0..count {
+                assert!((r.values[col] - 2.0).abs() < 1e-10);
+                for i in 0..n {
+                    assert!(((diagonal[i]-r.values[col])*r.vectors[i*count+col]).abs() < 1e-10);
+                }
+            }
+        }
+    }
+
     #[test]
     fn exact_and_near_singular_sturm_shifts_are_perturbed_and_recounted() {
         let first_shift = 1.0 + 1e-7;

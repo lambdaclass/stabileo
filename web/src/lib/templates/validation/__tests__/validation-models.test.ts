@@ -171,7 +171,7 @@ it('loading a validation card restores the previous model with one undo, and sup
  * comparison of displacements, not for statics.
  */
 describe('validation-04 with its own combinations', () => {
-  it('keeps second-order results and refuses buckling above the eigenanalysis budget', async () => {
+  it('is stable to second order exactly where it does not buckle', async () => {
     await loadValidationModel('validation-04');
     expect(modelStore.analysis?.perCombination).toBe('pdelta');
     const cases = modelStore.model.loadCases;
@@ -182,19 +182,20 @@ describe('validation-04 with its own combinations', () => {
     const caseLoads = caseSolverLoads3D(md() as never, cases, true, false);
     let stable = 0;
     for (const combo of modelStore.combinations) {
+      const buckling = solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1);
+      if (typeof buckling === 'string') throw new Error(buckling);
+      const lambda = buckling.modes[0]!.loadFactor;
+      expect(Number.isFinite(lambda), combo.name).toBe(true);
+      expect(lambda, combo.name).toBeGreaterThan(0);
       const res = r.perCombo.get(combo.id);
+      expect(!!res, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
       if (!res) { expect(r.unstable).toContain(combo.id); continue; }
       stable++;
       const so = res.secondOrder!;
       expect(so.converged && so.stable).toBe(true);
       expect(so.b2).toBeGreaterThan(1);
+      expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
     }
     expect(stable).toBe(3);
-    const buckling = solveBuckling3D({
-      ...base,
-      loads: comboSolverLoads3D(modelStore.combinations[0]!, caseLoads),
-    }, 1);
-    if (typeof buckling === 'string') throw new Error(buckling);
-    expect(buckling.modes[0]!.loadFactor).toBeGreaterThan(0);
   }, 300_000);
 });

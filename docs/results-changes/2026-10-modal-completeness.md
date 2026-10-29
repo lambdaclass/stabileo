@@ -98,7 +98,8 @@ so their cost depends on multiplicity.
 Validation: 578 library tests, 221 core tests, 149 certificate tests (8 ignored),
 22 release metamorphic tests (5 ignored), and 4,763 release validation tests pass.
 WASM builds successfully. All 41 results tests pass with unchanged snapshots.
-The 3D buckling golden moved by at most 1.2e-10 relative; its independent Euler
+The 3D buckling golden moved by at most 3.33e-10 relative (the first factor changes from
+4.934802201182984 to 4.934802199543485, or 3.3223e-10 relative); its independent Euler
 comparison still passes at 1e-6 and the golden tolerance remains 1e-10.
 Small noninvertible stiffness matrices retain the dense mechanism-detection
 path. The error keeps the existing “Eigenvalue decomposition failed” prefix so
@@ -126,3 +127,21 @@ modes at or below the existing omega² threshold of 1e-10. A seven-mode warping
 cantilever with stiffness scaled by 1e-18 returned only four modes as a success.
 Both 2D and 3D now refuse such partial results with a completeness diagnostic;
 the positive-frequency threshold is unchanged.
+
+Review follow-up: short spectra now use an independent upper bound from the
+positive inertia of the mass/geometric matrix, with exact zero rows removed.
+When inertia is unavailable, the number of active coordinates remains a
+conservative upper bound. Returned modes still pass the original residual and
+Sturm boundary checks; an uncertifiable shortfall still refuses.
+
+Review follow-up verification: a fresh native build passes all five completeness
+unit tests and ten sparse-mass integration tests. A fresh WASM build passes all
+32 validation-model tests, including the restored per-combination stability and
+amplification comparisons. TypeScript reports no new errors against the existing
+247-error baseline; the guarded Svelte check and shared site-header check also
+pass. The web bundle builds, but Chromium launch is denied by the
+sandbox's Mach-port restrictions, so the new 390 px and 810 px Playwright checks
+have not run and rendered layout remains unverified. These checks used the
+installed Nix-store Rust 1.99.1 and Node 22.22.1 binaries after flake input fetching
+stalled. The full native suite was stopped; only the focused results above are
+claimed for this follow-up.
