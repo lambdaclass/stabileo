@@ -122,3 +122,11 @@ production WASM wrapper and shared Stabileo viewer. Stage: first-version; 0 revi
 ## First-version engine benchmark
 
 `benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 0 reviews. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
+
+## Southwell (1932), first version
+
+`stability/southwell-1932/` documents one imperfect pinned column, using production
+corotational response and linear buckling against Euler. The shared case and native
+test live at `engine/tests/benchmarks/southwell_1932.{json,rs}`; the optional published
+native export is `stability/southwell-1932/results/stabileo_results.json`.
+Stage: first-version; 0 reviews. No original experimental data is reproduced.

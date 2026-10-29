@@ -6,6 +6,7 @@
    */
   import { topoptStrings } from './andreassen2011/i18n';
   import { fs } from './fairclough2026/i18n';
+  import { strings as southwellStrings } from './southwell1932/i18n';
   import { strings as newmarkStrings } from './newmark1959/i18n';
   import { cqcStrings } from './cqc1981/strings';
   import { ps } from './plastic-collapse/i18n';
@@ -47,6 +48,7 @@
   const arches = $derived(archStrings());
   const f = $derived(fs());
   function experimentText(e: Experiment) {
+    if (e.paperId === 'southwell-1932') { const sw = southwellStrings(); return { title: sw.title, hook: sw.stage }; }
     if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
       const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;

@@ -1,0 +1,36 @@
+import { researchLocale } from '../i18n';
+const en = {
+  euler: 'Euler', estimate: 'Southwell',
+  title: 'Southwell: an imperfect column', lead: 'Estimate a critical load from a small, subcritical lateral response using the production engine.',
+  stage: 'First version · 0 reviews', model: 'One pinned column',
+  description: 'L = 3 m, E = 200 GPa, A = 0.01 m², I = 10⁻⁶ m⁴; 20 frame elements. The unloaded centerline has a sine imperfection a = 0.3 mm (L/10,000). One end slides axially. Seven loads span 20–80% of Euler.',
+  method: 'Each load is solved from the unloaded geometry with the production corotational solver in 20 increments. δ is the additional midpoint displacement, excluding the initial imperfection. Linear buckling uses the straight column under a unit axial load.',
+  reference: 'Closed-form reference', formula: 'Euler: Pcr = π²EI/L². For a small sine imperfection, δ = aP/(Pcr − P), so δ/P = δ/Pcr + a/Pcr. An ordinary least-squares line with a free intercept gives Pcr = 1/slope.',
+  tolerance: 'Targets: Southwell within 1% of Euler; linear buckling within 0.1%. At 80% of Euler, total lateral offset is about L/2,000, keeping finite-rotation effects small. The 1% allowance includes mesh and axial-shortening effects; it is not a general accuracy guarantee.',
+  comparison: 'Critical loads', linear: 'Linear buckling', difference: 'Difference from Euler', notYet: 'Not yet',
+  limitations: ['Original experimental data and published figures have not been reproduced.', 'No mesh or imperfection sweep, noisy-data fitting, postbuckling, or material nonlinearity.', 'No independent review or engineering certification.'],
+  run: 'Recompute live', stop: 'Stop', restart: 'Restart', running: 'Computing live', live: 'Live computation', cached: 'Cached live results', pending: 'Waiting for production engine', stopped: 'Stopped — incomplete run', failure: 'Computation failed',
+  sample: 'Load step', loadCurve: 'Load–deflection curve', southwell: 'Southwell plot', fit: 'Fitted line', delta: 'Additional midpoint displacement δ (mm)', scaled: 'Deformation magnified ×100; the initial imperfection is shown at true scale.', open: 'Open in editor', handoff: 'Geometry and selected load only; choose nonlinear analysis in the editor.', pass: 'Within target', fail: 'Outside target'
+};
+const es: typeof en = {
+  euler: 'Euler', estimate: 'Southwell',
+  title: 'Southwell: una columna imperfecta', lead: 'Estimar una carga crítica a partir de una pequeña respuesta lateral subcrítica con el motor de producción.', stage: 'Primera versión · 0 revisiones', model: 'Una columna articulada',
+  description: 'L = 3 m, E = 200 GPa, A = 0,01 m², I = 10⁻⁶ m⁴; 20 elementos de pórtico. El eje descargado tiene una imperfección sinusoidal a = 0,3 mm (L/10.000). Un extremo desliza axialmente. Siete cargas abarcan el 20–80% de Euler.',
+  method: 'Cada carga se resuelve desde la geometría descargada con el solver corrotacional de producción en 20 incrementos. δ es el desplazamiento adicional del punto medio, sin la imperfección inicial. El pandeo lineal usa la columna recta con carga axial unitaria.',
+  reference: 'Referencia analítica', formula: 'Euler: Pcr = π²EI/L². Para una pequeña imperfección sinusoidal, δ = aP/(Pcr − P), de modo que δ/P = δ/Pcr + a/Pcr. Una recta por mínimos cuadrados con ordenada libre da Pcr = 1/pendiente.',
+  tolerance: 'Objetivos: Southwell a menos del 1% de Euler; pandeo lineal a menos del 0,1%. Al 80% de Euler, el desplazamiento lateral total es aproximadamente L/2.000, con pequeñas rotaciones. El margen del 1% incluye efectos de malla y acortamiento axial; no garantiza precisión general.',
+  comparison: 'Cargas críticas', linear: 'Pandeo lineal', difference: 'Diferencia respecto de Euler', notYet: 'Aún no', limitations: ['No se reprodujeron los datos experimentales ni las figuras originales.', 'Sin barridos de malla o imperfección, ajuste con ruido, pospandeo ni no linealidad material.', 'Sin revisión independiente ni certificación de ingeniería.'],
+  run: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', running: 'Calculando en vivo', live: 'Cálculo en vivo', cached: 'Resultados en vivo guardados', pending: 'Esperando al motor de producción', stopped: 'Detenido — ejecución incompleta', failure: 'Error de cálculo', sample: 'Paso de carga', loadCurve: 'Curva carga–desplazamiento', southwell: 'Gráfico de Southwell', fit: 'Recta ajustada', delta: 'Desplazamiento adicional central δ (mm)', scaled: 'Deformación ampliada ×100; imperfección inicial a escala real.', open: 'Abrir en el editor', handoff: 'Solo geometría y carga seleccionada; elegir análisis no lineal en el editor.', pass: 'Dentro del objetivo', fail: 'Fuera del objetivo'
+};
+const pt: typeof en = {
+  euler: 'Euler', estimate: 'Southwell',
+  title: 'Southwell: uma coluna imperfeita', lead: 'Estimar uma carga crítica a partir de uma pequena resposta lateral subcrítica com o motor de produção.', stage: 'Primeira versão · 0 revisões', model: 'Uma coluna articulada',
+  description: 'L = 3 m, E = 200 GPa, A = 0,01 m², I = 10⁻⁶ m⁴; 20 elementos de pórtico. O eixo descarregado tem uma imperfeição senoidal a = 0,3 mm (L/10.000). Uma extremidade desliza axialmente. Sete cargas abrangem 20–80% de Euler.',
+  method: 'Cada carga é resolvida a partir da geometria descarregada pelo solver corrotacional de produção em 20 incrementos. δ é o deslocamento adicional do ponto médio, excluindo a imperfeição inicial. A flambagem linear usa a coluna reta sob carga axial unitária.',
+  reference: 'Referência analítica', formula: 'Euler: Pcr = π²EI/L². Para uma pequena imperfeição senoidal, δ = aP/(Pcr − P), portanto δ/P = δ/Pcr + a/Pcr. Uma reta de mínimos quadrados com intercepto livre fornece Pcr = 1/inclinação.',
+  tolerance: 'Metas: Southwell a menos de 1% de Euler; flambagem linear a menos de 0,1%. A 80% de Euler, o deslocamento lateral total é aproximadamente L/2.000, com pequenas rotações. A margem de 1% inclui efeitos de malha e encurtamento axial; não garante precisão geral.',
+  comparison: 'Cargas críticas', linear: 'Flambagem linear', difference: 'Diferença em relação a Euler', notYet: 'Ainda não', limitations: ['Os dados experimentais e as figuras originais não foram reproduzidos.', 'Sem varredura de malha ou imperfeição, ajuste com ruído, pós-flambagem ou não linearidade material.', 'Sem revisão independente ou certificação de engenharia.'],
+  run: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', running: 'Calculando ao vivo', live: 'Cálculo ao vivo', cached: 'Resultados ao vivo armazenados', pending: 'Aguardando o motor de produção', stopped: 'Parado — execução incompleta', failure: 'Falha no cálculo', sample: 'Passo de carga', loadCurve: 'Curva carga–deslocamento', southwell: 'Gráfico de Southwell', fit: 'Reta ajustada', delta: 'Deslocamento adicional central δ (mm)', scaled: 'Deformação ampliada ×100; imperfeição inicial em escala real.', open: 'Abrir no editor', handoff: 'Apenas geometria e carga selecionada; escolher análise não linear no editor.', pass: 'Dentro da meta', fail: 'Fora da meta'
+};
+export const translations = { en, es, pt };
+export const strings = () => translations[researchLocale() as keyof typeof translations] ?? en;
