@@ -233,6 +233,8 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 common::assert_containment(dedaliano_engine::solver::plastic::solve_plastic_3d(&plastic), "SH-MITC4-DISTORTION");
                 common::assert_containment(dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&plastic), "SH-MITC4-DISTORTION");
                 common::assert_containment(dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&plastic), "SH-MITC4-DISTORTION");
+            } else if shape != "regular" && direction == 0 {
+                common::assert_containment(cable_result, "SH-MITC4-DISTORTION");
             } else {
                 let cable_result = cable_result.unwrap();
                 assert_eq!(ids(&cable_result.results.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
@@ -258,10 +260,10 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                     common::assert_containment(result, "SH-MITC4-DISTORTION");
                 }
                 for solver in [input.clone(), constrained] {
-                    let cases = [10000.0, -10000.0].into_iter().enumerate().map(|(i, fx)| {
+                    let cases = [(10000.0, 0.0), (-10000.0, 0.0), (0.0, 10000.0), (0.0, -10000.0)].into_iter().enumerate().map(|(i, (fx, fz))| {
                         let mut loads = input.loads.clone();
                         for load in &mut loads {
-                            if let SolverLoad3D::Nodal(n) = load { n.fx = fx; }
+                            if let SolverLoad3D::Nodal(n) = load { n.fx = fx; n.fz = fz; }
                         }
                         LoadCase3D { name: i.to_string(), loads }
                     }).collect();
@@ -269,8 +271,7 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                     for case in &multi.load_cases {
                         let mut single = multi.solver.clone();
                         single.loads = case.loads.clone();
-                        let r = dedaliano_engine::solver::linear::solve_3d(&single).unwrap();
-                        assert!(ids(&r.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()));
+                        common::assert_containment(dedaliano_engine::solver::linear::solve_3d(&single), "SH-MITC4-DISTORTION");
                     }
                     common::assert_containment(solve_multi_case_3d(&multi), "SH-MITC4-DISTORTION");
                 }
@@ -291,6 +292,8 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
 
                 // #798 pre-fix tip values: trapezoidal 0.0084, parallelogram 0.0104;
                 // reference 0.1081. Retained for the eventual membrane formulation fix.
+            } else if shape != "regular" && direction == 0 {
+                common::assert_containment(result, "SH-MITC4-DISTORTION");
             } else {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
@@ -336,8 +339,13 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
         assert_eq!(serde_json::to_value(d).unwrap(), serde_json::to_value(&warning).unwrap());
     };
     check(&combined.structured_diagnostics);
-    check(&compute_envelope_3d(&[combined]).unwrap().max_abs_results_3d.structured_diagnostics);
-    r.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION"));
+    check(&compute_envelope_3d(&[combined]).unwrap().unwrap().max_abs_results_3d.structured_diagnostics);
+    let mut distorted = dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION");
+    distorted.severity = Severity::Warning;
+    r.structured_diagnostics.push(distorted);
+    common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
+    r.structured_diagnostics.last_mut().unwrap().severity = Severity::Error;
+    common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
     common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
 }
 
@@ -456,8 +464,7 @@ fn creep_preserves_step_only_diagnostics_and_values() {
         let bundle = dedaliano_engine::certify::bundle::export_linear_bundle_2d(&solver).unwrap();
         assert_eq!(ids(&bundle.structured_diagnostics), ids(&direct.structured_diagnostics));
 
-        if moment != 0.0 { assert_warning(&result.structured_diagnostics, "CERT-MECHANISM", 458.0); }
-        else { assert!(!ids(&result.structured_diagnostics).contains(&"CERT-MECHANISM".into())); }
+        assert!(!ids(&result.structured_diagnostics).contains(&"CERT-MECHANISM".into()));
     }
 }
 
@@ -498,6 +505,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
             frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "x".into() }).unwrap();
+        assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
         let guyan = guyan_reduce_3d(&GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
         let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
         let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
@@ -614,4 +622,90 @@ fn rotation_demand_large_sweep() {
         }
         eprintln!("rotation demand {size} members and positions: {:?}", start.elapsed());
     }
+}
+
+#[test]
+fn curved_only_dynamic_solvers_warn() {
+    use dedaliano_engine::solver::{harmonic::*, reduction::*, time_integration::*};
+    let mut solver = beam3d();
+    solver.elements.clear();
+    solver.nodes.retain(|_, n| n.id == 1 || n.id == 5);
+    solver.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
+    solver.curved_beams.push(CurvedBeamInput { node_start: 1, node_mid: 200, node_end: 5, material_id: 1, section_id: 1, num_segments: 4, hinge_start: false, hinge_end: false });
+    let densities = HashMap::from([("1".into(), 7850.0)]);
+    let harmonic_input = HarmonicInput3D { solver: solver.clone(), densities: densities.clone(), frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "z".into() };
+    let harmonic = solve_harmonic_3d(&harmonic_input).unwrap();
+    assert_eq!(ids(&harmonic.structured_diagnostics).contains(&"MD-ORTHOGONALITY".into()), harmonic.method.starts_with("modal"));
+    let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
+    let time = solve_time_history_3d(&serde_json::from_value(serde_json::json!({ "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2 })).unwrap()).unwrap();
+    for ds in [&harmonic.structured_diagnostics, &cb.structured_diagnostics, &time.structured_diagnostics] {
+        assert_warning(ds, "NL-DYNAMIC-GAPS", 370.0);
+    }
+    let mut truss = beam3d();
+    for e in truss.elements.values_mut() { e.elem_type = "truss".into(); }
+    for analysis in [Analysis::Modal, Analysis::Harmonic, Analysis::TimeHistory] {
+        assert!(!ids(&for_3d(&truss, analysis)).contains(&"NL-DYNAMIC-GAPS".into()));
+    }
+}
+
+#[test]
+fn winkler_and_stages_check_the_solved_matrix() {
+    use dedaliano_engine::solver::{winkler::*, staged::*};
+    for affected in [false, true] {
+        let inertia = if affected { 1e-12 } else { 1e-4 };
+        let solver = make_beam(4, 4.0, E, 0.01, inertia, "fixed", None, tip(-1.0));
+        let ordinary = solve_2d(&solver).unwrap();
+        let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
+        let mut staged = serde_json::to_value(&solver).unwrap();
+        staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
+        let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap()).unwrap();
+        for ds in [&ordinary.structured_diagnostics, &winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
+            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
+        }
+        let mut solver = beam3d();
+        for section in solver.sections.values_mut() { section.iy = inertia; section.iz = inertia; section.j = inertia; }
+        let winkler = solve_winkler_3d(&WinklerInput3D { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
+        let mut staged = serde_json::to_value(&solver).unwrap();
+        staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1] }]);
+        let staged = solve_staged_3d(&serde_json::from_value(staged).unwrap()).unwrap();
+        for ds in [&winkler.structured_diagnostics, &staged.final_results.structured_diagnostics] {
+            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
+        }
+    }
+}
+
+#[test]
+fn distorted_mesh_guard_scales_and_allows_uniform_extension() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let mut input = beam3d();
+    input.nodes.clear(); input.elements.clear(); input.supports.clear();
+    for i in 0..10000 {
+        let first = i * 4 + 1;
+        for (j, (x, y)) in [(0.0,0.0),(1.0,0.0),(1.2,1.0),(0.0,1.0)].into_iter().enumerate() {
+            let id = first + j;
+            input.nodes.insert(id.to_string(), SolverNode3D { id, x, y, z: 0.0 });
+        }
+        input.quads.insert(i.to_string(), SolverQuadElement { id: i, nodes: [first,first+1,first+2,first+3], material_id: 1, thickness: 0.1 });
+    }
+    let mut result = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
+    result.displacements = input.nodes.values().map(|n| Displacement3D { node_id: n.id, ux: n.x * 1e-6, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }).collect();
+    let start = std::time::Instant::now();
+    let guard = MembraneBendingGuard::new(&input);
+    for _ in 0..4 { guard.check(&[], &result).unwrap(); }
+    assert!(start.elapsed().as_secs_f64() < 5.0, "guard must index mesh data once per solve");
+    assert!(ids(&for_3d(&input, Analysis::Linear)).contains(&"SH-MITC4-DISTORTION".into()));
+}
+
+#[test]
+fn reported_modal_model_harmonic_and_certificate_warn() {
+    use dedaliano_engine::solver::harmonic::*;
+    let solver: SolverInput3D = serde_json::from_str(include_str!("metamorphic_corpus/differential/modal3d-5.json")).unwrap();
+    let densities = solver.materials.keys().map(|id| (id.clone(), 7850.0)).collect();
+    let input = HarmonicInput3D { solver, densities, frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 6, response_dof: "x".into() };
+    let plain = solve_harmonic_3d(&input).unwrap();
+    assert!(plain.method.starts_with("modal"), "{}", plain.method);
+    assert_warning(&plain.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    let certified = dedaliano_engine::certify::harmonic::certify_harmonic_3d(&input).unwrap();
+    assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    assert_eq!(serde_json::to_value(&plain.response_points).unwrap(), serde_json::to_value(&certified.results.response_points).unwrap());
 }

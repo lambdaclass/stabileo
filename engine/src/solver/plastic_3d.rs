@@ -715,6 +715,7 @@ fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
     let mut r = solve_plastic_3d_contained(input)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic));
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     for step in &r.steps { crate::known_issues::attach(&mut r.structured_diagnostics, step.results.structured_diagnostics.clone()); }
     for step in &mut r.steps { crate::known_issues::attach(&mut step.results.structured_diagnostics, r.structured_diagnostics.clone()); }
     Ok(r)

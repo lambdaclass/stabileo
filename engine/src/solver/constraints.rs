@@ -2104,18 +2104,18 @@ fn solve_constrained_2d_sparse(
 /// Constrained 3D solve, with the known-issue warnings that apply attached (once).
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     crate::known_issues::refuse(&crate::known_issues::model_3d(&input.solver))?;
-    let mut r = solve_constrained_3d_inner(input)?;
+    let mut r = solve_constrained_3d_inner(input, crate::known_issues::Analysis::Linear)?;
     crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear));
     Ok(r)
 }
 
-fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
+pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: crate::known_issues::Analysis) -> Result<AnalysisResults3D, String> {
     if input.constraints.is_empty() {
         return linear::solve_3d(&input.solver);
     }
 
-    linear::validate_input_3d(&input.solver)?;
+    linear::validate_input_3d_for_analysis(&input.solver, analysis)?;
     // `prepare_static_3d` refuses a collapsed or folded element by name; this
     // path never goes through it, and the same element came back here as
     // "Singular stiffness in 3D constrained system".

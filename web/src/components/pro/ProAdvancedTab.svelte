@@ -1,4 +1,5 @@
 <script lang="ts">
+  import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueDisposition, knownIssueResultDisposition } from '../../lib/engine/known-issues';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
@@ -76,12 +77,8 @@
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
   // Expose advanced results to parent via bindable props
-  interface AdvancedResults3D {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
-    buckling?: { factors: number[] };
-    spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
-  }
+  type AdvancedResults3D = NonNullable<import('../../lib/engine/pro-report').ReportData['advancedResults']>;
+
   let { advancedResults = $bindable({}) }: { advancedResults: AdvancedResults3D } = $props();
 
   let solving = $state(false);
@@ -217,7 +214,7 @@
       if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
       // A result of an earlier run is not left on screen as if it were this one's.
       else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
-      advancedResults = { ...advancedResults, pdelta: { converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
+      advancedResults = { ...advancedResults, pdelta: { disposition: knownIssueResultDisposition(res), converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
     } catch (e: any) {
       forgetPDelta();
       solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
@@ -284,7 +281,7 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { disposition: knownIssueResultDisposition(res), modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
@@ -359,7 +356,7 @@
         byDir[direction] = res;
       }
       spectralResult = byDir;
-      advancedResults = { ...advancedResults, spectral: { baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
+      advancedResults = { ...advancedResults, spectral: { disposition: knownIssueResultDisposition(byDir), baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
     } catch (e: any) {
       solveError = `${t('pro.spectralTitle')}: ${errorText(e, 'Error')}`;
     }
@@ -386,7 +383,7 @@
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
-      advancedResults = { ...advancedResults, buckling: { factors } };
+      advancedResults = { ...advancedResults, buckling: { disposition: knownIssueResultDisposition(res), factors } };
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
     }
@@ -1670,6 +1667,7 @@
           disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
         >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
+      <KnownIssueResult result={ilResult}>
       {#if ilResult?.points?.length}
         <div class="adv-inline">
           {t('pro.maxPos')}: {fmtNum(Math.max(...ilResult.points.map((p: any) => p.value)))}
@@ -1690,6 +1688,7 @@
           </div>
         </details>
       {/if}
+      </KnownIssueResult>
       {/if}
 
     <!-- ── 17. Section Analyzer ── -->

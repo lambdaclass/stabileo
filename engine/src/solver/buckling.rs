@@ -266,7 +266,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // the unexpanded model has no elements for (an index panic).
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
     let input = expanded.as_ref().unwrap_or(input);
-    let linear = super::linear::solve_3d(input)?;
+    let linear = super::linear::buckling_preload_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
