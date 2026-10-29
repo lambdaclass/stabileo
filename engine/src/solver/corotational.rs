@@ -1535,6 +1535,7 @@ pub fn solve_corotational_3d(
     };
     let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
+    crate::known_issues::refuse(&results.structured_diagnostics)?;
 
     Ok(CorotationalResult3D {
         results,

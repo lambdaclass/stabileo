@@ -224,7 +224,7 @@ fn csc_times_dense(a: &CscMatrix, x: &[f64], ncols: usize) -> Vec<f64> {
 /// Recovery: u_I = K_II^{-1} * (F_I - K_IB * u_B)
 pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
     let mut r = guyan_reduce_2d_contained(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Modal));
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::StaticReduction));
     Ok(r)
 }
 
@@ -1100,7 +1100,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let mut r = guyan_reduce_3d_contained(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal));
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::StaticReduction));
     Ok(r)
 }
 
@@ -1115,7 +1115,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
         &expanded
     };
     // As above: validated before assembly indexes by id.
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::StaticReduction)?;
     // Curved beams are expanded into straight members, as every static path
     // does; left in place they were not part of the model at all.
     let expanded = (!input.solver.curved_beams.is_empty()).then(|| {
@@ -1335,7 +1335,7 @@ fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBampto
         &expanded
     };
     // As above: validated before assembly indexes by id.
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::StaticReduction)?;
     // Nodal, line and area masses go into M (see `craig_bampton_2d`).
     super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     // Curved beams are expanded into straight members, as every static path

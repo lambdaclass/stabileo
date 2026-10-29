@@ -429,7 +429,17 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
 // ==================== 3D Envelope ====================
 
 /// Compute pointwise 3D envelope.
-pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope3D> {
+pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<Option<FullEnvelope3D>, String> {
+    for result in results {
+        crate::known_issues::refuse(&result.structured_diagnostics)?;
+        if result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
+        }
+    }
+    Ok(compute_envelope_3d_checked(results))
+}
+
+pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Option<FullEnvelope3D> {
     let first = results.first()?;
 
     // maxAbsResults3D

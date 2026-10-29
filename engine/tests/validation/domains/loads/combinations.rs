@@ -383,7 +383,7 @@ fn validation_envelope_3d_multi_case() {
     let res2 = linear::solve_3d(&make_3d_beam(n, l, E, nu, a, iy, iz, j, fixed_dofs.clone(), None, loads2)).unwrap();
     let res3 = linear::solve_3d(&make_3d_beam(n, l, E, nu, a, iy, iz, j, fixed_dofs, None, loads3)).unwrap();
 
-    let envelope = compute_envelope_3d(&[res1, res2, res3]).unwrap();
+    let envelope = compute_envelope_3d(&[res1, res2, res3]).unwrap().unwrap();
 
     // All 6 diagram types should be populated
     assert!(!envelope.moment_y.elements.is_empty(), "moment_y elements populated");

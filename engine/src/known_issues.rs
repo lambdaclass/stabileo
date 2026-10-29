@@ -15,6 +15,7 @@ use crate::types::*;
 pub enum Analysis {
     /// The linear static solve and everything built on it in the same call.
     Linear,
+    StaticReduction,
     MaterialNonlinear,
     Cable,
     Ssi,
@@ -90,6 +91,11 @@ pub fn optional_solve<T>(result: Result<T, String>) -> Result<Option<T>, String>
             if diagnostic_error { Err(error) } else { Ok(None) }
         }
     }
+}
+
+pub fn contextual_error(error: String, context: String) -> String {
+    if optional_solve::<()>(Err(error.clone())).is_err() { error }
+    else { format!("{context}: {error}") }
 }
 
 pub fn buckling_bound(computed: f64, lower: f64, upper: Option<f64>) -> Result<(), String> {
@@ -224,6 +230,17 @@ impl RotationDemand2D {
                 stiff.insert(s.node_id);
             }
         }
+        let mut adjacent = std::collections::HashMap::<usize, Vec<usize>>::new();
+        for c in input.connectors.values().filter(|c| c.k_moment > 0.0) {
+            adjacent.entry(c.node_i).or_default().push(c.node_j);
+            adjacent.entry(c.node_j).or_default().push(c.node_i);
+        }
+        let mut pending: Vec<_> = stiff.iter().copied().collect();
+        while let Some(node) = pending.pop() {
+            for other in adjacent.get(&node).into_iter().flatten() {
+                if stiff.insert(*other) { pending.push(*other); }
+            }
+        }
         unrestrained.retain(|id| !stiff.contains(id));
         let rigid_demand = input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
             if unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node)));
@@ -242,55 +259,81 @@ fn all_hinged_demand_2d(input: &SolverInput, loads: &[SolverLoad]) -> bool {
     demanded && RotationDemand2D::new(input).demanded(loads)
 }
 
-/// Inspect recovered membrane stress variation, in element-local axes, without
-/// changing the displacement or stress recovery used for the returned numbers.
-/// Uniform extension and pure transverse bending remain warnings on distorted meshes.
-pub fn membrane_bending_3d(input: &SolverInput3D, loads: &[SolverLoad3D], result: &AnalysisResults3D) -> Result<(), String> {
-    let distorted = model_3d(input).into_iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
-    let Some(mut finding) = distorted else { return Ok(()) };
-    let mut affected = Vec::new();
-    for id in &finding.element_ids {
-        let Some(q) = input.quads.values().find(|q| q.id == *id) else { continue };
-        let coords = q.nodes.map(|id| { let n = &input.nodes[&id.to_string()]; [n.x,n.y,n.z] });
-        let mut u = Vec::new();
-        for id in q.nodes {
-            let Some(d) = result.displacements.iter().find(|d| d.node_id == id) else { continue };
-            u.extend([d.ux,d.uy,d.uz,d.rx,d.ry,d.rz]);
+pub struct MembraneBendingGuard {
+    model_diagnostics: Vec<StructuredDiagnostic>,
+    elements: Vec<MembraneElement>,
+}
+
+struct MembraneElement {
+    id: usize,
+    nodes: [usize; 4],
+    coords: [[f64; 3]; 4],
+    transform: Vec<f64>,
+    e: f64,
+    nu: f64,
+    thickness: f64,
+}
+
+impl MembraneBendingGuard {
+    pub fn new(input: &SolverInput3D) -> Self {
+        Self::for_analysis(input, Analysis::Linear)
+    }
+
+    pub(crate) fn for_analysis(input: &SolverInput3D, analysis: Analysis) -> Self {
+        let distorted = model_3d(input).into_iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
+        let ids: std::collections::HashSet<_> = distorted.into_iter().flat_map(|d| d.element_ids).collect();
+        let mut elements = Vec::new();
+        for q in input.quads.values().filter(|q| ids.contains(&q.id)) {
+            let coords = q.nodes.map(|id| { let n = &input.nodes[&id.to_string()]; [n.x,n.y,n.z] });
+            let m = &input.materials[&q.material_id.to_string()];
+            elements.push(MembraneElement { id: q.id, nodes: q.nodes, coords,
+                transform: crate::element::quad::quad_transform_3d(&coords).to_vec(),
+                e: m.e * 1000.0, nu: m.nu, thickness: q.thickness });
         }
-        if u.len() != 24 { continue }
-        let transform = crate::element::quad::quad_transform_3d(&coords);
-        let local: [f64;24] = crate::linalg::transform_displacement(&u, &transform, 24).try_into().unwrap();
-        let m = &input.materials[&q.material_id.to_string()];
-        let (mut thermal, mut gradient) = (0.0, 0.0);
+        elements.sort_by_key(|q| q.id);
+        Self { elements, model_diagnostics: for_3d(input, analysis) }
+    }
+
+    pub fn check(&self, loads: &[SolverLoad3D], result: &AnalysisResults3D) -> Result<(), String> {
+        refuse(&self.model_diagnostics)?;
+        if self.elements.is_empty() { return Ok(()) }
+        let displacements: std::collections::HashMap<_, _> = result.displacements.iter().map(|d| (d.node_id, d)).collect();
+        let mut thermal = std::collections::HashMap::<usize, (f64, f64)>::new();
         for load in loads {
             if let SolverLoad3D::QuadThermal(t) = load {
-                if t.element_id == q.id {
-                    thermal += t.alpha.unwrap_or(1.2e-5) * t.dt_uniform;
-                    gradient += t.alpha.unwrap_or(1.2e-5) * t.dt_gradient;
-                }
+                let entry = thermal.entry(t.element_id).or_default();
+                entry.0 += t.alpha.unwrap_or(1.2e-5) * t.dt_uniform;
+                entry.1 += t.alpha.unwrap_or(1.2e-5) * t.dt_gradient;
             }
         }
-        let stresses = crate::element::quad::quad_stress_at_nodes(&coords, &local, m.e * 1000.0, m.nu, q.thickness, 1.0, thermal, gradient);
-        let mut variation = 0.0f64;
-        let mut magnitude = 0.0f64;
-        let mut bending = 0.0f64;
-        for component in [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy] {
-            let lo = stresses.iter().map(component).fold(f64::INFINITY, f64::min);
-            let hi = stresses.iter().map(component).fold(f64::NEG_INFINITY, f64::max);
-            if lo < 0.0 && hi > 0.0 { variation = variation.max(2.0 * (-lo).min(hi)); }
-            magnitude = magnitude.max(lo.abs()).max(hi.abs());
+        let mut affected = Vec::new();
+        for q in &self.elements {
+            let mut u = Vec::with_capacity(24);
+            for id in q.nodes {
+                let Some(d) = displacements.get(&id) else { continue };
+                u.extend([d.ux,d.uy,d.uz,d.rx,d.ry,d.rz]);
+            }
+            if u.len() != 24 { continue }
+            let local: [f64;24] = crate::linalg::transform_displacement(&u, &q.transform, 24).try_into().unwrap();
+            let (thermal, gradient) = thermal.get(&q.id).copied().unwrap_or_default();
+            let stresses = crate::element::quad::quad_stress_at_nodes(&q.coords, &local, q.e, q.nu, q.thickness, 1.0, thermal, gradient);
+            let mut variation = 0.0f64;
+            for component in [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy] {
+                let lo = stresses.iter().map(component).fold(f64::INFINITY, f64::min);
+                let hi = stresses.iter().map(component).fold(f64::NEG_INFINITY, f64::max);
+                variation = variation.max(hi - lo);
+            }
+            if variation > q.e * 1e-12 { affected.push(q.id); }
         }
-        for s in &stresses {
-            bending = bending.max(6.0 * s.mx.abs().max(s.my.abs()).max(s.mxy.abs()) / q.thickness.powi(2));
-        }
-        if variation > 0.5 * magnitude && variation > bending && variation > m.e * 1000.0 * 1e-12 {
-            affected.push(*id);
-        }
+        if affected.is_empty() { return Ok(()) }
+        let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(affected);
+        finding.element_kind = Some(ElementKind::Quad);
+        refuse(&[finding])
     }
-    if affected.is_empty() { return Ok(()) }
-    finding = diagnostic("SH-MITC4-DISTORTION").with_elements(affected);
-    finding.element_kind = Some(ElementKind::Quad);
-    refuse(&[finding])
+}
+
+pub fn membrane_bending_3d(input: &SolverInput3D, loads: &[SolverLoad3D], result: &AnalysisResults3D) -> Result<(), String> {
+    MembraneBendingGuard::new(input).check(loads, result)
 }
 
 pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
@@ -373,7 +416,7 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
         out.push(diagnostic("BU-SPAN-COMPRESSION"));
     }
 
-    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && input.elements.values().any(|e| e.elem_type == "frame")) {
+    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && (!input.curved_beams.is_empty() || input.elements.values().any(|e| e.elem_type == "frame"))) {
         out.push(diagnostic("NL-DYNAMIC-GAPS"));
     }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
@@ -382,7 +425,7 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
         out.push(diagnostic("SP-14"));
     }
-    out.extend(model_3d(input));
+    out.extend(model_3d(input).into_iter().filter(|d| !matches!(analysis, Analysis::Modal | Analysis::Buckling | Analysis::Harmonic | Analysis::TimeHistory | Analysis::StaticReduction) || d.phase.as_deref() != Some("SH-GLOBAL-STRESS")));
     out.extend(loads_3d(&input.loads));
     out
 }

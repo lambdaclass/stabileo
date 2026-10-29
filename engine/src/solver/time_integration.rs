@@ -1097,7 +1097,7 @@ fn solve_time_history_3d_inner(
     input: &TimeHistoryInput3D,
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult3D, String> {
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::TimeHistory)?;
     super::dynamic_validation::validate_mass_3d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;

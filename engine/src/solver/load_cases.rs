@@ -149,7 +149,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
     solver.loads = vec![];
 
     let prepared = prepare_static_2d(&solver)
-        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+        .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", input.load_cases[0].name)))?;
     let settlement_only = if has_settlement_2d(&solver) { Some(prepared.solve_loads(&[])?) } else { None };
 
     // Solve each load case with the shared factorization
@@ -158,7 +158,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
 
     for (idx, lc) in input.load_cases.iter().enumerate() {
         let results = prepared.solve_loads(&lc.loads)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult {
@@ -251,7 +251,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
     solver.loads = vec![];
 
     let prepared = prepare_static_3d(&solver)
-        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+        .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", input.load_cases[0].name)))?;
     let settlement_only = if has_settlement_3d(&solver) { Some(prepared.solve_loads(&[])?) } else { None };
 
     let mut case_results = Vec::new();
@@ -259,7 +259,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
 
     for (idx, lc) in input.load_cases.iter().enumerate() {
         let results = prepared.solve_loads(&lc.loads)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult3D {
@@ -307,7 +307,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         }
     }
 
-    let envelope = compute_envelope_3d(&all_combined_results)
+    let envelope = compute_envelope_3d_checked(&all_combined_results)
         .ok_or_else(|| "Failed to compute envelope".to_string())?;
 
     let combination_results = combo_names
@@ -358,7 +358,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         };
 
         let results = solve_3d(&case_input)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult3D {
@@ -406,7 +406,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         }
     }
 
-    let envelope = compute_envelope_3d(&all_combined_results)
+    let envelope = compute_envelope_3d_checked(&all_combined_results)
         .ok_or_else(|| "Failed to compute envelope".to_string())?;
 
     let combination_results = combo_names
@@ -450,7 +450,7 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
         };
 
         let results = solve_2d(&case_input)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult {

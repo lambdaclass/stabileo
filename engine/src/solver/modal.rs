@@ -350,7 +350,7 @@ pub fn solve_modal_3d(
     // Curved beams become segments first, as in `solve_3d`: assembled from the
     // unexpanded model they were silently left out.
     let input = &super::linear::expand_curved_beams_3d(input);
-    super::linear::validate_input_3d(input)?;
+    super::linear::validate_input_3d_for_analysis(input, crate::known_issues::Analysis::Modal)?;
     // Curved beams are expanded into straight members, as every static path
     // does; left in place they were not part of the model at all.
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));

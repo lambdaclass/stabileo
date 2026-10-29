@@ -75,7 +75,7 @@ fuzz_target!(|data: &[u8]| {
             run("compute_envelope_2d", json, |i: &Vec<AnalysisResults>| some(comb::compute_envelope(i)));
         }
         _ => {
-            run("compute_envelope_3d", json, |i: &Vec<AnalysisResults3D>| some(comb::compute_envelope_3d(i)));
+            run("compute_envelope_3d", json, |i: &Vec<AnalysisResults3D>| comb::compute_envelope_3d(i).and_then(some));
         }
     }
 });

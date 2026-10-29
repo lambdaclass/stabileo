@@ -472,3 +472,25 @@ fn frame_with_zero_torsion_constant_is_refused() {
     let r = linear::solve_3d(&s);
     assert!(r.as_ref().err().map_or(true, |e| !e.contains("torsion constant")), "{r:?}");
 }
+
+#[test]
+fn rotated_solid_shell_nonstress_analyses_remain_available() {
+    let mut s = strip(NX, 0.0);
+    for n in s.nodes.values_mut() { let y = n.y; n.y = -n.z; n.z = y; }
+    for j in 0..=NY {
+        nodal(&mut s, bot(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        nodal(&mut s, top(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+    assert!(linear::solve_3d(&s).unwrap_err().contains("SH-GLOBAL-STRESS"));
+    let modal = modal::solve_modal_3d(&s, &densities(), 2).unwrap();
+    assert!(modal.modes[0].frequency > 0.0);
+    let buckling = buckling::solve_buckling_3d(&s, 1).unwrap();
+    assert!(buckling.modes[0].load_factor > 0.0);
+    let harmonic = harmonic::solve_harmonic_3d(&harmonic::HarmonicInput3D {
+        solver: s, densities: densities(), frequencies: vec![0.1], damping_ratio: 0.05,
+        response_node_id: bot(NX, 0), response_dof: "x".into(),
+    }).unwrap();
+    for ds in [&modal.structured_diagnostics, &buckling.structured_diagnostics, &harmonic.structured_diagnostics] {
+        assert!(!ds.iter().any(|d| d.phase.as_deref() == Some("SH-GLOBAL-STRESS")));
+    }
+}

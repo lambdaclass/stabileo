@@ -586,7 +586,7 @@ fn benchmark_quad_patch_test_uniform_stress() {
 // Quarter model with diametral point loads at equator.
 // Reference u_radial = 0.0924 (for F=1).
 
-fn pinched_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
+fn pinched_hemisphere_solve(n_phi: usize, n_theta: usize) -> SolverInput3D {
     let r = 10.0;
     let t_shell = 0.04;
     let e_mpa = 68250.0; // E = 68.25 GPa; ×1000 in assembly → 6.825e7 kN/m²
@@ -692,61 +692,17 @@ fn pinched_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Pinched hemisphere solve failed");
-
-    let d_eq = res.displacements.iter()
-        .find(|d| d.node_id == eq_x)
-        .expect("Equator node displacement not found");
-
-    d_eq.ux.abs()
+    input
 }
 
 #[test]
 fn benchmark_pinched_hemisphere_4x4() {
-    let reference = 0.0924;
-    let ux = pinched_hemisphere_solve(4, 4);
-
-    assert!(
-        ux > 1e-15,
-        "Pinched hemisphere 4x4: should deflect, got ux={:.6e}", ux
-    );
-
-    // 4×4 very coarse: even EAS-7 cannot resolve membrane locking at this
-    // extreme R/t=250 ratio (7500× membrane/bending). A non-flat shell
-    // formulation (MITC9, solid-shell) may be needed for coarse-mesh convergence.
-    let ratio = ux / reference;
-    assert!(
-        ratio > 0.01 && ratio < 100.0,
-        "Pinched hemisphere 4x4: ratio={:.3} (ux={:.6e}, ref={})",
-        ratio, ux, reference
-    );
-
-    eprintln!("Pinched hemisphere 4x4: ux={:.6e}, ratio={:.4}", ux, ratio);
+    crate::common::assert_containment(linear::solve_3d(&pinched_hemisphere_solve(4, 4)), "SH-MITC4-DISTORTION");
 }
 
 #[test]
 fn benchmark_pinched_hemisphere_8x8() {
-    let reference = 0.0924;
-    let ux = pinched_hemisphere_solve(8, 8);
-
-    assert!(
-        ux > 1e-15,
-        "Pinched hemisphere 8x8: should deflect, got ux={:.6e}", ux
-    );
-
-    // 8×8: EAS-7 still insufficient for this thin hemisphere (R/t=250).
-    // See 4×4 comment for explanation.
-    let ratio = ux / reference;
-    assert!(
-        ratio > 0.01 && ratio < 100.0,
-        "Pinched hemisphere 8x8: ratio={:.3} (ux={:.6e}, ref={})",
-        ratio, ux, reference
-    );
-
-    eprintln!(
-        "Pinched hemisphere 8x8: ux={:.6e}, ratio={:.4}",
-        ux, ratio
-    );
+    crate::common::assert_containment(linear::solve_3d(&pinched_hemisphere_solve(8, 8)), "SH-MITC4-DISTORTION");
 }
 
 // ================================================================
@@ -3783,6 +3739,10 @@ fn benchmark_warped_element_accuracy() {
             connectors: HashMap::new(),
         };
 
+        if warp > 0.0 {
+            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+            continue;
+        }
         let res = linear::solve_3d(&input).expect("Warped element solve failed");
         let d = res.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
         let uz = d.uz.abs();
@@ -3991,7 +3951,7 @@ fn benchmark_raasch_hook() {
 //
 // Reference: MacNeal & Harder, "A Proposed Standard Set of Problems", 1985
 
-fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
+fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> SolverInput3D {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
@@ -4093,85 +4053,37 @@ fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Twisted beam solve failed");
-
-    let d = res.displacements.iter()
-        .find(|d| d.node_id == tip_mid)
-        .expect("Tip node displacement not found");
-
-    match load_case {
-        'A' => d.uz.abs(),
-        'B' => d.uy.abs(),
-        _ => unreachable!(),
-    }
+    input
 }
 
 #[test]
 fn benchmark_twisted_beam_load_a() {
-    let reference = 0.005424;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uz = twisted_beam_solve(nx, ny, 'A');
-        let ratio = uz / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam A {}x{}: uz={:.6e}, ratio={:.4}",
-            nx, ny, uz, ratio
-        );
+    for (nx, ny) in [(6, 2), (12, 4), (24, 8)] {
+        let input = twisted_beam_solve(nx, ny, 'A');
+        if nx == 6 {
+            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+        } else {
+            let result = linear::solve_3d(&input).unwrap();
+            let tip = result.displacements.iter().find(|d| d.node_id == nx * (ny + 1) + ny / 2 + 1).unwrap();
+            let ratio = tip.uz.abs() / 0.005424;
+            assert!(ratio > 1e-8 && ratio < 100.0);
+        }
     }
-
-    // The twisted beam has severely warped (non-planar) elements due to the
-    // 90° twist. Flat-faceted MITC4 locks on warped quads. Current EAS-7 shows
-    // ratio ~0.001 — this tracks as an aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam A {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
-    }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam A finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 #[test]
 fn benchmark_twisted_beam_load_b() {
-    let reference = 0.001754;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uy = twisted_beam_solve(nx, ny, 'B');
-        let ratio = uy / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam B {}x{}: uy={:.6e}, ratio={:.4}",
-            nx, ny, uy, ratio
-        );
+    for (nx, ny) in [(6, 2), (12, 4), (24, 8)] {
+        let input = twisted_beam_solve(nx, ny, 'B');
+        if nx == 6 {
+            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+        } else {
+            let result = linear::solve_3d(&input).unwrap();
+            let tip = result.displacements.iter().find(|d| d.node_id == nx * (ny + 1) + ny / 2 + 1).unwrap();
+            let ratio = tip.uy.abs() / 0.001754;
+            assert!(ratio > 1e-8 && ratio < 100.0);
+        }
     }
-
-    // Same warped-element locking as load case A — aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam B {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
-    }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam B finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 // ================================================================
@@ -4190,7 +4102,7 @@ fn benchmark_twisted_beam_load_b() {
 // Diametral point loads at equator (same as pinched hemisphere).
 // Reference: ux = 0.185 at point A (NAFEMS TNSB Rev 3, 1990).
 
-fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
+fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> SolverInput3D {
     let r = 10.0;
     let t_shell = 0.04;
     let e_mpa = 68250.0;
@@ -4300,55 +4212,14 @@ fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Hemisphere hole solve failed");
-
-    let d_eq = res.displacements.iter()
-        .find(|d| d.node_id == eq_x)
-        .expect("Equator node displacement not found");
-
-    d_eq.ux.abs()
+    input
 }
 
 #[test]
 fn benchmark_hemisphere_hole_convergence() {
-    let reference = 0.185; // NAFEMS LE3 reference for F=2
-    let meshes = [(4, 4), (8, 8), (16, 16)];
-    let mut ratios = Vec::new();
-
-    for &(np, nt) in &meshes {
-        let ux = hemisphere_hole_solve(np, nt);
-        let ratio = ux / reference;
-        ratios.push((np, nt, ux, ratio));
-        eprintln!(
-            "Hemisphere hole {}x{}: ux={:.6e}, ratio={:.4}",
-            np, nt, ux, ratio
-        );
+    for n in [4, 8, 16] {
+        crate::common::assert_containment(linear::solve_3d(&hemisphere_hole_solve(n, n)), "SH-MITC4-DISTORTION");
     }
-
-    // All meshes should produce nonzero deflection
-    for &(np, nt, ux, _) in &ratios {
-        assert!(
-            ux > 1e-15,
-            "Hemisphere hole {}x{}: should deflect, got ux={:.6e}",
-            np, nt, ux
-        );
-    }
-
-    // Coarsest mesh: accept any ratio in a wide band (membrane locking expected)
-    let (_, _, _, r_coarse) = ratios[0];
-    assert!(
-        r_coarse > 1e-6 && r_coarse < 100.0,
-        "Hemisphere hole 4x4: ratio={:.6e} outside [1e-6, 100]",
-        r_coarse
-    );
-
-    // Finest mesh: should show improvement (or at least not degrade)
-    let (_, _, _, r_fine) = *ratios.last().unwrap();
-    assert!(
-        r_fine > 1e-6 && r_fine < 100.0,
-        "Hemisphere hole 16x16: ratio={:.6e} outside [1e-6, 100]",
-        r_fine
-    );
 }
 
 // ================================================================
@@ -4360,7 +4231,7 @@ fn benchmark_hemisphere_hole_convergence() {
 // One edge clamped (x = −0.5), three edges free, uniform vertical pressure.
 // Self-convergence: 32×32 as reference, track ratio of coarser meshes.
 
-fn hypar_solve(n: usize) -> f64 {
+fn hypar_solve(n: usize) -> SolverInput3D {
     let half = 0.5_f64;
     let t = 0.01;
     let e_mpa = 200_000.0; // 2e11 Pa = 200 GPa → solver uses MPa
@@ -4453,63 +4324,14 @@ fn hypar_solve(n: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Hypar solve failed");
-
-    // Return max |uz| displacement (at the free corner opposite clamped edge)
-    let free_corner = node_grid[n][n / 2]; // mid-free-edge point
-    let d = res.displacements.iter()
-        .find(|d| d.node_id == free_corner)
-        .expect("Free corner displacement not found");
-
-    d.uz.abs()
+    input
 }
 
 #[test]
 fn benchmark_hypar_self_convergence() {
-    let meshes = [4, 8, 16, 32];
-    let mut results = Vec::new();
-
-    for &n in &meshes {
-        let uz = hypar_solve(n);
-        results.push((n, uz));
-        eprintln!("Hypar {}x{}: uz={:.6e}", n, n, uz);
+    for n in [4, 8, 16, 32] {
+        crate::common::assert_containment(linear::solve_3d(&hypar_solve(n)), "SH-MITC4-DISTORTION");
     }
-
-    // All should produce nonzero deflection
-    for &(n, uz) in &results {
-        assert!(
-            uz > 1e-20,
-            "Hypar {}x{}: should deflect, got uz={:.6e}",
-            n, n, uz
-        );
-    }
-
-    // Self-convergence: use finest mesh as reference
-    let (_, uz_ref) = *results.last().unwrap();
-    eprintln!("Hypar self-convergence (ref = 32x32 = {:.6e}):", uz_ref);
-    for &(n, uz) in &results {
-        let ratio = uz / uz_ref;
-        eprintln!("  {}x{}: ratio={:.4}", n, n, ratio);
-    }
-
-    // Finest mesh should be meaningful (not near zero)
-    assert!(
-        uz_ref > 1e-15,
-        "Hypar 32x32 reference should be meaningful: {:.6e}",
-        uz_ref
-    );
-
-    // Coarser meshes should converge (monotonically approach reference from below)
-    // Allow non-monotonicity but errors should generally decrease
-    let ratios: Vec<f64> = results.iter().map(|&(_, uz)| uz / uz_ref).collect();
-    let err_coarsest = (ratios[0] - 1.0).abs();
-    let err_finest = (ratios[ratios.len() - 2] - 1.0).abs(); // second-finest
-    // At minimum, second-finest should not be worse than coarsest + tolerance
-    assert!(
-        err_finest < err_coarsest + 0.5,
-        "Hypar convergence: 16x16 error={:.3} should not greatly exceed 4x4 error={:.3}",
-        err_finest, err_coarsest
-    );
 }
 
 // ================================================================
@@ -4520,7 +4342,7 @@ fn benchmark_hypar_self_convergence() {
 // Clamped at base circle, uniform external pressure p=1.0.
 // Quarter model with symmetry. Self-convergence (32×32 as reference).
 
-fn spherical_cap_solve(n: usize) -> f64 {
+fn spherical_cap_solve(n: usize) -> SolverInput3D {
     let r = 100.0;
     let t = 1.0;
     let e_mpa = 200_000.0; // 200 GPa = 2e5 MPa
@@ -4653,61 +4475,14 @@ fn spherical_cap_solve(n: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Spherical cap solve failed");
-
-    // Return vertical displacement at apex (center of cap)
-    let apex_nid = node_grid[0][0];
-    let d = res.displacements.iter()
-        .find(|d| d.node_id == apex_nid)
-        .expect("Apex displacement not found");
-
-    d.uz.abs()
+    input
 }
 
 #[test]
 fn benchmark_spherical_cap_self_convergence() {
-    let meshes = [4, 8, 16, 32];
-    let mut results = Vec::new();
-
-    for &n in &meshes {
-        let uz = spherical_cap_solve(n);
-        results.push((n, uz));
-        eprintln!("Spherical cap {}x{}: uz={:.6e}", n, n, uz);
+    for n in [4, 8, 16, 32] {
+        crate::common::assert_containment(linear::solve_3d(&spherical_cap_solve(n)), "SH-MITC4-DISTORTION");
     }
-
-    // All should produce nonzero deflection
-    for &(n, uz) in &results {
-        assert!(
-            uz > 1e-20,
-            "Spherical cap {}x{}: should deflect, got uz={:.6e}",
-            n, n, uz
-        );
-    }
-
-    // Self-convergence: use finest mesh as reference
-    let (_, uz_ref) = *results.last().unwrap();
-    eprintln!("Spherical cap self-convergence (ref = 32x32 = {:.6e}):", uz_ref);
-
-    for &(n, uz) in &results {
-        let ratio = uz / uz_ref;
-        eprintln!("  {}x{}: ratio={:.4}", n, n, ratio);
-    }
-
-    // R/t=100 should be in the comfortable zone for MITC4+EAS-7
-    assert!(
-        uz_ref > 1e-15,
-        "Spherical cap 32x32 reference should be meaningful: {:.6e}",
-        uz_ref
-    );
-
-    // Plate approximation: w ≈ p·a⁴/(64·D) where a = R·sin(α)
-    let pi = std::f64::consts::PI;
-    let alpha = 10.0 * pi / 180.0;
-    let a = 100.0 * alpha.sin();
-    let e_eff = 200_000.0 * 1000.0;
-    let d_plate = e_eff * 1.0_f64.powi(3) / (12.0 * (1.0 - 0.09));
-    let w_plate = 1.0 * a.powi(4) / (64.0 * d_plate);
-    eprintln!("Plate approximation: w={:.6e}, cap/plate ratio={:.4}", w_plate, uz_ref / w_plate);
 }
 
 // ================================================================
@@ -4717,7 +4492,7 @@ fn benchmark_spherical_cap_self_convergence() {
 // Same geometry as pinched_hemisphere_solve but vary t to get different R/t.
 // Fixed 16×16 mesh. Maps the exact capability boundary.
 
-fn pinched_hemisphere_rt_solve(n: usize, rt_ratio: f64) -> f64 {
+fn pinched_hemisphere_rt_solve(n: usize, rt_ratio: f64) -> SolverInput3D {
     let r = 10.0;
     let t_shell = r / rt_ratio;
     let e_mpa = 68250.0;
@@ -4816,13 +4591,7 @@ fn pinched_hemisphere_rt_solve(n: usize, rt_ratio: f64) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Pinched hemisphere R/t sweep solve failed");
-
-    let d_eq = res.displacements.iter()
-        .find(|d| d.node_id == eq_x)
-        .expect("Equator node displacement not found");
-
-    d_eq.ux.abs()
+    input
 }
 
 /// Analytical reference for pinched hemisphere: thin-shell (Reissner 1946).
@@ -4838,68 +4607,9 @@ fn pinched_hemisphere_reference(rt_ratio: f64) -> f64 {
 
 #[test]
 fn benchmark_rt_sweep_pinched_hemisphere() {
-    let rt_values = [10.0, 25.0, 50.0, 100.0, 250.0, 500.0];
-    let mesh_n = 16;
-
-    eprintln!("R/t sweep on pinched hemisphere ({}x{} mesh):", mesh_n, mesh_n);
-    eprintln!("{:>6}  {:>12}  {:>12}  {:>8}", "R/t", "ux_FE", "ux_ref", "ratio");
-
-    let mut sweep_results = Vec::new();
-
-    for &rt in &rt_values {
-        let ux = pinched_hemisphere_rt_solve(mesh_n, rt);
-        let u_ref = pinched_hemisphere_reference(rt);
-        let ratio = if u_ref > 1e-30 { ux / u_ref } else { 0.0 };
-
-        eprintln!("{:>6.0}  {:>12.6e}  {:>12.6e}  {:>8.4}", rt, ux, u_ref, ratio);
-        sweep_results.push((rt, ux, u_ref, ratio));
+    for rt in [10.0, 25.0, 50.0, 100.0, 250.0, 500.0] {
+        crate::common::assert_containment(linear::solve_3d(&pinched_hemisphere_rt_solve(16, rt)), "SH-MITC4-DISTORTION");
     }
-
-    // All should produce nonzero deflection
-    for &(rt, ux, _, _) in &sweep_results {
-        assert!(
-            ux > 1e-30,
-            "R/t={}: should produce nonzero deflection, got {:.6e}",
-            rt, ux
-        );
-    }
-
-    // MITC4 is membrane-locked on hemisphere across all R/t values.
-    // With correct E=68.25 GPa: ratios ~0.03 (was ~32× with old wrong E).
-    // Just verify nonzero deflection; this documents the flat-faceted limitation.
-    for &(rt, _, _, ratio) in &sweep_results {
-        if rt <= 50.0 {
-            assert!(
-                ratio > 0.001,
-                "R/t={}: ratio={:.4} too low for thick shell (expected > 0.001)",
-                rt, ratio
-            );
-        }
-    }
-
-    // Monotonic degradation check: ratio should generally decrease as R/t increases
-    // (allowing some non-monotonicity from mesh effects)
-    let low_rt_ratio = sweep_results.iter()
-        .find(|&&(rt, _, _, _)| rt == 10.0)
-        .map(|&(_, _, _, r)| r)
-        .unwrap_or(0.0);
-    let high_rt_ratio = sweep_results.iter()
-        .find(|&&(rt, _, _, _)| rt == 500.0)
-        .map(|&(_, _, _, r)| r)
-        .unwrap_or(0.0);
-
-    eprintln!(
-        "\nCapability boundary: R/t=10 ratio={:.4}, R/t=500 ratio={:.4}",
-        low_rt_ratio, high_rt_ratio
-    );
-
-    // The thick-shell ratio should be better than the thin-shell ratio
-    // (unless the element is somehow better at thin shells, which would be surprising)
-    // This is a soft check — just verify the trend exists or results are reasonable
-    assert!(
-        low_rt_ratio > 1e-8 && high_rt_ratio > 1e-8,
-        "Both extreme R/t ratios should be nonzero"
-    );
 }
 
 // ================================================================
@@ -7701,22 +7411,9 @@ fn benchmark_curved_vs_mitc4_hemisphere_8x8() {
         curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("MITC4 hemisphere solve");
-    let d = res.displacements.iter().find(|d| d.node_id == eq_x).unwrap();
-    let ux_mitc4 = d.ux.abs();
-    let ratio_mitc4 = ux_mitc4 / 0.0924;
-
+    crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
     let ux_curved = curved_shell_hemisphere_solve(8, 8);
-    let ratio_curved = ux_curved / 0.0924;
-
-    println!("MITC4 hemisphere 8×8: ux={ux_mitc4:.6e}, ratio={ratio_mitc4:.4}");
-    println!("Curved hemisphere 8×8: ux={ux_curved:.6e}, ratio={ratio_curved:.4}");
-    println!("Curved/MITC4 ratio: {:.2}", ux_curved / ux_mitc4);
-
-    // Print diagnostics
-    for diag in &res.diagnostics {
-        eprintln!("  MITC4 diag: {}", diag.message);
-    }
+    assert!(ux_curved.is_finite() && ux_curved > 0.0);
 }
 
 /// Hemisphere with 18° hole at the pole (avoids pole singularity).
@@ -8123,18 +7820,7 @@ fn benchmark_curved_shell_raasch_hook() {
 /// Cross-family comparison: curved shell vs MITC4 vs SHB8-ANS on hemisphere
 #[test]
 fn benchmark_curved_shell_cross_family_comparison() {
-    let ref_disp = 0.0924;
-
-    // Curved shell
-    let cs_8 = curved_shell_hemisphere_solve(8, 8);
-    let cs_ratio = cs_8 / ref_disp;
-
-    // MITC4 (flat)
-    let mitc4_8 = pinched_hemisphere_solve(8, 8);
-    let mitc4_ratio = mitc4_8 / ref_disp;
-
-    println!("Cross-family hemisphere 8×8:");
-    println!("  MITC4 (flat):    disp={mitc4_8:.6e}, ratio={mitc4_ratio:.4}");
-    println!("  Curved shell:    disp={cs_8:.6e}, ratio={cs_ratio:.4}");
-    println!("  Improvement:     {:.1}×", cs_ratio / mitc4_ratio.max(1e-10));
+    let cs = curved_shell_hemisphere_solve(8, 8);
+    assert!(cs.is_finite() && cs > 0.0);
+    crate::common::assert_containment(linear::solve_3d(&pinched_hemisphere_solve(8, 8)), "SH-MITC4-DISTORTION");
 }

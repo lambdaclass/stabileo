@@ -264,6 +264,9 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
     let (mut result, damping) = solve_harmonic_3d_contained(input)?;
     crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Harmonic));
+    if result.method.starts_with("modal") {
+        crate::known_issues::attach(&mut result.structured_diagnostics, vec![crate::known_issues::diagnostic("MD-ORTHOGONALITY")]);
+    }
     Ok((result, damping))
 }
 
@@ -277,7 +280,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
         expanded = HarmonicInput3D { solver: super::linear::expand_curved_beams_3d(&input.solver), ..input.clone() };
         &expanded
     };
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::Harmonic)?;
     super::feature_gates::refuse_3d(&input.solver, "Harmonic analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
     // Curved beams are expanded into straight members, as every static path
     // does; left in place they were not part of the model at all.
