@@ -84,10 +84,14 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await expect(page.getByTestId('recheck-reload')).toBeVisible();
     await expect(page.getByTestId('recheck-ack')).toBeDisabled();
     const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
-    expect((await recheck(page)).stale).toBe(true);
+    const stale = await recheck(page);
+    expect(stale.stale).toBe(true);
     await page.unroute('**/full-registry-*.js');
     await Promise.all([page.waitForEvent('load'), page.getByTestId('recheck-reload').click()]);
-    await expect(page.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toBeVisible();
+    for (const id of stale.changes) {
+      await expect(page.locator(`[data-change-id="${id}"]`)).toBeVisible();
+    }
+    await expect(page.getByTestId('recheck-ack')).toBeEnabled();
     const after = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
     expect(after).toEqual(before);
     expect((await recheck(page)).stale).toBe(true);

@@ -19,6 +19,11 @@ import {
   WORKSPACE_BACKUP_LIMIT,
   resetWorkspaceGuard,
 } from '../store/file';
+import { render } from 'svelte/server';
+import RecheckNotice from '../../components/RecheckNotice.svelte';
+import { recheckStore } from '../store/recheck.svelte';
+import { modelStore } from '../store/model.svelte';
+import '../store/index';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
 
@@ -244,4 +249,31 @@ describe('a workspace write that does not fit', () => {
     expect(stored.tabs[0].undoStack).toEqual([]);
     expect(stored.tabs[0].redoStack).toEqual([]);
   });
+});
+
+it('reopens the notice with every change id when a stale project is restored after reload', () => {
+  const old = snapshot({
+    localAxisConvention: 'zUpStrongAxis',
+    materials: [[1, { id: 1, name: 'steel', e: 210000, nu: 0.3, rho: 78.5, fy: 235 }]],
+  });
+  tabManager.restoreSession([{ ...tab('stale', 'Unsaved work', old), analysisMode: 'pro' } as never], 'stale');
+  const ids = recheckStore.assessment!.changes.map(c => c.id);
+  expect(ids).toContain('cirsoc301-tension-needs-connection');
+  const before = modelStore.snapshot();
+  expect(saveWorkspaceToLocalStorage()).toBe(true);
+
+  // Reload starts with a fresh project, then App restores the saved workspace.
+  modelStore.clear();
+  expect(recheckStore.noticeOpen).toBe(false);
+  const saved = loadWorkspaceFromLocalStorage()!;
+  tabManager.restoreSession(saved.tabs, saved.activeTabId);
+
+  expect(modelStore.snapshot()).toEqual(before);
+  expect(recheckStore.stale).toBe(true);
+  expect(recheckStore.noticeOpen).toBe(true);
+  const restoredIds = recheckStore.assessment!.changes.map(c => c.id);
+  expect(restoredIds).toEqual(expect.arrayContaining(ids));
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-notice"');
+  for (const id of restoredIds) expect(html).toContain(`data-change-id="${id}"`);
 });
