@@ -12,7 +12,7 @@ vi.mock('../../lib/actions/recheck', () => ({
 
 afterEach(() => recheckStore.reset());
 
-it('lists every stale change when lazy notice details are unavailable, without changing the project stamp', () => {
+it('keeps acknowledgement disabled until lazy changes arrive, without changing the project stamp', async () => {
   const project = {
     analysisMode: 'pro',
     materials: [[1, { id: 1, e: 200000, fy: 250 }]],
@@ -21,21 +21,21 @@ it('lists every stale change when lazy notice details are unavailable, without c
   // Use mutable tuples for the saved-project API.
   recheckStore.openProject(JSON.parse(JSON.stringify(project)));
   const stamp = recheckStore.capture();
-  const changes = recheckStore.assessment!.changes;
-  expect(changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
-
-  // SSR deliberately does not run the import effect: details remain null, exactly as after
-  // a rejected chunk import. Exercise the actual component markup, not a source-text check.
   const html = render(RecheckNotice).body;
-  for (const change of changes) {
-    expect(html).toContain(`data-change-id="${change.id}"`);
-    expect(html).toContain(`>${change.id}</span>`);
-  }
-  expect(html).toContain(t('recheck.detailsUnavailable'));
+  expect(recheckStore.pending).toBe(true);
+  expect(html).toContain(t('recheck.loading'));
   expect(html).toContain(t('recheck.staleWarning'));
   for (const id of ['recheck-ack', 'recheck-later', 'recheck-rerun']) {
     expect(html).toMatch(new RegExp(`<[^>]*disabled[^>]*data-testid="${id}"`));
   }
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const changes = recheckStore.assessment!.changes;
+  expect(changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
+  const loaded = render(RecheckNotice).body;
+  for (const change of changes) {
+    expect(loaded).toContain(`data-change-id="${change.id}"`);
+  }
+  expect(loaded).not.toContain(t('recheck.loading'));
   expect(recheckStore.capture()).toEqual(stamp);
   expect(recheckStore.stale).toBe(true);
   expect(recheckStore.noticeOpen).toBe(true);

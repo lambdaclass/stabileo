@@ -251,12 +251,13 @@ describe('a workspace write that does not fit', () => {
   });
 });
 
-it('reopens the notice with every change id when a stale project is restored after reload', () => {
+it('reopens the notice with every change id when a stale project is restored after reload', async () => {
   const old = snapshot({
     localAxisConvention: 'zUpStrongAxis',
     materials: [[1, { id: 1, name: 'steel', e: 210000, nu: 0.3, rho: 78.5, fy: 235 }]],
   });
   tabManager.restoreSession([{ ...tab('stale', 'Unsaved work', old), analysisMode: 'pro' } as never], 'stale');
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   const ids = recheckStore.assessment!.changes.map(c => c.id);
   expect(ids).toContain('cirsoc301-tension-needs-connection');
   const before = modelStore.snapshot();
@@ -271,6 +272,7 @@ it('reopens the notice with every change id when a stale project is restored aft
   expect(modelStore.snapshot()).toEqual(before);
   expect(recheckStore.stale).toBe(true);
   expect(recheckStore.noticeOpen).toBe(true);
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   const restoredIds = recheckStore.assessment!.changes.map(c => c.id);
   expect(restoredIds).toEqual(expect.arrayContaining(ids));
   const html = render(RecheckNotice).body;

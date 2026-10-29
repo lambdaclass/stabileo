@@ -9,14 +9,16 @@ import { FEATURE_IDS } from '../model-features';
 const repo = resolve(__dirname, '../../../../..');
 
 describe('result-change registry', () => {
-  it('derives synchronous applicability metadata from the complete registry without notice text', () => {
+  it('keeps only the current version eager regardless of registry history', () => {
     expect(metadata).toEqual({
-      schema: RESULT_CHANGES.schema,
       currentResultsVersion: RESULT_CHANGES.currentResultsVersion,
-      changes: RESULT_CHANGES.changes.map(({ title, explanation, ...change }) => change),
     });
     expect(JSON.stringify(metadata)).not.toContain('explanation');
     expect(JSON.stringify(metadata)).not.toContain('title');
+  });
+
+  it('losslessly decodes the complete source registry', () => {
+    expect(RESULT_CHANGES).toEqual(JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')));
   });
 
   it('is well formed: ids, versions, three languages, known features', () => {

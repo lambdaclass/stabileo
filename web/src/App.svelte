@@ -588,7 +588,9 @@
   let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
   $effect(() => {
     if (showResearch && !research) {
-      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+      void import('./components/research/load-page')
+        .then((m) => m.loadResearchPage())
+        .then((page) => (research = page));
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
