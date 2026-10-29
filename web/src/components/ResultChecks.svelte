@@ -4,9 +4,10 @@
    * summary, and opened by itself when one of them warns, so a warning is never folded away unseen.
    */
   import { t } from '../lib/i18n';
-  import { uiStore } from '../lib/store';
+  import { uiStore, resultsStore } from '../lib/store';
   import { certificateStore } from '../lib/store/certificate.svelte';
   import { discretizationStore } from '../lib/store/discretization.svelte';
+  import SelfCheckBanner from './advanced/SelfCheckBanner.svelte';
   import CertificateStatus from './CertificateStatus.svelte';
   import DiscretizationStatus from './DiscretizationStatus.svelte';
 
@@ -29,6 +30,8 @@
   let open = $state(false);
   $effect(() => { if (warn) open = true; });
 </script>
+
+<SelfCheckBanner results={is3D ? [resultsStore.results3D, ...resultsStore.perCase3D.values()] : [resultsStore.results, ...resultsStore.perCase.values()]} />
 
 {#if cert.status !== 'idle' || discretizationShown}
   <details class="rc" class:warn bind:open data-testid="result-checks">

@@ -1782,14 +1782,15 @@ pub fn solve_constrained_2d_dense(
     // taken off it, so the solved system is K_ff·(u_f − u_p) = f_f: without the
     // correction the residual counted K_ff·u_p twice and a correct solve tied to
     // a settling support reported ResidualHigh.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let mut r_full: Vec<f64> = (0..nf)
             .map(|i| (0..nf).map(|j| k_ff[i * nf + j] * u_f[j]).sum::<f64>() - f_f[i])
             .collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
@@ -1824,8 +1825,9 @@ pub fn solve_constrained_2d_dense(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(AnalysisResults {
+    let mut result = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -1835,7 +1837,10 @@ pub fn solve_constrained_2d_dense(
         structured_diagnostics: constraint_diags,
         equilibrium: Some(equilibrium),
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num);
+    super::self_checks::static_2d(&mut result, &resultant)?;
+    Ok(result)
 }
 
 /// The 2D constrained solve over sparse matrices, for nf >= SPARSE_THRESHOLD.
@@ -1977,13 +1982,14 @@ fn solve_constrained_2d_sparse(
     super::linear::assert_finite_3d(&u_f)?;
 
     // Residual of the system that was solved: ||Cᵀ(K_ff·u_f − f_f)|| / ||Cᵀf_f||.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let ku = k_ff.sym_mat_vec(&u_f);
         let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
     };
 
     // A factorization that "succeeds" on a mechanism is not a solve: the zero
@@ -2070,8 +2076,9 @@ fn solve_constrained_2d_sparse(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(Some(AnalysisResults {
+    let mut result = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -2082,7 +2089,10 @@ fn solve_constrained_2d_sparse(
         equilibrium: Some(equilibrium),
         result_summary: None,
         solver_run_meta: None,
-    }))
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num);
+    super::self_checks::static_2d(&mut result, &resultant)?;
+    Ok(Some(result))
 }
 
 /// Solve a 3D constrained analysis.
@@ -2356,13 +2366,14 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
     // Residual of the system that was solved — see the 2D solver: unreduced,
     // it measured the constraint forces (4.4 on a correct offset cantilever).
     // Settlements as in the 2D solver: the solved system is K_ff·(u_f − u_p) = f_f.
-    let rel_residual = {
+    let (rel_residual, checked_residual) = {
         let ku = k_ff.sym_mat_vec(&u_f);
         let mut r_full: Vec<f64> = (0..nf).map(|i| ku[i] - f_f[i]).collect();
         if let Some(k_ff_up) = &k_ff_up_opt {
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
-        reduced_relative_residual(&fcs, &r_full, &f_reduced)
+        (reduced_relative_residual(&fcs, &r_full, &f_reduced),
+         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
@@ -2402,8 +2413,9 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.push(checked_residual?);
 
-    Ok(AnalysisResults3D {
+    let mut result = AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
@@ -2421,7 +2433,10 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
         equilibrium: Some(equilibrium),
         timings: None,
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num);
+    super::self_checks::static_3d(&mut result, &resultant)?;
+    Ok(result)
 }
 
 // ==================== Helper functions ====================
@@ -2447,6 +2462,22 @@ fn get_node_offset(
 }
 
 // ==================== Reusable Constraint System ====================
+
+fn self_check_constraint_resultant(
+    raw: &[(usize, f64)], ct: &ConstraintTransform, fcs: &FreeConstraintSystem, dofs: &DofNumbering,
+) -> Vec<f64> {
+    let mut forces = vec![0.0; dofs.n_total];
+    for &(i, force) in raw {
+        forces[i] += force;
+        for p in ct.c.row_ptr[i]..ct.c.row_ptr[i + 1] {
+            forces[ct.independent_dofs[ct.c.col_idx[p]]] -= ct.c.vals[p] * force;
+        }
+    }
+    let pairs: Vec<_> = forces.into_iter().enumerate().collect();
+    let global = fcs.constraint_forces(&pairs, dofs);
+    let names: &[&str] = if dofs.dofs_per_node <= 3 { &["ux", "uz"] } else { &["ux", "uy", "uz"] };
+    names.iter().map(|name| global.iter().filter(|f| f.dof == *name).map(|f| f.force).sum()).collect()
+}
 
 /// ||Cᵀr|| / ||Cᵀf||: the relative residual of the reduced system CᵀKC·u = Cᵀf,
 /// from the unreduced residual r and the reduced load Cᵀf the solve used.

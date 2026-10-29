@@ -1,8 +1,35 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 4,
+  "currentResultsVersion": 5,
   "changes": [
+    {
+      "id": "static-modal-runtime-self-checks",
+      "resultsVersion": 5,
+      "date": "2026-10-29",
+      "prs": [],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "analysis:linear",
+          "analysis:modal"
+        ]
+      },
+      "title": {
+        "en": "Static and modal results check themselves before publication",
+        "es": "Los resultados estáticos y modales se verifican antes de mostrarse",
+        "pt": "Os resultados estáticos e modais são verificados antes da apresentação"
+      },
+      "explanation": {
+        "en": "Static residual and reaction balance, and modal residual and mass orthogonality, now produce structured diagnostics. Failed checks show a warning; severe or non-finite failures refuse the result. Passing checks leave all numerical results unchanged.",
+        "es": "El residuo y el equilibrio de reacciones estáticos, y el residuo y la ortogonalidad de masa modales, ahora generan diagnósticos. Las fallas muestran una advertencia; las fallas graves o no finitas rechazan el resultado. Las verificaciones aprobadas no cambian los valores numéricos.",
+        "pt": "O resíduo e o equilíbrio de reações estáticos, e o resíduo e a ortogonalidade de massa modais, agora geram diagnósticos. Falhas mostram um aviso; falhas graves ou não finitas recusam o resultado. Verificações aprovadas não alteram valores numéricos."
+      },
+      "changelog": {
+        "file": "docs/safety/self-checks.md",
+        "heading": "First-slice contract and thresholds"
+      }
+    },
     {
       "id": "dynamic-analyses-refuse-eccentricities",
       "resultsVersion": 4,
