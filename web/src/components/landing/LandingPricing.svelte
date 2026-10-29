@@ -2,33 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
 
-  /**
-   * Pricing, at the end of the deck rather than the start.
-   *
-   * It opened the page for one draft, under the business model's own headline
-   * — "what can be copied is free, what cannot is not". That sentence is true
-   * and it belongs in an internal document: it explains the pricing from the
-   * company's side, and a visitor meeting it first reads a page that is
-   * thinking about revenue before it has said what the thing does. The deck
-   * shows the product, then says what it costs.
-   *
-   * The rows are the ones in the one-page business model (Stabileo SAS,
-   * September 2026). Keep them in step: this page is the public face of that
-   * document, and a landing that prices a module differently from the plan is
-   * worse than a landing that does not price it at all.
-   */
-  /*
-   * Five modules, two audiences. The previous shape had a "for whom" column
-   * and repeated Education twice to split public from private universities;
-   * they are one audience now and everything is free for them.
-   */
-  /*
-   * Five modules, two audiences, and the tone belongs to the CELL.
-   *
-   * PRO · Design is paid for firms and free for universities. With the tone
-   * on the row, that "Gratis" came out in the paid red — the table saying one
-   * thing in words and the opposite in colour.
-   */
+  // Core browser analysis is free; specialised modules are free for universities.
   const FREE = { k: 'priceFree', tone: 'free' } as const;
 
   /*
@@ -47,20 +21,9 @@
   const rows = [
     { mod: 'modBasic',     firms: FREE, unis: FREE },
     { mod: 'modProCalc',   firms: FREE, unis: FREE },
-    /*
-     * Free while it is being built, for everyone — not "paid, at low prices".
-     * The note the asterisk points at carries the rest: early users keep it,
-     * public universities always do, and what comes later is cheap. No date
-     * is published, deliberately.
-     */
-    { mod: 'modProDesign', firms: { k: 'priceFreeDev', tone: 'free', note: 1 }, unis: FREE },
-    /*
-     * The AI's university cell is deliberately blank. Repeating "pago por
-     * token" there answered a question the paragraph below answers better: a
-     * university can connect its own language-model API. A price in the cell
-     * contradicted that; a blank leaves the explanation to do the work.
-     */
-    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid', note: 2 }, unis: null },
+    { mod: 'modProDesign', firms: { k: 'pricePaid', tone: 'paid', note: 1 }, unis: FREE },
+    { mod: 'modAi', firms: { k: 'priceAtCost', tone: 'paid', note: 2 },
+      unis: { k: 'priceAtCost', tone: 'paid', note: 2 } },
     /*
      * Education's firms cell is blank, not "free". The mode is aimed at
      * teaching; saying "gratis" to a firm invites the question of what a firm

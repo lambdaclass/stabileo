@@ -1,10 +1,10 @@
 import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Tarayıcınızda ücretsiz CIRSOC tasarım kontrolleri: neler var, neler yok",
-  "description": "Stabileo betonarmeyi (CIRSOC 201) ve çeliği (CIRSOC 301, deneysel) kontrol eder, CIRSOC 101–104 yüklerini üretir; tarayıcıda, ücretsiz. Neler var, neler yok.",
+  "title": "Tarayıcınızda CIRSOC tasarım kontrolleri: neler var, neler yok",
+  "description": "Stabileo betonarmeyi (CIRSOC 201) ve çeliği (CIRSOC 301, deneysel) kontrol eder, CIRSOC 101–104 yüklerini üretir; tarayıcıda. Neler var, neler yok.",
   "eyebrow": "CIRSOC",
-  "lead": "Stabileo, betonarme elemanları CIRSOC 201'e (2025 baskısı), çelik elemanları CIRSOC 301-2018'e göre kontrol eden ve Arjantin'in yapı yönetmelikleri olan CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Kısım I) ve CIRSOC 104-2005'e göre yükleri ve kombinasyonları üreten açık kaynaklı bir yapı analizi yazılımıdır. Analiz yaparken kullandığınız modeli ve çözücüyü kullanır, tarayıcıda çalışır, kurulum veya lisans gerektirmez. Yönetmeliğe göre tasarım PRO modülündedir; bu modül hâlâ geliştirme aşamasındadır ve bu süre boyunca ücretsizdir.",
+  "lead": "Stabileo, betonarme elemanları CIRSOC 201'e (2025 baskısı), çelik elemanları CIRSOC 301-2018'e göre kontrol eden ve Arjantin'in yapı yönetmelikleri olan CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Kısım I) ve CIRSOC 104-2005'e göre yükleri ve kombinasyonları üreten açık kaynaklı bir yapı analizi yazılımıdır. Analiz yaparken kullandığınız modeli ve çözücüyü kullanır, tarayıcıda çalışır, kurulum veya lisans gerektirmez. Yönetmeliğe göre tasarım PRO modülündedir; bu modül hâlâ geliştirme aşamasındadır. Ücretlidir ve üniversiteler için ücretsizdir.",
   "blocks": [
     {
       "k": "h",
@@ -112,11 +112,11 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Hangi yazılım yapı tasarımını CIRSOC yönetmeliklerine göre kontrol eder?",
-      "a": "Stabileo betonarmeyi CIRSOC 201'e, çeliği CIRSOC 301-2018'e (deneysel olarak işaretli) göre kontrol eder ve CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 ve CIRSOC 104-2005'e göre yükleri ve kombinasyonları üretir. Açık kaynaklıdır, tarayıcıda çalışır ve tasarım modülü geliştirme aşamasında olduğu sürece ücretsizdir."
+      "a": "Stabileo betonarmeyi CIRSOC 201'e, çeliği CIRSOC 301-2018'e (deneysel olarak işaretli) göre kontrol eder ve CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 ve CIRSOC 104-2005'e göre yükleri ve kombinasyonları üretir. Açık kaynaklıdır, tarayıcıda çalışır ve üniversiteler için ücretsiz olan ücretli tasarım modülleri sunar."
     },
     {
       "q": "Stabileo CIRSOC kontrolleri için ücretsiz mi?",
-      "a": "Evet, bugün ücretsiz. Analiz (Temel) ücretsizdir. Yönetmeliğe göre tasarım modülü geliştirme aşamasındadır ve bu süre boyunca ücretsizdir; sonrasında da devlet üniversiteleri ve geliştirilmesine katkıda bulunanlar için ücretsiz kalır."
+      "a": "Tarayıcıda yapı analizi sağlayan temel program açık kaynaklıdır ve herkes için ücretsizdir. Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır. Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir."
     },
     {
       "q": "Stabileo'yu imzalayacağım bir hesap için kullanabilir miyim?",

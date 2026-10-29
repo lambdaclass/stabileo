@@ -160,6 +160,10 @@ not:
 
 `best structural solver -> generic simulation company`
 
+## Pricing
+
+The core program, for structural analysis in the browser, is open source and free for everyone. Some specialised modules are paid; universities get those modules free. Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost.
+
 ## Business Expansion Order
 
 The best expansion order from the current base is:
