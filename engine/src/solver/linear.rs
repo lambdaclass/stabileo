@@ -448,6 +448,8 @@ enum FactorizedKff {
 /// the structure, not on the loads. Build once with `prepare_static_2d`, then
 /// solve any number of load sets with `solve_loads`.
 pub struct PreparedStatic2D<'a> {
+    rotation_demand: crate::known_issues::RotationDemand2D,
+    known_model: Vec<StructuredDiagnostic>,
     input: Cow<'a, SolverInput>,
     dof_num: DofNumbering,
     n: usize,
@@ -748,6 +750,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         };
 
         return Ok(PreparedStatic2D {
+            rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+            known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
             input: Cow::Borrowed(input),
             dof_num,
             n,
@@ -783,6 +787,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 vec![0.0; nf]
             };
             return Ok(PreparedStatic2D {
+                rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                 input: Cow::Borrowed(input),
                 dof_num,
                 n,
@@ -828,6 +834,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     vec![0.0; nf]
                 };
                 return Ok(PreparedStatic2D {
+                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -866,6 +874,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 let piv = lu_factor(&mut lu, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
                 return Ok(PreparedStatic2D {
+                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -941,6 +951,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     }
 
     Ok(PreparedStatic2D {
+        rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+        known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
         input: Cow::Borrowed(input),
         dof_num,
         n,
@@ -960,6 +972,8 @@ impl PreparedStatic2D<'_> {
     /// Own the model for a session that outlives the constructor's input buffer.
     pub fn into_owned(self) -> PreparedStatic2D<'static> {
         PreparedStatic2D {
+            rotation_demand: self.rotation_demand,
+            known_model: self.known_model,
             input: Cow::Owned(self.input.into_owned()),
             dof_num: self.dof_num,
             n: self.n,
@@ -978,8 +992,10 @@ impl PreparedStatic2D<'_> {
     /// stored factorization, then runs the same postprocessing as `solve_2d`.
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         let mut r = self.solve_loads_by_path(loads)?;
-        // Known issues of this load set.
-        crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d_loads(&self.input, loads, crate::known_issues::Analysis::Linear).into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect());
+        if self.rotation_demand.demanded(loads) {
+            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("CERT-MECHANISM")]);
+        }
+        crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
         Ok(r)
     }

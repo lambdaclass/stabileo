@@ -542,3 +542,76 @@ fn conditioning_detects_roundoff_pivots_without_changing_matrices() {
         assert_eq!(dense, vec![1.0, coupling, coupling, 1.0]);
     }
 }
+
+#[test]
+fn reported_buckling_741_818_plain_and_certified() {
+    use dedaliano_engine::solver::buckling::solve_buckling_3d;
+    use dedaliano_engine::certify::buckling::certify_buckling_3d;
+    let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741.json")).unwrap();
+    let result = solve_buckling_3d(&input, 1).unwrap();
+    assert!((result.modes[0].load_factor - 4691.397553909858).abs() < 1e-6);
+    assert_warning(&result.structured_diagnostics, "BU-ACCURACY", 818.0);
+    let error = certify_buckling_3d(&input, 1).unwrap_err();
+    assert!(error.contains("BU-BOUND"), "{error}");
+}
+
+#[test]
+fn spectral_conditioning_survives_certification() {
+    use dedaliano_engine::solver::{modal::solve_modal_2d, spectral::solve_spectral_2d};
+    use dedaliano_engine::certify::spectral::certify_spectral_2d;
+    for affected in [false, true] {
+        let solver = make_beam(4, 4.0, E, 0.01, if affected { 1e-12 } else { 1e-4 }, "fixed", None, tip(-1.0));
+        let densities = HashMap::from([("1".into(), 7850.0)]);
+        let modal = solve_modal_2d(&solver, &densities, 2).unwrap();
+        let input: SpectralInput = serde_json::from_value(serde_json::json!({
+            "solver": solver, "densities": densities, "modes": modal.modes,
+            "spectrum": { "name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}] },
+            "direction": "X"
+        })).unwrap();
+        let plain = solve_spectral_2d(&input).unwrap();
+        let certified = certify_spectral_2d(&input).unwrap();
+        for ds in [&modal.structured_diagnostics, &plain.structured_diagnostics, &certified.results.structured_diagnostics] {
+            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected, "{ds:?}");
+        }
+        assert_eq!(plain.base_shear, certified.results.base_shear);
+    }
+}
+
+#[test]
+fn spectral_3d_conditioning_survives_certification() {
+    use dedaliano_engine::solver::{modal::solve_modal_3d, spectral::solve_spectral_3d};
+    use dedaliano_engine::certify::spectral::certify_spectral_3d;
+    for affected in [false, true] {
+        let inertia = if affected { 1e-12 } else { 1e-4 };
+        let solver = make_3d_beam(4, 4.0, E, 0.3, 0.01, inertia, inertia, inertia, vec![true; 6], None, vec![]);
+        let densities = HashMap::from([("1".into(), 7850.0)]);
+        let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
+        let input: SpectralInput3D = serde_json::from_value(serde_json::json!({
+            "solver": solver, "densities": densities, "modes": modal.modes,
+            "spectrum": { "name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}] },
+            "direction": "X"
+        })).unwrap();
+        let plain = solve_spectral_3d(&input).unwrap();
+        let certified = certify_spectral_3d(&input).unwrap();
+        for ds in [&modal.structured_diagnostics, &plain.structured_diagnostics, &certified.results.structured_diagnostics] {
+            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected, "{ds:?}");
+        }
+        assert_eq!(plain.base_shear, certified.results.base_shear);
+    }
+}
+
+#[test]
+fn rotation_demand_large_sweep() {
+    use dedaliano_engine::known_issues::RotationDemand2D;
+    for size in [1_000, 10_000] {
+        let mut solver = make_beam(size, size as f64, E, 0.01, 1e-4, "fixed", None, vec![]);
+        for e in solver.elements.values_mut() { e.hinge_start = true; e.hinge_end = true; }
+        let start = std::time::Instant::now();
+        let prepared = RotationDemand2D::new(&solver);
+        for node in 2..=size {
+            assert!(!prepared.demanded(&[]));
+            assert!(prepared.demanded(&[SolverLoad::Nodal(SolverNodalLoad { node_id: node, fx: 0.0, fz: 0.0, my: 1.0 })]));
+        }
+        eprintln!("rotation demand {size} members and positions: {:?}", start.elapsed());
+    }
+}

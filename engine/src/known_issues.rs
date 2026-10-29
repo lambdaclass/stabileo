@@ -50,6 +50,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-GLOBAL-STRESS", issue: 757, mode: Mode::Refuse, message: "Results withheld: solid-shell stress recovery drops out-of-plane global components. A solid shell outside the global X-Y plane can report almost zero stress under substantial load" },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
     Entry { id: "PL-2D-INVARIANCE", issue: 758, mode: Mode::Refuse, message: "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis" },
+    Entry { id: "BU-ACCURACY", issue: 818, mode: Mode::Warn, message: "3D buckling factors can be unconservatively high due to eigenproblem accuracy. Independently verify the critical factor before design" },
     Entry { id: "BU-BOUND", issue: 741, mode: Mode::Refuse, message: "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design" },
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
@@ -203,20 +204,42 @@ pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) ->
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
 }
 
-// #458: an artificial rotational spring at an all-hinged node can carry
-// a nodal moment or participate in a rigid arm without real rotational stiffness.
+pub struct RotationDemand2D {
+    unrestrained: std::collections::HashSet<usize>,
+    rigid_demand: bool,
+}
+
+impl RotationDemand2D {
+    pub fn new(input: &SolverInput) -> Self {
+        let mut unrestrained = std::collections::HashSet::new();
+        let mut stiff = std::collections::HashSet::new();
+        for e in input.elements.values() {
+            for (node, released) in [(e.node_i, e.hinge_start), (e.node_j, e.hinge_end)] {
+                unrestrained.insert(node);
+                if e.elem_type == "frame" && !released { stiff.insert(node); }
+            }
+        }
+        for s in input.supports.values() {
+            if crate::solver::dof::is_dof_restrained_2d(s, 2) || s.kz.unwrap_or(0.0) > 0.0 {
+                stiff.insert(s.node_id);
+            }
+        }
+        unrestrained.retain(|id| !stiff.contains(id));
+        let rigid_demand = input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
+            if unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node)));
+        Self { unrestrained, rigid_demand }
+    }
+
+    pub fn demanded(&self, loads: &[SolverLoad]) -> bool {
+        self.rigid_demand || loads.iter().any(|l| matches!(l, SolverLoad::Nodal(l)
+            if l.my != 0.0 && self.unrestrained.contains(&l.node_id)))
+    }
+}
+
 fn all_hinged_demand_2d(input: &SolverInput, loads: &[SolverLoad]) -> bool {
-    input.nodes.values().any(|n| {
-        let incident: Vec<_> = input.elements.values()
-            .filter(|e| e.node_i == n.id || e.node_j == n.id).collect();
-        !input.supports.values().any(|s| s.node_id == n.id &&
-            (crate::solver::dof::is_dof_restrained_2d(s, 2) || s.kz.unwrap_or(0.0) > 0.0))
-        && !incident.is_empty() && incident.iter().all(|e|
-            e.elem_type != "frame" || (if e.node_i == n.id { e.hinge_start } else { e.hinge_end }))
-        && (loads.iter().any(|l| matches!(l, SolverLoad::Nodal(l) if l.node_id == n.id && l.my != 0.0))
-            || input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
-                if c.master_node == n.id || c.slave_node == n.id)))
-    })
+    let demanded = loads.iter().any(|l| matches!(l, SolverLoad::Nodal(l) if l.my != 0.0))
+        || input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(_)));
+    demanded && RotationDemand2D::new(input).demanded(loads)
 }
 
 /// Inspect recovered membrane stress variation, in element-local axes, without
@@ -345,6 +368,7 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
 pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagnostic> {
     let mut out = for_analysis(analysis);
 
+    if analysis == Analysis::Buckling { out.push(diagnostic("BU-ACCURACY")); }
     if analysis == Analysis::Buckling && input.loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(_) | SolverLoad3D::PointOnElement(_))) {
         out.push(diagnostic("BU-SPAN-COMPRESSION"));
     }

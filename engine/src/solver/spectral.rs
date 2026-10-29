@@ -341,7 +341,15 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult {
-        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Modal),
+        structured_diagnostics: {
+            let mut diagnostics = crate::known_issues::for_2d(solver_input, crate::known_issues::Analysis::Modal);
+            let k = super::sparse_assembly::assemble_stiffness_sparse_2d(solver_input, &dof_num).k_ff;
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_conditioning(&k).into_iter().collect());
+            let cs = super::constraints::FreeConstraintSystem::build_2d(solver_input, &dof_num)?;
+            let reduced = cs.as_ref().map(|c| c.reduce_matrix_sparse(&k));
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_stiffness_conditioning(reduced.as_ref().unwrap_or(&k)).into_iter().collect());
+            diagnostics
+        },
         displacements,
         element_forces,
         base_shear,
@@ -507,7 +515,15 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult3D {
-        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal),
+        structured_diagnostics: {
+            let mut diagnostics = crate::known_issues::for_3d(solver_input, crate::known_issues::Analysis::Modal);
+            let k = super::assembly::assemble_sparse_3d(solver_input, &dof_num, false).k_ff;
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_conditioning(&k).into_iter().collect());
+            let cs = super::constraints::FreeConstraintSystem::build_3d(solver_input, &dof_num)?;
+            let reduced = cs.as_ref().map(|c| c.reduce_matrix_sparse(&k));
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_stiffness_conditioning(reduced.as_ref().unwrap_or(&k)).into_iter().collect());
+            diagnostics
+        },
         displacements, element_forces, base_shear, per_mode, rule: rule.as_str().to_string(),
     })
 }
