@@ -222,9 +222,18 @@ pub fn certify_critical_factor_enclosed(
         ));
     };
 
+    let lambda_upper = rayleigh_upper(k, kv, n_mat, nv, phi);
+    if let Some(upper) = lambda_upper {
+        if lambda_hat > upper {
+            return BucklingCertificate::uncertified(format!(
+                "computed load factor {lambda_hat} exceeds certified upper bound {upper}"
+            ));
+        }
+    }
+
     BucklingCertificate::Certified {
         lambda_lower,
-        lambda_upper: rayleigh_upper(k, kv, n_mat, nv, phi),
+        lambda_upper,
         lambda_computed: lambda_hat,
     }
 }
@@ -377,25 +386,19 @@ mod tests {
     #[test]
     fn constrained_wrong_factor_and_map_refused() {
         let (k, n, cm) = tied();
-        // λ̂ = 3 overestimates λ_cr = 2: the lower bound must stay ≤ 2.
-        if let BucklingCertificate::Certified { lambda_lower, .. } =
-            certify_constrained_factor(&k, &n, &cm, 3.0, &[0.0, 1.0, 0.0])
-        {
-            assert!(lambda_lower <= 2.0, "λ̲ = {lambda_lower}");
-        }
-        // A map of the wrong size is refused.
+        assert!(!certify_constrained_factor(&k, &n, &cm, 3.0, &[0.0, 1.0, 0.0]).is_certified());
         let bad = ConstraintMap { c: vec![vec![(0, 1.0)]], c_r: vec![vec![]], p: 1, indep_dof: vec![0] };
         assert!(!certify_constrained_factor(&k, &n, &bad, 2.0, &[0.0, 1.0, 0.0]).is_certified());
     }
 
     #[test]
-    fn overestimated_factor_is_not_certified_as_lower_bound() {
-        // A wrong λ̂ = 3 (true λ_cr = 2): the lower bound must stay ≤ 2.
+    fn overestimated_factor_is_not_certified() {
         let k = diag(&[4.0, 6.0, 10.0]);
         let n = diag(&[1.0, 3.0, 1.0]);
-        let c = certify_critical_factor(&k, &n, 3.0, &[0.0, 1.0, 0.0]);
-        if let BucklingCertificate::Certified { lambda_lower, .. } = c {
-            assert!(lambda_lower <= 2.0, "λ̲ = {lambda_lower}");
+        for factor in [3.0, 2.0 + 1e-12] {
+            let c = certify_critical_factor(&k, &n, factor, &[0.0, 1.0, 0.0]);
+            let BucklingCertificate::Uncertified { reason } = c else { panic!("{c:?}") };
+            assert!(reason.contains("exceeds certified upper bound"), "{reason}");
         }
     }
 }
