@@ -7,4 +7,6 @@ in it, menus in Spanish, English and Portuguese. It installs with one command
 (`brew install --cask lambdaclass/tap/stabileo` on macOS, a PowerShell line on Windows, a `curl`
 line on Linux) and updates itself after asking, never during a calculation and never over unsaved
 work. Unsigned alpha prereleases (`desktop-v*`), for testers; see docs/desktop/INSTALL.md. The
-stabileo.com build is unchanged.
+numerical algorithms are unchanged. Shared browser file handling now validates project, session,
+and autosave data more strictly and rejects duplicate session tabs. Desktop calculation gates
+also share web code, with enforcement enabled only in the desktop build.

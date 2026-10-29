@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod atomic_save;
+mod save_directory;
 
 use std::collections::HashMap;
 use std::fs;
@@ -14,10 +15,8 @@ use tauri_plugin_fs::FsExt;
 
 #[tauri::command]
 fn atomic_save(app: AppHandle, path: PathBuf, content: String) -> Result<(), String> {
-    if !path.is_absolute() || !app.fs_scope().is_allowed(&path) {
-        return Err("save path was not selected by the user".into());
-    }
-    atomic_save::save(&path, content.as_bytes()).map_err(|e| e.to_string())
+    if !path.is_absolute() { return Err("absolute save path required".into()); }
+    atomic_save::save_authorized(&path, content.as_bytes(), || app.fs_scope().is_allowed(&path)).map_err(|e| e.to_string())
 }
 
 const RECENT_MAX: usize = 8;

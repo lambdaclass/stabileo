@@ -15,6 +15,7 @@ REPO=lambdaclass/stabileo
 FEED=https://raw.githubusercontent.com/$REPO/desktop-update-feed/latest.json
 BIN_DIR=${XDG_BIN_HOME:-$HOME/.local/bin}
 DATA_DIR=${XDG_DATA_HOME:-$HOME/.local/share}
+MAC_RECEIPT=$DATA_DIR/stabileo/macos-install-target
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'stabileo install: %s\n' "$*" >&2; exit 1; }
@@ -36,9 +37,12 @@ uninstall() {
 			"$DATA_DIR/mime/packages/stabileo.xml" "$DATA_DIR/icons/hicolor/128x128/apps/stabileo.png"
 		refresh_desktop ;;
 	Darwin)
-		for app in /Applications/Stabileo.app "$HOME/Applications/Stabileo.app"; do
-			if [ -d "$app" ]; then rm -rf "$app"; fi
-		done ;;
+		[ -f "$MAC_RECEIPT" ] || die "no recorded macOS install; remove the selected Stabileo.app manually"
+		app=$(cat "$MAC_RECEIPT")
+		case "$app" in /Applications/Stabileo.app | "$HOME/Applications/Stabileo.app") ;;
+		*) die "invalid macOS install receipt" ;; esac
+		rm -rf "$app"
+		rm -f "$MAC_RECEIPT" ;;
 	esac
 	say "Stabileo removed. Your projects (.ded files) were not touched."
 }
@@ -140,6 +144,8 @@ install_macos() {
 	mv "$stage/Stabileo.app" "$dest/Stabileo.app" || { [ ! -d "$backup" ] || mv "$backup" "$dest/Stabileo.app"; die "could not replace app"; }
 	rmdir "$stage"
 	hdiutil detach -quiet "$mnt" || true
+	mkdir -p "${MAC_RECEIPT%/*}"
+	printf '%s\n' "$dest/Stabileo.app" > "$MAC_RECEIPT"
 	say "Installed $dest/Stabileo.app (Stabileo $VERSION). It updates itself."
 }
 

@@ -1,23 +1,17 @@
-use std::fs::{self, File, OpenOptions};
+use crate::save_directory::Directory;
+use std::ffi::{OsStr, OsString};
+use std::fs::File;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-fn temporary(path: &Path) -> io::Result<(PathBuf, File)> {
+fn temporary(dir: &Directory) -> io::Result<(OsString, File)> {
     for _ in 0..100 {
-        let name = format!(".stabileo-{}-{}.tmp", std::process::id(), SEQUENCE.fetch_add(1, Ordering::Relaxed));
-        let temp = path.with_file_name(name);
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        match options.open(&temp) {
-            Ok(file) => return Ok((temp, file)),
+        let name = OsString::from(format!(".stabileo-{}-{}.tmp", std::process::id(), SEQUENCE.fetch_add(1, Ordering::Relaxed)));
+        match dir.create(&name) {
+            Ok(file) => return Ok((name, file)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
         }
@@ -25,68 +19,100 @@ fn temporary(path: &Path) -> io::Result<(PathBuf, File)> {
     Err(io::Error::new(io::ErrorKind::AlreadyExists, "cannot stage save"))
 }
 
-#[cfg(not(windows))]
-fn replace(from: &Path, to: &Path) -> io::Result<()> { fs::rename(from, to) }
-
-#[cfg(windows)]
-fn replace(from: &Path, to: &Path) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    #[link(name = "kernel32")]
-    extern "system" { fn MoveFileExW(from: *const u16, to: *const u16, flags: u32) -> i32; }
-    let from: Vec<u16> = from.as_os_str().encode_wide().chain(Some(0)).collect();
-    let to: Vec<u16> = to.as_os_str().encode_wide().chain(Some(0)).collect();
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 1 | 8) } == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(())
+pub fn save_authorized(path: &Path, content: &[u8], authorize: impl FnOnce() -> bool) -> io::Result<()> {
+    let dir = Directory::open(path.parent().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing parent"))?)?;
+    if !authorize() { return Err(io::Error::new(io::ErrorKind::PermissionDenied, "save path was not selected by the user")); }
+    save_in(&dir, path.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing filename"))?, |file| file.write_all(content))
 }
 
-pub fn save(path: &Path, content: &[u8]) -> io::Result<()> {
-    save_with(path, |file| file.write_all(content))
-}
-
-fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io::Result<()> {
-    if fs::symlink_metadata(path).is_ok_and(|m| !m.is_file() || m.file_type().is_symlink()) {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "save target must be a regular file"));
-    }
-    let (temp, mut file) = temporary(path)?;
+fn save_in(dir: &Directory, name: &OsStr, write: impl FnOnce(&mut File) -> io::Result<()>) -> io::Result<()> {
+    let mut original = match dir.read(name) {
+        Ok(file) => Some(file),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e),
+    };
+    let (temp, mut file) = temporary(dir)?;
     let result = (|| {
-        if let Ok(metadata) = fs::metadata(path) { file.set_permissions(metadata.permissions())?; }
+        if let Some(old) = &original { file.set_permissions(old.metadata()?.permissions())?; }
         write(&mut file)?;
         file.sync_all()?;
         drop(file);
-        if path.exists() {
-            let mut backup_name = path.as_os_str().to_owned();
-            backup_name.push(".bak");
-            let backup = PathBuf::from(backup_name);
-            let (backup_temp, mut backup_file) = temporary(path)?;
+        if let Some(old) = &mut original {
+            let mut backup = name.to_owned();
+            backup.push(".bak");
+            let (backup_temp, mut backup_file) = temporary(dir)?;
             let backed_up = (|| {
-                backup_file.set_permissions(fs::metadata(path)?.permissions())?;
-                io::copy(&mut File::open(path)?, &mut backup_file)?;
+                backup_file.set_permissions(old.metadata()?.permissions())?;
+                io::copy(old, &mut backup_file)?;
                 backup_file.sync_all()?;
                 drop(backup_file);
-                replace(&backup_temp, &backup)
+                dir.replace(&backup_temp, &backup)
             })();
-            let _ = fs::remove_file(&backup_temp);
+            dir.remove(&backup_temp);
             backed_up?;
         }
-        replace(&temp, path)?;
-        #[cfg(unix)]
-        File::open(path.parent().unwrap_or(Path::new(".")))?.sync_all()?;
-        Ok(())
+        dir.replace(&temp, name)?;
+        dir.sync()
     })();
-    let _ = fs::remove_file(&temp);
+    dir.remove(&temp);
     result
+}
+
+#[cfg(test)]
+fn save(path: &Path, content: &[u8]) -> io::Result<()> { save_authorized(path, content, || true) }
+#[cfg(test)]
+fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io::Result<()> {
+    save_in(&Directory::open(path.parent().unwrap())?, path.file_name().unwrap(), write)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    #[cfg(unix)]
+    #[test]
+    fn parent_swap_after_authorization_stays_in_pinned_directory() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().canonicalize().unwrap().join(format!("stabileo-race-{}", std::process::id()));
+        let parent = root.join("selected");
+        let moved = root.join("moved");
+        let outside = root.join("outside");
+        fs::create_dir_all(&parent).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(parent.join("a.ded"), "old").unwrap();
+        fs::write(outside.join("a.ded"), "untouched").unwrap();
+        save_authorized(&parent.join("a.ded"), b"new", || {
+            fs::rename(&parent, &moved).unwrap();
+            symlink(&outside, &parent).unwrap();
+            true
+        }).unwrap();
+        assert_eq!(fs::read_to_string(outside.join("a.ded")).unwrap(), "untouched");
+        assert_eq!(fs::read_to_string(moved.join("a.ded")).unwrap(), "new");
+        assert_eq!(fs::read_to_string(moved.join("a.ded.bak")).unwrap(), "old");
+        assert!(save(&parent.join("a.ded"), b"escape").is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlink_target_and_unauthorized_save() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().canonicalize().unwrap().join(format!("stabileo-links-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("real.ded"), "keep").unwrap();
+        symlink(root.join("real.ded"), root.join("link.ded")).unwrap();
+        assert!(save(&root.join("link.ded"), b"replace").is_err());
+        assert!(save_authorized(&root.join("real.ded"), b"replace", || false).is_err());
+        assert_eq!(fs::read_to_string(root.join("real.ded")).unwrap(), "keep");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn preserves_private_permissions() {
         use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!("stabileo-private-{}.ded", std::process::id()));
+        let path = std::env::temp_dir().canonicalize().unwrap().join(format!("stabileo-private-{}.ded", std::process::id()));
         fs::write(&path, "private").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         save(&path, b"new private").unwrap();
@@ -99,7 +125,7 @@ mod tests {
 
     #[test]
     fn replacement_keeps_backup_and_failed_write_keeps_original() {
-        let dir = std::env::temp_dir().join(format!("stabileo-save-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().canonicalize().unwrap().join(format!("stabileo-save-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("project.ded");
         fs::write(&path, "original").unwrap();

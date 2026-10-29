@@ -76,7 +76,7 @@ Configure these before enabling releases; workflow YAML cannot create these prot
    Review the workflow and the exact commit before approving each manual release job.
 2. **Settings → Rules → Rulesets:** protect `main` with required pull requests, at least one
    approving review, dismissed stale approvals, approval of the latest push, no force pushes or
-   deletions, and no bypass actors. Require the exact status check **Desktop OK** (GitHub Actions),
+   deletions, and no bypass actors. Retain the exact supply-chain checks **rust** and **npm** (stable aggregates of all audit workspaces). Require the exact status check **Desktop OK** (GitHub Actions),
    including in the merge queue. Protect tags `desktop-v*` against updates/deletions and restrict
    creation to release maintainers. Before dispatching a release, pre-create `desktop-v<version>` at the exact reviewed
    commit being released on `main` (also for a run dispatched from `main`); the release job checks ancestry and a tag run must match the requested version.
