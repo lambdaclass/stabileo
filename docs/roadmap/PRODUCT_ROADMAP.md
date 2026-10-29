@@ -375,21 +375,23 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
    overflow on phones); Codex plus Kimi or Grok then review it and findings land as follow-up PRs. Each
    page, its catalogue entry and its changelog fragment state the stage and how many reviews it has had.
 
-   | Paper | Kind | Stage | Reviews | Status |
-   |---|---|---|---:|---|
-   | Shauer 2025, phase-field fracture | new research | improved | 8 review rounds before merge (Codex, Kimi on most) | live |
-   | Grossman & Boudaoud 2026, spring networks | new research | improved | 6 review rounds before merge (Codex, Kimi on most) | live |
-   | Andreassen et al. 2011, topology optimisation (88 lines) | classic | first version | 0 | shipping |
-   | Mattiasson 1981, elastica | classic, engine benchmark | first version | 0 | verifying |
-   | Riks 1979 / Crisfield 1981, arc length (#803) | classic, engine benchmark | first version | 1 (Codex) | fixing |
-   | MacNeal & Harder 1985 (#797) | classic, engine benchmark | first version | 1 (Codex) | fixing |
-   | Belytschko et al. 1985, shell obstacle course (#809) | classic, engine benchmark | first version | 1 (Codex) | fixing |
-   | Zmyślony, Khan & Biggins 2026, snapping arches | new research | first version | 0 | verifying |
-   | Ferrari & Sigmund 2025, Koiter post-buckling | new research | first version | 0 | building |
-   | Pastrana et al. 2026, form-finding | new research | first version | 0 | building |
-   | Fairclough et al. 2026, gridshell layout | new research | first version | 0 | building |
+   | Paper | Kind | Implemented | Stage | Reviews | Status |
+   |---|---|---:|---|---:|---|
+   | Shauer 2025, phase-field fracture | new research | ~85% | improved | 8 review rounds before merge (Codex, Kimi on most) | live |
+   | Grossman & Boudaoud 2026, spring networks | new research | ~70% | improved | 6 review rounds before merge (Codex, Kimi on most) | live |
+   | Andreassen et al. 2011, topology optimisation (88 lines) | classic | ~50% | first version | 0 | shipping |
+   | Mattiasson 1981, elastica | classic, engine benchmark | ~40% | first version | 0 | verifying |
+   | Riks 1979 / Crisfield 1981, arc length (#803) | classic, engine benchmark | ~40% | first version | 1 (Codex) | fixing |
+   | MacNeal & Harder 1985 (#797) | classic, engine benchmark | ~30% | first version | 1 (Codex) | fixing |
+   | Belytschko et al. 1985, shell obstacle course (#809) | classic, engine benchmark | ~80% set up, 1 of 3 passing | first version | 1 (Codex) | fixing |
+   | Zmyślony, Khan & Biggins 2026, snapping arches | new research | ~20% | first version | 0 | verifying |
+   | Ferrari & Sigmund 2025, Koiter post-buckling | new research | ~5% | first version | 0 | building |
+   | Pastrana et al. 2026, form-finding | new research | ~15% | first version | 0 | building |
+   | Fairclough et al. 2026, gridshell layout | new research | ~5% | first version | 0 | building |
 
-   The review counts are maintained in `research/papers.yaml` (`reviews:`), which the gallery shows.
+   "Implemented" estimates how much of the paper's examples and results are reproduced (a judgement,
+   updated each round). The review counts are maintained in `research/papers.yaml` (`reviews:`), which
+   the gallery shows.
 8. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
    product unaffected (isolation check, editor data safe, app tests pass), CI green; other review
    findings become issues fixed in small follow-ups.
