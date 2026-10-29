@@ -786,28 +786,191 @@ test.describe('@landing landing page', () => {
  * a landing that contradicts the business model — or quietly widens a promise
  * made to universities — costs more than a broken layout.
  */
+// Independent copy expectations: changes to the pricing policy must update this contract.
+const PRICING = {
+  "en": {
+    "modules": [
+      "Basic",
+      "PRO · Analysis",
+      "PRO · Code design",
+      "Stabileo AI",
+      "Education"
+    ],
+    "audiences": [
+      "Firms and individuals",
+      "Universities"
+    ],
+    "free": "Free",
+    "paid": "Paid",
+    "atCost": "Paid at cost",
+    "intro": "The core program, for structural analysis in the browser, is open source and free for everyone. Some specialised modules are paid; universities get those modules free. Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost.",
+    "notes": [
+      "Some specialised modules are paid; universities get those modules free.",
+      "Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost."
+    ]
+  },
+  "es": {
+    "modules": [
+      "Básico",
+      "PRO · Cálculo",
+      "PRO · Diseño normativo",
+      "Stabileo IA",
+      "Educativo"
+    ],
+    "audiences": [
+      "Empresas y particulares",
+      "Universidades"
+    ],
+    "free": "Gratis",
+    "paid": "Pago",
+    "atCost": "Pago al costo",
+    "intro": "El programa principal, para análisis estructural en el navegador, es de código abierto y gratuito para todos. Algunos módulos especializados son pagos; las universidades los reciben gratis. Stabileo IA y el cómputo intensivo en la nube son pagos para todos, incluidas las universidades, a un precio que cubre su costo.",
+    "notes": [
+      "Algunos módulos especializados son pagos; las universidades los reciben gratis.",
+      "Stabileo IA y el cómputo intensivo en la nube son pagos para todos, incluidas las universidades, a un precio que cubre su costo."
+    ]
+  },
+  "pt": {
+    "modules": [
+      "Básico",
+      "PRO · Cálculo",
+      "PRO · Projeto normativo",
+      "Stabileo IA",
+      "Educacional"
+    ],
+    "audiences": [
+      "Empresas e particulares",
+      "Universidades"
+    ],
+    "free": "Grátis",
+    "paid": "Pago",
+    "atCost": "Pago a preço de custo",
+    "intro": "O programa principal, para análise estrutural no navegador, é de código aberto e gratuito para todos. Alguns módulos especializados são pagos; as universidades recebem esses módulos gratuitamente. O Stabileo IA e a computação intensiva na nuvem são pagos por todos, inclusive pelas universidades, a um preço que cobre seu custo.",
+    "notes": [
+      "Alguns módulos especializados são pagos; as universidades recebem esses módulos gratuitamente.",
+      "O Stabileo IA e a computação intensiva na nuvem são pagos por todos, inclusive pelas universidades, a um preço que cobre seu custo."
+    ]
+  },
+  "de": {
+    "modules": [
+      "Basis",
+      "PRO · Berechnung",
+      "PRO · Bemessung nach Norm",
+      "Stabileo AI",
+      "Lehre"
+    ],
+    "audiences": [
+      "Unternehmen und Privatpersonen",
+      "Universitäten"
+    ],
+    "free": "Kostenlos",
+    "paid": "Kostenpflichtig",
+    "atCost": "Zum Selbstkostenpreis",
+    "intro": "Das Kernprogramm für die Tragwerksberechnung im Browser ist Open Source und für alle kostenlos. Einige spezialisierte Module sind kostenpflichtig; Universitäten erhalten diese Module kostenlos. Stabileo AI und rechenintensive Cloud-Berechnungen sind für alle kostenpflichtig, auch für Universitäten. Der Preis deckt die anfallenden Kosten.",
+    "notes": [
+      "Einige spezialisierte Module sind kostenpflichtig; Universitäten erhalten diese Module kostenlos.",
+      "Stabileo AI und rechenintensive Cloud-Berechnungen sind für alle kostenpflichtig, auch für Universitäten. Der Preis deckt die anfallenden Kosten."
+    ]
+  },
+  "fr": {
+    "modules": [
+      "Basique",
+      "PRO · Calcul",
+      "PRO · Dimensionnement réglementaire",
+      "Stabileo AI",
+      "Enseignement"
+    ],
+    "audiences": [
+      "Entreprises et particuliers",
+      "Universités"
+    ],
+    "free": "Gratuit",
+    "paid": "Payant",
+    "atCost": "Au prix coûtant",
+    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
+    "notes": [
+      "Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement.",
+      "Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
+    ]
+  },
+  "tr": {
+    "modules": [
+      "Temel",
+      "PRO · Analiz",
+      "PRO · Yönetmeliğe göre tasarım",
+      "Stabileo AI",
+      "Eğitim"
+    ],
+    "audiences": [
+      "Şirketler ve bireyler",
+      "Üniversiteler"
+    ],
+    "free": "Ücretsiz",
+    "paid": "Ücretli",
+    "atCost": "Maliyeti karşılayan ücret",
+    "intro": "Tarayıcıda yapı analizi sağlayan temel program açık kaynaklıdır ve herkes için ücretsizdir. Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır. Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir.",
+    "notes": [
+      "Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır.",
+      "Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir."
+    ]
+  }
+} satisfies Record<Locale, { modules: string[]; audiences: string[]; free: string; paid: string; atCost: string; intro: string; notes: string[] }>;
+
 test.describe('@landing the model the deck states', () => {
-  test('the table prices every module for both audiences', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
+  for (const locale of PUBLIC_LOCALES) {
+    for (const width of [390, 810]) {
+      test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await bootLanding(page, { locale });
+        const copy = PRICING[locale];
+        const pricing = page.locator('section[data-section="pricing"]');
+        await pricing.scrollIntoViewIfNeeded();
+        await expect(pricing).toBeVisible();
+        const table = pricing.locator('.model-table');
+        await expect(table.locator('thead th:not(:first-child)')).toHaveText(copy.audiences);
+        const rows = await table.locator('tbody tr').evaluateAll((trs) =>
+          trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
+        );
+        const prices = [
+          [copy.free, copy.free],
+          [copy.free, copy.free],
+          [`${copy.paid}*`, copy.free],
+          [`${copy.atCost}**`, `${copy.atCost}**`],
+          ['', copy.free],
+        ];
+        expect(rows).toEqual(copy.modules.map((mod, i) => [mod, ...prices[i]]));
+        await expect(pricing.locator('.lead')).toHaveText(copy.intro);
+        for (const [index, note] of copy.notes.entries()) {
+          await expect(pricing.locator('.mode-note').nth(index)).toHaveText(`${'*'.repeat(index + 1)} ${note}`);
+        }
+        // Both AI cells reference the same note; every distinct reference must resolve.
+        const inTable = await table.locator('.fn').allInnerTexts();
+        const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
+        expect([...new Set(inTable)].sort()).toEqual(inNotes.sort());
 
-    const rows = await page
-      .locator('section[data-section="pricing"] .model-table tbody tr')
-      .evaluateAll((trs) =>
-        trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
-      );
-
-    // Five modules, two audiences. Universities are one audience now: public
-    // and private were separate rows and everything is free for both.
-    expect(rows).toEqual([
-      ['Básico', 'Gratis', 'Gratis'],
-      ['PRO · Cálculo', 'Gratis', 'Gratis'],
-      ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
-      // Blank on purpose: a university brings its own model API, and the
-      // paragraph under the table is where that is explained.
-      ['Stabileo IA', 'Pago por token**', ''],
-      ['Educativo', '', 'Gratis'],
-    ]);
-  });
+        // Check internal overflow too: a scrollable wrapper can hide a whole
+        // audience while the document itself still fits the viewport.
+        await page.evaluate(() => document.fonts.ready);
+        const layout = await pricing.evaluate((section) => {
+          const wrap = section.querySelector('.model-table-wrap')!;
+          const cells = [...section.querySelectorAll('.model-table th, .model-table td')];
+          return {
+            wrapperFits: wrap.scrollWidth <= wrap.clientWidth + 1,
+            cellsFit: cells.every((cell) => {
+              const rect = cell.getBoundingClientRect();
+              return cell.scrollWidth <= cell.clientWidth + 1 && rect.left >= 0 && rect.right <= innerWidth;
+            }),
+            headingSizes: [...section.querySelectorAll('.model-table thead th')].map(
+              (th) => parseFloat(getComputedStyle(th).fontSize),
+            ),
+          };
+        });
+        expect(layout.wrapperFits).toBe(true);
+        expect(layout.cellsFit).toBe(true);
+        for (const size of layout.headingSizes) expect(size).toBeGreaterThanOrEqual(12);
+      });
+    }
+  }
 
   test('the product sections describe the product and price nothing', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
@@ -831,56 +994,6 @@ test.describe('@landing the model the deck states', () => {
         expect(prose, `"${word}" belongs in the pricing section, not in ${id}`).not.toContain(word);
       }
     }
-  });
-
-  test('what universities pay is said in one place, and the table agrees', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
-
-    /*
-     * The promise used to live in the Education section as well. It is here
-     * only now, so there is one statement to keep true instead of two that
-     * can drift.
-     */
-    const pricing = page.locator('section[data-section="pricing"]');
-    await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
-
-    /*
-     * And the table agrees. Every module is free for universities, and the
-     * AI's cell is blank rather than priced: what a university pays for the
-     * agent depends on the model API it brings, which the paragraph under the
-     * table explains and a number in a cell would contradict.
-     */
-    const unis = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', '', 'Gratis']);
-
-    // And the firms column, where Education is blank for the same kind of
-    // reason: a price there would answer a question the mode does not pose.
-    const firms = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[0]?.textContent?.trim() ?? ''));
-    expect(firms).toEqual([
-      'Gratis',
-      'Gratis',
-      'Gratis durante el desarrollo*',
-      'Pago por token**',
-      '',
-    ]);
-
-    /*
-     * Every marker in the table has a note that starts with it, and no note
-     * carries a marker nothing points at. A translator cannot break this —
-     * the markers are drawn from the component, not the strings — but a row
-     * added without one, or a note deleted, would leave a reader following an
-     * asterisk to nothing.
-     */
-    const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
-    const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-    expect(inTable.sort()).toEqual(inNotes.sort());
-
-    // And the explanation is actually there, since the blank now depends on it.
-    await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {
