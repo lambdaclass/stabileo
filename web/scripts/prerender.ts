@@ -1,3 +1,4 @@
+import previews from '../src/components/research/preview-config.json';
 /**
  * Write real HTML for every public route, so the site can be indexed.
  *
@@ -254,7 +255,7 @@ async function publicPaths(): Promise<string[]> {
     if (day) POST_LASTMOD.set(pagePath, day);
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research', '/research/fracture/shauer-2025'];
+  const research = ['/research', ...previews.map((p) => p.path)];
   return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
 }
 

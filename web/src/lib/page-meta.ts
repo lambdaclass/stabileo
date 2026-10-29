@@ -31,6 +31,7 @@ const META_TAGS = [
 	['meta[property="og:image"]', 'content'],
 	['meta[property="og:image:alt"]', 'content'],
 	['meta[name="twitter:image"]', 'content'],
+	['meta[name="twitter:card"]', 'content'],
 	['meta[name="twitter:image:alt"]', 'content']
 ] as const;
 
@@ -288,6 +289,7 @@ function setLinks(path: string, locale: PublicLocale) {
 }
 
 export function applyPageMeta(meta: {
+	image?: string;
 	title: string;
 	description: string;
 	locale: PublicLocale;
@@ -319,13 +321,14 @@ export function applyPageMeta(meta: {
 	setMeta('meta[name="twitter:description"]', meta.description);
 	setLinks(meta.path, meta.locale);
 	setFeedLink(meta.path, meta.locale);
-	if (meta.article?.image) {
-		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.article.image);
-		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article.headline);
+	if (meta.image || meta.article?.image) {
+		setMeta('meta[name="twitter:card"]', 'summary_large_image');
+		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.image ?? meta.article!.image!);
+		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article?.headline ?? meta.title);
 	} else if (original) {
 		// Back to the site's card (and its alt) on a page that has none of its own.
 		META_TAGS.forEach(([sel, attr], i) => {
-			if (/image/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
+			if (/image|twitter:card/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
 		});
 	}
 	setOgArticle(meta.article);

@@ -12,6 +12,7 @@ also fetches each GitHub code link (set GITHUB_TOKEN to avoid the anonymous rate
 `show` prints the Crossref block for a DOI, to paste into a new entry.
 """
 import copy
+import datetime
 import hashlib
 import math
 import html
@@ -25,6 +26,40 @@ import urllib.parse
 import urllib.request
 
 import yaml
+
+
+def valid_timing(timing):
+    def positive(value):
+        return type(value) in (int, float) and math.isfinite(value) and value > 0
+
+    def text(value):
+        return isinstance(value, str) and bool(value.strip())
+
+    if not isinstance(timing, dict):
+        return False
+    if "reference_includes_output" in timing and type(timing["reference_includes_output"]) is not bool:
+        return False
+    machine = timing.get("machine")
+    if not isinstance(machine, dict) or not all(text(machine.get(k)) for k in ("runner_label", "cpu_model")):
+        return False
+    if type(machine.get("cores")) is not int or machine["cores"] < 1:
+        return False
+    try:
+        datetime.date.fromisoformat(timing["date"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    cases = timing.get("cases")
+    if not isinstance(cases, dict) or not cases:
+        return False
+    for name, case in cases.items():
+        if not text(name) or not isinstance(case, dict):
+            return False
+        if not all(positive(case.get(k)) for k in ("python_seconds", "rust_native_seconds")):
+            return False
+        if not all(type(case.get(k)) is int and case[k] > 0 for k in ("steps", "elements")):
+            return False
+    return all(positive(timing.get(k)) and math.isclose(timing[k], sum(c[k] for c in cases.values()), rel_tol=1e-9)
+               for k in ("python_seconds", "rust_native_seconds"))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOG = os.environ.get("RESEARCH_CATALOG", os.path.join(ROOT, "papers.yaml"))
@@ -130,6 +165,13 @@ def check_entry(p, errors):
         errors.append(f"{pid}: reproduced_published_results must be a boolean")
     rank = STATUSES.index(status)
     impl = p.get("implementation")
+    if impl:
+        validation = os.path.join(ROOT, impl, "VALIDATION.json")
+        if os.path.isfile(validation):
+            with open(validation) as f:
+                record = json.load(f)
+            if "timing" in record and not valid_timing(record["timing"]):
+                errors.append(f"{pid}: invalid VALIDATION.json timing block")
     if rank >= 1:
         if not impl:
             errors.append(f"{pid}: status '{status}' needs an implementation directory")

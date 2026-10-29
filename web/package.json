@@ -12,6 +12,7 @@
     "build": "vite build && npx tsx scripts/prerender.ts",
     "build:admin": "VITE_APP_TYPE=admin vite build",
     "preview": "vite preview",
+    "research:previews": "npx tsx scripts/research-previews.ts",
     "wasm": "../scripts/wasm-cached.sh",
     "test": "node scripts/test-all.mjs",
     "test:watch": "vitest --project unit",

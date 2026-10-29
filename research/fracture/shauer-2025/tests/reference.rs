@@ -300,7 +300,11 @@ fn field_comparison_rejects_nan() { max_abs(&[f64::NAN], &[0.0]); }
 fn maximum_rejects_nan() { finite_max(0.0, f64::NAN); }
 
 fn assert_records_equal(expected: &serde_json::Value, actual: &serde_json::Value) {
-    assert_eq!(expected, actual, "VALIDATION.json is stale: copy target/VALIDATION.json over it");
+    let mut expected = expected.clone();
+    let mut actual = actual.clone();
+    expected.as_object_mut().unwrap().remove("timing");
+    actual.as_object_mut().unwrap().remove("timing");
+    assert_eq!(expected, actual, "VALIDATION.json is stale: update its validation fields from target/VALIDATION.json, preserving timing");
 }
 
 #[test]
@@ -311,4 +315,11 @@ fn validation_records_include_metrics_and_observations() {
         changed["checks"][0][key] = value;
         assert!(std::panic::catch_unwind(|| assert_records_equal(&record, &changed)).is_err());
     }
+}
+
+#[test]
+fn validation_allows_separately_measured_timing() {
+    let actual = serde_json::json!({"checks": []});
+    let expected = serde_json::json!({"checks": [], "timing": {"python_seconds": 1.0}});
+    assert_records_equal(&expected, &actual);
 }

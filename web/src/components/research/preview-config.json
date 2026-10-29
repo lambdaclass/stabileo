@@ -1,0 +1,14 @@
+[
+  {
+    "paperId": "shauer-2025",
+    "path": "/research/fracture/shauer-2025",
+    "replay": "research-wasm/shauer-2025/replay.srpl",
+    "query": "mesh=1&view=plate&deformed=1&deform=4&broken=show",
+    "step": 70,
+    "frames": 60,
+    "viewer": ".rs-viewer-slot",
+    "slider": "input[aria-label=\"Load step shown\"]",
+    "state": ".rs-app",
+    "referenceCase": "ex2"
+  }
+]

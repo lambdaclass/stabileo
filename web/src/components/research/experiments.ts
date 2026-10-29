@@ -1,3 +1,8 @@
+import previews from './preview-config.json';
+
+export const PREVIEWS = previews;
+export const previewFor = (id: string) => PREVIEWS.find((p) => p.paperId === id);
+
 /**
  * The experiments that run on this site, and the ones being built. The gallery and the
  * experiment pages read this; papers.json (the catalogue) is joined to it by `paperId`.
@@ -7,10 +12,8 @@ export type Experiment = {
   path: string;
   name: string;
   hook: string;
-  /** web/public/<thumbnail>, rendered from our own run by scripts/research-thumbs.mjs and committed. */
+  /** web/public/<thumbnail>, captured by scripts/research-previews.ts. */
   thumbnail: string;
-  /** The page's query that sets up the thumbnail's view (step, mesh, view, deformed). */
-  thumbnailQuery: string;
   code: string;
 };
 
@@ -20,8 +23,7 @@ export const EXPERIMENTS: Experiment[] = [
     path: '/research/fracture/shauer-2025',
     name: 'Phase-field fracture of a notched plate',
     hook: 'Pull a notched plate apart and watch an AT2 phase-field crack form and run, solved in your browser and checked step by step against the author’s code.',
-    thumbnail: 'research-thumbs/shauer-2025.webp',
-    thumbnailQuery: 'step=70&mesh=1&view=plate&deformed=1&deform=4&broken=show',
+    thumbnail: `${previewFor('shauer-2025')!.path.slice(1)}/thumb.png`,
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/fracture/shauer-2025',
   },
 ];

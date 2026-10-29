@@ -2,6 +2,7 @@ name: Research
 
 on:
   workflow_call:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -45,6 +46,7 @@ jobs:
           persist-credentials: false
       - run: research/tools/check_isolation.sh
       - run: python3 -I research/tools/test_check_isolation.py
+      - run: python3 -I research/tools/test_previews.py
       - name: Research pages draw models only through the shared Stabileo viewer
         run: research/tools/check_viewer.sh
       - name: The viewer rule rejects a page with its own canvas
@@ -84,6 +86,7 @@ jobs:
           python3 -m venv /tmp/catalog-venv
           /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_timing.py
       - name: Checker rejects bad entries
         run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py --online
       - name: Every DOI, title, author list, year, venue and code license matches its source
@@ -104,6 +107,7 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - run: python3 -I reference/test_time_reference.py
       - name: Tests, including the validation against the reference outputs
         run: cargo test --release --locked -- --nocapture
       - name: Browser configuration limits reject oversized meshes before allocation
@@ -119,3 +123,55 @@ jobs:
           assert not extra, extra
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
+
+      - name: Rebuild replay and check preview provenance
+        run: |
+          mkdir -p ../../../web/public/research-wasm/shauer-2025
+          cargo run --locked --release --bin replay -- write /tmp/research-replay.bin
+          gzip -9 -n -c /tmp/research-replay.bin > ../../../web/public/research-wasm/shauer-2025/replay.srpl
+          python3 -I ../../tools/check_previews.py
+
+  timing-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      timing: ${{ steps.paths.outputs.timing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        id: paths
+        with:
+          token: ''
+          filters: |
+            timing:
+              - 'research/**/reference/**'
+              - 'research/**/src/**'
+              - 'research/**/Cargo.*'
+              - 'engine/**'
+              - '.github/workflows/research.yml'
+
+  reference-timing:
+    needs: timing-changes
+    if: github.event_name == 'workflow_dispatch' || needs.timing-changes.outputs.timing == 'true'
+    name: Reference Python and native Rust timing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Isolated Python environment
+        run: |
+          python3 -m venv /tmp/reference-timing-venv
+          /tmp/reference-timing-venv/bin/pip install numpy==2.1.3 scipy==1.14.1 matplotlib==3.9.2
+      - name: Measure all reference examples on this runner
+        run: /tmp/reference-timing-venv/bin/python research/fracture/shauer-2025/reference/time_reference.py --runner-label ubuntu-latest --output /tmp/timing/VALIDATION.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: research-reference-timing
+          path: /tmp/timing/VALIDATION.json
+          if-no-files-found: error

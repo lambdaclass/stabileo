@@ -91,3 +91,20 @@ it('records a synchronous Worker constructor failure before mesh creation', () =
   expect(sim.current?.error).toBe('Worker blocked');
   sim.dispose();
 });
+
+it('records solve and init time only on completion and ignores done after stop', () => {
+  vi.stubGlobal('Worker', FakeWorker);
+  const sim = new SimulationController();
+  sim.run(config);
+  const worker = FakeWorker.instances[0];
+  expect(sim.current?.seconds).toBeNull();
+  worker.send({ type: 'done', runId: 1, seconds: 0.9, initSeconds: 2 });
+  expect(sim.current?.seconds).toBe(0.9);
+  expect(sim.current?.initSeconds).toBe(2);
+  sim.run(config, true);
+  sim.stop();
+  worker.send({ type: 'done', runId: 2, seconds: 5 });
+  expect(sim.current?.status).toBe('stopped');
+  expect(sim.current?.seconds).toBeNull();
+  sim.dispose();
+});
