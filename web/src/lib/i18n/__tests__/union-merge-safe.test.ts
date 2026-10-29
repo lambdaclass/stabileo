@@ -8,11 +8,14 @@
  * fails here instead of a later duplicate silently winning.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIR = join(import.meta.dirname, '../locales');
-export const UNION_LOCALES = ['en.ts', 'es.ts', 'pt.ts', 'steel/en.ts', 'steel/es.ts', 'steel/pt.ts', 'steel/c301-en.ts', 'steel/c301-es.ts', 'steel/c301-pt.ts'];
+export const UNION_LOCALES = [
+  'en.ts', 'es.ts', 'pt.ts', 'de.ts', 'fr.ts', 'tr.ts',
+  ...readdirSync(join(DIR, 'steel')).filter((file) => file.endsWith('.ts')).map((file) => `steel/${file}`),
+].sort();
 
 const ENTRY = /^\s*(['"])([^'"]+)\1: (['"`]).*\3,\s*(\/\/.*)?$/;
 const OTHER = /^\s*$|^\s*\/\/|^\s*\/?\*|^const |^export |^};|^import |^\s*\.\.\./;
