@@ -125,3 +125,132 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
     assert_eq!(e.error_of(f64::INFINITY), f64::INFINITY);
     assert!(e.error_of(1.5) <= 0.5 + 1e-15);
 }
+
+fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
+    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
+    assert_eq!(bytes[0] % 20, 7);
+    serde_json::from_slice(&bytes[2..]).unwrap()
+}
+
+fn exact_pencil_positive(
+    k: &dedaliano_engine::linalg::sparse::CscMatrix,
+    n: &dedaliano_engine::linalg::sparse::CscMatrix,
+    lambda: f64,
+) -> bool {
+    use num_rational::BigRational;
+    use num_traits::{Zero, Signed};
+    let mut a = vec![vec![BigRational::zero(); k.n]; k.n];
+    for (m, scale) in [(k, BigRational::from_integer(1.into())), (n, -BigRational::from_float(lambda).unwrap())] {
+        for j in 0..m.n {
+            for p in m.col_ptr[j]..m.col_ptr[j + 1] {
+                let i = m.row_idx[p];
+                let v = BigRational::from_float(m.values[p]).unwrap() * &scale;
+                a[i][j] += &v;
+                if i != j { a[j][i] += v; }
+            }
+        }
+    }
+    for j in 0..k.n {
+        if !a[j][j].is_positive() { return false; }
+        for i in j + 1..k.n {
+            for h in i..k.n {
+                let correction = &a[i][j] * &a[h][j] / &a[j][j];
+                a[h][i] -= correction;
+                a[i][h] = a[h][i].clone();
+            }
+        }
+    }
+    true
+}
+
+#[test]
+fn buckling_741_certificate_contains_reported_and_reference_factors() {
+    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate};
+    use dedaliano_engine::solver::buckling::buckling_system_3d;
+    let input = buckling_741_input();
+    let out = certify_buckling_3d(&input, 3).unwrap();
+    let sys = buckling_system_3d(&input).unwrap();
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
+    let (mut lo, mut hi) = (4600.0, 4800.0);
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lo));
+    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, hi));
+    for _ in 0..24 {
+        let mid = (lo + hi) / 2.0;
+        if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, mid) { lo = mid; } else { hi = mid; }
+    }
+    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {:.12}; certificate: {:?}", out.results.modes[0].load_factor, out.certificate);
+    assert!(lo > 4688.9203 && hi < 4688.9204);
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
+    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
+    if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = out.certificate {
+        let upper = lambda_upper.unwrap();
+        assert!(lambda_lower <= hi && lo <= upper, "reference [{lo}, {hi}] outside [{lambda_lower}, {upper}]");
+        assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lambda_lower));
+        assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, upper));
+        assert!(lambda_lower <= lambda_computed && lambda_computed <= upper, "reported {lambda_computed} outside [{lambda_lower}, {upper}]");
+    } else if let BucklingCertificate::Uncertified { reason } = out.certificate {
+        assert!(reason.contains("exceeds certified upper bound"), "{reason}");
+    }
+}
+
+fn generated_buckling_enclosures(cases: u64) {
+    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate};
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand::rngs::StdRng::seed_from_u64(741);
+    let mut certified = [0; 2];
+    let mut refused = 0;
+    for seed in 0..cases {
+        let mut input = buckling_741_input();
+        for id in 1..=4 {
+            let node = input.nodes.get_mut(&id.to_string()).unwrap();
+            node.x *= rng.gen_range(0.8..1.2);
+            node.y *= rng.gen_range(0.8..1.2);
+            node.z *= rng.gen_range(0.8..1.2);
+        }
+        input.materials.get_mut("1").unwrap().e *= 10f64.powf(rng.gen_range(-2.0..2.0));
+        let mut value = serde_json::to_value(&input).unwrap();
+        value["loads"][0]["data"]["qYI"] = json!(-10f64.powf(rng.gen_range(0.0..10.0)));
+        let input = serde_json::from_value(value).unwrap();
+        let column = serde_json::from_value(json!({
+            "nodes": { "1": { "id": 1, "x": 0, "z": 0 }, "2": { "id": 2, "x": 0, "z": rng.gen_range(1.0..20.0) } },
+            "elements": { "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
+            "materials": { "1": { "id": 1, "e": 10f64.powf(rng.gen_range(3.0..7.0)), "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": rng.gen_range(0.001..0.1), "iz": 10f64.powf(rng.gen_range(-7.0..-3.0)) } },
+            "supports": { "1": { "id": 1, "nodeId": 1, "type": "fixed" } },
+            "loads": [{ "type": "nodal", "data": { "nodeId": 2, "fx": 0, "fz": -10f64.powf(rng.gen_range(-1.0..5.0)), "my": 0 } }]
+        })).unwrap();
+        let outputs = [
+            certify_buckling_2d(&column, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+            certify_buckling_3d(&input, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+        ];
+        for (dimension, output) in outputs.into_iter().enumerate() {
+            if let Ok((certificate, factor)) = output {
+                match certificate {
+                    BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } => {
+                        certified[dimension] += 1;
+                        assert_eq!(lambda_computed, factor);
+                        assert!(lambda_lower <= factor, "seed {seed}: {certificate:?}");
+                        if let Some(upper) = lambda_upper {
+                            assert!(factor <= upper, "seed {seed}: {certificate:?}");
+                        }
+                    }
+                    BucklingCertificate::Uncertified { .. } => refused += 1,
+                }
+            }
+        }
+    }
+    assert!(certified.iter().all(|&n| n > 0), "no certificates: {certified:?}");
+    assert!(refused > 0);
+    eprintln!("{cases} generated pairs: certified {certified:?}, refused {refused}");
+}
+
+#[test]
+fn generated_buckling_certificate_invariant() {
+    generated_buckling_enclosures(64);
+}
+
+#[test]
+#[ignore]
+fn generated_buckling_certificate_invariant_nightly() {
+    generated_buckling_enclosures(4096);
+}
