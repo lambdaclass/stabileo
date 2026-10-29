@@ -64,72 +64,6 @@ impl<'a> MatVecOp for DenseSymMatVec<'a> {
     fn dim(&self) -> usize { self.n }
 }
 
-/// Inverse operator: y = A^{-1} * x (for finding smallest eigenvalues of A).
-struct InverseOp {
-    l_factor: Vec<f64>,
-    n: usize,
-}
-
-impl InverseOp {
-    fn new(a: &[f64], n: usize) -> Option<Self> {
-        let mut l = a.to_vec();
-        if !cholesky_decompose(&mut l, n) { return None; }
-        Some(Self { l_factor: l, n })
-    }
-}
-
-impl MatVecOp for InverseOp {
-    fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
-        let z = forward_solve(&self.l_factor, x, self.n);
-        let result = back_solve(&self.l_factor, &z, self.n);
-        y[..self.n].copy_from_slice(&result);
-    }
-    fn dim(&self) -> usize { self.n }
-}
-
-/// Shift-invert operator: y = (A - σ*B)^{-1} * B * x
-/// Used for generalized eigenvalue A*x = λ*B*x near shift σ.
-struct ShiftInvertOp {
-    l_factor: Vec<f64>,
-    b: Vec<f64>,
-    n: usize,
-}
-
-impl ShiftInvertOp {
-    fn new(a: &[f64], b: &[f64], n: usize, sigma: f64) -> Option<Self> {
-        let mut shifted = vec![0.0; n * n];
-        for i in 0..n * n {
-            shifted[i] = a[i] - sigma * b[i];
-        }
-        if !cholesky_decompose(&mut shifted, n) { return None; }
-        Some(Self { l_factor: shifted, b: b.to_vec(), n })
-    }
-}
-
-impl MatVecOp for ShiftInvertOp {
-    fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
-        let n = self.n;
-        let mut tmp = vec![0.0; n];
-        for i in 0..n {
-            let mut s = 0.0;
-            for j in 0..n { s += self.b[i * n + j] * x[j]; }
-            tmp[i] = s;
-        }
-        let z = forward_solve(&self.l_factor, &tmp, n);
-        let result = back_solve(&self.l_factor, &z, n);
-        y[..n].copy_from_slice(&result);
-    }
-    fn dim(&self) -> usize { self.n }
-    fn b_mul(&self, x: &[f64], y: &mut [f64]) {
-        let n = self.n;
-        for i in 0..n {
-            let mut s = 0.0;
-            for j in 0..n { s += self.b[i * n + j] * x[j]; }
-            y[i] = s;
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Core Lanczos tridiagonalization with full reorthogonalization
 // ---------------------------------------------------------------------------
@@ -142,6 +76,7 @@ fn lanczos_tridiag(
     op: &dyn MatVecOp,
     q_start: &[f64],
     m: usize,
+    locked: &[(Vec<f64>, Vec<f64>)],
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>, usize, f64) {
     let n = op.dim();
     let mut alpha = vec![0.0; m];
@@ -155,9 +90,13 @@ fn lanczos_tridiag(
     let mut bq = vec![0.0; m * n];
     let mut scratch = vec![0.0; n];
 
+    let mut start = q_start.to_vec();
+    project_locked(&mut start, locked);
+    let q_start = &start;
     // q_0 = q_start / ‖q_start‖_B
     op.b_mul(q_start, &mut scratch);
     let nrm = dot(q_start, &scratch).sqrt();
+    if !nrm.is_finite() || nrm <= 0.0 { return (alpha,beta,q,0,f64::INFINITY); }
     for i in 0..n {
         q[i] = q_start[i] / nrm;
     }
@@ -172,6 +111,8 @@ fn lanczos_tridiag(
         steps = j + 1;
         // w = A * q_j
         op.mul_vec(&q[j * n..(j + 1) * n], &mut w);
+
+        project_locked(&mut w, locked);
 
         // alpha_j = ⟨q_j, w⟩_B = (B q_j)ᵀ w
         alpha[j] = dot(&bq[j * n..(j + 1) * n], &w);
@@ -206,7 +147,7 @@ fn lanczos_tridiag(
 
         if j + 1 < m {
             beta[j + 1] = beta_next;
-            if beta_next < 1e-14 {
+            if beta_next <= 32.0 * f64::EPSILON * alpha[j].abs() {
                 // Invariant subspace found — stop early
                 break;
             }
@@ -386,47 +327,59 @@ fn tridiag_eigen_vecs(alpha: &[f64], beta: &[f64], m: usize) -> (Vec<f64>, Vec<f
 // Implicitly Restarted Lanczos Method (IRLM)
 // ---------------------------------------------------------------------------
 
-/// Compute k eigenvalues of a symmetric operator using IRLM.
-/// When `largest` is true, extracts the k largest eigenvalues;
-/// otherwise extracts the k smallest.
-/// Falls back to None for small problems (caller should use Jacobi).
-fn lanczos_irlm(
+/// Twice project against the locked, metric-normalized eigendirections.
+fn project_locked(w: &mut [f64], locked: &[(Vec<f64>, Vec<f64>)]) {
+    for _ in 0..2 {
+        for (v, bv) in locked {
+            let c = dot(w, bv);
+            for (x, y) in w.iter_mut().zip(v) { *x -= c * y; }
+        }
+    }
+}
+
+#[cfg(test)]
+fn lanczos_irlm(op: &dyn MatVecOp, k: usize, largest: bool, params: &LanczosParams) -> Option<EigenResult> {
+    lanczos_deflated(op, k, largest, params, &[], 12345)
+}
+
+/// Converge Ritz pairs in the complement of the locked eigendirections.
+/// Completeness is checked separately by the Sturm count.
+fn lanczos_deflated(
     op: &dyn MatVecOp,
     k: usize,
     largest: bool,
     params: &LanczosParams,
+    locked: &[(Vec<f64>, Vec<f64>)],
+    mut seed: u64,
 ) -> Option<EigenResult> {
     let n = op.dim();
     if n == 0 || k == 0 { return None; }
     let k = k.min(n);
 
-    if n <= 80 || k >= n / 2 {
-        return None;
-    }
-
     let m = params.subspace_dim
         .unwrap_or_else(|| (4 * k).max(40).min(n));
-    let mut m = m.min(n);
-    if m <= k { return None; }
+    let mut m = m.min(n.saturating_sub(locked.len()));
+    if m == 0 { return None; }
 
     let mut q0 = vec![0.0; n];
-    let mut seed: u64 = 12345;
+
     for v in q0.iter_mut() {
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
         *v = (seed >> 33) as f64 / (1u64 << 31) as f64 - 0.5;
     }
+    let mut range_start = vec![0.0; n];
+    op.mul_vec(&q0, &mut range_start);
+    q0 = range_start;
     let nrm = dot(&q0, &q0).sqrt();
     for v in q0.iter_mut() { *v /= nrm; }
 
-    let mut best_values: Option<Vec<f64>> = None;
-    let mut best_vectors: Option<Vec<f64>> = None;
-
     for _restart in 0..params.max_iter {
-        let (alpha, beta, q_mat, steps, trailing_beta) = lanczos_tridiag(op, &q0, m);
+        let (alpha, beta, q_mat, steps, trailing_beta) = lanczos_tridiag(op, &q0, m, locked);
         let actual_m = steps.min(m);
+        if actual_m == 0 { return None; }
 
-        // A single-start invariant subspace need not contain every repeated eigendirection.
-        if actual_m < m { return None; }
+        // Early breakdown may be a proper invariant subspace. The caller
+        // checks completeness independently rather than rejecting it here.
 
         // Solve tridiagonal eigenproblem (sorted ascending)
         let (t_vals, t_vecs) = tridiag_eigen_vecs(&alpha[..actual_m], &beta[..actual_m], actual_m);
@@ -452,22 +405,19 @@ fn lanczos_irlm(
         // it was previously hardcoded to 0.0 for a full m-step run — the normal case —
         // which made every residual identically zero and every run "converged"
         // regardless of `tol`.
-        let beta_m = if actual_m < m { beta[actual_m.min(beta.len() - 1)] } else { trailing_beta };
+        let beta_m = trailing_beta;
         let mut all_converged = true;
         for (out_col, t_col) in (start..start + nk).enumerate() {
             let residual = (beta_m * t_vecs[(actual_m - 1) * actual_m + t_col]).abs();
             let theta = selected_vals[out_col].abs().max(1e-30);
-            if residual > params.tol * theta {
+            if !residual.is_finite() || residual > params.tol * theta {
                 all_converged = false;
                 break;
             }
         }
 
-        best_values = Some(selected_vals);
-        best_vectors = Some(ritz_vecs);
-
         if all_converged {
-            break;
+            return Some(EigenResult { values: selected_vals, vectors: ritz_vecs });
         }
 
         // Not converged: GROW the subspace rather than reseeding from the best Ritz
@@ -476,14 +426,11 @@ fn lanczos_irlm(
         // measured running thousands of restarts on a clustered spectrum without ever
         // converging. Growing m converges the same cases in one or two passes: the
         // Krylov space simply has to be large enough to separate the cluster.
-        if m >= n { break; }
-        m = (m * 2).min(n);
+        if m >= n - locked.len() { break; }
+        m = (m * 2).min(n - locked.len());
     }
 
-    let values = best_values?;
-    let vecs = best_vectors?;
-
-    Some(EigenResult { values, vectors: vecs })
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +439,7 @@ fn lanczos_irlm(
 
 /// Compute k smallest eigenvalues/vectors of symmetric SPD matrix A.
 /// Uses inverse-Lanczos (A^{-1} has largest eigenvalues where A has smallest).
-/// Falls back to Jacobi for small matrices (n <= 80) or when k >= n/2.
+/// Uses Jacobi for small matrices (n <= 200); otherwise verifies completeness with inertia.
 pub fn lanczos_eigen(
     a: &[f64],
     n: usize,
@@ -503,7 +450,7 @@ pub fn lanczos_eigen(
     let p = params.unwrap_or_default();
 
     // For small problems, use Jacobi directly
-    if n <= 80 || k >= n / 2 {
+    if n <= 200 {
         let full = jacobi_eigen(a, n, 200);
         let nk = k.min(n);
         let values = full.values[..nk].to_vec();
@@ -516,43 +463,12 @@ pub fn lanczos_eigen(
         return Some(EigenResult { values, vectors });
     }
 
-    // Use inverse operator so Lanczos converges to largest eigenvalues of A^{-1}
-    // = smallest eigenvalues of A
-    if let Some(inv_op) = InverseOp::new(a, n) {
-        if let Some(mut result) = lanczos_irlm(&inv_op, k, true, &p) {
-            // Back-transform: λ_A = 1/λ_{A^{-1}}
-            for val in result.values.iter_mut() {
-                if val.abs() > 1e-30 {
-                    *val = 1.0 / *val;
-                }
-            }
-            // Sort ascending by eigenvalue
-            let nk = result.values.len();
-            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
-                .enumerate().map(|(i, v)| (v, i)).collect();
-            pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
-            let mut sorted_vecs = vec![0.0; n * nk];
-            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
-                for row in 0..n {
-                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
-                }
-            }
-            return Some(EigenResult { values: sorted_vals, vectors: sorted_vecs });
-        }
-    }
+    let ids: Vec<_> = (0..n).collect();
+    let identity = CscMatrix::from_triplets(n, &ids, &ids, &vec![1.0;n]);
+    let matrix = CscMatrix::from_dense_symmetric(a,n);
+    let op = SparseShiftInvertOp::new(&matrix,&identity)?;
+    sturm_complete_with_params(&op,&matrix,&identity,k,&p)
 
-    // Fallback to Jacobi
-    let full = jacobi_eigen(a, n, 200);
-    let nk = k.min(n);
-    let values = full.values[..nk].to_vec();
-    let mut vectors = vec![0.0; n * nk];
-    for col in 0..nk {
-        for row in 0..n {
-            vectors[row * nk + col] = full.vectors[row * n + col];
-        }
-    }
-    Some(EigenResult { values, vectors })
 }
 
 /// Dense `A·x = λ·B·x` for a stiffness `A` and a mass `B` that may be only
@@ -573,9 +489,34 @@ pub fn lanczos_eigen(
 /// added to the model (an artificial mass would invent modes at a frequency
 /// set by its arbitrary size).
 pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usize) -> Option<EigenResult> {
-    if let Some(r) = solve_generalized_eigen(a, b, n, 200) {
-        return Some(r);
+    let massive: Vec<_> = (0..n).filter(|&i| (0..n).any(|j| b[i*n+j] != 0.0)).collect();
+    let massless: Vec<_> = (0..n).filter(|i| !massive.contains(i)).collect();
+    if !massless.is_empty() {
+        let nm = massive.len(); let ns = massless.len();
+        if nm == 0 { return None; }
+        let mut l = vec![0.0;ns*ns];
+        for (i,&ri) in massless.iter().enumerate() { for (j,&rj) in massless.iter().enumerate() { l[i*ns+j] = a[ri*n+rj]; } }
+        if !cholesky_decompose(&mut l,ns) { return None; }
+        let mut recovery = vec![0.0;ns*nm];
+        for (j,&rj) in massive.iter().enumerate() {
+            let rhs: Vec<_> = massless.iter().map(|&ri| -a[ri*n+rj]).collect();
+            let x = back_solve(&l,&forward_solve(&l,&rhs,ns),ns);
+            for i in 0..ns { recovery[i*nm+j] = x[i]; }
+        }
+        let mut ac = vec![0.0;nm*nm]; let mut bc = vec![0.0;nm*nm];
+        for (i,&ri) in massive.iter().enumerate() { for (j,&rj) in massive.iter().enumerate() {
+            ac[i*nm+j] = a[ri*n+rj] + massless.iter().enumerate().map(|(s,&rs)| a[ri*n+rs]*recovery[s*nm+j]).sum::<f64>();
+            bc[i*nm+j] = b[ri*n+rj];
+        }}
+        let r = solve_generalized_eigen(&ac,&bc,nm,200)?;
+        let mut vectors = vec![0.0;n*n];
+        for col in 0..nm {
+            for (i,&ri) in massive.iter().enumerate() { vectors[ri*n+col] = r.vectors[i*nm+col]; }
+            for (i,&ri) in massless.iter().enumerate() { vectors[ri*n+col] = (0..nm).map(|j| recovery[i*nm+j]*r.vectors[j*nm+col]).sum(); }
+        }
+        return Some(EigenResult { values: r.values, vectors });
     }
+    if let Some(r) = solve_generalized_eigen(a, b, n, 200) { return Some(r); }
     let recip = solve_generalized_eigen(b, a, n, 200)?;
     let mu_max = recip.values.iter().cloned().fold(0.0f64, f64::max);
     if !(mu_max > 0.0) {
@@ -599,7 +540,8 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
 }
 
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x.
-/// Uses shift-invert Lanczos near sigma, or falls back to dense solve.
+/// Finds the lowest modes with zero-shift inversion and a Sturm completeness check.
+/// The shift argument is retained for compatibility; K must be positive definite.
 pub fn lanczos_generalized_eigen(
     a: &[f64],
     b: &[f64],
@@ -610,7 +552,7 @@ pub fn lanczos_generalized_eigen(
     let k = k.min(n);
 
     // For small problems, use dense path directly
-    if n <= 80 || k >= n / 2 {
+    if n <= 80 || (n <= 200 && k >= n / 2) {
         let full = dense_generalized_eigen_semidefinite(a, b, n)?;
         let nk = k.min(full.values.len());
         let values = full.values[..nk].to_vec();
@@ -623,53 +565,8 @@ pub fn lanczos_generalized_eigen(
         return Some(EigenResult { values, vectors });
     }
 
-    // Build shift-invert operator. Cholesky of (A − σB) fails when the shift
-    // moves past the smallest eigenvalue (A − σB indefinite); fall through to
-    // the dense path in that case, as documented, instead of returning None.
-    if let Some(si_op) = ShiftInvertOp::new(a, b, n, sigma) {
-        let params = LanczosParams {
-            max_iter: 300,
-            tol: 1e-10,
-            subspace_dim: Some((4 * k).max(40).min(n)),
-        };
+    lanczos_generalized_eigen_sparse(&CscMatrix::from_dense_symmetric(a,n), &CscMatrix::from_dense_symmetric(b,n), k, sigma)
 
-        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
-            // Back-transform: λ = 1/θ + σ
-            for val in result.values.iter_mut() {
-                if val.abs() > 1e-30 {
-                    *val = 1.0 / *val + sigma;
-                } else {
-                    *val = f64::INFINITY;
-                }
-            }
-            // Sort by ascending eigenvalue
-            let nk = result.values.len();
-            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied().enumerate().map(|(i, v)| (v, i)).collect();
-            pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
-            let mut sorted_vecs = vec![0.0; n * nk];
-            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
-                for row in 0..n {
-                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
-                }
-            }
-            result.values = sorted_vals;
-            result.vectors = sorted_vecs;
-            return Some(result);
-        }
-    }
-
-    // Fallback to dense
-    let full = dense_generalized_eigen_semidefinite(a, b, n)?;
-    let nk = k.min(full.values.len());
-    let values = full.values[..nk].to_vec();
-    let mut vectors = vec![0.0; n * nk];
-    for col in 0..nk {
-        for row in 0..n {
-            vectors[row * nk + col] = full.vectors[row * n + col];
-        }
-    }
-    Some(EigenResult { values, vectors })
 }
 
 // ---------------------------------------------------------------------------
@@ -762,7 +659,9 @@ impl<'a> MatVecOp for SparseShiftInvertOp<'a> {
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x
 /// where A and B are sparse (CscMatrix, symmetric lower triangle).
 /// Uses sparse shift-invert Lanczos with σ=0 (K⁻¹ M x).
-/// Falls back to dense for small problems, non-zero sigma, or on failure.
+/// Uses dense Jacobi for small matrices (up to 200 when requesting half the
+/// spectrum or when K is not invertible). Large sparse failures return None,
+/// with no dimension cap and no dense fallback.
 pub fn lanczos_generalized_eigen_sparse(
     k_ff: &CscMatrix,
     m_ff: &CscMatrix,
@@ -773,69 +672,120 @@ pub fn lanczos_generalized_eigen_sparse(
     assert_eq!(m_ff.n, n, "K and M must have the same dimension");
     let k = k.min(n);
 
-    // For small problems or large fraction of eigenvalues, use dense path
-    if n <= 80 || k >= n / 2 {
-        let k_dense = k_ff.to_dense_symmetric();
-        let m_dense = m_ff.to_dense_symmetric();
-        return dense_generalized_eigen_semidefinite(&k_dense, &m_dense, n).map(|full| {
-            let nk = k.min(full.values.len());
-            let values = full.values[..nk].to_vec();
-            let mut vectors = vec![0.0; n * nk];
-            for col in 0..nk {
-                for row in 0..n {
-                    vectors[row * nk + col] = full.vectors[row * n + col];
-                }
-            }
-            EigenResult { values, vectors }
-        });
+    if n <= 80 || (n <= 200 && k >= n / 2) {
+        return lanczos_generalized_eigen(&k_ff.to_dense_symmetric(), &m_ff.to_dense_symmetric(), n, k, sigma);
     }
-
-    // Non-zero sigma: fall back to dense Lanczos (requires building K - σM)
-    if sigma.abs() > 1e-30 {
-        let k_dense = k_ff.to_dense_symmetric();
-        let m_dense = m_ff.to_dense_symmetric();
-        return lanczos_generalized_eigen(&k_dense, &m_dense, n, k, sigma);
+    // K is SPD: zero-shift inversion always targets the lowest finite modes.
+    if let Some(op) = SparseShiftInvertOp::new(k_ff, m_ff) {
+        return sturm_complete(&op, k_ff, m_ff, k);
     }
+    // Small non-SPD stiffness problems include the mechanism-detection path.
+    // Jacobi can resolve their zero/negative modes; inverse iteration cannot.
+    if n <= 200 {
+        let full = dense_generalized_eigen_semidefinite(&k_ff.to_dense_symmetric(), &m_ff.to_dense_symmetric(), n)?;
+        let nk = k.min(full.values.len());
+        let mut vectors = vec![0.0;n*nk];
+        for row in 0..n { for col in 0..nk { vectors[row*nk+col] = full.vectors[row*n+col]; } }
+        return Some(EigenResult { values: full.values[..nk].to_vec(), vectors });
+    }
+    None
+}
 
-    // Build sparse shift-invert operator: y = K⁻¹ M x
-    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, m_ff) {
-        let params = LanczosParams {
-            max_iter: 300,
-            tol: 1e-10,
-            subspace_dim: Some((4 * k).max(40).min(n)),
-        };
+/// Lock converged independent directions and use Sylvester inertia to certify
+/// that no eigenvalue below the requested boundary was skipped. Complete the
+/// boundary cluster internally even when only part of it was requested.
+fn sturm_complete(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize) -> Option<EigenResult> {
+    sturm_complete_with_params(op,a,b,k,&LanczosParams::default())
+}
 
-        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
-            // Back-transform: λ = 1/θ (σ=0)
-            for val in result.values.iter_mut() {
-                if val.abs() > 1e-30 {
-                    *val = 1.0 / *val;
-                } else {
-                    *val = f64::INFINITY;
-                }
+fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> Option<EigenResult> {
+    let n = a.n;
+    if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
+    // Infinity norms for a scale-independent backward-error check, including
+    // near-zero modes whose Kφ is dominated by cancellation.
+    let matrix_norm = |matrix: &CscMatrix| {
+        let mut sums = vec![0.0; n];
+        for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+            let i = matrix.row_idx[p];
+            sums[i] += matrix.values[p].abs();
+            if i != j { sums[j] += matrix.values[p].abs(); }
+        }}
+        sums.into_iter().fold(0.0f64, f64::max)
+    };
+    let a_norm = matrix_norm(a);
+    let b_norm = matrix_norm(b);
+    let mut locked = Vec::new();
+    let mut values = Vec::new();
+    let mut seed = 12345u64;
+    for _ in 0..params.max_iter {
+        let r = lanczos_deflated(op, k.min(n-locked.len()), true, params, &locked, seed)?;
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let nk = r.values.len();
+        for col in (0..nk).rev() {
+            let mu = r.values[col];
+            if !mu.is_finite() || mu <= 0.0 { continue; }
+            let mut v: Vec<_> = (0..n).map(|i| r.vectors[i*nk+col]).collect();
+            project_locked(&mut v, &locked);
+            let mut bv = vec![0.0;n]; op.b_mul(&v,&mut bv);
+            let norm = dot(&v,&bv).sqrt();
+            if !norm.is_finite() || norm < 1e-8 { continue; }
+            for x in &mut v { *x /= norm; }
+            for x in &mut bv { *x /= norm; }
+            // Validate the original operator after projection, not just its Ritz estimate.
+            let mut av = vec![0.0;n]; op.mul_vec(&v,&mut av);
+            for i in 0..n { av[i] -= mu*v[i]; }
+            let mut bav = vec![0.0;n]; op.b_mul(&av,&mut bav);
+            let residual2 = dot(&av,&bav);
+            if !residual2.is_finite() || residual2.max(0.0).sqrt() > 1e-8*mu.abs() { continue; }
+            // Also check the original pencil: a semidefinite mass norm alone
+            // cannot detect an erroneous displacement in a massless direction.
+            let kv = a.sym_mat_vec(&v);
+            let mv = b.sym_mat_vec(&v);
+            let mut residual = 0.0f64;
+            let v_norm = v.iter().fold(0.0f64, |m,x| m.max(x.abs()));
+            let scale = (mu.abs()*a_norm+b_norm)*v_norm;
+            for i in 0..n {
+                let left = mu * kv[i];
+                if !left.is_finite() || !mv[i].is_finite() { return None; }
+                residual = residual.max((left-mv[i]).abs());
             }
-            // Sort ascending
-            let nk = result.values.len();
-            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
-                .enumerate().map(|(i, v)| (v, i)).collect();
-            pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
-            let mut sorted_vecs = vec![0.0; n * nk];
-            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
-                for row in 0..n {
-                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
-                }
-            }
-            result.values = sorted_vals;
-            result.vectors = sorted_vecs;
-            return Some(result);
+            if !scale.is_finite() || residual > 1e-10 * scale { continue; }
+            locked.push((v,bv)); values.push(1.0/mu);
         }
+        if values.len() < k { continue; }
+        let mut order: Vec<_> = (0..values.len()).collect();
+        order.sort_by(|&i,&j| values[i].total_cmp(&values[j]));
+        let boundary = values[order[k-1]];
+        let mut certified = false;
+        for margin in [1e-7, 3e-7, 1e-6] {
+            let sigma = boundary * (1.0+margin);
+            let mut rows = Vec::with_capacity(a.values.len()+b.values.len());
+            let mut cols = Vec::with_capacity(rows.capacity());
+            let mut vals = Vec::with_capacity(rows.capacity());
+            for (matrix, scale) in [(a,1.0),(b,-sigma)] {
+                for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+                    rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale*matrix.values[p]);
+                }}
+            }
+            let shifted = CscMatrix::from_triplets(n,&rows,&cols,&vals);
+            let sym = symbolic_cholesky(&shifted);
+            if let Some(count) = super::sparse_chol::sparse_negative_inertia(&sym,&shifted) {
+                let found = values.iter().filter(|&&v| v < sigma).count();
+                if count < found { return None; }
+                certified = count == found;
+                break;
+            }
+        }
+        if certified {
+            let mut vectors = vec![0.0;n*k];
+            for (col,&index) in order[..k].iter().enumerate() {
+                for row in 0..n { vectors[row*k+col] = locked[index].0[row]; }
+            }
+            return Some(EigenResult { values: order[..k].iter().map(|&i| values[i]).collect(), vectors });
+        }
+        if locked.len() == n { return None; }
     }
-
-    // Fallback to dense
-    let k_dense = k_ff.to_dense_symmetric();
-    let m_dense = m_ff.to_dense_symmetric();
-    lanczos_generalized_eigen(&k_dense, &m_dense, n, k, sigma)
+    None
 }
 
 /// Solve buckling eigenproblem (-Kg)*φ = μ*K*φ where K is sparse SPD
@@ -857,48 +807,16 @@ pub fn lanczos_buckling_eigen_sparse(
     // solve_generalized_eigen(A, B) solves A*x = λ*B*x by Cholesky-decomposing B.
     // Here B = K (SPD) which is safe.
     // Return ALL eigenvalues — caller filters for positive μ.
-    if n <= 200 || k >= n / 2 {
+    if n <= 200 {
         let k_dense = k_ff.to_dense_symmetric();
         let neg_kg_dense = neg_kg.to_dense_symmetric();
         return solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200);
     }
 
-    // Large n: sparse shift-invert Lanczos.
-    // Operator: K⁻¹·(-Kg)·x — largest eigenvalues are the largest μ.
-    //
-    // K, not −Kg, as the inner product: −Kg is indefinite whenever the model
-    // carries tension and compression together. See `new_k_inner_product`.
-    if let Some(si_op) = SparseShiftInvertOp::new_k_inner_product(k_ff, neg_kg) {
-        let params = LanczosParams {
-            max_iter: 300,
-            tol: 1e-10,
-            subspace_dim: Some((4 * k).max(40).min(n)),
-        };
-
-        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
-            // No back-transform needed: θ = μ directly (eigenvalues of K⁻¹(-Kg)).
-            // Sort descending by μ (largest μ = smallest λ = most critical buckling mode).
-            let nk = result.values.len();
-            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
-                .enumerate().map(|(i, v)| (v, i)).collect();
-            pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap()); // descending
-            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
-            let mut sorted_vecs = vec![0.0; n * nk];
-            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
-                for row in 0..n {
-                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
-                }
-            }
-            result.values = sorted_vals;
-            result.vectors = sorted_vecs;
-            return Some(result);
-        }
-    }
-
-    // Fallback to dense Jacobi — return ALL eigenvalues so caller can find positive μ
-    let k_dense = k_ff.to_dense_symmetric();
-    let neg_kg_dense = neg_kg.to_dense_symmetric();
-    solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200)
+    let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg)?;
+    let mut result = sturm_complete(&op,k_ff,neg_kg,k)?;
+    for value in &mut result.values { *value = 1.0 / *value; }
+    Some(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -1463,6 +1381,47 @@ mod tests {
                 };
                 assert!((sum - expected).abs() < 1e-8,
                     "T_recon[{},{}] = {}, expected {}", i, j, sum, expected);
+            }
+        }
+    }
+}
+
+pub fn eigen_failure_message(n: usize) -> String {
+    format!("Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for {n} free DOFs (factorization failure or iteration limit). Check supports and releases for mechanisms, stiffness/mass conditioning, or request fewer modes; no incomplete modes were returned.")
+}
+
+#[cfg(test)]
+mod completeness_tests {
+    use super::*;
+    #[test]
+    fn incomplete_cluster_refuses_at_restart_limit() {
+        let n = 120;
+        let ids: Vec<_> = (0..n).collect();
+        let k = CscMatrix::from_triplets(n,&ids,&ids,&(0..n).map(|i| (i/3+1) as f64).collect::<Vec<_>>());
+        let m = CscMatrix::from_triplets(n,&ids,&ids,&vec![1.0;n]);
+        let op = SparseShiftInvertOp::new(&k,&m).unwrap();
+        let params = LanczosParams { max_iter: 1, subspace_dim: Some(n), ..Default::default() };
+        assert!(sturm_complete_with_params(&op,&k,&m,2,&params).is_none());
+        let r = sturm_complete(&op,&k,&m,2).unwrap();
+        assert!(r.values.iter().all(|v| (v-1.0).abs() < 1e-10));
+        assert!(eigen_failure_message(n).contains("no incomplete modes"));
+    }
+    #[test]
+    fn massless_condensation_keeps_high_modes_and_recovers_coordinates() {
+        let a = [1e-10,0.,0.,0., 0.,1e4,0.,0., 0.,0.,1e4,0., 0.,0.,0.,2.];
+        let b = [1.,0.,0.,0., 0.,1.,0.,0., 0.,0.,1.,0., 0.,0.,0.,0.];
+        let r = dense_generalized_eigen_semidefinite(&a,&b,4).unwrap();
+        assert_eq!(r.values,vec![1e-10,1e4,1e4]);
+        let a = [2.,-1.,0., -1.,2.,-1., 0.,-1.,3.];
+        let b = [1.,0.,0., 0.,0.,0., 0.,0.,2.];
+        let r = dense_generalized_eigen_semidefinite(&a,&b,3).unwrap();
+        assert_eq!(r.values.len(),2);
+        for col in 0..2 {
+            let v: Vec<_> = (0..3).map(|i| r.vectors[i*3+col]).collect();
+            assert!((v[0]*v[0]+2.*v[2]*v[2]-1.).abs() < 1e-12);
+            for i in 0..3 {
+                let residual: f64 = (0..3).map(|j| (a[i*3+j]-r.values[col]*b[i*3+j])*v[j]).sum();
+                assert!(residual.abs() < 1e-12);
             }
         }
     }

@@ -221,3 +221,43 @@ fn entire_repeated_cluster_is_certified_complete() {
     let count = check(&input, &HashMap::from([("1".into(), 7850.0)]), 12);
     assert_eq!(count, 12);
 }
+
+#[test]
+fn full_search_space_does_not_prove_repeated_mode_completeness() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse};
+    for distinct in [40, 60] {
+        let n = distinct * 3;
+        let indices: Vec<_> = (0..n).collect();
+        let stiffness: Vec<_> = (0..n).map(|i| 1.0 / (i / 3 + 1) as f64).collect();
+        let k = CscMatrix::from_triplets(n, &indices, &indices, &stiffness);
+        let m = CscMatrix::from_triplets(n, &indices, &indices, &vec![1.0; n]);
+        let result = lanczos_generalized_eigen_sparse(&k, &m, 2, 0.0).unwrap();
+        assert_eq!(result.values.len(), 2);
+        for value in &result.values {
+            assert!((value - 1.0 / distinct as f64).abs() < 1e-12);
+        }
+        for i in 0..2 {
+            for j in 0..2 {
+                let gram: f64 = (0..n).map(|r| result.vectors[r * 2 + i] * result.vectors[r * 2 + j]).sum();
+                assert!((gram - if i == j { 1.0 } else { 0.0 }).abs() < 1e-10);
+            }
+        }
+    }
+}
+
+#[test]
+fn twenty_thousand_dofs_remain_sparse_and_complete() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse};
+    let n = 20_000;
+    let ids: Vec<_> = (0..n).collect();
+    let values: Vec<_> = (0..n).map(|i| (i / 3 + 1) as f64).collect();
+    let k = CscMatrix::from_triplets(n,&ids,&ids,&values);
+    let m = CscMatrix::from_triplets(n,&ids,&ids,&vec![1.0;n]);
+    for shift in [0.0,0.5] {
+        let result = lanczos_generalized_eigen_sparse(&k,&m,2,shift).unwrap();
+        assert_eq!(result.values.len(),2);
+        for v in result.values { assert!((v-1.0).abs() < 1e-9); }
+        let gram: f64 = (0..n).map(|i| result.vectors[i*2]*result.vectors[i*2+1]).sum();
+        assert!(gram.abs() < 1e-10);
+    }
+}
