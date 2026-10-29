@@ -198,7 +198,8 @@ fn generated_buckling_enclosures(cases: u64) {
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::StdRng::seed_from_u64(741);
     let mut certified = [0; 2];
-    let mut refused = 0;
+    let mut refused = [0; 2];
+    let mut errors = [std::collections::BTreeMap::new(), std::collections::BTreeMap::new()];
     for seed in 0..cases {
         let mut input = buckling_741_input();
         for id in 1..=4 {
@@ -224,8 +225,8 @@ fn generated_buckling_enclosures(cases: u64) {
             certify_buckling_3d(&input, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
         ];
         for (dimension, output) in outputs.into_iter().enumerate() {
-            if let Ok((certificate, factor)) = output {
-                match certificate {
+            match output {
+                Ok((certificate, factor)) => match certificate {
                     BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } => {
                         certified[dimension] += 1;
                         assert_eq!(lambda_computed, factor);
@@ -234,14 +235,25 @@ fn generated_buckling_enclosures(cases: u64) {
                             assert!(factor <= upper, "seed {seed}: {certificate:?}");
                         }
                     }
-                    BucklingCertificate::Uncertified { .. } => refused += 1,
-                }
+                    BucklingCertificate::Uncertified { .. } => refused[dimension] += 1,
+                },
+                Err(reason) => *errors[dimension].entry(reason).or_insert(0u64) += 1,
             }
         }
     }
-    assert!(certified.iter().all(|&n| n > 0), "no certificates: {certified:?}");
-    assert!(refused > 0);
-    eprintln!("{cases} generated pairs: certified {certified:?}, refused {refused}");
+    for dimension in 0..2 {
+        let reached_checker = certified[dimension] + refused[dimension];
+        let solver_errors: u64 = errors[dimension].values().sum();
+        eprintln!(
+            "{}D: {cases} generated, {reached_checker} reached certification, {} certified, {} refused, {solver_errors} solver errors: {:#?}",
+            dimension + 2, certified[dimension], refused[dimension], errors[dimension]
+        );
+        assert_eq!(reached_checker + solver_errors, cases);
+    }
+    assert_eq!(certified[0], cases, "every generated 2D column must certify");
+    assert!(certified[1] > 0, "no generated 3D certificates");
+    assert!(certified[1] + refused[1] >= cases / 8, "too few 3D cases reached certification");
+    assert!(refused[1] > 0, "no generated 3D refusals");
 }
 
 #[test]

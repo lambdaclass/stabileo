@@ -38,9 +38,9 @@ The regression records the original two option bytes and minimized JSON, verifie
 the enclosure against exact arithmetic, and checks reported-factor containment (or
 the explicit refusal). Deterministically generated 2D and 3D models exercise the
 invariant in 64 pairs normally and 4096 pairs in the ignored extended test.
-
-**BU-BOUND is unchanged. Remove that containment entry when this fix and the
-containment branch have both landed.**
+Both runs report solver errors by dimension and reason, require every generated
+2D column to certify, and require at least one eighth of the generated 3D cases
+to reach certification, including both certified and refused outcomes.
 
 ## Regression evidence and validation
 
@@ -63,6 +63,10 @@ The affected library/certificates/robustness targets passed (572/149/231 tests;
 The strengthened buckling unit tests then passed all 4 tests. The final generated
 runs passed at 64 and 4096 pairs, including the ignored extended test; the latter
 produced 4096 certified 2D cases, 430 certified 3D cases and 381 uncertified results.
+The remaining 3285 3D cases returned “No compressed elements — buckling not
+applicable”; no 2D cases returned solver errors. The 64-pair run produced
+64 certified 2D cases, 7 certified and 5 uncertified 3D cases, and 52 3D cases
+with the same solver error.
 The final exact-arithmetic regression passed separately.
 
 Release validation passed all 4763 tests. `make wasm` succeeded;
