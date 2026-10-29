@@ -432,7 +432,30 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
    | Pastrana et al. 2026, form-finding | new research | ~15% | first version | 0 | building |
    | Fairclough et al. 2026, gridshell layout | new research | ~5% | first version | 0 | building |
 
-   "Implemented" estimates how much of the paper's examples and results are reproduced (a judgement,
+   **Still to fix in the paper implementations** (first versions shipped before review; each gets its
+reviews and follow-up PRs, and later rounds add the missing parts):
+- **Every first version:** act on its Codex + Kimi/Grok review findings; run its browser and phone/tablet
+  checks on the live page; record each review in `research/papers.yaml`.
+- **Topology optimisation (88 lines):** the paper's extensions (other loads and supports, passive
+  elements, multiple load cases, Heaviside filter); clear the licence of `top88.m` (reference only now).
+- **Pastrana 2026:** the paper's main contribution (differentiable form-finding with adjoints and
+  optimisation), shells, the published optimised results; the editor export without cable prestress.
+- **Ferrari & Sigmund 2025:** the Koiter coefficients α and β are not reproduced (questions to the
+  authors); then the optimisation of the post-buckling response.
+- **Snapping arches (Biggins 2026):** intrinsic curvature, continuation from the formed state, the
+  authors' data.
+- **Fairclough 2026:** verify the first version; larger examples and the full layout method.
+- **Mattiasson elastica:** the tip-moment case (full circle) and the frame problems.
+- **Riks / Crisfield:** the shallow toggle stops before its analytical limit (triage: setup or solver);
+  more of the papers' examples; the shared case file must move under `engine/tests/benchmarks/`.
+- **MacNeal–Harder:** the remaining problems (curved and twisted beams, plates, shells, thick
+  cylinder); verify the numerical table against the paper; the MITC4 failures (#798).
+- **Shell obstacle course:** the Scordelis–Lo and pinched-cylinder failures (#810, under triage).
+- **Phase-field fracture:** the published figures need the article's supplementary data; record the
+  preprint reproduction on the page.
+- **Spring networks:** the strip-simulation protocol and the three questions to the authors.
+
+"Implemented" estimates how much of the paper's examples and results are reproduced (a judgement,
    updated each round). The review counts are maintained in `research/papers.yaml` (`reviews:`), which
    the gallery shows.
 8. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
