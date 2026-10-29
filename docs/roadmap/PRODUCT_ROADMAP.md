@@ -138,6 +138,8 @@ them.
 | 2D plastic collapse factor not invariant (up to 4.6×) | #758 | two approaches failed; needs a redesign of mechanism detection; refused until then |
 | MITC4 in-plane bending on distorted meshes (−92%) | #798 | found by the MacNeal–Harder page; contained by refusal |
 | MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | #810 | found by the shell obstacle course; under triage |
+| Mattiasson elastica: end shortening 2.5–8.8% off at loads 2 and 5, no convergence at load 10 | #845 | found by the research benchmarks as engine tests (PR #843); first checking the reference against the exact elliptic-integral solution, then fixing (branch fix/845-elastica) |
+| Shallow toggle: arc-length peak 48.75 vs 95.99, limit point not reached | #846 | found by PR #843; checking whether the reference matches the model (truss vs frame), then fixing (branch fix/846-shallow-toggle) |
 | Already fixed on main, closed with evidence | #442, #443, #444, #445 | closed |
 
 Reviews: Codex plus Kimi; while Kimi is out of quota, Grok (then an adversarial Codex review) is the
