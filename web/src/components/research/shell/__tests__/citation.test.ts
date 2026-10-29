@@ -63,24 +63,25 @@ const older = {
 };
 
 function selected(entry: SnapshotEntry | null) {
-  const build = citationBuild(pickSnapshot(entry ? [entry] : [], page, current.commit, null), input.id, current);
+  const build = citationBuild(pickSnapshot(entry ? [entry] : [], page, current.commit, null, current.version.version), input.id, current);
   const c = { ...input, ...build, version: build.version?.version ?? null, year: build.date.slice(0, 4),
     permanent: !!build.link, url: build.link ? permalinkUrl(build.link.snapshot, page, 'en', 'https://stabileo.com') : `https://stabileo.com${page}/` };
   return { build, text: citation(c, 'text'), bibtex: citation(c, 'bibtex') };
 }
 
-it('cites the older snapshot completely when the current experiment has advanced from v1 to v2', () => {
-  const { build, text, bibtex } = selected(older);
-  expect(build).toMatchObject({ version: older.experimentVersions['shauer-2025'], commit: older.commit,
+it('cites a snapshot completely when its experiment version matches', () => {
+  const matching = { ...older, experimentVersions: { 'shauer-2025': { ...current.version } } };
+  const { build, text, bibtex } = selected(matching);
+  expect(build).toMatchObject({ version: current.version, commit: older.commit,
     engineWasmSha256: 'older-engine', experimentWasmSha256: 'older-experiment', date: older.date });
   for (const output of [text, bibtex]) {
-    expect(output).toContain('version 1');
+    expect(output).toContain('version 2');
     expect(output).toContain(older.commit);
     expect(output).toContain('older-engine');
     expect(output).toContain('older-experiment');
     expect(output).toContain('/@aaaaaaa/en/research/fracture/shauer-2025/');
     expect(output).not.toContain('current-');
-    expect(output).not.toContain('version 2');
+    expect(output).not.toContain('version 1');
     expect(output).not.toContain('No permanent link');
   }
   expect(text).toContain('Stabileo Research (2025)');
@@ -88,6 +89,7 @@ it('cites the older snapshot completely when the current experiment has advanced
 
 it.each([
   null,
+  older,
   { ...older, experimentVersions: undefined },
   { ...older, experimentVersions: {} },
   { ...older, engineWasmSha256: undefined },
@@ -107,9 +109,9 @@ it.each([
   }
 });
 
-it('uses current build metadata for its own permanent link, including legacy index entries', () => {
+it('does not cite legacy index entries without version evidence', () => {
   const { build, text } = selected({ ...older, commit: current.commit, short: 'bbbbbbb', url: '/@bbbbbbb/', experimentVersions: undefined });
-  expect(build).toMatchObject({ ...current, link: { current: true } });
-  expect(text).toContain('/@bbbbbbb/');
-  expect(text).not.toContain('No permanent link');
+  expect(build).toMatchObject({ ...current, link: null });
+  expect(text).not.toContain('/@bbbbbbb/');
+  expect(text).toContain('No permanent link');
 });

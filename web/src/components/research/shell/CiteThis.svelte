@@ -41,7 +41,7 @@
   /** undefined while the index loads; null when no snapshot holds the page yet. */
   let link = $state<Permalink | null | undefined>(undefined);
   onMount(() => {
-    void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path)));
+    void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path, BUILD_COMMIT, THIS_SNAPSHOT, version?.version)));
   });
 
   const build = $derived(citationBuild(link, paperId, {

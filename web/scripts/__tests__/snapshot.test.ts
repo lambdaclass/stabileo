@@ -63,6 +63,21 @@ it('snapshot storage operations leave production keys untouched', () => {
   expect(runtime().context.localStorage.length).toBe(0);
 });
 
+it('both Web Storage namespaces persist only for their full commit', () => {
+  for (const name of ['localStorage', 'sessionStorage']) {
+    const backing = backingStorage();
+    backing.setItem('token', 'live');
+    const first = runtime(backing).context[name] as Storage;
+    first.setItem('token', 'snapshot');
+    expect(runtime(backing).context[name].getItem('token')).toBe('snapshot');
+    const other = runtime(backing, { ...snapshot, commit: snapshot.commit + '1' }).context[name] as Storage;
+    expect(other.getItem('token')).toBeNull();
+    other.clear();
+    expect(first.getItem('token')).toBe('snapshot');
+    expect(backing.getItem('token')).toBe('live');
+  }
+});
+
 it('rewrites routing location but preserves the actual address for exported URLs', async () => {
   const root = resolve('.');
   const transform = snapshotPlugin(snapshot, root)[0].transform as Function;
@@ -83,21 +98,6 @@ it('snapshot failures and cancellation fail CI OK', () => {
   expect(() => execFileSync('bash', ['-c', script], { env: { ...process.env, RESULTS: 'success skipped' } })).not.toThrow();
 });
 
-it('deploy snapshots include shared viewer and build dependencies', () => {
-  const deploy = readFileSync('../.github/workflows/deploy.yml', 'utf8');
-  const paths = new RegExp(deploy.match(/paths='([^']+)'/)![1]);
-  for (const path of [
-    'research/fracture/shauer-2025/src/lib.rs', 'engine/src/lib.rs',
-    'web/src/lib/viewport3d/scene-setup.ts', 'web/src/lib/viewport3d/axis-gizmo.ts',
-    'web/src/lib/three/shell-colors.ts', 'web/src/lib/canvas/draw-loads.ts',
-    'web/src/lib/geometry/coordinate-system.ts', 'web/src/lib/store/ui.svelte.ts',
-    'web/src/components/viewport/ScalarField.svelte', 'web/src/components/Viewport3D.svelte',
-    'web/src/components/ribbon/Ribbon.svelte', 'web/src/styles/theme.css',
-    'web/package-lock.json', 'web/vite.config.ts', 'flake.lock', 'rust-toolchain.toml', 'Makefile',
-  ]) expect(path, path).toMatch(paths);
-  expect('backend/lib/example.ex').not.toMatch(paths);
-});
-
 it('records snapshot experiment versions and hashes and preserves them in the host index', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'snapshot-metadata-'));
   try {
@@ -111,6 +111,7 @@ it('records snapshot experiment versions and hashes and preserves them in the ho
     write(join(tmp, 'research/fracture/example/versions.json'), JSON.stringify({ versions: [v1, v2] }));
     write(join(root, 'src/lib/wasm/dedaliano_engine_bg.wasm'), 'engine');
     write(join(root, 'public/research-wasm/example/example_bg.wasm'), 'experiment');
+    write(join(root, 'public/research-wasm/build.json'), JSON.stringify({ build_id: 'example' }));
     const emitFile = vi.fn();
     const hook = snapshotPlugin(snapshot, root)[0].generateBundle!;
     const handler = typeof hook === 'function' ? hook : hook.handler;
@@ -121,10 +122,7 @@ it('records snapshot experiment versions and hashes and preserves them in the ho
     expect(manifest.researchWasmSha256).toEqual({ example: createHash('sha256').update('experiment').digest('hex') });
     write(join(tmp, 'snapshots/abcdef0/SNAPSHOT.json'), JSON.stringify(manifest));
     write(join(tmp, 'snapshots/1111111/SNAPSHOT.json'), JSON.stringify({ short: '1111111', commit: '11111112222', date: '2025-01-01', prefix: '/@1111111/' }));
-    const deploy = readFileSync('../infra/ansible/deploy-app.yml', 'utf8');
-    const task = deploy.split('- name: Write the snapshot index (/@/)')[1];
-    const script = task.split("<<'PY'\n")[1].split('\n        PY')[0].replace(/^        /gm, '');
-    execFileSync('python3', ['-', join(tmp, 'snapshots')], { input: script });
+    execFileSync('python3', ['../infra/ansible/scripts/snapshot_store.py', 'index', '--root', join(tmp, 'snapshots')]);
     const entries = JSON.parse(readFileSync(join(tmp, 'snapshots/index.json'), 'utf8')).snapshots;
     expect(entries[0]).toMatchObject({ experimentVersions: { example: v2 }, engineWasmSha256: manifest.engineWasmSha256, researchWasmSha256: manifest.researchWasmSha256 });
     expect(entries[1].experimentVersions).toBeUndefined();

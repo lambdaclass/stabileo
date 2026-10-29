@@ -31,3 +31,11 @@ describe('research permanent links', () => {
     expect(siteOrigin('https://staging.stabileo.com')).toBe('https://staging.stabileo.com');
   });
 });
+
+it('selects the newest snapshot of the requested version, never a different version', () => {
+  const matching = { ...entries[1], experimentVersions: { 'shauer-2025': { version: 2, date: '2026-01-01', commit: null } } };
+  const newer = { ...matching, date: '2027-01-01', short: 'ddddddd' };
+  expect(pickSnapshot([matching, newer], page, 'dev', null, 2)?.snapshot).toBe(newer);
+  expect(pickSnapshot([matching], page, 'dev', null, 3)).toBeNull();
+  expect(pickSnapshot(entries, page, 'dev', null, 2)).toBeNull();
+});

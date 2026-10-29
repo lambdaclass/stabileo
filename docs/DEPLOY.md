@@ -35,6 +35,7 @@ host (Debian 13, infra/cloud-init/<environment>.yaml)
     +-- incoming/         artifacts in flight
     +-- snapshots/        builds kept under their commit, served at /@<commit>/ (see Snapshots)
         +-- <7 hex>/      one per commit, read-only, never overwritten
+        +-- assets/        shared write-once hashed files
         +-- index.json    the list, served at /@/
 ```
 
@@ -119,12 +120,13 @@ Without the Google pair the admin site shows no sign-in button; add them and red
 commit, forever; the plain address is always the latest. This is what research citations link
 to (research/DESIGN.md §5). `/@/` lists the snapshots as JSON, newest first.
 
-**Which commits.** Every push to `main` that changes `research/`, `engine/`, the root
-`Cargo.toml`/`Cargo.lock`, `web/src/lib/engine/` or the viewer (`web/src/components/viewport/`,
-`web/src/components/Viewport*.svelte`, `web/src/lib/three/`, `web/src/lib/viewport3d/`,
-`web/src/lib/canvas/`, `web/src/lib/geometry/`, `web/src/lib/store/`, research and ribbon components,
-and shared styles). Package, Vite, Nix, Rust toolchain, Makefile and snapshot runtime changes
-also qualify. A manual Deploy run builds one when **snapshot** is ticked. Nothing else changes for the plain site.
+**Which commits.** `.github/workflows/research-snapshot.yml` runs on a push to main only
+when parsed experiment `version` values in `research/papers.yaml` change, on a pushed
+`research-v*` tag, or on **Make a snapshot** with a full commit input. Every target must be an
+ancestor of main. Missing comparison history fails closed. Keep `papers.yaml` versions aligned
+with each experiment's `versions.json`; descriptive edits do not create snapshots.
+Cite this chooses the latest indexed snapshot of the current experiment version. Without one,
+it cites the current build without a permanent link. A frozen page continues to cite itself.
 
 **Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
 `make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
@@ -140,44 +142,70 @@ the research pages it holds. CI's required **CI OK** includes **Snapshot Site**,
 for every web change and runs `web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
 `SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@<7 hex>/`.
 
-**Ship and install.** The snapshot rides in the release tarball (`snapshot/`), so it travels with
-the same artifact, SSH session and host lock as the release; the signed Nix closure is unchanged
-(the snapshot is static files only). `deploy-app.yml`:
+**Ship and install.** The separate hosted `ubuntu-latest` workflow uses the production
+GitHub environment by default (manual staging is supported). It shares `deploy-<environment>-host`
+with deploy and rollback, with cancellation disabled. GitHub concurrency is not a FIFO queue:
+if multiple runs queue, check that each intended release actually ran and manually rerun any
+superseded pending release. The normal deploy and `deploy-app.yml` match origin/main; the
+Caddyfile still ships and reloads with normal releases. Deploy that config before the first snapshot.
 
-1. before anything changes, refuses the release if its snapshot is of another commit, if the
-   prefix already holds a different commit, or if the disk would keep less than
-   `snapshot_min_free_mb` (2 GB) free;
-2. after the health check, moves it to `/srv/stabileo/snapshots/<7 hex>/` unless that exists
-   (an existing snapshot is never overwritten), hard-links the files identical to the newest
-   snapshot's, makes it read-only, and rewrites `index.json`;
-3. the workflow then checks from outside that `/@/` lists the commit and `/@<7 hex>/` answers with
-   the immutable cache header.
+1. Resolve the target and check main ancestry; compare parsed versions for a main push.
+2. Build engine/research WASM and the prefixed site on the hosted runner; generate `SNAPSHOT.json`
+   with every shared asset's filename and SHA-256.
+3. Ship via the existing SSH setup and `deploy-snapshot.yml`. It only writes beneath `snapshots/`,
+   including staging and Ansible temporary files. Reserve 2 GiB plus upload/extraction headroom.
+4. Compare every existing shared asset byte-for-byte (SHA-256); refuse a name collision with
+   different bytes. Create new assets exclusively, never overwrite them. Keep only non-assets
+   in the read-only commit directory and atomically publish it, then atomically rewrite `/@/`.
+   Existing commits are retained; short-prefix collisions fail. A local file lock serializes
+   installation and explicit garbage collection. Interrupted installs may leave unreferenced
+   assets; rerun or use manual GC after inspection.
+5. Verify index, manifest, research page headers and every shared asset hash through public Caddy.
 
-Rollback does not touch snapshots. Caddy (`infra/caddy/Caddyfile`) serves `/@<7 hex>/…` from that
-directory with `Cache-Control: public, max-age=31536000, immutable` and `X-Robots-Tag: noindex`
-(each page's canonical names the latest site); page addresses fall back to the snapshot's own
-`index.html`; a missing file or snapshot is a plain, uncached 404.
+Caddy maps `/@<7 lowercase hex>/assets/<safe filename>` to `snapshots/assets/<filename>`.
+Legacy snapshot-local assets remain readable through the same route.
+Names allow letters, digits, underscores, hyphens and single-dot-separated components, never
+slashes or `..`. The snapshot must exist. Successful assets are immutable; missing files and
+invalid paths return uncached 404. All `/@*` responses retain noindex. Other snapshot paths keep
+the existing isolated directory root and SPA fallback. Rollback never touches snapshots.
 
-**Disk.** Measured on the build of 2026-10-28: a snapshot is 40 MB (11.3 MB engine WASM,
-11.3 MB application chunk, 2.1 MB web-ifc, 1.8 MB screenshots, 1.4 MB social cards, 0.7 MB
-research WASM, prerendered pages); 12 MB gzipped in the release tarball. With the hard links, a
-snapshot whose engine did not change adds about 15 MB, one whose engine changed about 26 MB.
-At one research or engine commit a day that is roughly 5 to 10 GB a year.
+**Size and time.** This still builds the full site. Research-as-its-own-page is a planned
+follow-up that shrinks it. Research WASM/replay currently use runtime public URLs, including
+worker-relative module/WASM loading; these remain non-assets inside each snapshot to preserve
+that loader. Their existing build-id directories are not Vite hashed asset filenames. Moving
+them into Vite's asset graph safely requires a loader change and is deferred.
 
-**Retention.** Every snapshot is kept. Pruning, if the disk ever needs it, is manual, by the
-host's owner, from a dry-run plan:
+The existing local build is 38 MiB, including 33 MiB under assets and 4.8 MiB outside assets.
+It predates this redesign, so it is only a sizing baseline. The prior measured full build was about 40 MB (12 MB compressed). Shared storage costs the
+union of hashed assets plus each snapshot's non-assets: incremental cost is `new asset bytes +
+non-asset bytes`, bounded by the full build size, not a fixed deduplication percentage. Prefixes
+embedded in JS can change chunk hashes between snapshots. At 12 releases/year the conservative
+40 MB baseline is 480 MB/year before sharing, versus 14.6 GB/year at one full snapshot/day.
+These are estimates, not measurements of this new build. The live deploy adds zero snapshot
+build/upload/install time. Snapshot wall time is a separate WASM + Vite + prerender build plus
+transfer and verification; budget 5–20 minutes on a warm hosted runner, longer cold, and measure
+on staging. Its shared host lock can delay deploy/rollback while it runs.
+
+**Manual prune.** Never automatic. Coordinate with Klaus, stop snapshot jobs, and retain every
+published/cited version. `research/tools/snapshots.py plan` remains an advisory history-based
+plan, not deletion authorization. Review the index's experimentVersions as well: keep the newest
+snapshot of every released experiment version, including versions without a pinned commit.
+
+On the host, after reviewing the exact seven-hex directory to remove:
 
 ```bash
-curl -s https://stabileo.com/@/ > index.json
-python3 -I research/tools/snapshots.py protected          # never to be deleted
-python3 -I research/tools/snapshots.py plan --index index.json --older-than-days 365
+chmod -R u+w /srv/stabileo/snapshots/<7 hex>
+rm -rf /srv/stabileo/snapshots/<7 hex>
+python3 snapshot_store.py index --root /srv/stabileo/snapshots
+python3 snapshot_store.py prune --root /srv/stabileo/snapshots
+# Review the dry-run list before explicitly deleting shared assets:
+python3 snapshot_store.py prune --root /srv/stabileo/snapshots --apply
 ```
 
-The plan never offers a snapshot that any released experiment version names, in any commit of
-`main` (`research/<field>/<id>/versions.json`), the newest snapshot holding each research page,
-the 20 newest, or one younger than the cut-off. To remove one it offers, on the host:
-`chmod -R u+w /srv/stabileo/snapshots/<7 hex> && rm -rf /srv/stabileo/snapshots/<7 hex>`, then
-the next deploy rewrites `index.json`.
+Use the reviewed `infra/ansible/scripts/snapshot_store.py` from this repository. GC scans every
+remaining snapshot manifest, keeps all listed assets, and fails closed if any manifest lacks
+an asset inventory (including legacy snapshots). Migrate/inspect legacy manifests before GC;
+never invent an empty inventory. Removing a directory alone never deletes shared assets.
 
 ## First deploy, then the first admin
 

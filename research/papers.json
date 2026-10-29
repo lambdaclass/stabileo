@@ -3,6 +3,7 @@
  "papers": [
   {
    "id": "shauer-2025",
+   "version": 1,
    "doi": "10.1016/j.advengsoft.2025.104013",
    "crossref": {
     "title": "Less than 500 lines self-contained Python finite element implementation of the phase-field method for fracture mechanics",
