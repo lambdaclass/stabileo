@@ -404,8 +404,26 @@ have reviewed their page.
    professors, and an independent structural engineer signing off worked examples. [#733](https://github.com/lambdaclass/stabileo/issues/733)
 2. **Website and app speed:** Lighthouse 52 (landing), 35 (blog), 25 (app) on 2026-10-23; start
    with loading only the active language (about −2 MB). [#734](https://github.com/lambdaclass/stabileo/issues/734)
-3. **Finish the rename** from Dedaliano: the engine package, CHANGELOG's absolute laptop paths,
-   comments and contact links. [#735](https://github.com/lambdaclass/stabileo/issues/735)
+3. **Rename Dedaliano to Stabileo everywhere, in phases, tests first** [#735](https://github.com/lambdaclass/stabileo/issues/735).
+   About 2,700 references in 926 files on 2026-10-29: mostly mechanical (771 engine test files import
+   the crate as `dedaliano_engine`), but some carry users' data (autosave and settings keys in browser
+   storage, the `.ded` project format, share links), where a careless rename loses saved projects.
+   - **Phase 0, tests before anything is renamed:**
+     - an inventory test that lists every remaining `dedaliano` (case-insensitive), with an allowlist
+       that may only shrink;
+     - compatibility tests: `.ded` files from every release open and give the same results (#718),
+       old browser-storage keys and IndexedDB data migrate, old share links still open, old desktop
+       sessions restore;
+     - the results snapshot corpus, determinism and the full test suites as the "nothing changed" guard.
+   - **Phase 1, everything users see:** UI text, site, docs, emails, release notes, package
+     descriptions.
+   - **Phase 2, code identifiers:** the Rust crate (`dedaliano-engine` → `stabileo-engine`, every
+     `use`), the WASM glue (`dedaliano_engine.js` / `_bg.wasm`), npm and research crates, fuzz targets and
+     benches, CI paths. Results must stay bit-identical.
+   - **Phase 3, stored names:** new storage keys and database names with migrations; the readers for the
+     old names stay forever, and `.ded` keeps opening (the extension may remain as the project format).
+   - **Phase 4, keep it done:** a CI check forbids new `dedaliano` outside the compatibility allowlist.
+   Each phase is its own PR, reviewed twice, merged only when the guard tests from phase 0 are green.
 
 ## Daily, Weekly, Monthly Priority Lens
 
