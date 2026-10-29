@@ -400,6 +400,51 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
 engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
 have reviewed their page.
 
+### Stabileo Tools: free engineering calculators (2026-10-29)
+
+Engineers search for a calculation ("beam deflection calculator"), not for a platform. Each tool is a
+real calculation on the production engine with a path into the full editor; the first version is being
+built now (branch `tools/pilot`), shipped first and reviewed after, like research papers.
+
+1. **One shared tool page,** `/tools/<slug>`, not 100 one-offs. Each has:
+   - a real calculation on the production engine (WASM); where a textbook formula exists, the engine
+     result and the closed-form value side by side, which doubles as verification;
+   - the diagrams in Stabileo's viewer (deformed shape, moment, shear);
+   - explicit assumptions, units and references (Timoshenko, Roark, code clauses) and a worked example
+     with exact numbers that CI checks, so the page can never drift from the engine;
+   - **Open in Stabileo:** the same model in the full editor, the conversion path;
+   - code-dependent tools name the standard and edition (CIRSOC 201-2005, ACI 318-19, ...) and refuse
+     what's out of scope; known-issue warnings and refusals show exactly as in the app.
+2. **Built for search:** prerendered static HTML with real content; structured data (schema.org),
+   canonical links, hreflang and a sitemap; six languages (en, es, pt, de, fr, tr) — Spanish and
+   Portuguese are an opening (few good CIRSOC or NBR calculators exist); fast: a tool loads only what
+   it needs, never the whole editor (the same "own page" architecture as Research); phone and tablet
+   checks.
+3. **The first 20,** where the engine is strongest (verified or certified): beams (simply supported,
+   cantilever, fixed-fixed, propped, continuous 2–4 spans, overhang: deflection, moment, shear,
+   reactions); section properties (I, rectangular, circular, hollow, built-up); column buckling (Euler
+   with effective lengths, P-Δ amplification); 2D truss and portal frame; natural frequency of beams and
+   frames; influence lines and moving loads; concrete beam (CIRSOC 201 / ACI 318) and steel member check
+   (AISC / CIRSOC 301) with their scope stated, steel kept "experimental" until independent review
+   (#389). Later, by demand: plates, slabs, foundations, then other fields (piping, electrical, pressure
+   vessels, fire protection). Not for now: connections and bearing capacity (the engine doesn't do them;
+   a weak tool hurts trust).
+4. **Research gets the same treatment:** Google Scholar `citation_*` tags, DOI and author markup, preview
+   images and video on every paper page; the classic benchmark pages (MacNeal–Harder, Scordelis–Lo) are
+   what engineers search for.
+5. **Sequence:** pilot of 3 (simply supported beam, cantilever, Euler column) proving the shared page,
+   prerendering, speed budget, checked worked examples and Open in Stabileo; then the first 20; then
+   measure in Google Search Console (impressions, clicks, editor opens per tool) before growing toward
+   100.
+
+**Safety:** these pages will be used for real decisions: every tool states its assumptions, runs only
+analyses we've verified, shows the same known-issue warnings as the app, and labels a simplified check
+as such, never as a full code check.
+
+**Exit criteria.** 20 tools live in six languages, each with a CI-checked worked example and engine vs
+formula agreement; Lighthouse performance ≥ 90 on tool pages; Search Console impressions and editor
+opens measured per tool.
+
 ### Growth and housekeeping (2026-10-28)
 
 1. **Real users and independent validation:** a beta-tester program, the outreach to engineers and
