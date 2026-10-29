@@ -643,3 +643,63 @@ fn issue_758_member_reversal() { issue_758_invariance("reversal"); }
 #[test]
 #[ignore = "safety #758: 2D plastic collapse is not invariant; contained (refused) until fixed"]
 fn issue_758_units() { issue_758_invariance("units"); }
+
+/// Round 2 of #758: the proposed 3D replacement cannot handle the rigid-link
+/// reproduction. Keep its deliberate refusal; bypassing this gate reintroduces
+/// the mechanism-detection defect described at the 3D solver entry point.
+#[test]
+fn issue_758_planar_3d_rigid_link_is_refused() {
+    use std::collections::HashMap;
+    let c = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754).into_iter()
+        .find(|c| c.name.contains("2d-constraint--rigid-link--offset-beam-with")).unwrap();
+    let s = &c.s;
+    // XY embedding: 2D (ux, uz, ry) becomes 3D (ux, uy, rz).
+    let nodes: HashMap<_, _> = s.nodes.iter().map(|(k,n)|
+        (k.clone(), json!({"id":n.id,"x":n.x,"y":n.z,"z":0.0}))).collect();
+    let sections: HashMap<_, _> = s.sections.iter().map(|(k,v)|
+        (k.clone(), json!({"id":v.id,"a":v.a,"iy":v.iz,"iz":v.iz,"j":2.0*v.iz,"asZ":v.as_y}))).collect();
+    let elements: HashMap<_, _> = s.elements.iter().map(|(k,e)| {
+        let i=s.nodes.values().find(|n| n.id==e.node_i).unwrap();
+        let j=s.nodes.values().find(|n| n.id==e.node_j).unwrap();
+        (k.clone(), json!({"id":e.id,"type":e.elem_type,"nodeI":e.node_i,"nodeJ":e.node_j,
+            "materialId":e.material_id,"sectionId":e.section_id,"releaseMzStart":e.hinge_start,
+            "releaseMzEnd":e.hinge_end,"localYx":i.z-j.z,"localYy":j.x-i.x,"localYz":0.0}))
+    }).collect();
+    let supports: HashMap<_, _> = s.nodes.iter().map(|(k,n)| {
+        let t=s.supports.values().find(|t| t.node_id==n.id);
+        assert!(t.is_none_or(|t| matches!(t.support_type.as_str(), "fixed"|"rollerX")));
+        let fixed=t.is_some_and(|t| t.support_type=="fixed");
+        (k.clone(), json!({"nodeId":n.id,"rx":fixed,"ry":t.is_some(),"rz":true,"rrx":true,"rry":true,"rrz":fixed}))
+    }).collect();
+    let loads: Vec<_> = s.loads.iter().map(|l| {
+        let SolverLoad::Nodal(v)=l else {panic!("reproduction changed: {l:?}")};
+        json!({"type":"nodal","data":{"nodeId":v.node_id,"fx":v.fx,"fy":v.fz,"fz":0.0,"mx":0.0,"my":0.0,"mz":v.my}})
+    }).collect();
+    let mut constraints=s.constraints.clone();
+    for c in &mut constraints {
+        let Constraint::RigidLink(v)=c else {panic!("reproduction changed: {c:?}")};
+        assert_eq!(v.dofs, vec![0,1,2]);
+        v.dofs=vec![0,1,5];
+    }
+    let solver: SolverInput3D=serde_json::from_value(json!({"nodes":nodes,"materials":s.materials,
+        "sections":sections,"elements":elements,"supports":supports,"loads":loads,"constraints":constraints})).unwrap();
+    // Verify the embedding independently before relying on the refusal.
+    let a=linear::solve_2d(s).unwrap();
+    let b=linear::solve_3d(&solver).unwrap();
+    for d in &a.displacements {
+        let e=b.displacements.iter().find(|e| e.node_id==d.node_id).unwrap();
+        for (x,y) in [(d.ux,e.ux),(d.uz,e.uy),(d.ry,e.rz)] {
+            assert!((x-y).abs() <= 1e-9*x.abs().max(y.abs()) + 1e-12, "{x} vs {y}");
+        }
+        assert!(e.uz.abs() < 1e-12 && e.rx.abs() < 1e-12 && e.ry.abs() < 1e-12);
+    }
+    // Match the original bending-only yield surface exactly in the plane.
+    let mut inp=plastic_3d_input(&crate::case::Case3::new("#758 plane", solver));
+    inp.mp_overrides=Some(s.sections.values().map(|v| {
+        let (b,h)=crate::ana2::rect(v.a,v.iz);
+        let mp=c.p.fy*1000.0*b*h*h/4.0;
+        (v.id.to_string(), [mp,mp])
+    }).collect());
+    let err=plastic::solve_plastic_3d(&inp).unwrap_err();
+    assert!(err.contains("does not support constraints"), "{err}");
+}
