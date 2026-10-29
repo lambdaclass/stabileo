@@ -686,7 +686,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Use Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ni))?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -933,7 +933,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -1377,7 +1377,7 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
-        .ok_or("Interior eigenvalue decomposition failed")?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
 
     let n_modes = n_modes.min(eigen.values.len());
     let nk = eigen.values.len();

@@ -7,7 +7,7 @@
       "id": "modal-repeated-eigenspace-completeness",
       "resultsVersion": 5,
       "date": "2026-10-29",
-      "prs": [],
+      "prs": [827],
       "area": "analysis",
       "when": {
         "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
@@ -25,9 +25,9 @@
         "pt": "Autovalores repetidos preservam sua multiplicidade"
       },
       "explanation": {
-        "en": "An early Lanczos breakdown could omit independent modes at a repeated frequency. These cases now use the dense eigensolver. Re-run modal analysis and analyses that use its modes; frequencies, effective masses and combined responses may change. The shared buckling eigensolver also uses this fallback.",
-        "es": "Una terminación anticipada de Lanczos podía omitir modos independientes de igual frecuencia. Estos casos ahora usan el solucionador denso. Recalcule el análisis modal y los análisis que usan sus modos: pueden cambiar frecuencias, masas efectivas y respuestas combinadas. El solucionador compartido de pandeo también usa esta alternativa.",
-        "pt": "Uma interrupção antecipada de Lanczos podia omitir modos independentes de mesma frequência. Esses casos agora usam o solucionador denso. Recalcule a análise modal e as análises que usam seus modos: frequências, massas efetivas e respostas combinadas podem mudar. O solucionador compartilhado de flambagem também usa essa alternativa."
+        "en": "Lanczos could omit independent modes at a repeated frequency even with small residuals. A sparse Sturm inertia count now verifies completeness, with independent deflated restarts to recover missing directions. Exactly massless coordinates are condensed so near-zero modes do not hide higher physical modes in the dense fallback. There is no DOF cap on the sparse path; failure to establish completeness within the iteration limit is explicitly refused. Re-run modal analysis and analyses that use its modes; frequencies, effective masses and combined responses may change. The shared buckling eigensolver also checks completeness.",
+        "es": "Lanczos podía omitir modos independientes de igual frecuencia incluso con residuos pequeños. Ahora un conteo de inercia de Sturm disperso verifica la completitud y reinicios con deflación recuperan las direcciones faltantes. Se condensan las coordenadas sin masa para que los modos casi nulos no oculten modos físicos superiores en la alternativa densa. La ruta dispersa no limita los grados de libertad; si no verifica la completitud dentro del límite de iteraciones, rechaza el resultado explícitamente. Recalcule el análisis modal y los análisis que usan sus modos: pueden cambiar frecuencias, masas efectivas y respuestas combinadas. El solucionador compartido de pandeo también verifica la completitud.",
+        "pt": "Lanczos podia omitir modos independentes de mesma frequência mesmo com resíduos pequenos. Agora uma contagem de inércia de Sturm esparsa verifica a completude e reinícios com deflação recuperam as direções ausentes. As coordenadas sem massa são condensadas para que modos quase nulos não ocultem modos físicos superiores na alternativa densa. O caminho esparso não limita os graus de liberdade; se não verificar a completude dentro do limite de iterações, recusa o resultado explicitamente. Recalcule a análise modal e as análises que usam seus modos: frequências, massas efetivas e respostas combinadas podem mudar. O solucionador compartilhado de flambagem também verifica a completude."
       },
       "changelog": {
         "file": "docs/results-changes/2026-10-modal-completeness.md",
