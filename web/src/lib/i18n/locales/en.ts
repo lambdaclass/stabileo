@@ -13784,7 +13784,10 @@ const en: Record<string, string> = {
   "sheet.ui.jump": "Go to a kind of drawing",
   "sheet.ui.thisSheet": "Sheet {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Save open projects and reload",
+  "recheck.recoveryFailed": "Open projects could not be saved. The page was not reloaded. Free browser storage and try again.",
   "recheck.loading": "Loading result changes…",
+  "recheck.detailsUnavailable": "Change details are unavailable. Retry loading the notice.",
   "recheck.loadFailed": "Result changes could not be loaded. Retry before acknowledging them.",
   "recheck.retry": "Retry",
   "recheck.title": "Results have changed since this project was last solved",

@@ -13773,7 +13773,10 @@ const es: Record<string, string> = {
   "sheet.ui.jump": "Ir a un tipo de plano",
   "sheet.ui.thisSheet": "Lámina {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Guardar proyectos abiertos y recargar",
+  "recheck.recoveryFailed": "No se pudieron guardar los proyectos abiertos. La página no se recargó. Libera espacio en el navegador e inténtalo de nuevo.",
   "recheck.loading": "Cargando cambios en los resultados…",
+  "recheck.detailsUnavailable": "Los detalles del cambio no están disponibles. Reintenta cargar el aviso.",
   "recheck.loadFailed": "No se pudieron cargar los cambios en los resultados. Reintenta antes de confirmarlos.",
   "recheck.retry": "Reintentar",
   "recheck.title": "Los resultados cambiaron desde que se resolvió este proyecto",

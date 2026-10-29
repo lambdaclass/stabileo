@@ -1,14 +1,5 @@
 <script lang="ts">
-  /**
-   * The re-check notice and the stale banner (`lib/store/recheck.svelte.ts`).
-   *
-   * The notice blocks the app until the engineer acknowledges it: no close button, Escape does
-   * nothing, a click outside does nothing. It lists only the registered changes that concern
-   * this model, each with its explanation in the reader's language and a link to the write-up.
-   *
-   * Once acknowledged, the results stay STALE until the model is solved again in this build,
-   * and a banner says so with the same re-run action and a way back to the list.
-   */
+  import { saveWorkspaceToLocalStorage } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, type Locale3, type ResultChange } from '../lib/provenance/registry';
@@ -17,6 +8,12 @@
 
   let details = $state.raw<Map<string, ResultChange> | null>(null);
   let loadFailed = $state(false);
+  let recoveryFailed = $state(false);
+
+  function saveAndReload() {
+    recoveryFailed = !saveWorkspaceToLocalStorage();
+    if (!recoveryFailed) window.location.reload();
+  }
 
   async function loadDetails() {
     loadFailed = false;
@@ -97,21 +94,22 @@
         <p role="status">{t(loadFailed ? 'recheck.loadFailed' : 'recheck.loading')}</p>
         {#if loadFailed}
           <button class="rc-btn" onclick={loadDetails}>{t('recheck.retry')}</button>
+          <button class="rc-btn" onclick={saveAndReload} data-testid="recheck-reload">{t('recheck.saveAndReload')}</button>
+          {#if recoveryFailed}<p role="alert">{t('recheck.recoveryFailed')}</p>{/if}
         {/if}
-      {:else}
-        <ul class="rc-list" data-testid="recheck-changes">
-          {#each a.changes as c (c.id)}
-            <li class="rc-item" data-change-id={c.id}>
-              <div class="rc-item-head">
-                <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
-                <span class="rc-item-title">{details.get(c.id)!.title[loc]}</span>
-              </div>
-              <p class="rc-item-text">{details.get(c.id)!.explanation[loc]}</p>
-              <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
-            </li>
-          {/each}
-        </ul>
       {/if}
+      <ul class="rc-list" data-testid="recheck-changes">
+        {#each a.changes as c (c.id)}
+          <li class="rc-item" data-change-id={c.id}>
+            <div class="rc-item-head">
+              <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
+              <span class="rc-item-title">{details?.get(c.id)?.title[loc] ?? c.id}</span>
+            </div>
+            <p class="rc-item-text">{details?.get(c.id)?.explanation[loc] ?? t('recheck.detailsUnavailable')}</p>
+            <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
+          </li>
+        {/each}
+      </ul>
       <p class="rc-stale">{t('recheck.staleWarning')}</p>
       {#if recheckStore.noticeOpen}
         <label class="rc-ack">

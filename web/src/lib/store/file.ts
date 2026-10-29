@@ -1084,8 +1084,8 @@ function protectStoredWorkspace(raw: string, reason: WorkspaceBackup['reason'], 
   uiStore.toast(`${head} ${tail}`, 'error');
 }
 
-export function saveWorkspaceToLocalStorage(): void {
-  if (workspaceOverwriteHeld) return;
+export function saveWorkspaceToLocalStorage(): boolean {
+  if (workspaceOverwriteHeld) return false;
   try {
     tabManager.syncCurrentTab();
     const session: DedalSessionFile = {
@@ -1099,11 +1099,13 @@ export function saveWorkspaceToLocalStorage(): void {
       tabs: sessionTabsCopy().map((tab) => ({ ...tab, undoStack: [], redoStack: [], undoKinds: [], redoKinds: [] })),
     };
     localStorage.setItem(WORKSPACE_KEY, JSON.stringify(session));
+    return true;
   } catch {
     // localStorage is full or unavailable. The workspace written before stays behind otherwise, and
     // at the next start it would be restored over the newer autosave: withdrawn, so the autosave is
     // offered instead.
     clearWorkspaceFromLocalStorage();
+    return false;
   }
 }
 

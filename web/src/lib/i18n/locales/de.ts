@@ -13624,7 +13624,10 @@ const de: Translations = {
   'sheet.ui.thisSheet': 'Plan {n}:',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Offene Projekte speichern und neu laden",
+  "recheck.recoveryFailed": "Die offenen Projekte konnten nicht gespeichert werden. Die Seite wurde nicht neu geladen. Geben Sie Browserspeicher frei und versuchen Sie es erneut.",
   "recheck.loading": "Ergebnisänderungen werden geladen…",
+  "recheck.detailsUnavailable": "Die Änderungsdetails sind nicht verfügbar. Laden Sie den Hinweis erneut.",
   "recheck.loadFailed": "Die Ergebnisänderungen konnten nicht geladen werden. Versuchen Sie es vor der Bestätigung erneut.",
   "recheck.retry": "Erneut versuchen",
   'recheck.title': 'Die Ergebnisse haben sich seit der letzten Berechnung dieses Projekts geändert',

@@ -8,7 +8,7 @@
  *  - The same model solved twice, and on the worker vs the main thread, gives bit-identical
  *    results; the reproduce dialog confirms a report's provenance.
  */
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // This spec is about the notice: it must open untouched (fixtures.ts acknowledges it elsewhere).
@@ -73,6 +73,43 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await page.getByTestId('recheck-later').click();
     await expect(page.getByTestId('recheck-notice')).toBeHidden();
     expect((await recheck(page)).stale).toBe(true);
+  });
+
+  test('recovers from an unavailable notice chunk without losing work or clearing stale status', async ({ page }) => {
+    await bootPro(page);
+    await page.route('**/full-registry-*.js', route => route.abort());
+    const project = oldProject(1, 'frame');
+    project.snapshot.nodes[2][1] = { id: 3, x: 2.75, y: 0, z: 2 };
+    expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), project)).toBe(true);
+    await expect(page.getByTestId('recheck-reload')).toBeVisible();
+    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    expect((await recheck(page)).stale).toBe(true);
+    await page.unroute('**/full-registry-*.js');
+    await Promise.all([page.waitForEvent('load'), page.getByTestId('recheck-reload').click()]);
+    await expect(page.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toBeVisible();
+    const after = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    expect(after).toEqual(before);
+    expect((await recheck(page)).stale).toBe(true);
+    await page.getByTestId('recheck-ack').check();
+    await page.getByTestId('recheck-later').click();
+    await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+  });
+
+  test('keeps the session open when recovery cannot save the workspace', async ({ page }) => {
+    await bootPro(page);
+    await page.route('**/full-registry-*.js', route => route.abort());
+    expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+    await expect(page.getByTestId('recheck-reload')).toBeVisible();
+    const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+    });
+    await page.getByTestId('recheck-reload').click();
+    await expect(page.getByTestId('recheck-notice').getByRole('alert')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot)).toEqual(before);
+    expect((await recheck(page)).stale).toBe(true);
+    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
   });
 
   test('a steel project lists the CIRSOC 301 tension change; the notice holds until acknowledged', async ({ pro: page }) => {

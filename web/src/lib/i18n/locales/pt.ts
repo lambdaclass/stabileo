@@ -13424,7 +13424,10 @@ const pt: Translations = {
   "sheet.ui.jump": "Ir a um tipo de planta",
   "sheet.ui.thisSheet": "Prancha {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Salvar projetos abertos e recarregar",
+  "recheck.recoveryFailed": "Não foi possível salvar os projetos abertos. A página não foi recarregada. Libere espaço no navegador e tente novamente.",
   "recheck.loading": "Carregando alterações nos resultados…",
+  "recheck.detailsUnavailable": "Os detalhes da alteração estão indisponíveis. Tente carregar o aviso novamente.",
   "recheck.loadFailed": "Não foi possível carregar as alterações nos resultados. Tente novamente antes de confirmá-las.",
   "recheck.retry": "Tentar novamente",
   "recheck.title": "Os resultados mudaram desde a última vez que este projeto foi resolvido",

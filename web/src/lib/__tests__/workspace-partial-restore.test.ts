@@ -207,6 +207,7 @@ describe('workspace backup is bounded', () => {
 
     expect(storage.getItem(WORKSPACE_KEY)).toBe(raw);
     expect(readWorkspaceBackups()).toEqual([]);
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
     expect(toast.mock.calls.some((c) => c[1] === 'error' && String(c[0]) !== '')).toBe(true);
   });
 });
@@ -231,14 +232,14 @@ describe('a workspace write that does not fit', () => {
     big.setItem(WORKSPACE_KEY, storage.getItem(WORKSPACE_KEY)!);
     vi.stubGlobal('localStorage', big);
     tabManager.restoreSession([tab('a', 'Pórtico A', snapshot({ notes: [{ id: 1, text: 'x'.repeat(4000) }] })) as never], 'a');
-    saveWorkspaceToLocalStorage();
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
     expect(big.getItem(WORKSPACE_KEY)).toBeNull();
     expect(loadWorkspaceFromLocalStorage()).toBeNull();
   });
 
   it('is written without the undo stacks', () => {
     tabManager.restoreSession([{ ...tab('a', 'Pórtico A', snapshot()), undoStack: [snapshot(), snapshot()] } as never], 'a');
-    saveWorkspaceToLocalStorage();
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
     const stored = JSON.parse(storage.getItem(WORKSPACE_KEY)!);
     expect(stored.tabs[0].undoStack).toEqual([]);
     expect(stored.tabs[0].redoStack).toEqual([]);
