@@ -58,7 +58,10 @@ test('the research page is served under the prefix, with the version banner', as
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.locator('.rs-app')).toHaveAttribute('data-source', 'live');
   await expect.poll(async () => Number(await page.locator('.rs-app').getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(3);
-  expect(wasm).toEqual([`${P}research-wasm/shauer-2025/phasefield_bg.wasm`]);
+  // One WASM, from this build's immutable directory under the snapshot prefix (research assets are
+  // versioned by build id: research-wasm/builds/<id>/).
+  expect(wasm).toHaveLength(1);
+  expect(wasm[0]).toMatch(new RegExp(`^${P}research-wasm/builds/[0-9a-f]{64}/shauer-2025/phasefield_bg\\.wasm$`));
   expect(outside).toEqual([]);
 });
 
@@ -159,4 +162,47 @@ test('a copied model opens with the same snapshot engine', async ({ page, contex
   await expect(recipient.locator('#stabileo-snapshot-banner')).toContainText(SHORT);
   await expect.poll(() => wasm.length).toBeGreaterThan(0);
   expect(wasm.every(path => path.startsWith(`${P}assets/`))).toBe(true);
+});
+
+test('blog embeds keep their editor and WASM in the snapshot', async ({ page, baseURL }) => {
+  const outside = watch(page, baseURL);
+  const wasm: string[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.endsWith('.wasm')) wasm.push(request.url());
+  });
+  await page.goto(`${P}en/blog/torsion-bredt-saint-venant/`);
+  await page.locator('.post-embed-start').first().click();
+  const iframe = page.locator('.post-embed iframe').first();
+  await expect(iframe).toHaveAttribute('src', new RegExp(`^${P}app/`));
+  await expect.poll(() => wasm.length, { timeout: 60_000 }).toBeGreaterThan(0);
+  expect(wasm.every(url => url.startsWith(new URL(P, baseURL).href))).toBe(true);
+  expect(outside).toEqual([]);
+});
+
+test('an unpatched about:blank frame cannot read live-origin storage', async ({ page, context }) => {
+  const live = await context.newPage();
+  const origin = 'http://localhost:5197';
+  await context.route(`${origin}/**`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Live origin</title>' }));
+  await live.goto(origin);
+  await live.evaluate(async () => {
+    localStorage.setItem('production-token', 'secret');
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('production-private');
+      request.onsuccess = () => { request.result.close(); resolve(); };
+      request.onerror = () => reject(request.error);
+    });
+  });
+  await page.goto(`${P}en/research/`);
+  await expect(page.locator('#stabileo-snapshot-banner')).toBeVisible();
+  expect(await page.evaluate(async () => {
+    const frame = document.createElement('iframe');
+    frame.src = 'about:blank';
+    document.body.append(frame);
+    const raw = frame.contentWindow!;
+    const token = raw.localStorage.getItem('production-token');
+    const databases = await raw.indexedDB.databases();
+    raw.localStorage.setItem('production-token', 'snapshot');
+    return { token, databases: databases.map(db => db.name) };
+  })).toEqual({ token: null, databases: [] });
+  expect(await live.evaluate(() => localStorage.getItem('production-token'))).toBe('secret');
 });

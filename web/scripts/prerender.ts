@@ -334,7 +334,7 @@ function page(head: string, body: string, lang: string, extraScript = '') {
 <html lang="${lang}">
 <head>
 ${head.trim()}
-${extraScript ? `<script>${extraScript}</script>` : ''}
+${extraScript ? (PREFIX ? `<script src="${PREFIX}/snapshot-redirect.js"></script>` : `<script>${extraScript}</script>`) : ''}
 </head>
 <body>
 <div id="prerender">${body}</div>
@@ -391,6 +391,7 @@ async function main() {
     // The root: the default language's content — the x-default — plus the
     // handoff script that sends everyone else on.
     const { head, body, lang } = await capture(browser, base, DEFAULT_LOCALE, '/');
+    if (PREFIX) await writeFile(join(DIST, 'snapshot-redirect.js'), ROOT_REDIRECT);
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
 

@@ -27,11 +27,25 @@ function runtime(backing = backingStorage(), config = snapshot) {
   const context = vm.createContext({
     URL, Map, location: new URL('https://stabileo.com/@abcdef0/app/basic'),
     history: { pushState() {}, replaceState() {} },
-    Node: class {}, Element: class {}, CharacterData: class {}, DocumentFragment: class {},
+    Node: class { appendChild(node: unknown) { return node; } },
+    Element: class {
+      tagName = 'IFRAME';
+      attrs = new Map<string, string>();
+      setAttribute(name: string, value: string) { this.attrs.set(name, value); }
+      getAttribute(name: string) { return this.attrs.get(name) ?? null; }
+      hasAttribute(name: string) { return this.attrs.has(name); }
+      matches(selector: string) { return selector.includes('iframe[src]') && this.hasAttribute('src'); }
+      querySelectorAll() { return []; }
+    },
+    CharacterData: class {}, DocumentFragment: class {},
     MutationObserver: class { observe() {} },
     document: { documentElement: {}, readyState: 'loading', addEventListener() {} },
     addEventListener() {},
   });
+  context.HTMLIFrameElement = class extends context.Element {
+    get src() { return this.getAttribute('src') ?? ''; }
+    set src(value: string) { this.attrs.set('src', value); }
+  };
   context.window = context;
   for (const key of ['localStorage', 'sessionStorage', 'indexedDB']) {
     Object.defineProperty(context, key, { get: () => backing, configurable: true });
@@ -161,4 +175,25 @@ it('keeps the Node route-budget suite out of Vitest and in the explicit CI invoc
   const vite = readFileSync('vite.config.ts', 'utf8');
   expect(vite.match(/const NOT_VITEST = (.*);/)![1]).toContain('scripts/**/*.test.mjs');
   expect(readFileSync('../.github/workflows/research.yml', 'utf8')).toContain('node --test scripts/research-route-budget.test.mjs');
+});
+
+it('rewrites iframe URLs before insertion and on subsequent src attribute writes', () => {
+  const { context } = runtime();
+  const iframe = new context.Element();
+  iframe.attrs.set('src', '/app/basic?example=cantilever-point');
+  new context.Node().appendChild(iframe);
+  expect(iframe.getAttribute('src')).toBe('/@abcdef0/app/basic?example=cantilever-point');
+  iframe.setAttribute('src', '/app/pro?embed');
+  expect(iframe.getAttribute('src')).toBe('/@abcdef0/app/pro?embed');
+  const assigned = new context.HTMLIFrameElement();
+  assigned.src = '/app/basic?embed';
+  expect(assigned.src).toBe('/@abcdef0/app/basic?embed');
+  iframe.setAttribute('src', 'about:blank');
+  expect(iframe.getAttribute('src')).toBe('about:blank');
+});
+
+it('loads the snapshot runtime as an external script for the strict CSP', () => {
+  const plugin = snapshotPlugin(snapshot, resolve('.'))[0];
+  const hook = plugin.transformIndexHtml as { handler: Function };
+  expect(hook.handler()).toEqual([{ tag: 'script', attrs: { src: '/@abcdef0/snapshot-runtime.js' }, injectTo: 'head-prepend' }]);
 });

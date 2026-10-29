@@ -104,6 +104,10 @@ def replay(paper):
             status = "ADDED"
             failed = True
             annotate("error", title, f"check not in the committed VALIDATION.json: {key}")
+        elif any(c[field] != n[field] for field in ('metric', 'tolerance')):
+            status = "FAIL"
+            failed = True
+            annotate("error", title, f"{key}: metric or tolerance changed from committed validation")
         elif was is not None and moved(was, n["observed"]):
             status = "moved"
             annotate("warning", title, f"{key} moved within its tolerance: {n['metric']} {fmt(was)} -> {fmt(n['observed'])} (tolerance {fmt(n['tolerance'])})")

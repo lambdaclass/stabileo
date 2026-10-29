@@ -23,3 +23,22 @@ assert rows["ccccccc"], rows  # the only snapshot holding grossman-2026: the gal
 assert rows["ddddddd"], rows  # newest
 assert rows["bbbbbbb"] == [], rows  # superseded, unreleased, old: the only candidate
 print("snapshots.py: released and still-linked snapshots are never offered for pruning")
+
+from unittest.mock import patch
+
+for snapshot, version in zip(index['snapshots'], [2, 1, 1, 1]):
+    snapshot['experimentVersions'] = {'shauer-2025': {'version': version, 'commit': None}}
+rows = {s: why for s, _, why in snapshots.plan(index, {}, 0, 0, now=datetime(2028, 1, 1, tzinfo=timezone.utc))}
+assert rows['ccccccc'] and any('v1' in reason for reason in rows['ccccccc']), rows
+assert rows['ddddddd'], rows
+
+def history(*args):
+    if args[0] == 'log':
+        return 'head'
+    if args[0] == 'ls-tree':
+        return 'research/fracture/shauer-2025/versions.json'
+    return '{"versions": [{"version": 1, "commit": "aaaaaaa111111"}, {"version": 2, "commit": "bbbbbbb222222"}]}'
+
+with patch.object(snapshots, 'git', side_effect=history):
+    assert set(snapshots.protected('main')) == {'aaaaaaa', 'bbbbbbb'}
+print('all pinned commits and every indexed experiment version are protected')

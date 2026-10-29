@@ -52,13 +52,20 @@ def plan(index, keep, older_than_days, keep_newest, now=None):
     for s in snaps:
         for page in s.get("research", []):
             newest_per_page.setdefault(page, s["short"])
+    newest_per_version = {}
+    for s in snaps:
+        for experiment, version in s.get("experimentVersions", {}).items():
+            newest_per_version.setdefault((experiment, version["version"]), s["short"])
     held = set(newest_per_page.values())
+    released = set(newest_per_version.values())
     cutoff = now - timedelta(days=older_than_days)
     out = []
     for i, s in enumerate(snaps):
         why = []
         if s["short"] in keep:
             why.append("released: " + ", ".join(sorted(keep[s["short"]])))
+        if s["short"] in released:
+            why.append("released experiment version: " + ", ".join(f"{p} v{v}" for (p, v), k in newest_per_version.items() if k == s["short"]))
         if s["short"] in held:
             why.append("newest holding " + ", ".join(p for p, k in newest_per_page.items() if k == s["short"]))
         if i < keep_newest:

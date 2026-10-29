@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { permalinkUrl, pickSnapshot, siteOrigin, type SnapshotEntry } from '../permalink';
+import { permalinkUrl, pickSnapshot, siteOrigin, snapshotOrigin, type SnapshotEntry } from '../permalink';
 
 const page = '/research/fracture/shauer-2025';
 const entries: SnapshotEntry[] = [
@@ -26,7 +26,7 @@ describe('research permanent links', () => {
   });
 
   it('builds the link on this site, or stabileo.com from a development machine', () => {
-    expect(permalinkUrl(entries[1], page, 'es', 'https://staging.stabileo.com')).toBe('https://staging.stabileo.com/@bbbbbbb/es/research/fracture/shauer-2025/');
+    expect(permalinkUrl(entries[1], page, 'es', 'https://staging.stabileo.com')).toBe('https://snapshots.staging.stabileo.com/@bbbbbbb/es/research/fracture/shauer-2025/');
     expect(siteOrigin('http://localhost:4000')).toBe('https://stabileo.com');
     expect(siteOrigin('https://staging.stabileo.com')).toBe('https://staging.stabileo.com');
   });
@@ -38,4 +38,16 @@ it('selects the newest snapshot of the requested version, never a different vers
   expect(pickSnapshot([matching, newer], page, 'dev', null, 2)?.snapshot).toBe(newer);
   expect(pickSnapshot([matching], page, 'dev', null, 3)).toBeNull();
   expect(pickSnapshot(entries, page, 'dev', null, 2)).toBeNull();
+});
+
+it('uses the isolated snapshot origin for both environments and remains there inside snapshots', () => {
+  expect(snapshotOrigin('https://stabileo.com')).toBe('https://snapshots.stabileo.com');
+  expect(snapshotOrigin('https://staging.stabileo.com')).toBe('https://snapshots.staging.stabileo.com');
+  expect(snapshotOrigin('https://snapshots.stabileo.com')).toBe('https://snapshots.stabileo.com');
+});
+
+it('compares abbreviated build commits when selecting a version', () => {
+  const matching = { ...entries[1], experimentVersions: { 'shauer-2025': { version: 2, date: '2026-01-01', commit: null } } };
+  expect(pickSnapshot([matching], page, matching.commit.slice(0, 12), null, 2)?.current).toBe(true);
+  expect(pickSnapshot([matching], page, 'dev', null, 2)?.current).toBe(false);
 });

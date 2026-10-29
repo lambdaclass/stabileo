@@ -43,11 +43,19 @@ export function siteOrigin(origin: string = location.origin): string {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ? SITE_ORIGIN : origin;
 }
 
+export function snapshotOrigin(origin: string = siteOrigin()): string {
+  return siteOrigin(origin).replace(/^(https?:\/\/)(?!snapshots\.)/, '$1snapshots.');
+}
+
+function sameCommit(a: string, b: string): boolean {
+  return a !== 'dev' && b !== 'dev' && !!a && !!b && (a.startsWith(b) || b.startsWith(a));
+}
+
 let index: Promise<SnapshotEntry[]> | null = null;
 
 /** The host's index; empty where there is none (a development server, an older host). */
 export function snapshotIndex(): Promise<SnapshotEntry[]> {
-  index ??= fetch('/@/', { headers: { accept: 'application/json' } })
+  index ??= fetch(`${snapshotOrigin()}/@/`, { headers: { accept: 'application/json' } })
     .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : { snapshots: [] }))
     .then((j: { snapshots?: SnapshotEntry[] }) => (Array.isArray(j.snapshots) ? j.snapshots : []))
     .catch(() => []);
@@ -76,9 +84,9 @@ export function pickSnapshot(entries: SnapshotEntry[], path: string, commit: str
     const id = page.split('/').at(-1)!;
     const newest = [...entries].filter(e => e.research?.includes(page) && e.experimentVersions?.[id]?.version === version)
       .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))[0];
-    return newest ? { snapshot: newest, current: newest.commit === commit } : null;
+    return newest ? { snapshot: newest, current: sameCommit(newest.commit, commit) } : null;
   }
-  const mine = entries.find((e) => commit !== 'dev' && (e.commit.startsWith(commit) || commit.startsWith(e.commit)));
+  const mine = entries.find((e) => sameCommit(e.commit, commit));
   if (mine && (!mine.research || mine.research.includes(page))) return { snapshot: mine, current: true };
   const newest = [...entries]
     .filter((e) => e.research?.includes(page))
@@ -86,7 +94,7 @@ export function pickSnapshot(entries: SnapshotEntry[], path: string, commit: str
   return newest ? { snapshot: newest, current: false } : null;
 }
 
-/** `https://stabileo.com/@abc1234/en/research/fracture/shauer-2025/` */
+/** `https://snapshots.stabileo.com/@abc1234/en/research/fracture/shauer-2025/` */
 export function permalinkUrl(snapshot: Pick<SnapshotEntry, 'url'>, path: string, locale: PublicLocale, origin: string = siteOrigin()): string {
-  return origin + snapshot.url.replace(/\/$/, '') + publicHref(path, locale);
+  return snapshotOrigin(origin) + snapshot.url.replace(/\/$/, '') + publicHref(path, locale);
 }

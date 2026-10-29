@@ -45,6 +45,12 @@ class ReplayTests(unittest.TestCase):
             self.assertTrue(failed)
             self.assertIn(status, [row[-1] for row in rows])
 
+    def test_metric_or_tolerance_changes_fail(self):
+        for changed in [{**CHECK, 'metric': 'absolute difference'}, {**CHECK, 'tolerance': 1.0}, {**CHECK, 'tolerance': 1e-9}]:
+            failed, rows = self.run_replay(json.dumps({'checks': [CHECK]}), [changed])
+            self.assertTrue(failed)
+            self.assertEqual(rows[0][-1], 'FAIL')
+
     def test_recorded_checks_pass(self):
         self.assertFalse(self.run_replay(json.dumps({'checks': [CHECK]}), [CHECK])[0])
 

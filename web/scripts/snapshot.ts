@@ -1,5 +1,5 @@
 /**
- * A build kept under its commit: `https://stabileo.com/@<sha>/…` serves that commit's site forever
+ * A build kept under its commit: `https://snapshots.stabileo.com/@<sha>/…` serves that commit's site forever
  * (research/DESIGN.md §5, docs/DEPLOY.md "Snapshots"). The plain address is always the latest.
  *
  * ── How a build lives under a prefix without touching the normal build ──
@@ -16,7 +16,7 @@
  *  3. ships a small classic script in the page's head (`snapshotRuntime`) that defines
  *     `__stabileoLocation`, puts the prefix back on whatever the application writes (history,
  *     `location.assign`, `window.open`, root-relative links, images and fetches of the site's own
- *     files; never `/api/`, which is the live backend's) and shows the version banner.
+ *     files; never `/api/`, which is unavailable on the snapshot host) and shows the version banner.
  *
  * With `BASE_PATH` unset or `/` the plugin does nothing at all, so the normal build is byte-for-byte
  * what it was (checked: docs/DEPLOY.md "Snapshots").
@@ -170,7 +170,18 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
       if (w !== ss) el.setAttribute('srcset', w);
     }
   };
-  const SEL = 'a[href],link[href],img[src],img[srcset],source[src],source[srcset]';
+  const setAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function (name: string, value: string) {
+    return setAttribute.call(this, name, this.tagName === 'IFRAME' && name.toLowerCase() === 'src' ? add(value) as string : value);
+  };
+  if (typeof HTMLIFrameElement !== 'undefined') {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src')!;
+    Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
+      ...descriptor,
+      set(value: string) { descriptor.set!.call(this, add(value)); },
+    });
+  }
+  const SEL = 'a[href],link[href],iframe[src],img[src],img[srcset],source[src],source[srcset]';
   const fixTree = (n: unknown) => {
     if (!(n instanceof Element) && !(n instanceof DocumentFragment)) return;
     if (n instanceof Element && n.matches(SEL)) fix(n);
@@ -259,7 +270,7 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
     const toLatest = el.querySelector('[data-latest]') as HTMLAnchorElement;
     toLatest.textContent = latest;
     toLatest.setAttribute('data-snapshot-exit', '');
-    toLatest.href = L.origin + path + L.search + L.hash;
+    toLatest.href = L.origin.replace('://snapshots.', '://') + path + L.search + L.hash;
     const toCompare = el.querySelector('[data-compare]') as HTMLAnchorElement;
     toCompare.textContent = compare;
     toCompare.href = cfg.repo + '/compare/' + cfg.commit + '...main';
@@ -305,10 +316,11 @@ export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
           fileName: 'SNAPSHOT.json',
           source: JSON.stringify({ commit: s.commit, short: s.short, prefix: `${s.prefix}/`, date: s.date, ...researchBuildMetadata(root) }, null, 2) + '\n',
         });
+        this.emitFile({ type: 'asset', fileName: 'snapshot-runtime.js', source: snapshotRuntime(s) });
       },
       transformIndexHtml: {
-        order: 'pre',
-        handler: () => [{ tag: 'script', children: snapshotRuntime(s), injectTo: 'head-prepend' }],
+        order: 'post',
+        handler: () => [{ tag: 'script', attrs: { src: `${s.prefix}/snapshot-runtime.js` }, injectTo: 'head-prepend' }],
       },
     },
   ];

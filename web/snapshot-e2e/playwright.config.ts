@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const WEB = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 /**
  * SNAPSHOT_E2E_URL + SNAPSHOT_PREFIX test a deployed host instead (Caddy's routes, staging):
- *   SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@abc1234/ npx playwright test -c snapshot-e2e/playwright.config.ts
+ *   SNAPSHOT_E2E_URL=https://snapshots.staging.stabileo.com SNAPSHOT_PREFIX=/@abc1234/ npx playwright test -c snapshot-e2e/playwright.config.ts
  */
 const REMOTE = process.env.SNAPSHOT_E2E_URL;
 const prefix = REMOTE
