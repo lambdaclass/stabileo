@@ -14,9 +14,18 @@ const ref = rows.map((r) => Object.fromEntries(r.split(',').map((v, i) => [head[
 const sim = new glue.Simulation(glue.Simulation.referenceConfig());
 const steps = [];
 const t0 = Date.now();
-for (let s; (s = sim.advance()) !== undefined; ) steps.push(JSON.parse(s));
+const nodeCount = sim.nodes().length / 2;
+const elementCount = sim.elements().length / 4;
+let validFields = Number.isInteger(nodeCount) && nodeCount > 0;
+for (let s; (s = sim.advance()) !== undefined; ) {
+  steps.push(JSON.parse(s));
+  for (const [values, length] of [[sim.damage(), nodeCount], [sim.displacement(), nodeCount * 2], [sim.elementStress(), elementCount * 3]]) {
+    validFields &&= values.length === length && values.every(Number.isFinite);
+  }
+}
+sim.free();
 const peak = ref.reduce((a, r, i) => (Number(r.reaction) > Number(ref[a].reaction) ? i : a), 0);
-let ok = steps.length === ref.length;
+let ok = validFields && steps.length === ref.length;
 let worstPre = 0, worstAll = 0, iters = true;
 steps.forEach((s, i) => {
   const fields = ['step', 'pseudotime', 'displacement', 'reaction', 'iterations', 'residual', 'damage_max', 'damage_min', 'elastic_energy', 'fracture_energy'];
@@ -30,5 +39,5 @@ steps.forEach((s, i) => {
   if (String(s.iterations) !== ref[i].staggered_iterations) iters = false;
 });
 ok = ok && iters && worstPre <= 1e-9 && worstAll <= 1e-5;
-console.log(JSON.stringify({ steps: steps.length, identicalIterations: iters, worstRelForceToPeak: worstPre, worstAbsForce: worstAll, seconds: (Date.now() - t0) / 1000, ok }));
+console.log(JSON.stringify({ comparisonScope: 'force history and iteration counts; nodal fields checked for shape and finiteness only', validFields, steps: steps.length, identicalIterations: iters, worstRelForceToPeak: worstPre, worstAbsForce: worstAll, seconds: (Date.now() - t0) / 1000, ok }));
 process.exit(ok ? 0 : 1);

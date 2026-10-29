@@ -294,7 +294,7 @@
   );
 
   const comparison = $derived(showsReference && frames.length && (!run || run.status !== 'running')
-    ? compareReference(frames, reference) : null);
+    ? compareReference(frames, reference, (nodes?.length ?? 0) / 2) : null);
 
   const fmt = (v: number, d = 4) => (Math.abs(v) >= 1e-3 || v === 0 ? num(v, { dp: d }) : num(v, { sig: 3 }));
   const statusItems = $derived(
@@ -416,7 +416,7 @@
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
           <span class="ok" aria-hidden="true">✓</span>
-          {source === 'replay' ? 'This replay' : 'This run'} matches the reference code: peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
+          {source === 'replay' ? 'This replay' : 'This run'} matches the reference force history and iteration counts: peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps. Displayed nodal fields are not compared by this badge.
           <button type="button" class="rs-textbtn" onclick={() => (tab = 'convergence')}>Details</button>
         </p>
       {:else if comparison || run?.status === 'unconverged'}
@@ -491,7 +491,7 @@
               <li>Peak force {comparison.peak.step.reaction.toFixed(6)} kN at step {comparison.peak.step.step}; reference {refPeak.reaction.toFixed(6)} kN at step {refPeak.step}.</li>
               <li>Largest relative force difference up to the peak: {comparison.worstPre.toExponential(1)} (test tolerance 1e-9).</li>
               <li>Largest absolute force difference, fracture included: {comparison.worstAll.toExponential(1)} kN (test tolerance 1e-5).</li>
-              <li>Identical number of staggered iterations at {comparison.sameIterations} of {reference.length} steps.</li>
+              <li>Identical number of staggered iterations at {comparison.sameIterations} of {reference.length} steps. Displayed nodal fields are not compared by this badge.</li>
             </ul>
           </div>
         {/if}

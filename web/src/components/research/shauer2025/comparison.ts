@@ -1,9 +1,10 @@
+import { validFrame } from './frame-validation';
 import type { Frame } from './simulation.svelte';
 
 export type ReferenceStep = { step: number; reaction: number; iterations: number };
 
 /** The same force tolerances as the native reference validation. */
-export function compareReference(frames: Frame[], reference: ReferenceStep[]) {
+export function compareReference(frames: Frame[], reference: ReferenceStep[], nodeCount: number) {
   const failures: string[] = [];
   const refPeak = reference.reduce((a, b) => b.reaction > a.reaction ? b : a);
   const peak = frames.reduce((a, b) => b.step.reaction > a.step.reaction ? b : a, frames[0]);
@@ -11,8 +12,7 @@ export function compareReference(frames: Frame[], reference: ReferenceStep[]) {
   let worstAll = 0;
   let sameIterations = 0;
   if (frames.length !== reference.length || frames.some((f, i) => f.step.step !== reference[i]?.step)) failures.push('missing or out-of-order frames');
-  if (frames.some(f => !Object.values(f.step).every(v => typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v))) ||
-    [f.damage, f.displacement, ...(f.syy ? [f.syy] : [])].some(a => !a.every(Number.isFinite)))) failures.push('non-finite results');
+  if (frames.some(f => !validFrame(f, nodeCount))) failures.push('invalid or non-finite results');
   if (frames.some(f => !f.step.converged)) failures.push('non-converged steps');
   frames.forEach((f, i) => {
     const r = reference[i];

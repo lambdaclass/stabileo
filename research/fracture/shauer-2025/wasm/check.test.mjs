@@ -15,9 +15,15 @@ test('the WASM checker rejects unconverged, nonfinite or missing step results', 
     writeFileSync(csv, 'reaction,staggered_iterations\n1,1\n');
     const good = { converged: true, step: 0, pseudotime: 1, displacement: 1, reaction: 1,
       iterations: 1, residual: 0, damage_max: 0, damage_min: 0, elastic_energy: 1, fracture_energy: 0 };
-    for (const [patch, expected] of [[{}, 0], [{ converged: false }, 1], [{ residual: null }, 1], [{ residual: undefined }, 1], [{ elastic_energy: Infinity }, 1]]) {
+    for (const [patch, expected, damage = '[0]', displacement = '[0, 0]'] of [[{}, 0], [{}, 1, '[]'], [{}, 1, '[0, 0]'], [{}, 1, '[NaN]'], [{}, 1, '[0]', '[Infinity, 0]'], [{}, 0, '[0.7]', '[0.2, 0.3]'], [{ converged: false }, 1], [{ residual: null }, 1], [{ residual: undefined }, 1], [{ elastic_energy: Infinity }, 1]]) {
       const result = JSON.stringify({ ...good, ...patch });
       writeFileSync(join(dir, 'phasefield.js'), `export function initSync() {}\nexport class Simulation {
+        nodes() { return new Float64Array([0, 0]); }
+        elements() { return new Uint32Array(4); }
+        damage() { return new Float64Array(${damage}); }
+        displacement() { return new Float64Array(${displacement}); }
+        elementStress() { return new Float64Array(3); }
+        free() {}
         static referenceConfig() { return '{}'; } done = false;
         advance() { if (this.done) return; this.done = true; return ${JSON.stringify(result)}; }
       }`);

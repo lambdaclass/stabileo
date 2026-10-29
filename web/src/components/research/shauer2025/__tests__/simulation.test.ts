@@ -10,6 +10,9 @@ class FakeWorker {
   postMessage = vi.fn();
   constructor() { FakeWorker.instances.push(this); }
   send(data: WorkerOut) { this.onmessage?.({ data }); }
+  mesh(runId: number) {
+    this.send({ type: 'mesh', runId, nodes: new Float64Array([0, 0]), elements: new Uint32Array(4) });
+  }
 }
 const config: PlateConfig = {
   material: { e: 210, nu: 0.3, gc: 0.0027, l0: 0.0075, plane: 'strain' },
@@ -26,6 +29,7 @@ describe('simulation failures', () => {
     vi.stubGlobal('Worker', FakeWorker);
     const sim = new SimulationController(); sim.run(config);
     const worker = FakeWorker.instances[0];
+    worker.mesh(1);
     worker.send({ type: 'step', runId: 1, step, damage: new Float32Array([0.1]), displacement: new Float32Array(2), syy: new Float32Array(1) });
     worker.send({ type: 'done', runId: 1, seconds: 1 });
     const failed = sim.current;
@@ -47,6 +51,7 @@ describe('simulation failures', () => {
     sim.run(config);
     expect(sim.current).not.toBe(failed);
     const retry = FakeWorker.instances[1];
+    retry.mesh(2);
     retry.send({ type: 'step', runId: 2, step: { ...step, converged: true }, damage: new Float32Array(1), displacement: new Float32Array(2), syy: new Float32Array(1) });
     retry.send({ type: 'done', runId: 2, seconds: 1 });
     const done = sim.current; sim.run(config);
@@ -62,6 +67,8 @@ it('stops an active run before selecting a cached result and ignores abandoned w
   const sim = new SimulationController();
   sim.run(config);
   const worker = FakeWorker.instances[0];
+  worker.mesh(1);
+  worker.send({ type: 'step', runId: 1, step: { ...step, converged: true }, damage: new Float32Array(1), displacement: new Float32Array(2), syy: new Float32Array(1) });
   worker.send({ type: 'done', runId: 1, seconds: 1 });
   const cached = sim.current;
   sim.run({ ...config, top_displacement: 0.02 });
@@ -80,4 +87,57 @@ it('stops an active run before selecting a cached result and ignores abandoned w
   expect(sim.available).toBe(true);
   expect(sim.unavailableReason).toBeNull();
   sim.dispose();
+});
+
+it('rejects nonfinite scalars and fields, and empty or wrong-length arrays for custom runs', () => {
+  vi.stubGlobal('Worker', FakeWorker);
+  for (const bad of [
+    { step: { ...step, converged: true, reaction: NaN } },
+    { damage: new Float32Array([Infinity]) },
+    { displacement: new Float32Array([0, NaN]) },
+    { syy: new Float32Array([Infinity]) },
+    { damage: new Float32Array() },
+    { displacement: new Float32Array(3) },
+    { syy: new Float32Array(2) },
+  ]) {
+    const sim = new SimulationController(); sim.run(config);
+    const worker = FakeWorker.instances.at(-1)!; worker.mesh(1);
+    worker.send({ type: 'step', runId: 1, step: { ...step, converged: true }, damage: new Float32Array(1), displacement: new Float32Array(2), syy: new Float32Array(1), ...bad });
+    worker.send({ type: 'done', runId: 1, seconds: 1 });
+    const failed = sim.current;
+    expect(failed?.status).toBe('error');
+    expect(failed?.frames).toHaveLength(0);
+    sim.run(config);
+    expect(sim.current).not.toBe(failed);
+    expect(sim.current?.origin).toBe('live');
+    sim.dispose();
+  }
+});
+
+it('revalidates cached fields before reuse', () => {
+  vi.stubGlobal('Worker', FakeWorker);
+  const sim = new SimulationController(); sim.run(config);
+  const worker = FakeWorker.instances[0]; worker.mesh(1);
+  worker.send({ type: 'step', runId: 1, step: { ...step, converged: true }, damage: new Float32Array(1), displacement: new Float32Array(2), syy: new Float32Array(1) });
+  worker.send({ type: 'done', runId: 1, seconds: 1 });
+  const cached = sim.current!;
+  cached.frames[0].damage[0] = NaN;
+  sim.run(config);
+  expect(sim.current).not.toBe(cached);
+  expect(sim.current?.origin).toBe('live');
+  sim.dispose();
+});
+
+it('rejects invalid mesh data and empty completed runs', () => {
+  vi.stubGlobal('Worker', FakeWorker);
+  for (const message of [
+    { type: 'mesh' as const, runId: 1, nodes: new Float64Array([NaN, 0]), elements: new Uint32Array(4) },
+    { type: 'mesh' as const, runId: 1, nodes: new Float64Array([0, 0]), elements: new Uint32Array([0, 0, 0, 1]) },
+    { type: 'done' as const, runId: 1, seconds: 1 },
+  ]) {
+    const sim = new SimulationController(); sim.run(config);
+    FakeWorker.instances.at(-1)!.send(message);
+    expect(sim.current?.status).toBe('error');
+    sim.dispose();
+  }
 });
