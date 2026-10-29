@@ -1,0 +1,40 @@
+order: 3
+id: grossman-2026
+doi: 10.1103/17sg-gzhl
+crossref:
+  title: Predicting the mechanical properties of spring networks
+  authors:
+  - Doron Grossman
+  - Arezki Boudaoud
+  year: 2026
+  venue: Physical Review Research
+area: metamaterials
+keywords:
+- spring networks
+- homogenization
+- nonaffine displacements
+- continuum limit
+summary: Derives the elastic continuum of an arbitrary network of Hookean springs from its geometry and
+  topology alone, with the nonaffine deformation of every triangle obtained from a linear system, and
+  compares the resulting Poisson's ratios and Young's moduli with simulations of stretched strips of ordered
+  triangular lattices, a honeycomb that turns re-entrant, and a foam-like disordered lattice that becomes
+  auxetic.
+summary_source: full-text
+code: []
+data: []
+methods:
+- discrete-to-continuum homogenization
+- metric (incompatible) elasticity
+- strip simulations by energy minimisation
+dependencies: []
+complexity: medium
+relevance: Spring networks map directly onto truss models, which Stabileo already solves.
+status: numerically-validated
+reproduced_published_results: true
+benchmarks:
+- foam Poisson's ratio against disorder (Fig. 5, text p. 6)
+- honeycomb Poisson's ratio, Eq. (23)
+- ordered lattices, Supplemental Eq. (9) and Fig. 7
+- exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement
+implementation: metamaterials/grossman-2026
+contacts: []

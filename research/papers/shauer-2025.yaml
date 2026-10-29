@@ -1,0 +1,49 @@
+order: 0
+id: shauer-2025
+doi: 10.1016/j.advengsoft.2025.104013
+crossref:
+  title: Less than 500 lines self-contained Python finite element implementation of the phase-field method
+    for fracture mechanics
+  authors:
+  - Nathan Shauer
+  year: 2025
+  venue: Advances in Engineering Software
+area: fracture
+keywords:
+- phase-field
+- AT2
+- brittle fracture
+- staggered scheme
+- educational code
+summary: ''
+summary_source: null
+summary_note: No permitted summary source recorded; reference code alone is insufficient.
+code:
+- url: https://github.com/nathanshauer/phasefield-jr-py
+  commit: 61037c6ce7833a4f92a3ec098a9d60fd477eff2b
+  license: MIT
+- url: https://github.com/nathanshauer/phasefield-jr
+  commit: 7518fa54abc1d1f23bea912b62fa923916d3e8f5
+  license: MIT
+data: []
+methods:
+- Q4 elements
+- AT2 phase field
+- hybrid tensile-energy driving force
+- alternating minimisation
+- sparse LU
+dependencies:
+- numpy
+- scipy
+- matplotlib
+complexity: low
+relevance: Small enough to reproduce exactly and re-implement independently; the first Stabileo Research
+  entry and the pattern for the rest.
+status: numerically-validated
+reproduced_published_results: false
+benchmarks:
+- bar under tension vs 1D AT2 analytical stress
+- single-edge notched tension force-displacement
+- three-point bending force-displacement
+implementation: fracture/shauer-2025
+contacts: []

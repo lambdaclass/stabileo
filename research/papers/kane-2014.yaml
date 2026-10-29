@@ -1,0 +1,34 @@
+order: 19
+id: kane-2014
+doi: 10.1038/nphys2835
+crossref:
+  title: Topological boundary modes in isostatic lattices
+  authors:
+  - C. L. Kane
+  - T. C. Lubensky
+  year: 2013
+  venue: Nature Physics
+area: metamaterials
+keywords:
+- isostatic lattices
+- topological mechanics
+- floppy modes
+- kagome lattice
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- Maxwell counting
+- compatibility matrix
+- zero modes
+dependencies: []
+complexity: medium
+relevance: Isostatic (Maxwell) lattices with boundary floppy modes; a truss-network experiment on Stabileo's
+  solver, following the Grossman spring-network work. Crossref dates it 2013 (online); the print issue
+  is 2014. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

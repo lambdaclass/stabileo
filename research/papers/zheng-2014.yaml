@@ -1,0 +1,45 @@
+order: 18
+id: zheng-2014
+doi: 10.1126/science.1252291
+crossref:
+  title: Ultralight, ultrastiff mechanical metamaterials
+  authors:
+  - Xiaoyu Zheng
+  - Howon Lee
+  - Todd H. Weisgraber
+  - Maxim Shusteff
+  - Joshua DeOtte
+  - Eric B. Duoss
+  - Joshua D. Kuntz
+  - Monika M. Biener
+  - Qi Ge
+  - Julie A. Jackson
+  - Sergei O. Kucheyev
+  - Nicholas X. Fang
+  - Christopher M. Spadaccini
+  year: 2014
+  venue: Science
+area: metamaterials
+keywords:
+- octet truss
+- microlattices
+- stretch-dominated lattices
+- stiffness scaling
+summary: Octet-truss microlattices made by projection microstereolithography from polymers, metals and
+  ceramics. Because their struts carry load axially instead of bending, the materials are very stiff and
+  strong for their low density.
+summary_source: crossref-abstract
+code: []
+data: []
+methods:
+- projection microstereolithography
+- lattice mechanics
+dependencies: []
+complexity: low
+relevance: Stretch- versus bending-dominated lattices are a direct truss and frame comparison on Stabileo's
+  solvers (stiffness against relative density).
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

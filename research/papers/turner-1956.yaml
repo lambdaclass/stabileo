@@ -1,0 +1,33 @@
+order: 10
+id: turner-1956
+doi: 10.2514/8.3664
+crossref:
+  title: Stiffness and Deflection Analysis of Complex Structures
+  authors:
+  - M. J. TURNER
+  - R. W. CLOUGH
+  - H. C. MARTIN
+  - L. J. TOPP
+  year: 1956
+  venue: Journal of the Aeronautical Sciences
+area: numerical-methods
+keywords:
+- direct stiffness method
+- finite elements
+- history
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- direct stiffness method
+- triangular plane-stress elements
+dependencies: []
+complexity: low
+relevance: The founding paper of the direct stiffness method that Stabileo's engine implements; its truss
+  and plate examples run on Stabileo as it is.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

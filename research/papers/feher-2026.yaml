@@ -1,0 +1,33 @@
+order: 7
+id: feher-2026
+doi: 10.1016/j.euromechsol.2026.106217
+crossref:
+  title: Controlling the snap-through behavior of an elastica strip by cuts
+  authors:
+  - Eszter Fehér
+  year: 2026
+  venue: European Journal of Mechanics - A/Solids
+area: metamaterials
+keywords:
+- elastica
+- snap-through
+- cut sheets
+- bifurcation
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- elastica with varying bending stiffness
+- numerical continuation
+- experiments
+dependencies: []
+complexity: low
+relevance: Queue item 6, sharing the 2D stability tooling of item 5 (a 2D frame with varying stiffness
+  on the arc-length solver). No abstract in Crossref and the publisher page was not readable, so no summary;
+  no code; published values are in figures only.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

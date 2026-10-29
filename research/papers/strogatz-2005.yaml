@@ -1,0 +1,36 @@
+order: 20
+id: strogatz-2005
+doi: 10.1038/438043a
+crossref:
+  title: Crowd synchrony on the Millennium Bridge
+  authors:
+  - Steven H. Strogatz
+  - Daniel M. Abrams
+  - Allan McRobie
+  - Bruno Eckhardt
+  - Edward Ott
+  year: 2005
+  venue: Nature
+area: seismic
+keywords:
+- footbridge vibration
+- crowd synchrony
+- lateral excitation
+- Millennium Bridge
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- coupled oscillators
+- modal dynamics
+dependencies: []
+complexity: low
+relevance: Pedestrian-induced lateral vibration of a footbridge; the bridge's lateral modes come from
+  Stabileo's modal analysis, relevant to engineers designing footbridges. Crossref has no abstract, so
+  no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

@@ -1,0 +1,39 @@
+order: 4
+id: andreassen-2011
+doi: 10.1007/s00158-010-0594-7
+crossref:
+  title: Efficient topology optimization in MATLAB using 88 lines of code
+  authors:
+  - Erik Andreassen
+  - Anders Clausen
+  - Mattias Schevenels
+  - Boyan S. Lazarov
+  - Ole Sigmund
+  year: 2010
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords:
+- topology optimization
+- SIMP
+- MBB beam
+- educational code
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- SIMP
+- Q4 elements
+- density and sensitivity filters
+- optimality criteria
+dependencies: []
+complexity: low
+relevance: Reference results for the queued topology-optimization experiment (MBB beam), research/DESIGN.md
+  section 6 item 3. Crossref dates it 2010 (online); the print issue is volume 43, 2011. No abstract in
+  Crossref and the publisher page was not readable, so no summary; the code is distributed outside GitHub
+  and its licence has not been checked.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

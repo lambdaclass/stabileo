@@ -1,0 +1,48 @@
+order: 8
+id: pastrana-2026
+doi: 10.1016/j.cma.2026.118783
+crossref:
+  title: Differentiable force density method for the design of lightweight structures
+  authors:
+  - Rafael Pastrana
+  - Deniz Oktay
+  - Kai-Uwe Bletzinger
+  - Ryan P. Adams
+  - Sigrid Adriaenssens
+  year: 2026
+  venue: Computer Methods in Applied Mechanics and Engineering
+area: optimization
+keywords:
+- form finding
+- force density method
+- cable nets
+- gridshells
+- inverse design
+summary: The JAX FDM library computes equilibrium shapes of pin-jointed bar systems with the force density
+  method and solves inverse design problems by tuning force densities, loads and support positions with
+  gradient-based optimization against goals and constraints; written in JAX, so the simulation is differentiable
+  and JIT-compiled.
+summary_source: repository-readme
+summary_note: jax_fdm README read 2026-10-28; Crossref has no abstract and the publisher page was not
+  readable, so the summary covers the code only
+code:
+- url: https://github.com/arpastrana/jax_fdm
+  commit: 9a17fd379071fb3511ca914f46e8d1e8c286460e
+  license: MIT
+data: []
+methods:
+- force density method
+- adjoint sensitivities
+- gradient-based optimization
+dependencies:
+- JAX
+- COMPAS
+complexity: medium
+relevance: Queue item 7. Form-finding is one sparse solve with the engine's Cholesky; the found form opens
+  in the editor as a gridshell and is checked with the production 3D analysis and buckling. MIT reference
+  code with ready examples.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

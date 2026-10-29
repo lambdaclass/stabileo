@@ -1,0 +1,38 @@
+order: 9
+id: fairclough-2026
+doi: 10.1016/j.compstruc.2025.107997
+crossref:
+  title: Topology and geometry optimization of grid-shells incorporating design-dependent self-weight
+    loading
+  authors:
+  - Helen E. Fairclough
+  - Karol Bołbotowski
+  - Linwei He
+  - Andrew Liew
+  - Matthew Gilbert
+  year: 2026
+  venue: Computers & Structures
+area: optimization
+keywords:
+- grid-shells
+- layout optimization
+- self-weight
+- second-order cone programming
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- second-order cone programming
+- ground structure
+dependencies: []
+complexity: medium
+relevance: Queue item 8. Needs a conic optimiser (candidate Clarabel.rs, Apache-2.0); the optimised gridshell
+  is checked with the production 3D truss analysis under self-weight. No abstract in Crossref and the
+  publisher page was not readable, so no summary; the authors' example scripts are cited without a link
+  we could find.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

@@ -1,0 +1,42 @@
+order: 6
+id: zmyslony-2026
+doi: 10.1103/56f8-8gsx
+crossref:
+  title: Snapping and switching of elastic arches with patterned preferred curvature
+  authors:
+  - Michał Zmyślony
+  - Ammar Khan
+  - John S. Biggins
+  year: 2026
+  venue: Physical Review Research
+area: metamaterials
+keywords:
+- elastic arch
+- snap-through
+- bistability
+- preferred curvature
+- Euler buckling modes
+summary: Elastica theory and photomechanical experiments on an arch whose preferred curvature varies along
+  its length and in time. A shallow-arch theory projects the curvature pattern onto Euler buckling modes;
+  overlap with the fundamental mode makes the arch snap, other patterns give a continuous switch to a
+  higher mode. Patterns with the largest energy release and the lowest threshold are found, and the same
+  control applies to passive pre-curved arches loaded at the boundaries.
+summary_source: crossref-abstract
+code: []
+data:
+- url: https://doi.org/10.5281/zenodo.18256271
+  license: CC-BY-4.0
+methods:
+- shallow-arch elastica theory
+- Euler buckling mode decomposition
+- experiments
+dependencies: []
+complexity: low
+relevance: Queue item 5. The theory's basis is the Euler buckling modes the production engine already
+  computes; passive arches run on the 2D corotational and arc-length solvers. Zenodo record (data and
+  software, CC-BY-4.0 per the record) not yet inspected file by file.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

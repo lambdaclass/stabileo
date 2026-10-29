@@ -15,22 +15,28 @@ import tempfile
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CATALOG = os.path.join(os.path.dirname(HERE), "papers.yaml")
+CATALOG = os.path.join(os.path.dirname(HERE), "papers")
 
 
 def run(papers, *flags):
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
-        yaml.safe_dump({"papers": papers}, f)
-    env = dict(os.environ, RESEARCH_CATALOG=f.name)
-    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "catalog.py"), "check", *flags],
-                       env=env, capture_output=True, text=True)
-    os.unlink(f.name)
-    return r.returncode, r.stdout
+    with tempfile.TemporaryDirectory() as tmp:
+        seen = set()
+        for i, paper in enumerate(papers):
+            name = paper["id"] if paper["id"] not in seen else f"duplicate-{i}"
+            seen.add(paper["id"])
+            Path(tmp, f"{name}.yaml").write_text(yaml.safe_dump({"order": i, **paper}))
+        env = dict(os.environ, RESEARCH_CATALOG=tmp)
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "catalog.py"), "check", *flags],
+                           env=env, capture_output=True, text=True)
+        return r.returncode, r.stdout
 
 
 def main():
     online = "--online" in sys.argv
-    papers = yaml.safe_load(open(CATALOG))["papers"]
+    spec = importlib.util.spec_from_file_location("catalog", os.path.join(HERE, "catalog.py"))
+    catalog = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(catalog)
+    papers = catalog.load_papers()
     base = [p for p in papers if p["id"] == "shauer-2025"]
     flags = () if online else ("--offline",)
     code, out = run(base, *flags)
@@ -45,9 +51,6 @@ def main():
     assert code != 0, out
     print("ok   rejects published-figures-compared without published evidence")
 
-    spec = importlib.util.spec_from_file_location("catalog", os.path.join(HERE, "catalog.py"))
-    catalog = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(catalog)
     urls = []
     catalog.get_json = lambda url: urls.append(url) or {"license": {"spdx_id": "MIT"}}
     errors = []

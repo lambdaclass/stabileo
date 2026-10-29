@@ -1,0 +1,36 @@
+order: 16
+id: gilbert-2003
+doi: 10.1108/02644400310503017
+crossref:
+  title: Layout optimization of large-scale pin-jointed frames
+  authors:
+  - Matthew Gilbert
+  - Andrew Tyas
+  year: 2003
+  venue: Engineering Computations
+area: optimization
+keywords:
+- layout optimization
+- ground structure
+- member adding
+- linear programming
+summary: Ground-structure layout optimization of trusses is limited by the number of potential members.
+  The paper presents an iterative member-adding method, built on linear-programming column generation,
+  that starts from a sparsely connected ground structure and adds members as needed until the provably
+  optimal layout is reached, handling problems with very large numbers of potential members.
+summary_source: crossref-abstract
+code: []
+data: []
+methods:
+- linear programming
+- column generation
+- ground structure
+dependencies: []
+complexity: medium
+relevance: Truss layout optimization whose optimal layouts can be analysed and checked on Stabileo's truss
+  solver; useful to engineers for early-stage layouts.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

@@ -78,3 +78,9 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
   done, evidence, half done, findings, exact next step.
 - Before production: green required CI, a page e2e smoke, a review (Codex and Kimi plus a human),
   then merge. Messages to authors are drafted here and sent by a maintainer.
+
+Catalog entries live in `research/papers/<id>.yaml`, one mapping per file. Set integer
+`order` to control gallery order; ties sort by id. The export omits `order` and retains
+the legacy `generated_from` label for byte compatibility. Run `python3 research/tools/catalog.py export`
+after editing. After rebasing older paper PRs, restore the resolved legacy `research/papers.yaml`
+and run `scripts/split-registries.sh`; reconcile any reported differing entries before rerunning.

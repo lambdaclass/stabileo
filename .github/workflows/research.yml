@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'research/**'
+      - 'scripts/*registries*'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -17,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'research/**'
+      - 'scripts/*registries*'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -88,6 +90,7 @@ jobs:
           /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
+      - run: /tmp/catalog-venv/bin/python -I scripts/test_split_registries.py
       - name: Checker rejects bad entries
         run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
       - name: Every entry, evidence file and summary source is well formed

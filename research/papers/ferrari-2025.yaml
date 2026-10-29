@@ -1,0 +1,39 @@
+order: 5
+id: ferrari-2025
+doi: 10.1002/nme.70082
+crossref:
+  title: Optimization of the Initial Post‐Buckling Response of Trusses and Frames by an Asymptotic Approach
+  authors:
+  - Federico Ferrari
+  - Ole Sigmund
+  year: 2025
+  venue: International Journal for Numerical Methods in Engineering
+area: optimization
+keywords:
+- post-buckling
+- Koiter asymptotic theory
+- imperfection sensitivity
+- trusses
+- frames
+summary: Uses Koiter's asymptotic post-buckling expansion in sizing and topology optimization of trusses
+  and frames. Constraining the first two asymptotic coefficients (initial post-buckling slope and curvature)
+  shapes the post-buckling response and lowers imperfection sensitivity, and the same expansion approximates
+  the nonlinear response so that measures such as end-compliance can be optimized.
+summary_source: crossref-abstract
+code: []
+data: []
+methods:
+- linear buckling eigenproblem
+- Koiter asymptotic expansion
+- corotational beams
+- arc-length path following
+dependencies: []
+complexity: medium
+relevance: Queue item 4. Runs on the production buckling, corotational and arc-length solvers; validated
+  against closed-form post-buckling coefficients of the Roorda frame and our own arc-length path. No public
+  code (in-house implementation per the paper).
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

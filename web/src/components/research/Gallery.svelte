@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * /research: the experiments that run here first, then what is being built, then the
-   * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
+   * catalogue (research/papers/<id>.yaml, exported to papers.json and checked against Crossref in CI).
    */
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
