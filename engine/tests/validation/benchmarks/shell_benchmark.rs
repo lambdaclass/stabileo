@@ -7,7 +7,7 @@
 ///   4. Pinched hemisphere — MacNeal-Harder standard test
 ///
 /// MITC4 with Bathe-Dvorkin ANS shear tying eliminates transverse shear locking:
-///   - Scordelis-Lo 6×6: ratio ~0.80 (was ~0.14 before ANS)
+///   - Scordelis-Lo 6×6: ratio ~1.016 with corrected symmetry (#810)
 ///   - Navier plate 4×4: ratio ~0.93 (was ~0.08 before ANS)
 ///   - Cantilever pressure: ratio ~1.05 (was ~0.10 before ANS)
 ///   - Buckling 8×8: ratio ~1.02 (was highly variable before ANS)
@@ -62,9 +62,8 @@ fn hemisphere_hole_displacement(displacements: &[Displacement3D], node_id: usize
         .expect("Equator node displacement not found").ux
 }
 
-/// Build a Scordelis-Lo barrel vault quarter model and return the midspan
-/// free-edge signed vertical displacement (negative under gravity).
-fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
+/// Build the Scordelis-Lo quarter model and return its midspan free-edge node.
+fn scordelis_lo_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
     let e = 4.32e8 / 1000.0;
     let nu = 0.0;
     let t = 0.25;
@@ -111,37 +110,22 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
 
+    // Union constraints at intersections: rotations are axial vectors, so a
+    // symmetry plane fixes its normal translation and both tangential rotations.
+    // No vertical pin at the roof crown: the end diaphragm removes rigid motion.
+    // Definitions and isolation experiments: docs/audits/810-mitc4-curved-shells.md.
     let mut supports = HashMap::new();
-    let mut sid = 1;
-
-    // x = 0: symmetry — restrain ux, rry
-    for j in 0..=ntheta {
-        let nid = node_grid[0][j];
-        supports.insert(sid.to_string(), sup3d(nid, true, false, false, false, true, false));
-        sid += 1;
-    }
-
-    // x = half_L: rigid diaphragm — restrain uy, uz
-    for j in 0..=ntheta {
-        let nid = node_grid[nx][j];
-        supports.insert(sid.to_string(), sup3d(nid, false, true, true, false, false, false));
-        sid += 1;
-    }
-
-    // theta = 0 (crown): symmetry — restrain uy, rrx
     for i in 0..=nx {
-        let nid = node_grid[i][0];
-        if !supports.values().any(|s| s.node_id == nid) {
-            supports.insert(sid.to_string(), sup3d(nid, false, true, false, true, false, false));
-            sid += 1;
+        for j in 0..=ntheta {
+            let mut f = [false; 6];
+            if i == 0 { f[0] = true; f[4] = true; f[5] = true; }
+            if i == nx { f[1] = true; f[2] = true; }
+            if j == 0 { f[1] = true; f[3] = true; f[5] = true; }
+            if f.iter().any(|&fixed| fixed) {
+                let nid = node_grid[i][j];
+                supports.insert(nid.to_string(), sup3d(nid, f[0], f[1], f[2], f[3], f[4], f[5]));
+            }
         }
-    }
-
-    // Pin corner for rigid body stability
-    let corner = node_grid[0][0];
-    if let Some(s) = supports.values_mut().find(|s| s.node_id == corner) {
-        s.ry = true;
-        s.rz = true;
     }
 
     // Equivalent nodal gravity loads
@@ -162,14 +146,12 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
             let fz = -gravity_per_area * trib_area * factor;
 
             let nid = node_grid[i][j];
-            let is_rz_restrained = supports.values().any(|s| s.node_id == nid && s.rz);
-            if !is_rz_restrained {
-                loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-                    node_id: nid,
-                    fx: 0.0, fy: 0.0, fz,
-                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-                }));
-            }
+            // Retain loads at supports as well, so reactions recover total dead weight.
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: nid,
+                fx: 0.0, fy: 0.0, fz,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
         }
     }
 
@@ -189,10 +171,13 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Scordelis-Lo solve failed");
+    (input, node_grid[0][ntheta])
+}
 
-    let free_edge_nid = node_grid[0][ntheta];
-    scordelis_lo_displacement(&res.displacements, free_edge_nid)
+fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
+    let (input, target) = scordelis_lo_model(nx, ntheta);
+    let res = linear::solve_3d(&input).expect("scordelis_lo solve failed");
+    scordelis_lo_displacement(&res.displacements, target)
 }
 
 // ================================================================
@@ -201,9 +186,8 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 //
 // Reference midspan free-edge vertical displacement = 0.3024
 //
-// Current MITC4 is stiffer than reference on coarse meshes (~14% at 6×6).
-// Verify non-trivial deflection and convergence with refinement.
-// Target: ratio approaching 1.0 on fine meshes (Program 3).
+// Correct symmetry and dead weight: ratios 1.0156, 1.0069, 1.0016, 1.0001
+// at 6, 8, 12, 16 per direction. Strict 2% checks are below.
 
 #[test]
 fn benchmark_scordelis_lo_roof_mitc4() {
@@ -215,7 +199,7 @@ fn benchmark_scordelis_lo_roof_mitc4() {
         "Scordelis-Lo 6x6: should produce meaningful deflection, got uz={:.6e}", uz_6
     );
 
-    // 6×6 coarse mesh: EAS-7 gives ~84% of reference (up from ~80% with EAS-4)
+    // Corrected quarter model: 6×6 is within 2% of the reference.
     let ratio = uz_6 / reference;
     assert!(
         ratio > 0.7 && ratio < 1.2,
@@ -3081,12 +3065,12 @@ fn benchmark_distortion_random() {
 //
 // R=300, L=600, t=3, E=3e6, ν=0.3.
 // Two diametrically opposed radial point loads at midspan.
-// Quarter model with symmetry BCs.
+// One-eighth model with symmetry BCs.
 // Reference: u_radial = 1.8248e-5 (MacNeal-Harder 1985).
 
-fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
+fn pinched_cylinder_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
     let r = 300.0;
-    let half_l = 300.0; // half-length (quarter model uses half-length)
+    let half_l = 300.0; // half-length; one quarter of the circumference
     let t = 3.0;
     // Standard MacNeal-Harder: E=3×10^6, solver takes E in MPa (internally ×1000→kPa).
     // Use e=3000.0 → internal 3×10^6, making R=300, L=600, t=3 consistent.
@@ -3095,7 +3079,7 @@ fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
     let f_load = 1.0;
     let pi = std::f64::consts::PI;
 
-    // Quarter model: x in [0, half_L], theta in [0, π/2]
+    // One-eighth model: x in [0, half_L], theta in [0, π/2]
     let mut nodes = HashMap::new();
     let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
     let mut nid = 1;
@@ -3127,43 +3111,26 @@ fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
 
+    // Union constraints at intersections: rotations are axial vectors, so a
+    // symmetry plane fixes its normal translation and both tangential rotations.
+    // Definitions and isolation experiments: docs/audits/810-mitc4-curved-shells.md.
     let mut supports = HashMap::new();
-    let mut sid = 1;
-
-    // x = 0 (midspan): symmetry — restrain ux, rry, rrz
-    for j in 0..=ntheta {
-        let n = node_grid[0][j];
-        supports.insert(sid.to_string(), sup3d(n, true, false, false, false, true, true));
-        sid += 1;
-    }
-
-    // x = half_L (end diaphragm): restrain uy, uz (radial directions)
-    for j in 0..=ntheta {
-        let n = node_grid[nx][j];
-        supports.insert(sid.to_string(), sup3d(n, false, true, true, false, false, false));
-        sid += 1;
-    }
-
-    // theta = 0 (y-axis, top): symmetry — restrain uz, rrx
     for i in 0..=nx {
-        let n = node_grid[i][0];
-        if !supports.values().any(|s| s.node_id == n) {
-            supports.insert(sid.to_string(), sup3d(n, false, false, true, true, false, false));
-            sid += 1;
-        }
-    }
-
-    // theta = π/2 (z-axis, side): symmetry — restrain uy, rrx
-    for i in 0..=nx {
-        let n = node_grid[i][ntheta];
-        if !supports.values().any(|s| s.node_id == n) {
-            supports.insert(sid.to_string(), sup3d(n, false, true, false, true, false, false));
-            sid += 1;
+        for j in 0..=ntheta {
+            let mut f = [false; 6];
+            if i == 0 { f[0] = true; f[4] = true; f[5] = true; }
+            if i == nx { f[1] = true; f[2] = true; }
+            if j == 0 { f[2] = true; f[3] = true; f[4] = true; }
+            if j == ntheta { f[1] = true; f[3] = true; f[5] = true; }
+            if f.iter().any(|&fixed| fixed) {
+                let nid = node_grid[i][j];
+                supports.insert(nid.to_string(), sup3d(nid, f[0], f[1], f[2], f[3], f[4], f[5]));
+            }
         }
     }
 
     // Point load at midspan (x=0), top (theta=0) → radial inward (-y)
-    // In quarter model with F_total=1, apply F/4 = 0.25 (quarter symmetry)
+    // Each unit point force is shared by four sectors at the loaded point; apply P/4.
     let load_node = node_grid[0][0];
     let loads = vec![
         SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -3182,9 +3149,13 @@ fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Pinched cylinder solve failed");
+    (input, load_node)
+}
 
-    pinched_cylinder_displacement(&res.displacements, load_node)
+fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
+    let (input, target) = pinched_cylinder_model(nx, ntheta);
+    let res = linear::solve_3d(&input).expect("pinched_cylinder solve failed");
+    pinched_cylinder_displacement(&res.displacements, target)
 }
 
 #[test]
@@ -8088,7 +8059,8 @@ fn benchmark_curved_shell_cross_family_comparison() {
 // the older capability floors above. MacNeal & Harder (1985); NAFEMS TNSB Rev 3
 // (1990), LE3 for the hemisphere with 18° hole. Page source: this file's
 // benchmark_scordelis_lo_convergence, benchmark_pinched_cylinder_8x8, and
-// benchmark_hemisphere_hole_convergence; numerical paper table/page unverified.
+// benchmark_hemisphere_hole_convergence. Roof/cylinder model and reference audit:
+// docs/audits/810-mitc4-curved-shells.md; hemisphere provenance unchanged.
 fn research_shell_accuracy(value: f64, reference: f64) {
     let error = (value/reference-1.).abs();
     assert!(value.is_finite() && error < 0.02,
@@ -8096,35 +8068,31 @@ fn research_shell_accuracy(value: f64, reference: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_6() { research_shell_accuracy(scordelis_lo_solve(6, 6), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_8() { research_shell_accuracy(scordelis_lo_solve(8, 8), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_12() { research_shell_accuracy(scordelis_lo_solve(12, 12), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_16() { research_shell_accuracy(scordelis_lo_solve(16, 16), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_6() { research_shell_accuracy(pinched_cylinder_solve(6, 6), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_8() { research_shell_accuracy(pinched_cylinder_solve(8, 8), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_12() { research_shell_accuracy(pinched_cylinder_solve(12, 12), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_16() { research_shell_accuracy(pinched_cylinder_solve(16, 16), -1.8248e-05); }
 
 #[test]
@@ -8174,4 +8142,52 @@ fn research_cylinder_rejects_reversed_response() {
 #[test]
 fn research_hemisphere_rejects_reversed_response() {
     check_shell_response_sign(hemisphere_hole_displacement, [0.185, 0.0, 0.0], 0.185);
+}
+
+#[test]
+fn research_shell_model_constraints_and_equilibrium() {
+    // Check intersections explicitly: these were silently skipped by the old builders.
+    let n = 8;
+    for roof in [true, false] {
+        let (input, target) = if roof { scordelis_lo_model(n, n) } else { pinched_cylinder_model(n, n) };
+        let flags = |id| {
+            let s = input.supports.values().find(|s| s.node_id == id).unwrap();
+            [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz]
+        };
+        assert_eq!(flags(1), if roof { [true, true, false, true, true, true] }
+            else { [true, false, true, true, true, true] });
+        assert_eq!(flags(n + 1), if roof { [true, false, false, false, true, true] }
+            else { [true, true, false, true, true, true] });
+        assert_eq!(flags(n * (n + 1) + 1), if roof { [false, true, true, true, false, true] }
+            else { [false, true, true, true, true, false] });
+        assert_eq!(flags((n + 1) * (n + 1)), if roof { [false, true, true, false, false, false] }
+            else { [false, true, true, true, false, true] });
+        assert_eq!(target, if roof { n + 1 } else { 1 });
+        let applied: f64 = input.loads.iter().map(|l| match l {
+            SolverLoad3D::Nodal(l) => if roof { l.fz } else { l.fy },
+            _ => panic!("benchmark uses nodal loads"),
+        }).sum();
+        let expected = if roof { -90.0 * 25.0 * 25.0 * 40_f64.to_radians() } else { -0.25 };
+        assert!((applied / expected - 1.0).abs() < 1e-12, "dead weight / point-force partition");
+        let res = linear::solve_3d(&input).unwrap();
+        let reaction: f64 = res.reactions.iter().map(|r| if roof { r.fz } else { r.fy }).sum();
+        assert!(((reaction + applied) / expected).abs() < 1e-8, "reaction balance: {reaction} + {applied}");
+    }
+}
+
+#[test]
+fn research_cylinder_32() {
+    research_shell_accuracy(pinched_cylinder_solve(32, 32), -1.8248e-5);
+}
+
+#[test]
+fn research_cylinder_corrected_convergence() {
+    let mut previous_error = f64::INFINITY;
+    for n in [6, 8, 12, 16] {
+        let ratio = pinched_cylinder_solve(n, n) / -1.8248e-5;
+        let error = (ratio - 1.0).abs();
+        assert!(ratio > 0.0 && error < previous_error,
+            "corrected cylinder {n}×{n}: ratio={ratio}, previous error={previous_error}");
+        previous_error = error;
+    }
 }

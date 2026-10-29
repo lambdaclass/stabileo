@@ -280,8 +280,8 @@ research-only crates or formula-only `reference` tests. `R::` below means
 | MacNeal–Harder #797: parallelogram MITC4, both directions | `R::macneal_parallelogram_in`, `R::macneal_parallelogram_out` | ignored #798 |
 | Riks/Crisfield #803: shallow toggle | `R::riks_shallow_toggle` | ignored — new finding (axial-reference mismatch / incomplete path) |
 | Riks/Crisfield #803: Von Mises peak load, displacement, every path step | `R::riks_von_mises_truss` | pass |
-| Shell obstacle #809: Scordelis–Lo, 6²/8²/12²/16² | `S::research_roof_6`, `_8`, `_12`, `_16` | ignored #810 |
-| Shell obstacle #809: pinched cylinder, 6²/8²/12²/16² | `S::research_cylinder_6`, `_8`, `_12`, `_16` | ignored #810 |
+| Shell obstacle #809: Scordelis–Lo, 6²/8²/12²/16² | `S::research_roof_6`, `_8`, `_12`, `_16` | pass after #810 model correction |
+| Shell obstacle #809: pinched cylinder, 6²/8²/12²/16² | `S::research_cylinder_6`, `_8`, `_12`, `_16` | ignored: corrected model exceeds 2%; 32² passes (see #810 audit) |
 | Shell obstacle #809: hemisphere with hole, 4²/8²/16² | `S::research_hemisphere_4`, `_8`, `_16` | pass |
 | Mattiasson #834: PL²/EI=1, signed u/L and v/L | `R::mattiasson_1` | pass |
 | Mattiasson #834: PL²/EI=2/5/10 | `R::mattiasson_2`, `_5`, `_10` | ignored — new finding (provisional references / nonconvergence) |
