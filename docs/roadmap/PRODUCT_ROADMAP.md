@@ -445,10 +445,13 @@ have reviewed their page.
 
 ### SEO and positioning (2026-10-29)
 
-**Pricing principle (decided 2026-10-29):** the core program is free and open source for everyone;
-some specialised modules, Stabileo AI and heavy cloud compute may be paid, for everyone. Copy promises
-only what is decided: the core is free; it never says "free in every case" or promises blanket
-exemptions (universities included) for paid modules, AI or compute.
+**Pricing principle (decided 2026-10-29):**
+- the **core program** is free and open source for everyone;
+- some **specialised modules** are paid; **universities get them free**;
+- **Stabileo AI and heavy cloud compute** are paid by everyone, universities included, priced to cover
+  what they cost.
+
+Copy promises exactly this and nothing more (never "free in every case").
 
 **Position:** *Stabileo — free, open-source structural analysis and design in your browser, with
 machine-checked results; AI assistant coming.* Claims stay true: the AI assistant is "in development"
