@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - 'research/**'
+      - 'infra/caddy/**'
+      - 'infra/ansible/**'
+      - '.github/workflows/research-snapshot.yml'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -17,6 +20,9 @@ on:
   pull_request:
     paths:
       - 'research/**'
+      - 'infra/caddy/**'
+      - 'infra/ansible/**'
+      - '.github/workflows/research-snapshot.yml'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -163,5 +169,6 @@ jobs:
           pip install PyYAML
           python3 -I research/tools/test_snapshot_trigger.py
           python3 -I infra/ansible/scripts/test_snapshot_store.py
+          python3 -I infra/ansible/scripts/test_snapshot_dns.py
       - name: Snapshot pruning never offers a released or still-linked snapshot
         run: python3 -I research/tools/test_snapshots.py

@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 60
     environment: ${{ inputs.environment || 'production' }}
     concurrency:
-      group: deploy-${{ inputs.environment || 'production' }}-host
+      group: snapshot-${{ inputs.environment || 'production' }}-${{ github.run_id }}-${{ github.run_attempt }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -74,6 +74,10 @@ jobs:
           path: source
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
+      - name: Require snapshot DNS
+        env:
+          SNAPSHOT_HOST: snapshots.${{ vars.PHX_HOST }}
+        run: python3 tooling/infra/ansible/scripts/snapshot_dns.py "$SNAPSHOT_HOST"
       - name: Build snapshot
         working-directory: source
         env:
@@ -103,7 +107,7 @@ jobs:
           ansible-playbook -i "$RUNNER_TEMP/inventory.yml" deploy-snapshot.yml -e "commit_sha=$SNAPSHOT_COMMIT snapshot_archive=$RUNNER_TEMP/snapshot.tar.gz snapshot_size=$SNAPSHOT_SIZE"
       - name: Verify through Caddy from outside
         env:
-          SITE: https://${{ vars.PHX_HOST }}
+          SITE: https://snapshots.${{ vars.PHX_HOST }}
         run: |
           set -euo pipefail
           short=${SNAPSHOT_COMMIT:0:7}

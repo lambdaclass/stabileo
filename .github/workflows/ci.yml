@@ -86,6 +86,9 @@ jobs:
               - 'web/**'
               # The /research pages import the catalog and reference results and ship its WASM.
               - 'research/**'
+              - 'infra/caddy/**'
+              - 'infra/ansible/**'
+              - '.github/workflows/research-snapshot.yml'
               - 'engine/**'
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
@@ -93,6 +96,9 @@ jobs:
             research:
               - *tooling
               - 'research/**'
+              - 'infra/caddy/**'
+              - 'infra/ansible/**'
+              - '.github/workflows/research-snapshot.yml'
               - 'web/**'
               - 'engine/**'
               - 'Cargo.toml'
@@ -565,6 +571,7 @@ jobs:
       - name: Snapshot hosting and store regression tests
         run: |
           python3 -I infra/ansible/scripts/test_snapshot_store.py
+          python3 -I infra/ansible/scripts/test_snapshot_dns.py
           nix shell nixpkgs#caddy -c python3 -I infra/caddy/test_snapshots.py
       - name: Build the site under /@<commit>/
         run: nix develop --command web/scripts/build-snapshot.sh
