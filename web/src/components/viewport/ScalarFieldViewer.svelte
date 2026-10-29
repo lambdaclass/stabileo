@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
    * have a mesh and a field but no editor model (research experiments). Shares the app's scene
@@ -162,6 +163,7 @@
     controls.target.set(cx, cy, 0);
     controls.enableRotate = projection === 'orbit';
     camera.lookAt(cx, cy, 0);
+    updateZoom();
     invalidate();
   }
 
@@ -181,6 +183,7 @@
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     if (pendingFit) fit();
+    updateZoom();
     invalidate();
   }
 
@@ -197,8 +200,7 @@
   function updateZoom() {
     if (!renderer) return;
     const d = camera.position.distanceTo(controls.target);
-    const visible = 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-    zoomText = `${(container.clientHeight / visible).toPrecision(3)} px/unit`;
+    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov);
   }
 
   onMount(() => {

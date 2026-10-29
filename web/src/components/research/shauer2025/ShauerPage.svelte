@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { researchAssetBase, replayMatchesBuild } from '../shell/assets';
   /**
    * /research/fracture/shauer-2025: the AT2 phase-field notched plate. On load it replays a run of
    * our solver precomputed at build time; Recompute live runs the same Rust solver in the
    * browser (WASM, in a worker). The reference code's own outputs are shown alongside.
    */
   import { onDestroy, onMount } from 'svelte';
+  import { snapshots } from './reference-fields';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs } from '../i18n';
@@ -13,7 +15,7 @@
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
   import NumberField from './NumberField.svelte';
-  import { SimulationController, type Frame } from './simulation.svelte';
+  import { SimulationController, pendingMeshMessage, type Frame } from './simulation.svelte';
   import type { PlateConfig, Series, Step } from './protocol';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
@@ -30,7 +32,7 @@
   const strings = $derived(rs());
   const STABILEO = 'var(--rs-plot-ours)';
   const REFERENCE = 'var(--rs-plot-ref)';
-  const BASE = `${import.meta.env.BASE_URL}research-wasm/shauer-2025/`;
+  const BASE = `${researchAssetBase}shauer-2025/`;
   /** This experiment shows its mesh by default: the refined band is part of the method. */
   const MESH_BY_DEFAULT = true;
 
@@ -95,6 +97,8 @@
   });
 
   let replay = $state.raw<{ nodes: Float64Array; elements: Uint32Array; frames: Frame[] } | null>(null);
+  let replayVerified = $state(false);
+  let replayConfig = $state<unknown>(null);
   let replayError = $state<string | null>(null);
   let pane: HTMLElement | undefined = $state();
 
@@ -103,6 +107,8 @@
     fetchReplay<Step>(`${BASE}replay.srpl`, abort.signal)
       .then((d) => {
         if (abort.signal.aborted) return;
+        replayConfig = d.header.config;
+        replayVerified = replayMatchesBuild(d.header, JSON.parse(REFERENCE_KEY));
         replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };
         playback.setCount(d.frames.length);
         // A link can open the page at a step, with or without the mesh (?step=57&mesh=0).
@@ -143,8 +149,8 @@
   const frames = $derived<Frame[]>(run ? run.frames : (replay?.frames ?? []));
   const nodes = $derived(run ? run.nodes : (replay?.nodes ?? null));
   const elements = $derived(run ? run.elements : (replay?.elements ?? null));
-  const shownConfigKey = $derived(run ? JSON.stringify(run.config) : REFERENCE_KEY);
-  const showsReference = $derived(shownConfigKey === REFERENCE_KEY);
+  const shownConfigKey = $derived(run ? JSON.stringify(run.config) : (replayVerified ? REFERENCE_KEY : JSON.stringify(replayConfig)));
+  const showsReference = $derived(shownConfigKey === REFERENCE_KEY && (!!run || replayVerified));
 
   $effect(() => {
     playback.setCount(frames.length);
@@ -298,7 +304,7 @@
   );
 
   const comparison = $derived(showsReference && frames.length && (!run || run.status !== 'running')
-    ? compareReference(frames, reference) : null);
+    && nodes && elements ? compareReference(frames, reference, { nodes, elements, snapshots, material: JSON.parse(REFERENCE_KEY).material, replay: !run }) : null);
 
   const fmt = (v: number, d = 4) => (Math.abs(v) >= 1e-3 || v === 0 ? num(v, { dp: d }) : num(v, { sig: 3 }));
   const statusItems = $derived(
@@ -420,9 +426,11 @@
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
           <span class="ok" aria-hidden="true">✓</span>
-          {source === 'replay' ? 'This replay' : 'This run'} matches the reference code: peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
+          {source === 'replay' ? 'This replay' : 'This run'} agrees with reference forces, iterations, pre-peak maximum damage, damage at steps 56/57/78 and displacement at step 56 (replay fields quantized; stress has no reference snapshot): peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
           <button type="button" class="rs-textbtn" onclick={() => { playback.interact(); tab = 'convergence'; }}>Details</button>
         </p>
+      {:else if !run && replay && !replayVerified}
+        <p class="rs-compare-line" role="status">Replay build or configuration mismatch: reference comparison disabled.</p>
       {:else if comparison || run?.status === 'unconverged'}
         <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? 'Non-converged run' : 'Reference mismatch'}: {comparison?.failures.join('; ') || run?.error}</p>
       {/if}
@@ -472,7 +480,7 @@
             />
           </div>
         {:else}
-          <div class="rs-placeholder">{run?.error ? `The solver failed: ${run.error}. Retry or return to the replay in Parameters.` : replayError ? 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.' : 'Loading the replay…'}</div>
+          <div class="rs-placeholder">{pendingMeshMessage(run, replayError)}</div>
         {/if}
       </div>
 

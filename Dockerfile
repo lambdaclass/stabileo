@@ -50,6 +50,9 @@ RUN RESEARCH_SKIP_VIEWER=1 research/fracture/shauer-2025/wasm/build.sh
 
 FROM ${NODE_IMAGE} AS web-builder
 
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 # --ignore-scripts: no dependency install hooks run in the build.
@@ -63,6 +66,7 @@ COPY --from=wasm-builder /app/web-wasm src/lib/wasm/
 COPY --from=wasm-builder /app/web/public/research-wasm public/research-wasm/
 RUN node ../research/fracture/shauer-2025/wasm/check.mjs public/research-wasm/shauer-2025 ../research/fracture/shauer-2025/reference-results/ex2_steps.csv \
     && npx vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer \
+    && python3 ../research/tools/publish_assets.py /app /app/web/public/research-wasm/shauer-2025 \
     && npm run build \
     && test -s dist/research-wasm/shauer-2025/phasefield.js \
     && test -s dist/research-wasm/shauer-2025/phasefield_bg.wasm \

@@ -1,7 +1,7 @@
 import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 
@@ -183,9 +183,17 @@ function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+const researchManifest = resolve(__dirname, 'public/research-wasm/build.json');
+const researchBuildId = existsSync(researchManifest) ? JSON.parse(readFileSync(researchManifest, 'utf8')).build_id : 'unavailable';
+if (researchBuildId !== 'unavailable') {
+  const actual = execFileSync('python3', [resolve(__dirname, '../research/tools/asset_identity.py'), resolve(__dirname, '..'), resolve(__dirname, 'public/research-wasm/shauer-2025')], { encoding: 'utf8' }).trim();
+  if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
+}
+
 export default defineConfig({
   plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
+    "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),

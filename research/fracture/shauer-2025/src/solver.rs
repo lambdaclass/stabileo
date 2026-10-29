@@ -358,6 +358,35 @@ mod tests {
     use crate::examples::bar_reference;
 
     #[test]
+    fn negative_mixed_energy_cannot_lower_history_or_change_damage() {
+        let mut problem = bar_reference();
+        problem.material.e = 30.0;
+        problem.material.nu = 0.2;
+        problem.controls.irreversibility = Irreversibility::History;
+        assert!((fe::psi_plus(&problem.material, &[0.001, -0.1, 0.0]) + 0.000296875).abs() < 1e-15);
+        for initial in [0.0, 0.002] {
+            let mut solver = Solver::new(problem.clone()).unwrap();
+            solver.history.fill([initial; 4]);
+            solver.solve_damage().unwrap();
+            let baseline = solver.d.clone();
+            for (i, [x, y]) in solver.problem.mesh.nodes.iter().enumerate() {
+                solver.u[2 * i] = 0.001 * x;
+                solver.u[2 * i + 1] = -0.1 * y;
+            }
+            for e in 0..solver.coords.len() {
+                let p = solver.psi_plus_qp(e).unwrap();
+                assert!(p.iter().all(|v| *v < 0.0));
+            }
+            solver.problem.dirichlet = solver.u.iter().enumerate().map(|(dof, &value)| crate::model::Dirichlet { dof, value }).collect();
+            solver.problem.controls.dt = 1.0;
+            solver.problem.controls.total_time = 2.0;
+            assert!(solver.advance().unwrap().unwrap().converged);
+            assert_eq!(solver.d, baseline);
+            assert!(solver.history.iter().flatten().all(|h| *h == initial && *h >= 0.0));
+        }
+    }
+
+    #[test]
     fn rejects_nonfinite_or_nonpositive_controls() {
         for value in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN, 0.0, -1.0] {
             for control in 0..3 {
