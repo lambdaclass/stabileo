@@ -3,8 +3,8 @@ import { decodeReplay, fetchReplay } from '../replay';
 import { gzipSync } from 'node:zlib';
 
 /** A replay of two nodes, one element (degenerate, it is only data) and one step, built by hand. */
-function sample(): ArrayBuffer {
-  const header = JSON.stringify({ nodes: 2, elements: 1, damage_max: 1.05, displacement_scale: [0.5], steps: [{ step: 0 }], config: {} });
+function sample(overrides: Record<string, unknown> = {}): ArrayBuffer {
+  const header = JSON.stringify({ nodes: 2, elements: 1, damage_max: 1.05, displacement_scale: [0.5], steps: [{ step: 0 }], config: {}, ...overrides });
   const json = new TextEncoder().encode(header);
   const pad = (4 - ((12 + json.length) % 4)) % 4;
   const size = 12 + json.length + pad + 16 + 8 + 6;
@@ -63,4 +63,27 @@ describe('decodeReplay', () => {
       }
     }
   });
+});
+
+
+it('rejects invalid headers, mismatched counts and truncated payloads before decoding', () => {
+  for (const overrides of [{ steps: [] }, { nodes: -1 }, { nodes: 1e12 }, { elements: 1.5 },
+    { damage_max: null }, { displacement_scale: [-1] }, { steps: [null] }, { config: null }]) {
+    expect(() => decodeReplay(sample(overrides))).toThrow(/replay/);
+  }
+  const buf = sample();
+  for (const length of [12, buf.byteLength - 1, buf.byteLength - 6]) {
+    expect(() => decodeReplay(buf.slice(0, length))).toThrow(/replay/);
+  }
+});
+
+it('rejects connectivity outside the mesh and nonfinite coordinates', () => {
+  const buf = sample();
+  const dv = new DataView(buf);
+  const offset = Math.ceil((12 + dv.getUint32(8, true)) / 4) * 4;
+  dv.setUint16(offset + 16, 2, true);
+  expect(() => decodeReplay(buf)).toThrow(/connectivity/);
+  dv.setUint16(offset + 16, 0, true);
+  dv.setFloat32(offset, NaN, true);
+  expect(() => decodeReplay(buf)).toThrow(/coordinate/);
 });

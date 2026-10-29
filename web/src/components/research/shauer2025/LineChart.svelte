@@ -5,7 +5,7 @@
    * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
    */
   import type { Series } from './protocol';
-  import { num } from '../shell/format';
+  import { num, tickDecimals } from '../shell/format';
 
   type Label = { x: number; y: number; text: string; anchor?: 'start' | 'middle' | 'end'; dy?: number };
   let {
@@ -48,7 +48,6 @@
     for (let v = first; v <= last + step * 1e-6; v += step) out.push(Number(v.toPrecision(12)));
     return { ticks: out, step };
   }
-  const decimals = (step: number) => Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
 
   const ty = (v: number) => (log ? Math.log10(Math.max(v, 1e-300)) : v);
   const all = $derived(series.flatMap((s) => s.points).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]) && (!log || p[1] > 0)));
@@ -95,8 +94,8 @@
     const px = e.clientX - r.left;
     hoverX = px < M.l || px > width - M.r ? null : x0 + ((px - M.l) / (width - M.l - M.r)) * (x1 - x0);
   }
-  const fmtX = (v: number) => num(v, { dp: decimals(xt.step) });
-  const fmtY = (t: number) => (log ? '' : num(t, { dp: decimals(yt.step) }));
+  const fmtX = (v: number) => num(v, { dp: tickDecimals(xt.step) });
+  const fmtY = (t: number) => (log ? '' : num(t, { dp: tickDecimals(yt.step) }));
   const fmtVal = (v: number) => num(v, { sig: 4 });
 </script>
 

@@ -19,6 +19,11 @@ const peak = ref.reduce((a, r, i) => (Number(r.reaction) > Number(ref[a].reactio
 let ok = steps.length === ref.length;
 let worstPre = 0, worstAll = 0, iters = true;
 steps.forEach((s, i) => {
+  const fields = ['step', 'pseudotime', 'displacement', 'reaction', 'iterations', 'residual', 'damage_max', 'damage_min', 'elastic_energy', 'fracture_energy'];
+  if (s.converged !== true || !fields.every((key) => typeof s[key] === 'number' && Number.isFinite(s[key])) || !ref[i]) {
+    ok = false;
+    return;
+  }
   const r = Number(ref[i].reaction);
   if (i <= peak) worstPre = Math.max(worstPre, Math.abs(s.reaction - r) / Math.abs(r));
   worstAll = Math.max(worstAll, Math.abs(s.reaction - r));

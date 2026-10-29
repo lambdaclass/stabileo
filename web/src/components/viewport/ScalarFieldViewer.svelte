@@ -239,6 +239,7 @@
 
   $effect(() => {
     if (!field) return;
+    field.group.visible = values !== null;
     if (values) field.setField(values, range, { perCell, bands, colourMap });
     invalidate();
   });

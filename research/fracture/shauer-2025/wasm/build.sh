@@ -35,6 +35,6 @@ gzip -9 -n -c "$out/replay.bin" > "$out/replay.srpl" && rm "$out/replay.bin"
 ( cd "$out" && shasum -a 256 phasefield_bg.wasm phasefield.js reference_ex2_steps.csv replay.srpl > SHA256SUMS )
 # Stabileo's viewer for research pages, as its own bundle (web/vite.research-viewer.config.ts).
 if [ "${RESEARCH_SKIP_VIEWER:-0}" != 1 ]; then
-(cd "$root/web" && npx vite build -c vite.research-viewer.config.ts --outDir "$(dirname "$out")/viewer" --logLevel warn)
+(cd "$root/web" && npx --no-install vite build -c vite.research-viewer.config.ts --outDir "$(dirname "$out")/viewer" --logLevel warn)
 fi
 echo "research wasm: $(wc -c < "$out/phasefield_bg.wasm") bytes -> $out"

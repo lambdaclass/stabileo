@@ -23,6 +23,12 @@ on:
       - 'web/src/lib/geometry/coordinate-system.ts'
       - 'web/package*.json'
       - 'web/vite*.ts'
+      - 'web/scripts/*route*.mjs'
+      - 'web/src/App.svelte'
+      - 'web/src/Root.svelte'
+      - 'web/src/components/landing/**'
+      - 'web/src/components/site/**'
+      - 'web/src/lib/i18n/**'
       - 'flake.*'
       - 'rust-toolchain*'
       - 'Makefile'
@@ -45,6 +51,12 @@ on:
       - 'web/src/lib/geometry/coordinate-system.ts'
       - 'web/package*.json'
       - 'web/vite*.ts'
+      - 'web/scripts/*route*.mjs'
+      - 'web/src/App.svelte'
+      - 'web/src/Root.svelte'
+      - 'web/src/components/landing/**'
+      - 'web/src/components/site/**'
+      - 'web/src/lib/i18n/**'
       - 'flake.*'
       - 'rust-toolchain*'
       - 'Makefile'
@@ -67,10 +79,33 @@ jobs:
         with:
           persist-credentials: false
       - run: research/tools/check_isolation.sh
+      - run: python3 -I research/tools/test_check_isolation.py
       - name: Research pages draw models only through the shared Stabileo viewer
         run: research/tools/check_viewer.sh
       - name: The viewer rule rejects a page with its own canvas
         run: research/tools/test_check_viewer.sh
+
+  route-size:
+    name: Landing and app route byte budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: route-main
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - name: Build main and the candidate with the same pinned toolchain and measurement script
+        run: |
+          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
+          nix develop . -c sh -c 'cd route-main/web && npm ci && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
+          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+      - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   catalog:
     name: Research catalog (Crossref, licenses)

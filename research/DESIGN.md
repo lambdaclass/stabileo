@@ -114,7 +114,7 @@ full report with runners-up and rejections kept with the scouting notes):
 
 | # | Experiment | Paper | Runs on | Effort | Validation |
 |---|---|---|---|---|---|
-| 1 | Phase-field fracture | Shauer 2025, doi:10.1016/j.advengsoft.2025.104013 | research crate on the engine's sparse solve | done | reference code, 29/29 checks |
+| 1 | Phase-field fracture | Shauer 2025, doi:10.1016/j.advengsoft.2025.104013 | research crate on the engine's sparse solve | done | reference code, 30/30 checks |
 | 2 | Auxetic spring networks | Grossman & Boudaoud 2026, doi:10.1103/17sg-gzhl | research crate; editor embed on the production truss solver | done | published values + exact lattice checks, 29/29 |
 | 3 | Topology optimization (MBB beam) | Sigmund 2022 benchmarks; Andreassen et al. 2011 reference results | shared Q4 core from #1 | ~3–5 days | the 2011 reference outputs |
 | 4 | Post-buckling of frames (Koiter) | Ferrari & Sigmund 2025, IJNME 126 e70082, doi:10.1002/nme.70082 | production buckling, corotational, arc-length | ~5–7 days | Roorda frame closed-form (λ1, α, β) + our own exact arc-length path; no public code |

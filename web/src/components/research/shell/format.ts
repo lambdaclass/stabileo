@@ -35,3 +35,9 @@ export function sci(v: number, sig = 2, locale?: string): { mantissa: string; ex
 export function qty(v: number, unit: string, o: Opts = {}): string {
   return unit ? `${num(v, o)}${THIN}${unit}` : num(v, o);
 }
+
+export function tickDecimals(step: number): number {
+  const exponent = Math.floor(Math.log10(step) + 1e-9);
+  const fractional = Math.abs(step / 10 ** exponent - 2.5) < 1e-9;
+  return Math.max(0, -exponent + Number(fractional));
+}

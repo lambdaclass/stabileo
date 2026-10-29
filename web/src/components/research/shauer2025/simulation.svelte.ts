@@ -38,8 +38,11 @@ export class SimulationController {
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
     const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
-    w.onmessage = (e: MessageEvent<WorkerOut>) => this.receive(e.data);
+    w.onmessage = (e: MessageEvent<WorkerOut>) => {
+      if (this.worker === w) this.receive(e.data);
+    };
     w.onerror = (e) => {
+      if (this.worker !== w) return;
       this.failWorker(e.message || 'the simulation worker failed to start');
     };
     this.worker = w;
@@ -65,9 +68,9 @@ export class SimulationController {
       return;
     }
     if (m.type === 'reference-config') return;
-    this.available = true;
     const run = this.live.get(m.runId);
     if (!run) return;
+    this.available = true;
     if (m.type === 'mesh') {
       run.nodes = m.nodes;
       run.elements = m.elements;
@@ -97,6 +100,7 @@ export class SimulationController {
   run(config: PlateConfig, force = false) {
     const key = JSON.stringify(config);
     const cached = this.runs.get(key);
+    this.stop();
     if (!force && cached && cached.status === 'done') {
       this.runs.delete(key);
       this.runs.set(key, cached);
@@ -104,7 +108,6 @@ export class SimulationController {
       this.current = cached;
       return;
     }
-    this.stop();
     const run = new Run(key, config);
     const id = this.nextId++;
     this.live.set(id, run);
@@ -134,6 +137,7 @@ export class SimulationController {
   }
 
   dispose() {
+    this.stop();
     this.worker?.terminate();
     this.worker = null;
   }

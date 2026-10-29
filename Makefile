@@ -366,7 +366,7 @@ web.run: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm install && VITE_API_URL=http://localhost:$(BACKEND_PORT) npm run dev -- --port $(WEB_PORT)"
 
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
-research.wasm:
+research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
 
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.

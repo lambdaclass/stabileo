@@ -114,7 +114,7 @@
     },
     {
       "metric": "absolute difference, kN",
-      "name": "ex2: force at every step, including fracture (bounded by the staggered tolerance)",
+      "name": "ex2: force at every step, including fracture (comparison tolerance)",
       "observed": 2.194403730101718e-7,
       "passed": true,
       "tolerance": 0.00001
@@ -184,7 +184,7 @@
     },
     {
       "metric": "absolute difference, kN",
-      "name": "ex3: force at every step, including fracture (bounded by the staggered tolerance)",
+      "name": "ex3: force at every step, including fracture (comparison tolerance)",
       "observed": 1.033201445777704e-6,
       "passed": true,
       "tolerance": 0.0001
@@ -193,6 +193,13 @@
       "metric": "max absolute difference",
       "name": "ex3: nodal damage at the peak step 56",
       "observed": 6.918654538168312e-11,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference / max |u|",
+      "name": "ex3: nodal displacement at the peak step 56",
+      "observed": 1.1185547443359639e-10,
       "passed": true,
       "tolerance": 1e-8
     },

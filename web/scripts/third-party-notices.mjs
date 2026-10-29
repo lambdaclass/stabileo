@@ -92,6 +92,9 @@ function build() {
 
   lines.push('# Third-party notices');
   lines.push('');
+  lines.push('Bundled fonts (IBM Plex Sans/Mono, Space Grotesk and Noto Sans Math) are under');
+  lines.push('SIL OFL 1.1. Complete copyright notices, licences and subset provenance: /fonts/OFL.txt.');
+  lines.push('');
   lines.push('Stabileo is licensed under the **GNU Affero General Public License v3.0**; see');
   lines.push('`LICENSE`. Its production bundle also contains the third-party packages listed');
   lines.push('below, each under its own licence, reproduced in full.');

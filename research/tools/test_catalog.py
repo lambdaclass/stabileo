@@ -3,6 +3,9 @@
   python3 -I research/tools/test_catalog.py [--online]
 """
 import copy
+import importlib.util
+import json
+from pathlib import Path
 import os
 import subprocess
 import sys
@@ -37,7 +40,48 @@ def main():
         f(m[0])
         return m
 
+    code, out = run(mutated(lambda p: p.update(status="published-figures-compared")), *flags)
+    assert code != 0, out
+    print("ok   rejects published-figures-compared without published evidence")
+
+    spec = importlib.util.spec_from_file_location("catalog", os.path.join(HERE, "catalog.py"))
+    catalog = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(catalog)
+    marked = copy.deepcopy(base)
+    marked[0]["crossref"]["title"] = "A <i>phase-field</i> method"
+    assert json.loads(catalog.export_text(marked))["papers"][0]["crossref"]["title"] == "A phase-field method"
+    assert marked[0]["crossref"]["title"] == "A <i>phase-field</i> method"
+    with tempfile.TemporaryDirectory() as tmp:
+        catalog.ROOT = os.path.join(tmp, "research")
+        implementation = Path(catalog.ROOT) / base[0]["implementation"]
+        (implementation / "reference-results").mkdir(parents=True)
+        (implementation / "reference-results/MANIFEST.json").write_text("{}")
+        (implementation / "VALIDATION.json").write_text(json.dumps({"checks": [{"passed": True}]}))
+        comparison = implementation / "PUBLISHED_COMPARISON.json"
+        comparison.write_text(json.dumps({"checks": [{"source": "paper figure 3", "metric": "relative error", "observed": 0.001, "tolerance": 0.01, "passed": True}]}))
+        entry = mutated(lambda p: p.update(status="published-figures-compared", reproduced_published_results=True))[0]
+        errors = []
+        catalog.check_entry(entry, errors)
+        assert not errors, errors
+        entry["reproduced_published_results"] = False
+        catalog.check_entry(entry, errors)
+        assert errors
+        entry["reproduced_published_results"] = True
+        comparison.write_text('{"checks": []}')
+        errors = []
+        catalog.check_entry(entry, errors)
+        assert errors
+        (Path(tmp) / "page.svelte").write_text("<h1>Experiment</h1>")
+        entry.update(status="interactive", page="page.svelte", reproduced_published_results=False)
+        errors = []
+        catalog.check_entry(entry, errors)
+        assert not errors, errors
+    print("ok   validates status-specific evidence and strips display title markup")
+
     cases = {
+        "published claim without comparison": lambda p: p.update(status="published-figures-compared", reproduced_published_results=True),
+        "interactive without page": lambda p: p.update(status="interactive"),
+        "interactive missing page": lambda p: p.update(status="interactive", page="web/src/components/research/Missing.svelte"),
         "unknown area": lambda p: p.update(area="astrology"),
         "unknown status": lambda p: p.update(status="certified"),
         "missing summary": lambda p: p.pop("summary"),

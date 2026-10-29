@@ -198,7 +198,7 @@ fn example2(c: &mut Checks) {
     let worst = pre.iter().map(|(s, r)| rel(f(r, "damage_max"), s.damage_max)).fold(0.0, finite_max);
     c.at_most("ex2: maximum damage at every step up to the peak", "relative difference", worst, 1e-9);
     let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, finite_max);
-    c.at_most("ex2: force at every step, including fracture (bounded by the staggered tolerance)", "absolute difference, kN", worst, tol);
+    c.at_most("ex2: force at every step, including fracture (comparison tolerance)", "absolute difference, kN", worst, tol);
 
     let d_ref = column("ex2_damage_step056.csv", 0);
     c.at_most("ex2: nodal damage at the peak step 56", "max absolute difference", max_abs(&d_ref, &fields[&56].0), 1e-8);
@@ -245,9 +245,17 @@ fn example3(c: &mut Checks) {
     let worst = steps.iter().zip(&reference).filter(|(s, _)| s.step <= peak_ref.0).map(|(s, r)| rel(f(r, "reaction"), s.reaction)).fold(0.0, finite_max);
     c.at_most("ex3: force at every step up to the peak", "relative difference", worst, 1e-9);
     let worst = steps.iter().zip(&reference).map(|(s, r)| (f(r, "reaction") - s.reaction).abs()).fold(0.0, finite_max);
-    c.at_most("ex3: force at every step, including fracture (bounded by the staggered tolerance)", "absolute difference, kN", worst, tol);
+    c.at_most("ex3: force at every step, including fracture (comparison tolerance)", "absolute difference, kN", worst, tol);
     let d_ref = column("ex3_damage_step056.csv", 0);
     c.at_most("ex3: nodal damage at the peak step 56", "max absolute difference", max_abs(&d_ref, &fields[&56].0), 1e-8);
+    let ux = column("ex3_displacement_step056.csv", 0);
+    let uy = column("ex3_displacement_step056.csv", 1);
+    let u = &fields[&56].1;
+    assert_eq!(ux.len(), uy.len());
+    assert_eq!(u.len(), 2 * ux.len());
+    let scale = ux.iter().chain(&uy).fold(0.0f64, |m, v| m.max(v.abs()));
+    let diff = (0..ux.len()).map(|i| (ux[i] - u[2 * i]).abs().max((uy[i] - u[2 * i + 1]).abs())).fold(0.0, finite_max);
+    c.at_most("ex3: nodal displacement at the peak step 56", "max absolute difference / max |u|", diff / scale, 1e-8);
     let d_ref = column("ex3_damage_step098.csv", 0);
     let d = &fields[&98].0;
     let mirrored: Vec<f64> = (0..d_ref.len()).map(|i| d_ref[mirror[i]]).collect();

@@ -62,7 +62,8 @@
 
   const LIMITS = { e: [10, 400], nu: [0, 0.45], gc: [1e-4, 1e-2], l0: [0.003, 0.03], u: [0.004, 0.02] } as const;
   const inRange = (v: number, [lo, hi]: readonly [number, number]) => Number.isFinite(v) && v >= lo && v <= hi;
-  const valid = $derived(inRange(e, LIMITS.e) && inRange(nu, LIMITS.nu) && inRange(gc, LIMITS.gc) && inRange(l0, LIMITS.l0) && inRange(u, LIMITS.u));
+  let invalid = $state({ e: false, nu: false, gc: false, l0: false, u: false });
+  const valid = $derived(!Object.values(invalid).some(Boolean) && inRange(e, LIMITS.e) && inRange(nu, LIMITS.nu) && inRange(gc, LIMITS.gc) && inRange(l0, LIMITS.l0) && inRange(u, LIMITS.u));
 
   function configOf(): PlateConfig {
     return {
@@ -87,6 +88,7 @@
   onDestroy(() => {
     sim.dispose();
     playback.dispose();
+    clearTimeout(flashTimer);
   });
 
   let replay = $state.raw<{ nodes: Float64Array; elements: Uint32Array; frames: Frame[] } | null>(null);
@@ -94,8 +96,10 @@
   let pane: HTMLElement | undefined = $state();
 
   onMount(() => {
-    fetchReplay<Step>(`${BASE}replay.srpl`)
+    const abort = new AbortController();
+    fetchReplay<Step>(`${BASE}replay.srpl`, abort.signal)
       .then((d) => {
+        if (abort.signal.aborted) return;
         replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };
         playback.setCount(d.frames.length);
         // A link can open the page at a step, with or without the mesh (?step=57&mesh=0).
@@ -119,12 +123,16 @@
         });
       })
       .catch((err) => {
+        if (abort.signal.aborted) return;
         console.warn('research: the precomputed replay could not be loaded', err);
         replayError = 'unavailable';
       });
     const io = new IntersectionObserver(([en]) => playback.setVisible(en.isIntersecting), { threshold: 0.15 });
     if (pane) io.observe(pane);
-    return () => io.disconnect();
+    return () => {
+      abort.abort();
+      io.disconnect();
+    };
   });
 
   const run = $derived(sim.current);
@@ -141,6 +149,9 @@
   const frame = $derived(frames[Math.min(playback.shown, frames.length - 1)] ?? null);
 
   let field = $state<'damage' | 'disp' | 'syy'>('damage');
+  $effect(() => {
+    if (field === 'syy' && !frame?.syy) field = 'damage';
+  });
   let view = $state<'plate' | 'band' | 'tip'>('plate');
   let deformed = $state(true);
   let deform = $state(10);
@@ -156,10 +167,12 @@
   let flashTab = $state<string | null>(null);
   let forceH = $state(400);
   let convH = $state(600);
+  let flashTimer: ReturnType<typeof setTimeout>;
   function showTab(t: string) {
     tab = t;
     flashTab = t;
-    setTimeout(() => (flashTab = null), 1300);
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => (flashTab = null), 1300);
   }
 
   const VIEWS: Record<'plate' | 'band' | 'tip', [number, number, number, number]> = {
@@ -213,6 +226,7 @@
     sim.clear();
   }
   function reset() {
+    invalid = { e: false, nu: false, gc: false, l0: false, u: false };
     e = DEFAULTS.e;
     nu = DEFAULTS.nu;
     gc = DEFAULTS.gc;
@@ -224,7 +238,11 @@
   }
 
   const actions = {
-    goToStep: (s: number) => playback.seek(s),
+    goToStep: (s: number) => {
+      backToReplay();
+      playback.setCount(replay?.frames.length ?? 0);
+      playback.seek(s);
+    },
     showTab,
     setParams: (p: Record<string, number | string | boolean>) => {
       playback.interact();
@@ -354,7 +372,9 @@
     <p>
       One finding: the plate is symmetric about the notch plane, and the crack runs along the row of elements just above it in one code and
       just below it in the other. Which row is chosen is decided by floating-point round-off; against the mirror image the final damage
-      fields agree to 3 × 10<sup>−10</sup>.
+      fields differ by 3.085970368132962 × 10<sup>−10</sup>.
+      The thresholds in the table are comparison tolerances, not mathematical error bounds.
+      Displacement fields are compared only at example 1 step 50 and example 2 step 56; example 3 compares damage fields only.
     </p>
 
     {#if frames.length}
@@ -378,7 +398,7 @@
     <ul>
       <li>Agreement with a reference code is not validation against experiments, and none of this is an engineering certification.</li>
       <li>The reference mesh refines only a 0.04 × 0.04 mm box around the notch tip; beyond it the crack crosses elements wider than 3ℓ.</li>
-      <li>No bound constraints: damage can exceed 1 slightly (the reference reaches 1.0096 here) and undershoot 0 on coarse meshes. Values are shown as computed; only the colour scale is clamped.</li>
+      <li>No bound constraints: damage can exceed 1 slightly (the reference reaches 1.0096 here and 1.0021897551918642 in example 1) and undershoot 0 on coarse meshes. Values are shown as computed; only the colour scale is clamped.</li>
       <li>The alternating scheme is not accelerated; at unstable crack growth it can take hundreds of iterations in one step.</li>
       <li>Browser runs are limited in mesh size and parameter range.</li>
     </ul>
@@ -457,7 +477,7 @@
           <figcaption>Reaction force against imposed top displacement</figcaption>
           <LineChart series={forceSeries} xLabel="top displacement u (mm)" yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `step ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
           {#if residualSeries.length}
-            <LineChart series={residualSeries} xLabel="top displacement u (mm)" yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: 'staggered tolerance' }]} marker={frame ? frame.step.displacement : null} height={110} />
+            <LineChart series={residualSeries} xLabel="top displacement u (mm)" yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: 'force comparison tolerance' }]} marker={frame ? frame.step.displacement : null} height={110} />
           {/if}
           {#if !showsReference}<p class="rs-note">The reference curve is shown only for the reference parameters.</p>{/if}
         </figure>
@@ -489,11 +509,11 @@
 
       <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={() => playback.interact()}>
         <div class="rs-params-list">
-          <ParamRow id="p-e" name="Young’s modulus" unit="kN/mm²" hint="10–400" invalid={!inRange(e, LIMITS.e)}>{#snippet symbol()}<var>E</var>{/snippet}<NumberField id="p-e" label="Young’s modulus E, kN/mm²" min={LIMITS.e[0]} max={LIMITS.e[1]} bind:value={e} /></ParamRow>
-          <ParamRow id="p-nu" name="Poisson’s ratio" hint="0–0.45" invalid={!inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label="Poisson’s ratio ν" min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} /></ParamRow>
-          <ParamRow id="p-gc" name="Fracture toughness" unit="kN/mm" hint="0.0001–0.01" invalid={!inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label="Fracture toughness Gc, kN/mm" min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} /></ParamRow>
-          <ParamRow id="p-l0" name="Length scale" unit="mm" hint="0.003–0.03" invalid={!inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label="Length scale ℓ, mm" min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} /></ParamRow>
-          <ParamRow id="p-u" name="Top displacement at t = 1" unit="mm" hint="0.004–0.02" invalid={!inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label="Top displacement u at t = 1, mm" min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} /></ParamRow>
+          <ParamRow id="p-e" name="Young’s modulus" unit="kN/mm²" hint="10–400" invalid={invalid.e || !inRange(e, LIMITS.e)}>{#snippet symbol()}<var>E</var>{/snippet}<NumberField id="p-e" label="Young’s modulus E, kN/mm²" min={LIMITS.e[0]} max={LIMITS.e[1]} bind:value={e} bind:invalid={invalid.e} /></ParamRow>
+          <ParamRow id="p-nu" name="Poisson’s ratio" hint="0–0.45" invalid={invalid.nu || !inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label="Poisson’s ratio ν" min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} bind:invalid={invalid.nu} /></ParamRow>
+          <ParamRow id="p-gc" name="Fracture toughness" unit="kN/mm" hint="0.0001–0.01" invalid={invalid.gc || !inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label="Fracture toughness Gc, kN/mm" min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} bind:invalid={invalid.gc} /></ParamRow>
+          <ParamRow id="p-l0" name="Length scale" unit="mm" hint="0.003–0.03" invalid={invalid.l0 || !inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label="Length scale ℓ, mm" min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} bind:invalid={invalid.l0} /></ParamRow>
+          <ParamRow id="p-u" name="Top displacement at t = 1" unit="mm" hint="0.004–0.02" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label="Top displacement u at t = 1, mm" min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
           <ParamRow id="p-dt" name="Load step">{#snippet symbol()}Δ<var>t</var>{/snippet}
             <select id="p-dt" bind:value={dt}>
               {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({Math.floor(0.8 / v + 1e-9)} steps)</option>{/each}

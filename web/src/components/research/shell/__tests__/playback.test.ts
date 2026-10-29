@@ -68,3 +68,33 @@ describe('Playback autoplay rules', () => {
     vi.useRealTimers();
   });
 });
+
+
+it('interact directly stops playback and clears its pending timer', () => {
+  vi.useFakeTimers();
+  try {
+    const p = new Playback(100, 500);
+    p.setCount(4);
+    p.startAutoplay({ reducedMotion: false, narrow: false });
+    p.interact();
+    expect(p.playing).toBe(false);
+    expect(p.auto).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(5000);
+    expect(p.shown).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
+
+it('a queued visibility notification cannot restart a disposed timer', () => {
+  vi.useFakeTimers();
+  try {
+    const p = new Playback();
+    p.setCount(4);
+    p.startAutoplay({ reducedMotion: false, narrow: false });
+    p.dispose();
+    p.setVisible(true);
+    expect(p.playing).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});

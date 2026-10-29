@@ -11,6 +11,7 @@ every DOI from Crossref and fails unless title, authors, year and venue match ex
 also fetches each GitHub code link (set GITHUB_TOKEN to avoid the anonymous rate limit) and fails unless its detected license matches the catalog.
 `show` prints the Crossref block for a DOI, to paste into a new entry.
 """
+import copy
 import html
 import json
 import os
@@ -34,7 +35,7 @@ AREAS = {
 }
 STATUSES = [
     "proposed", "reference-reproduced", "implementation-in-progress",
-    "numerically-validated", "interactive",
+    "numerically-validated", "published-figures-compared", "interactive",
 ]
 COMPLEXITY = {"low", "medium", "high"}
 SUMMARY_SOURCES = {"crossref-abstract", "publisher-abstract", "repository-readme", "full-text", "reference-code"}
@@ -127,6 +128,24 @@ def check_entry(p, errors):
                 v = json.load(f)
             if not v.get("checks") or not all(c.get("passed") for c in v["checks"]):
                 errors.append(f"{pid}: status '{status}' but VALIDATION.json has a failing or no check")
+    if status == "published-figures-compared":
+        comparison = os.path.join(ROOT, impl, "PUBLISHED_COMPARISON.json")
+        if p.get("reproduced_published_results") is not True:
+            errors.append(f"{pid}: published comparison requires reproduced_published_results: true")
+        if not os.path.isfile(comparison):
+            errors.append(f"{pid}: published comparison needs PUBLISHED_COMPARISON.json")
+        else:
+            with open(comparison) as f:
+                evidence = json.load(f)
+            checks = evidence.get("checks", [])
+            if not checks or not all(c.get("passed") is True and c.get("source") and
+                                     c.get("metric") and isinstance(c.get("observed"), (int, float)) and
+                                     isinstance(c.get("tolerance"), (int, float)) for c in checks):
+                errors.append(f"{pid}: published comparison needs passing checks with sources, metrics, observations and tolerances")
+    if status == "interactive":
+        page = p.get("page")
+        if not page or not os.path.isfile(os.path.join(ROOT, "..", page)):
+            errors.append(f"{pid}: interactive status needs an existing page")
     for c in p.get("code") or []:
         if not {"url", "license"} <= set(c):
             errors.append(f"{pid}: code entry needs url and license")
@@ -164,6 +183,9 @@ def check_links(p, errors):
 
 
 def export_text(papers):
+    papers = copy.deepcopy(papers)
+    for paper in papers:
+        paper["crossref"]["title"] = norm(re.sub(r"</?i>", "", paper["crossref"]["title"]))
     return json.dumps({"generated_from": "research/papers.yaml", "papers": papers}, indent=1, ensure_ascii=False) + "\n"
 
 

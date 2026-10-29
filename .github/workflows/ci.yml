@@ -41,6 +41,7 @@ jobs:
     outputs:
       engine: ${{ steps.filter.outputs.engine }}
       web: ${{ steps.filter.outputs.web }}
+      docker: ${{ steps.filter.outputs.docker }}
       backend: ${{ steps.filter.outputs.backend }}
       ai_backend: ${{ steps.filter.outputs.ai_backend }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
@@ -67,7 +68,19 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.config/**'
+            docker:
+              - *tooling
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'web/**'
+              - 'research/**'
+              - 'engine/**'
+              - 'ai-backend/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
             web:
+              - 'Dockerfile'
+              - '.dockerignore'
               - *tooling
               - 'web/**'
               # The /research pages import the catalog and reference results and ship its WASM.
@@ -88,6 +101,18 @@ jobs:
             ci_scripts:
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+
+  docker-smoke:
+    name: Docker build smoke
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --tag stabileo-smoke .
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.

@@ -582,6 +582,13 @@
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showResearch = $state(false);
+  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showResearch && !research) {
+      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+    }
+  });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
@@ -606,20 +613,16 @@
     }
     showLanding = false;
     showBlog = false;
+    showResearch = false;
   }
 
   function syncRouteState() {
-    // Stabileo Research renders without the application (Root.svelte); reached from inside it,
-    // the page is loaded on its own.
-    if (routeKind({ pathname: location.pathname, search: '', hash: '' }).kind === 'research') {
-      location.reload();
-      return;
-    }
+    showResearch = routeKind().kind === 'research';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog) {
+    if (!showLanding && !showBlog && !showResearch) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -1157,7 +1160,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showResearch || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1400,7 +1403,12 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showBlog}
+{#if showResearch}
+  {#if research}
+    {@const Research = research}
+    <Research path={blogPath} />
+  {/if}
+{:else if showBlog}
   <BlogPage path={blogPath} />
 {:else if showLanding}
   <LandingPage />
@@ -1424,7 +1432,7 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showResearch}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -2139,7 +2147,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showResearch}
     <WhatsNewNotice />
   {/if}
 

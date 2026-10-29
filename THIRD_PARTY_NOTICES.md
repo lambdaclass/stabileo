@@ -1,5 +1,8 @@
 # Third-party notices
 
+Bundled fonts (IBM Plex Sans/Mono, Space Grotesk and Noto Sans Math) are under
+SIL OFL 1.1. Complete copyright notices, licences and subset provenance: /fonts/OFL.txt.
+
 Stabileo is licensed under the **GNU Affero General Public License v3.0**; see
 `LICENSE`. Its production bundle also contains the third-party packages listed
 below, each under its own licence, reproduced in full.

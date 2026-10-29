@@ -23,7 +23,7 @@ export function compareReference(frames: Frame[], reference: ReferenceStep[]) {
     if (f.step.iterations === r.iterations) sameIterations++;
   });
   if (!(worstPre <= 1e-9)) failures.push('pre-fracture force difference exceeds 1e-9 relative');
-  if (!(worstAll <= 1e-5)) failures.push('force difference exceeds staggered tolerance 1e-5 kN');
+  if (!(worstAll <= 1e-5)) failures.push('force difference exceeds force comparison tolerance 1e-5 kN');
   if (peak?.step.step !== refPeak.step) failures.push('peak at a different step');
   if (sameIterations !== reference.length) failures.push('different iteration counts');
   return { peak, worstPre, worstAll, sameIterations, failures, matches: failures.length === 0 };

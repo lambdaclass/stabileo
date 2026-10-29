@@ -50,6 +50,8 @@ export class Playback {
   interact() {
     this.auto = false;
     this.loop = false;
+    this.playing = false;
+    this.clear();
   }
 
   play() {
@@ -106,6 +108,7 @@ export class Playback {
   }
 
   dispose() {
+    this.playing = false;
     this.clear();
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MINUS, THIN, num, qty, sci } from '../format';
+import { MINUS, THIN, num, qty, sci, tickDecimals } from '../format';
 
 describe('research number formatting', () => {
   it('uses the page language and a true minus sign', () => {
@@ -17,3 +17,15 @@ describe('research number formatting', () => {
     expect(qty(0.0058, 'mm', { dp: 4, locale: 'en' })).toBe(`0.0058${THIN}mm`);
   });
 });
+
+for (const locale of ['en', 'es', 'pt']) {
+  it(`preserves fractional 2.5 tick intervals in ${locale}`, () => {
+    const separator = locale === 'en' ? '.' : ',';
+    for (const step of [2.5, 0.25, 0.0025]) {
+      for (const multiple of [1, 3]) {
+        const value = step * multiple;
+        expect(num(value, { dp: tickDecimals(step), locale })).toBe(String(value).replace('.', separator));
+      }
+    }
+  });
+}
