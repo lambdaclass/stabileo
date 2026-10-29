@@ -108,6 +108,9 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/review/**'
+              - 'scripts/status.sh'
+              - 'research/tools/catalog.py'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'
@@ -166,6 +169,11 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Shellcheck
         run: make test.ci-scripts
+      - name: Review runner regression tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/review-venv"
+          "$RUNNER_TEMP/review-venv/bin/pip" install --require-hashes -r research/tools/requirements.txt
+          PATH="$RUNNER_TEMP/review-venv/bin:$PATH" make check.review-scripts
 
   lint-engine:
     name: Lint Engine
