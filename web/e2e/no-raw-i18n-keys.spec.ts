@@ -32,7 +32,7 @@ import fullDe from '../src/lib/i18n/locales/full/de';
 import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import { rawKeyIndex, findRawKeys } from '../src/lib/i18n/raw-keys';
-import { OFFERED_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
 const INDEX = rawKeyIndex([
   { ...es, ...steelEs, ...stepsEs },
@@ -128,6 +128,14 @@ async function bootProDesignOff(page: Page, locale: string): Promise<void> {
 
 async function solved(page: Page, before: number): Promise<void> {
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 90_000 }).toBeGreaterThan(before);
+}
+
+for (const locale of PUBLIC_LOCALES) {
+  test(`@smoke no raw i18n key on the changelog — ${locale}`, async ({ page }) => {
+    await page.goto(`/${locale}/changelog/`);
+    await expect(page.getByTestId('changelog-entry').first()).toBeVisible({ timeout: 30_000 });
+    await expectNoRawKeys(page, `changelog (${locale})`);
+  });
 }
 
 for (const locale of LOCALES) {

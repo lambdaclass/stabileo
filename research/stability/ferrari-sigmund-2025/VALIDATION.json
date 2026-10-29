@@ -1,0 +1,55 @@
+{
+  "scope": "Buckling and element energy derivatives only. Koiter coefficients and path agreement are not validated.",
+  "checks": [
+    {
+      "name": "All order-1 element energy partials at three states",
+      "category": "independent",
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
+      "observed": 1.3291020555770811e-08,
+      "tolerance": 2e-05,
+      "passed": true
+    },
+    {
+      "name": "All order-2 element energy partials at three states",
+      "category": "independent",
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
+      "observed": 3.079674413012809e-08,
+      "tolerance": 2e-05,
+      "passed": true
+    },
+    {
+      "name": "All order-3 element energy partials at three states",
+      "category": "independent",
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
+      "observed": 8.218832109566513e-09,
+      "tolerance": 2e-05,
+      "passed": true
+    },
+    {
+      "name": "All order-4 element energy partials at three states",
+      "category": "independent",
+      "metric": "max abs(AD-central difference)/(1+abs(AD)), best of three step sizes",
+      "observed": 1.3742303848066058e-08,
+      "tolerance": 2e-05,
+      "passed": true
+    },
+    {
+      "name": "Production LBA versus published numerical lambda",
+      "category": "paper",
+      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 5",
+      "metric": "absolute load factor error",
+      "observed": 5.567683429363868e-05,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "name": "Production LBA versus reported closed-form lambda",
+      "category": "paper",
+      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 4",
+      "metric": "relative load factor error",
+      "observed": 0.0005364711472699385,
+      "tolerance": 0.001,
+      "passed": true
+    }
+  ]
+}

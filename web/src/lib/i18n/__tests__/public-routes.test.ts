@@ -112,3 +112,8 @@ describe('preferredPublicLocale', () => {
     expect(preferredPublicLocale([])).toBe('en');
   });
 });
+
+it('preserves query and fragment when changing a public route locale', () => {
+  expect(publicHref('/research/fracture/shauer-2025?step=56&mesh=0#model', 'es'))
+    .toBe('/es/research/fracture/shauer-2025/?step=56&mesh=0#model');
+});

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * Ctrl/⌘ K: every ribbon command by name. Type, move with the arrows, Enter runs it exactly as
    * its ribbon button would (`run` is the ribbon's own), Esc closes.
@@ -16,6 +18,7 @@
   const results = $derived(open ? searchPalette(paletteEntries(stages, t), query).slice(0, 40) : []);
 
   function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       open = !open;

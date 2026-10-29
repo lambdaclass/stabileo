@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
   /**
    * What the next click in the model does, while PRO is drawing.
@@ -58,6 +60,7 @@
 
   /** Enter closes an outline being drawn, as clicking its first node does. */
   function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if (e.key !== 'Enter' || tool !== 'plate' || drawState.plateCorners !== 'outline' || pick.picked.length < 3) return;
     const el = e.target as HTMLElement | null;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) return;

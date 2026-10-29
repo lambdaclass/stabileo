@@ -1,0 +1,49 @@
+/* Stabileo Research reading type, after the blog's reading column (blog.css): 18 px body,
+   1.55 leading, a measure of about 66 characters beside the experiment pane. */
+.research .rs-prose {
+  font-size: var(--rs-text);
+  line-height: var(--rs-leading);
+  color: var(--rs-text-prose);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  max-width: var(--rs-measure);
+}
+.research .rs-prose > * {
+  margin: 0 0 var(--rs-space-4);
+}
+.research .rs-prose li + li {
+  margin-top: var(--rs-space-2);
+}
+.research .rs-prose h2 {
+  font: 600 var(--rs-h2) / 1.2 var(--st-display);
+  letter-spacing: -0.015em;
+  color: var(--fg);
+  margin: var(--rs-space-7) 0 var(--rs-space-4);
+  text-wrap: balance;
+}
+.research .rs-prose h2:first-child {
+  margin-top: 0;
+}
+.research .rs-prose h3 {
+  font: 600 var(--rs-h3) / 1.3 var(--st-sans);
+  color: var(--fg);
+  margin: var(--rs-space-6) 0 var(--rs-space-2);
+}
+.research .rs-lead,
+.research .rs-cite {
+  max-width: var(--rs-measure);
+}
+.research .rs-g-lead,
+.research .rs-g-note,
+.research .rs-g-sum,
+.research .rs-g-by {
+  max-width: 44rem;
+}
+.research h1 {
+  text-wrap: balance;
+}
+@media (max-width: 640px) {
+  .research .rs-prose {
+    font-size: 1.0625rem;
+  }
+}

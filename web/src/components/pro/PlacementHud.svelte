@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * The placement bar over the viewport: what is being placed, where the anchor will land, the
    * welds it will make, typed coordinates, and the keys. While it is up, the keyboard belongs to
@@ -33,6 +35,7 @@
   });
 
   function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if (!placementStore.active) return;
     const place = keyPlace(e.target);
     const action = placementKeyAction(e, place);

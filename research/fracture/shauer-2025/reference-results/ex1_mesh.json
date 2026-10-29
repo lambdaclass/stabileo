@@ -1,0 +1,12 @@
+{
+ "nodes": 1111,
+ "elements": 1000,
+ "nodes_fnv1a64": "8c7553e9f795c8b2",
+ "elements_fnv1a64": "34cd856b5a8f8424",
+ "bbox": [
+  0.0,
+  0.0,
+  200.0,
+  20.0
+ ]
+}

@@ -84,11 +84,28 @@ async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean
 }
 
 test.describe('@landing landing page', () => {
+  test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
+    await bootLanding(page, { locale: 'es' });
+    await expect(page.locator('#changelog')).toHaveCount(0);
+    await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
+
+    const links = page.locator('.landing nav.nav .nav-links a.nav-link');
+    await expect(links.nth(0)).toHaveAttribute('data-nav', 'blog');
+    const changelog = links.nth(1);
+    await expect(changelog).toHaveAttribute('data-nav', 'changelog');
+    await expect(changelog).toHaveText('Changelog');
+    await expect(changelog).toHaveAttribute('href', '/es/changelog/');
+    await changelog.click();
+    await expect(page).toHaveURL(/\/es\/changelog\/$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
+    await expect(page.getByTestId('changelog-entry').first()).toBeVisible();
+  });
+
   test('the nav\'s Blog item opens the blog, not the teaser at the foot of the page', async ({ page }) => {
     // It used to be a button scrolling to the #blog section. Now a real link:
     // crawlable, middle-clickable, in the reader's language.
     await bootLanding(page, { locale: 'es' });
-    const blog = page.locator('.landing nav.nav .nav-links a.nav-link');
+    const blog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="blog"]');
     await expect(blog).toHaveText('Blog');
     await expect(blog).toHaveAttribute('href', '/es/blog/');
     // Nav items are written as words, not as the uppercase section eyebrows
