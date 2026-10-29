@@ -18,6 +18,19 @@ function frames(): Frame[] {
 
 describe('reference match evidence', () => {
   it('requires every check to pass', () => expect(compareReference(frames(), reference).matches).toBe(true));
+  for (const key of Object.keys(frames()[0].step)) {
+    if (key === 'damageMax') continue; // Reference-only fixture metadata.
+    it(`rejects missing or invalid step field ${key}`, () => {
+      for (const value of [undefined, NaN, Infinity, -Infinity]) {
+        for (const index of [0, 2]) {
+          const f = frames();
+          const step = f[index].step as unknown as Record<string, unknown>;
+          if (value === undefined) delete step[key]; else step[key] = value;
+          expect(compareReference(f, reference).matches).toBe(false);
+        }
+      }
+    });
+  }
   it('rejects perturbed pre-fracture and post-fracture forces', () => {
     for (const i of [0, 2]) {
       const f = frames();

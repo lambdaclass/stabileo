@@ -86,8 +86,7 @@ describe('the root language handoff', () => {
   });
 
   it('is built from the list it is given, not from hardcoded languages', () => {
-    // The list comes from LOCALES in prerender.ts, which
-    // assertLocalesMatchTheApp() ties to the application's PUBLIC_LOCALES.
+    // The list comes from LOCALES in prerender.ts, which is the application's PUBLIC_LOCALES.
     // Adding a language must not require editing the script by hand.
     let replaced: string | null = null;
     const context = vm.createContext({

@@ -381,6 +381,7 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { whatIf } from './lib/store/whatif.svelte';
+  import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
@@ -1020,16 +1021,9 @@
       if (uiStore.pendingSolveFromURL) {
         const pendingDiagram = uiStore.pendingSolveFromURL;
         uiStore.pendingSolveFromURL = null;
-        setTimeout(() => {
-          // Dispatch global solve event (same as clicking Calcular)
-          window.dispatchEvent(new Event('stabileo-solve'));
-          // After solve completes, set the diagram type from the share link
-          setTimeout(() => {
-            if (resultsStore.results !== null || resultsStore.results3D !== null) {
-              resultsStore.diagramType = pendingDiagram as any;
-            }
-          }, 200);
-        }, 200);
+        void tick().then(() => solveSharedView(pendingDiagram, runGlobalSolve, (diagram) => {
+          resultsStore.diagramType = diagram as typeof resultsStore.diagramType;
+        })).catch((error) => console.error('Shared-link solve failed:', error));
       }
     }
 
@@ -1460,7 +1454,7 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')} (Beta)</option>
+          <option value="pro">{t('app.modePro')} ({t('app.betaBadge')})</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1468,7 +1462,7 @@
             is what a `value` with no matching option does.
           -->
           {#if uiStore.appMode === 'educativo'}
-            <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+            <option value="educativo">{t('app.modeEdu')} ({t('app.betaBadge')})</option>
           {/if}
         </select>
       {:else}
@@ -1490,7 +1484,7 @@
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">{t('app.betaBadge')}</span></button>
         </div>
       {/if}
     </div>

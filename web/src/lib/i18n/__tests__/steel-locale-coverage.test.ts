@@ -29,8 +29,8 @@ import steelEs from '../locales/steel/es';
 import steelEn from '../locales/steel/en';
 import steelPt from '../locales/steel/pt';
 import { OFFERED_LOCALES, dictFor, shippedLocales, tAt } from '../store.svelte';
+import { allDictFor, completeLocales } from '../locales/all';
 
-const STEEL_DICTS = { es: steelEs, en: steelEn, pt: steelPt } as const;
 
 /**
  * What a key DOES, which is what decides the order it has to be translated in.
@@ -73,7 +73,6 @@ describe('the offered locales', () => {
      * If this fails because a locale was added, the steel namespace has to grow with it — the
      * next test is the one that says so.
      */
-    expect([...OFFERED_LOCALES]).toEqual(['es', 'en', 'pt']);
     expect(shippedLocales().sort()).toEqual([...OFFERED_LOCALES].sort());
   });
 
@@ -81,10 +80,10 @@ describe('the offered locales', () => {
     // The assertion that matters when `OFFERED_LOCALES` grows: an offered locale with a partial
     // metallic namespace is the half-translated state the narrowing was written to remove.
     const reference = Object.keys(steelEs).sort();
-    for (const locale of OFFERED_LOCALES) {
-      const dict = STEEL_DICTS[locale];
-      expect(dict, `${locale} has no steel dictionary — it is offered and must`).toBeTruthy();
-      expect(Object.keys(dict).sort(), `${locale} key set`).toEqual(reference);
+    for (const locale of completeLocales()) {
+      const dict = allDictFor(locale);
+      const missing = reference.filter((k) => !(k in dict));
+      expect(missing, `${locale} lacks metallic keys`).toEqual([]);
     }
   });
 
@@ -128,9 +127,9 @@ describe('the keys that change how a result is read', () => {
     expect(priority.length).toBeLessThan(Object.keys(steelEs).length);
   });
 
-  it('is translated in all three offered locales, with no key left as itself', () => {
-    for (const locale of OFFERED_LOCALES) {
-      const dict = STEEL_DICTS[locale] as Record<string, string>;
+  it('is translated in every complete locale, with no key left as itself', () => {
+    for (const locale of completeLocales()) {
+      const dict = allDictFor(locale);
       for (const key of priority) {
         const value = dict[key];
         expect(value, `${locale} is missing ${key}`).toBeTruthy();

@@ -27,6 +27,32 @@ for name, job in research['jobs'].items():
         run = step.get('run', '')
         if 'catalog.py check' in run and job.get('if') != "github.workflow == 'Research'":
             assert '--offline' in run, (name, run)
+for job, tests in {
+    'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
+    'catalog': ['test_grossman_catalog.py'],
+}.items():
+    assert 'if' not in research['jobs'][job]
+    commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
+    for test in tests:
+        assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
+# The route budget measures a change that touches research code, and every push to main.
+import re
+route = research['jobs']['route-size']['steps']
+scope = next(step for step in route if step.get('id') == 'scope')
+shipped = re.compile(scope['env']['RESEARCH_PATHS'])
+not_shipped = re.compile(scope['env']['NOT_SHIPPED'])
+class pattern:
+    search = staticmethod(lambda path: shipped.search(path) and not not_shipped.search(path))
+for path in ['research/papers.json', 'research/fracture/shauer-2025/reference-results/ex2_steps.csv', 'web/src/components/research/ResearchPage.svelte', 'web/public/research-wasm/x.wasm',
+             'web/vite.research-viewer.config.ts']:
+    assert pattern.search(path), path
+for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/changelog/index.ts', 'web/scripts/prerender.ts',
+             'web/src/components/site/site-nav.ts', 'engine/src/lib.rs', 'research/tools/test_required_ci.py', 'research/README.md', 'research/CLAUDE.md',
+             '.github/workflows/research.yml']:
+    assert not pattern.search(path), path
+assert '[ -z "$BASE" ]' in scope['run']
+measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
+assert measured and all(step.get('if') == "steps.scope.outputs.research == 'true'" for step in measured)
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
@@ -51,3 +77,14 @@ playbook = yaml.safe_load((root / 'infra/ansible/deploy-snapshot.yml').read_text
 install = playbook[0]['tasks'][2]['block'][-1]['script']
 assert install['executable'].startswith('flock ') and '.publish.lock' in install['executable']
 print('snapshot infrastructure paths trigger tests; workflow runs cannot replace pending snapshots')
+koiter = research["jobs"]["koiter"]
+assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
+
+for config in [research, snapshot]:
+    for job in config['jobs'].values():
+        for step in job.get('steps', []):
+            for line in step.get('run', '').splitlines():
+                if 'pip install' in line:
+                    assert '--require-hashes -r research/tools/requirements.txt' in line, line
+print('research workflow Python dependencies retain hash verification')

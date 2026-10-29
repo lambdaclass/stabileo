@@ -64,11 +64,40 @@ test('field gate rejects finite corrupt exports and verifies all stress componen
   assert.ok(maxDifference(stress, [0.0354375, 0.0556875, 0]) < 1e-15);
   for (const key of ['damage', 'displacement', 'syy']) {
     for (const mode of ['zero', 'perturbed', 'length']) {
-      const f = { step: { step: 56 }, damage: [...damage], displacement: [...displacement], syy: [stress[1]] };
+      const f = { step: { step: 56, damage_max: 0.1 }, damage: [...damage], displacement: [...displacement], syy: [stress[1]] };
       if (mode === 'zero') f[key].fill(0);
       if (mode === 'perturbed') f[key][0] += 0.01;
       if (mode === 'length') f[key].pop();
       assert.ok(checkFields(f, nodes, elements, snapshots, material).length > 0);
+    }
+  }
+});
+
+
+test('field gate requires each compared scalar and field', async () => {
+  const { checkFields } = await import('../../../../web/src/components/research/shauer2025/field-check.mjs');
+  const nodes = [0, 0, 1, 0, 1, 1, 0, 1], elements = [0, 1, 2, 3];
+  const material = { e: 30, nu: 0.2, plane: 'stress' };
+  const snapshots = { damage: {}, displacement: {} };
+  const frame = () => ({ step: { step: 0, damage_max: 0.1 }, damage: [0.1, 0.1, 0.1, 0.1], displacement: Array(8).fill(0), syy: [0] });
+  assert.deepEqual(checkFields(frame(), nodes, elements, snapshots, material), []);
+  for (const replay of [false, true]) {
+    for (const key of ['step', 'damage_max']) {
+      for (const value of [undefined, NaN, Infinity, -Infinity]) {
+        const f = frame();
+        if (value === undefined) delete f.step[key]; else f.step[key] = value;
+        assert.ok(checkFields(f, nodes, elements, snapshots, material, replay).length, `${key}: ${value}`);
+      }
+    }
+    for (const key of ['damage', 'displacement', 'syy']) {
+      const f = frame();
+      delete f[key];
+      if (key !== 'syy' || !replay) assert.ok(checkFields(f, nodes, elements, snapshots, material, replay).length, key);
+      for (const value of [NaN, Infinity, -Infinity]) {
+        const f = frame();
+        f[key][0] = value;
+        assert.ok(checkFields(f, nodes, elements, snapshots, material, replay).length, key);
+      }
     }
   }
 });

@@ -197,3 +197,30 @@ it('loads the snapshot runtime as an external script for the strict CSP', () => 
   const hook = plugin.transformIndexHtml as { handler: Function };
   expect(hook.handler()).toEqual([{ tag: 'script', attrs: { src: '/@abcdef0/snapshot-runtime.js' }, injectTo: 'head-prepend' }]);
 });
+
+it.each([
+  ['de', 'Hier ist die neueste Version', 'Ausblenden'],
+  ['fr', 'La dernière version est ici', 'Masquer'],
+  ['tr', 'En son sürüm burada', 'Gizle'],
+])('localizes the snapshot banner and latest-version exit for %s', (locale, latest, hide) => {
+  const { context } = runtime();
+  context.location.href = `https://snapshots.staging.stabileo.com/@abcdef0/${locale}/research/?view=1#cite`;
+  const nodes = new Map<string, any>();
+  const node = () => ({
+    textContent: '', attrs: new Map<string, string>(),
+    setAttribute(name: string, value: string) { this.attrs.set(name, value); },
+    append() {}, addEventListener() {},
+    querySelector(selector: string) {
+      if (!nodes.has(selector)) nodes.set(selector, node());
+      return nodes.get(selector);
+    },
+  });
+  let banner: ReturnType<typeof node> | undefined;
+  context.document.createElement = node;
+  context.document.body = { appendChild(value: ReturnType<typeof node>) { banner = value; } };
+  context.history.pushState(null, '', context.location.href);
+  expect(banner?.attrs.get('lang')).toBe(locale);
+  expect(nodes.get('[data-latest]').textContent).toBe(latest);
+  expect(nodes.get('[data-latest]').href).toBe(`https://staging.stabileo.com/${locale}/research/?view=1#cite`);
+  expect(nodes.get('button').attrs.get('aria-label')).toBe(hide);
+});

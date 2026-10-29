@@ -3,6 +3,7 @@
    * An experiment's latest permanent link, for its gallery card: the newest snapshot (/@<commit>/)
    * holding the page, from the host's index. Renders nothing until one exists.
    */
+  import { citeStrings } from './cite-i18n';
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { permalinkUrl, pickSnapshot, snapshotIndex, type Permalink } from './permalink';
@@ -12,12 +13,12 @@
   onMount(() => {
     void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path)));
   });
-  const LABEL: Record<string, string> = { en: 'Permanent link', es: 'Enlace permanente', pt: 'Link permanente' };
+  const label = $derived(citeStrings(publicI18n.locale).permalink);
 </script>
 
 {#if link}
   <p class="rs-permalink">
-    {LABEL[publicI18n.locale] ?? LABEL.en}:
+    {label}:
     <a href={permalinkUrl(link.snapshot, path, publicI18n.locale)} data-testid="gallery-permalink"><code>@{link.snapshot.short}</code></a>
   </p>
 {/if}

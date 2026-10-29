@@ -115,3 +115,25 @@ it('does not cite legacy index entries without version evidence', () => {
   expect(text).not.toContain('/@bbbbbbb/');
   expect(text).toContain('No permanent link');
 });
+
+it.each(['de', 'fr', 'tr'])('offers complete citation controls in %s', async (locale) => {
+  const { citeStrings } = await import('../cite-i18n');
+  const en = citeStrings('en');
+  const translated = citeStrings(locale);
+  expect(translated).not.toBe(en);
+  expect(Object.keys(translated).sort()).toEqual(Object.keys(en).sort());
+  expect(translated.olderSnapshot('abc1234')).toContain('abc1234');
+  expect(translated.permalink).not.toBe(en.permalink);
+  expect(translated.footnote).not.toBe(en.footnote);
+});
+
+it.each(['de', 'fr', 'tr'])('preserves citation provenance when rendered in %s', (locale) => {
+  for (const format of ['text', 'bibtex'] as const) {
+    const rendered = citation({ ...input, permanent: false }, format, locale);
+    expect(rendered).not.toBe(citation({ ...input, permanent: false }, format));
+    for (const value of [input.commit, input.engineWasmSha256!, input.experimentWasmSha256!, input.paper.doi, input.url]) {
+      expect(rendered).toContain(value);
+    }
+    expect(rendered).not.toContain('No permanent link for this build');
+  }
+});

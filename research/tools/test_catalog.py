@@ -113,6 +113,16 @@ def main():
             assert errors, change
     print("ok   validates status-specific evidence and strips display title markup")
 
+    for host in ["github.com", "gitlab.com", "zenodo.org", "doi.org"]:
+        code, out = run(mutated(lambda p: p["code"][0].update(url=f"https://{host}/example")), "--offline")
+        assert code == 0, out
+    for url in ["javascript:alert(1)", "data:text/html,test", "http://github.com/example",
+                "https://unknown.example/repo", "https://github.com.evil.example/repo",
+                "https://github.com@evil.example/repo", "https://github.com:invalid/repo", None]:
+        code, out = run(mutated(lambda p: p["code"][0].update(url=url)), "--offline")
+        assert code != 0 and "code URL must use HTTPS" in out, (url, out)
+        print("ok   rejects code URL", repr(url))
+
     cases = {
         "string boolean": lambda p: p.update(reproduced_published_results="false"),
         "integer boolean": lambda p: p.update(reproduced_published_results=1),
@@ -127,8 +137,9 @@ def main():
         "contact without source": lambda p: p.update(contacts=[{"name": "X"}]),
         "validated without evidence": lambda p: p.update(status="numerically-validated", implementation="templates"),
         "duplicate id": None,
-        "summary from memory": lambda p: p.update(summary_source="title and prior knowledge"),
-        "summary without source": lambda p: p.update(summary_source=None),
+        "summary from reference code": lambda p: p.update(summary="unsupported summary", summary_source="reference-code"),
+        "summary from memory": lambda p: p.update(summary="unsupported summary", summary_source="title and prior knowledge"),
+        "summary without source": lambda p: p.update(summary="unsupported summary", summary_source=None),
     }
     if online:
         cases["wrong year"] = lambda p: p["crossref"].update(year=1999)

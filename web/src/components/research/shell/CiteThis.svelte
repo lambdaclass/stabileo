@@ -65,8 +65,8 @@
         }
       : null,
   );
-  const text = $derived(input ? citation(input, 'text') : '');
-  const bibtex = $derived(input ? citation(input, 'bibtex') : '');
+  const text = $derived(input ? citation(input, 'text', publicI18n.locale) : '');
+  const bibtex = $derived(input ? citation(input, 'bibtex', publicI18n.locale) : '');
 
   let copied = $state<'' | 'text' | 'bibtex' | 'link'>('');
   async function copy(what: 'text' | 'bibtex' | 'link') {

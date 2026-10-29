@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { rs } from '../i18n';
   /** Staggered iterations per load step, on a log axis (one step can need hundreds). */
   import type { Step } from './protocol';
 
@@ -13,19 +14,20 @@
   /** The axis starts below 1 so a one-iteration step is still a visible bar. */
   const sy = (v: number) => M.t + (1 - (Math.log10(Math.max(0.5, v)) - LOG_MIN) / (3 - LOG_MIN)) * (height - M.t - M.b);
   const xTicks = $derived(Array.from({ length: Math.floor((n - 1) / 10) + 1 }, (_, k) => k * 10));
+  const strings = $derived(rs());
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="Staggered iterations per load step, log scale" onpointerleave={() => (hover = null)}>
+  <svg {width} {height} role="img" aria-label={strings.iterationsChartLabel} onpointerleave={() => (hover = null)}>
     {#each TICKS as t (t)}
       <line x1={M.l} x2={width - M.r} y1={sy(t)} y2={sy(t)} class="grid" />
       <text x={M.l - 8} y={sy(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}</text>
     {/each}
-    <text transform="translate(14 {(M.t + height - M.b) / 2}) rotate(-90)" class="label" text-anchor="middle">iterations</text>
+    <text transform="translate(14 {(M.t + height - M.b) / 2}) rotate(-90)" class="label" text-anchor="middle">{strings.iterations}</text>
     {#each xTicks as t (t)}
       <text x={M.l + (t + 0.5) * bw} y={height - M.b + 14} class="tick" text-anchor="middle">{t}</text>
     {/each}
-    <text x={(M.l + width - M.r) / 2} y={height - 4} class="label" text-anchor="middle">load step</text>
+    <text x={(M.l + width - M.r) / 2} y={height - 4} class="label" text-anchor="middle">{strings.loadStepLower}</text>
     {#each steps as s, i (i)}
       <rect
         x={M.l + i * bw + Math.min(1, bw * 0.15)}
@@ -45,7 +47,7 @@
   {#if hover !== null && steps[hover]}
     {@const s = steps[hover]}
     <div class="readout" style:left="{Math.min(M.l + hover * bw + 10, width - 240)}px">
-      step {s.step} · {s.iterations} iterations{s.converged ? '' : ' (not converged)'} · residual {s.residual.toExponential(2)}{reference && reference[hover] !== undefined ? ` · reference ${reference[hover]}` : ''}
+      {strings.step} {s.step} · {s.iterations} {strings.iterations}{s.converged ? '' : strings.notConvergedSuffix} {strings.residualSuffix} {s.residual.toExponential(2)}{reference && reference[hover] !== undefined ? ` · ${strings.referenceLower} ${reference[hover]}` : ''}
     </div>
   {/if}
 </div>

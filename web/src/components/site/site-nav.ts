@@ -5,7 +5,7 @@
  */
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
-  | { kind: 'page'; id: 'blog' | 'research'; to: string; key: string };
+  | { kind: 'page'; id: 'blog' | 'changelog' | 'research'; to: string; key: string };
 
 export const SITE_NAV: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navBasic' },
@@ -14,7 +14,8 @@ export const SITE_NAV: NavItem[] = [
   { kind: 'section', id: 'education', key: 'landing.navEducation' },
   { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
   { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
+  { kind: 'page', id: 'changelog', to: '/changelog', key: 'landing.navChangelog' },
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },
 ];
 
-export type NavCurrent = 'blog' | 'research' | null;
+export type NavCurrent = 'blog' | 'changelog' | 'research' | null;

@@ -222,6 +222,9 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
 
   // The version banner: which version this is, the latest one, what changed since.
   const TEXT: Record<string, [string, string, string, string]> = {
+    de: ['Sie sehen die Version vom', 'Hier ist die neueste Version', 'Änderungen seitdem (GitHub)', 'Ausblenden'],
+    fr: ['Vous consultez la version du', 'La dernière version est ici', 'Modifications depuis (GitHub)', 'Masquer'],
+    tr: ['Görüntülediğiniz sürümün tarihi:', 'En son sürüm burada', 'O zamandan beri yapılan değişiklikler (GitHub)', 'Gizle'],
     en: ['You’re viewing the version of', 'The latest version is here', 'What changed since (GitHub)', 'Hide'],
     es: ['Estás viendo la versión del', 'La última versión está acá', 'Qué cambió desde entonces (GitHub)', 'Ocultar'],
     pt: ['Você está vendo a versão de', 'A versão mais recente está aqui', 'O que mudou desde então (GitHub)', 'Ocultar'],
@@ -229,7 +232,7 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
   let el: HTMLElement | null = null;
   function banner() {
     const path = strip(L.pathname);
-    const lang = /^\/(es|pt|en)(\/|$)/.exec(path)?.[1] ?? 'en';
+    const lang = /^\/(es|pt|en|de|fr|tr)(\/|$)/.exec(path)?.[1] ?? 'en';
     const [lead, latest, compare, hide] = TEXT[lang];
     let hidden = false;
     try {

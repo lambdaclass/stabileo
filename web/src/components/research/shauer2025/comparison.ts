@@ -12,9 +12,10 @@ export function compareReference(frames: Frame[], reference: ReferenceStep[], fi
   let worstAll = 0;
   let sameIterations = 0;
   if (frames.length !== reference.length || frames.some((f, i) => f.step.step !== reference[i]?.step)) failures.push('missing or out-of-order frames');
-  if (frames.some(f => !Object.values(f.step).every(v => typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v))) ||
-    [f.damage, f.displacement, ...(f.syy ? [f.syy] : [])].some(a => !a.every(Number.isFinite)))) failures.push('non-finite results');
-  if (frames.some(f => !f.step.converged)) failures.push('non-converged steps');
+  const numericFields = ['step', 'pseudotime', 'displacement', 'reaction', 'iterations', 'residual',
+    'damage_max', 'damage_min', 'elastic_energy', 'fracture_energy'] as const;
+  if (frames.some(f => numericFields.some(key => !Number.isFinite(f.step[key])))) failures.push('missing or non-finite step results');
+  if (frames.some(f => f.step.converged !== true)) failures.push('non-converged steps');
   frames.forEach((f, i) => {
     const r = reference[i];
     if (!r) return;

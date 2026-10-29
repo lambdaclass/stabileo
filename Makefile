@@ -336,6 +336,7 @@ check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
 test.ci-scripts:
+	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
 lint.backend:
@@ -368,6 +369,7 @@ web.run: wasm research.wasm
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
+	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
 
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
 web.build: wasm research.wasm

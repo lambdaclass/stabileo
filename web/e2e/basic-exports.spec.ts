@@ -64,7 +64,8 @@ test.describe('Básico exports', () => {
       await page.getByTestId('rb-cmd-momentY').click();
       await page.getByTestId('results-view-bar').locator('select').first().selectOption(set);
       await page.getByTestId('hdr-project').click();
-      await page.getByTestId('export-svg').click();
+      await page.getByTestId('export-drawings').click();
+      await page.getByTestId('view-export-format-svg').click();
       const section = page.getByTestId('view-export-content');
       if (!(await section.getByTestId('view-export-model').isVisible())) await section.locator('summary').click();
       await page.getByTestId('view-export-model').uncheck();
@@ -83,18 +84,19 @@ test.describe('Básico exports', () => {
 
     // Nothing to solve yet: the workbook still comes out, and its results sheets send the reader
     // to the summary, which carries the reason.
-    let wb = sheets((await download(page, () => page.getByTestId('export-excel').click())).path);
+    const results = async (f: 'xlsx' | 'csv') => download(page, async () => { await page.getByTestId('export-results').click(); await page.getByTestId(`results-format-${f}`).click(); await page.getByTestId('results-export-download').click(); });
+    let wb = sheets((await results('xlsx')).path);
     const names = Object.keys(wb);
     expect(wb[names[0]!]).toMatch(/could not be solved/i);
     expect(Object.values(wb).join('\n')).toMatch(/fix the error described in the Summary sheet/i);
 
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-    wb = sheets((await download(page, () => page.getByTestId('export-excel').click())).path);
+    wb = sheets((await results('xlsx')).path);
     const reactions = Object.entries(wb).find(([n]) => /reaction/i.test(n))?.[1] ?? '';
     // Two fixed bases, with numbers: solved by the export itself.
     expect(reactions.split('\n').filter((l) => /^\d+,/.test(l))).toHaveLength(2);
 
-    const csv = readFileSync((await download(page, () => page.getByTestId('export-csv').click())).path, 'utf8');
+    const csv = readFileSync((await results('csv')).path, 'utf8');
     expect(csv.split('\n')[0]).toMatch(/^# Stabileo/);
   });
 
@@ -104,10 +106,10 @@ test.describe('Básico exports', () => {
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     await expect(page.locator('[data-testid="basic-panel"]').getByRole('button', { name: 'DXF', exact: true })).toHaveCount(0);
 
-    await page.getByTestId('export-svg').click();
+    await page.getByTestId('export-drawings').click();
+    await page.getByTestId('view-export-format-svg').click();
     const dialog = page.getByTestId('view-export-dialog');
     await expect(dialog).toBeVisible();
-    await page.getByTestId('view-export-content').locator('summary').click();
     await page.getByTestId('view-export-despiece').check();
     await page.getByTestId('view-export-moment').check();
     const svg = await download(page, () => page.getByTestId('view-export-download').click());
@@ -120,7 +122,8 @@ test.describe('Básico exports', () => {
     expect(text).not.toContain('<image');
     await expect(dialog).toBeHidden();
 
-    await page.getByTestId('export-png').click();
+    await page.getByTestId('export-drawings').click();
+    await page.getByTestId('view-export-format-png').click();
     const png = await download(page, () => page.getByTestId('view-export-download').click());
     expect(png.name).toMatch(/\.png$/);
     expect(readFileSync(png.path).subarray(1, 4).toString()).toBe('PNG');
@@ -130,7 +133,7 @@ test.describe('Básico exports', () => {
     test.setTimeout(120_000);
     await openProject(page);
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-    await page.getByTestId('basic-panel').getByRole('button', { name: 'PDF', exact: true }).click();
+    await page.getByTestId('export-report').click();
     await expect(page.getByTestId('calc-report-dialog')).toBeVisible();
     // The members' dimensions, asked for in Figures.
     await page.getByTestId('calc-report-figures').locator('summary').click();

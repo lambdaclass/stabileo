@@ -12,6 +12,7 @@ import 'katex/dist/katex.min.css';
 import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
+import { i18n, ensureLocale } from './lib/i18n/store.svelte';
 
 /*
  * The prerendered page steps aside as the application takes over.
@@ -57,6 +58,7 @@ restoreRedirectedRoute();
 const target = document.getElementById('app')!;
 let app: ReturnType<typeof mount>;
 if (routeKind().kind === 'app') {
+  await ensureLocale(i18n.locale);
   const { default: App } = await import('./App.svelte');
   app = mount(App, { target });
   installTestHooks();

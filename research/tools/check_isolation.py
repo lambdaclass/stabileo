@@ -3,7 +3,7 @@ import pathlib
 import re
 import sys
 
-DATA = re.compile(r"research/(?:papers\.json|[^/]+/[^/]+/(?:VALIDATION\.json|versions\.json|reference-results/[^/]+\.(?:csv|json)))$")
+DATA = re.compile(r"research/(?:papers\.json|[^/]+/[^/]+/(?:VALIDATION\.json|versions\.json|results/stabileo_results\.json|reference-results/[^/]+\.(?:csv|json)))$")
 QUOTED = re.compile(r'''["'`]([^"'`\n]+)["'`]''')
 
 

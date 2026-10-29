@@ -170,7 +170,14 @@ test.describe('@smoke drawing a beam', () => {
      */
     const canvasBox = async () =>
       (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    /*
+     * The canvas has to be what is under the pointer. The card of these steps sits at the bottom
+     * of the viewport, and in a 720 px window its top edge is where the canvas's middle row
+     * was: a click there went to the card, the node never appeared, and the step waited.
+     */
     const click = async (x: number, y: number) => {
+      const under = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName ?? null, [x, y]);
+      expect(under, `the canvas, not something over it, at (${Math.round(x)}, ${Math.round(y)})`).toBe('CANVAS');
       await page.mouse.click(x, y);
       await page.waitForTimeout(400);
     };
@@ -188,7 +195,8 @@ test.describe('@smoke drawing a beam', () => {
     const modelSize = () =>
       page.evaluate(() => window.__stabileo.nodeCount()
         + window.__stabileo.elementIds().length
-        + window.__stabileo.supportCount());
+        + window.__stabileo.supportCount()
+        + window.__stabileo.allLoads().length);
 
     const doUntil = async (want: string, gesture: () => Promise<void>) => {
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -212,23 +220,32 @@ test.describe('@smoke drawing a beam', () => {
     // step notices.
     await doUntil('member', async () => {
       const box = await canvasBox();
-      await click(box.x + box.width * 0.34, box.y + box.height * 0.55);
-      await click(box.x + box.width * 0.64, box.y + box.height * 0.55);
+      await click(box.x + box.width * 0.34, box.y + box.height * 0.3);
+      await click(box.x + box.width * 0.64, box.y + box.height * 0.3);
     });
 
     /*
      * The nodes' screen positions rather than the coordinates just clicked:
      * snapping moves a node to the nearest grid intersection, which at a metre
-     * spacing is up to half a grid square from the pointer.
+     * spacing is up to half a grid square from the pointer. Read before each
+     * gesture, since the walkthrough frames the model as it grows: the second
+     * node can land at another height, and the member's middle is then the
+     * mean of both ends, not a point at the first node's height.
      */
     const at = async (id: number) =>
       (await page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id))!;
-    const a = await at(1);
-    const z = await at(2);
+    const ends = async () => {
+      const a = await at(1), z = await at(2);
+      await click(a.x, a.y);
+      await click(z.x, z.y);
+    };
 
-    await doUntil('supports', async () => { await click(a.x, a.y); await click(z.x, z.y); });
-    await doUntil('load', async () => { await click(a.x, a.y); await click(z.x, z.y); });
-    await doUntil('sections', async () => { await click((a.x + z.x) / 2, a.y); });
+    await doUntil('supports', ends);
+    await doUntil('load', ends);
+    await doUntil('sections', async () => {
+      const a = await at(1), z = await at(2);
+      await click((a.x + z.x) / 2, (a.y + z.y) / 2);
+    });
 
     // Properties come BEFORE the solve — model data, not an adjustment.
     await advance(page, 'materials');

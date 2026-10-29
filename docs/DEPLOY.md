@@ -121,18 +121,29 @@ Staging uses `https://snapshots.staging.stabileo.com`. The app's `/@*` addresses
 308 redirects preserving path and query. Citations and permalinks point directly to the snapshot
 origin; its `/@/` index permits read-only CORS from the corresponding live app origin.
 
-**Maintainer action — DNS before deployment.** Create these records in the `stabileo.com` zone:
+**DNS configured (2026-10-29).** These records exist in the `stabileo.com` zone:
 
 | Name | Record | Target |
 |---|---|---|
-| `snapshots.stabileo.com` | A | production Hetzner VM IPv4 (`DEPLOY_HOST` in the production environment) |
-| `snapshots.staging.stabileo.com` | A | staging Hetzner VM IPv4 (`DEPLOY_HOST` in the staging environment) |
+| `snapshots.stabileo.com` | A | `2.31.85.230` (production) |
+| `snapshots.staging.stabileo.com` | A | `77.42.87.228` (staging) |
 
 Add AAAA records only if those VMs have working public IPv6. Alternatively use a CNAME for each
 name to a DNS hostname that resolves to its corresponding VM (for example,
 `snapshots.staging.stabileo.com CNAME staging.stabileo.com`). Do not point production snapshots
 to GitHub Pages: `CNAME stabileo.com` is suitable only after the production app's VM cut-over.
-Allow ports 80/443 for Caddy's automatic TLS. The snapshot workflow checks DNS before building
+The existing `https://snapshots.{$APP_DOMAIN}` Caddy site expands to these exact hostnames
+using `infra/caddy/production.env` and `staging.env`. Caddy automatically obtains and renews
+public TLS certificates; no separate certificate command or snapshot environment variable is needed.
+
+**Remaining rollout steps.** Run the normal app deployment on each environment before the first
+snapshot: `deploy-app.yml` validates, installs and reloads the bundled Caddyfile. Ensure the existing
+server `/etc/caddy/stabileo.env` has `APP_DOMAIN=stabileo.com` in production and
+`APP_DOMAIN=staging.stabileo.com` in staging, matching the GitHub environment's `PHX_HOST`.
+Allow inbound ports 80/443 in the server/cloud firewall for Caddy's automatic TLS, and outbound
+ACME access. No manual server change is needed if these existing settings are already in place.
+Verify certificate issuance with `journalctl -u caddy` and an HTTPS request to each snapshot host
+(a 404 before publication is expected). Then run the snapshot workflow for staging before production. The snapshot workflow checks DNS before building
 and fails with an explicit A/AAAA-or-CNAME instruction if the snapshot hostname does not resolve.
 
 The separate origin is the browser storage security boundary: even an unpatched `about:blank`

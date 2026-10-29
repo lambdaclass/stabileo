@@ -6,12 +6,13 @@ import { test, expect } from '@playwright/test';
  *
  *   npx playwright test --grep "@smoke site header"
  */
-const ITEMS = ['basic', 'pro', 'ai', 'education', 'pricing', 'blog', 'research'];
+const ITEMS = ['basic', 'pro', 'ai', 'education', 'pricing', 'blog', 'changelog', 'research'];
 const PAGES: Array<[string, string | null]> = [
   ['/en/', null],
   ['/en/blog/', 'blog'],
   ['/en/blog/the-determinism-boundary/', 'blog'],
   ['/en/cirsoc/', null],
+  ['/en/changelog/', 'changelog'],
   ['/en/research/', 'research'],
   ['/en/research/fracture/shauer-2025/', 'research'],
 ];
@@ -31,8 +32,9 @@ test.describe('@smoke site header', () => {
   }
 });
 
+// Below 1141px the nav collapses into its menu; from 1141px the links show (site-nav-width.spec.ts).
 for (const locale of ['en', 'es', 'pt']) {
-  for (const width of [1000, 1100, 1200]) {
+  for (const width of [1000, 1100]) {
     test(`@smoke site header bounds ${locale} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/${locale}/research/`);

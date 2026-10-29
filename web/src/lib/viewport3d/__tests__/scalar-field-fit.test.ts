@@ -42,3 +42,26 @@ it.each([[0, 0], [0, 400], [600, 0]])('defers fitting a hidden %s×%s container 
   api.resize();
   expect(camera.position.equals(moved)).toBe(true);
 });
+
+it('fits displaced corners at the chosen scale and preserves explicit cropping', () => {
+  const boundsFunction = ast.statements.find((s) => ts.isFunctionDeclaration(s) && s.name?.text === 'bounds')!;
+  const boundsJs = ts.transpileModule(boundsFunction.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const camera = new THREE.PerspectiveCamera(50, 1.5, 0.1, 1000);
+  const context = {
+    THREE, camera, container: { clientWidth: 600, clientHeight: 400 },
+    controls: { target: new THREE.Vector3(), enableRotate: true }, renderer: {},
+    xy: [0, 0, 1, 1], displacement: [-3, -2, 4, 5], deformScale: 2,
+    view: null as number[] | null, projection: 'plan', invalidate: vi.fn(), scalarFieldScale: () => '',
+  };
+  const api = runInNewContext(`let pendingFit = false; let zoomText = ''; ${boundsJs}; ${js}; ({ fit, bounds })`, context);
+  expect(api.bounds()).toEqual([-6, -4, 9, 11]);
+  api.fit();
+  camera.updateMatrixWorld();
+  for (const [x, y] of [[-6, -4], [9, 11]]) {
+    const corner = new THREE.Vector3(x, y, 0).project(camera);
+    expect(Math.abs(corner.x)).toBeLessThan(1);
+    expect(Math.abs(corner.y)).toBeLessThan(1);
+  }
+  context.view = [0, 0, 1, 1];
+  expect(api.bounds()).toEqual(context.view);
+});

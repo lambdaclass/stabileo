@@ -29,17 +29,24 @@ import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setApp
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
+import de from '../src/lib/i18n/locales/full/de';
+import fr from '../src/lib/i18n/locales/full/fr';
+import tr from '../src/lib/i18n/locales/full/tr';
 import type { Page } from '@playwright/test';
+import { OFFERED_LOCALES, isComplete } from '../src/lib/i18n/offered';
 
 const DICTS: Record<string, Record<string, string>> = {
   en: en as unknown as Record<string, string>,
   es: es as unknown as Record<string, string>,
   pt: pt as unknown as Record<string, string>,
+  de, fr, tr,
 };
 
-/** The three the picker offers, and the browser locales that must reach each of them. */
-const OFFERED = ['en', 'es', 'pt'] as const;
-type Offered = (typeof OFFERED)[number];
+/** What a key renders as in a language: a language still being translated shows the English for what it lacks. */
+const rendered = (locale: string, key: string) => DICTS[locale][key] ?? DICTS.en[key];
+
+/** Where a browser in this language lands: the language once it is complete, English until then. */
+const reach = (code: 'de' | 'fr' | 'tr') => (isComplete(code) ? code : 'en');
 
 /**
  * Boot PRO with NOTHING stored — the app must decide from the browser alone.
@@ -91,14 +98,14 @@ function pickerValue(page: Page) {
  * is the honest way to give it back; widening B15's budget would have been hiding it.
  */
 const SMOKE_DETECTION = [
-  ['en-US', 'en'], ['es-AR', 'es'], ['pt-BR', 'pt'],
+  ['en-US', 'en'], ['es-AR', 'es'], ['pt-BR', 'pt'], ['fr-FR', reach('fr')],
   // One proof that an unoffered language lands on English rather than a half-translated UI.
-  ['fr-FR', 'en'],
+  ['it-IT', 'en'],
 ] as const;
 
 /** The rest of the sweep: same assertion, outside the blocking suite. */
 const FULL_DETECTION = [
-  ['de-DE', 'en'], ['it-IT', 'en'], ['ja-JP', 'en'], ['zh-CN', 'en'], ['ru-RU', 'en'],
+  ['de-DE', reach('de')], ['de-AT', reach('de')], ['tr-TR', reach('tr')], ['fr-CA', reach('fr')], ['ja-JP', 'en'], ['zh-CN', 'en'], ['ru-RU', 'en'],
 ] as const;
 
 test.describe('@smoke the language a browser gets', () => {
@@ -113,39 +120,39 @@ test.describe('@smoke the language a browser gets', () => {
         // And the screen is actually in that language: the steps of design are the first PRO
         // surface the boot lands on (interface A).
         await expect(page.getByTestId('desk-step-size'))
-          .toContainText(DICTS[expected]['desk.step.size']);
+          .toContainText(rendered(expected, 'desk.step.size'));
       });
     });
   }
 
-  test('offers exactly English, Español and Português, named in their own language',
+  test('offers its complete languages, each named in its own language',
     async ({ pro: page }) => {
       /* The list only exists while it is open — that is the difference between a
          drawn list and a `<select>`, whose options are in the DOM either way. */
       await page.getByTestId('lang-select-button').click();
       const options = page.getByTestId('lang-select-list').getByRole('option');
-      await expect(options).toHaveCount(3);
-      expect(await options.allTextContents())
-        .toEqual([en['lang.es'], en['lang.en'], en['lang.pt']]);
+      const codes = [...OFFERED_LOCALES];
+      await expect(options).toHaveCount(codes.length);
+      expect(await options.allTextContents()).toEqual(codes.map((c) => en[`lang.${c}`]));
       expect(await options.evaluateAll((os) =>
-        os.map((o) => o.getAttribute('data-value')))).toEqual(['es', 'en', 'pt']);
+        os.map((o) => o.getAttribute('data-value')))).toEqual(codes);
     });
 
   test('a language nobody offers any more is not restored, and the picker is never blank',
     async ({ page }) => {
-      // Someone who chose German before the picker narrowed. Honouring it would leave the
-      // `<select>` with a value matching none of its options, which renders empty.
+      // Someone who chose Italian when the picker listed fourteen. Honouring it would leave the
+      // picker with a value matching none of its options, which renders empty.
       await page.addInitScript(() => {
         try {
           localStorage.clear();
-          localStorage.setItem('stabileo-lang', 'de');
+          localStorage.setItem('stabileo-lang', 'it');
           localStorage.setItem('stabileo-lang-manual', '1');
         } catch { /* private mode */ }
       });
       await page.goto(PRO_URL);
       await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
       const value = await pickerValue(page);
-      expect(OFFERED, `the picker showed "${value}"`).toContain(value as Offered);
+      expect(OFFERED_LOCALES, `the picker showed "${value}"`).toContain(value);
     });
 });
 
@@ -159,7 +166,7 @@ test.describe('the rest of the detection sweep', () => {
         await bootDetecting(page);
         expect(await pickerValue(page)).toBe(expected);
         await expect(page.getByTestId('desk-step-size'))
-          .toContainText(DICTS[expected]['desk.step.size']);
+          .toContainText(rendered(expected, 'desk.step.size'));
       });
     });
   }
@@ -264,7 +271,7 @@ const VIEWER_BUTTONS: Array<[string, string]> = [
   ['rebar-workspace-close', 'detailing.scene.workspace.close'],
 ];
 
-for (const locale of OFFERED) {
+for (const locale of OFFERED_LOCALES) {
   const D = DICTS[locale];
 
   test.describe(`@slow the PRO workflow in ${locale}`, () => {

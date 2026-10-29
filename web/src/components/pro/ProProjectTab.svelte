@@ -11,6 +11,7 @@
   import { exportProjectIfc } from '../../lib/store/ifc-export';
   import { prepareExportProvenance } from '../../lib/export/provenance-attach';
   import { downloadBlob } from '../../lib/store/document-exports';
+  import { tellIfEmpty } from '../../lib/export/empty-model';
   import { uiStore, modelStore } from '../../lib/store';
   import {
     loadFile,
@@ -22,6 +23,7 @@
   import ProDataExportDialog from './export/ProDataExportDialog.svelte';
   import ProDxfExportDialog from './export/ProDxfExportDialog.svelte';
   import ProViewExportDialog from './export/ProViewExportDialog.svelte';
+  import type { DrawingFormat } from './export/DrawingFormatRow.svelte';
   import type { ViewFormat } from '../../lib/export/view-export';
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { codeShareUrl } from '../../lib/model/code/share';
@@ -191,13 +193,19 @@
   let dxfOpen = $state(false);
   let imageOpen = $state(false);
   let imageFormat = $state<ViewFormat>('svg');
-  function openData(f: 'xlsx' | 'csv') { dataFormat = f; dataOpen = true; }
-  function openImage(f: ViewFormat) { imageFormat = f; imageOpen = true; }
+  let drawingFormat = $state<DrawingFormat>('dxf');
+  function openDrawings() { pickDrawing(drawingFormat); }
+  function pickDrawing(f: DrawingFormat) {
+    drawingFormat = f;
+    if (f === 'dxf') { imageOpen = false; dxfOpen = true; }
+    else { dxfOpen = false; imageFormat = f; imageOpen = true; }
+  }
   async function exportIfc() {
     const record = await prepareExportProvenance();
     if (!record) return;
     const name = modelStore.model.name || 'stabileo';
     downloadBlob(`${name.replace(/\s+/g, '-')}.ifc`, 'application/x-step', exportProjectIfc(t, i18n.locale, name, record));
+    tellIfEmpty();
   }
 
   async function handleLoad(e: Event) {
@@ -314,10 +322,6 @@
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
-      <HelpTip text={t('provenance.reproduce.intro')}>
-        <button class="pp-btn" onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))}
-                data-testid="pp-reproduce">{t('provenance.reproduce.menu')}</button>
-      </HelpTip>
       <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
         <button
           class="pp-btn"
@@ -388,13 +392,13 @@
     <span class="pp-sub">{t('project.importLabel')}</span>
     <div class="pp-group">
       <span class="pp-group-label">{t('project.importSpreadsheet')}</span>
-      <div class="pp-grid">
+      <div class="pp-xls-row">
         <HelpTip text={t('xls.ui.importTooltip')}>
           <button class="pp-btn" onclick={() => xlsInput?.click()} data-testid="pp-xls-import"
           >{t('xls.ui.import')}</button>
         </HelpTip>
         <HelpTip text={t('xls.ui.templateTooltip')}>
-          <button class="pp-btn pp-btn-quiet" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
+          <button class="pp-btn pp-xls-aside" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
           >{t('xls.ui.template')}</button>
         </HelpTip>
       </div>
@@ -404,7 +408,7 @@
     </div>
     <div class="pp-group">
       <span class="pp-group-label">{t('project.importDrawing')}</span>
-      <div class="pp-grid">
+      <div class="pp-grid pp-io">
         <HelpTip text={t('proProject.dxfHelp')}>
           <button class="pp-btn"
                   onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))}
@@ -419,51 +423,25 @@
     </div>
 
     <span class="pp-sub">{t('project.export')}</span>
-    <!--
-      ── Export groups by what comes out, and every button opens its dialog ──
-      Data (the workbook, as Excel or as CSV), the report (a PDF) and drawings (DXF and
-      pictures). Each dialog says what goes in, with everything on by default: the panel used to
-      carry a bare "Estaciones 5 / 13 / Críticas" beside the workbook, which said nothing about
-      what it changed, and two buttons whose content had to be guessed.
-    -->
     <div class="pp-group">
-      <span class="pp-group-label">{t('proExport.groupData')}</span>
-      <div class="pp-grid">
-        <HelpTip text={t('proExport.excelTip')}>
-          <button class="pp-btn" data-testid="project-workbook" onclick={() => openData('xlsx')} disabled={!hasModel}>Excel</button>
+      <div class="pp-grid pp-io pp-io-stack">
+        <HelpTip text={t('proExport.resultsTip')}>
+          <button class="pp-btn" data-testid="pp-export-results" onclick={() => (dataOpen = true)}>{t('proExport.resultsBtn')}</button>
         </HelpTip>
-        <HelpTip text={t('proExport.csvTip')}>
-          <button class="pp-btn" data-testid="pp-export-csv" onclick={() => openData('csv')} disabled={!hasModel}>CSV</button>
-        </HelpTip>
-      </div>
-    </div>
-    <div class="pp-group">
-      <span class="pp-group-label">{t('proExport.groupReport')}</span>
-      <div class="pp-grid">
         <HelpTip text={t('proExport.reportTip')}>
-          <button class="pp-btn pp-btn-wide" data-testid="pp-export-report" disabled={!hasModel}
+          <button class="pp-btn" data-testid="pp-export-report"
                   onclick={() => window.dispatchEvent(new Event('stabileo-open-report'))}
           >{t('proExport.reportBtn')}</button>
         </HelpTip>
-      </div>
-    </div>
-    <div class="pp-group">
-      <span class="pp-group-label">{t('proExport.groupDrawings')}</span>
-      <div class="pp-grid">
-        <HelpTip text={t('proExport.dxfTip')}>
-          <button class="pp-btn" data-testid="pp-export-dxf" onclick={() => (dxfOpen = true)} disabled={!hasModel}>DXF</button>
+        <HelpTip text={t('proExport.drawingsTip')}>
+          <button class="pp-btn" data-testid="pp-export-drawings" onclick={openDrawings}>{t('proExport.drawingsBtn')}</button>
         </HelpTip>
         <HelpTip text={t('proExport.ifcTip')}>
-          <!-- The model as an exchange file: physical members, plates with their outlines and
-               holes, and the results' provenance; with design off, nothing of the design. -->
-          <button class="pp-btn" data-testid="pp-export-ifc" onclick={exportIfc} disabled={!hasModel}>IFC</button>
+          <button class="pp-btn" data-testid="pp-export-ifc" onclick={exportIfc}>{t('proExport.ifcBtn')}</button>
         </HelpTip>
-        {#each (['svg', 'png', 'jpg'] as const) as f (f)}
-          <HelpTip text={t(`proExport.${f}Tip`)}>
-            <button class="pp-btn" data-testid={`pp-export-${f}`} onclick={() => openImage(f)} disabled={!hasModel}>{f.toUpperCase()}</button>
-          </HelpTip>
-        {/each}
       </div>
+      <button class="pp-link" title={t('provenance.reproduce.intro')} onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))}
+              data-testid="pp-reproduce">{t('provenance.reproduce.link')}</button>
     </div>
   </section>
 
@@ -543,8 +521,8 @@
 <!-- The export dialogs, over the whole application rather than inside the panel. -->
 <div use:portal>
   <ProDataExportDialog bind:open={dataOpen} bind:format={dataFormat} />
-  <ProDxfExportDialog bind:open={dxfOpen} />
-  <ProViewExportDialog bind:open={imageOpen} bind:format={imageFormat} />
+  <ProDxfExportDialog bind:open={dxfOpen} onformat={pickDrawing} />
+  <ProViewExportDialog bind:open={imageOpen} bind:format={imageFormat} onformat={pickDrawing} />
 </div>
 </div>
 
@@ -707,6 +685,22 @@
     margin-right: 0.3rem;
   }
 
+  .pp-link {
+    display: block;
+    align-self: flex-start;
+    margin: 0.3rem auto 0 0;
+    text-align: left;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 0.68rem;
+    color: var(--st-text-3);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .pp-link:hover { color: var(--st-text-2); }
+
   .pp-note {
     margin: 0.45rem 0 0.5rem;
     font-size: 0.68rem;
@@ -817,8 +811,6 @@
 
   /* Quieter than its neighbour: the template is what you take AWAY to fill
      in, next to the button that brings a filled-in one back. */
-  .pp-btn-quiet { color: var(--st-text-3); }
-  .pp-btn-quiet:hover { color: var(--st-text); }
 
   .pp-row-end { justify-content: flex-end; }
 
@@ -835,6 +827,15 @@
   .pp-row :global(.ht-wrap > button) { width: 100%; }
   .pp-grid :global(.ht-wrap) { width: 100%; }
   .pp-grid :global(.ht-wrap > button) { width: 100%; }
+  .pp-io { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-io-stack { grid-template-columns: minmax(0, 1fr); }
+  .pp-xls-row { display: flex; gap: 0.3rem; align-items: stretch; }
+  .pp-xls-row > :global(.ht-wrap:first-child) { flex: 1 1 auto; }
+  .pp-xls-row > :global(.ht-wrap:first-child > button) { width: 100%; }
+  .pp-xls-row > :global(.ht-wrap:last-child) { flex: 0 0 auto; }
+  .pp-xls-aside { height: 100%; font-size: 0.62rem; padding-left: 0.45rem; padding-right: 0.45rem; color: var(--st-text-3); }
+  .pp-xls-aside:hover:not(:disabled) { color: var(--st-accent); border-color: var(--st-accent); }
+  .pp-io :global(.ht-wrap > button) { display: block; height: 32px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 
   .pp-disclose { justify-content: space-between; margin-top: 0.3rem; }
   .pp-caret { font-size: 0.6rem; color: var(--st-text-3); }
