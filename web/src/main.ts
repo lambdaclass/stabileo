@@ -60,10 +60,13 @@ if (import.meta.env.VITE_DESKTOP === '1' && routeKind().kind !== 'app') {
 const target = document.getElementById('app')!;
 let app: ReturnType<typeof mount>;
 if (routeKind().kind === 'app') {
+  const selfCheckPassed = import.meta.env.VITE_DESKTOP === '1'
+    ? await (await import('./lib/platform/self-check')).runSelfCheck()
+    : true;
   const { default: App } = await import('./App.svelte');
   app = mount(App, { target });
   installTestHooks();
-  if (import.meta.env.VITE_DESKTOP === '1') void import('./lib/platform/desktop.svelte').then((m) => m.startDesktop());
+  if (import.meta.env.VITE_DESKTOP === '1') void import('./lib/platform/desktop.svelte').then((m) => m.startDesktop(selfCheckPassed));
 } else {
   app = mount(Root, { target });
   // From a public page the application loads in place (Root.svelte), and says so when it is up.

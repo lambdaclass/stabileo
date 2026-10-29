@@ -20,7 +20,6 @@ import { i18n, isDefaultName, t } from '../i18n';
 import { desktopText, menuLabels } from './desktop-text';
 import { startUpdater, checkForUpdates } from './updater';
 import { showAbout, reportProblem } from './about';
-import { runSelfCheck } from './self-check';
 import { routeExternalLinks } from './external-links';
 import { logToFile } from './log';
 import { updateInProgress } from './update-lock';
@@ -32,6 +31,12 @@ const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
 const docs = new DocumentState();
 const sessionTabs = new Set<string>();
 let sessionPath: string | null = null;
+let savedMembership: string[] | null = null;
+
+function membershipChanged(): boolean {
+  const ids = tabManager.tabs.map(tab => tab.id);
+  return savedMembership !== null && JSON.stringify(ids) !== JSON.stringify(savedMembership);
+}
 
 let dirty = $state(false);
 let titleName = $state('');
@@ -72,12 +77,14 @@ function activeDoc(): TabDoc {
 
 /** The tabs with changes their file does not have, decided from their content now. */
 export function unsavedTabs(): string[] {
-  return docs.unsaved(tabDocs()).map((d) => d.id);
+  const ids = docs.unsaved(tabDocs()).map((d) => d.id);
+  if (membershipChanged() && !ids.includes(activeTab())) ids.push(activeTab());
+  return ids;
 }
 
 function refreshState(): void {
   const tab = activeTab();
-  dirty = docs.isUnsaved(activeDoc());
+  dirty = membershipChanged() || docs.isUnsaved(activeDoc());
   const path = docs.path(tab);
   const name = modelStore.model.name;
   // A default name, saved in whatever language (or as its bare key), reads in the current one.
@@ -89,7 +96,6 @@ let checkTimer: ReturnType<typeof setTimeout> | null = null;
 function watchChanges(): void {
   $effect.root(() => {
     $effect(() => {
-      // New tabs get their baseline when they appear, closed ones are forgotten.
       void tabManager.tabs.length;
       docs.prune(tabDocs());
       refreshState();
@@ -153,6 +159,7 @@ function workspaceFingerprint(): string {
 export async function openPath(path: string): Promise<void> {
   try {
     const before = workspaceFingerprint();
+    path = await invoke<string>('resolve_selected_path', { path });
     const text = await readTextFile(path);
     if (updateInProgress()) return;
     if (before !== workspaceFingerprint()) throw new Error(tx('openChanged'));
@@ -164,9 +171,11 @@ export async function openPath(path: string): Promise<void> {
       uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
       sessionTabs.clear();
       sessionPath = path;
+      savedMembership = tabManager.tabs.map(tab => tab.id);
       docs.replaceAll(tabDocs());
     } else {
       sessionPath = null;
+      savedMembership = null;
       docs.generation++;
       sessionTabs.delete(activeTab());
       docs.markSaved(activeDoc(), path);
@@ -219,7 +228,7 @@ export async function saveActiveAs(): Promise<boolean> {
   const { content, filename } = projectPayload();
   const picked = await save({ defaultPath: docs.path(activeTab()) ?? filename, filters: DED_FILTERS });
   if (!picked) return false;
-  const path = picked;
+  const path = await invoke<string>('resolve_selected_path', { path: picked });
   if (!(await writeTo(path, content))) return false;
   docs.markSaved(doc, path);
   refreshState();
@@ -237,8 +246,12 @@ async function saveSession(path: string | null): Promise<boolean> {
   const saved = tabDocs().map(captured);
   const picked = path ?? await save({ defaultPath: sessionPath ?? filename, filters: DED_FILTERS });
   if (!picked) return false;
-  if (!(await writeTo(picked, content))) return false;
-  if (generation === docs.generation) sessionPath = picked;
+  const target = path ?? await invoke<string>('resolve_selected_path', { path: picked });
+  if (!(await writeTo(target, content))) return false;
+  if (generation === docs.generation) {
+    sessionPath = target;
+    savedMembership = saved.map(doc => doc.id);
+  }
   for (const doc of saved) docs.markSaved(doc);
   refreshState();
   return true;
@@ -252,12 +265,12 @@ export async function saveTextAs(content: string, filename: string): Promise<'sa
   if (scope && typeof scope === 'object' && 'type' in scope && scope.type === 'session') return await saveSessionAs() ? 'saved' : 'cancelled';
   const picked = await save({ defaultPath: filename, filters: DED_FILTERS });
   if (!picked) return 'cancelled';
-  return (await writeTo(picked, content)) ? 'saved' : 'cancelled';
+  const target = await invoke<string>('resolve_selected_path', { path: picked });
+  return (await writeTo(target, content)) ? 'saved' : 'cancelled';
 }
 
 function newProject(): void {
   tabManager.createTab();
-  docs.track(tabDocs());
   refreshState();
 }
 
@@ -368,15 +381,17 @@ export function routePageFileControls(): void {
 }
 
 export function trackDocuments(): void {
-  docs.replaceAll(tabDocs());
-  tabManager.onCreated(() => { docs.track(tabDocs()); });
+  docs.replaceAll([]);
+  sessionPath = null;
+  savedMembership = null;
+  tabManager.onCreated(() => { docs.markSaved(activeDoc()); });
   tabManager.onDeactivated((tab) => docs.rebase(tab.id, liveFingerprint(), storedFingerprint(tab)));
   tabManager.onActivated((tab) => docs.rebase(tab.id, storedFingerprint(tab), liveFingerprint()));
 }
 
 let started = false;
 
-export async function startDesktop(): Promise<void> {
+export async function startDesktop(selfCheckPassed: boolean): Promise<void> {
   if (started) return;
   started = true;
   logToFile();
@@ -391,7 +406,7 @@ export async function startDesktop(): Promise<void> {
     await quit();
   });
   await takePendingFiles();
-  if (!(await runSelfCheck())) {
+  if (!selfCheckPassed) {
     uiStore.toast(tx('selfCheckFailed'), 'error');
     await message(tx('selfCheckFailed'), { kind: 'error' });
   }
