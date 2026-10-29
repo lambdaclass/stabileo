@@ -12,6 +12,8 @@ use super::constraints::FreeConstraintSystem;
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult {
     pub modes: Vec<ModeShape>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finite_spectrum_diagnostic: Option<String>,
     pub n_dof: usize,
     pub total_mass: f64,
     pub cumulative_mass_ratio_x: f64,
@@ -259,8 +261,10 @@ pub fn solve_modal_2d(
         return Err("No valid modes found".into());
     }
 
+    // The eigensolver excludes certified massless directions from this count;
+    // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
     }
 
     // Rayleigh damping (5% critical from modes 1 and last)
@@ -279,6 +283,7 @@ pub fn solve_modal_2d(
     };
 
     Ok(ModalResult {
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
         modes,
         n_dof: nf,
         total_mass,
@@ -304,6 +309,8 @@ fn mat_vec_sub(m: &[f64], v: &[f64], n: usize) -> Vec<f64> {
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult3D {
     pub modes: Vec<ModeShape3D>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finite_spectrum_diagnostic: Option<String>,
     pub n_dof: usize,
     pub total_mass: f64,
     pub cumulative_mass_ratio_x: f64,
@@ -472,8 +479,10 @@ pub fn solve_modal_3d(
 
     if modes.is_empty() { return Err("No valid modes found".into()); }
 
+    // The eigensolver excludes certified massless directions from this count;
+    // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
     }
 
 
@@ -489,10 +498,17 @@ pub fn solve_modal_3d(
     } else { None };
 
     Ok(ModalResult3D {
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
         modes, n_dof: nf, total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
     })
+}
+
+fn finite_spectrum_diagnostic(requested: usize, returned: usize) -> Option<String> {
+    if returned < requested {
+        Some(format!("Requested {requested} modes; returned all {returned} finite modes certified by the Sturm count. Massless directions have no finite frequency."))
+    } else { None }
 }
