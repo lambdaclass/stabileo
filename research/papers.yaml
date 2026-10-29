@@ -771,3 +771,39 @@ papers:
   benchmarks: []
   implementation: null
   contacts: []
+- id: macneal-harder-1985
+  doi: 10.1016/0168-874X(85)90003-4
+  crossref:
+    title: A proposed standard set of problems to test finite element accuracy
+    authors:
+    - Richard H. Macneal
+    - Robert L. Harder
+    year: 1985
+    venue: Finite Elements in Analysis and Design
+  area: numerical-methods
+  keywords:
+  - engine benchmarks
+  - finite element accuracy
+  - patch test
+  summary: A set of patch, beam, plate and shell problems tests the accuracy of representative
+    quadrilateral and brick finite elements across several influential parameters.
+  summary_source: publisher-abstract
+  summary_note: https://www.sciencedirect.com/science/article/pii/0168874X85900034
+    — publisher abstract accessed 2026-10-29.
+  code: []
+  data: []
+  methods:
+  - finite elements
+  - accuracy benchmarks
+  dependencies: []
+  complexity: low
+  relevance: Production-engine accuracy checks, with live failures and native/WASM
+    comparison.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks:
+  - straight cantilever
+  - patch tests
+  - shell benchmarks
+  implementation: benchmarks/macneal-harder-1985
+  contacts: []

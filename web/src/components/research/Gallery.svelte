@@ -45,7 +45,7 @@
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
           <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.name}>
-            {#if !thumbFailed[e.paperId]}
+            {#if e.thumbnail && !thumbFailed[e.paperId]}
               <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt="Damage field from our run of the experiment" onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>

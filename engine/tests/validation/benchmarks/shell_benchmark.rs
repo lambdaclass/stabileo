@@ -23,6 +23,8 @@
 ///   - Timoshenko, S.P. & Woinowsky-Krieger, S., "Theory of Plates and Shells", 1959
 ///   - Bathe, K.J. & Dvorkin, E.N., "A formulation of general shell elements", 1986
 
+#[path = "../../benchmarks/macneal_harder.rs"]
+mod mh;
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::solver::buckling;
 use dedaliano_engine::solver::modal;
@@ -195,7 +197,7 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_scordelis_lo_roof_mitc4() {
-    let reference = 0.3024;
+    let reference = mh::reference("scordelis");
 
     let uz_6 = scordelis_lo_solve(6, 6);
     assert!(
@@ -225,7 +227,7 @@ fn benchmark_scordelis_lo_convergence() {
 
     for &n in &meshes {
         let uz = scordelis_lo_solve(n, n);
-        let ratio = uz / 0.3024;
+        let ratio = uz / mh::reference("scordelis");
         ratios.push((n, ratio));
     }
 
@@ -703,7 +705,7 @@ fn pinched_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_pinched_hemisphere_4x4() {
-    let reference = 0.0924;
+    let reference = mh::reference("hemisphereConverged");
     let ux = pinched_hemisphere_solve(4, 4);
 
     assert!(
@@ -726,7 +728,7 @@ fn benchmark_pinched_hemisphere_4x4() {
 
 #[test]
 fn benchmark_pinched_hemisphere_8x8() {
-    let reference = 0.0924;
+    let reference = mh::reference("hemisphereConverged");
     let ux = pinched_hemisphere_solve(8, 8);
 
     assert!(
@@ -3180,7 +3182,7 @@ fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_pinched_cylinder_6x6() {
-    let reference = 1.8248e-5;
+    let reference = mh::reference("pinchedCylinder");
     let uy = pinched_cylinder_solve(6, 6);
 
     assert!(uy > 1e-20, "Pinched cylinder 6x6: should deflect, got uy={:.6e}", uy);
@@ -3197,7 +3199,7 @@ fn benchmark_pinched_cylinder_6x6() {
 
 #[test]
 fn benchmark_pinched_cylinder_8x8() {
-    let reference = 1.8248e-5;
+    let reference = mh::reference("pinchedCylinder");
     let uy = pinched_cylinder_solve(8, 8);
 
     assert!(uy > 1e-20, "Pinched cylinder 8x8: should deflect, got uy={:.6e}", uy);
@@ -4831,7 +4833,7 @@ fn pinched_hemisphere_rt_solve(n: usize, rt_ratio: f64) -> f64 {
 /// More precisely, for F=1: u = 0.0924 at R=10, t=0.04 (R/t=250).
 /// For different t with same R: u_new / u_ref = (t_ref / t_new)² = (R/t_new)² / (R/t_ref)².
 fn pinched_hemisphere_reference(rt_ratio: f64) -> f64 {
-    let u_ref = 0.0924;
+    let u_ref = mh::reference("hemisphereConverged");
     let rt_ref = 250.0;
     u_ref * (rt_ratio / rt_ref).powi(2)
 }
@@ -5356,7 +5358,7 @@ fn q9_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_q9_scordelis_lo() {
-    let reference = 0.3024;
+    let reference = mh::reference("scordelis");
     let meshes = [(2, 2), (4, 4), (6, 6)];
     let mut ratios = Vec::new();
 
@@ -6417,7 +6419,7 @@ fn benchmark_ss_scordelis_lo() {
     let half_l = 25.0;
     let theta_deg = 40.0;
     let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
-    let ref_val = 0.3024; // Analytical midspan free-edge uz
+    let ref_val = mh::reference("scordelis"); // Analytical midspan free-edge uz
 
     let meshes = [6, 8];
     for &n in &meshes {
@@ -6526,7 +6528,7 @@ fn benchmark_ss_pinched_hemisphere() {
     let nu = 0.3;
     let t = 0.04;
     let r = 10.0;
-    let ref_val = 0.0924; // Analytical radial displacement under unit loads
+    let ref_val = mh::reference("hemisphereConverged"); // Analytical radial displacement under unit loads
 
     let meshes = [8, 16];
     for &n in &meshes {
@@ -6752,7 +6754,7 @@ fn benchmark_ss_spherical_cap() {
     let r = 10.0;
     let r_over_t = 100.0;
     let t = r / r_over_t;
-    let ref_val = 0.0924; // hemisphere reference
+    let ref_val = mh::reference("hemisphereConverged"); // hemisphere reference
 
     let n = 8;
     let pi = std::f64::consts::PI;
@@ -6881,7 +6883,7 @@ fn benchmark_shell_family_frontier_gates() {
     // --- Hemisphere: SHB8-ANS 8×8 ---
     let ss_hemi = {
         let r = 10.0; let t = 0.04; let e_mpa = 68250.0; let nu = 0.3;
-        let ref_val = 0.0924;
+        let ref_val = mh::reference("hemisphereConverged");
         let pi = std::f64::consts::PI;
         let n = 8;
 
@@ -7310,7 +7312,7 @@ fn curved_shell_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_scordelis_lo() {
-    let ref_uz = 0.3024;
+    let ref_uz = mh::reference("scordelis");
 
     let uz_6 = curved_shell_scordelis_lo_solve(6, 6);
     let ratio_6 = uz_6 / ref_uz;
@@ -7545,7 +7547,7 @@ fn curved_shell_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_8x8() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     for &(np, nt) in &[(2, 2), (4, 4), (8, 8)] {
         let ux = curved_shell_hemisphere_solve(np, nt);
         let ratio = ux / ref_disp;
@@ -7644,10 +7646,10 @@ fn benchmark_curved_vs_mitc4_hemisphere_8x8() {
     let res = linear::solve_3d(&input).expect("MITC4 hemisphere solve");
     let d = res.displacements.iter().find(|d| d.node_id == eq_x).unwrap();
     let ux_mitc4 = d.ux.abs();
-    let ratio_mitc4 = ux_mitc4 / 0.0924;
+    let ratio_mitc4 = ux_mitc4 / mh::reference("hemisphereConverged");
 
     let ux_curved = curved_shell_hemisphere_solve(8, 8);
-    let ratio_curved = ux_curved / 0.0924;
+    let ratio_curved = ux_curved / mh::reference("hemisphereConverged");
 
     println!("MITC4 hemisphere 8×8: ux={ux_mitc4:.6e}, ratio={ratio_mitc4:.4}");
     println!("Curved hemisphere 8×8: ux={ux_curved:.6e}, ratio={ratio_curved:.4}");
@@ -7778,7 +7780,7 @@ fn curved_shell_hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_hole() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     let uz_8 = curved_shell_hemisphere_hole_solve(8, 8);
     let ratio_8 = uz_8 / ref_disp;
     println!("Curved shell hemisphere-hole 8×8: uz={uz_8:.6e}, ref={ref_disp:.6e}, ratio={ratio_8:.4}");
@@ -7790,7 +7792,7 @@ fn benchmark_curved_shell_hemisphere_hole() {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_16x16() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     let uz = curved_shell_hemisphere_solve(16, 16);
     let ratio = uz / ref_disp;
     println!("Curved shell hemisphere 16×16: uz={uz:.6e}, ref={ref_disp:.6e}, ratio={ratio:.4}");
@@ -8063,7 +8065,7 @@ fn benchmark_curved_shell_raasch_hook() {
 /// Cross-family comparison: curved shell vs MITC4 vs SHB8-ANS on hemisphere
 #[test]
 fn benchmark_curved_shell_cross_family_comparison() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
 
     // Curved shell
     let cs_8 = curved_shell_hemisphere_solve(8, 8);

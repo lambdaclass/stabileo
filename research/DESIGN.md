@@ -233,3 +233,39 @@ visitor.
 - Engine changes silently shifting research results: §3's replay.
 - Agent capacity and usage limits: one paper at a time per agent; prefer the OVH server.
 - Hosting old builds forever: keep only builds that changed research or the engine.
+
+## 14. Engine benchmarks
+
+Research pages in this track **are the production engine's benchmarks**. They run the WASM
+built into `web/src/lib/wasm` through the existing `web/src/lib/engine` wrappers, the same
+engine used to design buildings. There is no separate research solver.
+
+The engine owns one case file under `engine/tests/benchmarks/`: geometry, connectivity,
+materials, loads, element family, measurement, published reference with table/page provenance,
+and tolerance. Native tests and the research page read that same file. Record adaptations,
+different meshes and historical regression bounds separately from published accuracy targets;
+never loosen an assertion or change `engine/src` to make a page pass. Research code is never
+imported by the product (`research/tools/check_isolation.py` enforces the boundary).
+
+The page runs on load and on **Run again**, with no replay requirement. Its headline and table
+are computed live, including reference, computed value, relative error and pass/fail. Failed
+cases remain visible and count in the denominator, with links to their engine known-issue
+entries. Missing registry entries must be disclosed and referred to the solver owner; do not
+invent an issue or silently classify a regression floor as an accuracy pass. APIs unavailable
+in WASM are labelled **covered in native CI only**, with exact test names. A shared Stabileo
+viewer shows the selected mesh and deformed shape, and **Open in Stabileo** uses the editor's
+existing import/share format. Use ExperimentShell, PaneTabs, VerificationSummary, Cite this,
+SiteHeader, en/es/pt UI and the gallery catalogue's summary-source rules.
+
+Existing engine CI runs the native cases. Hosted runners in the Research workflow compare the
+production WASM results in Node with freshly computed native values and classifications; a
+cached report is not a live browser result. Research bundles remain route-isolated.
+
+Queue:
+1. **MacNeal–Harder (1985)** — `/research/benchmarks/macneal-harder-1985`.
+2. **Riks/Crisfield snap-through** — production `engine/src/solver/arc_length.rs`.
+3. **Zienkiewicz–Zhu** — production error estimation and mesh refinement.
+
+Classics go through the engine. New papers stay separate experiments when the engine cannot
+run them, isolated from the product; this exception does not authorize a replacement production
+solver or relax the product's validation/review process.

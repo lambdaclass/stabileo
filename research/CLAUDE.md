@@ -78,3 +78,15 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
   done, evidence, half done, findings, exact next step.
 - Before production: green required CI, a page e2e smoke, a review (Codex and Kimi plus a human),
   then merge. Messages to authors are drafted here and sent by a maintainer.
+
+## Engine benchmarks track
+- Classics run the **production WASM** through existing engine wrappers; no research solver.
+  Queue: MacNeal–Harder → Riks/Crisfield arc length → Zienkiewicz–Zhu (DESIGN §14).
+- The engine owns the shared case JSON; native tests and research pages read it. Preserve every
+  existing assertion and tolerance. Never change `engine/src` or numerical behaviour for a page.
+- Run live on load and Run again; this track is exempt from the autoplay/replay rule.
+  Show failures, references, errors and known-issue links; label unsupported WASM cases native CI
+  only with test names. Separate accuracy targets from historical regression bounds.
+- Use the shared viewer, shell, translations and editor share/import mechanism. Hosted Research
+  CI compares fresh native and production WASM results. Research never becomes a product import.
+- New papers the engine cannot run may remain isolated experiments; classics use the engine.

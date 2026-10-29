@@ -15,6 +15,8 @@
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::types::*;
 use crate::common::*;
+#[path = "../../benchmarks/macneal_harder.rs"]
+mod mh;
 
 const E: f64 = 200_000.0;
 const A: f64 = 0.01;
@@ -222,28 +224,13 @@ fn validation_rigid_body_zero_strain_energy() {
 
 #[test]
 fn validation_macneal_harder_straight_cantilever() {
-    let length: f64 = 6.0;
-    let p: f64 = -1.0;
-    let ei = E * 1000.0 * IZ;
-
-    let delta_exact = p.abs() * length.powi(3) / (3.0 * ei);
-    for &n in &[1, 2, 4, 8] {
-        let input = make_beam(
-            n, length, E, A, IZ, "fixed", None,
-            vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
-            })],
-        );
-
+    for n in [1, 2, 4, 8] {
+        let c = mh::case(&format!("frame-shear-{n}-uz"));
+        let input: SolverInput = serde_json::from_value(c["input"].clone()).unwrap();
         let results = linear::solve_2d(&input).unwrap();
-        let d_tip = results.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap();
-
-        // Cubic elements should give exact result even for n=1
-        assert_close(
-            d_tip.uz.abs(), delta_exact, 0.02,
-            &format!("MacNeal-Harder straight beam (n={}): tip deflection", n),
-        );
+        let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+        assert_close(d_tip.uz.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+            &format!("MacNeal-Harder straight beam (n={n}): tip deflection"));
     }
 }
 
@@ -256,33 +243,15 @@ fn validation_macneal_harder_straight_cantilever() {
 
 #[test]
 fn validation_macneal_harder_tip_moment() {
-    let length: f64 = 6.0;
-    let m: f64 = 10.0;
-    let ei = E * 1000.0 * IZ;
-
-    let delta_exact = m * length.powi(2) / (2.0 * ei);
-    let theta_exact = m * length / ei;
-
-    let n = 4;
-    let input = make_beam(
-        n, length, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
-        })],
-    );
-
+    let c = mh::case("frame-moment-4-uz");
+    let input: SolverInput = serde_json::from_value(c["input"].clone()).unwrap();
     let results = linear::solve_2d(&input).unwrap();
-    let d_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap();
-
-    assert_close(
-        d_tip.uz.abs(), delta_exact, 0.02,
-        "MacNeal-Harder tip moment: deflection",
-    );
-    assert_close(
-        d_tip.ry.abs(), theta_exact, 0.02,
-        "MacNeal-Harder tip moment: rotation",
-    );
+    let d_tip = results.displacements.iter().find(|d| d.node_id == 5).unwrap();
+    assert_close(d_tip.uz.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+        "MacNeal-Harder tip moment: deflection");
+    let c = mh::case("frame-moment-4-ry");
+    assert_close(d_tip.ry.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+        "MacNeal-Harder tip moment: rotation");
 }
 
 // ================================================================
