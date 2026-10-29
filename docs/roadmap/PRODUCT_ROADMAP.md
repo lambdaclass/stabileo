@@ -623,7 +623,17 @@ built now (branch `tools/pilot`), shipped first and reviewed after, like researc
    Portuguese are an opening (few good CIRSOC or NBR calculators exist); fast: a tool loads only what
    it needs, never the whole editor (the same "own page" architecture as Research); phone and tablet
    checks.
-3. **The first 20,** where the engine is strongest (verified or certified): beams (simply supported,
+3. **Tools an AI can't do reliably come first.** A chatbot answers PL³/48EI instantly, so simple
+   formula calculators are search entry points, not the reason to choose Stabileo. Most of the first 20
+   are "solver-needed" tools, with diagrams in Stabileo's viewer, the engine checked against a hand
+   method where one exists, and Open in Stabileo: continuous beams and frames with any supports and
+   loads (indeterminate: where AI answers go wrong); influence lines and moving-load envelopes; natural
+   frequencies, mode shapes and response spectrum; P-Δ and frame buckling with real end restraints;
+   trusses and frames with many members (paste coordinates, solve); section properties of any shape
+   (draw or import; I, J, warping, shear centre); plates and slabs; code checks with every number tied to
+   its clause (CIRSOC 201/301, ACI, AISC), clearly scoped; load-combination generation and envelopes.
+   The simple ones stay as the entry points.
+4. **The first 20,** where the engine is strongest (verified or certified): beams (simply supported,
    cantilever, fixed-fixed, propped, continuous 2–4 spans, overhang: deflection, moment, shear,
    reactions); section properties (I, rectangular, circular, hollow, built-up); column buckling (Euler
    with effective lengths, P-Δ amplification); 2D truss and portal frame; natural frequency of beams and
@@ -632,10 +642,10 @@ built now (branch `tools/pilot`), shipped first and reviewed after, like researc
    (#389). Later, by demand: plates, slabs, foundations, then other fields (piping, electrical, pressure
    vessels, fire protection). Not for now: connections and bearing capacity (the engine doesn't do them;
    a weak tool hurts trust).
-4. **Research gets the same treatment:** Google Scholar `citation_*` tags, DOI and author markup, preview
+5. **Research gets the same treatment:** Google Scholar `citation_*` tags, DOI and author markup, preview
    images and video on every paper page; the classic benchmark pages (MacNeal–Harder, Scordelis–Lo) are
    what engineers search for.
-5. **Sequence:** pilot of 3 (simply supported beam, cantilever, Euler column) proving the shared page,
+6. **Sequence:** pilot of 3 (simply supported beam, cantilever, Euler column) proving the shared page,
    prerendering, speed budget, checked worked examples and Open in Stabileo; then the first 20; then
    measure in Google Search Console (impressions, clicks, editor opens per tool) before growing toward
    100.
