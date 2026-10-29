@@ -6,9 +6,9 @@
 
 | System | Command |
 | --- | --- |
-| macOS 11+ (Apple silicon or Intel) | `brew install --cask lambdaclass/tap/stabileo` |
+| macOS 15+ (Apple silicon or Intel) | `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh \| sh` |
 | Windows 10/11 x64 (PowerShell) | `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 \| iex` |
-| Linux x86_64 (and macOS without Homebrew) | `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh \| sh` |
+| Linux x86_64 | `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh \| sh` |
 
 The scripts check the download against `SHA256SUMS` before installing anything.
 
@@ -26,8 +26,7 @@ The `.sig`, `.app.tar.gz` and `latest.json` files are for the in-app updater; yo
 
 - **macOS** (not signed with an Apple Developer ID yet; only once):
   - macOS 15 (Sequoia) and later: open Stabileo once (it is blocked), then System Settings ▸ Privacy & Security ▸ "Stabileo was blocked…" ▸ **Open Anyway**, and confirm.
-  - macOS 14 and earlier: right-click Stabileo in Applications ▸ **Open** ▸ **Open**.
-  - Any version, in Terminal: `xattr -dr com.apple.quarantine /Applications/Stabileo.app`
+  - Before authorizing it, verify the download against `SHA256SUMS` and run `codesign --verify --deep --strict /Applications/Stabileo.app`. A damaged-app warning can mean corruption or tampering: download a fresh copy and verify it; do not override a failed verification or persistent warning.
 - **Windows:** if SmartScreen says "Windows protected your PC", click **More info ▸ Run anyway**.
 - **Linux:** make the AppImage executable: `chmod +x Stabileo_@VERSION@_amd64.AppImage`, then run it. It needs FUSE 2 (`sudo apt install libfuse2` on Debian/Ubuntu).
 

@@ -24,7 +24,7 @@ process.stdout.write(`cask "stabileo" do
   end
 
   auto_updates true
-  depends_on :macos
+  depends_on macos: ">= :sequoia"
 
   app "Stabileo.app"
 
@@ -40,9 +40,6 @@ process.stdout.write(`cask "stabileo" do
     Stabileo is not signed with an Apple Developer ID yet, so macOS blocks it the first time.
     macOS 15 (Sequoia) and later: open Stabileo once, then go to System Settings >
       Privacy & Security, find "Stabileo was blocked...", click Open Anyway and confirm.
-    macOS 14 and earlier: right-click Stabileo in Applications, choose Open, then Open.
-    Any version, in Terminal:
-      xattr -dr com.apple.quarantine /Applications/Stabileo.app
     Only once: updates open without asking. Guide:
       https://github.com/lambdaclass/stabileo/blob/main/docs/desktop/INSTALL.md
   EOS

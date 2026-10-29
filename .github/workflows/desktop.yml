@@ -115,7 +115,7 @@ jobs:
             target: ""
             rust_targets: ""
           - name: macos
-            os: macos-latest
+            os: macos-15
             bundles: app,dmg
             target: universal-apple-darwin
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
@@ -354,8 +354,6 @@ jobs:
           VERSION: ${{ inputs.version }}
           NOTES: ${{ inputs.notes }}
         run: |
-          tag="desktop-v$VERSION"
-          # Every prerelease opens with the install guide (desktop/release/release-body.md).
           node -e '
             const fs = require("fs");
             const [tpl, version, notes] = process.argv.slice(1);
@@ -364,31 +362,24 @@ jobs:
               .replace("@NOTES@", () => notes.trim() || "Stabileo desktop " + version);
             fs.writeFileSync("release-body.md", body);
           ' desktop/release/release-body.md "$VERSION" "$NOTES"
-          gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Stabileo desktop $VERSION" --notes-file release-body.md --prerelease --latest=false
-      # The desktop-update-feed branch holds what must stay at a fixed address whatever branch the
-      # code is on: latest.json, which the in-app updater reads (GitHub's "latest release" skips
-      # prereleases), and the install scripts the docs point to. Written through the contents
-      # API, so each commit is signed by GitHub, as the repository's rules require of every branch.
-      # latest.json goes last: installed apps see the new version only once everything is there.
+          python3 desktop/release/publish.py "$GITHUB_REPOSITORY" "$VERSION" "$GITHUB_SHA" dist release-body.md
       - name: Point the update feed and install scripts at desktop-v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
+          base=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/desktop-update-feed" --jq .object.sha)
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=$base" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
           python3 desktop/release/check-feed.py "$RUNNER_TEMP/deployed.json" dist/latest.json
           branch="desktop-feed-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          base=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/desktop-update-feed" --jq .object.sha)
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base"
           put() {
             api="repos/$GITHUB_REPOSITORY/contents/$1"
-            sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null) || sha=""
+            sha=$(gh api "$api?ref=$base" --jq .sha 2>/dev/null) || sha=""
             args=(-f branch="$branch" -f message="Update feed: $1 for desktop-v$VERSION" -f content="$(base64 -w0 "$2")")
             [ -n "$sha" ] && args+=(-f sha="$sha")
             gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
           }
-          put .github/workflows/desktop-feed.yml .github/workflows/desktop-feed.yml
           put install.sh dist/install.sh
           put install.ps1 dist/install.ps1
           put latest.json dist/latest.json
@@ -404,7 +395,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-15, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
