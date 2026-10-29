@@ -127,7 +127,7 @@ const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog') return [...LOCALES];
+  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
@@ -245,7 +245,7 @@ async function publicPaths(): Promise<string[]> {
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
   const research = ['/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling'];
 }
 
 /**

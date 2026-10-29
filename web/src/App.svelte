@@ -584,6 +584,11 @@
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showTools = $state(routeKind().kind === 'tools');
+  let tools = $state<typeof import('./components/tools/ToolsPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showTools && !tools) void import('./components/tools/ToolsPage.svelte').then(m => tools = m.default);
+  });
   let showResearch = $state(routeKind().kind === 'research');
   let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
   $effect(() => {
@@ -616,15 +621,17 @@
     showLanding = false;
     showBlog = false;
     showResearch = false;
+    showTools = false;
   }
 
   function syncRouteState() {
+    showTools = routeKind().kind === 'tools';
     showResearch = routeKind().kind === 'research';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog && !showResearch) {
+    if (!showLanding && !showBlog && !showResearch && !showTools) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -789,7 +796,7 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showResearch);
+  const editorActive = $derived(!showLanding && !showBlog && !showResearch && !showTools);
   provideEditorActivity(() => editorActive);
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
@@ -1161,7 +1168,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || showResearch || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showResearch || showTools || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1404,7 +1411,9 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showResearch}
+{#if showTools}
+  {#if tools}{@const Tools = tools}<Tools path={blogPath} />{/if}
+{:else if showResearch}
   {#if research}
     {@const Research = research}
     <Research path={blogPath} />
@@ -1433,7 +1442,7 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showResearch}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showResearch || showTools}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -2148,7 +2157,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showResearch}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showResearch && !showTools}
     <WhatsNewNotice />
   {/if}
 

@@ -42,6 +42,11 @@
     }
   });
 
+  let tools = $state<typeof import('./components/tools/ToolsPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'tools' && !tools) void import('./components/tools/ToolsPage.svelte').then(m => tools = m.default);
+  });
+
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
     loading ??= ensureLocale(i18n.locale).then(() => import('./App.svelte')).then(async (m) => {
@@ -102,6 +107,8 @@
     {@const Research = research}
     <Research path={current.path} />
   {/if}
+{:else if current.kind === 'tools'}
+  {#if tools}{@const Tools = tools}<Tools path={current.path} />{/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}
