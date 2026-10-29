@@ -9,7 +9,7 @@ import * as THREE from 'three';
 const component = readFileSync(new URL('../../../components/viewport/ScalarFieldViewer.svelte', import.meta.url), 'utf8');
 const script = component.split('<script lang="ts">')[1].split('</script>')[0];
 const ast = ts.createSourceFile('viewer.ts', script, ts.ScriptTarget.Latest, true);
-const functions = ast.statements.filter((s) => ts.isFunctionDeclaration(s) && ['fit', 'resize'].includes(s.name?.text ?? ''));
+const functions = ast.statements.filter((s) => ts.isFunctionDeclaration(s) && ['fit', 'resize', 'updateZoom'].includes(s.name?.text ?? ''));
 const js = ts.transpileModule(functions.map((s) => s.getText(ast).replace(/^export /, '')).join('\n'), {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -19,9 +19,10 @@ it.each([[0, 0], [0, 400], [600, 0]])('defers fitting a hidden %s×%s container 
   const container = { clientWidth: width, clientHeight: height };
   const setSize = vi.fn();
   const controls = { target: new THREE.Vector3(), enableRotate: true };
-  const api = runInNewContext(`let pendingFit = true; ${js}; ({ fit, resize })`, {
+  const api = runInNewContext(`let pendingFit = true; let zoomText = ''; ${js}; ({ fit, resize })`, {
     THREE, camera, container, controls, renderer: { setSize }, field: null,
     bounds: () => [-0.5, -0.5, 0.5, 0.5], projection: 'plan', invalidate: vi.fn(),
+    scalarFieldScale: () => '',
   }) as { fit(): void; resize(): void };
   api.fit();
   expect(camera.position.toArray()).toEqual([0, 0, 0]);
