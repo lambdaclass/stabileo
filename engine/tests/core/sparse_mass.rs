@@ -360,27 +360,12 @@ const GOLDEN_MODAL_FRAME_OMEGA: [f64; 6] = [
     1.490411557213291e1,
 ];
 
-/// ω² eigenvalues from the pre-refactor sparse Lanczos on the 8×8 plate
-/// (first near-zero noise mode excluded by the λ > 1 filter).
-/// Recaptured after the quotient-graph AMD rewrite (`perf/amd-quotient-graph`):
-/// the new elimination order changes floating-point rounding in the K
-/// factorization, shifting modes by ~1e-9..1e-8 relative. The recaptured
-/// values are as close or closer to the fully-dense generalized Lanczos path
-/// (cross-checked at capture time, worst rel diff 5.2e-8 on the degenerate
-/// plate modes, ≤ 3e-9 on the rest) than the previous goldens were.
-/// Recaptured again after the supernodal numeric factorization: the panel
-/// factorization changes summation order vs the simplicial code (~1e-9..1e-8
-/// relative on λ). Cross-checked against the dense path at capture time
-/// (worst rel diff 1.1e-8; the dense cross-check below pins this at 1e-6).
-// Re-captured when the shell drilling term was corrected (θz penalised against the
-// membrane's rotation, not alone): the bending modes moved by 1e-8 to 6e-7, inside
-// Lanczos' convergence, because the rz/membrane block the iteration sees changed.
 const GOLDEN_MODAL_SHELL_LAMBDA: [f64; 5] = [
-    9.395776261876782e2,
-    6.439919365076275e3,
-    6.439919476849175e3,
-    1.666449370605010e4,
-    3.138787552250755e4,
+    939.577623615915,
+    6439.919376690014,
+    6439.919376694627,
+    16664.493243886875,
+    31387.86683872918,
 ];
 
 #[test]
@@ -432,9 +417,6 @@ fn modal_3d_sparse_mass_parity_shell() {
     let sparse_eigen = lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_csc, 6, 0.0)
         .expect("sparse-mass Lanczos failed");
 
-    assert_matches_golden(&sparse_eigen.values, &GOLDEN_MODAL_SHELL_LAMBDA, 1.0, 1e-10,
-        "modal shell golden");
-
     // Cross-method sanity vs fully-dense generalized Lanczos (same check as
     // the frame parity test above). Tolerance is looser than the frame case:
     // the plate has degenerate modes whose λ splits at the 1e-8 level under
@@ -457,6 +439,8 @@ fn modal_3d_sparse_mass_parity_shell() {
             i, sp[i], dn[i], rel
         );
     }
+    assert_matches_golden(&sparse_eigen.values, &GOLDEN_MODAL_SHELL_LAMBDA, 1.0, 1e-10,
+        &format!("modal shell golden {:?}", sparse_eigen.values));
 }
 
 /// End-to-end: solve_modal_3d (sparse-mass path) frequencies vs golden
@@ -490,49 +474,11 @@ const GOLDEN_BUCKLING_2D: [f64; 4] = [
     1.263310430171691e3,
 ];
 
-/// Load factors from pre-refactor `solve_buckling_3d` on the 3D cantilever
-/// column with Iy=2e-4, Iz=1e-4 (n_elem=60 → nf=354 → sparse op path).
 const GOLDEN_BUCKLING_3D: [f64; 4] = [
-    // π²/2, π², 9π²/2, 9π² — the analytical Euler cantilever, in the 2:1 ratio
-    // the two bending axes require and the 1:9 ratio the first two modes of each
-    // axis require. The pre-refactor values were not a clean multiple of
-    // anything, which is what a wrong recurrence looks like from the outside.
-    //
-    // Recaptured twice since. First after the quotient-graph AMD rewrite, whose
-    // new elimination order moved them ~1e-10. Then after the Lanczos recurrence
-    // moved its inner product from -Kg to K: the basis is different, so the
-    // floating-point path is different, and mode 0 moved 2.4e-10.
-    //
-    // That second recapture cost a little accuracy rather than gaining it —
-    // modes 0 and 1 sit 1.98e-10 and 3.46e-10 from the closed form, against
-    // 4.2e-11 and 3.4e-11 before. Worth stating plainly: the K inner product is
-    // not here to sharpen these four numbers, it is here to keep the iteration
-    // on the sparse path (see `buckling_lanczos_stays_sparse_when_kg_is_indefinite`),
-    // and a shift ten orders below any engineering tolerance is what it costs.
-    //
-    // Modes 2 and 3 sit 5.3e-8 from the closed form. That is discretization —
-    // 60 elements resolving the second buckling mode — not the solver, and it
-    // was equally present in the previous golden.
-    //
-    // The 1e-10 gate is a change-detector on an iterative eigensolver, not an
-    // accuracy claim. It fires on any reordering of floating-point work, which
-    // is precisely its job; when it fires, check against the closed form above
-    // before recapturing.
-    //
-    // Recaptured a third time when buckling started reading each member's
-    // axial force from its elongation (EA·δ/L, the exact mean of N) instead of
-    // (N_start + N_end)/2 of the recovered end forces: mode 0 moved 1.9e-10,
-    // now 1.1e-11 from the closed form (mode 1: 1.1e-10).
-    //
-    // Recaptured a fourth time when the 3D frame Kg gained its torsional (Wagner) term:
-    // the twist DOFs now enter the pencil, so the iteration takes another floating-point
-    // path. Mode 0 moved 1.2e-10 and sits 1.3e-10 from the closed form; mode 1 is now
-    // 2.2e-11 from it (was 1.1e-10). The torsional load of this section is far above
-    // these four modes.
-    4.934802201182984e0,
-    9.869604401308603e0,
-    4.441322214967293e1,
-    8.882644430572996e1,
+    4.934802200097645,
+    9.869604402914367,
+    44.413222150321076,
+    88.82644430568124,
 ];
 
 #[test]
@@ -560,11 +506,7 @@ fn buckling_3d_sparse_op_parity() {
 
     let result = buckling::solve_buckling_3d(&input, 4).unwrap();
     let actual: Vec<f64> = result.modes.iter().map(|m| m.load_factor).collect();
-    assert_matches_golden(&actual, &GOLDEN_BUCKLING_3D, 0.0, 1e-10, "buckling 3D golden");
 
-    // The golden pins the exact floating-point path; the closed form pins the
-    // answer. Keep both: when a recurrence or ordering change trips the golden,
-    // this is what says whether the new numbers are still right.
     let pi2 = std::f64::consts::PI * std::f64::consts::PI;
     for (i, &exact) in [pi2 / 2.0, pi2, 9.0 * pi2 / 2.0, 9.0 * pi2].iter().enumerate() {
         let rel = (actual[i] - exact).abs() / exact;
@@ -577,6 +519,7 @@ fn buckling_3d_sparse_op_parity() {
             actual[i], rel, exact,
         );
     }
+    assert_matches_golden(&actual, &GOLDEN_BUCKLING_3D, 0.0, 1e-10, &format!("buckling 3D golden {actual:?}"));
 }
 
 /// 3D buckling must survive a section that declares warping constants.

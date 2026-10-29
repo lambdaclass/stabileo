@@ -221,3 +221,88 @@ fn entire_repeated_cluster_is_certified_complete() {
     let count = check(&input, &HashMap::from([("1".into(), 7850.0)]), 12);
     assert_eq!(count, 12);
 }
+
+#[test]
+fn full_search_space_does_not_prove_repeated_mode_completeness() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse};
+    for distinct in [40, 60] {
+        let n = distinct * 3;
+        let indices: Vec<_> = (0..n).collect();
+        let stiffness: Vec<_> = (0..n).map(|i| 1.0 / (i / 3 + 1) as f64).collect();
+        let k = CscMatrix::from_triplets(n, &indices, &indices, &stiffness);
+        let m = CscMatrix::from_triplets(n, &indices, &indices, &vec![1.0; n]);
+        let result = lanczos_generalized_eigen_sparse(&k, &m, 2, 0.0).unwrap();
+        assert_eq!(result.values.len(), 2);
+        for value in &result.values {
+            assert!((value - 1.0 / distinct as f64).abs() < 1e-12);
+        }
+        for i in 0..2 {
+            for j in 0..2 {
+                let gram: f64 = (0..n).map(|r| result.vectors[r * 2 + i] * result.vectors[r * 2 + j]).sum();
+                assert!((gram - if i == j { 1.0 } else { 0.0 }).abs() < 1e-10);
+            }
+        }
+    }
+}
+
+#[test]
+fn large_symmetric_model_refuses_unbounded_eigen_fallback() {
+    let input = symmetric_cantilevers(2000, 0.5, true);
+    let error = solve_modal_3d(&input, &HashMap::from([("1".into(), 7850.0)]), 2).unwrap_err();
+    assert!(error.contains("limited to 2048 free DOFs"), "{error}");
+    assert!(error.contains("received 14000"), "{error}");
+    assert!(error.contains("reduce the mesh or model size"), "{error}");
+}
+
+#[test]
+fn sparse_eigen_budget_precedes_every_dense_route() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse, lanczos_buckling_eigen_sparse};
+    let n = 14000;
+    let indices: Vec<_> = (0..n).collect();
+    let matrix = CscMatrix::from_triplets(n, &indices, &indices, &vec![1.0; n]);
+    for (want, sigma) in [(2, 0.0), (n, 0.0), (2, 0.5)] {
+        assert!(lanczos_generalized_eigen_sparse(&matrix, &matrix, want, sigma).is_none());
+    }
+    for want in [2, n] {
+        assert!(lanczos_buckling_eigen_sparse(&matrix, &matrix, want).is_none());
+    }
+}
+
+#[test]
+fn massless_fallback_preserves_modes_above_a_near_zero_frequency() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse};
+    let n = 120;
+    let indices: Vec<_> = (0..n).collect();
+    let mut kv = vec![1.0; n];
+    kv[0] = 1e-10;
+    for value in &mut kv[1..n - 1] { *value = 1e4; }
+    let mut mv = vec![1.0; n];
+    mv[n - 1] = 0.0;
+    let k = CscMatrix::from_triplets(n, &indices, &indices, &kv);
+    let m = CscMatrix::from_triplets(n, &indices, &indices, &mv);
+    let result = lanczos_generalized_eigen_sparse(&k, &m, 3, 0.0).unwrap();
+    assert_eq!(result.values.len(), 3);
+    for (value, expected) in result.values.iter().zip([1e-10, 1e4, 1e4]) {
+        assert!((value / expected - 1.0).abs() < 1e-12, "{value} vs {expected}");
+    }
+}
+
+#[test]
+fn massless_condensation_recovers_coupled_coordinates() {
+    use dedaliano_engine::linalg::{CscMatrix, lanczos_generalized_eigen_sparse};
+    let k = CscMatrix::from_triplets(3, &[0, 1, 2, 2], &[0, 1, 0, 2], &[2.0, 8.0, -1.0, 2.0]);
+    let m = CscMatrix::from_triplets(3, &[0, 1], &[0, 1], &[1.0, 1.0]);
+    let result = lanczos_generalized_eigen_sparse(&k, &m, 2, 0.0).unwrap();
+    assert_eq!(result.values.len(), 2);
+    for (col, expected) in [1.5, 8.0].into_iter().enumerate() {
+        assert!((result.values[col] - expected).abs() < 1e-12);
+        let x: Vec<_> = (0..3).map(|row| result.vectors[row * 2 + col]).collect();
+        let kx = k.sym_mat_vec(&x);
+        let mx = m.sym_mat_vec(&x);
+        assert!((x[2] - 0.5 * x[0]).abs() < 1e-12);
+        assert!((x.iter().zip(&mx).map(|(a, b)| a * b).sum::<f64>() - 1.0).abs() < 1e-12);
+        for row in 0..3 {
+            assert!((kx[row] - expected * mx[row]).abs() < 1e-12);
+        }
+    }
+}

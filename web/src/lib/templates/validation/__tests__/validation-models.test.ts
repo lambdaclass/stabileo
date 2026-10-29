@@ -171,32 +171,28 @@ it('loading a validation card restores the previous model with one undo, and sup
  * comparison of displacements, not for statics.
  */
 describe('validation-04 with its own combinations', () => {
-  it('is stable to second order exactly where it does not buckle', async () => {
+  it('keeps second-order results and refuses buckling above the eigenanalysis budget', async () => {
     await loadValidationModel('validation-04');
     expect(modelStore.analysis?.perCombination).toBe('pdelta');
     const cases = modelStore.model.loadCases;
     const r = solveCombinations3D(md() as never, cases, modelStore.combinations, true, false);
     if (!r || typeof r === 'string') throw new Error(String(r));
-    // The unstable ones publish no forces and are listed instead.
     expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(SHAPE['validation-04'].combinations);
     const base = buildSolverInput3D({ ...md(), loads: [] } as never, false, false)!;
     const caseLoads = caseSolverLoads3D(md() as never, cases, true, false);
     let stable = 0;
     for (const combo of modelStore.combinations) {
-      const lambda = (solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1) as { modes: Array<{ loadFactor: number }> }).modes[0]!.loadFactor;
       const res = r.perCombo.get(combo.id);
-      expect(!!res, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
       if (!res) { expect(r.unstable).toContain(combo.id); continue; }
       stable++;
       const so = res.secondOrder!;
       expect(so.converged && so.stable).toBe(true);
       expect(so.b2).toBeGreaterThan(1);
-      expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
     }
-    // Three of the fourteen: with torsional and flexural-torsional buckling in the geometric
-    // stiffness (#434) and the members' real J (#468), several governing modes are almost pure
-    // twist (open sections under compression), so one combination that the bending-only Kg
-    // called stable (λ > 1) buckles. It was 4.
     expect(stable).toBe(3);
+    expect(() => solveBuckling3D({
+      ...base,
+      loads: comboSolverLoads3D(modelStore.combinations[0]!, caseLoads),
+    }, 1)).toThrow('Complete eigenvalue analysis is limited to 2048 free DOFs (received 6732); reduce the mesh or model size.');
   }, 300_000);
 });

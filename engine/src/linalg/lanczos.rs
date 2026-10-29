@@ -4,7 +4,16 @@ use super::sparse::CscMatrix;
 use super::sparse_chol::{symbolic_cholesky, numeric_cholesky, sparse_cholesky_solve};
 use std::rc::Rc;
 
-/// Parameters for Lanczos iteration.
+pub const MAX_COMPLETE_EIGEN_DOFS: usize = 2048;
+
+pub fn eigen_failure_message(n: usize) -> String {
+    if n > MAX_COMPLETE_EIGEN_DOFS {
+        format!("Complete eigenvalue analysis is limited to {MAX_COMPLETE_EIGEN_DOFS} free DOFs (received {n}); reduce the mesh or model size.")
+    } else {
+        "Eigenvalue decomposition failed".to_string()
+    }
+}
+
 pub struct LanczosParams {
     pub max_iter: usize,
     pub tol: f64,
@@ -418,14 +427,10 @@ fn lanczos_irlm(
     let nrm = dot(&q0, &q0).sqrt();
     for v in q0.iter_mut() { *v /= nrm; }
 
-    let mut best_values: Option<Vec<f64>> = None;
-    let mut best_vectors: Option<Vec<f64>> = None;
-
     for _restart in 0..params.max_iter {
         let (alpha, beta, q_mat, steps, trailing_beta) = lanczos_tridiag(op, &q0, m);
         let actual_m = steps.min(m);
 
-        // A single-start invariant subspace need not contain every repeated eigendirection.
         if actual_m < m { return None; }
 
         // Solve tridiagonal eigenproblem (sorted ascending)
@@ -448,42 +453,25 @@ fn lanczos_irlm(
 
         let selected_vals: Vec<f64> = t_vals[start..start + nk].to_vec();
 
-        // Check convergence. The trailing beta is the one the residual estimate needs:
-        // it was previously hardcoded to 0.0 for a full m-step run — the normal case —
-        // which made every residual identically zero and every run "converged"
-        // regardless of `tol`.
-        let beta_m = if actual_m < m { beta[actual_m.min(beta.len() - 1)] } else { trailing_beta };
+        let beta_m = trailing_beta;
         let mut all_converged = true;
         for (out_col, t_col) in (start..start + nk).enumerate() {
             let residual = (beta_m * t_vecs[(actual_m - 1) * actual_m + t_col]).abs();
             let theta = selected_vals[out_col].abs().max(1e-30);
-            if residual > params.tol * theta {
+            if !residual.is_finite() || !theta.is_finite() || residual > params.tol * theta {
                 all_converged = false;
                 break;
             }
         }
 
-        best_values = Some(selected_vals);
-        best_vectors = Some(ritz_vecs);
-
-        if all_converged {
-            break;
+        if all_converged && actual_m == n {
+            return Some(EigenResult { values: selected_vals, vectors: ritz_vecs });
         }
-
-        // Not converged: GROW the subspace rather than reseeding from the best Ritz
-        // vector. Reseeding from a single vector stalls on a repeated eigenvalue — it
-        // keeps re-entering the same one-dimensional slice of the eigenspace — and was
-        // measured running thousands of restarts on a clustered spectrum without ever
-        // converging. Growing m converges the same cases in one or two passes: the
-        // Krylov space simply has to be large enough to separate the cluster.
         if m >= n { break; }
         m = (m * 2).min(n);
     }
 
-    let values = best_values?;
-    let vecs = best_vectors?;
-
-    Some(EigenResult { values, vectors: vecs })
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -499,6 +487,7 @@ pub fn lanczos_eigen(
     k: usize,
     params: Option<LanczosParams>,
 ) -> Option<EigenResult> {
+    if n > MAX_COMPLETE_EIGEN_DOFS { return None; }
     let k = k.min(n);
     let p = params.unwrap_or_default();
 
@@ -573,6 +562,13 @@ pub fn lanczos_eigen(
 /// added to the model (an artificial mass would invent modes at a frequency
 /// set by its arbitrary size).
 pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usize) -> Option<EigenResult> {
+    let massless: Vec<usize> = (0..n)
+        .filter(|&i| b[i * n..(i + 1) * n].iter().all(|&v| v == 0.0))
+        .collect();
+    if !massless.is_empty() {
+        return dense_eigen_condense_massless(a, b, n, &massless);
+    }
+
     if let Some(r) = solve_generalized_eigen(a, b, n, 200) {
         return Some(r);
     }
@@ -598,6 +594,47 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
     Some(EigenResult { values: kept.iter().map(|p| p.0).collect(), vectors })
 }
 
+fn dense_eigen_condense_massless(a: &[f64], b: &[f64], n: usize, massless: &[usize]) -> Option<EigenResult> {
+    let active: Vec<usize> = (0..n).filter(|i| massless.binary_search(i).is_err()).collect();
+    let na = active.len();
+    let nz = massless.len();
+    if na == 0 { return None; }
+    let mut kzz = vec![0.0; nz * nz];
+    for (i, &row) in massless.iter().enumerate() {
+        for (j, &col) in massless.iter().enumerate() {
+            kzz[i * nz + j] = a[row * n + col];
+        }
+    }
+    if !cholesky_decompose(&mut kzz, nz) { return None; }
+    let mut recovery = vec![0.0; nz * na];
+    for (j, &col) in active.iter().enumerate() {
+        let rhs: Vec<_> = massless.iter().map(|&row| -a[row * n + col]).collect();
+        let solved = back_solve(&kzz, &forward_solve(&kzz, &rhs, nz), nz);
+        for i in 0..nz { recovery[i * na + j] = solved[i]; }
+    }
+    let mut condensed_k = vec![0.0; na * na];
+    let mut condensed_m = vec![0.0; na * na];
+    for (i, &row) in active.iter().enumerate() {
+        for (j, &col) in active.iter().enumerate() {
+            condensed_k[i * na + j] = a[row * n + col] + massless.iter().enumerate()
+                .map(|(z, &dof)| a[row * n + dof] * recovery[z * na + j]).sum::<f64>();
+            condensed_m[i * na + j] = b[row * n + col];
+        }
+    }
+    let result = dense_generalized_eigen_semidefinite(&condensed_k, &condensed_m, na)?;
+    let mut vectors = vec![0.0; n * n];
+    for col in 0..result.values.len() {
+        for (i, &row) in active.iter().enumerate() {
+            vectors[row * n + col] = result.vectors[i * na + col];
+        }
+        for (z, &row) in massless.iter().enumerate() {
+            vectors[row * n + col] = (0..na)
+                .map(|i| recovery[z * na + i] * result.vectors[i * na + col]).sum();
+        }
+    }
+    Some(EigenResult { values: result.values, vectors })
+}
+
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x.
 /// Uses shift-invert Lanczos near sigma, or falls back to dense solve.
 pub fn lanczos_generalized_eigen(
@@ -607,6 +644,7 @@ pub fn lanczos_generalized_eigen(
     k: usize,
     sigma: f64,
 ) -> Option<EigenResult> {
+    if n > MAX_COMPLETE_EIGEN_DOFS { return None; }
     let k = k.min(n);
 
     // For small problems, use dense path directly
@@ -771,6 +809,7 @@ pub fn lanczos_generalized_eigen_sparse(
 ) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(m_ff.n, n, "K and M must have the same dimension");
+    if n > MAX_COMPLETE_EIGEN_DOFS { return None; }
     let k = k.min(n);
 
     // For small problems or large fraction of eigenvalues, use dense path
@@ -851,6 +890,7 @@ pub fn lanczos_buckling_eigen_sparse(
 ) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
+    if n > MAX_COMPLETE_EIGEN_DOFS { return None; }
     let k = k.min(n);
 
     // For small problems, use dense Jacobi: (-Kg)*φ = μ*K*φ

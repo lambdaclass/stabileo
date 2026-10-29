@@ -7,7 +7,7 @@
       "id": "modal-repeated-eigenspace-completeness",
       "resultsVersion": 5,
       "date": "2026-10-29",
-      "prs": [],
+      "prs": [827],
       "area": "analysis",
       "when": {
         "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
@@ -25,9 +25,9 @@
         "pt": "Autovalores repetidos preservam sua multiplicidade"
       },
       "explanation": {
-        "en": "An early Lanczos breakdown could omit independent modes at a repeated frequency. These cases now use the dense eigensolver. Re-run modal analysis and analyses that use its modes; frequencies, effective masses and combined responses may change. The shared buckling eigensolver also uses this fallback.",
-        "es": "Una terminación anticipada de Lanczos podía omitir modos independientes de igual frecuencia. Estos casos ahora usan el solucionador denso. Recalcule el análisis modal y los análisis que usan sus modos: pueden cambiar frecuencias, masas efectivas y respuestas combinadas. El solucionador compartido de pandeo también usa esta alternativa.",
-        "pt": "Uma interrupção antecipada de Lanczos podia omitir modos independentes de mesma frequência. Esses casos agora usam o solucionador denso. Recalcule a análise modal e as análises que usam seus modos: frequências, massas efetivas e respostas combinadas podem mudar. O solucionador compartilhado de flambagem também usa essa alternativa."
+        "en": "Lanczos could omit independent modes at a repeated frequency even with small residuals. Results now require a full-dimensional search space or the dense eigensolver. Exactly massless coordinates are condensed so near-zero modes do not hide higher physical modes in the dense fallback. These solvers refuse more than 2,048 free DOFs; reduce the mesh or model size. Re-run modal analysis and analyses that use its modes; frequencies, effective masses and combined responses may change. The shared buckling eigensolver also uses this fallback.",
+        "es": "Lanczos podía omitir modos independientes de igual frecuencia incluso con residuos pequeños. Ahora se exige un espacio de búsqueda de dimensión completa o el solucionador denso. Se condensan las coordenadas sin masa para que los modos casi nulos no oculten modos físicos superiores en la alternativa densa. Estos solucionadores rechazan más de 2048 grados de libertad libres; reduzca la malla o el modelo. Recalcule el análisis modal y los análisis que usan sus modos: pueden cambiar frecuencias, masas efectivas y respuestas combinadas. El solucionador compartido de pandeo también usa esta alternativa.",
+        "pt": "Lanczos podia omitir modos independentes de mesma frequência mesmo com resíduos pequenos. Agora se exige um espaço de busca de dimensão completa ou o solucionador denso. As coordenadas sem massa são condensadas para que modos quase nulos não ocultem modos físicos superiores na alternativa densa. Esses solucionadores recusam mais de 2048 graus de liberdade livres; reduza a malha ou o modelo. Recalcule a análise modal e as análises que usam seus modos: frequências, massas efetivas e respostas combinadas podem mudar. O solucionador compartilhado de flambagem também usa essa alternativa."
       },
       "changelog": {
         "file": "docs/results-changes/2026-10-modal-completeness.md",
