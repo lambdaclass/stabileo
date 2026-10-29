@@ -360,8 +360,8 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
 
    | Paper | Kind | Stage | Reviews | Status |
    |---|---|---|---:|---|
-   | Shauer 2025, phase-field fracture | new research | improved | 14 (7 rounds × Codex + Kimi) | live |
-   | Grossman & Boudaoud 2026, spring networks | new research | improved | 12 (6 rounds × Codex + Kimi) | live |
+   | Shauer 2025, phase-field fracture | new research | improved | 8 review rounds before merge (Codex, Kimi on most) | live |
+   | Grossman & Boudaoud 2026, spring networks | new research | improved | 6 review rounds before merge (Codex, Kimi on most) | live |
    | Andreassen et al. 2011, topology optimisation (88 lines) | classic | first version | 0 | shipping |
    | Mattiasson 1981, elastica | classic, engine benchmark | first version | 0 | verifying |
    | Riks 1979 / Crisfield 1981, arc length (#803) | classic, engine benchmark | first version | 1 (Codex) | fixing |
