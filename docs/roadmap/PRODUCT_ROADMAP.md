@@ -476,6 +476,58 @@ reproducibility (opened snapshots whose recomputed results match the stored ones
 share and fork first, with the safety pieces from day one; discovery next; challenges once server
 compute exists.
 
+#### Worked-problems library (under Education)
+
+Students search by problem type ("moment distribution example", "overhanging beam with point load"),
+every semester. A library of **original** worked problems, each solved step by step by the hand method a
+professor expects and then by Stabileo's engine, the two agreeing, with **Open in Stabileo** to change it.
+Built on the Tools page (a tool with a fixed worked example), so it is one system with two entry points.
+
+- **Where:** under the existing **Education** navbar item (no new item: the navbar is full), at
+  `/<lang>/problems/<slug>/` (Spanish `problemas`), prerendered with structured data, in the sitemap.
+  Tools link to related problems ("see it solved by moment distribution") and problems to their tool
+  ("try your own numbers").
+- **What:** about 40–60 problem types: determinate beams, trusses (joints, sections, zero-force
+  members), frames and three-hinged arches, deflections (double integration, moment-area, conjugate
+  beam, virtual work), indeterminate structures (force method, slope-deflection, moment distribution /
+  Cross, stiffness method), influence lines and moving loads, Euler buckling and P-Δ, section
+  properties.
+- **First 10, Spanish and English:** moment distribution, slope-deflection, influence lines, virtual work
+  deflections, method of sections; then measure and expand.
+- **Sources:** our own problems; problems from openly licensed textbooks only where the licence allows
+  (attribution, non-commercial and no-derivatives terms checked per book); the research classics.
+  **Never** solutions to numbered problems from copyrighted textbooks (publishers own them, and it helps
+  students cheat, which works against professors).
+
+#### Video and GIF export, and short videos
+
+- **Export video / GIF in the viewer** (app, research and tools): mode and buckling shapes, deformed
+  shape under load, time history and moving loads, research replays. MP4 (WebCodecs), WebM
+  (MediaRecorder), GIF; vertical, square and landscape presets; length, speed, caption; a small "Made
+  with Stabileo" mark with a link, on by default (removable in PRO); an honesty overlay with the analysis
+  type, engine version and any known-issue warning. All in the browser, frame-exact, no upload. Every
+  exported video is a way in; with shared models it links to the model itself.
+- **Short videos from recipes** (reusing the preview pipeline): a recipe says which page, which
+  parameter changes and camera moves, and the captions; Playwright drives the real page and ffmpeg
+  composes vertical and square videos with title and end cards. Always a real run on the live engine,
+  silent with captions (no unlicensed music), linking to the page. One a week for LinkedIn and Shorts:
+  first the beam turning into a truss, the crack through the plate, "check a beam in 20 seconds".
+
+#### Fast-growth backlog (ranked)
+
+1. **Launches:** Show HN / Product Hunt / LinkedIn when Research has 4–5 live papers and the Tools pilot is
+   up, then one per new capability (Tools, sharing, the Python package).
+2. **Weekly short videos** (above).
+3. **Embeds wherever engineers ask questions:** a one-line live model for Eng-Tips, Engineering Stack
+   Exchange, Reddit, blogs and course pages (comes with shared models).
+4. **Plugins where engineers already work:** an Excel add-in first (on the Python package and API), then
+   Grasshopper/Rhino.
+5. **AI: sketch, plan or PDF → model:** the viral demo, only after the safety work (a confidently wrong
+   model spreads as fast).
+6. Cheaper multipliers: student competitions (steel bridge, concrete canoe), free "Stabileo basics"
+   certificates with a LinkedIn badge, team invites and referrals ("ask a colleague to review this
+   model"), Latin American engineering communities in Spanish and Portuguese.
+
 ### Stabileo Tools: free engineering calculators (2026-10-29)
 
 Engineers search for a calculation ("beam deflection calculator"), not for a platform. Each tool is a
