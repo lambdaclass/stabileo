@@ -56,7 +56,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 
 ## Predicates and limits
 
-- NUM-INVARIANCE: existing HighDiagonalRatio (>1e8), ExtremelyHighDiagonalRatio (>1e12), NearZeroDiagonal (<= max diagonal × 1e-12), StiffnessNotPositiveDefinite, CholeskyFailedLuFallback, or ExcessiveDisplacement diagnostics. No new matrix factorization or numerical threshold affects the solve. Issue #762 supplies seed cases but no conditioning cutoff. All ten reported seeds are covered: 2D 20800, 20833, 20865, 20795, 20756, 20824, 20840, 20806; 3D 20761, 20788. Constrained solves also inspect their existing original free stiffness before reduction: seed 20840 loses the warning after reduction alone (reduced diagonal ratio about 139), while the original matrix exposes the artificial-hinge stiffness contrast. This conservative conditioning boundary is the narrowest tested boundary covering all reported cases; it is not a complete invariance detector. A well-conditioned plain frame is a negative control.
+- NUM-INVARIANCE: existing HighDiagonalRatio (>1e8), ExtremelyHighDiagonalRatio (>1e12), NearZeroDiagonal (<= max diagonal × 1e-12), StiffnessNotPositiveDefinite, CholeskyFailedLuFallback, or ExcessiveDisplacement diagnostics. The checks do not change numerical thresholds, factors used by the solve, or solve arithmetic. Staged/cable iterations reuse their cached symbolic analysis and numeric factors; Winkler, harmonic modal, time-history effective-stiffness, and large modal/buckling paths inspect their existing factors. Additional diagnostic factorizations remain where the required stiffness factor is not produced: dense eigensolver branches without an exposed stiffness factor (modal branches normally factor mass), spectral analyses accepting externally supplied modes, reduction analyses factoring interior/condensed blocks, direct harmonic analyses factoring frequency-dependent systems, and time-history checks of the original stiffness rather than effective stiffness. These checks remain separate from the solve and can add runtime and memory; see the measurements below. Issue #762 supplies seed cases but no conditioning cutoff. All ten reported seeds are covered: 2D 20800, 20833, 20865, 20795, 20756, 20824, 20840, 20806; 3D 20761, 20788. Constrained solves also inspect their existing original free stiffness before reduction: seed 20840 loses the warning after reduction alone (reduced diagonal ratio about 139), while the original matrix exposes the artificial-hinge stiffness contrast. This conservative conditioning boundary is the narrowest tested boundary covering all reported cases; it is not a complete invariance detector. A well-conditioned plain frame is a negative control.
 - CERT-MECHANISM: a 2D node with incident members, all of which release rotation (or are non-frame), and either a nonzero nodal moment or an incident rigid link. A real rotational support or positive rotational spring excludes the node. Nodal moments are checked against the actual prepared load case. No blanket 3D warning. The separately described skew-axis mechanism lacks a pinned 3D case in #458; this predicate does not claim to detect it.
 - AC-PLANE-MAPPING: every 2D constrained input; the engine wire no longer contains the original 3D plane, so it cannot narrow this further.
 - BU-SPAN-COMPRESSION: 3D buckling with distributed or point-on-member loads.
@@ -233,3 +233,22 @@ Release validation passed all 4,763 tests. Web unit tests passed 15,619 tests
 numerical baselines were changed during this follow-up. WASM build, changelog check,
 results snapshot provenance gate, TypeScript/Svelte gates, and three audit unit tests
 passed. TypeScript retained its 247-error baseline with no new errors.
+
+
+### Conditioning diagnostic cost
+
+Measured on arm64 macOS, release profile, using
+`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-807-target nix develop -c cargo test -p dedaliano-engine --release --test robustness conditioning_cost_large_frame -- --ignored --nocapture`.
+The deterministic model is a 50-bay, 40-storey plane frame (6,120 free DOFs,
+26,196 lower-triangle stiffness entries). For 100 checks, standalone
+symbolic/numeric factorization plus inspection took 5.231 s (52.31 ms/check);
+inspection of an existing factor took 5.820 ms (0.0582 ms/check).
+This measures diagnostic overhead, not an end-to-end browser solve.
+
+The standalone check holds 1,901,288 bytes of numeric factor values and
+2,828,424 bytes of symbolic arrays, plus factorization workspace. Reusing
+the factor requires only a 48,960-byte diagonal scratch vector at peak.
+These are measured array payload sizes on the native 64-bit target, not
+process peak RSS or a WASM heap measurement. A dense standalone check also
+allocates an additional `8*n*n` bytes for its factor copy. The benchmark is
+ignored in ordinary test runs and retained for repeatable cost comparisons.

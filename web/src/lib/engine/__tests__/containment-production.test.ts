@@ -182,3 +182,13 @@ it.each(['warning', 'error'])('influence result UI contains %s ordinates', async
   expect(html).toContain('role="alert"');
   expect(html.includes('123.45')).toBe(severity === 'warning');
 });
+
+
+it('shows warnings from a combination even when its reference case is unlisted', () => {
+  uiStore.analysisMode = 'pro';
+  const clean = { displacements: [], reactions: [], elementForces: [] };
+  resultsStore.setResults3D(clean);
+  resultsStore.setCombinationResults3D(new Map(), new Map([[1, { ...clean, structuredDiagnostics: [warning] }]]), null as never);
+  expect(resultsStore.results3D?.structuredDiagnostics).toBeUndefined();
+  expect(resultsStore.knownIssues3D.messages.join(' ')).toContain('#762');
+});

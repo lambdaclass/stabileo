@@ -259,7 +259,6 @@ export function buildProReportData(opts: {
     results,
     combinations: serializeCombinations(),
     advancedResults,
-    containment: knownIssueResultDisposition(resultsStore.results3D),
     diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
     screenshot,
     t,
@@ -280,6 +279,10 @@ export function buildProReportData(opts: {
   data.resultSets = combos.size > 0
     ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))
     : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
+  data.containment = knownIssueResultDisposition([
+    results, data.resultSets,
+    ...modelStore.loadCases.filter(c => (c.type || '').toUpperCase() === 'E').map(c => resultsStore.perCase3D.get(c.id)),
+  ]);
   data.statics = staticsRows();
   const seen = new Set<string>();
   data.deflections = [...deflectionChecks().rows.values()].flatMap((c) => {

@@ -335,7 +335,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('results')) tocEntries.push({ label: tr('report.results'), anchor: 'sec-results' });
   if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
-  const dispositions = [knownIssueResultDisposition(data.results), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
+  const dispositions = [knownIssueResultDisposition([data.results, data.resultSets]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
   if (dispositions.some(d => d?.refused)) throw new Error(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
   for (const message of new Set(dispositions.flatMap(d => d?.messages ?? []))) html.push(`<p role="alert">${escHtml(message)}</p>`);
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });

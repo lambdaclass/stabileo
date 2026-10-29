@@ -1387,10 +1387,10 @@ function createResultsStore() {
     },
 
     get knownIssues() {
-      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine, timeHistoryView.shown ? timeHistoryView.result : null]);
+      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine, timeHistoryView.shown ? timeHistoryView.result : null]);
     },
     get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, movingLoadEnvelope, influenceLine, timeHistoryView.shown ? timeHistoryView.result : null]);
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, movingLoadEnvelope, influenceLine, timeHistoryView.shown ? timeHistoryView.result : null]);
     },
 
     get maxDisplacement(): number {

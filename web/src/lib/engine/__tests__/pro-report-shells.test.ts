@@ -63,3 +63,39 @@ it('retains and escapes mandatory advanced warnings with diagnostics disabled', 
   data.advancedResults.buckling!.disposition!.refused = true;
   expect(() => generateReportHtml(data)).toThrow('BU-ACCURACY');
 });
+
+
+it.each(['warning', 'error'] as const)('contains an exported %s result when the selected result is clean', severity => {
+  const data = makeData({});
+  data.resultSets = [{ id: 2, name: 'Other combination', results: {
+    ...data.results,
+    structuredDiagnostics: [{ code: 'known_issue', severity, phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }],
+  } }];
+  data.config = { sections: { diagnostics: false } } as ReportData['config'];
+  if (severity === 'error') expect(() => generateReportHtml(data)).toThrow('#759');
+  else expect(generateReportHtml(data)).toContain('#759');
+});
+
+
+it.each(['warning', 'error'] as const)('report assembly includes seismic drift sources with %s diagnostics', async severity => {
+  const { modelStore, resultsStore, uiStore } = await import('../../store');
+  const { buildProReportData } = await import('../pro-report-inputs');
+  modelStore.clear();
+  resultsStore.clear();
+  uiStore.analysisMode = 'pro';
+  const seismic = modelStore.addLoadCase('Earthquake', 'E');
+  for (const combination of [...modelStore.combinations]) modelStore.removeCombination(combination.id);
+  const combo = modelStore.addCombination('Clean export', [{ caseId: seismic, factor: 1 }]);
+  const clean = makeData({}).results;
+  const affected = { ...clean, structuredDiagnostics: [{ code: 'known_issue', severity, phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
+  resultsStore.setResults3D(clean);
+  resultsStore.setCombinationResults3D(new Map([[seismic, affected]]), new Map([[combo, clean]]), null as never);
+  const data = buildProReportData({ config: { sections: {} } as NonNullable<ReportData['config']>, t: k => k })!;
+  expect(data.results.structuredDiagnostics).toBeUndefined();
+  expect(data.resultSets?.every(source => !source.results.structuredDiagnostics?.length)).toBe(true);
+  expect(data.containment?.messages.join(' ')).toContain('#759');
+  expect(data.containment?.refused).toBe(severity === 'error');
+  resultsStore.clear();
+  modelStore.clear();
+  uiStore.analysisMode = '3d';
+});
