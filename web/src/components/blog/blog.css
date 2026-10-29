@@ -644,3 +644,8 @@
 .landing.blog .standing-cta {
   margin: 1.75rem 0 0;
 }
+
+.landing.comparison { overflow-wrap: anywhere; }
+.landing.comparison :is(a, button, select) { min-width: 44px; min-height: 44px; }
+.landing.comparison a { display: inline-flex; align-items: center; }
+.landing.comparison :is(.eyebrow-label, .footer-legal p, .footer-social a, .nav-lang-btn, .nav-gh) { font-size: max(12px, 0.8rem); }

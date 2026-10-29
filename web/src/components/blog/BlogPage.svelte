@@ -177,7 +177,7 @@
   });
 </script>
 
-<div class="landing blog" bind:this={pageEl}>
+<div class="landing blog" class:comparison={standing?.path.startsWith('/alternatives/')} bind:this={pageEl}>
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
   <SiteHeader current={standing ? null : 'blog'} />

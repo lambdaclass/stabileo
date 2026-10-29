@@ -39,7 +39,7 @@
 
   $effect(() => {
     const meta = PAGES[route];
-    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
+    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route, image: route === '/research' ? undefined : `https://stabileo.com/research-thumbs/${route.split('/').at(-1)}.webp` });
     return () => restorePageMeta();
   });
   const s = $derived(rs());

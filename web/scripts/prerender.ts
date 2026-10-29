@@ -41,6 +41,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { publicPaths, POST_DATE } from './public-pages';
+import { sitemapXml } from './sitemap';
 import { rootHandoffScript } from './root-handoff';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
@@ -115,12 +117,12 @@ function serveDist(port: number) {
  * publication date. The build day said every post changed on every deploy, which teaches a
  * crawler to ignore lastmod.
  */
-const POST_LASTMOD = new Map<string, string>();
+
 /** The blog index's description in each language, for its feed. */
 const BLOG_LEAD = new Map<string, string>();
 
 /** A post's publication day, for its feed entry and its card. */
-const POST_DATE = new Map<string, string>();
+
 
 /** The languages always written; the others count for a post or standing page only once its translation file exists. */
 const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
@@ -215,38 +217,6 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
 }
 
 /** Every public route, without its language prefix. Posts are read from the bundle. */
-async function publicPaths(): Promise<string[]> {
-  const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
-  const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
-  const slugs: string[] = [];
-  for (const file of imports) {
-    const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
-    const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
-    if (slug) {
-      slugs.push(slug);
-      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
-      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
-      if (published) POST_DATE.set(`/blog/${slug}`, published);
-    }
-  }
-  if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  // Standing pages, read from their own files, with their last edit for the sitemap.
-  const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
-  const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
-  const pages: string[] = [];
-  for (const file of pageFiles) {
-    const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
-    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
-    if (!pagePath) continue;
-    pages.push(pagePath);
-    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-    if (day) POST_LASTMOD.set(pagePath, day);
-  }
-  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
-}
 
 /**
  * The script the bare root carries, to hand a reader on to their language.
@@ -350,6 +320,9 @@ async function main() {
     for (const locale of LOCALES) {
       for (const path of paths) {
         const { head, body, lang, href } = await capture(browser, base, locale, path);
+        if (!/<title>[^<]+<\/title>/.test(head) || !headMeta(head, 'name', 'description')?.trim()) {
+          throw new Error(`prerender: ${href} has no title or description`);
+        }
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
@@ -374,30 +347,7 @@ async function main() {
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
 
-    await writeFile(
-      join(DIST, 'sitemap.xml'),
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
-        LOCALES.flatMap((locale) =>
-          paths.filter((path) => writtenIn(path).includes(locale)).map((path) => {
-            // Trailing slash, matching the canonical the page declares — see
-            // publicHref in src/lib/i18n/public-routes.ts. Without it every
-            // entry in this file was a URL that answers 301.
-            const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}/`;
-            const alts = writtenIn(path).map(
-              (l) =>
-                `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}/"/>`,
-            ).join('\n');
-            // x-default follows the page, exactly as it does in the pages'
-            // own <head> — see alternateUrls() in src/lib/i18n/public-routes.ts.
-            // This was `${ORIGIN}/${DEFAULT_LOCALE}` for every entry, which
-            // pointed the default of every URL in the file at the English home
-            // page instead of at the page declaring it.
-            const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
-            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${POST_LASTMOD.get(path) ?? TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
-          }),
-        ).join('\n') +
-        `\n</urlset>\n`,
-    );
+    await writeFile(join(DIST, 'sitemap.xml'), sitemapXml(written, TODAY));
 
     for (const locale of LOCALES) {
       await mkdir(join(DIST, locale, 'blog'), { recursive: true });
