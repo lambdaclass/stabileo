@@ -1,0 +1,25 @@
+name: Desktop feed
+on:
+  pull_request:
+    branches: [desktop-update-feed]
+  merge_group:
+permissions:
+  contents: read
+jobs:
+  monotonic:
+    name: Desktop feed advances
+    if: github.event_name == 'pull_request' || github.event.merge_group.base_ref == 'refs/heads/desktop-update-feed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Reject stale or regressive feed updates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/current.json"
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=$HEAD_SHA" --jq .content | base64 -d > "$RUNNER_TEMP/proposed.json"
+          python3 desktop/release/check-feed.py "$RUNNER_TEMP/current.json" "$RUNNER_TEMP/proposed.json"

@@ -160,6 +160,10 @@ jobs:
         working-directory: web
       - run: npm ci --no-audit --no-fund
         working-directory: desktop
+      - name: Release script regressions
+        run: |
+          python3 desktop/release/test_release.py
+          node --test desktop/release/audit-web.test.mjs
       - name: Package licence and corresponding-source notices
         shell: bash
         run: |
@@ -191,6 +195,8 @@ jobs:
           [ -n "$TARGET" ] && args+=(--target "$TARGET")
           npx tauri build "${args[@]}"
           rm -f "$key" "$key.pub"
+      - name: Native persistence and log tests
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
       - name: The bundled engine is the one built for the web
         run: |
           want=$(cut -d' ' -f1 wasm.sha256)
@@ -260,6 +266,9 @@ jobs:
     needs: [build, install]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: desktop-publication
+      cancel-in-progress: false
     environment: desktop-release
     permissions:
       contents: write
@@ -333,6 +342,12 @@ jobs:
         with:
           name: homebrew-cask
           path: cask/stabileo.rb
+      - name: Reject stale publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
+          python3 desktop/release/check-feed.py "$RUNNER_TEMP/deployed.json" dist/latest.json
       - name: Publish desktop-v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -361,6 +376,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/latest.json?ref=desktop-update-feed" --jq .content | base64 -d > "$RUNNER_TEMP/deployed.json"
+          python3 desktop/release/check-feed.py "$RUNNER_TEMP/deployed.json" dist/latest.json
           branch="desktop-feed-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           base=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/desktop-update-feed" --jq .object.sha)
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base"
@@ -371,6 +388,7 @@ jobs:
             [ -n "$sha" ] && args+=(-f sha="$sha")
             gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
           }
+          put .github/workflows/desktop-feed.yml .github/workflows/desktop-feed.yml
           put install.sh dist/install.sh
           put install.ps1 dist/install.ps1
           put latest.json dist/latest.json

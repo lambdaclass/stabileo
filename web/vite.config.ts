@@ -84,6 +84,7 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/platform/__tests__/export-links.browser.test.ts',
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
   'src/lib/engine/__tests__/scale-budget.test.ts',

@@ -83,6 +83,13 @@ Configure these before enabling releases; workflow YAML cannot create these prot
 3. Protect **desktop-update-feed** with required pull requests, at least one approving review,
    dismissed stale approvals, approval of the latest push, required signed commits, blocked force
    pushes and deletions, and **no bypass actors**, including GitHub Actions and administrators.
+   Require **Desktop feed advances** and **Require branches to be up to date before merging**
+   (or use the merge queue). The release PR includes the feed-check workflow; merge the release
+   tooling into main before bootstrapping this check on the feed branch. PRs created with
+   `GITHUB_TOKEN` do not trigger pull-request workflows: a maintainer must close and reopen
+   the generated PR to run its check. Repeat validation after another feed PR merges.
+   Publication is serialized and both publication and feed merging reject equal or older versions;
+   rollback requires a separately reviewed change to this policy.
    Do not require `Desktop OK` on this data-only branch: its script changes are reviewed against
    the tested release source. The release workflow creates a `desktop-feed-*` branch and PR;
    it must not push directly to the feed or approve/merge its own PR. Review every script diff.

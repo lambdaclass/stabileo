@@ -20,6 +20,12 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        workspace: ['.', 'desktop/src-tauri']
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,7 +36,7 @@ jobs:
       # Advisories, licences, banned/duplicate crates and allowed sources,
       # per deny.toml.
       - name: cargo deny
-        run: cargo deny --locked check
+        run: cargo deny --locked check --config $GITHUB_WORKSPACE/deny.toml
       # RustSec again through cargo-audit, which also reports yanked crates.
       - name: cargo audit
         run: cargo audit --deny warnings
@@ -38,9 +44,12 @@ jobs:
   npm:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        workspace: [web, desktop]
     defaults:
       run:
-        working-directory: web
+        working-directory: ${{ matrix.workspace }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,15 +60,20 @@ jobs:
       # What ships to users: fail on any high or critical advisory.
       # Retried only when the registry's audit endpoint itself failed (it has, and a rerun was
       # the fix); an advisory fails at once.
-      - name: npm audit (production dependencies)
+      - name: npm audit (including shipped Tauri packages)
         run: |
           for attempt in 1 2 3; do
-            out=$(npm audit --omit=dev --audit-level=high 2>&1) && { echo "$out"; exit 0; }
+            out=$(npm audit ${{ matrix.workspace == 'web' && '--omit=dev' || '' }} --audit-level=high 2>&1) && { echo "$out"; exit 0; }
             echo "$out"
             echo "$out" | grep -qiE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up' || exit 1
             echo "audit endpoint failed (attempt $attempt), retrying"; sleep 20
           done
           exit 1
+      - name: Audit shipped web and Tauri closure
+        if: matrix.workspace == 'web'
+        run: |
+          npm audit --json > "$RUNNER_TEMP/web-audit.json" || test -s "$RUNNER_TEMP/web-audit.json"
+          node ../desktop/release/audit-web.mjs package-lock.json "$RUNNER_TEMP/web-audit.json"
       # Build and test tooling. Reported, and failing on critical only for
       # packages with a non-breaking fix; see docs/security/AUDIT.md for the
       # dev-only advisories that wait on a major upgrade.
