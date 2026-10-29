@@ -134,6 +134,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     // came back as `Ok` — for a model the solver had refused by name.
     let prepared = prep_input.as_ref().map(|pi| prepare_static_2d(pi)).transpose()?;
 
+    let mut structured_diagnostics = Vec::new();
     while pos <= end_pos + 1e-10 {
         num_positions += 1;
 
@@ -152,6 +153,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         };
 
         // Update envelopes
+        crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
         for ef in &results.element_forces {
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
                 // Along the member, not only at its ends: under a span load M peaks inside the
@@ -173,7 +175,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     }
 
     Ok(MovingLoadEnvelope {
-        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear),
+        structured_diagnostics: { crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear)); structured_diagnostics },
         elements: envelopes,
         train: train.clone(),
         path,
@@ -447,6 +449,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     // Lookup maps for local-axis projection — built once for all positions.
     let maps = MovingLoadMaps3d::new(solver_input);
 
+    let mut structured_diagnostics = Vec::new();
     while pos <= end_pos + 1e-10 {
         num_positions += 1;
 
@@ -466,6 +469,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
             }
         };
 
+        crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
         for ef in &results.element_forces {
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
                 env.n_max_pos = env.n_max_pos.max(ef.n_start.max(ef.n_end));
@@ -487,7 +491,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     }
 
     Ok(MovingLoadEnvelope3D {
-        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear),
+        structured_diagnostics: { crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear)); structured_diagnostics },
         elements: envelopes,
         train: train.clone(),
         path,

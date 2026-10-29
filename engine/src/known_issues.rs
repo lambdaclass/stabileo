@@ -78,6 +78,19 @@ pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
     }
 }
 
+/// Keep diagnostic-bearing failures intact when an ordinary solver failure has a fallback.
+pub fn optional_solve<T>(result: Result<T, String>) -> Result<Option<T>, String> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(error) => {
+            let diagnostic_error = serde_json::from_str::<serde_json::Value>(&error).ok()
+                .and_then(|v| v.get("structuredDiagnostics").and_then(|d| d.as_array()).map(|d| !d.is_empty()))
+                .unwrap_or(false);
+            if diagnostic_error { Err(error) } else { Ok(None) }
+        }
+    }
+}
+
 pub fn buckling_bound(computed: f64, lower: f64, upper: Option<f64>) -> Result<(), String> {
     if computed < lower || upper.is_some_and(|bound| computed > bound) {
         refuse(&[diagnostic("BU-BOUND")])

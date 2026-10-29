@@ -483,18 +483,18 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
 /// member: they do iff the loads do no work on the free modes (the member
 /// forces are then the unique ones, the free modes being strain-free, and
 /// the springs carry nothing); otherwise the state is a collapse mechanism.
-fn carry(input: &SolverInput3D) -> Option<AnalysisResults3D> {
+fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
-        return super::super::linear::solve_3d(input).ok();
+        return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
     let soft = with_soft_springs(input);
-    let mut r = super::super::linear::solve_3d(&soft).ok()?;
+    let Some(mut r) = crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft))? else { return Ok(None); };
     if !balanced(input, &r) {
-        return None;
+        return Ok(None);
     }
     let supported: HashSet<usize> = crate::ordered::values(&input.supports).map(|s| s.node_id).collect();
     r.reactions.retain(|x| supported.contains(&x.node_id));
-    Some(r)
+    Ok(Some(r))
 }
 
 fn with_soft_springs(input: &SolverInput3D) -> SolverInput3D {
@@ -680,8 +680,8 @@ fn rotation_coupled_nodes(input: &SolverInput3D) -> HashSet<usize> {
     out
 }
 
-fn mechanism(input: &SolverInput3D) -> bool {
-    carry(input).is_none()
+fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
+    Ok(carry(input)?.is_none())
 }
 
 /// Solve 3D plastic analysis (event-to-event incremental method).
@@ -715,6 +715,7 @@ fn mechanism(input: &SolverInput3D) -> bool {
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
     let mut r = solve_plastic_3d_contained(input)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic));
+    for step in &r.steps { crate::known_issues::attach(&mut r.structured_diagnostics, step.results.structured_diagnostics.clone()); }
     for step in &mut r.steps { crate::known_issues::attach(&mut step.results.structured_diagnostics, r.structured_diagnostics.clone()); }
     Ok(r)
 }
@@ -825,7 +826,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
         let entry_records = all_hinges.clone();
         let results = loop {
             let fresh = visited.insert(hinges.iter().map(|h| h.active).collect());
-            let state = carry(&current_input);
+            let state = carry(&current_input)?;
             if state.is_none() {
                 if !fresh {
                     break None;
@@ -840,7 +841,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
                     let mut keep = open_last.len();
                     for (k, &h) in open_last.iter().enumerate() {
                         set_hinge(&mut current_input, &members[hinges[h].member], hinges[h].t, true);
-                        if mechanism(&current_input) {
+                        if mechanism(&current_input)? {
                             keep = k + 1;
                             break;
                         }
@@ -865,7 +866,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
                     }
                     let (mi, t) = (hinges[hi].member, hinges[hi].t);
                     set_hinge(&mut current_input, &members[mi], t, false);
-                    if let Some(r) = carry(&current_input) {
+                    if let Some(r) = carry(&current_input)? {
                         let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
                         let m = &members[mi];
                         let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
@@ -1208,7 +1209,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
     }
 
     // A stalled analysis stops short of a mechanism.
-    let is_mechanism = !stalled && mechanism(&current_input);
+    let is_mechanism = !stalled && mechanism(&current_input)?;
 
     if !exhausted && !is_mechanism && !stalled {
         return Err(super::no_bending_collapse(cumulative_factor));
@@ -1343,7 +1344,7 @@ fn merged_results(
             .collect(),
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: results.structured_diagnostics.clone(),
         equilibrium: None,
         timings: None,
         result_summary: None,
@@ -1387,6 +1388,15 @@ fn compute_plastic_moments_3d(sec: &PlasticSectionData3D, fy: f64) -> (f64, f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn merged_increment_keeps_solver_diagnostics() {
+        let input: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
+        let mut results = crate::solver::linear::solve_3d(&input.solver).unwrap();
+        results.structured_diagnostics.push(crate::known_issues::diagnostic("NUM-INVARIANCE"));
+        let merged = merged_results(&results, &[], &[], 1.0, &HashSet::new(), &input.solver);
+        assert!(merged.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NUM-INVARIANCE")));
+    }
 
     #[test]
     fn increment_to_yield_matches_uniaxial_and_circle() {

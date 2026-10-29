@@ -220,6 +220,23 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
             for id in [13,14] {
                 input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id:id, fx: if direction==0 {0.5} else {0.0}, fy:if direction==1 {0.5} else {0.0}, fz:if direction==2 {0.5} else {0.0}, mx:0.0,my:0.0,mz:0.0,bw:None }));
             }
+            // A real cable between the restrained nodes forces the cable assembly path
+            // without changing the shell's response.
+            let mut cable = input.clone();
+            let mut member = beam3d().elements["1"].clone();
+            member.node_i = 1; member.node_j = 2; member.elem_type = "cable".into();
+            cable.elements.insert("1".into(), member);
+            let cable_result = dedaliano_engine::solver::cable::solve_cable_3d(&cable, &HashMap::new(), 20, 1e-6);
+            if shape != "regular" && direction == 1 {
+                common::assert_containment(cable_result, "SH-MITC4-DISTORTION");
+                let plastic: PlasticInput3D = serde_json::from_value(serde_json::json!({"solver":input,"sections":{},"materials":{}})).unwrap();
+                common::assert_containment(dedaliano_engine::solver::plastic::solve_plastic_3d(&plastic), "SH-MITC4-DISTORTION");
+                common::assert_containment(dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&plastic), "SH-MITC4-DISTORTION");
+                common::assert_containment(dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&plastic), "SH-MITC4-DISTORTION");
+            } else {
+                let cable_result = cable_result.unwrap();
+                assert_eq!(ids(&cable_result.results.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
+            }
             let result = dedaliano_engine::solver::linear::solve_3d(&input);
             if shape != "regular" && direction == 1 {
                 common::assert_containment(result, "SH-MITC4-DISTORTION");
@@ -258,6 +275,20 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                     common::assert_containment(solve_multi_case_3d(&multi), "SH-MITC4-DISTORTION");
                 }
 
+                // Influence ordinates must not turn a per-load refusal into zero,
+                // with either a prepared matrix or direct constraint dispatch.
+                for constraints in [vec![], constrained_constraints()] {
+                    let mut traversed = input.clone();
+                    let mut member = beam3d().elements["1"].clone();
+                    member.node_i = 11; member.node_j = 13;
+                    traversed.elements.insert("1".into(), member);
+                    let section = traversed.sections.get_mut("1").unwrap();
+                    section.a = 1e-9; section.iy = 1e-12; section.iz = 1e-12; section.j = 1e-12;
+                    traversed.constraints = constraints;
+                    let influence = serde_json::from_value(serde_json::json!({"solver":traversed,"quantity":"Fy","targetNodeId":1,"gravityDirection":"y","nPointsPerElement":2})).unwrap();
+                    common::assert_containment(dedaliano_engine::postprocess::influence::compute_influence_line_3d(&influence), "SH-MITC4-DISTORTION");
+                }
+
                 // #798 pre-fix tip values: trapezoidal 0.0084, parallelogram 0.0104;
                 // reference 0.1081. Retained for the eventual membrane formulation fix.
             } else {
@@ -265,6 +296,9 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
                 if direction == 2 {
+                    let convergence = dedaliano_engine::postprocess::discretization::convergence::convergence_study_3d(
+                        &input, &Default::default()).unwrap();
+                    assert_eq!(ids(&convergence.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                     let tip = result.displacements.iter().find(|d| d.node_id == 13).unwrap().uz;
                     assert!((tip / 0.4321 - 1.0).abs() < 0.04, "{shape}: {tip}");
                 }
@@ -305,4 +339,41 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     check(&compute_envelope_3d(&[combined]).unwrap().max_abs_results_3d.structured_diagnostics);
     r.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION"));
     common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
+}
+
+fn constrained_constraints() -> Vec<Constraint> {
+    vec![serde_json::from_value(serde_json::json!({"type":"equalDOF","masterNode":13,"slaveNode":14,"dofs":[2]})).unwrap()]
+}
+
+#[test]
+fn optional_solver_fallback_preserves_diagnostics() {
+    use dedaliano_engine::known_issues::{optional_solve, refuse, diagnostic};
+    let refusal = refuse(&[diagnostic("BU-BOUND")]).unwrap_err();
+    assert_eq!(optional_solve::<()>(Err(refusal.clone())).unwrap_err(), refusal);
+    assert!(optional_solve::<()>(Err("Singular stiffness matrix".into())).unwrap().is_none());
+    assert_eq!(optional_solve(Ok(42)).unwrap(), Some(42));
+}
+
+#[test]
+fn sampled_analyses_keep_solver_warnings() {
+    use dedaliano_engine::postprocess::influence::{compute_influence_line, compute_influence_line_3d};
+    use dedaliano_engine::solver::moving_loads::{solve_moving_loads_2d, solve_moving_loads_3d};
+    let mut space = beam3d();
+    space.materials.get_mut("1").unwrap().e = 1e-8;
+
+    let mut plane = make_beam(2, 4.0, 1e-8, 0.01, 1e-5, "fixed", None, vec![]);
+    plane.loads.clear();
+    for (solver, dim) in [(serde_json::to_value(plane).unwrap(), 2), (serde_json::to_value(space).unwrap(), 3)] {
+        let influence = serde_json::json!({"solver":solver,"quantity":if dim == 2 {"Rz"} else {"Fz"},"targetNodeId":1,"nPointsPerElement":2});
+        let moving = serde_json::json!({"solver":solver,"train":{"name":"unit","axles":[{"offset":0.0,"weight":1.0}]},"step":1.0});
+        let (i, m) = if dim == 2 {
+            (compute_influence_line(&serde_json::from_value(influence).unwrap()).unwrap().structured_diagnostics,
+             solve_moving_loads_2d(&serde_json::from_value(moving).unwrap()).unwrap().structured_diagnostics)
+        } else {
+            (compute_influence_line_3d(&serde_json::from_value(influence).unwrap()).unwrap().structured_diagnostics,
+             solve_moving_loads_3d(&serde_json::from_value(moving).unwrap()).unwrap().structured_diagnostics)
+        };
+        assert!(ids(&i).contains(&"NUM-INVARIANCE".into()), "influence {dim}: {i:?}");
+        assert!(ids(&m).contains(&"NUM-INVARIANCE".into()), "moving {dim}: {m:?}");
+    }
 }
