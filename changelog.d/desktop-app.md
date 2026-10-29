@@ -1,5 +1,5 @@
 ### Added
-#### A desktop app for Windows, macOS and Linux, as an alpha (2026-10-29)
+#### A desktop app for Windows, macOS and Linux, as an alpha (2026-10-28)
 
 Stabileo now also runs as a desktop app (Tauri), with the same WASM engine as stabileo.com and
 projects as `.ded` files on disk: native Open, Save and Save As, recent files, `.ded` files opening

@@ -112,6 +112,8 @@ function generateTabId(): string {
 }
 
 function createTabManager() {
+  let activated: ((tab: TabState) => void) | undefined;
+  let created: (() => void) | undefined;
   let tabs = $state<TabState[]>([]);
   let activeTabId = $state<string | null>(null);
 
@@ -423,6 +425,10 @@ function createTabManager() {
     },
 
     /** Create a new empty tab, inheriting visualization settings from current tab */
+    onActivated(callback: (tab: TabState) => void): void { activated = callback; },
+
+    onCreated(callback: () => void): void { created = callback; },
+
     createTab(): void {
       const announce = draftsLeftBehind();
       // Save current tab state first
@@ -506,6 +512,7 @@ function createTabManager() {
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
       uiStore.resetSession();
+      created?.();
       announce();
     },
 
@@ -533,6 +540,7 @@ function createTabManager() {
       // Re-find target from the updated array (in case it was the same reference)
       const freshTarget = tabs.find(t => t.id === id)!;
       restoreState(freshTarget);
+      activated?.(freshTarget);
       announce();
 
       // Clear switching flag after microtask so $effects see the final state

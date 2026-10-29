@@ -9,8 +9,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { message, open, save } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
+import { readTextFile } from '@tauri-apps/plugin-fs';
+import { buildProjectFile, loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
 import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
 import { tabManager, type TabState } from '../store/tabs.svelte';
@@ -22,6 +22,7 @@ import { showAbout, reportProblem } from './about';
 import { runSelfCheck } from './self-check';
 import { routeExternalLinks } from './external-links';
 import { logToFile } from './log';
+import { updateInProgress } from './update-lock';
 import { DocumentState, hash, type TabDoc } from './document-state';
 
 const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
@@ -42,12 +43,13 @@ function baseName(path: string): string {
 
 /** What Save writes for the active tab: its name and model, from the live stores. */
 function liveFingerprint(): number {
-  return hash(JSON.stringify({ name: modelStore.model.name, snapshot: modelStore.snapshot() }));
+  const { timestamp, version, appMode, ...persisted } = buildProjectFile();
+  return hash(JSON.stringify(persisted));
 }
 
 /** The same for a tab that is not active, from the state the tab manager keeps for it. */
 function storedFingerprint(tab: TabState): number {
-  return hash(JSON.stringify({ name: tab.name, snapshot: tab.modelSnapshot }));
+  return hash(JSON.stringify({ name: tab.name, snapshot: tab.modelSnapshot, analysisMode: tab.analysisMode, axisConvention3D: tab.axisConvention3D, viewportPresentation3D: tab.viewportPresentation3D, includeSelfWeight: tab.includeSelfWeight, selfWeightCaseId: tab.selfWeightCaseId ?? null }));
 }
 
 function activeTab(): string {
@@ -68,7 +70,6 @@ function activeDoc(): TabDoc {
 
 /** The tabs with changes their file does not have, decided from their content now. */
 export function unsavedTabs(): string[] {
-  docs.track(tabDocs());
   return docs.unsaved(tabDocs()).map((d) => d.id);
 }
 
@@ -82,21 +83,13 @@ function refreshState(): void {
 }
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null;
-let shownTab = '';
 
 function watchChanges(): void {
   $effect.root(() => {
     $effect(() => {
       // New tabs get their baseline when they appear, closed ones are forgotten.
       void tabManager.tabs.length;
-      const active = activeTab();
-      if (active !== shownTab) {
-        // A tab that was clean as stored stays clean as loaded into the model.
-        const stored = tabManager.tabs.find((tab) => tab.id === active);
-        if (stored) docs.rebase(active, storedFingerprint(stored), liveFingerprint());
-        shownTab = active;
-      }
-      docs.track(tabDocs());
+      docs.prune(tabDocs());
       refreshState();
     });
     $effect(() => {
@@ -145,8 +138,8 @@ export async function confirmDiscard(): Promise<boolean> {
     buttons: { yes: tx('save'), no: tx('dontSave'), cancel: tx('cancel') },
   });
   if (answer === tx('save') || answer === 'Yes') {
-    if (unsaved.length === 1 && unsaved[0] === activeTab()) return saveActive();
-    return saveSessionAs();
+    if (unsaved.length === 1 && unsaved[0] === activeTab()) return await saveActive() && unsavedTabs().length === 0;
+    return await saveSessionAs() && unsavedTabs().length === 0;
   }
   return answer === tx('dontSave') || answer === 'No';
 }
@@ -154,10 +147,10 @@ export async function confirmDiscard(): Promise<boolean> {
 export async function openPath(path: string): Promise<void> {
   try {
     const text = await readTextFile(path);
+    if (updateInProgress()) return;
     const result = await loadFile(new File([text], baseName(path), { type: 'application/json' }));
     if (result.type === 'session') {
       uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
-      shownTab = activeTab();
       docs.replaceAll(tabDocs());
     } else {
       docs.markSaved(activeDoc(), path);
@@ -177,7 +170,7 @@ export async function openProjectDialog(): Promise<void> {
 
 async function writeTo(path: string, content: string): Promise<boolean> {
   try {
-    await writeTextFile(path, content);
+    await invoke('atomic_save', { path, content });
     await noteRecent(path);
     uiStore.toast(`${tx('saved')} ${baseName(path)}`, 'success');
     return true;
@@ -187,15 +180,16 @@ async function writeTo(path: string, content: string): Promise<boolean> {
   }
 }
 
-function withDed(path: string): string {
-  return /\.(ded|json)$/i.test(path) ? path : `${path}.ded`;
+function captured(doc: TabDoc): TabDoc {
+  const fingerprint = doc.fingerprint();
+  return { id: doc.id, fingerprint: () => fingerprint };
 }
 
 /** Save the active tab to its file, or ask where when it has none. */
 export async function saveActive(): Promise<boolean> {
   const path = docs.path(activeTab());
   if (!path) return saveActiveAs();
-  const doc = activeDoc();
+  const doc = captured(activeDoc());
   if (!(await writeTo(path, serializeProject()))) return false;
   docs.markSaved(doc, path);
   refreshState();
@@ -203,12 +197,13 @@ export async function saveActive(): Promise<boolean> {
 }
 
 export async function saveActiveAs(): Promise<boolean> {
+  const doc = captured(activeDoc());
   const { content, filename } = projectPayload();
   const picked = await save({ defaultPath: docs.path(activeTab()) ?? filename, filters: DED_FILTERS });
   if (!picked) return false;
-  const path = withDed(picked);
+  const path = picked;
   if (!(await writeTo(path, content))) return false;
-  docs.markSaved(activeDoc(), path);
+  docs.markSaved(doc, path);
   refreshState();
   return true;
 }
@@ -216,19 +211,24 @@ export async function saveActiveAs(): Promise<boolean> {
 /** Every tab in one file. */
 export async function saveSessionAs(): Promise<boolean> {
   const { content, filename } = sessionPayload();
+  const saved = tabDocs().map(captured);
   const picked = await save({ defaultPath: filename, filters: DED_FILTERS });
   if (!picked) return false;
-  if (!(await writeTo(withDed(picked), content))) return false;
-  for (const doc of tabDocs()) docs.markSaved(doc);
+  if (!(await writeTo(picked, content))) return false;
+  for (const doc of saved) docs.markSaved(doc);
   refreshState();
   return true;
 }
 
 /** `saveTextTo` on the desktop: always a native Save dialog. */
 export async function saveTextAs(content: string, filename: string): Promise<'saved' | 'cancelled'> {
+  let scope: unknown;
+  try { scope = JSON.parse(content); } catch { /* Exported text need not be a project. */ }
+  if (scope && typeof scope === 'object' && 'snapshot' in scope) return await saveActiveAs() ? 'saved' : 'cancelled';
+  if (scope && typeof scope === 'object' && 'type' in scope && scope.type === 'session') return await saveSessionAs() ? 'saved' : 'cancelled';
   const picked = await save({ defaultPath: filename, filters: DED_FILTERS });
   if (!picked) return 'cancelled';
-  return (await writeTo(withDed(picked), content)) ? 'saved' : 'cancelled';
+  return (await writeTo(picked, content)) ? 'saved' : 'cancelled';
 }
 
 function newProject(): void {
@@ -260,7 +260,7 @@ let lastRun = { cmd: '', at: 0 };
 
 export function runCommand(cmd: string): void {
   const now = Date.now();
-  if (running || (lastRun.cmd === cmd && now - lastRun.at < 400)) return;
+  if (updateInProgress() || running || (lastRun.cmd === cmd && now - lastRun.at < 400)) return;
   lastRun = { cmd, at: now };
   const go = async (): Promise<unknown> => {
     switch (cmd) {
@@ -282,7 +282,15 @@ export function runCommand(cmd: string): void {
     .finally(() => { running = null; lastRun.at = Date.now(); });
 }
 
-async function takePendingFiles(): Promise<void> {
+let pendingDrain: Promise<void> = Promise.resolve();
+
+function takePendingFiles(): Promise<void> {
+  pendingDrain = pendingDrain.then(drainPendingFiles, drainPendingFiles);
+  return pendingDrain;
+}
+
+async function drainPendingFiles(): Promise<void> {
+  if (updateInProgress()) return;
   const paths = await invoke<string[]>('take_pending_files');
   for (const path of paths) {
     if (await confirmDiscard()) await openPath(path);
@@ -329,6 +337,12 @@ function routePageFileControls(): void {
   document.head.appendChild(style);
 }
 
+export function trackDocuments(): void {
+  docs.replaceAll(tabDocs());
+  tabManager.onCreated(() => { docs.track(tabDocs()); });
+  tabManager.onActivated((tab) => docs.rebase(tab.id, storedFingerprint(tab), liveFingerprint()));
+}
+
 let started = false;
 
 export async function startDesktop(): Promise<void> {
@@ -337,6 +351,7 @@ export async function startDesktop(): Promise<void> {
   logToFile();
   routeExternalLinks();
   routePageFileControls();
+  trackDocuments();
   watchChanges();
   await listen<string>('desktop://menu', (e) => runCommand(e.payload));
   await listen('desktop://open-pending', () => void takePendingFiles());

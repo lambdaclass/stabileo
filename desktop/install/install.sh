@@ -20,6 +20,7 @@ say() { printf '%s\n' "$*"; }
 die() { printf 'stabileo install: %s\n' "$*" >&2; exit 1; }
 
 fetch() { # url dest
+	if [ -n "${STABILEO_ARTIFACT_DIR:-}" ]; then cp "$STABILEO_ARTIFACT_DIR/${1##*/}" "$2"; return; fi
 	curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$2" "$1" || die "could not download $1"
 }
 
@@ -83,7 +84,12 @@ say "Checksum OK."
 
 install_linux() {
 	mkdir -p "$BIN_DIR" "$DATA_DIR/applications" "$DATA_DIR/mime/packages" "$DATA_DIR/icons/hicolor/128x128/apps"
-	install -m 755 "$TMP/$FILE" "$BIN_DIR/stabileo"
+	stage=$(mktemp "$BIN_DIR/.stabileo.XXXXXX")
+	install -m 755 "$TMP/$FILE" "$stage" || { rm -f "$stage"; die "could not stage app"; }
+	[ "$(sha256 "$stage")" = "$want" ] || { rm -f "$stage"; die "staged checksum mismatch"; }
+	sync
+	if [ -f "$BIN_DIR/stabileo" ]; then cp -p "$BIN_DIR/stabileo" "$BIN_DIR/stabileo.bak"; fi
+	mv -f "$stage" "$BIN_DIR/stabileo"
 	# The icon from the same tag as the release; a missing icon does not stop the install.
 	curl -fsSL --proto '=https' -o "$DATA_DIR/icons/hicolor/128x128/apps/stabileo.png" \
 		"https://raw.githubusercontent.com/$REPO/desktop-v$VERSION/desktop/src-tauri/icons/128x128.png" 2>/dev/null || true
@@ -122,8 +128,17 @@ install_macos() {
 	mnt=$TMP/mnt
 	mkdir -p "$mnt"
 	hdiutil attach -nobrowse -readonly -quiet -mountpoint "$mnt" "$TMP/$FILE" || die "could not open $FILE"
-	rm -rf "$dest/Stabileo.app"
-	cp -R "$mnt/Stabileo.app" "$dest/" || { hdiutil detach -quiet "$mnt"; die "could not copy Stabileo.app to $dest"; }
+	stage=$(mktemp -d "$dest/.stabileo.XXXXXX")
+	cp -R "$mnt/Stabileo.app" "$stage/" || { rm -rf "$stage"; hdiutil detach -quiet "$mnt"; die "could not stage Stabileo.app"; }
+	codesign --verify --deep --strict "$stage/Stabileo.app" || { rm -rf "$stage"; hdiutil detach -quiet "$mnt"; die "invalid staged app"; }
+	sync
+	backup="$dest/Stabileo.app.bak"
+	if [ -d "$dest/Stabileo.app" ]; then
+		rm -rf "$backup"
+		mv "$dest/Stabileo.app" "$backup"
+	fi
+	mv "$stage/Stabileo.app" "$dest/Stabileo.app" || { [ ! -d "$backup" ] || mv "$backup" "$dest/Stabileo.app"; die "could not replace app"; }
+	rmdir "$stage"
 	hdiutil detach -quiet "$mnt" || true
 	say "Installed $dest/Stabileo.app (Stabileo $VERSION). It updates itself."
 }

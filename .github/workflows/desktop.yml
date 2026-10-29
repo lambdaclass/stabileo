@@ -57,6 +57,9 @@ jobs:
               - 'desktop/**'
               - 'web/**'
               - 'engine/**'
+              - '.cargo/**'
+              - 'LICENSE'
+              - 'THIRD_PARTY_NOTICES.md'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'flake.nix'
@@ -157,6 +160,11 @@ jobs:
         working-directory: web
       - run: npm ci --no-audit --no-fund
         working-directory: desktop
+      - name: Package licence and corresponding-source notices
+        shell: bash
+        run: |
+          cargo metadata --locked --manifest-path desktop/src-tauri/Cargo.toml --format-version 1 > "$RUNNER_TEMP/desktop-metadata.json"
+          python3 desktop/release/notices.py "$RUNNER_TEMP/desktop-metadata.json" "$GITHUB_SHA"
       # The updater artifacts (the macOS .app.tar.gz; on Linux and Windows the AppImage and the
       # installer themselves) are made here and signed only by the release job, under the
       # protected desktop-release environment: no build, pull requests included, ever sees the
@@ -249,16 +257,30 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.version != '' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/desktop-v'))
-    needs: build
+    needs: [build, install]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: desktop-release
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Validate reviewed release ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$ ]]
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [ "$GITHUB_REF" = "refs/tags/desktop-v$VERSION" ]
+          fi
+          tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/desktop-v$VERSION" --jq .sha)
+          [ "$tagged" = "$GITHUB_SHA" ] || { echo 'pre-create the release tag at this reviewed commit'; exit 1; }
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq .status)
+          case "$status" in identical|ahead) ;; *) echo 'release commit must be on main'; exit 1 ;; esac
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           pattern: stabileo-desktop-*
@@ -324,7 +346,7 @@ jobs:
             const [tpl, version, notes] = process.argv.slice(1);
             const body = fs.readFileSync(tpl, "utf8")
               .replaceAll("@VERSION@", version)
-              .replace("@NOTES@", () => notes.trim() || `Stabileo desktop ${version}`);
+              .replace("@NOTES@", () => notes.trim() || "Stabileo desktop " + version);
             fs.writeFileSync("release-body.md", body);
           ' desktop/release/release-body.md "$VERSION" "$NOTES"
           gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
@@ -339,24 +361,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
+          branch="desktop-feed-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          base=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/desktop-update-feed" --jq .object.sha)
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$base"
           put() {
             api="repos/$GITHUB_REPOSITORY/contents/$1"
             sha=$(gh api "$api?ref=desktop-update-feed" --jq .sha 2>/dev/null) || sha=""
-            args=(-f branch=desktop-update-feed -f message="Update feed: $1 for desktop-v$VERSION" -f content="$(base64 -w0 "$2")")
+            args=(-f branch="$branch" -f message="Update feed: $1 for desktop-v$VERSION" -f content="$(base64 -w0 "$2")")
             [ -n "$sha" ] && args+=(-f sha="$sha")
             gh api -X PUT "$api" "${args[@]}" --jq .commit.html_url
           }
           put install.sh dist/install.sh
           put install.ps1 dist/install.ps1
           put latest.json dist/latest.json
+          gh pr create --repo "$GITHUB_REPOSITORY" --base desktop-update-feed --head "$branch" \
+            --title "Desktop feed $VERSION" --body "Publish the tested desktop-v$VERSION installers and artifact-signature manifest. Review the installer scripts before merging."
 
-  # The one-command installs, as a tester runs them: this commit's scripts install the version the
-  # feed points to (on a release run, the one just published), and the installed app must pass
-  # the startup self-check.
   install:
     name: Install test (${{ matrix.os }})
-    needs: [changes, build, release]
-    if: ${{ !cancelled() && needs.changes.outputs.desktop == 'true' && needs.build.result == 'success' && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
+    needs: [changes, build]
+    if: ${{ !cancelled() && needs.changes.outputs.desktop == 'true' && needs.build.result == 'success' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -367,6 +391,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: stabileo-desktop-*
+          path: staged
+          merge-multiple: true
+      - name: Prepare current-run installer source
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version=${VERSION:-$(python3 -c 'import json; print(json.load(open("desktop/src-tauri/tauri.conf.json"))["version"])')}
+          echo "STABILEO_VERSION=$version" >> "$GITHUB_ENV"
+          echo "STABILEO_ARTIFACT_DIR=$GITHUB_WORKSPACE/staged" >> "$GITHUB_ENV"
+          python3 - <<'PYTHON'
+          import hashlib, pathlib
+          root = pathlib.Path('staged')
+          files = sorted(root.iterdir())
+          (root / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files))
+          PYTHON
       - name: Install (Linux)
         env:
           STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log
@@ -384,6 +427,13 @@ jobs:
           grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
           sh desktop/install/install.sh --uninstall
           test ! -e ~/.local/bin/stabileo
+          deb=$(realpath staged/*.deb)
+          dpkg-deb -f "$deb" Depends | grep 'libwebkit2gtk-4.1'
+          dpkg-deb -f "$deb" Depends | grep 'libgtk-3'
+          sudo apt-get install -y "$deb"
+          rm -f "$STABILEO_SELFCHECK_OUT"
+          STABILEO_EXIT_AFTER_SELFCHECK=1 timeout 300 xvfb-run -a /usr/bin/stabileo-desktop
+          grep '^stabileo-selfcheck ok' "$STABILEO_SELFCHECK_OUT"
       - name: Install (macOS)
         env:
           STABILEO_SELFCHECK_OUT: ${{ runner.temp }}/selfcheck.log

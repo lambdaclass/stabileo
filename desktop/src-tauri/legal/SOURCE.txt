@@ -1,0 +1,4 @@
+Stabileo is licensed under AGPL-3.0-only. See LICENSE.
+Corresponding source and build instructions: https://github.com/lambdaclass/stabileo
+Desktop build instructions: docs/desktop/README.md in that source tree.
+Release builds replace this file with the exact source commit link.

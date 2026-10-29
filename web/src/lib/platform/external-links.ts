@@ -20,6 +20,13 @@ export function externalHttps(href: string, base = location.href): string | null
   return url.href;
 }
 
+function local(href: string): boolean {
+  try {
+    const url = new URL(href, location.href);
+    return url.origin === location.origin && url.protocol === location.protocol;
+  } catch { return false; }
+}
+
 function open(url: string): void {
   void openUrl(url).catch((err) => console.warn('[stabileo] open link:', err));
 }
@@ -41,7 +48,7 @@ export function routeExternalLinks(): void {
       if (url) {
         e.preventDefault();
         open(url);
-      } else if (/^\s*(https?:|mailto:)/i.test(raw) && new URL(raw, location.href).origin !== location.origin) {
+      } else if (!local(raw)) {
         // http and mailto: neither navigate the app away nor leave through the opener.
         e.preventDefault();
       }
@@ -63,6 +70,7 @@ export function routeExternalLinks(): void {
       open(ext);
       return null;
     }
+    if (href && !local(href)) return null;
     return nativeOpen(url, target, features);
   };
 }

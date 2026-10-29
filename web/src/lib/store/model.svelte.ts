@@ -1103,7 +1103,7 @@ function copyDetailing(d: DetailingStore | undefined): DetailingStore {
 /** For the tests that compare a snapshot's cost before and after: forget the copies made. */
 export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
 
-function createModelStore() {
+export function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
    *

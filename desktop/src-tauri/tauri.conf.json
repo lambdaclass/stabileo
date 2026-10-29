@@ -43,6 +43,7 @@
   },
   "bundle": {
     "active": true,
+    "resources": ["legal/*"],
     "targets": "all",
     "category": "DeveloperTool",
     "shortDescription": "Structural analysis",
@@ -71,11 +72,6 @@
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-"
-    },
-    "linux": {
-      "deb": {
-        "depends": []
-      }
     },
     "windows": {
       "nsis": {

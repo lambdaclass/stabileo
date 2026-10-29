@@ -27,10 +27,14 @@ export class DocumentState {
 
   /** Give new tabs their baseline (their content now), and forget tabs that are gone. */
   track(tabs: readonly TabDoc[]): void {
+    this.prune(tabs);
+    for (const t of tabs) if (!this.baselines.has(t.id)) this.baselines.set(t.id, t.fingerprint());
+  }
+
+  prune(tabs: readonly TabDoc[]): void {
     const live = new Set(tabs.map((t) => t.id));
     for (const id of [...this.baselines.keys()]) if (!live.has(id)) this.baselines.delete(id);
     for (const id of [...this.paths.keys()]) if (!live.has(id)) this.paths.delete(id);
-    for (const t of tabs) if (!this.baselines.has(t.id)) this.baselines.set(t.id, t.fingerprint());
   }
 
   /**
