@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  rust:
+  rust-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -41,7 +41,7 @@ jobs:
       - name: cargo audit
         run: cargo audit --deny warnings
 
-  npm:
+  npm-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -88,3 +88,21 @@ jobs:
             | grep -vE '"resolved": "https://registry\.npmjs\.org/' \
             | grep -vE '"resolved": "https://cdn\.sheetjs\.com/xlsx-[0-9.]+/xlsx-[0-9.]+\.tgz"' || true)
           if [ -n "$bad" ]; then echo "unexpected package sources:"; echo "$bad"; exit 1; fi
+
+  rust:
+    if: always()
+    needs: rust-audit
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$RESULT" = success
+        env:
+          RESULT: ${{ needs.rust-audit.result }}
+
+  npm:
+    if: always()
+    needs: npm-audit
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$RESULT" = success
+        env:
+          RESULT: ${{ needs.npm-audit.result }}
