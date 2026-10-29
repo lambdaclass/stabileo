@@ -54,7 +54,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -133,6 +133,25 @@ describe('every published URL is served, not redirected', () => {
     expect(unserved, `these URLs answer 301 before they answer 200:\n${unserved.join('\n')}`).toEqual([]);
   });
 
+  it('the sitemap and captured HTML contain exactly the same URLs, all with metadata', () => {
+    const captured: string[] = [];
+    function walk(dir: string) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const file = join(dir, entry.name);
+        if (entry.isDirectory()) walk(file);
+        else if (entry.name === 'index.html') {
+          const html = readFileSync(file, 'utf8');
+          if (!html.includes('id="prerender"')) continue;
+          captured.push(`${ORIGIN}${file.slice(DIST.length).replace(/index\.html$/, '')}`);
+          expect(html).toMatch(/<title>[^<]+<\/title>/);
+          expect(html).toMatch(/<meta[^>]*name="description"[^>]*content="[^"]+"/);
+        }
+      }
+    }
+    walk(DIST);
+    expect(publishedUrls().sort()).toEqual(captured.sort());
+  });
+
   it('each page declares itself as canonical, at the address it is served from', () => {
     const mismatched: string[] = [];
     for (const url of publishedUrls()) {
@@ -140,7 +159,7 @@ describe('every published URL is served, not redirected', () => {
       if (!file) continue; // reported by the test above
       const html = readFileSync(file, 'utf8');
       const canonical = html.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
-      if (canonical !== url) mismatched.push(`${url}\n    declares ${canonical ?? '(none)'}`);
+      if (canonical !== (url === `${ORIGIN}/` ? `${ORIGIN}/en/` : url)) mismatched.push(`${url}\n    declares ${canonical ?? '(none)'}`);
     }
     expect(mismatched, `canonical disagrees with the served URL:\n${mismatched.join('\n')}`).toEqual([]);
   });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { RESEARCH_META } from '../../lib/research-meta';
   import { rs } from './i18n';
   /**
    * Stabileo Research: the gallery at /research and one page per runnable paper. Loaded as its own
@@ -19,27 +20,11 @@
   let { path }: { path: string } = $props();
   const route = $derived(path.replace(/\/+$/, '') || '/research');
 
-  const PAGES: Record<string, { title: string; description: string }> = {
-    '/research': {
-      title: 'Stabileo Research — computational mechanics you can run',
-      description:
-        'A curated catalogue of recent computational-mechanics papers, with the ones Stabileo has reproduced, re-implemented and validated against the authors’ code, runnable in the browser.',
-    },
-    '/research/fracture/shauer-2025': {
-      title: 'Phase-field fracture of a notched plate (Shauer 2025) — Stabileo Research',
-      description:
-        'AT2 phase-field fracture run in the browser by a Rust re-implementation validated step by step against the author’s Python reference code.',
-    },
-    '/research/metamaterials/grossman-2026': {
-      title: 'Auxetic spring networks (Grossman & Boudaoud 2026) — Stabileo Research',
-      description:
-        'Spring networks solved in the browser as trusses: the auxetic transition of a disordered lattice, a re-entrant honeycomb and ordered lattices, compared with the paper’s published values.',
-    },
-  };
+
 
   $effect(() => {
-    const meta = PAGES[route];
-    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
+    const meta = RESEARCH_META[route];
+    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route, image: route === '/research' ? undefined : { url: `https://stabileo.com/research-thumbs/${route.split('/').at(-1)}.webp`, width: 640, height: 400, type: 'image/webp' } });
     return () => restorePageMeta();
   });
   const s = $derived(rs());

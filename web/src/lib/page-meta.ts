@@ -32,6 +32,9 @@ const META_TAGS = [
 	['meta[name="twitter:title"]', 'content'],
 	['meta[name="twitter:description"]', 'content'],
 	['meta[property="og:image"]', 'content'],
+	['meta[property="og:image:type"]', 'content'],
+	['meta[property="og:image:width"]', 'content'],
+	['meta[property="og:image:height"]', 'content'],
 	['meta[property="og:image:alt"]', 'content'],
 	['meta[name="twitter:image"]', 'content'],
 	['meta[name="twitter:image:alt"]', 'content']
@@ -300,6 +303,7 @@ export function applyPageMeta(meta: {
 	path: string;
 	/** Present on a post; absent everywhere else. */
 	article?: ArticleMeta;
+	image?: { url: string; width: number; height: number; type: string };
 	/** Schema.org nodes the page states about itself (the landing's app, the blog's index). */
 	graph?: object[];
 	/** The languages a post or standing page is written in; every public language otherwise. */
@@ -327,15 +331,17 @@ export function applyPageMeta(meta: {
 	setMeta('meta[name="twitter:description"]', meta.description);
 	setLinks(meta.path, meta.locale, written);
 	setFeedLink(meta.path, meta.locale);
-	if (meta.article?.image) {
-		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.article.image);
-		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article.headline);
-	} else if (original) {
-		// Back to the site's card (and its alt) on a page that has none of its own.
-		META_TAGS.forEach(([sel, attr], i) => {
-			if (/image/.test(sel) && original!.tags[i] !== null) document.querySelector(sel)?.setAttribute(attr, original!.tags[i]!);
-		});
+	if (meta.image || meta.article?.image) {
+		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.image?.url ?? meta.article!.image!);
+		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, meta.article?.headline ?? meta.title);
+	} else {
+		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, SITE_IMAGE);
+		for (const sel of ['meta[property="og:image:alt"]', 'meta[name="twitter:image:alt"]']) setMeta(sel, 'Stabileo');
 	}
+	const image = meta.image?.url ?? meta.article?.image ?? SITE_IMAGE;
+	setMeta('meta[property="og:image:type"]', meta.image?.type ?? (image.endsWith('.webp') ? 'image/webp' : 'image/png'));
+	setMeta('meta[property="og:image:width"]', String(meta.image?.width ?? 1200));
+	setMeta('meta[property="og:image:height"]', String(meta.image?.height ?? 630));
 	setOgArticle(meta.article);
 	setStructuredData(meta.article, meta.graph);
 }

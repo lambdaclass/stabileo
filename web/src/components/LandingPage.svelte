@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta, STABILEO_ORGANIZATION, ERGODIC_GROUP, LAMBDA_CLASS } from '../lib/page-meta';
-  import { publicUrl } from '../lib/i18n/public-routes';
+  import { applyPageMeta, restorePageMeta } from '../lib/page-meta';
+  import { landingGraph } from '../lib/landing-schema';
   import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
@@ -22,45 +22,13 @@
   let scrollPct = $state(0);
   let prefersReducedMotion = $state(false);
 
-  /**
-   * Reactive metadata. The landing is client-rendered, so index.html holds the
-   * English set a non-JS crawler sees and this only refines it for a real
-   * browser: the Spanish and Portuguese landings get their own title,
-   * description and og:locale. See src/lib/page-meta.ts — the blog uses it too.
-   */
   function syncMetadata() {
     applyPageMeta({
-      // What someone searching would type: "free structural analysis software", "in the browser",
-      // "CIRSOC". The hero's own line stays the page's heading.
       title: t('landing.metaTitle'),
       description: t('landing.metaDescription'),
       locale: publicI18n.locale,
       path: '/',
-      // What the site is, for search engines: the site itself, who makes it, and the application
-      // (free to use, runs in the browser).
-      graph: [
-        {
-          '@type': 'WebSite',
-          '@id': 'https://stabileo.com/#website',
-          name: 'Stabileo',
-          url: 'https://stabileo.com/',
-          inLanguage: publicI18n.locale,
-          publisher: { '@id': STABILEO_ORGANIZATION['@id'] },
-        },
-        STABILEO_ORGANIZATION,
-        {
-          '@type': 'SoftwareApplication',
-          '@id': 'https://stabileo.com/#software',
-          name: 'Stabileo',
-          description: t('landing.metaDescription'),
-          url: publicUrl('/', publicI18n.locale),
-          applicationCategory: 'EngineeringApplication',
-          operatingSystem: 'Web browser',
-          inLanguage: ['es', 'en', 'pt'],
-          publisher: ERGODIC_GROUP,
-          author: LAMBDA_CLASS,
-        },
-      ],
+      graph: landingGraph(publicI18n.locale, t('landing.metaDescription')),
     });
   }
 
