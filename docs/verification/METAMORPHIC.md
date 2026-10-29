@@ -1,5 +1,8 @@
 # Metamorphic testing: physics invariants on every analysis
 
+For the current coverage gaps, priority fast filter, stiffness-scaling extension
+and remaining slices, see [the Workstream 2 coverage matrix](../safety/metamorphic-coverage.md).
+
 Roadmap item 5 of the trust and verification backlog
 ([PRODUCT_ROADMAP.md](../roadmap/PRODUCT_ROADMAP.md)). A metamorphic test needs
 no reference solution: it solves a model, transforms the model, solves it again,
