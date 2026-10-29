@@ -980,7 +980,42 @@ impl PreparedStatic2D<'_> {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set.
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        r.structured_diagnostics.push(self.check_returned_displacements(loads, &r)?);
+        super::self_checks::static_2d(&mut r)?;
         Ok(r)
+    }
+
+    pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
+        let nf = self.dof_num.n_free;
+        let mut u = vec![0.0; self.dof_num.n_total];
+        for d in &r.displacements {
+            for (local, value) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
+            }
+        }
+        for it in &self.inclined_transforms_2d { it.rotate(&mut u); }
+        let mut f = assemble_load_vector_2d(&self.input, loads, &self.dof_num, &self.inclined_transforms_2d);
+        f.truncate(nf);
+        let ku = match &self.path {
+            PreparedPath2D::FullyRestrained { .. } => Vec::new(),
+            PreparedPath2D::Solve(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+            PreparedPath2D::Sparse(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath2D::Pcg(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath2D::SparseDenseLu(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+        };
+        super::self_checks::residual(&ku, &f)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
@@ -2527,7 +2562,50 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        r.structured_diagnostics.push(self.check_returned_displacements(loads, &r)?);
+        super::self_checks::static_3d(&mut r)?;
         Ok(r)
+    }
+
+    pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> Result<StructuredDiagnostic, String> {
+        let nf = self.dof_num.n_free;
+        let mut u = vec![0.0; self.dof_num.n_total];
+        for d in &r.displacements {
+            for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
+                if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
+            }
+        }
+        let its = match &self.path {
+            PreparedPath3D::FullyRestrained(p) => &p.inclined_transforms,
+            PreparedPath3D::Dense(p) => &p.inclined_transforms,
+            PreparedPath3D::Sparse(p) => &p.inclined_transforms,
+            PreparedPath3D::Pcg(p) => &p.inclined_transforms,
+            PreparedPath3D::SparseDenseLu(p) => &p.inclined_transforms,
+        };
+        for it in its { it.rotate(&mut u); }
+        let mut f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, its);
+        f.truncate(nf);
+        let ku = match &self.path {
+            PreparedPath3D::FullyRestrained(_) => Vec::new(),
+            PreparedPath3D::Dense(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
+                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
+            },
+            PreparedPath3D::Sparse(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath3D::Pcg(p) => {
+                for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
+                p.k_ff.sym_mat_vec(&u[..nf])
+            },
+            PreparedPath3D::SparseDenseLu(p) => {
+                let ku = p.k_full.sym_mat_vec(&u);
+                // Both sides include the prescribed-displacement coupling here.
+                ku[..nf].to_vec()
+            },
+        };
+        super::self_checks::residual(&ku, &f)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {

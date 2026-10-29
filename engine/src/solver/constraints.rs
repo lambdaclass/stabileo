@@ -1482,6 +1482,7 @@ fn map_dof_forces_to_constraint_forces(
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
     let mut r = solve_constrained_2d_inner(input)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear));
+    super::self_checks::static_2d(&mut r)?;
     Ok(r)
 }
 
@@ -2090,6 +2091,7 @@ fn solve_constrained_2d_sparse(
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     let mut r = solve_constrained_3d_inner(input)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear));
+    super::self_checks::static_3d(&mut r)?;
     Ok(r)
 }
 
