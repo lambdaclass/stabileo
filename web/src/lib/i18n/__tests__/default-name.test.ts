@@ -11,13 +11,10 @@ describe('default structure name', () => {
     expect(isDefaultName('Pórtico nave')).toBe(false);
   });
 
-  it('in the desktop app, also the bare key a name saved too early carries', () => {
-    vi.stubEnv('VITE_DESKTOP', '1');
-    expect(isDefaultName('tabBar.newStructure')).toBe(true);
-  });
-
-  it('on the web, behaves as before (the bare key is not a default name there)', () => {
-    vi.stubEnv('VITE_DESKTOP', '');
-    expect(isDefaultName('tabBar.newStructure')).toBe(false);
+  it('also the bare key a name saved too early carries, on the web and in the desktop app', () => {
+    for (const desktop of ['1', '']) {
+      vi.stubEnv('VITE_DESKTOP', desktop);
+      expect(isDefaultName('tabBar.newStructure')).toBe(true);
+    }
   });
 });
