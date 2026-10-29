@@ -352,7 +352,28 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
    optimisation, same group), Pastrana et al. 2026 form-finding, then Fairclough et al. 2026 once a conic
    optimiser is added. Live: phase-field fracture (Shauer 2025) and spring networks (Grossman &
    Boudaoud 2026).
-7. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
+7. **Ship first, review after** (research papers only; engine and safety changes keep two reviews
+   before main): a paper's first version goes to production on a minimal floor (CI green, research
+   isolation, full web unit suite, labelled "first version", claims only what its tests check, no
+   overflow on phones); Codex plus Kimi or Grok then review it and findings land as follow-up PRs. Each
+   page, its catalogue entry and its changelog fragment state the stage and how many reviews it has had.
+
+   | Paper | Kind | Stage | Reviews | Status |
+   |---|---|---|---:|---|
+   | Shauer 2025, phase-field fracture | new research | improved | 14 (7 rounds × Codex + Kimi) | live |
+   | Grossman & Boudaoud 2026, spring networks | new research | improved | 12 (6 rounds × Codex + Kimi) | live |
+   | Andreassen et al. 2011, topology optimisation (88 lines) | classic | first version | 0 | shipping |
+   | Mattiasson 1981, elastica | classic, engine benchmark | first version | 0 | verifying |
+   | Riks 1979 / Crisfield 1981, arc length (#803) | classic, engine benchmark | first version | 1 (Codex) | fixing |
+   | MacNeal & Harder 1985 (#797) | classic, engine benchmark | first version | 1 (Codex) | fixing |
+   | Belytschko et al. 1985, shell obstacle course (#809) | classic, engine benchmark | first version | 1 (Codex) | fixing |
+   | Zmyślony, Khan & Biggins 2026, snapping arches | new research | first version | 0 | verifying |
+   | Ferrari & Sigmund 2025, Koiter post-buckling | new research | first version | 0 | building |
+   | Pastrana et al. 2026, form-finding | new research | first version | 0 | building |
+   | Fairclough et al. 2026, gridshell layout | new research | first version | 0 | building |
+
+   The review counts are maintained in `research/papers.yaml` (`reviews:`), which the gallery shows.
+8. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
    product unaffected (isolation check, editor data safe, app tests pass), CI green; other review
    findings become issues fixed in small follow-ups.
 
