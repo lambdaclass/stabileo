@@ -155,6 +155,7 @@ function caseList(w, fx) {
     add(`${id}/solve_harmonic_2d`, () => w.solve_harmonic_2d(s(hm())));
     add(`${id}/certify_harmonic_2d`, () => w.certify_harmonic_2d(s(hm())));
     add(`${id}/solve_plastic_2d`, () => w.solve_plastic_2d(s(plasticOf(m, false))));
+    add(`${id}/solve_plastic_2d`, () => w.solve_plastic_2d(s(fx[id])));
     add(`${id}/certify_plastic_2d`, () => w.certify_plastic_2d(s(plasticOf(m, false))));
     add(`${id}/solve_multi_case_2d`, () => w.solve_multi_case_2d(multiCaseOf(m)));
     add(`${id}/certify_multi_case_2d`, () => w.certify_multi_case_2d(multiCaseOf(m)));
@@ -191,6 +192,7 @@ function caseList(w, fx) {
   add('bundle-3d/certify_linear_3d', () => w.certify_linear_3d(fx['bundle-3d']));
   add('bundle-3d/export_linear_bundle_3d', () => w.export_linear_bundle_3d(s(fx['bundle-3d'])));
   for (const id of ['plastic-2d-portal', 'plastic-2d-continuous']) {
+    add(`${id}/solve_plastic_2d`, () => w.solve_plastic_2d(s(fx[id])));
     add(`${id}/certify_plastic_2d`, () => w.certify_plastic_2d(s(fx[id])));
     add(`${id}/export_plastic_bundle_2d`, () => w.export_plastic_bundle_2d(s(fx[id])));
   }
