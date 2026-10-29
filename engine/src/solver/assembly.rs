@@ -336,6 +336,14 @@ pub struct StiffnessAssembly2D {
 /// Assemble the global stiffness matrix for 2D (load-independent).
 /// The force vector is assembled separately by `assemble_load_vector_2d`.
 pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> StiffnessAssembly2D {
+    let properties = crate::types::units::ElasticProperties2D::from_legacy(input);
+    assemble_stiffness_2d_typed(input, dof_num, &properties)
+}
+
+pub(crate) fn assemble_stiffness_2d_typed(
+    input: &SolverInput, dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+) -> StiffnessAssembly2D {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
 
@@ -380,14 +388,12 @@ pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sti
             }
         } else {
             // Frame element
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = properties.materials[&elem.material_id];
+            let section = properties.sections[&elem.section_id];
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
