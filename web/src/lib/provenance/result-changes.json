@@ -1,8 +1,30 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 4,
+  "currentResultsVersion": 5,
   "changes": [
+    {
+      "id": "buckling-certificate-rejects-outside-factor",
+      "resultsVersion": 5,
+      "date": "2026-10-29",
+      "prs": [],
+      "area": "analysis",
+      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:buckling"]] },
+      "title": {
+        "en": "Buckling factors outside their enclosure are no longer certified",
+        "es": "Los factores de pandeo fuera de su intervalo ya no se certifican",
+        "pt": "Fatores de flambagem fora do intervalo não são mais certificados"
+      },
+      "explanation": {
+        "en": "Buckling certification now refuses a reported factor above its independently bounded upper limit. The computed factor is unchanged and remains uncertified; re-run buckling certification before relying on an earlier certificate.",
+        "es": "La certificación de pandeo ahora rechaza un factor calculado superior a su cota independiente. El factor calculado no cambia y queda sin certificar; vuelva a ejecutar la certificación antes de utilizar un certificado anterior.",
+        "pt": "A certificação de flambagem agora recusa um fator calculado acima do limite independente. O fator calculado não muda e fica sem certificação; execute novamente a certificação antes de usar um certificado anterior."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-buckling-certificate.md",
+        "heading": "Buckling factors outside their enclosure are refused"
+      }
+    },
     {
       "id": "dynamic-analyses-refuse-eccentricities",
       "resultsVersion": 4,

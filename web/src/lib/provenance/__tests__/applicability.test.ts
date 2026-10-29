@@ -115,6 +115,18 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {
+    const change = 'buckling-certificate-rejects-outside-factor';
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(ids(frame, { resultsVersion: 4, analyses: ['buckling'] } as SolveStamp)).toContain(change);
+      expect(ids(frame, { resultsVersion: 4, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame, { resultsVersion: 5, analyses: ['buckling'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame)).toContain(change);
+    }
+    expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

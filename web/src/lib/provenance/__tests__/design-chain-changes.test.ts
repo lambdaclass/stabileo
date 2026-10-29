@@ -39,8 +39,8 @@ const STEEL_461 = [
 ];
 
 describe('results version 4: the design chain', () => {
-  it('is the current version, and every entry links its write-up', () => {
-    expect(RESULT_CHANGES.currentResultsVersion).toBe(4);
+  it('remains registered, and every entry links its write-up', () => {
+    expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(4);
     for (const c of RESULT_CHANGES.changes.filter((x) => x.resultsVersion === 4)) {
       expect(c.changelog.file, c.id).toBe('docs/results-changes/2026-10-design-chain.md');
     }
