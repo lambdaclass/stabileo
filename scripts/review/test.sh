@@ -53,13 +53,14 @@ case "$name" in
 esac
 case "$mode" in
   fail) echo 'provider unavailable' >&2; exit 7;;
-  quota) printf 'not ready\n'; echo 'HTTP 429: quota exceeded' >&2;;
+  quota) echo 'HTTP 429: quota exceeded' >&2; exit 1;;
   empty) printf ' \n\t\n';;
   narration) printf '• Inspecting the diff\n• Checking tests\n';;
   auth) echo 'Please log in to continue.';;
   permission) echo 'May I access the repository?';;
   inaccessible) echo "I couldn't access the repository.";;
   unfinished) printf 'ready\n• Checking one more thing\n';;
+  quotes) printf 'CI log: rate limit exceeded (HTTP 429), usage limit and quota noise.\nready after should-fix items\n';  echo 'gh: rate limit exceeded' >&2;;
   legacy) echo 'ready to merge';;
   ok)
     printf 'Reviewed content at %s\nA test failed in the proposed code.\n%s\n\n' "$(git rev-parse HEAD)" "${TEST_VERDICT:-not ready}"
@@ -108,6 +109,8 @@ for verdict in ready 'ready after should-fix items' 'not ready'; do
   TEST_VERDICT=$verdict run_case Kimi
 done
 TEST_PIN=${TEST_SHA:0:12} run_case Kimi
+# A complete review that quotes quota or rate-limit text (e.g. from CI logs) still counts.
+KIMI_MODE=quotes CODEX_MODE=quotes run_case Kimi
 KIMI_MODE=fail GROK_MODE=empty run_case 'adversarial Codex'
 TEST_LAG=1 run_case Kimi
 [ "$(cat "$TEST_COUNT")" -eq 2 ]

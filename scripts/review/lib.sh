@@ -79,11 +79,10 @@ review_attempt() {
   (cd "$WORKTREE" && "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
   printf '%s\n' "$rc" > "$PREFIX-$name.exit"
   [ "$rc" -eq 0 ] || return 1
+  # A final verdict line proves the review finished. Quota or availability text
+  # elsewhere (a review may quote CI logs saying "rate limit exceeded") does not
+  # undo it; without a verdict the reviewer counts as unavailable either way.
   review_complete "$raw" || return 1
-  # Provider availability markers, never arbitrary prose such as "failed".
-  if grep -Eiq '(^|[^0-9])429([^0-9]|$)|usage limit|quota|rate.limit.exceeded' "$raw" "$err"; then
-    return 1
-  fi
 }
 
 review_publish() {
