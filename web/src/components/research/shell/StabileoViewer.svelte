@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { researchAssetBase } from './assets';
   /**
    * Stabileo's viewer on a research page: the app's ScalarFieldViewer from its own bundle
    * (research-wasm/viewer/, built by research/fracture/shauer-2025/wasm/build.sh), mounted here and
@@ -10,7 +11,7 @@
   let host: HTMLDivElement;
   let handle: { update(p: Record<string, unknown>): void; destroy(): void } | null = null;
   let failed = $state(false);
-  const BASE = `${import.meta.env.BASE_URL}research-wasm/viewer/`;
+  const BASE = `${researchAssetBase}viewer/`;
 
   onMount(() => {
     if (!document.querySelector(`link[data-research-viewer]`)) {

@@ -1,6 +1,7 @@
 <script lang="ts">
   // The contour colour scale, as a picture: a bar sampled from the same colour function the
   // field is painted with, ticks, a title and a unit. Presentational: callers work out the range.
+  import { formatContourLabel } from './contour-label';
   import { bandValue, bandEdges } from '../../lib/engine/contour-scale';
   import { colourFor, type ColourMap } from '../../lib/three/colour-maps';
 
@@ -37,12 +38,7 @@
     return `linear-gradient(to top, ${stops.join(', ')})`;
   });
 
-  function fmt(v: number): string {
-    if (v === 0) return '0';
-    const a = Math.abs(v);
-    if (a >= 1e4 || a < 1e-2) return v.toExponential(1);
-    return v.toFixed(a >= 100 ? 0 : 1);
-  }
+  const fmt = (value: number) => formatContourLabel(value, min, max, bands);
   const mid = $derived((min + max) / 2);
 </script>
 

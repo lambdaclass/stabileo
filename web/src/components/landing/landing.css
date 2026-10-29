@@ -1722,7 +1722,7 @@
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────
-   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 900px,
+   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1280px,
    before its contents can exceed the viewport — the previous breakpoint at
    760px let the full desktop nav render at 768px and overflow by 45px.
    ───────────────────────────────────────────────────────────────────────── */
@@ -1741,12 +1741,7 @@
   .landing .split { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 900px) {
-  .landing .mode-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); }
-  .landing .mode-row .badge { grid-row: 1; }
-  .landing .mode-body { grid-column: 1 / -1; }
-  .landing .cirsoc-row { grid-template-columns: 1fr; }
-
+@media (max-width: 1280px) {
   .landing .nav-links {
     display: none;
     position: absolute;
@@ -1773,6 +1768,14 @@
 
   .landing .nav-actions { margin-left: auto; }
   .landing .nav-toggle { display: flex; }
+}
+
+@media (max-width: 900px) {
+  .landing .mode-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); }
+  .landing .mode-row .badge { grid-row: 1; }
+  .landing .mode-body { grid-column: 1 / -1; }
+  .landing .cirsoc-row { grid-template-columns: 1fr; }
+
   .landing .gv { grid-template-columns: 1fr; }
   .landing .gv-arrow { transform: rotate(90deg); justify-self: center; }
   .landing .status-group { grid-template-columns: 1fr; }

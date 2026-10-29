@@ -79,7 +79,7 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
   results data listed in `README.md`.
 - Research WASM is a separate bundle loaded only on research pages; the landing, the blog and the
   app must not grow by a byte (per-route size check).
-- The Research workflow is path-filtered and not part of the product's required checks; it never
+- The Research workflow is path-filtered and feeds the required CI OK gate; it never
   runs on self-hosted runners for pull_request events.
 - A research method reaches the product only through the product's own process (validation, the
   results snapshot gate, solver-owner review, changelog).

@@ -43,3 +43,7 @@ Copy `templates/paper/` to `research/<area>/<id>/` and fill it in.
   `engine/` by path; the engine and the web application must never depend on research
   (`tools/check_isolation.sh` enforces this).
 - Results here are research. They are never presented as engineering design results.
+
+Code catalogue entries must record a full `commit` SHA. Licence checks query that revision,
+not the default branch. For reproduced code, use the revision in `reference-results/MANIFEST.json`;
+for proposed code, pin the revision inspected and update it when reproducing.

@@ -42,7 +42,15 @@ Unknowns: displacement **u** (bilinear Q4, 2 dofs per node) and damage d (Q4, 1 
   in example 2). The Rust code reproduces this by default and offers Miehe's history field
   H = max over converged steps of ψ⁺ as an option (`Irreversibility::History`), tested to keep
   damage under full unloading. Neither enforces 0 ≤ d ≤ 1 at nodes: on coarse meshes the
-  consistent N N term can give small negative nodal values (seen: -3e-7).
+  consistent N N term can give negative nodal values. The recorded Python reference outputs
+  (`reference-results/ex*_steps.csv`, verified against the manifest hashes) have minimum nodal
+  damage 3.076336950017797e-08 in example 1, -0.0031224948220514573 in example 2,
+  and -0.06024191772700118 in example 3. These undershoots are present in the reference
+  code’s unconstrained AT2 discretization too; they are not silently clamped in the solver.
+  Negative damage is outside the physical interval: evaluating (1-d)^2 at the example 3
+  minimum gives about 1.124, above intact stiffness. Assembly evaluates degradation at
+  quadrature points using interpolated damage, so this nodal value does not establish a
+  12.4% assembled-stiffness error.
 - Alternating scheme per load step: assemble elasticity with the current d and apply Dirichlet
   conditions; from the second pass on, stop when ‖K(d) u - f‖₂ < tol (absolute); otherwise solve
   for u, then for d. Dirichlet values scale linearly with a pseudo time t += dt, stopping when
@@ -141,3 +149,9 @@ are this crate's own (`fe.rs`, `solver.rs`).
 Mesh generators, finite-element kernels, example setup and staggered solver are adapted from
 [phasefield-jr-py](https://github.com/nathanshauer/phasefield-jr-py), © 2025 Nathan Shauer.
 The complete, verbatim upstream MIT notice is in [LICENSE-phasefield-jr-py](LICENSE-phasefield-jr-py).
+
+For mixed strain `[0.001, -0.1, 0]`, E=30 and ν=0.2 in plane stress, the reference split gives negative ψ+, but history mode starts H at zero and uses max(H, ψ+), so H cannot become negative or decrease and the damage solution is unchanged; reference mode intentionally retains the reference’s unclamped ψ+.
+
+Browser comparison reads the committed `reference-results/ex2_damage_step{056,057,078}.csv` and `ex2_displacement_step056.csv` snapshots, allowing the native mirror case, Float32 roundoff for live fields and half a quantization bin for replay fields; no reference stress snapshot exists for example 2, so stress is checked independently from Q4 displacement gradients and interpolated damage and is excluded from the reference-agreement wording.
+
+`wasm/build.sh` publishes JS, WASM, replay and viewer assets under immutable `research-wasm/builds/<SHA256>/` paths, retaining existing build directories locally; deployment artifacts should retain those directories for old tabs (a removed old build fails to load rather than loading a newer solver). The identity includes solver/glue/viewer bytes, research sources and committed reference data; replay headers carry it and their configuration, and Vite rejects stale build inputs before bundling the identity into the page and worker.

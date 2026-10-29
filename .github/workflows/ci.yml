@@ -41,6 +41,7 @@ jobs:
     outputs:
       engine: ${{ steps.filter.outputs.engine }}
       web: ${{ steps.filter.outputs.web }}
+      research: ${{ steps.filter.outputs.research }}
       docker: ${{ steps.filter.outputs.docker }}
       backend: ${{ steps.filter.outputs.backend }}
       ai_backend: ${{ steps.filter.outputs.ai_backend }}
@@ -89,6 +90,14 @@ jobs:
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
               - 'Cargo.lock'
+            research:
+              - *tooling
+              - 'research/**'
+              - 'web/**'
+              - 'engine/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/research.yml'
             backend:
               - *tooling
               - 'backend/**'
@@ -915,6 +924,12 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  # Research validation, catalogue, isolation and route budgets (hosted runners only).
+  research:
+    needs: changes
+    if: needs.changes.outputs.research == 'true'
+    uses: ./.github/workflows/research.yml
+
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails
   # when any job failed or was cancelled, and a skipped job is fine.
@@ -937,6 +952,8 @@ jobs:
       - check-migrations
       - wasm
       - research-wasm
+      - research
+      - docker-smoke
       - site-e2e
       - site-snapshot
       - web-unit

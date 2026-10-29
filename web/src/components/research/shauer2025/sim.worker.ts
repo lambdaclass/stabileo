@@ -1,3 +1,5 @@
+import { displayedFields } from './worker-frames';
+import { researchAssetBase } from '../shell/assets';
 /// <reference lib="webworker" />
 /**
  * Runs the phase-field simulation off the main thread. The WASM bundle is a static file built
@@ -6,7 +8,7 @@
  */
 import type { WorkerIn, WorkerOut } from './protocol';
 
-const BASE = `${import.meta.env.BASE_URL}research-wasm/shauer-2025/`;
+const BASE = `${researchAssetBase}shauer-2025/`;
 type Glue = {
   default: (opts: { module_or_path: string }) => Promise<unknown>;
   Simulation: {
@@ -61,11 +63,7 @@ self.onmessage = async (e: MessageEvent<WorkerIn>) => {
     for (;;) {
       const s = sim.advance();
       if (s === undefined) break;
-      const damage = new Float32Array(sim.damage());
-      const displacement = new Float32Array(sim.displacement());
-      const stress = sim.elementStress();
-      const syy = new Float32Array(stress.length / 3);
-      for (let i = 0; i < syy.length; i++) syy[i] = stress[3 * i + 1];
+      const { damage, displacement, syy } = displayedFields(sim);
       post({ type: 'step', runId, step: JSON.parse(s), damage, displacement, syy }, [damage.buffer, displacement.buffer, syy.buffer]);
     }
     post({ type: 'done', runId, seconds: (performance.now() - t0) / 1000 });

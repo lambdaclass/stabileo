@@ -1,34 +1,16 @@
 name: Research
 
-# Stabileo Research (research/): experimental, not part of the required checks, never on self-hosted
-# runners. Path-filtered so product changes do not run it and research changes run nothing else.
 on:
+  workflow_call:
   push:
     branches: [main]
     paths:
       - 'research/**'
       - '.github/workflows/research.yml'
       - 'engine/**'
-      - 'web/src/lib/engine/**'
-      - 'web/src/components/research/**'
-      - 'web/src/components/viewport/**'
-      # The rest of the viewer the research pages share (research/DESIGN.md §3: replay on viewer changes).
-      - 'web/src/components/Viewport*.svelte'
-      - 'web/src/lib/three/**'
-      - 'web/src/lib/viewport3d/**'
-      - 'Cargo.toml'
+      - 'web/**'
       - 'Cargo.lock'
-      - 'web/src/styles/**'
-      - 'web/src/components/ribbon/**'
-      - 'web/src/lib/geometry/coordinate-system.ts'
-      - 'web/package*.json'
-      - 'web/vite*.ts'
-      - 'web/scripts/*route*.mjs'
-      - 'web/src/App.svelte'
-      - 'web/src/Root.svelte'
-      - 'web/src/components/landing/**'
-      - 'web/src/components/site/**'
-      - 'web/src/lib/i18n/**'
+      - 'Cargo.toml'
       - 'flake.*'
       - 'rust-toolchain*'
       - 'Makefile'
@@ -37,26 +19,9 @@ on:
       - 'research/**'
       - '.github/workflows/research.yml'
       - 'engine/**'
-      - 'web/src/lib/engine/**'
-      - 'web/src/components/research/**'
-      - 'web/src/components/viewport/**'
-      # The rest of the viewer the research pages share (research/DESIGN.md §3: replay on viewer changes).
-      - 'web/src/components/Viewport*.svelte'
-      - 'web/src/lib/three/**'
-      - 'web/src/lib/viewport3d/**'
-      - 'Cargo.toml'
+      - 'web/**'
       - 'Cargo.lock'
-      - 'web/src/styles/**'
-      - 'web/src/components/ribbon/**'
-      - 'web/src/lib/geometry/coordinate-system.ts'
-      - 'web/package*.json'
-      - 'web/vite*.ts'
-      - 'web/scripts/*route*.mjs'
-      - 'web/src/App.svelte'
-      - 'web/src/Root.svelte'
-      - 'web/src/components/landing/**'
-      - 'web/src/components/site/**'
-      - 'web/src/lib/i18n/**'
+      - 'Cargo.toml'
       - 'flake.*'
       - 'rust-toolchain*'
       - 'Makefile'
@@ -64,7 +29,7 @@ on:
     - cron: '17 6 * * 1'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-research-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -104,11 +69,33 @@ jobs:
         run: |
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
           nix develop . -c sh -c 'cd route-main/web && npm ci && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
+  # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
   catalog:
+    name: Research catalog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned checker dependencies
+        run: |
+          python3 -m venv /tmp/catalog-venv
+          /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
+      - name: Checker rejects bad entries
+        run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
+      - name: Every entry, evidence file and summary source is well formed
+        run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
+
+  # Online: Crossref, licences and links. Runs only as the standalone Research workflow (its own
+  # pull_request, push and weekly triggers), never inside the required CI OK: an outage at Crossref
+  # must not block unrelated merges.
+  catalog-online:
     name: Research catalog (Crossref, licenses)
+    if: github.workflow == 'Research'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -140,6 +127,8 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Tests, including the validation against the reference outputs
         run: cargo test --release --locked -- --nocapture
+      - name: Browser configuration limits reject oversized meshes before allocation
+        run: cargo test --locked --manifest-path wasm/Cargo.toml
       - name: Reference outputs match their manifest
         run: |
           python3 - <<'PY'

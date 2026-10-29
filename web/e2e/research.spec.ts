@@ -52,6 +52,21 @@ test.describe('@smoke research', () => {
     await expect(curve).toBeVisible();
     expect(((await curve.getAttribute('d')) ?? '').split('L').length).toBeGreaterThanOrEqual(5);
     expect(wasm.length).toBeGreaterThan(0);
+    // The live mesh was rebuilt while Parameters hid the viewer. A positive-size resize
+    // must fit the camera and draw geometry, not just reveal an empty WebGL canvas.
+    await page.locator('#rs-tab-viewer').click();
+    await expect.poll(() => page.locator('.sfv canvas').first().evaluate((canvas: HTMLCanvasElement) => {
+      const copy = document.createElement('canvas');
+      copy.width = canvas.width; copy.height = canvas.height;
+      const ctx = copy.getContext('2d')!;
+      ctx.drawImage(canvas, 0, 0);
+      const pixels = ctx.getImageData(0, 0, copy.width, copy.height).data;
+      let different = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (Math.abs(pixels[i] - pixels[0]) + Math.abs(pixels[i + 1] - pixels[1]) + Math.abs(pixels[i + 2] - pixels[2]) > 30) different++;
+      }
+      return different / (copy.width * copy.height);
+    })).toBeGreaterThan(0.01);
   });
 
   test('the application and the landing do not load research code', async ({ page }) => {
@@ -138,6 +153,19 @@ test.describe('@smoke research review regressions', () => {
     await expect(run).toBeEnabled();
   });
 
+  test('article parameter links correct malformed input and run', async ({ page }) => {
+    const input = page.locator('#p-l0');
+    await input.fill('oops');
+    await input.blur();
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'try ℓ = 0.015 mm', exact: true }).click();
+    await expect(input).toHaveValue('0.015');
+    await expect(input).toHaveAttribute('aria-invalid', 'false');
+    await expect(page.locator('.rs-app')).toHaveAttribute('data-source', 'live');
+    expect(await page.evaluate(() => JSON.parse((window as unknown as { sentConfig: string }).sentConfig).material.l0)).toBe(0.015);
+    await expect(page.locator('.rs-app')).toHaveAttribute('data-steps', '1');
+  });
+
   test('article step links restore the reference replay after a custom load-step run', async ({ page }) => {
     await page.locator('#p-dt').selectOption('0.06');
     await page.getByRole('button', { name: 'Run', exact: true }).click();
@@ -210,8 +238,8 @@ for (const locale of ['es', 'pt', 'en']) {
   });
 }
 
-test('@smoke research navigation preserves recent editor changes and undo history', async ({ page }) => {
-  await page.goto('/app/basic?e2e=1');
+for (const mode of ['basic', 'pro']) test(`@smoke research navigation preserves ${mode} editor changes against public-page shortcuts`, async ({ page }) => {
+  await page.goto(`/app/${mode}?e2e=1`);
   await page.waitForFunction(() => !!window.__stabileoActions);
   const before = await page.evaluate(async () => {
     const app = window as unknown as { __stabileo: StabileoTestHooks; __stabileoActions: StabileoTestActions };
@@ -219,19 +247,129 @@ test('@smoke research navigation preserves recent editor changes and undo histor
     const id = app.__stabileo.nodeIds()[0];
     const position = app.__stabileo.nodePos(id)!;
     app.__stabileoActions.moveNode(id, position.x + 0.25, position.y, position.z);
-    return { id, position, edited: app.__stabileo.nodePos(id), undo: app.__stabileo.undoCount(), timeOrigin: performance.timeOrigin };
+    app.__stabileoActions.selectNodes([id]);
+    return { snapshot: JSON.parse(app.__stabileo.serializeProject()).snapshot, id, position, edited: app.__stabileo.nodePos(id), undo: app.__stabileo.undoCount(), timeOrigin: performance.timeOrigin };
   });
+  await page.keyboard.press('ControlOrMeta+c');
   await page.locator('.logo-home').click();
+  // The nav collapses into its menu at laptop widths; open it when it has.
+  const toggle = page.locator('.nav-toggle');
+  if (await toggle.isVisible()) await toggle.click();
   await page.locator('.nav [data-nav="research"]').click();
   await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  for (const destination of ['/research/', '/blog/', '/']) {
+    await page.evaluate(path => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: path })), destination);
+    await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
+    for (const key of ['Delete', 'Backspace', 'Control+z', 'Control+v', 'ControlOrMeta+z', 'ControlOrMeta+v', 'ControlOrMeta+x', 'ControlOrMeta+y']) await page.keyboard.press(key);
+    await page.waitForTimeout(200);
+  }
   await page.locator('.nav-actions > button.btn-primary').click();
   await expect(page.locator('.app-container')).toBeVisible();
   const after = await page.evaluate((id) => {
     const app = window as unknown as { __stabileo: StabileoTestHooks };
-    return { edited: app.__stabileo.nodePos(id), undo: app.__stabileo.undoCount(), timeOrigin: performance.timeOrigin };
+    return { snapshot: JSON.parse(app.__stabileo.serializeProject()).snapshot, edited: app.__stabileo.nodePos(id), undo: app.__stabileo.undoCount(), timeOrigin: performance.timeOrigin };
   }, before.id);
-  expect(after).toEqual({ edited: before.edited, undo: before.undo, timeOrigin: before.timeOrigin });
+  expect(after).toEqual({ snapshot: before.snapshot, edited: before.edited, undo: before.undo, timeOrigin: before.timeOrigin });
   expect(after.undo).toBeGreaterThan(0);
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => page.evaluate((id) => (window as unknown as { __stabileo: StabileoTestHooks }).__stabileo.nodePos(id), before.id)).toEqual(before.position);
 });
+
+test('@smoke research survives navigation while the App chunk is delayed', async ({ page }) => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  let requested!: () => void;
+  const request = new Promise<void>((resolve) => { requested = resolve; });
+  await page.route(/\/assets\/App-[^/]+\.js$/, async (route) => {
+    requested();
+    await blocked;
+    await route.continue();
+  });
+  await page.goto('/en/');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-enter-app')));
+  await request;
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/research/' })));
+  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await page.evaluate(() => {
+    (window as unknown as { appReady: boolean }).appReady = false;
+    window.addEventListener('stabileo-app-ready', () => { (window as unknown as { appReady: boolean }).appReady = true; });
+  });
+  release();
+  await page.waitForFunction(() => (window as unknown as { appReady: boolean }).appReady);
+  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page).toHaveURL(/\/en\/research\/$/);
+  await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
+  await expect(page.locator('.app-container')).toHaveCSS('pointer-events', 'none');
+  const heading = page.getByRole('heading', { name: 'Stabileo Research' });
+  await expect.poll(() => heading.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  })).toBe(true);
+});
+
+for (const failure of ['constructor', 'unavailable', 'error']) {
+  test(`@smoke research displays pre-mesh ${failure} failure`, async ({ page }) => {
+    await page.addInitScript((kind) => {
+      window.Worker = class {
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        constructor() { if (kind === 'constructor') throw new Error('test solver failure'); }
+        terminate() {}
+        postMessage(m: { runId: number }) {
+          queueMicrotask(() => this.onmessage?.({ data: { type: kind, runId: m.runId, message: 'test solver failure' } }));
+        }
+      } as unknown as typeof Worker;
+    }, failure);
+    await page.goto('/en/research/fracture/shauer-2025/');
+    await expect.poll(async () => Number(await page.locator('.rs-app').getAttribute('data-steps'))).toBeGreaterThan(0);
+    await page.locator('#rs-tab-parameters').click();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await page.locator('#rs-tab-viewer').click();
+    await expect(page.locator('.rs-placeholder')).toContainText('test solver failure');
+    await expect(page.locator('.rs-placeholder')).not.toContainText('Loading the replay');
+  });
+}
+
+test('@smoke research short desktop reaches Run, Stop and Back to replay', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.addInitScript(() => {
+    // Keep a run pending so Stop is available deterministically.
+    window.Worker = class { postMessage() {} terminate() {} } as unknown as typeof Worker;
+  });
+  await page.goto('/en/research/fracture/shauer-2025/');
+  await expect.poll(async () => Number(await page.locator('.rs-app').getAttribute('data-steps'))).toBeGreaterThan(0);
+  await page.locator('#rs-tab-parameters').click();
+  const panel = page.locator('#rs-panel-parameters');
+  await expect(panel).toHaveCSS('overflow-y', 'auto');
+  expect(await panel.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to the replay', exact: true }).click();
+  await expect(page.locator('.rs-app')).toHaveAttribute('data-source', 'replay');
+});
+
+for (const interaction of ['viewer', 'wheel', 'camera', 'tab', 'keyboard tab', 'article tab']) {
+  test(`@smoke research playback stops on ${interaction} interaction`, async ({ page }) => {
+    await page.goto('/en/research/fracture/shauer-2025/');
+    const slider = page.getByRole('slider', { name: 'Load step shown' });
+    await expect(page.locator('.sfv canvas').first()).toBeVisible();
+    await slider.scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+    if (interaction === 'viewer') await page.locator('.sfv canvas').first().click();
+    else if (interaction === 'wheel') {
+      await page.locator('.sfv canvas').first().hover();
+      await page.mouse.wheel(0, 50);
+    } else if (interaction === 'camera') await page.getByRole('button', { name: 'Zoom to extents', exact: true }).click();
+    else if (interaction === 'article tab') await page.getByRole('button', { name: 'the force', exact: true }).click();
+    else if (interaction === 'tab') await page.locator('#rs-tab-force').click();
+    else {
+      await page.locator('#rs-tab-viewer').focus();
+      await page.keyboard.press('ArrowRight');
+    }
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+    const step = await slider.inputValue();
+    await page.waitForTimeout(350);
+    await expect(slider).toHaveValue(step);
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect.poll(() => slider.inputValue()).not.toBe(step);
+  });
+}

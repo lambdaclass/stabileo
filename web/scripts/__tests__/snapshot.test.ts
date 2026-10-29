@@ -161,6 +161,6 @@ it('propagates storage quota failures instead of reporting a successful autosave
 
 it('keeps the Node route-budget suite out of Vitest and in the explicit CI invocation', () => {
   const vite = readFileSync('vite.config.ts', 'utf8');
-  expect(vite.match(/const NOT_VITEST = (.*);/)![1]).toContain('scripts/research-route-budget.test.mjs');
+  expect(vite.match(/const NOT_VITEST = (.*);/)![1]).toContain('scripts/**/*.test.mjs');
   expect(readFileSync('../.github/workflows/research.yml', 'utf8')).toContain('node --test scripts/research-route-budget.test.mjs');
 });

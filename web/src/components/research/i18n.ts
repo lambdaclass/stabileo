@@ -3,6 +3,7 @@ import { publicI18n } from '../../lib/i18n/store.svelte';
 /** The research pages' interface strings (the articles themselves are in English for now). */
 export type ResearchStrings = {
   sourceLabel: Record<'crossref-abstract' | 'publisher-abstract' | 'repository-readme' | 'full-text' | 'reference-code', string>;
+  resetParameters: string;
   summaryIntro: string;
   noAbstract: string;
   runIt: string;
@@ -33,6 +34,7 @@ export type ResearchStrings = {
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   en: {
+    resetParameters: 'Reset to the reference-code parameters',
     sourceLabel: { 'crossref-abstract': 'from the abstract', 'publisher-abstract': 'from the abstract', 'repository-readme': 'from the code’s README', 'full-text': 'from the paper', 'reference-code': 'from the reference code' },
     summaryIntro: 'Summary in our words,',
     noAbstract: 'Abstract not available.',
@@ -62,6 +64,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'Not compared: the full text was not accessible to us',
   },
   es: {
+    resetParameters: 'Restablecer los parámetros del código de referencia',
     sourceLabel: { 'crossref-abstract': 'a partir del resumen', 'publisher-abstract': 'a partir del resumen', 'repository-readme': 'a partir del README del código', 'full-text': 'a partir del artículo', 'reference-code': 'a partir del código de referencia' },
     summaryIntro: 'Resumen en nuestras palabras,',
     noAbstract: 'Resumen no disponible.',
@@ -91,6 +94,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
   },
   pt: {
+    resetParameters: 'Restaurar os parâmetros do código de referência',
     sourceLabel: { 'crossref-abstract': 'a partir do resumo', 'publisher-abstract': 'a partir do resumo', 'repository-readme': 'a partir do README do código', 'full-text': 'a partir do artigo', 'reference-code': 'a partir do código de referência' },
     summaryIntro: 'Resumo em nossas palavras,',
     noAbstract: 'Resumo não disponível.',

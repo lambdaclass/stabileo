@@ -1,20 +1,21 @@
 <script lang="ts">
   /**
-   * The experiment pane's tabs (WAI-ARIA tabs: roving focus, arrow keys). The pane never scrolls on
-   * its own, so everything lives one tab click away; article links switch tabs through the
+   * The experiment pane's tabs (WAI-ARIA tabs: roving focus, arrow keys). Content lives one tab click away (overflowing panels may scroll on short windows); article links switch tabs through the
    * experiment context (`showTab`), and the tab they open is briefly highlighted.
    */
   let {
     tabs,
     active = $bindable(),
     flash = null,
-  }: { tabs: { id: string; label: string }[]; active: string; flash?: string | null } = $props();
+    oninteract,
+  }: { tabs: { id: string; label: string }[]; active: string; flash?: string | null; oninteract?: () => void } = $props();
 
   function onKey(e: KeyboardEvent, i: number) {
     const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     if (!d) return;
     e.preventDefault();
     const next = tabs[(i + d + tabs.length) % tabs.length];
+    oninteract?.();
     active = next.id;
     (document.getElementById(`rs-tab-${next.id}`) as HTMLElement | null)?.focus();
   }
@@ -30,7 +31,7 @@
       aria-controls="rs-panel-{t.id}"
       tabindex={active === t.id ? 0 : -1}
       class:flash={flash === t.id}
-      onclick={() => (active = t.id)}
+      onclick={() => { oninteract?.(); active = t.id; }}
       onkeydown={(e) => onKey(e, i)}>{t.label}</button
     >
   {/each}

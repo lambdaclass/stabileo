@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
   import './lib/i18n/full-dictionaries';
@@ -582,7 +583,7 @@
   }
 
   let showLanding = $state(shouldShowLanding());
-  let showResearch = $state(false);
+  let showResearch = $state(routeKind().kind === 'research');
   let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
   $effect(() => {
     if (showResearch && !research) {
@@ -787,8 +788,12 @@
     importText = '';
   }
 
+  const editorActive = $derived(!showLanding && !showBlog && !showResearch);
+  provideEditorActivity(() => editorActive);
+
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro' || !pendingPaste) return;
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -803,6 +808,7 @@
   }
   // A paste key with no paste event (no clipboard access) still pastes in place from memory.
   $effect(() => {
+    if (!editorActive) { pendingPaste = null; return; }
     if (!pendingPaste) return;
     const p = pendingPaste;
     const id = setTimeout(() => { if (pendingPaste === p) { pendingPaste = null; if (p.inPlace) paste(true); } }, 150);
@@ -810,6 +816,7 @@
   });
 
   function handleProKeydown(e: KeyboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro') return;
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
@@ -2044,7 +2051,7 @@
           mounting both made one keystroke undo twice.
         -->
         {#if uiStore.appMode === 'basico'}
-          <KeyboardShortcuts />
+          <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
     </div>

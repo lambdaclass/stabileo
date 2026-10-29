@@ -1,4 +1,3 @@
-import { validFrame } from './frame-validation';
 import type { PlateConfig, Step, WorkerIn, WorkerOut } from './protocol';
 
 export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy?: Float32Array };
@@ -73,20 +72,10 @@ export class SimulationController {
     if (!run) return;
     this.available = true;
     if (m.type === 'mesh') {
-      if (!m.nodes.length || m.nodes.length % 2 || !m.nodes.every(Number.isFinite) ||
-          !m.elements.length || m.elements.length % 4 || m.elements.some(i => i >= m.nodes.length / 2)) {
-        this.failWorker('Invalid simulation mesh');
-        return;
-      }
       run.nodes = m.nodes;
       run.elements = m.elements;
     } else if (m.type === 'step') {
-      const frame = { step: m.step, damage: m.damage, displacement: m.displacement, syy: m.syy };
-      if (!validFrame(frame, (run.nodes?.length ?? 0) / 2, (run.elements?.length ?? 0) / 4)) {
-        this.failWorker('Invalid or non-finite simulation fields');
-        return;
-      }
-      run.frames = [...run.frames, frame];
+      run.frames = [...run.frames, { step: m.step, damage: m.damage, displacement: m.displacement, syy: m.syy }];
       if (!m.step.converged) {
         run.status = 'unconverged';
         run.error = `Step ${m.step.step} did not converge`;
@@ -96,10 +85,6 @@ export class SimulationController {
         this.worker = null;
       }
     } else if (m.type === 'done') {
-      if (!run.frames.length || !Number.isFinite(m.seconds)) {
-        this.failWorker('Invalid completed simulation');
-        return;
-      }
       run.status = 'done';
       run.seconds = m.seconds;
       this.live.delete(m.runId);
@@ -116,7 +101,7 @@ export class SimulationController {
     const key = JSON.stringify(config);
     const cached = this.runs.get(key);
     this.stop();
-    if (!force && cached && cached.status === 'done' && cached.frames.length > 0 && cached.frames.every(f => f.step.converged && validFrame(f, (cached.nodes?.length ?? 0) / 2, (cached.elements?.length ?? 0) / 4))) {
+    if (!force && cached && cached.status === 'done') {
       this.runs.delete(key);
       this.runs.set(key, cached);
       cached.origin = 'cached';
@@ -130,7 +115,11 @@ export class SimulationController {
     while (this.runs.size > CACHE_RUNS) this.runs.delete(this.runs.keys().next().value!);
     this.current = run;
     const msg: WorkerIn = { type: 'run', runId: id, config: key };
-    this.ensureWorker().postMessage(msg);
+    try {
+      this.ensureWorker().postMessage(msg);
+    } catch (error) {
+      this.failWorker(error instanceof Error ? error.message : String(error));
+    }
   }
 
   /** Stopping terminates the worker: a load step cannot be interrupted from outside. */
@@ -156,4 +145,11 @@ export class SimulationController {
     this.worker?.terminate();
     this.worker = null;
   }
+}
+
+export function pendingMeshMessage(run: Run | null, replayError: string | null): string {
+  if (run?.status === 'stopped') return 'Stopped. Press Recompute live to restart.';
+  if (run?.error) return `The solver failed: ${run.error}. Retry or return to the replay in Parameters.`;
+  if (replayError) return 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.';
+  return run ? 'Loading the solver…' : 'Loading the replay…';
 }

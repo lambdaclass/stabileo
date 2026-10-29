@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { formatDecimal, parseDecimal } from './numeric';
 
@@ -6,8 +7,13 @@
   let text = $state('');
   let focused = $state(false);
 
+  let lastInputValue = untrack(() => value);
   $effect(() => {
-    if (!focused && !invalid) {
+    if (value !== lastInputValue) {
+      lastInputValue = value;
+      invalid = !Number.isFinite(value) || value < min || value > max;
+      text = formatDecimal(value, publicI18n.locale);
+    } else if (!focused && !invalid) {
       text = formatDecimal(value, publicI18n.locale);
     }
   });
@@ -15,7 +21,7 @@
   function onInput(event: Event & { currentTarget: HTMLInputElement }) {
     const v = parseDecimal(event.currentTarget.value);
     invalid = v === null || v < min || v > max;
-    if (v !== null) value = v;
+    if (v !== null) { lastInputValue = v; value = v; }
   }
 </script>
 

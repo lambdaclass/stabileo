@@ -26,10 +26,12 @@
    "code": [
     {
      "url": "https://github.com/nathanshauer/phasefield-jr-py",
+     "commit": "61037c6ce7833a4f92a3ec098a9d60fd477eff2b",
      "license": "MIT"
     },
     {
      "url": "https://github.com/nathanshauer/phasefield-jr",
+     "commit": "7518fa54abc1d1f23bea912b62fa923916d3e8f5",
      "license": "MIT"
     }
    ],
@@ -83,6 +85,7 @@
    "code": [
     {
      "url": "https://github.com/GaoyuanWu/JaxSSO",
+     "commit": "d27df0a6e657eacae497ead241fa6f9f48c66e5a",
      "license": "MIT"
     }
    ],
@@ -360,6 +363,7 @@
    "code": [
     {
      "url": "https://github.com/arpastrana/jax_fdm",
+     "commit": "9a17fd379071fb3511ca914f46e8d1e8c286460e",
      "license": "MIT"
     }
    ],

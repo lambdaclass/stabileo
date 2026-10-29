@@ -22,13 +22,22 @@ describe('viewer mesh switching', () => {
       field.setField(values, { min: 0, max: 1 });
       const position = mesh.geometry.getAttribute('position');
       const colour = mesh.geometry.getAttribute('color');
+      // A quad is stored as its four corners plus a centre vertex carrying the Q4 centre value.
+      const perCell = data.size === 4 ? 5 : 3;
       for (let i = 0; i < data.cells.length; i++) {
         const node = data.cells[i];
-        expect(position.getX(i)).toBe(data.xy[2 * node]);
-        expect(position.getY(i)).toBe(data.xy[2 * node + 1]);
-        expect(new Color(colour.getX(i), colour.getY(i), colour.getZ(i)).getHex()).toBe(shellContourColor(values[node], 0, 1));
+        const v = Math.floor(i / data.size) * perCell + (i % data.size);
+        expect(position.getX(v)).toBe(data.xy[2 * node]);
+        expect(position.getY(v)).toBe(data.xy[2 * node + 1]);
+        expect(new Color(colour.getX(v), colour.getY(v), colour.getZ(v)).getHex()).toBe(shellContourColor(values[node], 0, 1));
       }
-      expect(mesh.geometry.drawRange.count).toBe(data.cells.length / data.size * (data.size === 4 ? 6 : 3));
+      if (data.size === 4) for (let c = 0; c < data.cells.length / 4; c++) {
+        const corners = [0, 1, 2, 3].map((k) => data.cells[4 * c + k]);
+        const mean = corners.reduce((sum, n) => sum + values[n], 0) / 4;
+        const centre = 5 * c + 4;
+        expect(new Color(colour.getX(centre), colour.getY(centre), colour.getZ(centre)).getHex()).toBe(shellContourColor(mean, 0, 1));
+      }
+      expect(mesh.geometry.drawRange.count).toBe(data.cells.length / data.size * (data.size === 4 ? 12 : 3));
       previous = mesh;
     }
     owner.dispose();

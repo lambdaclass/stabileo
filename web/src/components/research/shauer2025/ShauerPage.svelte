@@ -1,17 +1,21 @@
 <script lang="ts">
+  import { researchAssetBase, replayMatchesBuild } from '../shell/assets';
   /**
    * /research/fracture/shauer-2025: the AT2 phase-field notched plate. On load it replays a run of
    * our solver precomputed at build time; Recompute live runs the same Rust solver in the
    * browser (WASM, in a worker). The reference code's own outputs are shown alongside.
    */
   import { onDestroy, onMount } from 'svelte';
+  import { snapshots } from './reference-fields';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
+  import { rs } from '../i18n';
+  import { solverStepCount } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
   import NumberField from './NumberField.svelte';
-  import { SimulationController, type Frame } from './simulation.svelte';
+  import { SimulationController, pendingMeshMessage, type Frame } from './simulation.svelte';
   import type { PlateConfig, Series, Step } from './protocol';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
@@ -25,9 +29,10 @@
   import Toggles from '../shell/Toggles.svelte';
   import ParamRow from '../shell/ParamRow.svelte';
 
+  const strings = $derived(rs());
   const STABILEO = 'var(--rs-plot-ours)';
   const REFERENCE = 'var(--rs-plot-ref)';
-  const BASE = `${import.meta.env.BASE_URL}research-wasm/shauer-2025/`;
+  const BASE = `${researchAssetBase}shauer-2025/`;
   /** This experiment shows its mesh by default: the refined band is part of the method. */
   const MESH_BY_DEFAULT = true;
 
@@ -92,6 +97,8 @@
   });
 
   let replay = $state.raw<{ nodes: Float64Array; elements: Uint32Array; frames: Frame[] } | null>(null);
+  let replayVerified = $state(false);
+  let replayConfig = $state<unknown>(null);
   let replayError = $state<string | null>(null);
   let pane: HTMLElement | undefined = $state();
 
@@ -100,6 +107,8 @@
     fetchReplay<Step>(`${BASE}replay.srpl`, abort.signal)
       .then((d) => {
         if (abort.signal.aborted) return;
+        replayConfig = d.header.config;
+        replayVerified = replayMatchesBuild(d.header, JSON.parse(REFERENCE_KEY));
         replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };
         playback.setCount(d.frames.length);
         // A link can open the page at a step, with or without the mesh (?step=57&mesh=0).
@@ -140,8 +149,8 @@
   const frames = $derived<Frame[]>(run ? run.frames : (replay?.frames ?? []));
   const nodes = $derived(run ? run.nodes : (replay?.nodes ?? null));
   const elements = $derived(run ? run.elements : (replay?.elements ?? null));
-  const shownConfigKey = $derived(run ? JSON.stringify(run.config) : REFERENCE_KEY);
-  const showsReference = $derived(shownConfigKey === REFERENCE_KEY);
+  const shownConfigKey = $derived(run ? JSON.stringify(run.config) : (replayVerified ? REFERENCE_KEY : JSON.stringify(replayConfig)));
+  const showsReference = $derived(shownConfigKey === REFERENCE_KEY && (!!run || replayVerified));
 
   $effect(() => {
     playback.setCount(frames.length);
@@ -169,6 +178,7 @@
   let convH = $state(600);
   let flashTimer: ReturnType<typeof setTimeout>;
   function showTab(t: string) {
+    playback.interact();
     tab = t;
     flashTab = t;
     clearTimeout(flashTimer);
@@ -247,9 +257,9 @@
     setParams: (p: Record<string, number | string | boolean>) => {
       playback.interact();
       showTab('parameters');
-      if (typeof p.l0 === 'number') l0 = p.l0;
-      if (typeof p.e === 'number') e = p.e;
-      if (typeof p.gc === 'number') gc = p.gc;
+      if (typeof p.l0 === 'number') { l0 = p.l0; invalid.l0 = !inRange(l0, LIMITS.l0); }
+      if (typeof p.e === 'number') { e = p.e; invalid.e = !inRange(e, LIMITS.e); }
+      if (typeof p.gc === 'number') { gc = p.gc; invalid.gc = !inRange(gc, LIMITS.gc); }
       if (typeof p.mesh === 'string' && p.mesh in MESHES) meshKey = p.mesh as MeshKey;
       if (typeof p.history === 'boolean') history = p.history;
       if (p.reset) reset();
@@ -257,7 +267,7 @@
     },
   };
 
-  const expectedSteps = $derived(run ? Math.floor(run.config.controls.total_time / run.config.controls.dt + 1e-9) : frames.length);
+  const expectedSteps = $derived(run && run.status === 'running' ? solverStepCount(run.config.controls.dt, run.config.controls.total_time) : frames.length);
 
   const forceSeries = $derived.by<Series[]>(() => {
     const out: Series[] = [];
@@ -294,7 +304,7 @@
   );
 
   const comparison = $derived(showsReference && frames.length && (!run || run.status !== 'running')
-    ? compareReference(frames, reference, (nodes?.length ?? 0) / 2) : null);
+    && nodes && elements ? compareReference(frames, reference, { nodes, elements, snapshots, material: JSON.parse(REFERENCE_KEY).material, replay: !run }) : null);
 
   const fmt = (v: number, d = 4) => (Math.abs(v) >= 1e-3 || v === 0 ? num(v, { dp: d }) : num(v, { sig: 3 }));
   const statusItems = $derived(
@@ -374,7 +384,7 @@
       just below it in the other. Which row is chosen is decided by floating-point round-off; against the mirror image the final damage
       fields differ by 3.085970368132962 × 10<sup>−10</sup>.
       The thresholds in the table are comparison tolerances, not mathematical error bounds.
-      Displacement fields are compared only at example 1 step 50 and example 2 step 56; example 3 compares damage fields only.
+      Displacement fields are compared at example 1 step 50, example 2 step 56, and example 3 step 56.
     </p>
 
     {#if frames.length}
@@ -398,7 +408,7 @@
     <ul>
       <li>Agreement with a reference code is not validation against experiments, and none of this is an engineering certification.</li>
       <li>The reference mesh refines only a 0.04 × 0.04 mm box around the notch tip; beyond it the crack crosses elements wider than 3ℓ.</li>
-      <li>No bound constraints: damage can exceed 1 slightly (the reference reaches 1.0096 here and 1.0021897551918642 in example 1) and undershoot 0 on coarse meshes. Values are shown as computed; only the colour scale is clamped.</li>
+      <li>No bound constraints: damage can exceed 1 slightly (the reference reaches 1.0096 here and 1.0021897551918642 in example 1) and undershoot 0. The recorded Python reference outputs have minimum nodal damage 3.076336950017797e-08 (example 1), -0.0031224948220514573 (example 2), and -0.06024191772700118 (example 3). This also occurs in the reference code’s unconstrained AT2 discretization. Negative damage is unphysical: (1-d)² at the example 3 minimum is about 1.124, above intact stiffness. Assembly uses interpolated damage at quadrature points, so this is not a 12.4% assembled-stiffness error. The solver does not clamp damage; the replay’s quantized nodal field and colour scale clamp it for display.</li>
       <li>The alternating scheme is not accelerated; at unstable crack growth it can take hundreds of iterations in one step.</li>
       <li>Browser runs are limited in mesh size and parameter range.</li>
     </ul>
@@ -416,13 +426,15 @@
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
           <span class="ok" aria-hidden="true">✓</span>
-          {source === 'replay' ? 'This replay' : 'This run'} matches the reference force history and iteration counts: peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps. Displayed nodal fields are not compared by this badge.
-          <button type="button" class="rs-textbtn" onclick={() => (tab = 'convergence')}>Details</button>
+          {source === 'replay' ? 'This replay' : 'This run'} agrees with reference forces, iterations, pre-peak maximum damage, damage at steps 56/57/78 and displacement at step 56 (replay fields quantized; stress has no reference snapshot): peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
+          <button type="button" class="rs-textbtn" onclick={() => { playback.interact(); tab = 'convergence'; }}>Details</button>
         </p>
+      {:else if !run && replay && !replayVerified}
+        <p class="rs-compare-line" role="status">Replay build or configuration mismatch: reference comparison disabled.</p>
       {:else if comparison || run?.status === 'unconverged'}
         <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? 'Non-converged run' : 'Reference mismatch'}: {comparison?.failures.join('; ') || run?.error}</p>
       {/if}
-      <PaneTabs tabs={TABS} bind:active={tab} flash={flashTab} />
+      <PaneTabs oninteract={() => playback.interact()} tabs={TABS} bind:active={tab} flash={flashTab} />
 
       <div class="rs-panel rs-panel-viewer" id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         {#if nodes && elements}
@@ -446,7 +458,7 @@
             />
             <Segmented label="View" bind:value={view} options={[{ id: 'plate', label: 'Plate' }, { id: 'band', label: 'Crack band' }, { id: 'tip', label: 'Notch tip' }]} />
           </div>
-          <div class="rs-viewer-slot">
+          <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onclickcapture={() => playback.interact()}>
             <StabileoViewer
               xy={nodes}
               cells={elements}
@@ -468,7 +480,7 @@
             />
           </div>
         {:else}
-          <div class="rs-placeholder">{replayError ? 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.' : 'Loading the replay…'}</div>
+          <div class="rs-placeholder">{pendingMeshMessage(run, replayError)}</div>
         {/if}
       </div>
 
@@ -491,7 +503,7 @@
               <li>Peak force {comparison.peak.step.reaction.toFixed(6)} kN at step {comparison.peak.step.step}; reference {refPeak.reaction.toFixed(6)} kN at step {refPeak.step}.</li>
               <li>Largest relative force difference up to the peak: {comparison.worstPre.toExponential(1)} (test tolerance 1e-9).</li>
               <li>Largest absolute force difference, fracture included: {comparison.worstAll.toExponential(1)} kN (test tolerance 1e-5).</li>
-              <li>Identical number of staggered iterations at {comparison.sameIterations} of {reference.length} steps. Displayed nodal fields are not compared by this badge.</li>
+              <li>Identical number of staggered iterations at {comparison.sameIterations} of {reference.length} steps.</li>
             </ul>
           </div>
         {/if}
@@ -516,7 +528,7 @@
           <ParamRow id="p-u" name="Top displacement at t = 1" unit="mm" hint="0.004–0.02" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label="Top displacement u at t = 1, mm" min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
           <ParamRow id="p-dt" name="Load step">{#snippet symbol()}Δ<var>t</var>{/snippet}
             <select id="p-dt" bind:value={dt}>
-              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({Math.floor(0.8 / v + 1e-9)} steps)</option>{/each}
+              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({solverStepCount(v, 0.8)} steps)</option>{/each}
             </select>
           </ParamRow>
           <ParamRow id="p-mesh" name="Mesh">
@@ -537,7 +549,7 @@
             <button class="btn btn-primary btn-sm" type="button" disabled={!valid} onclick={() => start(false)}>Run</button>
             <button class="btn btn-ghost btn-sm" type="button" disabled={!valid} onclick={() => start(true)}>Solve again in this browser</button>
           {/if}
-          {#if !isReference}<button class="btn btn-ghost btn-sm" type="button" onclick={reset}>Reset to the paper’s parameters</button>{/if}
+          {#if !isReference}<button class="btn btn-ghost btn-sm" type="button" onclick={reset}>{strings.resetParameters}</button>{/if}
           {#if run}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>Back to the replay</button>{/if}
         </div>
         <p class="rs-status" aria-live="polite">
@@ -563,7 +575,7 @@
         <div class="rs-scrub">
           <button class="btn btn-ghost btn-sm" type="button" onclick={() => (playback.playing ? playback.pause() : playback.play())}>{playback.playing ? 'Pause' : 'Play'}</button>
           <input type="range" min="0" max={frames.length - 1} value={playback.shown} oninput={(ev) => playback.seek(Number((ev.currentTarget as HTMLInputElement).value))} aria-label="Load step shown" />
-          <span class="rs-stepread">step {frame?.step.step ?? 0} of {frames.length - 1}</span>
+          <span class="rs-stepread">step {frame?.step.step ?? 0} of {Math.max(expectedSteps, frames.length) - 1}</span>
         </div>
       {/if}
     </div>
@@ -604,7 +616,8 @@
     min-height: 0;
   }
   /* In the sticky pane (wide screens) the app is exactly the pane's height and its panels share
-     what is left after the tabs and the step player: nothing scrolls inside it. */
+     what is left after the tabs and the step player. Only overflowing panels scroll as a
+     fallback on short windows; the article keeps the normal page scroll. */
   @media (min-width: 70rem) {
     .rs-app {
       height: 100%;
@@ -612,11 +625,18 @@
     .rs-panel {
       flex: 1 1 auto;
       min-height: 0;
-      overflow: hidden;
+      overflow-y: auto;
+      scrollbar-width: auto;
+      scrollbar-gutter: stable;
+      scrollbar-color: var(--fg-2) var(--hair);
     }
+    .rs-panel::-webkit-scrollbar { width: 10px; }
+    .rs-panel::-webkit-scrollbar-track { background: var(--hair); }
+    .rs-panel::-webkit-scrollbar-thumb { background: var(--fg-2); border-radius: 5px; }
     .rs-viewer-slot {
       flex: 1 1 auto;
       height: auto;
+      min-height: 12rem;
     }
   }
   .rs-stepread {

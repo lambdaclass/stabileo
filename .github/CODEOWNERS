@@ -1,4 +1,2 @@
-# Stabileo Research (research/): experimental code and the paper catalog, reviewed separately
-# from the solver and design-code owners.
-/research/                 @unbalancedparentheses
-/.github/workflows/research.yml @unbalancedparentheses
+# Research uses default ownership. Maintainers should assign a multi-member team
+# for research code and its workflow when suitable reviewers are available.

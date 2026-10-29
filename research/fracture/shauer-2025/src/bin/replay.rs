@@ -7,7 +7,8 @@
 //! step's scalars exactly, and the fields within their quantization step.
 
 use phasefield_shauer_2025::examples::NotchedPlate;
-use phasefield_shauer_2025::replay::{decode, encode, DAMAGE_MAX};
+use phasefield_shauer_2025::replay::{decode, encode, Frame, Header, DAMAGE_MAX};
+use phasefield_shauer_2025::mesh::Mesh;
 use phasefield_shauer_2025::solver::{Solver, StepResult};
 
 fn fresh(plate: &NotchedPlate) -> Result<(Solver, Vec<StepResult>, Vec<(Vec<f64>, Vec<f64>)>), String> {
@@ -34,6 +35,7 @@ fn main() -> Result<(), String> {
         "verify" => {
             let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
             let (header, nodes, elements, stored) = decode(&bytes)?;
+            validate_recording(&header, &nodes, &elements, &stored, &plate, &solver.problem.mesh, &frames)?;
             if header.steps.len() != steps.len() || stored.len() != frames.len() {
                 return Err("replay: step count differs from a fresh run".into());
             }
@@ -66,4 +68,56 @@ fn main() -> Result<(), String> {
         _ => return Err("usage: replay write|verify <file>".into()),
     }
     Ok(())
+}
+
+fn validate_recording(
+    header: &Header, nodes: &[[f64; 2]], elements: &[[usize; 4]], stored: &[Frame],
+    plate: &NotchedPlate, mesh: &Mesh, frames: &[(Vec<f64>, Vec<f64>)],
+) -> Result<(), String> {
+    if header.config != serde_json::to_value(plate).map_err(|e| e.to_string())? {
+        return Err("replay: configuration differs from a fresh run".into());
+    }
+    if nodes.len() != mesh.nodes.len() || elements.len() != mesh.elements.len()
+        || header.nodes != nodes.len() || header.elements != elements.len()
+        || stored.len() != frames.len() {
+        return Err("replay: mesh or frame count differs from a fresh run".into());
+    }
+    for (s, (d, u)) in stored.iter().zip(frames) {
+        if s.damage.len() != d.len() || s.displacement.len() != u.len() {
+            return Err("replay: field length differs from a fresh run".into());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_configuration_and_exact_length_mismatches() {
+        let plate = NotchedPlate::reference();
+        let mesh = phasefield_shauer_2025::mesh::rectangle(1, 1, 1.0, 1.0);
+        let frames = vec![(vec![0.0; 4], vec![0.0; 8])];
+        let mut stored = vec![Frame { damage: vec![0.0; 4], displacement: vec![0.0; 8] }];
+        let mut header = Header { build_id: String::new(), nodes: 4, elements: 1, damage_max: DAMAGE_MAX,
+            displacement_scale: vec![0.0], steps: vec![], config: serde_json::to_value(&plate).unwrap() };
+        let check = |h: &Header, n: &[[f64; 2]], s: &[Frame]| validate_recording(h, n, &mesh.elements, s, &plate, &mesh, &frames);
+        assert!(check(&header, &mesh.nodes, &stored).is_ok());
+        header.config["controls"]["dt"] = serde_json::json!(0.02);
+        assert!(check(&header, &mesh.nodes, &stored).unwrap_err().contains("configuration"));
+        header.config = serde_json::to_value(&plate).unwrap();
+        assert!(check(&header, &mesh.nodes[..3], &stored).is_err());
+        let mut extra = mesh.nodes.clone(); extra.push([0.0, 0.0]);
+        assert!(check(&header, &extra, &stored).is_err());
+        for length in [3, 5] {
+            stored[0].damage.resize(length, 0.0);
+            assert!(check(&header, &mesh.nodes, &stored).is_err());
+        }
+        stored[0].damage.resize(4, 0.0);
+        for length in [7, 9] {
+            stored[0].displacement.resize(length, 0.0);
+            assert!(check(&header, &mesh.nodes, &stored).is_err());
+        }
+    }
 }

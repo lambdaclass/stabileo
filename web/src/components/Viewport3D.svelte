@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
@@ -666,6 +668,7 @@
     let navShiftHeld = false;
 
     const onNavKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Skip when typing in inputs
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -1175,6 +1178,7 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Shift+P — toggle the dev perf HUD live (also persisted for next load). Only in development
       // and test builds, and never while typing: a capital P in a field used to switch it on, and
       // it stayed on through reloads.
