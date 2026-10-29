@@ -22,6 +22,7 @@ export type StandingPage = {
   path: string;
   /** ISO day of the last substantive edit (sitemap lastmod). */
   updated: string;
+  view?: 'changelog';
   i18n: Localized<
     {
       title: string;

@@ -3,6 +3,7 @@ import { pickLanguage } from './fixtures';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { CHANGELOG } from '../src/lib/changelog';
 
 /**
  * The blog at /blog.
@@ -41,6 +42,52 @@ async function boot(page: Page, path: string, locale = 'en') {
 }
 
 test.describe('@smoke blog', () => {
+  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'es')) {
+    test(`the changelog page in ${locale}: every entry in its language, no raw key, and an alternate per published language`, async ({ page }) => {
+      await boot(page, `/${locale}/changelog/`, locale);
+      const weeks = page.getByTestId('changelog-entry');
+      await expect(weeks).toHaveCount(CHANGELOG.length);
+      await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n[locale].title);
+      await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
+      expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
+      const alts = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((els) => els.map((e) => e.getAttribute('hreflang')).sort());
+      expect(alts).toEqual([...PUBLIC_LOCALES, 'x-default'].sort());
+    });
+  }
+
+  test('the changelog page lists every entry since February by month, and filters by area', async ({ page }) => {
+    await boot(page, '/es/changelog/', 'es');
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
+    await expect(page.locator('nav .nav-links a[data-nav="changelog"]')).toHaveAttribute('aria-current', 'page');
+    const weeks = page.getByTestId('changelog-entry');
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+    await expect(weeks.first()).toHaveAttribute('data-date', CHANGELOG[0].date);
+    await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n.es.title);
+    await expect(weeks.first().getByRole('heading', { level: 4 }).first()).toHaveText('Motor');
+    await expect(weeks.first().locator('li').first()).toHaveText(CHANGELOG[0].i18n.es.items[0]);
+    await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
+    const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const first = weeks.last();
+    await expect(first).toHaveAttribute('data-date', '2026-02-01');
+    await expect(first.locator('time')).toHaveText(/feb\s*mes/);
+
+    const shots = page.locator('.cl-shot img');
+    await expect(shots).toHaveCount(CHANGELOG.filter((e) => e.shot).length);
+    await expect(shots.first()).toHaveAttribute('src', '/screenshots/changelog-basic-report-1600.webp');
+    await shots.first().scrollIntoViewIfNeeded();
+    await expect.poll(() => shots.first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
+    const edu = CHANGELOG.filter((e) => e.areas.includes('edu'));
+    await page.getByRole('button', { name: /^Educativo/ }).click();
+    await expect(weeks).toHaveCount(edu.length);
+    await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    await page.getByRole('button', { name: 'Todo' }).click();
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+  });
+
   test('renders the index at /blog', async ({ page }) => {
     await boot(page, '/blog');
 
@@ -165,13 +212,13 @@ test.describe('@smoke blog', () => {
       await boot(page, `/${from}/blog/${SLUG}`);
       await expect(page.locator('.post-title')).toHaveText(TITLES[from]);
 
-      await pickLanguage(page, 'blog-lang', to);
+      await pickLanguage(page, 'nav-lang', to);
 
       await expect(page.locator('.post-title')).toHaveText(TITLES[to]);
       await expect(page).toHaveURL(new RegExp(`/${to}/blog/${SLUG}/$`));
       await expect(page.locator('html')).toHaveAttribute('lang', to);
       // The picker reports where you are, not where you were.
-      await expect(page.getByTestId('blog-lang')).toHaveAttribute('data-value', to);
+      await expect(page.getByTestId('nav-lang')).toHaveAttribute('data-value', to);
     });
   }
 
@@ -183,7 +230,7 @@ test.describe('@smoke blog', () => {
     const lead = page.locator('.landing.blog .lead');
     await expect(lead).toContainText(/verificaciones normativas/i);
 
-    await pickLanguage(page, 'blog-lang', 'en');
+    await pickLanguage(page, 'nav-lang', 'en');
 
     await expect(page).toHaveURL(/\/en\/blog\/$/);
     await expect(lead).toContainText(/code checks/i);
@@ -199,7 +246,7 @@ test.describe('@smoke blog', () => {
      * `goBack` would return to it.
      */
     await boot(page, `/pt/blog/${SLUG}/`);
-    await pickLanguage(page, 'blog-lang', 'es');
+    await pickLanguage(page, 'nav-lang', 'es');
     await expect(page).toHaveURL(new RegExp(`/es/blog/${SLUG}/$`));
 
     await page.goBack();
@@ -404,32 +451,18 @@ test.describe('@smoke blog', () => {
     await expect(body).toContainText('no se puede resolver');
   });
 
-  test('a post offers the way back to the index, and the index does not', async ({ page }) => {
-    /*
-     * There was no way back. The logo goes to the landing, so returning to the
-     * index from a post meant landing → scroll to the blog section → enter
-     * again. The link is deliberately absent on the index itself, which is
-     * what made the landing's "Blog" nav item useless here in the first place.
-     */
+  test('a post marks Blog as the current section, and its Blog item goes back to the index', async ({ page }) => {
     await boot(page, `/es/blog/${SLUG}`, 'es');
-    const back = page.locator('.landing.blog .nav-blog-link');
-    await expect(back).toBeVisible();
-    await expect(back).toHaveText('Blog');
+    const blog = page.locator('nav.site-header [data-nav="blog"]');
+    await expect(blog).toHaveText('Blog');
+    await expect(blog).toHaveAttribute('aria-current', 'page');
     // A real href, so it is crawlable and middle-clickable, not a button.
-    await expect(back).toHaveAttribute('href', '/es/blog/');
-    // And it sits before the GitHub box, where the ask put it.
-    const order = await page.locator('.landing.blog .nav-actions > *').evaluateAll((els) =>
-      els.map((e) => e.className.toString().split(' ')[0]),
-    );
-    expect(order[0]).toBe('nav-blog-link');
-    expect(order[1]).toBe('nav-gh');
-
-    await back.click();
+    await expect(blog).toHaveAttribute('href', '/es/blog/');
+    await blog.click();
     await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
-    // Now on the index, it is gone.
-    await expect(page.locator('.landing.blog .nav-blog-link')).toHaveCount(0);
   });
+
 
   test('a post describes itself to a search engine', async ({ page }) => {
     // The byline on screen is prose; this is the only machine-readable

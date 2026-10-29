@@ -26,6 +26,18 @@ const NOTICES = path.join(REPO, 'THIRD_PARTY_NOTICES.md');
 const PUBLIC_COPY = path.join(WEB, 'public', 'third-party-notices.txt');
 
 describe('third-party notices', () => {
+  it('rejects unresolved Cargo licences and missing licence texts', () => {
+    execFileSync('node', ['--test', 'scripts/research-cargo-notices.test.mjs'], { cwd: WEB });
+  });
+
+  it('ships notices for direct and transitive research WASM dependencies', () => {
+    const text = fs.readFileSync(NOTICES, 'utf8');
+    for (const name of ['serde', 'serde_core', 'serde_json', 'wasm-bindgen', 'wasm-bindgen-shared', 'unicode-ident']) {
+      expect(text).toContain(`## Cargo: ${name} `);
+    }
+    expect(text).toContain('<summary>LICENSE-UNICODE</summary>');
+  });
+
   it('exist at the repository root', () => {
     expect(fs.existsSync(NOTICES), 'THIRD_PARTY_NOTICES.md is missing').toBe(true);
   });

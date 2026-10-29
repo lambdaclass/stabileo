@@ -13,12 +13,18 @@
       "title": {
         "en": "Buckling factors outside their enclosure are no longer certified",
         "es": "Los factores de pandeo fuera de su intervalo ya no se certifican",
-        "pt": "Fatores de flambagem fora do intervalo não são mais certificados"
+        "pt": "Fatores de flambagem fora do intervalo não são mais certificados",
+        "de": "Knicklastfaktoren außerhalb ihres Einschließungsintervalls werden nicht mehr zertifiziert",
+        "fr": "Les facteurs de flambement hors de leur intervalle d’encadrement ne sont plus certifiés",
+        "tr": "Sınır aralığının dışındaki burkulma katsayıları artık sertifikalandırılmıyor"
       },
       "explanation": {
         "en": "Buckling certification now refuses a reported factor above its independently bounded upper limit. The computed factor is unchanged and remains uncertified; re-run buckling certification before relying on an earlier certificate.",
         "es": "La certificación de pandeo ahora rechaza un factor calculado superior a su cota independiente. El factor calculado no cambia y queda sin certificar; vuelva a ejecutar la certificación antes de utilizar un certificado anterior.",
-        "pt": "A certificação de flambagem agora recusa um fator calculado acima do limite independente. O fator calculado não muda e fica sem certificação; execute novamente a certificação antes de usar um certificado anterior."
+        "pt": "A certificação de flambagem agora recusa um fator calculado acima do limite independente. O fator calculado não muda e fica sem certificação; execute novamente a certificação antes de usar um certificado anterior.",
+        "de": "Die Knickzertifizierung lehnt jetzt einen berechneten Faktor oberhalb seiner unabhängig bestimmten oberen Schranke ab. Der berechnete Faktor bleibt unverändert und unzertifiziert; führen Sie die Knickzertifizierung erneut aus, bevor Sie sich auf ein früheres Zertifikat verlassen.",
+        "fr": "La certification du flambement refuse désormais un facteur calculé supérieur à sa borne supérieure déterminée indépendamment. Le facteur calculé reste inchangé et non certifié ; relancez la certification du flambement avant de vous fier à un certificat antérieur.",
+        "tr": "Burkulma sertifikasyonu artık bağımsız olarak belirlenen üst sınırı aşan hesaplanmış bir katsayıyı reddediyor. Hesaplanan katsayı değişmiyor ve sertifikasız kalıyor; önceki bir sertifikaya güvenmeden önce burkulma sertifikasyonunu yeniden çalıştırın."
       },
       "changelog": {
         "file": "docs/results-changes/2026-10-buckling-certificate.md",

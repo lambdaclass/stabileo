@@ -1,0 +1,243 @@
+{
+  "checks": [
+    {
+      "category": "independent",
+      "metric": "relative difference",
+      "name": "triangular lattice: bulk modulus = sqrt(3)/2 k",
+      "observed": 1.2819751242557095e-16,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "category": "independent",
+      "metric": "relative difference",
+      "name": "triangular lattice: shear modulus = sqrt(3)/4 k",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "category": "independent",
+      "metric": "absolute difference",
+      "name": "triangular lattice: Poisson's ratio = 1/3",
+      "observed": 5.551115123125783e-17,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "category": "independent",
+      "metric": "max |C - C_iso| / (B + G)",
+      "name": "triangular lattice: isotropic",
+      "observed": 1.709300165674279e-16,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "category": "independent",
+      "metric": "nonaffinity",
+      "name": "triangular lattice: no nonaffine displacement",
+      "observed": 4.136259084379458e-32,
+      "passed": true,
+      "tolerance": 1e-18
+    },
+    {
+      "category": "independent",
+      "metric": "max relative difference",
+      "name": "Bravais triangular lattices (7 shapes, 2 spring laws): periodic stiffness = Cauchy-Born",
+      "observed": 1.472268306762417e-15,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "max relative difference",
+      "name": "Bravais triangular lattices: Cauchy relation C12 = C66",
+      "observed": 5.933884191526593e-17,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "|C33|",
+      "name": "square lattice: zero shear modulus (floppy)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "category": "independent",
+      "metric": "max difference",
+      "name": "square lattice: C11 = C22 = k, C12 = 0",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "relative difference",
+      "name": "square lattice under tension t: C33 = 2 t (stress stiffening)",
+      "observed": 1.1102230246251565e-15,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "max relative difference",
+      "name": "foam eta = 0.3: e^T C e A equals the second difference of the relaxed nonlinear energy",
+      "observed": 5.5422102114166433e-8,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "category": "independent",
+      "metric": "max relative difference",
+      "name": "foam eta = 0.3 in tension: e^T C e A equals the second difference of the relaxed nonlinear energy",
+      "observed": 2.2496451807513632e-8,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "category": "independent",
+      "metric": "max relative difference",
+      "name": "frame invariance: C of the rotated foam is C rotated",
+      "observed": 4.871706767891969e-16,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "max G / k",
+      "name": "dilution z = 3 (5 samples, 20 x 20): shear modulus vanishes",
+      "observed": 1.0989932061295234e-16,
+      "passed": true,
+      "tolerance": 1e-6
+    },
+    {
+      "category": "independent",
+      "metric": "max(0, 0.1 - min G / k)",
+      "name": "dilution z = 5.4 (5 samples, 20 x 20): every shear modulus at least 0.1 k",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "category": "independent",
+      "metric": "max |du| / max |u|",
+      "name": "foam strip (eta 0.3): displacements equal the production engine's solve_2d",
+      "observed": 3.016417244188902e-14,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "category": "independent",
+      "metric": "max |dN| / max |N|",
+      "name": "foam strip (eta 0.3): bond forces equal the engine's axial forces",
+      "observed": 7.767019554214963e-14,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "category": "independent",
+      "metric": "nu - 1/3",
+      "name": "equilateral strip 13 x 52 (paper's protocol): finite-size bias of nu",
+      "observed": 0.03794923154324492,
+      "passed": true,
+      "tolerance": 0.05
+    },
+    {
+      "category": "independent",
+      "metric": "absolute difference",
+      "name": "equilateral strips 26 x 104 and 52 x 208: Richardson extrapolation of nu = 1/3",
+      "observed": 0.002683582860841749,
+      "passed": true,
+      "tolerance": 0.005
+    },
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)",
+      "observed": 7.105427357601002e-15,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)",
+      "tolerance": 1e-9
+    },
+    {
+      "category": "independent",
+      "metric": "absolute difference",
+      "name": "lattice (1, 0.5), theta = 0, equal Hookean springs: exact nu = 1/6",
+      "observed": 1.1102230246251565e-16,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "category": "independent",
+      "metric": "absolute difference",
+      "name": "lattice (1, 0.5), theta = 0: Supplemental Eq. (9) evaluates to 8/27",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "category": "paper",
+      "metric": "max |Y difference|",
+      "name": "Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area",
+      "observed": 0.0006025970505327827,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area",
+      "tolerance": 0.01
+    },
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Eq. (23) honeycomb, k_radial = 1e-3 (l = 0.05 ... 0.95)",
+      "observed": 0.0033500744879860767,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Eq. (23) honeycomb, k_radial = 1e-3 (l = 0.05 ... 0.95)",
+      "tolerance": 0.005
+    },
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Eq. (23) honeycomb, k_radial = 1e-6 (l = 0.05 ... 0.95)",
+      "observed": 3.3644897416973407e-6,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Eq. (23) honeycomb, k_radial = 1e-6 (l = 0.05 ... 0.95)",
+      "tolerance": 0.00001
+    },
+    {
+      "category": "paper",
+      "metric": "max absolute difference",
+      "name": "Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4",
+      "observed": 0.002695403784438666,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4",
+      "tolerance": 0.005
+    },
+    {
+      "category": "paper",
+      "metric": "markers outside",
+      "name": "foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation",
+      "observed": 0.0,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation",
+      "tolerance": 0.0
+    },
+    {
+      "category": "paper",
+      "metric": "|eta_0 - 0.46|",
+      "name": "foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)",
+      "observed": 0.013605425095061685,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)",
+      "tolerance": 0.02
+    },
+    {
+      "category": "independent",
+      "metric": "|mean nu - recorded mean|",
+      "name": "foam: periodic ensemble regression at eta = 0.5 (10 seeds, recorded mean -0.147608233, sd 0.017861567)",
+      "observed": 3.3306690738754696e-16,
+      "passed": true,
+      "tolerance": 0.017
+    }
+  ]
+}

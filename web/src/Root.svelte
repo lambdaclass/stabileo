@@ -34,6 +34,14 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
+  /** Stabileo Research is its own chunk: the landing and the blog never download it. */
+  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'research' && !research) {
+      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+    }
+  });
+
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
     loading ??= ensureLocale(i18n.locale).then(() => import('./App.svelte')).then(async (m) => {
@@ -89,6 +97,11 @@
   <App />
 {:else if current.kind === 'blog'}
   <BlogPage path={current.path} />
+{:else if current.kind === 'research'}
+  {#if research}
+    {@const Research = research}
+    <Research path={current.path} />
+  {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}

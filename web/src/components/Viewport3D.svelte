@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
@@ -13,6 +15,9 @@
   import { onMount, onDestroy, untrack } from 'svelte';
   import { t, tp } from '../lib/i18n';
   import * as THREE from 'three';
+  import '../styles/viewer-chrome.css';
+  import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
+  import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { setGeometryDrag } from '../lib/store/physical-frame';
@@ -595,8 +600,7 @@
 
   onMount(() => {
     // Scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(COLORS.background);
+    scene = createViewerScene();
 
     // Parent groups
     nodesParent = new THREE.Group();
@@ -641,34 +645,19 @@
      * both follow the distance to what is looked at (`nearPlaneFor`,
      * `farPlaneFor`).
      */
-    perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-    setCameraUp(perspCamera);
-    perspCamera.position.set(12, 8, 12);
-    perspCamera.lookAt(0, 0, 0);
+    perspCamera = createViewerPerspectiveCamera();
 
     // Orthographic camera (frustum updated on resize)
-    orthoCamera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 1000);
-    setCameraUp(orthoCamera);
-    orthoCamera.position.set(12, 8, 12);
-    orthoCamera.lookAt(0, 0, 0);
+    orthoCamera = createViewerOrthographicCamera();
 
     camera = uiStore.cameraMode3D === 'orthographic' ? orthoCamera : perspCamera;
 
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.localClippingEnabled = true;
-    container.appendChild(renderer.domElement);
+    renderer = createViewerRenderer(container);
 
-    // Orbit controls
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
-    controls.target.set(0, 0, 0);
-    // The wheel zooms toward what is under the pointer, as in the 2D view and
-    // in CAD, rather than toward the orbit centre: a detail far from the
-    // middle of the model can be reached without panning to it first.
-    controls.zoomToCursor = true;
+    // Orbit controls. The wheel zooms toward what is under the pointer, as in the 2D view and
+    // in CAD, rather than toward the orbit centre.
+    controls = createViewerControls(camera, renderer.domElement);
     // Close in on a small part, the near plane follows (see nearPlaneFor).
     controls.addEventListener('change', syncNearPlane);
     applyNavigation();
@@ -679,6 +668,7 @@
     let navShiftHeld = false;
 
     const onNavKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Skip when typing in inputs
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -720,15 +710,7 @@
       }, 100);
     });
 
-    // Lighting
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambient);
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir1.position.set(10, 20, 10);
-    scene.add(dir1);
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
-    dir2.position.set(-10, 10, -10);
-    scene.add(dir2);
+    addViewerLights(scene);
 
     // Grid (reactive — updated by syncGrid effect)
     updateGrid();
@@ -1196,6 +1178,7 @@
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
+    if (!editorActive()) return;
       // Shift+P — toggle the dev perf HUD live (also persisted for next load). Only in development
       // and test builds, and never while typing: a capital P in a field used to switch it on, and
       // it stayed on through reloads.
@@ -3939,14 +3922,7 @@
     const plan = uiStore.planView3D;
     // In the plan view the Pan tool slides over the floor; another tool keeps its own drag.
     const leftSlides = uiStore.currentTool === 'pan' && (plan || uiStore.dragMode3D === 'slide');
-    controls.enableRotate = !plan;
-    controls.screenSpacePanning = true;
-    controls.mouseButtons = {
-      LEFT: leftSlides ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
-      MIDDLE: THREE.MOUSE.DOLLY,
-      RIGHT: leftSlides && !plan ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
-    };
-    controls.touches = { ONE: leftSlides ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+    applyDefaultNavigation(controls, { leftSlides, plan });
   }
   $effect(() => {
     void uiStore.planView3D; void uiStore.dragMode3D; void uiStore.currentTool;
@@ -4087,40 +4063,9 @@
 
   function drawAxisGizmo() {
     if (!gizmoCanvas || !camera) return;
-    const gc = gizmoCanvas.getContext('2d');
-    if (!gc) return;
-    const s = gizmoCanvas.width;
-    gc.clearRect(0, 0, s, s);
-
-    // Use the rotation part of the view matrix to project world axes to screen
-    camera.updateMatrixWorld();
-    const viewMat = camera.matrixWorldInverse;
-    const axes = [
-      { label: 'X', color: '#ff4444', dir: GLOBAL_X.clone() },
-      { label: 'Y', color: '#44ff44', dir: GLOBAL_Y.clone() },
-      { label: 'Z', color: '#4488ff', dir: GLOBAL_Z.clone() },
-    ];
-
-    const cx = s / 2, cy = s / 2, len = s * 0.35;
-    const projected = axes.map(a => {
-      const d = a.dir.clone().transformDirection(viewMat);
-      return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
-    }).sort((a, b) => a.depth - b.depth);
-
-    for (const ax of projected) {
-      gc.strokeStyle = ax.color;
-      gc.lineWidth = 2;
-      gc.globalAlpha = ax.depth > 0 ? 1 : 0.3;
-      gc.beginPath();
-      gc.moveTo(cx, cy);
-      gc.lineTo(cx + ax.sx, cy + ax.sy);
-      gc.stroke();
-      gc.globalAlpha = 1;
-      gc.fillStyle = ax.color;
-      gc.font = 'bold 12px sans-serif';
-      gc.fillText(ax.label, cx + ax.sx * 1.2 - 4, cy + ax.sy * 1.2 + 4);
-    }
+    drawAxisGizmoOn(gizmoCanvas, camera);
   }
+
 
   function toggleCameraMode() {
     if (!camera || !controls || !renderer) return;
@@ -4751,189 +4696,6 @@
     z-index: 11;
   }
 
-  .axis-gizmo {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    width: 80px !important;
-    height: 80px !important;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .camera-controls {
-    position: absolute;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    z-index: 10;
-    transition: top 0.15s ease;
-    /* Right-aligned so every button in the stack shares an edge. */
-    align-items: flex-end;
-}
-
-  /*
-     Dressed from the tokens, like every other floating control. These were
-     written against a palette this application no longer uses — #445 borders,
-     rgba(22, 33, 62) fills and #aabbcc text — so the camera stack stayed the
-     colour of the old interface while the ribbon and the panels moved on.
-  */
-  /*
-     DIRECT children only. `.cam-item` is a button too, and it lives inside
-     this container — so a bare `.camera-controls button` forced every menu
-     row into a 32 × 32 box, which is the column of empty squares sitting
-     behind the labels. The stack's buttons are its own children; the menu's
-     are not.
-  */
-  .camera-controls > button,
-  .camera-controls > .cam-menu-wrap > .cam-btn {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: color-mix(in srgb, var(--st-surface) 90%, transparent);
-    color: var(--st-text-2);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-
-  .camera-controls > button:hover,
-  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
-
-  .cam-menu-wrap { position: relative; display: flex; }
-
-  /* The chevron says the cube opens something. */
-  .cam-cube { position: relative; }
-
-  .cam-caret {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 0;
-    height: 0;
-    border-left: 3px solid transparent;
-    border-right: 3px solid transparent;
-    border-top: 4px solid currentColor;
-    opacity: 0.75;
-  }
-
-  .cam-btn.on {
-    border-color: var(--st-accent);
-    color: var(--st-accent);
-  }
-
-  .cam-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    border: none;
-    padding: 0;
-    background: transparent;
-    cursor: default;
-  }
-
-  /*
-     Opens to the LEFT of its button, because the stack is pinned to the right
-     edge and a menu growing rightwards would leave the viewport.
-  */
-  .cam-menu {
-    position: absolute;
-    top: 0;
-    right: calc(100% + 6px);
-    z-index: 21;
-    min-width: 190px;
-    padding: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    border: 1px solid var(--st-hair-strong);
-    border-radius: var(--st-radius);
-    background: var(--st-surface);
-    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
-  }
-
-  .cam-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    /*
-       One height for every row. The glyphs are a mixed bag — an SVG icon, box
-       drawing characters, a letter and an emoji — and each brings its own
-       line box, so rows ranged from 23 to 30 px and the list read as ragged.
-       Fixing the row and centring inside it makes the glyph column line up
-       whatever is in it.
-    */
-    min-height: 26px;
-    line-height: 1;
-    padding: 0 0.45rem;
-    border: none;
-    border-radius: 3px;
-    background: none;
-    color: var(--st-text-2);
-    font-size: 0.72rem;
-    text-align: left;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .cam-item:hover { background: var(--st-surface-3); color: var(--st-text); }
-  .cam-group { display: flex; flex-direction: column; }
-  .cam-group-title { font-size: 0.66rem; color: var(--st-text-3); padding: 2px 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .cam-two { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 1px; }
-  .cam-two small { font-size: 0.64rem; color: var(--st-text-3); white-space: normal; max-width: 15rem; line-height: 1.25; }
-
-  .cam-item.on { color: var(--st-accent); }
-
-  .cam-glyph {
-    width: 16px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* Emoji render larger than the box-drawing glyphs at the same size. */
-    font-size: 0.78rem;
-    line-height: 1;
-  }
-
-  .cam-sep {
-    height: 1px;
-    margin: 3px 2px;
-    background: var(--st-hair);
-  }
-
-  /*
-     ── Two leftovers from the old stack, and one of them was a disaster ──
-     When the stack was collapsed into a menu, its size and colour rules were
-     scoped to direct children; these two were missed. The backdrop that
-     closes the menu is a `button` inside this container, full-screen by
-     design — so `:hover` painted rgba(40, 60, 100, 0.95) over the entire
-     application the moment the pointer left the menu box. The whole model
-     went blue.
-
-     They are scoped now, and dressed from the tokens like everything else.
-     `.active-cam` no longer has a user: the states that used it live in the
-     menu and mark themselves with `.cam-item.on`.
-  */
-  .camera-controls > button:hover,
-  .camera-controls > .cam-menu-wrap > .cam-btn:hover {
-    background: var(--st-surface-3);
-    color: var(--st-text);
-  }
-
-  .camera-controls > button.active-cam {
-    background: var(--st-selected-bg);
-    color: var(--st-accent);
-    border-color: var(--st-accent);
-  }
 
   .clip-controls {
     position: absolute;

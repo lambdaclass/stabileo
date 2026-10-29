@@ -298,6 +298,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'ribbon.momentZ',
   'ribbon.shearZ',
   'ribbon.tabModel',
+  'scalarViewer.model',
   'secEdit.iz',
   'sel.corbel.av',
   'sel.corbel.bw',

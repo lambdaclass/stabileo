@@ -30,10 +30,20 @@ jobs:
       # Advisories, licences, banned/duplicate crates and allowed sources,
       # per deny.toml.
       - name: cargo deny
-        run: cargo deny --locked check
+        run: |
+          cargo deny --locked check
+          cargo deny --manifest-path research/fracture/shauer-2025/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/metamaterials/grossman-2026/Cargo.toml --locked --config deny.toml check licenses bans sources
+          cargo deny --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml --locked --config deny.toml check licenses bans sources
       # RustSec again through cargo-audit, which also reports yanked crates.
       - name: cargo audit
-        run: cargo audit --deny warnings
+        run: |
+          cargo audit --deny warnings
+          cargo audit --deny warnings --file research/fracture/shauer-2025/Cargo.lock
+          cargo audit --deny warnings --file research/fracture/shauer-2025/wasm/Cargo.lock
+          cargo audit --deny warnings --file research/metamaterials/grossman-2026/Cargo.lock
+          cargo audit --deny warnings --file research/metamaterials/grossman-2026/wasm/Cargo.lock
 
   npm:
     runs-on: ubuntu-latest

@@ -88,9 +88,10 @@ export function parsePublicPath(pathname: string): PublicRoute {
  * the one redirect they always did.
  */
 export function publicHref(path: string, locale: PublicLocale): string {
-	const clean = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
+	const [, pathname, suffix] = path.match(/^([^?#]*)(.*)$/)!;
+	const clean = pathname === '/' ? '' : pathname.startsWith('/') ? pathname : `/${pathname}`;
 	// Guard the double slash: a caller may already have passed '/blog/'.
-	return `/${locale}${clean.replace(/\/+$/, '')}/`;
+	return `/${locale}${clean.replace(/\/+$/, '')}/${suffix}`;
 }
 
 /** The same, absolute. Canonical and hreflang may not be relative. */

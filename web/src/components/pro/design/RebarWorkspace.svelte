@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * The 3-D reinforcement workspace: the whole window, not a corner of it.
    *
@@ -10,9 +12,7 @@
    * `uiStore.proPanelWidth`. No amount of width inside it can exceed the sidebar, so
    * inspecting a cage of thousands of bars was being done through a slot a few hundred pixels
    * wide. Widening the sidebar would have traded one cramped surface for another and broken
-   * the model view beside it.
-   *
-   * So the workspace mounts at App level and covers the window. The sidebar keeps the summary
+   * the model view beside it. So the workspace mounts at App level and covers the window. The sidebar keeps the summary
    * and the export; the inspection happens here.
    *
    * ── Why closing does not destroy anything ─────────────────────────
@@ -271,7 +271,7 @@
   });
 
   function onKeydown(e: KeyboardEvent) {
-    if (!rebarWorkspace.open) return;
+    if (!editorActive() || !rebarWorkspace.open) return;
     if (e.key === 'Escape') { rebarWorkspace.close(); return; }
     if (cycleTabWithin(dialogEl, e)) e.preventDefault();
   }

@@ -1,0 +1,22 @@
+[package]
+name = "springs-grossman-2026-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+description = "Browser bundle for the Stabileo Research spring-network page; loaded only on /research"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+springs-grossman-2026 = { path = ".." }
+wasm-bindgen = "=0.2.129"
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
