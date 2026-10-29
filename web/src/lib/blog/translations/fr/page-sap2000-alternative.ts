@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Une alternative gratuite et open source à SAP2000, dans votre navigateur",
   "description": "Stabileo : calcul de structures libre et gratuit dans le navigateur. Portiques 2D/3D, coques, P-Delta, modal, spectre ; contrôles AISC, ACI, Eurocode, CIRSOC.",
   "eyebrow": "Alternative à SAP2000",
-  "lead": "Stabileo est un logiciel d'analyse de structures gratuit et open source (AGPL-3.0) qui fonctionne dans votre navigateur, sans installation, clé de licence ni compte. Le solveur est écrit en Rust et compilé en WebAssembly : le modèle est donc résolu sur votre propre ordinateur. Le mode Basique permet de modéliser, charger, calculer et lire les résultats de portiques et de treillis 2D et 3D ; le mode PRO, en développement et ouvert à tous, ajoute les dalles et les voiles, l'import DXF et IFC, les charges réglementaires et les vérifications des barres.",
+  "lead": "Stabileo est un logiciel d'analyse de structures gratuit et open source (AGPL-3.0) qui fonctionne dans votre navigateur, sans installation, clé de licence ni compte. Le solveur est écrit en Rust et compilé en WebAssembly : le modèle est donc résolu sur votre propre ordinateur. Le mode Basique permet de modéliser, charger, calculer et lire les résultats de portiques et de treillis 2D et 3D ; le mode PRO, en développement, ajoute les dalles et les voiles, l'import DXF et IFC, les charges réglementaires et les vérifications des barres.",
   "blocks": [
     {
       "k": "h",
@@ -44,11 +44,11 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Puis-je utiliser Stabileo au lieu de payer une licence SAP2000 ou ETABS ?",
-      "a": "Pour l'analyse de portiques, de treillis et de nombreux bâtiments, et pour les vérifications de barres selon AISC 360, ACI 318, les Eurocodes et CIRSOC, oui, gratuitement. Pour l'éventail complet des normes de dimensionnement et un long historique en production, les programmes commerciaux offrent encore davantage ; le mode PRO de Stabileo est en développement."
+      "a": "Pour l'analyse de portiques, de treillis et de nombreux bâtiments, et pour les vérifications de barres selon AISC 360, ACI 318, les Eurocodes et CIRSOC, oui. L’analyse est gratuite ; les modules de dimensionnement spécialisés sont payants et gratuits pour les universités. Pour l'éventail complet des normes de dimensionnement et un long historique en production, les programmes commerciaux offrent encore davantage ; le mode PRO de Stabileo est en développement."
     },
     {
       "q": "Stabileo est-il vraiment gratuit ?",
-      "a": "L'analyse (Basique et PRO) est gratuite pour tous. Le dimensionnement réglementaire est gratuit tant qu'il est en développement, puis reste gratuit pour les universités publiques et pour ceux qui participent à son développement. L'assistant d'IA sera payant. Le code est sous licence AGPL-3.0."
+      "a": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
     },
     {
       "q": "Fonctionne-t-il sur Mac ou Linux ?",

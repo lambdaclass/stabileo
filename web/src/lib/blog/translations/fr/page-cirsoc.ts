@@ -1,10 +1,10 @@
 import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Vérifications CIRSOC gratuites dans votre navigateur : ce qui est disponible et ce qui ne l'est pas",
-  "description": "Stabileo vérifie le béton (CIRSOC 201) et l'acier (CIRSOC 301, expérimental) et génère les charges CIRSOC 101–104, gratuitement. Ce qui est prêt, ce qui manque.",
+  "title": "Vérifications CIRSOC dans votre navigateur : ce qui est disponible et ce qui ne l'est pas",
+  "description": "Stabileo vérifie le béton (CIRSOC 201) et l'acier (CIRSOC 301, expérimental) et génère les charges CIRSOC 101–104, en ligne. Ce qui est prêt, ce qui manque.",
   "eyebrow": "CIRSOC",
-  "lead": "Stabileo est un logiciel open source d'analyse de structures qui vérifie les barres en béton armé selon CIRSOC 201 (édition 2025) et les barres en acier selon CIRSOC 301-2018, et qui génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (partie I) et CIRSOC 104-2005, les normes de structures argentines. Il utilise le même modèle et le même solveur que l'analyse, fonctionne dans le navigateur et ne demande ni installation ni licence. Le dimensionnement réglementaire se trouve dans le module PRO, encore en développement et gratuit tant qu'il l'est.",
+  "lead": "Stabileo est un logiciel open source d'analyse de structures qui vérifie les barres en béton armé selon CIRSOC 201 (édition 2025) et les barres en acier selon CIRSOC 301-2018, et qui génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (partie I) et CIRSOC 104-2005, les normes de structures argentines. Il utilise le même modèle et le même solveur que l'analyse, fonctionne dans le navigateur et ne demande ni installation ni licence. Le dimensionnement réglementaire se trouve dans le module PRO, encore en développement. Il est payant et gratuit pour les universités.",
   "blocks": [
     {
       "k": "h",
@@ -112,11 +112,11 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Quel logiciel vérifie le dimensionnement des structures selon les normes CIRSOC ?",
-      "a": "Stabileo vérifie le béton armé selon CIRSOC 201 et l'acier selon CIRSOC 301-2018 (marqué comme expérimental), et génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 et CIRSOC 104-2005. Il est open source, fonctionne dans le navigateur et reste gratuit tant que le module de dimensionnement est en développement."
+      "a": "Stabileo vérifie le béton armé selon CIRSOC 201 et l'acier selon CIRSOC 301-2018 (marqué comme expérimental), et génère les charges et les combinaisons selon CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 et CIRSOC 104-2005. Il est open source, fonctionne dans le navigateur et propose des modules de dimensionnement payants, gratuits pour les universités."
     },
     {
       "q": "Stabileo est-il gratuit pour les vérifications CIRSOC ?",
-      "a": "Oui, aujourd'hui il l'est. L'analyse (Basique) est gratuite. Le module de dimensionnement réglementaire est en développement et gratuit tant qu'il l'est ; ensuite, il reste gratuit pour les universités publiques et pour ceux qui participent à son développement."
+      "a": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
     },
     {
       "q": "Puis-je utiliser Stabileo pour un calcul que je vais signer ?",
