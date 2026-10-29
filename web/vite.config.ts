@@ -63,7 +63,7 @@ function publicI18nPlugin(): Plugin {
 // `.stryker-tmp` holds Stryker's sandbox copies of the tests (without the gitignored WASM build):
 // collected here, a mutation run in progress made every engine test fail.
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
-const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', 'snapshot-e2e/**', '**/.stryker-tmp/**'];
+const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', 'snapshot-e2e/**', 'scripts/research-route-budget.test.mjs', '**/.stryker-tmp/**'];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets

@@ -69,15 +69,24 @@ export function snapshotRuntime(s: Snapshot): string {
 
 /* eslint-disable no-restricted-globals */
 function runtime(cfg: { prefix: string; short: string; commit: string; date: string; repo: string }) {
-  for (const name of ['localStorage', 'sessionStorage']) {
-    const values = new Map<string, string>();
+  const namespace = `stabileo-snapshot:${cfg.commit}:`;
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    let backing: Storage;
+    let failure: unknown;
+    try { backing = window[name]; } catch (error) { failure = error; }
+    const source = () => {
+      if (!backing) throw failure;
+      return backing;
+    };
+    const keys = () => Array.from({ length: source().length }, (_, i) => source().key(i)!)
+      .filter(key => key.startsWith(namespace));
     const storage = {
-      get length() { return values.size; },
-      key(index: number) { return [...values.keys()][index] ?? null; },
-      getItem(key: string) { return values.get(String(key)) ?? null; },
-      setItem(key: string, value: string) { values.set(String(key), String(value)); },
-      removeItem(key: string) { values.delete(String(key)); },
-      clear() { values.clear(); },
+      get length() { return keys().length; },
+      key(index: number) { return keys()[index]?.slice(namespace.length) ?? null; },
+      getItem(key: string) { return source().getItem(namespace + String(key)); },
+      setItem(key: string, value: string) { source().setItem(namespace + String(key), String(value)); },
+      removeItem(key: string) { source().removeItem(namespace + String(key)); },
+      clear() { keys().forEach(key => source().removeItem(key)); },
     };
     Object.defineProperty(window, name, { value: storage });
   }

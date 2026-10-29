@@ -120,14 +120,12 @@ test('snapshot edits and closing leave production workspace and autosave untouch
   await page.locator('.tab.active .tab-name').fill('Snapshot edit');
   await page.locator('.tab.active .tab-name').press('Tab');
   await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible({ timeout: 60_000 });
-  await page.evaluate(() => {
-    if (localStorage.getItem('stabileo-workspace') === 'production workspace') throw new Error('restored live workspace');
-    if (indexedDB !== undefined) throw new Error('live IndexedDB available');
-    localStorage.setItem('stabileo-workspace', 'snapshot edit');
-    localStorage.setItem('stabileo-autosave', 'snapshot revision');
-    sessionStorage.clear();
-    localStorage.clear();
-  });
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('stabileo-workspace')), { timeout: 40_000 }).toContain('Snapshot edit');
+  await page.goto(`${P}app/basic`);
+  await expect(page.locator('.tab.active .tab-name')).toHaveValue('Snapshot edit');
+  await page.reload();
+  await expect(page.locator('.tab.active .tab-name')).toHaveValue('Snapshot edit');
+  await page.evaluate(() => { sessionStorage.clear(); localStorage.clear(); });
   await page.close();
   expect(await seed.evaluate(() => [localStorage.getItem('stabileo-workspace'), localStorage.getItem('stabileo-autosave')]))
     .toEqual(['production workspace', 'production fallback']);

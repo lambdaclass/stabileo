@@ -131,9 +131,10 @@ also qualify. A manual Deploy run builds one when **snapshot** is ticked. Nothin
 the application's `location` reads see the address without the prefix and a small script in the
 page puts the prefix back on what it writes (history, links, images, fetches of its own files;
 never `/api/`) and shows the version banner (`web/scripts/snapshot.ts`). Share and embed URLs
-use the actual address, keeping the commit prefix. Snapshot Web Storage is memory-only and
-IndexedDB is disabled: no live workspace, autosave, preferences or tokens are read or written.
-Reloading discards snapshot edits; download a project file to keep them.
+use the actual address, keeping the commit prefix. Snapshot Web Storage persists in a namespace keyed by the full commit, separate from live
+workspace, autosave, preferences and token keys. IndexedDB is disabled, so autosave uses
+the persistent localStorage fallback and reports storage failures and quota limits as usual.
+Reloading the same snapshot restores its saved workspace; download a project file for a portable copy.
 `--mode desktop` is refused as a snapshot. `SNAPSHOT.json` in it records the commit, its date and
 the research pages it holds. CI's required **CI OK** includes **Snapshot Site**, which builds one
 for every web change and runs `web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
