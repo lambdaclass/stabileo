@@ -45,6 +45,8 @@ jobs:
           persist-credentials: false
       - run: research/tools/check_isolation.sh
       - run: python3 -I research/tools/test_check_isolation.py
+      - run: python3 -I research/tools/test_asset_identity.py
+      - run: python3 -I research/tools/test_docker_context.py
       - name: Research pages draw models only through the shared Stabileo viewer
         run: research/tools/check_viewer.sh
       - name: The viewer rule rejects a page with its own canvas
@@ -85,6 +87,7 @@ jobs:
           python3 -m venv /tmp/catalog-venv
           /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
       - name: Checker rejects bad entries
         run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
       - name: Every entry, evidence file and summary source is well formed
@@ -130,6 +133,53 @@ jobs:
       - name: Browser configuration limits reject oversized meshes before allocation
         run: cargo test --locked --manifest-path wasm/Cargo.toml
       - name: Reference outputs match their manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          m = json.load(open("reference-results/MANIFEST.json"))
+          for name, digest in m["files_sha256"].items():
+              assert hashlib.sha256(open(os.path.join("reference-results", name), "rb").read()).hexdigest() == digest, name
+          extra = set(os.listdir("reference-results")) - set(m["files_sha256"]) - {"MANIFEST.json"}
+          assert not extra, extra
+          print(len(m["files_sha256"]), "reference files match MANIFEST.json")
+          PY
+
+  springs:
+    name: Spring networks (Grossman 2026) validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/metamaterials/grossman-2026
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Tests, including the checks against the paper's published values
+        run: cargo test --release --locked -- --nocapture
+      - name: The committed comparison series are what the code computes
+        run: |
+          cargo run --release --locked --bin reproduce -- /tmp/stabileo_results.json
+          # Same numbers up to the last bits that the platform's libm (sin, cos, hypot) may change.
+          python3 - <<'PY'
+          import json
+          def walk(a, b, path="$"):
+              if isinstance(a, dict):
+                  assert a.keys() == b.keys(), path
+                  for k in a: walk(a[k], b[k], f"{path}.{k}")
+              elif isinstance(a, list):
+                  assert len(a) == len(b), path
+                  for i, (x, y) in enumerate(zip(a, b)): walk(x, y, f"{path}[{i}]")
+              elif isinstance(a, float) or isinstance(b, float):
+                  assert abs(a - b) <= 1e-8 * max(1.0, abs(a), abs(b)), (path, a, b)
+              else:
+                  assert a == b, (path, a, b)
+          walk(json.load(open("/tmp/stabileo_results.json")), json.load(open("results/stabileo_results.json")))
+          print("results/stabileo_results.json is current")
+          PY
+      - name: Reference values match their manifest
         run: |
           python3 - <<'PY'
           import hashlib, json, os

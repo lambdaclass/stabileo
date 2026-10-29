@@ -2,6 +2,161 @@ import { publicI18n } from '../../lib/i18n/store.svelte';
 
 /** Research interface and article strings; unsupported locales fall back to English. */
 export type ResearchStrings = {
+  springsEqualWeight: string;
+  springsCompressionLegend: string;
+  springsTensionLegend: string;
+  springsZeroLegend: string;
+  springsEditorChanged: string;
+  springsEditorFailed: string;
+
+  springsTitle: string;
+  springsLead: string;
+  springsPaperShows: string;
+  springsOverview: string;
+  springsNonaffine: string;
+  springsOverviewRelaxation: string;
+  springsAuxetic: string;
+  springsOverviewAuxetic: string;
+  springsTry: string;
+  springsPerfect: string;
+  springsTryAuxetic: string;
+  springsModel: string;
+  springsSprings: string;
+  springsJoin: string;
+  springsRestLength: string;
+  springsCurrentLength: string;
+  springsEnergy: string;
+  springsModelViewer: string;
+  springsStripTest: string;
+  springsStripMethod: string;
+  springsExactModuli: string;
+  springsPeriodicMethod: string;
+  springsPrestress: string;
+  springsPrestressMethod: string;
+  springsComparison: string;
+  springsFoamHeading: string;
+  springsFoamComparison: string;
+  springsDisorderAxis: string;
+  springsPoissonAxis: string;
+  springsFoamPlot: string;
+  springsStripBias: string;
+  springsHoneyHeading: string;
+  springsHoneyComparison: string;
+  springsTryHoney: string;
+  springsHoneyPlot: string;
+  springsOrderedHeading: string;
+  springsOrderedComparison: string;
+  springsOrderedConvention: string;
+  springsTryOrdered: string;
+  springsTryEqualWeight: string;
+  springsOrientationAxis: string;
+  springsOrderedPlot: string;
+  springsSelectOrdered: string;
+  springsUnreproduced: string;
+  springsRigidityHeading: string;
+  springsRigidity: string;
+  springsTryDilute: string;
+  springsTryTension: string;
+  springsCoordinationAxis: string;
+  springsModulusAxis: string;
+  springsModuliPlot: string;
+  springsAllChecks: string;
+  springsChecksRun: string;
+  springsCheck: string;
+  springsObserved: string;
+  springsTolerance: string;
+  springsResult: string;
+  springsLimitations: string;
+  springsNoReference: string;
+  springsNotImplemented: string;
+  springsLinearOnly: string;
+  springsSynchronous: string;
+  springsFreeEdges: string;
+  springsEnsemble: string;
+  springsNotDesign: string;
+  springsCodeReferences: string;
+  springsImplementation: string;
+  springsArticleSupplement: string;
+  springsFiguresCredit: string;
+  springsFoamCredit: string;
+  springsPaperReference: string;
+  springsOpenFull: string;
+  springsExportDisabled: string;
+  springsRetryFull: string;
+  springsEditorDescription: string;
+  springsLoadCurrent: string;
+  springsRetryEditor: string;
+  springsLoadingEditor: string;
+  springsEditorTitle: string;
+  springsBundleMissing: string;
+  springsBuildBundle: string;
+  springsLoadingSolver: string;
+  springsLiveSweep: string;
+  springsPauseSweep: string;
+  springsViewerLabel: string;
+  springsPlaceholder: string;
+  springsSolverRefused: string;
+  springsStripReadout: string;
+  springsPeriodicReadout: string;
+  springsAffineReadout: string;
+  springsCoordinationReadout: string;
+  springsNetwork: string;
+  springsFoamOption: string;
+  springsOrderedOption: string;
+  springsHoneyOption: string;
+  springsSquareOption: string;
+  springsDisorder: string;
+  springsDisorderLabel: string;
+  springsShear: string;
+  springsPhi: string;
+  springsElongation: string;
+  springsPsi: string;
+  springsOrientation: string;
+  springsTheta: string;
+  springsLaw: string;
+  springsEqualK: string;
+  springsCornerDistance: string;
+  springsEll: string;
+  springsDiagonals: string;
+  springsBondsKept: string;
+  springsBondsFraction: string;
+  springsPrestressControl: string;
+  springsPrestressLabel: string;
+  springsStrain: string;
+  springsDeformation: string;
+  springsDeformationScale: string;
+  springsSeed: string;
+  springsSeedLabel: string;
+  springsResolveNote: string;
+  springsResolveTime: string;
+  springsReferenceUnavailable: string;
+  springsThisNetwork: string;
+  springsThisPeriodic: string;
+  springsThisShear: string;
+  springsPaperChecks: string;
+  springsIndependentChecks: string;
+  springsIndeterminate: string;
+  springsAxialNormalized: string;
+  springsAxial: string;
+  springsNodes: string;
+  springsBars: string;
+  springsStripSeries: string;
+  springsFigureSeries: string;
+  springsTextSeries: string;
+  springsBulkSeries: string;
+  springsShearSeries: string;
+  springsHoneyPaperSeries: string;
+  springsHoneySeries: string;
+  springsOrderedPaperSeries: string;
+  springsEqualWeightSeries: string;
+  springsHookeanSeries: string;
+  springsBandSeries: string;
+  springsMeanSeries: string;
+  springsFullEditorError: string;
+  springsAlt: string;
+  springsHook: string;
+  shauerHook: string;
+
   forceComparisonTolerance: string;
   referenceDots: string;
 
@@ -212,6 +367,7 @@ export type ResearchStrings = {
   paper: string;
   code: string;
   openInStabileo: string;
+  editInStabileo: string;
   soon: string;
   notDesign: string;
   checksPass: string;
@@ -229,6 +385,161 @@ export type ResearchStrings = {
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   en: {
+    springsEqualWeight: "k ∝ 1/ℓ² (as Eq. 9)",
+    springsCompressionLegend: "compression positive after division by negative ε · strip compressed left to right, end rows held",
+    springsTensionLegend: "tension positive · strip pulled left to right, end rows held",
+    springsZeroLegend: "zero imposed strain · end rows held",
+    springsEditorChanged: "The experiment changed while the editor was loading. Retry to load the current network.",
+    springsEditorFailed: "The Stabileo editor could not be loaded:",
+
+    springsTitle: "Auxetic spring networks",
+    springsLead: "Pull a strip of Hookean springs and read how much it narrows. Shake the nodes of the triangular lattice and it starts to widen instead: it becomes auxetic. The network on the right is solved in your browser as a truss on Stabileo’s engine, and the same strip opens in the real Stabileo editor. No reference code is public (“available at request”), so we compare with the paper’s published numbers, closed forms and figures, and with exact results.",
+    springsPaperShows: "What the paper shows",
+    springsOverview: "Many materials, from metamaterial lattices to cell membranes, are modelled as networks of Hookean springs. Grossman and Boudaoud derive the elastic continuum that such a network behaves like, using only its geometry and topology, and they compute the",
+    springsNonaffine: "nonaffine",
+    springsOverviewRelaxation: "displacements: the local deviations from a uniform stretch that make disordered networks softer than the uniform-strain estimate. They check the theory against simulations of a stretched strip for three families: ordered triangular lattices, a honeycomb that turns re-entrant, and a “foam” made by randomly displacing the nodes of a triangular lattice, which becomes",
+    springsAuxetic: "auxetic",
+    springsOverviewAuxetic: "(negative Poisson’s ratio: it widens when pulled) as the disorder grows.",
+    springsTry: "Try it:",
+    springsPerfect: "perfect lattice, η = 0",
+    springsTryAuxetic: "η = 0.5, auxetic",
+    springsModel: "The model we solve",
+    springsSprings: "Springs",
+    springsJoin: "join nodes; each has stiffness",
+    springsRestLength: ", rest length ℓ̄",
+    springsCurrentLength: "and current length ℓ",
+    springsEnergy: ", and the energy is",
+    springsModelViewer: "(the paper’s Eq. 3). A spring network is a pin-jointed truss, so the right pane shows it in the Stabileo viewer: each bar coloured by its axial force, on the deformed shape. We compute two things.",
+    springsStripTest: "The paper’s strip test.",
+    springsStripMethod: "A 13 × 52 strip (about 800 nodes), its top and bottom rows held, the top moved up by the imposed strain; the Poisson’s ratio is read from the width change between the two edge nodes nearest mid-height, as in the paper’s Sec. V A. Solved as a linear truss on the Stabileo engine’s sparse Cholesky factorisation; the same model solved by the production engine’s 2D truss analysis agrees to 10⁻¹⁴.",
+    springsExactModuli: "Exact effective moduli.",
+    springsPeriodicMethod: "A periodic cell under an imposed macroscopic strain, with every node free to relax: the stiffness that remains is the network’s elastic tensor C, including the nonaffine softening, with no boundary effects. The uniform-strain (affine) tensor is the same sum without relaxation.",
+    springsPrestress: "Prestress",
+    springsPrestressMethod: "(an addition, not in the paper’s computations): rest lengths shortened by a fraction, the network relaxed to equilibrium by Newton’s method, and the linear response taken about that state, tension stiffening included.",
+    springsComparison: "Comparison with the paper",
+    springsFoamHeading: "Foam: the auxetic transition",
+    springsFoamComparison: "The paper reports ν falling with the disorder η, crossing zero at η ≃ 0.46 and reaching −0.1 as η → 0.5. Our exact periodic moduli (10 samples of 26 × 26 cells for each η) cross zero at η = 0.446 and give ν = −0.148 at η = 0.5. This is a cross-protocol comparison: our periodic-cell mean falls inside every error bar of the paper’s 13 × 52 clamped-strip simulations in Fig. 5 for η ≤ 0.45; it does not validate our strip protocol. The paper’s marker at η = 0.49 is an arrow below its plot (about −0.14); ours there is −0.117.",
+    springsDisorderAxis: "disorder η",
+    springsPoissonAxis: "Poisson’s ratio ν",
+    springsFoamPlot: "Poisson's ratio against disorder: ours and the paper's",
+    springsStripBias: "Our implementation of the strip protocol (dashed) reads 0.371 for the perfect lattice, where the exact value is 1/3 and the paper’s Fig. 5 shows 0.331. The excess is a free-edge effect of order 1/width: strips of 26 and 52 widths read 0.354 and 0.345, extrapolating to 0.336. The paper’s strip does not show it, and its text does not say enough about the measurement for us to find out why.",
+    springsHoneyHeading: "Honeycomb: Eq. (23)",
+    springsHoneyComparison: "A honeycomb of unit edges whose opposing corners are 2ℓ apart is regular at ℓ = 1 and re-entrant below ℓ = ½. The paper triangulates each hexagon with a centre node and springs 10⁻³ as stiff as the edges, and compares with the closed form ν(ℓ) = −(2 − 4ℓ)(ℓ + ½)/(3 + 4ℓ − 4ℓ²). Our periodic network agrees to 3.4 × 10⁻³ with those springs and to 3.4 × 10⁻⁶ with springs 10⁻⁶ as stiff: the difference is the soft springs’ own stiffness.",
+    springsTryHoney: "Show ℓ = 0.25 (re-entrant)",
+    springsHoneyPlot: "Honeycomb Poisson's ratio: Eq. 23 and our network",
+    springsOrderedHeading: "Ordered lattices: an observation about spring constants",
+    springsOrderedComparison: "For ordered triangular lattices the paper gives a closed form, Supplemental Eq. (9), for ν as a function of the cell shape (φ, ψ) and orientation θ, plotted in its Fig. 4. A Bravais lattice has no nonaffine displacements, so the exact answer is the uniform-strain one, which we compute independently. Supplemental Eq. (9) and the calculation line of Fig. 7 (Young’s modulus of the (3, 2) lattice, read from the PDF’s vector data, times the area of one triangle) coincide with that affine result for spring constants k",
+    springsOrderedConvention: "², to 10⁻¹⁴ and 6 × 10⁻⁴. With equal spring constants we obtain ν = 1/6 at (φ, ψ, θ) = (1, 0.5, 0), where Eq. (9) gives 8/27. This may reflect a convention we have not identified; it is on our list of questions for the authors.",
+    springsTryOrdered: "Show (1, 0.5)",
+    springsTryEqualWeight: "(2, 0.5) at θ = 0.7, equal weight",
+    springsOrientationAxis: "lattice orientation θ, rad",
+    springsOrderedPlot: "Ordered lattice Poisson's ratio against orientation",
+    springsSelectOrdered: "Select an ordered lattice (without dilution or prestress) to plot Eq. (9) against both spring laws.",
+    springsUnreproduced: "We could not reproduce the simulation dots of Fig. 7: the paper does not say how its strip simulation measures Young’s modulus, and our reading (vertical force through mid-height over width and strain) does not reproduce those dots.",
+    springsRigidityHeading: "Rigidity and connectivity (an independent check)",
+    springsRigidity: "Not in the paper: removing bonds at random from the triangular lattice lowers the mean coordination z from 6. Maxwell’s count (2 degrees of freedom per node against z/2 bonds per node) says a generic network cannot be rigid below z = 4. Our moduli vanish to rounding at z = 3 and stay finite above about z = 3.9, the rigidity percolation threshold (e.g. Jacobs and Thorpe,",
+    springsTryDilute: "Dilute to z ≈ 3.7",
+    springsTryTension: "…and put it in tension",
+    springsCoordinationAxis: "mean coordination z",
+    springsModulusAxis: "modulus / k",
+    springsModuliPlot: "Moduli against coordination",
+    springsAllChecks: "All checks",
+    springsChecksRun: "run in CI, each with its tolerance",
+    springsCheck: "Check",
+    springsObserved: "Observed",
+    springsTolerance: "Tolerance",
+    springsResult: "Result",
+    springsLimitations: "Limitations",
+    springsNoReference: "No reference code is public. Comparisons rest on the paper’s text, its closed forms, the vector data of Figs. 7–9 and a digitisation of the raster Fig. 5 (±0.002).",
+    springsNotImplemented: "We have not implemented the paper’s own semi-analytical method (the nonaffine tensors W of its Eq. 20 in the mean-field approximation); we compare with its results.",
+    springsLinearOnly: "Linear response only (small strain). The paper minimised the nonlinear energy at 1% strain; at that strain the difference is of order 1%.",
+    springsSynchronous: "Live solves and the automatic sweep currently run synchronously on the main thread. Large or prestressed networks can block navigation and Pause until a solve returns. Terminable workers and precomputed replay are pending.",
+    springsFreeEdges: "The strip’s free edges bias the measured ν by O(1/width); the periodic moduli have no such bias.",
+    springsEnsemble: "Our ensemble (10 samples per η) estimates the mean to about ±0.005 at η ≤ 0.3 and ±0.01 near 0.5.",
+    springsNotDesign: "Agreement with a paper is not validation against experiments, and nothing here is an engineering design result.",
+    springsCodeReferences: "Code and references",
+    springsImplementation: "Implementation, tests, reference values and their provenance:",
+    springsArticleSupplement: "Article and Supplemental Material:",
+    springsFiguresCredit: ", CC BY 4.0. Figures on this page are drawn from our own runs; the paper’s points are its published data.",
+    springsFoamCredit: "Foam construction after J. Liu, Y. Nie, H. Tong and N. Xu,",
+    springsPaperReference: ", the paper’s Ref. 27.",
+    springsOpenFull: "Open full editor ↗",
+    springsExportDisabled: "Editor export is disabled: prestress and geometric stiffness are not supported by this conversion.",
+    springsRetryFull: "Retry opening full editor",
+    springsEditorDescription: "Stabileo editor (production engine): this strip as an ordinary truss, end rows pinned, the far end moved by the imposed strain. Edit and press Solve. Bar forces are 1000 × the experiment’s (E·A/L = 1000 k kN/m).",
+    springsLoadCurrent: "Load the experiment’s current network",
+    springsRetryEditor: "Retry loading editor",
+    springsLoadingEditor: "Loading the Stabileo editor…",
+    springsEditorTitle: "Stabileo editor (production engine)",
+    springsBundleMissing: "The simulation bundle is not part of this build (",
+    springsBuildBundle: "). Build it with research/metamaterials/grossman-2026/wasm/build.sh.",
+    springsLoadingSolver: "Loading the solver…",
+    springsLiveSweep: "Live sweep of η in your browser (our solver)",
+    springsPauseSweep: "Pause sweep",
+    springsViewerLabel: "Stabileo viewer: the spring network coloured by axial force on its deformed shape",
+    springsPlaceholder: "The network appears here.",
+    springsSolverRefused: "The solver refused the input:",
+    springsStripReadout: "ν, strip (paper’s protocol)",
+    springsPeriodicReadout: "ν along the pull, periodic (exact)",
+    springsAffineReadout: "B / k · G / k (affine)",
+    springsCoordinationReadout: "coordination z · nonaffinity",
+    springsNetwork: "Network",
+    springsFoamOption: "Foam (random node shifts η)",
+    springsOrderedOption: "Ordered triangular lattice (φ, ψ, θ)",
+    springsHoneyOption: "Honeycomb (ℓ)",
+    springsSquareOption: "Square lattice",
+    springsDisorder: "Disorder η",
+    springsDisorderLabel: "Disorder eta",
+    springsShear: "Shear φ",
+    springsPhi: "phi",
+    springsElongation: "Elongation ψ",
+    springsPsi: "psi",
+    springsOrientation: "Orientation θ",
+    springsTheta: "theta",
+    springsLaw: "Spring law",
+    springsEqualK: "equal k (Eq. 3)",
+    springsCornerDistance: "Corner distance ℓ",
+    springsEll: "ell",
+    springsDiagonals: "Diagonals",
+    springsBondsKept: "Bonds kept",
+    springsBondsFraction: "Fraction of bonds kept",
+    springsPrestressControl: "Prestress (rest lengths shortened)",
+    springsPrestressLabel: "Prestress: rest lengths shortened by",
+    springsStrain: "Imposed strain",
+    springsDeformation: "Deformation ×",
+    springsDeformationScale: "Deformation scale",
+    springsSeed: "Seed",
+    springsSeedLabel: "Random seed",
+    springsResolveNote: "Every change re-solves the strip and the periodic cell at once (",
+    springsResolveTime: "ms for the last one).",
+    springsReferenceUnavailable: "None is public: the authors’ code is “available at request”",
+    springsThisNetwork: "This network",
+    springsThisPeriodic: "This network (periodic)",
+    springsThisShear: "This network: G",
+    springsPaperChecks: "comparisons with published paper values",
+    springsIndependentChecks: "independent checks",
+    springsIndeterminate: "indeterminate",
+    springsAxialNormalized: "Axial force N / (k ε)",
+    springsAxial: "Axial force N / k",
+    springsNodes: "nodes",
+    springsBars: "springs",
+    springsStripSeries: "Ours, the paper’s 13 × 52 strip protocol",
+    springsFigureSeries: "Paper, Fig. 5 simulations (digitised, with error bars)",
+    springsTextSeries: "Paper, text: ν = 0 at η ≃ 0.46, −0.1 as η → 0.5",
+    springsBulkSeries: "Bulk modulus B / k",
+    springsShearSeries: "Shear modulus G / k",
+    springsHoneyPaperSeries: "Paper, Eq. (23)",
+    springsHoneySeries: "Ours, periodic network, k_radial = 10⁻³",
+    springsOrderedPaperSeries: "Paper, Supplemental Eq. (9)",
+    springsEqualWeightSeries: "Ours, equal-weight springs (k ∝ 1/ℓ²)",
+    springsHookeanSeries: "Ours, equal Hookean springs (Eq. 3)",
+    springsBandSeries: "Ours, periodic {cells}² cells, ±1 s.d. of {seeds} samples",
+    springsMeanSeries: "Ours, periodic (exact moduli), mean of {seeds}",
+    springsFullEditorError: "The full editor could not be opened:",
+    springsAlt: "The auxetic spring network (eta = 0.5) from our run, bars coloured by axial force on the deformed strip",
+    springsHook: "Shake the nodes of a triangular lattice of springs until it widens when pulled: a truss network solved in your browser, against the paper’s published numbers.",
+    shauerHook: "Pull a notched plate apart and watch an AT2 phase-field crack form and run, solved in your browser and checked step by step against the author’s code.",
+
     forceComparisonTolerance: "force comparison tolerance",
     referenceDots: " (dots where the reference differs; none expected)",
     coarseMesh: "Coarse: h = 0.0025 mm",
@@ -279,7 +590,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     liveSource: "Live computation in your browser",
     cachedSource: "Cached result (computed in this browser)",
     researchTitle: "Stabileo Research",
-    galleryLead: "Computational-mechanics papers you can run. We reproduce the authors’ code, re-implement the method on Stabileo’s engine, validate it against that reference, and let you run it here with your own parameters, in Stabileo’s viewer.",
+    galleryLead: "Computational-mechanics papers you can run. We re-implement published methods and validate against available reference code, published results, and independent checks, and let you run it here with your own parameters, in Stabileo’s viewer.",
     galleryDisclaimer: "Nothing here is an engineering result; agreement with a reference code is not a certification. Contributions:",
     damageAlt: "Damage field from our run of the experiment",
     missingPage: "No such research page",
@@ -437,6 +748,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     paper: 'Paper',
     code: 'Code',
     openInStabileo: 'Open in Stabileo',
+    editInStabileo: 'Edit in Stabileo',
     soon: 'coming with research mode',
     notDesign: 'Research, not a design tool',
     checksPass: 'checks pass',
@@ -452,6 +764,161 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'Not compared: the full text was not accessible to us',
   },
   es: {
+    springsEqualWeight: "k ∝ 1/ℓ² (como Ec. 9)",
+    springsCompressionLegend: "compresión positiva al dividir por ε negativo · tira comprimida de izquierda a derecha, filas extremas sujetas",
+    springsTensionLegend: "tracción positiva · tira estirada de izquierda a derecha, filas extremas sujetas",
+    springsZeroLegend: "deformación impuesta nula · filas extremas sujetas",
+    springsEditorChanged: "El experimento cambió mientras se cargaba el editor. Reintentá para cargar la red actual.",
+    springsEditorFailed: "No se pudo cargar el editor de Stabileo:",
+
+    springsTitle: "Redes de resortes auxéticas",
+    springsLead: "Estirá una tira de resortes de Hooke y observá cuánto se estrecha. Al desplazar los nodos de la red triangular, empieza a ensancharse: se vuelve auxética. La red de la derecha se resuelve en tu navegador como un reticulado con el motor de Stabileo, y la misma tira se abre en el editor real de Stabileo. No hay código de referencia público («disponible a pedido»), así que comparamos con los números, fórmulas y figuras publicados en el artículo, y con resultados exactos.",
+    springsPaperShows: "Qué muestra el artículo",
+    springsOverview: "Muchos materiales, desde redes de metamateriales hasta membranas celulares, se modelan como redes de resortes de Hooke. Grossman y Boudaoud deducen el continuo elástico equivalente usando solo la geometría y la topología de la red, y calculan los desplazamientos",
+    springsNonaffine: "no afines",
+    springsOverviewRelaxation: ": las desviaciones locales de un estiramiento uniforme que hacen que las redes desordenadas sean más blandas que la estimación de deformación uniforme. Contrastan la teoría con simulaciones de una tira estirada para tres familias: redes triangulares ordenadas, un panal que se vuelve reentrante y una «espuma» formada al desplazar aleatoriamente los nodos de una red triangular, que se vuelve",
+    springsAuxetic: "auxética",
+    springsOverviewAuxetic: "(coeficiente de Poisson negativo: se ensancha al estirarla) al aumentar el desorden.",
+    springsTry: "Probalo:",
+    springsPerfect: "red perfecta, η = 0",
+    springsTryAuxetic: "η = 0.5, auxética",
+    springsModel: "El modelo que resolvemos",
+    springsSprings: "Resortes",
+    springsJoin: "unen nodos; cada uno tiene rigidez",
+    springsRestLength: ", longitud de reposo ℓ̄",
+    springsCurrentLength: "y longitud actual ℓ",
+    springsEnergy: ", y la energía es",
+    springsModelViewer: "(Ec. 3 del artículo). Una red de resortes es un reticulado articulado, así que el panel derecho la muestra en el visor de Stabileo: cada barra coloreada por su fuerza axial, sobre la forma deformada. Calculamos dos cosas.",
+    springsStripTest: "El ensayo de tira del artículo.",
+    springsStripMethod: "Una tira de 13 × 52 (unos 800 nodos), con las filas superior e inferior sujetas y la superior desplazada según la deformación impuesta; el coeficiente de Poisson se obtiene del cambio de ancho entre los dos nodos de borde más cercanos a media altura, como en la Sec. V A del artículo. Se resuelve como un reticulado lineal con la factorización dispersa de Cholesky del motor de Stabileo; el mismo modelo resuelto por el análisis de reticulados 2D del motor de producción coincide hasta 10⁻¹⁴.",
+    springsExactModuli: "Módulos efectivos exactos.",
+    springsPeriodicMethod: "Una celda periódica bajo deformación macroscópica impuesta, con todos los nodos libres para relajarse: la rigidez restante es el tensor elástico C de la red, incluido el ablandamiento no afín, sin efectos de borde. El tensor de deformación uniforme (afín) es la misma suma sin relajación.",
+    springsPrestress: "Pretensión",
+    springsPrestressMethod: "(un agregado, ausente en los cálculos del artículo): longitudes de reposo acortadas una fracción, la red relajada hasta el equilibrio por el método de Newton y la respuesta lineal tomada alrededor de ese estado, incluido el aumento de rigidez por tracción.",
+    springsComparison: "Comparación con el artículo",
+    springsFoamHeading: "Espuma: la transición auxética",
+    springsFoamComparison: "El artículo informa que ν disminuye con el desorden η, cruza cero en η ≃ 0.46 y alcanza −0.1 cuando η → 0.5. Nuestros módulos periódicos exactos (10 muestras de 26 × 26 celdas por cada η) cruzan cero en η = 0.446 y dan ν = −0.148 en η = 0.5. Es una comparación entre protocolos: nuestra media de celda periódica queda dentro de todas las barras de error de las simulaciones de tiras sujetas de 13 × 52 de la Fig. 5 para η ≤ 0.45; no valida nuestro protocolo de tira. El marcador del artículo en η = 0.49 es una flecha debajo del gráfico (aproximadamente −0.14); nuestro valor allí es −0.117.",
+    springsDisorderAxis: "desorden η",
+    springsPoissonAxis: "coeficiente de Poisson ν",
+    springsFoamPlot: "Coeficiente de Poisson frente al desorden: nuestro resultado y el artículo",
+    springsStripBias: "Nuestra implementación del protocolo de tira (trazo discontinuo) da 0.371 para la red perfecta, donde el valor exacto es 1/3 y la Fig. 5 del artículo muestra 0.331. El exceso es un efecto de borde libre de orden 1/ancho: las tiras de anchos 26 y 52 dan 0.354 y 0.345, extrapolando a 0.336. La tira del artículo no lo muestra, y su texto no detalla lo suficiente la medición para saber por qué.",
+    springsHoneyHeading: "Panal: Ec. (23)",
+    springsHoneyComparison: "Un panal de aristas unitarias cuyos vértices opuestos están separados 2ℓ es regular en ℓ = 1 y reentrante por debajo de ℓ = ½. El artículo triangula cada hexágono con un nodo central y resortes de rigidez 10⁻³ respecto de las aristas, y compara con la fórmula ν(ℓ) = −(2 − 4ℓ)(ℓ + ½)/(3 + 4ℓ − 4ℓ²). Nuestra red periódica coincide hasta 3.4 × 10⁻³ con esos resortes y hasta 3.4 × 10⁻⁶ con resortes de rigidez relativa 10⁻⁶: la diferencia es la rigidez propia de los resortes blandos.",
+    springsTryHoney: "Mostrar ℓ = 0.25 (reentrante)",
+    springsHoneyPlot: "Coeficiente de Poisson del panal: Ec. 23 y nuestra red",
+    springsOrderedHeading: "Redes ordenadas: una observación sobre las constantes elásticas",
+    springsOrderedComparison: "Para redes triangulares ordenadas, el artículo da una fórmula, la Ec. suplementaria (9), para ν en función de la forma de la celda (φ, ψ) y la orientación θ, graficada en la Fig. 4. Una red de Bravais no tiene desplazamientos no afines, así que la respuesta exacta es la de deformación uniforme, que calculamos independientemente. La Ec. suplementaria (9) y la línea de cálculo de la Fig. 7 (módulo de Young de la red (3, 2), leído de los datos vectoriales del PDF y multiplicado por el área de un triángulo) coinciden con ese resultado afín para constantes elásticas k",
+    springsOrderedConvention: "², hasta 10⁻¹⁴ y 6 × 10⁻⁴. Con constantes elásticas iguales obtenemos ν = 1/6 en (φ, ψ, θ) = (1, 0.5, 0), donde la Ec. (9) da 8/27. Esto podría reflejar una convención que no identificamos; está en nuestra lista de preguntas para los autores.",
+    springsTryOrdered: "Mostrar (1, 0.5)",
+    springsTryEqualWeight: "(2, 0.5) con θ = 0.7, peso igual",
+    springsOrientationAxis: "orientación de la red θ, rad",
+    springsOrderedPlot: "Coeficiente de Poisson de la red ordenada frente a la orientación",
+    springsSelectOrdered: "Elegí una red ordenada (sin dilución ni pretensión) para comparar la Ec. (9) con ambas leyes de resortes.",
+    springsUnreproduced: "No pudimos reproducir los puntos de simulación de la Fig. 7: el artículo no indica cómo mide el módulo de Young su simulación de tira, y nuestra lectura (fuerza vertical a media altura dividida por el ancho y la deformación) no reproduce esos puntos.",
+    springsRigidityHeading: "Rigidez y conectividad (un control independiente)",
+    springsRigidity: "Fuera del artículo: quitar enlaces aleatoriamente de la red triangular reduce la coordinación media z desde 6. El conteo de Maxwell (2 grados de libertad por nodo frente a z/2 enlaces por nodo) indica que una red genérica no puede ser rígida por debajo de z = 4. Nuestros módulos se anulan hasta el redondeo en z = 3 y permanecen finitos por encima de aproximadamente z = 3.9, el umbral de percolación de rigidez (por ejemplo, Jacobs y Thorpe,",
+    springsTryDilute: "Diluir hasta z ≈ 3.7",
+    springsTryTension: "…y ponerla en tracción",
+    springsCoordinationAxis: "coordinación media z",
+    springsModulusAxis: "módulo / k",
+    springsModuliPlot: "Módulos frente a la coordinación",
+    springsAllChecks: "Todos los controles",
+    springsChecksRun: "ejecutados en CI, cada uno con su tolerancia",
+    springsCheck: "Control",
+    springsObserved: "Observado",
+    springsTolerance: "Tolerancia",
+    springsResult: "Resultado",
+    springsLimitations: "Limitaciones",
+    springsNoReference: "No hay código de referencia público. Las comparaciones se basan en el texto del artículo, sus fórmulas, los datos vectoriales de las Figs. 7–9 y una digitalización de la Fig. 5 rasterizada (±0.002).",
+    springsNotImplemented: "No implementamos el método semianalítico propio del artículo (los tensores no afines W de su Ec. 20 en la aproximación de campo medio); comparamos con sus resultados.",
+    springsLinearOnly: "Solo respuesta lineal (pequeña deformación). El artículo minimizó la energía no lineal a una deformación de 1%; a esa deformación la diferencia es de orden 1%.",
+    springsSynchronous: "Las resoluciones en vivo y el barrido automático se ejecutan actualmente de forma síncrona en el hilo principal. Las redes grandes o pretensadas pueden bloquear la navegación y Pausa hasta que termine el cálculo. Quedan pendientes los trabajadores interrumpibles y la reproducción precalculada.",
+    springsFreeEdges: "Los bordes libres de la tira sesgan el ν medido en O(1/ancho); los módulos periódicos no tienen ese sesgo.",
+    springsEnsemble: "Nuestro conjunto (10 muestras por η) estima la media con aproximadamente ±0.005 en η ≤ 0.3 y ±0.01 cerca de 0.5.",
+    springsNotDesign: "Coincidir con un artículo no es validar contra experimentos, y nada aquí es un resultado de diseño de ingeniería.",
+    springsCodeReferences: "Código y referencias",
+    springsImplementation: "Implementación, pruebas, valores de referencia y su procedencia:",
+    springsArticleSupplement: "Artículo y material suplementario:",
+    springsFiguresCredit: ", CC BY 4.0. Las figuras de esta página provienen de nuestras propias ejecuciones; los puntos del artículo son sus datos publicados.",
+    springsFoamCredit: "Construcción de espuma a partir de J. Liu, Y. Nie, H. Tong y N. Xu,",
+    springsPaperReference: ", Ref. 27 del artículo.",
+    springsOpenFull: "Abrir editor completo ↗",
+    springsExportDisabled: "La exportación al editor está deshabilitada: esta conversión no admite pretensión ni rigidez geométrica.",
+    springsRetryFull: "Reintentar abrir el editor completo",
+    springsEditorDescription: "Editor de Stabileo (motor de producción): esta tira como un reticulado común, con las filas extremas articuladas y el extremo opuesto desplazado según la deformación impuesta. Editá y presioná Resolver. Las fuerzas en las barras son 1000 × las del experimento (E·A/L = 1000 k kN/m).",
+    springsLoadCurrent: "Cargar la red actual del experimento",
+    springsRetryEditor: "Reintentar cargar el editor",
+    springsLoadingEditor: "Cargando el editor de Stabileo…",
+    springsEditorTitle: "Editor de Stabileo (motor de producción)",
+    springsBundleMissing: "El paquete de simulación no forma parte de esta compilación (",
+    springsBuildBundle: "). Compilalo con research/metamaterials/grossman-2026/wasm/build.sh.",
+    springsLoadingSolver: "Cargando el solver…",
+    springsLiveSweep: "Barrido de η en vivo en tu navegador (nuestro solver)",
+    springsPauseSweep: "Pausar barrido",
+    springsViewerLabel: "Visor de Stabileo: la red de resortes coloreada por fuerza axial sobre su forma deformada",
+    springsPlaceholder: "La red aparece aquí.",
+    springsSolverRefused: "El solver rechazó la entrada:",
+    springsStripReadout: "ν, tira (protocolo del artículo)",
+    springsPeriodicReadout: "ν en la dirección de tracción, periódica (exacta)",
+    springsAffineReadout: "B / k · G / k (afín)",
+    springsCoordinationReadout: "coordinación z · no afinidad",
+    springsNetwork: "Red",
+    springsFoamOption: "Espuma (desplazamientos aleatorios de nodos η)",
+    springsOrderedOption: "Red triangular ordenada (φ, ψ, θ)",
+    springsHoneyOption: "Panal (ℓ)",
+    springsSquareOption: "Red cuadrada",
+    springsDisorder: "Desorden η",
+    springsDisorderLabel: "Desorden eta",
+    springsShear: "Corte φ",
+    springsPhi: "phi",
+    springsElongation: "Elongación ψ",
+    springsPsi: "psi",
+    springsOrientation: "Orientación θ",
+    springsTheta: "theta",
+    springsLaw: "Ley de resortes",
+    springsEqualK: "k iguales (Ec. 3)",
+    springsCornerDistance: "Distancia entre vértices ℓ",
+    springsEll: "ell",
+    springsDiagonals: "Diagonales",
+    springsBondsKept: "Enlaces conservados",
+    springsBondsFraction: "Fracción de enlaces conservados",
+    springsPrestressControl: "Pretensión (longitudes de reposo acortadas)",
+    springsPrestressLabel: "Pretensión: acortamiento de longitudes de reposo",
+    springsStrain: "Deformación impuesta",
+    springsDeformation: "Deformación ×",
+    springsDeformationScale: "Escala de deformación",
+    springsSeed: "Semilla",
+    springsSeedLabel: "Semilla aleatoria",
+    springsResolveNote: "Cada cambio vuelve a resolver la tira y la celda periódica a la vez (",
+    springsResolveTime: "ms en el último cálculo).",
+    springsReferenceUnavailable: "No hay código público: el de los autores está «disponible a pedido»",
+    springsThisNetwork: "Esta red",
+    springsThisPeriodic: "Esta red (periódica)",
+    springsThisShear: "Esta red: G",
+    springsPaperChecks: "comparaciones con valores publicados del artículo",
+    springsIndependentChecks: "controles independientes",
+    springsIndeterminate: "indeterminado",
+    springsAxialNormalized: "Fuerza axial N / (k ε)",
+    springsAxial: "Fuerza axial N / k",
+    springsNodes: "nodos",
+    springsBars: "resortes",
+    springsStripSeries: "Nuestro resultado, protocolo de tira de 13 × 52 del artículo",
+    springsFigureSeries: "Artículo, simulaciones de la Fig. 5 (digitalizadas, con barras de error)",
+    springsTextSeries: "Artículo, texto: ν = 0 en η ≃ 0.46, −0.1 cuando η → 0.5",
+    springsBulkSeries: "Módulo volumétrico B / k",
+    springsShearSeries: "Módulo de corte G / k",
+    springsHoneyPaperSeries: "Artículo, Ec. (23)",
+    springsHoneySeries: "Nuestro resultado, red periódica, k_radial = 10⁻³",
+    springsOrderedPaperSeries: "Artículo, Ec. suplementaria (9)",
+    springsEqualWeightSeries: "Nuestro resultado, resortes de peso igual (k ∝ 1/ℓ²)",
+    springsHookeanSeries: "Nuestro resultado, resortes de Hooke iguales (Ec. 3)",
+    springsBandSeries: "Nuestro resultado, {cells}² celdas periódicas, ±1 desv. est. de {seeds} muestras",
+    springsMeanSeries: "Nuestro resultado, periódico (módulos exactos), media de {seeds}",
+    springsFullEditorError: "No se pudo abrir el editor completo:",
+    springsAlt: "La red de resortes auxética (eta = 0.5) de nuestra ejecución, con barras coloreadas por fuerza axial en la tira deformada",
+    springsHook: "Desplazá los nodos de una red triangular de resortes hasta que se ensanche al estirarla: un reticulado resuelto en tu navegador, comparado con los números publicados del artículo.",
+    shauerHook: "Estirá una placa entallada y observá cómo se forma y avanza una grieta de campo de fase AT2, resuelta en tu navegador y verificada paso a paso contra el código del autor.",
+
     forceComparisonTolerance: "tolerancia de comparación de fuerzas",
     referenceDots: " (puntos donde la referencia difiere; no se espera ninguno)",
     coarseMesh: "Gruesa: h = 0.0025 mm",
@@ -502,7 +969,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     liveSource: "Cálculo en vivo en tu navegador",
     cachedSource: "Resultado en caché (calculado en este navegador)",
     researchTitle: "Stabileo Research",
-    galleryLead: "Artículos de mecánica computacional que podés ejecutar. Reproducimos el código de los autores, reimplementamos el método en el motor de Stabileo, lo validamos frente a esa referencia y te permitimos ejecutarlo aquí con tus propios parámetros, en el visor de Stabileo.",
+    galleryLead: "Artículos de mecánica computacional que podés ejecutar. Reimplementamos métodos publicados y los validamos contra el código de referencia disponible, resultados publicados y controles independientes, y te dejamos ejecutarlos aquí con tus propios parámetros, en el visor de Stabileo.",
     galleryDisclaimer: "Nada de esto es un resultado de ingeniería; la concordancia con un código de referencia no es una certificación. Contribuciones:",
     damageAlt: "Campo de daño de nuestra ejecución del experimento",
     missingPage: "No existe esa página de investigación",
@@ -660,6 +1127,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     paper: 'Artículo',
     code: 'Código',
     openInStabileo: 'Abrir en Stabileo',
+    editInStabileo: 'Editar en Stabileo',
     soon: 'llega con el modo investigación',
     notDesign: 'Investigación, no una herramienta de diseño',
     checksPass: 'controles aprobados',
@@ -675,6 +1143,161 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
   },
   pt: {
+    springsEqualWeight: "k ∝ 1/ℓ² (como Eq. 9)",
+    springsCompressionLegend: "compressão positiva após divisão por ε negativo · faixa comprimida da esquerda para a direita, fileiras extremas presas",
+    springsTensionLegend: "tração positiva · faixa tracionada da esquerda para a direita, fileiras extremas presas",
+    springsZeroLegend: "deformação imposta nula · fileiras extremas presas",
+    springsEditorChanged: "O experimento mudou enquanto o editor carregava. Tente novamente para carregar a rede atual.",
+    springsEditorFailed: "Não foi possível carregar o editor do Stabileo:",
+
+    springsTitle: "Redes de molas auxéticas",
+    springsLead: "Tracione uma faixa de molas de Hooke e veja quanto ela se estreita. Ao deslocar os nós da rede triangular, ela começa a alargar: torna-se auxética. A rede à direita é resolvida no seu navegador como uma treliça pelo motor do Stabileo, e a mesma faixa abre no editor real do Stabileo. Não há código de referência público («disponível mediante solicitação»), então comparamos com os números, fórmulas e figuras publicados no artigo e com resultados exatos.",
+    springsPaperShows: "O que o artigo mostra",
+    springsOverview: "Muitos materiais, de redes de metamateriais a membranas celulares, são modelados como redes de molas de Hooke. Grossman e Boudaoud deduzem o contínuo elástico equivalente usando apenas a geometria e a topologia da rede e calculam os deslocamentos",
+    springsNonaffine: "não afins",
+    springsOverviewRelaxation: ": os desvios locais de um alongamento uniforme que tornam as redes desordenadas mais flexíveis que a estimativa de deformação uniforme. Comparam a teoria com simulações de uma faixa tracionada para três famílias: redes triangulares ordenadas, uma colmeia que se torna reentrante e uma «espuma» formada ao deslocar aleatoriamente os nós de uma rede triangular, que se torna",
+    springsAuxetic: "auxética",
+    springsOverviewAuxetic: "(coeficiente de Poisson negativo: alarga ao ser tracionada) com o aumento da desordem.",
+    springsTry: "Experimente:",
+    springsPerfect: "rede perfeita, η = 0",
+    springsTryAuxetic: "η = 0.5, auxética",
+    springsModel: "O modelo que resolvemos",
+    springsSprings: "Molas",
+    springsJoin: "unem nós; cada uma tem rigidez",
+    springsRestLength: ", comprimento de repouso ℓ̄",
+    springsCurrentLength: "e comprimento atual ℓ",
+    springsEnergy: ", e a energia é",
+    springsModelViewer: "(Eq. 3 do artigo). Uma rede de molas é uma treliça articulada, então o painel direito a mostra no visualizador do Stabileo: cada barra colorida pela força axial, sobre a forma deformada. Calculamos duas coisas.",
+    springsStripTest: "O ensaio de faixa do artigo.",
+    springsStripMethod: "Uma faixa de 13 × 52 (cerca de 800 nós), com as fileiras superior e inferior presas e a superior deslocada conforme a deformação imposta; o coeficiente de Poisson é obtido da mudança de largura entre os dois nós de borda mais próximos da meia altura, como na Seç. V A do artigo. Resolvida como treliça linear pela fatoração esparsa de Cholesky do motor do Stabileo; o mesmo modelo resolvido pela análise de treliças 2D do motor de produção concorda até 10⁻¹⁴.",
+    springsExactModuli: "Módulos efetivos exatos.",
+    springsPeriodicMethod: "Uma célula periódica sob deformação macroscópica imposta, com todos os nós livres para relaxar: a rigidez restante é o tensor elástico C da rede, incluindo o amolecimento não afim, sem efeitos de borda. O tensor de deformação uniforme (afim) é a mesma soma sem relaxamento.",
+    springsPrestress: "Pré-tensão",
+    springsPrestressMethod: "(um acréscimo, ausente nos cálculos do artigo): comprimentos de repouso encurtados por uma fração, a rede relaxada até o equilíbrio pelo método de Newton e a resposta linear tomada nesse estado, incluindo o enrijecimento por tração.",
+    springsComparison: "Comparação com o artigo",
+    springsFoamHeading: "Espuma: a transição auxética",
+    springsFoamComparison: "O artigo relata ν decrescendo com a desordem η, cruzando zero em η ≃ 0.46 e chegando a −0.1 quando η → 0.5. Nossos módulos periódicos exatos (10 amostras de 26 × 26 células para cada η) cruzam zero em η = 0.446 e dão ν = −0.148 em η = 0.5. É uma comparação entre protocolos: nossa média da célula periódica fica dentro de todas as barras de erro das simulações de faixas presas de 13 × 52 da Fig. 5 para η ≤ 0.45; isso não valida nosso protocolo de faixa. O marcador do artigo em η = 0.49 é uma seta abaixo do gráfico (cerca de −0.14); nosso valor ali é −0.117.",
+    springsDisorderAxis: "desordem η",
+    springsPoissonAxis: "coeficiente de Poisson ν",
+    springsFoamPlot: "Coeficiente de Poisson em função da desordem: nosso resultado e o artigo",
+    springsStripBias: "Nossa implementação do protocolo de faixa (tracejada) dá 0.371 para a rede perfeita, onde o valor exato é 1/3 e a Fig. 5 do artigo mostra 0.331. O excesso é um efeito de borda livre de ordem 1/largura: faixas de larguras 26 e 52 dão 0.354 e 0.345, extrapolando para 0.336. A faixa do artigo não o mostra, e o texto não detalha suficientemente a medição para sabermos por quê.",
+    springsHoneyHeading: "Colmeia: Eq. (23)",
+    springsHoneyComparison: "Uma colmeia de arestas unitárias cujos vértices opostos estão separados por 2ℓ é regular em ℓ = 1 e reentrante abaixo de ℓ = ½. O artigo triangula cada hexágono com um nó central e molas de rigidez 10⁻³ em relação às arestas, e compara com a fórmula ν(ℓ) = −(2 − 4ℓ)(ℓ + ½)/(3 + 4ℓ − 4ℓ²). Nossa rede periódica concorda até 3.4 × 10⁻³ com essas molas e até 3.4 × 10⁻⁶ com molas de rigidez relativa 10⁻⁶: a diferença é a própria rigidez das molas flexíveis.",
+    springsTryHoney: "Mostrar ℓ = 0.25 (reentrante)",
+    springsHoneyPlot: "Coeficiente de Poisson da colmeia: Eq. 23 e nossa rede",
+    springsOrderedHeading: "Redes ordenadas: uma observação sobre as constantes elásticas",
+    springsOrderedComparison: "Para redes triangulares ordenadas, o artigo fornece uma fórmula, a Eq. suplementar (9), para ν em função da forma da célula (φ, ψ) e da orientação θ, mostrada na Fig. 4. Uma rede de Bravais não tem deslocamentos não afins, portanto a resposta exata é a de deformação uniforme, que calculamos independentemente. A Eq. suplementar (9) e a linha de cálculo da Fig. 7 (módulo de Young da rede (3, 2), lido dos dados vetoriais do PDF e multiplicado pela área de um triângulo) coincidem com esse resultado afim para constantes elásticas k",
+    springsOrderedConvention: "², até 10⁻¹⁴ e 6 × 10⁻⁴. Com constantes elásticas iguais obtemos ν = 1/6 em (φ, ψ, θ) = (1, 0.5, 0), onde a Eq. (9) dá 8/27. Isso pode refletir uma convenção que não identificamos; está na nossa lista de perguntas aos autores.",
+    springsTryOrdered: "Mostrar (1, 0.5)",
+    springsTryEqualWeight: "(2, 0.5) com θ = 0.7, peso igual",
+    springsOrientationAxis: "orientação da rede θ, rad",
+    springsOrderedPlot: "Coeficiente de Poisson da rede ordenada em função da orientação",
+    springsSelectOrdered: "Selecione uma rede ordenada (sem diluição ou pré-tensão) para comparar a Eq. (9) com ambas as leis de molas.",
+    springsUnreproduced: "Não conseguimos reproduzir os pontos de simulação da Fig. 7: o artigo não informa como sua simulação de faixa mede o módulo de Young, e nossa leitura (força vertical à meia altura dividida pela largura e pela deformação) não reproduz esses pontos.",
+    springsRigidityHeading: "Rigidez e conectividade (uma verificação independente)",
+    springsRigidity: "Fora do artigo: remover ligações aleatoriamente da rede triangular reduz a coordenação média z a partir de 6. A contagem de Maxwell (2 graus de liberdade por nó contra z/2 ligações por nó) indica que uma rede genérica não pode ser rígida abaixo de z = 4. Nossos módulos se anulam até o arredondamento em z = 3 e permanecem finitos acima de cerca de z = 3.9, o limiar de percolação de rigidez (por exemplo, Jacobs e Thorpe,",
+    springsTryDilute: "Diluir até z ≈ 3.7",
+    springsTryTension: "…e colocá-la em tração",
+    springsCoordinationAxis: "coordenação média z",
+    springsModulusAxis: "módulo / k",
+    springsModuliPlot: "Módulos em função da coordenação",
+    springsAllChecks: "Todas as verificações",
+    springsChecksRun: "executados em CI, cada um com sua tolerância",
+    springsCheck: "Verificação",
+    springsObserved: "Observado",
+    springsTolerance: "Tolerância",
+    springsResult: "Resultado",
+    springsLimitations: "Limitações",
+    springsNoReference: "Não há código de referência público. As comparações se baseiam no texto do artigo, suas fórmulas, os dados vetoriais das Figs. 7–9 e uma digitalização da Fig. 5 rasterizada (±0.002).",
+    springsNotImplemented: "Não implementamos o método semianalítico próprio do artigo (os tensores não afins W da sua Eq. 20 na aproximação de campo médio); comparamos com seus resultados.",
+    springsLinearOnly: "Apenas resposta linear (pequena deformação). O artigo minimizou a energia não linear a uma deformação de 1%; nessa deformação a diferença é de ordem 1%.",
+    springsSynchronous: "As resoluções ao vivo e a varredura automática são executadas atualmente de forma síncrona na thread principal. Redes grandes ou pré-tensionadas podem bloquear a navegação e Pausar até o fim do cálculo. Workers interrompíveis e reprodução pré-calculada estão pendentes.",
+    springsFreeEdges: "As bordas livres da faixa enviesam o ν medido em O(1/largura); os módulos periódicos não têm esse viés.",
+    springsEnsemble: "Nosso conjunto (10 amostras por η) estima a média com cerca de ±0.005 em η ≤ 0.3 e ±0.01 perto de 0.5.",
+    springsNotDesign: "Concordar com um artigo não é validar contra experimentos, e nada aqui é um resultado de projeto de engenharia.",
+    springsCodeReferences: "Código e referências",
+    springsImplementation: "Implementação, testes, valores de referência e sua origem:",
+    springsArticleSupplement: "Artigo e material suplementar:",
+    springsFiguresCredit: ", CC BY 4.0. As figuras desta página vêm das nossas próprias execuções; os pontos do artigo são seus dados publicados.",
+    springsFoamCredit: "Construção de espuma a partir de J. Liu, Y. Nie, H. Tong e N. Xu,",
+    springsPaperReference: ", Ref. 27 do artigo.",
+    springsOpenFull: "Abrir editor completo ↗",
+    springsExportDisabled: "A exportação para o editor está desativada: esta conversão não suporta pré-tensão nem rigidez geométrica.",
+    springsRetryFull: "Tentar abrir o editor completo novamente",
+    springsEditorDescription: "Editor do Stabileo (motor de produção): esta faixa como uma treliça comum, com as fileiras extremas articuladas e a extremidade oposta deslocada conforme a deformação imposta. Edite e pressione Resolver. As forças nas barras são 1000 × as do experimento (E·A/L = 1000 k kN/m).",
+    springsLoadCurrent: "Carregar a rede atual do experimento",
+    springsRetryEditor: "Tentar carregar o editor novamente",
+    springsLoadingEditor: "Carregando o editor do Stabileo…",
+    springsEditorTitle: "Editor do Stabileo (motor de produção)",
+    springsBundleMissing: "O pacote de simulação não faz parte desta compilação (",
+    springsBuildBundle: "). Compile com research/metamaterials/grossman-2026/wasm/build.sh.",
+    springsLoadingSolver: "Carregando o solver…",
+    springsLiveSweep: "Varredura de η ao vivo no seu navegador (nosso solver)",
+    springsPauseSweep: "Pausar varredura",
+    springsViewerLabel: "Visualizador do Stabileo: a rede de molas colorida pela força axial sobre sua forma deformada",
+    springsPlaceholder: "A rede aparece aqui.",
+    springsSolverRefused: "O solver rejeitou a entrada:",
+    springsStripReadout: "ν, faixa (protocolo do artigo)",
+    springsPeriodicReadout: "ν na direção de tração, periódica (exata)",
+    springsAffineReadout: "B / k · G / k (afim)",
+    springsCoordinationReadout: "coordenação z · não afinidade",
+    springsNetwork: "Rede",
+    springsFoamOption: "Espuma (deslocamentos aleatórios de nós η)",
+    springsOrderedOption: "Rede triangular ordenada (φ, ψ, θ)",
+    springsHoneyOption: "Colmeia (ℓ)",
+    springsSquareOption: "Rede quadrada",
+    springsDisorder: "Desordem η",
+    springsDisorderLabel: "Desordem eta",
+    springsShear: "Cisalhamento φ",
+    springsPhi: "phi",
+    springsElongation: "Alongamento ψ",
+    springsPsi: "psi",
+    springsOrientation: "Orientação θ",
+    springsTheta: "theta",
+    springsLaw: "Lei das molas",
+    springsEqualK: "k iguais (Eq. 3)",
+    springsCornerDistance: "Distância entre vértices ℓ",
+    springsEll: "ell",
+    springsDiagonals: "Diagonais",
+    springsBondsKept: "Ligações mantidas",
+    springsBondsFraction: "Fração de ligações mantidas",
+    springsPrestressControl: "Pré-tensão (comprimentos de repouso encurtados)",
+    springsPrestressLabel: "Pré-tensão: encurtamento dos comprimentos de repouso",
+    springsStrain: "Deformação imposta",
+    springsDeformation: "Deformação ×",
+    springsDeformationScale: "Escala de deformação",
+    springsSeed: "Semente",
+    springsSeedLabel: "Semente aleatória",
+    springsResolveNote: "Cada alteração resolve novamente a faixa e a célula periódica de uma vez (",
+    springsResolveTime: "ms no último cálculo).",
+    springsReferenceUnavailable: "Não há código público: o dos autores está «disponível mediante solicitação»",
+    springsThisNetwork: "Esta rede",
+    springsThisPeriodic: "Esta rede (periódica)",
+    springsThisShear: "Esta rede: G",
+    springsPaperChecks: "comparações com valores publicados do artigo",
+    springsIndependentChecks: "verificações independentes",
+    springsIndeterminate: "indeterminado",
+    springsAxialNormalized: "Força axial N / (k ε)",
+    springsAxial: "Força axial N / k",
+    springsNodes: "nós",
+    springsBars: "molas",
+    springsStripSeries: "Nosso resultado, protocolo de faixa de 13 × 52 do artigo",
+    springsFigureSeries: "Artigo, simulações da Fig. 5 (digitalizadas, com barras de erro)",
+    springsTextSeries: "Artigo, texto: ν = 0 em η ≃ 0.46, −0.1 quando η → 0.5",
+    springsBulkSeries: "Módulo volumétrico B / k",
+    springsShearSeries: "Módulo de cisalhamento G / k",
+    springsHoneyPaperSeries: "Artigo, Eq. (23)",
+    springsHoneySeries: "Nosso resultado, rede periódica, k_radial = 10⁻³",
+    springsOrderedPaperSeries: "Artigo, Eq. suplementar (9)",
+    springsEqualWeightSeries: "Nosso resultado, molas de peso igual (k ∝ 1/ℓ²)",
+    springsHookeanSeries: "Nosso resultado, molas de Hooke iguais (Eq. 3)",
+    springsBandSeries: "Nosso resultado, {cells}² células periódicas, ±1 desvio padrão de {seeds} amostras",
+    springsMeanSeries: "Nosso resultado, periódico (módulos exatos), média de {seeds}",
+    springsFullEditorError: "Não foi possível abrir o editor completo:",
+    springsAlt: "A rede de molas auxética (eta = 0.5) da nossa execução, com barras coloridas pela força axial na faixa deformada",
+    springsHook: "Desloque os nós de uma rede triangular de molas até que ela alargue ao ser tracionada: uma treliça resolvida no seu navegador, comparada com os números publicados do artigo.",
+    shauerHook: "Tracione uma placa entalhada e veja uma fissura de campo de fase AT2 se formar e avançar, resolvida no seu navegador e verificada passo a passo contra o código do autor.",
+
     forceComparisonTolerance: "tolerância de comparação de forças",
     referenceDots: " (pontos onde a referência difere; nenhum esperado)",
     coarseMesh: "Grossa: h = 0.0025 mm",
@@ -725,7 +1348,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     liveSource: "Cálculo ao vivo no seu navegador",
     cachedSource: "Resultado em cache (calculado neste navegador)",
     researchTitle: "Stabileo Research",
-    galleryLead: "Artigos de mecânica computacional que você pode executar. Reproduzimos o código dos autores, reimplementamos o método no motor do Stabileo, validamos em relação a essa referência e permitimos que você o execute aqui com seus próprios parâmetros, no visualizador do Stabileo.",
+    galleryLead: "Artigos de mecânica computacional que você pode executar. Reimplementamos métodos publicados e validamos em relação ao código de referência disponível, resultados publicados e verificações independentes, e permitimos que você os execute aqui com seus próprios parâmetros, no visualizador do Stabileo.",
     galleryDisclaimer: "Nada aqui é um resultado de engenharia; a concordância com um código de referência não é uma certificação. Contribuições:",
     damageAlt: "Campo de dano da nossa execução do experimento",
     missingPage: "Essa página de pesquisa não existe",
@@ -883,6 +1506,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     paper: 'Artigo',
     code: 'Código',
     openInStabileo: 'Abrir no Stabileo',
+    editInStabileo: 'Editar no Stabileo',
     soon: 'chega com o modo pesquisa',
     notDesign: 'Pesquisa, não uma ferramenta de projeto',
     checksPass: 'verificações aprovadas',

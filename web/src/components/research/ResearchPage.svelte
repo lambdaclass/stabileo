@@ -1,5 +1,6 @@
 <script lang="ts">
   import { archStrings } from './biggins2026/strings';
+  import BigginsPage from './biggins2026/BigginsPage.svelte';
   import { rs } from './i18n';
   /**
    * Stabileo Research: the gallery at /research and one page per runnable paper. Loaded as its own
@@ -11,8 +12,8 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
-  import BigginsPage from './biggins2026/BigginsPage.svelte';
   import ShauerPage from './shauer2025/ShauerPage.svelte';
+  import SpringsPage from './grossman2026/SpringsPage.svelte';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import './research.css';
@@ -31,6 +32,11 @@
       description:
         'AT2 phase-field fracture run in the browser by a Rust re-implementation validated step by step against the author’s Python reference code.',
     },
+    '/research/metamaterials/grossman-2026': {
+      title: 'Auxetic spring networks (Grossman & Boudaoud 2026) — Stabileo Research',
+      description:
+        'Spring networks solved in the browser as trusses: the auxetic transition of a disordered lattice, a re-entrant honeycomb and ordered lattices, compared with the paper’s published values.',
+    },
   };
 
   $effect(() => {
@@ -47,6 +53,8 @@
     <Gallery />
   {:else if route === '/research/fracture/shauer-2025'}
     <ShauerPage />
+  {:else if route === '/research/metamaterials/grossman-2026'}
+    <SpringsPage />
   {:else if route === '/research/mechanics/biggins-2026'}
     <BigginsPage />
   {:else}

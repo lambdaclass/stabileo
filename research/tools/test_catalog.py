@@ -137,8 +137,9 @@ def main():
         "contact without source": lambda p: p.update(contacts=[{"name": "X"}]),
         "validated without evidence": lambda p: p.update(status="numerically-validated", implementation="templates"),
         "duplicate id": None,
-        "summary from memory": lambda p: p.update(summary_source="title and prior knowledge"),
-        "summary without source": lambda p: p.update(summary_source=None),
+        "summary from reference code": lambda p: p.update(summary="unsupported summary", summary_source="reference-code"),
+        "summary from memory": lambda p: p.update(summary="unsupported summary", summary_source="title and prior knowledge"),
+        "summary without source": lambda p: p.update(summary="unsupported summary", summary_source=None),
     }
     if online:
         cases["wrong year"] = lambda p: p["crossref"].update(year=1999)

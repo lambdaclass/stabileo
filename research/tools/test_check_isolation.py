@@ -16,10 +16,10 @@ class Isolation(unittest.TestCase):
             (root / "Cargo.toml").write_text("[workspace]\n")
             (root / "web/src").mkdir(parents=True)
             source = root / "web/src/example.ts"
-            for data in ["papers.json", "fracture/paper/VALIDATION.json", "fracture/paper/reference-results/steps.csv"]:
+            for data in ["metamaterials/grossman-2026/results/stabileo_results.json", "papers.json", "fracture/paper/VALIDATION.json", "fracture/paper/reference-results/steps.csv"]:
                 source.write_text(f"import data from '../../research/{data}?raw';")
                 self.assertEqual(isolation.check(root), [])
-            for code in ["fracture/paper/src/lib.rs", "tools/catalog.py", "papers.yaml", "fracture/paper/reference-results/run.ts"]:
+            for code in ["fracture/paper/src/lib.rs", "tools/catalog.py", "metamaterials/grossman-2026/results/solver.ts", "metamaterials/grossman-2026/results/private.json", "papers.yaml", "fracture/paper/reference-results/run.ts"]:
                 source.write_text(f"import data from '../../research/{code}?raw';")
                 self.assertTrue(isolation.check(root), code)
             for code in ["fracture/paper/src/lib.rs", "${field}/${paper}/solver.js", "fracture/paper/reference-results/${name}.json"]:

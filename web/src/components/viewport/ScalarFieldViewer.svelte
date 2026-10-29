@@ -66,6 +66,8 @@
     /** What "Open in the editor" does; absent shows it as coming. */
     onOpenEditor?: (() => void) | null;
     openEditorNote?: string;
+    /** Show the status bar's "Open in the editor" button (false when the page offers its own editor). */
+    editorButton?: boolean;
   };
   let {
     xy,
@@ -91,6 +93,7 @@
     toolbar,
     onOpenEditor = null,
     openEditorNote,
+    editorButton = true,
   }: Props = $props();
 
   let container: HTMLDivElement;
@@ -130,10 +133,12 @@
     if (view) return view;
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
     for (let i = 0; i < xy.length; i += 2) {
-      x0 = Math.min(x0, xy[i]);
-      x1 = Math.max(x1, xy[i]);
-      y0 = Math.min(y0, xy[i + 1]);
-      y1 = Math.max(y1, xy[i + 1]);
+      const x = xy[i] + deformScale * (displacement?.[i] ?? 0);
+      const y = xy[i + 1] + deformScale * (displacement?.[i + 1] ?? 0);
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
     }
     return [x0, y0, x1, y1];
   }
@@ -311,7 +316,7 @@
     {#each status as s (s.label)}
       <div class="status-item"><span class="status-label">{s.label}:</span><span class="status-value">{s.value}</span></div>
     {/each}
-    <button class="sfv-editor" disabled={!onOpenEditor} onclick={() => onOpenEditor?.()} title={onOpenEditor ? t('scalarViewer.openEditor') : (openEditorNote ?? t('scalarViewer.editorNote'))}>{t('scalarViewer.openEditor')}{onOpenEditor ? '' : t('scalarViewer.soon')}</button>
+    {#if editorButton}<button class="sfv-editor" disabled={!onOpenEditor} onclick={() => onOpenEditor?.()} title={onOpenEditor ? t('scalarViewer.openEditor') : (openEditorNote ?? t('scalarViewer.editorNote'))}>{t('scalarViewer.openEditor')}{onOpenEditor ? '' : t('scalarViewer.soon')}</button>{/if}
   </div>
 </div>
 
