@@ -8,6 +8,9 @@
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs } from '../i18n';
+  import TimingLine from '../shell/TimingLine.svelte';
+  import type { ReferenceTiming } from '../shell/timing';
+  import { previewFor } from '../experiments';
   import { solverStepCount } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
@@ -428,6 +431,7 @@
       {/if}
       <PaneTabs oninteract={() => playback.interact()} tabs={TABS} bind:active={tab} flash={flashTab} />
 
+      <TimingLine {run} steps={frames.length} elements={(elements?.length ?? 0) / 4} validation={validation as { timing?: ReferenceTiming }} caseId={previewFor('shauer-2025')!.referenceCase} />
       <div class="rs-panel rs-panel-viewer" id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         {#if nodes && elements}
           <div class="rs-ribbon" onclickcapture={() => playback.interact()}>
@@ -550,7 +554,7 @@
           {:else if run?.status === 'running'}
             Solving step {frames.length + 1} of {expectedSteps}…
           {:else if run?.status === 'done'}
-            Done: {frames.length} steps{run.seconds ? ` in ${run.seconds.toFixed(1)} s` : ''}. Completed runs are kept, so earlier parameters replay instantly.
+            Done: {frames.length} steps. Completed runs are kept, so earlier parameters replay instantly.
           {:else if run?.status === 'stopped'}
             Stopped after {frames.length} steps.
           {:else if run?.status === 'error'}

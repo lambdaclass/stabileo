@@ -20,7 +20,7 @@ export type WorkerOut =
   | { type: 'reference-config'; config: string }
   | { type: 'mesh'; runId: number; nodes: Float64Array; elements: Uint32Array }
   | { type: 'step'; runId: number; step: Step; damage: Float32Array; displacement: Float32Array; syy: Float32Array }
-  | { type: 'done'; runId: number; seconds: number }
+  | { type: 'done'; runId: number; seconds: number; initSeconds?: number }
   | { type: 'error'; runId: number; message: string };
 
 /** The notched-plate configuration the solver accepts (`NotchedPlate` in examples.rs). */

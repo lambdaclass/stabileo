@@ -36,6 +36,7 @@ async function load(): Promise<Glue> {
 
 self.onmessage = async (e: MessageEvent<WorkerIn>) => {
   const msg = e.data;
+  const initStart = performance.now();
   let g: Glue;
   try {
     g = await load();
@@ -47,6 +48,8 @@ self.onmessage = async (e: MessageEvent<WorkerIn>) => {
     post({ type: 'reference-config', config: g.Simulation.referenceConfig() });
     return;
   }
+  const initSeconds = (performance.now() - initStart) / 1000;
+  const t0 = performance.now();
   const { runId } = msg;
   let sim;
   try {
@@ -56,7 +59,6 @@ self.onmessage = async (e: MessageEvent<WorkerIn>) => {
     return;
   }
   post({ type: 'mesh', runId, nodes: sim.nodes(), elements: sim.elements() });
-  const t0 = performance.now();
   try {
     for (;;) {
       const s = sim.advance();
@@ -68,7 +70,7 @@ self.onmessage = async (e: MessageEvent<WorkerIn>) => {
       for (let i = 0; i < syy.length; i++) syy[i] = stress[3 * i + 1];
       post({ type: 'step', runId, step: JSON.parse(s), damage, displacement, syy }, [damage.buffer, displacement.buffer, syy.buffer]);
     }
-    post({ type: 'done', runId, seconds: (performance.now() - t0) / 1000 });
+    post({ type: 'done', runId, initSeconds, seconds: (performance.now() - t0) / 1000 });
   } catch (err) {
     post({ type: 'error', runId, message: err instanceof Error ? err.message : String(err) });
   } finally {

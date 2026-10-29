@@ -9,6 +9,7 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
+  import { PREVIEWS } from './experiments';
   import ShauerPage from './shauer2025/ShauerPage.svelte';
   import '../landing/landing.css';
   import '../blog/blog.css';
@@ -32,7 +33,7 @@
 
   $effect(() => {
     const meta = PAGES[route];
-    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
+    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route, image: PREVIEWS.some((p) => p.path === route) ? `https://stabileo.com${route}/preview.png` : undefined });
     return () => restorePageMeta();
   });
 </script>

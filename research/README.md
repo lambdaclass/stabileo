@@ -63,3 +63,41 @@ For local comparisons, run `nix develop .. -c node scripts/check-research-route-
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
 `node --test web/scripts/research-route-budget.test.mjs` checks unchanged routes, the noise
 allowance, missing measurements and negative cases for real landing/app growth.
+
+## Timing and previews
+
+Completed live runs show device-local solve time, including model construction; WASM download/init
+is separate. Replays, failed and stopped runs show no browser timing. Optional measured reference
+timings come from `VALIDATION.json`; Python and native Rust share a machine, mesh and steps, but
+Python also writes its original VTK/plots. Neither reference time predicts browser speed.
+From the repository root, generate all three timings in an isolated environment:
+
+```sh
+nix develop -c python3 -m venv /tmp/reference-timing-venv
+nix develop -c /tmp/reference-timing-venv/bin/pip install numpy==2.1.3 scipy==1.14.1 matplotlib==3.9.2
+nix develop -c /tmp/reference-timing-venv/bin/python research/fracture/shauer-2025/reference/time_reference.py --runner-label "local $(uname -m)"
+```
+
+The hosted Research workflow also measures on reference/solver changes or manual dispatch and
+uploads `research-reference-timing/VALIDATION.json`; it never commits. Review that artifact before
+replacing the paper's `VALIDATION.json`. No measurement means no reference timing on the page.
+
+Preview configuration lives in `web/src/components/research/preview-config.json` (replay path,
+fixed view query, screenshot step, frame count and page selectors). With ffmpeg on PATH:
+
+```sh
+make research.wasm
+cd web
+nix develop .. -c npx playwright install chromium
+nix develop .. -c npm run build
+nix develop .. -c npm run research:previews
+cd ..
+python3 -I research/tools/check_previews.py
+```
+
+Capture starts its own Vite preview server, freezes replay playback, and emits 1200×630 PNG,
+600×315 thumbnail, silent VP9 WebM and H.264 MP4 under `web/public/research/<area>/<slug>/`.
+Videos are four seconds, suitable for looping; the existing two-pane page uses gallery and social
+images rather than adding a second model view. Keep those files and `web/public/research/previews.json`
+together. CI checks replay SHA-256 provenance and required assets, not pixel equality. Rebuild the
+site after capture to include the new public assets. Initial capture must run before this gate passes.

@@ -12,6 +12,7 @@ export class Run {
   frames = $state.raw<Frame[]>([]);
   status = $state<RunStatus>('running');
   seconds = $state<number | null>(null);
+  initSeconds = $state<number | null>(null);
   error = $state<string | null>(null);
   /** 'live' while and after it is computed; 'cached' when shown again from memory. */
   origin = $state<'live' | 'cached'>('live');
@@ -87,6 +88,7 @@ export class SimulationController {
     } else if (m.type === 'done') {
       run.status = 'done';
       run.seconds = m.seconds;
+      run.initSeconds = m.initSeconds ?? null;
       this.live.delete(m.runId);
     } else if (m.type === 'error') {
       run.status = 'error';
