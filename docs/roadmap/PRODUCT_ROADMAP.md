@@ -400,6 +400,53 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
 engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
 have reviewed their page.
 
+### Growth: shared models, tools and research (2026-10-29)
+
+Several tracks exist to grow Stabileo faster, and they share infrastructure: **Stabileo Research**
+(papers you can run), **Stabileo Tools** (free calculators that rank in search) and **shared models**
+below. All three are "a public page in Stabileo's viewer with a path into the editor"; build them on
+the same snapshot, viewer and prerendering pieces (#777 frozen versions, the research shell, the tools
+page). Measure them together: visitors, editor opens, forks, sign-ups, retention.
+
+#### Shared models: GitHub + Figma for structural engineering
+
+Every model can have a URL (`stabileo.com/m/<id>`) where anyone, **without an account**, can inspect
+the structure, explore loads, deformations and diagrams, and **fork** an independent copy. This turns
+Stabileo from a tool used alone into a place where engineering work is shared.
+
+1. **Already half there:** share links encode the whole model (tested by `share-link-fidelity`), the
+   research pages do "view, then Open in Stabileo", and #777 builds immutable snapshots on a separate
+   origin. Release 1 is mostly a short URL, storage and a public viewer page.
+2. **Modes:** public, unlisted (anyone with the link: warn that it is effectively public), private
+   (authorised users). **Private by default;** publishing is an explicit action; author and project
+   metadata stripped unless the author chooses otherwise; revoking deletes the stored copy.
+3. **Immutable revisions,** not live projects: `projects`, `model_revisions` (parent, model hash,
+   engine version), `shares` (access policy, fork allowed, revoked), `forks` (source revision →
+   destination project). PostgreSQL for metadata and permissions, object storage for models and result
+   fields. Links can follow the latest revision or pin one; research and report links pin.
+4. **Safety (not optional):** a snapshot records the engine version it was solved with; the viewer shows
+   that version's known issues and refusals; when a later fix changes the result, the page says so with
+   the new value and the advisory (the result-change registry and safety advisories, applied to shared
+   models). Shared results are never presented as an approval of a real design.
+5. **Releases:** (1) share — snapshot, public read-only route, viewer, permissions; (2) fork — independent
+   project with source attribution, anonymous local experimentation, save after sign-in (registration
+   only after the visitor has experienced value); (3) discovery — public gallery, examples, Open Graph
+   previews, embeddable viewer. No Git-style merging; compare revisions instead.
+6. **Later: public engineering challenges** (e.g. minimum-mass truss under stress and deflection
+   constraints), clearly educational or research benchmarks, with submissions re-run by the server; needs
+   sandboxed server-side compute.
+7. **Prerequisites:** a long-term versioned `.ded` format (#730) and old files always opening (#718);
+   moderation, abuse and rate limits, takedowns, storage costs, and model text treated as untrusted
+   (XSS).
+
+**Metrics:** shares per active engineer; unique visitors per shared model; viewer → fork rate; fork →
+successful solve; new creators who share again; 4-week retention of fork-acquired users; and
+reproducibility (opened snapshots whose recomputed results match the stored ones).
+
+**Sequence:** after the Tools pilot and #777 land (they provide the snapshot and public-page pieces);
+share and fork first, with the safety pieces from day one; discovery next; challenges once server
+compute exists.
+
 ### Stabileo Tools: free engineering calculators (2026-10-29)
 
 Engineers search for a calculation ("beam deflection calculator"), not for a platform. Each tool is a
