@@ -143,9 +143,69 @@ fn aligned_xy_plate_preserves_global_components_exactly() {
         .collect();
     let g = solid_shell_avg_stress(&coords, &u, 200e6, 0.3);
     let s = solid_shell_stresses(&coords, &u, 200e6, 0.3);
-    assert_eq!([s.sigma_xx, s.sigma_yy, s.tau_xy], [g[0], g[1], g[3]]);
     assert_eq!(
-        s.von_mises,
-        (g[0] * g[0] - g[0] * g[1] + g[1] * g[1] + 3.0 * g[3] * g[3]).sqrt()
+        [s.sigma_xx, s.sigma_yy, s.tau_xy].map(f64::to_bits),
+        [g[0], g[1], g[3]].map(f64::to_bits)
+    );
+    assert_eq!(
+        s.von_mises.to_bits(),
+        (g[0] * g[0] - g[0] * g[1] + g[1] * g[1] + 3.0 * g[3] * g[3])
+            .sqrt()
+            .to_bits()
+    );
+}
+
+fn analytical_membrane_patch(transform: fn([f64; 3]) -> [f64; 3], expected: [f64; 3]) {
+    let (e, nu) = (200e6, 0.3);
+    let [s11, s22, t12] = expected;
+    let coords = [
+        [0., 0., -0.05],
+        [2., 0., -0.05],
+        [2., 1., -0.05],
+        [0., 1., -0.05],
+        [0., 0., 0.05],
+        [2., 0., 0.05],
+        [2., 1., 0.05],
+        [0., 1., 0.05],
+    ];
+    let u: Vec<f64> = coords
+        .iter()
+        .flat_map(|&[x, y, z]| {
+            transform([
+                (s11 - nu * s22) / e * x + (1.0 + nu) * t12 / e * y,
+                (s22 - nu * s11) / e * y + (1.0 + nu) * t12 / e * x,
+                -nu * (s11 + s22) / e * z,
+            ])
+        })
+        .collect();
+    let turned = coords.map(transform);
+    let s = solid_shell_stresses(&turned, &u, e, nu);
+    let vm = (s11 * s11 - s11 * s22 + s22 * s22 + 3.0 * t12 * t12).sqrt();
+    for (actual, expected) in [s.sigma_xx, s.sigma_yy, s.tau_xy, s.von_mises]
+        .into_iter()
+        .zip([s11, s22, t12, vm])
+    {
+        near(actual, expected, vm);
+    }
+}
+
+#[test]
+fn local_e1_along_global_z_analytical_traction() {
+    let (force, width, thickness) = (50.0, 1.0, 0.1);
+    analytical_membrane_patch(
+        |[x, y, z]| [-z, y, x],
+        [force / (width * thickness), 0.0, 0.0],
+    );
+}
+
+#[test]
+fn compound_rotation_analytical_membrane_with_shear() {
+    analytical_membrane_patch(
+        |p| {
+            let [x, y, z] = rotate(p, 0.731);
+            let (s, c) = 0.917_f64.sin_cos();
+            [c * x + s * z, y, -s * x + c * z]
+        },
+        [700.0, -200.0, 150.0],
     );
 }

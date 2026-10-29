@@ -42,6 +42,29 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## Solid-shell local stress axes (PR #814, issue #757)
+
+Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
+justification and affected quantities are in
+[the results change note](../results-changes/2026-10-solid-shell-stress-axes.md).
+The review follow-up changes tests and metadata only; it introduces no further
+numerical change. Analytical membrane patches cover local e1 along global Z
+(σ11 = N/A = 500 kN/m²) and compound X/Y rotation with
+(σ11, σ22, τ12) = (700, −200, 150) kN/m². Their affine displacement fields
+come from isotropic compliance, independently of the recovery projection.
+The aligned X–Y regression compares all four values with `to_bits()` against
+the original global-component formula. Bit identity applies when the local axes
+align with global X/Y; skewed or in-plane-rotated elements use local components.
+
+Verification on 2026-10-29: the `shells` target passes all 132 tests and release
+`validation` passes all 4,763 tests. In an isolated copy, replacing only
+`let sigma_xx = project(e1, e1)` with `let sigma_xx = stress[0]` fails both
+new analytical tests while the five original frame regressions still pass.
+The unmodified implementation passes all seven. The WASM results suite passes
+all 41 tests and the snapshot gate reports no committed result changes. The web
+unit suite passes 15,704 tests (14 skipped); the web typecheck and guarded Svelte
+checks pass against their existing baselines. The changelog check passes.
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no

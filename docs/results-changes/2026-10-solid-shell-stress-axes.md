@@ -25,7 +25,12 @@ The regression suite solves flat and cylindrical panels under rotated nodal load
 (90° and arbitrary rotations about X) and checks every centroid component and
 von Mises. An independent vertical plate traction field has σ22 = N/A = 500
 kN/m²: the old recovery reported σ22 = von Mises = 0; the corrected recovery
-reports 500. The aligned X–Y regression requires exact equality to the old formula.
+reports 500. Review regressions also apply traction with local e1 along global Z
+(σ11 = N/A = 500 kN/m²), and rotate a membrane patch about both X and Y with
+analytically prescribed (σ11, σ22, τ12) = (700, −200, 150) kN/m² and
+von Mises = √737500 kN/m². The affine displacement fields use isotropic
+compliance, including the Poisson thickness contraction and tensor shear strain.
+The aligned X–Y regression requires bitwise equality to the old formula.
 
 Observed centroid von Mises (kN/m²), from the regression's first element:
 
@@ -38,10 +43,15 @@ Observed centroid von Mises (kN/m²), from the regression's first element:
 | Same panel, rotated 1.123 rad about X | 29512.73927370 | 29603.06434552 |
 | Vertical analytical traction patch | 0 | 500 |
 
-Before the implementation change, four of the five new tests failed; only the
+Before the implementation change, four of the five original regressions failed; only the
 aligned X–Y identity test passed. After the change all five passed. Rotation
 comparisons allow 1e-7 of the element's stress scale, accounting for the separate
-linear solves; the aligned X–Y recovery test uses exact equality.
+linear solves; the aligned X–Y recovery test compares floating-point bits.
+
+With the two review regressions, all seven frame tests pass. Reverting only the
+σ11 projection to global XX in an isolated copy fails exactly the two new tests;
+the original five still pass. This guards the previously uncovered local e1
+rotation as well as signed local shear under a compound rotation.
 
 The saved-project notice conservatively selects all shell models. The current
 web results corpus has no SHB8 models (the web shell selector still lists SHB8PS
