@@ -68,7 +68,7 @@ review_setup() {
 review_complete() {
   # Progress narration, permission requests and verdicts followed by more prose
   # are incomplete. Ignore only trailing blank lines / line-ending whitespace.
-  awk 'NF { last=$0; sub(/[[:space:]]+$/, "", last) }
+  awk 'NF { last=$0; sub(/^[[:space:]]+/, "", last); sub(/[[:space:]]+$/, "", last) }
     END { exit !(last == "ready" || last == "ready after should-fix items" || last == "not ready") }' "$1"
 }
 
