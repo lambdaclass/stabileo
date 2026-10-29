@@ -105,25 +105,25 @@
   });
 </script>
 
-<ExperimentShell paperId="andreassen-2011" name="Topology optimization of an MBB beam"
-  lead="An educational SIMP optimizer: redistribute a fixed amount of material to reduce compliance."
+<ExperimentShell paperId="andreassen-2011" name={s.title}
+  lead={s.lead}
   sourcePath="research/optimization/andreassen-2011"
-  verification={{ reference: { kind: 'checks', passed: referenceChecks.filter(c => c.passed).length, total: referenceChecks.length, href: '#checks' }, published: { kind: 'none', why: 'Figure 3 settings reproduced; no digitized figure comparison or published compliance values claimed.' } }}
+  verification={{ reference: { kind: 'checks', passed: referenceChecks.filter(c => c.passed).length, total: referenceChecks.length, href: '#checks' }, published: { kind: 'none', why: s.publishedLimitations } }}
   actions={{ goToStep: n => playback.seek(n - 1), setParams: p => { playback.interact(); config = { ...config, ...p } as Config; }, showTab: t => { playback.interact(); tab = t; } }}>
   {#snippet article()}
-    <h2>The experiment</h2>
-    <p>The authors’ abstract describes a compact successor to the 99-line code, adding density filtering and improving efficiency through preallocation and vectorization. Here we implement its main minimum-compliance method.</p>
-    <p>Each square uses a bilinear plane-stress element. SIMP interpolates its stiffness as E = 10⁻⁹ + ρᵖ(1 − 10⁻⁹). Optimality criteria redistribute material, with a move limit of 0.2. The engine’s sparse Cholesky solves equilibrium at every iteration.</p>
-    <h2>Reproduction</h2>
-    <p>Defaults: 60 × 20 elements, volume fraction 0.5, penalization 3, filter radius 2.4. These are section 3.4 and Figure 3(a) of the authors’ manuscript (pages 6–7). Sensitivity and density filtering use the same settings. Physical densities are shown.</p>
-    <p>Compliance is measured before each update; volume and density are recorded after it, exactly as in top88. Stop when the largest design change is at most 0.01. The reference overlay is shown only for matching default parameters.</p>
-    <h2 id="checks">Evidence and limitations</h2>
-    <p>The reference runner downloads the authors’ unmodified function, checks its SHA-256, and observes full-precision data at its plotting calls in GNU Octave. Rust tests compare iteration counts, every compliance, volume and change, and final densities, alongside independent element and filter checks.</p>
-    <p>The accessible manuscript reports optimized images and timing tables, not final compliance or iteration counts for these cases. We do not claim a paper-figure comparison. Agreement between implementations is not experimental validation or engineering certification. Alternate boundary conditions are delegated to the 2001 paper; this experiment supports the MBB load case.</p>
-    <p><a href="https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab">Abstract, manuscript and authors’ reference</a>. Journal volume 43 (2011), pages 1–16; Crossref records the online publication in 2010.</p>
+    <h2>{s.experimentHeading}</h2>
+    <p>{s.overview}</p>
+    <p>{s.method}</p>
+    <h2>{s.reproductionHeading}</h2>
+    <p>{s.defaultsDescription}</p>
+    <p>{s.recordingDescription}</p>
+    <h2 id="checks">{s.evidenceHeading}</h2>
+    <p>{s.referenceDescription}</p>
+    <p>{s.limitations}</p>
+    <p><a href="https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab">{s.referenceLink}</a>. {s.publication}</p>
   {/snippet}
   {#snippet app()}
-    <div bind:this={host} onpointerdowncapture={interact} onkeydowncapture={interact} onwheelcapture={interact} role="group" aria-label="Topology optimization">
+    <div bind:this={host} onpointerdowncapture={interact} onkeydowncapture={interact} onwheelcapture={interact} role="group" aria-label={s.viewerLabel}>
       <p aria-live="polite">{s[source]}{#if running} · {s.iteration} {num(frames.length)}{/if}</p>
       <div class="buttons"><button onclick={() => tab = 'density'}>{s.density}</button><button onclick={() => tab = 'convergence'}>{s.convergence}</button></div>
       {#if tab === 'density'}
@@ -138,9 +138,9 @@
       <input type="range" aria-label={s.iteration} min="0" max={Math.max(0, frames.length - 1)} value={playback.shown} oninput={e => playback.seek(+e.currentTarget.value)} />
       <div class="buttons"><button data-play onclick={() => playback.playing ? playback.pause() : playback.play()}>{playback.playing ? s.pause : s.play}</button><button onclick={run} disabled={disabled || running || !base}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={() => replay()} disabled={!base}>{s.restart}</button></div>
       <div class="parameters">
-        {#each fields as field, i}<label>{field.key === 'volfrac' ? s.volume : field.key === 'penal' ? s.penal : field.key === 'rmin' ? s.radius : field.key}<NumberField bind:value={config[field.key]} bind:invalid={invalid[i]} min={field.min} max={field.max} label={field.key} /></label>{/each}
+        {#each fields as field, i}<label>{field.key === 'volfrac' ? s.volume : field.key === 'penal' ? s.penal : field.key === 'rmin' ? s.radius : s[field.key]}<NumberField bind:value={config[field.key]} bind:invalid={invalid[i]} min={field.min} max={field.max} label={s[field.key === 'volfrac' ? 'volume' : field.key === 'rmin' ? 'radius' : field.key]} /></label>{/each}
         <label>{s.filter}<select bind:value={config.ft}><option value={1}>{s.sensitivity}</option><option value={2}>{s.density}</option></select></label>
-        <label>{s.load}<select><option>MBB</option></select></label>
+        <label>{s.load}<select><option>{s.mbb}</option></select></label>
         <label><input type="checkbox" bind:checked={showMesh} />{s.mesh}</label>
       </div>
       {#if disabled}<p role="alert">{s.invalid}</p>{/if}

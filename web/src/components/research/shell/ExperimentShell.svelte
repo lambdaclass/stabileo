@@ -9,11 +9,10 @@
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
-  import { fieldName, rs } from '../i18n';
+  import { fieldName, rs, researchLocale } from '../i18n';
   import { provideExperiment, type ExperimentActions, type Check } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
-  import { publicI18n } from '../../../lib/i18n/store.svelte';
 
   type Props = {
     paperId: string;
@@ -28,8 +27,10 @@
     sourcePath: string;
     article: Snippet;
     app: Snippet;
+    /** One column with the app first and not sticky (e.g. while an embedded editor is shown). */
+    wide?: boolean;
   };
-  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app }: Props = $props();
+  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app, wide = false }: Props = $props();
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
@@ -43,29 +44,26 @@
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head">
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang="en">{name}</h1>
+      <h1 lang={researchLocale()}>{name}</h1>
       <p class="rs-cite">
-        After {authors}, “{paper.crossref.title}”, <em>{paper.crossref.venue}</em> ({paper.crossref.year}),
-        <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">doi:{paper.doi}</a>.
+        {s.afterAuthors} {authors}, “{paper.crossref.title}”, <em>{paper.crossref.venue}</em> ({paper.crossref.year}),
+        <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
       />
-      <p class="rs-lead" lang="en">{lead}</p>
+      <p class="rs-lead" lang={researchLocale()}>{lead}</p>
     </header>
-    <div class="rs-shell-grid">
-      <article class="rs-shell-article rs-prose" lang="en">
-        {#if publicI18n.locale !== 'en'}<p class="rs-only-en" lang={publicI18n.locale}>{s.onlyEnglish}</p>{/if}
+    <div class="rs-shell-grid" class:rs-wide={wide}>
+      <article class="rs-shell-article rs-prose" lang={researchLocale()}>
         {@render article()}
-        <h2 id="cite">Cite this</h2>
+        <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
-          Stabileo Research, “{name}”, reproduction of {authors} ({paper.crossref.year}), doi:{paper.doi}.
-          Implementation: <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} at commit {commit}</a>.
-          Engine: the Stabileo engine at the same commit. Permanent links to this exact build are planned.
+          {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside class="rs-shell-app" aria-label="The experiment">
+      <aside class="rs-shell-app" aria-label={s.theExperiment}>
         {@render app()}
       </aside>
     </div>
@@ -137,6 +135,16 @@
       height: calc(100dvh - var(--lp-nav-h, 3.6rem) - 1.5rem);
       overflow: hidden;
     }
+    .rs-shell-grid.rs-wide {
+      display: flex;
+      flex-direction: column;
+    }
+    .rs-wide .rs-shell-app {
+      order: -1;
+      position: static;
+      height: auto;
+      overflow: visible;
+    }
   }
   :global(.research .mobile-sticky) {
     display: none;
@@ -148,12 +156,6 @@
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
-  }
-  .rs-only-en {
-    color: var(--fg-2);
-    font-size: var(--rs-small);
-    border-left: 2px solid var(--hair);
-    padding-left: 0.75rem;
   }
   .rs-citebox {
     font: var(--rs-small)/1.6 var(--st-sans);

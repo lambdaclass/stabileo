@@ -581,10 +581,7 @@ const it: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Esporta relazione Excel con tutti i fogli (modello + risultati)',
-  'project.exportPdfTooltip': 'Genera relazione PDF stampabile',
   'project.exportDxfTooltip': 'Esporta in AutoCAD DXF con diagrammi',
-  'project.exportSvgTooltip': 'Esporta grafico vettoriale SVG',
-  'project.exportPngTooltip': 'Esporta screenshot PNG',
   'project.exportCsvTooltip': 'Esporta tabella risultati come CSV',
   'project.openDedTooltip': 'Apri file progetto (.ded / .json)',
   'project.openDxfTooltip': 'Importa geometria da file AutoCAD DXF',
@@ -2517,7 +2514,6 @@ const it: Translations = {
   'report.printBtn': 'Stampa / PDF',
   'report.docTitle': '{name} — Relazione di Calcolo',
   'report.coverSubtitle': 'Relazione di Calcolo Strutturale',
-  'report.coverCode': 'Verifica secondo CIRSOC 201',
   'report.coverFooter': 'Stabileo — Analisi Strutturale',
   'report.modelData': '1. Dati del Modello',
   'report.view3d': 'Vista 3D',
@@ -2920,7 +2916,6 @@ const it: Translations = {
   'pro.noSlabs': 'Nessun solaio (quad) con risultati di tensione nel modello.',
   'pro.driftTitle': 'Drift di interpiano — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Limite',
-  'pro.solveFirst': 'Calcola prima la struttura',
   'pro.noVerifiableElems': 'Nessun elemento verificabile trovato. Assicurati che i materiali abbiano f\'c <= 80 MPa (calcestruzzo) o fy > 80 MPa (acciaio) e le sezioni abbiano proprietà definite.',
   'pro.verifyPrompt': 'Premi "Verifica elementi" per eseguire la verifica CIRSOC 201 / 301',
   'pro.wasmNotice': 'Richiede ricompilazione WASM — le verifiche {code} saranno abilitate quando i controlli saranno compilati nel motore nativo.',

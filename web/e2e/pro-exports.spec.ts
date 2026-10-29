@@ -17,7 +17,7 @@ test.describe('PRO exports', () => {
   });
 
   test('DXF: shells as 3D faces, a layer per content, in millimetres', async ({ pro: page }) => {
-    await page.getByTestId('pp-export-dxf').click();
+    await page.getByTestId('pp-export-drawings').click();
     const dialog = page.getByTestId('pro-dxf-export-dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByTestId('pro-dxf-deformed').check();
@@ -35,7 +35,8 @@ test.describe('PRO exports', () => {
   });
 
   test('a picture of the shells\' result, as SVG', async ({ pro: page }) => {
-    await page.getByTestId('pp-export-svg').click();
+    await page.getByTestId('pp-export-drawings').click();
+    await page.getByTestId('pro-dxf-export-dialog').getByTestId('drawing-format-svg').click();
     const dialog = page.getByTestId('pro-view-export-dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByTestId('pro-view-export-model').uncheck();
@@ -51,9 +52,10 @@ test.describe('PRO exports', () => {
   });
 
   test('JPG is offered beside SVG and PNG', async ({ pro: page }) => {
-    await page.getByTestId('pp-export-jpg').click();
+    await page.getByTestId('pp-export-drawings').click();
+    await page.getByTestId('pro-dxf-export-dialog').getByTestId('drawing-format-jpg').click();
     const dialog = page.getByTestId('pro-view-export-dialog');
-    await expect(dialog.getByTestId('pro-view-export-format-jpg')).toHaveClass(/on/);
+    await expect(dialog.getByTestId('drawing-format-jpg')).toHaveClass(/on/);
     const wait = page.waitForEvent('download');
     await dialog.getByTestId('pro-view-export-download').click();
     expect((await wait).suggestedFilename()).toMatch(/\.jpg$/);

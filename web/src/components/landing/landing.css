@@ -1722,9 +1722,10 @@
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────
-   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1280px,
-   before its contents can exceed the viewport — the previous breakpoint at
-   760px let the full desktop nav render at 768px and overflow by 45px.
+   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1140px, below
+   which its longest language (Spanish, about 1,100px with the gutters) would
+   overflow; at 760px the full nav had overflowed by 45px. 1280px laptops keep
+   the links (e2e/site-nav-width.spec.ts).
    ───────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
@@ -1741,7 +1742,7 @@
   .landing .split { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1140px) {
   .landing .nav-links {
     display: none;
     position: absolute;

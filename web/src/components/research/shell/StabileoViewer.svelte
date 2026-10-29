@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { rs, researchLocale } from '../i18n';
   import { researchAssetBase } from './assets';
   /**
    * Stabileo's viewer on a research page: the app's ScalarFieldViewer from its own bundle
    * (research-wasm/viewer/, built by research/fracture/shauer-2025/wasm/build.sh), mounted here and
    * fed with this component's props. Takes the props of ScalarFieldViewer, plain data only.
    */
+  import { viewerInteraction } from './viewer-interaction';
   import { onDestroy, onMount } from 'svelte';
 
-  let props: Record<string, unknown> = $props();
+  let { oninteract = () => {}, ...props }: Record<string, unknown> & { oninteract?: () => void } = $props();
   let host: HTMLDivElement;
   let handle: { update(p: Record<string, unknown>): void; destroy(): void } | null = null;
   let failed = $state(false);
@@ -25,7 +27,7 @@
     import(/* @vite-ignore */ `${BASE}viewer.js`)
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
-        handle = m.mountScalarFieldViewer(host, { ...props });
+        handle = m.mountScalarFieldViewer(host, { ...props, locale: researchLocale() });
       })
       .catch((err) => {
         console.warn('research: the viewer bundle could not be loaded', err);
@@ -37,15 +39,16 @@
   });
 
   $effect(() => {
-    const next = { ...props };
+    const next = { ...props, locale: researchLocale() };
     handle?.update(next);
   });
 
   onDestroy(() => handle?.destroy());
+  const strings = $derived(rs());
 </script>
 
-<div class="rs-viewer-host" bind:this={host}>
-  {#if failed}<p class="rs-viewer-failed">Stabileo’s viewer couldn’t be loaded in this build.</p>{/if}
+<div class="rs-viewer-host" bind:this={host} use:viewerInteraction={() => oninteract()}>
+  {#if failed}<p class="rs-viewer-failed">{strings.viewerUnavailable}</p>{/if}
 </div>
 
 <style>

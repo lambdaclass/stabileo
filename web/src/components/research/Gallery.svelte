@@ -3,8 +3,11 @@
    * /research: the experiments that run here first, then what is being built, then the
    * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
    */
+  import { topoptStrings } from './andreassen2011/i18n';
+  import { publicI18n } from '../../lib/i18n/store.svelte';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
+  import { isHttpUrl } from './urls';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
@@ -26,40 +29,40 @@
   const authors = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
   const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
+  const topopt = $derived(topoptStrings(publicI18n.locale));
 </script>
 
 <section class="sec sec--ink rs-g">
   <div class="wrap rs-g-col">
     <header class="rs-g-head">
-      <h1>Stabileo Research</h1>
+      <h1>{s.researchTitle}</h1>
       <p class="rs-g-lead">
-        Computational-mechanics papers you can run. We reproduce the authors’ code, re-implement the method on Stabileo’s engine,
-        validate it against that reference, and let you run it here with your own parameters, in Stabileo’s viewer.
+        {s.galleryLead}
       </p>
-      <p class="rs-g-note"><strong>{s.notDesign}.</strong> Nothing here is an engineering result; agreement with a reference code is not a certification.
-        Contributions: <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">research/CONTRIBUTING.md</a>.</p>
+      <p class="rs-g-note"><strong>{s.notDesign}.</strong> {s.galleryDisclaimer} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">{"CONTRIBUTING.md"}</a>.</p>
     </header>
 
     <h2 class="rs-g-h2">{s.runIt}</h2>
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
-          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.name}>
+          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}>
             {#if !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt="Damage field from our run of the experiment" onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.paperId === "andreassen-2011" ? topopt.thumbnailAlt : s[e.paperId === "grossman-2026" ? "springsAlt" : "damageAlt"]} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}
           </PublicLink>
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
-            <h3><PublicLink to={e.path}>{e.name}</PublicLink></h3>
-            <p class="rs-g-hook">{e.hook}</p>
+            <h3><PublicLink to={e.path}>{e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}</PublicLink></h3>
+            <p class="rs-g-hook">{e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "grossman-2026" ? s.springsHook : s.shauerHook}</p>
             <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
-              <a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>
+              {#if isHttpUrl(e.code)}<a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>{/if}
+              {#if e.editor}<PublicLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</PublicLink>{/if}
             </div>
           </div>
         </li>
@@ -97,13 +100,13 @@
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3>{p.crossref.title}</h3>
-            <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">doi:{p.doi}</a></p>
+            <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
               <p class="rs-g-sum">{p.summary}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
             {/if}
             {#if p.code.length}
-              <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a> ({c.license === 'none' ? 'no licence' : c.license}){/each}</p>
+              <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}{#if isHttpUrl(c.url)}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a>{:else}{c.url}{/if} ({c.license === 'none' ? s.noLicence : c.license}){/each}</p>
             {/if}
           </div>
         </li>
@@ -204,11 +207,16 @@
     margin: 0.4rem 0 0.6rem;
   }
   .rs-g-runbody h3 :global(a) {
+    color: var(--fg);
     text-decoration: none;
     color: var(--fg);
   }
   .rs-g-runbody h3 :global(a:hover) {
     color: var(--lp-accent, #e5482a);
+  }
+  .rs-g-runbody h3 :global(a:hover) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .rs-g-hook {
     font-size: 1rem;

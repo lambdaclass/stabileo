@@ -42,6 +42,7 @@ import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rootHandoffScript } from './root-handoff';
+import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -58,7 +59,7 @@ const DIST = process.env.PRERENDER_OUT
   ? resolve(process.env.PRERENDER_OUT)
   : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
-const LOCALES = ['en', 'es', 'pt'] as const;
+const LOCALES = PUBLIC_LOCALES;
 /**
  * The language a browser we do not speak is sent to, and the one the root
  * serves. Kept beside LOCALES because `ROOT_REDIRECT` is built from both.
@@ -66,29 +67,6 @@ const LOCALES = ['en', 'es', 'pt'] as const;
 const DEFAULT_LOCALE = 'en';
 /** Build day, for the sitemap's lastmod. */
 const TODAY = new Date().toISOString().slice(0, 10);
-type Locale = (typeof LOCALES)[number];
-
-/**
- * `LOCALES` above is the application's `PUBLIC_LOCALES`, restated.
- *
- * It cannot be imported: that constant lives in a `.svelte.ts` module full of
- * runes, and this script runs under tsx with no Svelte compiler. So it is read
- * out of the source instead — the same trick `publicPaths()` uses for the post
- * slugs — and the build fails rather than silently prerendering a language the
- * application no longer offers, or missing one it just gained.
- */
-async function assertLocalesMatchTheApp() {
-  const source = await readFile(join(ROOT, 'src/lib/i18n/store.svelte.ts'), 'utf8');
-  const declared = source.match(/export const PUBLIC_LOCALES\s*=\s*\[([^\]]*)\]/);
-  if (!declared) throw new Error('prerender: could not find PUBLIC_LOCALES in store.svelte.ts');
-  const found = [...declared[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]);
-  if (found.join(',') !== LOCALES.join(',')) {
-    throw new Error(
-      `prerender: PUBLIC_LOCALES is [${found}] but this script prerenders [${LOCALES}]. ` +
-        'Update LOCALES here — the pages, the sitemap and the root handoff all come from it.',
-    );
-  }
-}
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -144,6 +122,18 @@ const BLOG_LEAD = new Map<string, string>();
 /** A post's publication day, for its feed entry and its card. */
 const POST_DATE = new Map<string, string>();
 
+/** The languages always written; the others count for a post or standing page only once its translation file exists. */
+const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
+
+/** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
+function writtenIn(path: string): Locale[] {
+  if (path === '/' || path === '/blog') return [...LOCALES];
+  const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
+  return LOCALES.filter(
+    (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
+  );
+}
+
 /** What a captured post says about itself, read back from its own <head>: the feed and the card use it. */
 type PostHead = { path: string; locale: Locale; title: string; description: string };
 
@@ -171,7 +161,7 @@ function headMeta(head: string, attr: string, name: string): string | undefined 
  */
 function feedXml(locale: Locale, posts: PostHead[]): string {
   const items = posts
-    .filter((p) => p.locale === locale)
+    .filter((p) => p.locale === locale && writtenIn(p.path).includes(locale))
     .sort((a, b) => (POST_DATE.get(b.path) ?? '').localeCompare(POST_DATE.get(a.path) ?? ''))
     .map((p) => {
       const url = `${ORIGIN}/${locale}${p.path}/`;
@@ -254,7 +244,7 @@ async function publicPaths(): Promise<string[]> {
     if (day) POST_LASTMOD.set(pagePath, day);
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research', '/research/fracture/shauer-2025', '/research/optimization/andreassen-2011'];
+  const research = ['/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/optimization/andreassen-2011'];
   return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
 }
 
@@ -262,8 +252,7 @@ async function publicPaths(): Promise<string[]> {
  * The script the bare root carries, to hand a reader on to their language.
  *
  * Built by `scripts/root-handoff.ts`, which is where the reasoning and the
- * tests for it live. The LIST comes from `LOCALES` above, which
- * `assertLocalesMatchTheApp()` ties back to the application's own.
+ * tests for it live. The LIST comes from `LOCALES` above, which is the application's own.
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
@@ -343,7 +332,6 @@ async function main() {
     // through a tree this run never touched.
     throw new Error(`prerender: ${join(DIST, 'index.html')} is missing — run the build first`);
   }
-  await assertLocalesMatchTheApp();
   /*
    * Port 0 asks the OS for a free one. A fixed port made the build fail with
    * `EADDRINUSE` whenever anything else happened to be listening — including
@@ -390,12 +378,12 @@ async function main() {
       join(DIST, 'sitemap.xml'),
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
         LOCALES.flatMap((locale) =>
-          paths.map((path) => {
+          paths.filter((path) => writtenIn(path).includes(locale)).map((path) => {
             // Trailing slash, matching the canonical the page declares — see
             // publicHref in src/lib/i18n/public-routes.ts. Without it every
             // entry in this file was a URL that answers 301.
             const loc = `${ORIGIN}/${locale}${path === '/' ? '' : path}/`;
-            const alts = LOCALES.map(
+            const alts = writtenIn(path).map(
               (l) =>
                 `    <xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}/${l}${path === '/' ? '' : path}/"/>`,
             ).join('\n');

@@ -22,9 +22,10 @@ test.describe('@smoke PRO project workbook', () => {
     await page.evaluate(() => window.__stabileoActions.solve());
 
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('project-workbook').click();
+    await page.getByTestId('pp-export-results').click();
     const dialog = page.getByTestId('pro-data-export-dialog');
     await expect(dialog).toBeVisible();
+    await dialog.getByTestId('pro-data-format-xlsx').click();
     await dialog.getByTestId('pro-data-export-stations').locator('summary').click();
     await dialog.getByTestId('pro-data-stations-13').check();
     const wait = page.waitForEvent('download');
@@ -50,8 +51,9 @@ test.describe('@smoke PRO project workbook', () => {
     await page.getByTestId('pp-gallery').locator('[data-example="pro-plane-frame-seismic"] .pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(28);
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-export-csv').click();
+    await page.getByTestId('pp-export-results').click();
     const dialog = page.getByTestId('pro-data-export-dialog');
+    await dialog.getByTestId('pro-data-format-csv').click();
     // Everything off but the nodes.
     for (const b of await dialog.getByRole('button', { name: /^(Nada|None)$/ }).all()) await b.click();
     await dialog.getByTestId('pro-data-sheet-Nodes').check();

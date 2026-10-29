@@ -15,16 +15,14 @@
  *  - landing.pricingFreeNowNote (design free for public universities and contributors).
  * The FAQ is rendered on the page and stated as FAQPage data with the same text.
  */
-import type { PublicLocale } from '../../i18n/store.svelte';
-import type { Block } from '../types';
+import type { Block, Localized } from '../types';
 
 export type StandingPage = {
   /** The route without its language prefix. */
   path: string;
   /** ISO day of the last substantive edit (sitemap lastmod). */
   updated: string;
-  i18n: Record<
-    PublicLocale,
+  i18n: Localized<
     {
       title: string;
       /** The meta description, ≤ 160 characters. */

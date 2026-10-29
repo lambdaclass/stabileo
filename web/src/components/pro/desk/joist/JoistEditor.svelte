@@ -7,7 +7,7 @@
    * the level within a tolerance.
    */
   import { untrack } from 'svelte';
-  import { t, tp } from '../../../../lib/i18n';
+  import { t, tp, inSentence } from '../../../../lib/i18n';
   import { modelStore } from '../../../../lib/store';
   import { equalizeJoists, joistLibrary, joistPanels, setJoistSystem } from '../../../../lib/store/joist-store';
   import { designJoistPanel, type JoistSystem } from '../../../../lib/engine/joists/joist-design';
@@ -101,7 +101,7 @@
           {#each (['start', 'end'] as const) as end}
             {@const n = draft.negatives?.[end] ?? result.negatives[end]}
             {#if n}
-              <label>{t('joist.negatives')} {t(`joist.end.${end}`).toLowerCase()}
+              <label>{t('joist.negatives')} {inSentence(t(`joist.end.${end}`))}
                 <input type="number" min="1" max="4" value={n.count} onchange={(e) => (draft!.negatives = { ...(draft!.negatives ?? {}), [end]: { ...n, count: Number(e.currentTarget.value) } })} data-testid="joist-neg-{end}" />
                 Ø<input type="number" min="6" max="20" value={n.diameter} onchange={(e) => (draft!.negatives = { ...(draft!.negatives ?? {}), [end]: { ...n, diameter: Number(e.currentTarget.value) } })} />
                 L<input type="number" min="0.3" max="4" step="0.05" value={n.length} onchange={(e) => (draft!.negatives = { ...(draft!.negatives ?? {}), [end]: { ...n, length: Number(e.currentTarget.value) } })} />

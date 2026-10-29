@@ -39,8 +39,10 @@ STATUSES = [
     "proposed", "reference-reproduced", "implementation-in-progress",
     "numerically-validated", "published-figures-compared", "interactive",
 ]
+# Keep this explicit: catalog edits must not expand their own URL allowlist.
+CODE_HOSTS = {"github.com", "gitlab.com", "zenodo.org", "doi.org"}
 COMPLEXITY = {"low", "medium", "high"}
-SUMMARY_SOURCES = {"crossref-abstract", "publisher-abstract", "repository-readme", "full-text", "reference-code"}
+SUMMARY_SOURCES = {"crossref-abstract", "publisher-abstract", "repository-readme", "full-text"}
 REQUIRED = [
     "id", "doi", "crossref", "area", "keywords", "summary", "summary_source", "code", "data", "methods",
     "dependencies", "complexity", "relevance", "status", "reproduced_published_results",
@@ -104,6 +106,18 @@ def valid_checks(checks, published=False):
         (not published or isinstance(c.get("source"), str) and bool(c["source"].strip()))
         for c in checks
     )
+
+
+def valid_code_url(value):
+    if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 for c in value):
+        return False
+    try:
+        url = urllib.parse.urlsplit(value)
+        return (url.scheme == "https" and url.hostname in CODE_HOSTS
+                and url.username is None and url.password is None
+                and url.port in (None, 443) and "\\" not in value)
+    except ValueError:
+        return False
 
 
 def check_entry(p, errors):
@@ -181,6 +195,8 @@ def check_entry(p, errors):
         if not page or not os.path.isfile(os.path.join(ROOT, "..", page)):
             errors.append(f"{pid}: interactive status needs an existing page")
     for c in p.get("code") or []:
+        if not valid_code_url(c.get("url")):
+            errors.append(f"{pid}: code URL must use HTTPS on an allowed host")
         if not {"url", "license", "commit"} <= set(c):
             errors.append(f"{pid}: code entry needs url, license and commit")
         if not re.fullmatch(r"[0-9a-f]{40}", c.get("commit", "")):

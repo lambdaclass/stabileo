@@ -16,6 +16,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `papers.yaml` | Curated catalog. Bibliographic fields are checked against Crossref by `tools/catalog.py` |
 | `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
 | `optimization/andreassen-2011/` | MBB topology optimization, unmodified Octave reference capture and Rust SIMP/OC implementation |
+| `metamaterials/grossman-2026/` | Spring networks after Grossman & Boudaoud (2026): moduli, auxetic foam, honeycomb, against the paper's published values |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
 
@@ -26,8 +27,11 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 - A research crate may depend on `engine/` through a path dependency. The engine and the web
   application never import research code. The web allowlist is `research/papers.json`,
   `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
-  `reference-results/`; the engine has no exceptions. `tools/check_isolation.sh` enforces this.
-- Research CI is `.github/workflows/research.yml`, path-filtered, not part of the required checks.
+  `reference-results/`, plus `results/stabileo_results.json`; the engine has no exceptions. `tools/check_isolation.sh` enforces this.
+- Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
+  catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine
+  files change; the online checks (Crossref, licences, links) run only as the standalone Research
+  workflow, so an outage elsewhere can't block a merge.
 
 ## Reproducibility statuses
 
@@ -38,7 +42,7 @@ Statuses in `papers.yaml` are assigned from evidence in the repository, not by h
 | `proposed` | Catalogued; metadata verified against Crossref |
 | `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
 | `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
-| `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. This is agreement with the reference code; whether published numbers were reproduced is the separate `reproduced_published_results` field |
+| `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
 | `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `PUBLISHED_COMPARISON.json` with passing checks naming published sources, metrics, observations and tolerances |
 | `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
 

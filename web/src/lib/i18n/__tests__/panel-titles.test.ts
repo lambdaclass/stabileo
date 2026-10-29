@@ -19,8 +19,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { allDictFor } from '../locales/all';
-import { OFFERED_LOCALES } from '../store.svelte';
+import { allDictFor, completeLocales } from '../locales/all';
 
 /**
  * The panels `BasicPanel` can show, read from the component itself.
@@ -54,7 +53,7 @@ describe('the right-hand panel', () => {
    * carry no `ribbon.*` at all and fall back, so asserting on them would be
    * asserting that the fallback does not exist.
    */
-  for (const code of OFFERED_LOCALES) {
+  for (const code of completeLocales()) {
     const dict = allDictFor(code);
     it(`${code}: every panel has a heading`, () => {
       const missing = panels.filter((p) => !(`ribbon.${p}` in dict));
