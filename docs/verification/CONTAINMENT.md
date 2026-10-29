@@ -50,6 +50,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 | #359 | — | SCOPE | not a wrong-result defect: dimensioned-type migration programme. | Issue scope: Units in the type system (Rust and TypeScript). No demonstrated current wrong-result case in this item. |
 | #356 | — | SCOPE | not a wrong-result defect: discretization-error estimation programme; algebraic certification does not bound mesh error. | Issue scope: Discretization error estimates next to certified results. No demonstrated current wrong-result case in this item. |
 | #354 | — | SCOPE | not a wrong-result defect: scheduled verification and failure alerting programme. | Issue scope: Verification jobs that run on schedule and alert on failure. No demonstrated current wrong-result case in this item. |
+| #810 | — | TRIAGE | Reported, cause not confirmed: MITC4 Scordelis–Lo roof plateaus 15% stiff and the pinched-cylinder error grows with refinement (shell obstacle course, #809). Triage first (boundary conditions and compared quantity against the papers, other shell elements, independent programs); a WARN/REFUSE entry follows within 24 h of confirming an engine cause. | #809 page and engine/tests/benchmarks/shell_obstacle_course.json (branch research/engine-benchmarks-shell-obstacle-course) |
 | #798 | `SH-MITC4-DISTORTION` | WARN / REFUSE | Distorted MITC4; refuse only significant membrane bending (§ thresholds below). | known_issues::mitc4_macneal_harder_contains_membrane_bending_only: regular/trapezoid/parallelogram × extension/in-plane/out-of-plane; shell geometric controls |
 
 ## Predicates and limits
@@ -148,7 +149,7 @@ Commands use the pinned Nix environment and locked Cargo dependencies. The full 
 | engine/: nix develop .. -c cargo test --locked --release --test metamorphic | 19 passed, 5 existing ignored |
 | web/: nix develop .. -c npx vitest run --project unit | 15,589 passed, 14 existing skipped; 1,260 files passed, 2 skipped |
 | web/: nix develop .. -c npx vitest run --project results | 41 passed; all numerical baselines unchanged |
-| nix develop -c make typecheck.web | PASS: 247 existing TypeScript baseline errors, no new errors; no errors in guarded Svelte paths (repository-wide informational count: 343 errors, 264 warnings) |
+| nix develop -c make typecheck.web | PASS: 247 existing TypeScript baseline errors, no new typecheck errors; no errors in guarded Svelte paths (repository-wide informational count: 343 errors, 264 warnings) |
 | python3 scripts/check-containment.py | PASS: all 46 currently open safety issues have a decision |
 | git diff --check (read-only) | PASS |
 
@@ -173,3 +174,50 @@ Native debug target totals (focused final reruns have the same counts):
 | solver | 208 | 0 | 4 |
 | validation | 4763 | 0 | 0 |
 | doc-tests | 0 | 0 | 0 |
+
+## PR #807 review corrections
+
+No new typecheck errors is the acceptance criterion; the repository has an existing baseline.
+The membrane-bending predicate is checked on constrained, prepared, combined, second-order,
+foundation, SSI, contact and staged static results, using the returned state's
+thermal loads. Model-less combination APIs cannot recompute the membrane predicate and refuse
+cases carrying `SH-MITC4-DISTORTION`; model-aware multi-case solves check the combined displacement
+field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
+The determinism gate requires four structured 2D plastic refusals (#758), retains both 3D plastic
+certificates and their bundle exports, and compares all outputs exactly across runtimes.
+Results version 5 registers the warnings and refusals; no numerical kernel or baseline changes.
+
+The constrained-path guard also withholds validation-01's DEAD LOAD case (quads 640 and 657).
+Its numerical baseline is retained unchanged alongside validation-03's; the tests now require
+the specific #798 diagnostic. The Node determinism corpus contains 191 cases and 25 recorded
+refusals/errors, with four required PL-2D-INVARIANCE refusals and independent 2D bundles retained.
+
+### Review-fix verification (2026-10-29)
+
+All builds use `CARGO_TARGET_DIR` outside the checkout and a writable Nix cache under `/private/tmp`.
+No commit, push or git mutation was performed.
+
+| Requested item | Result |
+|---|---|
+| Entry-point containment | Native regressions cover prepared, constrained direct/dispatch, P-Delta, Winkler, SSI, contact and cancellation in multi-case combinations. WASM tests also cover staged, certificate/export and discretization entry points, plus non-XY solid-shell refusals. Model-less combinations refuse distortion; combinations/envelopes preserve known-issue warnings. |
+| Result-change registration | Version 5, `safety-containment-diagnostics`, localized explanations, write-up and `### BREAKING (results)` fragment. Registry, applicability and fixture-stamp tests pass. |
+| Determinism | 40 Node tests pass; 191 corpus cases, 25 recorded errors/refusals. All three browser launches are blocked by the macOS sandbox (Chromium reports Mach-port permission denied); cross-browser comparison could not run locally. |
+| Spectral result warnings | X/Y, direct and nested result shapes are covered, including banner rendering, deduplication and cycles. |
+| Localized refusals | English, Spanish and Portuguese production formatter tests pass. Basic uses that formatter; workers preserve the structured error without importing i18n runes. |
+| Stale containment audit | Three Python tests pass, including CLOSED issues and invalid inputs. Live audit reports newly opened #810 without a containment decision; no active contained issue was reported CLOSED. #810 requires separate benchmark triage. |
+| Exact diagnostic assertions | Native/WASM tests require code, severity, finding id and issue number. The two #762 seeds that fail as mechanisms require their exact existing mechanism refusal; the other eight require NUM-INVARIANCE. Ledger checks validate each issue/id/mode association. |
+| Typecheck wording | No new typecheck errors: 247 existing TypeScript errors; guarded Svelte paths pass (repository-wide informational count: 343 errors, 264 warnings). |
+
+| Command/check | Result |
+|---|---|
+| Native debug library, certificates, core, derivations, elements, gates, integration, property, reference, robustness, shells, solver, validation | PASS; final containment-focused rerun: 12/12 |
+| `cargo test --locked --release --test validation` | PASS: 4763 |
+| `cargo test --locked --release --test metamorphic` | PASS: 19, 5 existing ignored |
+| Full untargeted `cargo test --locked` | Stopped after more than 13 minutes in debug `metamorphic_pr_3d`; all other targets passed via the full/targeted debug runs above. The documented release-mode metamorphic command passed. |
+| `make wasm` | PASS |
+| `make test.web.results` | PASS: 41 |
+| `make check.results-snapshot-gate` | Reads committed HEAD and therefore cannot see these uncommitted fixes; fails on the old missing registration. The identical `decide` gate against working files and origin/main passes: two changed snapshots, three diagnostic strings, registered at version 5. |
+| `npx vitest run --project unit` | PASS: 15600, 14 existing skipped |
+| `nix develop -c make typecheck.web` | PASS: no new typecheck errors |
+| Snapshot identity against initial HEAD | All 39 files unchanged; 145515 numerical result values and 39 format versions identical. No numerical baselines regenerated. |
+| `git diff --check` (read-only) | PASS |
