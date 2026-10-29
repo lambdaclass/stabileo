@@ -18,6 +18,8 @@ declare const __STABILEO_COMMIT__: string | undefined;
  */
 export const BUILD_COMMIT: string = typeof __STABILEO_COMMIT__ === 'string' && __STABILEO_COMMIT__ ? __STABILEO_COMMIT__ : 'dev';
 
+export type ExperimentVersion = { version: number; date: string; commit: string | null };
+
 export type SnapshotEntry = {
   short: string;
   commit: string;
@@ -27,6 +29,9 @@ export type SnapshotEntry = {
   url: string;
   /** The research pages it holds (`/research/<field>/<id>`). */
   research?: string[];
+  experimentVersions?: Record<string, ExperimentVersion>;
+  engineWasmSha256?: string | null;
+  researchWasmSha256?: Record<string, string>;
 };
 
 /** This build's prefix when it is itself a snapshot (`/@abc1234/`), else null. */
@@ -59,7 +64,7 @@ export function snapshotIndex(): Promise<SnapshotEntry[]> {
 
 export type Permalink = {
   /** The snapshot cited. */
-  snapshot: Pick<SnapshotEntry, 'short' | 'commit' | 'date' | 'url'>;
+  snapshot: SnapshotEntry;
   /** True when it is this very build; false when it is the newest older one holding the page. */
   current: boolean;
 };

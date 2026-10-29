@@ -22,17 +22,35 @@ export function researchBuildPlugin(root: string): Plugin {
     resolveId: (s) => (s === id ? '\0' + id : null),
     load(resolved) {
       if (resolved !== '\0' + id) return null;
-      const sha = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
-      const engine = resolve(root, 'src/lib/wasm/dedaliano_engine_bg.wasm');
-      const research: Record<string, string> = {};
-      const dir = resolve(root, 'public/research-wasm');
-      if (existsSync(dir)) {
-        for (const exp of readdirSync(dir)) {
-          const wasm = readdirSync(resolve(dir, exp)).find((f) => f.endsWith('_bg.wasm'));
-          if (wasm) research[exp] = sha(resolve(dir, exp, wasm));
-        }
-      }
-      return `export const engineWasmSha256 = ${JSON.stringify(existsSync(engine) ? sha(engine) : null)};\nexport const researchWasmSha256 = ${JSON.stringify(research)};\n`;
+      const { engineWasmSha256, researchWasmSha256 } = researchBuildMetadata(root);
+      return `export const engineWasmSha256 = ${JSON.stringify(engineWasmSha256)};\nexport const researchWasmSha256 = ${JSON.stringify(researchWasmSha256)};\n`;
     },
   };
+}
+
+/** Metadata from the files shipped by this build, also saved in each snapshot's index entry. */
+export function researchBuildMetadata(root: string) {
+  const sha = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
+  const engine = resolve(root, 'src/lib/wasm/dedaliano_engine_bg.wasm');
+  const research: Record<string, string> = {};
+  const dir = resolve(root, 'public/research-wasm');
+  if (existsSync(dir)) {
+    for (const exp of readdirSync(dir)) {
+      const wasm = readdirSync(resolve(dir, exp)).find((f) => f.endsWith('_bg.wasm'));
+      if (wasm) research[exp] = sha(resolve(dir, exp, wasm));
+    }
+  }
+  const experimentVersions: Record<string, { version: number; date: string; commit: string | null }> = {};
+  const papers = resolve(root, '../research');
+  if (existsSync(papers)) {
+    for (const field of readdirSync(papers, { withFileTypes: true }).filter((d) => d.isDirectory())) {
+      for (const exp of readdirSync(resolve(papers, field.name), { withFileTypes: true }).filter((d) => d.isDirectory())) {
+        const file = resolve(papers, field.name, exp.name, 'versions.json');
+        if (!existsSync(file)) continue;
+        const latest = JSON.parse(readFileSync(file, 'utf8')).versions.at(-1);
+        if (latest) experimentVersions[exp.name] = { version: latest.version, date: latest.date, commit: latest.commit };
+      }
+    }
+  }
+  return { engineWasmSha256: existsSync(engine) ? sha(engine) : null, researchWasmSha256: research, experimentVersions };
 }

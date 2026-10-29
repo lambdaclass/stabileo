@@ -15,7 +15,7 @@
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { BUILD_COMMIT, REPO, THIS_SNAPSHOT, permalinkUrl, pickSnapshot, siteOrigin, snapshotIndex, type Permalink } from './permalink';
   import { citeStrings } from './cite-i18n';
-  import { citation, type CitationInput } from './citation';
+  import { citationBuild, citation, type CitationInput } from './citation';
 
   type Props = {
     paperId: string;
@@ -44,19 +44,23 @@
     void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path)));
   });
 
-  const url = $derived(link ? permalinkUrl(link.snapshot, path, publicI18n.locale) : null);
-  const commit = $derived(link?.current || !link ? BUILD_COMMIT : link.snapshot.commit);
+  const build = $derived(citationBuild(link, paperId, {
+    version, commit: BUILD_COMMIT, engineWasmSha256, experimentWasmSha256: researchWasmSha256[paperId] ?? null,
+  }));
+  const url = $derived(build.link ? permalinkUrl(build.link.snapshot, path, publicI18n.locale) : null);
+  const commit = $derived(build.commit);
   const input = $derived<CitationInput | null>(
     paper
       ? {
           id: paperId,
           name,
-          version: version?.version ?? null,
-          year: (link?.snapshot.date || version?.date || new Date().toISOString()).slice(0, 4),
+          version: build.version?.version ?? null,
+          year: build.date.slice(0, 4),
+          permanent: !!url,
           url: url ?? siteOrigin() + path + '/',
           commit,
-          engineWasmSha256: link && !link.current ? null : engineWasmSha256,
-          experimentWasmSha256: link && !link.current ? null : researchWasmSha256[paperId] ?? null,
+          engineWasmSha256: build.engineWasmSha256,
+          experimentWasmSha256: build.experimentWasmSha256,
           paper: { authors: paper.crossref.authors, title: paper.crossref.title, venue: paper.crossref.venue, year: paper.crossref.year, doi: paper.doi },
         }
       : null,
@@ -98,11 +102,11 @@
       <dt>{s.commit}</dt>
       <dd><a href="{REPO}/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank"><code>{commit}</code></a></dd>
       <dt>{s.engineWasm}</dt>
-      <dd><code title={input.engineWasmSha256 ?? ''}>{input.engineWasmSha256 ? short(input.engineWasmSha256) : link && !link.current ? s.inSnapshot : s.notBuilt}</code></dd>
+      <dd><code title={input.engineWasmSha256 ?? ''}>{input.engineWasmSha256 ? short(input.engineWasmSha256) : s.notBuilt}</code></dd>
       <dt>{s.experimentWasm}</dt>
-      <dd><code title={input.experimentWasmSha256 ?? ''}>{input.experimentWasmSha256 ? short(input.experimentWasmSha256) : link && !link.current ? s.inSnapshot : s.notBuilt}</code></dd>
+      <dd><code title={input.experimentWasmSha256 ?? ''}>{input.experimentWasmSha256 ? short(input.experimentWasmSha256) : s.notBuilt}</code></dd>
       <dt>{s.version}</dt>
-      <dd>{#if version}{version.version} ({version.date}){version.commit ? '' : `, ${s.unreleased}`}{:else}{s.noVersion}{/if}</dd>
+      <dd>{#if build.version}{build.version.version} ({build.version.date}){build.version.commit ? '' : `, ${s.unreleased}`}{:else}{s.noVersion}{/if}</dd>
       <dt>{s.paper}</dt>
       <dd><a href="https://doi.org/{input.paper.doi}" rel="noreferrer" target="_blank">doi:{input.paper.doi}</a></dd>
     </dl>

@@ -216,7 +216,7 @@
             if d.startswith('.') or not os.path.isfile(meta):
                 continue
             m = json.load(open(meta))
-            items.append({'short': m['short'], 'commit': m['commit'], 'date': m['date'], 'url': m['prefix'], 'research': m.get('research', [])})
+            items.append({'short': m['short'], 'commit': m['commit'], 'date': m['date'], 'url': m['prefix'], 'research': m.get('research', []), **{k: m[k] for k in ('experimentVersions', 'engineWasmSha256', 'researchWasmSha256') if k in m}})
         items.sort(key=lambda m: datetime.fromisoformat(m['date']), reverse=True)
         tmp = os.path.join(root, '.index.json.tmp')
         with open(tmp, 'w') as f:

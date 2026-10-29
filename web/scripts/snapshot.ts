@@ -21,6 +21,7 @@
  * With `BASE_PATH` unset or `/` the plugin does nothing at all, so the normal build is byte-for-byte
  * what it was (checked: docs/DEPLOY.md "Snapshots").
  */
+import { researchBuildMetadata } from './research-build';
 import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { transformWithEsbuild, type Plugin } from 'vite';
@@ -293,7 +294,7 @@ export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
         this.emitFile({
           type: 'asset',
           fileName: 'SNAPSHOT.json',
-          source: JSON.stringify({ commit: s.commit, short: s.short, prefix: `${s.prefix}/`, date: s.date }, null, 2) + '\n',
+          source: JSON.stringify({ commit: s.commit, short: s.short, prefix: `${s.prefix}/`, date: s.date, ...researchBuildMetadata(root) }, null, 2) + '\n',
         });
       },
       transformIndexHtml: {

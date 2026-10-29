@@ -1,8 +1,10 @@
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { expect, it, vi } from 'vitest';
 import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { snapshotPlugin, snapshotRuntime } from '../snapshot';
 
 const snapshot = { prefix: '/@abcdef0', short: 'abcdef0', commit: 'abcdef0123456789', date: '2026-10-28' };
@@ -79,4 +81,39 @@ it('deploy snapshots include shared viewer and build dependencies', () => {
     'web/package-lock.json', 'web/vite.config.ts', 'flake.lock', 'rust-toolchain.toml', 'Makefile',
   ]) expect(path, path).toMatch(paths);
   expect('backend/lib/example.ex').not.toMatch(paths);
+});
+
+it('records snapshot experiment versions and hashes and preserves them in the host index', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'snapshot-metadata-'));
+  try {
+    const root = join(tmp, 'web');
+    const write = (file: string, body: string) => {
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, body);
+    };
+    const v1 = { version: 1, date: '2025-01-01', commit: null };
+    const v2 = { version: 2, date: '2026-10-28', commit: null };
+    write(join(tmp, 'research/fracture/example/versions.json'), JSON.stringify({ versions: [v1, v2] }));
+    write(join(root, 'src/lib/wasm/dedaliano_engine_bg.wasm'), 'engine');
+    write(join(root, 'public/research-wasm/example/example_bg.wasm'), 'experiment');
+    const emitFile = vi.fn();
+    const hook = snapshotPlugin(snapshot, root)[0].generateBundle!;
+    const handler = typeof hook === 'function' ? hook : hook.handler;
+    await handler.call({ emitFile } as unknown as Parameters<typeof handler.call>[0], {} as never, {}, false);
+    const manifest = JSON.parse(emitFile.mock.calls[0][0].source);
+    expect(manifest.experimentVersions).toEqual({ example: v2 });
+    expect(manifest.engineWasmSha256).toBe(createHash('sha256').update('engine').digest('hex'));
+    expect(manifest.researchWasmSha256).toEqual({ example: createHash('sha256').update('experiment').digest('hex') });
+    write(join(tmp, 'snapshots/abcdef0/SNAPSHOT.json'), JSON.stringify(manifest));
+    write(join(tmp, 'snapshots/1111111/SNAPSHOT.json'), JSON.stringify({ short: '1111111', commit: '11111112222', date: '2025-01-01', prefix: '/@1111111/' }));
+    const deploy = readFileSync('../infra/ansible/deploy-app.yml', 'utf8');
+    const task = deploy.split('- name: Write the snapshot index (/@/)')[1];
+    const script = task.split("<<'PY'\n")[1].split('\n        PY')[0].replace(/^        /gm, '');
+    execFileSync('python3', ['-', join(tmp, 'snapshots')], { input: script });
+    const entries = JSON.parse(readFileSync(join(tmp, 'snapshots/index.json'), 'utf8')).snapshots;
+    expect(entries[0]).toMatchObject({ experimentVersions: { example: v2 }, engineWasmSha256: manifest.engineWasmSha256, researchWasmSha256: manifest.researchWasmSha256 });
+    expect(entries[1].experimentVersions).toBeUndefined();
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
