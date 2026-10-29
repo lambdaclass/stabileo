@@ -102,3 +102,16 @@ mod platform {
     }
 }
 pub use platform::Directory;
+
+
+pub fn canonical_target(path: &Path) -> io::Result<std::path::PathBuf> {
+    match path.canonicalize() {
+        Ok(target) => Ok(target),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            let parent = path.parent().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing parent"))?;
+            let name = path.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing filename"))?;
+            Ok(parent.canonicalize()?.join(name))
+        }
+        Err(e) => Err(e),
+    }
+}
