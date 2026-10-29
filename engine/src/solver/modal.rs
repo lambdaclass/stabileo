@@ -110,6 +110,13 @@ pub fn solve_modal_2d(
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     // M·r on the full free space, taken before the mass is reduced.
     let (m_r_x, m_r_y);
+    let mut structured_diagnostics = crate::known_issues::for_2d(input, crate::known_issues::Analysis::Modal);
+    let assembled_conditioning = match (&k_sparse, &k_dense) {
+        (Some(k), _) => crate::known_issues::sparse_conditioning(k),
+        (_, Some(k)) => crate::known_issues::dense_conditioning(k, nf),
+        _ => None,
+    };
+    crate::known_issues::attach(&mut structured_diagnostics, assembled_conditioning.into_iter().collect());
     let (result, ns, m_solve) = if let Some(k_ff) = k_sparse {
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
@@ -119,11 +126,13 @@ pub fn solve_modal_2d(
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
+            crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_solve).into_iter().collect());
             let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
+            crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_ff).into_iter().collect());
             let result = lanczos_generalized_eigen_sparse(&k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
             m_csc_opt = Some(m_csc);
@@ -155,6 +164,7 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
+        crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
         let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
             .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
         (result, ns, m_solve)
@@ -277,7 +287,7 @@ pub fn solve_modal_2d(
     };
 
     Ok(ModalResult {
-        structured_diagnostics: crate::known_issues::for_2d(input, crate::known_issues::Analysis::Modal),
+        structured_diagnostics,
         modes,
         n_dof: nf,
         total_mass,
@@ -386,6 +396,9 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
+    let mut structured_diagnostics = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_solve).into_iter().collect());
     let result = lanczos_generalized_eigen_sparse(k_solve, m_solve, num_modes, 0.0)
         .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
@@ -485,7 +498,7 @@ pub fn solve_modal_3d(
     } else { None };
 
     Ok(ModalResult3D {
-        structured_diagnostics: crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal),
+        structured_diagnostics,
         modes, n_dof: nf, total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,

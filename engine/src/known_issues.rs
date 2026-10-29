@@ -175,6 +175,30 @@ pub fn sparse_conditioning(k: &crate::linalg::sparse::CscMatrix) -> Option<Struc
     (max > 0.0 && (min <= max * 1e-12 || max / min > 1e8)).then(|| diagnostic("NUM-INVARIANCE"))
 }
 
+pub fn sparse_stiffness_conditioning(k: &crate::linalg::sparse::CscMatrix) -> Option<StructuredDiagnostic> {
+    if k.n == 0 { return None; }
+    if let Some(d) = sparse_conditioning(k) { return Some(d); }
+    let symbolic = std::rc::Rc::new(crate::linalg::symbolic_cholesky(k));
+    let affected = match crate::linalg::numeric_cholesky(&symbolic, k) {
+        Some(factor) => crate::solver::definiteness::sparse_pivot_check(&factor, k).is_some(),
+        None => true,
+    };
+    affected.then(|| diagnostic("NUM-INVARIANCE"))
+}
+
+pub fn dense_stiffness_conditioning(k: &[f64], n: usize) -> Option<StructuredDiagnostic> {
+    if n == 0 { return None; }
+    if let Some(d) = dense_conditioning(k, n) { return Some(d); }
+    let mut factor = k.to_vec();
+    let affected = !crate::linalg::cholesky_decompose(&mut factor, n)
+        || crate::solver::definiteness::dense_pivot_check(&factor, k, n).is_some();
+    affected.then(|| diagnostic("NUM-INVARIANCE"))
+}
+
+pub fn dense_conditioning(k: &[f64], n: usize) -> Option<StructuredDiagnostic> {
+    conditioning(&crate::solver::conditioning::check_conditioning(k, n))
+}
+
 pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) -> Option<StructuredDiagnostic> {
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
 }

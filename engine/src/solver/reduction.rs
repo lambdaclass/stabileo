@@ -407,7 +407,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     );
 
     Ok(GuyanResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&stiff.k_ff)).into_iter().collect(),
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -430,6 +430,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let assembled_conditioning = crate::known_issues::dense_conditioning(&k_ff_raw, nf);
     let f_f_raw: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
@@ -582,7 +583,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     );
 
     Ok(GuyanResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_ff, ns).or(assembled_conditioning).into_iter().collect(),
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -643,6 +644,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let assembled_conditioning = crate::known_issues::dense_conditioning(&k_ff_raw, nf);
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction if constraints present
@@ -879,7 +881,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     }
 
     Ok(CraigBamptonResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_ff, ns).or(assembled_conditioning).into_iter().collect(),
         k_reduced,
         m_reduced,
         n_reduced: nr,
@@ -1082,7 +1084,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     }
 
     Ok(CraigBamptonResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&stiff.k_ff)).into_iter().collect(),
         k_reduced,
         m_reduced,
         n_reduced: nr,
@@ -1300,7 +1302,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
 
     Ok(GuyanResult3D {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&sasm.k_ff)).into_iter().collect(),
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -1527,7 +1529,7 @@ fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBampto
     }
 
     Ok(CraigBamptonResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::sparse_stiffness_conditioning(k_sp).or_else(|| crate::known_issues::sparse_conditioning(&sasm.k_ff)).into_iter().collect(),
         k_reduced,
         m_reduced,
         n_reduced: nr,

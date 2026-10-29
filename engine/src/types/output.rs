@@ -260,7 +260,7 @@ pub enum DiagnosticCode {
 ///
 /// Designed for machine consumption: AI review, automated guidance, structured
 /// logging, and query-based result inspection.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredDiagnostic {
     /// Stable enum code — switch on this, not the message.

@@ -12,6 +12,8 @@ use super::constraints::FreeConstraintSystem;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData>,
@@ -151,6 +153,9 @@ pub fn solve_buckling_2d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Buckling));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_solve).into_iter().collect());
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
 
@@ -234,6 +239,7 @@ pub fn solve_buckling_2d(
     }
 
     Ok(BucklingResult {
+        structured_diagnostics,
         modes,
         n_dof: nf,
         element_data,
@@ -403,6 +409,9 @@ pub fn solve_buckling_3d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_solve).into_iter().collect());
     let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
         .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
@@ -473,5 +482,5 @@ pub fn solve_buckling_3d(
         });
     }
 
-    Ok(BucklingResult3D { structured_diagnostics: crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling), modes, n_dof: nf, element_data })
+    Ok(BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data })
 }

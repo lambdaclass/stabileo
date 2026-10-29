@@ -377,3 +377,168 @@ fn sampled_analyses_keep_solver_warnings() {
         assert!(ids(&m).contains(&"NUM-INVARIANCE".into()), "moving {dim}: {m:?}");
     }
 }
+
+fn assert_warning(ds: &[StructuredDiagnostic], id: &str, issue: f64) {
+    let found: Vec<_> = ds.iter().filter(|d| d.phase.as_deref() == Some(id)).collect();
+    assert_eq!(found.len(), 1, "{id}: {ds:?}");
+    assert_eq!((found[0].code, found[0].severity, found[0].value),
+        (DiagnosticCode::KnownIssue, Severity::Warning, Some(issue)));
+}
+
+#[test]
+fn advanced_conditioning_uses_actual_matrices() {
+    use dedaliano_engine::solver::{modal::*, harmonic::*, reduction::*, time_integration::*};
+    for affected in [false, true] {
+        let iz = if affected { 1e-12 } else { 1e-4 };
+        let solver = make_beam(4, 4.0, E, 0.01, iz, "fixed", None, tip(-1.0));
+        let densities = HashMap::from([("1".into(), 7850.0)]);
+        let modal = solve_modal_2d(&solver, &densities, 2).unwrap();
+        assert!(modal.modes[0].frequency > 0.0);
+        let harmonic = solve_harmonic_2d(&HarmonicInput { solver: solver.clone(), densities: densities.clone(),
+            frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "y".into() }).unwrap();
+        let guyan = guyan_reduce_2d(&GuyanInput { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
+        let cb = craig_bampton_2d(&CraigBamptonInput { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
+        let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+            "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+        })).unwrap();
+        let time = solve_time_history_2d(&th).unwrap();
+        for ds in [&modal.structured_diagnostics, &harmonic.structured_diagnostics, &guyan.structured_diagnostics, &cb.structured_diagnostics, &time.structured_diagnostics] {
+            if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
+            else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()), "{ds:?}"); }
+        }
+    }
+}
+
+#[test]
+fn reported_seeds_advanced_modal_and_time_history_are_contained() {
+    use dedaliano_engine::solver::{modal::*, time_integration::*};
+    for seed in [20800, 20833, 20865, 20795, 20756, 20824, 20840] {
+        let (mut solver, mut densities) = crate::fuzz_models::random_2d_model_rich(seed);
+        for id in solver.materials.keys() { densities.insert(id.clone(), 7850.0); }
+        if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut solver, seed); }
+        match solve_modal_2d(&solver, &densities, 2) {
+            Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
+            Err(error) => assert_eq!(error, if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }, "seed {seed}"),
+        }
+        let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+            "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+        })).unwrap();
+        assert_warning(&solve_time_history_2d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+    }
+    let (solver, densities) = crate::fuzz_models::random_3d_model_rich(20788);
+    match solve_modal_3d(&solver, &densities, 2) {
+        Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
+        Err(error) => assert_eq!(error, "Eigenvalue decomposition failed"),
+    }
+    let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
+        "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+    })).unwrap();
+    assert_warning(&solve_time_history_3d(&th).unwrap().structured_diagnostics, "NUM-INVARIANCE", 762.0);
+}
+
+#[test]
+fn creep_preserves_step_only_diagnostics_and_values() {
+    use dedaliano_engine::solver::creep_shrinkage::*;
+    for moment in [0.0, 1.0] {
+        let mut solver = make_beam(1, 4.0, E, 0.01, 1e-4, "fixed", None, vec![]);
+        solver.elements.get_mut("1").unwrap().hinge_end = true;
+        solver.connectors.insert("1".into(), serde_json::from_value(serde_json::json!({
+            "id": 1, "nodeI": 1, "nodeJ": 2, "kAxial": 0.0, "kShear": 0.0, "kMoment": 1.0
+        })).unwrap());
+        let loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1.0, my: moment })];
+        let input = CreepShrinkageInput { solver: solver.clone(), creep_params: HashMap::new(),
+            time_steps: vec![TimeStep { t_days: 28.0, additional_loads: loads.clone() }], aging_coefficient: 0.8 };
+        assert!(!ids(&solve_2d(&solver).unwrap().structured_diagnostics).contains(&"CERT-MECHANISM".into()));
+        let result = solve_creep_shrinkage_2d(&input).unwrap();
+        solver.loads = loads;
+        let direct = solve_2d(&solver).unwrap();
+        assert_eq!(serde_json::to_value(&result.steps[0].displacements).unwrap(), serde_json::to_value(&direct.displacements).unwrap());
+        let bundle = dedaliano_engine::certify::bundle::export_linear_bundle_2d(&solver).unwrap();
+        assert_eq!(ids(&bundle.structured_diagnostics), ids(&direct.structured_diagnostics));
+
+        if moment != 0.0 { assert_warning(&result.structured_diagnostics, "CERT-MECHANISM", 458.0); }
+        else { assert!(!ids(&result.structured_diagnostics).contains(&"CERT-MECHANISM".into())); }
+    }
+}
+
+#[test]
+fn buckling_and_certificate_exports_preserve_warnings() {
+    use dedaliano_engine::solver::buckling::*;
+    use dedaliano_engine::certify::{buckling::*, bundle::*, combination_bundle::*};
+    use dedaliano_engine::solver::load_cases::*;
+    for affected in [false, true] {
+        let solver = make_beam(4, 4.0, E, 0.01, if affected { 1e-12 } else { 1e-4 }, "fixed", None,
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: -1.0, fz: 0.0, my: 0.0 })]);
+        let plain = solve_buckling_2d(&solver, 1).unwrap();
+        let certified = certify_buckling_2d(&solver, 1).unwrap();
+        assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+        let linear = export_linear_bundle_2d(&solver).unwrap();
+        let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
+            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
+        let combination = export_combination_bundle_2d(&multi).unwrap();
+        for ds in [&plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics, &combination.structured_diagnostics] {
+            if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
+            else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into())); }
+        }
+        assert_eq!(LinearBundle::from_json(&linear.to_json()).unwrap().structured_diagnostics, linear.structured_diagnostics);
+        assert_eq!(CombinationBundle::from_json(&combination.to_json()).unwrap().structured_diagnostics, combination.structured_diagnostics);
+    }
+}
+
+#[test]
+fn advanced_3d_and_bundles_keep_conditioning() {
+    use dedaliano_engine::solver::{modal::*, harmonic::*, reduction::*, buckling::*, creep_shrinkage::*, time_integration::*};
+    use dedaliano_engine::certify::{buckling::*, bundle::*, combination_bundle::*};
+    use dedaliano_engine::solver::load_cases::*;
+    for affected in [false, true] {
+        let inertia = if affected { 1e-12 } else { 1e-4 };
+        let solver = make_3d_beam(4, 4.0, E, 0.3, 0.01, inertia, inertia, inertia, vec![true; 6], None,
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: -1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+        let densities = HashMap::from([("1".into(), 7850.0)]);
+        let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
+        let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
+            frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: 5, response_dof: "x".into() }).unwrap();
+        let guyan = guyan_reduce_3d(&GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![5] }).unwrap();
+        let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![5], n_modes: 2 }).unwrap();
+        let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
+            "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+        })).unwrap();
+        let time = solve_time_history_3d(&th).unwrap();
+        let creep: CreepShrinkageInput3D = serde_json::from_value(serde_json::json!({
+            "solver": solver, "creepParams": {}, "timeSteps": [{"tDays": 28.0}]
+        })).unwrap();
+        let creep = solve_creep_shrinkage_3d(&creep).unwrap();
+        let plain = solve_buckling_3d(&solver, 1).unwrap();
+        let certified = certify_buckling_3d(&solver, 1).unwrap();
+        assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+        let linear = export_linear_bundle_3d(&solver).unwrap();
+        let multi = MultiCaseInput3D { solver: solver.clone(), load_cases: vec![LoadCase3D { name: "A".into(), loads: solver.loads.clone() }],
+            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
+        let combination = export_combination_bundle_3d(&multi).unwrap();
+        for ds in [&modal.structured_diagnostics, &harmonic.structured_diagnostics, &guyan.structured_diagnostics,
+            &cb.structured_diagnostics, &time.structured_diagnostics, &creep.structured_diagnostics,
+            &plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics,
+            &combination.structured_diagnostics] {
+            if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
+            else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()), "{ds:?}"); }
+        }
+    }
+}
+
+#[test]
+fn conditioning_detects_roundoff_pivots_without_changing_matrices() {
+    use dedaliano_engine::{known_issues::*, linalg::CscMatrix};
+    for coupling in [0.5, 1.0 - 1e-12, 1.0] {
+        let dense = vec![1.0, coupling, coupling, 1.0];
+        let sparse = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[1.0, coupling, 1.0]);
+        let original = sparse.values.clone();
+        assert!(dense_conditioning(&dense, 2).is_none());
+        assert!(sparse_conditioning(&sparse).is_none());
+        for d in [dense_stiffness_conditioning(&dense, 2), sparse_stiffness_conditioning(&sparse)] {
+            if coupling > 0.5 { assert_warning(&[d.unwrap()], "NUM-INVARIANCE", 762.0); }
+            else { assert!(d.is_none()); }
+        }
+        assert_eq!(sparse.values, original);
+        assert_eq!(dense, vec![1.0, coupling, coupling, 1.0]);
+    }
+}

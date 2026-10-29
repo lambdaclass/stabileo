@@ -228,7 +228,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
             linear::solve_2d(&step)
         }
     };
-    let _base_results = solve(&input.solver.loads)?;
+    let mut structured_diagnostics = solve(&input.solver.loads)?.structured_diagnostics;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad> = Vec::new();
@@ -305,6 +305,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
         step_loads.extend(step.additional_loads.clone());
 
         let step_results = solve(&step_loads)?;
+        crate::known_issues::attach(&mut structured_diagnostics, step_results.structured_diagnostics);
 
         results.push(TimeStepResult {
             t_days: t,
@@ -317,7 +318,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     }
 
     Ok(CreepShrinkageResult {
-        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear),
+        structured_diagnostics,
         steps: results,
         converged: true,
     })
@@ -402,7 +403,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
             linear::solve_3d(&step)
         }
     };
-    let _base_results = solve(&input.solver.loads)?;
+    let mut structured_diagnostics = solve(&input.solver.loads)?.structured_diagnostics;
 
     let mut results = Vec::new();
     let cumulative_creep_loads: Vec<SolverLoad3D> = Vec::new();
@@ -472,6 +473,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
         step_loads.extend(step.additional_loads.clone());
 
         let step_results = solve(&step_loads)?;
+        crate::known_issues::attach(&mut structured_diagnostics, step_results.structured_diagnostics);
 
         results.push(TimeStepResult3D {
             t_days: t,
@@ -484,7 +486,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
     }
 
     Ok(CreepShrinkageResult3D {
-        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear),
+        structured_diagnostics,
         steps: results,
         converged: true,
     })

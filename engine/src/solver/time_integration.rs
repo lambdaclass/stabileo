@@ -309,8 +309,13 @@ fn solve_time_history_2d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let mut structured_diagnostics = crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    for matrix in [&k_s, &k_eff] {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(matrix).into_iter().collect());
+    }
     Ok(TimeHistoryResult {
-        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::TimeHistory),
+        structured_diagnostics,
         time_steps,
         node_histories,
         peak_displacements,
@@ -1330,8 +1335,13 @@ fn solve_time_history_3d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let mut structured_diagnostics = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    for matrix in [&k_s, &k_eff] {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(matrix).into_iter().collect());
+    }
     Ok(TimeHistoryResult3D {
-        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::TimeHistory),
+        structured_diagnostics,
         time_steps,
         node_histories,
         peak_displacements,

@@ -88,6 +88,8 @@ pub struct CombinationInfo {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CombinationBundle {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<crate::types::StructuredDiagnostic>,
     pub format: String,
     pub provenance: Provenance,
     pub dim: u8,
@@ -207,6 +209,7 @@ fn build(
     let sym = &l.symbolic;
     let dd = |v: &Vec<Vec<f64>>| -> Result<Vec<Vec<Dyadic>>, String> { v.iter().map(|r| dyadics(r.iter().copied())).collect() };
     Ok(CombinationBundle {
+        structured_diagnostics: crate::known_issues::sparse_conditioning(k).into_iter().collect(),
         format: COMBINATION_BUNDLE_FORMAT.into(),
         provenance,
         dim,
@@ -319,7 +322,13 @@ pub fn export_combination_bundle_2d(input: &MultiCaseInput) -> Result<Combinatio
         &bmap(&cert.envelope.force_bounds),
     )?;
     let prov = Provenance::new(input, "MultiCaseInput", &kinds())?;
-    super::finite::finite_output(build(&k, &cases, &combos, &env, qn, prov, 2))
+    let mut bundle = build(&k, &cases, &combos, &env, qn, prov, 2)?;
+    for result in results.case_results.iter().map(|c| &c.results)
+        .chain(results.combination_results.iter().map(|c| &c.results))
+        .chain(std::iter::once(&results.envelope.max_abs_results)) {
+        crate::known_issues::attach(&mut bundle.structured_diagnostics, result.structured_diagnostics.clone());
+    }
+    super::finite::finite_output(Ok(bundle))
 }
 
 /// Solve and certify a 3D multi-case model and export its combination bundle.
@@ -363,5 +372,11 @@ pub fn export_combination_bundle_3d(input: &MultiCaseInput3D) -> Result<Combinat
         &bmap(&cert.envelope.force_bounds),
     )?;
     let prov = Provenance::new(input, "MultiCaseInput3D", &kinds())?;
-    super::finite::finite_output(build(&k, &cases, &combos, &env, qn, prov, 3))
+    let mut bundle = build(&k, &cases, &combos, &env, qn, prov, 3)?;
+    for result in results.case_results.iter().map(|c| &c.results)
+        .chain(results.combination_results.iter().map(|c| &c.results))
+        .chain(std::iter::once(&results.envelope.max_abs_results_3d)) {
+        crate::known_issues::attach(&mut bundle.structured_diagnostics, result.structured_diagnostics.clone());
+    }
+    super::finite::finite_output(Ok(bundle))
 }

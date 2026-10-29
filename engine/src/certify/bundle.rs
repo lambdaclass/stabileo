@@ -103,6 +103,8 @@ pub struct BundleInfo {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LinearBundle {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<crate::types::StructuredDiagnostic>,
     pub format: String,
     pub n: usize,
     pub k: CscJson,
@@ -153,6 +155,7 @@ pub fn export_linear_bundle(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Result<
     };
     let sym = &l.symbolic;
     Ok(LinearBundle {
+        structured_diagnostics: crate::known_issues::sparse_conditioning(k).into_iter().collect(),
         format: BUNDLE_FORMAT.into(),
         n,
         k: CscJson {
@@ -190,6 +193,7 @@ pub fn export_linear_bundle_2d(input: &SolverInput) -> Result<LinearBundle, Stri
     super::finite::check_results(&results)?;
     let (k, f, u) = reduced_sparse_2d(input, &results).map_err(reason)?;
     let mut b = export_linear_bundle(&k, &f, &u)?;
+    crate::known_issues::attach(&mut b.structured_diagnostics, results.structured_diagnostics);
     b.provenance = Some(Provenance::new(input, "SolverInput", &[KIND_LINEAR])?);
     super::finite::finite_output(Ok(b))
 }
@@ -202,6 +206,7 @@ pub fn export_linear_bundle_3d(input: &SolverInput3D) -> Result<LinearBundle, St
     super::finite::check_results(&results)?;
     let (k, f, u) = reduced_sparse_3d(input, &results).map_err(reason)?;
     let mut b = export_linear_bundle(&k, &f, &u)?;
+    crate::known_issues::attach(&mut b.structured_diagnostics, results.structured_diagnostics);
     b.provenance = Some(Provenance::new(input, "SolverInput3D", &[KIND_LINEAR])?);
     super::finite::finite_output(Ok(b))
 }

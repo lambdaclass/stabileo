@@ -137,6 +137,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
 
     if nf >= super::linear::SPARSE_THRESHOLD {
         let sasm = super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num);
+        let assembled_conditioning = crate::known_issues::sparse_conditioning(&sasm.k_ff);
         let its = &sasm.inclined_transforms_2d;
         let target = target_functional(&dof_num, input.response_node_id, target_dof, its)?;
         let f_full = crate::solver::assembly::assemble_load_vector_2d(
@@ -155,9 +156,10 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
             (&sasm.k_ff, &m_csc, f_ff)
         };
         let target_s = reduce_target(&target, cs.as_ref())?;
-        if let Some((sweep, damping)) =
+        if let Some((mut sweep, damping)) =
             solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, &target_s)
         {
+            crate::known_issues::attach(&mut sweep.structured_diagnostics, assembled_conditioning.into_iter().collect());
             return Ok((sweep, damping));
         }
         // Sparse modal found no usable modes (or Lanczos failed). The dense
@@ -179,6 +181,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
 
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let assembled_conditioning = crate::known_issues::dense_conditioning(&k_ff, nf);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
@@ -192,9 +195,10 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
     // Try modal superposition first (much faster for many frequency steps)
     let target_s = reduce_target(&target, cs.as_ref())?;
 
-    if let Some((sweep, damping)) =
+    if let Some((mut sweep, damping)) =
         solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, &target_s)
     {
+        crate::known_issues::attach(&mut sweep.structured_diagnostics, assembled_conditioning.into_iter().collect());
         return Ok((sweep, damping));
     }
 
@@ -237,7 +241,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
     }
 
     Ok((HarmonicResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_s, ns).or(assembled_conditioning).into_iter().collect(),
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
@@ -306,6 +310,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
     // K and F in the inclined-support frames; M rotated with them, the
     // response read in global axes (see the 2D solver).
     let sasm = assemble_sparse_3d(&input.solver, &dof_num, false);
+    let assembled_conditioning = crate::known_issues::sparse_conditioning(&sasm.k_ff);
     let its = &sasm.inclined_transforms;
     // A load on, or a response read from, a DOF only artificial stiffness
     // holds (the rotation of a node only solid shells reach) is meaningless.
@@ -338,9 +343,10 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
         (&sasm.k_ff, &m_csc, f_ff.clone())
     };
     let target_s = reduce_target(&target, cs.as_ref())?;
-    if let Some((sweep, damping)) =
+    if let Some((mut sweep, damping)) =
         solve_harmonic_modal_sparse(k_sp, m_sp, &f_sp, &input.frequencies, input.damping_ratio, &target_s)
     {
+        crate::known_issues::attach(&mut sweep.structured_diagnostics, assembled_conditioning.into_iter().collect());
         return Ok((sweep, damping));
     }
 
@@ -368,9 +374,10 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
     let target_s = reduce_target(&target, cs.as_ref())?;
 
     // Try dense modal superposition
-    if let Some((sweep, damping)) =
+    if let Some((mut sweep, damping)) =
         solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, &target_s)
     {
+        crate::known_issues::attach(&mut sweep.structured_diagnostics, assembled_conditioning.into_iter().collect());
         return Ok((sweep, damping));
     }
 
@@ -413,7 +420,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
     }
 
     Ok((HarmonicResult {
-        structured_diagnostics: vec![],
+        structured_diagnostics: crate::known_issues::dense_stiffness_conditioning(&k_s, ns).or(assembled_conditioning).into_iter().collect(),
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
@@ -672,7 +679,9 @@ fn solve_harmonic_modal(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         k_spd.then(|| back_solve(&l, &forward_solve(&l, b, n), n))
     };
-    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)
+    let (mut result, damping) = harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(k, n).into_iter().collect());
+    Some((result, damping))
 }
 
 /// Modal superposition harmonic solver (sparse eigensolve on CSC K_ff and CSC M_ff).
@@ -692,7 +701,9 @@ fn solve_harmonic_modal_sparse(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         factor.as_ref().map(|fac| sparse_cholesky_solve(fac, b))
     };
-    harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)
+    let (mut result, damping) = harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_csc).into_iter().collect());
+    Some((result, damping))
 }
 
 // ==================== Helpers ====================
