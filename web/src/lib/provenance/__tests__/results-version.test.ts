@@ -47,6 +47,7 @@ const RELEASED: Record<number, string[]> = {
     'rc-beams-lateral-role-shear-minimum-torsion', 'rc-flanged-beams-designed-about-depth',
     'strip-footings-under-walls-whole-strip',
   ],
+  5: ['solid-shell-local-stress-axes'],
 };
 
 describe('results versions', () => {
