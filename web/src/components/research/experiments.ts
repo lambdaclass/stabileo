@@ -19,6 +19,7 @@ export type Experiment = {
 };
 
 export const EXPERIMENTS: Experiment[] = [
+  { paperId: 'southwell-1932', path: '/research/stability/southwell-1932', name: 'Southwell: an imperfect column', hook: 'First version · 0 reviews', thumbnail: 'research-thumbs/southwell-1932.svg', thumbnailAlt: 'Computed column at 80% of Euler, with magnified lateral deflection', thumbnailQuery: '', code: 'https://github.com/lambdaclass/stabileo/tree/main/research/stability/southwell-1932' },
   { paperId: 'lee-frame-1968', path: '/research/benchmarks/lee-frame-1968', name: 'Lee frame (1968)', hook: 'First version · 0 reviews', thumbnail: 'research-thumbs/lee-frame-1968.svg', thumbnailAlt: 'Lee frame from the production engine', thumbnailQuery: '', code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/lee-frame-1968' },
   {
     paperId: 'ferrari-2025',

@@ -51,3 +51,6 @@ mod cqc_1981;
 mod lee_frame;
 #[path = "../benchmarks/dadeppo_arch.rs"]
 mod dadeppo_arch;
+
+#[path = "../benchmarks/southwell_1932.rs"]
+mod southwell_1932;

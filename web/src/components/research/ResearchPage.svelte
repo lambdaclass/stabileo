@@ -21,6 +21,7 @@
   import FormPage from './pastrana2026/FormPage.svelte';
   import FaircloughPage from './fairclough2026/FaircloughPage.svelte';
   import { fs } from './fairclough2026/i18n';
+  import SouthwellPage from './southwell1932/SouthwellPage.svelte';
   import NewmarkPage from './newmark1959/NewmarkPage.svelte';
   import CqcPage from './cqc1981/CqcPage.svelte';
   import PlasticPage from './plastic-collapse/PlasticPage.svelte';
@@ -37,6 +38,7 @@
   const route = $derived(path.replace(/\/+$/, '') || '/research');
 
   const PAGES: Record<string, { title: string; description: string }> = {
+    '/research/stability/southwell-1932': { title: 'Southwell (1932) — Stabileo Research', description: 'First version: an imperfect pinned column, Southwell fit and Euler comparison.' },
     '/research/benchmarks/newmark-1959': { title: 'Newmark (1959) — Stabileo Research', description: 'First version: production Newmark average acceleration against the exact SDOF step response.' },
     '/research/benchmarks/cqc-1981': { title: 'SRSS vs CQC (1981) — Stabileo Research', description: 'First version: closely spaced building modes compared with a closed-form reference.' },
     '/research/benchmarks/plastic-collapse': { title: 'Classic plastic collapse — Stabileo Research', description: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.' },
@@ -101,6 +103,8 @@
     <BigginsPage />
   {:else if route === '/research/optimisation/fairclough-2026'}
     <FaircloughPage />
+  {:else if route === '/research/stability/southwell-1932'}
+    <SouthwellPage />
   {:else if route === '/research/benchmarks/newmark-1959'}
     <NewmarkPage />
   {:else if route === '/research/benchmarks/cqc-1981'}

@@ -1581,3 +1581,29 @@ papers:
   benchmarks: []
   implementation: null
   contacts: []
+- id: southwell-1932
+  doi: 10.1098/rspa.1932.0055
+  crossref:
+    title: On the analysis of experimental observations in problems of elastic stability
+    authors:
+    - Richard Vynne Southwell
+    year: 1932
+    venue: Proceedings of the Royal Society of London. Series A, Containing Papers of a Mathematical and Physical Character
+  area: numerical-methods
+  keywords: [elastic stability, Southwell plot, imperfect column]
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: [corotational frame, linear buckling, least squares]
+  dependencies: []
+  complexity: low
+  relevance: Tests critical-load estimation using production nonlinear and buckling solvers.
+  status: proposed
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  page: web/src/components/research/southwell1932/SouthwellPage.svelte
+  contacts: []
