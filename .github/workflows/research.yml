@@ -190,3 +190,19 @@ jobs:
           assert not extra, extra
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
+
+  koiter:
+    name: Roorda frame (Ferrari and Sigmund 2025) groundwork
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/stability/ferrari-sigmund-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Buckling, energy derivatives and every replay frame
+        run: cargo test --release --locked -- --nocapture

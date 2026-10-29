@@ -222,13 +222,15 @@ papers:
   - arc-length path following
   dependencies: []
   complexity: medium
-  relevance: Queue item 4. Runs on the production buckling, corotational and arc-length solvers; validated
-    against closed-form post-buckling coefficients of the Roorda frame and our own arc-length path. No
-    public code (in-house implementation per the paper).
-  status: proposed
+  relevance: Production buckling reproduces the simple Roorda frame load factor; element energy
+    derivatives are checked through order four. Koiter coefficients and near-bifurcation path
+    agreement remain unresolved. No public author code was run.
+  status: implementation-in-progress
   reproduced_published_results: false
-  benchmarks: []
-  implementation: null
+  benchmarks:
+  - Simple Roorda frame, Section 2.1.2; buckling load only
+  implementation: stability/ferrari-sigmund-2025
+  page: web/src/components/research/ferrari2025/FerrariPage.svelte
   contacts: []
 - id: zmyslony-2026
   doi: 10.1103/56f8-8gsx

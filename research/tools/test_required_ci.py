@@ -40,3 +40,7 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
     assert run.returncode == expected, (result, run.stdout)
 print('ok required research CI propagates failures and accepts skipped jobs')
+
+koiter = research["jobs"]["koiter"]
+assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
