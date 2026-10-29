@@ -50,30 +50,57 @@ import /etc/caddy/sites.d/*.caddy
 		file_server
 	}
 
+	@snapshotAsset path_regexp asset ^/@([0-9a-f]{7})/assets/([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)$
+	handle @snapshotAsset {
+		root * {$STABILEO_ROOT}/snapshots
+		route {
+			@absentSnapshot not file /{re.asset.1}/SNAPSHOT.json
+			respond @absentSnapshot 404
+			@availableAsset file {
+				try_files /{re.asset.1}/assets/{re.asset.2} /assets/{re.asset.2}
+			}
+			handle @availableAsset {
+				header Cache-Control "public, max-age=31536000, immutable"
+				rewrite * {file_match.relative}
+				file_server
+			}
+			respond 404
+		}
+	}
+	@invalidSnapshotAsset path_regexp ^/@[0-9a-f]{7}/assets(?:/|$)
+	handle @invalidSnapshotAsset {
+		respond 404
+	}
+
 	@snapshot path_regexp snap ^/@([0-9a-f]{7})(/.*)?$
 	handle @snapshot {
-		root * {$STABILEO_ROOT}/snapshots
+		root * {$STABILEO_ROOT}/snapshots/{re.snap.1}
 		route {
 			@bare path_regexp ^/@[0-9a-f]{7}$
 			redir @bare {path}/ 301
 			@snapDirNoSlash {
 				not path */
-				file /{re.snap.1}{re.snap.2}/index.html
+				file {re.snap.2}/index.html
 			}
 			redir @snapDirNoSlash {path}/ 301
 			# A missing file is a 404, as on the plain site; only page addresses fall back to the app.
 			@snapMissingFile {
 				path_regexp \.[^/]*$
-				not file /{re.snap.1}{re.snap.2}
+				not file {re.snap.2}
 			}
 			respond @snapMissingFile 404
 			@found file {
-				try_files /{re.snap.1}{re.snap.2} /{re.snap.1}{re.snap.2}/index.html /{re.snap.1}/index.html
+				try_files {re.snap.2} {re.snap.2}/index.html /index.html
 			}
 			header @found Cache-Control "public, max-age=31536000, immutable"
 			rewrite @found {file_match.relative}
 			file_server
 		}
+	}
+
+	@invalidSnapshot path /@*
+	handle @invalidSnapshot {
+		respond 404
 	}
 
 	@static path_regexp \.
