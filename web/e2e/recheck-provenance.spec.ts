@@ -47,6 +47,34 @@ function oldProject(materialId: 1 | 2, type: 'truss' | 'frame') {
 const recheck = (page: Page) => page.evaluate(() => window.__stabileo.recheck());
 
 test.describe('@smoke re-check prompt for old projects', () => {
+  test('keeps old results stale and acknowledgement disabled while notice details load', async ({ pro: page }) => {
+    let requested = false;
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/full-registry-*.js', async route => {
+      requested = true;
+      await pending;
+      await route.continue();
+    });
+    try {
+      expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+      await expect(page.getByTestId('recheck-notice')).toBeVisible();
+      await expect.poll(() => requested).toBe(true);
+      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+      await expect(page.getByTestId('recheck-later')).toBeDisabled();
+      await expect(page.getByTestId('recheck-rerun')).toBeDisabled();
+      expect((await recheck(page)).stale).toBe(true);
+    } finally {
+      release();
+    }
+    await expect(page.locator('[data-change-id="cirsoc301-tension-needs-connection"]')).toBeVisible();
+    await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+    await page.getByTestId('recheck-ack').check();
+    await page.getByTestId('recheck-later').click();
+    await expect(page.getByTestId('recheck-notice')).toBeHidden();
+    expect((await recheck(page)).stale).toBe(true);
+  });
+
   test('a steel project lists the CIRSOC 301 tension change; the notice holds until acknowledged', async ({ pro: page }) => {
     expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
     const notice = page.getByTestId('recheck-notice');

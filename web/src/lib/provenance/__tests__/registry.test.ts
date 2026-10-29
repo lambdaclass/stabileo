@@ -1,12 +1,24 @@
+import metadata from 'virtual:result-change-metadata';
+import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { RESULT_CHANGES, validateRegistry, githubSlug, changelogUrl, conditionGroups } from '../registry';
+import { validateRegistry, githubSlug, changelogUrl, conditionGroups } from '../registry';
 import { FEATURE_IDS } from '../model-features';
 
 const repo = resolve(__dirname, '../../../../..');
 
 describe('result-change registry', () => {
+  it('derives synchronous applicability metadata from the complete registry without notice text', () => {
+    expect(metadata).toEqual({
+      schema: RESULT_CHANGES.schema,
+      currentResultsVersion: RESULT_CHANGES.currentResultsVersion,
+      changes: RESULT_CHANGES.changes.map(({ title, explanation, ...change }) => change),
+    });
+    expect(JSON.stringify(metadata)).not.toContain('explanation');
+    expect(JSON.stringify(metadata)).not.toContain('title');
+  });
+
   it('is well formed: ids, versions, three languages, known features', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
   });

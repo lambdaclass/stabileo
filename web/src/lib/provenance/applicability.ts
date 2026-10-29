@@ -8,7 +8,8 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { conditionGroups, RESULT_CHANGES, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { conditionGroups, type ResultChangeMetadata, type ResultChangeMetadataRegistry, type ChangeCondition } from './registry';
+import metadata from 'virtual:result-change-metadata';
 import { modelFeatures, type FeatureSnapshot } from './model-features';
 import type { SolveStamp } from './solve-stamp';
 
@@ -26,14 +27,14 @@ export interface RecheckAssessment {
   /** Solved with a NEWER version than this build: its numbers may not be reproducible here. */
   newer: boolean;
   /** The changes that concern this model, oldest first. */
-  changes: ResultChange[];
+  changes: ResultChangeMetadata[];
 }
 
 export function assessProject(
   snapshot: FeatureSnapshot,
   stamp: SolveStamp | null | undefined,
   analysisMode?: string,
-  registry: ResultChangeRegistry = RESULT_CHANGES,
+  registry: ResultChangeMetadataRegistry = metadata,
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;

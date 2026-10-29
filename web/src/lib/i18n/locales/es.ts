@@ -13773,6 +13773,9 @@ const es: Record<string, string> = {
   "sheet.ui.jump": "Ir a un tipo de plano",
   "sheet.ui.thisSheet": "Lámina {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.loading": "Cargando cambios en los resultados…",
+  "recheck.loadFailed": "No se pudieron cargar los cambios en los resultados. Reintenta antes de confirmarlos.",
+  "recheck.retry": "Reintentar",
   "recheck.title": "Los resultados cambiaron desde que se resolvió este proyecto",
   "recheck.intro": "Este proyecto se resolvió por última vez con la versión de resultados {from} de Stabileo; esta es la versión {to}. Estos cambios afectan características que usa este modelo:",
   "recheck.introUnknown": "Este proyecto no registra con qué versión de Stabileo se resolvió (se guardó antes de que eso se registrara). Estos cambios afectan características que usa este modelo:",

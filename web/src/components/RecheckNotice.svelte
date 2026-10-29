@@ -11,9 +11,22 @@
    */
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
+  import { changelogUrl, type Locale3, type ResultChange } from '../lib/provenance/registry';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
+
+  let details = $state.raw<Map<string, ResultChange> | null>(null);
+  let loadFailed = $state(false);
+
+  async function loadDetails() {
+    loadFailed = false;
+    try {
+      const { RESULT_CHANGES } = await import('../lib/provenance/full-registry');
+      details = new Map(RESULT_CHANGES.changes.map(c => [c.id, c]));
+    } catch {
+      loadFailed = true;
+    }
+  }
 
   let readIt = $state(false);
   let reviewing = $state(false);
@@ -23,6 +36,10 @@
   const a = $derived(recheckStore.assessment);
   const open = $derived(recheckStore.noticeOpen || reviewing);
   const loc = $derived<Locale3>((['en', 'es', 'pt'] as const).includes(i18n.locale as Locale3) ? (i18n.locale as Locale3) : 'en');
+
+  $effect(() => {
+    if (open && !details) void loadDetails();
+  });
 
   // A new notice (another project) starts unticked.
   $effect(() => {
@@ -76,32 +93,39 @@
           ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
           : t('recheck.introUnknown')}
       </p>
-      <ul class="rc-list" data-testid="recheck-changes">
-        {#each a.changes as c (c.id)}
-          <li class="rc-item" data-change-id={c.id}>
-            <div class="rc-item-head">
-              <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
-              <span class="rc-item-title">{c.title[loc]}</span>
-            </div>
-            <p class="rc-item-text">{c.explanation[loc]}</p>
-            <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
-          </li>
-        {/each}
-      </ul>
+      {#if !details}
+        <p role="status">{t(loadFailed ? 'recheck.loadFailed' : 'recheck.loading')}</p>
+        {#if loadFailed}
+          <button class="rc-btn" onclick={loadDetails}>{t('recheck.retry')}</button>
+        {/if}
+      {:else}
+        <ul class="rc-list" data-testid="recheck-changes">
+          {#each a.changes as c (c.id)}
+            <li class="rc-item" data-change-id={c.id}>
+              <div class="rc-item-head">
+                <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
+                <span class="rc-item-title">{details.get(c.id)!.title[loc]}</span>
+              </div>
+              <p class="rc-item-text">{details.get(c.id)!.explanation[loc]}</p>
+              <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
       <p class="rc-stale">{t('recheck.staleWarning')}</p>
       {#if recheckStore.noticeOpen}
         <label class="rc-ack">
-          <input type="checkbox" bind:checked={readIt} data-testid="recheck-ack" />
+          <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
           {t('recheck.ack')}
         </label>
       {/if}
       <div class="rc-actions">
         {#if recheckStore.noticeOpen}
-          <button class="rc-btn" disabled={!readIt} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
+          <button class="rc-btn" disabled={!details || !readIt} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
         {:else}
           <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
         {/if}
-        <button class="rc-btn rc-primary" disabled={(recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+        <button class="rc-btn rc-primary" disabled={!details || (recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
       </div>
     </div>
   </div>

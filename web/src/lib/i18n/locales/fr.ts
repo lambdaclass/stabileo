@@ -13624,6 +13624,9 @@ const fr: Translations = {
   'sheet.ui.thisSheet': 'Planche {n} :',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.loading": "Chargement des modifications des résultats…",
+  "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",
+  "recheck.retry": "Réessayer",
   'recheck.title': 'Les résultats ont changé depuis le dernier calcul de ce projet',
   'recheck.intro': 'Ce projet a été calculé pour la dernière fois avec la version de résultats {from} de Stabileo ; celle-ci est la version {to}. Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introUnknown': 'Ce projet n\'enregistre pas la version de Stabileo qui l\'a calculé (il a été enregistré avant que cette information ne soit consignée). Ces changements concernent des fonctions utilisées par ce modèle :',

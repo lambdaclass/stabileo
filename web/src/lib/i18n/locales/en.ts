@@ -13784,6 +13784,9 @@ const en: Record<string, string> = {
   "sheet.ui.jump": "Go to a kind of drawing",
   "sheet.ui.thisSheet": "Sheet {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.loading": "Loading result changes…",
+  "recheck.loadFailed": "Result changes could not be loaded. Retry before acknowledging them.",
+  "recheck.retry": "Retry",
   "recheck.title": "Results have changed since this project was last solved",
   "recheck.intro": "This project was last solved with Stabileo results version {from}; this is version {to}. These changes concern features this model uses:",
   "recheck.introUnknown": "This project does not record which version of Stabileo solved it (it was saved before that was recorded). These changes concern features this model uses:",

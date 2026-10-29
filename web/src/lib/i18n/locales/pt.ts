@@ -13424,6 +13424,9 @@ const pt: Translations = {
   "sheet.ui.jump": "Ir a um tipo de planta",
   "sheet.ui.thisSheet": "Prancha {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.loading": "Carregando alterações nos resultados…",
+  "recheck.loadFailed": "Não foi possível carregar as alterações nos resultados. Tente novamente antes de confirmá-las.",
+  "recheck.retry": "Tentar novamente",
   "recheck.title": "Os resultados mudaram desde a última vez que este projeto foi resolvido",
   "recheck.intro": "Este projeto foi resolvido pela última vez com a versão de resultados {from} do Stabileo; esta é a versão {to}. Estas mudanças afetam recursos que este modelo usa:",
   "recheck.introUnknown": "Este projeto não registra com qual versão do Stabileo foi resolvido (foi salvo antes de isso ser registrado). Estas mudanças afetam recursos que este modelo usa:",

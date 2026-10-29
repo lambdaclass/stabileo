@@ -9,3 +9,8 @@ declare module 'virtual:public-i18n' {
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
 }
+
+declare module 'virtual:result-change-metadata' {
+  const registry: import('./lib/provenance/registry').ResultChangeMetadataRegistry;
+  export default registry;
+}

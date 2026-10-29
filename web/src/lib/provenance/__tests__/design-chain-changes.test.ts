@@ -1,3 +1,4 @@
+import { RESULT_CHANGES } from '../full-registry';
 /**
  * Results version 4: the design chain's changes (#460, #461 and #462–#475), told to the projects
  * they concern (`docs/results-changes/2026-10-design-chain.md`).
@@ -8,7 +9,6 @@
 import { describe, it, expect } from 'vitest';
 import { assessProject } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
-import { RESULT_CHANGES } from '../registry';
 import type { SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
