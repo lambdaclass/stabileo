@@ -1,4 +1,4 @@
-import { assertCalculationsAllowed } from './calculation-gate';
+import { assertCalculationsAllowed, calculationLease, guardExports } from './calculation-gate';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
@@ -215,7 +215,8 @@ export async function initSolver(): Promise<void> {
   if (wasmInitPromise) return wasmInitPromise;
   wasmInitPromise = (async () => {
     // Let Vite track and rewrite the generated WASM glue module for production.
-    const wasm = await import('../wasm/dedaliano_engine.js');
+    const module = await import('../wasm/dedaliano_engine.js');
+    const wasm = guardExports(module);
     // In Node.js (vitest), fetch is not available for local file:// URLs.
     // Use initSync with a file buffer instead.
     if (typeof process !== 'undefined' && process.versions?.node) {
@@ -801,6 +802,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
  * an already-cancelled run. Each session owns an immutable native model snapshot. */
 function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () => Record<string, unknown>,
   fallback: (loads: L[]) => R, finish: (result: R, loads: L[]) => R) {
+  const release = calculationLease();
   let native: NativeLoadSession | null = null;
   let closed = false;
   let attempted = false;
@@ -820,7 +822,7 @@ function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () 
       assertFiniteWire(loads, 'loads');
       return finish(native!.solve(loads), loads);
     },
-    free() { if (!closed) { closed = true; native?.free(); native = null; } },
+    free() { if (!closed) { closed = true; try { native?.free(); } finally { native = null; release(); } } },
   };
 }
 export function prepareLoadSession2D(input: SolverInput) {

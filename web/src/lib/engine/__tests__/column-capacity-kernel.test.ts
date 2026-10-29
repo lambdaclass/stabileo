@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { unwrapCalculation } from '../calculation-gate';
 import { solve_column_capacity_batch } from '../../wasm/dedaliano_engine.js';
 import { getColumnCapacityKernel, registerColumnCapacityKernel, setColumnCapacityKernelEnabled } from '../column-capacity-kernel';
 import { computeColumnCapacity, computeBiaxialCapacity, prepareColumnCapacity, verifyProvidedReinforcement, setColumnCapacityReuse,
@@ -24,7 +25,7 @@ afterEach(() => {
 
 describe('Rust column capacity', () => {
   it('is registered by production initialization', () => {
-    expect(getColumnCapacityKernel()).toBe(solve_column_capacity_batch);
+    expect(unwrapCalculation(getColumnCapacityKernel())).toBe(solve_column_capacity_batch);
   });
   it('the engine (section engine via the column kernel) agrees with the TypeScript solver it replaced', () => {
     /*

@@ -1,4 +1,4 @@
-import { assertCalculationsAllowed } from './calculation-gate';
+import { calculationLease, calculationsBusy, calculationsIdle } from './calculation-gate';
 /**
  * solver-pool.ts — Worker pool for off-main-thread structural solving.
  *
@@ -201,13 +201,15 @@ export async function initPool(numWorkers?: number): Promise<void> {
 
 /** Whether any worker has a job running. */
 export function poolBusy(): boolean {
-  return pool.some((w) => w.pending.size > 0);
+  return calculationsBusy() || pool.some((w) => w.pending.size > 0);
 }
 
 export { refuseNewJobs } from './calculation-gate';
 
 /** Desktop app: resolves when no job is running. */
 export async function poolIdle(pollMs = 200): Promise<void> {
+  await calculationsIdle();
+  await new Promise((r) => setTimeout(r, 0));
   while (poolBusy()) await new Promise((r) => setTimeout(r, pollMs));
 }
 
@@ -243,7 +245,8 @@ async function ensurePool(): Promise<void> {
  * the failure ever leaves.
  */
 function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
-  try { assertCalculationsAllowed(); } catch (err) { return Promise.reject(err); }
+  let release: () => void;
+  try { release = calculationLease(); } catch (err) { return Promise.reject(err); }
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
@@ -261,7 +264,7 @@ function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3
       }
       reject(err);
     }
-  });
+  }).finally(release);
 }
 
 /**
