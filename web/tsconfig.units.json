@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/lib/engine/__tests__/unit-types.typecheck.ts"]
+}

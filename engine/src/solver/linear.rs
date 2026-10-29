@@ -5241,9 +5241,12 @@ pub fn compute_internal_forces_2d_with_loads(
             let t = crate::element::frame_transform_2d(cos, sin);
             let u_local = transform_displacement(&u_global, &t, 6);
 
-            let phi = crate::element::timoshenko_phi_2d(sec, e, mat.nu, l);
-            let k_local = crate::element::frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
 
             // f_local = K_local * u_local

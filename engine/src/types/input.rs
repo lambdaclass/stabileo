@@ -14,6 +14,7 @@ pub struct SolverNode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(from = "super::units::ElasticMaterial", into = "super::units::ElasticMaterial")]
 pub struct SolverMaterial {
     pub id: usize,
     pub e: f64,  // MPa
@@ -22,6 +23,7 @@ pub struct SolverMaterial {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(from = "super::units::ElasticSection2D", into = "super::units::ElasticSection2D")]
 pub struct SolverSection {
     pub id: usize,
     pub a: f64,  // m²

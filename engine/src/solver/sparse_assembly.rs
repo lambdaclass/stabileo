@@ -178,13 +178,13 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
             // FEF builder below, which already computes phi from as_y —
             // passing 0.0 here paired Euler-Bernoulli stiffness with
             // Timoshenko fixed-end forces).
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
+            );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
@@ -359,14 +359,12 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
             }
         } else {
             // Frame element
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(
-                e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi,
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
             );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
@@ -710,13 +708,13 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
             // FEF builder below, which already computes phi from as_y —
             // passing 0.0 here paired Euler-Bernoulli stiffness with
             // Timoshenko fixed-end forces).
-            let phi = if let Some(as_y) = sec.as_y {
-                let g = e / (2.0 * (1.0 + mat.nu));
-                12.0 * e * sec.iz / (g * as_y * l * l)
-            } else {
-                0.0
-            };
-            let k_local = frame_local_stiffness_2d(e, sec.a, sec.iz, l, elem.hinge_start, elem.hinge_end, phi);
+            let material = crate::types::units::ElasticMaterial::from(mat);
+            let section = crate::types::units::ElasticSection2D::from(sec);
+            let phi = section.shear_parameter(material.e.to_internal(), material.nu, crate::types::units::Length::from_m(l));
+            let k_local = crate::element::frame_local_stiffness_2d_typed(
+                material.e.to_internal(), section.a, section.iz, crate::types::units::Length::from_m(l),
+                elem.hinge_start, elem.hinge_end, phi,
+            );
             let t = frame_transform_2d(cos, sin);
             let k_glob = transform_stiffness(&k_local, &t, 6);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);

@@ -14,9 +14,22 @@ pub fn frame_local_stiffness_2d(
     hinge_end: bool,
     phi: f64,
 ) -> Vec<f64> {
+    frame_local_stiffness_2d_typed(
+        Modulus::from_kn_per_m2(e), Area::from_m2(a), SecondMoment::from_m4(iz),
+        Length::from_m(l), hinge_start, hinge_end, phi,
+    )
+}
+
+use crate::types::units::{Modulus, Area, SecondMoment, Length};
+
+/// Typed 2D elastic kernel. Unit erasure occurs only at mixed-DOF matrix entries.
+pub fn frame_local_stiffness_2d_typed(
+    e: Modulus, a: Area, iz: SecondMoment, l: Length,
+    hinge_start: bool, hinge_end: bool, phi: f64,
+) -> Vec<f64> {
     let mut k = vec![0.0; 36]; // 6×6
 
-    let ea_l = e * a / l;
+    let ea_l = (e * a / l).in_kn_per_m();
     let ei = e * iz;
     let l2 = l * l;
     let l3 = l2 * l;
@@ -40,10 +53,10 @@ pub fn frame_local_stiffness_2d(
         // No hinges: Timoshenko beam (reduces to Euler-Bernoulli when phi=0)
         // Ref: Przemieniecki, "Theory of Matrix Structural Analysis", Ch. 4
         let denom = 1.0 + phi;
-        let c1 = 12.0 * ei / (l3 * denom);
-        let c2 = 6.0 * ei / (l2 * denom);
-        let c3 = (4.0 + phi) * ei / (l * denom);
-        let c4 = (2.0 - phi) * ei / (l * denom);
+        let c1 = (12.0 * ei / (l3 * denom)).in_kn_per_m();
+        let c2 = (6.0 * ei / (l2 * denom)).in_kn();
+        let c3 = ((4.0 + phi) * ei / (l * denom)).in_kn_m();
+        let c4 = ((2.0 - phi) * ei / (l * denom)).in_kn_m();
 
         k[1 * 6 + 1] = c1;
         k[1 * 6 + 2] = c2;
@@ -69,9 +82,9 @@ pub fn frame_local_stiffness_2d(
         // Condensing θ1 from 4×4 bending block gives coefficient 12/(4+phi)
         // For phi=0: 12/4 = 3, recovering Euler-Bernoulli result
         let factor = 12.0 / (4.0 + phi);
-        let c1 = factor * ei / l3;
-        let c2 = factor * ei / l2;
-        let c3 = factor * ei / l;
+        let c1 = (factor * ei / l3).in_kn_per_m();
+        let c2 = (factor * ei / l2).in_kn();
+        let c3 = (factor * ei / l).in_kn_m();
 
         k[1 * 6 + 1] = c1;
         k[1 * 6 + 4] = -c1;
@@ -87,9 +100,9 @@ pub fn frame_local_stiffness_2d(
     } else {
         // Hinge at end (M2 = 0): condensed from full Timoshenko
         let factor = 12.0 / (4.0 + phi);
-        let c1 = factor * ei / l3;
-        let c2 = factor * ei / l2;
-        let c3 = factor * ei / l;
+        let c1 = (factor * ei / l3).in_kn_per_m();
+        let c2 = (factor * ei / l2).in_kn();
+        let c3 = (factor * ei / l).in_kn_m();
 
         k[1 * 6 + 1] = c1;
         k[1 * 6 + 2] = c2;
@@ -105,6 +118,17 @@ pub fn frame_local_stiffness_2d(
     }
 
     k
+}
+
+/// Material/section entry point shared by dense, sparse and recovery paths.
+pub fn elastic_frame_stiffness_2d(
+    material: crate::types::units::ElasticMaterial,
+    section: crate::types::units::ElasticSection2D,
+    length: Length, hinge_start: bool, hinge_end: bool,
+) -> Vec<f64> {
+    let e = material.e.to_internal();
+    let phi = section.shear_parameter(e, material.nu, length);
+    frame_local_stiffness_2d_typed(e, section.a, section.iz, length, hinge_start, hinge_end, phi)
 }
 
 /// Timoshenko shear parameter of a 2D member, φ = 12·E·Iz/(G·As_y·L²) with
