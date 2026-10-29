@@ -425,7 +425,8 @@ fn lanczos_irlm(
         let (alpha, beta, q_mat, steps, trailing_beta) = lanczos_tridiag(op, &q0, m);
         let actual_m = steps.min(m);
 
-        if actual_m < k { return None; }
+        // A single-start invariant subspace need not contain every repeated eigendirection.
+        if actual_m < m { return None; }
 
         // Solve tridiagonal eigenproblem (sorted ascending)
         let (t_vals, t_vecs) = tridiag_eigen_vecs(&alpha[..actual_m], &beta[..actual_m], actual_m);
@@ -465,7 +466,7 @@ fn lanczos_irlm(
         best_values = Some(selected_vals);
         best_vectors = Some(ritz_vecs);
 
-        if all_converged || actual_m < m {
+        if all_converged {
             break;
         }
 
