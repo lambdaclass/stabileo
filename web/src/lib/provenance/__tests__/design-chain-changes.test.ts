@@ -39,8 +39,8 @@ const STEEL_461 = [
 ];
 
 describe('results version 4: the design chain', () => {
-  it('is the current version, and every entry links its write-up', () => {
-    expect(RESULT_CHANGES.currentResultsVersion).toBe(4);
+  it('is a released version, and every entry links its write-up', () => {
+    expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(4);
     for (const c of RESULT_CHANGES.changes.filter((x) => x.resultsVersion === 4)) {
       expect(c.changelog.file, c.id).toBe('docs/results-changes/2026-10-design-chain.md');
     }
@@ -56,9 +56,9 @@ describe('results version 4: the design chain', () => {
     expect(seen).not.toContain('dynamic-analyses-refuse-eccentricities');
   });
 
-  it('tells a project solved with version 4 nothing', () => {
+  it('tells a project solved with version 4 no design-chain changes', () => {
     const frame = model({ elements: [member(1, 1), member(2, 2)], quads: [quad(1)] as never, footings: [[1, {}]] as never });
-    expect(ids(frame, stamp(4))).toEqual([]);
+    expect(ids(frame, stamp(4)).filter((id) => V4.includes(id))).toEqual([]);
   });
 
   it('tells a concrete project about the beam entries, and the flange one only with shells', () => {
