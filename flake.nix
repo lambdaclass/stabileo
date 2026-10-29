@@ -61,6 +61,7 @@
             pkgs.curl
             pkgs.python3
             pkgs.git
+            pkgs.gh
             pkgs.gnumake
             pkgs.shellcheck
             pkgs.lsof

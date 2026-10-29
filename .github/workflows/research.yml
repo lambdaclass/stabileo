@@ -69,14 +69,25 @@ jobs:
           ref: main
           path: route-main
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - name: Build main and the candidate with the same pinned toolchain and measurement script
         if: steps.scope.outputs.research == 'true'
         run: |
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
-          nix develop . -c sh -c 'cd route-main/web && npm ci && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
@@ -135,8 +146,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the validation against the reference outputs
         run: cargo test --release --locked -- --nocapture
+      - name: Fetch browser crate dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked --manifest-path wasm/Cargo.toml
       - name: Browser configuration limits reject oversized meshes before allocation
         run: cargo test --locked --manifest-path wasm/Cargo.toml
       - name: Reference outputs match their manifest
@@ -165,6 +180,8 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the checks against the paper's published values
         run: cargo test --release --locked -- --nocapture
       - name: The committed comparison series are what the code computes
@@ -213,5 +230,7 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Buckling, energy derivatives and every replay frame
         run: cargo test --release --locked -- --nocapture

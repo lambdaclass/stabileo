@@ -333,6 +333,7 @@ check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
 test.ci-scripts:
+	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'

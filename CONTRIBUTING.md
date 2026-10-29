@@ -42,3 +42,51 @@ The selection lives in `.github/scripts/select-ci.py`. Extend its conservative
 path/spec mapping and `scripts/tests/test_ci_selection.py` together. Validate
 with `make test.ci-scripts NIX_RUN=` (Python and shellcheck required) and
 `nix shell nixpkgs#actionlint -c actionlint` when editing workflows.
+
+## Infrastructure failures and shared builds
+
+Self-hosted jobs skip the Nix installer and Magic Nix Cache and use the host's
+warm store. Hosted jobs disable FlakeHub and tolerate installer/cache-action
+failures; preparing the Nix shell must still succeed. Actions caches are optional.
+`.github/scripts/retry-infra.sh` makes at most three attempts, with 10/20-second
+backoff, for FlakeHub unauthenticated initialization, Magic Nix Cache throttling,
+HTTP 418/429, connection resets, and `ERR_SOCKET_CLOSED_BEFORE_CONNECTION`.
+Only dependency acquisition is wrapped: Nix shell preparation, npm ci, cargo
+fetch, Playwright installation and same-run artifact downloads. Compilation,
+tests, assertions, missing artifacts, permission errors and job timeouts fail
+normally. Do not wrap an install plus a test/build in the same retry command.
+The matcher and retry exit-status behavior are tested by `make test.ci-scripts`.
+
+Full-PR build counts, traced through `ci.yml`, `research.yml` and Dockerfile:
+
+| Output | Before | After (cold / research cache hit) |
+| --- | ---: | ---: |
+| Engine WASM | 2 | 1 / 1 |
+| Research WASM set (both crates) | 2 | 1 / 0 |
+| Site builds | 6 | 5 / 5 |
+
+Docker smoke now downloads `site-production` from Web Build, including both
+WASM bundles, and tests backend compilation and runtime packaging. Local Docker
+builds still compile everything from source by default; CI no longer exercises
+the Docker frontend compiler stages. The remaining five site builds are distinct:
+production, E2E with test hooks, admin, and the deterministic engine-stub route
+budget builds for main and candidate. Reusing one for another would change what
+those gates measure. All E2E consumers share `site-e2e`; other WASM consumers
+share `wasm` and `research-wasm` from the current run. Artifact reads use the
+read-only Actions token and the pinned flake's gh CLI (hosted Docker uses gh).
+Docs PRs build none; focused research/tools PRs build one engine, zero or one
+research set, and three sites (E2E and the two route-budget builds); engine PRs
+build one E2E site and the same shared WASM outputs.
+
+Research's exact source cache includes engine/research Rust sources, manifests,
+lockfiles, toolchain and build scripts, and reference data. There is no fallback
+key. Viewer assets are rebuilt and their identity republished even on a hit;
+Node reference checks still run. A cache outage falls back to compilation.
+The 30-minute research timeout stays: hosted run 40969889257 completed in
+22m26s, including 17m17s building research WASM/viewer. An unchanged-source hit
+should save roughly 15–17 runner minutes. Docker smoke previously took 21m38s
+in that run; avoiding its frontend stages should save additional runner time,
+but that portion has not been measured separately. Docker now waits for Web
+Build, so total PR wall time may increase on a cold cache; do not equate runner
+minutes saved with critical-path improvement. Measure the first hosted runs
+before revising the timeout or promising an overall speedup.
