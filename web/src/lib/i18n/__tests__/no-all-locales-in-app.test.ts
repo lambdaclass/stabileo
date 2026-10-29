@@ -89,6 +89,7 @@ describe('the unoffered dictionaries stay out of the application', () => {
     // registered by `full-dictionaries.ts`, so that is the file whose imports are the set.
     const src = readFileSync(join(SRC, 'lib/i18n/full-dictionaries.ts'), 'utf8');
     const imported = [...src.matchAll(/from '\.\/locales\/([\w/]+)'/g)].map((m) => m[1]).sort();
-    expect(imported).toEqual(['en', 'es', 'pt', 'steel/en', 'steel/es', 'steel/pt', 'steps']);
+    expect(imported).toEqual(['steel/en', 'steel/es', 'steel/pt', 'steps']);
+    expect(src).toContain("import { es, en, pt } from 'virtual:app-i18n'");
   });
 });

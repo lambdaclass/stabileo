@@ -34,21 +34,22 @@ function wasmStubPlugin(): Plugin {
  * `union-merge-safe.test.ts` keeps possible: one entry per line.
  */
 function publicI18nPlugin(): Plugin {
-  const id = 'virtual:public-i18n';
+  const ids = ['virtual:public-i18n', 'virtual:app-i18n'];
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return s === id ? '\0' + id : null;
+      return ids.includes(s) ? '\0' + s : null;
     },
     load(resolved) {
-      if (resolved !== '\0' + id) return null;
+      if (!ids.some(id => resolved === '\0' + id)) return null;
+      const publicOnly = resolved === '\0virtual:public-i18n';
       let out = '';
       for (const loc of ['en', 'es', 'pt']) {
         const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
         this.addWatchFile(file);
         const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
           const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
+          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p)) === publicOnly;
         });
         out += `export const ${loc} = {\n${lines.join('\n')}\n};\n`;
       }

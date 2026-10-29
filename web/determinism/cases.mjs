@@ -131,7 +131,12 @@ function steelMembers(model) {
 /** The case list: [name, () => output]. Inputs are fixed; nothing here depends on the runtime. */
 function caseList(w, fx) {
   const cases = [];
-  const add = (name, f) => cases.push([name, f]);
+  const names = new Set();
+  const add = (name, f) => {
+    if (names.has(name)) throw new Error(`Duplicate determinism case: ${name}`);
+    names.add(name);
+    cases.push([name, f]);
+  };
   const s = (x) => JSON.stringify(x);
   for (const id of MODELS_2D) {
     const m = fx[id];
@@ -155,7 +160,6 @@ function caseList(w, fx) {
     add(`${id}/solve_harmonic_2d`, () => w.solve_harmonic_2d(s(hm())));
     add(`${id}/certify_harmonic_2d`, () => w.certify_harmonic_2d(s(hm())));
     add(`${id}/solve_plastic_2d`, () => w.solve_plastic_2d(s(plasticOf(m, false))));
-    add(`${id}/solve_plastic_2d`, () => w.solve_plastic_2d(s(fx[id])));
     add(`${id}/certify_plastic_2d`, () => w.certify_plastic_2d(s(plasticOf(m, false))));
     add(`${id}/solve_multi_case_2d`, () => w.solve_multi_case_2d(multiCaseOf(m)));
     add(`${id}/certify_multi_case_2d`, () => w.certify_multi_case_2d(multiCaseOf(m)));

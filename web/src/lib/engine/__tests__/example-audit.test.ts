@@ -408,7 +408,7 @@ describe('PART C — 3D examples in 3D mode', { timeout: 30_000 }, () => {
     const input = buildSolverInput3D(case1Model, false, false);
     expect(input, `${name}: buildSolverInput3D returned null`).not.toBeNull();
 
-    if (['full-stadium', 'la-bombonera'].includes(name)) {
+    if (['full-stadium', 'la-bombonera', 'cad-arch-structure-dxf'].includes(name)) {
       expectMembraneRefusal(() => solve3D(input!));
       // Previous numerical checks below remain the post-fix expectations.
       return;

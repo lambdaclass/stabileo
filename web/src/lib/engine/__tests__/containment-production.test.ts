@@ -135,3 +135,50 @@ it.each([false, true])('moving service retains warnings beyond position zero (as
   resultsStore.setMovingLoadEnvelope(result);
   expect(banner()).toContain('#762');
 });
+
+it.each(['throw', 'result'])('3D moving loads abort a mixed sweep on a %s refusal', async mode => {
+  const { sweepMovingLoad3D, buildPath3D, movingLoadBase3D } = await import('../moving-loads-3d');
+  await model();
+  const base = movingLoadBase3D(modelStore.model)!;
+  const path = buildPath3D(base, [base.elements.keys().next().value!])!;
+  let count = 0;
+  const free = vi.fn();
+  vi.spyOn(wasm, 'prepareLoadSession3D').mockReturnValue({
+    solve: () => {
+      if (++count === 2) {
+        if (mode === 'throw') throw new Error(refusal);
+        return { displacements: [], reactions: [], elementForces: [], ...JSON.parse(refusal) };
+      }
+      return { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [warning] };
+    }, free,
+  } as never);
+  await expect(sweepMovingLoad3D(base, path, { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, { step: 1 })).rejects.toThrow('SH-GLOBAL-STRESS');
+  expect(count).toBe(2);
+  expect(free).toHaveBeenCalledOnce();
+});
+
+it('3D moving loads retain warnings from later positions', async () => {
+  const { sweepMovingLoad3D, buildPath3D, movingLoadBase3D } = await import('../moving-loads-3d');
+  await model();
+  const base = movingLoadBase3D(modelStore.model)!;
+  const path = buildPath3D(base, [base.elements.keys().next().value!])!;
+  let count = 0;
+  vi.spyOn(wasm, 'prepareLoadSession3D').mockReturnValue({
+    solve: () => ({ displacements: [], reactions: [], elementForces: [], structuredDiagnostics: ++count > 1 ? [warning] : [] }),
+    free: vi.fn(),
+  } as never);
+  const result = await sweepMovingLoad3D(base, path, { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, { step: 1 });
+  expect(result.positions).toBeGreaterThan(1);
+  expect(result.structuredDiagnostics).toEqual([warning]);
+});
+
+it.each(['warning', 'error'])('influence result UI contains %s ordinates', async severity => {
+  const { default: KnownIssueResult } = await import('../../../components/KnownIssueResult.svelte');
+  const result = { points: [{ value: 123.45 }], structuredDiagnostics: [{ ...warning, severity }] };
+  const html = render(KnownIssueResult, { props: {
+    result, children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })),
+  } }).body;
+  expect(html).toContain('#762');
+  expect(html).toContain('role="alert"');
+  expect(html.includes('123.45')).toBe(severity === 'warning');
+});

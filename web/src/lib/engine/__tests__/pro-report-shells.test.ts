@@ -47,3 +47,19 @@ describe('shell report section (2.4)', () => {
     expect(html).not.toContain('Shell results');
   });
 });
+
+it('retains and escapes mandatory advanced warnings with diagnostics disabled', () => {
+  const data = makeData({});
+  data.advancedResults = {
+    modal: { modes: [{ frequency: 1, period: 1 }], disposition: { refused: false, messages: ['MD-ORTHOGONALITY <unsafe>'] } },
+    buckling: { factors: [2], disposition: { refused: false, messages: ['BU-ACCURACY'] } },
+    spectral: { baseShearX: 3, disposition: { refused: false, messages: ['spectral warning'] } },
+  };
+  data.config = { sections: { diagnostics: false } } as ReportData["config"];
+  const html = generateReportHtml(data);
+  expect(html).toContain('MD-ORTHOGONALITY &lt;unsafe&gt;');
+  expect(html).toContain('BU-ACCURACY');
+  expect(html).toContain('spectral warning');
+  data.advancedResults.buckling!.disposition!.refused = true;
+  expect(() => generateReportHtml(data)).toThrow('BU-ACCURACY');
+});

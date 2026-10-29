@@ -6,7 +6,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 |---|---|---|---|---|
 | #762 | `NUM-INVARIANCE` | WARN | Existing conditioning/stability diagnostics; original and reduced constrained stiffness (§ below). | known_issues::invariance_reported_seeds_are_flagged_or_refused (all ten reported seeds); a_plain_frame_carries_no_known_issue; sparse_solver_paths numerical/diagnostic parity |
 | #760 | `TH-RECIPROCITY` | WARN | 2D/3D time history; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; existing time-history numerical tests retained |
-| #759 | `MD-ORTHOGONALITY` | WARN | 3D modal/spectral; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; unchanged modal/spectral numerical tests |
+| #759 | `MD-ORTHOGONALITY` | WARN | 3D modal/spectral and harmonic modal superposition; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; unchanged modal/spectral numerical tests |
 | #758 | `PL-2D-INVARIANCE` / `PL-3D-INVARIANCE` | REFUSE / WARN | Native and Basic UI 2D plastic calls / 3D plastic with curved beams. | core::plastic, certify_plastic, validation plastic/textbook/pushover tests assert structured refusals; known_issues_model_predicates_have_negative_controls |
 | #757 | `SH-GLOBAL-STRESS` | REFUSE | Solid-shell face not parallel to global X–Y (or invalid geometry). | known_issues_shell_predicates_have_geometric_controls; solid_shell_locking and shell_benchmark refusal cases |
 | #752 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 260 missed mutants in 21 functions survive in the frame, truss, curved-beam and fiber-beam kernels. No demonstrated current wrong-result case in this item. |
@@ -62,7 +62,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 - BU-SPAN-COMPRESSION: 3D buckling with distributed or point-on-member loads.
 - SH-GLOBAL-STRESS: any solid shell whose lower or upper four-node face has unequal global Z coordinates, or missing nodes.
 - SH-MITC4-DISTORTION: WARN for MITC4 skew >10°, Jacobian ratio <0.9, warping >0.01, or non-finite/missing geometry. The MacNeal–Harder regular rectangle (0° / ratio 1) passes; the reported 45° trapezoid and parallelogram fail. These conservative geometry cutoffs lie between the demonstrated endpoints, not experimentally established accuracy boundaries. The reported in-plane values are regular 0.1071 versus 0.1081, trapezoid 0.0084 (−92%), parallelogram 0.0104 (−90%); out-of-plane values 0.4235, 0.4162, 0.4226 versus 0.4321 stay within 4%.
-  On each recovered static load case, compute local nodal normal membrane stresses after subtracting its thermal strains. For each normal component crossing zero, take V = 2 min(−minimum, maximum); otherwise V = 0. Use the largest V, membrane magnitude S = max absolute normal stress, and outer-fibre plate stress B = max 6|Mx, My, Mxy|/t². REFUSE only if V > 0.5 S, V > B, and V > E × 1e-12 (E in solver stress units). Sign reversal and the 50% threshold require a substantial bending component, rather than ordinary extension or a small membrane perturbation; plate stress dominance keeps transverse bending at WARN. The modulus-scaled floor excludes numerical noise. These are conservative operational significance thresholds validated against all nine shape/load controls, not a general error estimator. Mixed responses without sufficient sign-reversing membrane bending remain WARN. Static prepared load cases are checked individually. Other analysis types retain the geometry warning; no modal stress sign pattern is treated as a static bending result.
+  On each recovered static load case, compute local nodal normal membrane stresses after subtracting its thermal strains. REFUSE if either normal component has a maximum-minus-minimum variation greater than E × 1e-12 (E in solver stress units). This conservative significance test is independent of uniform axial stress and plate bending stress: superimposing either cannot suppress containment. Uniform affine extension and pure transverse bending retain WARN; a clamped extension with nonuniform membrane stress may be refused. The modulus-scaled floor excludes numerical noise. Prepared solves cache geometry and index displacements and thermal loads once per load case. Other analysis types retain the geometry warning; no modal stress pattern is treated as static membrane bending.
 - PL-2D-INVARIANCE: all native Rust and Basic UI 2D plastic-collapse calls; no validated safe subset is known. Basic refuses before displaying a legacy result or requesting native certification. The internal TypeScript algorithm retains its numerical regression tests.
 - BU-BOUND: a 3D certified buckling result whose computed factor is below the lower bound or above its available upper bound. This additionally checks the output because the defect has an exact observable contradiction.
 - SP-17: 3D connectors with unequal transverse shear or bending stiffnesses.
@@ -72,15 +72,15 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 - NL-3: 3D co-rotational analysis; no proven input-only bound on non-coaxial rotations.
 - NL-13: only a returned contact history with a frozen gap, including max_flips = 0 on the first flip; no warning for an ordinary converged contact solve.
 - NL-17: only a returned unconverged fiber iterate; no warning for a converged fiber solve.
-- MD-ORTHOGONALITY: 3D modal and spectral analysis; no proven safe input subset.
+- MD-ORTHOGONALITY: 3D modal, spectral, and harmonic modal-superposition analysis; no proven safe input subset.
 - TH-RECIPROCITY: 2D and 3D time history; no proven safe input subset.
 
 ## Verification policy
 
-The results snapshot corpus includes diagnostic codes. New warnings can change those strings while all numbers remain bit-identical. REFUSE intentionally removes an affected result. Do not regenerate numerical baselines to hide either a refusal or a numerical change. The read-only audit runs on pull requests, merge queues, schedules and manual requests. Deployment requires the reusable audit job to pass.
+The results snapshot corpus includes diagnostic codes. New warnings can change those strings while all numbers remain bit-identical. REFUSE intentionally removes an affected result. Do not regenerate numerical baselines to hide either a refusal or a numerical change. The read-only audit runs on pull requests, merge queues, schedules and manual requests. The audit is advisory: it is neither a reusable workflow nor a required deployment dependency.
 
 - PL-3D-INVARIANCE: 3D plastic analysis containing curved beams.
-- NL-DYNAMIC-GAPS: material nonlinear analysis (increment/convergence gap), or modal/spectral/time-history/harmonic models containing frame members (omitted rotary inertia). A model without frame members does not get the dynamic warning. Modal orthogonality and time-history reciprocity have no demonstrated reliable input-only cutoff, so those analysis-level warnings remain broad and explicit.
+- NL-DYNAMIC-GAPS: material nonlinear analysis (increment/convergence gap), or modal/spectral/time-history/harmonic models containing frame members or curved beams expanded into frames (omitted rotary inertia). A model without frame members does not get the dynamic warning. Modal orthogonality and time-history reciprocity have no demonstrated reliable input-only cutoff, so those analysis-level warnings remain broad and explicit.
 
 ## Additional corrected behaviour evidence
 
@@ -181,7 +181,7 @@ Native debug target totals (focused final reruns have the same counts):
 No new typecheck errors is the acceptance criterion; the repository has an existing baseline.
 The membrane-bending predicate is checked on constrained, prepared, combined, second-order,
 foundation, SSI, contact and staged static results, using the returned state's
-thermal loads. Model-less combination APIs cannot recompute the membrane predicate and refuse
+thermal loads. Model-less combination and envelope APIs cannot recompute the membrane predicate and refuse
 cases carrying `SH-MITC4-DISTORTION`; model-aware multi-case solves check the combined displacement
 field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
 The determinism gate requires six structured 2D plastic refusals (#758), retains both 3D plastic

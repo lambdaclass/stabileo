@@ -1,3 +1,4 @@
+import { knownIssueResultDisposition } from './known-issues';
 /**
  * Everything the PRO report is made of, gathered in one place.
  *
@@ -258,6 +259,7 @@ export function buildProReportData(opts: {
     results,
     combinations: serializeCombinations(),
     advancedResults,
+    containment: knownIssueResultDisposition(resultsStore.results3D),
     diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
     screenshot,
     t,

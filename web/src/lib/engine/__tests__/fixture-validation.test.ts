@@ -254,7 +254,7 @@ describe('3D fixture validation', { timeout: 30_000 }, () => {
     const input = buildSolverInput3D(case1Model, false, false);
     expect(input).not.toBeNull();
 
-    if (['full-stadium', 'la-bombonera'].includes(name)) {
+    if (['full-stadium', 'la-bombonera', 'cad-arch-structure-dxf'].includes(name)) {
       expectMembraneRefusal(() => solve3D(input!));
       // Restore the numerical response/equilibrium assertions below after #798 is fixed.
       return;

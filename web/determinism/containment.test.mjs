@@ -46,9 +46,9 @@ for (const [name, solve] of Object.entries(entries)) {
     });
   });
 }
-test('WASM static and constrained static retain the distortion warning for axial loads', () => {
+test('WASM static and constrained static retain the distortion warning for transverse loads', () => {
   for (const name of ['solve_3d', 'constrained_dispatch', 'solve_constrained_3d']) {
-    let r = entries[name](shell('fx'));
+    let r = entries[name](shell('fz'));
     if (typeof r === 'string') r = JSON.parse(r);
     assert.ok(r.structuredDiagnostics.some(d => d.code === 'known_issue' && d.severity === 'warning' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798), name);
   }
@@ -58,7 +58,7 @@ test('multi-case checks cancellation for both prepared and constrained solves', 
   for (const constraints of [[], [tie]]) {
     const solver = { ...shell(), constraints };
     const loadCases = [10000, -10000].map((fx, i) => ({ name: String(i), loads: solver.loads.map(l => ({ ...l, data: { ...l.data, fx } })) }));
-    for (const c of loadCases) assert.ok(wasm.solve_3d({ ...solver, loads: c.loads }));
+    for (const c of loadCases) assert.throws(() => wasm.solve_3d({ ...solver, loads: c.loads }), /SH-MITC4-DISTORTION/);
     assert.throws(() => wasm.solve_multi_case_3d({ solver, loadCases, combinations: [{ name: 'cancel', factors: { 0: 1, 1: 1 } }] }), error => {
       const d = JSON.parse(String(error)).structuredDiagnostics;
       return d.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
@@ -66,7 +66,7 @@ test('multi-case checks cancellation for both prepared and constrained solves', 
   }
 });
 test('model-less combination refuses distorted MITC4 cases', () => {
-  const results = wasm.solve_3d(shell('fx'));
+  const results = wasm.solve_3d(shell('fz'));
   assert.throws(() => wasm.combine_results_3d({ factors: [{ caseId: 1, factor: 1 }], cases: [{ caseId: 1, results }] }), error => {
     const d = JSON.parse(String(error)).structuredDiagnostics;
     return d.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
@@ -86,3 +86,8 @@ for (const [name, solve] of Object.entries(entries).filter(([name]) => name !== 
     });
   });
 }
+
+test('model-less envelope refuses warning-only distorted MITC4 results', () => {
+  const result = wasm.solve_3d(shell('fz'));
+  assert.throws(() => wasm.compute_envelope_3d([result]), /SH-MITC4-DISTORTION/);
+});
