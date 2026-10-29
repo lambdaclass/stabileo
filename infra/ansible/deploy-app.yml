@@ -38,26 +38,6 @@
         dest: "{{ tmp_dir }}"
         remote_src: yes
 
-    # Before anything changes: a snapshot that cannot be installed (a different commit already
-    # holds its prefix, or the disk is short) stops the deploy here, not after the swap.
-    - name: Check this release's snapshot can be installed
-      shell: |
-        set -euo pipefail
-        meta={{ tmp_dir }}/snapshot/SNAPSHOT.json
-        [ -f "$meta" ] || { echo "no snapshot"; exit 0; }
-        commit=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$meta")
-        [ "$commit" = "{{ commit_sha }}" ] || { echo "the snapshot is of $commit, the release of {{ commit_sha }}"; exit 1; }
-        dest={{ snapshots_dir }}/${commit:0:7}
-        if [ -f "$dest/SNAPSHOT.json" ]; then
-          have=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$dest/SNAPSHOT.json")
-          [ "$have" = "$commit" ] || { echo "$dest already holds $have"; exit 1; }
-        fi
-        need=$(( $(du -sm {{ tmp_dir }}/snapshot | cut -f1) + {{ snapshot_min_free_mb }} ))
-        free=$(df -Pm {{ app_root }} | awk 'NR==2 {print $4}')
-        [ "$free" -ge "$need" ] || { echo "only $free MB free; the snapshot needs $need MB with the reserve"; exit 1; }
-      args:
-        executable: /bin/bash
-
     # The daemon admits only paths signed by the trusted key: never pass --no-check-sigs.
     - name: Import the release's signed Nix closure
       shell: |
@@ -169,67 +149,6 @@
       delay: 2
       until: health_check.status == 200
 
-    # Moved, not copied, out of the release (it would otherwise ride along in every kept release),
-    # then made read-only. An existing snapshot of the same commit is kept as it is.
-    - name: Install this commit's snapshot, never overwriting one
-      shell: |
-        set -euo pipefail
-        mkdir -p {{ snapshots_dir }}
-        chmod 0755 {{ snapshots_dir }}
-        src={{ deploy_dir }}/snapshot
-        [ -f "$src/SNAPSHOT.json" ] || { rm -rf "$src"; echo "no snapshot in this release"; exit 0; }
-        short={{ commit_sha[:7] }}
-        dest={{ snapshots_dir }}/$short
-        if [ -e "$dest" ]; then
-          rm -rf "$src"
-          echo "kept the existing $dest"
-          exit 0
-        fi
-        # Files identical to those of the newest snapshot (the engine WASM when it did not change, fonts,
-        # images, unchanged chunks) become hard links to them: about 40 MB a snapshot, 15 MB new.
-        prev=$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1]))["snapshots"]; print(s[0]["short"] if s else "")' {{ snapshots_dir }}/index.json 2>/dev/null || true)
-        if [ -n "$prev" ] && [ -d "{{ snapshots_dir }}/$prev" ]; then
-          (cd "$src" && find . -type f) | while read -r f; do
-            old="{{ snapshots_dir }}/$prev/$f"
-            if [ -f "$old" ] && cmp -s "$src/$f" "$old"; then ln -f "$old" "$src/$f"; fi
-          done
-        fi
-        chmod -R u+rwX,go+rX,go-w "$src"
-        mv "$src" "{{ snapshots_dir }}/.incoming-$short"
-        mv "{{ snapshots_dir }}/.incoming-$short" "$dest"
-        chmod -R a-w "$dest"
-        echo "installed $dest ($(du -sh "$dest" | cut -f1))"
-      args:
-        executable: /bin/bash
-      register: snapshot_install
-
-    - name: Write the snapshot index (/@/)
-      shell: |
-        set -euo pipefail
-        python3 - {{ snapshots_dir }} <<'PY'
-        import json, os, sys
-        from datetime import datetime
-        root = sys.argv[1]
-        items = []
-        for d in os.listdir(root):
-            meta = os.path.join(root, d, 'SNAPSHOT.json')
-            if d.startswith('.') or not os.path.isfile(meta):
-                continue
-            m = json.load(open(meta))
-            items.append({'short': m['short'], 'commit': m['commit'], 'date': m['date'], 'url': m['prefix'], 'research': m.get('research', []), **{k: m[k] for k in ('experimentVersions', 'engineWasmSha256', 'researchWasmSha256') if k in m}})
-        items.sort(key=lambda m: datetime.fromisoformat(m['date']), reverse=True)
-        tmp = os.path.join(root, '.index.json.tmp')
-        with open(tmp, 'w') as f:
-            json.dump({'snapshots': items}, f, indent=1)
-            f.write('\n')
-        os.chmod(tmp, 0o644)
-        os.replace(tmp, os.path.join(root, 'index.json'))
-        print(len(items), 'snapshots')
-        PY
-        du -sh {{ snapshots_dir }}
-      args:
-        executable: /bin/bash
-
     - name: Cleanup old releases (keep {{ max_releases }})
       shell: |
         cd {{ releases_dir }}
@@ -262,4 +181,3 @@
           Commit: {{ commit_sha }}
           Current: {{ deploy_dir }}
           Backup: {{ backup_name | default('none (first deploy)') }}
-          Snapshot: {{ snapshot_install.stdout | default('none') }}

@@ -10,10 +10,6 @@ on:
         type: choice
         options: [staging, production]
         default: staging
-      snapshot:
-        description: Also build this commit's snapshot (/@<commit>/) whatever changed
-        type: boolean
-        default: false
 
 permissions: {}
 
@@ -52,31 +48,6 @@ jobs:
         run: >
           ./.github/scripts/require-env.sh DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
           NIX_SIGNING_KEY SECRET_KEY_BASE JWT_SECRET DATABASE_URL PHX_HOST API_URL ADMIN_FRONTEND_URL
-
-      # A snapshot (/@<commit>/, docs/DEPLOY.md "Snapshots") is kept for every commit that changes a
-      # research experiment, the engine or the viewer, so a research result can be cited by the
-      # exact build that produced it. A manual run asks for one explicitly.
-      - name: Does this commit need a snapshot?
-        id: snapshot
-        env:
-          EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
-          FORCE: ${{ inputs.snapshot }}
-        run: |
-          set -euo pipefail
-          paths='^(research/|engine/|Cargo\.(toml|lock)$|web/src/components/research/|web/src/components/viewport/|web/src/components/Viewport[^/]*\.svelte$|web/src/lib/(three|engine|viewport3d|canvas|geometry|store)/|web/src/styles/|web/src/components/ribbon/|web/package[^/]*\.json$|web/vite[^/]*\.ts$|flake\.[^/]*$|rust-toolchain[^/]*$|Makefile$|web/scripts/snapshot\.ts$)'
-          want=false
-          if [ "$FORCE" = true ]; then
-            want=true
-          elif [ "$EVENT" = push ]; then
-            if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] || ! git fetch -q --depth=1 origin "$BEFORE"; then
-              want=true # no base to compare with: keep one rather than miss one
-            elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -Eq "$paths"; then
-              want=true
-            fi
-          fi
-          echo "build=$want" >> "$GITHUB_OUTPUT"
-          echo "snapshot: $want"
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
@@ -132,19 +103,6 @@ jobs:
           test -f dist-admin/admin.html
           echo "prerendered pages verified"
 
-      - name: Build the snapshot (/@<commit>/)
-        if: steps.snapshot.outputs.build == 'true'
-        env:
-          VITE_ACCOUNTS: ${{ vars.VITE_ACCOUNTS }}
-          NODE_OPTIONS: --max-old-space-size=6144
-        run: |
-          set -euo pipefail
-          nix develop --command nice web/scripts/build-snapshot.sh
-          d=web/dist-snapshot
-          jq -e --arg c "$GITHUB_SHA" '.commit == $c' "$d/SNAPSHOT.json" > /dev/null
-          for f in index.html en/index.html en/research/index.html; do test -f "$d/$f" || { echo "snapshot missing $f"; exit 1; }; done
-          grep -q "src=\"/@${GITHUB_SHA:0:7}/assets/" "$d/index.html"
-
       - name: Validate the Caddyfile
         run: nix run nixpkgs#caddy -- validate --config infra/caddy/Caddyfile --adapter caddyfile --envfile "infra/caddy/$TARGET.env"
 
@@ -162,11 +120,6 @@ jobs:
           cp -r web/dist/. "$pkg/frontends/app/"
           cp -r web/dist-admin/. "$pkg/frontends/admin/"
           cp infra/caddy/Caddyfile "$pkg/caddy/Caddyfile"
-          # Installed once into /srv/stabileo/snapshots/<commit>/ by deploy-app.yml, never overwritten.
-          if [ -d web/dist-snapshot ]; then
-            mkdir -p "$pkg/snapshot"
-            cp -r web/dist-snapshot/. "$pkg/snapshot/"
-          fi
 
           ./.github/scripts/release-store-paths.sh "$rel" > "$pkg/store-paths.txt"
           mapfile -t roots < "$pkg/store-paths.txt"
@@ -272,16 +225,3 @@ jobs:
         run: |
           # shellcheck disable=SC2029
           ssh "$HOST" "curl -sf http://127.0.0.1:$PORT/api/v1/health"
-
-      # Through Caddy, from outside: the index lists this commit when its release carried a snapshot.
-      - name: Verify the snapshot
-        env:
-          SITE: https://${{ vars.PHX_HOST }}
-        run: |
-          set -euo pipefail
-          tar -xzf stabileo-release.tar.gz ./snapshot/SNAPSHOT.json 2>/dev/null || { echo "no snapshot in this release"; exit 0; }
-          short=${GITHUB_SHA:0:7}
-          curl -sf "$SITE/@/" | jq -e --arg c "$GITHUB_SHA" '.snapshots | any(.commit == $c)' > /dev/null
-          curl -sf "$SITE/@$short/SNAPSHOT.json" | jq -e --arg c "$GITHUB_SHA" '.commit == $c' > /dev/null
-          curl -sfI "$SITE/@$short/en/research/" | grep -i '^cache-control: public, max-age=31536000, immutable'
-          echo "snapshot: $SITE/@$short/"
