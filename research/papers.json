@@ -340,8 +340,8 @@
     "cut sheets",
     "bifurcation"
    ],
-   "summary": "",
-   "summary_source": null,
+   "summary": "Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.",
+   "summary_source": "full-text",
    "code": [],
    "data": [],
    "methods": [
@@ -351,7 +351,7 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Queue item 6, sharing the 2D stability tooling of item 5 (a 2D frame with varying stiffness on the arc-length solver). No abstract in Crossref and the publisher page was not readable, so no summary; no code; published values are in figures only.",
+   "relevance": "Open preprint https://arxiv.org/html/2601.20793v2 verified on 2026-10-29. Production arc-length supports variable stiffness but cannot initialize the bending stress of the flat strip forced into vertical clamps; see research/metamaterials/feher-2026/README.md. Reproduction requires initial-state support or explicit agreement to a different surrogate model.",
    "status": "proposed",
    "reproduced_published_results": false,
    "benchmarks": [],
