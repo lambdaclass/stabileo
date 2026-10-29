@@ -2,7 +2,8 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
 
-  // Core browser analysis is free; specialised modules are free for universities.
+  // Core browser analysis is free for everyone; specialised modules are paid, free for universities.
+  // AI and heavy compute are paid by everyone, including universities.
   const FREE = { k: 'priceFree', tone: 'free' } as const;
 
   /*

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { bootLanding } from './landing-helpers';
 import { pickLanguage } from './fixtures';
 import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
 import fullDe from '../src/lib/i18n/locales/full/de';
@@ -30,8 +31,9 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  * continuous requestAnimationFrame animation under software GL on a two-core
  * runner. That is a harness problem, and it is not this file's to fix.
  *
- * So it stays local for now. Every case here has been run on every commit that
- * touched the landing, by hand:
+ * Pricing/layout coverage runs in landing-pricing.spec.ts with a fresh browser
+ * per case under @smoke. The remaining cases stay local for now and have
+ * historically been run by hand when the landing changes:
  *
  *   npx playwright test --grep @landing
  *
@@ -62,26 +64,6 @@ const SECTIONS = [
   'pricing',
   'blog',
 ] as const;
-
-async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean } = {}) {
-  const { locale = 'en', manual = true } = opts;
-  await page.addInitScript(
-    ({ locale, manual }) => {
-      try {
-        localStorage.clear();
-        if (manual) {
-          localStorage.setItem('stabileo-lang', locale);
-          localStorage.setItem('stabileo-lang-manual', '1');
-        }
-      } catch {
-        /* private mode */
-      }
-    },
-    { locale, manual },
-  );
-  await page.goto('/');
-  await expect(page.locator('.landing')).toBeVisible();
-}
 
 test.describe('@landing landing page', () => {
   test('the nav\'s Blog item opens the blog, not the teaser at the foot of the page', async ({ page }) => {
@@ -786,192 +768,7 @@ test.describe('@landing landing page', () => {
  * a landing that contradicts the business model — or quietly widens a promise
  * made to universities — costs more than a broken layout.
  */
-// Independent copy expectations: changes to the pricing policy must update this contract.
-const PRICING = {
-  "en": {
-    "modules": [
-      "Basic",
-      "PRO · Analysis",
-      "PRO · Code design",
-      "Stabileo AI",
-      "Education"
-    ],
-    "audiences": [
-      "Firms and individuals",
-      "Universities"
-    ],
-    "free": "Free",
-    "paid": "Paid",
-    "atCost": "Paid at cost",
-    "intro": "The core program, for structural analysis in the browser, is open source and free for everyone. Some specialised modules are paid; universities get those modules free. Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost.",
-    "notes": [
-      "Some specialised modules are paid; universities get those modules free.",
-      "Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost."
-    ]
-  },
-  "es": {
-    "modules": [
-      "Básico",
-      "PRO · Cálculo",
-      "PRO · Diseño normativo",
-      "Stabileo IA",
-      "Educativo"
-    ],
-    "audiences": [
-      "Empresas y particulares",
-      "Universidades"
-    ],
-    "free": "Gratis",
-    "paid": "Pago",
-    "atCost": "Pago al costo",
-    "intro": "El programa principal, para análisis estructural en el navegador, es de código abierto y gratuito para todos. Algunos módulos especializados son pagos; las universidades los reciben gratis. Stabileo IA y el cómputo intensivo en la nube son pagos para todos, incluidas las universidades, a un precio que cubre su costo.",
-    "notes": [
-      "Algunos módulos especializados son pagos; las universidades los reciben gratis.",
-      "Stabileo IA y el cómputo intensivo en la nube son pagos para todos, incluidas las universidades, a un precio que cubre su costo."
-    ]
-  },
-  "pt": {
-    "modules": [
-      "Básico",
-      "PRO · Cálculo",
-      "PRO · Projeto normativo",
-      "Stabileo IA",
-      "Educacional"
-    ],
-    "audiences": [
-      "Empresas e particulares",
-      "Universidades"
-    ],
-    "free": "Grátis",
-    "paid": "Pago",
-    "atCost": "Pago a preço de custo",
-    "intro": "O programa principal, para análise estrutural no navegador, é de código aberto e gratuito para todos. Alguns módulos especializados são pagos; as universidades recebem esses módulos gratuitamente. O Stabileo IA e a computação intensiva na nuvem são pagos por todos, inclusive pelas universidades, a um preço que cobre seu custo.",
-    "notes": [
-      "Alguns módulos especializados são pagos; as universidades recebem esses módulos gratuitamente.",
-      "O Stabileo IA e a computação intensiva na nuvem são pagos por todos, inclusive pelas universidades, a um preço que cobre seu custo."
-    ]
-  },
-  "de": {
-    "modules": [
-      "Basis",
-      "PRO · Berechnung",
-      "PRO · Bemessung nach Norm",
-      "Stabileo AI",
-      "Lehre"
-    ],
-    "audiences": [
-      "Unternehmen und Privatpersonen",
-      "Universitäten"
-    ],
-    "free": "Kostenlos",
-    "paid": "Kostenpflichtig",
-    "atCost": "Zum Selbstkostenpreis",
-    "intro": "Das Kernprogramm für die Tragwerksberechnung im Browser ist Open Source und für alle kostenlos. Einige spezialisierte Module sind kostenpflichtig; Universitäten erhalten diese Module kostenlos. Stabileo AI und rechenintensive Cloud-Berechnungen sind für alle kostenpflichtig, auch für Universitäten. Der Preis deckt die anfallenden Kosten.",
-    "notes": [
-      "Einige spezialisierte Module sind kostenpflichtig; Universitäten erhalten diese Module kostenlos.",
-      "Stabileo AI und rechenintensive Cloud-Berechnungen sind für alle kostenpflichtig, auch für Universitäten. Der Preis deckt die anfallenden Kosten."
-    ]
-  },
-  "fr": {
-    "modules": [
-      "Basique",
-      "PRO · Calcul",
-      "PRO · Dimensionnement réglementaire",
-      "Stabileo AI",
-      "Enseignement"
-    ],
-    "audiences": [
-      "Entreprises et particuliers",
-      "Universités"
-    ],
-    "free": "Gratuit",
-    "paid": "Payant",
-    "atCost": "Au prix coûtant",
-    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
-    "notes": [
-      "Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement.",
-      "Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
-    ]
-  },
-  "tr": {
-    "modules": [
-      "Temel",
-      "PRO · Analiz",
-      "PRO · Yönetmeliğe göre tasarım",
-      "Stabileo AI",
-      "Eğitim"
-    ],
-    "audiences": [
-      "Şirketler ve bireyler",
-      "Üniversiteler"
-    ],
-    "free": "Ücretsiz",
-    "paid": "Ücretli",
-    "atCost": "Maliyeti karşılayan ücret",
-    "intro": "Tarayıcıda yapı analizi sağlayan temel program açık kaynaklıdır ve herkes için ücretsizdir. Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır. Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir.",
-    "notes": [
-      "Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır.",
-      "Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir."
-    ]
-  }
-} satisfies Record<Locale, { modules: string[]; audiences: string[]; free: string; paid: string; atCost: string; intro: string; notes: string[] }>;
-
 test.describe('@landing the model the deck states', () => {
-  for (const locale of PUBLIC_LOCALES) {
-    for (const width of [390, 810]) {
-      test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        await bootLanding(page, { locale });
-        const copy = PRICING[locale];
-        const pricing = page.locator('section[data-section="pricing"]');
-        await pricing.scrollIntoViewIfNeeded();
-        await expect(pricing).toBeVisible();
-        const table = pricing.locator('.model-table');
-        await expect(table.locator('thead th:not(:first-child)')).toHaveText(copy.audiences);
-        const rows = await table.locator('tbody tr').evaluateAll((trs) =>
-          trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
-        );
-        const prices = [
-          [copy.free, copy.free],
-          [copy.free, copy.free],
-          [`${copy.paid}*`, copy.free],
-          [`${copy.atCost}**`, `${copy.atCost}**`],
-          ['', copy.free],
-        ];
-        expect(rows).toEqual(copy.modules.map((mod, i) => [mod, ...prices[i]]));
-        await expect(pricing.locator('.lead')).toHaveText(copy.intro);
-        for (const [index, note] of copy.notes.entries()) {
-          await expect(pricing.locator('.mode-note').nth(index)).toHaveText(`${'*'.repeat(index + 1)} ${note}`);
-        }
-        // Both AI cells reference the same note; every distinct reference must resolve.
-        const inTable = await table.locator('.fn').allInnerTexts();
-        const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-        expect([...new Set(inTable)].sort()).toEqual(inNotes.sort());
-
-        // Check internal overflow too: a scrollable wrapper can hide a whole
-        // audience while the document itself still fits the viewport.
-        await page.evaluate(() => document.fonts.ready);
-        const layout = await pricing.evaluate((section) => {
-          const wrap = section.querySelector('.model-table-wrap')!;
-          const cells = [...section.querySelectorAll('.model-table th, .model-table td')];
-          return {
-            wrapperFits: wrap.scrollWidth <= wrap.clientWidth + 1,
-            cellsFit: cells.every((cell) => {
-              const rect = cell.getBoundingClientRect();
-              return cell.scrollWidth <= cell.clientWidth + 1 && rect.left >= 0 && rect.right <= innerWidth;
-            }),
-            headingSizes: [...section.querySelectorAll('.model-table thead th')].map(
-              (th) => parseFloat(getComputedStyle(th).fontSize),
-            ),
-          };
-        });
-        expect(layout.wrapperFits).toBe(true);
-        expect(layout.cellsFit).toBe(true);
-        for (const size of layout.headingSizes) expect(size).toBeGreaterThanOrEqual(12);
-      });
-    }
-  }
-
   test('the product sections describe the product and price nothing', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
