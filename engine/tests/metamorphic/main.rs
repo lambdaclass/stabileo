@@ -136,3 +136,41 @@ fn metamorphic_nightly_2d() {
 fn metamorphic_nightly_3d() {
     run_3d("nightly_3d", corpus::cases_3d(corpus::Tier::Nightly, seed()), only().as_deref());
 }
+
+/// Replay one JSON model, emitting structured results for the nightly reducer.
+#[test]
+#[ignore]
+fn metamorphic_replay() {
+    let Ok(path) = std::env::var("NIGHTLY_MODEL") else { return };
+    let model = corpus::parse(&std::fs::read_to_string(path).unwrap()).expect("valid model JSON");
+    let t = Tally::default();
+    match model {
+        corpus::Model::D2(s) => {
+            let c = case::Case2::new("replay".into(), s);
+            let anas = ana2::rows();
+            checks2::check_case(&checks2::Ctx { tally: &t, rng_seed: seed() }, &c, &anas, INV_2D);
+            for anti in [false, true] {
+                if let Some(sym) = symmetry::symmetrize_2d(&c.name, &c.s, anti) {
+                    symmetry::check_2d(&t, &sym, anti, &anas);
+                }
+            }
+        }
+        corpus::Model::D3(s) => {
+            let c = case::Case3::new("replay".into(), s);
+            let anas = ana3::rows();
+            checks3::check_case(&checks3::Ctx { tally: &t, rng_seed: seed() }, &c, &anas, INV_3D);
+            for anti in [false, true] {
+                if let Some(sym) = symmetry::symmetrize_3d(&c.name, &c.s, anti) {
+                    symmetry::check_3d(&t, &sym, anti, &anas);
+                }
+            }
+        }
+    }
+    let cells = t.cells.lock().unwrap();
+    let failures: Vec<_> = cells.iter().filter(|(_, c)| !c.fails.is_empty())
+        .map(|((analysis, invariant), c)| serde_json::json!({
+            "test": format!("metamorphic/{analysis}/{invariant}"), "details": c.fails
+        })).collect();
+    std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&failures).unwrap()).unwrap();
+    assert!(failures.is_empty(), "metamorphic violations: {failures:?}");
+}
