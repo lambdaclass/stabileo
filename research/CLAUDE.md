@@ -46,6 +46,13 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - The gallery: thumbnails rendered from our own runs for experiments we run; a drawn field icon
   for the rest (never the paper's figures); "Run it" first, then "Coming next", then the catalog.
 
+## Phone and tablet
+- Every gallery and runnable catalogue page must pass `web/e2e/research-mobile.spec.ts`
+  (`@smoke`): no horizontal overflow at 360×740, 390×844, 844×390 and 810×1080;
+  touch controls and slider thumbs at least 44×44 px; visible text at least 12 px;
+  model canvas at least 280 px tall and near the top on phones. Preserve desktop's two panes,
+  autoplay until interaction, and translated UI in en/es/pt. Check every experiment tab.
+
 ## Evidence and integrity
 - Status badges come from evidence files, never set by hand: Proposed → Reference reproduced →
   Implementation in progress → Numerically validated → Published figures compared → Interactive.

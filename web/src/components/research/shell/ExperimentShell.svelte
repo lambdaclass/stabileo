@@ -1,11 +1,4 @@
 <script lang="ts">
-  /**
-   * The page of one runnable paper: a header, then two panes. Left, the article (our words: what
-   * the paper shows, the model, how we reproduced it, the comparison, limitations, Cite this).
-   * Right, sticky, the app: Stabileo's viewer, the controls, the step player, the plots. On narrow
-   * screens the article comes first and the app follows. Badges come from the catalogue, whose
-   * statuses CI derives from evidence files.
-   */
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
@@ -106,7 +99,6 @@
     color: var(--fg);
     font-size: 1.05rem;
   }
-  /* Below 70rem the experiment comes first, right after the lead, and the article follows. */
   .rs-shell-grid {
     display: flex;
     flex-direction: column;
