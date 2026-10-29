@@ -17,17 +17,60 @@ test.describe('@smoke research', () => {
     await expect(page.getByText('Research, not a design tool').first()).toBeVisible();
     // Every runnable experiment shows its build-time thumbnail, never the field icon.
     const cards = page.locator('.rs-g-runcard');
-    expect(await cards.count()).toBeGreaterThanOrEqual(1);
+    await expect(cards).toHaveCount(2);
+    expect(await cards.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-paper-id')))).toEqual(['grossman-2026', 'shauer-2025']);
+    await expect(page.locator('.rs-g-run video')).toHaveCount(0);
     for (const card of await cards.all()) {
+      await expect(card.locator('.rs-review-status')).toHaveText('Improved · Reviewed 2× (Codex, Kimi)');
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       const img = card.locator('img');
       await img.scrollIntoViewIfNeeded();
       await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
     }
-    await page.getByRole('link', { name: 'Read & run' }).first().click();
+    await cards.locator('[href*="shauer-2025"]').filter({ hasText: 'Read & run' }).click();
     await expect(page).toHaveURL(/\/en\/research\/fracture\/shauer-2025\/$/);
     await expect(page.getByRole('heading', { name: 'Phase-field fracture of a notched plate' })).toBeVisible();
+    await page.locator('.rs-review-status a').click();
+    await expect(page.locator('#reviews li')).toHaveCount(2);
+    await expect(page.locator('#reviews li').first()).toContainText('Codex · 2026-10-29');
+    await expect(page.locator('#reviews li a').first()).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/commit/0ce459e9eb75d2de08cc3743591b125f74d72ff7');
   });
+
+  for (const width of [360, 768, 1280]) {
+    test(`the showcase cards fit at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/en/research/');
+      const cards = page.locator('.rs-g-runcard');
+      await expect(cards).toHaveCount(2);
+      for (const card of await cards.all()) {
+        expect(await card.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+        const media = await card.locator('.rs-g-thumb').boundingBox();
+        const body = await card.locator('.rs-g-runbody').boundingBox();
+        expect(media).not.toBeNull();
+        expect(body).not.toBeNull();
+        if (width < 832) expect(body!.y).toBeGreaterThanOrEqual(media!.y + media!.height);
+        else expect(body!.x).toBeGreaterThanOrEqual(media!.x + media!.width);
+      }
+    });
+  }
+
+  for (const locale of ['en', 'es', 'pt']) {
+    test(`review status and history fit a 360 px screen in ${locale}`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 800 });
+      await page.goto(`/${locale}/research/`);
+      for (const badge of await page.locator('.rs-g-runcard .rs-review-status').all()) {
+        await expect(badge).toContainText('2× (Codex, Kimi)');
+        expect(await badge.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      }
+      await page.goto(`/${locale}/research/fracture/shauer-2025/`);
+      const badge = page.locator('.rs-shell-head .rs-review-status');
+      await expect(badge).toContainText('2× (Codex, Kimi)');
+      expect(await badge.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      await badge.locator('a').click();
+      await expect(page.locator('#reviews li')).toHaveCount(2);
+      expect(await page.locator('#reviews').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    });
+  }
 
   test('the phase-field experiment replays, then runs load steps live and plots the force', async ({ page }) => {
     const wasm: string[] = [];

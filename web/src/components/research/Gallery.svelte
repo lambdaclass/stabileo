@@ -3,9 +3,12 @@
    * /research: the experiments that run here first, then what is being built, then the
    * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
    */
+  import ReviewStatus from './ReviewStatus.svelte';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
   import { isHttpUrl } from './urls';
+  import ShowcaseMedia from './ShowcaseMedia.svelte';
+  import { showcaseEntries } from './showcase';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
@@ -13,8 +16,7 @@
   type Paper = (typeof catalog.papers)[number];
   const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
   const papers: Paper[] = [...catalog.papers].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.crossref.year - a.crossref.year);
-  const byId = new Map(papers.map((p) => [p.id, p]));
-  const run = EXPERIMENTS.map((e) => ({ e, p: byId.get(e.paperId)! })).filter((x) => x.p);
+  const run = showcaseEntries(papers, EXPERIMENTS);
   const catalogue = papers.filter((p) => !EXPERIMENTS.some((e) => e.paperId === p.id));
 
   const fields = [...new Set(catalogue.map((p) => p.area))];
@@ -22,10 +24,8 @@
   let field = $state<string | null>(null);
   let status = $state<string | null>(null);
   const shown = $derived(catalogue.filter((p) => (!field || p.area === field) && (!status || p.status === status)));
-  let thumbFailed = $state<Record<string, boolean>>({});
 
   const authors = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
-  const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
 </script>
 
@@ -42,16 +42,13 @@
     <h2 class="rs-g-h2">{s.runIt}</h2>
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
-        <li class="rs-g-runcard">
+        <li class="rs-g-runcard" data-paper-id={e.paperId}>
           <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}>
-            {#if !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={s[e.paperId === "grossman-2026" ? "springsAlt" : "damageAlt"]} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
-            {:else}
-              <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
-            {/if}
+            <ShowcaseMedia thumbnail={e.thumbnail} preview={e.preview} alt={s[e.paperId === "grossman-2026" ? "springsAlt" : "damageAlt"]} field={p.area} />
           </PublicLink>
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <ReviewStatus paper={p} />
             <h3><PublicLink to={e.path}>{e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}</PublicLink></h3>
             <p class="rs-g-hook">{e.paperId === "grossman-2026" ? s.springsHook : s.shauerHook}</p>
             <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
@@ -96,6 +93,7 @@
           <FieldIcon field={p.area} size={28} />
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <ReviewStatus paper={p} />
             <h3>{p.crossref.title}</h3>
             <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
@@ -152,6 +150,10 @@
     padding: 0;
     margin: 0;
   }
+  .rs-g-run {
+    display: grid;
+    gap: 1.5rem;
+  }
   .rs-g-runcard {
     display: grid;
     gap: 1.25rem;
@@ -174,22 +176,12 @@
     .rs-g-runcard :global(.rs-g-thumb) {
       aspect-ratio: auto;
       height: 100%;
-      min-height: 16rem;
+      min-height: 22rem;
     }
   }
-  .rs-g-runcard img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .rs-g-thumb-icon {
-    display: grid;
-    place-items: center;
-    height: 100%;
-  }
   .rs-g-runbody {
-    padding: 1.25rem 1.25rem 1.25rem 0.25rem;
+    min-width: 0;
+    padding: 1.75rem 1.75rem 1.75rem 0.25rem;
     color: var(--fg);
   }
   @media (max-width: 52rem) {
@@ -199,7 +191,7 @@
   }
   .rs-g-runbody h3 {
     font-family: var(--lp-display);
-    font-size: 1.5rem;
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
     line-height: 1.2;
     margin: 0.4rem 0 0.6rem;
   }
@@ -237,6 +229,9 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--fg-2);
+  }
+  .rs-g-runcard .rs-g-meta {
+    flex-wrap: wrap;
   }
   .rs-g-status {
     border: 1px solid var(--hair);

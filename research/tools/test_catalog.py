@@ -41,6 +41,63 @@ def main():
         f(m[0])
         return m
 
+    for value in [None, "draft", [], 1]:
+        code, out = run(mutated(lambda p: p.update(version_stage=value)), "--offline")
+        assert code != 0 and "version_stage" in out, out
+    code, out = run(mutated(lambda p: p.pop("version_stage")), "--offline")
+    assert code != 0 and "version_stage" in out, out
+    for value in [None, {}, "codex", [None], [{}]]:
+        code, out = run(mutated(lambda p: p.update(reviews=value)), "--offline")
+        assert code != 0 and "review" in out, out
+    for field, values in {
+        "reviewer": [None, "claude", [], 1],
+        "date": [None, "2026-02-30", "2026-1-01", "20261029", "2026-10-29T00:00:00", 20261029],
+        "commit": [None, "abcdef", "a" * 41, "g" * 40, 1234567],
+        "verdict": [None, "approved", [], True],
+        "followup": [None, 0, -1, True, "123", 1.5],
+    }.items():
+        for value in values:
+            code, out = run(mutated(lambda p: p["reviews"][0].update({field: value})), "--offline")
+            assert code != 0 and "review" in out, (field, value, out)
+    for field in ["reviewer", "date", "commit", "verdict"]:
+        code, out = run(mutated(lambda p: p["reviews"][0].pop(field)), "--offline")
+        assert code != 0 and "review" in out, out
+    code, out = run(mutated(lambda p: p["reviews"][0].update(verdit="ready to merge")), "--offline")
+    assert code != 0 and "unknown review field" in out, out
+    for reviewer in ["codex", "kimi", "grok", "human"]:
+        for verdict in ["not ready", "ready after should-fix items", "ready to merge"]:
+            code, out = run(mutated(lambda p: p["reviews"][0].update(
+                reviewer=reviewer, verdict=verdict, commit="ABCdef0", date="2024-02-29", followup=123)), "--offline")
+            assert code == 0, out
+    for stage in ["first-version", "improved", "complete"]:
+        code, out = run(mutated(lambda p: p.update(version_stage=stage, reviews=[])), "--offline")
+        assert code == 0, out
+    code, out = run(mutated(lambda p: p.pop("reviews")), "--offline")
+    assert code == 0, out
+    print("ok   validates review records and runnable version stages")
+
+    for value in [0, -1, 1.5, "1", True, None]:
+        code, out = run(mutated(lambda p: p.update(showcase=value)), "--offline")
+        assert code != 0 and "positive integer" in out, out
+    code, out = run(mutated(lambda p: p.pop("page")), "--offline")
+    assert code != 0 and "runnable page" in out, out
+    nonrunnable = copy.deepcopy(next(p for p in papers if not p.get("page")))
+    nonrunnable["showcase"] = 3
+    code, out = run([nonrunnable], "--offline")
+    assert code != 0 and "runnable page" in out, out
+    code, out = run(mutated(lambda p: p.update(page="missing.svelte")), "--offline")
+    assert code != 0 and "runnable page" in out, out
+    duplicate = copy.deepcopy(papers)
+    for p in duplicate:
+        if p["id"] == "grossman-2026":
+            p["showcase"] = base[0]["showcase"]
+    code, out = run(duplicate, "--offline")
+    assert code != 0 and "duplicate showcase" in out, out
+    unordered = mutated(lambda p: p.pop("showcase"))
+    code, out = run(unordered, "--offline")
+    assert code == 0, out
+    print("ok   accepts optional showcase and rejects invalid ranks, duplicates and missing pages")
+
     code, out = run(mutated(lambda p: p.update(status="published-figures-compared")), *flags)
     assert code != 0, out
     print("ok   rejects published-figures-compared without published evidence")
@@ -74,6 +131,7 @@ def main():
         comparison = implementation / "PUBLISHED_COMPARISON.json"
         comparison.write_text(json.dumps({"checks": [{"source": "paper figure 3", "metric": "relative error", "observed": 0.001, "tolerance": 0.01, "passed": True}]}))
         entry = mutated(lambda p: p.update(status="published-figures-compared", reproduced_published_results=True))[0]
+        entry.pop("showcase", None)
         errors = []
         catalog.check_entry(entry, errors)
         assert not errors, errors
@@ -127,7 +185,7 @@ def main():
         "string boolean": lambda p: p.update(reproduced_published_results="false"),
         "integer boolean": lambda p: p.update(reproduced_published_results=1),
         "published claim without comparison": lambda p: p.update(status="published-figures-compared", reproduced_published_results=True),
-        "interactive without page": lambda p: p.update(status="interactive"),
+        "interactive without page": lambda p: (p.update(status="interactive"), p.pop("page", None)),
         "interactive missing page": lambda p: p.update(status="interactive", page="web/src/components/research/Missing.svelte"),
         "missing code commit": lambda p: p["code"][0].pop("commit"),
         "mutable code ref": lambda p: p["code"][0].update(commit="main"),

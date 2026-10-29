@@ -9,6 +9,8 @@ export type Experiment = {
   hook: string;
   /** web/public/<thumbnail>, rendered from our own run by scripts/research-thumbs.mjs and committed. */
   thumbnail: string;
+  /** Optional published video path relative to web/public; never guessed or probed. */
+  preview?: string;
   /** What the thumbnail shows (its alt text). */
   thumbnailAlt: string;
   /** The page's query that sets up the thumbnail's view (step, mesh, view, deformed). */

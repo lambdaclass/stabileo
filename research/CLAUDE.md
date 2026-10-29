@@ -76,5 +76,10 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - One branch and PR per paper, from `main` (or from the previous research branch until it
   merges). **Commit and push after every small working step.** Keep the PR description current:
   done, evidence, half done, findings, exact next step.
-- Before production: green required CI, a page e2e smoke, a review (Codex and Kimi plus a human),
-  then merge. Messages to authors are drafted here and sent by a maintainer.
+- **Ship first, review after: the page shows its review status.** Before the first production
+  version: green required CI and a page e2e smoke, then merge. Codex plus Kimi or Grok review
+  afterward; improvements come in follow-up PRs. Review is not a first-release gate.
+- Runnable catalogue entries require `version_stage: first-version|improved|complete`; record
+  reviews in the optional `reviews` list using the schema in [README.md](README.md#versions-and-reviews).
+  Every paper changelog fragment states its stage and recorded review count.
+  Messages to authors are drafted here and sent by a maintainer.

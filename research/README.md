@@ -67,3 +67,58 @@ For local comparisons, run `nix develop .. -c node scripts/check-research-route-
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
 `node --test web/scripts/research-route-budget.test.mjs` checks unchanged routes, the noise
 allowance, missing measurements and negative cases for real landing/app growth.
+
+
+## Gallery showcase and previews
+
+“Run it” contains only browser experiments registered in
+`web/src/components/research/experiments.ts` with an existing repository-relative
+`page` in `papers.yaml`. Catalogue-only papers stay in the catalogue below.
+
+Set an optional positive integer `showcase` on a runnable paper to hand-order the
+large cards (lower first). Ranks must be unique; they are not evidence or a status.
+Currently Grossman has `showcase: 1` and Shauer has `showcase: 2`.
+Runnable entries without a rank follow, sorted by year descending, then title.
+After editing the catalogue, run `python3 -I research/tools/catalog.py export`;
+`check --offline` validates the ranks, page files and generated JSON.
+
+To publish a looping card preview, add an optional `preview` path to its
+`experiments.ts` entry, relative to `web/public/`, for example
+`research/metamaterials/grossman-2026/preview.webm` (or `preview.mp4`).
+The existing `research-thumbs/<id>.webp` thumbnail remains its poster.
+Only declare a preview after its asset is published: the gallery never probes
+candidate URLs. Without a preview, under reduced motion, off screen, or after a
+video failure, it shows the still. Videos load and play only while visible.
+
+## Versions and reviews
+
+**Ship first, review after: the page shows its review status.** Ship the first version
+of a research paper to production after required CI and the page smoke check.
+Codex plus Kimi or Grok review it afterward; improvements ship in follow-up PRs.
+Review is not a prerequisite for the first production version.
+
+Every runnable entry (an entry with `page`, or status `interactive`) requires
+`version_stage: first-version|improved|complete`. Stage describes the implementation,
+not numerical evidence or review approval. Catalogue-only entries may omit it.
+Every paper's changelog fragment must state its stage and recorded review count.
+
+An optional `reviews` list records individual reviews with these fields:
+
+- `reviewer`: `codex`, `kimi`, `grok`, or `human`.
+- `date`: quoted calendar date in `YYYY-MM-DD` form.
+- `commit`: 7–40 hexadecimal characters identifying the reviewed version.
+- `verdict`: `not ready`, `ready after should-fix items`, or `ready to merge`.
+- `followup`: optional positive PR or issue number in this repository.
+
+Omit `reviews` or use `[]` for no recorded reviews. Counts are records, not unique
+reviewers, and do not imply approval. The page lists dates, commits and verdicts;
+reviewer names in the badge are deduplicated. Export with `catalog.py export`.
+
+The two existing experiments predate this workflow and had many Codex + Kimi rounds
+before merge. Only their final rounds are recorded (two records per paper):
+Shauer's “seventh review of #769” (`56cde2bb2`) and Grossman's “final review of #776”
+(`79781efd6`), dated 2026-10-29 in `origin/main` history. Their records anchor to merge
+commits `0ce459e9eb75d2de08cc3743591b125f74d72ff7` and
+`41d1ab4f8a8a94e5407ec035024b3fa685388c21`, respectively. The conditional verdict
+reflects the fixes described in those messages, rather than claiming an unrecorded
+unconditional approval. Earlier rounds are not included in the displayed count.

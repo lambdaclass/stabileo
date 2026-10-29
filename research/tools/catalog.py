@@ -12,6 +12,7 @@ also fetches each GitHub code link (set GITHUB_TOKEN to avoid the anonymous rate
 `show` prints the Crossref block for a DOI, to paste into a new entry.
 """
 import copy
+import datetime
 import hashlib
 import math
 import html
@@ -136,6 +137,43 @@ def check_entry(p, errors):
                           "never from memory or the title (leave the summary empty instead)")
     elif source is not None:
         errors.append(f"{pid}: summary_source given but the summary is empty")
+    if "showcase" in p:
+        if type(p["showcase"]) is not int or p["showcase"] <= 0:
+            errors.append(f"{pid}: showcase must be a positive integer")
+        page = p.get("page")
+        if not isinstance(page, str) or not page or not os.path.isfile(os.path.join(ROOT, "..", page)):
+            errors.append(f"{pid}: showcase requires an existing runnable page")
+    stages = ("first-version", "improved", "complete")
+    if "version_stage" in p and p["version_stage"] not in stages:
+        errors.append(f"{pid}: version_stage must be one of {stages}")
+    if (p.get("page") or p.get("status") == "interactive") and "version_stage" not in p:
+        errors.append(f"{pid}: runnable entries require version_stage")
+    reviews = p.get("reviews", [])
+    if not isinstance(reviews, list):
+        errors.append(f"{pid}: reviews must be a list")
+        reviews = []
+    for review in reviews:
+        if not isinstance(review, dict):
+            errors.append(f"{pid}: review must be a mapping")
+            continue
+        if set(review) - {"reviewer", "date", "commit", "verdict", "followup"}:
+            errors.append(f"{pid}: unknown review field")
+        if review.get("reviewer") not in ("codex", "kimi", "grok", "human"):
+            errors.append(f"{pid}: invalid review reviewer")
+        date = review.get("date")
+        try:
+            if not isinstance(date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", date):
+                raise ValueError()
+            datetime.date.fromisoformat(date)
+        except ValueError:
+            errors.append(f"{pid}: review date must be a valid YYYY-MM-DD string")
+        commit = review.get("commit")
+        if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit):
+            errors.append(f"{pid}: review commit must be 7-40 hex characters")
+        if review.get("verdict") not in ("not ready", "ready after should-fix items", "ready to merge"):
+            errors.append(f"{pid}: invalid review verdict")
+        if "followup" in review and (type(review["followup"]) is not int or review["followup"] <= 0):
+            errors.append(f"{pid}: review followup must be a positive PR/issue number")
     status = p.get("status")
     if status not in STATUSES:
         errors.append(f"{pid}: status '{status}' not in {STATUSES}")
@@ -264,6 +302,9 @@ def main(argv):
     ids = [p.get("id") for p in papers]
     if len(set(ids)) != len(ids):
         errors.append("duplicate ids")
+    showcase = [p["showcase"] for p in papers if type(p.get("showcase")) is int]
+    if len(set(showcase)) != len(showcase):
+        errors.append("duplicate showcase ranks")
     for p in papers:
         check_entry(p, errors)
         if "--offline" not in argv:

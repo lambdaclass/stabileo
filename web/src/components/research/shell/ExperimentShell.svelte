@@ -6,6 +6,8 @@
    * screens the article comes first and the app follows. Badges come from the catalogue, whose
    * statuses CI derives from evidence files.
    */
+  import ReviewStatus from '../ReviewStatus.svelte';
+  import { reviewerName, reviewVerdict, type ReviewPaper } from '../reviews';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
@@ -34,6 +36,7 @@
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
+  const reviewPaper: ReviewPaper = paper;
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = paper.crossref.authors.join(', ');
@@ -49,6 +52,7 @@
         {s.afterAuthors} {authors}, “{paper.crossref.title}”, <em>{paper.crossref.venue}</em> ({paper.crossref.year}),
         <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
       </p>
+      <ReviewStatus paper={reviewPaper} href="#reviews" />
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
@@ -58,6 +62,21 @@
     <div class="rs-shell-grid" class:rs-wide={wide}>
       <article class="rs-shell-article rs-prose" lang={researchLocale()}>
         {@render article()}
+        <section id="reviews" class="rs-reviews">
+          <h2>{s.reviewList}</h2>
+          {#if reviewPaper.reviews?.length}
+            <ul>
+              {#each reviewPaper.reviews as review}
+                <li>
+                  <strong>{reviewerName(review.reviewer, s)}</strong> · <time datetime={review.date}>{review.date}</time> ·
+                  <a href="https://github.com/lambdaclass/stabileo/commit/{review.commit}" target="_blank" rel="noreferrer"><code>{review.commit}</code></a>
+                  — {reviewVerdict(review.verdict, s)}
+                  {#if review.followup} · <a href="https://github.com/lambdaclass/stabileo/issues/{review.followup}" target="_blank" rel="noreferrer">{s.reviewFollowup} #{review.followup}</a>{/if}
+                </li>
+              {/each}
+            </ul>
+          {:else}<p>{s.reviewNone}</p>{/if}
+        </section>
         <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
           {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
@@ -71,6 +90,8 @@
 </section>
 
 <style>
+  .rs-reviews { overflow-wrap: anywhere; scroll-margin-top: 5rem; }
+  .rs-reviews li { margin-block: 0.75rem; }
   .rs-shell {
     padding-top: clamp(4.5rem, 8vw, 6rem);
     padding-bottom: 3rem;

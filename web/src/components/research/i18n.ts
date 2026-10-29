@@ -2,6 +2,18 @@ import { publicI18n } from '../../lib/i18n/store.svelte';
 
 /** Research interface and article strings; unsupported locales fall back to English. */
 export type ResearchStrings = {
+  reviewFirstVersion: string;
+  reviewImproved: string;
+  reviewComplete: string;
+  reviewNone: string;
+  reviewCount: string;
+  reviewList: string;
+  reviewHuman: string;
+  reviewNotReady: string;
+  reviewShouldFix: string;
+  reviewReady: string;
+  reviewFollowup: string;
+
   springsEqualWeight: string;
   springsCompressionLegend: string;
   springsTensionLegend: string;
@@ -385,6 +397,17 @@ export type ResearchStrings = {
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   en: {
+    reviewFirstVersion: 'First version',
+    reviewImproved: 'Improved',
+    reviewComplete: 'Complete',
+    reviewNone: 'not reviewed yet',
+    reviewCount: 'Reviewed {count}× ({reviewers})',
+    reviewList: 'Recorded reviews',
+    reviewHuman: 'Human',
+    reviewNotReady: 'Not ready',
+    reviewShouldFix: 'Ready after should-fix items',
+    reviewReady: 'Ready to merge',
+    reviewFollowup: 'Follow-up',
     springsEqualWeight: "k ∝ 1/ℓ² (as Eq. 9)",
     springsCompressionLegend: "compression positive after division by negative ε · strip compressed left to right, end rows held",
     springsTensionLegend: "tension positive · strip pulled left to right, end rows held",
@@ -764,6 +787,17 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'Not compared: the full text was not accessible to us',
   },
   es: {
+    reviewFirstVersion: 'Primera versión',
+    reviewImproved: 'Mejorado',
+    reviewComplete: 'Completo',
+    reviewNone: 'sin revisiones todavía',
+    reviewCount: 'Revisado {count}× ({reviewers})',
+    reviewList: 'Revisiones registradas',
+    reviewHuman: 'Humano',
+    reviewNotReady: 'No está listo',
+    reviewShouldFix: 'Listo tras las correcciones recomendadas',
+    reviewReady: 'Listo para integrar',
+    reviewFollowup: 'Seguimiento',
     springsEqualWeight: "k ∝ 1/ℓ² (como Ec. 9)",
     springsCompressionLegend: "compresión positiva al dividir por ε negativo · tira comprimida de izquierda a derecha, filas extremas sujetas",
     springsTensionLegend: "tracción positiva · tira estirada de izquierda a derecha, filas extremas sujetas",
@@ -1143,6 +1177,17 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
   },
   pt: {
+    reviewFirstVersion: 'Primeira versão',
+    reviewImproved: 'Melhorado',
+    reviewComplete: 'Completo',
+    reviewNone: 'ainda sem revisão',
+    reviewCount: 'Revisado {count}× ({reviewers})',
+    reviewList: 'Revisões registradas',
+    reviewHuman: 'Humano',
+    reviewNotReady: 'Não está pronto',
+    reviewShouldFix: 'Pronto após as correções recomendadas',
+    reviewReady: 'Pronto para integrar',
+    reviewFollowup: 'Acompanhamento',
     springsEqualWeight: "k ∝ 1/ℓ² (como Eq. 9)",
     springsCompressionLegend: "compressão positiva após divisão por ε negativo · faixa comprimida da esquerda para a direita, fileiras extremas presas",
     springsTensionLegend: "tração positiva · faixa tracionada da esquerda para a direita, fileiras extremas presas",
