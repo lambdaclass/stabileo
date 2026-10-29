@@ -1,3 +1,4 @@
+import { timeHistoryView } from './time-history-view.svelte';
 // Results store
 
 import { carryCertifyJob } from '../engine/certify-tags';
@@ -1389,7 +1390,7 @@ function createResultsStore() {
       return knownIssueResultDisposition([singleResults, results, [...perCase.values()], pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
     },
     get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, movingLoadEnvelope, influenceLine]);
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, movingLoadEnvelope, influenceLine, timeHistoryView.shown ? timeHistoryView.result : null]);
     },
 
     get maxDisplacement(): number {

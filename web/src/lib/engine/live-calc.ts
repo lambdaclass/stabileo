@@ -1,3 +1,4 @@
+import { knownIssueRefusal } from './known-issues';
 /**
  * live-calc.ts — Extracted live-calculation logic from App.svelte.
  *
@@ -361,10 +362,10 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
     if (isStale()) return stale;
     if (typeof r === 'string') {
-      uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
+      uiStore.toast(knownIssueRefusal(r) ?? localizeEngineText(r), 'error', solveErrorAction(r));
       // Name the mechanism, when that is what stopped it (`store/instability.svelte.ts`).
       if (isPro) instability.explain(uiStore.includeSelfWeight, leftHand);
-      return failed(localizeEngineText(r));
+      return failed(knownIssueRefusal(r) ?? localizeEngineText(r));
     }
     if (!r) {
       uiStore.toast(t('results.emptyModelError'), 'error');
@@ -461,7 +462,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   if (hasCombos) {
     /** The single solve stands; the combinations it was asked for are not there, and why. */
     const withoutCombinations = (fallback: GlobalSolveOutcome, why: string): GlobalSolveOutcome =>
-      fallback.ok ? { ok: true, combinationsLeftOut: localizeEngineText(why) } : fallback;
+      fallback.ok ? { ok: true, combinationsLeftOut: knownIssueRefusal(why) ?? localizeEngineText(why) } : fallback;
     if (isPro) {
       // The combination solve already returns per-case results (runComboSolve
       // seeds the baseline/current view from the first per-case result), so the
@@ -476,12 +477,12 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
         // Said either way: with the fallback the model is solved, but without the
         // combinations asked for — an empty active list, for one, is refused here. The
         // command that may fix a solve is offered only when the fallback failed too.
-        uiStore.toast(localizeEngineText(combo), 'info', fallback.ok ? undefined : solveErrorAction(combo));
+        uiStore.toast(knownIssueRefusal(combo) ?? localizeEngineText(combo), 'info', fallback.ok ? undefined : solveErrorAction(combo));
         return withoutCombinations(fallback, combo);
       } catch (e: any) {
         console.error('[globalSolve3D] Combination solving failed in PRO, falling back to single solve:', e.message);
         const fallback = await runSingleSolve();
-        if (!fallback.ok) uiStore.toast(localizeEngineText(e.message), 'info', solveErrorAction(e.message));
+        if (!fallback.ok) uiStore.toast(knownIssueRefusal(e) ?? localizeEngineText(e.message), 'info', solveErrorAction(e.message));
         return withoutCombinations(fallback, e.message);
       }
     }
@@ -493,12 +494,12 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       if (typeof combo !== 'string') return combo;
       console.warn('[globalSolve3D] Combination solve returned error, falling back to single solve:', combo);
       const fallback = await runSingleSolve();
-      uiStore.toast(localizeEngineText(combo), fallback.ok ? 'info' : 'error', fallback.ok ? undefined : solveErrorAction(combo));
+      uiStore.toast(knownIssueRefusal(combo) ?? localizeEngineText(combo), fallback.ok ? 'info' : 'error', fallback.ok ? undefined : solveErrorAction(combo));
       return withoutCombinations(fallback, combo);
     } catch (e: any) {
       console.error('[globalSolve3D] Combination solving failed:', e.message);
       const fallback = await runSingleSolve();
-      uiStore.toast(localizeEngineText(e.message), fallback.ok ? 'info' : 'error', fallback.ok ? undefined : solveErrorAction(e.message));
+      uiStore.toast(knownIssueRefusal(e) ?? localizeEngineText(e.message), fallback.ok ? 'info' : 'error', fallback.ok ? undefined : solveErrorAction(e.message));
       return withoutCombinations(fallback, e.message);
     }
   }
@@ -511,8 +512,8 @@ async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome
   const r = await modelStore.solveAsync(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (isStale()) return { ok: false, error: t('results.editedDuringSolve') };
   if (typeof r === 'string') {
-    uiStore.toast(localizeEngineText(r), 'error', solveErrorAction(r));
-    return { ok: false, error: localizeEngineText(r) };
+    uiStore.toast(knownIssueRefusal(r) ?? localizeEngineText(r), 'error', solveErrorAction(r));
+    return { ok: false, error: knownIssueRefusal(r) ?? localizeEngineText(r) };
   }
   if (!r) {
     uiStore.toast(t('results.emptyModelError'), 'error');
@@ -538,7 +539,7 @@ async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome
   let combinationsLeftOut: string | null = null;
   if (modelStore.model.combinations.length > 0) {
     const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-    if (typeof comboResult === 'string') combinationsLeftOut = localizeEngineText(comboResult);
+    if (typeof comboResult === 'string') combinationsLeftOut = knownIssueRefusal(comboResult) ?? localizeEngineText(comboResult);
     else if (!comboResult) combinationsLeftOut = t('results.emptyModelError');
     else {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);

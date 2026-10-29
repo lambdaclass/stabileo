@@ -7,7 +7,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 | #762 | `NUM-INVARIANCE` | WARN | Existing conditioning/stability diagnostics; original and reduced constrained stiffness (§ below). | known_issues::invariance_reported_seeds_are_flagged_or_refused (all ten reported seeds); a_plain_frame_carries_no_known_issue; sparse_solver_paths numerical/diagnostic parity |
 | #760 | `TH-RECIPROCITY` | WARN | 2D/3D time history; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; existing time-history numerical tests retained |
 | #759 | `MD-ORTHOGONALITY` | WARN | 3D modal/spectral; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; unchanged modal/spectral numerical tests |
-| #758 | `PL-2D-INVARIANCE` / `PL-3D-INVARIANCE` | REFUSE / WARN | Native 2D plastic calls / 3D plastic with curved beams. | core::plastic, certify_plastic, validation plastic/textbook/pushover tests assert structured refusals; known_issues_model_predicates_have_negative_controls |
+| #758 | `PL-2D-INVARIANCE` / `PL-3D-INVARIANCE` | REFUSE / WARN | Native and Basic UI 2D plastic calls / 3D plastic with curved beams. | core::plastic, certify_plastic, validation plastic/textbook/pushover tests assert structured refusals; known_issues_model_predicates_have_negative_controls |
 | #757 | `SH-GLOBAL-STRESS` | REFUSE | Solid-shell face not parallel to global X–Y (or invalid geometry). | known_issues_shell_predicates_have_geometric_controls; solid_shell_locking and shell_benchmark refusal cases |
 | #752 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 260 missed mutants in 21 functions survive in the frame, truss, curved-beam and fiber-beam kernels. No demonstrated current wrong-result case in this item. |
 | #751 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 244 missed mutants in 50 functions survive in the static certificate support code. No demonstrated current wrong-result case in this item. |
@@ -62,7 +62,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 - SH-GLOBAL-STRESS: any solid shell whose lower or upper four-node face has unequal global Z coordinates, or missing nodes.
 - SH-MITC4-DISTORTION: WARN for MITC4 skew >10°, Jacobian ratio <0.9, warping >0.01, or non-finite/missing geometry. The MacNeal–Harder regular rectangle (0° / ratio 1) passes; the reported 45° trapezoid and parallelogram fail. These conservative geometry cutoffs lie between the demonstrated endpoints, not experimentally established accuracy boundaries. The reported in-plane values are regular 0.1071 versus 0.1081, trapezoid 0.0084 (−92%), parallelogram 0.0104 (−90%); out-of-plane values 0.4235, 0.4162, 0.4226 versus 0.4321 stay within 4%.
   On each recovered static load case, compute local nodal normal membrane stresses after subtracting its thermal strains. For each normal component crossing zero, take V = 2 min(−minimum, maximum); otherwise V = 0. Use the largest V, membrane magnitude S = max absolute normal stress, and outer-fibre plate stress B = max 6|Mx, My, Mxy|/t². REFUSE only if V > 0.5 S, V > B, and V > E × 1e-12 (E in solver stress units). Sign reversal and the 50% threshold require a substantial bending component, rather than ordinary extension or a small membrane perturbation; plate stress dominance keeps transverse bending at WARN. The modulus-scaled floor excludes numerical noise. These are conservative operational significance thresholds validated against all nine shape/load controls, not a general error estimator. Mixed responses without sufficient sign-reversing membrane bending remain WARN. Static prepared load cases are checked individually. Other analysis types retain the geometry warning; no modal stress sign pattern is treated as a static bending result.
-- PL-2D-INVARIANCE: all native Rust 2D plastic-collapse calls; no validated safe subset is known. The separate legacy TypeScript plastic-collapse routine is not the demonstrated #758 algorithm; its successful-result numerical assertions remain active. The native certificate job refuses.
+- PL-2D-INVARIANCE: all native Rust and Basic UI 2D plastic-collapse calls; no validated safe subset is known. Basic refuses before displaying a legacy result or requesting native certification. The internal TypeScript algorithm retains its numerical regression tests.
 - BU-BOUND: a 3D certified buckling result whose computed factor is below the lower bound or above its available upper bound. This additionally checks the output because the defect has an exact observable contradiction.
 - SP-17: 3D connectors with unequal transverse shear or bending stiffnesses.
 - FR-5: at least two positive-Cw members sharing a node; continuity requires verification even for a collinear change of section.
@@ -175,7 +175,7 @@ Native debug target totals (focused final reruns have the same counts):
 | validation | 4763 | 0 | 0 |
 | doc-tests | 0 | 0 | 0 |
 
-## PR #807 review corrections
+## Propagation and numerical stability
 
 No new typecheck errors is the acceptance criterion; the repository has an existing baseline.
 The membrane-bending predicate is checked on constrained, prepared, combined, second-order,
@@ -192,35 +192,12 @@ Its numerical baseline is retained unchanged alongside validation-03's; the test
 the specific #798 diagnostic. The Node determinism corpus contains 191 cases and 27 recorded
 refusals/errors, with six required PL-2D-INVARIANCE refusals, including the 2D bundle exports.
 
-### Earlier review-fix verification (2026-10-29)
-
-The following records the earlier review pass. The follow-up propagation fixes require six 2D
-plastic refusals, including bundle exports, as described above.
-
-All builds use `CARGO_TARGET_DIR` outside the checkout and a writable Nix cache under `/private/tmp`.
-No commit, push or git mutation was performed.
-
-| Requested item | Result |
-|---|---|
-| Entry-point containment | Native regressions cover prepared, constrained direct/dispatch, P-Delta, Winkler, SSI, contact and cancellation in multi-case combinations. WASM tests also cover staged, certificate/export and discretization entry points, plus non-XY solid-shell refusals. Model-less combinations refuse distortion; combinations/envelopes preserve known-issue warnings. |
-| Result-change registration | Version 5, `safety-containment-diagnostics`, localized explanations, write-up and `### BREAKING (results)` fragment. Registry, applicability and fixture-stamp tests pass. |
-| Determinism | 40 Node tests pass; 191 corpus cases, 25 recorded errors/refusals. All three browser launches are blocked by the macOS sandbox (Chromium reports Mach-port permission denied); cross-browser comparison could not run locally. |
-| Spectral result warnings | X/Y, direct and nested result shapes are covered, including banner rendering, deduplication and cycles. |
-| Localized refusals | English, Spanish and Portuguese production formatter tests pass. Basic uses that formatter; workers preserve the structured error without importing i18n runes. |
-| Stale containment audit | Three Python tests pass, including CLOSED issues and invalid inputs. Live audit reports newly opened #810 without a containment decision; no active contained issue was reported CLOSED. #810 requires separate benchmark triage. |
-| Exact diagnostic assertions | Native/WASM tests require code, severity, finding id and issue number. The two #762 seeds that fail as mechanisms require their exact existing mechanism refusal; the other eight require NUM-INVARIANCE. Ledger checks validate each issue/id/mode association. |
-| Typecheck wording | No new typecheck errors: 247 existing TypeScript errors; guarded Svelte paths pass (repository-wide informational count: 343 errors, 264 warnings). |
-
-| Command/check | Result |
-|---|---|
-| Native debug library, certificates, core, derivations, elements, gates, integration, property, reference, robustness, shells, solver, validation | PASS; final containment-focused rerun: 12/12 |
-| `cargo test --locked --release --test validation` | PASS: 4763 |
-| `cargo test --locked --release --test metamorphic` | PASS: 19, 5 existing ignored |
-| Full untargeted `cargo test --locked` | Stopped after more than 13 minutes in debug `metamorphic_pr_3d`; all other targets passed via the full/targeted debug runs above. The documented release-mode metamorphic command passed. |
-| `make wasm` | PASS |
-| `make test.web.results` | PASS: 41 |
-| `make check.results-snapshot-gate` | Reads committed HEAD and therefore cannot see these uncommitted fixes; fails on the old missing registration. The identical `decide` gate against working files and origin/main passes: two changed snapshots, three diagnostic strings, registered at version 5. |
-| `npx vitest run --project unit` | PASS: 15600, 14 existing skipped |
-| `nix develop -c make typecheck.web` | PASS: no new typecheck errors |
-| Snapshot identity against initial HEAD | All 39 files unchanged; 145515 numerical result values and 39 format versions identical. No numerical baselines regenerated. |
-| `git diff --check` (read-only) | PASS |
+Advanced modal, harmonic, time-history and reduction results inspect their assembled and
+reduced stiffness matrices for `NUM-INVARIANCE`, including round-off factorization pivots. Time history also inspects its effective stiffness.
+Buckling retains preload diagnostics and checks the eigenproblem stiffness; creep retains
+the base solve and every step's diagnostics. Linear and combination certificate bundles
+serialize deduplicated structured diagnostics alongside their unchanged numerical payloads.
+The viewport keeps time-history warnings visible while its response is shown, independently
+of the dynamics panel. Production worker and synchronous solve errors use localized
+containment refusals. Basic 2D plastic refuses before displaying a legacy result or scheduling
+a native certificate; internal legacy numerical regression tests remain active.
