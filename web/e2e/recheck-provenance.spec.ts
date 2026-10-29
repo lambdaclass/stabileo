@@ -218,3 +218,54 @@ test.describe('@smoke provenance on a PRO model with combinations (the common pa
     expect(file.suggestedFilename()).toBe('solver-input-3d.json');
   });
 });
+
+for (const width of [390, 810]) {
+  for (const locale of ['es', 'pt']) {
+    test.describe(`@smoke re-check layout ${width}px ${locale}`, () => {
+      test.use({ viewport: { width, height: 844 }, appLocale: locale });
+
+      test('keeps controls visible above a scrolling history and sizes touch targets', async ({ pro: page }) => {
+        expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+        await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+        const notice = page.getByTestId('recheck-notice');
+        const list = page.getByTestId('recheck-changes');
+        expect(await list.locator('li').count()).toBeGreaterThan(3);
+        expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+        const footer = notice.locator('footer');
+        await expect(footer).toBeInViewport({ ratio: 1 });
+        const before = await footer.boundingBox();
+        await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        expect(await footer.boundingBox()).toEqual(before);
+        expect(await notice.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true);
+        for (const selector of ['.rc-item-text', '.rc-area', '.rc-link', '.rc-stale', '.rc-ack', '.rc-btn']) {
+          expect(await notice.locator(selector).first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+        }
+        for (const selector of ['.rc-link', '.rc-ack', '.rc-btn']) {
+          for (const target of await notice.locator(selector).all()) {
+            expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+          }
+        }
+        expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+        await page.getByTestId('recheck-ack').check();
+        await page.getByTestId('recheck-later').click();
+        const banner = page.getByTestId('recheck-stale-banner');
+        await expect(banner).toBeInViewport({ ratio: 1 });
+        expect(await banner.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+        for (const button of await banner.getByRole('button').all()) {
+          expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+          expect(await button.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+        }
+      });
+
+      test('sizes recovery buttons for touch', async ({ pro: page }) => {
+        await page.route('**/full-registry-*.js', route => route.abort());
+        expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+        await expect(page.getByTestId('recheck-reload')).toBeVisible();
+        for (const button of await page.getByTestId('recheck-notice').getByRole('button').all()) {
+          expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        }
+        await expect(page.getByTestId('recheck-notice').locator('footer')).toBeInViewport({ ratio: 1 });
+      });
+    });
+  }
+}
