@@ -142,7 +142,11 @@ fn a_direct_constrained_solve_carries_its_warnings_once() {
     loads.push(SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 0.0, alpha: None, depth: None }));
     let solver = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, loads);
     let tie = Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![1] });
-    let r = solve_constrained_2d(&ConstrainedInput { solver: solver.clone(), constraints: vec![tie.clone()] }).unwrap();
+    let ci = ConstrainedInput { solver: solver.clone(), constraints: vec![tie.clone()] };
+    let dense = dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver)).unwrap();
+    assert!(ids(&dense.structured_diagnostics).contains(&"AC-PLANE-MAPPING".into()));
+    let r = solve_constrained_2d(&ci).unwrap();
+    assert!(ids(&r.structured_diagnostics).contains(&"AC-PLANE-MAPPING".into()));
     assert_eq!(assumed(&r.structured_diagnostics), vec!["alpha".to_string()]);
     // Through solve_2d (which delegates to the constrained solver): still once.
     let mut with = solver;
@@ -156,23 +160,31 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
+        if seed == 20806 {
+            assert_eq!(solve_2d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
+            continue;
+        }
         match solve_2d(&input) {
             Ok(r) => {
                 eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "2D/{seed}");
             }
-            Err(e) => eprintln!("#762 2D/{seed}: refused {e}"),
+            Err(e) => panic!("#762 2D/{seed}: expected NUM-INVARIANCE warning, got {e}"),
         }
     }
     for seed in [20761,20788] {
         let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
+        if seed == 20761 {
+            assert_eq!(dedaliano_engine::solver::linear::solve_3d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
+            continue;
+        }
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
                 eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "3D/{seed}");
             }
-            Err(e) => eprintln!("#762 3D/{seed}: refused {e}"),
+            Err(e) => panic!("#762 3D/{seed}: expected NUM-INVARIANCE warning, got {e}"),
         }
     }
 }
@@ -211,6 +223,41 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
             let result = dedaliano_engine::solver::linear::solve_3d(&input);
             if shape != "regular" && direction == 1 {
                 common::assert_containment(result, "SH-MITC4-DISTORTION");
+                use dedaliano_engine::solver::{constraints::{solve_constrained_3d, ConstrainedInput3D}, linear::prepare_static_3d, load_cases::{solve_multi_case_3d, MultiCaseInput3D, LoadCase3D, CombinationDef}};
+                let tie: Constraint = serde_json::from_value(serde_json::json!({"type":"equalDOF","masterNode":13,"slaveNode":14,"dofs":[2]})).unwrap();
+                let mut constrained = input.clone();
+                constrained.constraints = vec![tie.clone()];
+                let direct = ConstrainedInput3D { solver: input.clone(), constraints: vec![tie] };
+                for (entry, result) in [
+                    ("prepared", prepare_static_3d(&input).unwrap().solve_loads(&input.loads)),
+                    ("pdelta", dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 10, 1e-6).map(|r| r.results)),
+                    ("winkler", dedaliano_engine::solver::winkler::solve_winkler_3d(&dedaliano_engine::solver::winkler::WinklerInput3D { solver: input.clone(), foundation_springs: vec![] })),
+                    ("ssi", dedaliano_engine::solver::ssi::solve_ssi_3d(&dedaliano_engine::solver::ssi::SSIInput3D { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-6 }).map(|r| r.results)),
+                    ("contact", dedaliano_engine::solver::contact::solve_contact_3d(&serde_json::from_value(serde_json::json!({"solver": input})).unwrap()).map(|r| r.results)),
+                    ("constrained direct", solve_constrained_3d(&direct)),
+                    ("constrained dispatch", dedaliano_engine::solver::linear::solve_3d(&constrained)),
+                ] {
+                    eprintln!("{entry}: {shape}");
+                    common::assert_containment(result, "SH-MITC4-DISTORTION");
+                }
+                for solver in [input.clone(), constrained] {
+                    let cases = [10000.0, -10000.0].into_iter().enumerate().map(|(i, fx)| {
+                        let mut loads = input.loads.clone();
+                        for load in &mut loads {
+                            if let SolverLoad3D::Nodal(n) = load { n.fx = fx; }
+                        }
+                        LoadCase3D { name: i.to_string(), loads }
+                    }).collect();
+                    let multi = MultiCaseInput3D { solver, load_cases: cases, combinations: vec![CombinationDef { name: "cancel extension".into(), factors: [("0".into(), 1.0), ("1".into(), 1.0)].into() }] };
+                    for case in &multi.load_cases {
+                        let mut single = multi.solver.clone();
+                        single.loads = case.loads.clone();
+                        let r = dedaliano_engine::solver::linear::solve_3d(&single).unwrap();
+                        assert!(ids(&r.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()));
+                    }
+                    common::assert_containment(solve_multi_case_3d(&multi), "SH-MITC4-DISTORTION");
+                }
+
                 // #798 pre-fix tip values: trapezoidal 0.0084, parallelogram 0.0104;
                 // reference 0.1081. Retained for the eventual membrane formulation fix.
             } else {
@@ -241,4 +288,21 @@ fn fiber_warning_is_only_on_unconverged_results() {
         if r.converged { assert!(warning.is_none()); }
         else { assert_eq!(serde_json::to_value(warning.unwrap()).unwrap(), serde_json::to_value(dedaliano_engine::known_issues::diagnostic("NL-17")).unwrap()); }
     }
+}
+
+#[test]
+fn combinations_and_envelopes_keep_known_issue_warnings() {
+    use dedaliano_engine::postprocess::combinations::*;
+    let mut r = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
+    let warning = dedaliano_engine::known_issues::diagnostic("MD-ORTHOGONALITY");
+    r.structured_diagnostics.push(warning.clone());
+    let combined = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 2.0 }], &[(1, &r)]).unwrap().unwrap();
+    let check = |ds: &[StructuredDiagnostic]| {
+        let d = ds.iter().find(|d| d.phase.as_deref() == Some("MD-ORTHOGONALITY")).expect("specific warning survives");
+        assert_eq!(serde_json::to_value(d).unwrap(), serde_json::to_value(&warning).unwrap());
+    };
+    check(&combined.structured_diagnostics);
+    check(&compute_envelope_3d(&[combined]).unwrap().max_abs_results_3d.structured_diagnostics);
+    r.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION"));
+    common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
 }

@@ -598,7 +598,7 @@ fn test_parity_3d_combination_superposition() {
             CaseEntry3D { case_id: 1, results: r1 },
             CaseEntry3D { case_id: 2, results: r2 },
         ],
-    }).unwrap();
+    }).unwrap().unwrap();
 
     // Compare displacements
     for i in 0..combined.displacements.len() {

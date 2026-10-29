@@ -523,7 +523,7 @@ fn validation_comb_ext_3d_distributed_combo() {
             CaseEntry3D { case_id: 2, results: res2 },
         ],
     };
-    let combined = combine_results_3d(&combo).unwrap();
+    let combined = combine_results_3d(&combo).unwrap().unwrap();
 
     // Direct solve: qY = 2.0*(-6) = -12, qZ = 0.5*(-4) = -2
     let direct_loads: Vec<SolverLoad3D> = (1..=n)
