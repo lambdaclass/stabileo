@@ -14103,6 +14103,27 @@ const de: Translations = {
   'proExport.dxfLayoutSeparate': 'Eine Zeichnung je Datei',
   'proExport.dxfLayoutLayersNote': 'Alles in einer DXF-Datei; jeder Inhalt auf einem eigenen Layer.',
   'proExport.dxfLayoutSeparateNote': 'Eine DXF-Datei des Modells und eine je Ergebnis (mit dem Modell darunter), zusammen in einer .zip-Datei.',
+  // Known-issue containment diagnostics
+  "knownIssue.NUM-INVARIANCE": "Bei nahezu singulären Modellen können Genauigkeit und Mechanismenklassifizierung von den Einheiten und der Orientierung abhängen. Vorhandene Konditionierungs- oder Stabilitätsdiagnosen weisen auf eine nahezu singuläre Lösung hin; prüfen Sie die Stabilität vor der Bemessung unabhängig",
+  "knownIssue.CERT-MECHANISM": "Ein Zertifikat auf Ebene des assemblierten Systems kann eine künstliche oder nicht ausgesteifte Rotation zertifizieren. Prüfen Sie Mechanismen unabhängig; eine kleine algebraische Fehlerschranke belegt keine Tragwerksstabilität",
+  "knownIssue.BU-SPAN-COMPRESSION": "Beim 3D-Knicken können Druckkräfte zwischen den Stabenden infolge von Lasten im Stabfeld unberücksichtigt bleiben. Prüfen Sie den Normalkraftverlauf und den Knicklastfaktor unabhängig",
+  "knownIssue.AC-PLANE-MAPPING": "2D-Zwangsbedingungen setzen voraus, dass das ursprüngliche Modell in der X-Z-Ebene liegt. Aus einer anderen Ebene übertragene Zwangsbedingungen können falsch sein; verwenden Sie die 3D-Berechnung oder prüfen Sie die Zuordnung unabhängig",
+  "knownIssue.SH-GLOBAL-STRESS": "Ergebnisse zurückgehalten: Bei der Spannungsrückgewinnung von Solid-Shell-Elementen entfallen globale Komponenten senkrecht zur Elementebene. Eine Solid-Shell außerhalb der globalen X-Y-Ebene kann unter erheblicher Last nahezu spannungsfrei erscheinen",
+  "knownIssue.SH-MITC4-DISTORTION.warning": "Verzerrte MITC4-Elemente können bei Biegung in der Membranebene versteifen (Locking). Prüfen Sie die Netzkonvergenz; Ergebnisse mit erheblicher Biegung in der Membranebene werden zurückgehalten.",
+  "knownIssue.SH-MITC4-DISTORTION": "Ergebnisse zurückgehalten: Verzerrte MITC4-Vierecke können bei Biegung in der Membranebene etwa zehnmal zu steif sein. Vernetzen Sie neu mit rechteckigen Elementen und prüfen Sie die Netzkonvergenz",
+  "knownIssue.PL-2D-INVARIANCE": "Ergebnisse zurückgehalten: Der plastische Traglastfaktor in 2D kann sich mit Nummerierung, Stabrichtung oder Einheiten um bis zum Faktor 4,6 ändern. Verwenden Sie eine unabhängig verifizierte Traglastanalyse",
+  "knownIssue.BU-ACCURACY": "3D-Knicklastfaktoren können auf der unsicheren Seite zu hoch ausfallen. Prüfen Sie den kritischen Lastfaktor vor der Bemessung unabhängig.",
+  "knownIssue.BU-BOUND": "Ergebnisse zurückgehalten: Der berechnete Knicklastfaktor liegt außerhalb seiner zertifizierten Schranken. Weder der angezeigte Faktor noch das Zertifikat dürfen für die Bemessung verwendet werden",
+  "knownIssue.SP-17": "Die Querachsen anisotroper Verbindungselemente lassen sich nicht vom Benutzer ausrichten und können sich mit der Richtung sprunghaft ändern. Prüfen Sie die Federrichtungen unabhängig, bevor Sie diese Ergebnisse verwenden",
+  "knownIssue.FR-5": "Stäbe mit Verwölbung teilen sich an einem Knoten einen Verwölbungsfreiheitsgrad. Eine vollständige Verwölbungsübertragung kann die reale Verbindung übermäßig einspannen; prüfen Sie deren konstruktive Ausbildung und Verwölbungsbehinderung unabhängig",
+  "knownIssue.SP-14": "Außerhalb der Seilanalyse können Seilelemente wie Fachwerkstäbe Druckkräfte aufnehmen. Prüfen Sie die Seilzugkräfte und verwenden Sie zur Erfassung schlaffer Seile eine Seilanalyse mit ausschließlich zugtragenden Elementen",
+  "knownIssue.NL-3": "Große, nicht gleichachsige Rotationen werden in der korotationalen 3D-Analyse durch additive Rotationsvektoren behandelt und können zu einem falschen Gleichgewicht konvergieren. Prüfen Sie Ergebnisse mit großen Rotationen unabhängig",
+  "knownIssue.NL-13": "Die Kontaktanalyse kann einen oszillierenden Kontaktspalt einfrieren und dennoch Konvergenz melden. Prüfen Sie den Kontaktzustand und das Gleichgewicht unabhängig",
+  "knownIssue.NL-17": "Die Faseranalyse kann einen nicht konvergierten Iterationsstand ohne dessen Lastfaktor zurückgeben. Verwenden Sie ein nicht konvergiertes Ergebnis nicht für die Bemessung",
+  "knownIssue.MD-ORTHOGONALITY": "Die 3D-Modalanalyse kann nicht orthogonale oder doppelte Eigenformen liefern. Effektive Massen und Antwortspektrumkombinationen können falsch sein; prüfen Sie die Modalbasis unabhängig",
+  "knownIssue.TH-RECIPROCITY": "Die lineare Zeitverlaufsanalyse hat Reziprozitätsprüfungen mit Abweichungen bis zum Faktor 33 nicht bestanden. Die betroffene Eingabeklasse ist noch nicht eingegrenzt; prüfen Sie diese Antwort vor der Bemessung unabhängig",
+  "knownIssue.NL-DYNAMIC-GAPS": "Die materiell nichtlineare Analyse kann nach einem nicht konvergierten Inkrement fortgesetzt werden; die Balkendynamik vernachlässigt die Rotationsträgheit bei Biegung. Prüfen Sie Konvergenz und das Verhalten gedrungener Stäbe unabhängig.",
+  "knownIssue.PL-3D-INVARIANCE": "Plastische 3D-Traglastfaktoren gekrümmter Balken können von der Nummerierung abhängen. Prüfen Sie die Traglast unabhängig.",
 };
 
 export default de;
