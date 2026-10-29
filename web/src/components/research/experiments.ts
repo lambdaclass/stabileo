@@ -16,6 +16,13 @@ export type Experiment = {
 
 export const EXPERIMENTS: Experiment[] = [
   {
+    paperId: 'shell-obstacle-course', path: '/research/benchmarks/shell-obstacle-course',
+    name: 'Shell obstacle course',
+    hook: 'Refine the roof, cylinder and hemisphere; inspect live production-engine accuracy, including failures.',
+    thumbnail: '', thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/engine/tests/benchmarks',
+  },
+  {
     paperId: 'macneal-harder-1985', path: '/research/benchmarks/macneal-harder-1985',
     name: 'MacNeal–Harder: production engine benchmarks',
     hook: 'Run the production engine on shared accuracy cases; inspect every result, including failures.',

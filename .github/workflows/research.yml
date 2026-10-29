@@ -138,3 +138,12 @@ jobs:
         run: nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
+      - name: Compute shell obstacle course native results without changing regression bounds
+        run: |
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_scordelis_lo
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_pinched_cylinder
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_hemisphere_hole_convergence
+      - name: Compare shell obstacle course native and production WASM results
+        run: nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs /tmp/shell-native
+      - name: Test shell measurement, projection and editor handoff
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'

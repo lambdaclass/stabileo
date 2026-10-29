@@ -903,6 +903,48 @@
    ],
    "implementation": "benchmarks/macneal-harder-1985",
    "contacts": []
+  },
+  {
+   "id": "shell-obstacle-course",
+   "doi": "10.1016/0045-7825(85)90035-0",
+   "crossref": {
+    "title": "Stress projection for membrane and shear locking in shell finite elements",
+    "authors": [
+     "Ted Belytschko",
+     "Henryk Stolarski",
+     "Wing Kam Liu",
+     "Nicholas Carpenter",
+     "Jame S.J. Ong"
+    ],
+    "year": 1985,
+    "venue": "Computer Methods in Applied Mechanics and Engineering"
+   },
+   "area": "shells",
+   "keywords": [
+    "engine benchmarks",
+    "shell obstacle course",
+    "locking"
+   ],
+   "summary": "",
+   "summary_source": null,
+   "code": [],
+   "data": [],
+   "methods": [
+    "finite elements",
+    "mesh refinement"
+   ],
+   "dependencies": [],
+   "complexity": "low",
+   "relevance": "Production MITC4 shell benchmarks from existing engine tests; numerical provenance pending full-text verification.",
+   "status": "proposed",
+   "reproduced_published_results": false,
+   "benchmarks": [
+    "Scordelis–Lo roof",
+    "pinched cylinder with rigid diaphragms",
+    "hemisphere with 18-degree hole (NAFEMS LE3 test convention)"
+   ],
+   "implementation": "benchmarks/shell-obstacle-course",
+   "contacts": []
   }
  ]
 }
