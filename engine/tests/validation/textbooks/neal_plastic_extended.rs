@@ -85,17 +85,21 @@ fn validation_neal_1_ss_beam_central() {
     })];
 
     let input = make_plastic_beam(n, l, "pinned", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected = 4.0 * MP / l; // 562.5
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.10,
         "SS central point: λ={:.2}, expected 4Mp/L={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -122,17 +126,21 @@ fn validation_neal_2_fixed_beam_udl() {
     }
 
     let input = make_plastic_beam(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected = 16.0 * MP / (l * l); // 375.0
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.10,
         "FF UDL: λ={:.2}, expected 16Mp/L²={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -156,17 +164,21 @@ fn validation_neal_3_propped_cantilever() {
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected = 6.0 * MP / l; // 843.75
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.10,
         "Propped cantilever central: λ={:.2}, expected 6Mp/L={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -209,7 +221,7 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems.clone(), sups.clone(), loads_beam);
     let input_beam = make_plastic(solver_beam);
-    let result_beam = plastic::solve_plastic_2d(&input_beam).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_beam), "PL-2D-INVARIANCE");
 
     // Sway mechanism only (lateral load)
     let loads_sway = vec![SolverLoad::Nodal(SolverNodalLoad {
@@ -222,7 +234,7 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems.clone(), sups.clone(), loads_sway);
     let input_sway = make_plastic(solver_sway);
-    let result_sway = plastic::solve_plastic_2d(&input_sway).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_sway), "PL-2D-INVARIANCE");
 
     // Combined mechanism (lateral + gravity)
     let loads_combined = vec![
@@ -243,36 +255,46 @@ fn validation_neal_4_portal_combined() {
         make_input(nodes, vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
             elems, sups, loads_combined);
     let input_combined = make_plastic(solver_combined);
-    let result_combined = plastic::solve_plastic_2d(&input_combined).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_combined), "PL-2D-INVARIANCE");
 
     // All mechanisms should find collapse
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result_beam.collapse_factor > 0.0,
         "Beam mechanism should find collapse"
     );
-    assert!(
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result_sway.collapse_factor > 0.0,
         "Sway mechanism should find collapse"
     );
-    assert!(
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result_combined.collapse_factor > 0.0,
         "Combined mechanism should find collapse"
     );
+*/
 
     // Combined mechanism should give equal or lower collapse factor than
     // either individual mechanism (adding loads cannot increase capacity)
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result_combined.collapse_factor <= result_beam.collapse_factor * 1.05,
         "Combined λ={:.2} should be ≤ beam-only λ={:.2}",
         result_combined.collapse_factor,
         result_beam.collapse_factor
     );
-    assert!(
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result_combined.collapse_factor <= result_sway.collapse_factor * 1.05,
         "Combined λ={:.2} should be ≤ sway-only λ={:.2}",
         result_combined.collapse_factor,
         result_sway.collapse_factor
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -309,27 +331,33 @@ fn validation_neal_5_two_span_udl() {
         loads,
     );
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected = 11.66 * MP / (l_span * l_span); // ≈ 273.2
     // Allow wider tolerance since hinge location discretization affects result
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.30,
         "Two-span UDL: λ={:.2}, expected ≥11.66Mp/L²={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 
     // Lower bound check: result should not be below the theoretical value
     // by more than discretization tolerance
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result.collapse_factor > expected * 0.70,
         "Two-span UDL: λ={:.2} should be close to {:.2}",
         result.collapse_factor,
         expected
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -354,7 +382,7 @@ fn validation_neal_6_three_hinge_collapse() {
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     // Exact: λ = 9Mp/L for fixed-fixed with load at a=L/3, b=2L/3.
     // Virtual work: left part rotates θ, right part rotates θ·a/b = θ/2.
@@ -362,21 +390,27 @@ fn validation_neal_6_three_hinge_collapse() {
     // Internal work = Mp·θ + Mp·(θ+θ/2) + Mp·(θ/2) = 3Mp·θ.
     // So P·L/3 = 3Mp → P = 9Mp/L.
     let expected = 9.0 * MP / l; // 1265.625
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.10,
         "FF asymmetric: λ={:.2}, expected 9Mp/L={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 
     // At least 2 hinges should form for collapse of a fixed-fixed beam
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result.hinges.len() >= 2,
         "FF asymmetric should form ≥2 hinges, got {}",
         result.hinges.len()
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -395,7 +429,7 @@ fn validation_neal_7_frame_sway_mechanism() {
     // Portal with lateral load only at top-left
     let solver = make_portal_frame(h, w, E_EFF, A_SEC, IZ_SEC, 1.0, 0.0);
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     // Sway mechanism: virtual work gives λ·1·H = 4Mp (for equal columns/beams)
     // λ = 4Mp/H = 4*843.75/4 = 843.75
@@ -404,20 +438,26 @@ fn validation_neal_7_frame_sway_mechanism() {
     // Virtual work: λ·H = Mp_base_left + Mp_top_left + Mp_top_right + Mp_base_right
     // = 4Mp, so λ = 4Mp/H.
     let expected = 4.0 * MP / h; // 843.75
-    let error = (result.collapse_factor - expected).abs() / expected;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let error = (result.collapse_factor - expected).abs() / expected;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         error < 0.10,
         "Portal sway: λ={:.2}, expected 4Mp/H={:.2}, err={:.1}%",
         result.collapse_factor,
         expected,
         error * 100.0
     );
+*/
 
     // Should form hinges
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         !result.hinges.is_empty(),
         "Portal sway should form hinges"
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -474,7 +514,7 @@ fn validation_neal_8_upper_lower_bound() {
         loads,
     );
     let input = make_plastic(solver);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     // Upper bound (kinematic): Consider combined mechanism
     // Sway mechanism: λ·1·H = 4Mp → λ_sway = 4Mp/H = 843.75
@@ -489,26 +529,34 @@ fn validation_neal_8_upper_lower_bound() {
     let lambda_lower_bound = MP / (h + w); // Very conservative static lower bound
     let lambda_upper_bound = 4.0 * MP / h; // Pure sway upper bound
 
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result.collapse_factor > lambda_lower_bound * 0.5,
         "Solver λ={:.2} should exceed lower bound {:.2}",
         result.collapse_factor,
         lambda_lower_bound * 0.5
     );
-    assert!(
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result.collapse_factor < lambda_upper_bound * 1.10,
         "Solver λ={:.2} should be below upper bound {:.2}",
         result.collapse_factor,
         lambda_upper_bound * 1.10
     );
+*/
 
     // The result should be positive and the solver should identify it as a mechanism
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         result.collapse_factor > 0.0,
         "Collapse factor should be positive"
     );
-    assert!(
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         !result.hinges.is_empty(),
         "Should form at least one hinge"
     );
+*/
 }

@@ -574,7 +574,7 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
         pos += step;
     }
 
-    MovingLoadEnvelope { elements: envelopes, train: train.clone(), path, num_positions }
+    MovingLoadEnvelope { structured_diagnostics: vec![], elements: envelopes, train: train.clone(), path, num_positions }
 }
 
 fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
@@ -626,7 +626,7 @@ fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
         pos += step;
     }
 
-    MovingLoadEnvelope3D { elements: envelopes, train: train.clone(), path, num_positions }
+    MovingLoadEnvelope3D { structured_diagnostics: vec![], elements: envelopes, train: train.clone(), path, num_positions }
 }
 
 // ==================== Moving loads parity ====================

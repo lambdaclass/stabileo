@@ -1500,6 +1500,12 @@ fn classify(
         Ok(o) if any_nonfinite(&o) => return Cell { verdict: Verdict::Wrong, note: "non-finite result".into() },
         Ok(o) => o,
         Err(e) => {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&e) {
+                if let Some(id) = value["structuredDiagnostics"].as_array().and_then(|ds| ds.iter().find(|d| d["code"] == "known_issue" && d["severity"] == "error")).and_then(|d| d["phase"].as_str()) {
+                    crate::common::assert_containment::<()>(Err(e.clone()), id);
+                    return Cell { verdict: Verdict::Refused, note: short(&e) };
+                }
+            }
             if matches!(&reference, Err(r) if r.contains(e.as_str())) {
                 return Cell { verdict: Verdict::NotApplicable, note: format!("the reference fails the same way: {}", short(&e)) };
             }

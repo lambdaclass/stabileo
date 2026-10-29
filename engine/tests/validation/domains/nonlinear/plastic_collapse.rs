@@ -66,13 +66,15 @@ fn validation_plastic_ss_point_center() {
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected_lambda = 4.0 * MP / l;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (result.collapse_factor - expected_lambda).abs() / expected_lambda < 0.10,
         "SS point λ={:.2}, expected={:.2}", result.collapse_factor, expected_lambda
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -88,13 +90,15 @@ fn validation_plastic_ss_udl() {
         vec![SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 1, q_i: -1.0, q_j: -1.0, a: None, b: None,
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected_lambda = 8.0 * MP / (l * l);
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (result.collapse_factor - expected_lambda).abs() / expected_lambda < 0.10,
         "SS UDL λ={:.2}, expected={:.2}", result.collapse_factor, expected_lambda
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -111,13 +115,15 @@ fn validation_plastic_ff_point_center() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0, // midspan node
         })]);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected_lambda = 8.0 * MP / l;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (result.collapse_factor - expected_lambda).abs() / expected_lambda < 0.10,
         "FF point λ={:.2}, expected={:.2}", result.collapse_factor, expected_lambda
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -137,13 +143,15 @@ fn validation_plastic_ff_udl() {
         }));
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected_lambda = 16.0 * MP / (l * l);
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (result.collapse_factor - expected_lambda).abs() / expected_lambda < 0.10,
         "FF UDL λ={:.2}, expected={:.2}", result.collapse_factor, expected_lambda
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -165,13 +173,15 @@ fn validation_plastic_propped_cantilever_udl() {
         }));
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("rollerX"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
     let expected_lambda = 11.66 * MP / (l * l);
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (result.collapse_factor - expected_lambda).abs() / expected_lambda < 0.30,
         "propped UDL λ={:.2}, expected={:.2}", result.collapse_factor, expected_lambda
     );
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -196,10 +206,14 @@ fn validation_plastic_portal_sway() {
     let input = PlasticInput {
         solver, sections, materials, max_hinges: Some(10), mp_overrides: None,
     };
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
-    assert!(result.collapse_factor > 0.0, "portal should find collapse");
-    assert!(!result.hinges.is_empty(), "portal should form hinges");
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(result.collapse_factor > 0.0, "portal should find collapse");
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(!result.hinges.is_empty(), "portal should form hinges");
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -217,15 +231,17 @@ fn validation_plastic_hinge_ordering() {
         }));
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"), loads);
-    let result = plastic::solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
 
-    for i in 1..result.hinges.len() {
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+for i in 1..result.hinges.len() {
         assert!(
             result.hinges[i].load_factor >= result.hinges[i - 1].load_factor - 1e-6,
             "hinge {} (λ={:.4}) should form after hinge {} (λ={:.4})",
             i, result.hinges[i].load_factor, i - 1, result.hinges[i - 1].load_factor
         );
     }
+*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -239,7 +255,7 @@ fn validation_plastic_mp_override() {
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
-    let result_full = plastic::solve_plastic_2d(&base_input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&base_input), "PL-2D-INVARIANCE");
 
     // Override Mp to half
     let mut overrides = HashMap::new();
@@ -249,12 +265,16 @@ fn validation_plastic_mp_override() {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     half_input.mp_overrides = Some(overrides);
-    let result_half = plastic::solve_plastic_2d(&half_input).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&half_input), "PL-2D-INVARIANCE");
 
     // Halving Mp should approximately halve the collapse factor
-    let ratio = result_half.collapse_factor / result_full.collapse_factor;
-    assert!(
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let ratio = result_half.collapse_factor / result_full.collapse_factor;
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(
         (ratio - 0.5).abs() < 0.10,
         "Mp override ratio={:.3}, expected ~0.5", ratio
     );
+*/
 }

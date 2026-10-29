@@ -481,7 +481,7 @@ fn with_opts(m: &M2, o: Value) -> M2 {
 }
 
 fn solve_path_2d(m: &M2, p: Path2) -> Result<AnalysisResults, String> {
-    match p {
+    let mut result = match p {
         Path2::Default => solve_2d(&m.input()),
         Path2::DenseRef => {
             let i = m.input();
@@ -490,7 +490,12 @@ fn solve_path_2d(m: &M2, p: Path2) -> Result<AnalysisResults, String> {
         }
         Path2::Pcg(pc) => solve_2d(&with_opts(m, json!({ "method": "pcg", "preconditioner": pc, "tolerance": 1e-12 })).input()),
         Path2::PcgMaxit1 => solve_2d(&with_opts(m, json!({ "method": "pcg", "maxIterations": 1 })).input()),
-    }
+    }?;
+    assert_invariance_notice(&result.structured_diagnostics);
+    // The new warning was asserted above; keep the original exact telemetry and
+    // every numerical assertion below for the non-refused result.
+    result.structured_diagnostics.retain(|d| d.phase.as_deref() != Some("NUM-INVARIANCE"));
+    Ok(result)
 }
 
 use DiagnosticCode as C;
@@ -1345,11 +1350,16 @@ fn with_opts3(m: &M3, o: Value) -> M3 {
 }
 
 fn solve_path_3d(m: &M3, p: Path3) -> Result<AnalysisResults3D, String> {
-    match p {
+    let mut result = match p {
         Path3::Default => solve_3d(&m.input()),
         Path3::Pcg(pc) => solve_3d(&with_opts3(m, json!({ "method": "pcg", "preconditioner": pc, "tolerance": 1e-12 })).input()),
         Path3::PcgMaxit1 => solve_3d(&with_opts3(m, json!({ "method": "pcg", "maxIterations": 1 })).input()),
-    }
+    }?;
+    assert_invariance_notice(&result.structured_diagnostics);
+    // The new warning was asserted above; keep the original exact telemetry and
+    // every numerical assertion below for the non-refused result.
+    result.structured_diagnostics.retain(|d| d.phase.as_deref() != Some("NUM-INVARIANCE"));
+    Ok(result)
 }
 
 /// Global equilibrium of the reported reactions (springs, inclined supports
@@ -1730,7 +1740,7 @@ fn diagonal_shift_regularization_3d() {
     let c = 1e8;
     let mut cm = frame3(1);
     add_shift_gadget(&mut cm, 0.5e-6, c);
-    let coarse = solve_3d(&cm.input()).unwrap();
+    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
     check_3d("coarse", &coarse, &cm, "dense_lu", &[C::StiffnessNotPositiveDefinite, C::DenseLu, C::CholeskyFailedLuFallback, C::ResidualOk], 0.0, &[], 1e-13);
     assert!(not_pd_message3(&coarse).contains("(Cholesky failed; solved by dense LU)"));
     let mut m = frame3(3);
@@ -1766,7 +1776,7 @@ fn shift_ladder_then_residual_fallback_to_dense_lu_3d() {
     let c = 1e8;
     let mut cm = frame3(1);
     add_shift_gadget(&mut cm, 0.5e-2, c);
-    let coarse = solve_3d(&cm.input()).unwrap();
+    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
     let mut m = frame3(3);
     let a = add_shift_gadget(&mut m, 0.5e-2, c);
     let shift = 1e-2 * c;
@@ -1805,7 +1815,7 @@ fn every_shift_fails_dense_lu_3d() {
     let k = 1e12;
     let mut cm = frame3(1);
     let (cp, cq) = add_gadget3(&mut cm, k);
-    let coarse = solve_3d(&cm.input()).unwrap();
+    let coarse = solve_path_3d(&cm, Path3::Default).unwrap();
     let cdn = DofNumbering::build_3d(&cm.input());
     let nz = vec![cdn.map[&(cp, 0)], cdn.map[&(cq, 0)]];
     check_3d(
@@ -2195,4 +2205,17 @@ fn heavy_fill_lattice_warns_3d() {
 
 fn diag_3d(r: &AnalysisResults3D, c: C) -> &StructuredDiagnostic {
     diag(&r.structured_diagnostics, c)
+}
+
+
+fn assert_invariance_notice(ds: &[StructuredDiagnostic]) {
+    let affected = ds.iter().any(|d| matches!(d.code,
+        C::HighDiagonalRatio | C::ExtremelyHighDiagonalRatio | C::NearZeroDiagonal |
+        C::StiffnessNotPositiveDefinite | C::CholeskyFailedLuFallback | C::ExcessiveDisplacement));
+    let notices: Vec<_> = ds.iter().filter(|d| d.phase.as_deref() == Some("NUM-INVARIANCE")).collect();
+    assert_eq!(notices.len(), usize::from(affected));
+    if affected {
+        let expected = dedaliano_engine::known_issues::diagnostic("NUM-INVARIANCE");
+        assert_eq!(serde_json::to_value(notices[0]).unwrap(), serde_json::to_value(expected).unwrap());
+    }
 }

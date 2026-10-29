@@ -150,3 +150,95 @@ fn a_direct_constrained_solve_carries_its_warnings_once() {
     let r = solve_2d(&with).unwrap();
     assert_eq!(assumed(&r.structured_diagnostics), vec!["alpha".to_string()]);
 }
+
+#[test]
+fn invariance_reported_seeds_are_flagged_or_refused() {
+    for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
+        let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
+        if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
+        match solve_2d(&input) {
+            Ok(r) => {
+                eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
+                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "2D/{seed}");
+            }
+            Err(e) => eprintln!("#762 2D/{seed}: refused {e}"),
+        }
+    }
+    for seed in [20761,20788] {
+        let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
+        if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
+        match dedaliano_engine::solver::linear::solve_3d(&input) {
+            Ok(r) => {
+                eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
+                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "3D/{seed}");
+            }
+            Err(e) => eprintln!("#762 3D/{seed}: refused {e}"),
+        }
+    }
+}
+
+#[test]
+fn mitc4_macneal_harder_contains_membrane_bending_only() {
+    for shape in ["regular", "trapezoidal", "parallelogram"] {
+        for direction in [0, 1, 2] {
+            let mut input = beam3d();
+            input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
+            input.materials.get_mut("1").unwrap().e = 10000.0;
+            input.materials.get_mut("1").unwrap().nu = 0.3;
+            for i in 0..=6 {
+                for j in 0..2 {
+                    let shift = if i == 0 || i == 6 { 0.0 } else {
+                        match shape {
+                            "trapezoidal" => (if i % 2 == 1 { 0.1 } else { -0.1 }) * (if j == 0 { -1.0 } else { 1.0 }),
+                            "parallelogram" => if j == 0 { -0.1 } else { 0.1 },
+                            _ => 0.0,
+                        }
+                    };
+                    let id = 1 + 2*i+j;
+                    input.nodes.insert(id.to_string(), SolverNode3D { id, x: i as f64+shift, y: 0.2*j as f64, z: 0.0 });
+                }
+            }
+            for i in 0..6 {
+                let id = i+1;
+                input.quads.insert(id.to_string(), SolverQuadElement { id, nodes: [2*i+1,2*i+3,2*i+4,2*i+2], material_id:1, thickness:0.1 });
+            }
+            for id in [1,2] {
+                input.supports.insert(id.to_string(), serde_json::from_value(serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})).unwrap());
+            }
+            for id in [13,14] {
+                input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id:id, fx: if direction==0 {0.5} else {0.0}, fy:if direction==1 {0.5} else {0.0}, fz:if direction==2 {0.5} else {0.0}, mx:0.0,my:0.0,mz:0.0,bw:None }));
+            }
+            let result = dedaliano_engine::solver::linear::solve_3d(&input);
+            if shape != "regular" && direction == 1 {
+                common::assert_containment(result, "SH-MITC4-DISTORTION");
+                // #798 pre-fix tip values: trapezoidal 0.0084, parallelogram 0.0104;
+                // reference 0.1081. Retained for the eventual membrane formulation fix.
+            } else {
+                let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
+                assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
+                assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
+                if direction == 2 {
+                    let tip = result.displacements.iter().find(|d| d.node_id == 13).unwrap().uz;
+                    assert!((tip / 0.4321 - 1.0).abs() < 0.04, "{shape}: {tip}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn fiber_warning_is_only_on_unconverged_results() {
+    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, FiberNonlinearInput};
+    for max_iter in [0, 30] {
+        let input = FiberNonlinearInput {
+            solver: make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)),
+            fiber_sections: HashMap::new(), n_integration_points: 5,
+            max_iter, tolerance: 1e-10, n_increments: 1, modified_nr: false,
+        };
+        let r = solve_fiber_nonlinear_2d(&input).unwrap();
+        assert_eq!(r.converged, max_iter != 0);
+        let warning = r.results.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("NL-17"));
+        if r.converged { assert!(warning.is_none()); }
+        else { assert_eq!(serde_json::to_value(warning.unwrap()).unwrap(), serde_json::to_value(dedaliano_engine::known_issues::diagnostic("NL-17")).unwrap()); }
+    }
+}
