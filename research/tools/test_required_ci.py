@@ -31,7 +31,7 @@ for job, tests in {
     'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
-    assert 'if' not in research['jobs'][job]
+    assert research['jobs'][job]['if'] == '${{ !inputs.route_only }}'
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
@@ -60,5 +60,5 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert koiter["runs-on"] == "ubuntu-latest" and koiter["if"] == "${{ !inputs.route_only }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])

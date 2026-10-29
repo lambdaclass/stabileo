@@ -74,7 +74,7 @@ async function openPreview(page: Page) {
 // ─── I1: the same journey, in both languages ─────────────────────
 
 for (const locale of ['en', 'es'] as const) {
-  test.describe(`@smoke engine output is translated — ${locale}`, () => {
+  test.describe(`@engine @smoke engine output is translated — ${locale}`, () => {
     test.use({ appLocale: locale });
 
     test(`I1 — no raw engine key is ever visible (${locale})`, async ({ pro: page }) => {
@@ -124,7 +124,7 @@ for (const locale of ['en', 'es'] as const) {
 
 // ─── I2: no load case is dropped silently ────────────────────────
 
-test.describe('@smoke the load preview tells the truth about what Apply will do', () => {
+test.describe('@engine @smoke the load preview tells the truth about what Apply will do', () => {
   test('I2 — "after" follows the replace flag instead of the plan alone',
     async ({ pro: page }) => {
       await openDialog(page);

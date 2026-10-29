@@ -2,29 +2,16 @@ name: Research
 
 on:
   workflow_call:
+    inputs:
+      route_only:
+        type: boolean
+        default: false
+      force_routes:
+        type: boolean
+        default: false
+  # PR validation is called by CI; avoid a second, unfiltered PR run.
   push:
     branches: [main]
-    paths:
-      - 'research/**'
-      - '.github/workflows/research.yml'
-      - 'engine/**'
-      - 'web/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
-      - 'flake.*'
-      - 'rust-toolchain*'
-      - 'Makefile'
-  pull_request:
-    paths:
-      - 'research/**'
-      - '.github/workflows/research.yml'
-      - 'engine/**'
-      - 'web/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
-      - 'flake.*'
-      - 'rust-toolchain*'
-      - 'Makefile'
   schedule:
     - cron: '17 6 * * 1'
 
@@ -37,6 +24,7 @@ permissions:
 
 jobs:
   isolation:
+    if: ${{ !inputs.route_only }}
     name: Research isolation
     runs-on: ubuntu-latest
     steps:
@@ -61,15 +49,16 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      # The budget keeps research from growing the product's routes; a change with no research code shipped to the browser is not measured.
-      - name: Measure only a change that touches research code
+      # CI explicitly measures route budgets for every selected research/tools/full run.
+      - name: Select route-budget measurement
         id: scope
         env:
+          FORCE_ROUTES: ${{ inputs.force_routes || github.event_name != 'pull_request' }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
         run: |
-          if [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
+          if [ "$FORCE_ROUTES" = true ] || [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
@@ -92,6 +81,7 @@ jobs:
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
   catalog:
+    if: ${{ !inputs.route_only }}
     name: Research catalog
     runs-on: ubuntu-latest
     steps:
@@ -109,8 +99,8 @@ jobs:
       - name: Every entry, evidence file and summary source is well formed
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
 
-  # Online: Crossref, licences and links. Runs only as the standalone Research workflow (its own
-  # pull_request, push and weekly triggers), never inside the required CI OK: an outage at Crossref
+  # Online: Crossref, licences and links. Standalone main/weekly runs only;
+  # never inside the required CI OK: an outage at Crossref
   # must not block unrelated merges.
   catalog-online:
     name: Research catalog (Crossref, licenses)
@@ -132,6 +122,7 @@ jobs:
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --links
 
   phasefield:
+    if: ${{ !inputs.route_only }}
     name: Phase-field (Shauer 2025) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -161,6 +152,7 @@ jobs:
           PY
 
   springs:
+    if: ${{ !inputs.route_only }}
     name: Spring networks (Grossman 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -208,6 +200,7 @@ jobs:
           PY
 
   koiter:
+    if: ${{ !inputs.route_only }}
     name: Roorda frame (Ferrari and Sigmund 2025) groundwork
     runs-on: ubuntu-latest
     timeout-minutes: 30

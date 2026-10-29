@@ -1,3 +1,13 @@
+# PR selection (docs/changelog may accompany any single area):
+# docs/**, root *.md, changelog.d/**: repository lint/changelog only.
+# research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
+# research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
+# web/src/components/tools/** (+ tools*.spec.ts): tools unit + E2E, route budgets;
+# missing area tests conservatively select full CI.
+# engine/**: engine suites, determinism/results, full web unit, @engine smoke.
+# Other/mixed/unknown paths and run-e2e label: full pipeline.
+# ONLY pull_request is narrowed. merge_group and main pushes always select ALL.
+# CI OK accepts intentional skips but rejects failures/cancellations, including detection.
 name: CI
 
 on:
@@ -50,21 +60,35 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      engine: ${{ steps.filter.outputs.engine }}
-      web: ${{ steps.filter.outputs.web }}
-      research: ${{ steps.filter.outputs.research }}
-      docker: ${{ steps.filter.outputs.docker }}
-      backend: ${{ steps.filter.outputs.backend }}
-      ai_backend: ${{ steps.filter.outputs.ai_backend }}
-      ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
+      engine: ${{ steps.select.outputs.engine }}
+      web: ${{ steps.select.outputs.web }}
+      research: ${{ steps.select.outputs.research }}
+      docker: ${{ steps.select.outputs.docker }}
+      backend: ${{ steps.select.outputs.backend }}
+      ai_backend: ${{ steps.select.outputs.ai_backend }}
+      ci_scripts: ${{ steps.select.outputs.ci_scripts }}
+      scope: ${{ steps.select.outputs.scope }}
+      unit_area: ${{ steps.select.outputs.unit_area }}
+      e2e_specs: ${{ steps.select.outputs.e2e_specs }}
+      e2e_shards: ${{ steps.select.outputs.e2e_shards }}
+      e2e_total: ${{ steps.select.outputs.e2e_total }}
+      web_build: ${{ steps.select.outputs.web_build }}
+      flaky: ${{ steps.select.outputs.flaky }}
+      determinism: ${{ steps.select.outputs.determinism }}
+      results: ${{ steps.select.outputs.results }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: filter
+        if: github.event_name == 'pull_request'
         with:
+          list-files: json
           filters: |
+            all:
+              - '**'
             tooling: &tooling
               - 'flake.nix'
               - 'flake.lock'
@@ -125,6 +149,14 @@ jobs:
               - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+      - name: Select PR jobs (all jobs for trusted events)
+        id: select
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
+          FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}
+        run: python3 .github/scripts/select-ci.py
 
   docker-smoke:
     name: Docker build smoke
@@ -611,13 +643,15 @@ jobs:
       - name: Install dependencies
         run: make web.deps
       - name: Unit + integration tests
+        env:
+          UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
         run: make test.web.unit SHARD=${{ matrix.shard }}/2
 
   web-build:
     name: Web Build
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     needs: [changes, wasm, research-wasm]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web_build == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -703,7 +737,7 @@ jobs:
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: [changes, wasm]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.results == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -756,7 +790,7 @@ jobs:
     # cached); a slow mirror day took the whole 40 minutes once. Headroom for that.
     timeout-minutes: 75
     needs: [changes, wasm]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.determinism == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -804,7 +838,7 @@ jobs:
   # over five shards, 5.7 over ten. Five shards took 16–22 min each on a PR
   # and up to 55 in the queue, so the queue's critical path was one shard.
   e2e:
-    name: E2E (${{ matrix.shard }}/10)
+    name: E2E (${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true'
@@ -813,7 +847,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -863,7 +897,14 @@ jobs:
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
+      - name: Area E2E smoke suite
+        if: needs.changes.outputs.scope != 'full'
+        env:
+          E2E_SPECS: ${{ needs.changes.outputs.e2e_specs }}
+          CI_SCOPE: ${{ needs.changes.outputs.scope }}
+        run: nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
       - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
+        if: needs.changes.outputs.scope == 'full'
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/10 NIX_RUN=
@@ -876,7 +917,7 @@ jobs:
       # its 120 minutes, in shard 1 (49 min there, 6 in the lightest); it is balanced by duration
       # now, like the smoke suite, from its own table.
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
-        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN=
@@ -923,7 +964,7 @@ jobs:
   # held before the tag comes off.
   e2e-flaky:
     needs: [changes, wasm, site-e2e]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.flaky == 'true'
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     env:
@@ -997,6 +1038,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.research == 'true'
     uses: ./.github/workflows/research.yml
+    with:
+      route_only: ${{ needs.changes.outputs.scope == 'tools' }}
+      force_routes: true
 
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails
@@ -1037,3 +1081,23 @@ jobs:
           for r in $RESULTS; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done
+
+  rust:
+    name: rust
+    needs: ci-ok
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.ci-ok.result }}
+        run: test "$RESULT" = success
+
+  npm:
+    name: npm
+    needs: ci-ok
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.ci-ok.result }}
+        run: test "$RESULT" = success
