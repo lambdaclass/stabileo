@@ -165,7 +165,7 @@ and the tests fail when this file is out of date.
 | time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
 | spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
 | harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| plastic collapse | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
+| plastic collapse | R | R | R | R | R | R | · | · | R | · | · |
 | kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
 | moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
 | influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
