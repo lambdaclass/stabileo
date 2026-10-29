@@ -53,7 +53,9 @@ With the two review regressions, all seven frame tests pass. Reverting only the
 the original five still pass. This guards the previously uncovered local e1
 rotation as well as signed local shear under a compound rotation.
 
-The saved-project notice conservatively selects all shell models. The current
+The saved-project notice conservatively selects models containing `plates`,
+`quads`, or `solidShells`. Standalone `quad9s` and `curvedShells` collections are
+not selected; those element families are numerically unaffected. The current
 web results corpus has no SHB8 models (the web shell selector still lists SHB8PS
 as planned); its other shell families must keep their committed snapshots.
 

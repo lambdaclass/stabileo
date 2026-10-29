@@ -32,6 +32,13 @@ projects. `results-version.test.ts` pins each version's entries and fails on suc
 bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
 not exist.
 
+The results snapshot gate also compares registry versions against its base commit,
+even when no snapshot changes. New entries cannot reuse a released version, and
+released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
+version 5 while main was at 4: whichever merges second must preserve the first
+PR's entries and use version 6, updating the pinned version sets, fixture stamp
+and hashes, and documentation. Version 5 here remains provisional until merge.
+
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
 all at results version 1 (#328, 2026-10-21). Version 2 holds the fixes merged with 0.3.0 after
@@ -47,7 +54,7 @@ those of #462–#475, which entered with the design switch (#624) in one merge.
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
 justification and affected quantities are in
 [the results change note](../results-changes/2026-10-solid-shell-stress-axes.md).
-The review follow-up changes tests and metadata only; it introduces no further
+The review follow-up changes tests, release gates and documentation only; it introduces no further
 numerical change. Analytical membrane patches cover local e1 along global Z
 (σ11 = N/A = 500 kN/m²) and compound X/Y rotation with
 (σ11, σ22, τ12) = (700, −200, 150) kN/m². Their affine displacement fields
@@ -62,7 +69,8 @@ Verification on 2026-10-29: the `shells` target passes all 132 tests and release
 new analytical tests while the five original frame regressions still pass.
 The unmodified implementation passes all seven. The WASM results suite passes
 all 41 tests and the snapshot gate reports no committed result changes. The web
-unit suite passes 15,704 tests (14 skipped); the web typecheck and guarded Svelte
+unit suite passes 15,706 tests (14 skipped), including regressions for colliding
+results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
 checks pass against their existing baselines. The changelog check passes.
 
 ## Results snapshot gate
