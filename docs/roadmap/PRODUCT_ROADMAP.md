@@ -86,6 +86,23 @@ them.
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
 | 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 
+**Status of the safety work (2026-10-29):**
+
+| Item | Issue / PR | State |
+|---|---|---|
+| Contain every open wrong-result issue (warn or refuse; no number changes) | #447 / PR #807 | eight review rounds; each found a further bypass path, now closed |
+| Metamorphic invariance suite (units, renumbering, member direction, rigid motion, reciprocity) | PR #813 | in review; the generators don't yet rediscover #758–#762 on their own |
+| Solid-shell stresses in global axes (a vertical plate read 0) | #757 / PR #814 | fixed, registered; one browser test on the result-change notice to finish |
+| Buckling factor outside its certified bounds still certified | #741 / PR #817 | fixed (bounds proven sound by exact arithmetic; certification refused); follow-up #818 |
+| Modal analysis skipped repeated modes of symmetric structures | #759 / PR #827 | real solver bug (a 837 Hz mode missing); fix by a Sturm-sequence count, no model-size limit |
+| 2D plastic collapse factor not invariant (up to 4.6×) | #758 | two approaches failed; needs a redesign of mechanism detection; refused until then |
+| MITC4 in-plane bending on distorted meshes (−92%) | #798 | found by the MacNeal–Harder page; contained by refusal |
+| MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | #810 | found by the shell obstacle course; under triage |
+| Already fixed on main, closed with evidence | #442, #443, #444, #445 | closed |
+
+Reviews: Codex plus Kimi; while Kimi is out of quota, Grok (then an adversarial Codex review) is the
+second reviewer.
+
 Needs people, not only code: item 4's engineer sign-off; real users' project files for item 3's
 corpus; production access for item 7's restore test; testers on real Linux GPUs for the desktop's
 3D viewer.
