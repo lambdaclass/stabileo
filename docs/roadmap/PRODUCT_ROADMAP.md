@@ -70,19 +70,21 @@ ROI order for users:
 2. **Speed and the first run.** Public pages and the app load fast (Lighthouse performance ≥ 90 on
    public pages; the app today scores 25, #734) and a new visitor builds and solves a first model in
    under a minute with a guided start. Cheap, and it multiplies every growth channel below.
-3. **A public verification manual,** generated from the engine benchmarks, the metamorphic suite and the
+3. **A Python package and API** (`pip install stabileo`, notebook-friendly, the same engine as the app,
+   built on the versioned engine interface #731): models built and solved from scripts and notebooks,
+   results as arrays, the same refusals and known-issue warnings as the app. Researchers, automation and
+   parametric design build on Stabileo; every benchmark, paper and tool becomes scriptable.
+4. **A public verification manual,** generated from the engine benchmarks, the metamorphic suite and the
    certificates: every case runnable in the browser, failures shown honestly, always current. A trust
    asset no commercial PDF manual matches, and it ranks for "verification" searches.
-4. **Universities:** free classroom accounts, assignments as forkable models, classic textbook problems
+5. **Universities:** free classroom accounts, assignments as forkable models, classic textbook problems
    (Hibbeler, Timoshenko) as ready examples, a professor view of submissions. Students become engineers
    who use Stabileo; it feeds Research and shared models.
-5. **Import from the programs engineers already use** (SAP2000 `.s2k`, ETABS `.e2k`, IFC, DXF) and
+6. **Import from the programs engineers already use** (SAP2000 `.s2k`, ETABS `.e2k`, IFC, DXF) and
    export reports they can hand in: removes the biggest switching cost.
-6. **Latin American codes:** NBR (Brazil), NSR-10 (Colombia), NTE E.030/E.060 (Peru), NCh (Chile) next to
+7. **Latin American codes:** NBR (Brazil), NSR-10 (Colombia), NTE E.030/E.060 (Peru), NCh (Chile) next to
    CIRSOC, each with independent sign-off (#450): the obvious choice in a region served poorly and
    expensively.
-7. **A Python package and API** (`pip install stabileo`, notebook-friendly; builds on the versioned
-   engine interface #731): researchers, automation and parametric design build on Stabileo.
 
 **Growth channels, alongside:** Stabileo Research, Stabileo Tools and shared models (section "Growth"
 below), with search work, previews, phone and tablet quality and frozen citable versions as multipliers.
