@@ -10,6 +10,7 @@
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
   import ShauerPage from './shauer2025/ShauerPage.svelte';
+  import RiksCrisfieldPage from './riksCrisfield/RiksCrisfieldPage.svelte';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import './research.css';
@@ -28,6 +29,11 @@
       description:
         'AT2 phase-field fracture run in the browser by a Rust re-implementation validated step by step against the author’s Python reference code.',
     },
+    '/research/benchmarks/riks-crisfield': {
+      title: 'Arc-length snap-through: Riks and Crisfield — Stabileo Research',
+      description:
+        'Stabileo’s production arc-length solver traces two-bar snap-through paths in the browser, checked against closed-form equilibrium and native Rust results.',
+    },
   };
 
   $effect(() => {
@@ -43,6 +49,8 @@
     <Gallery />
   {:else if route === '/research/fracture/shauer-2025'}
     <ShauerPage />
+  {:else if route === '/research/benchmarks/riks-crisfield'}
+    <RiksCrisfieldPage />
   {:else}
     <section class="sec sec--ink">
       <div class="wrap" style="padding-top: 7rem; padding-bottom: 4rem">

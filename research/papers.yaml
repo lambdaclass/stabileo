@@ -771,3 +771,67 @@ papers:
   benchmarks: []
   implementation: null
   contacts: []
+- id: riks-1979
+  doi: 10.1016/0020-7683(79)90081-7
+  crossref:
+    title: An incremental approach to the solution of snapping and buckling problems
+    authors:
+    - E. Riks
+    year: 1979
+    venue: International Journal of Solids and Structures
+  area: numerical-methods
+  keywords:
+  - arc-length method
+  - snap-through
+  - limit points
+  - path following
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - arc-length continuation
+  dependencies: []
+  complexity: low
+  relevance: The production engine's path-following solver runs the same closed-form toggle and von Mises
+    truss cases in native Rust and browser WASM; no numerical example from the paper is claimed.
+  status: implementation-in-progress
+  reproduced_published_results: false
+  benchmarks:
+  - shallow toggle against the engineering-strain closed-form equilibrium path
+  - von Mises truss against the engineering-strain closed-form equilibrium path
+  implementation: numerical-methods/riks-crisfield
+  page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+  contacts: []
+- id: crisfield-1981
+  doi: 10.1016/0045-7949(81)90108-5
+  crossref:
+    title: A fast incremental/iterative solution procedure that handles “snap-through”
+    authors:
+    - M.A. Crisfield
+    year: 1981
+    venue: Computers & Structures
+  area: numerical-methods
+  keywords:
+  - spherical arc-length
+  - snap-through
+  - limit points
+  - path following
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - spherical arc-length continuation
+  dependencies: []
+  complexity: low
+  relevance: Stabileo's production solver implements spherical arc-length continuation and is checked on
+    closed-form snap-through cases in native Rust and browser WASM; no paper figure is claimed.
+  status: implementation-in-progress
+  reproduced_published_results: false
+  benchmarks:
+  - shallow toggle against the engineering-strain closed-form equilibrium path
+  - von Mises truss against the engineering-strain closed-form equilibrium path
+  implementation: numerical-methods/riks-crisfield
+  page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+  contacts: []

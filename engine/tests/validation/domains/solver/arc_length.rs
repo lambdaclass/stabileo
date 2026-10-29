@@ -44,17 +44,6 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
     }
 }
 
-fn pinned(id: usize, node_id: usize) -> SolverSupport {
-    SolverSupport {
-        id,
-        node_id,
-        support_type: "pinned".into(),
-        kx: None, ky: None, kz: None,
-        dx: None, dz: None, dry: None,
-        angle: None,
-    }
-}
-
 fn hm<T>(items: Vec<(usize, T)>) -> HashMap<String, T> {
     items.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
 }
@@ -117,41 +106,6 @@ fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
         ]),
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: fx, fz: 0.0, my: 0.0,
-        })],
-        constraints: vec![],
-        connectors: HashMap::new(),
-    }
-}
-
-/// Build a shallow toggle frame (two inclined members meeting at apex):
-///
-///         3 (apex, loaded downward)
-///        / \
-///       /   \
-///      1     2  (both pinned)
-///
-/// With a shallow rise the structure can exhibit snap-through behavior
-/// where the apex passes through the baseline of the supports.
-fn make_toggle_frame(half_span: f64, rise: f64, p: f64) -> SolverInput {
-    SolverInput {
-        solver_options: None, masses: Default::default(),
-        nodes: hm(vec![
-            (1, node(1, 0.0, 0.0)),
-            (2, node(2, 2.0 * half_span, 0.0)),
-            (3, node(3, half_span, rise)),
-        ]),
-        materials: hm(vec![(1, steel())]),
-        sections: hm(vec![(1, beam_section())]),
-        elements: hm(vec![
-            (1, frame(1, 1, 3)),
-            (2, frame(2, 3, 2)),
-        ]),
-        supports: hm(vec![
-            (1, pinned(1, 1)),
-            (2, pinned(2, 2)),
-        ]),
-        loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -269,19 +223,17 @@ fn test_load_factor_monotonic_for_stable_problem() {
 /// after the peak.
 #[test]
 fn test_arc_length_detects_limit_point() {
-    // Very shallow rise (0.1m) with half-span of 2.0m gives a rise/span
-    // ratio of 1/40, which is shallow enough for snap-through.
-    let solver = make_toggle_frame(2.0, 0.1, 50.0);
-    let input = ArcLengthInput {
-        solver,
-        max_steps: 100,
-        max_iter: 30,
-        tolerance: 1e-5,
-        initial_ds: 0.05,
-        min_ds: 1e-8,
-        max_ds: 0.5,
-        target_iter: 5,
-    };
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json"
+    ))
+    .unwrap();
+    let case = data["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["id"] == "shallow-toggle")
+        .unwrap();
+    let input: ArcLengthInput = serde_json::from_value(case["input"].clone()).unwrap();
 
     let result = solve_arc_length(&input).unwrap();
 

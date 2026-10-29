@@ -25,11 +25,13 @@ export type ResearchStrings = {
   suggest: string;
   onlyEnglish: string;
   againstCode: string;
+  againstBenchmark: string;
   againstPaper: string;
   of: string;
   seeChecks: string;
   disclaimer: string;
   notComparedWhy: string;
+  benchmark: Record<'viewer' | 'path' | 'parameters' | 'case' | 'riseSpan' | 'loadDirection' | 'downward' | 'upward' | 'arcLengthStep' | 'recompute' | 'stop' | 'restart' | 'backToReplay' | 'play' | 'pause' | 'step' | 'reference' | 'stabileo' | 'error' | 'result' | 'reset', string>;
 };
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
@@ -57,11 +59,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Suggest a paper to reproduce →',
     onlyEnglish: '',
     againstCode: 'Against the author’s code',
+    againstBenchmark: 'Against closed form and native engine',
     againstPaper: 'Against the paper’s figures',
     of: 'of',
     seeChecks: 'see the checks',
     disclaimer: 'Research, not a design tool. Nothing here is an engineering result.',
     notComparedWhy: 'Not compared: the full text was not accessible to us',
+    benchmark: {
+      viewer: 'Viewer', path: 'Convergence / Path', parameters: 'Parameters', case: 'Case', riseSpan: 'Rise / span',
+      loadDirection: 'Load direction', downward: 'Downward', upward: 'Upward', arcLengthStep: 'Initial arc-length step',
+      recompute: 'Recompute live', stop: 'Stop', restart: 'Restart', backToReplay: 'Back to replay', play: 'Play', pause: 'Pause',
+      step: 'Load step shown', reference: 'Reference', stabileo: 'Stabileo', error: 'Error', result: 'Result', reset: 'Reset parameters',
+    },
   },
   es: {
     resetParameters: 'Restablecer los parámetros del código de referencia',
@@ -87,11 +96,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Sugerí un artículo para reproducir →',
     onlyEnglish: 'Este artículo está disponible solo en inglés.',
     againstCode: 'Frente al código del autor',
+    againstBenchmark: 'Frente a la forma cerrada y al motor nativo',
     againstPaper: 'Frente a las figuras del artículo',
     of: 'de',
     seeChecks: 'ver los controles',
     disclaimer: 'Investigación, no una herramienta de diseño. Nada de esto es un resultado de ingeniería.',
     notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
+    benchmark: {
+      viewer: 'Visor', path: 'Convergencia / Trayectoria', parameters: 'Parámetros', case: 'Caso', riseSpan: 'Flecha / luz',
+      loadDirection: 'Dirección de carga', downward: 'Hacia abajo', upward: 'Hacia arriba', arcLengthStep: 'Paso inicial de longitud de arco',
+      recompute: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', backToReplay: 'Volver a la repetición', play: 'Reproducir', pause: 'Pausar',
+      step: 'Paso de carga mostrado', reference: 'Referencia', stabileo: 'Stabileo', error: 'Error', result: 'Resultado', reset: 'Restablecer parámetros',
+    },
   },
   pt: {
     resetParameters: 'Restaurar os parâmetros do código de referência',
@@ -117,11 +133,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Sugira um artigo para reproduzir →',
     onlyEnglish: 'Este artigo está disponível apenas em inglês.',
     againstCode: 'Frente ao código do autor',
+    againstBenchmark: 'Frente à forma fechada e ao motor nativo',
     againstPaper: 'Frente às figuras do artigo',
     of: 'de',
     seeChecks: 'ver as verificações',
     disclaimer: 'Pesquisa, não uma ferramenta de projeto. Nada aqui é um resultado de engenharia.',
     notComparedWhy: 'Não comparado: não tivemos acesso ao texto completo',
+    benchmark: {
+      viewer: 'Visualizador', path: 'Convergência / Caminho', parameters: 'Parâmetros', case: 'Caso', riseSpan: 'Flecha / vão',
+      loadDirection: 'Direção da carga', downward: 'Para baixo', upward: 'Para cima', arcLengthStep: 'Passo inicial de comprimento de arco',
+      recompute: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', backToReplay: 'Voltar à reprodução', play: 'Reproduzir', pause: 'Pausar',
+      step: 'Passo de carga mostrado', reference: 'Referência', stabileo: 'Stabileo', error: 'Erro', result: 'Resultado', reset: 'Restaurar parâmetros',
+    },
   },
 };
 

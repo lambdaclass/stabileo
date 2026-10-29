@@ -140,3 +140,20 @@ jobs:
           assert not extra, extra
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
+
+  riks-crisfield:
+    name: Arc-length (Riks–Crisfield) native and WASM validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - name: Native production results reproduce the committed evidence, including known failures
+        run: nix develop . -c cargo run --release --locked --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
+      - name: Build the production browser engine
+        run: nix develop . -c make wasm
+      - name: Browser WASM matches native path steps and displacements
+        run: nix develop . -c node research/numerical-methods/riks-crisfield/wasm/check.mjs web/src/lib/wasm research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json research/numerical-methods/riks-crisfield/reference-results/native-results.json

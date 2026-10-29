@@ -1,0 +1,25 @@
+id: riks-crisfield
+title: Riks/Crisfield arc-length snap-through benchmarks for the production solver
+doi: 10.1016/0045-7949(81)90108-5
+references:
+  - E. Riks, An incremental approach to the solution of snapping and buckling problems, International Journal of Solids and Structures 15 (1979), doi:10.1016/0020-7683(79)90081-7
+  - E. Riks, The application of Newton's method to the problem of elastic stability, Journal of Applied Mechanics 39 (1972), doi:10.1115/1.3422829
+  - M. A. Crisfield, A fast incremental/iterative solution procedure that handles snap-through, Computers & Structures 13 (1981), doi:10.1016/0045-7949(81)90108-5
+  - M. A. Crisfield, Non-linear Finite Element Analysis of Solids and Structures, Vol. 1, Ch. 9
+  - von Mises two-bar engineering-strain equilibrium, as documented in engine/tests/validation/domains/nonlinear/nonlinear_extended.rs
+equations: README.md#closed-form-reference
+assumptions: [2D corotational frame elements, quasi-static equilibrium, pinned bases, engineering-strain two-bar closed-form reference without frame bending]
+units: {force: kN, length: m, youngsModulus: MPa}
+experiments:
+  - name: shallow-toggle
+    inputs: reference-results/arc_length_snap_through.json#/cases/0/input
+    solver: {method: production solve_arc_length, max_steps: 100, max_iterations: 30, tolerance: 1e-5}
+    references: [reference-results/arc_length_snap_through.json#/cases/0/reference/upperLimit, reference-results/native-results.json]
+  - name: von-mises-truss
+    inputs: reference-results/arc_length_snap_through.json#/cases/1/input
+    solver: {method: production solve_arc_length, max_steps: 700, max_iterations: 30, tolerance: 1e-8}
+    references: [reference-results/arc_length_snap_through.json#/cases/1/reference/upperLimit, reference-results/native-results.json]
+environment:
+  rust: 1.99.1 (rust-toolchain.toml)
+  native: native/Cargo.toml
+  evidence: reference-results/MANIFEST.json

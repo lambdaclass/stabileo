@@ -24,6 +24,15 @@ export const EXPERIMENTS: Experiment[] = [
     thumbnailQuery: 'step=70&mesh=1&view=plate&deformed=1&deform=4&broken=show',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/fracture/shauer-2025',
   },
+  {
+    paperId: 'riks-1979',
+    path: '/research/benchmarks/riks-crisfield',
+    name: 'Arc-length snap-through: Riks and Crisfield',
+    hook: 'Follow two-bar trusses through their limit points with Stabileo’s production arc-length engine, checked against closed-form equilibrium paths.',
+    thumbnail: 'research-thumbs/riks-crisfield.webp',
+    thumbnailQuery: 'case=von-mises-truss&tab=viewer',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/numerical-methods/riks-crisfield',
+  },
 ];
 
 /** The "Coming next" row; set false to hide it. */

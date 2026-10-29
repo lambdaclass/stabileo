@@ -15,6 +15,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 |------|------|
 | `papers.yaml` | Curated catalog. Bibliographic fields are checked against Crossref by `tools/catalog.py` |
 | `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
+| `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
 
@@ -25,7 +26,8 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 - A research crate may depend on `engine/` through a path dependency. The engine and the web
   application never import research code. The web allowlist is `research/papers.json`,
   `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
-  `reference-results/`; the engine has no exceptions. `tools/check_isolation.sh` enforces this.
+  `reference-results/`. Engine tests may also read those JSON case files so the browser and native
+  tests share one source of truth; production engine code has no exception. `tools/check_isolation.sh` enforces this.
 - Research CI is `.github/workflows/research.yml`, path-filtered, not part of the required checks.
 
 ## Reproducibility statuses

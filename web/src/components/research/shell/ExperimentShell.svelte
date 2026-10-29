@@ -23,13 +23,14 @@
     checks?: { passed: number; total: number } | null;
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
     verification?: { reference: Check; published: Check } | null;
+    referenceLabel?: string | null;
     actions: ExperimentActions;
     /** Where the implementation lives, for Cite this and the source link. */
     sourcePath: string;
     article: Snippet;
     app: Snippet;
   };
-  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app }: Props = $props();
+  let { paperId, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app }: Props = $props();
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
@@ -51,6 +52,7 @@
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
+        {referenceLabel}
       />
       <p class="rs-lead" lang="en">{lead}</p>
     </header>
