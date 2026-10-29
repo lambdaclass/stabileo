@@ -324,7 +324,7 @@ fn foundation_3d(c: &Case3) -> Result<crate::response::Resp, String> {
 }
 
 #[test]
-#[ignore = "safety #761"]
+#[ignore = "known wrong result: #761"]
 fn corotational_rigid_motion_reproducer() {
     use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
     use dedaliano_engine::solver::corotational;
@@ -364,7 +364,7 @@ fn corotational_rigid_motion_reproducer() {
 }
 
 #[test]
-#[ignore = "safety #761"]
+#[ignore = "known wrong result: #761"]
 fn generated_corotational_rigid_motions() {
     sweep(128, Some("corotational"));
 }
