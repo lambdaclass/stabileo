@@ -145,10 +145,14 @@ jobs:
               - 'Cargo.lock'
             ci_scripts:
               - 'scripts/tests/**'
+              - 'scripts/ci/**'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'web/package-lock.json'
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
