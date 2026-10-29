@@ -339,7 +339,20 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
    stored once per file (PR [#777](https://github.com/lambdaclass/stabileo/pull/777)); a run-time
    line and preview images/videos; Research as its own page (no editor loaded); embeds; the
    paper's own figures overlaid on live runs; parameter sweeps in the browser.
-5. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
+5. **Gallery organisation** (as the catalogue grows past 40 papers): **Run it** first — only runnable
+   experiments, big cards with a looping preview video, in a hand-set showcase order (newest and most
+   impressive first); then **New research** (2020–2026, newest first) and **Classics** (oldest first, as
+   a timeline of computational mechanics, where the engine-benchmark pages belong); topic chips and a
+   status filter instead of more sections; every card keeps its evidence badge, so importance is never
+   confused with verification.
+6. **Paper priority** (each checked for implementability first: citation, code/data and licence,
+   published numbers, engine gaps, browser feasibility). To show off: topology optimisation (88 lines),
+   Riks/Crisfield snap-through, snapping arches (Zmyślony, Khan & Biggins 2026), the Mattiasson
+   elastica. To reach current researchers: snapping arches, Ferrari & Sigmund 2025 (after topology
+   optimisation, same group), Pastrana et al. 2026 form-finding, then Fairclough et al. 2026 once a conic
+   optimiser is added. Live: phase-field fracture (Shauer 2025) and spring networks (Grossman &
+   Boudaoud 2026).
+7. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
    product unaffected (isolation check, editor data safe, app tests pass), CI green; other review
    findings become issues fixed in small follow-ups.
 
