@@ -67,7 +67,7 @@ The interface is available in **English, Spanish and Portuguese**.
 Stabileo also runs as an app on Windows, macOS and Linux, with the same engine and your projects
 as `.ded` files on disk. It is an unsigned alpha for testers that updates itself.
 
-- **macOS:** `brew install --cask lambdaclass/tap/stabileo`
+- **macOS 15+:** `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`
 - **Windows** (PowerShell): `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 | iex`
 - **Linux:** `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`
 

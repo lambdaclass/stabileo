@@ -63,19 +63,11 @@ Windows 10 u 11, de 64 bits.
 
 ## macOS
 
-macOS 11 (Big Sur) o posterior, en Apple silicon (M1 en adelante) o Intel.
+macOS 15 (Sequoia) o posterior, en Apple silicon (M1 en adelante) o Intel.
 
-### Con Homebrew (recomendado)
+### Con un comando (recomendado)
 
-Si usás [Homebrew](https://brew.sh), en la **Terminal**:
-
-```sh
-brew install --cask lambdaclass/tap/stabileo
-```
-
-Después abrí Stabileo la primera vez como se explica en [Primera apertura](#primera-apertura-en-macos).
-
-### Sin Homebrew, con un comando
+La publicación del cask de Homebrew está pendiente; mientras tanto, usá este instalador.
 
 En la **Terminal** (Aplicaciones ▸ Utilidades ▸ Terminal):
 
@@ -99,6 +91,11 @@ así que macOS no muestra el aviso de la primera apertura para esta copia.
 Stabileo todavía no está firmado con un Apple Developer ID, así que la primera vez que lo abrís
 macOS dice *No se abrió "Stabileo"* (o *Apple no pudo verificar que "Stabileo" no contenga
 malware...*) y solo ofrece **OK** o **Trasladar a la papelera**. Elegí **OK**, no la papelera.
+Estos pasos son solo para el aviso de desarrollador no identificado. Si dice que está dañada,
+seguí [Problemas frecuentes](#problemas-frecuentes) y no omitas el bloqueo. Antes de autorizarla,
+verificá la descarga contra `SHA256SUMS` y ejecutá
+`codesign --verify --deep --strict /Applications/Stabileo.app`. Si falla, descargala de nuevo;
+no la abras. La firma ad hoc verifica la integridad del paquete, no la identidad del editor.
 Después, una sola vez:
 
 **macOS 15 (Sequoia) y posteriores**
@@ -106,17 +103,6 @@ Después, una sola vez:
 1. Abrí **Configuración del Sistema** ▸ **Privacidad y seguridad**.
 2. Bajá hasta *Se bloqueó "Stabileo" para proteger tu Mac* y hacé clic en **Abrir igualmente**.
 3. Confirmá con **Abrir igualmente** otra vez y tu contraseña o Touch ID.
-
-**macOS 14 (Sonoma) y anteriores**
-
-En el **Finder** ▸ **Aplicaciones**, **clic derecho** (o Control-clic) en **Stabileo** ▸ **Abrir**,
-y otra vez **Abrir** en el cuadro.
-
-**Cualquier versión, en la Terminal**
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Stabileo.app
-```
 
 A partir de ahí se abre normalmente, también después de actualizarse.
 
@@ -189,9 +175,12 @@ navegadores desconfían. Elegí **Conservar** en la lista de descargas (Edge: **
 ▸ **Mostrar más** ▸ **Conservar de todos modos**; Chrome: **Conservar**). O usá la instalación con
 un comando, que no pasa por el navegador.
 
-**macOS dice que la app está dañada y que hay que tirarla a la papelera.** Es la cuarentena de una
-app sin firmar, no un daño. Ejecutá `xattr -dr com.apple.quarantine /Applications/Stabileo.app` y
-abrila de nuevo.
+**macOS dice que la app está dañada y que hay que tirarla a la papelera.** Puede indicar corrupción
+o alteración, no solo cuarentena. No quites la cuarentena ni omitas el bloqueo. Descargá una copia
+nueva de la versión oficial, verificá su `SHA256SUMS` y ejecutá
+`codesign --verify --deep --strict /Applications/Stabileo.app` después de copiarla. Si una
+verificación falla o el aviso persiste, no la abras y reportá el problema. Consultá la
+[guía de Apple](https://support.apple.com/es-es/guide/mac-help/mh40619/mac).
 
 **Windows: "Windows protegió su PC".** Hacé clic en **Más información** ▸ **Ejecutar de todas
 formas**. Si no aparece el botón **Ejecutar de todas formas**, una política de sistemas de tu

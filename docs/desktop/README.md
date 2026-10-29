@@ -12,14 +12,13 @@ repository's latest release. The app is not signed yet (see "Code signing last")
 itself: it checks at startup and from Help ▸ Check for Updates, and installs only when you accept,
 never during a calculation.
 
-- **macOS** (11 or newer, Apple silicon or Intel):
-  `brew install --cask lambdaclass/tap/stabileo`. macOS blocks an unsigned app on first open:
-  right-click Stabileo in Applications and choose Open once, or run
-  `xattr -dr com.apple.quarantine /Applications/Stabileo.app`.
+- **macOS** (15 or newer, Apple silicon or Intel):
+  `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`.
+  For browser downloads and first-open verification, follow [INSTALL.md](INSTALL.md#first-open-on-macos).
 - **Windows** (10 or 11, x64), in PowerShell:
   `irm https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.ps1 | iex`.
   It installs for the current user, without administrator rights.
-- **Linux** (x86_64), and macOS without Homebrew:
+- **Linux** (x86_64):
   `curl -fsSL https://raw.githubusercontent.com/lambdaclass/stabileo/desktop-update-feed/install.sh | sh`.
   On Linux it puts the AppImage at `~/.local/bin/stabileo` with a menu entry and `.ded` files
   opening in it (AppImages need FUSE 2: `sudo apt install libfuse2` on Debian/Ubuntu).
@@ -51,7 +50,7 @@ its description. `latest.json` itself is not signed: it lists, for each system, 
 the signature of that download, and the app installs only a download whose signature verifies
 with the public key it was built with. After publishing the tested release, the job opens a pull request with the install scripts and `latest.json`
 against `desktop-update-feed`, the fixed addresses the docs and the in-app updater use. A
-maintainer reviews and merges that PR before the feed changes. The
+maintainer reviews and merges that PR before the feed changes. Homebrew installation is pending publication of the cask; use the script installer meanwhile. The
 cask goes to `lambdaclass/homebrew-tap` (`Casks/stabileo.rb`) by pull request.
 
 The updater's private key and its password are secrets of the `desktop-release` environment
@@ -62,11 +61,23 @@ run, and the release job signs those same files and checks the signatures agains
 in `desktop/src-tauri/tauri.conf.json`. Losing the private key means installed copies can no longer
 update themselves.
 
+Publication stages assets in a draft before exposing the prerelease. If publication or feed PR
+creation fails, rerun the failed jobs from the same workflow run so they use the same tested
+artifacts. Draft uploads are replaceable; a published release is never overwritten. Recovery
+checks its asset set and payloads against those artifacts, then uses its original signatures and
+manifest for the feed PR. Different payloads require a new version. A feed that has already
+advanced to that version or beyond is rejected; do not rerun publication after merging its feed PR.
+
+The minimum macOS version is 15 (Sequoia), with its system WKWebView. The build and installed-app
+self-check jobs use `macos-15` to exercise that supported OS generation; older macOS versions are
+unsupported. Keep macOS updated for WebKit security and compatibility fixes.
+
 ### Required repository settings (maintainer)
 
 Configure these before enabling releases; workflow YAML cannot create these protections.
-The round-5 review reported missing environment and branch protections; release readiness
-remains blocked until a maintainer verifies every setting below in GitHub.
+The current review verified the release environment restrictions, but found `Desktop OK`
+missing from required checks and the feed branch unprotected. Release readiness remains blocked
+until a maintainer applies those protections and verifies every setting below in GitHub.
 
 1. **Settings → Environments → desktop-release:** add `TAURI_SIGNING_PRIVATE_KEY` and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as environment secrets. Remove any copies from repository
@@ -87,8 +98,10 @@ remains blocked until a maintainer verifies every setting below in GitHub.
    dismissed stale approvals, approval of the latest push, required signed commits, blocked force
    pushes and deletions, and **no bypass actors**, including GitHub Actions and administrators.
    Require **Desktop feed advances** and **Require branches to be up to date before merging**
-   (or use the merge queue). The release PR includes the feed-check workflow; merge the release
-   tooling into main before bootstrapping this check on the feed branch. PRs created with
+   (or use the merge queue). Bootstrap `.github/workflows/desktop-feed.yml` on the feed branch through a separate
+   maintainer-reviewed PR using credentials authorized to write workflows, after merging the
+   release tooling into main. Maintain that workflow the same way; release automation updates
+   only the installers and `latest.json`. PRs created with
    `GITHUB_TOKEN` do not trigger pull-request workflows: a maintainer must close and reopen
    the generated PR to run its check. Repeat validation after another feed PR merges.
    Publication is serialized and both publication and feed merging reject equal or older versions;
@@ -197,8 +210,8 @@ Goal: an installable app on the three systems that opens, calculates, and saves 
 5. Crash and error reporting, opt-in.
 6. [x] (done in phase 0; Windows uses `install.ps1` instead of Scoop) One-command install from our
    own channels, updated by the release workflow:
-   - macOS: Homebrew cask in our tap, `brew install --cask lambdaclass/tap/stabileo`.
-     Until the app is notarized, macOS quarantines it on first open (right-click, Open once).
+   - macOS: the script installer is available; the Homebrew cask is generated but publication
+     in the tap remains a maintainer task.
    - Windows: a Scoop bucket (`scoop install stabileo` after adding the bucket).
    - Linux: AppImage and .deb on the GitHub release.
 

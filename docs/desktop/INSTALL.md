@@ -61,19 +61,11 @@ Windows 10 or 11, 64-bit.
 
 ## macOS
 
-macOS 11 (Big Sur) or newer, on Apple silicon (M1 and later) or Intel.
+macOS 15 (Sequoia) or newer, on Apple silicon (M1 and later) or Intel.
 
-### With Homebrew (recommended)
+### With one command (recommended)
 
-If you use [Homebrew](https://brew.sh), in **Terminal**:
-
-```sh
-brew install --cask lambdaclass/tap/stabileo
-```
-
-Then open Stabileo the first time as described in [First open](#first-open-on-macos).
-
-### Without Homebrew, with one command
+Homebrew cask publication is pending; use this installer meanwhile.
 
 In **Terminal** (Applications ▸ Utilities ▸ Terminal):
 
@@ -96,24 +88,18 @@ not show the first-open warning for this copy.
 
 Stabileo is not signed with an Apple Developer ID yet, so the first time you open it macOS says
 *"Stabileo" Not Opened* (or *Apple could not verify "Stabileo" is free of malware...*) and offers
-only **Done** or **Move to Trash**. Choose **Done**, not the Trash. Then, once:
+only **Done** or **Move to Trash**. Choose **Done**. These steps apply only to unidentified-developer
+warnings. For a damaged-app warning, follow the troubleshooting guidance below instead. Before
+authorizing the app, verify the download against `SHA256SUMS` and run
+`codesign --verify --deep --strict /Applications/Stabileo.app`. If verification fails, download a
+fresh copy and do not open it. The ad hoc signature checks bundle integrity, not publisher identity.
+Then, once:
 
 **macOS 15 (Sequoia) and later**
 
 1. Open **System Settings** ▸ **Privacy & Security**.
 2. Scroll down to *"Stabileo" was blocked to protect your Mac* and click **Open Anyway**.
 3. Confirm with **Open Anyway** again and your password or Touch ID.
-
-**macOS 14 (Sonoma) and earlier**
-
-In **Finder** ▸ **Applications**, **right-click** (or Control-click) **Stabileo** ▸ **Open**, then
-**Open** again in the dialog.
-
-**Any version, in Terminal**
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Stabileo.app
-```
 
 From then on it opens normally, updates included.
 
@@ -185,9 +171,12 @@ The Linux `.deb` does not update itself: install the new `.deb` from the release
 Choose **Keep** in the downloads list (Edge: **...** ▸ **Keep** ▸ **Show more** ▸ **Keep anyway**;
 Chrome: **Keep**). Or use the one-command install, which does not go through the browser.
 
-**macOS says the app is damaged and should be moved to the Trash.** That is the quarantine on an
-unsigned app, not damage. Run `xattr -dr com.apple.quarantine /Applications/Stabileo.app` and open it
-again.
+**macOS says the app is damaged and should be moved to the Trash.** This can indicate corruption
+or tampering, not just quarantine. Do not remove quarantine or override this warning. Download a
+fresh copy from the official release, verify its `SHA256SUMS`, and run
+`codesign --verify --deep --strict /Applications/Stabileo.app` after copying it. If either check
+fails or the warning persists, do not open it; report the problem. See
+[Apple’s guidance](https://support.apple.com/en-sg/guide/mac-help/mh40619/mac).
 
 **Windows: "Windows protected your PC".** Click **More info** ▸ **Run anyway**. If there is no
 **Run anyway** button, your organization's IT policy blocks unsigned apps; ask them, or wait for
