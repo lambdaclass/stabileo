@@ -11,6 +11,8 @@ use super::constraints::FreeConstraintSystem;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<ModeShape>,
     pub n_dof: usize,
     pub total_mass: f64,
@@ -275,6 +277,7 @@ pub fn solve_modal_2d(
     };
 
     Ok(ModalResult {
+        structured_diagnostics: crate::known_issues::for_2d(input, crate::known_issues::Analysis::Modal),
         modes,
         n_dof: nf,
         total_mass,
@@ -299,6 +302,8 @@ fn mat_vec_sub(m: &[f64], v: &[f64], n: usize) -> Vec<f64> {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<ModeShape3D>,
     pub n_dof: usize,
     pub total_mass: f64,
@@ -480,6 +485,7 @@ pub fn solve_modal_3d(
     } else { None };
 
     Ok(ModalResult3D {
+        structured_diagnostics: crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal),
         modes, n_dof: nf, total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,

@@ -84,6 +84,8 @@ pub struct TimeStepResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreepShrinkageResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub steps: Vec<TimeStepResult>,
     pub converged: bool,
 }
@@ -315,6 +317,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     }
 
     Ok(CreepShrinkageResult {
+        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear),
         steps: results,
         converged: true,
     })
@@ -356,6 +359,8 @@ pub struct TimeStepResult3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreepShrinkageResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub steps: Vec<TimeStepResult3D>,
     pub converged: bool,
 }
@@ -479,6 +484,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
     }
 
     Ok(CreepShrinkageResult3D {
+        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear),
         steps: results,
         converged: true,
     })

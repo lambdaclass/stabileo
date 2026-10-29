@@ -713,6 +713,13 @@ fn mechanism(input: &SolverInput3D) -> bool {
 /// `is_mechanism` is false and the factor is a lower bound.
 /// `warnings` lists what keeps the result from being the collapse load.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
+    let mut r = solve_plastic_3d_contained(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic));
+    for step in &mut r.steps { crate::known_issues::attach(&mut step.results.structured_diagnostics, r.structured_diagnostics.clone()); }
+    Ok(r)
+}
+
+fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
     // Same reason as the 2D entry: keep `Err` from the inner solve meaning
     // "mechanism", and nothing else.
     super::super::linear::validate_input_3d(&input.solver)?;
@@ -1272,6 +1279,7 @@ pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, Strin
     }
 
     Ok(PlasticResult3D {
+        structured_diagnostics: vec![],
         collapse_factor: cumulative_factor,
         steps,
         redundancy: all_hinges.len(),

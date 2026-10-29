@@ -21,6 +21,8 @@ pub struct InfluenceLinePoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfluenceLineResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub quantity: String,
     pub target_node_id: Option<usize>,
     pub target_element_id: Option<usize>,
@@ -234,6 +236,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     }
 
     Ok(InfluenceLineResult {
+        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear),
         quantity: input.quantity.clone(),
         target_node_id: input.target_node_id,
         target_element_id: input.target_element_id,
@@ -350,6 +353,8 @@ pub struct InfluenceLinePoint3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfluenceLineResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub quantity: String,
     pub target_node_id: Option<usize>,
     pub target_element_id: Option<usize>,
@@ -526,6 +531,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     }
 
     Ok(InfluenceLineResult3D {
+        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear),
         quantity: input.quantity.clone(),
         target_node_id: input.target_node_id,
         target_element_id: input.target_element_id,

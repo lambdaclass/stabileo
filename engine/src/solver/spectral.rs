@@ -5,6 +5,8 @@ use super::dof::DofNumbering;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub displacements: Vec<Displacement>,
     pub element_forces: Vec<SpectralElementForce>,
     pub base_shear: f64,
@@ -339,6 +341,7 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult {
+        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Modal),
         displacements,
         element_forces,
         base_shear,
@@ -373,6 +376,8 @@ fn interpolate_spectrum(spectrum: &DesignSpectrum, period: f64) -> f64 {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub displacements: Vec<Displacement3D>,
     pub element_forces: Vec<SpectralElementForce3D>,
     pub base_shear: f64,
@@ -502,6 +507,7 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult3D {
+        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal),
         displacements, element_forces, base_shear, per_mode, rule: rule.as_str().to_string(),
     })
 }

@@ -979,6 +979,7 @@ impl PreparedStatic2D<'_> {
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set.
+        crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d_loads(&self.input, loads, crate::known_issues::Analysis::Linear).into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
         Ok(r)
     }
@@ -2161,7 +2162,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     }
     // Known issues of the model as given (an arch is only visible before its expansion); they
     // go with the pre-solve diagnostics into every result of this preparation.
-    let known_model = crate::known_issues::model_3d(input);
+    let known_model: Vec<_> = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Linear).into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect();
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let n_nodes = input.nodes.len();
@@ -2527,6 +2528,7 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        crate::known_issues::membrane_bending_3d(&self.input, loads, &r)?;
         Ok(r)
     }
 
@@ -4895,6 +4897,8 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         DofNumbering::dofs_per_node_3d(input) >= 6,
     )?;
 
+    super::pre_solve_gates::refuse_broken_elements(&super::pre_solve_gates::check_shell_distortion_3d(input))?;
+    crate::known_issues::refuse(&crate::known_issues::model_3d(input))?;
     Ok(())
 }
 

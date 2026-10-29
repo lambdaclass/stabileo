@@ -909,6 +909,8 @@ pub struct ElementPlasticStatus3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub time_steps: Vec<f64>,
     pub node_histories: Vec<NodeTimeHistory>,
     pub peak_displacements: Vec<Displacement>,
@@ -937,6 +939,8 @@ pub struct NodeTimeHistory {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub time_steps: Vec<f64>,
     pub node_histories: Vec<NodeTimeHistory3D>,
     pub peak_displacements: Vec<Displacement3D>,

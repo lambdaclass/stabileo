@@ -340,6 +340,8 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode3D>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData3D>,
@@ -471,5 +473,5 @@ pub fn solve_buckling_3d(
         });
     }
 
-    Ok(BucklingResult3D { modes, n_dof: nf, element_data })
+    Ok(BucklingResult3D { structured_diagnostics: crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling), modes, n_dof: nf, element_data })
 }

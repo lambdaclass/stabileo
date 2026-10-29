@@ -39,6 +39,8 @@ pub struct GuyanInput3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuyanResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     /// Condensed stiffness matrix (n_boundary × n_boundary, row-major)
     pub k_condensed: Vec<f64>,
     /// Condensed force vector (n_boundary)
@@ -62,6 +64,8 @@ pub struct GuyanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuyanResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub k_condensed: Vec<f64>,
     pub f_condensed: Vec<f64>,
     #[serde(default)]
@@ -104,6 +108,8 @@ fn default_n_modes() -> usize { 10 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CraigBamptonResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     /// Reduced stiffness matrix (n_reduced × n_reduced)
     pub k_reduced: Vec<f64>,
     /// Reduced mass matrix (n_reduced × n_reduced)
@@ -217,6 +223,12 @@ fn csc_times_dense(a: &CscMatrix, x: &[f64], ncols: usize) -> Vec<f64> {
 ///
 /// Recovery: u_I = K_II^{-1} * (F_I - K_IB * u_B)
 pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
+    let mut r = guyan_reduce_2d_contained(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Modal));
+    Ok(r)
+}
+
+fn guyan_reduce_2d_contained(input: &GuyanInput) -> Result<GuyanResult, String> {
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
@@ -395,6 +407,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
     );
 
     Ok(GuyanResult {
+        structured_diagnostics: vec![],
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -569,6 +582,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     );
 
     Ok(GuyanResult {
+        structured_diagnostics: vec![],
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -592,6 +606,12 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
 /// where Ψ_s = -K_II^{-1} K_IB (constraint modes)
 ///       Φ_m = first n_modes eigenvectors of K_II with respect to M_II
 pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult, String> {
+    let mut r = craig_bampton_2d_contained(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Modal));
+    Ok(r)
+}
+
+fn craig_bampton_2d_contained(input: &CraigBamptonInput) -> Result<CraigBamptonResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
     // Nodal and line masses go into M: a negative one or one on a missing
@@ -859,6 +879,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     }
 
     Ok(CraigBamptonResult {
+        structured_diagnostics: vec![],
         k_reduced,
         m_reduced,
         n_reduced: nr,
@@ -1061,6 +1082,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     }
 
     Ok(CraigBamptonResult {
+        structured_diagnostics: vec![],
         k_reduced,
         m_reduced,
         n_reduced: nr,
@@ -1075,6 +1097,12 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
+    let mut r = guyan_reduce_3d_contained(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal));
+    Ok(r)
+}
+
+fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     // Curved beams become segments first, as in `solve_3d`: assembled from the
     // unexpanded model they were silently left out.
     let expanded;
@@ -1272,6 +1300,7 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
 
     Ok(GuyanResult3D {
+        structured_diagnostics: vec![],
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -1288,6 +1317,12 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
 
 /// Perform Craig-Bampton reduction on a 3D model.
 pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
+    let mut r = craig_bampton_3d_contained(input)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal));
+    Ok(r)
+}
+
+fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
     // Curved beams become segments first, as in `solve_3d`: assembled from the
     // unexpanded model they were silently left out.
     let expanded;
@@ -1492,6 +1527,7 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     }
 
     Ok(CraigBamptonResult {
+        structured_diagnostics: vec![],
         k_reduced,
         m_reduced,
         n_reduced: nr,

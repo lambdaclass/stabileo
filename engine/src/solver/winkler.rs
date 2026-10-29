@@ -157,14 +157,14 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     add_foundation_forces_2d(&mut element_forces, input, &node_by_id, &elem_by_id, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    Ok(AnalysisResults { displacements, reactions, element_forces, constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None })
+    Ok(AnalysisResults { displacements, reactions, element_forces, constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear), equilibrium: None, result_summary: None, solver_run_meta: None })
 }
 
 // ==================== 3D Winkler Solver ====================
 
 pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
-    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
+    let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
     super::pre_solve_gates::refuse_broken_elements(&pre_solve_diags)?;
 
     // Expand curved beams before DOF numbering and assembly.
@@ -278,7 +278,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: pre_solve_diags,
+        structured_diagnostics: { crate::known_issues::attach(&mut pre_solve_diags, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear)); pre_solve_diags },
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,

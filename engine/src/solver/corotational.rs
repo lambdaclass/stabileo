@@ -338,7 +338,8 @@ pub fn solve_corotational_2d(
     } else {
         input
     };
-    let results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
     Ok(CorotationalResult {
         results,
@@ -1532,7 +1533,8 @@ pub fn solve_corotational_3d(
     } else {
         input
     };
-    let results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
 
     Ok(CorotationalResult3D {
         results,

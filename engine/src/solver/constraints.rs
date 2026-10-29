@@ -1662,6 +1662,7 @@ pub fn solve_constrained_2d_dense(
     // K_reduced = C_ff^T * K_ff * C_ff
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
+    let containment_conditioning = crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_ff, nf)).or_else(|| crate::known_issues::conditioning(&super::conditioning::check_conditioning(&k_reduced, n_free_indep)));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     // Solve reduced system
@@ -1824,6 +1825,7 @@ pub fn solve_constrained_2d_dense(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
 
     Ok(AnalysisResults {
         displacements,
@@ -1955,7 +1957,9 @@ fn solve_constrained_2d_sparse(
     }
 
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
+    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     // NO diagonal-shift regularization (the 2D contract): a mechanism fails
@@ -2070,6 +2074,7 @@ fn solve_constrained_2d_sparse(
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
 
     Ok(Some(AnalysisResults {
         displacements,
@@ -2253,7 +2258,9 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
 
     // K_reduced = C_ff^T * K_ff * C_ff, computed as a sparse triple product
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
+    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff);
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
+    let containment_conditioning = containment_conditioning.or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let f_reduced = fcs.reduce_vector(&f_f);
 
     let mut used_fallback = false;
@@ -2402,6 +2409,7 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
     });
 
     constraint_diags.extend(definiteness);
+    constraint_diags.extend(containment_conditioning);
 
     Ok(AnalysisResults3D {
         displacements,

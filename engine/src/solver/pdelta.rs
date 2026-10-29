@@ -20,7 +20,7 @@ use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 fn model_structured_diagnostics(linear: &[StructuredDiagnostic]) -> Vec<StructuredDiagnostic> {
     linear
         .iter()
-        .filter(|d| matches!(d.phase.as_deref(), Some("pre_solve" | "constraints" | "conditioning")))
+        .filter(|d| d.code == DiagnosticCode::KnownIssue || matches!(d.phase.as_deref(), Some("pre_solve" | "constraints" | "conditioning")))
         .cloned()
         .collect()
 }

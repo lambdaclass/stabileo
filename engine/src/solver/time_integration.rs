@@ -310,6 +310,7 @@ fn solve_time_history_2d_inner(
     };
 
     Ok(TimeHistoryResult {
+        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::TimeHistory),
         time_steps,
         node_histories,
         peak_displacements,
@@ -1330,6 +1331,7 @@ fn solve_time_history_3d_inner(
     };
 
     Ok(TimeHistoryResult3D {
+        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::TimeHistory),
         time_steps,
         node_histories,
         peak_displacements,

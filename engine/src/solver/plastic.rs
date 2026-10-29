@@ -55,6 +55,8 @@ pub struct PlasticHinge {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlasticResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub collapse_factor: f64,
     pub steps: Vec<PlasticStep3D>,
     pub hinges: Vec<PlasticHinge3D>,
@@ -584,6 +586,7 @@ fn span_candidates(
 /// being the collapse load: an unresolved reversal, a hinge that would have
 /// to move, the event limit, a final state that is not statically admissible.
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
+    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
     let solver_input = &input.solver;
 
     // Validated up front so that the `Err` from `solve_2d` inside the step

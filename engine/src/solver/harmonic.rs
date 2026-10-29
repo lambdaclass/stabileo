@@ -45,6 +45,8 @@ pub struct HarmonicInput3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HarmonicResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub response_points: Vec<HarmonicResponsePoint>,
     pub peak_frequency: f64,
     pub peak_amplitude: f64,
@@ -96,6 +98,12 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
 /// `solve_harmonic_2d` plus the Rayleigh coefficients `(a₀, a₁)` it used
 /// (`C = a₀M + a₁K`): the damping model the certificate refers to.
 pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(HarmonicResult, (f64, f64)), String> {
+    let (mut result, damping) = solve_harmonic_2d_contained(input)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Harmonic));
+    Ok((result, damping))
+}
+
+fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult, (f64, f64)), String> {
     super::linear::validate_input_2d(&input.solver)?;
     // The forcing is the load vector; a support displacement is not in it.
     super::feature_gates::refuse_2d(&input.solver, "Harmonic analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
@@ -229,6 +237,7 @@ pub fn solve_harmonic_2d_with_damping(input: &HarmonicInput) -> Result<(Harmonic
     }
 
     Ok((HarmonicResult {
+        structured_diagnostics: vec![],
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
@@ -249,6 +258,12 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 /// `solve_harmonic_3d` plus the Rayleigh coefficients `(a₀, a₁)` it used
 /// (`C = a₀M + a₁K`): the damping model the certificate refers to.
 pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
+    let (mut result, damping) = solve_harmonic_3d_contained(input)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Harmonic));
+    Ok((result, damping))
+}
+
+fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
     // Curved beams become segments first, as in `solve_3d`: assembled from the
     // unexpanded model they were silently left out.
     let expanded;
@@ -398,6 +413,7 @@ pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(Harmon
     }
 
     Ok((HarmonicResult {
+        structured_diagnostics: vec![],
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
@@ -617,6 +633,7 @@ fn harmonic_modal_from_eigen(
     }
 
     let result = HarmonicResult {
+        structured_diagnostics: vec![],
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,

@@ -72,6 +72,16 @@ pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
 /// 5. Accumulate displacements
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
+    let mut r = solve_staged_2d_contained(input)?;
+    let diagnostics = crate::known_issues::for_2d(&staged_to_full_solver_input(input), crate::known_issues::Analysis::Linear);
+    for stage in &mut r.stages {
+        crate::known_issues::attach(&mut stage.results.structured_diagnostics, diagnostics.clone());
+    }
+    crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    Ok(r)
+}
+
+fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
     if input.stages.is_empty() {
         return Err("No construction stages defined".into());
     }
@@ -1233,6 +1243,16 @@ fn iterate_cables_staged_2d(
 /// 5. Accumulate displacements
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D, String> {
+    let mut r = solve_staged_3d_contained(input)?;
+    let diagnostics = crate::known_issues::for_3d(&staged_to_full_solver_input_3d(input), crate::known_issues::Analysis::Linear);
+    for stage in &mut r.stages {
+        crate::known_issues::attach(&mut stage.results.structured_diagnostics, diagnostics.clone());
+    }
+    crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    Ok(r)
+}
+
+fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResults3D, String> {
     if input.stages.is_empty() {
         return Err("No construction stages defined".into());
     }

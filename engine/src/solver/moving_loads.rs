@@ -6,6 +6,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MovingLoadEnvelope {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub elements: HashMap<String, ElementEnvelope>,
     pub train: LoadTrain,
     pub path: Vec<PathSegment>,
@@ -171,6 +173,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     }
 
     Ok(MovingLoadEnvelope {
+        structured_diagnostics: crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear),
         elements: envelopes,
         train: train.clone(),
         path,
@@ -338,6 +341,8 @@ fn base_loads(input: &SolverInput) -> Vec<SolverLoad> {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MovingLoadEnvelope3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub elements: HashMap<String, ElementEnvelope3D>,
     pub train: LoadTrain,
     pub path: Vec<PathSegment3D>,
@@ -482,6 +487,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     }
 
     Ok(MovingLoadEnvelope3D {
+        structured_diagnostics: crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear),
         elements: envelopes,
         train: train.clone(),
         path,
