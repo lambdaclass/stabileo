@@ -4,7 +4,7 @@ const files = new Map<string, string>();
 const saveAnswers: (string | null)[] = [];
 const saveCalls: unknown[] = [];
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async (cmd: string, args?: { path: string; content: string }) => { if (cmd === 'atomic_save' && args) files.set(args.path, args.content); }) }));
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async (cmd: string, args?: { path: string; content: string }) => { if (cmd === 'resolve_selected_path') return args?.path; if (cmd === 'atomic_save' && args) files.set(args.path, args.content); return undefined; }) }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => undefined) }));
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({ setTitle: vi.fn(async () => undefined), onCloseRequested: vi.fn(async () => undefined) }),
@@ -42,6 +42,11 @@ import { historyStore } from '../../store/history.svelte';
 import { message } from '@tauri-apps/plugin-dialog';
 import { confirmDiscard, openPath, routePageFileControls, runCommand, takePendingFiles, saveActive, saveActiveAs, saveSessionAs, trackDocuments, unsavedTabs } from '../desktop.svelte';
 
+async function defaultInvoke(cmd: string, args?: any): Promise<any> {
+  if (cmd === 'resolve_selected_path') return args.path;
+  if (cmd === 'atomic_save') files.set(args.path, args.content);
+}
+
 function nameModel(name: string): void {
   modelStore.clear();
   modelStore.model.name = name;
@@ -50,6 +55,7 @@ function nameModel(name: string): void {
 }
 
 beforeEach(async () => {
+  vi.mocked(invoke).mockImplementation(defaultInvoke);
   vi.mocked(message).mockResolvedValue('No');
   designDrafts.clear();
   if (!tabManager.tabs.length) tabManager.createTab();
@@ -127,7 +133,9 @@ describe('desktop persistence regressions', () => {
     saveAnswers.push('/x/unrelated.ded');
     let release!: () => void;
     const waiting = new Promise<void>((resolve) => { release = resolve; });
-    vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+    vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+      if (cmd === 'resolve_selected_path') return args.path;
+      vi.mocked(invoke).mockImplementation(defaultInvoke);
       files.set(args.path, args.content);
       await waiting;
     });
@@ -149,7 +157,9 @@ describe('desktop persistence regressions', () => {
     saveAnswers.push('/x/exact-name');
     let release!: () => void;
     const waiting = new Promise<void>((resolve) => { release = resolve; });
-    vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+    vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+      if (cmd === 'resolve_selected_path') return args.path;
+      vi.mocked(invoke).mockImplementation(defaultInvoke);
       files.set(args.path, args.content);
       await waiting;
     });
@@ -269,7 +279,9 @@ it('single-project replacement invalidates an in-flight save target', async () =
   saveAnswers.push('/x/A-old.ded');
   let release!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
-  vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+  vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+      if (cmd === 'resolve_selected_path') return args.path;
+    vi.mocked(invoke).mockImplementation(defaultInvoke);
     files.set(args.path, args.content);
     await pending;
   });
@@ -315,6 +327,7 @@ it('OS opens wait for the native save command to finish', async () => {
   let release!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
   vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+    if (cmd === 'resolve_selected_path') return args.path;
     if (cmd === 'take_pending_files') return ['/x/queued-B.ded'] as any;
     if (cmd === 'atomic_save') {
       files.set(args.path, args.content);
@@ -333,9 +346,7 @@ it('OS opens wait for the native save command to finish', async () => {
     expect(JSON.parse(files.get('/x/queued-A.ded')!).name).toBe('A');
   } finally {
     release();
-    vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
-      if (cmd === 'atomic_save') files.set(args.path, args.content);
-    });
+    vi.mocked(invoke).mockImplementation(defaultInvoke);
   }
 });
 
@@ -403,10 +414,54 @@ it.each(['edit', 'switch'])('Open does not replace a workspace changed during re
   let release!: (text: string) => void;
   vi.mocked(readTextFile).mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
   const opening = openPath('/x/deferred.ded');
+  await vi.waitFor(() => expect(release).toBeTypeOf('function'));
   if (action === 'edit') modelStore.model.name = 'keep edit';
   else { tabManager.createTab(); modelStore.model.name = 'keep new tab'; }
   const expected = modelStore.model.name;
   release(incoming);
   await opening;
   expect(modelStore.model.name).toBe(expected);
+});
+
+
+it('Cancel preserves recovered unsaved work when an OS open is pending', async () => {
+  nameModel('incoming');
+  files.set('/x/incoming.ded', serializeProject());
+  nameModel('recovered edits');
+  const recovered = serializeProject();
+  trackDocuments();
+  tabManager.createTab();
+  expect(unsavedTabs().length).toBeGreaterThan(0);
+  vi.mocked(message).mockResolvedValueOnce('Cancel');
+  vi.mocked(invoke).mockImplementation(async (cmd, args) => cmd === 'take_pending_files'
+    ? ['/x/incoming.ded'] : defaultInvoke(cmd, args));
+  const ids = tabManager.tabs.map(tab => tab.id);
+  await takePendingFiles();
+  expect(tabManager.tabs.map(tab => tab.id)).toEqual(ids);
+  tabManager.switchTab(ids[ids.length - 2]);
+  expect(modelStore.model.name).toBe(JSON.parse(recovered).name);
+  expect(message).toHaveBeenCalled();
+});
+
+it.each(['close', 'add'])('session membership is unsaved after %s, and Save persists it', async action => {
+  tabManager.createTab();
+  nameModel('member');
+  saveAnswers.push('/x/membership.ded');
+  await saveSessionAs();
+  await openPath('/x/membership.ded');
+  if (action === 'close') {
+    vi.stubGlobal('confirm', () => true);
+    tabManager.closeTab(tabManager.tabs[0].id);
+    vi.unstubAllGlobals();
+  }
+  else tabManager.createTab();
+  expect(unsavedTabs()).not.toEqual([]);
+  vi.mocked(message).mockResolvedValueOnce('Cancel');
+  expect(await confirmDiscard()).toBe(false);
+  const ids = tabManager.tabs.map(tab => tab.id);
+  await saveActive();
+  expect(unsavedTabs()).toEqual([]);
+  await openPath('/x/membership.ded');
+  expect(tabManager.tabs.map(tab => tab.id)).toEqual(ids);
+  expect(unsavedTabs()).toEqual([]);
 });

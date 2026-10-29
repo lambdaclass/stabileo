@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -20,6 +21,7 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 feed.check("0.1.0-alpha.9", candidate)
 
+    @unittest.skipIf(os.name == "nt", "POSIX installer fixtures")
     def test_macos_uninstall_removes_only_recorded_target(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -40,7 +42,6 @@ class ReleaseTests(unittest.TestCase):
             rm = bin_dir / "rm"
             rm.write_text('#!/bin/sh\nfor arg do\ncase "$arg" in -*) ;; "$TEST_TARGET"|"$TEST_RECEIPT") ;; *) exit 99 ;; esac\ndone\nexec /bin/rm "$@"\n')
             rm.chmod(0o755)
-            import os
             env = dict(os.environ, HOME=str(home), XDG_DATA_HOME=str(data), PATH=str(bin_dir) + ":" + os.environ["PATH"], TEST_TARGET=str(selected), TEST_RECEIPT=str(receipt))
             subprocess.run(["sh", str(ROOT.parent / "install/install.sh"), "--uninstall"], env=env, check=True)
             self.assertFalse(selected.exists())

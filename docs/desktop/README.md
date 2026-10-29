@@ -64,7 +64,9 @@ update themselves.
 
 ### Required repository settings (maintainer)
 
-Configure these before enabling releases; workflow YAML cannot create these protections:
+Configure these before enabling releases; workflow YAML cannot create these protections.
+The round-5 review reported missing environment and branch protections; release readiness
+remains blocked until a maintainer verifies every setting below in GitHub.
 
 1. **Settings → Environments → desktop-release:** add `TAURI_SIGNING_PRIVATE_KEY` and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as environment secrets. Remove any copies from repository
@@ -76,7 +78,8 @@ Configure these before enabling releases; workflow YAML cannot create these prot
    Review the workflow and the exact commit before approving each manual release job.
 2. **Settings → Rules → Rulesets:** protect `main` with required pull requests, at least one
    approving review, dismissed stale approvals, approval of the latest push, no force pushes or
-   deletions, and no bypass actors. Retain the exact supply-chain checks **rust** and **npm** (stable aggregates of all audit workspaces). Require the exact status check **Desktop OK** (GitHub Actions),
+   deletions, and no bypass actors. Retain the exact required checks **rust**, **npm**, and **CI OK**.
+   Require the exact status check **Desktop OK** (GitHub Actions),
    including in the merge queue. Protect tags `desktop-v*` against updates/deletions and restrict
    creation to release maintainers. Before dispatching a release, pre-create `desktop-v<version>` at the exact reviewed
    commit being released on `main` (also for a run dispatched from `main`); the release job checks ancestry and a tag run must match the requested version.

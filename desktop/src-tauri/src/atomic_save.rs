@@ -2,7 +2,9 @@ use crate::save_directory::Directory;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -19,7 +21,17 @@ fn temporary(dir: &Directory) -> io::Result<(OsString, File)> {
     Err(io::Error::new(io::ErrorKind::AlreadyExists, "cannot stage save"))
 }
 
-pub fn save_authorized(path: &Path, content: &[u8], authorize: impl FnOnce() -> bool) -> io::Result<()> {
+pub fn save_authorized(path: &Path, content: &[u8], mut authorize: impl FnMut() -> bool) -> io::Result<()> {
+    if !authorize() { return Err(io::Error::new(io::ErrorKind::PermissionDenied, "save path was not selected by the user")); }
+    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+    let lock = {
+        let mut locks = LOCKS.get_or_init(Mutex::default).lock().unwrap();
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        let lock = locks.get(path).and_then(Weak::upgrade).unwrap_or_else(|| Arc::new(Mutex::new(())));
+        locks.insert(path.to_owned(), Arc::downgrade(&lock));
+        lock
+    };
+    let _saving = lock.lock().unwrap();
     let dir = Directory::open(path.parent().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing parent"))?)?;
     if !authorize() { return Err(io::Error::new(io::ErrorKind::PermissionDenied, "save path was not selected by the user")); }
     save_in(&dir, path.file_name().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing filename"))?, |file| file.write_all(content))
@@ -69,6 +81,62 @@ fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn unauthorized_missing_parent_is_denied_before_traversal() {
+        let path = std::env::temp_dir().join("stabileo-nonexistent-parent/child/a.ded");
+        let err = save_authorized(&path, b"no", || false).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+    }
+
+    #[test]
+    fn selected_parent_components_are_canonical_and_saveable() {
+        let root = std::env::temp_dir().join(format!("stabileo-parent-{}", std::process::id()));
+        fs::create_dir_all(root.join("child")).unwrap();
+        fs::write(root.join("a.ded"), "old").unwrap();
+        let target = crate::save_directory::canonical_target(&root.join("child/../a.ded")).unwrap();
+        save(&target, b"new").unwrap();
+        assert_eq!(fs::read_to_string(root.join("a.ded")).unwrap(), "new");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn explicitly_selected_symlink_directory_resolves_before_pinning() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().join(format!("stabileo-selected-link-{}", std::process::id()));
+        fs::create_dir_all(root.join("real")).unwrap();
+        symlink(root.join("real"), root.join("selected")).unwrap();
+        let target = crate::save_directory::canonical_target(&root.join("selected/new.ded")).unwrap();
+        fs::remove_file(root.join("selected")).unwrap();
+        fs::create_dir(root.join("outside")).unwrap();
+        symlink(root.join("outside"), root.join("selected")).unwrap();
+        save(&target, b"selected").unwrap();
+        assert_eq!(fs::read_to_string(root.join("real/new.ded")).unwrap(), "selected");
+        assert!(!root.join("outside/new.ded").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn concurrent_saves_keep_a_complete_previous_version() {
+        let root = std::env::temp_dir().canonicalize().unwrap().join(format!("stabileo-concurrent-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("a.ded");
+        fs::write(&path, "original").unwrap();
+        std::thread::scope(|scope| {
+            for i in 0..8 {
+                let path = &path;
+                scope.spawn(move || save(path, format!("version-{i}").as_bytes()).unwrap());
+            }
+        });
+        let current = fs::read_to_string(&path).unwrap();
+        let backup = fs::read_to_string(root.join("a.ded.bak")).unwrap();
+        assert!(current.starts_with("version-"));
+        assert!(backup.starts_with("version-"));
+        assert_ne!(current, backup);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn parent_swap_after_authorization_stays_in_pinned_directory() {
@@ -81,7 +149,10 @@ mod tests {
         fs::create_dir_all(&outside).unwrap();
         fs::write(parent.join("a.ded"), "old").unwrap();
         fs::write(outside.join("a.ded"), "untouched").unwrap();
+        let mut checks = 0;
         save_authorized(&parent.join("a.ded"), b"new", || {
+            checks += 1;
+            if checks == 1 { return true; }
             fs::rename(&parent, &moved).unwrap();
             symlink(&outside, &parent).unwrap();
             true

@@ -14,9 +14,21 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime, State};
 use tauri_plugin_fs::FsExt;
 
 #[tauri::command]
-fn atomic_save(app: AppHandle, path: PathBuf, content: String) -> Result<(), String> {
+async fn atomic_save(app: AppHandle, path: PathBuf, content: String) -> Result<(), String> {
     if !path.is_absolute() { return Err("absolute save path required".into()); }
-    atomic_save::save_authorized(&path, content.as_bytes(), || app.fs_scope().is_allowed(&path)).map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        atomic_save::save_authorized(&path, content.as_bytes(), || app.fs_scope().is_allowed(&path))
+            .map_err(|e| e.to_string())
+    }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn resolve_selected_path(app: AppHandle, path: PathBuf) -> Result<PathBuf, String> {
+    let scope = app.fs_scope();
+    if !scope.is_allowed(&path) { return Err("path was not selected by the user".into()); }
+    let target = save_directory::canonical_target(&path).map_err(|e| e.to_string())?;
+    scope.allow_file(&target).map_err(|e| e.to_string())?;
+    Ok(target)
 }
 
 const RECENT_MAX: usize = 8;
@@ -49,6 +61,7 @@ fn project_args(args: &[String], cwd: &Path) -> Vec<PathBuf> {
             if p.is_absolute() { p } else { cwd.join(p) }
         })
         .filter(|p| is_project(p) && p.is_file())
+        .filter_map(|p| p.canonicalize().ok())
         .collect()
 }
 
@@ -58,7 +71,7 @@ fn queue_open<R: Runtime>(app: &AppHandle<R>, paths: Vec<PathBuf>) {
         return;
     }
     let scope = app.fs_scope();
-    let allowed: Vec<PathBuf> = paths.into_iter().filter(|p| scope.allow_file(p).is_ok()).collect();
+    let allowed: Vec<PathBuf> = paths.into_iter().filter_map(|p| p.canonicalize().ok()).filter(|p| scope.allow_file(p).is_ok()).collect();
     app.state::<Pending>().0.lock().unwrap().extend(allowed);
     let _ = app.emit("desktop://open-pending", ());
     if let Some(w) = app.get_webview_window("main") {
@@ -311,6 +324,7 @@ fn main() {
         .manage(Labels::default())
         .invoke_handler(tauri::generate_handler![
             atomic_save,
+            resolve_selected_path,
             take_pending_files,
             note_recent,
             system_info,
@@ -371,4 +385,17 @@ fn repeated_log_rotation() {
         assert!(!path.exists());
     }
     fs::remove_dir_all(dir).unwrap();
+}
+
+
+#[test]
+fn launch_with_relative_parent_path_can_save() {
+    let root = std::env::temp_dir().join(format!("stabileo-launch-parent-{}", std::process::id()));
+    fs::create_dir_all(root.join("child")).unwrap();
+    fs::write(root.join("model.ded"), "original").unwrap();
+    let paths = project_args(&["stabileo".into(), "../model.ded".into()], &root.join("child"));
+    assert_eq!(paths, vec![root.join("model.ded").canonicalize().unwrap()]);
+    atomic_save::save_authorized(&paths[0], b"saved", || true).unwrap();
+    assert_eq!(fs::read_to_string(root.join("model.ded")).unwrap(), "saved");
+    fs::remove_dir_all(root).unwrap();
 }
