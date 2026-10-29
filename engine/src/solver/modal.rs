@@ -259,6 +259,10 @@ pub fn solve_modal_2d(
         return Err("No valid modes found".into());
     }
 
+    if modes.len() < num_modes.min(n_converged) {
+        return Err(format!("Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+    }
+
     // Rayleigh damping (5% critical from modes 1 and last)
     let rayleigh = if modes.len() >= 2 {
         let w1 = modes[0].omega;
@@ -467,6 +471,11 @@ pub fn solve_modal_3d(
     }
 
     if modes.is_empty() { return Err("No valid modes found".into()); }
+
+    if modes.len() < num_modes.min(n_converged) {
+        return Err(format!("Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+    }
+
 
     let rayleigh = if modes.len() >= 2 {
         let w1 = modes[0].omega;

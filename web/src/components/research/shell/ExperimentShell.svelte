@@ -27,8 +27,10 @@
     sourcePath: string;
     article: Snippet;
     app: Snippet;
+    /** One column with the app first and not sticky (e.g. while an embedded editor is shown). */
+    wide?: boolean;
   };
-  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app }: Props = $props();
+  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app, wide = false }: Props = $props();
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
@@ -53,7 +55,7 @@
       />
       <p class="rs-lead" lang={researchLocale()}>{lead}</p>
     </header>
-    <div class="rs-shell-grid">
+    <div class="rs-shell-grid" class:rs-wide={wide}>
       <article class="rs-shell-article rs-prose" lang={researchLocale()}>
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
@@ -132,6 +134,16 @@
       top: calc(var(--lp-nav-h, 3.6rem) + 0.75rem);
       height: calc(100dvh - var(--lp-nav-h, 3.6rem) - 1.5rem);
       overflow: hidden;
+    }
+    .rs-shell-grid.rs-wide {
+      display: flex;
+      flex-direction: column;
+    }
+    .rs-wide .rs-shell-app {
+      order: -1;
+      position: static;
+      height: auto;
+      overflow: visible;
     }
   }
   :global(.research .mobile-sticky) {

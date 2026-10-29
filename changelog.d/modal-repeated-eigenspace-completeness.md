@@ -18,3 +18,6 @@ The reported warping-mode orthogonality failures were separately traced to the
 nightly checker omitting the returned seventh DOF. Its reconstruction now includes
 warping. MD-ORTHOGONALITY containment is untouched and must be removed when both
 branches land.
+
+Modal postprocessing also refuses partial results if computed modes fail its
+existing positive-frequency threshold, instead of silently returning fewer modes.

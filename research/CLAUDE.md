@@ -66,7 +66,7 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
   research code** (CI check). The web app may read only `papers.json` and published
   results data listed in `README.md`.
 - Research WASM is a separate bundle loaded only on research pages; the landing, the blog and the
-  app must not grow by a byte (per-route size check).
+  app must not grow by a byte (per-route size check, run on changes that touch research code).
 - The Research workflow is path-filtered and feeds the required CI OK gate; it never
   runs on self-hosted runners for pull_request events.
 - A research method reaches the product only through the product's own process (validation, the

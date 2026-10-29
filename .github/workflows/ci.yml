@@ -108,6 +108,9 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/tests/**'
+              - 'Makefile'
+              - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
 
@@ -456,7 +459,9 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: research/fracture/shauer-2025/wasm
+          workspaces: |
+            research/fracture/shauer-2025/wasm
+            research/metamaterials/grossman-2026/wasm
           shared-key: research-wasm
       - name: Install web dependencies (the research viewer bundle is built with Vite)
         run: make web.deps
@@ -464,6 +469,8 @@ jobs:
         run: make research.wasm
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The spring-network bundle gives the exact lattice answers (Node)
+        run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
@@ -893,6 +900,7 @@ jobs:
       - changes
       - lint-repo
       - test-ci-scripts
+      - docker-smoke
       - lint-engine
       - test-engine-gates
       - test-engine-suite
@@ -905,7 +913,6 @@ jobs:
       - wasm
       - research-wasm
       - research
-      - docker-smoke
       - site-e2e
       - web-unit
       - web-build

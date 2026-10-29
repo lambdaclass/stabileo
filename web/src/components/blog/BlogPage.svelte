@@ -107,14 +107,18 @@
                 }
               : {}),
           },
-          {
-            '@type': 'FAQPage',
-            mainEntity: standingBody.faq.map((f) => ({
-              '@type': 'Question',
-              name: f.q,
-              acceptedAnswer: { '@type': 'Answer', text: f.a },
-            })),
-          },
+          ...(standingBody.faq.length
+            ? [
+                {
+                  '@type': 'FAQPage',
+                  mainEntity: standingBody.faq.map((f) => ({
+                    '@type': 'Question',
+                    name: f.q,
+                    acceptedAnswer: { '@type': 'Answer', text: f.a },
+                  })),
+                },
+              ]
+            : []),
         ],
       });
       return restorePageMeta;
@@ -180,9 +184,13 @@
 <div class="landing blog" bind:this={pageEl}>
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
-  <SiteHeader current={standing ? null : 'blog'} />
+  <SiteHeader current={standing?.view === 'changelog' ? 'changelog' : standing ? null : 'blog'} />
 
-  {#if standing && standingBody}
+  {#if standing?.view === 'changelog' && standingBody}
+    {#await import('./ChangelogView.svelte') then { default: ChangelogView }}
+      <ChangelogView eyebrow={standingBody.eyebrow} title={standingBody.title} lead={standingBody.lead} />
+    {/await}
+  {:else if standing && standingBody}
     <article class="sec sec--ink post standing">
       <div class="wrap post-wrap">
         <p class="eyebrow">
@@ -198,7 +206,7 @@
 
         <div class="post-body">
           <BlogBlocks blocks={standingBody.blocks} />
-          <h2>{standingBody.faqTitle}</h2>
+          {#if standingBody.faq.length}<h2>{standingBody.faqTitle}</h2>{/if}
           {#each standingBody.faq as f}
             <h3>{f.q}</h3>
             <p>{f.a}</p>

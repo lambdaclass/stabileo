@@ -43,22 +43,23 @@
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
-          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.name}>
+          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}>
             {#if !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={s.damageAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={s[e.paperId === "grossman-2026" ? "springsAlt" : "damageAlt"]} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}
           </PublicLink>
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
-            <h3><PublicLink to={e.path}>{e.name}</PublicLink></h3>
-            <p class="rs-g-hook">{e.hook}</p>
+            <h3><PublicLink to={e.path}>{e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}</PublicLink></h3>
+            <p class="rs-g-hook">{e.paperId === "grossman-2026" ? s.springsHook : s.shauerHook}</p>
             <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
               {#if isHttpUrl(e.code)}<a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>{/if}
+              {#if e.editor}<PublicLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</PublicLink>{/if}
             </div>
           </div>
         </li>
@@ -100,6 +101,9 @@
             {#if p.summary && p.summary_source}
               <p class="rs-g-sum">{p.summary}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
+            {/if}
+            {#if p.id === 'ferrari-2025'}
+              <p><PublicLink to="/research/stability/ferrari-sigmund-2025">{s.ferrariTitle}</PublicLink></p>
             {/if}
             {#if p.code.length}
               <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}{#if isHttpUrl(c.url)}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a>{:else}{c.url}{/if} ({c.license === 'none' ? s.noLicence : c.license}){/each}</p>
@@ -203,11 +207,16 @@
     margin: 0.4rem 0 0.6rem;
   }
   .rs-g-runbody h3 :global(a) {
+    color: var(--fg);
     text-decoration: none;
     color: var(--fg);
   }
   .rs-g-runbody h3 :global(a:hover) {
     color: var(--lp-accent, #e5482a);
+  }
+  .rs-g-runbody h3 :global(a:hover) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .rs-g-hook {
     font-size: 1rem;

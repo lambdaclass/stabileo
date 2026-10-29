@@ -698,6 +698,29 @@ fn sturm_complete(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize) -> 
     sturm_complete_with_params(op,a,b,k,&LanczosParams::default())
 }
 
+// Retry a rejected LDLᵀ factorization at a larger spectral margin. Return
+// the actual cutoff with the count so the caller compares the same interval.
+fn sturm_count_above(a: &CscMatrix, b: &CscMatrix, boundary: f64) -> Option<(usize, f64)> {
+    let n = a.n;
+    for margin in [1e-7, 3e-7, 1e-6] {
+        let sigma = boundary * (1.0+margin);
+        let mut rows = Vec::with_capacity(a.values.len()+b.values.len());
+        let mut cols = Vec::with_capacity(rows.capacity());
+        let mut vals = Vec::with_capacity(rows.capacity());
+        for (matrix, scale) in [(a,1.0),(b,-sigma)] {
+            for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+                rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale*matrix.values[p]);
+            }}
+        }
+        let shifted = CscMatrix::from_triplets(n,&rows,&cols,&vals);
+        let sym = symbolic_cholesky(&shifted);
+        if let Some(count) = super::sparse_chol::sparse_negative_inertia(&sym,&shifted) {
+            return Some((count, sigma));
+        }
+    }
+    None
+}
+
 fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> Option<EigenResult> {
     let n = a.n;
     if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
@@ -756,26 +779,11 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
         let mut order: Vec<_> = (0..values.len()).collect();
         order.sort_by(|&i,&j| values[i].total_cmp(&values[j]));
         let boundary = values[order[k-1]];
-        let mut certified = false;
-        for margin in [1e-7, 3e-7, 1e-6] {
-            let sigma = boundary * (1.0+margin);
-            let mut rows = Vec::with_capacity(a.values.len()+b.values.len());
-            let mut cols = Vec::with_capacity(rows.capacity());
-            let mut vals = Vec::with_capacity(rows.capacity());
-            for (matrix, scale) in [(a,1.0),(b,-sigma)] {
-                for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
-                    rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale*matrix.values[p]);
-                }}
-            }
-            let shifted = CscMatrix::from_triplets(n,&rows,&cols,&vals);
-            let sym = symbolic_cholesky(&shifted);
-            if let Some(count) = super::sparse_chol::sparse_negative_inertia(&sym,&shifted) {
-                let found = values.iter().filter(|&&v| v < sigma).count();
-                if count < found { return None; }
-                certified = count == found;
-                break;
-            }
-        }
+        let certified = if let Some((count, sigma)) = sturm_count_above(a, b, boundary) {
+            let found = values.iter().filter(|&&v| v < sigma).count();
+            if count < found { return None; }
+            count == found
+        } else { false };
         if certified {
             let mut vectors = vec![0.0;n*k];
             for (col,&index) in order[..k].iter().enumerate() {
@@ -1393,6 +1401,23 @@ pub fn eigen_failure_message(n: usize) -> String {
 #[cfg(test)]
 mod completeness_tests {
     use super::*;
+    #[test]
+    fn exact_and_near_singular_sturm_shifts_are_perturbed_and_recounted() {
+        let first_shift = 1.0 + 1e-7;
+        let m = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
+        for delta in [0.0, f64::EPSILON] {
+            let a = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1],
+                &[2.0 + first_shift, 1.0, 0.5 + first_shift + delta]);
+            let shifted = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1],
+                &[a.values[0] - first_shift, 1.0, a.values[2] - first_shift]);
+            assert_eq!(super::super::sparse_chol::sparse_negative_inertia(
+                &symbolic_cholesky(&shifted), &shifted), None);
+            let (count, cutoff) = sturm_count_above(&a, &m, 1.0).unwrap();
+            assert!(cutoff > first_shift);
+            assert_eq!(count, 1);
+        }
+    }
+
     #[test]
     fn incomplete_cluster_refuses_at_restart_limit() {
         let n = 120;

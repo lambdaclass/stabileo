@@ -381,6 +381,7 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { whatIf } from './lib/store/whatif.svelte';
+  import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
@@ -1020,16 +1021,9 @@
       if (uiStore.pendingSolveFromURL) {
         const pendingDiagram = uiStore.pendingSolveFromURL;
         uiStore.pendingSolveFromURL = null;
-        setTimeout(() => {
-          // Dispatch global solve event (same as clicking Calcular)
-          window.dispatchEvent(new Event('stabileo-solve'));
-          // After solve completes, set the diagram type from the share link
-          setTimeout(() => {
-            if (resultsStore.results !== null || resultsStore.results3D !== null) {
-              resultsStore.diagramType = pendingDiagram as any;
-            }
-          }, 200);
-        }, 200);
+        void tick().then(() => solveSharedView(pendingDiagram, runGlobalSolve, (diagram) => {
+          resultsStore.diagramType = diagram as typeof resultsStore.diagramType;
+        })).catch((error) => console.error('Shared-link solve failed:', error));
       }
     }
 

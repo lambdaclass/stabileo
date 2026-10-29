@@ -42,7 +42,7 @@ STATUSES = [
 # Keep this explicit: catalog edits must not expand their own URL allowlist.
 CODE_HOSTS = {"github.com", "gitlab.com", "zenodo.org", "doi.org"}
 COMPLEXITY = {"low", "medium", "high"}
-SUMMARY_SOURCES = {"crossref-abstract", "publisher-abstract", "repository-readme", "full-text", "reference-code"}
+SUMMARY_SOURCES = {"crossref-abstract", "publisher-abstract", "repository-readme", "full-text"}
 REQUIRED = [
     "id", "doi", "crossref", "area", "keywords", "summary", "summary_source", "code", "data", "methods",
     "dependencies", "complexity", "relevance", "status", "reproduced_published_results",

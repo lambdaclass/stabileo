@@ -94,7 +94,7 @@ fn check(input: &SolverInput3D, densities: &HashMap<String, f64>, want: usize) -
         for (j, other) in shapes.iter().enumerate() {
             let gram: f64 = other.iter().zip(&mp).map(|(a, b)| a * b).sum();
             assert!(
-                (gram - if i == j { 1.0 } else { 0.0 }).abs() <= 1e-8,
+                (gram - if i == j { 1.0 } else { 0.0 }).abs() < 1e-8,
                 "modes {i},{j}: mass Gram = {gram:.15e}"
             );
         }
@@ -259,5 +259,49 @@ fn twenty_thousand_dofs_remain_sparse_and_complete() {
         for v in result.values { assert!((v-1.0).abs() < 1e-9); }
         let gram: f64 = (0..n).map(|i| result.vectors[i*2]*result.vectors[i*2+1]).sum();
         assert!(gram.abs() < 1e-10);
+    }
+}
+
+#[test]
+fn two_and_three_fold_structural_modes_are_mass_orthonormal() {
+    for copies in [2, 3] {
+        check(&symmetric_cantilevers(copies, 0.5, true),
+            &HashMap::from([("1".into(), 7850.0)]), copies * 7);
+    }
+}
+
+#[test]
+fn three_d_model_above_five_thousand_free_dofs_solves() {
+    let mut input = symmetric_cantilevers(840, 0.5, false);
+    // Three identical longest cantilevers give a repeated lowest frequency;
+    // the remaining shorter cantilevers avoid an enormous boundary cluster.
+    for copy in 3..840 {
+        input.nodes.get_mut(&(copy * 2 + 2).to_string()).unwrap().x =
+            0.1 + 0.2 * (copy - 3) as f64 / 837.0;
+    }
+    let densities = HashMap::from([("1".into(), 7850.0)]);
+    let dof = DofNumbering::build_3d(&input);
+    assert!(dof.n_free >= 5_000, "{} free DOFs", dof.n_free);
+    let result = solve_modal_3d(&input, &densities, 3).unwrap();
+    assert_eq!(result.modes.len(), 3);
+    let reference = solve_modal_3d(&symmetric_cantilevers(1, 0.5, false), &densities, 1).unwrap();
+    for mode in result.modes {
+        let relative = (mode.frequency / reference.modes[0].frequency - 1.0).abs();
+        assert!(relative < 1e-8, "relative frequency error {relative:e}");
+    }
+}
+
+#[test]
+fn near_zero_modes_must_not_silently_truncate_the_requested_spectrum() {
+    for scale in [1e-12, 1e-14, 1e-16, 1e-18, 1e-20] {
+        let mut input = symmetric_cantilevers(1, 0.5, true);
+        for material in input.materials.values_mut() { material.e *= scale; }
+        let result = solve_modal_3d(&input, &HashMap::from([("1".into(), 7850.0)]), 7);
+        match result {
+            Ok(result) => assert_eq!(result.modes.len(), 7,
+                "E scale {scale:e}: silently returned only {} modes; omega² {:?}",
+                result.modes.len(), result.modes.iter().map(|m| m.omega.powi(2)).collect::<Vec<_>>()),
+            Err(message) => assert!(message.contains("completeness") || message.contains("No valid modes"), "{message}"),
+        }
     }
 }

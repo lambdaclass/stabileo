@@ -120,3 +120,9 @@ validation`. Web units used `cd web && nix develop .. -c npx vitest run --projec
 unit`. Nix's cache was redirected to `/private/tmp/codex-827-cache` because the
 home cache is outside the writable sandbox. The required Cargo target directory
 was used throughout.
+
+Verification also found that modal postprocessing could silently drop computed
+modes at or below the existing omega² threshold of 1e-10. A seven-mode warping
+cantilever with stiffness scaled by 1e-18 returned only four modes as a success.
+Both 2D and 3D now refuse such partial results with a completeness diagnostic;
+the positive-frequency threshold is unchanged.

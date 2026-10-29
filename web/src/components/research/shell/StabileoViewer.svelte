@@ -6,9 +6,10 @@
    * (research-wasm/viewer/, built by research/fracture/shauer-2025/wasm/build.sh), mounted here and
    * fed with this component's props. Takes the props of ScalarFieldViewer, plain data only.
    */
+  import { viewerInteraction } from './viewer-interaction';
   import { onDestroy, onMount } from 'svelte';
 
-  let props: Record<string, unknown> = $props();
+  let { oninteract = () => {}, ...props }: Record<string, unknown> & { oninteract?: () => void } = $props();
   let host: HTMLDivElement;
   let handle: { update(p: Record<string, unknown>): void; destroy(): void } | null = null;
   let failed = $state(false);
@@ -46,7 +47,7 @@
   const strings = $derived(rs());
 </script>
 
-<div class="rs-viewer-host" bind:this={host}>
+<div class="rs-viewer-host" bind:this={host} use:viewerInteraction={() => oninteract()}>
   {#if failed}<p class="rs-viewer-failed">{strings.viewerUnavailable}</p>{/if}
 </div>
 

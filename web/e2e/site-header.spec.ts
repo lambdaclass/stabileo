@@ -6,12 +6,13 @@ import { test, expect } from '@playwright/test';
  *
  *   npx playwright test --grep "@smoke site header"
  */
-const ITEMS = ['basic', 'pro', 'ai', 'education', 'pricing', 'blog', 'research'];
+const ITEMS = ['basic', 'pro', 'ai', 'education', 'pricing', 'blog', 'changelog', 'research'];
 const PAGES: Array<[string, string | null]> = [
   ['/en/', null],
   ['/en/blog/', 'blog'],
   ['/en/blog/the-determinism-boundary/', 'blog'],
   ['/en/cirsoc/', null],
+  ['/en/changelog/', 'changelog'],
   ['/en/research/', 'research'],
   ['/en/research/fracture/shauer-2025/', 'research'],
 ];

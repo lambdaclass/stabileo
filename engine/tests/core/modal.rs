@@ -268,3 +268,12 @@ fn rayleigh_delivers_the_requested_ratio_at_the_real_fundamental() {
          xi_eff={xi_eff:.4} ({ratio:.1}x). a0={a0:.4e} a1={a1:.4e}"
     );
 }
+
+#[test]
+fn modal_near_zero_modes_refuse_partial_results() {
+    let mut input = make_ss_beam_udl(8, L, E * 1e-16, A, IZ, 0.0);
+    input.loads.clear();
+    let error = modal::solve_modal_2d(&input, &make_densities(), 6).unwrap_err();
+    assert!(error.contains("completeness"), "{error}");
+    assert!(error.contains("no incomplete modes"), "{error}");
+}
