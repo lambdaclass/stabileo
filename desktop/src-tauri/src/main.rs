@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod atomic_save;
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,6 +11,14 @@ use serde::Serialize;
 use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime, State};
 use tauri_plugin_fs::FsExt;
+
+#[tauri::command]
+fn atomic_save(app: AppHandle, path: PathBuf, content: String) -> Result<(), String> {
+    if !path.is_absolute() || !app.fs_scope().is_allowed(&path) {
+        return Err("save path was not selected by the user".into());
+    }
+    atomic_save::save(&path, content.as_bytes()).map_err(|e| e.to_string())
+}
 
 const RECENT_MAX: usize = 8;
 const RECENT_FILE: &str = "recent.json";
@@ -301,6 +311,7 @@ fn main() {
         .manage(Recent::default())
         .manage(Labels::default())
         .invoke_handler(tauri::generate_handler![
+            atomic_save,
             take_pending_files,
             note_recent,
             system_info,

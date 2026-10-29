@@ -1,3 +1,4 @@
+import { CalculationRefused } from './calculation-gate';
 /**
  * The direct analysis method (AISC 360-16 Chapter C): a second-order analysis of every
  * combination on reduced stiffness, with notional loads, whose forces a member check then reads
@@ -102,7 +103,8 @@ export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, 
       // The worker finishes the solve (`solve-finish.ts`); its member forces already carry the
       // geometric stiffness, as the engine reports them.
       return await pdelta3DInWorker(input3DToWireObject(input), maxIter, tol);
-    } catch {
+    } catch (err) {
+      if (err instanceof CalculationRefused) throw err;
       return mainThreadPDelta(input, maxIter, tol);
     }
   };

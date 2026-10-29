@@ -39,24 +39,70 @@ with the warnings and troubleshooting: [INSTALL.md](INSTALL.md) (Spanish:
 `web/`, the engine, the toolchain, the workflow), and `Desktop OK` is the one check to require. A
 build makes unsigned installers on GitHub's Linux, macOS and Windows runners (never self-hosted)
 and launches each app once: it must solve the startup self-check in the bundled engine. An install
-test then runs the one-command installers on all three.
+test then runs the one-command installers against the current run’s staged artifacts on all
+three systems, checks their SHA256SUMS, and launches the installed apps. Linux also installs
+and launches the .deb with its default Tauri WebKitGTK/GTK runtime dependencies. Publication
+waits for all installation tests.
 
-A manual run from `main` with a `version` publishes the prerelease `desktop-v<version>`:
+A manual run from `main` or a reviewed `desktop-v*` tag with a `version` publishes the prerelease `desktop-v<version>`:
 installers, the install scripts, `SHA256SUMS`, the updater signatures (`.sig`), `latest.json` and
 the Homebrew cask as an artifact, with the install guide (`desktop/release/release-body.md`) as
 its description. `latest.json` itself is not signed: it lists, for each system, the download and
 the signature of that download, and the app installs only a download whose signature verifies
-with the public key it was built with. The job then copies the install scripts and `latest.json`
-to the `desktop-update-feed` branch, the fixed addresses the docs and the in-app updater use. The
+with the public key it was built with. After publishing the tested release, the job opens a pull request with the install scripts and `latest.json`
+against `desktop-update-feed`, the fixed addresses the docs and the in-app updater use. A
+maintainer reviews and merges that PR before the feed changes. The
 cask goes to `lambdaclass/homebrew-tap` (`Casks/stabileo.rb`) by pull request.
 
 The updater's private key and its password are secrets of the `desktop-release` environment
 (`TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), which only the release job
-uses: it needs a reviewer's approval and deploys only from `main` or a `desktop-v*` tag. Builds,
+uses: it needs a reviewer's approval and deploys only from `main` or a `desktop-v*` tag whose commit is on `main`. Builds,
 pull requests included, never see the key; they make the updater artifacts with a key made for the
 run, and the release job signs those same files and checks the signatures against the public key
 in `desktop/src-tauri/tauri.conf.json`. Losing the private key means installed copies can no longer
 update themselves.
+
+### Required repository settings (maintainer)
+
+Configure these before enabling releases; workflow YAML cannot create these protections:
+
+1. **Settings → Environments → desktop-release:** add `TAURI_SIGNING_PRIVATE_KEY` and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as environment secrets. Remove any copies from repository
+   secrets and organization secrets accessible to this repository. Rotate the key if it was
+   exposed to a PR build; coordinate the public-key transition for already installed clients.
+   Set required reviewers to trusted release maintainers, enable **Prevent self-review**, and
+   disable administrator bypass of environment protection. Set deployment branches/tags to
+   **Selected branches and tags**, with exactly branch `main` and tag pattern `desktop-v*`.
+   Review the workflow and the exact commit before approving each manual release job.
+2. **Settings → Rules → Rulesets:** protect `main` with required pull requests, at least one
+   approving review, dismissed stale approvals, approval of the latest push, no force pushes or
+   deletions, and no bypass actors. Require the exact status check **Desktop OK** (GitHub Actions),
+   including in the merge queue. Protect tags `desktop-v*` against updates/deletions and restrict
+   creation to release maintainers. Before dispatching a release, pre-create `desktop-v<version>` at the exact reviewed
+   commit being released on `main` (also for a run dispatched from `main`); the release job checks ancestry and a tag run must match the requested version.
+3. Protect **desktop-update-feed** with required pull requests, at least one approving review,
+   dismissed stale approvals, approval of the latest push, required signed commits, blocked force
+   pushes and deletions, and **no bypass actors**, including GitHub Actions and administrators.
+   Do not require `Desktop OK` on this data-only branch: its script changes are reviewed against
+   the tested release source. The release workflow creates a `desktop-feed-*` branch and PR;
+   it must not push directly to the feed or approve/merge its own PR. Review every script diff.
+4. **Settings → Actions → General → Workflow permissions:** default to read-only repository
+   contents; enable **Allow GitHub Actions to create and approve pull requests** so the release
+   job can create the feed PR. The job requests `contents: write` and `pull-requests: write`
+   explicitly; required independent review still prevents self-approval/merge.
+
+Project saves write and flush a sibling temporary file, preserve the previous file as `.bak`,
+then replace the destination. Save As uses the exact selected filename, including an extensionless
+name, so its path remains within the native dialog's authorization. During updates the document
+UI is inert and native file commands are blocked; all tabs are checked again after download,
+and calculation entry points stay blocked through installation/relaunch.
+
+Packages include `legal/LICENSE` (the AGPL text), `legal/RUST-NOTICES.txt`, and `legal/SOURCE.txt`
+with the build's source-commit URL. To build locally, run `cargo metadata --locked --manifest-path
+ desktop/src-tauri/Cargo.toml --format-version 1 > /tmp/desktop-metadata.json` inside the Nix shell,
+then `python3 desktop/release/notices.py /tmp/desktop-metadata.json <source-commit>` from the root
+before bundling. CI does this before every package build; cached upstream licence texts live in
+`desktop/release/licenses/`. JavaScript notices remain bundled in `third-party-notices.txt`.
 
 ## Decisions
 
@@ -121,7 +167,7 @@ Goal: an installable app on the three systems that opens, calculates, and saves 
 4. [x] `.ded` file association and "open with" on the three systems.
 5. [x] Native menu (in es/en/pt): New, Open, Save, Save as, recent files, Quit.
 6. [x] CI: a `desktop` workflow builds unsigned installers (Windows NSIS .exe, macOS .dmg, Linux AppImage
-   and .deb) on each push to the branch, as downloadable artifacts.
+   and .deb) for relevant pull requests, merge groups, pushes to main, and manual runs, as downloadable artifacts.
 7. [x] Smoke test: on every build, CI launches the packaged app on all three systems and it must
    solve a cantilever in the bundled engine (main thread and worker) against the closed-form
    answer; every release is installed with the one-command installers on all three and launched
@@ -150,7 +196,7 @@ Goal: an installable app on the three systems that opens, calculates, and saves 
 1. `.ded` schema, golden documents, atomic saves with a backup, recovery after a crash, and a clear
    message when a file comes from a newer version.
 2. Offline advisories link to fixed versions, not `main`.
-3. Auto-update (Tauri updater, signed update feed), with staged rollout and rollback.
+3. Auto-update (Tauri updater, signed artifacts listed by the update feed), with staged rollout and rollback.
 4. AI features against `ai-backend/` with per-account enforcement.
 
 ### Phase 3: public release

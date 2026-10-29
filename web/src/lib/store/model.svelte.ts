@@ -1103,7 +1103,7 @@ function copyDetailing(d: DetailingStore | undefined): DetailingStore {
 /** For the tests that compare a snapshot's cost before and after: forget the copies made. */
 export function forgetDetailingCopies(): void { detailingCopies = new WeakMap(); }
 
-function createModelStore() {
+export function createModelStore() {
   /**
    * Where the project's own history comes from when a snapshot is taken.
    *
@@ -2157,7 +2157,7 @@ function createModelStore() {
       // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
       // the largest part of a detailed project and an edit never changes it in place.
       const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
-      const snapId = $state.snapshot(nextId);
+      const snapId = { ...$state.snapshot(nextId) };
       const result: ModelSnapshot = {
         name: snap.name,
         nodes: Array.from(snap.nodes.entries()) as ModelSnapshot['nodes'],

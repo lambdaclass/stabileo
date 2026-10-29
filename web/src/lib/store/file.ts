@@ -1,8 +1,9 @@
 // File operations: save/load projects, export results, autosave
 
 import { noteDesignHeldIfOff } from './design-presence';
+import { modelFeatures, type FeatureSnapshot } from '../provenance/model-features';
 import { adoptLoadCases } from './load-cases-mode';
-import { modelStore } from './model.svelte';
+import { createModelStore, modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
@@ -286,7 +287,9 @@ export function deserializeProject(text: string): boolean {
   if (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version)) return false;
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
-  if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
+  try {
+    if (d.version === '1.0') migrateSnapshotV1ToV2(snapshot);
+  } catch { return false; }
   if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
@@ -393,7 +396,10 @@ export function noteBasicSelfWeightRuleIfNeeded(statesCase: boolean, analysisMod
  */
 function isValidDedalFile(data: unknown): data is DedalFile {
   try {
-    return validateDedalFile(data);
+    if (!validateDedalFile(data)) return false;
+    createModelStore().restore(data.snapshot);
+    modelFeatures(data.snapshot as unknown as FeatureSnapshot, { analysisMode: data.analysisMode });
+    return true;
   } catch {
     return false;
   }
@@ -469,7 +475,7 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
   if (!Array.isArray(rawTabs)) return verdict;
   rawTabs.forEach((raw, index) => {
     const tab = acceptSessionTab(raw);
-    if (tab) {
+    if (tab && !verdict.tabs.some((other) => other.id === tab.id)) {
       verdict.tabs.push(tab);
     } else {
       const name = (raw as { name?: unknown } | null)?.name;
@@ -482,10 +488,14 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
 function acceptSessionTab(raw: unknown): TabState | null {
   try {
     if (!raw || typeof raw !== 'object') return null;
-    const tab = raw as TabState;
+    const tab = plainDeepCopy(raw) as TabState;
     if (typeof tab.id !== 'string' || typeof tab.name !== 'string') return null;
     if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
-    const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
+    if (tab.design?.selectedElements !== undefined && (!Array.isArray(tab.design.selectedElements)
+      || !tab.design.selectedElements.every(Number.isSafeInteger))) return null;
+    if (tab.design?.drafts?.frames !== undefined && (!Array.isArray(tab.design.drafts.frames)
+      || !tab.design.drafts.frames.every((draft) => draft && typeof draft.key === 'string' && Array.isArray(draft.members)))) return null;
+    const asFile = (snapshot: unknown) => ({ ...tab, version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
     if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
     const stacksOk = [tab.undoStack, tab.redoStack].every(
       (stack) => Array.isArray(stack) && stack.every((snap) => isValidDedalFile(asFile(snap))),
@@ -531,6 +541,33 @@ function validateDedalFile(data: unknown): data is DedalFile {
 
   const nextId = s.nextId as Record<string, unknown> | undefined;
   if (!nextId || typeof nextId.node !== 'number') return false;
+
+  const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (s.manualEdits !== undefined && (!Array.isArray(s.manualEdits) || !s.manualEdits.every(Number.isSafeInteger))) return false;
+  if (s.exports !== undefined && (!Array.isArray(s.exports) || !s.exports.every((entry) => record(entry)
+    && Array.isArray(entry.elements) && entry.elements.every(Number.isSafeInteger)
+    && Array.isArray(entry.limitations) && entry.limitations.every((value) => typeof value === 'string')
+    && record(entry.retouched) && Array.isArray(entry.retouched.members)
+    && entry.retouched.members.every(Number.isSafeInteger)))) return false;
+  for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'groups', 'connectors']) {
+    const entries = s[key];
+    if (entries === undefined) continue;
+    if (!Array.isArray(entries) || !entries.every((entry) => Array.isArray(entry) && entry.length === 2
+      && Number.isSafeInteger(entry[0]) && record(entry[1]))) return false;
+    if (new Set(entries.map((entry) => entry[0])).size !== entries.length) return false;
+  }
+  for (const key of ['loads', 'loadCases', 'combinations', 'constraints']) {
+    if (s[key] !== undefined && (!Array.isArray(s[key]) || !s[key].every(record))) return false;
+  }
+  for (const c of (s.combinations ?? []) as Record<string, unknown>[]) {
+    if (!Array.isArray(c.factors) || !c.factors.every((f) => record(f) && Number.isFinite(f.factor) && Number.isSafeInteger(f.caseId))) return false;
+  }
+  if (!(s.loads as Record<string, unknown>[]).every((load) => typeof load.type === 'string' && record(load.data))) return false;
+  if (d.viewportPresentation3D !== undefined && !['native3d', 'upright2dIn3d'].includes(String(d.viewportPresentation3D))) return false;
+  if (d.analysisMode !== undefined && !['2d', '3d', 'pro', 'edu'].includes(String(d.analysisMode))) return false;
+  if (d.axisConvention3D !== undefined && !['rightHand', 'leftHand'].includes(String(d.axisConvention3D))) return false;
+  if (d.includeSelfWeight !== undefined && typeof d.includeSelfWeight !== 'boolean') return false;
+  if (d.selfWeightCaseId !== undefined && d.selfWeightCaseId !== null && !Number.isSafeInteger(d.selfWeightCaseId)) return false;
 
   // Verify referential integrity: element nodes exist
   const nodeIds = new Set((s.nodes as Array<[number, unknown]>).map(([id]) => id));
@@ -657,7 +694,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     // one of them. Nothing is lost either way, since the file stays on disk as it was; but
     // refusing it kept every good tab out of reach, and the toast says what did not open.
     const { tabs, dropped } = acceptSessionTabs(data.tabs);
-    if (tabs.length === 0) throw new Error(t('file.invalidFormat'));
+    if (tabs.length === 0 || (import.meta.env.VITE_DESKTOP === '1' && dropped.length > 0)) throw new Error(t('file.invalidFormat'));
     const activeTabId = typeof data.activeTabId === 'string' ? data.activeTabId : '';
     tabManager.restoreSession(tabs, activeTabId);
     if (dropped.length > 0) {

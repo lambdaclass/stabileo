@@ -12,6 +12,8 @@ vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: vi.fn() }));
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn() }));
 
+import { lockForUpdate } from '../update-lock';
+import { solveNonlinearMaterial3D } from '../../engine/wasm-solver';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { offer, type UpdaterDeps } from '../updater';
 import { destroyPool, poolBusy, poolIdle, refuseNewJobs, setWorkerFactoryForTests, solve2DInWorker, type WorkerLike } from '../../engine/solver-pool';
@@ -73,6 +75,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  lockForUpdate(false);
   refuseNewJobs(null);
   setWorkerFactoryForTests(null);
   destroyPool();
@@ -92,7 +95,7 @@ describe('desktop updater: installing never loses work or interrupts a calculati
   it('asks about unsaved work before downloading, refuses new jobs, then installs and relaunches', async () => {
     const log: string[] = [];
     expect(await offer(fakeUpdate(log), deps(log))).toBe('installed');
-    expect(log).toEqual(['confirm', 'refuse-jobs', 'download', 'install', 'relaunch']);
+    expect(log).toEqual(['confirm', 'refuse-jobs', 'download', 'confirm', 'install', 'relaunch']);
   });
 
   it('a calculation started during the download is refused, with the reason', async () => {
@@ -111,6 +114,7 @@ describe('desktop updater: installing never loses work or interrupts a calculati
     // It starts while the unsaved-work question is open, after the busy check.
     const d = deps(log, {
       confirmDiscard: async () => {
+        if (running) return true;
         running = solve2DInWorker({ any: 'model' }).then(() => log.push('calculation done'));
         await new Promise((r) => setTimeout(r, 20));
         return true;
@@ -143,4 +147,25 @@ describe('desktop updater: installing never loses work or interrupts a calculati
     expect(await offer(update, deps(log))).toBe('failed');
     expect(log).toEqual(['confirm', 'refuse-jobs', 'download', 'accept-jobs']);
   });
+});
+
+
+it('rechecks work entered during a held download; Cancel prevents installation', async () => {
+  const log: string[] = [];
+  let edited = false;
+  const update = fakeUpdate(log, async () => { edited = true; });
+  expect(await offer(update, deps(log, { confirmDiscard: async () => !edited }))).toBe('cancelled');
+  expect(update.install).not.toHaveBeenCalled();
+  expect(log).not.toContain('relaunch');
+  expect(log).toContain('accept-jobs');
+});
+
+it('refuses nonlinear main-thread calculations and releases the gate after relaunch failure', async () => {
+  const log: string[] = [];
+  const update = fakeUpdate(log, async () => {
+    expect(() => solveNonlinearMaterial3D({})).toThrow(en('updateRefuseJobs'));
+  });
+  expect(await offer(update, deps(log, { relaunch: async () => { throw new Error('restart failed'); } }))).toBe('failed');
+  expect(log).toContain('accept-jobs');
+  expect(() => solveNonlinearMaterial3D({})).not.toThrow(en('updateRefuseJobs'));
 });

@@ -112,6 +112,9 @@ function generateTabId(): string {
 }
 
 function createTabManager() {
+  let deactivated: ((tab: TabState) => void) | undefined;
+  let activated: ((tab: TabState) => void) | undefined;
+  let created: (() => void) | undefined;
   let tabs = $state<TabState[]>([]);
   let activeTabId = $state<string | null>(null);
 
@@ -422,6 +425,12 @@ function createTabManager() {
       }
     },
 
+    onDeactivated(callback: (tab: TabState) => void): void { deactivated = callback; },
+
+    onActivated(callback: (tab: TabState) => void): void { activated = callback; },
+
+    onCreated(callback: () => void): void { created = callback; },
+
     /** Create a new empty tab, inheriting visualization settings from current tab */
     createTab(): void {
       const announce = draftsLeftBehind();
@@ -431,6 +440,7 @@ function createTabManager() {
         if (idx !== -1) {
           const updated = [...tabs];
           updated[idx] = captureCurrentState();
+          deactivated?.(updated[idx]);
           tabs = updated;
         }
       }
@@ -506,6 +516,7 @@ function createTabManager() {
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
       uiStore.resetSession();
+      created?.();
       announce();
     },
 
@@ -525,6 +536,7 @@ function createTabManager() {
         if (idx !== -1) {
           const updated = [...tabs];
           updated[idx] = captureCurrentState();
+          deactivated?.(updated[idx]);
           tabs = updated;
         }
       }
@@ -533,6 +545,7 @@ function createTabManager() {
       // Re-find target from the updated array (in case it was the same reference)
       const freshTarget = tabs.find(t => t.id === id)!;
       restoreState(freshTarget);
+      activated?.(freshTarget);
       announce();
 
       // Clear switching flag after microtask so $effects see the final state
@@ -556,6 +569,7 @@ function createTabManager() {
         const newIdx = Math.min(idx, tabs.length - 1);
         activeTabId = tabs[newIdx].id;
         restoreState(tabs[newIdx]);
+        activated?.(tabs[newIdx]);
         queueMicrotask(() => { _tabSwitching = false; });
       }
     },

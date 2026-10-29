@@ -6,6 +6,7 @@
  * From then until the restart, new calculations are refused, and the install waits for the ones
  * already running: installing replaces the app, and on Windows closes it.
  */
+import { lockForUpdate, updateInProgress } from './update-lock';
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -66,6 +67,7 @@ export type OfferOutcome = 'installed' | 'declined' | 'cancelled' | 'busy' | 'li
 
 /** Offer `update`; install it only after the user accepts and unsaved work is dealt with. */
 export async function offer(update: Update, d: UpdaterDeps): Promise<OfferOutcome> {
+  if (updateInProgress()) return 'busy';
   const notes = update.body?.trim() ? `\n\n${update.body.trim()}` : '';
   const head = tx('updateBody').replace('{version}', update.version).replace('{current}', update.currentVersion);
   if (!(await d.canSelfUpdate())) {
@@ -84,21 +86,28 @@ export async function offer(update: Update, d: UpdaterDeps): Promise<OfferOutcom
     return 'busy';
   }
   if (!(await d.confirmDiscard())) return 'cancelled';
+  lockForUpdate(true);
   d.refuseNewJobs(tx('updateRefuseJobs'));
   try {
     d.toast(tx('updateInstalling'));
     await update.download();
     // A calculation that was already running when the user accepted finishes first.
     await d.poolIdle();
+    if (!(await d.confirmDiscard())) {
+      d.refuseNewJobs(null);
+      lockForUpdate(false);
+      return 'cancelled';
+    }
     await update.install();
+    await d.relaunch();
   } catch (err) {
     d.refuseNewJobs(null);
+    lockForUpdate(false);
     await d.message(`${tx('updateFailed')}: ${err instanceof Error ? err.message : String(err)}`, {
       title: tx('updateCheckTitle'), kind: 'error',
     });
     return 'failed';
   }
-  await d.relaunch();
   return 'installed';
 }
 

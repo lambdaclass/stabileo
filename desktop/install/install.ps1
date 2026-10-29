@@ -28,10 +28,15 @@
     New-Item -ItemType Directory -Path $dir | Out-Null
     try {
         Write-Host "Downloading Stabileo $version ($file)..."
-        $sums = (Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS").Content
-        if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
         $exe = Join-Path $dir $file
-        Invoke-WebRequest -UseBasicParsing "$base/$file" -OutFile $exe
+        if ($env:STABILEO_ARTIFACT_DIR) {
+            $sums = Get-Content -Raw (Join-Path $env:STABILEO_ARTIFACT_DIR 'SHA256SUMS')
+            Copy-Item (Join-Path $env:STABILEO_ARTIFACT_DIR $file) $exe
+        } else {
+            $sums = (Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS").Content
+            if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
+            Invoke-WebRequest -UseBasicParsing "$base/$file" -OutFile $exe
+        }
 
         $want = $null
         foreach ($line in ($sums -split "`n")) {

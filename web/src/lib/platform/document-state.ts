@@ -14,9 +14,11 @@
 export interface TabDoc {
   id: string;
   fingerprint: () => number;
+  generation?: number;
 }
 
 export class DocumentState {
+  generation = 0;
   private readonly paths = new Map<string, string>();
   private readonly baselines = new Map<string, number>();
 
@@ -27,10 +29,14 @@ export class DocumentState {
 
   /** Give new tabs their baseline (their content now), and forget tabs that are gone. */
   track(tabs: readonly TabDoc[]): void {
+    this.prune(tabs);
+    for (const t of tabs) if (!this.baselines.has(t.id)) this.baselines.set(t.id, t.fingerprint());
+  }
+
+  prune(tabs: readonly TabDoc[]): void {
     const live = new Set(tabs.map((t) => t.id));
     for (const id of [...this.baselines.keys()]) if (!live.has(id)) this.baselines.delete(id);
     for (const id of [...this.paths.keys()]) if (!live.has(id)) this.paths.delete(id);
-    for (const t of tabs) if (!this.baselines.has(t.id)) this.baselines.set(t.id, t.fingerprint());
   }
 
   /**
@@ -38,6 +44,7 @@ export class DocumentState {
    * theirs carries over: no tab has a file (Save asks where), and each starts clean as restored.
    */
   replaceAll(tabs: readonly TabDoc[]): void {
+    this.generation++;
     this.paths.clear();
     this.baselines.clear();
     this.track(tabs);
@@ -45,6 +52,7 @@ export class DocumentState {
 
   /** The tab's content is what its file now holds (just opened or saved); `path` when it has one. */
   markSaved(tab: TabDoc, path?: string): void {
+    if (tab.generation !== undefined && tab.generation !== this.generation) return;
     this.baselines.set(tab.id, tab.fingerprint());
     if (path !== undefined) this.paths.set(tab.id, path);
   }
