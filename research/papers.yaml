@@ -5,6 +5,18 @@
 # `status` must be backed by files in the implementation directory (see research/README.md).
 papers:
 - id: shauer-2025
+  version_stage: improved
+  reviews:
+  - reviewer: codex
+    date: "2026-10-29"
+    commit: 0ce459e9eb75d2de08cc3743591b125f74d72ff7
+    verdict: ready after should-fix items
+  - reviewer: kimi
+    date: "2026-10-29"
+    commit: 0ce459e9eb75d2de08cc3743591b125f74d72ff7
+    verdict: ready after should-fix items
+  showcase: 2
+  page: web/src/components/research/shauer2025/ShauerPage.svelte
   doi: 10.1016/j.advengsoft.2025.104013
   crossref:
     title: Less than 500 lines self-contained Python finite element implementation of the phase-field
@@ -117,6 +129,18 @@ papers:
   implementation: null
   contacts: []
 - id: grossman-2026
+  version_stage: improved
+  reviews:
+  - reviewer: codex
+    date: "2026-10-29"
+    commit: 41d1ab4f8a8a94e5407ec035024b3fa685388c21
+    verdict: ready after should-fix items
+  - reviewer: kimi
+    date: "2026-10-29"
+    commit: 41d1ab4f8a8a94e5407ec035024b3fa685388c21
+    verdict: ready after should-fix items
+  showcase: 1
+  page: web/src/components/research/grossman2026/SpringsPage.svelte
   doi: 10.1103/17sg-gzhl
   crossref:
     title: Predicting the mechanical properties of spring networks
