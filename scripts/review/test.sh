@@ -47,15 +47,31 @@ if git symbolic-ref -q HEAD >/dev/null; then exit 91; fi
 [ -z "$(cat)" ]
 echo "$name $*" >> "$TEST_LOG"
 case "$name" in
-  kimi) mode=$KIMI_MODE;;
+  kimi) mode=$KIMI_MODE; [[ "$*" = '-p '* && "$*" != *--plan* ]];;
   grok) mode=$GROK_MODE; [[ "$*" = *'--permission-mode plan'* ]];;
   codex) mode=${CODEX_MODE:-ok}; [[ "$*" = *'--sandbox read-only'* ]];;
 esac
 case "$mode" in
   fail) echo 'provider unavailable' >&2; exit 7;;
-  quota) echo 'HTTP 429: quota exceeded' >&2;;
+  quota) printf 'not ready\n'; echo 'HTTP 429: quota exceeded' >&2;;
   empty) printf ' \n\t\n';;
-  ok) printf 'A test failed in the proposed code.\nnot ready\n';;
+  narration) printf '• Inspecting the diff\n• Checking tests\n';;
+  auth) echo 'Please log in to continue.';;
+  permission) echo 'May I access the repository?';;
+  inaccessible) echo "I couldn't access the repository.";;
+  unfinished) printf 'ready\n• Checking one more thing\n';;
+  legacy) echo 'ready to merge';;
+  ok)
+    printf 'Reviewed content at %s\nA test failed in the proposed code.\n%s\n\n' "$(git rev-parse HEAD)" "${TEST_VERDICT:-not ready}"
+    if [ -n "${TEST_BARRIER:-}" ]; then
+      # Keep every raw file open after writing so all runs overlap publication.
+      touch "$TEST_BARRIER/$TEST_RUN-$name"
+      for ((i=0; i<200; i++)); do
+        [ "$(find "$TEST_BARRIER" -type f | wc -l)" -lt 6 ] || exit 0
+        sleep 0.05
+      done
+      echo 'overlap barrier timed out' >&2; exit 92
+    fi;;
 esac
 STUB
 chmod +x "$TEMP/bin/gh" "$TEMP/bin/reviewer"
@@ -66,21 +82,32 @@ export KIMI_MODE=ok GROK_MODE=ok TEST_LAG=0
 assert_clean() {
   [ "$(git worktree list --porcelain | grep -c '^worktree ')" -eq 1 ]
   [ -z "$(ls -A "$REVIEW_WORKTREES")" ]
+  [ -z "$(git for-each-ref refs/review-runs/)" ]
 }
 run_case() {
   : > "$TEST_LOG"
   rm -f "$TEST_COUNT"
-  bash scripts/review/review-pr.sh 123 '' "$TEST_SHA"
-  grep -Fx "REVIEWER: $1" "$REVIEW_OUT/review-123-second.md"
-  grep -Fx "SHA: $TEST_SHA" "$REVIEW_OUT/review-123-codex.md"
+  local case_out
+  case_out=$(mktemp -d "$TEMP/case.XXXXXX")
+  REVIEW_OUT=$case_out bash scripts/review/review-pr.sh 123 '' "${TEST_PIN:-$TEST_SHA}"
+  grep -Fx "REVIEWER: $1" "$case_out"/run-*/*.md
+  grep -Fx "SHA: $TEST_SHA" "$case_out"/run-*/review-123-"${TEST_SHA:0:12}"-codex.md
   assert_clean
 }
 run_case Kimi
-! grep -q '^grok ' "$TEST_LOG"
+if grep -q '^grok ' "$TEST_LOG"; then exit 1; fi
 KIMI_MODE=quota run_case Grok
 KIMI_MODE=fail GROK_MODE=fail run_case 'adversarial Codex'
 [ "$(grep -c '^codex ' "$TEST_LOG")" -eq 2 ]
 KIMI_MODE=empty run_case Grok
+for incomplete in narration auth permission inaccessible unfinished legacy; do
+  KIMI_MODE=$incomplete run_case Grok
+done
+KIMI_MODE=narration GROK_MODE=narration run_case 'adversarial Codex'
+for verdict in ready 'ready after should-fix items' 'not ready'; do
+  TEST_VERDICT=$verdict run_case Kimi
+done
+TEST_PIN=${TEST_SHA:0:12} run_case Kimi
 KIMI_MODE=fail GROK_MODE=empty run_case 'adversarial Codex'
 TEST_LAG=1 run_case Kimi
 [ "$(cat "$TEST_COUNT")" -eq 2 ]
@@ -94,13 +121,51 @@ if KIMI_MODE=fail GROK_MODE=fail CODEX_MODE=fail bash scripts/review/review-pr.s
   echo 'Expected reviewer failure' >&2; exit 1
 fi
 assert_clean
-if CODEX_MODE=fail bash scripts/review/review-pr.sh 123 '' "$TEST_SHA"; then
+if CODEX_MODE=narration bash scripts/review/review-pr.sh 123 '' "$TEST_SHA"; then
   echo 'Expected primary Codex failure despite successful Kimi' >&2; exit 1
 fi
 assert_clean
-rm -f "$REVIEW_OUT/review-123-codex.md"
-bash scripts/review/review-second.sh 123 '' "$TEST_SHA"
-[ ! -e "$REVIEW_OUT/review-123-codex.md" ]
+second_out=$(mktemp -d "$TEMP/second.XXXXXX")
+REVIEW_OUT=$second_out bash scripts/review/review-second.sh 123 '' "$TEST_SHA"
+[ "$(find "$second_out" -name '*-codex.md' | wc -l)" -eq 0 ]
+assert_clean
+# Distinct commits and repeated runs of the same commit must never share artifacts.
+git commit -qm second --allow-empty
+b=$(git rev-parse HEAD)
+git push -q origin main
+git update-ref refs/remotes/origin/main "$a"
+printf 'preserve shared fetch state\n' > .git/FETCH_HEAD
+cp .git/FETCH_HEAD "$TEMP/fetch-head"
+mkdir "$TEMP/barrier"
+export TEST_BARRIER="$TEMP/barrier"
+concurrent_out=$(mktemp -d "$TEMP/concurrent.XXXXXX")
+REVIEW_OUT=$concurrent_out TEST_SHA=$a TEST_RUN=a TEST_COUNT="$TEMP/count-a" bash scripts/review/review-pr.sh 123 '' "$a" > "$TEMP/run-a.log" 2>&1 & pid_a=$!
+REVIEW_OUT=$concurrent_out TEST_SHA=$b TEST_RUN=b TEST_COUNT="$TEMP/count-b" bash scripts/review/review-pr.sh 123 '' "$b" > "$TEMP/run-b.log" 2>&1 & pid_b=$!
+REVIEW_OUT=$concurrent_out TEST_SHA=$a TEST_RUN=c TEST_COUNT="$TEMP/count-c" bash scripts/review/review-pr.sh 123 '' "$a" > "$TEMP/run-c.log" 2>&1 & pid_c=$!
+wait "$pid_a" || { cat "$TEMP/run-a.log"; exit 1; }
+wait "$pid_b" || { cat "$TEMP/run-b.log"; exit 1; }
+wait "$pid_c" || { cat "$TEMP/run-c.log"; exit 1; }
+unset TEST_BARRIER
+[ "$(git rev-parse origin/main)" = "$a" ]
+cmp .git/FETCH_HEAD "$TEMP/fetch-head"
+python3 - "$concurrent_out" "$a" "$b" <<'CHECK'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+assert len(list(root.iterdir())) == 3
+reviews = list(root.glob('run-*/*.md'))
+assert len(reviews) == 6
+seen = []
+for review in reviews:
+    text = review.read_text()
+    sha = text.splitlines()[1].removeprefix('SHA: ')
+    assert f'Reviewed content at {sha}\n' in text, text
+    assert review.name.startswith(f'review-123-{sha[:12]}-')
+    assert text.rstrip().endswith('not ready')
+    seen.append(sha)
+assert seen.count(sys.argv[2]) == 4 and seen.count(sys.argv[3]) == 2
+assert not list(root.rglob('*.tmp'))
+CHECK
 assert_clean
 bash scripts/review/record-review.sh shauer-2025 Kimi "$TEST_SHA" 'ready to merge'
 bash scripts/review/record-review.sh shauer-2025 Grok "$TEST_SHA" 'not ready'
