@@ -4,20 +4,25 @@
    * Each content goes on its own layer, so what is turned on here can still be hidden in CAD.
    */
   import { t } from '../../../lib/i18n';
+  import DrawingFormatRow, { type DrawingFormat } from './DrawingFormatRow.svelte';
   import ExportDialog from '../../export/ExportDialog.svelte';
   import ExportSection from '../../export/ExportSection.svelte';
+  import DrawingPresets, { type Preset } from '../../export/DrawingPresets.svelte';
+  import DrawingLayout from '../../export/DrawingLayout.svelte';
   import { DXF_CONTENTS, DXF_NEEDS_RESULTS, type DxfContents, type DxfProjection } from '../../../lib/dxf/writer';
   import type { DxfUnit } from '../../../lib/dxf/types';
-  import { downloadProDxf } from '../../../lib/pro/dxf-export';
+  import { downloadProDxf, downloadProDxfFiles } from '../../../lib/pro/dxf-export';
   import { ensureProResults, hasShells, resultSetChoices } from '../../../lib/pro/export-results';
   import { uiStore } from '../../../lib/store';
+  import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
   import CheckGroup from './CheckGroup.svelte';
 
-  let { open = $bindable(false) }: { open: boolean } = $props();
+  let { open = $bindable(false), onformat }: { open: boolean; onformat?: (f: DrawingFormat) => void } = $props();
 
   const KEY = 'stabileo-pro-dxf-export';
-  interface Prefs { contents: DxfContents; projection: DxfProjection; units: DxfUnit; diagramFactor: number }
+  interface Prefs { contents: DxfContents; projection: DxfProjection; units: DxfUnit; diagramFactor: number; layers: boolean }
   const BASE: Prefs = {
+    layers: true,
     contents: { members: true, nodes: false, supports: true, shells: true, numbering: true, loads: true, deformed: false, moment: false, shear: false, axial: false, reactions: false },
     projection: 'space', units: 'm', diagramFactor: 1,
   };
@@ -32,10 +37,11 @@
   let projection = $state<DxfProjection>(prefs.projection);
   let units = $state<DxfUnit>(prefs.units);
   let diagramFactor = $state(prefs.diagramFactor);
+  let layers = $state(prefs.layers);
   let setKey = $state('screen');
   let busy = $state(false);
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify({ contents: $state.snapshot(contents), projection, units, diagramFactor })); } catch { /* this session only */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ contents: $state.snapshot(contents), projection, units, diagramFactor, layers })); } catch { /* this session only */ }
   }
 
   const shells = $derived(open && hasShells());
@@ -45,6 +51,18 @@
   const diagrams = $derived(contents.moment || contents.shear || contents.axial);
   const choices = $derived(open ? resultSetChoices() : []);
   const anything = $derived(offered.some((k) => contents[k]));
+  const chosen = $derived(offered.filter((k) => contents[k]));
+  const resultsChosen = $derived(chosen.filter((k) => DXF_NEEDS_RESULTS.has(k)).length);
+  const MODEL_SET: Array<keyof DxfContents> = ['members', 'supports', 'shells', 'numbering', 'loads'];
+  const presets = $derived<Preset[]>([
+    { id: 'model', label: t('viewExport.presetModel'), ids: MODEL_SET.filter((k) => offered.includes(k)) },
+    { id: 'diagrams', label: t('viewExport.presetDiagrams'), ids: [...MODEL_SET.filter((k) => offered.includes(k)), 'moment', 'shear', 'axial'] },
+    { id: 'all', label: t('viewExport.presetAll'), ids: offered },
+  ]);
+  function preset(ids: readonly string[]) {
+    for (const k of DXF_CONTENTS) contents[k] = ids.includes(k);
+    save();
+  }
 
   const PROJECTIONS: Array<{ id: DxfProjection; key: string }> = [
     { id: 'space', key: 'proExport.dxf3d' }, { id: 'top', key: 'proExport.viewTop' },
@@ -57,7 +75,9 @@
     save();
   }
 
-  const contentSummary = $derived(offered.filter((k) => contents[k]).map((k) => t(`proExport.dxf.${k}`)).join(', ') || t('viewExport.nothing'));
+  const contentSummary = $derived(chosen.length
+    ? [chosen.map((k) => t(`proExport.dxf.${k}`)).join(', '), resultsChosen ? t(layers ? 'proExport.dxfLayoutLayers' : 'proExport.dxfLayoutSeparate') : null].filter(Boolean).join(' · ')
+    : t('viewExport.nothing'));
   const resultsSummary = $derived(choices.find((c) => c.key === setKey)?.label ?? '—');
   const drawingSummary = $derived(`${t(PROJECTIONS.find((p) => p.id === projection)!.key)} · ${units}`);
 
@@ -69,9 +89,11 @@
       if (needsSolve && !(await ensureProResults())) {
         // Without results, the drawing is the model: what needed them is left out, and said.
         c = { ...c, deformed: false, moment: false, shear: false, axial: false, reactions: false };
-        uiStore.toast(t('proExport.dxfNoResults'), 'info');
+        if (!modelIsEmpty()) uiStore.toast(t('proExport.dxfNoResults'), 'info');
       }
-      downloadProDxf({ contents: c, projection, units, set: setKey, diagramFactor });
+      tellIfEmpty();
+      const req = { contents: c, projection, units, set: setKey, diagramFactor };
+      await (layers ? downloadProDxf(req) : downloadProDxfFiles(req));
       open = false;
     } finally {
       busy = false;
@@ -79,15 +101,23 @@
   }
 </script>
 
-<ExportDialog bind:open width={560} title={t('proExport.dxfTitle')} testid="pro-dxf-export-dialog">
+<ExportDialog bind:open width={560} title={`${t('proExport.drawingsTitle')} — DXF`} testid="pro-dxf-export-dialog">
+  <DrawingFormatRow current="dxf" onpick={(f) => { if (f !== 'dxf') onformat?.(f); }} />
   <ExportSection title={t('viewExport.sectionContent')} summary={contentSummary} open testid="pro-dxf-export-content">
+    <DrawingPresets {presets} {chosen} onpick={preset} testid="pro-dxf" />
     <div class="dx-cols">
       <CheckGroup title={t('proExport.groupModel')} items={groupItems(true)} on={(id) => contents[id as keyof DxfContents]}
         toggle={(id) => { const k = id as keyof DxfContents; contents[k] = !contents[k]; save(); }} setAll={(v) => setGroup(true, v)} testid="pro-dxf" />
       <CheckGroup title={t('proExport.groupResults')} items={groupItems(false)} on={(id) => contents[id as keyof DxfContents]}
         toggle={(id) => { const k = id as keyof DxfContents; contents[k] = !contents[k]; save(); }} setAll={(v) => setGroup(false, v)} testid="pro-dxf" />
     </div>
-    <p class="xs-note">{t('proExport.dxfLayersNote')}</p>
+    {#if resultsChosen}
+      <DrawingLayout together={layers} labels={[t('proExport.dxfLayoutLayers'), t('proExport.dxfLayoutSeparate')]}
+        notes={[t('proExport.dxfLayoutLayersNote'), t('proExport.dxfLayoutSeparateNote')]}
+        onpick={(v) => { layers = v; save(); }} testid="pro-dxf-layout" />
+    {:else}
+      <p class="xs-note">{t('proExport.dxfLayersNote')}</p>
+    {/if}
   </ExportSection>
 
   {#if needsSolve && choices.length > 1}

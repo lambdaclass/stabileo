@@ -581,10 +581,7 @@ const fr: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Exporter un rapport Excel avec toutes les feuilles (modèle + résultats)',
-  'project.exportPdfTooltip': 'Générer un rapport PDF imprimable',
   'project.exportDxfTooltip': 'Exporter en DXF AutoCAD avec les diagrammes',
-  'project.exportSvgTooltip': 'Exporter un graphique vectoriel SVG',
-  'project.exportPngTooltip': 'Exporter une capture d\'écran PNG',
   'project.exportCsvTooltip': 'Exporter le tableau de résultats en CSV',
   'project.openDedTooltip': 'Ouvrir un fichier projet (.ded / .json)',
   'project.openDxfTooltip': 'Importer la géométrie depuis un fichier DXF AutoCAD',
@@ -2258,7 +2255,6 @@ const fr: Translations = {
   'report.printBtn': 'Imprimer / PDF',
   'report.docTitle': '{name} — Note de Calcul',
   'report.coverSubtitle': 'Note de Calcul Structurale',
-  'report.coverCode': 'Vérification selon CIRSOC 201',
   'report.coverFooter': 'Stabileo — Analyse Structurale',
   'report.modelData': '1. Données du Modèle',
   'report.view3d': 'Vue 3D',
@@ -2917,7 +2913,6 @@ const fr: Translations = {
   'pro.noSlabs': 'Aucune dalle (quads) avec résultats de contraintes dans le modèle.',
   'pro.driftTitle': 'Drift inter-étages — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Limite',
-  'pro.solveFirst': 'Calculez la structure d\'abord',
   'pro.noVerifiableElems': 'Aucun élément vérifiable trouvé. Assurez-vous que les matériaux ont f\'c <= 80 MPa (béton) ou fy > 80 MPa (acier) et que les sections ont des propriétés définies.',
   'pro.verifyPrompt': 'Appuyez sur « Vérifier les éléments » pour exécuter la vérification CIRSOC 201 / 301',
   'pro.wasmNotice': 'Nécessite une recompilation WASM — les vérifications {code} seront activées lors de la compilation dans le moteur natif.',

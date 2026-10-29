@@ -581,10 +581,7 @@ const tr: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Tüm sayfaları içeren Excel raporu dışa aktar (model + sonuçlar)',
-  'project.exportPdfTooltip': 'Yazdırılabilir PDF raporu oluştur',
   'project.exportDxfTooltip': 'Diyagramlarla AutoCAD DXF\'e dışa aktar',
-  'project.exportSvgTooltip': 'Vektörel SVG grafiği dışa aktar',
-  'project.exportPngTooltip': 'PNG ekran görüntüsü dışa aktar',
   'project.exportCsvTooltip': 'Sonuç tablosunu CSV olarak dışa aktar',
   'project.openDedTooltip': 'Proje dosyasını aç (.ded / .json)',
   'project.openDxfTooltip': 'AutoCAD DXF dosyasından geometri içe aktar',
@@ -2258,7 +2255,6 @@ const tr: Translations = {
   'report.printBtn': 'Yazdır / PDF',
   'report.docTitle': '{name} — Hesap Raporu',
   'report.coverSubtitle': 'Yapısal Hesap Raporu',
-  'report.coverCode': 'CIRSOC 201\'e göre doğrulama',
   'report.coverFooter': 'Stabileo — Yapısal Analiz',
   'report.modelData': '1. Model Verileri',
   'report.view3d': '3B Görünüm',
@@ -2869,7 +2865,6 @@ const tr: Translations = {
   'pro.noSlabs': 'Modelde gerilme sonuçları olan döşeme (dörtgen) yok.',
   'pro.driftTitle': 'Katlar arası öteleme — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Sınır',
-  'pro.solveFirst': 'Önce yapıyı çözün',
   'pro.noVerifiableElems': 'Doğrulanabilir eleman bulunamadı. Malzemelerin f\'c <= 80 MPa (beton) veya fy > 80 MPa (çelik) olduğundan ve kesitlerin tanımlı özelliklere sahip olduğundan emin olun.',
   'pro.verifyPrompt': 'CIRSOC 201 / 301 doğrulamasını çalıştırmak için "Elemanları doğrula" düğmesine basın',
   'pro.wasmNotice': 'WASM yeniden derleme gerekli — {code} doğrulamaları yerel motorda derlendiğinde etkinleştirilecek.',

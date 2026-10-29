@@ -63,9 +63,11 @@ export function hasCurrentResults(): boolean {
  * coming out without results and without saying why. The failure is the message the reader was
  * also shown as a toast, so the export can carry it. A solve that just failed on this very model
  * (PRO's export solves first, `pro/export-results.ts`) is not run again: it fails the same way.
+ * An empty model is not solved: the export says it is empty instead (`export/empty-model.ts`).
  */
 export async function ensureResults(): Promise<SolveOutcome> {
   if (hasCurrentResults()) return { ok: true };
+  if (modelStore.nodes.size === 0) return { ok: false, error: t('export.emptyModel') };
   const failed = lastSolveFailure();
   if (failed !== null) return { ok: false, error: failed };
   return solveNow();
