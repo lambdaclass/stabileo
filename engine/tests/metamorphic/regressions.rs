@@ -596,3 +596,50 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(r.warnings.iter().any(|w| w.contains("no consistent set of active hinges") && w.contains("lower bound")), "{:?}", r.warnings);
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
+
+fn issue_758_invariance(transform: &str) {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let mut failures = Vec::new();
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754).into_iter()
+        .chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20749));
+    let mut checked = 0;
+    for c in cases.filter(|c|
+        c.name.contains("2d-constraint--rigid-link--offset-beam-with") ||
+        [20772, 20787, 20800, 20832, 20833, 20840, 20843].iter().any(|s| c.name == format!("fuzz_rich_2d/{s}"))) {
+        let run = |c: &Case2| {
+            let sections = c.s.sections.values().map(|x| {
+                let (b, h) = crate::ana2::rect(x.a, x.iz);
+                let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+            }).collect();
+            let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+            plastic::solve_plastic_2d(&PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }).unwrap()
+        };
+        let base = run(&c);
+        for seed in 0..8 {
+            let other = match transform {
+                "relabel" => c.relabel(&Relabel::random_2d(&c.s, seed), seed),
+                "reversal" => Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() },
+                _ => c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4])),
+            };
+            let r = run(&other);
+            checked += 1;
+            let error = (base.collapse_factor - r.collapse_factor).abs() / base.collapse_factor.abs();
+            if error > 1e-9 {
+                failures.push(format!("{} {transform}/{seed}: {} -> {} ({error:e}), {:?} / {:?}", c.name, base.collapse_factor, r.collapse_factor, base.warnings, r.warnings));
+            }
+        }
+    }
+    assert!(checked >= 100, "missing reproduction cases: {checked}");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "safety #758: 2D plastic collapse is not invariant; contained (refused) until fixed"]
+fn issue_758_renumbering() { issue_758_invariance("relabel"); }
+#[test]
+#[ignore = "safety #758: 2D plastic collapse is not invariant; contained (refused) until fixed"]
+fn issue_758_member_reversal() { issue_758_invariance("reversal"); }
+#[test]
+#[ignore = "safety #758: 2D plastic collapse is not invariant; contained (refused) until fixed"]
+fn issue_758_units() { issue_758_invariance("units"); }

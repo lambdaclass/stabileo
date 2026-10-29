@@ -478,3 +478,20 @@ fn moment_sign_conventions_match_solver() {
     let inp = plastic(make_beam(1, l, E, A_SEC, IZ_SEC, "fixed", None, loads));
     assert_encloses("tip force + member UDL", &certify(&inp), MP / (8.0 + 4.0), 1e-12);
 }
+
+#[test]
+fn issue_758_textbook_absolute_references() {
+    let mut cases = vec![
+        ("propped", plastic(make_beam(1, 8.0, E, A_SEC, IZ_SEC, "fixed", Some("rollerX"), vec![udl(1, -5.0)])), (6.0 + 4.0 * 2f64.sqrt()) * MP / 320.0),
+        ("fixed-fixed", plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), vec![udl(1, -10.0)])), 16.0 * MP / 360.0),
+    ];
+    for (name, h, v, expected) in [("beam", 0.0, 1.0, 4.0 * MP / 3.0), ("sway", 1.0, 0.0, MP), ("combined", 1.0, 1.0, 6.0 * MP / 7.0)] {
+        cases.push((name, plastic(portal(4.0, 6.0, h, v)), expected));
+    }
+    for (name, input, expected) in cases {
+        let result = solve_plastic_2d(&input).unwrap();
+        assert!(result.is_mechanism && result.warnings.is_empty(), "{name}: {result:?}");
+        assert!((result.collapse_factor - expected).abs() <= 1e-9 * expected, "{name}: {} vs {expected}", result.collapse_factor);
+        assert_encloses(name, &certify_collapse_2d(&input, Some(&result)), expected, 1e-8);
+    }
+}
