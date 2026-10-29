@@ -43,6 +43,8 @@
    * to Toolbar's markup — so on desktop `fileInput?.click()` optional-chained
    * its way to doing nothing at all. This component brings its own.
    */
+  let { enabled = true }: { enabled?: boolean } = $props();
+
   let fileInput: HTMLInputElement | undefined = $state();
 
   async function handleLoadFile(e: Event) {
@@ -208,6 +210,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (!enabled) return;
     // Ignore if typing in an input or textarea
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
     if ((e.target as HTMLElement).isContentEditable) return;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../styles/viewer-chrome.css';
   import { displayUnits } from '../lib/store/display-units.svelte';
   import { uiStore, modelStore } from '../lib/store';
   import { toDisplay, unitLabel } from '../lib/utils/units';
@@ -122,14 +123,6 @@
 </div>
 
 <style>
-  .status-bar {
-    display: flex;
-    align-items: center;
-    gap: 1.1rem;
-    padding: 0.3rem 0.9rem;
-    font-size: 0.72rem;
-    font-family: var(--st-sans);
-  }
 
   .draft-badge {
     background: transparent;
@@ -152,34 +145,4 @@
   }
   .status-version:hover { color: var(--st-text); text-decoration: underline; }
 
-  .status-item {
-    display: flex;
-    gap: 0.35rem;
-    white-space: nowrap;
-  }
-
-  /*
-     The label is a quiet caption and the value is the data, so they stop
-     reading as equal weight. Values take the mono face for the same reason the
-     ribbon's symbols do: they are numbers that change in place, and a
-     proportional face makes them jitter.
-  */
-  .status-label {
-    color: var(--st-text-3);
-    font-size: 0.66rem;
-    text-transform: lowercase;
-    letter-spacing: 0.02em;
-  }
-
-  .status-value {
-    font-family: var(--st-mono);
-    /*
-       Neutral. `--st-value` is the cyan reserved for a COMPUTED number — a
-       force, a displacement — and spending it on the cursor position and the
-       grid size made the quietest strip on screen the brightest, competing
-       with results it has nothing to do with.
-    */
-    color: var(--st-text-2);
-    font-family: monospace;
-  }
 </style>

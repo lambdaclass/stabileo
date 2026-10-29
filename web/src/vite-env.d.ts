@@ -5,6 +5,9 @@ declare module 'virtual:public-i18n' {
   export const en: Record<string, string>;
   export const es: Record<string, string>;
   export const pt: Record<string, string>;
+  export const de: Record<string, string>;
+  export const fr: Record<string, string>;
+  export const tr: Record<string, string>;
 }
 
 declare module 'virtual:app-i18n' {

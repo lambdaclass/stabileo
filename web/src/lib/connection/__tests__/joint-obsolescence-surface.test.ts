@@ -15,8 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { dictFor } from '../../i18n/store.svelte';
-import { OFFERED_LOCALES } from '../../i18n/store.svelte';
+import { allDictFor as dictFor, completeLocales } from '../../i18n/locales/all';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
 const PANEL = readFileSync(
@@ -76,7 +75,7 @@ describe('the panel says so', () => {
       'conn.obsolete.reason.nodeMissing', 'conn.obsolete.reason.nodeMoved',
       'conn.obsolete.reason.topologyChanged',
     ];
-    for (const locale of OFFERED_LOCALES) {
+    for (const locale of completeLocales()) {
       const dict = dictFor(locale);
       for (const k of keys) expect(dict[k], `${k} in ${locale}`).toBeTruthy();
     }

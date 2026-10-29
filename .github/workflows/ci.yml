@@ -41,6 +41,8 @@ jobs:
     outputs:
       engine: ${{ steps.filter.outputs.engine }}
       web: ${{ steps.filter.outputs.web }}
+      research: ${{ steps.filter.outputs.research }}
+      docker: ${{ steps.filter.outputs.docker }}
       backend: ${{ steps.filter.outputs.backend }}
       ai_backend: ${{ steps.filter.outputs.ai_backend }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
@@ -67,13 +69,35 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.config/**'
+            docker:
+              - *tooling
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'web/**'
+              - 'research/**'
+              - 'engine/**'
+              - 'ai-backend/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
             web:
+              - 'Dockerfile'
+              - '.dockerignore'
               - *tooling
               - 'web/**'
+              # The /research pages import the catalog and reference results and ship its WASM.
+              - 'research/**'
               - 'engine/**'
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
               - 'Cargo.lock'
+            research:
+              - *tooling
+              - 'research/**'
+              - 'web/**'
+              - 'engine/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/research.yml'
             backend:
               - *tooling
               - 'backend/**'
@@ -84,8 +108,23 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/tests/**'
+              - 'Makefile'
+              - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+
+  docker-smoke:
+    name: Docker build smoke
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --tag stabileo-smoke .
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
@@ -402,6 +441,43 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+  # The Stabileo Research page's WASM (research/fracture/shauer-2025/wasm), separate from the
+  # engine's and served only to /research pages. The e2e site carries it so the research smoke
+  # test runs the real simulation.
+  research-wasm:
+    name: Research WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/free-disk
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            research/fracture/shauer-2025/wasm
+            research/metamaterials/grossman-2026/wasm
+          shared-key: research-wasm
+      - name: Install web dependencies (the research viewer bundle is built with Vite)
+        run: make web.deps
+      - name: Build the research WASM and viewer
+        run: make research.wasm
+      - name: The browser bundle reproduces the reference (Node)
+        run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The spring-network bundle gives the exact lattice answers (Node)
+        run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
+          retention-days: 3
+          if-no-files-found: error
+
   # The site the e2e shards test, built once (each shard used to build it, prerender included,
   # inside Playwright's webServer). VITE_E2E=1 compiles the read-only test hooks in; the marker
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
@@ -409,7 +485,7 @@ jobs:
     name: E2E Site
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [changes, wasm]
+    needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -434,6 +510,11 @@ jobs:
         with:
           name: wasm
           path: web/src/lib/wasm
+      - name: Research WASM (from the research-wasm job)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
       - name: Install dependencies
         run: make web.deps
       # The build prerenders the public pages in a browser (web/scripts/prerender.ts).
@@ -493,7 +574,7 @@ jobs:
   web-build:
     name: Web Build
     runs-on: ubuntu-latest
-    needs: [changes, wasm]
+    needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -518,6 +599,17 @@ jobs:
         with:
           name: wasm
           path: web/src/lib/wasm
+      - name: Research WASM and replay (same artifact as deployment)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
+      - name: Research runtime assets exist
+        run: |
+          test -s web/public/research-wasm/shauer-2025/phasefield.js
+          test -s web/public/research-wasm/shauer-2025/phasefield_bg.wasm
+          test -s web/public/research-wasm/shauer-2025/replay.srpl
+          test -s web/public/research-wasm/viewer/viewer.js
       - name: Install dependencies
         run: make web.deps
       - name: Typecheck against its baseline and svelte-check gate
@@ -527,6 +619,12 @@ jobs:
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Build and production-build tests
         run: make test.web.build
+      - name: Built site includes the research runtime
+        run: |
+          test -s web/dist/research-wasm/shauer-2025/phasefield.js
+          test -s web/dist/research-wasm/shauer-2025/phasefield_bg.wasm
+          test -s web/dist/research-wasm/shauer-2025/replay.srpl
+          test -s web/dist/research-wasm/viewer/viewer.js
       - name: Admin site build
         run: make admin.build
 
@@ -785,6 +883,12 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  # Research validation, catalogue, isolation and route budgets (hosted runners only).
+  research:
+    needs: changes
+    if: needs.changes.outputs.research == 'true'
+    uses: ./.github/workflows/research.yml
+
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails
   # when any job failed or was cancelled, and a skipped job is fine.
@@ -796,6 +900,7 @@ jobs:
       - changes
       - lint-repo
       - test-ci-scripts
+      - docker-smoke
       - lint-engine
       - test-engine-gates
       - test-engine-suite
@@ -806,6 +911,8 @@ jobs:
       - check-migrations-immutable
       - check-migrations
       - wasm
+      - research-wasm
+      - research
       - site-e2e
       - web-unit
       - web-build

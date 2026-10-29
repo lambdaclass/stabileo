@@ -16,7 +16,7 @@
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
-  import { publicI18n, setLocale } from './lib/i18n/store.svelte';
+  import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
   import { modeToPath } from './lib/app-mode';
 
@@ -34,8 +34,17 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
+  /** Stabileo Research is its own chunk: the landing and the blog never download it. */
+  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'research' && !research) {
+      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+    }
+  });
+
   function loadApp() {
-    loading ??= import('./App.svelte').then(async (m) => {
+    // A lazily loaded language must be registered before the application's modules run: some name things as they load.
+    loading ??= ensureLocale(i18n.locale).then(() => import('./App.svelte')).then(async (m) => {
       app = m.default;
       // Tell main.ts the application is up: it installs the browser-test hooks then (in an
       // e2e build only), so that "the hooks are there" still means "the application is up".
@@ -88,6 +97,11 @@
   <App />
 {:else if current.kind === 'blog'}
   <BlogPage path={current.path} />
+{:else if current.kind === 'research'}
+  {#if research}
+    {@const Research = research}
+    <Research path={current.path} />
+  {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}

@@ -1,0 +1,778 @@
+# Stabileo Research catalog. Schema and rules: research/CONTRIBUTING.md.
+# `crossref` blocks are copied from api.crossref.org and checked by `research/tools/catalog.py check`
+# in CI; never edit them by hand. `summary` is our own wording of `summary_source` (crossref-abstract, publisher-abstract,
+# repository-readme, or full-text); with no such source it stays empty.
+# `status` must be backed by files in the implementation directory (see research/README.md).
+papers:
+- id: shauer-2025
+  doi: 10.1016/j.advengsoft.2025.104013
+  crossref:
+    title: Less than 500 lines self-contained Python finite element implementation of the phase-field
+      method for fracture mechanics
+    authors:
+    - Nathan Shauer
+    year: 2025
+    venue: Advances in Engineering Software
+  area: fracture
+  keywords:
+  - phase-field
+  - AT2
+  - brittle fracture
+  - staggered scheme
+  - educational code
+  summary: ''
+  summary_source: null
+  summary_note: No permitted summary source recorded; reference code alone is insufficient.
+  code:
+  - url: https://github.com/nathanshauer/phasefield-jr-py
+    commit: 61037c6ce7833a4f92a3ec098a9d60fd477eff2b
+    license: MIT
+  - url: https://github.com/nathanshauer/phasefield-jr
+    commit: 7518fa54abc1d1f23bea912b62fa923916d3e8f5
+    license: MIT
+  data: []
+  methods:
+  - Q4 elements
+  - AT2 phase field
+  - hybrid tensile-energy driving force
+  - alternating minimisation
+  - sparse LU
+  dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  complexity: low
+  relevance: Small enough to reproduce exactly and re-implement independently; the first Stabileo Research
+    entry and the pattern for the rest.
+  status: numerically-validated
+  reproduced_published_results: false
+  benchmarks:
+  - bar under tension vs 1D AT2 analytical stress
+  - single-edge notched tension force-displacement
+  - three-point bending force-displacement
+  implementation: fracture/shauer-2025
+  contacts: []
+- id: wu-2023-jaxsso
+  doi: 10.1007/s00158-023-03601-0
+  crossref:
+    title: A framework for structural shape optimization based on automatic differentiation, the adjoint
+      method and accelerated linear algebra
+    authors:
+    - Gaoyuan Wu
+    year: 2023
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - shape optimization
+  - automatic differentiation
+  - adjoint
+  - JAX
+  - shells
+  - frames
+  summary: ''
+  summary_source: null
+  code:
+  - url: https://github.com/GaoyuanWu/JaxSSO
+    commit: d27df0a6e657eacae497ead241fa6f9f48c66e5a
+    license: MIT
+  data: []
+  methods:
+  - adjoint sensitivities
+  - automatic differentiation
+  - gradient-based optimization
+  dependencies:
+  - JAX
+  complexity: medium
+  relevance: Close to Stabileo's frame and shell structures; a natural first optimization entry.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: sigmund-2022
+  doi: 10.1007/s00158-022-03427-2
+  crossref:
+    title: On benchmarking and good scientific practise in topology optimization
+    authors:
+    - Ole Sigmund
+    year: 2022
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - topology optimization
+  - benchmarking
+  - scientific practice
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - benchmarking methodology
+  dependencies: []
+  complexity: low
+  relevance: Methodological guide for how Stabileo Research reports comparisons.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: grossman-2026
+  doi: 10.1103/17sg-gzhl
+  crossref:
+    title: Predicting the mechanical properties of spring networks
+    authors:
+    - Doron Grossman
+    - Arezki Boudaoud
+    year: 2026
+    venue: Physical Review Research
+  area: metamaterials
+  keywords:
+  - spring networks
+  - homogenization
+  - nonaffine displacements
+  - continuum limit
+  summary: Derives the elastic continuum of an arbitrary network of Hookean springs from its geometry and
+    topology alone, with the nonaffine deformation of every triangle obtained from a linear system, and compares
+    the resulting Poisson's ratios and Young's moduli with simulations of stretched strips of ordered triangular
+    lattices, a honeycomb that turns re-entrant, and a foam-like disordered lattice that becomes auxetic.
+  summary_source: full-text
+  code: []
+  data: []
+  methods:
+  - discrete-to-continuum homogenization
+  - metric (incompatible) elasticity
+  - strip simulations by energy minimisation
+  dependencies: []
+  complexity: medium
+  relevance: Spring networks map directly onto truss models, which Stabileo already solves.
+  status: numerically-validated
+  reproduced_published_results: true
+  benchmarks:
+  - foam Poisson's ratio against disorder (Fig. 5, text p. 6)
+  - honeycomb Poisson's ratio, Eq. (23)
+  - ordered lattices, Supplemental Eq. (9) and Fig. 7
+  - exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement
+  implementation: metamaterials/grossman-2026
+  contacts: []
+- id: andreassen-2011
+  doi: 10.1007/s00158-010-0594-7
+  crossref:
+    title: Efficient topology optimization in MATLAB using 88 lines of code
+    authors:
+    - Erik Andreassen
+    - Anders Clausen
+    - Mattias Schevenels
+    - Boyan S. Lazarov
+    - Ole Sigmund
+    year: 2010
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords:
+  - topology optimization
+  - SIMP
+  - MBB beam
+  - educational code
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - SIMP
+  - Q4 elements
+  - density and sensitivity filters
+  - optimality criteria
+  dependencies: []
+  complexity: low
+  relevance: Reference results for the queued topology-optimization experiment (MBB beam), research/DESIGN.md
+    section 6 item 3. Crossref dates it 2010 (online); the print issue is volume 43, 2011. No abstract
+    in Crossref and the publisher page was not readable, so no summary; the code is distributed outside
+    GitHub and its licence has not been checked.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: ferrari-2025
+  doi: 10.1002/nme.70082
+  crossref:
+    title: Optimization of the Initial Post‐Buckling Response of Trusses and Frames by an Asymptotic Approach
+    authors:
+    - Federico Ferrari
+    - Ole Sigmund
+    year: 2025
+    venue: International Journal for Numerical Methods in Engineering
+  area: optimization
+  keywords:
+  - post-buckling
+  - Koiter asymptotic theory
+  - imperfection sensitivity
+  - trusses
+  - frames
+  summary: Uses Koiter's asymptotic post-buckling expansion in sizing and topology optimization of trusses
+    and frames. Constraining the first two asymptotic coefficients (initial post-buckling slope and curvature)
+    shapes the post-buckling response and lowers imperfection sensitivity, and the same expansion approximates
+    the nonlinear response so that measures such as end-compliance can be optimized.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods:
+  - linear buckling eigenproblem
+  - Koiter asymptotic expansion
+  - corotational beams
+  - arc-length path following
+  dependencies: []
+  complexity: medium
+  relevance: Production buckling reproduces the simple Roorda frame load factor; element energy
+    derivatives are checked through order four. Koiter coefficients and near-bifurcation path
+    agreement remain unresolved. No public author code was run.
+  status: implementation-in-progress
+  reproduced_published_results: false
+  benchmarks:
+  - Simple Roorda frame, Section 2.1.2; buckling load only
+  implementation: stability/ferrari-sigmund-2025
+  page: web/src/components/research/ferrari2025/FerrariPage.svelte
+  contacts: []
+- id: zmyslony-2026
+  doi: 10.1103/56f8-8gsx
+  crossref:
+    title: Snapping and switching of elastic arches with patterned preferred curvature
+    authors:
+    - Michał Zmyślony
+    - Ammar Khan
+    - John S. Biggins
+    year: 2026
+    venue: Physical Review Research
+  area: metamaterials
+  keywords:
+  - elastic arch
+  - snap-through
+  - bistability
+  - preferred curvature
+  - Euler buckling modes
+  summary: Elastica theory and photomechanical experiments on an arch whose preferred curvature varies
+    along its length and in time. A shallow-arch theory projects the curvature pattern onto Euler buckling
+    modes; overlap with the fundamental mode makes the arch snap, other patterns give a continuous switch
+    to a higher mode. Patterns with the largest energy release and the lowest threshold are found, and
+    the same control applies to passive pre-curved arches loaded at the boundaries.
+  summary_source: crossref-abstract
+  code: []
+  data:
+  - url: https://doi.org/10.5281/zenodo.18256271
+    license: CC-BY-4.0
+  methods:
+  - shallow-arch elastica theory
+  - Euler buckling mode decomposition
+  - experiments
+  dependencies: []
+  complexity: low
+  relevance: Queue item 5. The theory's basis is the Euler buckling modes the production engine already
+    computes; passive arches run on the 2D corotational and arc-length solvers. Zenodo record (data and
+    software, CC-BY-4.0 per the record) not yet inspected file by file.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: feher-2026
+  doi: 10.1016/j.euromechsol.2026.106217
+  crossref:
+    title: Controlling the snap-through behavior of an elastica strip by cuts
+    authors:
+    - Eszter Fehér
+    year: 2026
+    venue: European Journal of Mechanics - A/Solids
+  area: metamaterials
+  keywords:
+  - elastica
+  - snap-through
+  - cut sheets
+  - bifurcation
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - elastica with varying bending stiffness
+  - numerical continuation
+  - experiments
+  dependencies: []
+  complexity: low
+  relevance: Queue item 6, sharing the 2D stability tooling of item 5 (a 2D frame with varying stiffness
+    on the arc-length solver). No abstract in Crossref and the publisher page was not readable, so no
+    summary; no code; published values are in figures only.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: pastrana-2026
+  doi: 10.1016/j.cma.2026.118783
+  crossref:
+    title: Differentiable force density method for the design of lightweight structures
+    authors:
+    - Rafael Pastrana
+    - Deniz Oktay
+    - Kai-Uwe Bletzinger
+    - Ryan P. Adams
+    - Sigrid Adriaenssens
+    year: 2026
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: optimization
+  keywords:
+  - form finding
+  - force density method
+  - cable nets
+  - gridshells
+  - inverse design
+  summary: The JAX FDM library computes equilibrium shapes of pin-jointed bar systems with the force density
+    method and solves inverse design problems by tuning force densities, loads and support positions with
+    gradient-based optimization against goals and constraints; written in JAX, so the simulation is differentiable
+    and JIT-compiled.
+  summary_source: repository-readme
+  summary_note: jax_fdm README read 2026-10-28; Crossref has no abstract and the publisher page was not
+    readable, so the summary covers the code only
+  code:
+  - url: https://github.com/arpastrana/jax_fdm
+    commit: 9a17fd379071fb3511ca914f46e8d1e8c286460e
+    license: MIT
+  data: []
+  methods:
+  - force density method
+  - adjoint sensitivities
+  - gradient-based optimization
+  dependencies:
+  - JAX
+  - COMPAS
+  complexity: medium
+  relevance: Queue item 7. Form-finding is one sparse solve with the engine's Cholesky; the found form opens
+    in the editor as a gridshell and is checked with the production 3D analysis and buckling. MIT reference
+    code with ready examples.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: fairclough-2026
+  doi: 10.1016/j.compstruc.2025.107997
+  crossref:
+    title: Topology and geometry optimization of grid-shells incorporating design-dependent self-weight
+      loading
+    authors:
+    - Helen E. Fairclough
+    - Karol Bołbotowski
+    - Linwei He
+    - Andrew Liew
+    - Matthew Gilbert
+    year: 2026
+    venue: Computers & Structures
+  area: optimization
+  keywords:
+  - grid-shells
+  - layout optimization
+  - self-weight
+  - second-order cone programming
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - second-order cone programming
+  - ground structure
+  dependencies: []
+  complexity: medium
+  relevance: Queue item 8. Needs a conic optimiser (candidate Clarabel.rs, Apache-2.0); the optimised gridshell
+    is checked with the production 3D truss analysis under self-weight. No abstract in Crossref and the
+    publisher page was not readable, so no summary; the authors' example scripts are cited without a link
+    we could find.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: turner-1956
+  doi: 10.2514/8.3664
+  crossref:
+    title: Stiffness and Deflection Analysis of Complex Structures
+    authors:
+    - M. J. TURNER
+    - R. W. CLOUGH
+    - H. C. MARTIN
+    - L. J. TOPP
+    year: 1956
+    venue: Journal of the Aeronautical Sciences
+  area: numerical-methods
+  keywords:
+  - direct stiffness method
+  - finite elements
+  - history
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - direct stiffness method
+  - triangular plane-stress elements
+  dependencies: []
+  complexity: low
+  relevance: The founding paper of the direct stiffness method that Stabileo's engine implements; its truss and
+    plate examples run on Stabileo as it is.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: maxwell-1864
+  doi: 10.1080/14786446408643668
+  crossref:
+    title: L. <i>On the calculation of the equilibrium and stiffness of frames</i>
+    authors:
+    - J. Clerk Maxwell
+    year: 1864
+    venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+  area: metamaterials
+  keywords:
+  - Maxwell counting rule
+  - rigidity
+  - pin-jointed frames
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - counting of bars and joints
+  - statics of pin-jointed frames
+  dependencies: []
+  complexity: low
+  relevance: Maxwell's rule for when a pin-jointed frame is stiff; Stabileo's truss solver and its mechanism detection
+    can show the rule and its exceptions live. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: calladine-1978
+  doi: 10.1016/0020-7683(78)90052-5
+  crossref:
+    title: Buckminster Fuller's “Tensegrity” structures and Clerk Maxwell's rules for the construction of stiff
+      frames
+    authors:
+    - C.R. Calladine
+    year: 1978
+    venue: International Journal of Solids and Structures
+  area: metamaterials
+  keywords:
+  - tensegrity
+  - Maxwell's rule
+  - states of self-stress
+  - mechanisms
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - equilibrium and compatibility matrices
+  - self-stress and mechanism counting
+  dependencies: []
+  complexity: low
+  relevance: Extends Maxwell's rule with states of self-stress and mechanisms; checkable with Stabileo's truss solver
+    (prestressed tensegrity, rank of the equilibrium matrix). Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: schek-1974
+  doi: 10.1016/0045-7825(74)90045-0
+  crossref:
+    title: The force density method for form finding and computation of general networks
+    authors:
+    - H.-J. Schek
+    year: 1974
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: optimization
+  keywords:
+  - force density method
+  - form finding
+  - cable nets
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - force density method
+  - sparse linear solve
+  dependencies: []
+  complexity: low
+  relevance: The force density method behind queued pastrana-2026; one sparse solve with the engine's Cholesky,
+    and the found form opens in the editor. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: heyman-1966
+  doi: 10.1016/0020-7683(66)90018-7
+  crossref:
+    title: The stone skeleton
+    authors:
+    - Jacques Heyman
+    year: 1966
+    venue: International Journal of Solids and Structures
+  area: shells
+  keywords:
+  - masonry
+  - limit analysis
+  - safe theorem
+  - arches and vaults
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - plastic limit analysis
+  - lines of thrust
+  dependencies: []
+  complexity: low
+  relevance: The plastic theory of masonry used to assess arches and vaults; relevant to engineers working on existing
+    buildings and to the form-finding queue. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: michell-1904
+  doi: 10.1080/14786440409463229
+  crossref:
+    title: LVIII. <i>The limits of economy of material in frame-structures</i>
+    authors:
+    - A.G.M. Michell
+    year: 1904
+    venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+  area: optimization
+  keywords:
+  - Michell trusses
+  - minimum-weight structures
+  - layout optimization
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - optimal truss layout theory
+  dependencies: []
+  complexity: low
+  relevance: Analytical optimal trusses used as benchmarks for layout optimization; a Michell layout can be built
+    and checked on Stabileo's truss solver. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: gilbert-2003
+  doi: 10.1108/02644400310503017
+  crossref:
+    title: Layout optimization of large-scale pin-jointed frames
+    authors:
+    - Matthew Gilbert
+    - Andrew Tyas
+    year: 2003
+    venue: Engineering Computations
+  area: optimization
+  keywords:
+  - layout optimization
+  - ground structure
+  - member adding
+  - linear programming
+  summary: Ground-structure layout optimization of trusses is limited by the number of potential members. The paper
+    presents an iterative member-adding method, built on linear-programming column generation, that starts from
+    a sparsely connected ground structure and adds members as needed until the provably optimal layout is reached,
+    handling problems with very large numbers of potential members.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods:
+  - linear programming
+  - column generation
+  - ground structure
+  dependencies: []
+  complexity: medium
+  relevance: Truss layout optimization whose optimal layouts can be analysed and checked on Stabileo's truss solver;
+    useful to engineers for early-stage layouts.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bendsoe-1988
+  doi: 10.1016/0045-7825(88)90086-2
+  crossref:
+    title: Generating optimal topologies in structural design using a homogenization method
+    authors:
+    - Martin Philip Bendsøe
+    - Noboru Kikuchi
+    year: 1988
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: optimization
+  keywords:
+  - topology optimization
+  - homogenization
+  - material distribution
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - homogenization
+  - optimality criteria
+  dependencies: []
+  complexity: medium
+  relevance: The founding paper of continuum topology optimization, background to the queued SIMP / MBB experiment
+    (andreassen-2011). Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: zheng-2014
+  doi: 10.1126/science.1252291
+  crossref:
+    title: Ultralight, ultrastiff mechanical metamaterials
+    authors:
+    - Xiaoyu Zheng
+    - Howon Lee
+    - Todd H. Weisgraber
+    - Maxim Shusteff
+    - Joshua DeOtte
+    - Eric B. Duoss
+    - Joshua D. Kuntz
+    - Monika M. Biener
+    - Qi Ge
+    - Julie A. Jackson
+    - Sergei O. Kucheyev
+    - Nicholas X. Fang
+    - Christopher M. Spadaccini
+    year: 2014
+    venue: Science
+  area: metamaterials
+  keywords:
+  - octet truss
+  - microlattices
+  - stretch-dominated lattices
+  - stiffness scaling
+  summary: Octet-truss microlattices made by projection microstereolithography from polymers, metals and ceramics.
+    Because their struts carry load axially instead of bending, the materials are very stiff and strong for their
+    low density.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods:
+  - projection microstereolithography
+  - lattice mechanics
+  dependencies: []
+  complexity: low
+  relevance: Stretch- versus bending-dominated lattices are a direct truss and frame comparison on Stabileo's solvers
+    (stiffness against relative density).
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: kane-2014
+  doi: 10.1038/nphys2835
+  crossref:
+    title: Topological boundary modes in isostatic lattices
+    authors:
+    - C. L. Kane
+    - T. C. Lubensky
+    year: 2013
+    venue: Nature Physics
+  area: metamaterials
+  keywords:
+  - isostatic lattices
+  - topological mechanics
+  - floppy modes
+  - kagome lattice
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - Maxwell counting
+  - compatibility matrix
+  - zero modes
+  dependencies: []
+  complexity: medium
+  relevance: Isostatic (Maxwell) lattices with boundary floppy modes; a truss-network experiment on Stabileo's solver,
+    following the Grossman spring-network work. Crossref dates it 2013 (online); the print issue is 2014. Crossref
+    has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: strogatz-2005
+  doi: 10.1038/438043a
+  crossref:
+    title: Crowd synchrony on the Millennium Bridge
+    authors:
+    - Steven H. Strogatz
+    - Daniel M. Abrams
+    - Allan McRobie
+    - Bruno Eckhardt
+    - Edward Ott
+    year: 2005
+    venue: Nature
+  area: seismic
+  keywords:
+  - footbridge vibration
+  - crowd synchrony
+  - lateral excitation
+  - Millennium Bridge
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - coupled oscillators
+  - modal dynamics
+  dependencies: []
+  complexity: low
+  relevance: Pedestrian-induced lateral vibration of a footbridge; the bridge's lateral modes come from Stabileo's
+    modal analysis, relevant to engineers designing footbridges. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: aage-2017
+  doi: 10.1038/nature23911
+  crossref:
+    title: Giga-voxel computational morphogenesis for structural design
+    authors:
+    - Niels Aage
+    - Erik Andreassen
+    - Boyan S. Lazarov
+    - Ole Sigmund
+    year: 2017
+    venue: Nature
+  area: optimization
+  keywords:
+  - topology optimization
+  - large-scale computing
+  - aircraft wing
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - topology optimization
+  - parallel multigrid
+  dependencies: []
+  complexity: high
+  relevance: Landmark large-scale topology optimization; context for the topology-optimization queue rather than
+    something to run in a browser. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []

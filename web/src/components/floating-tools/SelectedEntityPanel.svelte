@@ -432,7 +432,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
         title={t('float.rollerGlobalLabel')}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
-        title={t('float.rollerLocalLabel')}>Loc</button>
+        title={t('float.rollerLocalLabel')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
         <span>di:</span>
         <UnitInput value={selectedSup.dx ?? 0} qty="displacement" onchange={(v) => updateSupportField(selectedSup.id, 'dx', String(v))} unit={false} />
@@ -461,7 +461,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
         title={t('float.supportGlobalAxes')}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
-        title={t('float.supportLocalAxes')}>Loc</button>
+        title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
         <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />

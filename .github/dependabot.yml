@@ -11,6 +11,42 @@ updates:
       cargo-minor:
         update-types: [minor, patch]
 
+  - package-ecosystem: cargo
+    directory: /research/fracture/shauer-2025
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/fracture/shauer-2025/wasm
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/metamaterials/grossman-2026
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /research/metamaterials/grossman-2026/wasm
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /web
     schedule:

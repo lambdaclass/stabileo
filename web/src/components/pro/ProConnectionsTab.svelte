@@ -1250,7 +1250,7 @@
       {#if jointForces}
         <div class="conn-forces-table">
           <table>
-            <thead><tr><th>Elem</th><th>End</th><th>N</th><th>Vy</th><th>Vz</th><th>My</th><th>Mz</th></tr></thead>
+            <thead><tr><th>{t('pro.elemLabel')}</th><th>{t('report.ext')}</th><th>N</th><th>Vy</th><th>Vz</th><th>My</th><th>Mz</th></tr></thead>
             <tbody>
               {#each jointForces.elements as ef}
                 <tr>

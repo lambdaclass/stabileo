@@ -34,7 +34,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { dictFor, OFFERED_LOCALES } from '../store.svelte';
+import { allDictFor as dictFor, completeLocales } from '../locales/all';
+const OFFERED_LOCALES = completeLocales();
 
 const SRC = new URL('../../..', import.meta.url).pathname;
 

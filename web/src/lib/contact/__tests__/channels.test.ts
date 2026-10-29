@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { WHATSAPP_NUMBER, hasWhatsapp, whatsappUrl, contactChannels, SOCIAL_LINKS } from '../channels';
-import { OFFERED_LOCALES, dictFor } from '../../i18n/store.svelte';
+import { allDictFor as dictFor, completeLocales } from '../../i18n/locales/all';
 
 describe('the contact link', () => {
   it('either has no number, or one wa.me can use', () => {
@@ -68,7 +68,7 @@ describe('the three strings the menus translate', () => {
    */
   const KEYS = ['contact.linksTitle', 'contact.linksLabel', 'contact.waGreeting'];
 
-  for (const locale of OFFERED_LOCALES) {
+  for (const locale of completeLocales()) {
     it(`${locale} says all of them in its own words`, () => {
       const dict = dictFor(locale);
       const en = dictFor('en');

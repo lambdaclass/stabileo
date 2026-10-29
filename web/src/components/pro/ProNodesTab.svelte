@@ -2,7 +2,7 @@
   import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
@@ -242,7 +242,7 @@
   </div>
 
   {#if drawState.writing === 'node'}
-    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneNode')}`} submitLabel={`${t('pro.add')} ${t('pro.oneNode')}`} onsubmit={writeNode} error={wError} testid="write-node-card">
+    <WriteCard title={capitalized(tp('pro.writeWhat', { what: t('pro.oneNode') }))} submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.oneNode') }))} onsubmit={writeNode} error={wError} testid="write-node-card">
       <label>X <QuantityInput nullable cls="wc-num" bind:value={wX} quantity="length" placeholder="0" testid="write-node-x" /></label>
       <label>Y <QuantityInput nullable cls="wc-num" bind:value={wY} quantity="length" placeholder="0" testid="write-node-y" /></label>
       <label>Z <QuantityInput nullable cls="wc-num" bind:value={wZ} quantity="length" placeholder="0" testid="write-node-z" /></label>

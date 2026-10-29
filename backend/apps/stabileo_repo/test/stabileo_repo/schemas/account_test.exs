@@ -81,7 +81,7 @@ defmodule StabileoRepo.Schemas.AccountTest do
     end
 
     test "rejects an unknown locale" do
-      changeset = @valid |> Map.put(:locale, "fr") |> Account.registration_changeset()
+      changeset = @valid |> Map.put(:locale, "xx") |> Account.registration_changeset()
       assert %{locale: ["is invalid"]} = errors_on(changeset)
     end
 
@@ -155,7 +155,7 @@ defmodule StabileoRepo.Schemas.AccountTest do
     end
 
     test "rejects an unknown locale", %{account: account} do
-      changeset = Account.profile_changeset(account, %{locale: "fr"})
+      changeset = Account.profile_changeset(account, %{locale: "xx"})
       assert %{locale: ["is invalid"]} = errors_on(changeset)
     end
 
