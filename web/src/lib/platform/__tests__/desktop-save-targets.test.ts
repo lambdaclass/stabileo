@@ -37,13 +37,14 @@ vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn(async () => null) })
 
 import '../../i18n/full-dictionaries';
 import '../../store/index';
+import { designDrafts } from '../../store/design-drafts.svelte';
 import { modelStore } from '../../store/model.svelte';
 import { tabManager } from '../../store/tabs.svelte';
 import { deserializeProject, saveTextTo, serializeProject } from '../../store/file';
 import { uiStore } from '../../store/ui.svelte';
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
-import { confirmDiscard, openPath, saveActive, saveActiveAs, saveSessionAs, trackDocuments, unsavedTabs } from '../desktop.svelte';
+import { confirmDiscard, openPath, routePageFileControls, runCommand, takePendingFiles, saveActive, saveActiveAs, saveSessionAs, trackDocuments, unsavedTabs } from '../desktop.svelte';
 
 function nameModel(name: string): void {
   modelStore.clear();
@@ -252,4 +253,107 @@ it('refuses an entire hostile desktop session without replacing tabs', async () 
   expect(modelStore.model.name).toBe('existing');
   expect(tabManager.tabs.map((tab) => tab.id)).toEqual(ids);
   vi.unstubAllEnvs();
+});
+
+it('single-project replacement invalidates an in-flight save target', async () => {
+  designDrafts.clear();
+  nameModel('B');
+  files.set('/x/B-new.ded', serializeProject());
+  nameModel('A');
+  saveAnswers.push('/x/A-old.ded');
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  vi.mocked(invoke).mockImplementationOnce(async (_cmd, args: any) => {
+    files.set(args.path, args.content);
+    await pending;
+  });
+  const saving = saveActiveAs();
+  await vi.waitFor(() => expect(files.has('/x/A-old.ded')).toBe(true));
+  await openPath('/x/B-new.ded');
+  release();
+  await saving;
+  modelStore.model.name = 'B edited';
+  await saveActive();
+  expect(JSON.parse(files.get('/x/A-old.ded')!).name).toBe('A');
+  expect(JSON.parse(files.get('/x/B-new.ded')!).name).toBe('B edited');
+});
+
+it.each([false, true])('draft-only changes survive session Save (inactive=%s)', async (inactive) => {
+  designDrafts.clear();
+  tabManager.createTab();
+  trackDocuments();
+  const id = tabManager.activeTabId!;
+  const draft = { key: 'draft', members: [], label: 'Draft', draft: { spans: [] }, undo: [] } as any;
+  designDrafts.setFrame(draft);
+  if (inactive) tabManager.createTab();
+  expect(unsavedTabs()).toContain(id);
+  vi.mocked(message).mockResolvedValueOnce('Yes');
+  saveAnswers.push('/x/drafts-session.ded');
+  expect(await confirmDiscard()).toBe(true);
+  const session = JSON.parse(files.get('/x/drafts-session.ded')!);
+  expect(session.type).toBe('session');
+  expect(session.tabs.find((tab: any) => tab.id === id).design.drafts.frames).toEqual([draft]);
+  expect(unsavedTabs()).toEqual([]);
+  designDrafts.clear();
+});
+
+
+it('OS opens wait for the native save command to finish', async () => {
+  designDrafts.clear();
+  tabManager.createTab();
+  nameModel('B');
+  files.set('/x/queued-B.ded', serializeProject());
+  nameModel('A');
+  trackDocuments();
+  saveAnswers.push('/x/queued-A.ded');
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+    if (cmd === 'take_pending_files') return ['/x/queued-B.ded'] as any;
+    if (cmd === 'atomic_save') {
+      files.set(args.path, args.content);
+      await pending;
+    }
+  });
+  try {
+    runCommand('save_as');
+    await vi.waitFor(() => expect(files.has('/x/queued-A.ded')).toBe(true));
+    const opening = takePendingFiles();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(modelStore.model.name).toBe('A');
+    release();
+    await opening;
+    expect(modelStore.model.name).toBe('B');
+    expect(JSON.parse(files.get('/x/queued-A.ded')!).name).toBe('A');
+  } finally {
+    release();
+    vi.mocked(invoke).mockImplementation(async (cmd, args: any) => {
+      if (cmd === 'atomic_save') files.set(args.path, args.content);
+    });
+  }
+});
+
+it('routes only explicitly marked project pickers', () => {
+  let click!: (event: any) => void;
+  vi.stubGlobal('document', {
+    addEventListener: (type: string, listener: typeof click) => { if (type === 'click') click = listener; },
+    createElement: () => ({}),
+    head: { appendChild: () => undefined },
+  });
+  vi.stubGlobal('window', { addEventListener: () => undefined });
+  try {
+    routePageFileControls();
+    for (const marked of [false, true]) {
+      const preventDefault = vi.fn();
+      const stopImmediatePropagation = vi.fn();
+      click({
+        target: { tagName: 'INPUT', type: 'file', accept: '.ded,.json', hasAttribute: () => marked },
+        preventDefault, stopImmediatePropagation,
+      });
+      expect(preventDefault).toHaveBeenCalledTimes(marked ? 1 : 0);
+      expect(stopImmediatePropagation).toHaveBeenCalledTimes(marked ? 1 : 0);
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

@@ -169,3 +169,18 @@ it('refuses nonlinear main-thread calculations and releases the gate after relau
   expect(log).toContain('accept-jobs');
   expect(() => solveNonlinearMaterial3D({})).not.toThrow(en('updateRefuseJobs'));
 });
+
+it('reserves the offer while its dialog is pending', async () => {
+  const log: string[] = [];
+  let answer!: (value: string) => void;
+  const dialog = new Promise<string>((resolve) => { answer = resolve; });
+  const d = deps(log, { message: vi.fn(() => dialog) as UpdaterDeps['message'] });
+  const update = fakeUpdate(log);
+  const first = offer(update, d);
+  await vi.waitFor(() => expect(d.message).toHaveBeenCalledTimes(1));
+  expect(await offer(update, d)).toBe('busy');
+  answer('Ok');
+  expect(await first).toBe('installed');
+  expect(update.download).toHaveBeenCalledTimes(1);
+  expect(update.install).toHaveBeenCalledTimes(1);
+});

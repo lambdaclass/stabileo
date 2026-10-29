@@ -9,7 +9,14 @@ fn temporary(path: &Path) -> io::Result<(PathBuf, File)> {
     for _ in 0..100 {
         let name = format!(".stabileo-{}-{}.tmp", std::process::id(), SEQUENCE.fetch_add(1, Ordering::Relaxed));
         let temp = path.with_file_name(name);
-        match OpenOptions::new().write(true).create_new(true).open(&temp) {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&temp) {
             Ok(file) => return Ok((temp, file)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
@@ -44,6 +51,7 @@ fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io
     }
     let (temp, mut file) = temporary(path)?;
     let result = (|| {
+        if let Ok(metadata) = fs::metadata(path) { file.set_permissions(metadata.permissions())?; }
         write(&mut file)?;
         file.sync_all()?;
         drop(file);
@@ -53,6 +61,7 @@ fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io
             let backup = PathBuf::from(backup_name);
             let (backup_temp, mut backup_file) = temporary(path)?;
             let backed_up = (|| {
+                backup_file.set_permissions(fs::metadata(path)?.permissions())?;
                 io::copy(&mut File::open(path)?, &mut backup_file)?;
                 backup_file.sync_all()?;
                 drop(backup_file);
@@ -73,6 +82,21 @@ fn save_with(path: &Path, write: impl FnOnce(&mut File) -> io::Result<()>) -> io
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn preserves_private_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = std::env::temp_dir().join(format!("stabileo-private-{}.ded", std::process::id()));
+        fs::write(&path, "private").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        save(&path, b"new private").unwrap();
+        let backup = path.with_extension("ded.bak");
+        for file in [&path, &backup] {
+            assert_eq!(fs::metadata(file).unwrap().permissions().mode() & 0o777, 0o600);
+            fs::remove_file(file).unwrap();
+        }
+    }
+
     #[test]
     fn replacement_keeps_backup_and_failed_write_keeps_original() {
         let dir = std::env::temp_dir().join(format!("stabileo-save-test-{}", std::process::id()));

@@ -20,10 +20,13 @@ export function externalHttps(href: string, base = location.href): string | null
   return url.href;
 }
 
+const generatedBlobs = new Set<string>();
+
 function local(href: string): boolean {
   try {
     const url = new URL(href, location.href);
-    return url.origin === location.origin && url.protocol === location.protocol;
+    if (url.protocol === 'blob:' && generatedBlobs.has(url.href)) return true;
+    return url.origin === location.origin && (url.protocol === location.protocol || (url.protocol === 'blob:' && url.origin !== 'null'));
   } catch { return false; }
 }
 
@@ -36,6 +39,19 @@ let installed = false;
 export function routeExternalLinks(): void {
   if (installed) return;
   installed = true;
+  const create = URL.createObjectURL?.bind(URL);
+  const revoke = URL.revokeObjectURL?.bind(URL);
+  if (create && revoke) {
+    URL.createObjectURL = (blob) => {
+      const url = create(blob);
+      generatedBlobs.add(url);
+      return url;
+    };
+    URL.revokeObjectURL = (url) => {
+      generatedBlobs.delete(url);
+      revoke(url);
+    };
+  }
 
   document.addEventListener(
     'click',

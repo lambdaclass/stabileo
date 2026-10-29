@@ -12,6 +12,7 @@ import { message, open, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { buildProjectFile, loadFile, projectPayload, serializeProject, sessionPayload } from '../store/file';
 import { modelStore } from '../store/model.svelte';
+import { designDrafts } from '../store/design-drafts.svelte';
 import { historyStore } from '../store/history.svelte';
 import { tabManager, type TabState } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
@@ -29,6 +30,7 @@ const DED_FILTERS = [{ name: 'Stabileo', extensions: ['ded', 'json'] }];
 
 /** Each tab's file and saved state (`./document-state.ts`). */
 const docs = new DocumentState();
+const sessionTabs = new Set<string>();
 
 let dirty = $state(false);
 let titleName = $state('');
@@ -41,15 +43,14 @@ function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-/** What Save writes for the active tab: its name and model, from the live stores. */
 function liveFingerprint(): number {
   const { timestamp, version, appMode, ...persisted } = buildProjectFile();
-  return hash(JSON.stringify(persisted));
+  if (designDrafts.count) sessionTabs.add(activeTab());
+  return hash(JSON.stringify({ ...persisted, drafts: designDrafts.capture() }));
 }
 
-/** The same for a tab that is not active, from the state the tab manager keeps for it. */
 function storedFingerprint(tab: TabState): number {
-  return hash(JSON.stringify({ name: tab.name, snapshot: tab.modelSnapshot, analysisMode: tab.analysisMode, axisConvention3D: tab.axisConvention3D, viewportPresentation3D: tab.viewportPresentation3D, includeSelfWeight: tab.includeSelfWeight, selfWeightCaseId: tab.selfWeightCaseId ?? null }));
+  return hash(JSON.stringify({ name: tab.name, snapshot: tab.modelSnapshot, analysisMode: tab.analysisMode, axisConvention3D: tab.axisConvention3D, viewportPresentation3D: tab.viewportPresentation3D, includeSelfWeight: tab.includeSelfWeight, selfWeightCaseId: tab.selfWeightCaseId ?? null, drafts: tab.design?.drafts ?? { frames: [] } }));
 }
 
 function activeTab(): string {
@@ -151,8 +152,11 @@ export async function openPath(path: string): Promise<void> {
     const result = await loadFile(new File([text], baseName(path), { type: 'application/json' }));
     if (result.type === 'session') {
       uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
+      sessionTabs.clear();
       docs.replaceAll(tabDocs());
     } else {
+      docs.generation++;
+      sessionTabs.delete(activeTab());
       docs.markSaved(activeDoc(), path);
     }
     refreshState();
@@ -187,6 +191,7 @@ function captured(doc: TabDoc): TabDoc {
 
 /** Save the active tab to its file, or ask where when it has none. */
 export async function saveActive(): Promise<boolean> {
+  if (designDrafts.count || sessionTabs.has(activeTab())) return saveSessionAs();
   const path = docs.path(activeTab());
   if (!path) return saveActiveAs();
   const doc = captured(activeDoc());
@@ -197,6 +202,7 @@ export async function saveActive(): Promise<boolean> {
 }
 
 export async function saveActiveAs(): Promise<boolean> {
+  if (designDrafts.count || sessionTabs.has(activeTab())) return saveSessionAs();
   const doc = captured(activeDoc());
   const { content, filename } = projectPayload();
   const picked = await save({ defaultPath: docs.path(activeTab()) ?? filename, filters: DED_FILTERS });
@@ -256,6 +262,13 @@ async function quit(): Promise<void> {
  * own shortcut can both fire for one key press, depending on the system's webview.
  */
 let running: string | null = null;
+let fileCommands: Promise<unknown> = Promise.resolve();
+
+function enqueue(action: () => Promise<unknown>): Promise<unknown> {
+  const result = fileCommands.then(action, action);
+  fileCommands = result.catch(() => undefined);
+  return result;
+}
 let lastRun = { cmd: '', at: 0 };
 
 export function runCommand(cmd: string): void {
@@ -277,15 +290,15 @@ export function runCommand(cmd: string): void {
     }
   };
   running = cmd;
-  void go()
+  void enqueue(go)
     .catch((err) => uiStore.toast(err instanceof Error ? err.message : String(err), 'error'))
     .finally(() => { running = null; lastRun.at = Date.now(); });
 }
 
 let pendingDrain: Promise<void> = Promise.resolve();
 
-function takePendingFiles(): Promise<void> {
-  pendingDrain = pendingDrain.then(drainPendingFiles, drainPendingFiles);
+export function takePendingFiles(): Promise<void> {
+  pendingDrain = pendingDrain.then(() => enqueue(drainPendingFiles), () => enqueue(drainPendingFiles)).then(() => undefined);
   return pendingDrain;
 }
 
@@ -303,14 +316,13 @@ async function drainPendingFiles(): Promise<void> {
  * instead of the webview's picker, and the file shortcuts run the same commands as the menu (whose
  * accelerators may fire too; `runCommand` runs a command once).
  */
-const PROJECT_ACCEPT = '.ded,.json';
 
-function routePageFileControls(): void {
+export function routePageFileControls(): void {
   document.addEventListener(
     'click',
     (e) => {
       const input = e.target as HTMLInputElement | null;
-      if (input?.tagName === 'INPUT' && input.type === 'file' && input.accept === PROJECT_ACCEPT) {
+      if (input?.tagName === 'INPUT' && input.type === 'file' && input.hasAttribute('data-project-input')) {
         e.preventDefault();
         e.stopImmediatePropagation();
         runCommand('open');

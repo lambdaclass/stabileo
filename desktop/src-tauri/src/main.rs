@@ -154,7 +154,7 @@ fn append_log<R: Runtime>(app: &AppHandle<R>, line: &str) {
     }
     let path = dir.join("stabileo.log");
     if fs::metadata(&path).map(|m| m.len() > LOG_MAX).unwrap_or(false) {
-        let _ = fs::rename(&path, dir.join("stabileo.old.log"));
+        if rotate_log(&path, &dir.join("stabileo.old.log")).is_err() { return; }
     }
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
         let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
@@ -348,4 +348,28 @@ fn main() {
         }
         _ => {}
     });
+}
+
+fn rotate_log(path: &std::path::Path, old: &std::path::Path) -> std::io::Result<()> {
+    match fs::remove_file(old) {
+        Ok(()) => {},
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+        Err(error) => return Err(error),
+    }
+    fs::rename(path, old)
+}
+
+#[test]
+fn repeated_log_rotation() {
+    let dir = std::env::temp_dir().join(format!("stabileo-log-test-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("current");
+    let old = dir.join("old");
+    for content in ["first", "second", "third"] {
+        fs::write(&path, content).unwrap();
+        rotate_log(&path, &old).unwrap();
+        assert_eq!(fs::read_to_string(&old).unwrap(), content);
+        assert!(!path.exists());
+    }
+    fs::remove_dir_all(dir).unwrap();
 }

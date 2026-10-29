@@ -12,7 +12,6 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "fs:allow-read-text-file",
-    "fs:allow-write-text-file",
     "updater:default",
     "process:allow-restart",
     {

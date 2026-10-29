@@ -104,6 +104,7 @@
   data-testid="project-open-file"
   type="file"
   accept=".ded,.json"
+  data-project-input
   style="display:none"
   onchange={handleLoadFile}
 />

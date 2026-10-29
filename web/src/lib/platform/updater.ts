@@ -66,8 +66,19 @@ function tx(k: Parameters<typeof desktopText>[1]): string {
 export type OfferOutcome = 'installed' | 'declined' | 'cancelled' | 'busy' | 'link' | 'failed';
 
 /** Offer `update`; install it only after the user accepts and unsaved work is dealt with. */
+let offering = false;
+
 export async function offer(update: Update, d: UpdaterDeps): Promise<OfferOutcome> {
-  if (updateInProgress()) return 'busy';
+  if (offering || updateInProgress()) return 'busy';
+  offering = true;
+  try {
+    return await offerReserved(update, d);
+  } finally {
+    offering = false;
+  }
+}
+
+async function offerReserved(update: Update, d: UpdaterDeps): Promise<OfferOutcome> {
   const notes = update.body?.trim() ? `\n\n${update.body.trim()}` : '';
   const head = tx('updateBody').replace('{version}', update.version).replace('{current}', update.currentVersion);
   if (!(await d.canSelfUpdate())) {
