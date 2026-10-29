@@ -77,18 +77,15 @@ ROI order for users:
 4. **A public verification manual,** generated from the engine benchmarks, the metamorphic suite and the
    certificates: every case runnable in the browser, failures shown honestly, always current. A trust
    asset no commercial PDF manual matches, and it ranks for "verification" searches.
-5. **Universities:** free classroom accounts, assignments as forkable models, classic textbook problems
-   (Hibbeler, Timoshenko) as ready examples, a professor view of submissions. Students become engineers
-   who use Stabileo; it feeds Research and shared models.
-6. **Import from the programs engineers already use** (SAP2000 `.s2k`, ETABS `.e2k`, IFC, DXF) and
+5. **Import from the programs engineers already use** (SAP2000 `.s2k`, ETABS `.e2k`, IFC, DXF) and
    export reports they can hand in: removes the biggest switching cost.
-7. **Latin American codes:** NBR (Brazil), NSR-10 (Colombia), NTE E.030/E.060 (Peru), NCh (Chile) next to
+6. **Latin American codes:** NBR (Brazil), NSR-10 (Colombia), NTE E.030/E.060 (Peru), NCh (Chile) next to
    CIRSOC, each with independent sign-off (#450): the obvious choice in a region served poorly and
    expensively.
 
 **Growth channels, alongside:** Stabileo Research, Stabileo Tools and shared models (section "Growth"
 below), with search work, previews, phone and tablet quality and frozen citable versions as multipliers.
-**Supporting:** a community (forum or Discord, model of the week, short walkthrough videos, university
+**Supporting:** universities when there's capacity (free classroom accounts, assignments as forkable models, textbook problems as examples); a community (forum or Discord, model of the week, short walkthrough videos, university
 webinars), institutions (professional councils, INTI/CIRSOC, Ergodic Group's network),
 privacy-respecting analytics to see which tools, papers and shares turn into engineers who return, and
 the AI assistant once results are trustworthy.
