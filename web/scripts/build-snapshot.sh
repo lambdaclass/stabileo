@@ -5,9 +5,10 @@
 # GITHUB_SHA when set (CI: the commit being built), else HEAD.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-commit=${GITHUB_SHA:-$(git rev-parse HEAD)}
+commit=${SNAPSHOT_COMMIT:-${GITHUB_SHA:-$(git rev-parse HEAD)}}
 [ "$(git rev-parse HEAD)" = "$commit" ] || { echo "build-snapshot: HEAD is not $commit" >&2; exit 1; }
 export BASE_PATH="/@${commit:0:7}/" SNAPSHOT_COMMIT="$commit"
 npx vite build --outDir dist-snapshot --emptyOutDir
 PRERENDER_OUT=dist-snapshot npx tsx scripts/prerender.ts
+python3 scripts/snapshot-manifest.py dist-snapshot
 echo "snapshot ${BASE_PATH}: $(du -sk dist-snapshot | cut -f1) KiB in web/dist-snapshot"

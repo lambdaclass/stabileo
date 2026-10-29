@@ -1,0 +1,47 @@
+- name: Install a research snapshot
+  hosts: app
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Validate snapshot commit
+      assert:
+        that: commit_sha is match('^[0-9a-f]{40}$')
+
+    - name: Create snapshot store
+      file:
+        path: "{{ snapshots_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Stage and install snapshot
+      block:
+        - name: Allocate staging directory
+          tempfile:
+            state: directory
+            path: "{{ snapshots_dir }}"
+            prefix: .upload-
+          register: staging
+
+        - name: Check space before upload and extraction
+          shell: |
+            python3 - {{ snapshots_dir | quote }} {{ snapshot_size | int }} {{ snapshot_min_free_mb | int }} <<'PY'
+            import shutil, sys
+            assert shutil.disk_usage(sys.argv[1]).free >= int(sys.argv[2]) * 3 + int(sys.argv[3]) * 1024**2, 'insufficient snapshot disk space'
+            PY
+          changed_when: false
+
+        - name: Ship snapshot over SSH
+          unarchive:
+            src: "{{ snapshot_archive }}"
+            dest: "{{ staging.path }}"
+
+        - name: Install write-once assets and publish index
+          script:
+            cmd: scripts/snapshot_store.py install --root {{ snapshots_dir | quote }} --source {{ staging.path | quote }} --commit {{ commit_sha | quote }} --reserve-mb {{ snapshot_min_free_mb | int }}
+            executable: python3
+      always:
+        - name: Remove upload staging directory
+          file:
+            path: "{{ staging.path }}"
+            state: absent
+          when: staging.path is defined
