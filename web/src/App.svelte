@@ -13,6 +13,7 @@
   import { authStore } from './lib/store/auth.svelte';
   import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
+  import ContainmentBanner from './components/ContainmentBanner.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
   import PlacementHud from './components/pro/PlacementHud.svelte';
@@ -1912,11 +1913,13 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
+        <ContainmentBanner disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
         {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}
           <Viewport3D />
         {/if}
+        </ContainmentBanner>
         {#if uiStore.appMode === 'pro'}<PlacementHud />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->

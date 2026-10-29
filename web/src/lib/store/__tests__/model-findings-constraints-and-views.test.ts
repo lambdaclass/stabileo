@@ -42,7 +42,7 @@ describe('isolated-node gate vs member-offset helper topology', () => {
     for (const d of ds) for (const id of d.nodeIds ?? []) expect(model.has(id)).toBe(true);
   });
 
-  it('a valid offset cantilever (parallel offset, same answer as no offset) carries no warning', () => {
+  it('a valid offset cantilever (parallel offset, same answer as no offset) reports only the applicable containment warning', () => {
     cantilever3D('none');
     const plain = modelStore.solve3D(false, false, true) as any;
     cantilever3D('parallel');
@@ -53,10 +53,10 @@ describe('isolated-node gate vs member-offset helper topology', () => {
     expect(tip(off)).toBeCloseTo(tip(plain), 8);
     resultsStore.setResults3D(off);
     const warnings = resultsStore.structuredDiagnostics3D.filter((d) => d.severity !== 'info');
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual([expect.objectContaining({ code: 'known_issue', severity: 'warning', details: { value: 762 }, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (#762)" })]);
   });
 
-  it('a valid 2D frame with a sliding joint carries no warning', () => {
+  it('a valid 2D frame with a sliding joint reports only the applicable containment warning', () => {
     modelStore.clear();
     const n1 = modelStore.addNode(0, 0);
     const n2 = modelStore.addNode(2, 0);
@@ -71,7 +71,7 @@ describe('isolated-node gate vs member-offset helper topology', () => {
     expect(typeof r).not.toBe('string');
     resultsStore.setResults(r as any);
     const warnings = resultsStore.structuredDiagnostics.filter((d) => d.severity !== 'info');
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual([expect.objectContaining({ code: 'known_issue', severity: 'warning', details: { value: 466 }, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping (#466)" })]);
   });
 });
 

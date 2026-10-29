@@ -3,6 +3,7 @@
 import { carryCertifyJob } from '../engine/certify-tags';
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
+import { knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
@@ -1378,10 +1379,17 @@ function createResultsStore() {
     // With no single solve (combinations published on their own), a load case
     // carries the gates' findings; a combination or the envelope does not.
     get structuredDiagnostics(): SolverDiagnostic[] {
-      return findingsOf(singleResults ?? perCase.values().next().value ?? results);
+      return [...findingsOf(singleResults ?? perCase.values().next().value ?? results), ...findingsOf(modalResult), ...findingsOf(spectralResult)];
     },
     get structuredDiagnostics3D(): SolverDiagnostic[] {
-      return findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D);
+      return [...findingsOf(singleResults3D ?? perCase3D.values().next().value ?? results3D), ...findingsOf(modalResult3D), ...findingsOf(bucklingResult3D), ...findingsOf(spectralResult3D)];
+    },
+
+    get knownIssues() {
+      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
+    },
+    get knownIssues3D() {
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, movingLoadEnvelope, influenceLine]);
     },
 
     get maxDisplacement(): number {

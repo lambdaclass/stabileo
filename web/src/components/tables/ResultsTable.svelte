@@ -2,7 +2,7 @@
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { knownIssueMessage } from '../../lib/engine/known-issues';
+  import { knownIssueMessage, knownIssueDisposition } from '../../lib/engine/known-issues';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
@@ -57,10 +57,16 @@
     return items;
   })());
 
+  const containment = $derived(knownIssueDisposition(allDiagnostics.map(d => ({ ...d, code: d.type }))));
+
   /** Individual load cases, in the order the solver produced them. */
   const caseKeys = $derived([...resultsStore.perCase.keys()]);
 </script>
 
+{#each containment.messages as message}
+  <div role="alert" class="containment-banner">{message}</div>
+{/each}
+{#if !containment.refused}
 <!--
   Which load state the table describes.
   
@@ -272,7 +278,10 @@
   {/if}
 </div>
 
+{/if}
+
 <style>
+  .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
   .results-case-bar {
     display: flex;
     align-items: center;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { knownIssueDisposition } from '../../../lib/engine/known-issues';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * Time history: the ground motion, the run, and the response walked step by step.
@@ -95,6 +96,7 @@
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
+  const containment = $derived(knownIssueDisposition(result?.structuredDiagnostics));
   const stale = $derived(!!result && timeHistoryView.modelVersion !== modelStore.modelVersion);
 
   /** Run a record through: enough steps at the current dt to reach its last sample. */
@@ -192,7 +194,8 @@
 
   <button class="adv-run-btn" onclick={run} disabled={disabled || running} data-testid="th-run">{t('pro.run')}</button>
 
-  {#if result}
+  {#each containment.messages as message}<div role="alert">{message}</div>{/each}
+  {#if result && !containment.refused}
     <div class="adv-inline" data-testid="th-summary">
       {#if peakDisp != null}δmax = {fmt(peakDisp * 1000)} mm{/if}
       {#if result.peakReactions?.length} — {t('pro.thBaseShearAtPeak')} = {fmt(peakBaseShear(result.peakReactions))} kN{/if}

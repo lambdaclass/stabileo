@@ -22,6 +22,7 @@ export interface NodeTimeHistory3D {
 }
 
 export interface TimeHistoryResult3D {
+  structuredDiagnostics?: import('../engine/types').StructuredDiagnostic[];
   timeSteps: number[];
   nodeHistories: NodeTimeHistory3D[];
   peakDisplacements: Array<{ nodeId: number; ux: number; uy: number; uz: number }>;

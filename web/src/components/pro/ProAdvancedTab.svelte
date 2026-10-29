@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { knownIssueDisposition, knownIssueResultDisposition } from '../../lib/engine/known-issues';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
@@ -1029,7 +1030,8 @@
         <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving} data-testid="adv-run-pdelta">P-Delta</button>
         <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
-      {#if pdeltaResult}
+      {#each knownIssueResultDisposition(pdeltaResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if pdeltaResult && !knownIssueResultDisposition(pdeltaResult).refused}
         <div class="adv-inline" data-testid="pdelta-summary">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
           — {pdeltaResult.stable ? t('advanced.stable') : t('advanced.unstable')}
@@ -1055,7 +1057,8 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
-      {#if modalResult}
+      {#each knownIssueResultDisposition(modalResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if modalResult && !knownIssueResultDisposition(modalResult).refused}
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
@@ -1148,7 +1151,8 @@
       {#if !modalResult}
         <div class="adv-hint">{t('pro.requiresModal')}</div>
       {/if}
-      {#if spectralResult}
+      {#each knownIssueResultDisposition(spectralResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if spectralResult && !knownIssueResultDisposition(spectralResult).refused}
         <div class="adv-inline" data-testid="spectral-base-shear">
           Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
@@ -1182,7 +1186,8 @@
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
-      {#if bucklingResult}
+      {#each knownIssueResultDisposition(bucklingResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if bucklingResult && !knownIssueResultDisposition(bucklingResult).refused}
         {#if bucklingElapsed != null}
           <div class="adv-inline">{bucklingElapsed >= 1000 ? (bucklingElapsed / 1000).toFixed(2) + ' s' : bucklingElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}</div>
         {/if}
@@ -1261,7 +1266,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
-      {#if harmResult}
+      {#each knownIssueDisposition(harmResult?.structuredDiagnostics).messages as message}<div role="alert">{message}</div>{/each}
+      {#if harmResult && !knownIssueDisposition(harmResult.structuredDiagnostics).refused}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
           {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}
@@ -1324,7 +1330,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
-      {#if nlResult}
+      {#each knownIssueResultDisposition(nlResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if nlResult && !knownIssueResultDisposition(nlResult).refused}
         <!--
           Each of the three runs returns a different result type, and the panel
           read fields none of them has (`loadFactor`, `numHinges`), so a
@@ -1363,7 +1370,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
-      {#if imperfResult}
+      {#each knownIssueResultDisposition(imperfResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if imperfResult && !knownIssueResultDisposition(imperfResult).refused}
         <div class="adv-inline">
           <!-- The engine returns the solved model, not a summary of the
                imperfection: report the drift it actually produced. -->
@@ -1411,7 +1419,8 @@
         {/if}
         <button class="adv-run-btn" onclick={handleWinkler} disabled={!hasModel || solving || !wasmAvailable || winklerSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveWinkler')}</button>
       </div>
-      {#if winklerResult}
+      {#each knownIssueResultDisposition(winklerResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if winklerResult && !knownIssueResultDisposition(winklerResult).refused}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
         <!-- Winkler is a linear solve on a modified stiffness: it returns the
              results themselves, with no iteration count to report. The panel
@@ -1496,7 +1505,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleSSI} disabled={!hasModel || solving || !wasmAvailable || ssiSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveSsi')}</button>
       </div>
-      {#if ssiResult}
+      {#each knownIssueResultDisposition(ssiResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if ssiResult && !knownIssueResultDisposition(ssiResult).refused}
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {ssiResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {ssiResult.iterations ?? '?'}</span>
@@ -1563,7 +1573,8 @@
         {/each}
         <button class="adv-run-btn" onclick={handleStaged} disabled={!hasModel || solving || !wasmAvailable || stages.length === 0}>{solving ? t('pro.solving') : t('pro.solveStaged')}</button>
       </div>
-      {#if stagedResult}
+      {#each knownIssueResultDisposition(stagedResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if stagedResult && !knownIssueResultDisposition(stagedResult).refused}
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
           {#if stagedResult.stages}
@@ -1602,7 +1613,8 @@
         <button class="adv-btn-sm" onclick={addCreepStep}>{t('pro.addStep')}</button>
         <button class="adv-run-btn" onclick={handleCreep} disabled={!hasModel || solving || !wasmAvailable || creepTimeSteps.length === 0}>{solving ? t('pro.calculating') : t('pro.calcCreep')}</button>
       </div>
-      {#if creepResult}
+      {#each knownIssueResultDisposition(creepResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if creepResult && !knownIssueResultDisposition(creepResult).refused}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
         <!-- Creep is reported PER STEP; there is no single φ on the result. -->
         {#if creepResult.steps?.length}
@@ -1726,7 +1738,8 @@
         {/if}
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
-      {#if secResult}
+      {#each knownIssueResultDisposition(secResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if secResult && !knownIssueResultDisposition(secResult).refused}
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->
         <div class="adv-inline">

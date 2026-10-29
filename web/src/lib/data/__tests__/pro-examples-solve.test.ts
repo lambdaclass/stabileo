@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from '../../engine/__tests__/containment-helper';
 /**
  * Every fixture-based PRO example, loaded through its card, solves every combination the card
  * builds, and its statics close in forces. The corrections the cards apply are checked where they
@@ -22,11 +23,6 @@ const resultant = (r: { reactions: Array<{ fx: number; fy: number; fz: number }>
 describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.id, e] as const))('%s', (id, ex) => {
   it('solves every combination its card builds', async () => {
     await ex.load();
-    const r = modelStore.solveCombinations3D(true, false, true);
-    if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
-    expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(modelStore.combinations.length);
-    expect(r.unstable ?? []).toEqual([]);
-
     // Every steel material declares its grade, so steel design can check the members.
     for (const m of modelStore.materials.values()) {
       if (/acero|steel/i.test(m.name) && !/cable/i.test(m.name)) {
@@ -41,9 +37,21 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
       for (const c of modelStore.combinations) for (const m of c.name.matchAll(/\d(?:\.\d+)?\s*([A-Z][a-z]?)\b/g)) expect(types, `${c.name}`).toContain(m[1]);
     }
 
+    if (['full-stadium', 'la-bombonera', 'cad-arch-structure-dxf'].includes(id)) {
+      expectMembraneRefusal(() => modelStore.solveCombinations3D(true, false, true));
+      // Post-fix numerical expectations: all combinations stable, vertical dead load,
+      // horizontal resultant <1e-6*v, wind resultant >1000 and vertical wind <1e-6*wind.
+      return;
+    }
+    const r = modelStore.solveCombinations3D(true, false, true);
+    if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
+    expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(modelStore.combinations.length);
+    expect(r.unstable ?? []).toEqual([]);
+
     const dead = modelStore.model.loadCases.find((c) => c.type === 'D')!;
     const d = r.perCase.get(dead.id)!;
     const [hx, hy, v] = resultant(d);
+    /* #798 post-fix numerical expectations:
     if (id === 'la-bombonera') {
       // Dead load down, and nothing sideways under it: it was written for a Y-up model. Its wind
       // is a wind: sideways, and nothing down (it once added 14.6 MN of downward load).
@@ -54,6 +62,7 @@ describe.each(PRO_EXAMPLES.filter((e) => e.source === 'fixture').map((e) => [e.i
       expect(Math.hypot(wx, wy)).toBeGreaterThan(1000);
       expect(Math.abs(wv)).toBeLessThan(1e-6 * Math.hypot(wx, wy));
     }
+    */
     if (id === 'xl-diagrid-tower') {
       expect(Math.hypot(hx, hy)).toBeLessThan(1e-6 * v);
       const w = modelStore.model.loadCases.find((c) => c.type === 'W')!;

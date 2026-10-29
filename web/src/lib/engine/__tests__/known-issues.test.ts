@@ -1,5 +1,9 @@
+import { render } from 'svelte/server';
+import { createRawSnippet } from 'svelte';
+import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, afterEach } from 'vitest';
-import { knownIssueMessage } from '../known-issues';
+import { knownIssueMessage, knownIssueDisposition, knownIssueRefusal, knownIssueResultDisposition } from '../known-issues';
 import { setLocale } from '../../i18n';
 
 afterEach(() => setLocale('en'));
@@ -42,11 +46,39 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('has a sentence for every finding the engine contains, in es, en and pt', () => {
-    for (const id of ['NL-5']) {
+    const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
+    const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
+    expect(ids.length).toBeGreaterThan(1);
+    for (const id of ids) {
       for (const loc of ['es', 'en', 'pt'] as const) {
         setLocale(loc);
         expect(knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' }), `${id} ${loc}`).not.toBe('ENGINE');
       }
     }
+  });
+});
+
+
+describe('containment modes', () => {
+  const warning = { code: 'known_issue', severity: 'warning', phase: 'NL-5', value: 428, message: 'Approximate' };
+  it('WARN keeps results visible and provides an issue banner', () => {
+    const state = knownIssueDisposition([warning]);
+    expect(state.refused).toBe(false);
+    expect(state.messages[0]).toContain('#428');
+    const html = render(ContainmentBanner, { props: { disposition: state, children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('#428');
+    expect(html).toContain('123.45');
+    expect(knownIssueResultDisposition({ results: { structuredDiagnostics: [warning] } }).messages[0]).toContain('#428');
+  });
+  it('REFUSE hides results and translates the structured engine refusal', () => {
+    const refusal = { ...warning, severity: 'error' };
+    expect(knownIssueDisposition([refusal]).refused).toBe(true);
+    const html = render(ContainmentBanner, { props: { disposition: knownIssueDisposition([refusal]), children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+    expect(html).toContain('#428');
+    expect(html).not.toContain('123.45');
+    expect(knownIssueResultDisposition({ steps: [{ results: { structuredDiagnostics: [refusal] } }] }).refused).toBe(true);
+    expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [refusal] }))).toContain('#428');
+    expect(knownIssueRefusal('ordinary error')).toBeNull();
   });
 });

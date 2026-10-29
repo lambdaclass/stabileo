@@ -1,3 +1,4 @@
+import { expectMembraneRefusalAsync } from '../../../engine/__tests__/containment-helper';
 /**
  * The seven validation models, solved as the app solves them, against their baselines.
  *
@@ -55,6 +56,12 @@ async function solved(id: ValidationModelId) {
 
 describe.each(Object.keys(VALIDATION_MODELS) as ValidationModelId[])('%s', (id) => {
   it('matches its baseline' + (REF ? ', and writes its workbook' : ''), async () => {
+    if (id === 'validation-03') {
+      await expectMembraneRefusalAsync(() => solved(id));
+      // Post-fix numerical expectations remain unmodified in BASELINES:
+      // await solved(id); expectBaseline(BASELINES, id);
+      return;
+    }
     await solved(id);
     // The baseline reads the results only, at 5 stations, which is quick for every model.
     expectBaseline(BASELINES, id);

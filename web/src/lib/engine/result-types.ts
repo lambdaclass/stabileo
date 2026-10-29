@@ -126,6 +126,7 @@ export interface RayleighDamping {
 }
 
 export interface ModalResult {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   modes: ModeShape[];
   nDof: number;
   totalMass: number;
@@ -155,6 +156,7 @@ export interface ModeShape3D {
 }
 
 export interface ModalResult3D {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   modes: ModeShape3D[];
   nDof: number;
   totalMass: number;
@@ -210,6 +212,7 @@ export interface ElementBucklingData3D {
 }
 
 export interface BucklingResult3D {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   modes: BucklingMode3D[];
   nDof: number;
   elementData: ElementBucklingData3D[];
@@ -254,6 +257,7 @@ export interface SpectralConfig {
 }
 
 export interface SpectralResult {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>;
   elementForces: Array<{
     elementId: number;
@@ -281,6 +285,7 @@ export interface SpectralConfig3D {
 }
 
 export interface SpectralResult3D {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   baseShear: number;
   results: AnalysisResults3D;
   perMode: Array<{

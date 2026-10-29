@@ -7,7 +7,7 @@
 import { it, expect } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { CORPUS, type SnapshotCase } from './corpus';
-import { capture, type Snapshot } from './capture';
+import { capture, containmentFindings, type Snapshot } from './capture';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, formatCaseReport, HOW_TO_REGISTER, serialiseSnapshot, parseSnapshot } from '../../../scripts/results-snapshot/compare.mjs';
 
@@ -28,6 +28,27 @@ export function runGroup(group: SnapshotCase['group']): void {
     it(c.name, async () => {
       const fresh = await capture(c);
       const committed = read(c.name);
+      if (process.env.CONTAINMENT_AUDIT_DIR) {
+        mkdirSync(process.env.CONTAINMENT_AUDIT_DIR, { recursive: true });
+        writeFileSync(`${process.env.CONTAINMENT_AUDIT_DIR}/${c.name}.json`, JSON.stringify({ findings: [...containmentFindings], fresh, diff: compareValues(committed?.values ?? {}, fresh.values) }, null, 2));
+      }
+      if (process.env.CONTAINMENT_UPDATE_DIAGNOSTICS === '1') {
+        expect(committed).not.toBeNull();
+        const diff = compareValues(committed!.values, fresh.values);
+        expect(diff.removed).toEqual([]);
+        expect(diff.added).toEqual([]);
+        expect(diff.changed.filter((d: { path: string }) => !d.path.endsWith('.diagnosticCodes'))).toEqual([]);
+        // Copy only diagnostic strings: every numeric baseline stays byte-for-byte intact.
+        const file = snapshotFile(c.name);
+        let text = readFileSync(file, 'utf8');
+        for (const d of diff.changed) {
+          expect(typeof d.before).toBe('string');
+          expect(typeof d.after).toBe('string');
+          text = text.replace(`${JSON.stringify(d.path)}: ${JSON.stringify(d.before)}`, `${JSON.stringify(d.path)}: ${JSON.stringify(d.after)}`);
+        }
+        writeFileSync(file, text);
+        return;
+      }
       if (UPDATE) {
         mkdirSync(SNAPSHOT_DIR, { recursive: true });
         writeFileSync(snapshotFile(c.name), serialiseSnapshot({ ...fresh, values: mergeValues(committed?.values ?? null, fresh.values) }));
