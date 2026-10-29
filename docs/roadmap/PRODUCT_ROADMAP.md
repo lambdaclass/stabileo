@@ -86,12 +86,20 @@ ROI order for users:
    CIRSOC, each with independent sign-off (#450): the obvious choice in a region served poorly and
    expensively.
 
+7. **The AI assistant stage,** after safety, speed and the growth and SEO work above, so it lands on
+   trustworthy results and an audience that's already there (capabilities, order and safety rules in
+   [AI_ROADMAP.md](AI_ROADMAP.md)): describe a structure or upload a sketch, plan or PDF and get a model;
+   explain results and warnings; check a model for common mistakes; drive Stabileo through the Python
+   API. Every AI suggestion is a model or a change the user sees and the engine solves and verifies;
+   the AI is never the authority on a result, and it shows the same known-issue warnings and refusals.
+   This is when "AI" moves from "coming" to the centre of the positioning.
+
 **Growth channels, alongside:** Stabileo Research, Stabileo Tools and shared models (section "Growth"
 below), with search work, previews, phone and tablet quality and frozen citable versions as multipliers.
 **Supporting:** universities when there's capacity (free classroom accounts, assignments as forkable models, textbook problems as examples); a community (forum or Discord, model of the week, short walkthrough videos, university
 webinars), institutions (professional councils, INTI/CIRSOC, Ergodic Group's network),
 privacy-respecting analytics to see which tools, papers and shares turn into engineers who return, and
-the AI assistant once results are trustworthy.
+and outreach to engineers and paper authors.
 
 ## Priority now: catch wrong results before they ship (2026-10-28)
 
