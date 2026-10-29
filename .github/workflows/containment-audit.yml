@@ -1,5 +1,9 @@
-name: Safety containment audit (informational)
+# Not a required check and not a deploy dependency: it calls the GitHub API, and a deploy (including
+# an urgent safety fix) must never wait on it. A missing containment decision shows as a red check.
+name: Safety containment audit
 on:
+  pull_request:
+  merge_group:
   schedule:
     - cron: '19 9 * * *'
   workflow_dispatch:

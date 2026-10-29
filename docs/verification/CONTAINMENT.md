@@ -51,6 +51,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 | #356 | — | SCOPE | not a wrong-result defect: discretization-error estimation programme; algebraic certification does not bound mesh error. | Issue scope: Discretization error estimates next to certified results. No demonstrated current wrong-result case in this item. |
 | #354 | — | SCOPE | not a wrong-result defect: scheduled verification and failure alerting programme. | Issue scope: Verification jobs that run on schedule and alert on failure. No demonstrated current wrong-result case in this item. |
 | #810 | — | TRIAGE | Reported, cause not confirmed: MITC4 Scordelis–Lo roof plateaus 15% stiff and the pinched-cylinder error grows with refinement (shell obstacle course, #809). Triage first (boundary conditions and compared quantity against the papers, other shell elements, independent programs); a WARN/REFUSE entry follows within 24 h of confirming an engine cause. | #809 page and engine/tests/benchmarks/shell_obstacle_course.json (branch research/engine-benchmarks-shell-obstacle-course) |
+| #818 | `BU-ACCURACY` | WARN | All 3D buckling, including plain calls and certification fallbacks; no validated input-only safe subset. | reported_buckling_741_818_plain_and_certified: real #741 fuzz model, unchanged factor and certified refusal |
 | #798 | `SH-MITC4-DISTORTION` | WARN / REFUSE | Distorted MITC4; refuse only significant membrane bending (§ thresholds below). | known_issues::mitc4_macneal_harder_contains_membrane_bending_only: regular/trapezoid/parallelogram × extension/in-plane/out-of-plane; shell geometric controls |
 
 ## Predicates and limits
@@ -76,7 +77,7 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 
 ## Verification policy
 
-The results snapshot corpus includes diagnostic codes. New warnings can change those strings while all numbers remain bit-identical. REFUSE intentionally removes an affected result. Do not regenerate numerical baselines to hide either a refusal or a numerical change. The scheduled audit is informational and read-only; it is not a required CI check.
+The results snapshot corpus includes diagnostic codes. New warnings can change those strings while all numbers remain bit-identical. REFUSE intentionally removes an affected result. Do not regenerate numerical baselines to hide either a refusal or a numerical change. The read-only audit runs on pull requests, merge queues, schedules and manual requests. Deployment requires the reusable audit job to pass.
 
 - PL-3D-INVARIANCE: 3D plastic analysis containing curved beams.
 - NL-DYNAMIC-GAPS: material nonlinear analysis (increment/convergence gap), or modal/spectral/time-history/harmonic models containing frame members (omitted rotary inertia). A model without frame members does not get the dynamic warning. Modal orthogonality and time-history reciprocity have no demonstrated reliable input-only cutoff, so those analysis-level warnings remain broad and explicit.
@@ -151,7 +152,7 @@ Commands use the pinned Nix environment and locked Cargo dependencies. The full 
 | web/: nix develop .. -c npx vitest run --project results | 41 passed; all numerical baselines unchanged |
 | nix develop -c make typecheck.web | PASS: 247 existing TypeScript baseline errors, no new typecheck errors; no errors in guarded Svelte paths (repository-wide informational count: 343 errors, 264 warnings) |
 | python3 scripts/check-containment.py | PASS: all 46 currently open safety issues have a decision |
-| git diff --check (read-only) | PASS |
+| git diff --check (read-only) | Historical claim corrected: review found an extra EOF blank line in legacy-plastic-helper.ts; removed during follow-up |
 
 The corrected-behaviour evidence tests above are included in the native solver/derivation and web unit runs. Refused validation-03 retains its complete numerical baseline file for the future fix. The stadium, Bombonera, CAD roof and wall-with-opening integration cases now assert #798, while successful fixtures retain every numerical assertion.
 
@@ -201,3 +202,34 @@ The viewport keeps time-history warnings visible while its response is shown, in
 of the dynamics panel. Production worker and synchronous solve errors use localized
 containment refusals. Basic 2D plastic refuses before displaying a legacy result or scheduling
 a native certificate; internal legacy numerical regression tests remain active.
+
+## Review follow-up for 3c95d9828
+
+- Influence services retain native sweep diagnostics and aggregate point-by-point and truss
+  endpoint diagnostics. Both moving-load services publish all position diagnostics; the
+  banner also traverses positions, including findings absent from position zero.
+- Standalone 2D and 3D spectral solves inspect original and constrained stiffness for
+  NUM-INVARIANCE. Modal → spectral → certification tests cover affected models and
+  well-conditioned controls.
+- Prepared 2D solves cache rotational restraint and model findings. Per-load mechanism
+  checks inspect nodal moment demands against that cache. The diagnostic sweep test took
+  0.99 ms for 1,000 members/positions and 11.38 ms for 10,000 in the debug run.
+- BU-ACCURACY warns on all plain 3D buckling outputs, including ordinary certification
+  fallbacks. The real #741/#818 fixture retains factor 4691.397553909858 and refuses its
+  contradictory certificate with BU-BOUND. Native and WASM regressions cover this model.
+- Time-history warnings remain visible in both viewport dispositions.
+- The audit runs on pull requests, the merge queue and a daily schedule as a visible but non-required
+  check. It is deliberately not a deploy dependency: it calls the GitHub API, and a deploy (an urgent
+  safety fix included) must never wait on it. The live issue audit passes, including #818.
+- The EOF whitespace defect is removed; read-only diff checks against both HEAD and
+  origin/main pass.
+
+Validation used CARGO_TARGET_DIR=/private/tmp/claude-501/codex-807-target and a separate
+temporary Nix cache. Debug lib/certificates/robustness/solver targets passed
+579/149/243/208 tests (12 existing ignored); the final focused containment run passed
+24 tests, including the two additional scaling and 3D spectral regressions.
+Release validation passed all 4,763 tests. Web unit tests passed 15,619 tests
+(14 existing skipped), and the results suite passed all 41 tests. No snapshots or
+numerical baselines were changed during this follow-up. WASM build, changelog check,
+results snapshot provenance gate, TypeScript/Svelte gates, and three audit unit tests
+passed. TypeScript retained its 247-error baseline with no new errors.
