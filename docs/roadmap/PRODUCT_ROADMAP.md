@@ -66,7 +66,10 @@ ROI order for users:
 1. **Safety first.** Close the ways a wrong result can reach users: containment of every open
    wrong-result issue (#447), the fixes in "Priority now" below, the metamorphic invariance suite,
    independent engineer sign-off. Growth multiplies whatever is there, including wrong results; one
-   public mistake costs more than any number of good pages earn.
+   public mistake costs more than any number of good pages earn. Security belongs here too: backend
+   security tests and a tested backup restore (#721), staging before production (#724), the policy for
+   outside contributions (#726), supply-chain pinning, and isolation of anything that runs untrusted or
+   old code (research snapshots on their own origin, #777).
 2. **Speed and the first run.** Public pages and the app load fast (Lighthouse performance ≥ 90 on
    public pages; the app today scores 25, #734) and a new visitor builds and solves a first model in
    under a minute with a guided start. Cheap, and it multiplies every growth channel below.
@@ -382,8 +385,11 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
    (Fehér 2026), form-finding (Pastrana et al. 2026), then layout optimisation (Michell /
    Gilbert & Tyas, with Fairclough et al. 2026) once a conic optimiser is added.
 4. **Platform:** frozen, citable versions under `/@<commit>/`, made only for research releases and
-   stored once per file (PR [#777](https://github.com/lambdaclass/stabileo/pull/777)); a run-time
-   line and preview images/videos; Research as its own page (no editor loaded); embeds; the
+   stored once per file and served from their own origin, `snapshots.stabileo.com`, which needs DNS
+   records before it can go live (PR [#777](https://github.com/lambdaclass/stabileo/pull/777)); a run-time
+   line and preview images/videos; Research as its own page (no editor loaded); embeds; reproducing
+   preprints as well as published versions where they differ (the phase-field page reproduces the SSRN
+   preprint's iteration counts exactly with the author's code of that date); the
    paper's own figures overlaid on live runs; parameter sweeps in the browser.
 5. **Gallery organisation** (as the catalogue grows past 40 papers): **Run it** first — only runnable
    experiments, big cards with a looping preview video, in a hand-set showcase order (newest and most
@@ -428,6 +434,36 @@ at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the o
 **Exit criteria.** Each experiment's page claims only what its committed validation checks; the
 engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
 have reviewed their page.
+
+### SEO and positioning (2026-10-29)
+
+**Position:** *Stabileo — free, open-source structural analysis and design in your browser, with
+machine-checked results; AI assistant coming.* Claims stay true: the AI assistant is "in development"
+until it ships, so pages say "coming" and AI content covers what exists (verifiable AI-assisted
+modelling plans, research on AI checks). AI becomes central in the messaging only when it works.
+
+1. **Core searches with real pages** in English, Spanish and Portuguese (then de/fr/tr): "free
+   structural analysis software", "open source structural analysis", "online structural analysis",
+   "structural engineering software free", "FEA in the browser" ("software de cálculo estructural
+   gratis", "análisis estructural online", "cálculo estrutural gratuito"): the landing page with one
+   clear positioning sentence; one page per capability (analyses, design codes, reports, desktop) with a
+   demo and its verification evidence; honest "free alternative to SAP2000 / ETABS / RFEM / Robot"
+   pages that say what Stabileo does and does not do yet.
+2. **Long tail** from Tools, worked problems, research papers and the public verification manual, all
+   cross-linked to the core pages.
+3. **Authority:** GitHub (stars, README), awesome-lists, the launches, links from universities and
+   research groups (paper outreach) and professional councils; encyclopedia mentions only after
+   independent coverage, never self-promotional editing.
+4. **Technical:** prerendered pages with real content; structured data (`SoftwareApplication` with price
+   0 and the licence, `ScholarlyArticle` / `citation_*` on research); hreflang in six languages;
+   sitemaps; canonical links; Open Graph previews; speed (the app's Lighthouse 25 also costs rankings;
+   see "Speed and the first run"); Google Search Console to measure.
+5. **One name:** finish the Dedaliano → Stabileo rename (#735), user-visible text first.
+
+First PR (branch `seo/positioning`, in progress): landing titles and descriptions per language, the
+positioning sentence, `SoftwareApplication` and `Organization` structured data, a sitemap with hreflang
+for every prerendered page, Open Graph cards, honest SAP2000 and ETABS alternative pages, and tests for
+all of it.
 
 ### Growth: shared models, tools and research (2026-10-29)
 
