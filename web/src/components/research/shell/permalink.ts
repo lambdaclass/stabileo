@@ -1,11 +1,3 @@
-/**
- * Permanent links to research experiments (research/DESIGN.md §5, docs/DEPLOY.md "Snapshots").
- *
- * Every commit on main that changes research, the engine or the viewer is kept, built, under
- * `/@<first 7 of the commit>/`; the host lists them at `/@/` (newest first, with the research
- * pages each one holds). An experiment's permanent link is this build's own snapshot when it has
- * one, otherwise the newest snapshot that holds the experiment's page.
- */
 import { publicHref } from '../../../lib/i18n/public-routes';
 import type { PublicLocale } from '../../../lib/i18n/store.svelte';
 
@@ -73,12 +65,18 @@ export type Permalink = {
  * The snapshot to cite for `path` (`/research/<field>/<id>`): this build's own if it is one or
  * the index lists it, else the newest listed snapshot holding the page, else null.
  */
-export function pickSnapshot(entries: SnapshotEntry[], path: string, commit: string = BUILD_COMMIT, self: string | null = THIS_SNAPSHOT): Permalink | null {
+export function pickSnapshot(entries: SnapshotEntry[], path: string, commit: string = BUILD_COMMIT, self: string | null = THIS_SNAPSHOT, version?: number): Permalink | null {
   const page = path.replace(/\/+$/, '');
   if (self) {
     const short = self.slice(2, -1);
     const listed = entries.find((e) => e.short === short);
     return { snapshot: listed ?? { short, commit: commit.startsWith(short) ? commit : short, date: '', url: self }, current: true };
+  }
+  if (version !== undefined) {
+    const id = page.split('/').at(-1)!;
+    const newest = [...entries].filter(e => e.research?.includes(page) && e.experimentVersions?.[id]?.version === version)
+      .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))[0];
+    return newest ? { snapshot: newest, current: newest.commit === commit } : null;
   }
   const mine = entries.find((e) => commit !== 'dev' && (e.commit.startsWith(commit) || commit.startsWith(e.commit)));
   if (mine && (!mine.research || mine.research.includes(page))) return { snapshot: mine, current: true };

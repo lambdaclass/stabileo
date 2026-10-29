@@ -1,0 +1,118 @@
+name: Research snapshot
+on:
+  push:
+    branches: [main]
+    tags: ['research-v*']
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Make a snapshot: full commit on main'
+        required: true
+        type: string
+      environment:
+        description: Target environment
+        type: choice
+        options: [production, staging]
+        default: production
+permissions: {}
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      make: ${{ steps.select.outputs.make }}
+      commit: ${{ steps.select.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: pip install PyYAML
+      - id: select
+        env:
+          REQUESTED: ${{ inputs.commit || github.sha }}
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED" =~ ^[0-9a-f]{40}$ ]]
+          commit=$(git rev-parse "$REQUESTED^{commit}")
+          git merge-base --is-ancestor "$commit" origin/main
+          make=true
+          if [[ "$EVENT" == push && "$REF" == refs/heads/main ]]; then
+            [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]
+            make=$(python3 research/tools/snapshot_trigger.py "$BEFORE" "$commit")
+          fi
+          echo "make=$make" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+  snapshot:
+    needs: select
+    if: needs.select.outputs.make == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.environment || 'production' }}
+    concurrency:
+      group: deploy-${{ inputs.environment || 'production' }}-host
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      SNAPSHOT_COMMIT: ${{ needs.select.outputs.commit }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: main
+          path: tooling
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.select.outputs.commit }}
+          persist-credentials: false
+          path: source
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
+      - name: Build snapshot
+        working-directory: source
+        env:
+          VITE_ACCOUNTS: ${{ vars.VITE_ACCOUNTS }}
+        run: |
+          make web.deps e2e.web.setup
+          nix develop -c bash -c 'cd web && npx playwright install-deps chromium'
+          GITHUB_SHA="$SNAPSHOT_COMMIT" make web.build.snapshot
+          python3 ../tooling/web/scripts/snapshot-manifest.py web/dist-snapshot
+          tar -czf "$RUNNER_TEMP/snapshot.tar.gz" -C web/dist-snapshot .
+          echo "SNAPSHOT_SIZE=$(du -sk web/dist-snapshot | awk '{print $1 * 1024}')" >> "$GITHUB_ENV"
+      - uses: ./tooling/.github/actions/ssh-setup
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          user: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+      - run: pipx install ansible-core
+      - name: Install snapshot
+        working-directory: tooling/infra/ansible
+        env:
+          HOST: ${{ vars.DEPLOY_HOST }}
+          SSH_USER: ${{ vars.DEPLOY_USER }}
+          ANSIBLE_REMOTE_TEMP: /srv/stabileo/snapshots/.ansible/tmp
+        run: |
+          printf 'app:\n  hosts:\n    %s:\n      ansible_user: %s\n' "$HOST" "$SSH_USER" > "$RUNNER_TEMP/inventory.yml"
+          ansible-playbook -i "$RUNNER_TEMP/inventory.yml" deploy-snapshot.yml -e "commit_sha=$SNAPSHOT_COMMIT snapshot_archive=$RUNNER_TEMP/snapshot.tar.gz snapshot_size=$SNAPSHOT_SIZE"
+      - name: Verify through Caddy from outside
+        env:
+          SITE: https://${{ vars.PHX_HOST }}
+        run: |
+          set -euo pipefail
+          short=${SNAPSHOT_COMMIT:0:7}
+          curl -fsS "$SITE/@/" | jq -e --arg c "$SNAPSHOT_COMMIT" '.snapshots | any(.commit == $c)'
+          curl -fsS "$SITE/@$short/SNAPSHOT.json" > "$RUNNER_TEMP/manifest.json"
+          jq -e --arg c "$SNAPSHOT_COMMIT" '.commit == $c' "$RUNNER_TEMP/manifest.json"
+          curl -fsSI "$SITE/@$short/en/research/" | grep -i '^cache-control: public, max-age=31536000, immutable'
+          curl -fsSI "$SITE/@$short/en/research/" | grep -i '^x-robots-tag: noindex'
+          jq -r '.assets | to_entries[] | [.key, .value] | @tsv' "$RUNNER_TEMP/manifest.json" | while read -r name hash; do
+            curl -fsS "$SITE/@$short/assets/$name" -o "$RUNNER_TEMP/asset"
+            echo "$hash  $RUNNER_TEMP/asset" | sha256sum -c -
+          done

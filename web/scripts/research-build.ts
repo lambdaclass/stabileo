@@ -35,9 +35,9 @@ export function researchBuildMetadata(root: string) {
   const research: Record<string, string> = {};
   const dir = resolve(root, 'public/research-wasm');
   if (existsSync(dir)) {
-    for (const exp of readdirSync(dir)) {
-      const wasm = readdirSync(resolve(dir, exp)).find((f) => f.endsWith('_bg.wasm'));
-      if (wasm) research[exp] = sha(resolve(dir, exp, wasm));
+    for (const exp of readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory())) {
+      const wasm = readdirSync(resolve(dir, exp.name)).find((f) => f.endsWith('_bg.wasm'));
+      if (wasm) research[exp.name] = sha(resolve(dir, exp.name, wasm));
     }
   }
   const experimentVersions: Record<string, { version: number; date: string; commit: string | null }> = {};
