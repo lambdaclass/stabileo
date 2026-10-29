@@ -194,6 +194,19 @@ what works, all the time, and making every test trustworthy. Started 2026-10-29 
 Every investigation keeps a written numbers report (e.g. docs/audits/810-mitc4-curved-shells.md), so a
 real engine bug is never waved off as a test problem either.
 
+Further, to make the tests themselves trustworthy:
+
+9. **Double-entry specs:** two agents build each benchmark spec independently from the paper text,
+   without seeing each other's work, and the specs must match field by field before admission. Modelling
+   slips (an extra support, a missing symmetry, a frame for a truss) rarely survive two independent builds.
+10. **One source of truth per reference,** shared by the engine tests, the research pages and the
+    verification manual; a check fails if any copy differs, so a correction reaches every place at once
+    (on 2026-10-29 the shell obstacle course page still carried the models the engine test had fixed).
+11. **Independent engineer sign-off on the core reference set** (the ~30 classic benchmarks most trust
+    rests on), extending #450 from design checks to analysis benchmarks.
+12. **Skipped tests expire:** every test ignored as a known wrong result names its issue and a review
+    date; past the date it fails CI, so known failures cannot sit unnoticed.
+
 ## Multipliers
 
 > **Backlog conventions.** The five backlog sections below (Multipliers, Trust and verification, Engineering coverage, Solver and proof depth, Release safety) are the single backlog. Every item links to its GitHub issue; the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). Each section ends with **exit criteria** (when the section is done) and the **metrics** that track them. The metrics are computed by `scripts/verification-metrics.py` and published on the verification [dashboard](../verification/DASHBOARD.md) (current values and per-release history); a metric that cannot be measured yet says "not yet measured" there, never an estimate. Per-item verification levels are in [MATURITY.md](../verification/MATURITY.md). Entry point for all roadmap documents: [README.md](README.md).
