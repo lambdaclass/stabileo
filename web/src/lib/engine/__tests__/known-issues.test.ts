@@ -102,3 +102,13 @@ it('collects both spectral directions, deduplicates, and tolerates cycles', () =
   result.results = result;
   expect(knownIssueResultDisposition(result).messages).toHaveLength(2);
 });
+it('withholds the spectral panel when only Y carries a refusal', () => {
+  const disposition = knownIssueResultDisposition({
+    X: { structuredDiagnostics: [] },
+    Y: { structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] },
+  });
+  const html = render(ContainmentBanner, { props: { disposition, children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+  expect(disposition.refused).toBe(true);
+  expect(html).toContain('#741');
+  expect(html).not.toContain('123.45');
+});

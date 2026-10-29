@@ -18,7 +18,7 @@ export const MUST_SUCCEED = [
   /\/certify_modal_[23]d$/, /\/solve_harmonic_[23]d$/, /\/certify_harmonic_[23]d$/,
   /\/certify_pdelta_[23]d$/, /\/certify_spectral_[23]d$/, /\/certify_time_history_[23]d$/,
   /\/certify_multi_case_[23]d$/, /\/certify_steel_multi_case_[23]d$/,
-  /^combo-2d\//, /^bundle-3d\//, /^plastic-3d-/, /^plastic-2d-.*\/export_plastic_bundle_2d$/,
+  /^combo-2d\//, /^bundle-3d\//, /^plastic-3d-/,
 ];
 
 const certifiedStatus = (c) => c?.status === 'certified';
@@ -76,7 +76,7 @@ export function requirementProblems(reference) {
     if (![...names].some((n) => re.test(n))) problems.push(`no case matches ${re}`);
   }
   const refusedNames = ['plastic-2d-portal', 'plastic-2d-continuous'].flatMap(id =>
-    ['solve_plastic_2d', 'certify_plastic_2d'].map(entry => `${id}/${entry}`));
+    ['solve_plastic_2d', 'certify_plastic_2d', 'export_plastic_bundle_2d'].map(entry => `${id}/${entry}`));
   for (const name of refusedNames) {
     const r = reference.find(r => r.name === name);
     let valid = false;

@@ -183,16 +183,19 @@ foundation, SSI, contact and staged static results, using the returned state's
 thermal loads. Model-less combination APIs cannot recompute the membrane predicate and refuse
 cases carrying `SH-MITC4-DISTORTION`; model-aware multi-case solves check the combined displacement
 field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
-The determinism gate requires four structured 2D plastic refusals (#758), retains both 3D plastic
+The determinism gate requires six structured 2D plastic refusals (#758), retains both 3D plastic
 certificates and their bundle exports, and compares all outputs exactly across runtimes.
 Results version 5 registers the warnings and refusals; no numerical kernel or baseline changes.
 
 The constrained-path guard also withholds validation-01's DEAD LOAD case (quads 640 and 657).
 Its numerical baseline is retained unchanged alongside validation-03's; the tests now require
-the specific #798 diagnostic. The Node determinism corpus contains 191 cases and 25 recorded
-refusals/errors, with four required PL-2D-INVARIANCE refusals and independent 2D bundles retained.
+the specific #798 diagnostic. The Node determinism corpus contains 191 cases and 27 recorded
+refusals/errors, with six required PL-2D-INVARIANCE refusals, including the 2D bundle exports.
 
-### Review-fix verification (2026-10-29)
+### Earlier review-fix verification (2026-10-29)
+
+The following records the earlier review pass. The follow-up propagation fixes require six 2D
+plastic refusals, including bundle exports, as described above.
 
 All builds use `CARGO_TARGET_DIR` outside the checkout and a writable Nix cache under `/private/tmp`.
 No commit, push or git mutation was performed.

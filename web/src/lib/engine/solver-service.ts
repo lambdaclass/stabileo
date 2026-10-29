@@ -1,3 +1,4 @@
+import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
@@ -1309,6 +1310,7 @@ function solveCombinations2DCore(
 
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails (e.g. an unsolvable case), the per-case
     // path reproduces the precise validation/kinematics error message.
     // (The engine throws plain strings, so don't rely on err.message.)
@@ -2633,6 +2635,7 @@ function solveCombinations3DCore(
 
     return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
     console.warn('Multi-case 3D failed, falling back to per-case solve:', err.message);
     return solveCombinations3DFallback(model, loadCases, combinations, includeSelfWeight, leftHand);

@@ -145,7 +145,9 @@ test('canonical text tells apart what the bits tell apart', () => {
 });
 
 test('2D plastic requires the specific refusal, never arbitrary errors or success', () => {
-  for (const r of reference.filter(r => /^plastic-2d-.*\/(solve|certify)_plastic_2d$/.test(r.name))) {
+  const refused = reference.filter(r => /^plastic-2d-.*\/((solve|certify)_plastic_2d|export_plastic_bundle_2d)$/.test(r.name));
+  assert.equal(refused.length, 6);
+  for (const r of refused) {
     for (const text of ['ERR: unrelated', '{}', r.text.replaceAll('758', '759'), r.text.replaceAll('PL-2D-INVARIANCE', 'OTHER')]) {
       mustFail(r.name, (_v, r) => { r.text = text; }, text);
     }
