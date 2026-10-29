@@ -1,7 +1,7 @@
 .PHONY: research.wasm help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
-       test.ci-scripts \
+       test.ci-scripts check.review-scripts \
        test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -330,9 +330,12 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
+check.review-scripts:
+	bash scripts/review/test.sh
+
 test.ci-scripts:
 	python3 -B -I scripts/tests/test_ci_aggregate.py
-	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh scripts/review/*.sh scripts/status.sh'
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

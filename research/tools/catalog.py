@@ -120,8 +120,24 @@ def valid_code_url(value):
         return False
 
 
+REVIEW_VERDICTS = {"ready to merge", "ready after should-fix items", "not ready"}
+
+
+def check_reviews(reviews):
+    return isinstance(reviews, list) and all(
+        isinstance(r, dict) and set(r) == {"reviewer", "sha", "verdict"}
+        and isinstance(r["reviewer"], str) and bool(r["reviewer"].strip())
+        and isinstance(r["sha"], str) and re.fullmatch(r"[0-9a-f]{40}", r["sha"])
+        and isinstance(r["verdict"], str) and r["verdict"] in REVIEW_VERDICTS
+        for r in reviews
+    )
+
+
 def check_entry(p, errors):
     pid = p.get("id", "?")
+    # Absent reviews are equivalent to an empty list for older entries.
+    if not check_reviews(p.get("reviews", [])):
+        errors.append(f"{pid}: reviews must contain reviewer, full sha and a review verdict")
     for k in REQUIRED:
         if k not in p:
             errors.append(f"{pid}: missing field '{k}'")
@@ -246,6 +262,8 @@ def export_text(papers):
 
 
 def main(argv):
+    if argv and argv[0].startswith("--"):
+        argv = ["check", *argv]
     if len(argv) >= 2 and argv[0] == "show":
         print(yaml.safe_dump({"crossref": crossref_block(argv[1])}, sort_keys=False, allow_unicode=True))
         return 0
