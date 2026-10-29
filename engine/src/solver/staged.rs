@@ -20,7 +20,7 @@ use super::linear::{
 use super::prestress::prestress_fef_2d;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    SparseSymbolicCache, tangent_free_sparse, tangent_free_sparse_triplets, solve_tangent_sparse,
+    SparseSymbolicCache, tangent_free_sparse, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed,
 };
 use crate::element::cable::cable_self_weight;
 
@@ -266,7 +266,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
 
         // Solve for incremental displacements in (possibly reduced) space
-        let conditioning;
+        let mut conditioning = None;
         let u_s_inc = if use_sparse {
             // Sparse path: CSC free block filtered straight from the stage
             // triplets (constraint reduction in sparse form) + sparse
@@ -274,8 +274,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             let t = asm_trips.as_ref().unwrap();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&t.rows, &t.cols, &t.vals, nf, &cs);
-            conditioning = crate::known_issues::sparse_stiffness_conditioning(&k_csc);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             let k_ff = k_ff_dense.unwrap();
             // Reduce with constraint system if present
@@ -284,9 +283,10 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             } else {
                 (k_ff, f_f)
             };
-            conditioning = crate::known_issues::dense_stiffness_conditioning(&k_s, ns);
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -1120,8 +1120,10 @@ fn iterate_cables_staged_2d(
                 f_f[i] -= k_fr_ur[i];
             }
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &None);
-            crate::known_issues::attach(diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_csc).into_iter().collect());
-            match solve_tangent_sparse(&k_csc, &f_f, &mut sparse_sym_cache) {
+            let mut conditioning = None;
+            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
+            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
+            match solved {
                 Ok(u) => u,
                 Err(_) => break, // Can't solve, keep current state
             }
@@ -1189,15 +1191,18 @@ fn iterate_cables_staged_2d(
         if nf >= super::linear::SPARSE_THRESHOLD {
             // Sparse path: CSC + sparse Cholesky with cached symbolic.
             let k_csc = tangent_free_sparse(&k_ff, nf, &None);
-            crate::known_issues::attach(diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_csc).into_iter().collect());
-            match solve_tangent_sparse(&k_csc, &f_f, &mut sparse_sym_cache) {
+            let mut conditioning = None;
+            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
+            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
+            match solved {
                 Ok(u) => u,
                 Err(_) => break, // Can't solve, keep current state
             }
         } else {
-            crate::known_issues::attach(diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_ff, nf).into_iter().collect());
             let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+            let solved = cholesky_solve(&mut k_work, &f_f, nf);
+            crate::known_issues::attach(diagnostics, crate::known_issues::dense_factor_conditioning(&k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())).into_iter().collect());
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_ff;
@@ -1471,7 +1476,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         }
 
         // Solve for incremental displacements in (possibly reduced) space
-        let conditioning;
+        let mut conditioning = None;
         let u_s_inc = if use_sparse {
             // Sparse path: CSC free block filtered straight from the stage
             // triplets (constraint reduction in sparse form) + sparse
@@ -1479,8 +1484,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             let t = asm_trips.as_ref().unwrap();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&t.rows, &t.cols, &t.vals, nf, &cs);
-            conditioning = crate::known_issues::sparse_stiffness_conditioning(&k_csc);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             let k_ff = k_ff_dense.unwrap();
             // Reduce with constraint system if present
@@ -1489,9 +1493,10 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             } else {
                 (k_ff, f_f)
             };
-            conditioning = crate::known_issues::dense_stiffness_conditioning(&k_s, ns);
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;

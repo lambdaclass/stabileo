@@ -105,8 +105,30 @@ pub(crate) fn solve_tangent_sparse(
     r_s: &[f64],
     cache: &mut Option<SparseSymbolicCache>,
 ) -> Result<Vec<f64>, String> {
+    solve_tangent_sparse_impl(k_s, r_s, cache, None)
+}
+
+pub(crate) fn solve_tangent_sparse_diagnosed(
+    k_s: &CscMatrix,
+    r_s: &[f64],
+    cache: &mut Option<SparseSymbolicCache>,
+    conditioning: &mut Option<crate::types::StructuredDiagnostic>,
+) -> Result<Vec<f64>, String> {
+    solve_tangent_sparse_impl(k_s, r_s, cache, Some(conditioning))
+}
+
+fn solve_tangent_sparse_impl(
+    k_s: &CscMatrix,
+    r_s: &[f64],
+    cache: &mut Option<SparseSymbolicCache>,
+    conditioning: Option<&mut Option<crate::types::StructuredDiagnostic>>,
+) -> Result<Vec<f64>, String> {
     let sym = cached_symbolic(cache, k_s);
-    if let Some(num) = numeric_cholesky(sym, k_s) {
+    let factor = numeric_cholesky(sym, k_s);
+    if let Some(conditioning) = conditioning {
+        *conditioning = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref());
+    }
+    if let Some(num) = factor {
         return Ok(sparse_cholesky_solve(&num, r_s));
     }
     let n = k_s.n;
@@ -123,4 +145,25 @@ pub(crate) fn solve_tangent_sparse(
          or load increment too large"
             .to_string()
     })
+}
+
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+
+    #[test]
+    fn diagnosed_solve_reuses_symbolic_and_preserves_bits() {
+        let mut cache = None;
+        for diagonal in [2.0, 1.0 + 1e-12, 0.5] {
+            let k = CscMatrix::from_dense_symmetric(&[1.0, 1.0, 1.0, diagonal], 2);
+            let expected = solve_tangent_sparse(&k, &[1.0, 2.0], &mut cache).unwrap();
+            let symbolic = cache.as_ref().unwrap().sym.clone();
+            let mut diagnostic = None;
+            let actual = solve_tangent_sparse_diagnosed(&k, &[1.0, 2.0], &mut cache, &mut diagnostic).unwrap();
+            assert!(std::rc::Rc::ptr_eq(&symbolic, &cache.as_ref().unwrap().sym));
+            assert_eq!(actual.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+            assert_eq!(diagnostic.is_some(), diagonal != 2.0);
+        }
+    }
 }

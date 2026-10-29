@@ -186,20 +186,35 @@ pub fn sparse_stiffness_conditioning(k: &crate::linalg::sparse::CscMatrix) -> Op
     if k.n == 0 { return None; }
     if let Some(d) = sparse_conditioning(k) { return Some(d); }
     let symbolic = std::rc::Rc::new(crate::linalg::symbolic_cholesky(k));
-    let affected = match crate::linalg::numeric_cholesky(&symbolic, k) {
-        Some(factor) => crate::solver::definiteness::sparse_pivot_check(&factor, k).is_some(),
-        None => true,
-    };
-    affected.then(|| diagnostic("NUM-INVARIANCE"))
+    let factor = crate::linalg::numeric_cholesky(&symbolic, k);
+    sparse_factor_conditioning(k, factor.as_ref())
+}
+
+pub fn sparse_factor_conditioning(
+    k: &crate::linalg::sparse::CscMatrix,
+    factor: Option<&crate::linalg::sparse_chol::NumericCholesky>,
+) -> Option<StructuredDiagnostic> {
+    if k.n == 0 { return None; }
+    sparse_conditioning(k).or_else(|| {
+        factor.map_or(true, |factor| crate::solver::definiteness::sparse_pivot_check(factor, k).is_some())
+            .then(|| diagnostic("NUM-INVARIANCE"))
+    })
 }
 
 pub fn dense_stiffness_conditioning(k: &[f64], n: usize) -> Option<StructuredDiagnostic> {
     if n == 0 { return None; }
     if let Some(d) = dense_conditioning(k, n) { return Some(d); }
     let mut factor = k.to_vec();
-    let affected = !crate::linalg::cholesky_decompose(&mut factor, n)
-        || crate::solver::definiteness::dense_pivot_check(&factor, k, n).is_some();
-    affected.then(|| diagnostic("NUM-INVARIANCE"))
+    let success = crate::linalg::cholesky_decompose(&mut factor, n);
+    dense_factor_conditioning(k, n, success.then_some(factor.as_slice()))
+}
+
+pub fn dense_factor_conditioning(k: &[f64], n: usize, factor: Option<&[f64]>) -> Option<StructuredDiagnostic> {
+    if n == 0 { return None; }
+    dense_conditioning(k, n).or_else(|| {
+        factor.map_or(true, |factor| crate::solver::definiteness::dense_pivot_check(factor, k, n).is_some())
+            .then(|| diagnostic("NUM-INVARIANCE"))
+    })
 }
 
 pub fn dense_conditioning(k: &[f64], n: usize) -> Option<StructuredDiagnostic> {
@@ -612,4 +627,14 @@ mod tests {
             else { assert_eq!(ids.len(), 1); assert!(modes.contains(&expected), "{}", e.id); }
         }
     }
+}
+
+
+pub fn with_sparse_factor_conditioning(
+    k: &crate::linalg::CscMatrix,
+    solve: impl FnOnce(&mut dyn FnMut(Option<&crate::linalg::sparse_chol::NumericCholesky>)) -> Option<crate::linalg::EigenResult>,
+) -> (Option<crate::linalg::EigenResult>, Option<StructuredDiagnostic>) {
+    let mut observed = None;
+    let result = solve(&mut |factor| observed = Some(sparse_factor_conditioning(k, factor)));
+    (result, observed.unwrap_or_else(|| sparse_stiffness_conditioning(k)))
 }

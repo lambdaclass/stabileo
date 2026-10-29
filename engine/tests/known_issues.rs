@@ -709,3 +709,55 @@ fn reported_modal_model_harmonic_and_certificate_warn() {
     assert_warning(&certified.results.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
     assert_eq!(serde_json::to_value(&plain.response_points).unwrap(), serde_json::to_value(&certified.results.response_points).unwrap());
 }
+
+
+#[test]
+fn reused_conditioning_factors_match_standalone_checks() {
+    use dedaliano_engine::{known_issues::*, linalg::*};
+    for k in [vec![2.0, 1.0, 1.0, 2.0], vec![1.0, 1.0, 1.0, 1.0 + 1e-12], vec![1.0, 1.0, 1.0, 0.5], vec![1.0, 0.0, 0.0, 1e10]] {
+        let mut l = k.clone();
+        let success = cholesky_decompose(&mut l, 2);
+        assert_eq!(ids(&dense_factor_conditioning(&k, 2, success.then_some(l.as_slice())).into_iter().collect::<Vec<_>>()),
+            ids(&dense_stiffness_conditioning(&k, 2).into_iter().collect::<Vec<_>>()));
+        let sparse = CscMatrix::from_dense_symmetric(&k, 2);
+        let sym = std::rc::Rc::new(symbolic_cholesky(&sparse));
+        let factor = numeric_cholesky(&sym, &sparse);
+        assert_eq!(ids(&sparse_factor_conditioning(&sparse, factor.as_ref()).into_iter().collect::<Vec<_>>()),
+            ids(&sparse_stiffness_conditioning(&sparse).into_iter().collect::<Vec<_>>()));
+    }
+}
+
+#[test]
+#[ignore]
+fn conditioning_cost_large_frame() {
+    use dedaliano_engine::{known_issues::*, linalg::*, solver::{dof::DofNumbering, sparse_assembly::assemble_stiffness_sparse_2d}};
+    use std::time::Instant;
+    let bays = 50;
+    let stories = 40;
+    let node_id = |x: usize, z: usize| z * (bays + 1) + x + 1;
+    let nodes = (0..=stories).flat_map(|z| (0..=bays).map(move |x| (node_id(x, z), x as f64 * 5.0, z as f64 * 3.0))).collect();
+    let mut elements = Vec::new();
+    for z in 1..=stories {
+        for x in 0..=bays {
+            elements.push((elements.len() + 1, "frame", node_id(x, z - 1), node_id(x, z), 1, 1, false, false));
+            if x < bays { elements.push((elements.len() + 1, "frame", node_id(x, z), node_id(x + 1, z), 1, 1, false, false)); }
+        }
+    }
+    let supports = (0..=bays).map(|x| (x + 1, node_id(x, 0), "fixed")).collect();
+    let input = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.045, 3.375e-4)], elements, supports, vec![]);
+    let dofs = DofNumbering::build_2d(&input);
+    let k = assemble_stiffness_sparse_2d(&input, &dofs).k_ff;
+    let sym = std::rc::Rc::new(symbolic_cholesky(&k));
+    let factor = numeric_cholesky(&sym, &k).unwrap();
+    let start = Instant::now();
+    for _ in 0..100 { std::hint::black_box(sparse_stiffness_conditioning(&k)); }
+    let standalone = start.elapsed();
+    let start = Instant::now();
+    for _ in 0..100 { std::hint::black_box(sparse_factor_conditioning(&k, Some(&factor))); }
+    let reused = start.elapsed();
+    let symbolic_bytes = (sym.perm.len() + sym.iperm.len() + sym.l_col_ptr.len() + sym.l_row_idx.len() + sym.parent.len()
+        + sym.snode_start.len() + sym.snode_upd.iter().map(Vec::len).sum::<usize>() + sym.pa_col_ptr.len() + sym.pa_row_idx.len()
+        + sym.pa_src.len()) * std::mem::size_of::<usize>() + sym.snode_upd.len() * std::mem::size_of::<Vec<usize>>();
+    eprintln!("frame: {} DOFs, {} matrix entries; 100 checks: standalone {:?}, reused {:?}; numeric factor {} bytes, symbolic arrays {} bytes, reused check scratch {} bytes",
+        k.n, k.values.len(), standalone, reused, factor.l_values.len() * 8, symbolic_bytes, k.n * 8);
+}

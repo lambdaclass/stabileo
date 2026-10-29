@@ -683,7 +683,7 @@ fn solve_harmonic_modal(
         k_spd.then(|| back_solve(&l, &forward_solve(&l, b, n), n))
     };
     let (mut result, damping) = harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
-    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(k, n).into_iter().collect());
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::dense_factor_conditioning(k, n, k_spd.then_some(l.as_slice())).into_iter().collect());
     Some((result, damping))
 }
 
@@ -705,7 +705,7 @@ fn solve_harmonic_modal_sparse(
         factor.as_ref().map(|fac| sparse_cholesky_solve(fac, b))
     };
     let (mut result, damping) = harmonic_modal_from_eigen(&eigen, &m_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
-    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_csc).into_iter().collect());
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::sparse_factor_conditioning(k_csc, factor.as_ref()).into_iter().collect());
     Some((result, damping))
 }
 

@@ -155,9 +155,11 @@ pub fn solve_buckling_2d(
     };
     let mut structured_diagnostics = linear.structured_diagnostics.clone();
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Buckling));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_solve).into_iter().collect());
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -411,9 +413,11 @@ pub fn solve_buckling_3d(
     };
     let mut structured_diagnostics = linear.structured_diagnostics.clone();
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(k_solve).into_iter().collect());
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();

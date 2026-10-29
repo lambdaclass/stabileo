@@ -606,6 +606,17 @@ pub fn lanczos_generalized_eigen(
     k: usize,
     sigma: f64,
 ) -> Option<EigenResult> {
+    lanczos_generalized_eigen_observed(a, b, n, k, sigma, &mut |_| {})
+}
+
+pub fn lanczos_generalized_eigen_observed(
+    a: &[f64],
+    b: &[f64],
+    n: usize,
+    k: usize,
+    sigma: f64,
+    observe: &mut dyn FnMut(Option<&[f64]>),
+) -> Option<EigenResult> {
     let k = k.min(n);
 
     // For small problems, use dense path directly
@@ -625,7 +636,9 @@ pub fn lanczos_generalized_eigen(
     // Build shift-invert operator. Cholesky of (A − σB) fails when the shift
     // moves past the smallest eigenvalue (A − σB indefinite); fall through to
     // the dense path in that case, as documented, instead of returning None.
-    if let Some(si_op) = ShiftInvertOp::new(a, b, n, sigma) {
+    let si_op = ShiftInvertOp::new(a, b, n, sigma);
+    if sigma == 0.0 { observe(si_op.as_ref().map(|op| op.l_factor.as_slice())); }
+    if let Some(si_op) = si_op {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -768,6 +781,16 @@ pub fn lanczos_generalized_eigen_sparse(
     k: usize,
     sigma: f64,
 ) -> Option<EigenResult> {
+    lanczos_generalized_eigen_sparse_observed(k_ff, m_ff, k, sigma, &mut |_| {})
+}
+
+pub fn lanczos_generalized_eigen_sparse_observed(
+    k_ff: &CscMatrix,
+    m_ff: &CscMatrix,
+    k: usize,
+    sigma: f64,
+    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
+) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(m_ff.n, n, "K and M must have the same dimension");
     let k = k.min(n);
@@ -797,7 +820,9 @@ pub fn lanczos_generalized_eigen_sparse(
     }
 
     // Build sparse shift-invert operator: y = K⁻¹ M x
-    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, m_ff) {
+    let si_op = SparseShiftInvertOp::new(k_ff, m_ff);
+    observe(si_op.as_ref().map(|op| &op.factor));
+    if let Some(si_op) = si_op {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -848,6 +873,15 @@ pub fn lanczos_buckling_eigen_sparse(
     neg_kg: &CscMatrix,
     k: usize,
 ) -> Option<EigenResult> {
+    lanczos_buckling_eigen_sparse_observed(k_ff, neg_kg, k, &mut |_| {})
+}
+
+pub fn lanczos_buckling_eigen_sparse_observed(
+    k_ff: &CscMatrix,
+    neg_kg: &CscMatrix,
+    k: usize,
+    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
+) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
     let k = k.min(n);
@@ -867,7 +901,9 @@ pub fn lanczos_buckling_eigen_sparse(
     //
     // K, not −Kg, as the inner product: −Kg is indefinite whenever the model
     // carries tension and compression together. See `new_k_inner_product`.
-    if let Some(si_op) = SparseShiftInvertOp::new_k_inner_product(k_ff, neg_kg) {
+    let si_op = SparseShiftInvertOp::new_k_inner_product(k_ff, neg_kg);
+    observe(si_op.as_ref().map(|op| &op.factor));
+    if let Some(si_op) = si_op {
         let params = LanczosParams {
             max_iter: 300,
             tol: 1e-10,
@@ -1464,5 +1500,44 @@ mod tests {
                     "T_recon[{},{}] = {}, expected {}", i, j, sum, expected);
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod factor_observation_tests {
+    use super::*;
+
+    #[test]
+    fn observing_sparse_eigen_factors_preserves_every_bit() {
+        let n = 220;
+        let rows: Vec<_> = (0..n).collect();
+        let values: Vec<_> = (0..n).map(|i| 1.0 + i as f64).collect();
+        let k = CscMatrix::from_triplets(n, &rows, &rows, &values);
+        let m = CscMatrix::from_triplets(n, &rows, &rows, &vec![1.0; n]);
+        let bits = |r: EigenResult| r.values.into_iter().chain(r.vectors).map(f64::to_bits).collect::<Vec<_>>();
+        for buckling in [false, true] {
+            let mut count = 0;
+            let mut observe = |factor: Option<&super::super::sparse_chol::NumericCholesky>| {
+                assert!(factor.is_some());
+                count += 1;
+            };
+            let (plain, observed) = if buckling {
+                (lanczos_buckling_eigen_sparse(&k, &m, 3), lanczos_buckling_eigen_sparse_observed(&k, &m, 3, &mut observe))
+            } else {
+                (lanczos_generalized_eigen_sparse(&k, &m, 3, 0.0), lanczos_generalized_eigen_sparse_observed(&k, &m, 3, 0.0, &mut observe))
+            };
+            assert_eq!(count, 1);
+            assert_eq!(bits(plain.unwrap()), bits(observed.unwrap()));
+        }
+        let kd = k.to_dense_symmetric();
+        let md = m.to_dense_symmetric();
+        let mut count = 0;
+        let observed = lanczos_generalized_eigen_observed(&kd, &md, n, 3, 0.0, &mut |factor| {
+            assert!(factor.is_some());
+            count += 1;
+        });
+        assert_eq!(count, 1);
+        assert_eq!(bits(lanczos_generalized_eigen(&kd, &md, n, 3, 0.0).unwrap()), bits(observed.unwrap()));
     }
 }

@@ -99,10 +99,12 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
         (k_ff, f_f.clone(), nf)
     };
 
-    let conditioning = crate::known_issues::dense_stiffness_conditioning(&k_solve, ns);
+    let conditioning;
     let u_indep = {
         let mut k_work = k_solve.clone();
-        match cholesky_solve(&mut k_work, &f_solve, ns) {
+        let solved = cholesky_solve(&mut k_work, &f_solve, ns);
+        conditioning = crate::known_issues::dense_factor_conditioning(&k_solve, ns, solved.as_ref().map(|_| k_work.as_slice()));
+        match solved {
             Some(u) => u,
             None => {
                 let mut k_work = k_solve;
@@ -215,10 +217,12 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         (k_ff, f_f.clone(), nf)
     };
 
-    let conditioning = crate::known_issues::dense_stiffness_conditioning(&k_solve, ns);
+    let conditioning;
     let u_indep = {
         let mut k_work = k_solve.clone();
-        match cholesky_solve(&mut k_work, &f_solve, ns) {
+        let solved = cholesky_solve(&mut k_work, &f_solve, ns);
+        conditioning = crate::known_issues::dense_factor_conditioning(&k_solve, ns, solved.as_ref().map(|_| k_work.as_slice()));
+        match solved {
             Some(u) => u,
             None => {
                 let mut k_work = k_solve;
