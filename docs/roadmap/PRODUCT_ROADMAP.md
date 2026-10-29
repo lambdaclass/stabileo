@@ -84,6 +84,7 @@ them.
 | 11 | **Review before merge, enforced:** CODEOWNERS, a second reviewer for result and verdict changes, and a check that every required check still exists | [#725](https://github.com/lambdaclass/stabileo/issues/725), [#470](https://github.com/lambdaclass/stabileo/issues/470), [#355](https://github.com/lambdaclass/stabileo/issues/355) | Release safety |
 | 12 | **Policy for outside contributions:** bounty-style and AI-generated PRs, duplicates, credit, re-implementing low-trust fixes | [#726](https://github.com/lambdaclass/stabileo/issues/726) | Release safety |
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
+| 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 
 Needs people, not only code: item 4's engineer sign-off; real users' project files for item 3's
 corpus; production access for item 7's restore test; testers on real Linux GPUs for the desktop's
@@ -312,6 +313,39 @@ without a second implementation of anything that computes a result.
 **Exit criteria.** The desktop app ships signed on three OSes with auto-update and results
 identical to the web on the snapshot corpus (#716); every code check and limit state has one
 authoritative implementation in the ownership map; `.ded` files from every release open (#718).
+
+### Stabileo Research (2026-10-29)
+
+Published computational-mechanics papers turned into experiments anyone can run, change and check,
+at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the ordered paper queue:
+[research/DESIGN.md](../../research/DESIGN.md) and [research/CLAUDE.md](../../research/CLAUDE.md).
+
+1. **Live first:** phase-field fracture (Shauer 2025) and the gallery, PR
+   [#769](https://github.com/lambdaclass/stabileo/pull/769); spring networks (Grossman & Boudaoud
+   2026), PR [#776](https://github.com/lambdaclass/stabileo/pull/776); 19 more catalogued papers,
+   PR [#788](https://github.com/lambdaclass/stabileo/pull/788).
+2. **Engine benchmarks track:** classics run by the *production* engine in the browser, with one
+   case file shared by the page and the engine's CI tests, and honest pass/fail. MacNeal–Harder
+   (PR [#797](https://github.com/lambdaclass/stabileo/pull/797), which found #798), then Riks /
+   Crisfield snap-through, the shell obstacle course (Scordelis–Lo, pinched cylinder, hemisphere),
+   the Mattiasson elastica, then plastic collapse, Newmark, Navier plate and NAFEMS. These pages
+   are public proof the engine is right, and a regression turns them red.
+3. **Next papers** (easy, striking, on the engine where possible): topology optimisation
+   (Andreassen et al. 2011, then Ferrari & Sigmund 2020 in 3D), Koiter post-buckling of frames
+   (Ferrari & Sigmund 2025), snapping arches (Zmyślony, Khan & Biggins 2026) with the cut strip
+   (Fehér 2026), form-finding (Pastrana et al. 2026), then layout optimisation (Michell /
+   Gilbert & Tyas, with Fairclough et al. 2026) once a conic optimiser is added.
+4. **Platform:** frozen, citable versions under `/@<commit>/`, made only for research releases and
+   stored once per file (PR [#777](https://github.com/lambdaclass/stabileo/pull/777)); a run-time
+   line and preview images/videos; Research as its own page (no editor loaded); embeds; the
+   paper's own figures overlaid on live runs; parameter sweeps in the browser.
+5. **Merge bar for research PRs:** no Codex/Kimi blockers, every claim on the page true, the
+   product unaffected (isolation check, editor data safe, app tests pass), CI green; other review
+   findings become issues fixed in small follow-ups.
+
+**Exit criteria.** Each experiment's page claims only what its committed validation checks; the
+engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
+have reviewed their page.
 
 ### Growth and housekeeping (2026-10-28)
 
