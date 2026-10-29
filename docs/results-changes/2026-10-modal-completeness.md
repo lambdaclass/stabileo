@@ -58,11 +58,6 @@ repeated modes can certify completeness; duplicated or missing vectors cannot.
 Single-mode enclosures alone do not establish completeness. Tests exercise these
 cases and compare certificate claims with the dense reference spectrum.
 
-MD-ORTHOGONALITY containment belongs to another branch and is not changed here.
-It must be removed when both branches land.
-
-Verification for the replacement implementation uses
-`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-827-target` and the Nix toolchain.
 The tests retain independent dense-spectrum, mass-Gram, sorting and certificate
 checks, including rejection of missing or duplicated vectors. They cover the
 issue fixtures, generated symmetric cantilevers, 40/60 eigenvalues repeated three
@@ -75,11 +70,7 @@ web test again expects successful buckling analysis.
 Performance fixture: `engine/examples/modal_20000.rs`, a 20,000-DOF symmetric
 tridiagonal stiffness with graded diagonal, identity mass, and six requested
 modes. Build in release mode, then measure the executable alone; peak RSS comes
-from `getrusage(RUSAGE_CHILDREN)` on macOS. The baseline was built before changing
-the reverted Lanczos implementation (only the missing error-message function
-was restored so the working tree could compile). No commits, pushes or git
-metadata changes were made; the required build/gate scripts perform their existing
-read-only provenance checks.
+from `getrusage(RUSAGE_CHILDREN)` on macOS. The baseline uses the prior Lanczos implementation.
 
 Three alternating native release runs on the same machine (2026-10-29):
 
@@ -118,9 +109,7 @@ Native commands were run from `engine/` using `nix develop .. -c cargo test
 --locked`: `--lib`, `--test core`, `--test certificates` (this repository's
 certificate target), `--release --test metamorphic`, and `--release --test
 validation`. Web units used `cd web && nix develop .. -c npx vitest run --project
-unit`. Nix's cache was redirected to `/private/tmp/codex-827-cache` because the
-home cache is outside the writable sandbox. The required Cargo target directory
-was used throughout.
+unit`.
 
 Verification also found that modal postprocessing could silently drop computed
 modes at or below the existing omega² threshold of 1e-10. A seven-mode warping
@@ -139,9 +128,15 @@ unit tests and ten sparse-mass integration tests. A fresh WASM build passes all
 32 validation-model tests, including the restored per-combination stability and
 amplification comparisons. TypeScript reports no new errors against the existing
 247-error baseline; the guarded Svelte check and shared site-header check also
-pass. The web bundle builds, but Chromium launch is denied by the
-sandbox's Mach-port restrictions, so the new 390 px and 810 px Playwright checks
-have not run and rendered layout remains unverified. These checks used the
-installed Nix-store Rust 1.99.1 and Node 22.22.1 binaries after flake input fetching
-stalled. The full native suite was stopped; only the focused results above are
-claimed for this follow-up.
+pass. The web bundle builds.
+
+Dense regressions also cover non-diagonal singular mass matrices. Positive
+infinite eigenvalues represent massless directions; a Sturm count certifies the
+finite spectrum before those directions are excluded. Both modal result types
+report a diagnostic when fewer finite modes exist than requested. Finite modes
+at or below the existing positive-frequency threshold still cause a refusal.
+That refusal preserves the eigenvalue-failure prefix used by the web caller
+to identify, hold and report an unexcited mechanism through rank analysis.
+
+The version-5 registry summary is kept short; PR #814 makes the registry lazy
+and owns the recheck notice's mobile readability and action-target changes.

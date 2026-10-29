@@ -36,8 +36,8 @@ pub trait MatVecOp {
     /// `⟨x,y⟩_B = xᵀBy`, so the recurrence uses this instead.
     ///
     /// The default is the identity, which makes `⟨·,·⟩_B` the Euclidean product and is
-    /// exactly right for the ordinary symmetric operators (`DenseSymMatVec`,
-    /// `InverseOp`). Only the generalized operators override it.
+    /// exactly right for ordinary symmetric operators such as `DenseSymMatVec`.
+    /// Generalized operators override it with their positive inner product.
     fn b_mul(&self, x: &[f64], y: &mut [f64]) {
         y[..x.len()].copy_from_slice(x);
     }
@@ -539,6 +539,29 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
     Some(EigenResult { values: kept.iter().map(|p| p.0).collect(), vectors })
 }
 
+/// Discard only massless (+infinity) directions, after an independent Sturm
+/// count confirms every finite eigenvalue in the dense spectrum was retained.
+/// Keep finite zero/negative modes so modal postprocessing can reject them.
+fn dense_modal_spectrum(a: &[f64], b: &[f64], n: usize, k: usize) -> Option<EigenResult> {
+    let full = dense_generalized_eigen_semidefinite(a, b, n)?;
+    let finite: Vec<_> = full.values.iter().enumerate()
+        .filter(|(_, value)| **value != f64::INFINITY).collect();
+    if finite.iter().any(|(_, value)| !value.is_finite()) { return None; }
+    if finite.len() < n {
+        let boundary = *finite.last()?.1;
+        let (count, _) = sturm_count_above(
+            &CscMatrix::from_dense_symmetric(a, n),
+            &CscMatrix::from_dense_symmetric(b, n), boundary)?;
+        if count != finite.len() { return None; }
+    }
+    let nk = k.min(finite.len());
+    let mut vectors = vec![0.0; n * nk];
+    for (col, &(source, _)) in finite.iter().take(nk).enumerate() {
+        for row in 0..n { vectors[row * nk + col] = full.vectors[row * n + source]; }
+    }
+    Some(EigenResult { values: finite.iter().take(nk).map(|(_, value)| **value).collect(), vectors })
+}
+
 /// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x.
 /// Finds the lowest modes with zero-shift inversion and a Sturm completeness check.
 /// The shift argument is retained for compatibility; K must be positive definite.
@@ -553,16 +576,7 @@ pub fn lanczos_generalized_eigen(
 
     // For small problems, use dense path directly
     if n <= 80 || (n <= 200 && k >= n / 2) {
-        let full = dense_generalized_eigen_semidefinite(a, b, n)?;
-        let nk = k.min(full.values.len());
-        let values = full.values[..nk].to_vec();
-        let mut vectors = vec![0.0; n * nk];
-        for col in 0..nk {
-            for row in 0..n {
-                vectors[row * nk + col] = full.vectors[row * n + col];
-            }
-        }
-        return Some(EigenResult { values, vectors });
+        return dense_modal_spectrum(a, b, n, k);
     }
 
     lanczos_generalized_eigen_sparse(&CscMatrix::from_dense_symmetric(a,n), &CscMatrix::from_dense_symmetric(b,n), k, sigma)
@@ -682,11 +696,7 @@ pub fn lanczos_generalized_eigen_sparse(
     // Small non-SPD stiffness problems include the mechanism-detection path.
     // Jacobi can resolve their zero/negative modes; inverse iteration cannot.
     if n <= 200 {
-        let full = dense_generalized_eigen_semidefinite(&k_ff.to_dense_symmetric(), &m_ff.to_dense_symmetric(), n)?;
-        let nk = k.min(full.values.len());
-        let mut vectors = vec![0.0;n*nk];
-        for row in 0..n { for col in 0..nk { vectors[row*nk+col] = full.vectors[row*n+col]; } }
-        return Some(EigenResult { values: full.values[..nk].to_vec(), vectors });
+        return dense_modal_spectrum(&k_ff.to_dense_symmetric(), &m_ff.to_dense_symmetric(), n, k);
     }
     None
 }
@@ -869,23 +879,15 @@ mod tests {
 
     /// Buckling must stay on the SPARSE path when -Kg is indefinite.
     ///
-    /// `(-Kg)φ = μKφ` has an indefinite right-hand matrix for any model carrying
-    /// tension and compression at once — nearly all of them. The Lanczos
+    /// In `(-Kg)φ = μKφ`, -Kg is indefinite for models carrying
+    /// tension and compression at once. The Lanczos
     /// recurrence builds a basis orthogonal in some inner product, and that
     /// product must come from a positive definite matrix. So it runs in K, which
     /// is SPD by construction, not in -Kg.
     ///
-    /// The symptom is not a wrong answer: `lanczos_buckling_eigen_sparse` falls
-    /// back to dense Jacobi when the iteration bails, so the eigenvalues come
-    /// back correct either way and a numbers-only test cannot see the defect.
-    /// What it loses is the entire point of the sparse path — that fallback
-    /// calls `to_dense_symmetric()` on both K and -Kg, which is exactly the
-    /// n×n densification the sparse buckling work exists to remove. The
-    /// optimization silently did not apply to the models that need it.
-    ///
-    /// So this test asserts on the ITERATION, not on the numbers: run the two
-    /// operators directly, past the fallback, and check that the -Kg metric
-    /// bails and the K metric does not.
+    /// A failed large sparse iteration returns None, causing an explicit
+    /// analysis refusal; there is no dense fallback. Test both metrics directly
+    /// and require the public entry point to return Sturm-certified modes.
     #[test]
     fn buckling_lanczos_stays_sparse_when_kg_is_indefinite() {
         let n = 300;
@@ -957,16 +959,14 @@ mod tests {
                 .filter(|v| v.is_finite() && *v > 1e-12)
                 .fold(f64::MIN, f64::max)
         };
-        // And the public entry point must actually take that path. The dense
-        // fallback returns ALL n eigenvalues so the caller can hunt for positive
-        // mu; the sparse path returns at most k. That difference is what makes
-        // the fallback observable from outside without instrumenting it.
+        // The public entry point must return the requested Sturm-certified
+        // sparse modes; a failed iteration would explicitly return None.
         let via_entry_point = lanczos_buckling_eigen_sparse(&k_ff, &neg_kg, k)
             .expect("entry point must produce a result");
         assert!(
             via_entry_point.values.len() <= k,
-            "lanczos_buckling_eigen_sparse returned {} eigenvalues for k = {k}: that is \
-             the dense fallback, so the sparse path silently did not apply",
+            "lanczos_buckling_eigen_sparse returned {} eigenvalues for k = {k}: exceeding \
+             the requested certified mode count",
             via_entry_point.values.len(),
         );
 
@@ -1223,11 +1223,9 @@ mod tests {
     }
 
     #[test]
-    fn test_lanczos_generalized_indefinite_shift_falls_back_to_dense() {
-        // n > 80 so the shift-invert path is taken. With σ = 1.0 the shifted
-        // matrix A − σB is indefinite (λ_min(A) ≈ 9.7e-4 ≪ σ), so dense
-        // Cholesky of A − σB fails. The function must fall back to the dense
-        // generalized solve (documented behavior) instead of returning None.
+    fn test_lanczos_generalized_uses_zero_shift_for_lowest_modes() {
+        // n > 80 takes the sparse path. The legacy shift argument is ignored:
+        // zero-shift inversion targets the lowest modes, certified by Sturm.
         let n = 100;
         let mut a = vec![0.0; n * n];
         let mut b = vec![0.0; n * n];
@@ -1241,7 +1239,7 @@ mod tests {
         }
         let k = 3;
         let result = lanczos_generalized_eigen(&a, &b, n, k, 1.0)
-            .expect("indefinite shift must fall back to dense solve, not None");
+            .expect("zero-shift iteration must return certified lowest modes");
         assert_eq!(result.values.len(), k);
         // λ_j of the 1-2-1 tridiagonal (B = I): 2 − 2cos(jπ/(n+1))
         for j in 0..k {
@@ -1425,6 +1423,46 @@ pub fn eigen_failure_message(n: usize) -> String {
 #[cfg(test)]
 mod completeness_tests {
     use super::*;
+    #[test]
+    fn dense_non_diagonal_singular_mass_returns_complete_finite_spectrum() {
+        // Each rank-one block has a null direction that is not a zero row.
+        for blocks in [1, 2, 3] {
+            let n = 2 * blocks;
+            let mut a = vec![0.0; n*n];
+            let mut b = vec![0.0; n*n];
+            for i in 0..n { a[i*n+i] = 1.0; }
+            for block in 0..blocks {
+                for i in 2*block..2*block+2 { for j in 2*block..2*block+2 {
+                    b[i*n+j] = (block+1) as f64;
+                }}
+            }
+            let ac = CscMatrix::from_dense_symmetric(&a,n);
+            let bc = CscMatrix::from_dense_symmetric(&b,n);
+            for r in [lanczos_generalized_eigen(&a,&b,n,n,0.0).unwrap(),
+                      lanczos_generalized_eigen_sparse(&ac,&bc,n,0.0).unwrap()] {
+                assert_eq!(r.values.len(), blocks);
+                assert_eq!(sturm_count_above(&ac,&bc,*r.values.last().unwrap()).unwrap().0, blocks);
+                for col in 0..blocks {
+                    assert!((r.values[col] - 0.5 / (blocks-col) as f64).abs() < 1e-10);
+                    let v: Vec<_> = (0..n).map(|i| r.vectors[i*blocks+col]).collect();
+                    let mv = bc.sym_mat_vec(&v);
+                    for i in 0..n { assert!((v[i]-r.values[col]*mv[i]).abs() < 1e-10); }
+                    for other in 0..blocks {
+                        let gram: f64 = (0..n).map(|i| r.vectors[i*blocks+other]*mv[i]).sum();
+                        assert!((gram - if col == other { 1.0 } else { 0.0 }).abs() < 1e-10);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn dense_singular_mass_keeps_finite_modes_below_modal_threshold() {
+        let r = lanczos_generalized_eigen(&[1e-12,0.0,0.0,1e-12], &[1.0;4],2,2,0.0).unwrap();
+        assert_eq!(r.values.len(),1);
+        assert!((r.values[0]-5e-13).abs() < 1e-23);
+    }
+
     #[test]
     fn exhausted_finite_modal_spectrum_is_certified() {
         let n = 201;
