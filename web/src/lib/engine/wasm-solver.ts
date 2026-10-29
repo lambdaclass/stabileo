@@ -23,7 +23,7 @@ import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D
 import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
-import { errorText } from '../utils/error-text';
+import { errorText } from '../utils/thrown-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
 

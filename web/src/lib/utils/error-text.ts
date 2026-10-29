@@ -1,3 +1,5 @@
+import { knownIssueRefusal } from '../engine/known-issues';
+
 /**
  * The readable text of a thrown value.
  *
@@ -17,15 +19,8 @@
  * it were the engine's explanation.
  */
 export function errorText(e: unknown, fallback: string): string {
-  // This utility is imported by workers: keep it free of i18n/store rune imports.
-  if (typeof e === 'string') {
-    try {
-      const parsed = JSON.parse(e);
-      const refused = parsed?.structuredDiagnostics?.filter((d: { code?: string; severity?: string; message?: unknown }) =>
-        d.code === 'known_issue' && d.severity === 'error' && typeof d.message === 'string');
-      if (refused?.length) return refused.map((d: { message: string }) => d.message).join('\n');
-    } catch { /* An ordinary error string. */ }
-  }
+  const refusal = knownIssueRefusal(e);
+  if (refusal) return refusal;
   if (typeof e === 'string') return e.trim() ? e : fallback;
   const message = (e as { message?: unknown } | null | undefined)?.message;
   if (typeof message === 'string' && message.trim()) return message;

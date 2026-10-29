@@ -82,3 +82,23 @@ describe('containment modes', () => {
     expect(knownIssueRefusal('ordinary error')).toBeNull();
   });
 });
+
+for (const key of ['results', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) {
+  it(`collects and renders diagnostics in ${key}`, () => {
+    const leaf = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
+    const result = { [key]: ['steps', 'stages', 'caseResults', 'combinationResults'].includes(key) ? [{ results: leaf }] : leaf };
+    const disposition = knownIssueResultDisposition(result);
+    expect(disposition.messages).toHaveLength(1);
+    const html = render(ContainmentBanner, { props: { disposition } }).body;
+    expect(html).toContain('#759');
+    expect(disposition.refused).toBe(false);
+  });
+}
+it('collects both spectral directions, deduplicates, and tolerates cycles', () => {
+  const X = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
+  const Y = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'NL-DYNAMIC-GAPS', value: 370, message: 'ENGINE' }] };
+  const result: Record<string, unknown> = { X, Y, results: X };
+  expect(knownIssueResultDisposition(result).messages).toHaveLength(2);
+  result.results = result;
+  expect(knownIssueResultDisposition(result).messages).toHaveLength(2);
+});

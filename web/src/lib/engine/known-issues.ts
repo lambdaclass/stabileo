@@ -37,9 +37,10 @@ export function knownIssueDisposition(diagnostics: ReadonlyArray<{ code: string;
 }
 
 export function knownIssueRefusal(error: unknown): string | null {
+  if (error instanceof Error) error = error.message;
   if (typeof error !== 'string') return null;
   try {
-    const data = JSON.parse(error);
+    const data = JSON.parse(error.slice(error.indexOf('{')));
     if (!Array.isArray(data?.structuredDiagnostics)) return null;
     const disposition = knownIssueDisposition(data.structuredDiagnostics.filter((d: { severity?: string }) => d.severity === 'error'));
     return disposition.refused ? disposition.messages.join('\n') : null;
@@ -59,7 +60,7 @@ export function knownIssueResultDisposition(result: unknown): ReturnType<typeof 
         if (d && d.code === 'known_issue' && typeof d.message === 'string') diagnostics.push(d);
       }
     }
-    for (const key of ['results', 'finalResults', 'steps', 'stages']) visit(record[key]);
+    for (const key of ['results', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) visit(record[key]);
   }
   visit(result);
   return knownIssueDisposition(diagnostics);

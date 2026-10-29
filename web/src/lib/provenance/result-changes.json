@@ -1,8 +1,32 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 4,
+  "currentResultsVersion": 5,
   "changes": [
+    {
+      "id": "safety-containment-diagnostics",
+      "resultsVersion": 5,
+      "date": "2026-10-29",
+      "prs": [
+        807
+      ],
+      "area": "analysis",
+      "when": { "any": ["members", "shells", "connectors"] },
+      "title": {
+        "en": "Known-issue warnings and refusals",
+        "es": "Advertencias y rechazos por problemas conocidos",
+        "pt": "Avisos e recusas por problemas conhecidos"
+      },
+      "explanation": {
+        "en": "diagnostic only: known-issue warnings added, no number changed. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates.",
+        "es": "Solo diagnósticos: se agregan advertencias de problemas conocidos, sin cambiar números. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención.",
+        "pt": "Apenas diagnósticos: avisos de problemas conhecidos adicionados, sem alterar números. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-containment.md",
+        "heading": "Safety containment diagnostics"
+      }
+    },
     {
       "id": "dynamic-analyses-refuse-eccentricities",
       "resultsVersion": 4,

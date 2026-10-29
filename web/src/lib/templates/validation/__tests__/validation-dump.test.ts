@@ -56,7 +56,7 @@ async function solved(id: ValidationModelId) {
 
 describe.each(Object.keys(VALIDATION_MODELS) as ValidationModelId[])('%s', (id) => {
   it('matches its baseline' + (REF ? ', and writes its workbook' : ''), async () => {
-    if (id === 'validation-03') {
+    if (id === 'validation-01' || id === 'validation-03') {
       await expectMembraneRefusalAsync(() => solved(id));
       // Post-fix numerical expectations remain unmodified in BASELINES:
       // await solved(id); expectBaseline(BASELINES, id);

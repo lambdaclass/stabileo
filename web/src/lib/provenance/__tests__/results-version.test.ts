@@ -15,6 +15,7 @@ import type { SolveStamp } from '../solve-stamp';
  * `currentResultsVersion`, and add the new version's set here (changes merged together share it).
  */
 const RELEASED: Record<number, string[]> = {
+  5: ['safety-containment-diagnostics'],
   // #328 (2026-10-21), the first build that stamps its solves.
   1: [
     'spectral-cqc-and-participation', 'torsional-buckling-3d', 'mirrored-moments-2d-in-3d', 'inclined-member-loads',

@@ -1,7 +1,7 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
-import { errorText as baseErrorText } from '../utils/error-text';
+import { errorText as baseErrorText } from '../utils/thrown-text';
 import { prepareLoadSession2D, isWasmReady } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';

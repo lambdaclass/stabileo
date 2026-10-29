@@ -109,7 +109,7 @@ describe.each(ids)('%s', (id) => {
   });
 
   it('balances every case in six components', async () => {
-    if (id === 'validation-03') {
+    if (id === 'validation-01' || id === 'validation-03') {
       await expectMembraneRefusalAsync(() => statics(id));
       // Post-fix: every row.worstRelative < 1e-9, no uncovered loads.
       return;
