@@ -206,3 +206,51 @@ test('an unpatched about:blank frame cannot read live-origin storage', async ({ 
   })).toEqual({ token: null, databases: [] });
   expect(await live.evaluate(() => localStorage.getItem('production-token'))).toBe('secret');
 });
+
+for (const locale of ['es-AR', 'pt-BR']) {
+  test(`the frozen root follows browser language ${locale}`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ locale, baseURL });
+    const page = await context.newPage();
+    const outside = watch(page, baseURL);
+    await page.goto(`${P}?campaign=research#top`);
+    await expect(page).toHaveURL(new URL(`${P}${locale.slice(0, 2)}/?campaign=research#top`, baseURL).href);
+    await expect(page.locator('.landing')).toBeVisible();
+    expect(outside).toEqual([]);
+    await context.close();
+  });
+}
+
+for (const width of [390, 810]) {
+  for (const locale of ['en', 'es', 'pt']) {
+    test(`${locale} citation controls fit a ${width}px viewport`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${P}${locale}/research/fracture/shauer-2025/`);
+      const banner = page.locator('#stabileo-snapshot-banner');
+      const dismiss = banner.getByRole('button');
+      await expect(dismiss).toBeVisible();
+      const dismissBox = (await dismiss.boundingBox())!;
+      expect(dismissBox.width).toBeGreaterThanOrEqual(44);
+      expect(dismissBox.height).toBeGreaterThanOrEqual(44);
+      await dismiss.click();
+      await expect(banner).toHaveCount(0);
+      const cite = page.locator('section.rs-citethis');
+      await cite.scrollIntoViewIfNeeded();
+      const buttons = cite.getByRole('button');
+      await expect(buttons).toHaveCount(3);
+      for (const button of await buttons.all()) {
+        await button.scrollIntoViewIfNeeded();
+        const box = (await button.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        await button.click({ trial: true });
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      for (const pre of await cite.locator('pre').all()) {
+        expect(await pre.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+        expect(await pre.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(13);
+      }
+    });
+  }
+}

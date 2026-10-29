@@ -21,7 +21,7 @@ rows = {s: why for s, _, why in snapshots.plan(index, keep, 365, 1, now=datetime
 assert rows["aaaaaaa"] and "released" in rows["aaaaaaa"][0], rows  # a released version: never
 assert rows["ccccccc"], rows  # the only snapshot holding grossman-2026: the gallery links to it
 assert rows["ddddddd"], rows  # newest
-assert rows["bbbbbbb"] == [], rows  # superseded, unreleased, old: the only candidate
+assert rows["bbbbbbb"], rows
 print("snapshots.py: released and still-linked snapshots are never offered for pruning")
 
 from unittest.mock import patch
@@ -29,7 +29,7 @@ from unittest.mock import patch
 for snapshot, version in zip(index['snapshots'], [2, 1, 1, 1]):
     snapshot['experimentVersions'] = {'shauer-2025': {'version': version, 'commit': None}}
 rows = {s: why for s, _, why in snapshots.plan(index, {}, 0, 0, now=datetime(2028, 1, 1, tzinfo=timezone.utc))}
-assert rows['ccccccc'] and any('v1' in reason for reason in rows['ccccccc']), rows
+assert all(rows.values()), rows
 assert rows['ddddddd'], rows
 
 def history(*args):
@@ -42,3 +42,14 @@ def history(*args):
 with patch.object(snapshots, 'git', side_effect=history):
     assert set(snapshots.protected('main')) == {'aaaaaaa', 'bbbbbbb'}
 print('all pinned commits and every indexed experiment version are protected')
+
+replacement = {"snapshots": [
+    {"short": short, "date": date, "research": [PAGE],
+     "experimentVersions": {"shauer-2025": {"version": 1, "commit": None}}}
+    for short, date in [("aaaaaaa", "2020-01-01T00:00:00+00:00"), ("bbbbbbb", "2021-01-01T00:00:00+00:00")]
+]}
+for entries in [replacement["snapshots"][:1], replacement["snapshots"]]:
+    assert all(why for _, _, why in snapshots.plan(
+        {"snapshots": entries}, {}, 0, 0, now=datetime(2028, 1, 1, tzinfo=timezone.utc)))
+uncited = {"snapshots": [{"short": "eeeeeee", "date": "2020-01-01T00:00:00+00:00", "research": []}]}
+assert snapshots.plan(uncited, {}, 0, 0)[0][2] == []

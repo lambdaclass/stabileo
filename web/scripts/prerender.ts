@@ -262,7 +262,7 @@ async function publicPaths(): Promise<string[]> {
  * Built by `scripts/root-handoff.ts`, which is where the reasoning and the
  * tests for it live. The LIST comes from `LOCALES` above, which is the application's own.
  */
-const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
+const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE, PREFIX);
 
 async function capture(browser: Browser, base: string, locale: Locale, path: string) {
   const page = await browser.newPage();

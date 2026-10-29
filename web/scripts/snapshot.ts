@@ -246,9 +246,9 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
       el.id = 'stabileo-snapshot-banner';
       el.setAttribute('role', 'region');
       el.innerHTML =
-        '<style>#stabileo-snapshot-banner{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;display:flex;flex-wrap:wrap;gap:.25rem 1rem;align-items:center;justify-content:center;padding:.5rem 2.75rem .5rem 1rem;background:#0c1620;color:#f4f7fa;border-top:2px solid #e5482a;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}' +
+        '<style>#stabileo-snapshot-banner{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;display:flex;flex-wrap:wrap;gap:.25rem 1rem;align-items:center;justify-content:center;padding:.5rem 3.75rem .5rem 1rem;min-height:44px;box-sizing:border-box;background:#0c1620;color:#f4f7fa;border-top:2px solid #e5482a;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}' +
         '#stabileo-snapshot-banner a{color:#ffd7cc;text-decoration:underline;text-underline-offset:2px}#stabileo-snapshot-banner a:focus-visible,#stabileo-snapshot-banner button:focus-visible{outline:2px solid #ffd7cc;outline-offset:2px}' +
-        '#stabileo-snapshot-banner button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:2rem;height:2rem;border:0;border-radius:4px;background:transparent;color:#f4f7fa;font-size:1.25rem;cursor:pointer}' +
+        '#stabileo-snapshot-banner button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:4px;background:transparent;color:#f4f7fa;font-size:1.25rem;cursor:pointer}' +
         '#stabileo-snapshot-banner code{font-family:"IBM Plex Mono",ui-monospace,monospace}</style>' +
         '<span data-lead></span><a data-latest></a><a data-compare rel="noopener"></a><button type="button">×</button>';
       el.querySelector('button')!.addEventListener('click', () => {

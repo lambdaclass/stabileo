@@ -227,8 +227,9 @@ on staging. Its publication lock queues snapshot installers without delaying dep
 
 **Manual prune.** Never automatic. Coordinate with Klaus, stop snapshot jobs, and retain every
 published/cited version. `research/tools/snapshots.py plan` remains an advisory history-based
-plan, not deletion authorization. Review the index's experimentVersions as well: keep the newest
-snapshot of every released experiment version, including versions without a pinned commit.
+plan, not deletion authorization. Keep every indexed snapshot containing research pages or
+experimentVersions, including superseded builds and versions without a pinned commit: each
+may already have been copied as a permanent citation.
 
 On the host, after reviewing the exact seven-hex directory to remove:
 

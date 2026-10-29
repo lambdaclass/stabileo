@@ -185,7 +185,8 @@
     padding: 0.2rem 0.5rem;
     margin-left: 0.5rem;
     cursor: pointer;
-    min-height: 1.75rem;
+    min-height: 44px;
+    min-width: 44px;
   }
   .rs-cite-copy:focus-visible {
     outline: 2px solid currentColor;
