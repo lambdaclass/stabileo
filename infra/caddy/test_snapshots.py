@@ -33,12 +33,13 @@ class SnapshotHosting(unittest.TestCase):
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text(body)
             port = free_port()
-            env = {**os.environ, 'APP_DOMAIN': f'http://127.0.0.1:{port}',
+            app_port = free_port()
+            env = {**os.environ, 'APP_DOMAIN': f'http://127.0.0.1:{app_port}',
                    'ADMIN_DOMAIN': f'http://127.0.0.1:{free_port()}',
                    'STABILEO_ROOT': tmp, 'ROBOTS_TAG': 'all',
                    'XDG_DATA_HOME': tmp, 'XDG_CONFIG_HOME': tmp}
             config = root / 'Caddyfile'
-            config.write_text(Path(__file__).with_name('Caddyfile').read_text().replace('{\n', '{\n\tadmin off\n', 1))
+            config.write_text(Path(__file__).with_name('Caddyfile').read_text().replace('{\n', '{\n\tadmin off\n', 1).replace('https://snapshots.{$APP_DOMAIN}', f'http://127.0.0.1:{port}'))
             with (root / 'caddy.log').open('w+') as log:
                 server = subprocess.Popen(['caddy', 'run', '--config', str(config), '--adapter', 'caddyfile'], env=env, stdout=log, stderr=log)
                 try:
@@ -52,8 +53,8 @@ class SnapshotHosting(unittest.TestCase):
                                 self.fail(log.read())
                             time.sleep(.05)
 
-                    def get(path):
-                        conn = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+                    def get(path, target_port=port):
+                        conn = http.client.HTTPConnection('127.0.0.1', target_port, timeout=5)
                         conn.request('GET', path)
                         response = conn.getresponse()
                         result = response.status, dict(response.getheaders()), response.read().decode()
@@ -74,6 +75,19 @@ class SnapshotHosting(unittest.TestCase):
                         self.assertEqual(status, 404, (path, status, body))
                         self.assertNotIn('immutable', headers.get('Cache-Control', ''))
                     self.assertEqual(get('/@/')[1]['Cache-Control'], 'no-cache')
+                    self.assertIn('Access-Control-Allow-Origin', get('/@/')[1])
+                    for path in ['/', '/api/v1/health', '/app/basic', '/assets/app.js']:
+                        self.assertEqual(get(path)[0], 404)
+                    for path in ['/@abcdef0/', '/@abcdef0/app/basic?example=a', '/@/']:
+                        status, headers, body = get(path, app_port)
+                        self.assertEqual(status, 308)
+                        self.assertEqual(headers['Location'], f'http://127.0.0.1:{port}' + path)
+                    self.assertEqual(get('/', app_port)[2], 'live')
+                    csp = get('/@abcdef0/')[1]['Content-Security-Policy']
+                    self.assertIn("script-src 'self' 'wasm-unsafe-eval';", csp)
+                    self.assertIn("connect-src 'self';", csp)
+                    self.assertIn("frame-src 'self';", csp)
+                    self.assertIn("base-uri 'none';", csp)
                 finally:
                     server.terminate()
                     server.wait(timeout=10)

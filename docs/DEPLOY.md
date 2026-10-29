@@ -116,14 +116,38 @@ Without the Google pair the admin site shows no sign-in button; add them and red
 
 ## Snapshots
 
-`https://stabileo.com/@<first 7 of a commit>/…` serves the whole site exactly as built at that
-commit, forever; the plain address is always the latest. This is what research citations link
-to (research/DESIGN.md §5). `/@/` lists the snapshots as JSON, newest first.
+`https://snapshots.stabileo.com/@<first 7 of a commit>/…` serves the frozen site.
+Staging uses `https://snapshots.staging.stabileo.com`. The app's `/@*` addresses answer
+308 redirects preserving path and query. Citations and permalinks point directly to the snapshot
+origin; its `/@/` index permits read-only CORS from the corresponding live app origin.
+
+**Maintainer action — DNS before deployment.** Create these records in the `stabileo.com` zone:
+
+| Name | Record | Target |
+|---|---|---|
+| `snapshots.stabileo.com` | A | production Hetzner VM IPv4 (`DEPLOY_HOST` in the production environment) |
+| `snapshots.staging.stabileo.com` | A | staging Hetzner VM IPv4 (`DEPLOY_HOST` in the staging environment) |
+
+Add AAAA records only if those VMs have working public IPv6. Alternatively use a CNAME for each
+name to a DNS hostname that resolves to its corresponding VM (for example,
+`snapshots.staging.stabileo.com CNAME staging.stabileo.com`). Do not point production snapshots
+to GitHub Pages: `CNAME stabileo.com` is suitable only after the production app's VM cut-over.
+Allow ports 80/443 for Caddy's automatic TLS. The snapshot workflow checks DNS before building
+and fails with an explicit A/AAAA-or-CNAME instruction if the snapshot hostname does not resolve.
+
+The separate origin is the browser storage security boundary: even an unpatched `about:blank`
+iframe cannot access the live app's localStorage or IndexedDB. The snapshot Caddy site serves
+only `snapshots/`, with no API proxy or live app fallback. Its CSP denies external scripts,
+connections, frames, forms and objects; scripts are external same-origin files, with WASM
+compilation allowed. Inline styles remain allowed for the app's styling. All responses are
+noindex; successful frozen files are immutable, while the index is no-cache and errors are uncached.
+Storage namespacing remains defence in depth between versions, not a security boundary.
 
 **Which commits.** `.github/workflows/research-snapshot.yml` runs on a push to main only
 when parsed experiment `version` values in `research/papers.yaml` change, on a pushed
 `research-v*` tag, or on **Make a snapshot** with a full commit input. Every target must be an
-ancestor of main. Missing comparison history fails closed. Keep `papers.yaml` versions aligned
+ancestor of main. Missing comparison history fails closed; a valid previous commit without
+`papers.yaml` is treated as an empty catalog, so its introduction creates a snapshot. Keep `papers.yaml` versions aligned
 with each experiment's `versions.json`; descriptive edits do not create snapshots.
 Cite this chooses the latest indexed snapshot of the current experiment version. Without one,
 it cites the current build without a permanent link. A frozen page continues to cite itself.
@@ -131,7 +155,7 @@ it cites the current build without a permanent link. A frozen page continues to 
 **Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
 `make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
 the application's `location` reads see the address without the prefix and a small script in the
-page puts the prefix back on what it writes (history, links, images, fetches of its own files;
+page puts the prefix back on what it writes (history, links, images, iframe sources, fetches of its own files;
 never `/api/`) and shows the version banner (`web/scripts/snapshot.ts`). Share and embed URLs
 use the actual address, keeping the commit prefix. Snapshot Web Storage persists in a namespace keyed by the full commit, separate from live
 workspace, autosave, preferences and token keys. IndexedDB is disabled, so autosave uses
@@ -140,14 +164,17 @@ Reloading the same snapshot restores its saved workspace; download a project fil
 `--mode desktop` is refused as a snapshot. `SNAPSHOT.json` in it records the commit, its date and
 the research pages it holds. CI's required **CI OK** includes **Snapshot Site**, which builds one
 for every web change and runs `web/snapshot-e2e/` against it under `vite preview`; the same suite runs against a host with
-`SNAPSHOT_E2E_URL=https://staging.stabileo.com SNAPSHOT_PREFIX=/@<7 hex>/`.
+`SNAPSHOT_E2E_URL=https://snapshots.staging.stabileo.com SNAPSHOT_PREFIX=/@<7 hex>/`.
 
 **Ship and install.** The separate hosted `ubuntu-latest` workflow uses the production
-GitHub environment by default (manual staging is supported). It shares `deploy-<environment>-host`
-with deploy and rollback, with cancellation disabled. GitHub concurrency is not a FIFO queue:
-if multiple runs queue, check that each intended release actually ran and manually rerun any
-superseded pending release. The normal deploy and `deploy-app.yml` match origin/main; the
-Caddyfile still ships and reloads with normal releases. Deploy that config before the first snapshot.
+GitHub environment by default (manual staging is supported). Each run and attempt has a unique
+`snapshot-<environment>-<run>-<attempt>` concurrency group: newer snapshot/deploy/rollback jobs
+cannot replace a pending snapshot. The playbook's host-side `flock` serializes publication;
+the store's own lock also serializes install/index/GC commands. Uploads have unique staging
+directories. Snapshots write only their own store, so they can coexist with normal deploys and
+rollbacks without changing those workflows. The normal deploy and `deploy-app.yml` match
+origin/main. Caddy still ships and reloads with normal releases: deploy this config before the
+first snapshot and do not roll Caddy back to a config that serves snapshots on the live origin.
 
 1. Resolve the target and check main ancestry; compare parsed versions for a main push.
 2. Build engine/research WASM and the prefixed site on the hosted runner; generate `SNAPSHOT.json`
@@ -155,7 +182,8 @@ Caddyfile still ships and reloads with normal releases. Deploy that config befor
 3. Ship via the existing SSH setup and `deploy-snapshot.yml`. It only writes beneath `snapshots/`,
    including staging and Ansible temporary files. Reserve 2 GiB plus upload/extraction headroom.
 4. Compare every existing shared asset byte-for-byte (SHA-256); refuse a name collision with
-   different bytes. Create new assets exclusively, never overwrite them. Keep only non-assets
+   different bytes. Write new assets to same-directory temporary names, verify SHA-256, fsync,
+   then atomically rename under the store lock; never overwrite an existing asset. Keep only non-assets
    in the read-only commit directory and atomically publish it, then atomically rewrite `/@/`.
    Existing commits are retained; short-prefix collisions fail. A local file lock serializes
    installation and explicit garbage collection. Interrupted installs may leave unreferenced
@@ -184,7 +212,7 @@ embedded in JS can change chunk hashes between snapshots. At 12 releases/year th
 These are estimates, not measurements of this new build. The live deploy adds zero snapshot
 build/upload/install time. Snapshot wall time is a separate WASM + Vite + prerender build plus
 transfer and verification; budget 5–20 minutes on a warm hosted runner, longer cold, and measure
-on staging. Its shared host lock can delay deploy/rollback while it runs.
+on staging. Its publication lock queues snapshot installers without delaying deploy/rollback.
 
 **Manual prune.** Never automatic. Coordinate with Klaus, stop snapshot jobs, and retain every
 published/cited version. `research/tools/snapshots.py plan` remains an advisory history-based

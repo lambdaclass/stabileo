@@ -38,7 +38,7 @@
         - name: Install write-once assets and publish index
           script:
             cmd: scripts/snapshot_store.py install --root {{ snapshots_dir | quote }} --source {{ staging.path | quote }} --commit {{ commit_sha | quote }} --reserve-mb {{ snapshot_min_free_mb | int }}
-            executable: python3
+            executable: flock {{ (snapshots_dir ~ "/.publish.lock") | quote }} python3
       always:
         - name: Remove upload staging directory
           file:

@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -99,6 +101,57 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(store.prune(self.root, True), [])
         self.assertTrue(first.exists())
         self.assertTrue((self.root / 'assets/second-456.js').exists())
+
+    def test_interrupted_asset_write_can_be_retried(self):
+        def interrupted(source, output):
+            output.write(b'as')
+            output.flush()
+            self.assertFalse((self.root / 'assets/app-123.js').exists())
+            raise OSError('interrupted write')
+
+        with patch.object(store.shutil, 'copyfileobj', side_effect=interrupted):
+            with self.assertRaisesRegex(OSError, 'interrupted'):
+                self.install()
+        self.assertFalse((self.root / 'assets/app-123.js').exists())
+        self.assertFalse((self.root / 'aaaaaaa').exists())
+        self.install()
+        self.assertEqual((self.root / 'assets/app-123.js').read_text(), 'asset')
+
+    def test_process_exit_during_write_leaves_no_final_asset(self):
+        code = """
+import importlib.util, os, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('store', sys.argv[1])
+store = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(store)
+def die(source, output):
+    output.write(b'as')
+    output.flush()
+    os._exit(17)
+store.shutil.copyfileobj = die
+with store.locked(Path(sys.argv[3])):
+    store.install(Path(sys.argv[2]), Path(sys.argv[3]), 'a' * 40, 0)
+"""
+        result = subprocess.run([sys.executable, '-I', '-c', code, str(Path(store.__file__)), str(self.source), str(self.root)])
+        self.assertEqual(result.returncode, 17)
+        self.assertFalse((self.root / 'assets/app-123.js').exists())
+        self.install()
+        self.assertEqual((self.root / 'assets/app-123.js').read_text(), 'asset')
+
+    def test_flush_failure_never_publishes_asset(self):
+        with patch.object(store.os, 'fsync', side_effect=OSError('interrupted fsync')):
+            with self.assertRaises(OSError):
+                self.install()
+        self.assertFalse((self.root / 'assets/app-123.js').exists())
+        self.install()
+
+    def test_store_lock_serializes_processes(self):
+        code = "import fcntl, sys; f = open(sys.argv[1], 'a'); fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)"
+        def acquire():
+            return subprocess.run([sys.executable, '-I', '-c', code, str(self.root / '.store.lock')], capture_output=True)
+        with store.locked(self.root):
+            self.assertNotEqual(acquire().returncode, 0)
+        self.assertEqual(acquire().returncode, 0)
 
     def test_manifest_mismatch(self):
         (self.source / 'assets/app-123.js').write_text('tampered')

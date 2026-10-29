@@ -204,12 +204,61 @@ write_files:
       	}
       	redir @dirNoSlash {path}/ 301
 
+      	redir /@* https://snapshots.{$APP_DOMAIN}{uri} 308
+
+      	@static path_regexp \.
+      	handle @static {
+      		@assets path /assets/*
+      		header @assets Cache-Control "public, max-age=31536000, immutable"
+      		@html path *.html
+      		header @html Cache-Control "no-cache"
+      		file_server
+      	}
+
+      	handle {
+      		header Cache-Control "no-cache"
+      		try_files {path} {path}/index.html /index.html
+      		file_server
+      	}
+      }
+
+      {$ADMIN_DOMAIN} {
+      	root * {$STABILEO_ROOT}/live/frontends/admin
+      	import common
+
+      	@static path_regexp \.
+      	handle @static {
+      		@assets path /assets/*
+      		header @assets Cache-Control "public, max-age=31536000, immutable"
+      		@html path *.html
+      		header @html Cache-Control "no-cache"
+      		file_server
+      	}
+
+      	handle {
+      		header Cache-Control "no-cache"
+      		try_files {path} /admin.html
+      		file_server
+      	}
+      }
+
+      https://snapshots.{$APP_DOMAIN} {
+      	encode zstd gzip
+      	header {
+      		X-Content-Type-Options "nosniff"
+      		X-Robots-Tag "noindex"
+      		Referrer-Policy "no-referrer"
+      		Permissions-Policy "document-domain=(), camera=(), microphone=(), geolocation=(), payment=()"
+      		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+      		-Server
+      	}
       	# Snapshots: the site as built at a commit, kept forever under /@<first 7 of the commit>/
       	# (docs/DEPLOY.md "Snapshots"). Files never change once written, so they are cached for good;
       	# a snapshot that does not exist is a plain 404, not cached. /@/ is the index (JSON).
       	redir /@ /@/ 301
       	handle /@/ {
       		root * {$STABILEO_ROOT}/snapshots
+      		header Access-Control-Allow-Origin "https://{$APP_DOMAIN}"
       		rewrite * /index.json
       		header Cache-Control "no-cache"
       		file_server
@@ -268,39 +317,8 @@ write_files:
       		respond 404
       	}
 
-      	@static path_regexp \.
-      	handle @static {
-      		@assets path /assets/*
-      		header @assets Cache-Control "public, max-age=31536000, immutable"
-      		@html path *.html
-      		header @html Cache-Control "no-cache"
-      		file_server
-      	}
-
       	handle {
-      		header Cache-Control "no-cache"
-      		try_files {path} {path}/index.html /index.html
-      		file_server
-      	}
-      }
-
-      {$ADMIN_DOMAIN} {
-      	root * {$STABILEO_ROOT}/live/frontends/admin
-      	import common
-
-      	@static path_regexp \.
-      	handle @static {
-      		@assets path /assets/*
-      		header @assets Cache-Control "public, max-age=31536000, immutable"
-      		@html path *.html
-      		header @html Cache-Control "no-cache"
-      		file_server
-      	}
-
-      	handle {
-      		header Cache-Control "no-cache"
-      		try_files {path} /admin.html
-      		file_server
+      		respond 404
       	}
       }
   - path: /etc/caddy/stabileo.env

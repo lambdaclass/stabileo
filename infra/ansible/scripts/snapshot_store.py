@@ -84,9 +84,25 @@ def install(source, root, commit, reserve_mb=2048):
         for name in assets:
             target = shared / name
             if not target.exists():
-                with target.open('xb') as output:
-                    output.write((source / 'assets' / name).read_bytes())
-                target.chmod(0o444)
+                fd, temporary = tempfile.mkstemp(prefix='.asset-', dir=shared)
+                temporary = Path(temporary)
+                try:
+                    with os.fdopen(fd, 'wb') as output:
+                        with (source / 'assets' / name).open('rb') as input_file:
+                            shutil.copyfileobj(input_file, output)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    if digest(temporary) != assets[name]:
+                        raise ValueError(f'asset write mismatch: {name}')
+                    temporary.chmod(0o444)
+                    temporary.rename(target)
+                    directory_fd = os.open(shared, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+                finally:
+                    temporary.unlink(missing_ok=True)
         for path in source.iterdir():
             if path.name != 'assets':
                 if path.is_dir():
