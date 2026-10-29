@@ -270,7 +270,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     add_foundation_forces_3d(&mut element_forces, input, input_solver, &node_by_id, &elem_by_id, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    Ok(AnalysisResults3D {
+    let r = AnalysisResults3D {
         displacements, reactions, element_forces,
         plate_stresses: compute_plate_stresses(input_solver, &dof_num, &u_full, None),
         quad_stresses: compute_quad_stresses(input_solver, &dof_num, &u_full, None),
@@ -282,7 +282,9 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    crate::known_issues::membrane_bending_3d(input_solver, &input_solver.loads, &r)?;
+    Ok(r)
 }
 
 // ==================== Foundation Matrix Helpers ====================

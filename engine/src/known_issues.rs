@@ -497,6 +497,15 @@ mod tests {
         }
         let registered: std::collections::BTreeSet<_> = ENTRIES.iter().map(|e| e.issue).collect();
         assert_eq!(registered, contained);
-        for e in ENTRIES { assert!(ledger.contains(&format!("`{}`", e.id)), "{}", e.id); }
+        for e in ENTRIES {
+            let row = ledger.lines().find(|line| line.starts_with(&format!("| #{} |", e.issue))).unwrap();
+            let cells: Vec<_> = row.split('|').map(str::trim).collect();
+            let ids: Vec<_> = cells[2].split(" / ").map(|id| id.trim_matches('`')).collect();
+            let modes: Vec<_> = cells[3].split(" / ").collect();
+            let index = ids.iter().position(|id| *id == e.id).expect("id belongs to its issue row");
+            let expected = match e.mode { Mode::Warn => "WARN", Mode::Refuse => "REFUSE" };
+            if ids.len() == modes.len() { assert_eq!(modes[index], expected, "{}", e.id); }
+            else { assert_eq!(ids.len(), 1); assert!(modes.contains(&expected), "{}", e.id); }
+        }
     }
 }

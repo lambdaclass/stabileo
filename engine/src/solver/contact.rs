@@ -1202,6 +1202,7 @@ fn next_slip(slip: f64, stick_force: f64, limit: f64) -> f64 {
 /// results are those of the converged state.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     let mut r = solve_contact_3d_contained(input)?;
+    crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r.results)?;
     crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.diagnostics.iter().any(|s| s.contains("frozen"))).collect());
     Ok(r)
 }

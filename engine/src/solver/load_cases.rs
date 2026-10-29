@@ -300,7 +300,8 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+        if let Some(combined) = combine_results_3d_refs_unchecked(&combo_factors, &case_refs) {
+            check_combined_containment(input, combo, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }
@@ -398,7 +399,8 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+        if let Some(combined) = combine_results_3d_refs_unchecked(&combo_factors, &case_refs) {
+            check_combined_containment(input, combo, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }
@@ -517,4 +519,20 @@ fn has_settlement_2d(s: &SolverInput) -> bool {
 
 fn has_settlement_3d(s: &SolverInput3D) -> bool {
     crate::ordered::values(&s.supports).any(|x| [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().any(|d| d.is_some_and(|v| v != 0.0)))
+}
+
+fn check_combined_containment(input: &MultiCaseInput3D, combo: &CombinationDef, result: &AnalysisResults3D) -> Result<(), String> {
+    let mut thermal = Vec::new();
+    for case in &input.load_cases {
+        let factor = combo.factors.get(&case.name).copied().unwrap_or(0.0);
+        for load in &case.loads {
+            if let SolverLoad3D::QuadThermal(t) = load {
+                let mut t = t.clone();
+                t.dt_uniform *= factor;
+                t.dt_gradient *= factor;
+                thermal.push(SolverLoad3D::QuadThermal(t));
+            }
+        }
+    }
+    crate::known_issues::membrane_bending_3d(&input.solver, &thermal, result)
 }

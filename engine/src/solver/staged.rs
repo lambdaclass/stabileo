@@ -1446,10 +1446,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         // Check if K_ff has any non-zero diagonal
         if max_diag < 1e-30 {
             let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
+            let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &vec![0.0; nr], nf);
+            crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
             stage_results.push(StageResult3D {
                 stage_name: stage.name.clone(),
                 stage_index: stage_idx,
-                results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &vec![0.0; nr], nf),
+                results,
             });
             continue;
         }
@@ -1520,10 +1522,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         };
 
         // Build results for this stage
+        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf);
+        crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
             stage_index: stage_idx,
-            results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf),
+            results,
         });
     }
 

@@ -565,7 +565,9 @@ pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -
     let dof_num = DofNumbering::build_3d(input);
     if dof_num.n_free == 0 { return Err("No free DOFs".into()); }
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
-    solve_pdelta_3d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)
+    let r = solve_pdelta_3d_on(input, &dof_num, cs, dof_num.n_total >= SPARSE_THRESHOLD, max_iter, tolerance)?;
+    crate::known_issues::membrane_bending_3d(input, &input.loads, &r.results)?;
+    Ok(r)
 }
 
 fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<FreeConstraintSystem>, sparse: bool, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
