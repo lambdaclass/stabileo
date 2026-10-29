@@ -50,9 +50,6 @@ export interface ResultChangeRegistry {
   changes: ResultChange[];
 }
 
-export type ResultChangeMetadata = Omit<ResultChange, 'title' | 'explanation'>;
-export type ResultChangeMetadataRegistry = Omit<ResultChangeRegistry, 'changes'> & { changes: ResultChangeMetadata[] };
-
 const REPO_BLOB = 'https://github.com/lambdaclass/stabileo/blob/main/';
 
 /** GitHub's heading anchor: lowercase, punctuation dropped, spaces to hyphens. */
@@ -65,7 +62,7 @@ export function githubSlug(heading: string): string {
 }
 
 /** The public link to an entry's write-up. */
-export function changelogUrl(c: ResultChangeMetadata): string {
+export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
   return `${REPO_BLOB}${c.changelog.file}#${githubSlug(c.changelog.heading)}`;
 }
 

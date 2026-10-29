@@ -2,12 +2,12 @@
   import { saveWorkspaceToLocalStorage } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, type Locale3, type ResultChange } from '../lib/provenance/registry';
+  import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
-  let details = $state.raw<Map<string, ResultChange> | null>(null);
-  let loadFailed = $state(false);
+  const details = $derived(!recheckStore.pending);
+  const loadFailed = $derived(recheckStore.loadFailed);
   let recoveryFailed = $state(false);
 
   function saveAndReload() {
@@ -15,15 +15,7 @@
     if (!recoveryFailed) window.location.reload();
   }
 
-  async function loadDetails() {
-    loadFailed = false;
-    try {
-      const { RESULT_CHANGES } = await import('../lib/provenance/full-registry');
-      details = new Map(RESULT_CHANGES.changes.map(c => [c.id, c]));
-    } catch {
-      loadFailed = true;
-    }
-  }
+  function loadDetails() { return recheckStore.retry(); }
 
   let readIt = $state(false);
   let reviewing = $state(false);
@@ -33,10 +25,6 @@
   const a = $derived(recheckStore.assessment);
   const open = $derived(recheckStore.noticeOpen || reviewing);
   const loc = $derived<Locale3>((['en', 'es', 'pt'] as const).includes(i18n.locale as Locale3) ? (i18n.locale as Locale3) : 'en');
-
-  $effect(() => {
-    if (open && !details) void loadDetails();
-  });
 
   // A new notice (another project) starts unticked.
   $effect(() => {
@@ -103,9 +91,9 @@
           <li class="rc-item" data-change-id={c.id}>
             <div class="rc-item-head">
               <span class="rc-area rc-area-{c.area}">{t(`recheck.area.${c.area}`)}</span>
-              <span class="rc-item-title">{details?.get(c.id)?.title[loc] ?? c.id}</span>
+              <span class="rc-item-title">{c.title[loc]}</span>
             </div>
-            <p class="rc-item-text">{details?.get(c.id)?.explanation[loc] ?? t('recheck.detailsUnavailable')}</p>
+            <p class="rc-item-text">{c.explanation[loc]}</p>
             <a class="rc-link" href={changelogUrl(c)} target="_blank" rel="noopener noreferrer">{t('recheck.details')}</a>
           </li>
         {/each}

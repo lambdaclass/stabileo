@@ -11,6 +11,11 @@ declare module 'virtual:public-i18n' {
 }
 
 declare module 'virtual:result-change-metadata' {
-  const registry: import('./lib/provenance/registry').ResultChangeMetadataRegistry;
+  const registry: { currentResultsVersion: number };
   export default registry;
+}
+
+declare module 'virtual:result-change-packed' {
+  const packed: string;
+  export default packed;
 }

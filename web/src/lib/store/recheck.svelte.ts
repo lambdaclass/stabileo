@@ -23,11 +23,12 @@
  *     not, and say so (`stale`). A solve stamps the current version and clears it; the static
  *     (linear) solve, not a modal or P-Δ run alone.
  */
-import { assessProject, type RecheckAssessment } from '../provenance/applicability';
+import type { RecheckAssessment } from '../provenance/applicability';
 import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
+import { RESULTS_VERSION } from '../provenance/registry';
 import type { AnalysisKind, FeatureSnapshot } from '../provenance/model-features';
 
-function createRecheckStore() {
+export function createRecheckStore(load = () => import('../provenance/applicability')) {
   // The project on screen at start-up is a new one, made in this build.
   let stamp = $state.raw<SolveStamp | null>(freshStamp());
   let assessment = $state.raw<RecheckAssessment | null>(null);
@@ -35,12 +36,20 @@ function createRecheckStore() {
   let assessedStampId = $state<string | null>(null);
   let acknowledged = $state.raw<ReadonlySet<string>>(new Set());
 
+  let pending = $state(false);
+  let loadFailed = $state(false);
+  let generation = 0;
+  let retry = () => Promise.resolve();
+
   // Ended by the static solve: a modal run alone leaves the results the older version's.
   const stale = (): boolean =>
-    !!assessment && assessment.changes.length > 0
+    !!assessment && (pending || assessment.changes.length > 0)
     && (stamp === null || stamp.id === assessedStampId || !stamp.analyses.includes('linear'));
 
   return {
+    get pending() { return pending; },
+    get loadFailed() { return loadFailed; },
+    retry() { return retry(); },
     get stamp() { return stamp; },
     get assessment() { return assessment; },
     /** Results on hand (or about to be produced from saved design state) predate registered changes. */
@@ -49,7 +58,7 @@ function createRecheckStore() {
     get noticeOpen() {
       // Not tied to `stale`: live calc may re-solve the moment a project opens, and the notice
       // must still be read. What changed is worth knowing even once the numbers are current.
-      return !!assessment && assessment.changes.length > 0 && assessedStampId !== null && !acknowledged.has(assessedStampId);
+      return !!assessment && (pending || assessment.changes.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
     },
     /** Opened in an older build than the one that solved it. */
     get solvedWithNewer() { return !!assessment?.newer && (stamp === null || stamp.id === assessedStampId); },
@@ -63,12 +72,37 @@ function createRecheckStore() {
       // it travels between tabs and an acknowledgement given in this session holds for it.
       const stored = readStamp(snapshot.solvedWith) ?? unknownStamp();
       stamp = stored;
-      assessment = assessProject(snapshot, stored, analysisMode);
+      const request = ++generation;
       assessedStampId = stored.id;
+      pending = stored.resultsVersion < RESULTS_VERSION;
+      loadFailed = false;
+      assessment = {
+        solvedVersion: stored.resultsVersion, currentVersion: RESULTS_VERSION,
+        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [],
+      };
+      const captured = pending ? $state.snapshot(snapshot) : snapshot;
+      retry = async () => {
+        if (request !== generation || !pending) return;
+        loadFailed = false;
+        try {
+          const { assessProject } = await load();
+          if (request !== generation) return;
+          assessment = assessProject(captured, stored, analysisMode);
+          pending = false;
+          retry = () => Promise.resolve();
+        } catch {
+          if (request === generation) loadFailed = true;
+        }
+      };
+      void retry();
     },
 
     /** A new, empty project: nothing was solved, nothing is stale, and it belongs to this build. */
     reset(): void {
+      ++generation;
+      retry = () => Promise.resolve();
+      pending = false;
+      loadFailed = false;
       stamp = freshStamp();
       assessment = null;
       assessedStampId = null;
@@ -89,7 +123,7 @@ function createRecheckStore() {
 
     /** The engineer read the notice. Results stay marked stale until re-run. */
     acknowledge(): void {
-      if (assessedStampId) acknowledged = new Set([...acknowledged, assessedStampId]);
+      if (!pending && assessedStampId) acknowledged = new Set([...acknowledged, assessedStampId]);
     },
 
     /** What a snapshot carries: the stamp, or nothing when the project was never solved. */

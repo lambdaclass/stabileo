@@ -4,7 +4,7 @@
  * The same model solved twice gives bit-identical results; the model hash survives a save and a
  * reopen; a report prints the record and the reproduce comparison reads it back.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { resultsStore } from '../results.svelte';
@@ -141,11 +141,12 @@ describe('result provenance', () => {
     expect(() => JSON.parse(b!.json)).not.toThrow();
   });
 
-  it('results from an older version are stale in the record until re-solved', () => {
+  it('results from an older version are stale in the record until re-solved', async () => {
     buildFrame();
     const file = JSON.parse(serializeProject());
     delete file.snapshot.solvedWith;
     expect(deserializeProject(JSON.stringify(file))).toBe(true);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.stale).toBe(recheckStore.assessment!.changes.length > 0);
     expect(currentResultProvenance().stale).toBe(recheckStore.stale);
     solveMain();
