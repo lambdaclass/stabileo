@@ -154,6 +154,8 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Replay evidence regression tests
+        run: python3 -I research/tools/test_replay.py
       - name: Replay
         run: python3 -I research/tools/replay.py
       - name: Snapshot pruning never offers a released or still-linked snapshot

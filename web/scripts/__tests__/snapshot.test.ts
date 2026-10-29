@@ -63,6 +63,21 @@ it('snapshot storage operations leave production keys untouched', () => {
   expect(runtime().context.localStorage.length).toBe(0);
 });
 
+it('both Web Storage namespaces persist only for their full commit', () => {
+  for (const name of ['localStorage', 'sessionStorage']) {
+    const backing = backingStorage();
+    backing.setItem('token', 'live');
+    const first = runtime(backing).context[name] as Storage;
+    first.setItem('token', 'snapshot');
+    expect(runtime(backing).context[name].getItem('token')).toBe('snapshot');
+    const other = runtime(backing, { ...snapshot, commit: snapshot.commit + '1' }).context[name] as Storage;
+    expect(other.getItem('token')).toBeNull();
+    other.clear();
+    expect(first.getItem('token')).toBe('snapshot');
+    expect(backing.getItem('token')).toBe('live');
+  }
+});
+
 it('rewrites routing location but preserves the actual address for exported URLs', async () => {
   const root = resolve('.');
   const transform = snapshotPlugin(snapshot, root)[0].transform as Function;
@@ -93,8 +108,14 @@ it('deploy snapshots include shared viewer and build dependencies', () => {
     'web/src/lib/geometry/coordinate-system.ts', 'web/src/lib/store/ui.svelte.ts',
     'web/src/components/viewport/ScalarField.svelte', 'web/src/components/Viewport3D.svelte',
     'web/src/components/ribbon/Ribbon.svelte', 'web/src/styles/theme.css',
+    'web/scripts/build-snapshot.sh', 'web/scripts/research-build.ts', 'web/scripts/prerender.ts',
+    'web/scripts/root-handoff.ts', 'scripts/wasm-cached.sh', '.nvmrc',
+    'research/fracture/shauer-2025/wasm/build.sh', 'research/tools/asset_identity.py',
+    'research/tools/publish_assets.py', 'web/index.html', 'web/public/fonts/example.woff2',
     'web/package-lock.json', 'web/vite.config.ts', 'flake.lock', 'rust-toolchain.toml', 'Makefile',
   ]) expect(path, path).toMatch(paths);
+  const inputs = execFileSync('git', ['ls-files', 'web', 'research', 'engine', 'scripts'], { cwd: '..', encoding: 'utf8' }).trim().split('\n');
+  for (const input of inputs) expect(input, input).toMatch(paths);
   expect('backend/lib/example.ex').not.toMatch(paths);
 });
 
@@ -111,6 +132,7 @@ it('records snapshot experiment versions and hashes and preserves them in the ho
     write(join(tmp, 'research/fracture/example/versions.json'), JSON.stringify({ versions: [v1, v2] }));
     write(join(root, 'src/lib/wasm/dedaliano_engine_bg.wasm'), 'engine');
     write(join(root, 'public/research-wasm/example/example_bg.wasm'), 'experiment');
+    write(join(root, 'public/research-wasm/build.json'), JSON.stringify({ build_id: 'example' }));
     const emitFile = vi.fn();
     const hook = snapshotPlugin(snapshot, root)[0].generateBundle!;
     const handler = typeof hook === 'function' ? hook : hook.handler;
@@ -163,4 +185,27 @@ it('keeps the Node route-budget suite out of Vitest and in the explicit CI invoc
   const vite = readFileSync('vite.config.ts', 'utf8');
   expect(vite.match(/const NOT_VITEST = (.*);/)![1]).toContain('scripts/**/*.test.mjs');
   expect(readFileSync('../.github/workflows/research.yml', 'utf8')).toContain('node --test scripts/research-route-budget.test.mjs');
+});
+
+it('deploy keeps an existing snapshot byte-for-byte', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'snapshot-install-'));
+  try {
+    const dest = join(tmp, 'snapshots/abcdef0');
+    const src = join(tmp, 'release/snapshot');
+    mkdirSync(dest, { recursive: true });
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(dest, 'index.html'), 'original');
+    writeFileSync(join(src, 'SNAPSHOT.json'), '{}');
+    writeFileSync(join(src, 'index.html'), 'replacement');
+    const deploy = readFileSync('../infra/ansible/deploy-app.yml', 'utf8');
+    const script = deploy.split('- name: Install this commit\'s snapshot, never overwriting one')[1]
+      .split('shell: |\n')[1].split('      args:')[0].replace(/^        /gm, '')
+      .replaceAll('{{ snapshots_dir }}', join(tmp, 'snapshots'))
+      .replaceAll('{{ deploy_dir }}', join(tmp, 'release'))
+      .replaceAll('{{ commit_sha[:7] }}', 'abcdef0');
+    execFileSync('bash', ['-c', script]);
+    expect(readFileSync(join(dest, 'index.html'), 'utf8')).toBe('original');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });

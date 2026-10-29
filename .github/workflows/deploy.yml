@@ -64,7 +64,7 @@ jobs:
           FORCE: ${{ inputs.snapshot }}
         run: |
           set -euo pipefail
-          paths='^(research/|engine/|Cargo\.(toml|lock)$|web/src/components/research/|web/src/components/viewport/|web/src/components/Viewport[^/]*\.svelte$|web/src/lib/(three|engine|viewport3d|canvas|geometry|store)/|web/src/styles/|web/src/components/ribbon/|web/package[^/]*\.json$|web/vite[^/]*\.ts$|flake\.[^/]*$|rust-toolchain[^/]*$|Makefile$|web/scripts/snapshot\.ts$)'
+          paths='^(research/|engine/|web/|scripts/|Cargo\.(toml|lock)$|flake\.[^/]*$|rust-toolchain[^/]*$|Makefile$|\.nvmrc$|\.npmrc$|\.cargo/|\.github/workflows/deploy\.yml$)'
           want=false
           if [ "$FORCE" = true ]; then
             want=true
@@ -147,6 +147,9 @@ jobs:
 
       - name: Validate the Caddyfile
         run: nix run nixpkgs#caddy -- validate --config infra/caddy/Caddyfile --adapter caddyfile --envfile "infra/caddy/$TARGET.env"
+
+      - name: Verify snapshot hosting boundaries
+        run: nix shell nixpkgs#caddy -c python3 -I infra/caddy/test_snapshots.py
 
       - name: Package release
         env:

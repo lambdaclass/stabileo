@@ -11,6 +11,7 @@
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs } from '../i18n';
   import { solverStepCount } from './steps';
+  import { assertReplayFrames } from './replay-frames';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
@@ -107,6 +108,7 @@
     fetchReplay<Step>(`${BASE}replay.srpl`, abort.signal)
       .then((d) => {
         if (abort.signal.aborted) return;
+        assertReplayFrames(d);
         replayConfig = d.header.config;
         replayVerified = replayMatchesBuild(d.header, JSON.parse(REFERENCE_KEY));
         replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };

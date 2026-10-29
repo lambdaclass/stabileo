@@ -44,8 +44,24 @@ def annotate(kind, title, message):
 
 def checks(path):
     try:
-        return {c["name"]: c for c in json.loads(path.read_text())["checks"]}
-    except (OSError, ValueError, KeyError):
+        entries = json.loads(path.read_text())["checks"]
+        if not isinstance(entries, list) or not entries:
+            return None
+        result = {}
+        for check in entries:
+            if not isinstance(check, dict) or not isinstance(check.get("name"), str) or not check["name"] or check["name"] in result:
+                return None
+            if not isinstance(check.get("metric"), str) or not isinstance(check.get("passed"), bool):
+                return None
+            for field in ("observed", "tolerance"):
+                value = check.get(field)
+                if type(value) not in (int, float) or not math.isfinite(value):
+                    return None
+            if check["tolerance"] < 0:
+                return None
+            result[check["name"]] = check
+        return result
+    except (OSError, ValueError, KeyError, TypeError):
         return None
 
 
@@ -56,13 +72,16 @@ def fmt(x):
 def replay(paper):
     name = f"{paper.parent.name}/{paper.name}"
     title = f"Research replay: {name}"
+    committed = checks(paper / "VALIDATION.json")
+    if committed is None:
+        annotate("error", title, "missing or invalid committed VALIDATION.json")
+        return True, [(name, "(invalid committed checks)", "", "", "", "", "FAIL")]
     produced = paper / "target" / "VALIDATION.json"
     produced.unlink(missing_ok=True)
     print(f"::group::{name}: cargo test --release --locked", flush=True)
     run = subprocess.run(["cargo", "test", "--release", "--locked"], cwd=paper)
     print("::endgroup::", flush=True)
 
-    committed = checks(paper / "VALIDATION.json") or {}
     now = checks(produced)
     rows, failed = [], run.returncode != 0
     if now is None:
@@ -82,8 +101,9 @@ def replay(paper):
             failed = True
             annotate("error", title, f"{key} moved: {n['metric']} is now {fmt(n['observed'])}, above the tolerance {fmt(n['tolerance'])} (committed: {fmt(was)})")
         elif c is None:
-            status = "new"
-            annotate("warning", title, f"check not in the committed VALIDATION.json: {key}")
+            status = "ADDED"
+            failed = True
+            annotate("error", title, f"check not in the committed VALIDATION.json: {key}")
         elif was is not None and moved(was, n["observed"]):
             status = "moved"
             annotate("warning", title, f"{key} moved within its tolerance: {n['metric']} {fmt(was)} -> {fmt(n['observed'])} (tolerance {fmt(n['tolerance'])})")

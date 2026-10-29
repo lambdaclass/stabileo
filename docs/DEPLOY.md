@@ -119,12 +119,14 @@ Without the Google pair the admin site shows no sign-in button; add them and red
 commit, forever; the plain address is always the latest. This is what research citations link
 to (research/DESIGN.md §5). `/@/` lists the snapshots as JSON, newest first.
 
-**Which commits.** Every push to `main` that changes `research/`, `engine/`, the root
-`Cargo.toml`/`Cargo.lock`, `web/src/lib/engine/` or the viewer (`web/src/components/viewport/`,
-`web/src/components/Viewport*.svelte`, `web/src/lib/three/`, `web/src/lib/viewport3d/`,
-`web/src/lib/canvas/`, `web/src/lib/geometry/`, `web/src/lib/store/`, research and ribbon components,
-and shared styles). Package, Vite, Nix, Rust toolchain, Makefile and snapshot runtime changes
-also qualify. A manual Deploy run builds one when **snapshot** is ticked. Nothing else changes for the plain site.
+**Which commits.** Every push to `main` that changes `research/`, `engine/`, `web/`,
+`scripts/`, root Cargo manifests, Nix inputs, Rust toolchain, `.nvmrc`, `.npmrc`, `.cargo/`,
+`Makefile` or the deploy workflow. The whole web tree is an input: snapshots serve the whole
+site, including shared UI, public assets and prerendered pages. The build chain is
+`Makefile` → `scripts/wasm-cached.sh` and the research WASM `build.sh` (including asset identity,
+publishing and viewer scripts) → `build-snapshot.sh` → Vite and its plugins → `prerender.ts`
+and `root-handoff.ts`. The filter test checks all tracked files in these input trees so new
+helpers are covered automatically. A manual Deploy run builds one when **snapshot** is ticked.
 
 **Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
 `make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
@@ -156,7 +158,9 @@ the same artifact, SSH session and host lock as the release; the signed Nix clos
 Rollback does not touch snapshots. Caddy (`infra/caddy/Caddyfile`) serves `/@<7 hex>/…` from that
 directory with `Cache-Control: public, max-age=31536000, immutable` and `X-Robots-Tag: noindex`
 (each page's canonical names the latest site); page addresses fall back to the snapshot's own
-`index.html`; a missing file or snapshot is a plain, uncached 404.
+`index.html`; a missing file or snapshot is a plain, uncached 404. Only seven lowercase hex
+digits are accepted; malformed snapshot addresses return 404. Each commit directory is the
+file server's root, so traversal cannot read another snapshot or files outside it.
 
 **Disk.** Measured on the build of 2026-10-28: a snapshot is 40 MB (11.3 MB engine WASM,
 11.3 MB application chunk, 2.1 MB web-ifc, 1.8 MB screenshots, 1.4 MB social cards, 0.7 MB
