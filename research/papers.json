@@ -275,6 +275,14 @@
    ],
    "implementation": "stability/ferrari-sigmund-2025",
    "page": "web/src/components/research/ferrari2025/FerrariPage.svelte",
+   "reviews": [
+    {
+     "reviewer": "codex",
+     "sha": "714a79e47",
+     "findings": "Frame hidden by a null scalar field; viewer status text below 12px; responsive checks did not establish viewport access, tap target sizes, or readable viewer text.",
+     "resolution": "Fixed in this PR with explicit uncoloured geometry, rendering and displacement regressions, status text sizing, and responsive viewport, tap target, and text assertions."
+    }
+   ],
    "contacts": []
   },
   {
