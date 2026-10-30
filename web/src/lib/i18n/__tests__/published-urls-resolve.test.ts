@@ -57,6 +57,8 @@ import { promisify } from 'node:util';
 import { readFileSync, existsSync, statSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PUBLIC_LOCALES } from '../offered';
+import { STANDING_ALIASES } from '../../blog/pages/aliases';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -133,7 +135,7 @@ describe('every published URL is served, not redirected', () => {
     expect(unserved, `these URLs answer 301 before they answer 200:\n${unserved.join('\n')}`).toEqual([]);
   });
 
-  it('the sitemap and captured HTML contain exactly the same URLs, all with metadata', () => {
+  it('the sitemap contains exactly the canonical captures; handoffs and aliases retain metadata', () => {
     const captured: string[] = [];
     function walk(dir: string) {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -149,7 +151,17 @@ describe('every published URL is served, not redirected', () => {
       }
     }
     walk(DIST);
-    expect(publishedUrls().sort()).toEqual(captured.sort());
+    const aliases = PUBLIC_LOCALES.flatMap((locale) => Object.entries(STANDING_ALIASES).map(([alias, target]) => ({
+      url: `${ORIGIN}/${locale}${alias}/`, canonical: `${ORIGIN}/${locale}${target}/`,
+    })));
+    const excluded = [{ url: `${ORIGIN}/`, canonical: `${ORIGIN}/en/` }, ...aliases];
+    for (const { url, canonical } of excluded) {
+      expect(captured).toContain(url);
+      expect(publishedUrls()).not.toContain(url);
+      const html = readFileSync(fileServedWithoutRedirect(new URL(url).pathname)!, 'utf8');
+      expect(html).toContain(`<link rel="canonical" href="${canonical}"`);
+    }
+    expect(publishedUrls().sort()).toEqual(captured.filter((url) => !excluded.some((e) => e.url === url)).sort());
   });
 
   it('each page declares itself as canonical, at the address it is served from', () => {
@@ -159,7 +171,7 @@ describe('every published URL is served, not redirected', () => {
       if (!file) continue; // reported by the test above
       const html = readFileSync(file, 'utf8');
       const canonical = html.match(/<link rel="canonical" href="([^"]+)"/)?.[1];
-      if (canonical !== (url === `${ORIGIN}/` ? `${ORIGIN}/en/` : url)) mismatched.push(`${url}\n    declares ${canonical ?? '(none)'}`);
+      if (canonical !== url) mismatched.push(`${url}\n    declares ${canonical ?? '(none)'}`);
     }
     expect(mismatched, `canonical disagrees with the served URL:\n${mismatched.join('\n')}`).toEqual([]);
   });

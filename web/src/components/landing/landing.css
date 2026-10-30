@@ -1618,6 +1618,8 @@
 }
 
 .landing .footer-social a {
+  min-width: 44px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -1671,9 +1673,9 @@
 .landing .footer-links button {
   background: none;
   border: 0;
-  /* At least 24 px tall (WCAG 2.5.8); the links measured 23 px. */
   padding: 0.25rem 0;
-  min-height: 1.5rem;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
@@ -1699,7 +1701,7 @@
   /* The WhatsApp button floats bottom-right; keep the line clear of it. */
   padding-right: 4.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: max(12px, 0.75rem);
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }

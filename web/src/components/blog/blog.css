@@ -647,5 +647,5 @@
 
 .landing.comparison { overflow-wrap: anywhere; }
 .landing.comparison :is(a, button, select) { min-width: 44px; min-height: 44px; }
-.landing.comparison :is(.post-body, .post-foot, .standing-cta, .footer-links, .footer-social) a { display: inline-flex; align-items: center; }
-.landing.comparison :is(.eyebrow-label, .footer-legal p, .footer-social a, .nav-lang-btn, .nav-gh) { font-size: max(12px, 0.8rem); }
+.landing.comparison :is(.post-body, .post-foot, .standing-cta) a { display: inline-flex; align-items: center; }
+.landing.comparison :is(.eyebrow-label, .nav-lang-btn, .nav-gh) { font-size: max(12px, 0.8rem); }

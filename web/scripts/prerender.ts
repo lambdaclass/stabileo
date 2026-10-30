@@ -41,7 +41,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { publicPaths, POST_DATE } from './public-pages';
+import { publicPaths, POST_DATE, LAST_MODIFIED } from './public-pages';
+import { STANDING_ALIASES } from '../src/lib/blog/pages/aliases';
 import { sitemapXml } from './sitemap';
 import { rootHandoffScript } from './root-handoff';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
@@ -67,7 +68,7 @@ const LOCALES = PUBLIC_LOCALES;
  * serves. Kept beside LOCALES because `ROOT_REDIRECT` is built from both.
  */
 const DEFAULT_LOCALE = 'en';
-/** Build day, for the sitemap's lastmod. */
+/** Build day for feeds and undated social cards. */
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const MIME: Record<string, string> = {
@@ -307,7 +308,7 @@ async function main() {
 
   try {
     for (const locale of LOCALES) {
-      for (const path of paths) {
+      for (const path of [...paths, ...Object.keys(STANDING_ALIASES)]) {
         const { head, body, lang, href } = await capture(browser, base, locale, path);
         if (!/<title>[^<]+<\/title>/.test(head) || !headMeta(head, 'name', 'description')?.trim()) {
           throw new Error(`prerender: ${href} has no title or description`);
@@ -316,7 +317,7 @@ async function main() {
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(head, body, lang));
-        written.push(href);
+        if (!STANDING_ALIASES[path]) written.push(href);
         if (path === '/blog') {
           const lead = headMeta(head, 'name', 'description');
           if (lead) BLOG_LEAD.set(locale, decodeEntities(lead));
@@ -334,9 +335,8 @@ async function main() {
     // handoff script that sends everyone else on.
     const { head, body, lang } = await capture(browser, base, DEFAULT_LOCALE, '/');
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
-    written.push('/');
 
-    await writeFile(join(DIST, 'sitemap.xml'), sitemapXml(written, TODAY));
+    await writeFile(join(DIST, 'sitemap.xml'), sitemapXml(written, LAST_MODIFIED));
 
     for (const locale of LOCALES) {
       await mkdir(join(DIST, locale, 'blog'), { recursive: true });
