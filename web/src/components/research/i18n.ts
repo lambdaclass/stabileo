@@ -1,3 +1,4 @@
+import { galleryStrings } from './gallery-i18n';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
 /** Research interface and article strings; unsupported locales fall back to English. */
@@ -724,8 +725,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Replay of a run precomputed with this solver",
     liveSource: "Live computation in your browser",
     cachedSource: "Cached result (computed in this browser)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Computational-mechanics papers you can run. We re-implement published methods and validate against available reference code, published results, and independent checks, and let you run it here with your own parameters, in Stabileo’s viewer.",
+    researchTitle: "Research in structural engineering",
+    galleryLead: "Classic and recent papers, benchmarks and methods you can run and check in Stabileo, the structural engineering software with AI. Each page states what is reproduced and how it was checked.",
     galleryDisclaimer: "Nothing here is an engineering result; agreement with a reference code is not a certification. Contributions:",
     damageAlt: "Damage field from our run of the experiment",
     missingPage: "No such research page",
@@ -1176,8 +1177,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Reproducción de una ejecución precalculada con este solver",
     liveSource: "Cálculo en vivo en tu navegador",
     cachedSource: "Resultado en caché (calculado en este navegador)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Artículos de mecánica computacional que podés ejecutar. Reimplementamos métodos publicados y los validamos contra el código de referencia disponible, resultados publicados y controles independientes, y te dejamos ejecutarlos aquí con tus propios parámetros, en el visor de Stabileo.",
+    researchTitle: "Investigación en ingeniería estructural",
+    galleryLead: "Artículos clásicos y recientes, ensayos de referencia y métodos que podés ejecutar y comprobar en Stabileo, el software de ingeniería estructural con IA. Cada página indica qué se reproduce y cómo se comprobó.",
     galleryDisclaimer: "Nada de esto es un resultado de ingeniería; la concordancia con un código de referencia no es una certificación. Contribuciones:",
     damageAlt: "Campo de daño de nuestra ejecución del experimento",
     missingPage: "No existe esa página de investigación",
@@ -1628,8 +1629,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Reprodução de uma execução pré-calculada com este solver",
     liveSource: "Cálculo ao vivo no seu navegador",
     cachedSource: "Resultado em cache (calculado neste navegador)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Artigos de mecânica computacional que você pode executar. Reimplementamos métodos publicados e validamos em relação ao código de referência disponível, resultados publicados e verificações independentes, e permitimos que você os execute aqui com seus próprios parâmetros, no visualizador do Stabileo.",
+    researchTitle: "Pesquisa em engenharia estrutural",
+    galleryLead: "Artigos clássicos e recentes, testes de referência e métodos que você pode executar e verificar no Stabileo, o software de engenharia estrutural com IA. Cada página informa o que é reproduzido e como foi verificado.",
     galleryDisclaimer: "Nada aqui é um resultado de engenharia; a concordância com um código de referência não é uma certificação. Contribuições:",
     damageAlt: "Campo de dano da nossa execução do experimento",
     missingPage: "Essa página de pesquisa não existe",
@@ -1938,7 +1939,7 @@ const SHELL_TRANSLATIONS = {
 };
 
 export function rs(): ResearchStrings {
-  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...SHELL_TRANSLATIONS[publicI18n.locale as keyof typeof SHELL_TRANSLATIONS] };
+  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...SHELL_TRANSLATIONS[publicI18n.locale as keyof typeof SHELL_TRANSLATIONS], ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {

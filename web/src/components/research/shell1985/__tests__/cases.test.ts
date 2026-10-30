@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cases, compare, finest, inputFor, runCases, viewerData } from '../cases';
+import { cases, compare, finest, inputFor, runCases, responseRatio, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
@@ -20,6 +20,8 @@ describe('shell obstacle course evidence', () => {
       expect(() => compare(c, [{ nodeId: c.measurement.node, [c.measurement.component]: NaN }])).toThrow();
       const direction = c.id.startsWith('hemisphere') ? 1 : -1;
       expect(compare(c, [{ nodeId: c.measurement.node, [c.measurement.component]: direction * c.reference }]).pass).toBe(true);
+      expect(responseRatio(c, signedReference(c))).toBe(1);
+      expect(responseRatio(c, -signedReference(c))).toBe(-1);
       // A response of the right size in the wrong direction fails.
       expect(compare(c, [{ nodeId: c.measurement.node, [c.measurement.component]: -direction * c.reference }]).pass).toBe(false);
       expect(compare(c, [{ nodeId: c.measurement.node, [c.measurement.component]: .85 * direction * c.reference }]).pass).toBe(false);
@@ -53,13 +55,19 @@ describe('shell obstacle course evidence', () => {
       expect(editor.value! / direct.value!).toBeCloseTo(1, 8);
     }
   }, 120_000);
-  it('keeps actual failed production results in the denominator', async () => {
+  it('passes corrected roofs and keeps coarse cylinder failures in the denominator', async () => {
     const rows = await runCases();
     expect(rows).toHaveLength(cases.length);
     expect(rows.every(r => r.value !== null && Number.isFinite(r.value))).toBe(true);
     const roof = rows.find(r => r.id === 'roof-16')!;
-    expect(roof.value).toBeLessThan(-.25); // downward: signed, like the engine test
-    expect(roof.value).toBeGreaterThan(-.26);
-    expect(roof.pass).toBe(false);
+    expect(roof.value).toBeCloseTo(-.3024255392, 8);
+    expect(rows.filter(r => r.id.startsWith('roof')).every(r => r.pass)).toBe(true);
+    const cylinders = rows.filter(r => r.id.startsWith('cylinder'));
+    expect(cylinders.every(r => !r.pass)).toBe(true);
+    expect(cylinders.at(-1)!.value).toBeCloseTo(-1.701161680e-5, 12);
+    for (let i = 1; i < cylinders.length; i++) {
+      expect(cylinders[i].error!).toBeLessThan(cylinders[i - 1].error!);
+    }
+    expect(finest.filter(c => rows.find(r => r.id === c.id)!.pass)).toHaveLength(2);
   }, 120_000);
 });

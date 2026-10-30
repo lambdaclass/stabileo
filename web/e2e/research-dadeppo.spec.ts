@@ -7,7 +7,7 @@ test.describe('@smoke DaDeppo arch first version', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/en/research/benchmarks/dadeppo-arch-1975/');
-      await expect(page.getByText('First version · 0 reviews').first()).toBeVisible();
+      await expect(page.getByText('First version · 1 review round').first()).toBeVisible();
       await expect(page.locator('.arch-app')).toHaveAttribute('data-source', 'replay');
       await expect(page.getByTestId('arch-peak')).toHaveText('9.01129');
       await expect(page.locator('.sfv canvas').first()).toBeVisible();
