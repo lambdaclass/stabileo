@@ -47,6 +47,7 @@ import { rebarWorkspace } from '../store/rebar-workspace.svelte';
 import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
+import { certificateStore } from '../store/certificate.svelte';
 import { getStructuralSolveCount } from './solve-counter';
 import { runGlobalSolve } from '../engine/live-calc';
 import { tourStore } from '../store/tour.svelte';
@@ -353,6 +354,18 @@ export interface StabileoTestHooks {
   jointDesignedNodeIds(): number[];
   /** Verifier id on an element's certificate — carries the edition it was produced under. */
   certificateVerifierId(elementId: number): string | null;
+  /**
+   * The linear static certificate (`store/certificate.svelte.ts`): the base solve's state, and
+   * what the results panel shows for the view on screen, with the view it was read for.
+   */
+  linearCertificate(): {
+    base: { status: string; dim?: string; certificate?: unknown };
+    shown: { status: string; scope?: string; certificate?: unknown };
+    is3D: boolean;
+    view: string;
+    caseId: number | null;
+    comboId: number | null;
+  };
   /** Coordinated detailing assemblies, as persisted. Read-only. */
   detailingAssemblies(): unknown;
   /** Bar-schedule totals for the selected assembly. */
@@ -836,6 +849,20 @@ export function installE2EHooks(): void {
     jointDesignedNodeIds: () => [...jointDesignStore.designedNodeIds],
     certificateVerifierId: (id: number) =>
       verificationStore.outcomeFor(id)?.certificate?.verifierId ?? null,
+    linearCertificate: () => {
+      const is3D = uiStore.is3DWorkspace;
+      const pick = (s: { status: string; dim?: string; scope?: string; certificate?: unknown }) => JSON.parse(JSON.stringify({
+        status: s.status, dim: s.dim, scope: s.scope, certificate: s.certificate,
+      }));
+      return {
+        base: pick(certificateStore.state),
+        shown: pick(certificateStore.shown(is3D)),
+        is3D,
+        view: resultsStore.activeView,
+        caseId: resultsStore.activeCaseId,
+        comboId: resultsStore.activeComboId,
+      };
+    },
     detailingAssemblies: () =>
       JSON.parse(JSON.stringify(modelStore.model.detailing?.assemblies ?? [])),
     detailingSchedule: () => JSON.parse(JSON.stringify(detailingStore.schedule ?? null)),

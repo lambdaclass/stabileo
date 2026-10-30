@@ -77,6 +77,15 @@ export interface TestHooks {
   displayRatio(id: number): number | null;
   outcome(id: number): string | null;
   hasCertificate(id: number): boolean;
+  /** The linear static certificate: the base solve's, and what the results panel shows. */
+  linearCertificate(): {
+    base: { status: string; dim?: string; certificate?: { status: string; reason?: string } };
+    shown: { status: string; scope?: string; certificate?: { status: string; reason?: string } };
+    is3D: boolean;
+    view: string;
+    caseId: number | null;
+    comboId: number | null;
+  };
   counts(): Record<string, number>;
   runCounts(): Record<string, number> | null;
   /**
