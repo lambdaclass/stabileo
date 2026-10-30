@@ -35,7 +35,7 @@ for job, tests in {
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
-# The route budget measures a change that touches research code, and every push to main.
+# Research changes use isolation; other changes use the separate product budget.
 import re
 route = research['jobs']['route-size']['steps']
 scope = next(step for step in route if step.get('id') == 'scope')
@@ -52,7 +52,11 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
     assert not pattern.search(path), path
 assert '[ -z "$BASE" ]' in scope['run']
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
-assert measured and all(step.get('if') == "steps.scope.outputs.research == 'true'" for step in measured)
+assert measured and all('if' not in step for step in measured)
+assert '--product-budget' in measured[0]['run']
+assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
+assert 'force_routes' not in jobs['research']['with']
+assert 'FORCE_ROUTES' not in scope['env']
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)

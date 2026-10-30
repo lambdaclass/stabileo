@@ -28,6 +28,7 @@ class CiAggregate(unittest.TestCase):
         self.assertIn('needs: [changes, web-build]', docker)
         self.assertIn('--name site-production --dir ci-site', docker)
         self.assertIn('--build-arg FRONTEND_STAGE=web-prebuilt', docker)
+        self.assertIn('run: docker build --tag stabileo-source-smoke .', docker)
         web = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
         self.assertLess(web.index('name: site-production'), web.index('name: Admin site build'))
         dockerfile = (ROOT / 'Dockerfile').read_text()

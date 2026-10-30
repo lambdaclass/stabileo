@@ -1,4 +1,4 @@
-/** Build and compare each route's dependency footprint. Run from web/ with --baseline <file> and optional --update.
+/** Build and compare each route's dependency footprint. Run from web/ with --baseline <file> and optional --update or --product-budget.
  * Landing: entry's static closure. /app/*: that closure plus App's static and lazy product
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
  */
@@ -6,7 +6,7 @@ import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compareRouteSizes } from './research-route-budget.mjs';
+import { compareRouteSizes, compareProductRouteSizes } from './research-route-budget.mjs';
 
 const baselinePath = process.argv[process.argv.indexOf('--baseline') + 1];
 if (!process.argv.includes('--baseline') || !baselinePath) throw new Error('--baseline <file> is required');
@@ -81,7 +81,12 @@ try {
     console.log(`Updated ${baselinePath}; review every increase before accepting it.`);
   } else {
     const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    compareRouteSizes(baseline.routes, measured);
+    if (process.argv.includes('--product-budget')) {
+      const budget = JSON.parse(readFileSync(new URL('./product-route-budget.json', import.meta.url), 'utf8'));
+      compareProductRouteSizes(baseline.routes, measured, budget);
+    } else {
+      compareRouteSizes(baseline.routes, measured);
+    }
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

@@ -6,9 +6,6 @@ on:
       route_only:
         type: boolean
         default: false
-      force_routes:
-        type: boolean
-        default: false
   # PR validation is called by CI; avoid a second, unfiltered PR run.
   push:
     branches: [main]
@@ -49,22 +46,20 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      # CI explicitly measures route budgets for every selected research/tools/full run.
+      # The 128-byte no-growth check measures research isolation, not product growth.
       - name: Select route-budget measurement
         id: scope
         env:
-          FORCE_ROUTES: ${{ inputs.force_routes || github.event_name != 'pull_request' }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
         run: |
-          if [ "$FORCE_ROUTES" = true ] || [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
+          if [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.scope.outputs.research == 'true'
         with:
           ref: main
           path: route-main
@@ -81,13 +76,17 @@ jobs:
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
       - name: Build main and the candidate with the same pinned toolchain and measurement script
-        if: steps.scope.outputs.research == 'true'
+        env:
+          RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
         run: |
+          budget_arg=--product-budget
+          if [ "$RESEARCH_ISOLATION" = true ]; then budget_arg=; fi
+          export ROUTE_BUDGET_ARG="$budget_arg"
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
           nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json "$ROUTE_BUDGET_ARG"'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

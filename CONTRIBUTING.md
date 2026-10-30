@@ -57,26 +57,30 @@ tests, assertions, missing artifacts, permission errors and job timeouts fail
 normally. Do not wrap an install plus a test/build in the same retry command.
 The matcher and retry exit-status behavior are tested by `make test.ci-scripts`.
 
-Full-PR build counts, traced through `ci.yml`, `research.yml` and Dockerfile:
+Top-level full-PR build counts, excluding builds spawned by tests (including
+`e2e-hook-gating`, `no-dev-assets-in-build`, and `published-urls-resolve`):
 
-| Output | Before | After (cold / research cache hit) |
-| --- | ---: | ---: |
-| Engine WASM | 2 | 1 / 1 |
-| Research WASM set (both crates) | 2 | 1 / 0 |
-| Site builds | 6 | 5 / 5 |
+| Output | Cold / research cache hit |
+| --- | ---: |
+| Engine WASM | 2 / 2 |
+| Research WASM set (both crates) | 2 / 1 |
+| Site builds | 6 / 6 |
 
-Docker smoke now downloads `site-production` from Web Build, including both
-WASM bundles, and tests backend compilation and runtime packaging. Local Docker
-builds still compile everything from source by default; CI no longer exercises
-the Docker frontend compiler stages. The remaining five site builds are distinct:
-production, E2E with test hooks, admin, and the deterministic engine-stub route
-budget builds for main and candidate. Reusing one for another would change what
-those gates measure. All E2E consumers share `site-e2e`; other WASM consumers
-share `wasm` and `research-wasm` from the current run. Artifact reads use the
-read-only Actions token and the pinned flake's gh CLI (hosted Docker uses gh).
-Docs PRs build none; focused research/tools PRs build one engine, zero or one
-research set, and three sites (E2E and the two route-budget builds); engine PRs
-build one E2E site and the same shared WASM outputs.
+Docker smoke tests both the default source build used by Compose and the
+`site-production` artifact from Web Build. The four site builds are production,
+E2E with test hooks, admin, and Docker source. Route budgets additionally
+build main and the candidate with a deterministic engine stub. Shipped research
+changes (or an unavailable comparison base) select the unchanged 128-byte isolation
+tolerance. Other changes use `web/scripts/product-route-budget.json`: a separate
+64 KiB per-route growth budget, explicitly adjustable in review as product features
+grow. This allowance does not change research isolation or solver tolerances.
+All E2E consumers share `site-e2e`; other WASM consumers share `wasm` and
+`research-wasm` from the current run. Artifact reads use the read-only Actions
+token and the pinned flake's gh CLI (hosted Docker uses gh).
+Docs PRs build none. Every other scope runs Docker smoke (all these scopes touch
+Docker builder inputs) and Web Build, including the explicit
+TypeScript baseline and Svelte gates. Engine PRs also run AI-backend and native
+research validation because those crates depend directly on the engine.
 
 Research's exact source cache includes engine/research Rust sources, manifests,
 lockfiles, toolchain and build scripts, and reference data. There is no fallback

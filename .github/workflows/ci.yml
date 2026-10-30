@@ -2,11 +2,10 @@
 # failures are advisory (use-flakehub: false). Nix acquisition must still succeed.
 # retry-infra.sh retries dependency downloads twice only for known infra log patterns;
 # builds/tests/timeouts are never retried. Optional Actions caches may fail open.
-# Full PR build audit (including Docker smoke): engine WASM 2 -> 1; research WASM
-# sets 2 -> 1 (0 on source-cache hit); site builds 6 -> 5: production, E2E, admin,
-# route-budget main/candidate. These variants differ and each is built once.
-# Docker consumes site-production; all E2E shards consume site-e2e; WASM consumers
-# download the same run's wasm/research-wasm. Local Docker builds remain from source.
+# Top-level full PR build audit, excluding builds spawned by tests:
+# engine WASM 2; research WASM sets 2 (1 on source-cache hit); site builds
+# 6: production, E2E, admin, Docker source, and route-budget main/candidate.
+# Docker tests both source and site-production paths; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Keep Research WASM at 30 min: recent hosted success 22m26s, compilation 17m17s.
 # PR selection (docs/changelog may accompany any single area):
@@ -15,9 +14,11 @@
 # research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
 # web/src/components/tools/** (+ tools*.spec.ts): tools unit + E2E, route budgets;
 # missing area tests conservatively select full CI.
-# engine/**: engine suites, determinism/results, full web unit, @engine smoke.
+# engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
+# Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline.
-# ONLY pull_request is narrowed. merge_group and main pushes always select ALL.
+# ONLY pull_request job selection is narrowed. Trusted events select all jobs;
+# research route isolation still selects research changes within its job.
 # CI OK accepts intentional skips but rejects failures/cancellations, including detection.
 name: CI
 
@@ -186,6 +187,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
+      # Also exercise Compose's default frontend/WASM compiler stages.
+      - run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
@@ -1296,7 +1299,6 @@ jobs:
     uses: ./.github/workflows/research.yml
     with:
       route_only: ${{ needs.changes.outputs.scope == 'tools' }}
-      force_routes: true
 
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails
