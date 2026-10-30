@@ -22,8 +22,9 @@ to full CI. In particular, the tools directory and its `tools*.spec.ts` conventi
 are reserved here and do not exist on this branch yet.
 
 Focused E2E runs use one shard and still build the real shared engine WASM,
-Research WASM and E2E site. Research/tools PRs skip the separate Web Build,
-engine suites, determinism, results snapshots and unrelated E2E tests. Research
+Research WASM and E2E site. Research/tools PRs run the separate Web Build,
+including TypeScript and Svelte checks, and skip engine suites, determinism,
+results snapshots and unrelated E2E tests. Research
 feedback is expected in roughly 15–30 minutes with warm caches, rather than
 45–90 minutes; this is an estimate, not a measured guarantee. WASM compilation,
 site construction, route-budget baseline builds and runner availability still
@@ -89,8 +90,8 @@ Node reference checks still run. A cache outage falls back to compilation.
 The 30-minute research timeout stays: hosted run 40969889257 completed in
 22m26s, including 17m17s building research WASM/viewer. An unchanged-source hit
 should save roughly 15–17 runner minutes. Docker smoke previously took 21m38s
-in that run; avoiding its frontend stages should save additional runner time,
-but that portion has not been measured separately. Docker now waits for Web
+in that run. It retains the default source build and also tests the prebuilt-site
+path, so artifact reuse does not eliminate its source compilation. Docker now waits for Web
 Build, so total PR wall time may increase on a cold cache; do not equate runner
 minutes saved with critical-path improvement. Measure the first hosted runs
 before revising the timeout or promising an overall speedup.
