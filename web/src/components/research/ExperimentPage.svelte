@@ -1,7 +1,15 @@
 <script lang="ts">
+  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { publicHref } from '../../lib/i18n/public-routes';
+  import { loadSearchHead } from './search-head';
   import type { Component } from 'svelte';
 
   let { path }: { path: string } = $props();
+  $effect(() => {
+    const controller = new AbortController();
+    void loadSearchHead(publicHref(path, publicI18n.locale), controller.signal);
+    return () => controller.abort();
+  });
   const kind = $derived(path === '/tools' || path.startsWith('/tools/') ? 'tools' : 'research');
   let pages = $state<Partial<Record<'research' | 'tools', Component<{ path: string }>>>>({});
   $effect(() => {
