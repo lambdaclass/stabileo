@@ -97,3 +97,50 @@ it('moving-load catch renders the localized refusal rather than its JSON', () =>
   expect(message).toContain('#741');
   expect(message).not.toMatch(/ENGINE|structuredDiagnostics/);
 });
+
+it('spectral success followed by string or thrown refusal retires report and local results', () => {
+  for (const throws of [true, false]) {
+    const scope = setup();
+    Object.assign(scope, {
+      modalResult: { modes: [] }, modalModelVersion: 1, modelStore: { modelVersion: 1, model: {} },
+      spectralSource: 'code', codeSpectrum: { zone: 3 }, siteClass: 'SD', destinationGroup: 'B', spectralR: 1,
+      spectralCombination: 'SRSS', spectralXi: 0.05, HORIZONTAL_DIRECTIONS: ['X', 'Y'],
+      RISK_FACTOR: { B: 1 }, isBlocked: () => false, spectrumPoints: () => [], spectralModesFrom: () => [],
+      wasmSpectral3D: () => ({ baseShear: 12345 }),
+    });
+    scope.resultsStore.clearSpectral3D = vi.fn();
+    const run = handler('handleSpectral', scope); run();
+    expect(scope.advancedResults.spectral.baseShearX).toBe(12345);
+    scope.wasmSpectral3D = () => { if (throws) throw refusal; return refusal; };
+    run();
+    expect(scope.spectralResult).toBeNull();
+    expect(scope.advancedResults.spectral).toBeUndefined();
+    expect(scope.resultsStore.clearSpectral3D).toHaveBeenCalledTimes(2);
+    expect(scope.solveError).toContain('#741');
+    expect(scope.solveError).not.toContain('structuredDiagnostics');
+  }
+});
+
+it('time-history success then refusal clears chart, peaks and selected node', () => {
+  const th = readFileSync(new URL('../../../components/pro/dynamics/TimeHistoryPanel.svelte', import.meta.url), 'utf8');
+  const start = th.indexOf('  function run() {'), end = th.indexOf('\n  }', start) + 4;
+  const scope: Record<string, any> = {
+    timeHistoryView: { result: null as any, set(r: any) { this.result = r; }, clear() { this.result = null; } },
+    nodeId: null, running: false, onError: vi.fn(), save: vi.fn(), spec: { ground: { x: {}, y: {}, z: {} } },
+    buildDynamicInput: () => ({}), timeHistoryInput: () => ({}), spectrumSa: null, component: 'ux',
+    modelStore: { modelVersion: 1 }, peakNode: () => 12345, errorText, t: (s: string) => s,
+    solveTimeHistory3D: vi.fn().mockReturnValueOnce({ peakDisplacements: [12345] }).mockImplementationOnce(() => { throw refusal; }),
+  };
+  const run = new Function('scope', `with(scope) { ${ts.transpile(th.slice(start, end))}; return run; }`)(scope);
+  run(); expect(scope.timeHistoryView.result).toBeTruthy();
+  run(); expect(scope.timeHistoryView.result).toBeNull(); expect(scope.nodeId).toBeNull();
+  expect(scope.onError.mock.calls.at(-1)[0]).toContain('#741');
+});
+
+it.each([
+  'pro/dynamics/TimeHistoryPanel.svelte', 'pro/ProForcesReport.svelte',
+  'pro/ProResultTableModes.svelte', 'toolbar/ToolbarAdvanced.svelte',
+])('updated consumer %s compiles', path => {
+  const s = readFileSync(new URL(`../../../components/${path}`, import.meta.url), 'utf8');
+  expect(() => compile(s, { filename: path, generate: 'server' })).not.toThrow();
+});

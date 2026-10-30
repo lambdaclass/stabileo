@@ -25,13 +25,15 @@ export interface PushoverHinge {
 }
 
 interface StepResults {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   displacements: Array<{ nodeId: number; ux?: number; uy?: number; uz?: number; rx?: number; ry?: number; rz?: number }>;
   reactions: Array<{ nodeId: number; fx?: number; fy?: number; fz?: number }>;
 }
 
 export interface PushoverResult {
+  structuredDiagnostics?: import('./types').StructuredDiagnostic[];
   collapseFactor: number;
-  steps: Array<{ loadFactor: number; hingesFormed: PushoverHinge[]; results: StepResults }>;
+  steps: Array<{ structuredDiagnostics?: import('./types').StructuredDiagnostic[]; loadFactor: number; hingesFormed: PushoverHinge[]; results: StepResults }>;
   hinges: PushoverHinge[];
   isMechanism: boolean;
 }
@@ -153,6 +155,7 @@ export function pushoverFrames(res: PushoverResult): TimeHistoryResult3D {
   const nodeHistories = [...hist.values()];
   const last = res.steps.length;
   return {
+    structuredDiagnostics: [...(res.structuredDiagnostics ?? []), ...res.steps.flatMap(s => [...(s.structuredDiagnostics ?? []), ...(s.results.structuredDiagnostics ?? [])])],
     timeSteps: Array.from({ length: last + 1 }, (_, k) => k),
     nodeHistories,
     peakDisplacements: nodeHistories.map((h) => ({ nodeId: h.nodeId, ux: h.ux[last]!, uy: h.uy[last]!, uz: h.uz[last]! })),

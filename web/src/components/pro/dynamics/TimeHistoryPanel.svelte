@@ -110,6 +110,8 @@
   }
 
   function run() {
+    timeHistoryView.clear();
+    nodeId = null;
     onError(null);
     running = true;
     try {
@@ -289,4 +291,12 @@
   .adv-run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .th-viewer { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--st-surface-3); }
   .th-slider { width: 100%; accent-color: var(--st-value); }
+  @media (max-width: 810px) {
+    .adv-panel { min-width: 0; max-width: 100%; }
+    .adv-panel.adv-panel :global(*) { font-size: max(12px, 0.75rem); min-width: 0; overflow-wrap: anywhere; }
+    .adv-panel.adv-panel :global(button), .adv-panel.adv-panel :global(input), .adv-panel.adv-panel :global(select), .adv-panel.adv-panel :global(textarea), .adv-panel.adv-panel :global(summary) { min-width: 44px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(label) { flex-wrap: wrap; white-space: normal; }
+    .adv-panel.adv-panel :global(label:has(input[type="file"])), .adv-panel.adv-panel :global(.pk-btn) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(table) { max-width: 100%; }
+  }
 </style>

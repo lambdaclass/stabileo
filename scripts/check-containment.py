@@ -45,7 +45,7 @@ def audit(recorded, issues):
             indexed[issue['number']] = issue
     problems = []
     for number, issue in indexed.items():
-        if issue['state'] == 'open' and any(label.get('name') == 'safety' for label in issue['labels']) and number not in recorded:
+        if issue['state'] == 'open' and any(label.get('name') == 'safety' for label in issue['labels']) and (number not in recorded or 'TRIAGE' in recorded[number]):
             problems.append(f'#{number}: no completed containment decision')
     for number, modes in recorded.items():
         if modes & {'WARN', 'REFUSE'}:

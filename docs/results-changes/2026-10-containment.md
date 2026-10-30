@@ -1,6 +1,6 @@
 # Safety containment diagnostics
 
-PR #807, issue #447. diagnostic only: known-issue warnings added, no number changed.
+PR #807, issue #447. Known-issue warnings added; affected unsafe results are withdrawn. Numerical values of retained results are unchanged.
 
 The snapshot diagnostic strings now name known issues. Numerical kernels and numerical baselines are unchanged. Structured refusals withhold affected unsafe results, including 2D plastic (#758), non-XY solid shells (#757), and distorted MITC4 membrane bending (#798). See [the containment ledger](../verification/CONTAINMENT.md) for all predicates and controls.
 

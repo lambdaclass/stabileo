@@ -494,3 +494,29 @@ fn rotated_solid_shell_nonstress_analyses_remain_available() {
         assert!(!ds.iter().any(|d| d.phase.as_deref() == Some("SH-GLOBAL-STRESS")));
     }
 }
+
+#[test]
+fn buckling_recovery_keeps_colliding_mitc_and_curved_shell_ids() {
+    let mut s = strip(NX, 0.0);
+    for n in s.nodes.values_mut() { let y = n.y; n.y = -n.z; n.z = y; }
+    for j in 0..=NY {
+        nodal(&mut s, bot(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        nodal(&mut s, top(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+    let id = s.solid_shells.values().next().unwrap().id;
+    let nodes = [9000, 9001, 9002, 9003];
+    for (nid, x, y) in [(9000, 10.0, 0.0), (9001, 11.0, 0.0), (9002, 11.0, 1.0), (9003, 10.0, 1.0)] {
+        node(&mut s, nid, x, y, 0.0);
+        sup(&mut s, nid, [true; 6]);
+        if x == 11.0 { s.supports.get_mut(&nid.to_string()).unwrap().dx = Some(-0.001); }
+    }
+    s.quads.insert(id.to_string(), SolverQuadElement { id, nodes, material_id: 1, thickness: T });
+    s.curved_shells.insert(id.to_string(), SolverCurvedShellElement { id, nodes, material_id: 1, thickness: T, normals: None });
+    let system = buckling::buckling_system_3d(&s).unwrap();
+    // Every rotated solid shell is withheld, but both independent families survive.
+    assert_eq!(system.linear.quad_stresses.len(), 2);
+    for stress in &system.linear.quad_stresses {
+        assert_eq!(stress.element_id, id);
+        assert!(stress.sigma_xx.abs() > 1.0, "{stress:?}");
+    }
+}

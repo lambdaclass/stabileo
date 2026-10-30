@@ -18,9 +18,9 @@
         "pt": "Avisos e recusas por problemas conhecidos"
       },
       "explanation": {
-        "en": "diagnostic only: known-issue warnings added, no number changed. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates.",
-        "es": "Solo diagnósticos: se agregan advertencias de problemas conocidos, sin cambiar números. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención.",
-        "pt": "Apenas diagnósticos: avisos de problemas conhecidos adicionados, sem alterar números. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção."
+        "en": "Known-issue warnings added; numerical values of retained results are unchanged. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates.",
+        "es": "Se agregan advertencias de problemas conocidos; los valores de resultados retenidos no cambian. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención.",
+        "pt": "Avisos de problemas conhecidos adicionados; os valores dos resultados mantidos não mudam. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção."
       },
       "changelog": {
         "file": "docs/results-changes/2026-10-containment.md",

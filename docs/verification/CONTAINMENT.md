@@ -225,7 +225,7 @@ a native certificate; internal legacy numerical regression tests remain active.
 - The EOF whitespace defect is removed; read-only diff checks against both HEAD and
   origin/main pass.
 
-Validation used CARGO_TARGET_DIR=/private/tmp/claude-501/codex-807-target and a separate
+Validation used CARGO_TARGET_DIR=/tmp/stabileo-containment-target and a separate
 temporary Nix cache. Debug lib/certificates/robustness/solver targets passed
 579/149/243/208 tests (12 existing ignored); the final focused containment run passed
 24 tests, including the two additional scaling and 3D spectral regressions.
@@ -239,7 +239,7 @@ passed. TypeScript retained its 247-error baseline with no new errors.
 ### Conditioning diagnostic cost
 
 Measured on arm64 macOS, release profile, using
-`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-807-target nix develop -c cargo test -p dedaliano-engine --release --test robustness conditioning_cost_large_frame -- --ignored --nocapture`.
+`CARGO_TARGET_DIR=/tmp/stabileo-containment-target nix develop -c cargo test -p dedaliano-engine --release --test robustness conditioning_cost_large_frame -- --ignored --nocapture`.
 The deterministic model is a 50-bay, 40-storey plane frame (6,120 free DOFs,
 26,196 lower-triangle stiffness entries). For 100 checks, standalone
 symbolic/numeric factorization plus inspection took 5.231 s (52.31 ms/check);

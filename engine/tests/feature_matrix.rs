@@ -1556,8 +1556,25 @@ fn classify(
 }
 
 fn short(e: &str) -> String {
+    // Structured refusals are engineering messages, not JSON excerpts. Keep the
+    // complete safety qualification rather than truncating it mid-sentence.
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(e) {
+        if value.get("structuredDiagnostics").is_some() {
+            if let Some(message) = value.get("message").and_then(|m| m.as_str()) {
+                return message.replace('\n', " ").replace('|', "/");
+            }
+        }
+    }
     let e = e.replace('\n', " ").replace('|', "/");
     if e.chars().count() > 110 { format!("{}…", e.chars().take(110).collect::<String>()) } else { e }
+}
+
+#[test]
+fn structured_refusal_message_is_readable() {
+    let message = "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis";
+    let error = serde_json::json!({"message": message, "structuredDiagnostics": []}).to_string();
+    assert_eq!(short(&error), message);
+    assert_eq!(short("plain error"), "plain error");
 }
 
 fn run_2d(c: &Case2, a: &Ana2) -> Cell {

@@ -1,3 +1,4 @@
+import { uiStore } from './ui.svelte';
 import { timeHistoryView } from './time-history-view.svelte';
 // Results store
 
@@ -464,7 +465,7 @@ function createResultsStore() {
         movingLoadRunning
       );
     },
-    get diagramType() { return (this.knownIssues.refused || this.knownIssues3D.refused) ? 'none' as const : diagramType; },
+    get diagramType() { return (uiStore.is3DWorkspace ? this.knownIssues3D.refused : this.knownIssues.refused) ? 'none' as const : diagramType; },
     /**
      * Putting a diagram on screen is a MODE change, so it carries the rule
      * with it — like `uiStore.currentTool`, the dependency is inverted through
@@ -513,8 +514,8 @@ function createResultsStore() {
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 
     // Combination state
-    get perCase() { return perCase; },
-    get perCombo() { return perCombo; },
+    get perCase() { return [...perCase.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults>() : perCase; },
+    get perCombo() { return [...perCombo.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults>() : perCombo; },
     get envelope() { return envelope; },
     get activeView() { return activeView; },
     set activeView(v: ResultsView) {
@@ -740,7 +741,7 @@ function createResultsStore() {
       }
     },
 
-    get pdeltaResult() { return pdeltaResult; },
+    get pdeltaResult() { return knownIssueResultDisposition(pdeltaResult).refused ? null : pdeltaResult; },
     setPDeltaResult(r: PDeltaResult) {
       _onAnalysisPublish?.('pdelta');
       r = carryCertifyJob(r, { ...r, results: drawn(r.results), ...(r.linearResults ? { linearResults: drawn(r.linearResults) } : {}) });
@@ -774,7 +775,7 @@ function createResultsStore() {
       }
     },
 
-    get modalResult() { return modalResult; },
+    get modalResult() { return knownIssueResultDisposition(modalResult).refused ? null : modalResult; },
     get activeModeIndex() { return activeModeIndex; },
     set activeModeIndex(v: number) { activeModeIndex = v; },
     setModalResult(r: ModalResult) {
@@ -787,7 +788,7 @@ function createResultsStore() {
       diagramType = 'modeShape';
     },
 
-    get bucklingResult() { return bucklingResult; },
+    get bucklingResult() { return knownIssueResultDisposition(bucklingResult).refused ? null : bucklingResult; },
     get activeBucklingMode() { return activeBucklingMode; },
     set activeBucklingMode(v: number) { activeBucklingMode = v; },
     setBucklingResult(r: BucklingResult) {
@@ -804,7 +805,7 @@ function createResultsStore() {
     get stressQuery() { return stressQuery; },
     set stressQuery(v: { elementId: number; t: number; worldX: number; worldY: number; worldZ?: number } | null) { stressQuery = v; },
 
-    get plasticResult() { return plasticResult; },
+    get plasticResult() { return knownIssueResultDisposition(plasticResult).refused ? null : plasticResult; },
     get plasticStep() { return plasticStep; },
     set plasticStep(v: number) { plasticStep = v; },
     setPlasticResult(r: PlasticResult) {
@@ -824,7 +825,7 @@ function createResultsStore() {
       diagramType = 'plasticHinges';
     },
 
-    get spectralResult() { return spectralResult; },
+    get spectralResult() { return knownIssueResultDisposition(spectralResult).refused ? null : spectralResult; },
     setSpectralResult(r: SpectralResult) {
       _onAnalysisPublish?.('spectral');
       // Spectral needs modal, so don't clear modal
@@ -839,7 +840,7 @@ function createResultsStore() {
     },
 
     // ─── 3D Advanced Analysis Results ─────────────────────────────
-    get pdeltaResult3D() { return pdeltaResult3D; },
+    get pdeltaResult3D() { return knownIssueResultDisposition(pdeltaResult3D).refused ? null : pdeltaResult3D; },
     setPDeltaResult3D(r: PDeltaResult3D) {
       _onAnalysisPublish?.('pdelta');
       if (_normaliseAdvanced3D) r = carryCertifyJob(r, _normaliseAdvanced3D.pdelta(r));
@@ -854,7 +855,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get modalResult3D() { return modalResult3D; },
+    get modalResult3D() { return knownIssueResultDisposition(modalResult3D).refused ? null : modalResult3D; },
     setModalResult3D(r: ModalResult3D) {
       _onAnalysisPublish?.('modal');
       if (_normaliseAdvanced3D) r = carryCertifyJob(r, _normaliseAdvanced3D.modes(r));
@@ -872,7 +873,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get bucklingResult3D() { return bucklingResult3D; },
+    get bucklingResult3D() { return knownIssueResultDisposition(bucklingResult3D).refused ? null : bucklingResult3D; },
     setBucklingResult3D(r: BucklingResult3D) {
       _onAnalysisPublish?.('buckling');
       if (_normaliseAdvanced3D) r = _normaliseAdvanced3D.modes(r);
@@ -889,7 +890,7 @@ function createResultsStore() {
       release(true);
     },
 
-    get spectralResult3D() { return spectralResult3D; },
+    get spectralResult3D() { return knownIssueResultDisposition(spectralResult3D).refused ? null : spectralResult3D; },
     setSpectralResult3D(r: SpectralResult3D) {
       _onAnalysisPublish?.('spectral');
       if (_normalise3D) r = { ...r, results: _normalise3D(r.results) };
@@ -1206,8 +1207,8 @@ function createResultsStore() {
     },
 
     // 3D combination state
-    get perCase3D() { return perCase3D; },
-    get perCombo3D() { return perCombo3D; },
+    get perCase3D() { return [...perCase3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCase3D; },
+    get perCombo3D() { return [...perCombo3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCombo3D; },
     get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },
     get envelope3D() { return envelope3D; },
     get hasCombinations3D() { return perCombo3D.size > 0; },

@@ -155,7 +155,7 @@ pub fn export_linear_bundle(k: &CscMatrix, f: &[Interval], u: &[f64]) -> Result<
     };
     let sym = &l.symbolic;
     Ok(LinearBundle {
-        structured_diagnostics: crate::known_issues::sparse_conditioning(k).into_iter().collect(),
+        structured_diagnostics: crate::known_issues::sparse_factor_conditioning(k, Some(&l)).into_iter().collect(),
         format: BUNDLE_FORMAT.into(),
         n,
         k: CscJson {
@@ -297,6 +297,16 @@ mod tests {
         assert_eq!(p, (0..n).collect::<Vec<_>>());
         assert_eq!(back.l.col_ptr.len(), n + 1);
         assert_eq!(back.l.values.len(), back.l.row_idx.len());
+    }
+
+    #[test]
+    fn raw_bundle_warns_on_small_pivot_with_equal_diagonals() {
+        let k = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[1.0, 1.0 - 1e-12, 1.0]);
+        assert!(crate::known_issues::sparse_conditioning(&k).is_none());
+        let f = [Interval::point(0.0), Interval::point(0.0)];
+        let bundle = export_linear_bundle(&k, &f, &[0.0, 0.0]).unwrap();
+        assert!(bundle.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NUM-INVARIANCE")));
+        assert_eq!(bundle.k.values, dyadics(k.values.iter().copied()).unwrap());
     }
 
     #[test]

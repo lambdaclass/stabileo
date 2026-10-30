@@ -1,3 +1,4 @@
+import { exportMessages, warningHtml } from './containment';
 /**
  * A report written to a file in one of the five formats every report offers (`report-formats.ts`):
  * the PDF is printed by the browser from the report's HTML (a blocked window falls back to the
@@ -18,6 +19,8 @@ function save(name: string, type: string, data: BlobPart) {
 
 /** Print a report's HTML (the PDF), or download it when the window is blocked. */
 export function printHtml(html: string, stem: string): void {
+  const warnings = exportMessages(); if (warnings === null) return;
+  html = warningHtml(html, warnings);
   const w = window.open('', '_blank');
   if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
   else save(`${stem}.html`, 'text/html', html);
@@ -34,6 +37,17 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
+  const warnings = exportMessages(); if (warnings === null) return null;
+  r = {
+    ...r,
+    html: warningHtml(r.html, warnings),
+    ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
+    // CSV exports only tables, so their mandatory warnings also belong in its comment header.
+    ...(warnings.length ? { provenance: {
+      title: r.provenance?.title ?? 'Safety warnings',
+      lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
+    } } : {}),
+  };
   if (format === 'pdf') { printHtml(r.html, r.stem); return `${r.stem}.pdf`; }
   const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
   if (!f) return null;

@@ -347,7 +347,11 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let affected: std::collections::HashSet<_> = crate::known_issues::model_3d(input)
         .into_iter().filter(|d| d.phase.as_deref() == Some("SH-GLOBAL-STRESS"))
         .flat_map(|d| d.element_ids).collect();
-    linear.quad_stresses.retain(|s| !affected.contains(&s.element_id));
+    if !affected.is_empty() {
+        let mut recovery_input = input.clone();
+        recovery_input.solid_shells.retain(|_, s| !affected.contains(&s.id));
+        linear.quad_stresses = super::linear::compute_quad_stresses(&recovery_input, &dof_num, &u_full, None);
+    }
     Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms })
 }
 

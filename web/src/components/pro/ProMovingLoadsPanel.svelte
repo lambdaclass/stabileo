@@ -316,4 +316,12 @@
   .ml-table tbody tr:hover { background: var(--st-surface-2); }
   .ml-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
   .ml-on td:first-child { color: var(--st-accent); }
+  @media (max-width: 810px) {
+    .ml { min-width: 0; max-width: 100%; }
+    .ml.ml :global(*) { font-size: max(12px, 0.75rem); min-width: 0; overflow-wrap: anywhere; }
+    .ml.ml :global(button), .ml.ml :global(input), .ml.ml :global(select), .ml.ml :global(textarea), .ml.ml :global(summary) { min-width: 44px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+    .ml.ml :global(label) { flex-wrap: wrap; white-space: normal; }
+    .ml.ml :global(label:has(input[type="file"])), .ml.ml :global(.pk-btn) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+    .ml.ml :global(table) { max-width: 100%; }
+  }
 </style>

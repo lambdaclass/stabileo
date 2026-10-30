@@ -21,6 +21,8 @@ class ContainmentTests(unittest.TestCase):
         issue = {'number': 1, 'state': 'open', 'labels': [{'name': 'safety'}]}
         self.assertEqual(m.audit({1: {'WARN'}}, [issue]), [])
         self.assertTrue(m.audit({}, [issue]))
+        self.assertTrue(m.audit({1: {'TRIAGE'}}, [issue]))
+        self.assertTrue(m.audit({1: {'TRIAGE', 'SCOPE'}}, [issue]))
         issue['state'] = 'closed'
         self.assertIn('CLOSED', m.audit({1: {'REFUSE'}}, [issue])[0])
         self.assertEqual(m.audit({1: {'CORRECTED'}}, [issue]), [])

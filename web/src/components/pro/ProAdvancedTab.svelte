@@ -330,6 +330,10 @@
   const codeSpectrum = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
 
   function handleSpectral() {
+    spectralResult = null;
+    resultsStore.clearSpectral3D();
+    const { spectral: _retired, ...remaining } = advancedResults;
+    advancedResults = remaining;
     solveError = null;
     solving = true;
     try {
@@ -365,7 +369,7 @@
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
-        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
+        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${errorText(res, 'Error')}`; solving = false; return; }
         byDir[direction] = res;
       }
       spectralResult = byDir;
@@ -2162,6 +2166,10 @@
   .adv-mode-on td { color: var(--st-accent); }
   .adv-refused { margin: 4px 0 0; font-size: 0.75rem; color: var(--st-warn); line-height: 1.4; }
   @media (max-width: 810px) {
+    .adv-tab :global(*) { min-width: 0; font-size: max(12px, 0.75rem); overflow-wrap: anywhere; }
+    .adv-tab :global(button), .adv-tab :global(input), .adv-tab :global(select), .adv-tab :global(summary) { min-height: 44px; min-width: 44px; max-width: 100%; box-sizing: border-box; }
+    .adv-tab :global(label), .adv-tab :global(.row) { flex-wrap: wrap; white-space: normal; }
+
     button, input, select, summary, .adv-check { min-height: 44px; min-width: 44px; font-size: max(12px, 0.75rem); }
     input, select { max-width: 100%; box-sizing: border-box; }
     .adv-row, .adv-label, .adv-stage-header { flex-wrap: wrap; }

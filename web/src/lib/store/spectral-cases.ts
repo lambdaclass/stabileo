@@ -1,3 +1,4 @@
+import { errorText } from '../utils/error-text';
 /**
  * The results of the model's spectral load cases (`engine/spectral-case.ts`): the modes under the
  * project's mass source, each mode shape imposed and solved once, then each case's modes combined
@@ -127,7 +128,7 @@ export function spectralCaseResults(): SpectralCases | string {
     const dyn = dynamicInput();
     input = dyn.input;
     const r = modalUntilMass((n) => solveModal3D(input, dyn.densities, n) as never, 12, PARTICIPATION_TARGET, 200, dirs.length ? dirs : ['x', 'y']);
-    if (typeof r.result === 'string') return r.result;
+    if (typeof r.result === 'string') return errorText(r.result, t('spectralCase.noModes'));
     modal = r.result as unknown as ModalResult3D;
     // Not reached (no more modes, or the most asked for): the case is worked out on the mass that
     // moves, and the reader is told how much that is.
@@ -135,7 +136,7 @@ export function spectralCaseResults(): SpectralCases | string {
       if (r[d] < PARTICIPATION_TARGET) warnings.push(tp('spectralCase.participationShort', { dir: d.toUpperCase(), got: (100 * r[d]).toFixed(1), target: String(100 * PARTICIPATION_TARGET), modes: r.modes }));
     }
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    return errorText(e, t('spectralCase.noModes'));
   }
   if (!modal.modes?.length) return t('spectralCase.noModes');
   // What reading the results back needs of the model: variable members put back together,
@@ -154,7 +155,7 @@ export function spectralCaseResults(): SpectralCases | string {
     try {
       r = finalizeSolve3DResults(solve3D(imposedInput(input, modeShapeField(m))), md as never);
     } catch (e) {
-      return e instanceof Error ? e.message : String(e);
+      return errorText(e, t('spectralCase.noModes'));
     }
     unit.push({ ...r, reactions: supportReactions(r.reactions, input.supports.values(), r.displacements) });
   }
