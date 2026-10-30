@@ -25,10 +25,10 @@ type Page = import('@playwright/test').Page;
 
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
     .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), {
-      timeout: 60_000,
+      timeout: 45_000,
       message: 'real WASM solver must be initialised (not the Vite stub)',
     })
     .toBe(true);
@@ -178,7 +178,7 @@ test.describe('the colour scale legend', () => {
     // depends on it: Stress is disabled until there are results, so an
     // enabled Stress IS the signal, with no counter to agree with.
     await page.getByTestId('rb-cmd-solve').click();
-    await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 60_000 });
+    await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 45_000 });
   });
 
   /**

@@ -8,7 +8,7 @@
  */
 import { test, expect } from './fixtures';
 
-test.describe('@smoke explore', () => {
+test.describe('@slow explore', () => {
   test('a slider keeps the diagram, a mechanism is said, closing restores', async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => { try { localStorage.setItem('liveCalc', 'false'); } catch { /* private mode */ } });
@@ -53,7 +53,7 @@ test.describe('@smoke explore', () => {
   });
 });
 
-test.describe('@smoke explore in 3D', () => {
+test.describe('@slow explore in 3D', () => {
   test('the result row is the space one, and a mechanism is said', async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => { try { localStorage.setItem('liveCalc', 'false'); } catch { /* private mode */ } });

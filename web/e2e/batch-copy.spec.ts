@@ -8,7 +8,7 @@ import { test, expect, loadModel, solveModel, computeDemands, openDeskStage, des
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-test.describe('@smoke frame copy', () => {
+test.describe('@slow frame copy', () => {
   test('a frame copied onto a different one: preview by member, then applied', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);

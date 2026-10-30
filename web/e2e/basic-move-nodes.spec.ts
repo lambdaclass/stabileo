@@ -10,7 +10,7 @@ test.describe('@smoke moving nodes', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     const before = await page.evaluate(() => window.__stabileo.modelVersion());
     await page.getByTestId('rb-cmd-move').click();
@@ -24,7 +24,7 @@ test.describe('@smoke moving nodes', () => {
 
   test('the pointer button says it is moving nodes, not selecting', async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
     await page.getByTestId('rb-cmd-move').click();
     await page.getByTestId('move-nodes').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.currentTool())).toBe('moveNodes');

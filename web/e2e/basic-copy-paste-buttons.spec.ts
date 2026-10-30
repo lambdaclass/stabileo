@@ -9,7 +9,7 @@ const elementCount = (page: Page) => page.evaluate(() => window.__stabileo.eleme
 
 async function portal(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
   await expect.poll(() => nodeCount(page)).toBe(4);
 }

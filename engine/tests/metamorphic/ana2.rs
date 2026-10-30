@@ -303,7 +303,11 @@ pub fn rows() -> Vec<Ana2> {
                     tolerance: 1e-10,
                     n_increments: 4,
                 };
-                Ok(static_2d(&conv(material_nonlinear::solve_nonlinear_material_2d(&inp).map(|r| (r.converged, r.results)))?))
+                let r = conv(material_nonlinear::solve_nonlinear_material_2d(&inp).map(|r| (r.converged, r.results)))?;
+                if !r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::KnownIssue && d.phase.as_deref() == Some("NL-5") && d.value == Some(428.0)) {
+                    return Err("missing containment warning safety #428".into());
+                }
+                Ok(static_2d(&r))
             },
         },
         Ana2 {
@@ -384,7 +388,7 @@ pub fn rows() -> Vec<Ana2> {
                 let r = time_integration::solve_time_history_2d(&inp)?;
                 let mut o = Resp::default();
                 for h in &r.node_histories {
-                    for k in (10..h.ux.len()).step_by(10) {
+                    for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V2(Dim::LEN), vec![h.ux[k], h.uz[k]]);
                         o.push(Some(h.node_id), None, &format!("ry_t{k:03}"), Kind::P2(Dim::NONE), vec![h.ry[k]]);
                     }
