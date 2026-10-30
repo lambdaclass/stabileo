@@ -125,6 +125,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'course.influence.q.ry',
   'course.influence.q.ux',
   'course.influence.q.uz',
+  'course.plastic.doc.section',
+  'course.plastic.user.showMoments',
   'data.sections',
   'defl.limits.dirShort.localY',
   'defl.limits.dirShort.localZ',

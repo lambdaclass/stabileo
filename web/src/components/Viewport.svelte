@@ -40,6 +40,8 @@
   import { pickInfluenceTarget } from '../lib/actions/influence-line';
   import { influenceTool } from '../lib/store/influence-tool.svelte';
   import { drawModeShape, drawPlasticHinges } from '../lib/canvas/draw-modes';
+  import { drawPlasticCourseLayer, tapPlasticHinge } from '../lib/canvas/plastic-course-layer';
+  import { plasticCourse } from '../lib/store/plastic-course.svelte';
   import { computeElementStress } from '../lib/store/results.svelte';
   import { colourScaleSource } from '../lib/store/result-view';
   import { colourRampCss, colourMapUnit } from '../lib/three/colour-ramp';
@@ -286,6 +288,7 @@
   $effect(() => { resultsStore.modalResult; resultsStore.activeModeIndex; invalidate(); });
   $effect(() => { resultsStore.bucklingResult; resultsStore.activeBucklingMode; invalidate(); });
   $effect(() => { resultsStore.plasticResult; resultsStore.plasticStep; invalidate(); });
+  $effect(() => { plasticCourse.view; plasticCourse.user; plasticCourse.userShows; plasticCourse.hinges; invalidate(); });
   $effect(() => { resultsStore.stressQuery; invalidate(); });
   $effect(() => { resultsStore.envelope; invalidate(); });
 
@@ -1381,7 +1384,9 @@
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
         drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
-      } else if (dt === 'plasticHinges' && resultsStore.plasticResult) {
+      } else if (dt === 'plasticHinges' && resultsStore.plasticResult
+        && !drawPlasticCourseLayer({ ctx, worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy) }, makeDrawContext(),
+          { scale: resultsStore.diagramScale, values: valuesNow(), towardLocal: resultsStore.drawPositiveTowardLocalAxes })) {
         /*
          * The step's accumulated moment diagram, on one scale for every step so
          * it visibly grows toward collapse, then the hinges formed so far.
@@ -1883,6 +1888,8 @@
       return;
     }
 
+    if (plasticCourse.picking && e.button === 0) { tapPlasticHinge(world.x, world.y, pickTol(PICK_PX.loose)); return; }
+
     // Pan: middle mouse or pan tool
     if (uiStore.currentTool === 'pan' || e.button === 1) {
       isPanning = true;
@@ -1892,6 +1899,7 @@
     }
 
     if (placementStore.active) return;
+
 
     // Block creation/mutation tools in simplified 2D mode
     if (uiStore.simplified2DMode

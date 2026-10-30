@@ -11,9 +11,10 @@ import { methods as trusses } from './trusses';
 import { methods as deformation } from './deformation';
 import { methods as cuts } from './cuts';
 import { methods as influence } from './influence';
+import { methods as plastic } from './plastic';
 import { methods as dynamics } from './dynamics';
 
-registerMethods([...core, ...continuous, ...displacement, ...frames, ...trusses, ...deformation, ...cuts, ...influence, ...dynamics]);
+registerMethods([...core, ...continuous, ...displacement, ...frames, ...trusses, ...deformation, ...cuts, ...influence, ...plastic, ...dynamics]);
 
 export { allMethods, methodsIn, methodById, GROUP_ORDER } from '../registry';
 export type { ExplainedMethod, MethodContext, MethodGroup } from '../registry';

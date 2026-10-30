@@ -25,7 +25,7 @@ test.describe('@smoke explained step by step', () => {
     const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups).toEqual([
       'steps-group-stiffness', 'steps-group-flexibility', 'steps-group-continuous',
-      'steps-group-frames', 'steps-group-trusses', 'steps-group-deformation', 'steps-group-dynamics',
+      'steps-group-frames', 'steps-group-trusses', 'steps-group-deformation', 'steps-group-influence', 'steps-group-plastic', 'steps-group-dynamics',
     ]);
     const first = page.getByTestId('steps-method-dsm');
     await expect(first).toContainText(/must be|debe ser|deve ser/);
