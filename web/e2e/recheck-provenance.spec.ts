@@ -288,28 +288,41 @@ for (const width of [390, 810]) {
 }
 
 
-test('downloads an unread session backup when notice recovery cannot save the workspace', async ({ page }) => {
-  await bootPro(page);
-  await page.route(NOTICE_CHUNK, route => route.abort());
-  expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
-  await expect(page.getByTestId('recheck-backup')).toBeVisible();
-  const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
-  await page.evaluate(() => {
-    Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+for (const width of [390, 810]) {
+  test(`@smoke downloads an unread session backup after storage failure at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await bootPro(page);
+    await page.route(NOTICE_CHUNK, route => route.abort());
+    expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+    await expect(page.getByTestId('recheck-backup')).toBeVisible();
+    const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+    });
+    await page.getByTestId('recheck-reload').click();
+    await expect(page.getByTestId('recheck-notice').getByRole('alert')).toBeVisible();
+    const notice = page.getByTestId('recheck-notice');
+    await expect(notice.locator('footer')).toBeInViewport({ ratio: 1 });
+    expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const button of await notice.getByRole('button').all()) {
+      const bounds = (await button.boundingBox())!;
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+      expect(bounds.width).toBeGreaterThanOrEqual(44);
+      expect(await button.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+    }
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('recheck-backup').click();
+    const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+    const session = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    expect(session.type).toBe('session');
+    const active = session.tabs.find((tab: { id: string }) => tab.id === session.activeTabId);
+    expect(active.modelSnapshot).toEqual(before);
+    expect(active.modelSnapshot.pendingRecheckNotice.stamp.resultsVersion).toBe(0);
+    await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    await expect(page.getByTestId('recheck-notice')).toBeVisible();
   });
-  await page.getByTestId('recheck-reload').click();
-  await expect(page.getByTestId('recheck-notice').getByRole('alert')).toBeVisible();
-  const downloadPromise = page.waitForEvent('download');
-  await page.getByTestId('recheck-backup').click();
-  const download = await downloadPromise;
-  const stream = await download.createReadStream();
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
-  const session = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  expect(session.type).toBe('session');
-  const active = session.tabs.find((tab: { id: string }) => tab.id === session.activeTabId);
-  expect(active.modelSnapshot).toEqual(before);
-  expect(active.modelSnapshot.pendingRecheckNotice.stamp.resultsVersion).toBe(0);
-  await expect(page.getByTestId('recheck-ack')).toBeDisabled();
-  await expect(page.getByTestId('recheck-notice')).toBeVisible();
-});
+}

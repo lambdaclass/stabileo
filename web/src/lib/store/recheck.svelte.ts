@@ -84,16 +84,21 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       const savedNotice = snapshot.pendingRecheckNotice;
       const original = readStamp(savedNotice?.stamp) ?? stored;
       assessedStampId = original.id;
-      currentAssessmentStampId = null;
+      currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
       pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION;
       const currentFeatures = modelFeatures(snapshot, { analysisMode, analysesRun: stored.resultsVersion > 0 ? stored.analyses : null });
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
       outstanding = pending ? {
         stamp: original,
-        features: Array.isArray(savedNotice?.features) && savedNotice.features.every(f => typeof f === 'string')
-          ? [...savedNotice.features]
-          : [...modelFeatures(snapshot, { analysisMode, analysesRun: original.resultsVersion > 0 ? original.analyses : null })],
+        // Save current applicability before loading, so failed downloads followed by
+        // an automatic solve cannot erase newly relevant warnings on reload.
+        features: [...new Set([
+          ...(Array.isArray(savedNotice?.features) && savedNotice.features.every(f => typeof f === 'string')
+            ? savedNotice.features
+            : modelFeatures(snapshot, { analysisMode, analysesRun: original.resultsVersion > 0 ? original.analyses : null })),
+          ...currentFeatures,
+        ])],
       } : undefined;
       loadFailed = false;
       assessment = {
@@ -119,9 +124,6 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
           // An empty assessment has no notice to preserve. Never let its frozen
           // features suppress changes applicable to a later edited snapshot.
           if (!assessment.changes.length) outstanding = undefined;
-          else if (outstanding && current.changes.length) {
-            outstanding = { ...outstanding, features: [...new Set([...features, ...currentFeatures])] };
-          }
           pending = false;
           retry = () => Promise.resolve();
         } catch {

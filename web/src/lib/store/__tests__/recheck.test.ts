@@ -188,6 +188,57 @@ describe('edited projects with older provenance', () => {
   }) as import('../../provenance/model-features').FeatureSnapshot;
   const oldStamp = () => ({ ...createRecheckStore().capture()!, resultsVersion: 4, analyses: ['linear' as const] });
 
+  it.each(['delayed', 'rejected'] as const)('keeps distinct opening results stale during %s loading', async loading => {
+    const module = await import('../../provenance/applicability');
+    let finish!: (value: typeof module) => void;
+    const store = createRecheckStore(() => loading === 'rejected'
+      ? Promise.reject(new Error('offline'))
+      : new Promise(resolve => { finish = resolve; }));
+    store.openProject({
+      ...frame(), solidShells: [[1, {}]], solvedWith: { ...oldStamp(), id: 'opening-solve' },
+      pendingRecheckNotice: { stamp: { ...oldStamp(), id: 'unread-notice', resultsVersion: 0 }, features: ['frameMembers'] },
+    }, 'pro');
+    expect(store.pending).toBe(true);
+    expect(store.stale).toBe(true);
+    if (loading === 'rejected') {
+      await vi.waitFor(() => expect(store.loadFailed).toBe(true));
+      expect(store.stale).toBe(true);
+    } else {
+      finish(module);
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.stale).toBe(true);
+    }
+    store.noteSolved('linear');
+    expect(store.stale).toBe(false);
+    expect(store.noticeOpen).toBe(true);
+  });
+
+  it('retains new shells after rejected loading, automatic solve and save/reload', async () => {
+    const store = createRecheckStore(() => Promise.reject(new Error('offline')));
+    const snapshot: import('../../provenance/model-features').FeatureSnapshot = { ...frame(), solidShells: [[1, {}]] };
+    const original = { ...oldStamp(), id: 'unread-notice', resultsVersion: 0 };
+    store.openProject({
+      ...snapshot, solvedWith: { ...oldStamp(), id: 'opening-solve' },
+      pendingRecheckNotice: { stamp: original, features: ['steelCirsoc301', 'steelTensionWithoutConnection'] },
+    }, 'pro');
+    expect(store.captureNotice()?.features).toContain('shells');
+    await vi.waitFor(() => expect(store.loadFailed).toBe(true));
+    store.noteSolved('linear');
+    store.acknowledge(); // A failed load cannot acknowledge unread changes.
+    const saved = JSON.stringify({ ...snapshot, solvedWith: store.capture(), pendingRecheckNotice: store.captureNotice() });
+    const restored = createRecheckStore();
+    restored.openProject(JSON.parse(saved), 'pro');
+    expect(restored.stale).toBe(false);
+    await vi.waitFor(() => expect(restored.pending).toBe(false));
+    expect(restored.assessment?.changes.map(c => c.id)).toEqual(expect.arrayContaining([
+      'solid-shell-local-stress-axes', 'cirsoc301-tension-needs-connection',
+    ]));
+    expect(restored.captureNotice()?.stamp).toEqual(original);
+    expect(restored.noticeOpen).toBe(true);
+    restored.acknowledge();
+    expect(restored.captureNotice()).toBeUndefined();
+  });
+
   it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
     const snapshot = frame();
