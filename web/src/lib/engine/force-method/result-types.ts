@@ -3,6 +3,8 @@
  * both ways, the answer and its check against the stiffness method.
  */
 import type { Redundant, IndeterminacyCount } from './primary';
+import type { GhReport } from '../static-degree';
+import type { ReleaseOption } from './releases';
 
 export interface BarState {
   elementId: number;
@@ -30,6 +32,15 @@ export interface TermRow {
   elementId: number | null;
   source: 'bending' | 'axial' | 'torsion' | 'thermal' | 'spring' | 'bar' | 'settlement';
   value: number;
+  /**
+   * The factors of a classroom term. A biela: a, b are N̄ᵢ, N̄ⱼ with L and EA.
+   * A spring: a, b are R̄ᵢ, R̄ⱼ (M̄ for component 2) with k; `released` is the
+   * spring of a redundant, whose own flexibility 1/k this row is.
+   */
+  detail?: {
+    a?: number; b?: number; L?: number; EA?: number; k?: number;
+    nodeId?: number; component?: number; biela?: boolean; released?: boolean;
+  };
 }
 
 export interface Geometry {
@@ -65,7 +76,17 @@ export interface ForceMethodResult {
   delta0Check: number[];
   X: number[];
   final: StateResult;
-  verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean };
+  verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean; axialOff?: boolean };
   /** The stiffness method's answer on the original structure, for Step 9's table. */
   stiffness: StateResult;
+  /** Whether frame members' axial term is in the coefficients (bielas keep theirs either way). */
+  axial?: boolean;
+  /** With the axial term off: the redundants (0-based) whose rows keep it, since they work only axially. */
+  axialKept?: number[];
+  /** The reader chose the releases (`manual`) or the method did. */
+  choice?: 'auto' | 'manual';
+  /** GH by the classic formula, explained (plane structures). */
+  gh?: GhReport;
+  /** The releases the structure offers for a fundamental of the reader's choosing (plane structures). */
+  releaseOptions?: ReleaseOption[];
 }

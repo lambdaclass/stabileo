@@ -10,6 +10,7 @@
 import type { SolverInput } from './types';
 import type { SolverInput3D } from './types-3d';
 import { countStaticDegree2D, analyzeKinematics, DOF_LABEL_KEY } from './kinematic-2d';
+import { ghReport } from './static-degree';
 import { countStaticDegree3D, supportRestraints3D, analyzeKinematics3D } from './kinematic-3d';
 import { t, inSentence } from '../i18n';
 
@@ -371,27 +372,9 @@ export function generateKinematicReport(
   const nFrameNodes = isPureTruss ? 0 : count.nFrameNodes;
   const nTrussNodes = count.nTrussNodes;
 
-  let formula: string;
-  let substitution: string;
-  // Each term is written with its own sign: "− 3×n + c" read as −3n + c.
-  const cTerm = totalC > 0 ? ` − ${totalC}` : '';
-  const cSym = totalC > 0 ? ' − c' : '';
-  if (isPureTruss) {
-    // Pure truss: g = m + r − 2·n
-    formula = 'g = m + r − 2·n';
-    const m = input.elements.size;
-    substitution = `g = ${m} + ${totalR} − 2×${nNodes} = ${degree}`;
-  } else if (nTrusses > 0) {
-    // Mixed: frames + trusses. A node only truss bars reach takes 2 equations.
-    const nSym = nTrussNodes > 0 ? '3·n_p − 2·n_r' : '3·n';
-    const nNum = nTrussNodes > 0 ? `3×${nFrameNodes} − 2×${nTrussNodes}` : `3×${nNodes}`;
-    formula = `g = 3·m_p + m_r + r − ${nSym}${cSym}`;
-    substitution = `g = 3×${nFrames} + ${nTrusses} + ${totalR} − ${nNum}${cTerm} = ${degree}`;
-  } else {
-    // Pure frame
-    formula = `g = 3·m + r − 3·n${cSym}`;
-    substitution = `g = 3×${nFrames} + ${totalR} − 3×${nNodes}${cTerm} = ${degree}`;
-  }
+  const gh = ghReport(input, slidingJoints.length);
+  const formula = gh.formula.text;
+  const substitution = `${gh.subst.text} = ${degree}`;
 
   // ── Step 3: Rank verification ── (computed before classification so we can adjust it)
 
