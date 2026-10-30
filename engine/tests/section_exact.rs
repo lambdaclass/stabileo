@@ -23,9 +23,8 @@ use dedaliano_engine::section::catalogue as cat;
 use dedaliano_engine::section::mesh::{mesh_section, MeshParams};
 use dedaliano_engine::section::plastic::solve_plastic;
 use dedaliano_engine::section::{analyze_section, SectionInput, SectionPolygon, SectionProperties};
-use num_bigint::BigInt;
 use num_rational::BigRational;
-use num_traits::{One, Signed, ToPrimitive, Zero};
+use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 type Q = BigRational;
 
@@ -33,7 +32,7 @@ fn q(v: f64) -> Q {
     Q::from_float(v).expect("finite")
 }
 fn qi(n: i64) -> Q {
-    Q::from_integer(BigInt::from(n))
+    Q::from_i64(n).expect("every i64 is exactly representable as a rational")
 }
 fn f(v: &Q) -> f64 {
     v.to_f64().unwrap()
@@ -86,7 +85,7 @@ struct Exact {
 /// `integral |s - c| dA` over a rectangle extruded along the other axis with
 /// width `w`, the rectangle spanning `[s0, s1]` in the coordinate of interest.
 fn abs_moment(s0: &Q, s1: &Q, w: &Q, c: &Q) -> Q {
-    let half = Q::new(BigInt::one(), BigInt::from(2));
+    let half = qi(1) / qi(2);
     if c <= s0 {
         w * (((s1 - c) * (s1 - c)) - ((s0 - c) * (s0 - c))) * &half
     } else if c >= s1 {
@@ -345,7 +344,7 @@ fn closed_forms_reproduce_textbook_values() {
     assert!((f(&ex.zz) / zz - 1.0).abs() < 1e-14);
     // Rectangle: Z = b h^2 / 4.
     let ex = exact(&[r(0.0, 3.0, 0.0, 7.0)]);
-    assert_eq!(ex.zy, Q::new(BigInt::from(147), BigInt::from(4)));
+    assert_eq!(ex.zy, qi(147) / qi(4));
     // Tee with the PNA in the web: area below = half.
     let ex = exact(&[r(-0.5, 0.5, 0.0, 10.0), r(-2.0, 2.0, 10.0, 11.0)]);
     // A = 14, PNA where web length below = 7.
