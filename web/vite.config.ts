@@ -1,9 +1,10 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { isComplete } from './src/lib/i18n/offered';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -43,7 +44,11 @@ function publicI18nPlugin(): Plugin {
     load(resolved) {
       if (resolved !== '\0' + id) return null;
       let out = '';
-      for (const loc of ['en', 'es', 'pt']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        if (!isComplete(loc)) {
+          out += `export const ${loc} = {};\n`;
+          continue;
+        }
         const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
         this.addWatchFile(file);
         const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
@@ -61,7 +66,8 @@ function publicI18nPlugin(): Plugin {
 // `.stryker-tmp` holds Stryker's sandbox copies of the tests (without the gitignored WASM build):
 // collected here, a mutation run in progress made every engine test fail.
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
-const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**'];
+// scripts/*.test.mjs are node:test suites (the Research workflow runs them with node --test).
+const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -189,9 +195,17 @@ function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+const researchManifest = resolve(__dirname, 'public/research-wasm/build.json');
+const researchBuildId = existsSync(researchManifest) ? JSON.parse(readFileSync(researchManifest, 'utf8')).build_id : 'unavailable';
+if (researchBuildId !== 'unavailable') {
+  const actual = execFileSync('python3', [resolve(__dirname, '../research/tools/asset_identity.py'), resolve(__dirname, '..'), resolve(__dirname, 'public/research-wasm/shauer-2025')], { encoding: 'utf8' }).trim();
+  if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
+}
+
 export default defineConfig({
   plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
+    "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
@@ -200,6 +214,8 @@ export default defineConfig({
   base: process.env.BASE_PATH || '/',
   server: {
     port: (ADMIN ? 4001 : 4000) + INST * 10,
+    // The /research pages import the catalog and reference results from ../research.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(__dirname, '../research')] },
   },
   worker: {
     format: 'es',

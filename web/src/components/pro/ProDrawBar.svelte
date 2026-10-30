@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
   /**
    * What the next click in the model does, while PRO is drawing.
@@ -14,7 +16,7 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
   import DrawnKindField from './building/DrawnKindField.svelte';
@@ -58,6 +60,7 @@
 
   /** Enter closes an outline being drawn, as clicking its first node does. */
   function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if (e.key !== 'Enter' || tool !== 'plate' || drawState.plateCorners !== 'outline' || pick.picked.length < 3) return;
     const el = e.target as HTMLElement | null;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) return;
@@ -70,7 +73,7 @@
 
 {#if drawState.active}
   <div class="db" data-testid="pro-draw-bar" data-tool={tool}>
-    <span class="db-title"><Icon name={icon} size={14} /> {t('pro.drawInModel')} {title}</span>
+    <span class="db-title"><Icon name={icon} size={14} /> {capitalized(tp('pro.drawWhat', { what: title }))}</span>
     <span class="db-step" data-testid="draw-step">{step}</span>
     <span class="db-sep" aria-hidden="true"></span>
 

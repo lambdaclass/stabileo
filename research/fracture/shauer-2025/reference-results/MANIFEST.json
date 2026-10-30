@@ -1,0 +1,53 @@
+{
+ "produced_by": "phasefield-jr-py examples run unmodified through research/fracture/shauer-2025/reference/run_reference.py, which only records values the scripts compute; exported with reference/export.py",
+ "reference_code": {
+  "url": "https://github.com/nathanshauer/phasefield-jr-py",
+  "commit": "61037c6ce7833a4f92a3ec098a9d60fd477eff2b",
+  "license": "MIT"
+ },
+ "runs": {
+  "ex1": {
+   "script": "example1_sparse.py",
+   "steps": 74,
+   "wall_seconds": 46.6
+  },
+  "ex2": {
+   "script": "example2_sparse.py",
+   "steps": 79,
+   "wall_seconds": 623.2
+  },
+  "ex3": {
+   "script": "example3_sparse.py",
+   "steps": 99,
+   "wall_seconds": 304.2
+  }
+ },
+ "environment": {
+  "python": "3.12.15",
+  "numpy": "2.1.3",
+  "scipy": "1.14.1",
+  "matplotlib": "3.9.2",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "install": "uv venv --python 3.12; uv pip install numpy==2.1.3 scipy==1.14.1 matplotlib==3.9.2"
+ },
+ "date": "2026-10-28",
+ "files_sha256": {
+  "ex1_damage_step050.csv": "dc442b3f132da8ab43fe7d779d2a6538066375b2ebf0228361a551ab4e785402",
+  "ex1_damage_step073.csv": "a703a9ce4d31c3b914bc35117d851127dd781cbe59819dffe275db16bf7313f2",
+  "ex1_displacement_step050.csv": "c78cd0afbb05410c799d5704212082d704ffe5f776bc47918fb94406d00b05d0",
+  "ex1_mesh.json": "1f567d94b157bf043de60c4ac6ea4e885f5b76810f0ea2847c421a25458b2153",
+  "ex1_steps.csv": "9bc8984dbe2151c20cff5701af9b80388a68ce6a49fd44c96569aa555d745551",
+  "ex2_damage_step056.csv": "e6d67679fa772f28e6a66726167164d057352cf5612e53c7b85bfd08b0b0a8b2",
+  "ex2_damage_step057.csv": "12251f0dac68383313a4b5204e9eb98e1c72e2d1f1c726bc2ac7515ff186b83a",
+  "ex2_damage_step078.csv": "acbeb405c01af7dbe599c4854abf9b0c72b2d9dd42076820cfe6e34b2dccb861",
+  "ex2_displacement_step056.csv": "8d97b52b2b588fa661e60ae9f60223970a3d26f48a08a176a8e6099865bdf25c",
+  "ex2_mesh.json": "4f0b31605065d32a3bea9a72d8a058fa4e5aa267374ea0f4aaae4f772e68dddb",
+  "ex2_steps.csv": "68abdd73194dbf2d1ff86f3be952f81855d645dcfa81e2c15c0ab75f95d49dba",
+  "ex3_damage_step056.csv": "806f50016125b393db115968bbe6bbab651d8388d4baf3c8df256a0a8051b592",
+  "ex3_damage_step098.csv": "4b3c631e963bea29658249e9db4b6f10b4fdb37519554009550966435afe973f",
+  "ex3_displacement_step056.csv": "68eb65d3cbf7c7c31a1b48fad2c94280b80a788c559b8a3cf3200f62148f972e",
+  "ex3_mesh.json": "b75891eb58ce5c9810ff60c4675f3514c6066d6652e38568a4796317b4e6ac19",
+  "ex3_steps.csv": "6df648eb106c745cb80f40840f73f0d838297b931b7adbe935a1f10825653d16"
+ }
+}

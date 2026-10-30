@@ -251,7 +251,7 @@
     </div>
   {/if}
 
-  <button class="fab" onclick={toggleOpen} title="Feedback" aria-label="Feedback">
+  <button class="fab" onclick={toggleOpen} title={t('feedback.fab')} aria-label={t('feedback.fab')}>
     {#if isOpen}
       <span class="fab-icon">&times;</span>
     {:else}

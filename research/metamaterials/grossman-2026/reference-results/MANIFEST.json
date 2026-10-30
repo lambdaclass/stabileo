@@ -1,0 +1,22 @@
+{
+ "what": "Published values of Grossman & Boudaoud (2026) used as references. There is no reference code: the authors' simulation and computation code is 'available at request' (Data Availability, p. 10).",
+ "paper": {
+  "doi": "10.1103/17sg-gzhl",
+  "pdf": "https://journals.aps.org/prresearch/pdf/10.1103/17sg-gzhl",
+  "supplemental": "https://journals.aps.org/prresearch/supplemental/10.1103/17sg-gzhl/Supplemental.pdf",
+  "license": "CC BY 4.0 (Crossref license record; stated on p. 1)",
+  "pdf_sha256": "0e4f68cc579125308d35b8bf302ea8a3f9d886c22b4aed22b82a2b9831be37ba",
+  "supplemental_sha256": "c13732699120e21ee7e203db52ef6b2beb6f4b58b252a15e61300c3a58e5a0b8",
+  "downloaded": "2026-10-28"
+ },
+ "files": {
+  "paper_values.json": "transcribed by hand from the text and the Supplemental Material, with page and equation numbers",
+  "paper_figures_vector.json": "Figs. 7, 8 and 9 are vector graphics in the PDF; their marks and lines were read from the PDF drawing commands by reference/extract_vector_figures.py (PyMuPDF 2.0, Python 3.14), with the axes calibrated on the drawn major tick marks. Precision about 1e-3 of the axis range",
+  "fig5_simulation_digitized.csv": "Fig. 5 (left) is a raster image (1601 x 558 px, extracted with poppler pdfimages 26.09). Simulation markers and error bars digitised by reference/digitize_fig5.py (numpy 2.5.4, Pillow) with axes calibrated on the drawn ticks. Precision about 0.002 in nu and 0.001 in eta. The eta = 0.49 marker is the paper's 'below the plotted range' arrow"
+ },
+ "files_sha256": {
+  "fig5_simulation_digitized.csv": "3c36f3da44897809ba87153198dd3d35238a0b0e2da2d6bbb021de1cc596fea2",
+  "paper_figures_vector.json": "601669286c6d0e6a0126f92ef39e0908b82a4055dfc25738c28a63ce532ed5e6",
+  "paper_values.json": "0d9042dbb400f4cf39838eb3690cbe1dd23cebf55ef08d87fecb7b140f1396ed"
+ }
+}

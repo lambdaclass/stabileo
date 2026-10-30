@@ -97,7 +97,7 @@
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
       title={t('float.supportGlobalAxes')}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
-      title={t('float.supportLocalAxes')}>Loc</button>
+      title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
     <label class="ft-input-group" title={t('float.supportAngle')}>
       <span>α:</span>
       <input type="number" bind:value={uiStore.supportAngle} step="5" />
@@ -121,7 +121,7 @@
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
       title={t('float.rollerGlobalLabel')}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
-      title={t('float.rollerLocalLabel')}>Loc</button>
+      title={t('float.rollerLocalLabel')}>{t('prop.localAxesShort')}</button>
     <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
       <span>di:</span>
       <UnitInput value={uiStore.supportDx} qty="displacement" onchange={(v) => (uiStore.supportDx = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>

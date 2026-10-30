@@ -7,7 +7,7 @@
    * Adding used to be a "+ Node" link under a table or a form with its own wording, and nothing
    * said it did what the Draw button did.
    */
-  import { t } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
 
@@ -34,7 +34,7 @@
   title={t('pro.writeHint')}
 >
   <Icon name="data" size={13} />
-  <span>{verb === 'add' ? t('pro.add') : t('pro.writeIn')} {label}</span>
+  <span>{capitalized(tp(verb === 'add' ? 'pro.addWhat' : 'pro.writeWhat', { what: label }))}</span>
 </button>
 
 <style>
