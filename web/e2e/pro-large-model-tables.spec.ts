@@ -19,7 +19,7 @@ const opened = (page: import('@playwright/test').Page, tab: string) => page.eval
   return { rows: panel.querySelectorAll('tbody tr').length, options: panel.querySelectorAll('option').length };
 }, tab);
 
-test.describe('@smoke PRO tables on a large model', () => {
+test.describe('@slow PRO tables on a large model', () => {
   test.beforeEach(async ({ pro: page }) => {
     test.setTimeout(240_000);
     await page.evaluate((j) => window.__stabileoActions.loadModelData(j), largeBuilding());
