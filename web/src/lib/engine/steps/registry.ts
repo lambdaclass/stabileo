@@ -15,9 +15,9 @@ import type { Applicability, StepDoc } from './doc';
 import type { PlaneModel } from './plane-model';
 import type { Reference } from './reference';
 
-export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation';
+export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation' | 'dynamics';
 
-export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation'];
+export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation', 'dynamics'];
 
 export interface MethodContext {
   input: SolverInput;
@@ -28,6 +28,8 @@ export interface MethodContext {
   selection: { members: number[]; nodes: number[] };
   /** The method's assumptions as the reader set them (see ExplainedMethod.options); absent ones take their default. */
   options?: Record<string, boolean>;
+  /** The model itself, for methods that cut members or read its point masses. */
+  model?: import('../solver-service').ModelData & { massSource?: { points?: import('../dynamics/mass-source').PointMass[] } };
 }
 
 /**

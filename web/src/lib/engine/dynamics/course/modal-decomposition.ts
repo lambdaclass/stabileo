@@ -7,7 +7,7 @@
  *
  * Damping is modal: the same ξ in every mode.
  */
-import { type Mat, generalizedEigen, transpose, matMul, matVec, dot, solve, column, maxAbs } from './dense';
+import { type Mat, generalizedEigen, transpose, matMul, matVec, dot, solve, inverse, column, maxAbs } from './dense';
 import { sdofProps, harmonic, forcedResponse, freeResponse, type SdofProps, type Harmonic } from './sdof';
 import type { DofRef } from './mdof-system';
 
@@ -128,7 +128,7 @@ export function modalDampingMatrix(sol: ModalSolution, M: Mat, xi: number): Mat 
 export function directIntegration(K: Mat, M: Mat, C: Mat, force: (t: number) => number[], u0: number[], v0: number[], times: readonly number[], dt: number): number[][] {
   const n = K.length;
   const a1 = 4 / (dt * dt), a2 = 2 / dt;
-  const Keff = K.map((r, i) => r.map((v, j) => v + a1 * M[i][j] + a2 * C[i][j]));
+  const KeffInv = inverse(K.map((r, i) => r.map((v, j) => v + a1 * M[i][j] + a2 * C[i][j])));
   let u = [...u0], v = [...v0];
   const f0 = force(0);
   let a = solve(M, f0.map((fi, i) => fi - dot(C[i], v) - dot(K[i], u)));
@@ -147,7 +147,7 @@ export function directIntegration(K: Mat, M: Mat, C: Mat, force: (t: number) => 
       }
       return s;
     });
-    const un = solve(Keff, rhs);
+    const un = matVec(KeffInv, rhs);
     const an = un.map((x, i) => a1 * (x - u[i]) - (4 / dt) * v[i] - a[i]);
     const vn = v.map((x, i) => x + (dt / 2) * (a[i] + an[i]));
     while (k < times.length && times[k] <= tn + 1e-12) {

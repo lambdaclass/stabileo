@@ -71,6 +71,7 @@
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
+  import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
   import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
@@ -987,6 +988,7 @@
           Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
         {/if}
       </div>
+      <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />
     {/if}
   {/if}
   {#if buR}

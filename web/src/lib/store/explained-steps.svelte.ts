@@ -40,6 +40,7 @@ export function methodContext(methodId?: string): MethodContext | null {
     ref: solveReference(input),
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
     options: { ...(methodId ? optionsOf(methodId) : {}) },
+    model: modelStore.model,
   };
 }
 

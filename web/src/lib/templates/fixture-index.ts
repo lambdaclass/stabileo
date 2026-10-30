@@ -57,6 +57,9 @@ const fixtures2D: Record<string, FixtureLoader> = {
    * article fixtures.
    */
   'deep-beam-bar': () => import('./fixtures/deep-beam-bar.json'),
+  /* The structural dynamics examples of the explained catalog, with point masses; not in the examples menu. */
+  'dynamics-column-mass': () => import('./fixtures/dynamics-column-mass.json'),
+  'dynamics-shear-building': () => import('./fixtures/dynamics-shear-building.json'),
 };
 
 // 3D examples (basic + PRO)
