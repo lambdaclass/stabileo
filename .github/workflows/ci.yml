@@ -120,6 +120,8 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/nightly-*.py'
+              - '.github/workflows/nightly.yml'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'
