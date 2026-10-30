@@ -6,7 +6,7 @@ for (const width of [360, 390, 810]) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/benchmarks/newmark-1959/');
     await expect(page.getByRole('heading', { name: 'Newmark average acceleration' })).toBeVisible();
-    await expect(page.getByText('First version · 0 reviews', { exact: true })).toBeVisible();
+    await expect(page.getByText('First version · 1 review round', { exact: true })).toBeVisible();
     await expect(page.locator('.rs-viewer-host canvas').first()).toBeVisible();
     await expect(page.getByTestId('source')).toContainText('Precomputed replay');
     const replayError = Number(await page.getByTestId('comparison').getAttribute('data-error'));

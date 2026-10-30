@@ -14,7 +14,7 @@ import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2
 test.describe('@smoke research', () => {
   test('the gallery shows every runnable experiment before the catalogue and links to each experiment', async ({ page }) => {
     await page.goto('/en/research/');
-    await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
     const catalogue = catalog.papers.filter((paper) => !EXPERIMENTS.some((experiment) => experiment.paperId === paper.id));
     await expect(page.locator('.rs-g-card')).toHaveCount(catalogue.length);
     await expect(page.getByText('Research, not a design tool').first()).toBeVisible();
@@ -36,7 +36,7 @@ test.describe('@smoke research', () => {
       await expect(heading).toBeVisible();
       const title = (await heading.innerText()).trim();
       expect(title.length).toBeGreaterThan(0);
-      await expect(card.getByText('First version', { exact: true })).toBeVisible();
+      await expect(card.getByText('First version · 1 review round', { exact: true })).toBeVisible();
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);
@@ -281,7 +281,7 @@ for (const mode of ['basic', 'pro']) test(`@smoke research navigation preserves 
   const toggle = page.locator('.nav-toggle');
   if (await toggle.isVisible()) await toggle.click();
   await page.locator('.nav [data-nav="research"]').click();
-  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
   for (const destination of ['/research/', '/blog/', '/']) {
     await page.evaluate(path => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: path })), destination);
     await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
@@ -314,18 +314,18 @@ test('@smoke research survives navigation while the App chunk is delayed', async
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-enter-app')));
   await request;
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/research/' })));
-  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
   await page.evaluate(() => {
     (window as unknown as { appReady: boolean }).appReady = false;
     window.addEventListener('stabileo-app-ready', () => { (window as unknown as { appReady: boolean }).appReady = true; });
   });
   release();
   await page.waitForFunction(() => (window as unknown as { appReady: boolean }).appReady);
-  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
   await expect(page).toHaveURL(/\/en\/research\/$/);
   await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
   await expect(page.locator('.app-container')).toHaveCSS('pointer-events', 'none');
-  const heading = page.getByRole('heading', { name: 'Stabileo Research' });
+  const heading = page.getByRole('heading', { name: 'Research in structural engineering' });
   await expect.poll(() => heading.evaluate((el) => {
     const box = el.getBoundingClientRect();
     return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
@@ -401,7 +401,7 @@ for (const interaction of ['viewer', 'wheel', 'camera', 'tab', 'keyboard tab', '
 
 test('@smoke public-page entry installs editor hooks after its lazy mount', async ({ page }) => {
   await page.goto('/en/research/?e2e=1');
-  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
   const origin = await page.evaluate(() => performance.timeOrigin);
   await page.locator('.nav-actions > button.btn-primary').click();
   await expect.poll(() => page.evaluate(() => !!window.__stabileo)).toBe(true);

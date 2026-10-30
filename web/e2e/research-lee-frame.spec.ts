@@ -6,7 +6,7 @@ for (const width of [360, 390, 810]) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/benchmarks/lee-frame-1968/');
     await expect(page.getByRole('heading', { name: 'Lee frame (1968)', exact: true })).toBeVisible();
-    await expect(page.getByText('First version · 0 reviews', { exact: true })).toBeVisible();
+    await expect(page.getByText('First version · 1 review round', { exact: true })).toBeVisible();
     await expect(page.getByTestId('lee-limit')).toHaveText('1.8658');
     await expect(page.locator('.lee-pane canvas').first()).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('lee-frame.png'), fullPage: true });
