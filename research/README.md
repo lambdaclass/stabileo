@@ -61,10 +61,10 @@ Changes to shipped research JSON/CSV (outside `research/tools/`),
 This includes mixed product/research changes and merge-queue candidates. Without a base revision,
 the comparison defaults to enforcing research isolation against main.
 
-Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`: at most
-64 KiB of uncompressed growth per landing route and 256 KiB per app route relative to the base.
-These separate product budgets allow incremental features while bounding dependency growth;
-changes to these limits require review. They do not replace or increase the research tolerance.
+Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
+per-route growth allowed for product changes relative to the base. It is 128 bytes for every
+route, the same as the research tolerance: raising any of these numbers is a product decision
+made in its own reviewed change, never as a side effect of another PR.
 Static research imports fail for both product and research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
@@ -77,5 +77,7 @@ makes the measurements independent of locally built WASM.
 For local comparisons, run `nix develop .. -c node scripts/check-research-route-size.mjs
 --baseline /tmp/route-main.json --update` from the main build's `web/`, then the same command
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
-`node --test web/scripts/research-route-budget.test.mjs` checks unchanged routes, the noise
-allowance, missing measurements and negative cases for real landing/app growth.
+Local comparisons default to research isolation; set `RESEARCH_ISOLATION=false` only for
+product-only changes.
+`node --test web/scripts/research-route-budget.test.mjs` checks both budget modes, their exact
+boundaries, environment selection, unchanged routes and missing measurements.

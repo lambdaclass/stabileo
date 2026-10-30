@@ -53,6 +53,29 @@ class Selection(unittest.TestCase):
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
 
+    def test_applying_run_e2e_label_schedules_full_ci(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        trigger = re.search(r'^  pull_request:\n    types: \[(.*?)\]', workflow, re.MULTILINE)
+        self.assertIsNotNone(trigger)
+        self.assertEqual({value.strip() for value in trigger[1].split(',')},
+                         {'opened', 'synchronize', 'reopened', 'labeled'})
+        self.assertIn("FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}", workflow)
+        event = {'action': 'labeled', 'label': {'name': 'run-e2e'},
+                 'pull_request': {'labels': [{'name': 'run-e2e'}]}}
+        self.assertIn(event['action'], trigger[1])
+        for labels, expected in [([], 'docs'), (event['pull_request']['labels'], 'full')]:
+            with self.subTest(labels=labels), tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / 'outputs'
+                env = {'GITHUB_EVENT_NAME': 'pull_request', 'CHANGED_FILES': '["docs/a.md"]',
+                       'BASE_SHA': 'base', 'HEAD_SHA': 'head', 'GITHUB_OUTPUT': str(output),
+                       'FORCE_FULL': str(any(label['name'] == 'run-e2e' for label in labels)).lower()}
+                with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=['merge-base', 'docs/a.md\0']):
+                    runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
+                result = dict(line.split('=', 1) for line in output.read_text().splitlines())
+                self.assertEqual(result['scope'], expected)
+                if expected == 'full':
+                    self.assert_full(result)
+
     def test_missing_area_tests_fall_back_to_full(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
