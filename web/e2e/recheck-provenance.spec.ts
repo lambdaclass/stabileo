@@ -11,6 +11,9 @@
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Page } from '@playwright/test';
 
+// Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
+const NOTICE_CHUNK = '**/applicability-*.js';
+
 // This spec is about the notice: it must open untouched (fixtures.ts acknowledges it elsewhere).
 test.use({ recheckNotice: 'assert' });
 
@@ -51,7 +54,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     let requested = false;
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
-    await page.route('**/full-registry-*.js', async route => {
+    await page.route(NOTICE_CHUNK, async route => {
       requested = true;
       await pending;
       await route.continue();
@@ -77,7 +80,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
 
   test('recovers from an unavailable notice chunk without losing work or clearing stale status', async ({ page }) => {
     await bootPro(page);
-    await page.route('**/full-registry-*.js', route => route.abort());
+    await page.route(NOTICE_CHUNK, route => route.abort());
     const project = oldProject(1, 'frame');
     project.snapshot.nodes[2][1] = { id: 3, x: 2.75, y: 0, z: 2 };
     expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), project)).toBe(true);
@@ -86,7 +89,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
     const stale = await recheck(page);
     expect(stale.stale).toBe(true);
-    await page.unroute('**/full-registry-*.js');
+    await page.unroute(NOTICE_CHUNK);
     await Promise.all([page.waitForEvent('load'), page.getByTestId('recheck-reload').click()]);
     for (const id of stale.changes) {
       await expect(page.locator(`[data-change-id="${id}"]`)).toBeVisible();
@@ -102,7 +105,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
 
   test('keeps the session open when recovery cannot save the workspace', async ({ page }) => {
     await bootPro(page);
-    await page.route('**/full-registry-*.js', route => route.abort());
+    await page.route(NOTICE_CHUNK, route => route.abort());
     expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
     await expect(page.getByTestId('recheck-reload')).toBeVisible();
     const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
@@ -258,7 +261,7 @@ for (const width of [390, 810]) {
       });
 
       test('sizes recovery buttons for touch', async ({ pro: page }) => {
-        await page.route('**/full-registry-*.js', route => route.abort());
+        await page.route(NOTICE_CHUNK, route => route.abort());
         expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
         await expect(page.getByTestId('recheck-reload')).toBeVisible();
         for (const button of await page.getByTestId('recheck-notice').getByRole('button').all()) {
