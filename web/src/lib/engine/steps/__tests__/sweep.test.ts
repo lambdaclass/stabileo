@@ -38,7 +38,7 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * against the engine's step-by-step time integration, which carries its own
  * time-step error. Everything else is exact up to round-off.
  */
-const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, sdof: 0.005 };
+const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, displacement: 0.02, sdof: 0.005 };
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
   Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
 
@@ -128,7 +128,7 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
 }
 
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
-const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection']);
+const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection', 'displacement']);
 
 function rigidAxially(ctx: MethodContext): MethodContext {
   const input = { ...ctx.input, sections: new Map([...ctx.input.sections].map(([id, sec]) => [id, { ...sec, a: sec.a * 1e5 }])) };
@@ -157,6 +157,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
     for (const o of m.options ?? []) variants.push({ [o.id]: !o.default });
     for (const opts of variants) {
       const ctx = { ...base, options: opts };
+      if (!m.applies(ctx).ok) continue;
       let doc: StepDoc;
       try { doc = m.build(ctx); } catch (e) { failures.push(`${label} ${m.id} ${JSON.stringify(opts)}: build threw ${String((e as Error)?.stack ?? e).slice(0, 300)}`); continue; }
       let found = problems(m, doc, opts);

@@ -6,12 +6,13 @@ import { registerMethods } from '../registry';
 import { methods as core } from './core';
 import { methods as continuous } from './continuous';
 import { methods as frames } from './frames';
+import { methods as displacement } from './displacement';
 import { methods as trusses } from './trusses';
 import { methods as deformation } from './deformation';
 import { methods as cuts } from './cuts';
 import { methods as dynamics } from './dynamics';
 
-registerMethods([...core, ...continuous, ...frames, ...trusses, ...deformation, ...cuts, ...dynamics]);
+registerMethods([...core, ...continuous, ...displacement, ...frames, ...trusses, ...deformation, ...cuts, ...dynamics]);
 
 export { allMethods, methodsIn, methodById, GROUP_ORDER } from '../registry';
 export type { ExplainedMethod, MethodContext, MethodGroup } from '../registry';
