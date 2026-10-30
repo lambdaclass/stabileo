@@ -1,3 +1,5 @@
+import contextlib
+import io
 import importlib.util
 import json
 from pathlib import Path
@@ -26,7 +28,8 @@ class ReplayTests(unittest.TestCase):
                 (paper / 'target/VALIDATION.json').write_text(json.dumps({'checks': produced}))
                 return type('Run', (), {'returncode': 0})()
 
-            with patch.object(replay.subprocess, 'run', side_effect=cargo):
+            # Expected failures must not become GitHub Actions error annotations.
+            with contextlib.redirect_stdout(io.StringIO()), patch.object(replay.subprocess, 'run', side_effect=cargo):
                 return replay.replay(paper)
 
     def test_invalid_baselines_fail(self):
