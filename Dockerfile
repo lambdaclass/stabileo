@@ -4,6 +4,9 @@ ARG RUST_IMAGE=rust:1.94-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6
 ARG NODE_IMAGE=node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
 ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 
+# CI supplies the already-tested production site; local builds remain self-contained.
+ARG FRONTEND_STAGE=web-builder
+
 # ── Stage 1: Build backend ────────────────────────────────────
 FROM ${RUST_IMAGE} AS backend-builder
 
@@ -80,6 +83,11 @@ RUN node ../research/fracture/shauer-2025/wasm/check.mjs public/research-wasm/sh
     && test -s dist/research-wasm/viewer/viewer.js \
     && node scripts/check-research-springs.mjs
 
+FROM scratch AS web-prebuilt
+COPY ci-site/ /app/web/dist/
+
+FROM ${FRONTEND_STAGE} AS frontend-assets
+
 # ── Stage 3: Runtime ─────────────────────────────────────────
 FROM ${RUNTIME_IMAGE} AS runtime
 
@@ -95,7 +103,7 @@ WORKDIR /app
 COPY --from=backend-builder /app/target/release/dedaliano-backend ./backend
 
 # Frontend static files (served by a reverse proxy or static file server)
-COPY --from=web-builder /app/web/dist ./web-dist
+COPY --from=frontend-assets /app/web/dist ./web-dist
 
 USER dedaliano
 

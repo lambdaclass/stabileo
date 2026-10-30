@@ -13,6 +13,16 @@ on:
       - '.github/workflows/research.yml'
   push:
     branches: [main]
+    paths:
+      - 'research/**'
+      - '.github/workflows/research.yml'
+      - 'engine/**'
+      - 'web/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'flake.*'
+      - 'rust-toolchain*'
+      - 'Makefile'
   schedule:
     - cron: '17 6 * * 1'
 
@@ -71,15 +81,26 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'main' }}
           path: route-main
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - name: Build the base and the candidate with the same pinned toolchain and measurement script
         env:
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
         run: |
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs web/scripts/product-route-growth-budgets.json route-main/web/scripts/
-          nix develop . -c sh -c 'cd route-main/web && npm ci && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
@@ -104,6 +125,7 @@ jobs:
       - name: Every entry, evidence file and summary source is well formed
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
 
+  # External service outages must not block the required CI OK aggregate.
   catalog-online:
     name: Research catalog (Crossref, licenses)
     if: github.workflow == 'Research'
@@ -137,8 +159,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the validation against the reference outputs
         run: cargo test --release --locked -- --nocapture
+      - name: Fetch browser crate dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked --manifest-path wasm/Cargo.toml
       - name: Browser configuration limits reject oversized meshes before allocation
         run: cargo test --locked --manifest-path wasm/Cargo.toml
       - name: Reference outputs match their manifest
@@ -154,6 +180,7 @@ jobs:
           PY
 
   topopt:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Topology optimization (Andreassen 2011)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -169,6 +196,7 @@ jobs:
       - run: nix develop -c make wasm
       - run: nix develop -c sh -c 'cd web && npm ci && npx vitest run src/components/research/andreassen2011/model.test.ts'
   engine-benchmarks:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Production engine benchmarks (native and WASM)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -219,6 +247,8 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the checks against the paper's published values
         run: cargo test --release --locked -- --nocapture
       - name: The committed comparison series are what the code computes
@@ -267,9 +297,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Buckling, energy derivatives and every replay frame
         run: cargo test --release --locked -- --nocapture
   form-finding:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Four-cable FDM (Pastrana 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -281,6 +314,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/Cargo.toml
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
   arches:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Curvature-patterned arches validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -292,6 +326,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
       - run: cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
   fairclough:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Five-node gridshell (Fairclough 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -302,6 +337,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation
     runs-on: ubuntu-latest
     timeout-minutes: 30

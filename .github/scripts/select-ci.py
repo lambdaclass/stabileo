@@ -37,9 +37,10 @@ def select(event, paths, root=None, force_full=False):
         if not any(units.rglob('*.test.ts')) or not all(list((root / 'web/e2e').glob(g)) for g in SPECS[scope]):
             scope = 'full'
     full = scope == 'full'
-    outputs = {key: full for key in ('docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky')}
-    outputs.update(engine=full or scope == 'engine', web=scope != 'docs',
-                   research=full or scope in ('research', 'tools'),
+    outputs = {key: full for key in ('backend', 'ci_scripts', 'flaky')}
+    outputs.update(docker=scope != 'docs', web_build=scope != 'docs', ai_backend=full or scope == 'engine',
+                   engine=full or scope == 'engine', web=scope != 'docs',
+                   research=full or scope in ('research', 'tools', 'engine'),
                    determinism=full or scope == 'engine', results=full or scope == 'engine')
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',

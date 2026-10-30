@@ -1,5 +1,8 @@
+import hashlib
 import pathlib
+import re
 import subprocess
+import tempfile
 import yaml
 
 root = pathlib.Path(__file__).resolve().parents[2]
@@ -13,7 +16,16 @@ assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"
 filters = yaml.safe_load(jobs['changes']['steps'][1]['with']['filters'])
 assert {'research/**', 'web/**', '.github/workflows/research.yml'} <= set(x for x in filters['research'] if isinstance(x, str))
-assert 'workflow_call' in research.get('on', research.get(True))
+triggers = research.get('on', research.get(True))
+assert 'workflow_call' in triggers
+assert triggers['push']['branches'] == ['main']
+assert set(triggers['push']['paths']) == {
+    'research/**', '.github/workflows/research.yml', 'engine/**', 'web/**',
+    'Cargo.lock', 'Cargo.toml', 'flake.*', 'rust-toolchain*', 'Makefile',
+}
+assert '.github/workflows/research.yml' in filters['ci_scripts']
+assert 'actionlint .github/workflows/ci.yml .github/workflows/research.yml' in (root / 'Makefile').read_text()
+assert 'pkgs.actionlint' in (root / 'flake.nix').read_text()
 for job in research['jobs'].values():
     assert job['runs-on'] == 'ubuntu-latest'
 assert {'phasefield', 'catalog', 'isolation', 'route-size'} <= research['jobs'].keys()
@@ -35,7 +47,7 @@ for job, tests in {
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
-import re
+# Research changes use isolation; other changes use the separate product budget.
 route = research['jobs']['route-size']['steps']
 scope = next(step for step in route if step.get('id') == 'scope')
 shipped = re.compile(scope['env']['RESEARCH_PATHS'])
@@ -100,3 +112,49 @@ print('ok required research CI propagates failures and accepts skipped jobs')
 koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"] == "ubuntu-latest" and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
+
+assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
+for caller, event, route_only, expected in [
+    ('Research', 'pull_request', False, {'catalog-online'}),
+    ('CI', 'pull_request', False, set(research['jobs']) - {'catalog-online'}),
+    ('CI', 'merge_group', False, set(research['jobs']) - {'catalog-online'}),
+    ('CI', 'pull_request', True, {'route-size'}),
+    ('Research', 'push', False, set(research['jobs'])),
+    ('Research', 'schedule', False, set(research['jobs'])),
+]:
+    selected = set()
+    for name, job in research['jobs'].items():
+        condition = job.get('if', 'True').removeprefix('${{').removesuffix('}}').strip()
+        condition = condition.replace('github.workflow', repr(caller)).replace('github.event_name', repr(event))
+        condition = condition.replace('inputs.route_only', repr(route_only))
+        condition = condition.replace('&&', ' and ').replace('||', ' or ')
+        condition = re.sub(r'!(?!=)', 'not ', condition)
+        if eval(condition, {'__builtins__': {}}, {}):
+            selected.add(name)
+    assert selected == expected, (caller, event, route_only, selected)
+print('ok online audit runs on research PRs without duplicating required jobs')
+
+cache = next(step for step in jobs['research-wasm']['steps'] if step.get('id') == 'research-assets')
+patterns = re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+with tempfile.TemporaryDirectory() as directory:
+    checkout = pathlib.Path(directory)
+    def cache_digest():
+        files = set()
+        for glob in patterns:
+            matched = checkout.glob(glob + '/*' if glob.endswith('/**') else glob)
+            files.update(path for path in matched if path.is_file())
+        return hashlib.sha256(b''.join(hashlib.sha256(path.read_bytes()).digest() for path in sorted(files))).hexdigest()
+
+    for crate in ['research/fracture/shauer-2025', 'research/metamaterials/grossman-2026']:
+        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml']:
+            path = checkout / crate / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            before = cache_digest()
+            path.write_text('first input')
+            added = cache_digest()
+            assert added != before, (path, 'addition did not invalidate cache')
+            path.write_text('changed input')
+            assert cache_digest() != added, (path, 'edit did not invalidate cache')
+            path.unlink()
+            assert cache_digest() == before, (path, 'removal did not restore cache identity')
+print('ok research cache invalidates for added and changed build scripts and inputs')

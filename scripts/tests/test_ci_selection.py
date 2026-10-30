@@ -20,9 +20,9 @@ class Selection(unittest.TestCase):
     def test_categories(self):
         for paths, scope, enabled in [
             (['docs/a.md', 'README.md', 'changelog.d/a.md'], 'docs', set()),
-            (['research/a.rs', 'web/src/components/research/a.svelte', 'web/e2e/research-new.spec.ts', 'changelog.d/a.md'], 'research', {'web', 'research'}),
-            (['web/src/components/tools/a.svelte'], 'tools', {'web', 'research'}),
-            (['engine/src/lib.rs', 'README.md'], 'engine', {'web', 'engine', 'determinism', 'results'}),
+            (['research/a.rs', 'web/src/components/research/a.svelte', 'web/e2e/research-new.spec.ts', 'changelog.d/a.md'], 'research', {'docker', 'web', 'web_build', 'research'}),
+            (['web/src/components/tools/a.svelte'], 'tools', {'docker', 'web', 'web_build', 'research'}),
+            (['engine/src/lib.rs', 'README.md'], 'engine', {'docker', 'web', 'web_build', 'engine', 'ai_backend', 'research', 'determinism', 'results'}),
         ]:
             with self.subTest(scope=scope):
                 result = selection.select('pull_request', paths)
@@ -30,6 +30,44 @@ class Selection(unittest.TestCase):
                 self.assertEqual({k for k, v in result.items() if v == 'true'}, enabled)
                 self.assertEqual(json.loads(result['e2e_shards']), [1])
                 self.assertEqual(json.loads(result['e2e_specs']), selection.SPECS.get(scope, []))
+
+    def test_every_web_scope_runs_typechecking(self):
+        for path in ['docs/a.md', 'research/a.rs', 'web/src/components/tools/a.svelte',
+                     'engine/src/lib.rs', 'web/src/App.svelte']:
+            result = selection.select('pull_request', [path])
+            self.assertEqual(result['web_build'], result['web'])
+            self.assertEqual(result['docker'], result['web'])
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
+        self.assertIn("if: needs.changes.outputs.web_build == 'true'", build)
+        self.assertIn('make typecheck.web', build)
+
+    def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
+        workflow = (ROOT / '.github/workflows/research.yml').read_text()
+        scope = workflow.split('        id: scope\n', 1)[1].split('      - uses:', 1)[0]
+        script = scope.split('        run: |\n', 1)[1]
+        script = '\n'.join(line[10:] for line in script.splitlines())
+        patterns = dict(re.findall(r"          (RESEARCH_PATHS|NOT_SHIPPED): '([^']+)'", scope))
+        ci = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertNotIn('force_routes', ci + workflow)
+        self.assertIn('github.event.pull_request.base.sha || github.event.merge_group.base_sha', scope)
+        self.assertNotIn('github.event_name', scope)
+        for event in ['pull_request', 'merge_group']:
+            for path, expected in [('web/src/App.svelte', 'false'),
+                                   ('web/src/components/research/ResearchPage.svelte', 'true')]:
+                with self.subTest(event=event, path=path), tempfile.TemporaryDirectory() as tmp:
+                    result = selection.select(event, [path])
+                    self.assertEqual(result['research'], 'true')
+                    output = Path(tmp) / 'output'
+                    # Execute the actual workflow selector, substituting only the read-only diff.
+                    script_with_diff = 'git() { printf "%s\\n" "$CHANGED_PATH"; }\n' + script
+                    env = {**os.environ, **patterns, 'BASE': 'base', 'GITHUB_EVENT_NAME': event,
+                           'GITHUB_OUTPUT': str(output), 'CHANGED_PATH': path}
+                    subprocess.run(['sh', '-eu', '-c', script_with_diff], env=env, check=True)
+                    self.assertEqual(output.read_text().strip(), 'research=' + expected)
+        self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
+        self.assertIn('web/scripts/product-route-growth-budgets.json route-main/web/scripts/', workflow)
+        self.assertNotIn('--product-budget', workflow)
 
     def test_unsure_is_full(self):
         for paths in [None, [], {}, [None], ['../docs/x'], ['web/src/App.svelte'],
@@ -121,7 +159,9 @@ class Selection(unittest.TestCase):
         unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
         self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
         self.assertIn('shard: [1, 2]', unit)
-        self.assertIn('if: matrix.shard == 1\n        run: make typecheck.web', unit)
+        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
+        self.assertIn('run: make typecheck.web', build)
+        self.assertEqual(workflow.count('run: make typecheck.web'), 1)
         for path in ['research/a.rs', 'web/src/components/tools/a.svelte',
                      'engine/src/lib.rs', 'web/src/App.svelte']:
             self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
