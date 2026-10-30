@@ -13655,6 +13655,14 @@ const de: Translations = {
   'sheet.ui.thisSheet': 'Plan {n}:',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Offene Projekte speichern und neu laden",
+  "recheck.recoveryFailed": "Die Projekte konnten nicht im Browser gespeichert werden. Die Seite wurde nicht neu geladen. Laden Sie eine Sitzungssicherung herunter, um Ihre Arbeit zu sichern.",
+  "recheck.downloadBackup": "Alle offenen Projekte herunterladen",
+  "recheck.backupHelp": "Bewahren Sie die heruntergeladene Sitzungsdatei auf. Laden Sie dann die Seite neu und öffnen Sie die Datei, um alle Projekte wiederherzustellen. Der Hinweis muss weiterhin bestätigt werden.",
+  "recheck.loading": "Ergebnisänderungen werden geladen…",
+  "recheck.detailsUnavailable": "Die Änderungsdetails sind nicht verfügbar. Laden Sie den Hinweis erneut.",
+  "recheck.loadFailed": "Die Ergebnisänderungen konnten nicht geladen werden. Versuchen Sie es vor der Bestätigung erneut.",
+  "recheck.retry": "Erneut versuchen",
   'recheck.title': 'Die Ergebnisse haben sich seit der letzten Berechnung dieses Projekts geändert',
   'recheck.intro': 'Dieses Projekt wurde zuletzt mit der Ergebnisversion {from} von Stabileo berechnet; dies ist Version {to}. Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
   'recheck.introUnknown': 'Dieses Projekt speichert nicht, mit welcher Stabileo-Version es berechnet wurde (es wurde gespeichert, bevor dies erfasst wurde). Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
@@ -14111,7 +14119,6 @@ const de: Translations = {
   "knownIssue.CERT-MECHANISM": "Ein Zertifikat auf Ebene des assemblierten Systems kann eine künstliche oder nicht ausgesteifte Rotation zertifizieren. Prüfen Sie Mechanismen unabhängig; eine kleine algebraische Fehlerschranke belegt keine Tragwerksstabilität",
   "knownIssue.BU-SPAN-COMPRESSION": "Beim 3D-Knicken können Druckkräfte zwischen den Stabenden infolge von Lasten im Stabfeld unberücksichtigt bleiben. Prüfen Sie den Normalkraftverlauf und den Knicklastfaktor unabhängig",
   "knownIssue.AC-PLANE-MAPPING": "2D-Zwangsbedingungen setzen voraus, dass das ursprüngliche Modell in der X-Z-Ebene liegt. Aus einer anderen Ebene übertragene Zwangsbedingungen können falsch sein; verwenden Sie die 3D-Berechnung oder prüfen Sie die Zuordnung unabhängig",
-  "knownIssue.SH-GLOBAL-STRESS": "Ergebnisse zurückgehalten: Bei der Spannungsrückgewinnung von Solid-Shell-Elementen entfallen globale Komponenten senkrecht zur Elementebene. Eine Solid-Shell außerhalb der globalen X-Y-Ebene kann unter erheblicher Last nahezu spannungsfrei erscheinen",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Verzerrte MITC4-Elemente können bei Biegung in der Membranebene versteifen (Locking). Prüfen Sie die Netzkonvergenz; Ergebnisse mit erheblicher Biegung in der Membranebene werden zurückgehalten.",
   "knownIssue.SH-MITC4-DISTORTION": "Ergebnisse zurückgehalten: Verzerrte MITC4-Vierecke können bei Biegung in der Membranebene etwa zehnmal zu steif sein. Vernetzen Sie neu mit rechteckigen Elementen und prüfen Sie die Netzkonvergenz",
   "knownIssue.PL-2D-INVARIANCE": "Ergebnisse zurückgehalten: Der plastische Traglastfaktor in 2D kann sich mit Nummerierung, Stabrichtung oder Einheiten um bis zum Faktor 4,6 ändern. Verwenden Sie eine unabhängig verifizierte Traglastanalyse",

@@ -32,6 +32,13 @@ projects. `results-version.test.ts` pins each version's entries and fails on suc
 bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
 not exist.
 
+The results snapshot gate also compares registry versions against its base commit,
+even when no snapshot changes. New entries cannot reuse a released version, and
+released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
+version 5 while main was at 4. #814 merged first and keeps version 5; #807's
+`safety-containment-diagnostics` takes version 6, with the pinned version sets,
+fixture stamp and hashes updated.
+
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
 all at results version 1 (#328, 2026-10-21). Version 2 holds the fixes merged with 0.3.0 after
@@ -41,6 +48,30 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## Solid-shell local stress axes (PR #814, issue #757)
+
+Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
+justification and affected quantities are in
+[the results change note](../results-changes/2026-10-solid-shell-stress-axes.md).
+The review follow-up changes tests, release gates and documentation only; it introduces no further
+numerical change. Analytical membrane patches cover local e1 along global Z
+(σ11 = N/A = 500 kN/m²) and compound X/Y rotation with
+(σ11, σ22, τ12) = (700, −200, 150) kN/m². Their affine displacement fields
+come from isotropic compliance, independently of the recovery projection.
+The aligned X–Y regression compares all four values with `to_bits()` against
+the original global-component formula. Bit identity applies when the local axes
+align with global X/Y; skewed or in-plane-rotated elements use local components.
+
+Verification on 2026-10-29: the `shells` target passes all 132 tests and release
+`validation` passes all 4,763 tests. In an isolated copy, replacing only
+`let sigma_xx = project(e1, e1)` with `let sigma_xx = stress[0]` fails both
+new analytical tests while the five original frame regressions still pass.
+The unmodified implementation passes all seven. The WASM results suite passes
+all 41 tests and the snapshot gate reports no committed result changes. The web
+unit suite passes 15,706 tests (14 skipped), including regressions for colliding
+results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
+checks pass against their existing baselines. The changelog check passes.
 
 ## Results snapshot gate
 

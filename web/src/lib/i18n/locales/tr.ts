@@ -1,6 +1,14 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
+  "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
+  "recheck.downloadBackup": "Tüm açık projeleri indir",
+  "recheck.backupHelp": "İndirilen oturum dosyasını saklayın, ardından sayfayı yeniden yükleyip tüm projeleri geri yüklemek için dosyayı açın. Bildirim yine onay gerektirecektir.",
+  "recheck.loading": "Hesap sonuçlarındaki değişiklikler yükleniyor…",
+  "recheck.detailsUnavailable": "Değişikliğin ayrıntılarına erişilemiyor. Bildirimi yüklemeyi tekrar deneyin.",
+  "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
+  "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
 
   // ─── Shared scalar-field viewer ───
@@ -14111,7 +14119,6 @@ const tr: Translations = {
   "knownIssue.CERT-MECHANISM": "Birleştirilmiş sistem düzeyindeki bir sertifika, yapay veya rijitlikle kısıtlanmamış bir dönmeyi sertifikalandırabilir. Mekanizmaları bağımsız olarak doğrulayın; küçük bir cebirsel hata sınırı yapısal stabiliteyi kanıtlamaz",
   "knownIssue.BU-SPAN-COMPRESSION": "3B burkulma analizi, açıklık yükleri altında çubuk uçları arasındaki basınç kuvvetlerini gözden kaçırabilir. Eksenel kuvvet dağılımını ve burkulma katsayısını bağımsız olarak kontrol edin",
   "knownIssue.AC-PLANE-MAPPING": "2B kısıtlar, özgün modelin X-Z düzleminde olduğunu varsayar. Başka bir düzlemden dönüştürülen kısıtlar yanlış olabilir; 3B çözümü kullanın veya eşlemeyi bağımsız olarak doğrulayın",
-  "knownIssue.SH-GLOBAL-STRESS": "Sonuçlar sunulmuyor: solid-shell elemanlarda gerilmelerin geri hesaplanması, düzlem dışı global bileşenleri ihmal eder. Global X-Y düzlemi dışında bulunan bir solid-shell eleman, önemli bir yük altında neredeyse sıfır gerilme bildirebilir",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Çarpık MITC4 elemanları, membran düzlemi içindeki eğilmede kilitlenme gösterebilir. Ağ yakınsamasını doğrulayın; önemli membran eğilmesi içeren sonuçlar sunulmaz.",
   "knownIssue.SH-MITC4-DISTORTION": "Sonuçlar sunulmuyor: çarpık MITC4 dörtgenleri, membran düzlemi içindeki eğilmede yaklaşık on kat fazla rijit olabilir. Dikdörtgen elemanlarla ağı yeniden oluşturun ve ağ yakınsamasını kontrol edin",
   "knownIssue.PL-2D-INVARIANCE": "Sonuçlar sunulmuyor: 2B plastik göçme yük katsayısı numaralandırmaya, çubuk yönüne veya birimlere göre 4,6 kata kadar değişebilir. Bağımsız olarak doğrulanmış bir göçme analizi kullanın",

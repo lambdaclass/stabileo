@@ -13655,6 +13655,14 @@ const fr: Translations = {
   'sheet.ui.thisSheet': 'Planche {n} :',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Enregistrer les projets ouverts et recharger",
+  "recheck.recoveryFailed": "Les projets n’ont pas pu être enregistrés dans le navigateur. La page n’a pas été rechargée. Téléchargez une sauvegarde de la session pour conserver votre travail.",
+  "recheck.downloadBackup": "Télécharger tous les projets ouverts",
+  "recheck.backupHelp": "Conservez le fichier de session téléchargé, puis rechargez et ouvrez-le pour restaurer tous les projets. L’avis devra toujours être confirmé.",
+  "recheck.loading": "Chargement des modifications des résultats…",
+  "recheck.detailsUnavailable": "Les détails de la modification sont indisponibles. Réessayez de charger cet avis.",
+  "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",
+  "recheck.retry": "Réessayer",
   'recheck.title': 'Les résultats ont changé depuis le dernier calcul de ce projet',
   'recheck.intro': 'Ce projet a été calculé pour la dernière fois avec la version de résultats {from} de Stabileo ; celle-ci est la version {to}. Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introUnknown': 'Ce projet n\'enregistre pas la version de Stabileo qui l\'a calculé (il a été enregistré avant que cette information ne soit consignée). Ces changements concernent des fonctions utilisées par ce modèle :',
@@ -14111,7 +14119,6 @@ const fr: Translations = {
   "knownIssue.CERT-MECHANISM": "Un certificat au niveau du système assemblé peut certifier une rotation artificielle ou sans raideur associée. Vérifiez indépendamment les mécanismes ; une faible borne d’erreur algébrique ne démontre pas la stabilité de la structure",
   "knownIssue.BU-SPAN-COMPRESSION": "Le calcul de flambement 3D peut ignorer la compression entre les extrémités des barres sous des charges en travée. Vérifiez indépendamment la distribution de l’effort normal et le facteur de flambement",
   "knownIssue.AC-PLANE-MAPPING": "Les contraintes cinématiques 2D supposent que le modèle initial se trouve dans le plan X-Z. Celles converties depuis un autre plan peuvent être incorrectes ; utilisez le calcul 3D ou vérifiez indépendamment la correspondance",
-  "knownIssue.SH-GLOBAL-STRESS": "Résultats non publiés : la restitution des contraintes des éléments solid-shell omet les composantes globales hors plan. Un élément solid-shell situé hors du plan global X-Y peut indiquer des contraintes presque nulles sous une charge importante",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Les éléments MITC4 déformés peuvent présenter un verrouillage en flexion dans le plan de la membrane. Vérifiez la convergence du maillage ; les résultats présentant une flexion membranaire importante ne sont pas publiés.",
   "knownIssue.SH-MITC4-DISTORTION": "Résultats non publiés : les quadrilatères MITC4 déformés peuvent être environ dix fois trop rigides en flexion dans le plan de la membrane. Refaites le maillage avec des éléments rectangulaires et vérifiez sa convergence",
   "knownIssue.PL-2D-INVARIANCE": "Résultats non publiés : le facteur de charge de ruine plastique 2D peut varier jusqu’à un facteur 4,6 selon la numérotation, le sens des barres ou les unités. Utilisez une analyse de ruine vérifiée indépendamment",

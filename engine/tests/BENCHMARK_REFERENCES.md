@@ -42,7 +42,7 @@
 - **Source**: NAFEMS standard test, MacNeal & Harder (1985)
 - **Problem**: Cylindrical roof shell, gravity loading
 - **Reference**: u_z = 0.3024 at midspan free edge
-- **Status**: MITC4 ANS shear tying: 6×6 mesh: 80%. MITC9: 2×2 mesh: 96%, 6×6 mesh: 85%.
+- **Status**: Corrected quarter-roof models: MITC4 ANS shear tying 6×6: 101.6%; MITC9 with consistent gravity loading 2×2: 117.4%, 4×4: 100.7%, 6×6: 99.9%; curved shell 6×6: 96.1%, 8×8: 97.4%; SHB8-ANS 6×6: 100.6%, 8×8: 99.7%. Percentages are displacement/reference, not accuracy scores. See [#810 audit](../../docs/audits/810-mitc4-curved-shells.md).
 
 ### Hemisphere with 18° Hole (NAFEMS LE3)
 - **Source**: NAFEMS, "The Standard NAFEMS Benchmarks" (TNSB), Rev 3, 1990, Test LE3
@@ -373,9 +373,9 @@ research-only crates or formula-only `reference` tests. `R::` below means
 | Riks/Crisfield #803 / #846: true shallow truss through both limits | `R::riks_shallow_toggle` | pass — exact axial reference; strictly forward path through inversion |
 | #846: original shallow frame | `R::riks_shallow_frame_energy_reference` | pass — independent two-frame energy reference |
 | Riks/Crisfield #803: Von Mises peak load, displacement, every path step | `R::riks_von_mises_truss` | pass |
-| Shell obstacle #809: Scordelis–Lo, 6²/8²/12²/16² | `S::research_roof_6`, `_8`, `_12`, `_16` | ignored #810 |
-| Shell obstacle #809: pinched cylinder, 6²/8²/12²/16² | `S::research_cylinder_6`, `_8`, `_12`, `_16` | ignored #810 |
-| Shell obstacle #809: hemisphere with hole, 4²/8²/16² | `S::research_hemisphere_4`, `_8`, `_16` | pass |
+| Shell obstacle #809: Scordelis–Lo, 6²/8²/12²/16² | `S::research_roof_6`, `_8`, `_12`, `_16` | pass after #810 model correction |
+| Shell obstacle #809: pinched cylinder, 6²/8²/12²/16² | `S::research_cylinder_6`, `_8`, `_12`, `_16` | ignored: corrected model exceeds 2%; 32² passes (see #810 audit) |
+| Shell obstacle #809: hemisphere with hole, 4²/8²/16² | `S::research_hemisphere_4`, `_8`, `_16` | pass — asserts the #798 SH-MITC4-DISTORTION refusal while contained; the 2% check applies if a result is returned |
 | Mattiasson #834: PL²/EI=1, signed u/L and v/L | `R::mattiasson_1` | pass |
 | Mattiasson #834: PL²/EI=2/5/10 | `R::mattiasson_2`, `_5`, `_10` | pass — corrected independent references, model and stepping (#845) |
 | Mattiasson #834: end moment, convergence/rotation only | `benchmarks::corotational_benchmarks_extended::validation_corotational_cantilever_end_moment` (existing) | pass |

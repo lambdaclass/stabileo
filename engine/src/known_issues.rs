@@ -49,7 +49,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "AC-PLANE-MAPPING", issue: 466, mode: Mode::Warn, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping" },
 
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
-    Entry { id: "SH-GLOBAL-STRESS", issue: 757, mode: Mode::Refuse, message: "Results withheld: solid-shell stress recovery drops out-of-plane global components. A solid shell outside the global X-Y plane can report almost zero stress under substantial load" },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
     Entry { id: "PL-2D-INVARIANCE", issue: 758, mode: Mode::Refuse, message: "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis" },
     Entry { id: "BU-ACCURACY", issue: 818, mode: Mode::Warn, message: "3D buckling factors can be unconservatively high due to eigenproblem accuracy. Independently verify the critical factor before design" },
@@ -361,20 +360,6 @@ pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
         d.element_kind = Some(ElementKind::Quad);
         out.push(d);
     }
-    let mut shells = Vec::new();
-    for e in input.solid_shells.values() {
-        let points: Option<Vec<_>> = e.nodes.iter().map(|id| input.nodes.get(&id.to_string())).collect();
-        let affected = points.is_none_or(|p| {
-            p[..4].iter().any(|n| n.z != p[0].z) || p[4..].iter().any(|n| n.z != p[4].z)
-        });
-        if affected { shells.push(e.id); }
-    }
-    shells.sort_unstable();
-    if !shells.is_empty() {
-        let mut d = diagnostic("SH-GLOBAL-STRESS").with_elements(shells);
-        d.element_kind = Some(ElementKind::SolidShell);
-        out.push(d);
-    }
     let mut quads = Vec::new();
     for e in input.quads.values() {
         let points: Option<Vec<_>> = e.nodes.iter().map(|id| input.nodes.get(&id.to_string()).map(|n| [n.x, n.y, n.z])).collect();
@@ -448,7 +433,7 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
         out.push(diagnostic("SP-14"));
     }
-    out.extend(model_3d(input).into_iter().filter(|d| !matches!(analysis, Analysis::Modal | Analysis::Buckling | Analysis::Harmonic | Analysis::TimeHistory | Analysis::StaticReduction) || d.phase.as_deref() != Some("SH-GLOBAL-STRESS")));
+    out.extend(model_3d(input));
     out.extend(loads_3d(&input.loads));
     out
 }
@@ -531,14 +516,18 @@ mod tests {
             input.nodes.insert(id.to_string(), SolverNode3D { id, x, y, z });
         }
         input.solid_shells.insert("7".into(), SolverSolidShellElement { id: 7, nodes: [10,11,12,13,14,15,16,17], material_id: 1 });
-        assert!(!has(&model_3d(&input), "SH-GLOBAL-STRESS"));
+        let issue_757 = |ds: &[StructuredDiagnostic]| ds.iter().any(|d| d.code == DiagnosticCode::KnownIssue && d.value == Some(757.0));
+        assert!(!issue_757(&model_3d(&input)));
         input.nodes.get_mut("12").unwrap().z = 0.2;
         input.nodes.get_mut("13").unwrap().z = 0.2;
         input.nodes.get_mut("16").unwrap().z = 0.3;
         input.nodes.get_mut("17").unwrap().z = 0.3;
-        assert!(has(&model_3d(&input), "SH-GLOBAL-STRESS"));
-        assert!(refuse(&model_3d(&input)).unwrap_err().contains("#757"));
-        assert!(crate::solver::linear::solve_3d(&input).unwrap_err().contains("#757"));
+        assert!(!issue_757(&model_3d(&input)));
+        assert!(refuse(&model_3d(&input)).is_ok());
+        match crate::solver::linear::solve_3d(&input) {
+            Ok(solved) => assert!(!issue_757(&solved.structured_diagnostics)),
+            Err(error) => assert!(!error.contains("#757"), "{error}"),
+        }
         input.solid_shells.clear();
         input.nodes.get_mut("12").unwrap().z = 0.0;
         input.nodes.get_mut("13").unwrap().z = 0.0;

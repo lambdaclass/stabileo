@@ -15,7 +15,7 @@ import { setLocale } from '../../i18n';
 import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
 
 const refusal = JSON.stringify({ structuredDiagnostics: [{
-  code: 'known_issue', severity: 'error', phase: 'SH-GLOBAL-STRESS', value: 757, message: 'ENGINE',
+  code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE',
 }] });
 
 afterEach(() => {
@@ -40,10 +40,10 @@ describe('production containment', () => {
     const toast = vi.spyOn(uiStore, 'toast');
     const outcome = await solveNow();
     expect(outcome.ok).toBe(false);
-    expect(lastSolveFailure()).toContain('#757');
+    expect(lastSolveFailure()).toContain('#798');
     expect(lastSolveFailure()).not.toContain('structuredDiagnostics');
     expect(lastSolveFailure()).not.toContain('ENGINE');
-    expect(toast.mock.calls.some(([message]) => message.includes('#757'))).toBe(true);
+    expect(toast.mock.calls.some(([message]) => message.includes('#798'))).toBe(true);
     expect(toast.mock.calls.every(([message]) => !message.includes('structuredDiagnostics'))).toBe(true);
     expect(resultsStore.results3D).toBeNull();
   });
@@ -55,7 +55,7 @@ describe('production containment', () => {
     const sync = validateAndSolve3D(modelStore.model);
     const fallback = await validateAndSolve3DAsync(modelStore.model);
     for (const result of [sync, fallback]) {
-      expect(result).toContain('#757');
+      expect(result).toContain('#798');
       expect(result).not.toContain('structuredDiagnostics');
     }
   });
@@ -152,7 +152,7 @@ it.each(['throw', 'result'])('3D moving loads abort a mixed sweep on a %s refusa
       return { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [warning] };
     }, free,
   } as never);
-  await expect(sweepMovingLoad3D(base, path, { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, { step: 1 })).rejects.toThrow('SH-GLOBAL-STRESS');
+  await expect(sweepMovingLoad3D(base, path, { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, { step: 1 })).rejects.toThrow('SH-MITC4-DISTORTION');
   expect(count).toBe(2);
   expect(free).toHaveBeenCalledOnce();
 });
@@ -202,7 +202,7 @@ it('a refused result leaves the modelling surface mounted and hides its numeric 
     children: createRawSnippet(() => ({ render: () => '<canvas data-model-view></canvas>' })),
   } }).body;
   expect(html).toContain('data-model-view');
-  expect(html).toContain('#757');
+  expect(html).toContain('#798');
   expect(resultsStore.results3D).toBeNull();
   expect(resultsStore.diagramType).toBe('none');
 });
@@ -218,7 +218,7 @@ it('a clean single solve cannot mask a refused combination in the results table'
   resultsStore.activeComboId = 2;
   resultsStore.activeView = 'combo';
   const html = render(ResultsTable).body;
-  expect(html).toContain('#757');
+  expect(html).toContain('#798');
   expect(html).not.toContain('987654');
   expect(resultsStore.knownIssues3D.refused).toBe(true);
 });

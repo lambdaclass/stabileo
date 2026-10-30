@@ -7,7 +7,7 @@
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
   import ConvergencePlot from './ConvergencePlot.svelte';
-  import { cases, nativeOnly, runCases, finest, groups, viewerData, type Result } from './cases';
+  import { cases, nativeOnly, runCases, finest, groups, viewerData, signedReference, type Result } from './cases';
   import { editorURL } from './editor';
   import { strings } from './i18n';
 
@@ -59,6 +59,7 @@
     <p>{copy.the}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/shell_obstacle_course.json">{copy.sharedEngineOwnedCaseFile}</a>{copy.isReadByTheNativeTestsAnd}</p>
     <p>{copy.theHeadlineCountsTheFinestSelectedBrowser}</p>
     <h2 id="limitations">{copy.findingsAndProvenance}</h2>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/docs/audits/810-mitc4-curved-shells.md">{s.modelCorrection}</a></p>
     <p>{copy.the}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course">{copy.findingsLedger}</a>{copy.recordsAccuracyAndModelLimitationsThe}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{copy.productionRegistry}</a>{copy.containsShellContainment}</p>
     <p>{copy.referencesAreInheritedFrom}<code>{copy.shellBenchmarkRs}</code>{copy.and}<code>{copy.solidShellLockingRs}</code>{copy.theRoofAndCylinderValuesAlsoAppear}<code>{copy.scordelisLoRs}</code>{copy.containsFlatPlateChecksDespiteItsFilename}</p>
     <h2>{s.native}</h2>
@@ -79,14 +80,14 @@
         <ScalarFieldViewer {...view} cellSize={4} deformScale={deformation} {showMesh} title={label(selected)} unit="" height="23rem" onOpenEditor={open} />
         <p>{s.projection}</p>
         <button onclick={open}>{s.open}</button>
-        <p data-testid="selected-result">{current.mesh} × {current.mesh} · {s.reference}: {fmt(current.reference)}{copy.stabileo}{fmt(result?.value)} · {s.error}: {fmt(result?.error == null ? null : result.error * 100)}% · {result ? (result.refused ? s.withheld : result.pass ? s.pass : s.fail) : s.pending}</p>
+        <p data-testid="selected-result">{current.mesh} × {current.mesh} · {s.reference}: {fmt(signedReference(current))}{copy.stabileo}{fmt(result?.value)} · {s.error}: {fmt(result?.error == null ? null : result.error * 100)}% · {result ? (result.refused ? s.withheld : result.pass ? s.pass : s.fail) : s.pending}</p>
         <ConvergencePlot cases={meshes} {rows} title={`${label(selected)} — ${s.convergence}`} xLabel={s.mesh} yLabel={s.ratio} locale={publicI18n.locale} />
       </div>
       <div id="rs-panel-results" role="tabpanel" aria-labelledby="rs-tab-results" hidden={tab !== 'results'}>
         <div class="table-scroll" id="checks"><table><thead><tr><th>{s.select}</th><th>{s.reference}</th><th>{copy.stabileo2}</th><th>{s.error} %</th><th></th></tr></thead><tbody>
           {#each cases as c}
             {@const r = rows.find(r => r.id === c.id)}
-            <tr data-testid={c.id}><th><button onclick={() => { selected = c.group; meshIndex = cases.filter(x => x.group === c.group).findIndex(x => x.id === c.id); tab = 'viewer'; }}>{label(c.group)} {c.mesh}×{c.mesh}</button></th><td>{fmt(c.reference)}</td><td>{#if r?.refused}{s.withheld}{:else}{fmt(r?.value)}{/if}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td>{#if !r}{s.pending}{:else if r.refused}<a href="https://github.com/lambdaclass/stabileo/issues/798">#798</a>{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p>{r.failure}</p>{/if}{/if}</td></tr>
+            <tr data-testid={c.id}><th><button onclick={() => { selected = c.group; meshIndex = cases.filter(x => x.group === c.group).findIndex(x => x.id === c.id); tab = 'viewer'; }}>{label(c.group)} {c.mesh}×{c.mesh}</button></th><td>{fmt(signedReference(c))}</td><td>{#if r?.refused}{s.withheld}{:else}{fmt(r?.value)}{/if}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td>{#if !r}{s.pending}{:else if r.refused}<a href="https://github.com/lambdaclass/stabileo/issues/798">#798</a>{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p>{r.failure}</p>{/if}{/if}</td></tr>
           {/each}
         </tbody></table></div>
         {#each groups as group}<ConvergencePlot cases={cases.filter(c => c.group === group)} {rows} title={label(group)} xLabel={s.mesh} yLabel={s.ratio} locale={publicI18n.locale} />{/each}

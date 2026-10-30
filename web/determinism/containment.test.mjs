@@ -74,16 +74,16 @@ test('model-less combination refuses distorted MITC4 cases', () => {
 });
 
 for (const [name, solve] of Object.entries(entries).filter(([name]) => name !== 'solve_staged_3d')) {
-  test(`${name} refuses non-XY solid-shell recovery with its structured identity`, () => {
+  test(`${name} no longer contains non-XY solid-shell recovery (#757 fixed)`, () => {
     const s = shell();
     s.quads = {};
     const coords = [[0,0,0], [1,0,0], [1,1,0.2], [0,1,0.2], [0,0,0.1], [1,0,0.1], [1,1,0.3], [0,1,0.3]];
     coords.forEach(([x,y,z], i) => { s.nodes[i+10] = { id: i+10, x, y, z }; });
     s.solidShells = { 7: { id: 7, nodes: [10,11,12,13,14,15,16,17], materialId: 1 } };
-    assert.throws(() => solve(s), error => {
-      const data = JSON.parse(String(error));
-      return data.structuredDiagnostics.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'SH-GLOBAL-STRESS' && d.value === 757);
-    });
+    let outcome;
+    try { outcome = solve(s); } catch (error) { outcome = String(error); }
+    const text = typeof outcome === 'string' ? outcome : JSON.stringify(outcome);
+    assert.ok(!text.includes('SH-GLOBAL-STRESS') && !text.includes('#757'), text.slice(0, 500));
   });
 }
 

@@ -8,7 +8,6 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 | #760 | `TH-RECIPROCITY` | WARN | 2D/3D time history; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; existing time-history numerical tests retained |
 | #759 | `MD-ORTHOGONALITY` | WARN | 3D modal/spectral and harmonic modal superposition; no validated safe subset. | known_issues_analysis_predicates_have_negative_controls; unchanged modal/spectral numerical tests |
 | #758 | `PL-2D-INVARIANCE` / `PL-3D-INVARIANCE` | REFUSE / WARN | Native and Basic UI 2D plastic calls / 3D plastic with curved beams. | core::plastic, certify_plastic, validation plastic/textbook/pushover tests assert structured refusals; known_issues_model_predicates_have_negative_controls |
-| #757 | `SH-GLOBAL-STRESS` | REFUSE | Solid-shell face not parallel to global X–Y (or invalid geometry). | known_issues_shell_predicates_have_geometric_controls; solid_shell_locking and shell_benchmark refusal cases |
 | #752 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 260 missed mutants in 21 functions survive in the frame, truss, curved-beam and fiber-beam kernels. No demonstrated current wrong-result case in this item. |
 | #751 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 244 missed mutants in 50 functions survive in the static certificate support code. No demonstrated current wrong-result case in this item. |
 | #750 | — | SCOPE | not a wrong-result defect: mutation-test coverage gap; surviving synthetic mutants do not establish a wrong result in the current implementation. | Issue scope: Test gap: 67 missed mutants in 23 functions survive in the design-check certificates. No demonstrated current wrong-result case in this item. |
@@ -61,7 +60,6 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 - CERT-MECHANISM: a 2D node with incident members, all of which release rotation (or are non-frame), and either a nonzero nodal moment or an incident rigid link. A real rotational support or positive rotational spring excludes the node. Nodal moments are checked against the actual prepared load case. No blanket 3D warning. The separately described skew-axis mechanism lacks a pinned 3D case in #458; this predicate does not claim to detect it.
 - AC-PLANE-MAPPING: every 2D constrained input; the engine wire no longer contains the original 3D plane, so it cannot narrow this further.
 - BU-SPAN-COMPRESSION: 3D buckling with distributed or point-on-member loads.
-- SH-GLOBAL-STRESS: any solid shell whose lower or upper four-node face has unequal global Z coordinates, or missing nodes.
 - SH-MITC4-DISTORTION: WARN for MITC4 skew >10°, Jacobian ratio <0.9, warping >0.01, or non-finite/missing geometry. The MacNeal–Harder regular rectangle (0° / ratio 1) passes; the reported 45° trapezoid and parallelogram fail. These conservative geometry cutoffs lie between the demonstrated endpoints, not experimentally established accuracy boundaries. The reported in-plane values are regular 0.1071 versus 0.1081, trapezoid 0.0084 (−92%), parallelogram 0.0104 (−90%); out-of-plane values 0.4235, 0.4162, 0.4226 versus 0.4321 stay within 4%.
   On each recovered static load case, compute local nodal normal membrane stresses after subtracting its thermal strains. REFUSE if either normal component has a maximum-minus-minimum variation greater than E × 1e-12 (E in solver stress units). This conservative significance test is independent of uniform axial stress and plate bending stress: superimposing either cannot suppress containment. Uniform affine extension and pure transverse bending retain WARN; a clamped extension with nonuniform membrane stress may be refused. The modulus-scaled floor excludes numerical noise. Prepared solves cache geometry and index displacements and thermal loads once per load case. Other analysis types retain the geometry warning; no modal stress pattern is treated as static membrane bending.
 - PL-2D-INVARIANCE: all native Rust and Basic UI 2D plastic-collapse calls; no validated safe subset is known. Basic refuses before displaying a legacy result or requesting native certification. The internal TypeScript algorithm retains its numerical regression tests.
@@ -95,6 +93,7 @@ These are already-fixed mechanisms referenced by the containment negative contro
 | #416 | SP-12 | CORRECTED | Cable iteration uses chord law rather than Ernst tangent as secant. | f51c8e6c7, 583547e2b, 576c51e6a; derivation_special_elements::guyed_mast_cable_tension_matches_the_chord_law (af0bae39b), cable_chord_tension_is_robust, cable_on_an_inclined_roller_follows_the_chord_law |
 | #418 | SP-15 | CORRECTED | Arc segments keep one section orientation. | bbb832fa8; derivation_special_elements::curved_beam_arch_is_invariant_under_plan_rotation |
 | #421, #422, #423 | AC-12 / AC-13 / AC-16 | CORRECTED | Soil curves follow their cited references. | 0ab97bf6b, 343ff25ce; soil_curves_references::soft_clay_ultimate_follows_matlock_with_j, stiff_clay_is_welch_reese_quarter_power_to_16_y50, sand_static_and_cyclic_match_api_hand_values, tz_is_shaft_friction_times_perimeter, qz_follows_api_table_times_tip_area |
+| #757 | SH-GLOBAL-STRESS (retired) | CORRECTED | Solid-shell centroid stresses use the local shell frame; the refusal for faces off the global X–Y plane is removed. | PR #814 (closed #757); shells::solid_shell_stress_axes (rotation invariance, analytical membrane tractions, aligned X–Y bit identity); solid_shell_locking Scordelis–Lo, pinched cylinder and hemisphere; shell_benchmark benchmark_ss_* and frontier gates; known_issues_shell_predicates_have_geometric_controls and determinism containment.test.mjs assert no #757 containment remains |
 
 ## Round 2 verification
 
@@ -115,7 +114,6 @@ Verification results and corpus counts are recorded below. Read-only history evi
 | BU-SPAN-COMPRESSION | 2 | 0 |
 | AC-PLANE-MAPPING | 0 | 0 |
 | NL-5 | 0 | 0 |
-| SH-GLOBAL-STRESS | 0 | 0 |
 | SH-MITC4-DISTORTION | 0 | 0 |
 | PL-2D-INVARIANCE | 0 | 0 |
 | BU-BOUND | 0 | 0 |
@@ -187,7 +185,7 @@ cases carrying `SH-MITC4-DISTORTION`; model-aware multi-case solves check the co
 field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
 The determinism gate requires six structured 2D plastic refusals (#758), retains both 3D plastic
 certificates and their bundle exports, and compares all outputs exactly across runtimes.
-Results version 5 registers the warnings and refusals; no numerical kernel or baseline changes.
+Results version 6 registers the warnings and refusals; no numerical kernel or baseline changes.
 
 The constrained-path guard also withholds validation-01's DEAD LOAD case (quads 640 and 657).
 Its numerical baseline is retained unchanged alongside validation-03's; the tests now require
@@ -264,9 +262,10 @@ Earlier suite and corpus totals above are historical; this follow-up ran targete
   on 2026-10-30. Its reference compared a rigid frame to a pin-jointed truss, and its
   continuation budget ended before the truss limit. The fix changes tests/documentation
   only, not engine source; the ledger records SCOPE rather than an unjustified warning.
-- The public buckling matrix helper omits affected solid-shell stresses after matrix
-  assembly. A vertical-shell regression checks the helper, spectral analysis and
-  kinematic solvability while the static solve retains its existing stress refusal.
+- The public buckling matrix helper omitted affected solid-shell stresses while #757
+  was contained; after the #814 fix that omission and the static refusal are removed.
+  The vertical-shell regression now checks that the static solve, the helper, spectral
+  analysis and kinematic solvability all return solid-shell results.
 - Advanced reruns retire panel/store/report state; P-Delta retains nested diagnostics.
   Table, CSV, XLSX, workbook and report boundaries carry localized containment.
   Refusal keeps the modelling viewport mounted and suppresses numerical overlays.
