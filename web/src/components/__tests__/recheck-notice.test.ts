@@ -23,6 +23,8 @@ it('keeps acknowledgement disabled until lazy changes arrive, without changing t
   const stamp = recheckStore.capture();
   const html = render(RecheckNotice).body;
   expect(recheckStore.pending).toBe(true);
+  // Native dialog is required: aria-modal on a div cannot outrank the mobile desk.
+  expect(html).toMatch(/<dialog[^>]*role="alertdialog"[^>]*data-testid="recheck-overlay"/);
   expect(html).toContain(t('recheck.loading'));
   expect(html).toContain(t('recheck.staleWarning'));
   for (const id of ['recheck-ack', 'recheck-later', 'recheck-rerun']) {

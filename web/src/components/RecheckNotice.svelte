@@ -3,7 +3,7 @@
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
-  import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
+  import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
   const details = $derived(!recheckStore.pending);
@@ -32,11 +32,14 @@
     readIt = false;
   });
 
-  $effect(() => {
-    if (!open || !dialog) return;
-    const restore = captureFocus(dialog);
-    return restore;
-  });
+  // A safety notice belongs in the browser's top layer, above every app z-index.
+  // showModal also makes the desk and other background dialogs inert and restores
+  // focus on close. Do not use the `open` attribute: it creates a non-modal dialog.
+  function showNotice(node: HTMLDialogElement) {
+    node.showModal();
+    dialog?.focus();
+    return { destroy: () => node.close() };
+  }
 
   function onKey(e: KeyboardEvent) {
     // Escape is swallowed: the notice is dismissed by acknowledging it, not by a reflex.
@@ -59,17 +62,21 @@
 </script>
 
 {#if open && a}
-  <div class="rc-overlay" data-testid="recheck-overlay">
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <dialog
+    class="rc-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="rc-title"
+    aria-describedby="rc-intro"
+    data-testid="recheck-overlay"
+    use:showNotice
+    oncancel={(e) => e.preventDefault()}
+    onkeydown={onKey}
+  >
     <div
       class="rc"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="rc-title"
-      aria-describedby="rc-intro"
       tabindex="-1"
       bind:this={dialog}
-      onkeydown={onKey}
       data-testid="recheck-notice"
     >
       <h3 class="rc-title" id="rc-title">{t('recheck.title')}</h3>
@@ -116,7 +123,7 @@
         </div>
       </footer>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 {#if !open && recheckStore.stale && a}
@@ -131,11 +138,21 @@
   .rc-overlay {
     position: fixed;
     inset: 0;
-    background: color-mix(in srgb, var(--st-bg) 78%, transparent);
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 260;
+  }
+  .rc-overlay::backdrop {
+    background: color-mix(in srgb, var(--st-bg) 78%, transparent);
   }
   .rc {
     width: min(640px, calc(100vw - 32px));

@@ -231,6 +231,17 @@ for (const width of [390, 810]) {
         expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
         await expect(page.getByTestId('recheck-ack')).toBeEnabled();
         const notice = page.getByTestId('recheck-notice');
+        // bootPro opens the design desk. The notice must own the modal top layer
+        // even if another navigation request opens that workspace while it is pending.
+        await page.evaluate(() => window.__stabileoActions.openDesignTab());
+        await expect(page.getByTestId('recheck-overlay')).toHaveJSProperty('open', true);
+        expect(await page.getByTestId('recheck-overlay').evaluate(el => el.matches(':modal'))).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(notice).toBeVisible();
+        expect(await page.getByTestId('recheck-ack').evaluate(el => {
+          const r = el.getBoundingClientRect();
+          return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el;
+        })).toBe(true);
         const list = page.getByTestId('recheck-changes');
         expect(await list.locator('li').count()).toBeGreaterThan(3);
         expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
