@@ -237,6 +237,7 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 common::assert_containment(cable_result, "SH-MITC4-DISTORTION");
             } else {
                 let cable_result = cable_result.unwrap();
+                assert_warning(&cable_result.results.structured_diagnostics, "SH-MITC4-CONVERGENCE", 810.0);
                 assert_eq!(ids(&cable_result.results.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
             }
             let result = dedaliano_engine::solver::linear::solve_3d(&input);
@@ -298,6 +299,7 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
+                assert_warning(&result.structured_diagnostics, "SH-MITC4-CONVERGENCE", 810.0);
                 if direction == 2 {
                     let convergence = dedaliano_engine::postprocess::discretization::convergence::convergence_study_3d(
                         &input, &Default::default()).unwrap();

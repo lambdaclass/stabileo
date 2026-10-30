@@ -40,6 +40,7 @@ pub struct Entry {
 }
 
 pub const ENTRIES: &[Entry] = &[
+    Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
     Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
@@ -353,6 +354,13 @@ pub fn membrane_bending_3d(input: &SolverInput3D, loads: &[SolverLoad3D], result
 
 pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
     let mut out = Vec::new();
+    if !input.quads.is_empty() {
+        let mut ids: Vec<_> = input.quads.values().map(|q| q.id).collect();
+        ids.sort_unstable();
+        let mut d = diagnostic("SH-MITC4-CONVERGENCE").with_elements(ids);
+        d.element_kind = Some(ElementKind::Quad);
+        out.push(d);
+    }
     let mut shells = Vec::new();
     for e in input.solid_shells.values() {
         let points: Option<Vec<_>> = e.nodes.iter().map(|id| input.nodes.get(&id.to_string())).collect();
@@ -536,6 +544,7 @@ mod tests {
         input.nodes.get_mut("13").unwrap().z = 0.0;
         input.quads.insert("8".into(), SolverQuadElement { id: 8, nodes: [10,11,12,13], material_id: 1, thickness: 0.1 });
         assert!(!has(&model_3d(&input), "SH-MITC4-DISTORTION"));
+        assert!(has(&model_3d(&input), "SH-MITC4-CONVERGENCE"));
         input.nodes.get_mut("12").unwrap().x = 1.5;
         input.nodes.get_mut("13").unwrap().x = 0.5;
         assert!(has(&model_3d(&input), "SH-MITC4-DISTORTION"));

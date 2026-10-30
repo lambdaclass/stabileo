@@ -253,6 +253,7 @@ pub fn solve_buckling_2d(
 /// inclined-support frames of `inclined_transforms`.
 #[doc(hidden)]
 pub struct BucklingSystem3D {
+    /// Preload state; affected solid-shell stresses are omitted (SH-GLOBAL-STRESS).
     pub linear: AnalysisResults3D,
     pub dof_num: DofNumbering,
     pub k_ff: CscMatrix,
@@ -268,7 +269,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // the unexpanded model has no elements for (an index panic).
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
     let input = expanded.as_ref().unwrap_or(input);
-    let linear = super::linear::buckling_preload_3d(input)?;
+    let mut linear = super::linear::buckling_preload_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -341,6 +342,12 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
+    // The preload policy permits these shells for matrix assembly, but its public
+    // result must not expose their known-invalid static stress recovery.
+    let affected: std::collections::HashSet<_> = crate::known_issues::model_3d(input)
+        .into_iter().filter(|d| d.phase.as_deref() == Some("SH-GLOBAL-STRESS"))
+        .flat_map(|d| d.element_ids).collect();
+    linear.quad_stresses.retain(|s| !affected.contains(&s.element_id));
     Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms })
 }
 

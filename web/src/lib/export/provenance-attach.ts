@@ -15,6 +15,7 @@
  *   XLSX    a status line on the summary and a Provenance sheet (`export/excel.ts`)
  *   reports (DOCX, XLSX, CSV of a report) as `report-formats.ts` carries `reportProvenanceLines`
  */
+import { exportMessages } from './containment';
 import { uiStore } from '../store/ui.svelte';
 import { downloadText } from '../store/file';
 import {
@@ -159,6 +160,11 @@ export function provenanceFromPng(png: Uint8Array): string | null {
  * record captured with its own inputs and results, rather than borrowing the viewport's record.
  */
 export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance): Promise<boolean> {
+  const warnings = exportMessages();
+  if (warnings === null) return false;
+  if (filename.toLowerCase().endsWith('.csv') && warnings.length) {
+    content = warnings.map(message => `# ${message.replace(/[\r\n]+/g, ' ')}`).join('\n') + '\n' + content;
+  }
   const p = record ? analysisProvenanceForExport(record) : await prepareExportProvenance();
   if (!p) return false;
   const ext = filename.toLowerCase().split('.').pop();

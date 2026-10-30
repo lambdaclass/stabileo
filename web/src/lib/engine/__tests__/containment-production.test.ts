@@ -192,3 +192,33 @@ it('shows warnings from a combination even when its reference case is unlisted',
   expect(resultsStore.results3D?.structuredDiagnostics).toBeUndefined();
   expect(resultsStore.knownIssues3D.messages.join(' ')).toContain('#762');
 });
+
+it('a refused result leaves the modelling surface mounted and hides its numeric overlays', async () => {
+  await model();
+  const result = { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: JSON.parse(refusal).structuredDiagnostics };
+  resultsStore.setResults3D(result as never);
+  const html = render(ContainmentBanner, { props: {
+    preserveModel: true, disposition: resultsStore.knownIssues3D,
+    children: createRawSnippet(() => ({ render: () => '<canvas data-model-view></canvas>' })),
+  } }).body;
+  expect(html).toContain('data-model-view');
+  expect(html).toContain('#757');
+  expect(resultsStore.results3D).toBeNull();
+  expect(resultsStore.diagramType).toBe('none');
+});
+
+it('a clean single solve cannot mask a refused combination in the results table', async () => {
+  await model();
+  const { default: ResultsTable } = await import('../../../components/tables/ResultsTable.svelte');
+  const clean = { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [] };
+  const refused = { ...clean, structuredDiagnostics: JSON.parse(refusal).structuredDiagnostics,
+    displacements: [{ nodeId: 1, ux: 987654, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] };
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[2, refused]]) as never, {} as never);
+  resultsStore.activeComboId = 2;
+  resultsStore.activeView = 'combo';
+  const html = render(ResultsTable).body;
+  expect(html).toContain('#757');
+  expect(html).not.toContain('987654');
+  expect(resultsStore.knownIssues3D.refused).toBe(true);
+});

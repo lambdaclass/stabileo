@@ -2068,6 +2068,7 @@ const pt: Translations = {
   "knownIssue.SH-MITC4-DISTORTION.warning": "Elementos MITC4 distorcidos podem travar em flexão de membrana. Verifique a convergência da malha; resultados com flexão de membrana significativa são bloqueados.",
   "knownIssue.SH-MITC4-DISTORTION": "Resultados bloqueados: quadriláteros MITC4 distorcidos podem ser dez vezes rígidos demais em flexão de membrana. Use elementos retangulares e verifique a convergência da malha.",
   "knownIssue.PL-2D-INVARIANCE": "Resultados bloqueados: o fator de colapso plástico 2D pode variar até 4,6 vezes com numeração, direção das barras ou unidades. Use uma análise independente verificada.",
+  "knownIssue.SH-MITC4-CONVERGENCE": "Os ensaios MITC4 mostram rigidez excessiva e erros que aumentam com o refinamento da malha. Verifique a resposta das cascas independentemente antes de projetar.",
   "knownIssue.BU-ACCURACY": "Os fatores de flambagem 3D podem ser excessivamente altos e não conservadores. Verifique o fator crítico independentemente antes de projetar.",
   "knownIssue.BU-BOUND": "Resultados bloqueados: o fator de flambagem calculado está fora de seus limites certificados. Não o use para projeto.",
   "knownIssue.SP-17": "Os eixos transversais de conectores anisótropos podem mudar abruptamente com a direção. Verifique as direções das molas.",

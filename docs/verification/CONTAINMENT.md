@@ -50,7 +50,8 @@ Round 2 containment audit for #447. No numerical kernels or numerical baselines 
 | #359 | — | SCOPE | not a wrong-result defect: dimensioned-type migration programme. | Issue scope: Units in the type system (Rust and TypeScript). No demonstrated current wrong-result case in this item. |
 | #356 | — | SCOPE | not a wrong-result defect: discretization-error estimation programme; algebraic certification does not bound mesh error. | Issue scope: Discretization error estimates next to certified results. No demonstrated current wrong-result case in this item. |
 | #354 | — | SCOPE | not a wrong-result defect: scheduled verification and failure alerting programme. | Issue scope: Verification jobs that run on schedule and alert on failure. No demonstrated current wrong-result case in this item. |
-| #810 | — | TRIAGE | Reported, cause not confirmed: MITC4 Scordelis–Lo roof plateaus 15% stiff and the pinched-cylinder error grows with refinement (shell obstacle course, #809). Triage first (boundary conditions and compared quantity against the papers, other shell elements, independent programs); a WARN/REFUSE entry follows within 24 h of confirming an engine cause. | #809 page and engine/tests/benchmarks/shell_obstacle_course.json (branch research/engine-benchmarks-shell-obstacle-course) |
+| #810 | `SH-MITC4-CONVERGENCE` | WARN | All MITC4 analyses pending isolation of the stiffness/convergence defect; no validated safe subset. | known_issues_shell_predicates_have_geometric_controls; reported shell obstacle course #809 |
+| #846 | — | SCOPE | Benchmark model/reference mismatch and insufficient continuation budget, not an engine defect. Closed 2026-10-30 by merged #852; no engine source changed. | #852: rigid frame energy reference 48.749671 vs 48.750000 kN; true truss traverses both ±95.9850489145 kN limits with path error 8.2e-11 (bound 1e-8). https://github.com/lambdaclass/stabileo/pull/852 |
 | #818 | `BU-ACCURACY` | WARN | All 3D buckling, including plain calls and certification fallbacks; no validated input-only safe subset. | reported_buckling_741_818_plain_and_certified: real #741 fuzz model, unchanged factor and certified refusal |
 | #798 | `SH-MITC4-DISTORTION` | WARN / REFUSE | Distorted MITC4; refuse only significant membrane bending (§ thresholds below). | known_issues::mitc4_macneal_harder_contains_membrane_bending_only: regular/trapezoid/parallelogram × extension/in-plane/out-of-plane; shell geometric controls |
 
@@ -151,7 +152,7 @@ Commands use the pinned Nix environment and locked Cargo dependencies. The full 
 | web/: nix develop .. -c npx vitest run --project unit | 15,589 passed, 14 existing skipped; 1,260 files passed, 2 skipped |
 | web/: nix develop .. -c npx vitest run --project results | 41 passed; all numerical baselines unchanged |
 | nix develop -c make typecheck.web | PASS: 247 existing TypeScript baseline errors, no new typecheck errors; no errors in guarded Svelte paths (repository-wide informational count: 343 errors, 264 warnings) |
-| python3 scripts/check-containment.py | PASS: all 46 currently open safety issues have a decision |
+| python3 scripts/check-containment.py | Historical result; superseded by the review follow-up audit below |
 | git diff --check (read-only) | Historical claim corrected: review found an extra EOF blank line in legacy-plastic-helper.ts; removed during follow-up |
 
 The corrected-behaviour evidence tests above are included in the native solver/derivation and web unit runs. Refused validation-03 retains its complete numerical baseline file for the future fix. The stadium, Bombonera, CAD roof and wall-with-opening integration cases now assert #798, while successful fixtures retain every numerical assertion.
@@ -220,7 +221,7 @@ a native certificate; internal legacy numerical regression tests remain active.
 - Time-history warnings remain visible in both viewport dispositions.
 - The audit runs on pull requests, the merge queue and a daily schedule as a visible but non-required
   check. It is deliberately not a deploy dependency: it calls the GitHub API, and a deploy (an urgent
-  safety fix included) must never wait on it. The live issue audit passes, including #818.
+  safety fix included) must never wait on it. That historical audit included #818; it predates #846.
 - The EOF whitespace defect is removed; read-only diff checks against both HEAD and
   origin/main pass.
 
@@ -252,3 +253,32 @@ These are measured array payload sizes on the native 64-bit target, not
 process peak RSS or a WASM heap measurement. A dense standalone check also
 allocates an additional `8*n*n` bytes for its factor copy. The benchmark is
 ignored in ordinary test runs and retained for repeatable cost comparisons.
+
+## PR #807 review fixes (2026-10-30)
+
+Earlier suite and corpus totals above are historical; this follow-up ran targeted checks only.
+
+- #810 now carries SH-MITC4-CONVERGENCE WARN for every MITC4 model until a safe
+  subset is established. Native static/cable regressions retain their numerical assertions.
+- #846 was closed by merged [#852](https://github.com/lambdaclass/stabileo/pull/852)
+  on 2026-10-30. Its reference compared a rigid frame to a pin-jointed truss, and its
+  continuation budget ended before the truss limit. The fix changes tests/documentation
+  only, not engine source; the ledger records SCOPE rather than an unjustified warning.
+- The public buckling matrix helper omits affected solid-shell stresses after matrix
+  assembly. A vertical-shell regression checks the helper, spectral analysis and
+  kinematic solvability while the static solve retains its existing stress refusal.
+- Advanced reruns retire panel/store/report state; P-Delta retains nested diagnostics.
+  Table, CSV, XLSX, workbook and report boundaries carry localized containment.
+  Refusal keeps the modelling viewport mounted and suppresses numerical overlays.
+- Advanced controls have 44px minimum targets through 810px and 12px minimum text;
+  labels wrap and wide result tables scroll within their container. Source/compiler
+  checks cover the controls; rendered 390/810px overflow was not checked (no Playwright).
+
+Targeted results: native known_issues unit tests 5/5, MITC4 multi-path regression 1/1,
+rotated solid-shell regression 1/1; touched web Vitest files 48/48 across focused runs (the final two-file
+rerun passed 23/23 and the report entry-point rerun passed 4/4); checker and CI-filter tests 6/6. TypeScript retains its 247-error
+baseline with zero new errors. Svelte reports 342 errors (down from 343 before this
+follow-up); changed components introduce no new errors. Changelog validation and read-only diff whitespace
+checks pass. The live GitHub containment audit passes after the #846 ledger correction.
+No numerical tolerances, numerical baselines or existing tests were removed or weakened;
+no full suites, Playwright, git writes or WASM rebuild were run.

@@ -83,7 +83,7 @@ describe('containment modes', () => {
   });
 });
 
-for (const key of ['results', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) {
+for (const key of ['results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) {
   it(`collects and renders diagnostics in ${key}`, () => {
     const leaf = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
     const result = { [key]: ['steps', 'stages', 'caseResults', 'combinationResults'].includes(key) ? [{ results: leaf }] : leaf };

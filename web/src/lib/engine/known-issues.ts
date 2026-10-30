@@ -60,7 +60,7 @@ export function knownIssueResultDisposition(result: unknown): ReturnType<typeof 
         if (d && d.code === 'known_issue' && typeof d.message === 'string') diagnostics.push(d);
       }
     }
-    for (const key of ['positions', 'results', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) visit(record[key]);
+    for (const key of ['positions', 'results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) visit(record[key]);
   }
   visit(result);
   return knownIssueDisposition(diagnostics);

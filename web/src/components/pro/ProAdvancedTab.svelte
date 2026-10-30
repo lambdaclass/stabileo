@@ -175,7 +175,7 @@
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
   /** What the run gave: convergence, iterations, and the amplification and stability as `amplification` reads them. */
-  let pdeltaResult = $state<{ converged: boolean; iterations: number; b2: number; stable: boolean } | null>(null);
+  let pdeltaResult = $state<(import('../../lib/engine/result-types').PDeltaResult3D & { b2: number; stable: boolean }) | null>(null);
   /**
    * Why the run is not published as a P-Δ result, or null when it is. The criterion is the one the
    * combinations use (`solver-service.ts`, `amplification`): with no second-order equilibrium at
@@ -196,6 +196,7 @@
   }
 
   function handlePDelta() {
+    forgetPDelta();
     solveError = null;
     solving = true;
     pdeltaElapsed = null;
@@ -205,12 +206,12 @@
       const t0 = performance.now();
       res = wasmPDelta3D(input);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(res, 'Error') }); solving = false; return; }
       pdeltaElapsed = elapsed;
       const amp = res.results ? amplification(res) : { b2: Infinity, stable: false };
       const converged = !!res.converged;
-      pdeltaResult = { converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
-      pdeltaRefused = !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
+      pdeltaResult = { ...res, converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
+      pdeltaRefused = knownIssueResultDisposition(res).refused ? knownIssueResultDisposition(res).messages.join('\n') : !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
       if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
       // A result of an earlier run is not left on screen as if it were this one's.
       else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
@@ -243,7 +244,18 @@
   /** The model the modal result describes. Spectral reuses its modes and must not outlive it. */
   let modalModelVersion = $state<number | null>(null);
 
+  function forgetModal() {
+    modalResult = null;
+    modalModelVersion = null;
+    modalAutoNote = null;
+    spectralResult = null;
+    const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
+    advancedResults = rest;
+    if (resultsStore.modalResult3D) resultsStore.clearModal3D();
+  }
+
   function handleModal() {
+    forgetModal();
     solveError = null;
     solving = true;
     modalElapsed = null;
@@ -262,12 +274,12 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(res, 'Error') }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
       // PRO kept this result to itself: the table listed modes and none of them could be seen.
-      resultsStore.setModalResult3D(res);
+      if (!knownIssueResultDisposition(res).refused) resultsStore.setModalResult3D(res);
       modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
@@ -284,6 +296,7 @@
         advancedResults = { ...advancedResults, modal: { disposition: knownIssueResultDisposition(res), modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
+      forgetModal();
       solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
     }
     solving = false;
@@ -368,7 +381,15 @@
   let bucklingResult = $state<any | null>(null);
   let numBucklingModes = $state(4);
 
+  function forgetBuckling() {
+    bucklingResult = null;
+    const { buckling: _buckling, ...rest } = advancedResults;
+    advancedResults = rest;
+    if (resultsStore.bucklingResult3D) resultsStore.clearBuckling3D();
+  }
+
   function handleBuckling() {
+    forgetBuckling();
     solveError = null;
     solving = true;
     bucklingElapsed = null;
@@ -378,13 +399,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(res, 'Error') }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
-      resultsStore.setBucklingResult3D(res);
+      if (!knownIssueResultDisposition(res).refused) resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { disposition: knownIssueResultDisposition(res), factors } };
     } catch (e: any) {
+      forgetBuckling();
       solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
     }
     solving = false;
@@ -1747,7 +1769,7 @@
           {#if secResult.iy != null} — Iy={fmtQ(secResult.iy, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
           {#if secResult.iz != null} — Iz={fmtQ(secResult.iz, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
         </div>
-        <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
+        <div class="adv-inline" style="font-size: 0.75rem; opacity:0.8">
           CG: y={fmtQ(secResult.yc ?? 0, 'sectionDim')} {unitQ('sectionDim')}, z={fmtQ(secResult.zc ?? 0, 'sectionDim')} {unitQ('sectionDim')}
           {#if secResult.j != null} — J={fmtQ(secResult.j, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
           {#if secResult.syTop != null} — Wy={fmtQ(secResult.syTop, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
@@ -1777,7 +1799,7 @@
     border-radius: var(--st-radius);
     color: var(--st-text-2);
     font-family: var(--st-sans);
-    font-size: 0.71rem;
+    font-size: 0.75rem;
     padding: 0.18rem 0.45rem;
     cursor: pointer;
     white-space: nowrap;
@@ -1825,26 +1847,26 @@
     border-bottom: 1px solid var(--st-hair);
     background: none;
     color: var(--st-text-3);
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-style: italic;
     text-align: left;
   }
 
   .adv-error {
     padding: 6px 12px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--st-danger);
     background: rgba(229, 72, 42, 0.1);
     flex-shrink: 0;
   }
 
   .adv-wasm-warn {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--st-warn);
   }
 
   .adv-check {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     display: flex;
     align-items: center;
@@ -1877,7 +1899,7 @@
 
   .adv-group-details > summary::before {
     content: '▸ ';
-    font-size: 0.55rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
   }
 
@@ -1894,7 +1916,7 @@
 
   .adv-run-btn {
     padding: 5px 14px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text);
     background: linear-gradient(135deg, var(--st-surface-3), var(--st-hair-strong));
@@ -1909,7 +1931,7 @@
 
   .adv-btn-sm {
     padding: 3px 10px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     background: var(--st-surface-3);
@@ -1922,27 +1944,27 @@
   .adv-btn-sm:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .adv-title {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     user-select: none;
   }
 
   .adv-desc {
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     font-style: italic;
   }
 
   .adv-hint {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     font-style: italic;
   }
 
 
   .adv-inline {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     padding: 2px 0;
     font-family: monospace;
@@ -1950,7 +1972,7 @@
 
   .adv-divider {
     padding: 6px 12px;
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-3);
     text-transform: uppercase;
@@ -1968,7 +1990,7 @@
   }
 
   .adv-label {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     display: flex;
     align-items: center;
@@ -1979,7 +2001,7 @@
   .adv-num {
     width: 55px;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -1991,7 +2013,7 @@
 
   .adv-sel {
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -2002,7 +2024,7 @@
   .adv-text {
     width: 120px;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -2017,6 +2039,8 @@
   }
 
   .adv-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
     max-height: 150px;
     overflow-y: auto;
   }
@@ -2024,13 +2048,13 @@
   .adv-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
   }
 
   .adv-table th {
     padding: 3px 5px;
     text-align: left;
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-3);
     text-transform: uppercase;
@@ -2045,11 +2069,11 @@
   }
 
   .col-id { color: var(--st-text-3); font-family: monospace; text-align: center; }
-  .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
+  .col-num { font-family: monospace; text-align: right; font-size: 0.75rem; }
 
   .adv-rm {
     padding: 2px 6px;
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     color: var(--st-accent);
     background: transparent;
     border: 1px solid var(--st-accent);
@@ -2069,7 +2093,7 @@
   .adv-textarea {
     width: 100%;
     padding: 4px 6px;
-    font-size: 0.64rem;
+    font-size: 0.75rem;
     font-family: monospace;
     background: var(--st-surface-2);
     border: 1px solid var(--st-surface-3);
@@ -2082,19 +2106,19 @@
   .adv-textarea::placeholder { color: var(--st-text-3); }
 
   .adv-steps-toggle {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     color: var(--st-ok);
     cursor: pointer;
   }
 
   .adv-step-line {
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     padding: 1px 0;
   }
 
   .adv-sub-title {
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     margin-top: 4px;
@@ -2120,7 +2144,7 @@
   .adv-stage-name {
     flex: 1;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     background: transparent;
     border: none;
@@ -2132,9 +2156,18 @@
 
   .cum-ok { color: var(--st-ok); }
   .cum-warn { color: var(--st-warn); }
-  .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.66rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
+  .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.75rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
   .adv-mode-row { cursor: pointer; }
   .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
   .adv-mode-on td { color: var(--st-accent); }
-  .adv-refused { margin: 4px 0 0; font-size: 0.7rem; color: var(--st-warn); line-height: 1.4; }
+  .adv-refused { margin: 4px 0 0; font-size: 0.75rem; color: var(--st-warn); line-height: 1.4; }
+  @media (max-width: 810px) {
+    button, input, select, summary, .adv-check { min-height: 44px; min-width: 44px; font-size: max(12px, 0.75rem); }
+    input, select { max-width: 100%; box-sizing: border-box; }
+    .adv-row, .adv-label, .adv-stage-header { flex-wrap: wrap; }
+    .adv-label, .adv-run-btn, .adv-chip { white-space: normal; }
+    .adv-tab, .adv-scroll, .adv-group, .adv-stage-name { min-width: 0; }
+    .adv-error, .adv-inline, .adv-desc, .adv-limits { overflow-wrap: anywhere; }
+    .adv-mode-row { height: 44px; }
+  }
 </style>

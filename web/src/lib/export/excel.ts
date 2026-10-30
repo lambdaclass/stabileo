@@ -32,6 +32,7 @@ import { memberSectionLabel } from '../section/variable';
 import type * as Xlsx from 'xlsx';
 type XlsxModule = typeof import('xlsx');
 let XLSX!: XlsxModule;
+import { exportMessages } from './containment';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { activePerCombo3D, activeCombinations } from '../store/active-results';
 import { computeStationDemands } from '../engine/verification-service';
@@ -649,7 +650,10 @@ export async function buildExcelWorkbook(options: ExcelExportOptions = {}): Prom
   const is3D = uiStore.is3DWorkspace;
   const hasResults = is3D ? !!resultsStore.results3D : !!resultsStore.results;
 
+  const warnings = exportMessages();
+  if (warnings === null) return null;
   const wb = XLSX.utils.book_new();
+  if (warnings.length && !extraSheets.some(s => s.name === 'Warnings')) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(warnings.map(message => [message])), 'Warnings');
 
   const provenanceLines = record ? provenanceTextLines(record, provenanceLabels()) : null;
   if (!onlyExtras) {

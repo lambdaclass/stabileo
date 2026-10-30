@@ -19,7 +19,7 @@ class CiAggregate(unittest.TestCase):
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         paths = workflow.split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]
-        for path in ['scripts/tests/**', 'Makefile', 'Dockerfile']:
+        for path in ['scripts/tests/**', 'scripts/check-containment.py', 'Makefile', 'Dockerfile']:
             self.assertIn(f"- '{path}'", paths)
 
     def test_wasm_builder_installs_clang_before_compilation(self):

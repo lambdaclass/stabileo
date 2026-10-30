@@ -407,7 +407,7 @@ pub struct SpectralElementForce3D {
 
 /// Solve 3D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, String> {
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::Modal)?;
     super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     if input.modes.is_empty() {
         return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());

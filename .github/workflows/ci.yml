@@ -108,6 +108,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/check-containment.py'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'

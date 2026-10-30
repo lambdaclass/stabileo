@@ -1928,7 +1928,7 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
-        <ContainmentBanner disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
+        <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
         {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}

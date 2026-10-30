@@ -14112,6 +14112,7 @@ const tr: Translations = {
   "knownIssue.SH-MITC4-DISTORTION.warning": "Çarpık MITC4 elemanları, membran düzlemi içindeki eğilmede kilitlenme gösterebilir. Ağ yakınsamasını doğrulayın; önemli membran eğilmesi içeren sonuçlar sunulmaz.",
   "knownIssue.SH-MITC4-DISTORTION": "Sonuçlar sunulmuyor: çarpık MITC4 dörtgenleri, membran düzlemi içindeki eğilmede yaklaşık on kat fazla rijit olabilir. Dikdörtgen elemanlarla ağı yeniden oluşturun ve ağ yakınsamasını kontrol edin",
   "knownIssue.PL-2D-INVARIANCE": "Sonuçlar sunulmuyor: 2B plastik göçme yük katsayısı numaralandırmaya, çubuk yönüne veya birimlere göre 4,6 kata kadar değişebilir. Bağımsız olarak doğrulanmış bir göçme analizi kullanın",
+  "knownIssue.SH-MITC4-CONVERGENCE": "MITC4 deneyleri aşırı rijitlik ve ağ inceltildikçe artan hata göstermektedir. Tasarımdan önce kabuk tepkisini bağımsız olarak doğrulayın.",
   "knownIssue.BU-ACCURACY": "3B burkulma katsayıları güvenli olmayan ölçüde yüksek çıkabilir. Tasarımdan önce kritik katsayıyı bağımsız olarak doğrulayın.",
   "knownIssue.BU-BOUND": "Sonuçlar sunulmuyor: hesaplanan burkulma katsayısı, sertifikalı sınırlarının dışındadır. Gösterilen katsayı da sertifika da tasarım için kullanılamaz",
   "knownIssue.SP-17": "Anizotropik bağlantı elemanlarının enine eksenleri kullanıcı tarafından yönlendirilemez ve doğrultuya göre aniden değişebilir. Bu sonuçları kullanmadan önce yay yönlerini bağımsız olarak doğrulayın",

@@ -578,3 +578,36 @@ fn buckle(n: usize, hard: bool) -> f64 {
     let ratio = res.modes[0].load_factor / ncr;
     ratio
 }
+
+#[test]
+fn rotated_solid_shell_nonstatic_containment() {
+    use dedaliano_engine::solver::{kinematic::analyze_kinematics_3d, spectral::solve_spectral_3d};
+    // A vertical X-Z shell: global X-Y stress recovery is affected, but its matrices are valid.
+    let mut model = solid_surface(2, 2, 0.1, 200_000.0, 0.3,
+        &|u, v| ([u, 0.0, v], [0.0, -1.0, 0.0]),
+        &|i, _, _, _| (i == 0).then_some([true; 3]));
+    for j in 0..=2 {
+        for id in [model.grid[2][j].0, model.grid[2][j].1] {
+            model.input.loads.push(nodal(id, [-1.0, 0.0, 0.0]));
+        }
+    }
+    assert!(linear::solve_3d(&model.input).unwrap_err().contains("SH-GLOBAL-STRESS"));
+    let system = buckling::buckling_system_3d(&model.input).unwrap();
+    assert!(!system.linear.displacements.is_empty());
+    assert!(system.linear.quad_stresses.is_empty(), "matrix API must not leak invalid stresses");
+    assert!(system.k_ff.values.iter().any(|v| *v != 0.0));
+    assert!(system.neg_kg_csc.values.iter().any(|v| *v != 0.0));
+    let kinematics = analyze_kinematics_3d(&model.input);
+    assert!(kinematics.invalid_input.is_none(), "{:?}", kinematics.invalid_input);
+    assert!(kinematics.is_solvable);
+    let densities = HashMap::from([("1".to_string(), 7850.0)]);
+    let modes = modal::solve_modal_3d(&model.input, &densities, 2).unwrap();
+    let spectral: SpectralInput3D = serde_json::from_value(serde_json::json!({
+        "solver": model.input, "densities": densities, "modes": modes.modes,
+        "spectrum": {"name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}]},
+        "direction": "X"
+    })).unwrap();
+    let response = solve_spectral_3d(&spectral).unwrap();
+    assert!(response.base_shear.is_finite());
+    assert!(response.base_shear > 0.0);
+}

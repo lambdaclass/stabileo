@@ -6,6 +6,7 @@
  * (`excel-import/schema.ts`), because they are a format; the cover's and the conventions' text is
  * in the reader's language.
  */
+import { exportWarnings } from './containment';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { ProjectInfo } from '../model/project-info';
 import { currentRevision } from '../model/project-info';
@@ -75,10 +76,12 @@ function conventionsSheet(tr: (key: string) => string): WorkbookSheet {
 
 /** Every sheet of the workbook, in order. */
 export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookSheet[] {
+  const warnings = input.include?.results === false ? [] : exportWarnings(input.results.sources.map(s => s.results));
   const only = input.include?.sheets;
   const want = (name: string) => !only || only.has(name);
   return [
     coverSheet(input), conventionsSheet(input.tr),
+    ...(warnings.length ? [{ name: 'Warnings', rows: warnings.map(message => [safeText(message)]) }] : []),
     ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want)),
     ...(input.include?.results === false ? [] : resultSheets(input.results, want)),
     ...(input.extra ?? []).filter((s) => want(s.name)),

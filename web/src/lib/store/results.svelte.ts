@@ -432,7 +432,7 @@ function createResultsStore() {
      *  editing/reading exclusion, not just the ones that call showDiagram(). */
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
-    get results() { return results; },
+    get results() { return knownIssueResultDisposition(results).refused ? null : results; },
     /** True when ANY result of any kind is present. Used by the mutation hook
      *  to decide whether an edit must clear stale results. Covers 2D + 3D base,
      *  per-case/per-combo/envelope, every advanced result (2D + 3D), and the
@@ -464,7 +464,7 @@ function createResultsStore() {
         movingLoadRunning
       );
     },
-    get diagramType() { return diagramType; },
+    get diagramType() { return (this.knownIssues.refused || this.knownIssues3D.refused) ? 'none' as const : diagramType; },
     /**
      * Putting a diagram on screen is a MODE change, so it carries the rule
      * with it — like `uiStore.currentTool`, the dependency is inverted through
@@ -567,7 +567,7 @@ function createResultsStore() {
     get combinationsDirty() { return combinationsDirty; },
     set combinationsDirty(v: boolean) { combinationsDirty = v; },
 
-    get influenceLine() { return influenceLine; },
+    get influenceLine() { return knownIssueResultDisposition(influenceLine).refused ? null : influenceLine; },
     get ilAnimating() { return ilAnimating; },
     set ilAnimating(v: boolean) { ilAnimating = v; if (v && ilAnimProgress >= 1) ilAnimProgress = 0; },
     get ilAnimProgress() { return ilAnimProgress; },
@@ -575,8 +575,8 @@ function createResultsStore() {
     get ilAnimSpeed() { return ilAnimSpeed; },
     set ilAnimSpeed(v: number) { ilAnimSpeed = Math.max(0.25, Math.min(3, v)); },
 
-    get overlayResults() { return overlayResults; },
-    get overlayResults3D() { return overlayResults3D; },
+    get overlayResults() { return knownIssueResultDisposition(overlayResults).refused ? null : overlayResults; },
+    get overlayResults3D() { return knownIssueResultDisposition(overlayResults3D).refused ? null : overlayResults3D; },
     get overlayLabel() { return overlayLabel; },
     /** The member sign the plane results are published with; see transverse-sign-2d.ts. */
     _setTransverseSignProvider(fn: SignOf) { _signOf = fn; },
@@ -597,7 +597,7 @@ function createResultsStore() {
     },
 
     // Advanced analysis
-    get movingLoadEnvelope() { return movingLoadEnvelope; },
+    get movingLoadEnvelope() { return knownIssueResultDisposition(movingLoadEnvelope).refused ? null : movingLoadEnvelope; },
     get activeMovingLoadPosition() { return activeMovingLoadPosition; },
     set activeMovingLoadPosition(v: number) {
       activeMovingLoadPosition = v;
@@ -1140,7 +1140,7 @@ function createResultsStore() {
 
     // ─── 3D Results ─────────────────────────────────────────────
 
-    get results3D() { return results3D; },
+    get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');

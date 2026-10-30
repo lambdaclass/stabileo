@@ -3925,6 +3925,7 @@ const en: Record<string, string> = {
   "knownIssue.SH-MITC4-DISTORTION.warning": "Distorted MITC4 elements can lock in membrane bending. Verify mesh convergence; significant membrane bending results are withheld.",
   "knownIssue.SH-MITC4-DISTORTION": "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence",
   "knownIssue.PL-2D-INVARIANCE": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis",
+  "knownIssue.SH-MITC4-CONVERGENCE": "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. Independently verify shell response before design.",
   "knownIssue.BU-ACCURACY": "3D buckling factors can be unconservatively high. Independently verify the critical factor before design.",
   "knownIssue.BU-BOUND": "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design",
   "knownIssue.SP-17": "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results",

@@ -152,7 +152,7 @@
       if (result) notes = [...notes, ...knownIssueResultDisposition(result).messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : String((e as Error).message ?? e);
+      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, 'Error');
     } finally {
       running = false; controller = null;
     }

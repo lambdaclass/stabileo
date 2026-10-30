@@ -331,6 +331,7 @@ check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
 test.ci-scripts:
+	python3 -B -I -m unittest discover -s scripts/tests -p test_check_containment.py -v
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
