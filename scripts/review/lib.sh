@@ -96,7 +96,7 @@ review_attempt() {
   if [ "$1" = codex ]; then
     (cd "$WORKTREE" && "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
   else
-    (cd "$WORKTREE" && python3 "$REVIEW_SCRIPTS/readonly.py" "$REPO" "$GIT_COMMON" "$WORK_ROOT" -- "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
+    (cd "$WORKTREE" && python3 "$REVIEW_SCRIPTS/readonly.py" -- "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
   fi
   printf '%s\n' "$rc" > "$PREFIX-$name.exit"
   [ "$rc" -eq 0 ] || return 1

@@ -7,6 +7,8 @@ import sys
 import yaml
 
 root, paper_id, reviewer, sha, verdict = sys.argv[1:]
+# The runner uses "ready"; retain the catalog vocabulary for existing records.
+verdict = {"ready": "ready to merge"}.get(verdict, verdict)
 root = Path(root)
 spec = importlib.util.spec_from_file_location("catalog", root / "research/tools/catalog.py")
 catalog = importlib.util.module_from_spec(spec)

@@ -2,10 +2,13 @@ import importlib.util
 import os
 from pathlib import Path
 import signal
+import shutil
+import sys
 import subprocess
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 LIB = ROOT / 'scripts/review/lib.sh'
@@ -54,18 +57,89 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
             calls = (Path(tmp) / 'calls').read_text().splitlines()
             self.assertEqual(len(calls), 4)
             for name, call in zip(('codex', 'kimi', 'grok', 'adversarial'), calls):
-                self.assertEqual(call, f'{tmp}/{name} /scripts/readonly.py /source /metadata {tmp} -- reviewer')
+                self.assertEqual(call, f'{tmp}/{name} /scripts/readonly.py -- reviewer')
 
-    def test_readonly_covers_checkout_and_git_metadata(self):
-        paths = ['/tmp/source', '/tmp/metadata', '/tmp/checkouts']
-        mac = readonly.sandbox_command(paths, ['reviewer'], 'darwin')
-        linux = readonly.sandbox_command(paths, ['reviewer'], 'linux')
-        self.assertIn('(deny file-write*', mac[2])
-        for path in paths:
-            resolved = str(Path(path).resolve())
-            self.assertIn(f'(subpath "{resolved}")', mac[2])
-            self.assertIn(['--ro-bind', resolved, resolved],
-                          [linux[i:i + 3] for i in range(len(linux))])
+    def test_readonly_default_with_private_writable_exception(self):
+        scratch = str(Path('/tmp/private-scratch').resolve())
+        mac = readonly.sandbox_command([scratch], ['reviewer'], 'darwin')
+        linux = readonly.sandbox_command([scratch], ['reviewer'], 'linux')
+        self.assertIn('(deny file-write*)', mac[2])
+        self.assertIn(f'(allow file-write* (subpath "{scratch}"))', mac[2])
+        self.assertEqual(linux[2:5], ['--ro-bind', '/', '/'])
+        self.assertEqual(linux[5:8], ['--bind', scratch, scratch])
+        self.assertIn('--unshare-pid', linux)
+        self.assertIn('--proc', linux)
+
+    def test_private_config_and_scratch_are_cleaned_up(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = Path(tmp)
+            for directory in ('.kimi', '.grok', '.config'):
+                (original / directory).mkdir()
+                (original / directory / 'settings').write_text('original')
+            scratch_paths = []
+
+            def run(command, env):
+                scratch = Path(env['TMPDIR'])
+                scratch_paths.append(scratch)
+                self.assertEqual(command, readonly.sandbox_command([scratch], ['reviewer']))
+                home = Path(env['HOME'])
+                for directory in ('.kimi', '.grok', '.config'):
+                    config = home / directory / 'settings'
+                    self.assertEqual(config.read_text(), 'original')
+                    config.write_text('private changes')
+                for variable in ('XDG_CONFIG_HOME', 'XDG_CACHE_HOME',
+                                 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'TMP', 'TEMP'):
+                    self.assertTrue(Path(env[variable]).is_relative_to(scratch))
+                return 7
+
+            with patch.object(readonly.Path, 'home', return_value=original), \
+                 patch.dict(os.environ, {'XDG_CONFIG_HOME': str(original / '.config')}), \
+                 patch.object(readonly.subprocess, 'call', side_effect=run):
+                self.assertEqual(readonly.main(['reviewer']), 7)
+            self.assertFalse(scratch_paths[0].exists())
+            for directory in ('.kimi', '.grok', '.config'):
+                self.assertEqual((original / directory / 'settings').read_text(), 'original')
+
+    def test_cannot_overwrite_other_reviewer_artifacts(self):
+        sandbox = 'sandbox-exec' if sys.platform == 'darwin' else 'bwrap'
+        if not shutil.which(sandbox):
+            self.skipTest(f'{sandbox} is unavailable')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            scratch = root / 'scratch'
+            scratch.mkdir()
+            artifacts = [root / name for name in ('codex.raw', 'codex.md')]
+            for path in artifacts:
+                path.write_text('original')
+            script = """
+import pathlib, sys
+for name in sys.argv[1:]:
+    path = pathlib.Path(name)
+    try:
+        path.write_text('forged')
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('artifact was writable: ' + name)
+    try:
+        path.unlink()
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('artifact was removable: ' + name)
+pathlib.Path('scratch/probe').write_text('allowed')
+print('ready')
+"""
+            # The parent can open its own output before entering the sandbox.
+            with (root / 'kimi.raw').open('w') as output:
+                result = subprocess.run(readonly.sandbox_command(
+                    [scratch], [sys.executable, '-c', script, *map(str, artifacts)]),
+                    cwd=root, stdout=output, stderr=subprocess.PIPE, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((root / 'kimi.raw').read_text(), 'ready\n')
+            self.assertEqual((scratch / 'probe').read_text(), 'allowed')
+            for path in artifacts:
+                self.assertEqual(path.read_text(), 'original')
 
     def test_term_kills_stubborn_process_tree_and_cleans_checkout(self):
         with tempfile.TemporaryDirectory() as tmp:

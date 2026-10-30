@@ -45,7 +45,7 @@ name=${0##*/}
 [ "$(git rev-parse HEAD)" = "$TEST_SHA" ]
 if git symbolic-ref -q HEAD >/dev/null; then exit 91; fi
 [ -z "$(cat)" ]
-echo "$name $*" >> "$TEST_LOG"
+echo "$name $*" >&2
 case "$name" in
   kimi) mode=$KIMI_MODE; [[ "$*" = '-p '* && "$*" != *--plan* ]];;
   grok) mode=$GROK_MODE; [[ "$*" = *'--permission-mode plan'* ]];;
@@ -72,9 +72,8 @@ case "$mode" in
     printf 'Reviewed content at %s\nA test failed in the proposed code.\n%s\n\n' "$(git rev-parse HEAD)" "${TEST_VERDICT:-not ready}"
     if [ -n "${TEST_BARRIER:-}" ]; then
       # Keep every raw file open after writing so all runs overlap publication.
-      touch "$TEST_BARRIER/$TEST_RUN-$name"
       for ((i=0; i<200; i++)); do
-        [ "$(find "$TEST_BARRIER" -type f | wc -l)" -lt 6 ] || exit 0
+        [ "$(find "$REVIEW_OUT" -name '*.raw' -exec grep -l 'Reviewed content' {} \; | wc -l)" -lt 6 ] || exit 0
         sleep 0.05
       done
       echo 'overlap barrier timed out' >&2; exit 92
@@ -97,6 +96,7 @@ run_case() {
   local case_out
   case_out=$(mktemp -d "$TEMP/case.XXXXXX")
   REVIEW_OUT=$case_out bash scripts/review/review-pr.sh 123 '' "${TEST_PIN:-$TEST_SHA}"
+  cat "$case_out"/run-*/*.err >> "$TEST_LOG"
   grep -Fx "REVIEWER: $1" "$case_out"/run-*/*.md
   grep -Fx "SHA: $TEST_SHA" "$case_out"/run-*/review-123-"${TEST_SHA:0:12}"-codex.md
   assert_clean
