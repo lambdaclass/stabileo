@@ -59,3 +59,18 @@ describe('engine benchmark evidence', () => {
     expect(viewerData(c).displacement).toBeNull();
   });
 });
+
+
+it('translates all benchmark text with matching numbers in each research locale', async () => {
+  const { strings, caseLabel } = await import('../i18n');
+  const numbers = (s: string) => s.match(/\d+(?:\.\d+)*/g) ?? [];
+  for (const locale of ['es', 'pt'] as const) {
+    expect(Object.keys(strings[locale]).sort()).toEqual(Object.keys(strings.en).sort());
+    for (const key of Object.keys(strings.en) as (keyof typeof strings.en)[]) {
+      expect(strings[locale][key].length).toBeGreaterThan(0);
+      expect(numbers(strings[locale][key]), `${locale}.${key}`).toEqual(numbers(strings.en[key]));
+    }
+    for (const c of cases) expect(caseLabel(c.id, strings[locale])).not.toContain('undefined');
+  }
+  expect(strings.en.title).toContain('first version');
+});

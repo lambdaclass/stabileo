@@ -15,3 +15,26 @@ it('attributes reset parameters to reference code in every public locale', () =>
     }
   } finally { setLocale(original); }
 });
+
+it('preserves numeric values and interpolation tokens in research translations', () => {
+  const original = publicI18n.locale;
+  const numbers = (s: string) => s.match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
+  const placeholders = (s: string) => s.match(/\{\w+\}/g)?.sort() ?? [];
+  try {
+    setLocale('en');
+    const english = rs();
+    for (const locale of ['es', 'pt']) {
+      setLocale(locale);
+      const translated = rs();
+      expect(translated.paperOverview).not.toBe(english.paperOverview);
+      expect(translated.damageLimitation).not.toBe(english.damageLimitation);
+      for (const key of Object.keys(english) as (keyof typeof english)[]) {
+        const source = english[key];
+        const value = translated[key];
+        if (typeof source !== 'string' || typeof value !== 'string') continue;
+        expect(numbers(value), `${locale}.${key}`).toEqual(numbers(source));
+        expect(placeholders(value), `${locale}.${key}`).toEqual(placeholders(source));
+      }
+    }
+  } finally { setLocale(original); }
+});

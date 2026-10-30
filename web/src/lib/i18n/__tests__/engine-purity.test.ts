@@ -18,8 +18,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { tAt, OFFERED_LOCALES } from '../store.svelte';
-import { allShippedLocales as shippedLocales, allDictFor as dictFor } from '../locales/all';
+import { tAt } from '../store.svelte';
+import { allShippedLocales as shippedLocales, allDictFor as dictFor, completeLocales } from '../locales/all';
 import { OCCUPANCY_TABLE_2025 } from '../../codes/cirsoc101/live-loads';
 import { DEAD_TABLE_2025 } from '../../codes/cirsoc101/dead-loads';
 import { BEHAVIOUR_TABLE_2018 } from '../../codes/cirsoc103/behaviour';
@@ -139,7 +139,7 @@ function engineKeys(): string[] {
  * Derived from `OFFERED_LOCALES` rather than restated, so narrowing or widening the picker moves
  * this with it and cannot leave a language offered but unguarded.
  */
-const REQUIRED_LOCALES = [...OFFERED_LOCALES];
+const REQUIRED_LOCALES = completeLocales();
 
 function placeholders(text: string): string[] {
   return [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();

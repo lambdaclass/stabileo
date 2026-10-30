@@ -39,8 +39,9 @@ import ru from '../locales/ru';
 import tr from '../locales/tr';
 import zh from '../locales/zh';
 import type { Translations } from '../types';
+import { partialLocales } from '../locales/all';
 
-const locales: Record<string, Translations> = {
+const all: Record<string, Translations> = {
 	es,
 	ar,
 	de,
@@ -55,6 +56,7 @@ const locales: Record<string, Translations> = {
 	tr,
 	zh
 };
+const locales = Object.fromEntries(Object.entries(all).filter(([code]) => !partialLocales().includes(code)));
 
 function designKeys(dict: Translations): string[] {
 	return Object.keys(dict)

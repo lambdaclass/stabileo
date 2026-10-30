@@ -146,3 +146,10 @@ export class SimulationController {
     this.worker = null;
   }
 }
+
+export function pendingMeshMessage(run: Run | null, replayError: string | null): string {
+  if (run?.status === 'stopped') return 'Stopped. Press Recompute live to restart.';
+  if (run?.error) return `The solver failed: ${run.error}. Retry or return to the replay in Parameters.`;
+  if (replayError) return 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.';
+  return run ? 'Loading the solver…' : 'Loading the replay…';
+}

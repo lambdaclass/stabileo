@@ -16,7 +16,7 @@
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
   import DrawnKindField from './building/DrawnKindField.svelte';
@@ -73,7 +73,7 @@
 
 {#if drawState.active}
   <div class="db" data-testid="pro-draw-bar" data-tool={tool}>
-    <span class="db-title"><Icon name={icon} size={14} /> {t('pro.drawInModel')} {title}</span>
+    <span class="db-title"><Icon name={icon} size={14} /> {capitalized(tp('pro.drawWhat', { what: title }))}</span>
     <span class="db-step" data-testid="draw-step">{step}</span>
     <span class="db-sep" aria-hidden="true"></span>
 

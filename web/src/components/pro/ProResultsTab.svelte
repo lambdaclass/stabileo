@@ -812,7 +812,7 @@
             <thead>
               <tr>
                 <th>{t('pro.elemLabel')}</th>
-                <th>Ext.</th>
+                <th>{t('report.ext')}</th>
                 <th>N ({unitQ('force')})</th>
                 <th>Vy ({unitQ('force')})</th>
                 <th>Vz ({unitQ('force')})</th>
@@ -970,8 +970,8 @@
                 <th>{t('pro.nodalVmNode')} 2</th>
                 <th>{t('pro.nodalVmNode')} 3</th>
                 <th>{t('pro.nodalVmNode')} 4</th>
-                <th>Min (kN/m²)</th>
-                <th>Max (kN/m²)</th>
+                <th>{t('pro.queryModeMin')} (kN/m²)</th>
+                <th>{t('pro.queryModeMax')} (kN/m²)</th>
               </tr></thead>
               <tbody>
                 {#each nodalQuads as qs}

@@ -1072,7 +1072,9 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "relativeErrorLessThan": 0.02
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     },
     {
@@ -1308,7 +1310,9 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "relativeErrorLessThan": 0.02
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     },
     {
@@ -1544,7 +1548,10 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "valueGreaterThan": 0.41578915588851517,
+        "valueLessThan": 0.4166215666110146
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     },
     {
@@ -1780,7 +1787,10 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "valueGreaterThan": 0.008434570494514005,
+        "valueLessThan": 0.008451456521530048
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     },
     {
@@ -2016,7 +2026,10 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "valueGreaterThan": 0.42214982947981905,
+        "valueLessThan": 0.4229949742835824
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     },
     {
@@ -2252,7 +2265,10 @@
       "source": "MacNeal\u2013Harder straight cantilever; values and 6\u00d71 mesh transcribed from solid_shell_locking.rs. Original page/table not yet verified. MITC4 uses midsurface nodes.",
       "tolerance": 0.02,
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": null,
+      "nativeBounds": {
+        "valueGreaterThan": 0.010369314849002442,
+        "valueLessThan": 0.010390074238089533
+      },
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
     }
   ],

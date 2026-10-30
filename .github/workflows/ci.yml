@@ -108,6 +108,9 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/tests/**'
+              - 'Makefile'
+              - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
 
@@ -456,7 +459,9 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: research/fracture/shauer-2025/wasm
+          workspaces: |
+            research/fracture/shauer-2025/wasm
+            research/metamaterials/grossman-2026/wasm
           shared-key: research-wasm
       - name: Install web dependencies (the research viewer bundle is built with Vite)
         run: make web.deps
@@ -464,6 +469,8 @@ jobs:
         run: make research.wasm
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The spring-network bundle gives the exact lattice answers (Node)
+        run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
@@ -620,6 +627,54 @@ jobs:
           test -s web/dist/research-wasm/viewer/viewer.js
       - name: Admin site build
         run: make admin.build
+
+  # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus
+  # solved through the app's path must give the committed snapshots (web/results-snapshots/),
+  # and a pull request that changes them must register the change (an entry in
+  # result-changes.json and a "BREAKING (results)" changelog fragment).
+  results-snapshot:
+    name: Results Snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [changes, wasm]
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The merge commit and its first parent, the base the pull request is compared with.
+          fetch-depth: 2
+      - if: runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
+      # Built once per run by the `wasm` job, the same build as the shipped app.
+      - name: WASM engine (from the wasm job)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: wasm
+          path: web/src/lib/wasm
+      - name: Install dependencies
+        run: make web.deps
+      - name: The corpus gives the committed snapshots
+        run: make test.web.results
+      # Not on a push to main: what reaches main went through the queue, where this ran.
+      - name: A changed snapshot is registered
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          if [ -n "$QUEUE_BASE" ]; then
+            git fetch --no-tags --depth=1 origin "$QUEUE_BASE"
+            make check.results-snapshot-gate BASE="$QUEUE_BASE"
+          else
+            make check.results-snapshot-gate BASE=HEAD^1
+          fi
 
   # The WASM engine must give bit-identical results in every runtime it ships to
   # (docs/verification/TRUSTED_BASE.md): fixed solves and certificates in Chromium,
@@ -845,6 +900,7 @@ jobs:
       - changes
       - lint-repo
       - test-ci-scripts
+      - docker-smoke
       - lint-engine
       - test-engine-gates
       - test-engine-suite
@@ -857,10 +913,10 @@ jobs:
       - wasm
       - research-wasm
       - research
-      - docker-smoke
       - site-e2e
       - web-unit
       - web-build
+      - results-snapshot
       - determinism
       - e2e
     steps:

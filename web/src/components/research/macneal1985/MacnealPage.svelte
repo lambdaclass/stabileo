@@ -6,7 +6,7 @@
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
   import { cases, nativeOnly, runCases, tolerance, viewerData, type Result } from './cases';
   import { editorURL } from './editor';
-  import { strings } from './i18n';
+  import { strings, caseLabel } from './i18n';
 
   let rows = $state<Result[]>([]);
   let busy = $state(false);
@@ -27,49 +27,45 @@
     catch (e) { failure = String(e); }
     finally { busy = false; }
   }
-  function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href), '_blank', 'noopener'); }
+  function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href, s), '_blank', 'noopener'); }
   onMount(() => { void run(); });
 </script>
 
-<ExperimentShell paperId="macneal-harder-1985" name="MacNeal–Harder (1985): engine benchmarks"
-  lead="The production Stabileo engine, tested live against stated references. Every result below is computed in this browser; failures stay visible."
+<ExperimentShell paperId="macneal-harder-1985" name={s.title} lead={s.lead}
   sourcePath="engine/tests/benchmarks"
   actions={{ goToStep: () => {}, setParams: () => {}, showTab: t => { tab = t; } }}
-  verification={{ reference: { kind: 'none', why: 'No separate reference solver: this page runs the production engine.' }, published: { kind: 'none', why: 'Numerical table provenance pending. The live table separates paper-reference cases from analytical frame adaptations.' } }}>
+  verification={{ reference: { kind: 'none', why: s.referenceWhy }, published: { kind: 'none', why: s.publishedWhy } }}>
   {#snippet article()}
-    <h2>What is tested</h2>
-    <p>MacNeal and Harder proposed accuracy problems for finite elements. This first selection runs straight cantilevers with regular, trapezoidal and parallelogram meshes using MITC4 shells, plus the existing Euler–Bernoulli frame adaptations. It is not a claim to pass the entire published problem set.</p>
-    <p>The shell strip has length 6, width 0.2, thickness 0.1, Young’s modulus 10⁷ and Poisson’s ratio 0.3, with six elements and a unit end force. The engine takes modulus divided by 1000. The frame adaptations retain their own material, section and meshes; their analytical values are not the paper’s tabulated shell values.</p>
-    <h2>One benchmark definition</h2>
-    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/macneal_harder.json">The engine-owned case file</a> contains the inputs, measurement locations, references, sources and tolerances. Native tests and this page read it. No research solver supplies these results.</p>
-    <h2>Accuracy and regression bounds</h2>
-    <p>The live table uses a strict relative error below 2%. Existing native tests also check convergence, rigid modes and regression floors. A permissive regression floor is not an accuracy pass. The Research workflow compares native and WASM values and classifications.</p>
-    <h2 id="limitations">Known limitations and registry</h2>
-    <p>Distorted low-order elements can lock. Failing rows link here and remain in the denominator. The <a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">engine known-issues registry</a> currently contains no open shell entry. <a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion">The engine test ledger records the four live failures</a>. A solver-owner decision is needed to add runtime diagnostics; this track does not edit production engine code.</p>
-    <p>Reference values retain the existing tests’ provenance. The original paper’s exact numerical table/page locators still require verification. Native shell suites also cover roof, cylinder, hemisphere and twisted-beam configurations; they are not included in this first live selection.</p>
-    <h2>{s.native}</h2>
-    <ul>{#each nativeOnly as c}<li><strong>{c.label}</strong>: {c.reason} <code>{c.nativeTest}</code></li>{/each}</ul>
+    <h2>{s.scopeTitle}</h2><p>{s.scope}</p><p>{s.geometry}</p>
+    <h2>{s.definitionTitle}</h2><p>{s.definition}</p>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/macneal_harder.json">{s.caseFile}</a></p>
+    <h2>{s.accuracyTitle}</h2><p>{s.accuracy}</p>
+    <h2 id="limitations">{s.limitationsTitle}</h2><p>{s.limitations}</p>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion">{s.ledger}</a></p>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{s.registry}</a></p>
+    <h2>{s.native}</h2><p>{s.nativeReason}</p>
+    <ul>{#each nativeOnly as c}<li><code>{c.nativeTest}</code></li>{/each}</ul>
   {/snippet}
   {#snippet app()}
     <div class="benchmark-pane">
       <p role="status" data-testid="benchmark-summary">{#if busy}{s.running}{:else if rows.length === cases.length}{s.summary}: {passed}/{cases.length} {s.within} {fmt(100 * tolerance)}%{:else}{s.pending}{/if}</p>
       <p>{s.subset}</p>
       <button onclick={run} disabled={busy}>{s.run}</button>
-      {#if failure}<p role="alert">{s.failed}: {failure}</p>{/if}
+      {#if failure}<p role="alert">{s.failed}</p>{/if}
       <PaneTabs tabs={[{ id: 'viewer', label: s.viewer }, { id: 'results', label: s.results }]} bind:active={tab} />
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
-        <label>{s.select}<select bind:value={selected}>{#each cases as c}<option value={c.id}>{c.label}</option>{/each}</select></label>
+        <label>{s.select}<select bind:value={selected}>{#each cases as c}<option value={c.id}>{caseLabel(c.id, s)}</option>{/each}</select></label>
         <label>{s.scale}<input type="range" min="0" max="20" step="0.5" bind:value={scale} />{scale}</label>
-        <ScalarFieldViewer {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={current.label} unit="m" height="23rem" onOpenEditor={open} />
+        <ScalarFieldViewer {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={caseLabel(current.id, s)} unit="m" height="23rem" onOpenEditor={open} />
         <p>{s.projection}</p>
         <button onclick={open}>{s.open}</button>
-        <p>{current.source}</p>
+        <p>{current.dimension === 2 ? s.sourceFrame : s.sourceShell}</p>
       </div>
       <div id="rs-panel-results" role="tabpanel" aria-labelledby="rs-tab-results" hidden={tab !== 'results'}>
         <div class="table-scroll" id="checks"><table><thead><tr><th>{s.select}</th><th>{s.reference}</th><th>Stabileo</th><th>{s.error} %</th><th></th></tr></thead><tbody>
           {#each cases as c}
             {@const r = rows.find(r => r.id === c.id)}
-            <tr data-testid={c.id}><th><button onclick={() => { selected = c.id; tab = 'viewer'; }}>{c.label}</button></th><td>{fmt(c.reference)}</td><td>{fmt(r?.value)}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td>{#if !r}{s.pending}{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p>{r.failure}</p>{/if}{/if}</td></tr>
+            <tr data-testid={c.id}><th><button onclick={() => { selected = c.id; tab = 'viewer'; }}>{caseLabel(c.id, s)}</button></th><td>{fmt(c.reference)}</td><td data-testid="computed">{fmt(r?.value)}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td data-testid="classification">{#if !r}{s.pending}{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p data-testid="solver-error" title={r.failure}>{s.solverError}</p>{/if}{/if}</td></tr>
           {/each}
         </tbody></table></div>
       </div>

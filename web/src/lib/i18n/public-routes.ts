@@ -103,9 +103,9 @@ export function publicUrl(path: string, locale: PublicLocale): string {
  * Every language's address for one route, plus x-default — the `hreflang` set
  * a page declares so a crawler can find its siblings.
  */
-export function alternateUrls(path: string): Array<{ hreflang: string; href: string }> {
+export function alternateUrls(path: string, locales: readonly PublicLocale[] = PUBLIC_LOCALES): Array<{ hreflang: string; href: string }> {
 	return [
-		...PUBLIC_LOCALES.map((l) => ({ hreflang: l, href: publicUrl(path, l) })),
+		...locales.map((l) => ({ hreflang: l, href: publicUrl(path, l) })),
 		/*
 		 * x-default points at the English version OF THIS PAGE.
 		 *

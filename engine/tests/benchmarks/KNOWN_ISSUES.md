@@ -17,6 +17,8 @@ the page's strict 2% accuracy target for both trapezoidal and parallelogram mesh
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
 | Parallelogram | In plane | 0.1081 | 0.010379694543545988 | 90.398062% |
 
+Native regression gates require the two regular MITC4 cases to retain the strict 2% accuracy target. Each of these four known failures has a separate two-sided displacement bound of ±0.1% around the computed value above. These bounds detect numerical drift; satisfying them is still an accuracy failure. The perturbation test rejects degraded, zero and non-finite measurements.
+
 Native and production WASM agree. Reproduce with `shells macneal_harder::browser_cases`
 and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references and the
 accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the

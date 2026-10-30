@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { rs } from '../i18n';
   /**
    * The experiment pane's tabs (WAI-ARIA tabs: roving focus, arrow keys). Content lives one tab click away (overflowing panels may scroll on short windows); article links switch tabs through the
    * experiment context (`showTab`), and the tab they open is briefly highlighted.
@@ -19,9 +20,10 @@
     active = next.id;
     (document.getElementById(`rs-tab-${next.id}`) as HTMLElement | null)?.focus();
   }
+  const strings = $derived(rs());
 </script>
 
-<div class="rs-tabs" role="tablist" aria-label="Experiment">
+<div class="rs-tabs" role="tablist" aria-label={strings.experiment}>
   {#each tabs as t, i (t.id)}
     <button
       id="rs-tab-{t.id}"

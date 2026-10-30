@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t, tp } from '../../lib/i18n';
+  import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
    * have a mesh and a field but no editor model (research experiments). Shares the app's scene
@@ -64,6 +66,8 @@
     /** What "Open in the editor" does; absent shows it as coming. */
     onOpenEditor?: (() => void) | null;
     openEditorNote?: string;
+    /** Show the status bar's "Open in the editor" button (false when the page offers its own editor). */
+    editorButton?: boolean;
   };
   let {
     xy,
@@ -88,7 +92,8 @@
     status = [],
     toolbar,
     onOpenEditor = null,
-    openEditorNote = 'Opening experiments in the editor comes with research mode',
+    openEditorNote,
+    editorButton = true,
   }: Props = $props();
 
   let container: HTMLDivElement;
@@ -128,10 +133,12 @@
     if (view) return view;
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
     for (let i = 0; i < xy.length; i += 2) {
-      x0 = Math.min(x0, xy[i]);
-      x1 = Math.max(x1, xy[i]);
-      y0 = Math.min(y0, xy[i + 1]);
-      y1 = Math.max(y1, xy[i + 1]);
+      const x = xy[i] + deformScale * (displacement?.[i] ?? 0);
+      const y = xy[i + 1] + deformScale * (displacement?.[i + 1] ?? 0);
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
     }
     return [x0, y0, x1, y1];
   }
@@ -162,6 +169,7 @@
     controls.target.set(cx, cy, 0);
     controls.enableRotate = projection === 'orbit';
     camera.lookAt(cx, cy, 0);
+    updateZoom();
     invalidate();
   }
 
@@ -181,6 +189,7 @@
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     if (pendingFit) fit();
+    updateZoom();
     invalidate();
   }
 
@@ -197,8 +206,7 @@
   function updateZoom() {
     if (!renderer) return;
     const d = camera.position.distanceTo(controls.target);
-    const visible = 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-    zoomText = `${(container.clientHeight / visible).toPrecision(3)} px/unit`;
+    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov);
   }
 
   onMount(() => {
@@ -279,36 +287,36 @@
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     <div class="camera-controls" style="top: 10px">
       <div class="cam-menu-wrap">
-        <button class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title="View" aria-label="View options" aria-expanded={menuOpen}>
+        <button class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
           <Icon name="viewCube" size={17} />
           <span class="cam-caret" aria-hidden="true"></span>
         </button>
         {#if menuOpen}
-          <button class="cam-backdrop" onclick={() => (menuOpen = false)} aria-label="Close" tabindex="-1"></button>
+          <button class="cam-backdrop" onclick={() => (menuOpen = false)} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
           <div class="cam-menu">
-            <button class="cam-item" onclick={() => { menuOpen = false; fit(); }}><span class="cam-glyph">⤢</span><span>Zoom to extents</span></button>
+            <button class="cam-item" onclick={() => { menuOpen = false; fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
             <div class="cam-sep"></div>
-            <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>2D (plan, orbit locked)</span></button>
-            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>3D (orbit)</span></button>
+            <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>{t('scalarViewer.plan')}</span></button>
+            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>{t('scalarViewer.orbit')}</span></button>
           </div>
         {/if}
       </div>
-      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title="Switch between the plan view and orbiting in 3D">{projection === 'plan' ? '2D' : '3D'}</button>
-      <button class="sfv-mode" onclick={() => fit()} title="Zoom to extents" aria-label="Zoom to extents">⤢</button>
+      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+      <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
     {#if values}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
-    <span class="sfv-mark">Stabileo viewer</span>
+    <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
   </div>
   <div class="status-bar sfv-status">
-    <div class="status-item"><span class="status-label">pos:</span><span class="status-value">{pointer}</span></div>
-    <div class="status-item"><span class="status-label">zoom:</span><span class="status-value">{zoomText}</span></div>
-    <div class="status-item"><span class="status-label">model:</span><span class="status-value">{nodeCount} nodes, {cellCount} {cellSize === 2 ? 'bars' : 'elements'}</span></div>
+    <div class="status-item"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>
+    <div class="status-item"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
+    <div class="status-item"><span class="status-label">{t('scalarViewer.model')}</span><span class="status-value">{tp(cellSize === 2 ? 'scalarViewer.bars' : 'scalarViewer.elements', { nodes: nodeCount, cells: cellCount })}</span></div>
     {#each status as s (s.label)}
       <div class="status-item"><span class="status-label">{s.label}:</span><span class="status-value">{s.value}</span></div>
     {/each}
-    <button class="sfv-editor" disabled={!onOpenEditor} onclick={() => onOpenEditor?.()} title={onOpenEditor ? 'Open in the editor' : openEditorNote}>Open in the editor{onOpenEditor ? '' : ' (soon)'}</button>
+    {#if editorButton}<button class="sfv-editor" disabled={!onOpenEditor} onclick={() => onOpenEditor?.()} title={onOpenEditor ? t('scalarViewer.openEditor') : (openEditorNote ?? t('scalarViewer.editorNote'))}>{t('scalarViewer.openEditor')}{onOpenEditor ? '' : t('scalarViewer.soon')}</button>{/if}
   </div>
 </div>
 

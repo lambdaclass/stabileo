@@ -100,7 +100,7 @@ mod tests {
         let mesh = phasefield_shauer_2025::mesh::rectangle(1, 1, 1.0, 1.0);
         let frames = vec![(vec![0.0; 4], vec![0.0; 8])];
         let mut stored = vec![Frame { damage: vec![0.0; 4], displacement: vec![0.0; 8] }];
-        let mut header = Header { nodes: 4, elements: 1, damage_max: DAMAGE_MAX,
+        let mut header = Header { build_id: String::new(), nodes: 4, elements: 1, damage_max: DAMAGE_MAX,
             displacement_scale: vec![0.0], steps: vec![], config: serde_json::to_value(&plate).unwrap() };
         let check = |h: &Header, n: &[[f64; 2]], s: &[Frame]| validate_recording(h, n, &mesh.elements, s, &plate, &mesh, &frames);
         assert!(check(&header, &mesh.nodes, &stored).is_ok());

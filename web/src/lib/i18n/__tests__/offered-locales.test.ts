@@ -24,6 +24,7 @@
  * import is what makes "open the app in a Portuguese browser" a thing this file can say.
  */
 import { allShippedLocales } from '../locales/all';
+import { isComplete } from '../offered';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 type Store = typeof import('../store.svelte');
@@ -65,9 +66,10 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('the languages the app offers', () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it('is exactly English, Español and Português', async () => {
+  it('is English, Español and Português, plus Deutsch, Français and Türkçe each once it is complete', async () => {
     const { store } = await boot(['en']);
-    expect([...store.OFFERED_LOCALES].sort()).toEqual(['en', 'es', 'pt']);
+    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr'].filter(isComplete)];
+    expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 
   it('names each of them in its own language, so the picker is readable to its speaker',
@@ -76,6 +78,9 @@ describe('the languages the app offers', () => {
       expect(store.tAt('lang.en', 'en')).toBe('English');
       expect(store.tAt('lang.es', 'en')).toBe('Español');
       expect(store.tAt('lang.pt', 'en')).toBe('Português');
+      expect(store.tAt('lang.de', 'en')).toBe('Deutsch');
+      expect(store.tAt('lang.fr', 'en')).toBe('Français');
+      expect(store.tAt('lang.tr', 'en')).toBe('Türkçe');
     });
 
   it('bundles exactly the dictionaries it offers, and keeps the rest on disk', async () => {
@@ -97,11 +102,17 @@ describe('the languages the app offers', () => {
   });
 });
 
+/** Where a browser in this language lands: the language once it is complete, English until then. */
+const reach = (code: string) => (isComplete(code) ? code : 'en');
+
 describe('detecting the browser language', () => {
   for (const [lang, expected] of [
     ['en', 'en'], ['es', 'es'], ['pt', 'pt'],
     ['en-US', 'en'], ['en-GB', 'en'], ['es-AR', 'es'], ['es-419', 'es'], ['pt-BR', 'pt'],
     ['pt-PT', 'pt'],
+    ['de', reach('de')], ['de-DE', reach('de')], ['de-AT', reach('de')], ['de-CH', reach('de')],
+    ['fr', reach('fr')], ['fr-FR', reach('fr')], ['fr-CA', reach('fr')], ['fr-BE', reach('fr')],
+    ['tr', reach('tr')], ['tr-TR', reach('tr')],
   ] as const) {
     it(`a browser set to ${lang} opens in ${expected}`, async () => {
       const { store } = await boot([lang]);
@@ -109,11 +120,10 @@ describe('detecting the browser language', () => {
     });
   }
 
-  for (const lang of ['fr', 'de', 'it', 'ja', 'zh-CN', 'ru', 'ar', 'ko', 'hi', 'tr', 'id']) {
+  for (const lang of ['it', 'ja', 'zh-CN', 'ru', 'ar', 'ko', 'hi', 'id']) {
     it(`a browser set to ${lang} opens in English rather than a half-translated ${lang}`,
       async () => {
-        // The dictionary exists — this is not "we have no French" — but it is mostly English
-        // underneath, and a French label over English text is worse than English.
+        // The dictionary exists, but it is not offered: mostly English underneath.
         const { store } = await boot([lang]);
         expect(store.i18n.locale).toBe('en');
       });
@@ -121,9 +131,9 @@ describe('detecting the browser language', () => {
 
   it('takes the first OFFERED language from the preference list, not the first language',
     async () => {
-      // A browser configured "German, then Portuguese" prefers German, which the app does not
+      // A browser configured "Italian, then Portuguese" prefers Italian, which the app does not
       // offer. Portuguese is the best honest match, and it is in the list.
-      const { store } = await boot(['de', 'pt-BR', 'en']);
+      const { store } = await boot(['it', 'pt-BR', 'en']);
       expect(store.i18n.locale).toBe('pt');
     });
 
@@ -176,21 +186,30 @@ describe('the choice a user makes', () => {
 
   it('is refused when the code is not offered, rather than blanking the picker', async () => {
     // The picker's value is bound to `i18n.locale`; a `<select>` whose value matches none of its
-    // options renders empty. Accepting 'de' here would show nothing, in a language nobody chose.
+    // options renders empty. Accepting 'it' here would show nothing, in a language nobody chose.
     const { store, storage } = await boot(['en']);
-    store.setLocale('de');
+    store.setLocale('it');
     expect(store.i18n.locale).toBe('en');
     // Storage still holds what DETECTION wrote at boot, and the refused call left no trace:
-    // no 'de', and no manual flag claiming a choice the user was not allowed to make.
+    // no 'it', and no manual flag claiming a choice the user was not allowed to make.
     expect(storage._dump()['stabileo-lang']).toBe('en');
     expect(storage._dump()['stabileo-lang-manual']).toBeUndefined();
   });
 
+  for (const code of ['de', 'fr', 'tr'].filter((c) => !isComplete(c))) {
+    it(`a stored ${code}, still being translated, falls through to detection`, async () => {
+      const { store } = await boot(['pt-BR'], { 'stabileo-lang': code, 'stabileo-lang-manual': '1' });
+      expect(store.i18n.locale).toBe('pt');
+      store.setLocale(code);
+      expect(store.i18n.locale).toBe('pt');
+    });
+  }
+
   it('a stored language that is no longer offered falls through to detection', async () => {
-    // Someone who picked German before the picker narrowed. Honouring it would resurrect the
-    // half-translated UI, and the picker would have no option to show for it.
+    // Someone who picked Italian when the picker listed fourteen. Honouring it would resurrect
+    // a half-translated UI, and the picker would have no option to show for it.
     const { store } = await boot(['pt-BR'], {
-      'stabileo-lang': 'de', 'stabileo-lang-manual': '1',
+      'stabileo-lang': 'it', 'stabileo-lang-manual': '1',
     });
     expect(store.i18n.locale).toBe('pt');
   });

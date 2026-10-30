@@ -259,6 +259,8 @@ export interface StabileoTestHooks {
   /** The point loads on a member as stored: direction magnitude p, axial px, couple, angle and axes. */
   /** A member's end nodes. */
   elementEnds(elementId: number): { i: number; j: number } | null;
+  /** The 2D static results' axial force N at the start of every member, ordered by member id; null before a solve. */
+  memberAxialForces(): { id: number; n: number }[] | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
@@ -291,6 +293,7 @@ export interface StabileoTestHooks {
   /** The shells, and whether a quad carries curvature into the solve. */
   quadIds(): number[];
   quadCurved(id: number): boolean;
+  nodalDisplacements(): Array<{ nodeId: number; ux: number; uz: number }> | null;
   /**
    * Everything the portable formats have to carry, as one count per kind.
    *
@@ -692,6 +695,8 @@ export function installE2EHooks(): void {
       } : null;
     },
     currentTool: () => String(uiStore.currentTool),
+    memberAxialForces: () =>
+      resultsStore.results ? resultsStore.results.elementForces.map((f) => ({ id: f.elementId, n: f.nStart })).sort((a, b) => a.id - b.id) : null,
     elementEnds: (elementId: number) => {
       const e = modelStore.elements.get(elementId);
       return e ? { i: e.nodeI, j: e.nodeJ } : null;
@@ -817,6 +822,7 @@ export function installE2EHooks(): void {
     sectionNames: () => [...modelStore.sections.values()].map((s) => s.name),
     loadCaseNames: () => modelStore.model.loadCases.map((c) => c.name),
     loadCases: () => JSON.parse(JSON.stringify(modelStore.model.loadCases)),
+    nodalDisplacements: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results)?.displacements.map(d => ({ nodeId: d.nodeId, ux: d.ux, uz: d.uz })) ?? null,
     resultIds: () => ({ cases: [...resultsStore.perCase3D.keys()], combos: [...resultsStore.perCombo3D.keys()] }),
     orientationSuspectCount: () => verificationStore.orientationSuspectCount,
     undoCount: () => historyStore.undoCount,
