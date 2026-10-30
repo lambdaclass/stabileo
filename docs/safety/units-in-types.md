@@ -175,7 +175,7 @@ validation stays at the existing boundaries; this slice adds no refusals.
 ## Validation
 
 Commands are deliberately scoped; use `CARGO_BUILD_JOBS=2` and
-`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-ws7-target` for every Cargo invocation.
+`CARGO_TARGET_DIR="${TMPDIR:-/tmp}/stabileo-units-target"` for every Cargo invocation.
 
 - `cargo test -p dedaliano-engine --doc types::units`: wrong force/length assignment,
   MPa/internal assignment, area/inertia addition, and assignments to the actual
