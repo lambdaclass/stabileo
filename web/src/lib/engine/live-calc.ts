@@ -321,7 +321,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     lastFailure = outcome.ok ? null : { input, error: outcome.error };
     resultsStore.restoreView(uiStore.is3DWorkspace);
   }
-  if (outcome.ok && outcome.combinationsLeftOut !== null) recheckStore.restoreStamp(stampBefore);
+  if (!isStale() && (!outcome.ok || outcome.combinationsLeftOut !== null)) recheckStore.restoreStamp(stampBefore);
   // A solve is minutes of computed state produced by one click. Waiting for the 30 s timer
   // to notice is how a run gets lost to a closed tab.
   void requestAutosave('solve');

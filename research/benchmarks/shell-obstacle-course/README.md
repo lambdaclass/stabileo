@@ -10,7 +10,8 @@ checked, so the catalogue remains **proposed**. No paper summary is inferred fro
 The page runs the production MITC4 WASM wrapper against engine-owned
 `engine/tests/benchmarks/shell_obstacle_course.json`. Inputs were serialized from the
 existing validation builders before replacing those builders with a shared-file reader;
-test bodies and every assertion are preserved. There is no research solver.
+Numeric assertions for retained results are preserved. The three hemisphere meshes now
+assert the production containment refusal instead. There is no research solver.
 
 The roof uses reference 0.3024, the diaphragm cylinder 1.8248e-5, and the NAFEMS-labelled
 18°-hole hemisphere 0.185 under quarter loads ±2. The separate solid-shell hemisphere
@@ -21,10 +22,17 @@ The headline counts only the finest selected meshes, with the existing benchmark
 policy of strict relative error below 2%. The 16×16 cap bounds each model to 289 nodes. Cylinder 12×12 and 16×16 extend the
 existing geometry and restraints without adding or changing historical assertions. The native
 fixture reader evaluates every shared input once, then returns the requested measurement
-to each unchanged test. This workload cap is not a measured browser capacity limit.
+to each numeric test, or the structured refusal to its containment test. This workload cap is not a measured browser capacity limit.
 Native regression bounds remain independent. The viewer uses the shared scalar-field
 viewer with an explicit isometric projection and true 3D displacement magnitudes.
 Open in Stabileo preserves all six per-node restraint flags through custom3d supports.
+
+Hemisphere 4×4, 8×8 and 16×16 results are **withheld by the engine (known issue
+#798, SH-MITC4-DISTORTION)**. They remain in the denominator with null value/error,
+no displacement field and `pass: false`. The page distinguishes this disposition
+from an ordinary accuracy failure. Native exports write a refusal record for each
+mesh; the WASM parity check requires the same refusal and issue identity from both
+runtimes. Roof and cylinder comparisons retain their numeric checks and tolerances.
 
 Run from `engine/` (use a fresh output directory):
 

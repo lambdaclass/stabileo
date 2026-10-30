@@ -25,7 +25,7 @@ const en = {
   "findingsLedger": "findings ledger",
   "recordsAccuracyAndModelLimitationsThe": " records accuracy and model limitations. The ",
   "productionRegistry": "production registry",
-  "hasNoOpenShellEntrySolverOwner": " has no open shell entry; solver-owner triage is still needed. The page cannot establish that a mismatch is solely locking rather than a boundary-condition or reference convention issue.",
+  "containsShellContainment": " withholds the distorted hemisphere meshes for known issue #798 (SH-MITC4-DISTORTION) and warns about shell convergence for #810. Withheld rows stay in the denominator and show no numerical result. The page cannot establish that a mismatch is solely locking rather than a boundary-condition or reference convention issue.",
   "referencesAreInheritedFrom": "References are inherited from ",
   "shellBenchmarkRs": "shell_benchmark.rs",
   "and": " and ",

@@ -85,8 +85,10 @@ function entities(dxf: string): Array<{ type: string; layer: string; codes: Map<
 describe('the workbook, sheet by sheet', () => {
   it('keeps only the sheets named, with the cover and the conventions', () => {
     slabFrame();
-    const names = currentWorkbookSheets(5, { sheets: new Set(['Nodes', 'Reactions']) }).map((s) => s.name);
-    expect(names).toEqual(['Cover', 'Conventions', 'Nodes', 'Reactions']);
+    const sheets = currentWorkbookSheets(5, { sheets: new Set(['Nodes', 'Reactions']) });
+    const names = sheets.map(s => s.name);
+    expect(sheets.find(s => s.name === 'Warnings')!.rows.flat().join(' ')).toContain('#810');
+    expect(names).toEqual(['Cover', 'Conventions', 'Warnings', 'Nodes', 'Reactions']);
   });
 
   it('keeps only the combinations chosen', () => {
@@ -104,8 +106,10 @@ describe('the workbook, sheet by sheet', () => {
     expect(downloads).toHaveLength(1);
     const { blob, name } = downloads[0]!;
     expect(name).toMatch(/\.zip$/);
-    const files = Object.keys(unzipSync(new Uint8Array(await blob.arrayBuffer())));
-    expect(files).toEqual(['01-Cover.csv', '02-Conventions.csv', '03-Nodes.csv']);
+    const archive = unzipSync(new Uint8Array(await blob.arrayBuffer()));
+    const files = Object.keys(archive);
+    expect(new TextDecoder().decode(archive['03-Warnings.csv'])).toContain('#810');
+    expect(files).toEqual(['01-Cover.csv', '02-Conventions.csv', '03-Warnings.csv', '04-Nodes.csv']);
   });
 });
 

@@ -15,7 +15,7 @@ export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
 export const groups = ['roof', 'cylinder', 'hemisphere'];
 export const finest = groups.map(group => cases.filter(c => c.group === group).at(-1)!);
-export type Result = { id: string; value: number | null; error: number | null; pass: boolean; failure?: string; displacement?: Record<string, number>[] };
+export type Result = { id: string; value: number | null; error: number | null; pass: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
 
 export function inputFor(c: Case): SolverInput3D {
   const input: Record<string, unknown> = { ...c.input };
@@ -35,6 +35,15 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
   return { id: c.id, value, error, pass: error < c.tolerance, displacement: displacements };
 }
 
+/** Only the three distorted hemisphere meshes currently trigger the #798 refusal. */
+export function refusalFor(c: Case, e: unknown): Result {
+  const failure = String(e);
+  const refused = c.group === 'hemisphere' && failure.includes('Results withheld:') &&
+    failure.includes('known issue #798, SH-MITC4-DISTORTION');
+  return { id: c.id, value: null, error: null, pass: false, failure,
+    ...(refused ? { refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798 } : {}) };
+}
+
 export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
@@ -44,7 +53,7 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
     try {
       row = compare(c, engine.solve3D(inputFor(c)).displacements as unknown as Record<string, number>[]);
     } catch (e) {
-      row = { id: c.id, value: null, error: null, pass: false, failure: String(e) };
+      row = refusalFor(c, e);
     }
     rows.push(row);
     onResult?.(row);

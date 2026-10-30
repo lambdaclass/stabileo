@@ -23,10 +23,11 @@ function read(name: string): Snapshot | null {
   return existsSync(f) ? (parseSnapshot(readFileSync(f, 'utf8')) as Snapshot) : null;
 }
 
-export function runGroup(group: SnapshotCase['group']): void {
+export function runGroup(group: SnapshotCase['group'], expectedContainment: Record<string, string[]> = {}): void {
   for (const c of CORPUS.filter((x) => x.group === group)) {
     it(c.name, async () => {
       const fresh = await capture(c);
+      if (expectedContainment[c.name]) expect([...containmentFindings]).toEqual(expectedContainment[c.name]);
       const committed = read(c.name);
       if (process.env.CONTAINMENT_AUDIT_DIR) {
         mkdirSync(process.env.CONTAINMENT_AUDIT_DIR, { recursive: true });
@@ -44,8 +45,19 @@ export function runGroup(group: SnapshotCase['group']): void {
         for (const d of diff.changed) {
           expect(typeof d.before).toBe('string');
           expect(typeof d.after).toBe('string');
-          text = text.replace(`${JSON.stringify(d.path)}: ${JSON.stringify(d.before)}`, `${JSON.stringify(d.path)}: ${JSON.stringify(d.after)}`);
+          text = text.split('\n').map(line => {
+            // Case/combination scalars are compact rows, unlike the flat base fields.
+            const row = /^\s*("(?:[^"\\]|\\.)*"):/.exec(line);
+            if (!row) return line;
+            const key = JSON.parse(row[1]);
+            if (key === d.path) return line.replace(JSON.stringify(d.before), JSON.stringify(d.after));
+            if (`${key}.diagnosticCodes` === d.path) {
+              return line.replace(`"diagnosticCodes":${JSON.stringify(d.before)}`, `"diagnosticCodes":${JSON.stringify(d.after)}`);
+            }
+            return line;
+          }).join('\n');
         }
+        expect(compareValues(parseSnapshot(text).values, fresh.values).differs).toBe(false);
         writeFileSync(file, text);
         return;
       }

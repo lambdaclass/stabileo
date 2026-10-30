@@ -1211,6 +1211,10 @@ function createResultsStore() {
     },
 
     // 3D combination state
+    /** Diagnostics remain available when refused numerical case results are withheld. */
+    caseDisposition3D(ids: readonly number[]) {
+      return knownIssueResultDisposition(ids.map(id => perCase3D.get(id)));
+    },
     get perCase3D() { return [...perCase3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCase3D; },
     get perCombo3D() { return [...perCombo3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCombo3D; },
     get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },

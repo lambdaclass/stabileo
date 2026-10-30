@@ -281,8 +281,14 @@ export function buildProReportData(opts: {
     : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
   data.containment = knownIssueResultDisposition([
     results, data.resultSets,
-    ...modelStore.loadCases.filter(c => (c.type || '').toUpperCase() === 'E').map(c => resultsStore.perCase3D.get(c.id)),
   ]);
+  const seismicContainment = resultsStore.caseDisposition3D(
+    modelStore.loadCases.filter(c => (c.type || '').toUpperCase() === 'E').map(c => c.id),
+  );
+  data.containment = {
+    refused: data.containment.refused || seismicContainment.refused,
+    messages: [...new Set([...data.containment.messages, ...seismicContainment.messages])],
+  };
   data.statics = staticsRows();
   const seen = new Set<string>();
   data.deflections = [...deflectionChecks().rows.values()].flatMap((c) => {
