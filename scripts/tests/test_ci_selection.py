@@ -90,6 +90,23 @@ class Selection(unittest.TestCase):
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
 
+    def test_label_trigger_and_force_full_wiring(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        trigger = workflow.split('  pull_request:\n', 1)[1].split('  merge_group:', 1)[0]
+        types = re.search(r'types: \[([^\]]+)\]', trigger).group(1)
+        self.assertEqual({item.strip() for item in types.split(',')},
+                         {'opened', 'synchronize', 'reopened', 'labeled'})
+        self.assertIn("FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}", workflow)
+        for force, scope in [('true', 'full'), ('false', 'docs')]:
+            with tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / 'outputs'
+                env = {'GITHUB_EVENT_NAME': 'pull_request', 'CHANGED_FILES': '["README.md"]',
+                       'BASE_SHA': 'base', 'HEAD_SHA': 'head', 'GITHUB_OUTPUT': str(output),
+                       'FORCE_FULL': force}
+                with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=['merge-base', 'README.md\0']):
+                    runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
+                self.assertIn('scope=' + scope, output.read_text())
+
     def test_missing_area_tests_fall_back_to_full(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

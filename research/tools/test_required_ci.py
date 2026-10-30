@@ -13,7 +13,16 @@ assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"
 filters = yaml.safe_load(jobs['changes']['steps'][1]['with']['filters'])
 assert {'research/**', 'web/**', '.github/workflows/research.yml'} <= set(x for x in filters['research'] if isinstance(x, str))
-assert 'workflow_call' in research.get('on', research.get(True))
+triggers = research.get('on', research.get(True))
+assert 'workflow_call' in triggers
+assert triggers['push']['branches'] == ['main']
+assert set(triggers['push']['paths']) == {
+    'research/**', '.github/workflows/research.yml', 'engine/**', 'web/**',
+    'Cargo.lock', 'Cargo.toml', 'flake.*', 'rust-toolchain*', 'Makefile',
+}
+assert '.github/workflows/research.yml' in filters['ci_scripts']
+assert 'actionlint .github/workflows/ci.yml .github/workflows/research.yml' in (root / 'Makefile').read_text()
+assert 'pkgs.actionlint' in (root / 'flake.nix').read_text()
 for job in research['jobs'].values():
     assert job['runs-on'] == 'ubuntu-latest'
 assert {'phasefield', 'catalog', 'isolation', 'route-size'} <= research['jobs'].keys()

@@ -9,6 +9,16 @@ on:
   # PR validation is called by CI; avoid a second, unfiltered PR run.
   push:
     branches: [main]
+    paths:
+      - 'research/**'
+      - '.github/workflows/research.yml'
+      - 'engine/**'
+      - 'web/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'flake.*'
+      - 'rust-toolchain*'
+      - 'Makefile'
   schedule:
     - cron: '17 6 * * 1'
 
@@ -81,12 +91,13 @@ jobs:
         run: |
           budget_arg=--product-budget
           if [ "$RESEARCH_ISOLATION" = true ]; then budget_arg=; fi
-          export ROUTE_BUDGET_ARG="$budget_arg"
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
           nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json "$ROUTE_BUDGET_ARG"'
+          # The positional argument expands in the inner shell.
+          # shellcheck disable=SC2016
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json "$1"' route-budget "$budget_arg"
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

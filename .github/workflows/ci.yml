@@ -27,6 +27,7 @@ on:
     branches: [main]
   # Every base branch: PRs stacked on another PR get CI too.
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   # The merge queue: each PR is tested on top of the ones merging before it, so two PRs that
   # are green on their own cannot break main together.
   merge_group:
@@ -157,6 +158,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - '.github/workflows/research.yml'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'
