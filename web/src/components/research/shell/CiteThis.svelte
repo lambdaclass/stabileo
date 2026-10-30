@@ -108,7 +108,7 @@
       <dt>{s.version}</dt>
       <dd>{#if build.version}{build.version.version} ({build.version.date}){build.version.commit ? '' : `, ${s.unreleased}`}{:else}{s.noVersion}{/if}</dd>
       <dt>{s.paper}</dt>
-      <dd><a href="https://doi.org/{input.paper.doi}" rel="noreferrer" target="_blank">doi:{input.paper.doi}</a></dd>
+      <dd><a href="https://doi.org/{input.paper.doi}" rel="noreferrer" target="_blank">{s.doiPrefix}{input.paper.doi}</a></dd>
     </dl>
     <div class="rs-cite-formats">
       <figure>
@@ -116,7 +116,7 @@
         <pre data-testid="cite-text">{text}</pre>
       </figure>
       <figure>
-        <figcaption>BibTeX <button type="button" class="rs-cite-copy" onclick={() => copy('bibtex')}>{copied === 'bibtex' ? s.copied : s.copy}</button></figcaption>
+        <figcaption>{s.bibtex} <button type="button" class="rs-cite-copy" onclick={() => copy('bibtex')}>{copied === 'bibtex' ? s.copied : s.copy}</button></figcaption>
         <pre data-testid="cite-bibtex">{bibtex}</pre>
       </figure>
     </div>
