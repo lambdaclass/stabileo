@@ -6,7 +6,10 @@ on:
       route_only:
         type: boolean
         default: false
-  # PR validation is called by CI; avoid a second, unfiltered PR run.
+  pull_request:
+    paths:
+      - 'research/**'
+      - '.github/workflows/research.yml'
   push:
     branches: [main]
     paths:
@@ -31,7 +34,7 @@ permissions:
 
 jobs:
   isolation:
-    if: ${{ !inputs.route_only }}
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research isolation
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +51,7 @@ jobs:
         run: research/tools/test_check_viewer.sh
 
   route-size:
+    if: github.workflow != 'Research' || github.event_name != 'pull_request'
     name: Landing and app route byte budgets
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -102,7 +106,7 @@ jobs:
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
   catalog:
-    if: ${{ !inputs.route_only }}
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research catalog
     runs-on: ubuntu-latest
     steps:
@@ -120,9 +124,7 @@ jobs:
       - name: Every entry, evidence file and summary source is well formed
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
 
-  # Online: Crossref, licences and links. Standalone main/weekly runs only;
-  # never inside the required CI OK: an outage at Crossref
-  # must not block unrelated merges.
+  # External service outages must not block the required CI OK aggregate.
   catalog-online:
     name: Research catalog (Crossref, licenses)
     if: github.workflow == 'Research'
@@ -143,7 +145,7 @@ jobs:
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --links
 
   phasefield:
-    if: ${{ !inputs.route_only }}
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Phase-field (Shauer 2025) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -177,7 +179,7 @@ jobs:
           PY
 
   springs:
-    if: ${{ !inputs.route_only }}
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Spring networks (Grossman 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -227,7 +229,7 @@ jobs:
           PY
 
   koiter:
-    if: ${{ !inputs.route_only }}
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Roorda frame (Ferrari and Sigmund 2025) groundwork
     runs-on: ubuntu-latest
     timeout-minutes: 30

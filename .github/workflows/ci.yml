@@ -658,7 +658,7 @@ jobs:
           path: |
             web/public/research-wasm/shauer-2025
             web/public/research-wasm/grossman-2026
-          key: research-assets-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**/src/**', 'research/**/Cargo.toml', 'research/**/Cargo.lock', 'research/**/rust-toolchain.toml', 'research/**/.cargo/**', 'research/**/wasm/*.sh', 'research/**/wasm/*.py', 'research/**/reference-results/**', 'research/tools/asset_identity.py') }}
+          key: research-assets-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
