@@ -149,7 +149,7 @@ const PRICING = {
 
 test.describe('@smoke landing pricing and responsive layout', () => {
   for (const locale of PUBLIC_LOCALES) {
-    for (const width of [390, 810]) {
+    for (const width of [360, 390, 810]) {
       test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await bootLanding(page, { locale });
