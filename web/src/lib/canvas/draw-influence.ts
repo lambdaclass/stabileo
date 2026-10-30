@@ -1,8 +1,12 @@
 // Draw influence line diagram on Canvas 2D
 
 import type { InfluenceLineResult } from '../store/model.svelte';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { canvasTheme } from './theme';
+import { numText } from '../engine/steps/format';
+import { influenceTool } from '../store/influence-tool.svelte';
+import { drawIlEnvelope } from './draw-il-envelope';
+import { plainSymbol } from '../engine/influence/quantities';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -24,6 +28,12 @@ export function drawInfluenceLine(
 ): void {
   const { ctx } = dc;
   if (il.points.length === 0) return;
+  const env = influenceTool.envelope;
+  if (env) {
+    drawIlEnvelope(env, dc);
+    drawTitle(ctx, il, dc);
+    return;
+  }
 
   // Find max absolute value for scaling
   let maxAbs = 0;
@@ -270,16 +280,26 @@ export function drawInfluenceLine(
     // Position label on the side of the value
     const sign = pt.value > 0 ? 1 : -1;
     const offset = 18;
-    const label = pt.value.toFixed(4);
+    const label = numText(pt.value, 3);
     ctx.fillText(label, s.x + snx * offset * sign, s.y + sny * offset * sign);
   }
 
-  // Draw label
-  ctx.fillStyle = '#e8705f';
+  drawTitle(ctx, il, dc);
+}
+
+/** The line's name in the corner: the quantity and where it is read. */
+function drawTitle(ctx: CanvasRenderingContext2D, il: InfluenceLineResult, dc: DrawContext): void {
+  ctx.fillStyle = STROKE_COLOR;
   ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'left';
-  const labelText = `${t('influence.label')}: ${il.quantity}` +
-    (il.targetNodeId !== undefined ? ` (${t('influence.node')} ${il.targetNodeId})` : '') +
-    (il.targetElementId !== undefined ? ` (${t('influence.elem')} ${il.targetElementId}, t=${(il.targetPosition ?? 0.5).toFixed(1)})` : '');
-  ctx.fillText(labelText, 10, 20);
+  ctx.fillText(influenceTitle(il, dc), 10, 20);
+}
+
+export function influenceTitle(il: InfluenceLineResult, dc: Pick<DrawContext, 'getNode' | 'getElement'>): string {
+  const q = plainSymbol(il.quantity);
+  if (il.targetElementId === undefined) return tp('course.influence.titleNode', { q, n: il.targetNodeId ?? '' });
+  const e = dc.getElement(il.targetElementId);
+  const ni = e && dc.getNode(e.nodeI), nj = e && dc.getNode(e.nodeJ);
+  const L = ni && nj ? Math.hypot(nj.x - ni.x, nj.y - ni.y) : 0;
+  return tp('course.influence.titleSection', { q, e: il.targetElementId, x: ((il.targetPosition ?? 0.5) * L).toFixed(2) });
 }

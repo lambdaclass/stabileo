@@ -78,6 +78,8 @@
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
+  import InfluencePanel from '../advanced/InfluencePanel.svelte';
+  import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
 
   let showAdvanced = $state(false);
   let showTrainPanel = $state(false);
@@ -91,6 +93,7 @@
    * and a ribbon command cost the canvas ten pixels for the privilege.
    */
   let showFlex = $state(false);
+  let showLoadStates = $state(false);
 
   let advHelpKey = $state<string | null>(null);
 
@@ -137,6 +140,10 @@
     'influenceLine': {
       labelKey: 'advHelp.influenceLine.label',
       textKey: 'advHelp.influenceLine.text',
+    },
+    'loadStates': {
+      labelKey: 'course.influence.states.title',
+      textKey: 'course.influence.states.help',
     },
     'kinematic': {
       labelKey: 'advHelp.kinematic.label',
@@ -250,6 +257,9 @@
     { key: 'influenceLine', labelKey: 'advanced.influenceLine',
       isActive: () => !is3D && uiStore.currentTool === 'influenceLine',
       close: () => { uiStore.currentTool = 'select'; resultsStore.clearInfluenceLine(); } },
+    { key: 'loadStates', labelKey: 'course.influence.states.title',
+      isActive: () => showLoadStates,
+      close: () => { showLoadStates = false; } },
     { key: 'whatif', labelKey: 'advanced.whatIf',
       isActive: () => uiStore.showWhatIf,
       close: () => { void whatIf.close(); } },
@@ -791,9 +801,9 @@
     {@render helpPanel('plastic')}
       {/if}
     {/if}
-    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad'))}
-    <!-- The influence line and the moving train come from the same idea: a load that travels. -->
-    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('advanced.group.movingLoads')}</div>
+    {#if !(flat && active) && (shown('influenceLine') || shown('trainLoad') || shown('loadStates'))}
+    <!-- A load that travels, and the largest and smallest effects of loads that come and go. -->
+    <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-moving">{t('course.influence.group')}</div>
     {/if}
     {#if shown('influenceLine')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -807,10 +817,6 @@
             return;
           }
           if (blockedBySlidingJoints()) return;
-          if (!resultsStore.results && !resultsStore.results3D) {
-            uiStore.toast(t('advanced.calculateFirstF5'), 'error');
-            return;
-          }
           uiStore.currentTool = 'influenceLine';
         }}>
         {t('advanced.influenceLine')}
@@ -819,6 +825,7 @@
     </div>
     {@render helpPanel('influenceLine')}
       {/if}
+      {#if active?.key === 'influenceLine'}<InfluencePanel />{/if}
     {/if}
     {#if shown('trainLoad')}
     <!-- 2D only; disabled with a reason rather than hidden — see Kinematic above. -->
@@ -869,6 +876,21 @@
         {/if}
       </div>
     {/if}
+    {/if}
+    {#if shown('loadStates')}
+      {#if !flat || active?.key !== 'loadStates'}
+    <div class="adv-btn-wrap" style="grid-column: span 2">
+      <button class="adv-btn" style="flex:1" class:active={showLoadStates} data-testid="adv-load-states"
+        onclick={() => { if (showLoadStates) closeEntry('loadStates'); else showLoadStates = true; }}>
+        {t('course.influence.states.title')}
+      </button>
+      <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('loadStates', e)} class:active={advHelpKey === 'loadStates'}>?</button>
+    </div>
+    {@render helpPanel('loadStates')}
+      {/if}
+      {#if showLoadStates}
+        <LoadStatesPanel onInfluence={() => { showLoadStates = false; if (!is3D && !blockedBySlidingJoints()) uiStore.currentTool = 'influenceLine'; }} />
+      {/if}
     {/if}
     {#if !(flat && active) && (shown('whatif') || shown('steps'))}
     <!-- Changing the model live, and each method solved step by step. -->
