@@ -126,8 +126,13 @@
     z-index: 260;
   }
   .rc {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     width: min(640px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow-wrap: anywhere;
     overflow-y: auto;
     padding: 18px;
     background: var(--st-surface);
@@ -136,19 +141,26 @@
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
     outline: none;
   }
+  /* Keep acknowledgement and actions visible while a long change list scrolls. */
+  .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
-  .rc-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .rc-item { padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
+  .rc-list { min-height: 0; overflow-y: auto; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rc-item { flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
   .rc-item-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  .rc-area { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }
+  .rc-area { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }
   .rc-item-title { font-size: 0.78rem; font-weight: 600; color: var(--st-text); }
-  .rc-item-text { margin: 4px 0; font-size: 0.72rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
-  .rc-link { font-size: 0.68rem; color: var(--st-accent, #4a90d9); }
-  .rc-stale { margin: 0 0 10px; font-size: 0.72rem; font-weight: 600; color: var(--st-warn, #d9a441); }
-  .rc-ack { display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
+  .rc-item-text { margin: 4px 0; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
+  .rc-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-size: 0.75rem; color: var(--st-accent, #4a90d9); }
+  .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
+  .rc-ack { min-height: 44px; cursor: pointer; display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .rc-btn, .rc-banner-btn {
+    min-height: 44px;
+    min-width: 44px;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
     padding: 6px 12px;
     font-size: 0.75rem;
     border-radius: var(--st-radius);
@@ -169,14 +181,18 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    box-sizing: border-box;
+    width: max-content;
     max-width: calc(100vw - 32px);
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
     padding: 6px 10px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--st-text);
     background: var(--st-surface);
     border: 1px solid var(--st-warn, #d9a441);
     border-radius: var(--st-radius);
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
-  .rc-banner-btn { padding: 3px 8px; font-size: 0.68rem; }
+  .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
 </style>

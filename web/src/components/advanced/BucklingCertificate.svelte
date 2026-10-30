@@ -23,6 +23,6 @@
 {/if}
 
 <style>
-  .buckling-cert { font-size: 0.66rem; color: var(--st-text-2); cursor: help; margin: 2px 0; }
+  .buckling-cert { font-size: 0.75rem; overflow-wrap: anywhere; min-width: 0; color: var(--st-text-2); cursor: help; margin: 2px 0; }
   .buckling-cert.no { color: var(--st-warn); }
 </style>
