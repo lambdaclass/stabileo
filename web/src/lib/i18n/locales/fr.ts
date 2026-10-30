@@ -13656,6 +13656,14 @@ const fr: Translations = {
   'sheet.ui.thisSheet': 'Planche {n} :',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Enregistrer les projets ouverts et recharger",
+  "recheck.recoveryFailed": "Les projets n’ont pas pu être enregistrés dans le navigateur. La page n’a pas été rechargée. Téléchargez une sauvegarde de la session pour conserver votre travail.",
+  "recheck.downloadBackup": "Télécharger tous les projets ouverts",
+  "recheck.backupHelp": "Conservez le fichier de session téléchargé, puis rechargez et ouvrez-le pour restaurer tous les projets. L’avis devra toujours être confirmé.",
+  "recheck.loading": "Chargement des modifications des résultats…",
+  "recheck.detailsUnavailable": "Les détails de la modification sont indisponibles. Réessayez de charger cet avis.",
+  "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",
+  "recheck.retry": "Réessayer",
   'recheck.title': 'Les résultats ont changé depuis le dernier calcul de ce projet',
   'recheck.intro': 'Ce projet a été calculé pour la dernière fois avec la version de résultats {from} de Stabileo ; celle-ci est la version {to}. Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introUnknown': 'Ce projet n\'enregistre pas la version de Stabileo qui l\'a calculé (il a été enregistré avant que cette information ne soit consignée). Ces changements concernent des fonctions utilisées par ce modèle :',

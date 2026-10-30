@@ -7,9 +7,7 @@ name: Nightly verification
 # `only` to pick jobs). A failed scheduled run opens or updates a
 # `verification-failure` issue (verification-alert.yml).
 #
-# Runtime budget (GitHub-hosted 4-vCPU runners, free for this public repo;
-# docs/verification/NIGHTLY.md): ~15-35 runner-hours a night, mostly mutants;
-# wall clock under 4 h.
+# Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
 #
 # The proofs (Lean, Kani, symbolic) run in verify.yml, the other differential
 # programs (Frame3DD, PyNite, Mystran, Kratos, CalculiX) in differential.yml,
@@ -21,23 +19,40 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz mutants bench"
+        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench"
         required: false
         default: ""
+      random_count:
+        description: "Valid random models (blank: 1000 self-hosted / 100 hosted)"
+        required: false
+        default: ""
+      seed:
+        description: "Random-model seed (blank: UTC YYYYMMDD)"
+        required: false
+        default: ""
+      findings_dry_run:
+        description: "Print findings without creating issues"
+        type: boolean
+        default: true
       mutants_shards:
         description: "Mutants: JSON list of shard indices to run instead of tonight's rotation, e.g. [5] or [0,1]"
         required: false
         default: ""
       mutants_total:
-        description: "Mutants: total number of shards (default 128)"
+        description: "Mutants: total number of shards (default 512)"
         required: false
         default: ""
+
+concurrency:
+  group: nightly-bug-farm
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 2
 
 jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
@@ -59,10 +74,10 @@ jobs:
           ONLY: ${{ inputs.only }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
-          MUTANTS_TOTAL: 128
-          MUTANTS_SLOTS: 8
+          MUTANTS_TOTAL: 512
+          MUTANTS_SLOTS: 4
         run: |
-          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz mutants bench"
+          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench"
           only="${ONLY:-$all}"
           for j in $only; do
             case " $all " in *" $j "*) ;; *) echo "::error::unknown job '$j' (known: $all)"; exit 1 ;; esac
@@ -90,7 +105,7 @@ jobs:
   certify-large:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' certify-large ')
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,12 +119,14 @@ jobs:
       # A pinned mold release tarball (wget with retries). apt used to install it here and could
       # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
       - name: Install mold linker
+        if: runner.environment == 'github-hosted'
         uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
         with:
           mold-version: 2.40.4
           make-default: false
         timeout-minutes: 5
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Large certificate tests
         working-directory: engine
         # The assembly oracle's other ignored tests are minimal reproductions
@@ -119,46 +136,68 @@ jobs:
           cargo test --release --test solver assembly_paths::assembly_paths_agree_large -- --ignored --nocapture
 
   # Metamorphic tests, exhaustive tier (docs/verification/METAMORPHIC.md):
-  # the whole corpus and ~200 random models through every analysis, checking
+  # the whole corpus and up to 2,000 random models through every analysis, checking
   # rotation / mirror / renumbering / unit-scaling invariance, superposition,
   # reciprocity, energy and symmetry. Pull requests run the sampled tier in
   # ci.yml's suite (metamorphic_pr_*). The seed moves daily and is printed.
   metamorphic-nightly:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' metamorphic-nightly ')
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Reset run-local reports
+        run: rm -rf metamorphic-report nightly-findings
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.99.1
       # A pinned mold release tarball (wget with retries). apt used to install it here and could
       # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
       - name: Install mold linker
+        if: runner.environment == 'github-hosted'
         uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
         with:
           mold-version: 2.40.4
           make-default: false
         timeout-minutes: 5
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Differential corpus is current
-        run: python -I tools/differential/export_corpus.py --check
+        run: python3 -I tools/differential/export_corpus.py --check
       - name: Metamorphic (exhaustive)
         working-directory: engine
         env:
+          METAMORPHIC_CASES: ${{ runner.environment == 'self-hosted' && '1000' || '200' }}
           METAMORPHIC_REPORT_DIR: ${{ github.workspace }}/metamorphic-report
         run: |
           export METAMORPHIC_SEED=$(( $(date -u +%s) / 86400 ))
-          echo "METAMORPHIC_SEED=$METAMORPHIC_SEED"
-          cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture --test-threads 2
+          echo "METAMORPHIC_SEED=$METAMORPHIC_SEED" >> "$GITHUB_ENV"
+          mkdir -p "$METAMORPHIC_REPORT_DIR"
+          echo "$METAMORPHIC_SEED" | tee "$METAMORPHIC_REPORT_DIR/seed.txt"
+          cargo test --locked --release --test metamorphic --no-run --message-format=json > "$RUNNER_TEMP/nightly-build.jsonl"
+          python3 -c 'import json,os; rows=[json.loads(l) for l in open(os.environ["RUNNER_TEMP"]+"/nightly-build.jsonl")]; exe=next(r["executable"] for r in rows if r.get("executable") and r.get("target",{}).get("name")=="metamorphic"); print("NIGHTLY_REPLAY_BIN="+exe)' >> "$GITHUB_ENV"
+          cargo build --locked --release --example solve_json
+          timeout --signal=TERM --kill-after=30s 110m cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture --test-threads 2
+      - name: Reduce and package metamorphic findings
+        if: failure()
+        timeout-minutes: 15
+        run: python3 scripts/nightly-collect.py --models metamorphic-report/models --check metamorphic --seed "$METAMORPHIC_SEED"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-metamorphic
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -176,34 +215,54 @@ jobs:
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Reset run-local reports
+        run: rm -rf opensees-mismatches nightly-findings
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.99.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install OpenSees
-        run: pip install openseespy numpy
+        run: |
+          python3 -m venv "$RUNNER_TEMP/nightly-opensees"
+          "$RUNNER_TEMP/nightly-opensees/bin/pip" install openseespy numpy
+          echo "$RUNNER_TEMP/nightly-opensees/bin" >> "$GITHUB_PATH"
       - name: Build solver CLI
         run: cargo build --release --example solve_json
       - name: Compare with OpenSees
         run: |
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
+          echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
           python tools/opensees/compare.py --fixtures \
             --random2d 300 --random3d 300 --rich2d 500 --rich3d 500 \
             --buckling2d 300 --buckling3d 300 --modal2d 300 --modal3d 300 \
             --pdelta2d 300 --pdelta3d 300 --th2d 200 --th3d 200 \
             --plates 300 --shells 60 \
-            --seed-start "$seed" -j 4 --report opensees-report.json \
+            --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
+            --seed-start "$seed" -j 2 --report opensees-report.json \
             --dump-dir opensees-mismatches
+      - name: Reduce and package opensees findings
+        if: failure()
+        timeout-minutes: 15
+        run: python3 scripts/nightly-collect.py --models opensees-mismatches --check opensees --seed "$DIFF_SEED"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-opensees
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -221,7 +280,7 @@ jobs:
   codeaster-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' codeaster-diff ')
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 60
     defaults:
       run:
@@ -230,12 +289,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Reset run-local reports
+        run: rm -rf tools/differential/codeaster/codeaster-mismatches nightly-findings
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.99.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Install Code_Aster (pins as in tools/differential/codeaster/setup.sh)
-        uses: mamba-org/setup-micromamba@v3
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3
         with:
           environment-name: aster
           create-args: -c conda-forge code-aster=18.1.10 python=3.12
@@ -250,10 +312,23 @@ jobs:
         run: |
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
+          echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
           ASTER_PYTHON="$(which python)" python run.py --fixtures \
             --random3d 100 --rich3d 400 --aster3d 400 \
-            --seed-start "$seed" -j 4 --report codeaster-report.json \
+            --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
+            --seed-start "$seed" -j 2 --report codeaster-report.json \
             --dump-dir codeaster-mismatches
+      - name: Reduce and package codeaster findings
+        if: failure()
+        timeout-minutes: 15
+        run: ASTER_PYTHON="$(which python)" python3 scripts/nightly-collect.py --models tools/differential/codeaster/codeaster-mismatches --check codeaster --seed "$DIFF_SEED"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-codeaster
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -270,8 +345,8 @@ jobs:
   fuzz:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
@@ -293,12 +368,14 @@ jobs:
       # A pinned mold release tarball (wget with retries). apt used to install it here and could
       # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
       - name: Install mold linker
+        if: runner.environment == 'github-hosted'
         uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
         with:
           mold-version: 2.40.4
           make-default: false
         timeout-minutes: 5
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
             . -> target
@@ -306,25 +383,49 @@ jobs:
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-fuzz
+      - name: Reset run-local reports and record seed
+        run: |
+          rm -rf engine/fuzz/artifacts/${{ matrix.target }} nightly-findings
+          mkdir -p nightly-findings
+          seed=$(( $(date -u +%s) / 86400 ))
+          echo "FUZZ_SEED=$seed" >> "$GITHUB_ENV"
+          echo "$seed" | tee nightly-findings/seed.txt
       - name: Seed corpus
         working-directory: engine
         run: cargo run --release --example fuzz_seeds
       - name: Build target
         working-directory: engine
         run: cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }}
-      - name: Fuzz (30 min)
+      - name: Fuzz (2 hours on own runners, 30 minutes on fallback)
+        id: fuzz
+        env:
+          FUZZ_SECONDS: ${{ runner.environment == 'self-hosted' && '7200' || '1800' }}
         working-directory: engine
         run: |
           mkdir -p fuzz/corpus/${{ matrix.target }}
           cargo +nightly-2026-10-15 fuzz run --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }} -- \
-            -max_total_time=1800 -rss_limit_mb=2048 -timeout=60 \
+            -seed="$FUZZ_SEED" -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048 -timeout=60 \
             -print_final_stats=1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Retain original fuzz crashes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: fuzz-crashes-${{ matrix.target }}
           path: engine/fuzz/artifacts/${{ matrix.target }}/
+          retention-days: 90
           if-no-files-found: ignore
+      - name: Package individual crash findings
+        if: failure() && steps.fuzz.outcome == 'failure'
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+        run: python3 scripts/nightly-fuzz-findings.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-${{ matrix.target }}
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: error
 
   # Mutation testing (cargo-mutants, config .cargo/mutants.toml): every mutant
   # of the certificate code, the linear solver core and the element kernels
@@ -335,8 +436,8 @@ jobs:
   mutants:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
-    runs-on: ubuntu-latest
-    timeout-minutes: 350
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -353,12 +454,14 @@ jobs:
       # A pinned mold release tarball (wget with retries). apt used to install it here and could
       # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
       - name: Install mold linker
+        if: runner.environment == 'github-hosted'
         uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
         with:
           mold-version: 2.40.4
           make-default: false
         timeout-minutes: 5
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-mutants,nextest
@@ -366,7 +469,7 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.mutants_total }}
           # Leaves time to upload the report before the job timeout.
-          BUDGET_MIN: 320
+          BUDGET_MIN: 120
         run: |
           # Each mutant is a rebuild of the engine and its test binaries: keep
           # it incremental (rust-cache turns incremental off), without debug
@@ -398,7 +501,7 @@ jobs:
   bench:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' bench ')
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -411,12 +514,14 @@ jobs:
       # A pinned mold release tarball (wget with retries). apt used to install it here and could
       # stall for an hour on a mirror; the version is the flake's (scripts/check-pins.sh).
       - name: Install mold linker
+        if: runner.environment == 'github-hosted'
         uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
         with:
           mold-version: 2.40.4
           make-default: false
         timeout-minutes: 5
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Benchmarks compile
         working-directory: engine
         run: cargo bench --no-run
@@ -434,6 +539,110 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: criterion-reports
-          path: target/criterion
+          path: ${{ env.CARGO_TARGET_DIR || format('{0}/target', github.workspace) }}/criterion
           retention-days: 30
           if-no-files-found: warn
+
+  random-models:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' random-models ')
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reset run-local reports
+        run: rm -rf nightly-findings
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+      - name: Build generator and invariance replay
+        run: |
+          mkdir -p nightly-findings
+          cargo build --release --example solve_json
+          cargo test --release --test metamorphic --no-run --message-format=json > "$RUNNER_TEMP/nightly-build.jsonl"
+          python3 -c 'import json,os; rows=[json.loads(l) for l in open(os.environ["RUNNER_TEMP"]+"/nightly-build.jsonl")]; exe=next(r["executable"] for r in rows if r.get("executable") and r.get("target",{}).get("name")=="metamorphic"); print("NIGHTLY_REPLAY_BIN="+exe)' >> "$GITHUB_ENV"
+      - name: Random valid models, invariance and installed references
+        env:
+          COUNT: ${{ inputs.random_count || (runner.environment == 'self-hosted' && '1000' || '100') }}
+          SEED: ${{ inputs.seed }}
+          SECONDS_BUDGET: ${{ runner.environment == 'self-hosted' && '7200' || '1800' }}
+        run: |
+          seed="${SEED:-$(date -u +%Y%m%d)}"
+          timeout --signal=TERM --kill-after=30s "$((SECONDS_BUDGET + 300))s" \
+            python3 scripts/nightly-models.py --count "$COUNT" --seed "$seed" --seconds "$SECONDS_BUDGET"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-random-models
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: error
+
+  properties:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' properties ')
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reset run-local reports
+        run: rm -rf property-report nightly-findings
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+      - name: Property soak (two hours, 30 minutes on fallback)
+        shell: bash
+        env:
+          NIGHTLY_FINDINGS_DIR: ${{ github.workspace }}/nightly-findings
+          PROPTEST_CASES: ${{ runner.environment == 'self-hosted' && '10000' || '1000' }}
+          BUDGET: ${{ runner.environment == 'self-hosted' && '7200' || '1800' }}
+        run: |
+          mkdir -p property-report
+          seed=$(date -u +%Y%m%d)
+          echo "$seed" | tee property-report/seed.txt
+          export PROPTEST_RNG_SEED="$seed"
+          timeout --signal=TERM --kill-after=30s "$BUDGET" \
+            cargo test --release --test certificates properties_ -- --nocapture --test-threads 2 \
+            2>&1 | tee property-report/output.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: property-report
+          path: property-report/
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: nightly-findings-properties
+          path: nightly-findings/
+          retention-days: 90
+          if-no-files-found: ignore
+
+  findings:
+    needs: [fuzz, random-models, properties, metamorphic-nightly, opensees-diff, codeaster-diff]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: nightly-findings-*
+          path: nightly-findings
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          FINDINGS_DRY_RUN: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            await require('./.github/scripts/nightly-findings.cjs')({ github, context, core });

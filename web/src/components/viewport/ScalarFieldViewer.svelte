@@ -300,12 +300,8 @@
 
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
-  <div class="sfv viewport-container" style:height>
-    <!-- The interactive 3D canvas implements orbit, pan and zoom as keyboard application controls. -->
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={(event) => { navigateScalarField(event, camera, controls); render(); }} aria-label={`${ariaLabel}. ${t('scalarViewer.keyboard')}`}></div>
-    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
-    <div class="camera-controls" style="top: 10px">
+  <div class="sfv-navigation">
+    <div class="camera-controls">
       <div class="cam-menu-wrap">
         <button class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
           <Icon name="viewCube" size={17} />
@@ -324,6 +320,12 @@
       <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
+  </div>
+  <div class="sfv viewport-container" style:height>
+    <!-- The interactive 3D canvas implements orbit, pan and zoom as keyboard application controls. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={(event) => { navigateScalarField(event, camera, controls); render(); }} aria-label={`${ariaLabel}. ${t('scalarViewer.keyboard')}`}></div>
+    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
@@ -348,6 +350,13 @@
     border-radius: var(--st-radius-lg, 6px);
     overflow: hidden;
   }
+  .sfv-navigation {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px;
+  }
+  .sfv-navigation .camera-controls { position: relative; inset: auto; flex-direction: row; }
+  .sfv-navigation :global(button) { min-width: 44px; min-height: 44px; }
   .sfv-toolbar {
     padding: 0.4rem 0.5rem;
     border-bottom: 1px solid var(--st-hair, rgba(143, 163, 179, 0.22));
@@ -367,7 +376,11 @@
   }
   .sfv :global(.shell-legend) {
     bottom: 12px;
+    max-width: calc(100% - 24px);
+    overflow-wrap: anywhere;
+    font-size: 12px;
   }
+  .sfv :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-mode {
     width: 32px;
     height: 32px;
@@ -375,7 +388,7 @@
     border-radius: var(--st-radius);
     background: color-mix(in srgb, var(--st-surface) 90%, transparent);
     color: var(--st-text-2);
-    font: 600 11px var(--st-sans);
+    font: 600 12px var(--st-sans);
     cursor: pointer;
   }
   .sfv-mode:hover {
@@ -386,7 +399,7 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    font: 600 10px var(--st-sans);
+    font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--st-text-3);

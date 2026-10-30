@@ -76,8 +76,10 @@
   {/snippet}
   {#snippet app()}
     <div bind:this={host} class="experiment">
-      <p class="notice">{common.notDesign}.</p>
-      <p aria-live="polite" data-testid="source">{author ? text.reference : text[source]}</p>
+      <div class="status">
+        <p class="notice">{common.notDesign}.</p>
+        <p aria-live="polite" data-testid="source">{author ? text.reference : text[source]}</p>
+      </div>
       <StabileoViewer {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
         showMesh={false} oninteract={stop} editorButton={false} ariaLabel={`${author ? text.author : text.own} · ${text.alt}`}/>
       <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span></p>
@@ -122,5 +124,12 @@
     .fairclough :global(.rs-shell-grid) {display:grid;grid-template-columns:minmax(0,1fr);}
     .fairclough :global(.rs-shell-head .rs-cite) {display:none;}
     .fairclough :global(.rs-shell-head h1) {font-size:1.25rem;}
+  }
+  @media(max-width:900px) and (max-height:500px) {
+    .fairclough :global(.rs-shell) {padding-top:0.5rem;}
+    .fairclough :global(.rs-shell-head) {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;margin-bottom:0.25rem;}
+    .fairclough :global(.rs-shell-head h1) {margin:0;}
+    .status {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;}
+    .status p {margin:0.25rem 0;}
   }
 </style>
