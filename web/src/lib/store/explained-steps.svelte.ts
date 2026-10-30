@@ -45,6 +45,7 @@ export function methodContext(methodId?: string): MethodContext | null {
     options: { ...(methodId ? optionsOf(methodId) : {}) },
     params: { ...(methodId ? paramsOf(methodId) : {}) },
     fundamental: fmChoice.releasesFor(modelStore.modelVersion),
+    model: modelStore.model,
   };
 }
 

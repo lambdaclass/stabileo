@@ -15,9 +15,9 @@ import type { Applicability, StepDoc } from './doc';
 import type { PlaneModel } from './plane-model';
 import type { Reference } from './reference';
 
-export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation';
+export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation' | 'dynamics';
 
-export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation'];
+export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation', 'dynamics'];
 
 export interface MethodContext {
   input: SolverInput;
@@ -32,6 +32,8 @@ export interface MethodContext {
   params?: Record<string, string>;
   /** The releases chosen in the force-method wizard on this same model (`force-method/releases.ts`). */
   fundamental?: string[];
+  /** The model itself, for methods that cut members or read its point masses. */
+  model?: import('../solver-service').ModelData & { massSource?: { points?: import('../dynamics/mass-source').PointMass[] } };
 }
 
 /**

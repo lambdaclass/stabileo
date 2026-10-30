@@ -34,9 +34,11 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * How closely each method must agree with the matrix solve, relative to the
  * largest value compared in the same unit. The classical frame methods keep
  * members at their length, so they differ by the axial deformation the
- * matrix method includes; everything else is exact up to round-off.
+ * matrix method includes. The one-degree-of-freedom response is checked
+ * against the engine's step-by-step time integration, which carries its own
+ * time-step error. Everything else is exact up to round-off.
  */
-const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02 };
+const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, sdof: 0.005 };
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
   Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
 
@@ -136,7 +138,7 @@ function rigidAxially(ctx: MethodContext): MethodContext {
 function context(opts: Record<string, boolean> = {}, selection = { members: [] as number[], nodes: [] as number[] }): MethodContext | null {
   const input = modelStore.buildSolverInput(false);
   if (!input || input.elements.size === 0) return null;
-  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts };
+  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts, model: modelStore.model };
 }
 
 /** Run every applicable method (and each switchable assumption both ways) on the model now loaded. */

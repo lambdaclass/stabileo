@@ -117,7 +117,12 @@ export interface SolverInput {
    *  `connectors: HashMap<String, ConnectorElement>`). 2D uses kAxial/kShear/kMoment;
    *  the 3D-only fields on ConnectorElement are ignored by the 2D solver. */
   connectors?: Map<number, import('./types-3d').ConnectorElement>;
+  /** Mass beyond the densities, for the dynamic analyses only (engine `MassInput`). */
+  masses?: { nodal?: NodalMass2D[] };
 }
+
+/** A lumped mass at a plane node, t: `mass` in both translations unless `massX`/`massZ` say otherwise. */
+export interface NodalMass2D { nodeId: number; mass: number; massX?: number; massZ?: number }
 
 export interface Displacement {
   nodeId: number;

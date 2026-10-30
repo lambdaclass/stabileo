@@ -118,3 +118,11 @@ export function openExplainedCatalog(): void {
   explainedSteps.openCatalog();
   showPanel();
 }
+
+/** Open one explained method's document from another panel. */
+export function openExplainedMethod(id: string): void {
+  dsmStepsStore.close();
+  fmStepsStore.close();
+  explainedSteps.openMethod(id);
+  showPanel();
+}
