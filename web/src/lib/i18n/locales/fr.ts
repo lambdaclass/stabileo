@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "landing.navTools": "Outils",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
   'scalarViewer.viewOptions': 'Options d’affichage',
@@ -234,6 +236,7 @@ const fr: Translations = {
   'landing.navPricing': 'Tarifs',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Nouveautés',
+  'landing.navPaper': 'Article',
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
   'landing.heroH': 'Le calcul de structures, dans un onglet du navigateur.',
@@ -14125,6 +14128,15 @@ const fr: Translations = {
   "knownIssue.TH-RECIPROCITY": "L’analyse temporelle linéaire a échoué aux contrôles de réciprocité avec des écarts allant jusqu’à un facteur 33. La classe de données d’entrée concernée n’est pas encore isolée ; vérifiez indépendamment cette réponse avant le dimensionnement",
   "knownIssue.NL-DYNAMIC-GAPS": "L’analyse matériellement non linéaire peut se poursuivre après un incrément non convergé ; la dynamique des poutres omet l’inertie de rotation en flexion. Vérifiez indépendamment la convergence et la réponse des éléments de grande hauteur.",
   "knownIssue.PL-3D-INVARIANCE": "Les facteurs de charge de ruine plastique 3D des poutres courbes peuvent dépendre de la numérotation. Vérifiez indépendamment la ruine.",
+  'clipboard.spaceInPlane': 'La copie provient d\'un modèle 3D : copiez-la à nouveau en 2D pour la coller ici.',
+  'sel.copyTitle': 'Copier la sélection (Ctrl+C)',
+  'sel.pasteTitle': 'Coller la copie et choisir l\'emplacement (Ctrl+V)',
+  'results.showDisplacements': 'Afficher les déplacements',
+  'resultChecks.title': 'Contrôle des résultats',
+  'resultChecks.certified': 'certifié',
+  'resultChecks.notCertified': 'non certifié',
+  'resultChecks.pending': 'calcul en cours…',
+  'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',
 };
 
 export default fr;

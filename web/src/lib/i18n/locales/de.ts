@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "landing.navTools": "Werkzeuge",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Ansicht',
   'scalarViewer.viewOptions': 'Ansichtsoptionen',
@@ -234,6 +236,7 @@ const de: Translations = {
   'landing.navPricing': 'Preise',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Änderungen',
+  'landing.navPaper': 'Fachartikel',
   'landing.navResearch': 'Forschung',
   'landing.ebHero': 'KOSTENLOS UND OFFEN · TRAGWERKSBERECHNUNG',
   'landing.heroH': 'Tragwerksberechnung in einem Browser-Tab.',
@@ -14125,6 +14128,15 @@ const de: Translations = {
   "knownIssue.TH-RECIPROCITY": "Die lineare Zeitverlaufsanalyse hat Reziprozitätsprüfungen mit Abweichungen bis zum Faktor 33 nicht bestanden. Die betroffene Eingabeklasse ist noch nicht eingegrenzt; prüfen Sie diese Antwort vor der Bemessung unabhängig",
   "knownIssue.NL-DYNAMIC-GAPS": "Die materiell nichtlineare Analyse kann nach einem nicht konvergierten Inkrement fortgesetzt werden; die Balkendynamik vernachlässigt die Rotationsträgheit bei Biegung. Prüfen Sie Konvergenz und das Verhalten gedrungener Stäbe unabhängig.",
   "knownIssue.PL-3D-INVARIANCE": "Plastische 3D-Traglastfaktoren gekrümmter Balken können von der Nummerierung abhängen. Prüfen Sie die Traglast unabhängig.",
+  "clipboard.spaceInPlane": "Die Kopie stammt aus einem 3D-Modell: Kopieren Sie sie in 2D erneut, um sie hier einzufügen.",
+  "sel.copyTitle": "Auswahl kopieren (Strg+C)",
+  "sel.pasteTitle": "Kopie einfügen und Ort wählen (Strg+V)",
+  "results.showDisplacements": "Verschiebungen anzeigen",
+  "resultChecks.title": "Ergebnisprüfung",
+  "resultChecks.certified": "zertifiziert",
+  "resultChecks.notCertified": "nicht zertifiziert",
+  "resultChecks.pending": "wird berechnet…",
+  "resultChecks.discretizationHigh": "hoher Diskretisierungsfehler",
 };
 
 export default de;

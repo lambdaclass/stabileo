@@ -1,0 +1,295 @@
+{
+  "id": "cqc-1981",
+  "description": "One-storey four-column shear-building idealization, two X roof coordinates; not the original paper building.",
+  "solver": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      "3": {
+        "id": 3,
+        "x": 0,
+        "y": 3,
+        "z": 0
+      },
+      "4": {
+        "id": 4,
+        "x": 4,
+        "y": 3,
+        "z": 0
+      },
+      "5": {
+        "id": 5,
+        "x": 0,
+        "y": 0,
+        "z": 3
+      },
+      "6": {
+        "id": 6,
+        "x": 4,
+        "y": 0,
+        "z": 3
+      },
+      "7": {
+        "id": 7,
+        "x": 0,
+        "y": 3,
+        "z": 3
+      },
+      "8": {
+        "id": 8,
+        "x": 4,
+        "y": 3,
+        "z": 3
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iy": 5.625e-06,
+        "iz": 5.625e-06,
+        "j": 1.125e-05
+      },
+      "2": {
+        "id": 2,
+        "a": 0.01,
+        "iy": 6.80625e-06,
+        "iz": 6.80625e-06,
+        "j": 1.36125e-05
+      },
+      "3": {
+        "id": 3,
+        "a": 2e-07,
+        "iy": 1e-08,
+        "iz": 1e-08,
+        "j": 2e-08
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 5,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 6,
+        "materialId": 1,
+        "sectionId": 2
+      },
+      "3": {
+        "id": 3,
+        "type": "frame",
+        "nodeI": 3,
+        "nodeJ": 7,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "4": {
+        "id": 4,
+        "type": "frame",
+        "nodeI": 4,
+        "nodeJ": 8,
+        "materialId": 1,
+        "sectionId": 2
+      },
+      "5": {
+        "id": 5,
+        "type": "truss",
+        "nodeI": 5,
+        "nodeJ": 6,
+        "materialId": 1,
+        "sectionId": 3
+      },
+      "6": {
+        "id": 6,
+        "type": "truss",
+        "nodeI": 7,
+        "nodeJ": 8,
+        "materialId": 1,
+        "sectionId": 3
+      }
+    },
+    "supports": {
+      "1": {
+        "nodeId": 1,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "2": {
+        "nodeId": 2,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "3": {
+        "nodeId": 3,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "4": {
+        "nodeId": 4,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "5": {
+        "nodeId": 5,
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "6": {
+        "nodeId": 6,
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "7": {
+        "nodeId": 7,
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "8": {
+        "nodeId": 8,
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": [],
+    "constraints": [
+      {
+        "type": "equalDOF",
+        "masterNode": 5,
+        "slaveNode": 7,
+        "dofs": [
+          0
+        ]
+      },
+      {
+        "type": "equalDOF",
+        "masterNode": 6,
+        "slaveNode": 8,
+        "dofs": [
+          0
+        ]
+      }
+    ],
+    "masses": {
+      "nodal": [
+        {
+          "nodeId": 5,
+          "mass": 0,
+          "massX": 5
+        },
+        {
+          "nodeId": 6,
+          "mass": 0,
+          "massX": 5
+        },
+        {
+          "nodeId": 7,
+          "mass": 0,
+          "massX": 5
+        },
+        {
+          "nodeId": 8,
+          "mass": 0,
+          "massX": 5
+        }
+      ]
+    }
+  },
+  "densities": {
+    "1": 0
+  },
+  "numModes": 2,
+  "spectrum": {
+    "name": "Unit acceleration plateau",
+    "points": [
+      {
+        "period": 0,
+        "sa": 1
+      },
+      {
+        "period": 10,
+        "sa": 1
+      }
+    ],
+    "inG": false
+  },
+  "direction": "X",
+  "xi": 0.05,
+  "reference": {
+    "frequencies": [
+      1.605897988918848,
+      1.7664677265854307
+    ],
+    "rho": 0.523274862685958,
+    "modalBaseShear": [
+      11.871121078899838,
+      8.128878921100048
+    ],
+    "SRSS": 14.387570614381177,
+    "CQC": 17.549731954095833,
+    "roofSRSS": [
+      0.010676456573671547,
+      0.007355556151171894
+    ],
+    "roofCQC": [
+      0.010311059452672392,
+      0.007859579137968644
+    ]
+  },
+  "relativeTolerance": 1e-08
+}

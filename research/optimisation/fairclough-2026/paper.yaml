@@ -1,0 +1,38 @@
+id: fairclough-2026
+doi: 10.1016/j.compstruc.2025.107997
+scope: Table 1, first row, five-node square only
+source: Accepted manuscript, printed page 28 / PDF page 29, Table 1; Section 4.3
+normalization: L = F = sigma = 1; rho_g = 1.65
+nodes: Four corners (+/-0.5, +/-0.5), central load at (0, 0)
+supports: All translations restrained at corners; centre free
+load: Unit downward point load at centre
+ground_structure: All ten pairs; no member adding or position search
+formulation:
+  objective: Sum(qA + qB) / rho_g
+  equilibrium: Centre horizontal forces balance; sum of centre end forces = -1
+  cone: norm([sin(k*l)*(qA-qB), 2*s]) <= sin(k*l)*(qA+qB) + 2*cos(k*l)*s
+  nonnegative: s >= 0
+  k: rho_g / sigma
+  recovery: Equal-stress curve obtained by integrating slope tan(theta-k*x), theta=atan(qA/s)
+solver:
+  name: Clarabel.rs
+  version: 0.11.1
+  license: Apache-2.0
+  tolerance_absolute_gap: 1e-10
+  tolerance_relative_gap: 1e-10
+  tolerance_feasibility: 1e-10
+  coefficient_math: libm 0.2.16 (MIT), portable hypot/sin/cos
+  active_member_threshold: 1e-5
+reference:
+  version: 10.15131/shef.data.29046755.v1
+  file: 54492344
+  sha256: 030f30b6ef42a1a038b42bc251be6206d9909e65d9c73008bb3b657b9a6ba98c
+  execution: Entire unmodified vaultopt.py run externally, followed by public API calls
+engine_check:
+  discretization: 32 straight frame segments per active curve, 128 total
+  sections: Circular; A=N/sigma, endpoint-average area per segment; Iy=Iz=A*A/(4*pi), J=2*Iy
+  units: m, kN, MPa; sigma=1 kN/m2, unit load=1 kN, rho_g=1.65 kN/m3
+  modulus_MPa: 1000
+  poisson: 0.3
+  loads: Explicit lumped endpoint weights from chord length and average area; automatic self-weight disabled
+  claim: Linear static solve and force balance of a frame surrogate, not buckling or catenary validation

@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { shellContourColor } from './shell-contour-colour';
 
-export type ColourMap = 'shell' | 'sequential' | 'diverging';
+export type ColourMap = 'shell' | 'sequential' | 'sequential-grey' | 'diverging';
 
 const VIRIDIS = ['#440154', '#472c7a', '#3b518b', '#2c718e', '#21908d', '#27ad81', '#5cc863', '#aadc32', '#fde725'];
 const DIVERGING = ['#2c6cb4', '#6e98c8', '#a9bfd6', '#5b6b78', '#d9a08f', '#e3744f', '#e5482a'];
@@ -22,6 +22,7 @@ function ramp(stops: string[], t: number): number {
 
 /** The colour of value `v` on `map` over [min, max] (diverging: symmetric about zero). */
 export function colourFor(map: ColourMap, v: number, min: number, max: number): number {
+  if (map === 'sequential-grey') return ramp(['#ffffff', '#000000'], max > min ? (v - min) / (max - min) : 0.5);
   if (map === 'shell') return shellContourColor(v, min, max);
   if (map === 'sequential') return ramp(VIRIDIS, max > min ? (v - min) / (max - min) : 0.5);
   const m = Math.max(Math.abs(min), Math.abs(max)) || 1;
