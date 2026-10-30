@@ -201,8 +201,8 @@ Validation after correction (same target directory and two build jobs):
 
 ### PR #859 review-fix verification
 
-Using `CARGO_BUILD_JOBS=2` and
-`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-859rfix-target` through Make/Nix:
+Using `CARGO_BUILD_JOBS=2` and a temporary target directory (for example,
+`CARGO_TARGET_DIR="${TMPDIR:-/tmp}/stabileo-810-target"`) through Make/Nix:
 
 - `make test.engine.targeted TEST=validation FILTER=scordelis_lo`: 11 passed.
   Self-weight displacement ratios are 0.9994359891 at 6² and 0.9999206744 at 16²,
