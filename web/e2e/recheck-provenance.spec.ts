@@ -271,7 +271,10 @@ for (const width of [390, 810]) {
         }
       });
 
-      test('sizes recovery buttons for touch', async ({ pro: page }) => {
+      // Plain page + bootPro like the other recovery tests: the aborted chunk logs net::ERR_FAILED,
+      // which the strict `pro` fixture would count as an unexpected console error.
+      test('sizes recovery buttons for touch', async ({ page, appLocale }) => {
+        await bootPro(page, appLocale);
         await page.route(NOTICE_CHUNK, route => route.abort());
         expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
         await expect(page.getByTestId('recheck-reload')).toBeVisible();
