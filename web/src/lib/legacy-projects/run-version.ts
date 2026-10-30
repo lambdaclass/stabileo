@@ -9,9 +9,8 @@ import { initSolver } from '../engine/wasm-solver';
 import { loadFile } from '../store/file';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
-import { recheckStore } from '../store/recheck.svelte';
 import {
-  captureExample, committedSnapshot, currentFixtureBlob, judge, modelCounts, openAndSolve, readCorpusText,
+  assessedChanges, captureExample, committedSnapshot, currentFixtureBlob, judge, modelCounts, openAndSolve, readCorpusText,
   readManifest, readResults, reset, solveAndRecord, unexplainedMessage, type Verdict,
 } from './legacy';
 
@@ -72,9 +71,10 @@ export function runLegacyVersion(tag: string): void {
           if (tabManager.activeTabId !== id) tabManager.switchTab(id);
           expect(uiStore.analysisMode, `tab ${i + 1}'s workspace`).toBe(tab.workspace);
           const entry = m.examples.find((x) => x.example === tab.id)!;
+          const changes = await assessedChanges();
           const values = modelCounts();
           await solveAndRecord(values);
-          const v = judge(`${tag}/session tab ${i + 1} (${tab.id})`, readResults(`${tag}/${entry.results}`), values, recheckStore.assessment?.changes ?? []);
+          const v = judge(`${tag}/session tab ${i + 1} (${tab.id})`, readResults(`${tag}/${entry.results}`), values, changes);
           record(`session tab ${i + 1}`, v);
           if (v.kind === 'unexplained') throw new Error(unexplainedMessage(v, tag));
         }

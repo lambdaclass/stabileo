@@ -3419,6 +3419,7 @@ const tr: Translations = {
   'file.workspaceBackupKept': 'Önceki çalışma alanının tam bir kopyası bu tarayıcıda saklandı (anahtar: stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'Kopya saklamak için yer yoktu; bu yüzden bu sayfa açık kaldığı sürece saklanan çalışma alanının üzerine yazılmayacak. Açtıklarınızı korumak için Oturumu kaydet\'i kullanın.',
   'file.invalidFormat': 'Geçersiz dosya biçimi. Bunun bir Stabileo .ded dosyası olduğundan emin olun.',
+  'file.newerVersion': 'Bu dosya Stabileo\'nun daha yeni bir sürümüyle kaydedildi (dosya biçimi {version}; bu sürüm en fazla {supported} okuyabilir). Açılmadı ve hiçbir şey değiştirilmedi: daha yeni bir sürümle açın.',
   'file.loadedNoAxisConvention': 'Yerel eksen kuralı meta verisi olmadan yüklendi; artık düzeltilmiş Z-yukarı yerel eksen kuralıyla değerlendiriliyor. Yeniden çözün ve çubuk diyagramlarını/kontrollerini gözden geçirin.',
   'file.supportFixed': 'Ankastre',
   'file.supportPinned': 'Sabit mafsallı',

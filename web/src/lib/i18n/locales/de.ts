@@ -3411,6 +3411,7 @@ const de: Translations = {
   'file.workspaceBackupKept': 'Eine vollständige Kopie des vorherigen Arbeitsbereichs wurde in diesem Browser behalten (Schlüssel stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'Es war kein Platz für eine Kopie vorhanden, daher wird der gespeicherte Arbeitsbereich nicht überschrieben, solange diese Seite geöffnet ist. Verwenden Sie „Sitzung speichern“, um zu sichern, was Sie öffnen.',
   'file.invalidFormat': 'Ungültiges Dateiformat. Stellen Sie sicher, dass es eine .ded-Datei von Stabileo ist.',
+  'file.newerVersion': 'Diese Datei wurde mit einer neueren Version von Stabileo gespeichert (Dateiformat {version}; diese Version liest bis {supported}). Sie wurde nicht geöffnet, und nichts wurde geändert: Öffnen Sie sie mit einer neueren Version.',
   'file.loadedNoAxisConvention': 'Ohne Metadaten zur Konvention der lokalen Achsen geladen — wird jetzt mit der korrigierten Konvention lokaler Achsen mit Z nach oben ausgewertet. Berechnen Sie neu und prüfen Sie die Diagramme und Nachweise der Stäbe.',
   'file.supportFixed': 'Einspannung',
   'file.supportPinned': 'Gelenklager',

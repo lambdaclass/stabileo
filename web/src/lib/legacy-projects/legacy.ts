@@ -146,10 +146,17 @@ export async function openAndSolve(text: string, opts: { solve?: boolean; before
     body = JSON.stringify(parsed);
   }
   if (!deserializeProject(body)) throw new Error('the current code refused to open it');
-  const changes = [...(recheckStore.assessment?.changes ?? [])];
+  const changes = await assessedChanges();
   const values = modelCounts();
   if (opts.solve !== false) await solveAndRecord(values);
   return { values, changes };
+}
+
+/** The registered result changes the app lists for the project just opened, once its lazily loaded assessment has settled. */
+export async function assessedChanges(): Promise<ResultChange[]> {
+  await recheckStore.retry();
+  if (recheckStore.loadFailed || recheckStore.pending) throw new Error('the re-check assessment did not complete');
+  return [...(recheckStore.assessment?.changes ?? [])];
 }
 
 /** An example as the current code opens and solves it in `workspace`, the reference for a legacy file of it. */
