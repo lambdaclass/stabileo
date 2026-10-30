@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { cirsocPage } from '../pages/cirsoc';
 import { STANDING_PAGES } from '../pages';
 import { findPost } from '..';
+import { PUBLIC_LOCALES } from '../../i18n/offered';
+import { PRICING, OBSOLETE_PRICING } from '../../../../e2e/pricing-contract';
 
 const LOCALES = (Object.keys(cirsocPage.i18n) as (keyof typeof cirsocPage.i18n)[]).filter((l) => cirsocPage.i18n[l]);
 
@@ -57,5 +59,20 @@ describe('every standing page', () => {
         for (const b of page.i18n[l]!.blocks) if (b.k === 'link') expect(findPost(b.slug), b.slug).toBeTruthy();
       }
     });
+  }
+});
+
+// Exercise the same independent pricing contract without requiring a browser.
+describe('comparison-page pricing policy', () => {
+  for (const path of ['/sap2000-alternative', '/cirsoc']) {
+    for (const locale of PUBLIC_LOCALES) {
+      it(`${path} in ${locale} states the policy and has no obsolete exemptions`, () => {
+        const page = STANDING_PAGES.find((entry) => entry.path === path)!;
+        const body = page.i18n[locale];
+        expect(body).toBeDefined();
+        expect(body!.faq.map(({ a }) => a)).toContain(PRICING[locale].intro);
+        expect(JSON.stringify(body)).not.toMatch(OBSOLETE_PRICING[locale]);
+      });
+    }
   }
 });

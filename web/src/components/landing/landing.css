@@ -678,7 +678,7 @@
 
 .landing .hero-meta dt {
   font-family: var(--lp-mono);
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -1710,7 +1710,7 @@
   /* The WhatsApp button floats bottom-right; keep the line clear of it. */
   padding-right: 4.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }

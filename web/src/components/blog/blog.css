@@ -644,3 +644,31 @@
 .landing.blog .standing-cta {
   margin: 1.75rem 0 0;
 }
+
+/* Standing pages contain prose tables: keep every column readable on phones. */
+.landing.blog .standing .post-table {
+  table-layout: fixed;
+  white-space: normal;
+}
+
+.landing.blog .standing .post-table th,
+.landing.blog .standing .post-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-inline: clamp(0.35rem, 1.5vw, 0.9rem);
+}
+
+.landing.blog .standing .post-table thead th,
+.landing.blog .standing .link-arrow {
+  font-size: 0.75rem;
+}
+
+.landing.blog .standing a,
+.landing.blog .standing button {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
