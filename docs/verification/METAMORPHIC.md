@@ -363,12 +363,14 @@ issues remain open. They are deliberately separate from the required run.
 The targeted checks reproduced #758, #759, #760 and #762; the minimal
 co-rotational check reproduced #761.
 
-Final required run (2026-10-29): **30 passed, 12 ignored, 0 failed; 36.80 s**
+Historical run (2026-10-29; not validation of the current PR head): **30 passed, 12 ignored, 0 failed; 36.80 s**
 (test runtime, release build), on commit `d682fc7c65b1696867e5a3a4e45b04d26eead063`
 with the uncommitted #758 coverage assertions and their regression test.
+These counts describe that earlier working tree only; they are not current suite counts
+or certification of the committed PR head.
 The ignores comprise six issue-linked tests, three large sweeps and three pre-existing diagnostic probes. The generated fast sweep
 adds 256 models, plus 32 taut-cable models and 16 independent-time-unit models.
-Final large-seed run: **4096 seeds per dimension (8192 models), passed in
+Historical large-seed run: **4096 seeds per dimension (8192 models), passed in
 139.72 s**, including every stored time-history step. These are local release
 test timings, excluding compilation; the broad legacy exhaustive corpus was
 not rerun as part of this change.

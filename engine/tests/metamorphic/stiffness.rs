@@ -91,6 +91,29 @@ fn expected(name: &str, base: &Resp, factor: f64) -> Resp {
     out
 }
 
+fn stiffness_witness(name: &str, r: &Resp) {
+    if name == "linear" {
+        assert!(r
+            .0
+            .iter()
+            .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0)));
+    } else {
+        let tags: Vec<String> = match name {
+            "modal" => (0..6).map(|k| format!("f{k:02}")).collect(),
+            "buckling" => (0..3).map(|k| format!("lambda{k}")).collect(),
+            "plastic collapse" => vec!["collapse_factor".into()],
+            _ => unreachable!(),
+        };
+        for tag in tags {
+            let item = r.0.iter().find(|i| i.tag == tag).unwrap();
+            assert!(
+                item.v.iter().all(|v| v.is_finite() && *v > 0.0),
+                "{name} {tag} must be positive"
+            );
+        }
+    }
+}
+
 fn stiffness(
     name: &str,
     iter_tol: f64,
@@ -100,22 +123,11 @@ fn stiffness(
 ) {
     let (base, cond, _) = solve(1.0);
     generated::validate_response(name, &base, shape).unwrap();
-    let witness = match name {
-        "linear" => "u",
-        "modal" => "f00",
-        "buckling" => "lambda0",
-        "plastic collapse" => "collapse_factor",
-        _ => unreachable!("unsupported stiffness law: {name}"),
-    };
-    assert!(
-        base.0
-            .iter()
-            .any(|i| i.tag == witness && i.v.iter().any(|v| v.abs() > 0.0)),
-        "{label} {name}: stiffness law has no nonzero witness"
-    );
+    stiffness_witness(name, &base);
     for factor in [0.25, 4.0] {
         let (got, other, floor) = solve(factor);
         generated::validate_response(name, &got, shape).unwrap();
+        stiffness_witness(name, &got);
         let cond = cond.worst(&other);
         let rel = checks2::rel_for(name, iter_tol, &cond);
         assert!(
@@ -261,4 +273,96 @@ fn metamorphic_fast_priority() {
 #[ignore = "exhaustive priority invariances and stiffness scaling"]
 fn metamorphic_nightly_priority() {
     sweep(cases());
+}
+
+#[test]
+fn stiffness_rejects_nonpositive_factors() {
+    let _strict = generated::Strict::enter();
+    let c2 = Case2::new(
+        "faulty stiffness",
+        serde_json::from_value(generated::model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new(
+        "faulty stiffness",
+        serde_json::from_value(generated::model(1, true)).unwrap(),
+    );
+    let responses = ana2::rows()
+        .into_iter()
+        .filter(|a| ["modal", "buckling", "plastic collapse"].contains(&a.name))
+        .map(|a| {
+            (
+                a.name,
+                a.iter_tol,
+                ResponseShape::of_2d(&c2),
+                (a.run)(&c2).unwrap(),
+                conditioning::of_2d(&c2.s).unwrap(),
+            )
+        })
+        .chain(
+            ana3::rows()
+                .into_iter()
+                .filter(|a| ["modal", "buckling", "plastic collapse"].contains(&a.name))
+                .map(|a| {
+                    (
+                        a.name,
+                        a.iter_tol,
+                        ResponseShape::of_3d(&c3),
+                        (a.run)(&c3).unwrap(),
+                        conditioning::of_3d(&c3.s).unwrap(),
+                    )
+                }),
+        );
+    for (name, tol, shape, response, cond) in responses {
+        for tag in response
+            .0
+            .iter()
+            .filter(|i| {
+                i.tag.starts_with('f') || i.tag.starts_with("lambda") || i.tag == "collapse_factor"
+            })
+            .map(|i| &i.tag)
+        {
+            for value in [0.0, -1.0] {
+                for faulty_scale in [1.0, 0.25, 4.0] {
+                    let failure = std::panic::catch_unwind(|| {
+                        stiffness(name, tol, "faulty adapter", &shape, |scale| {
+                            let mut got = expected(name, &response, scale);
+                            if scale == faulty_scale {
+                                got.0
+                                    .iter_mut()
+                                    .find(|i| &i.tag == tag)
+                                    .unwrap()
+                                    .v
+                                    .fill(value);
+                            }
+                            if name == "modal" {
+                                let frequencies: Vec<_> = (0..6)
+                                    .map(|k| {
+                                        got.0
+                                            .iter()
+                                            .find(|i| i.tag == format!("f{k:02}"))
+                                            .unwrap()
+                                            .v[0]
+                                    })
+                                    .collect();
+                                got.0.retain(|i| {
+                                    i.tag.strip_prefix("meff").map_or(true, |k| {
+                                        let k: usize = k.parse().unwrap();
+                                        frequencies[k + 1] > frequencies[k] * (1.0 + 1e-3)
+                                    })
+                                });
+                            }
+                            generated::validate_response(name, &got, &shape).unwrap();
+                            (got, cond.clone(), 0.0)
+                        })
+                    })
+                    .expect_err("accepted nonpositive factor");
+                    let message = failure.downcast_ref::<String>().unwrap();
+                    assert!(
+                        message.contains("must be positive"),
+                        "unexpected rejection: {message}"
+                    );
+                }
+            }
+        }
+    }
 }

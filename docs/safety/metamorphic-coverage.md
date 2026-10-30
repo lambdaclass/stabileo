@@ -115,15 +115,15 @@ From the repository root, with a dedicated target directory and two build jobs:
 
 ```sh
 export CARGO_BUILD_JOBS=2
-export CARGO_TARGET_DIR=/private/tmp/claude-501/codex-ws2-target
+export CARGO_TARGET_DIR="${TMPDIR:-/tmp}/stabileo-metamorphic-target"
 # Fast priority subset: fixed eight seeds; unaffected by METAMORPHIC_CASES.
-cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_fast_ -- --nocapture --test-threads 1
+nix develop --command cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_fast_ -- --nocapture --test-threads 1
 # Exhaustive tier for this slice: default 512 seeds per dimension, configurable.
-METAMORPHIC_CASES=512 METAMORPHIC_SEED=20261018 cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_nightly_priority -- --ignored --nocapture --test-threads 1
+METAMORPHIC_CASES=512 METAMORPHIC_SEED=20261018 nix develop --command cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_nightly_priority -- --ignored --nocapture --test-threads 1
 # Existing full nightly corpus/generator job, not a laptop verification command:
-METAMORPHIC_CASES=4096 cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture --test-threads 2
+METAMORPHIC_CASES=4096 nix develop --command cargo test -p dedaliano-engine --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture --test-threads 2
 # Known failures are opt-in, separate from the passing nightly tier:
-cargo test -p dedaliano-engine --locked --release --test metamorphic safety_cases:: -- --ignored --nocapture --test-threads 1
+nix develop --command cargo test -p dedaliano-engine --locked --release --test metamorphic safety_cases:: -- --ignored --nocapture --test-threads 1
 ```
 
 The new nightly test is automatically selected by the existing nightly workflow's

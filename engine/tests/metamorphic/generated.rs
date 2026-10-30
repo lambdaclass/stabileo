@@ -128,6 +128,9 @@ fn sweep(count: u64, only: Option<&str>) {
             serde_json::from_value(model(seed, true)).unwrap(),
         );
         for a in &a2 {
+            if a.name == "time history" {
+                excited_history_witness(&(a.run)(&c2).unwrap(), &ResponseShape::of_2d(&c2));
+            }
             let invs: Vec<_> = crate::INV_2D
                 .iter()
                 .copied()
@@ -162,6 +165,9 @@ fn sweep(count: u64, only: Option<&str>) {
             );
         }
         for a in &a3 {
+            if a.name.starts_with("time history") {
+                excited_history_witness(&(a.run)(&c3).unwrap(), &ResponseShape::of_3d(&c3));
+            }
             let invs: Vec<_> = crate::INV_3D
                 .iter()
                 .copied()
@@ -1161,5 +1167,54 @@ fn strict_3d_rejects_failed_zero_load_solves() {
             "{}",
             t.report()
         );
+    }
+}
+
+pub(crate) fn excited_history_witness(r: &crate::response::Resp, shape: &ResponseShape) {
+    assert!(
+        r.0.iter().any(|i| {
+            i.node
+                .is_some_and(|n| shape.nodes.contains(&n) && !shape.supports.contains(&n))
+                && i.tag.starts_with("u_t")
+                && i.tag != "u_t000"
+                && i.v.iter().any(|v| v.is_finite() && v.abs() > 0.0)
+        }),
+        "excited fixture has no free-node motion after the initial step"
+    );
+}
+
+#[test]
+fn excited_history_rejects_zero_responses() {
+    let _strict = Strict::enter();
+    for seed in 0..8 {
+        let c2 = Case2::new(
+            "excited",
+            serde_json::from_value(model(seed, false)).unwrap(),
+        );
+        let c3 = Case3::new(
+            "excited",
+            serde_json::from_value(model(seed, true)).unwrap(),
+        );
+        let responses = ana2::rows()
+            .into_iter()
+            .filter(|a| a.name == "time history")
+            .map(|a| (a.name, ResponseShape::of_2d(&c2), (a.run)(&c2).unwrap()))
+            .chain(
+                ana3::rows()
+                    .into_iter()
+                    .filter(|a| a.name.starts_with("time history"))
+                    .map(|a| (a.name, ResponseShape::of_3d(&c3), (a.run)(&c3).unwrap())),
+            );
+        for (name, shape, mut response) in responses {
+            validate_response(name, &response, &shape).unwrap();
+            excited_history_witness(&response, &shape);
+            for item in &mut response.0 {
+                item.v.fill(0.0);
+            }
+            validate_response(name, &response, &shape).unwrap();
+            assert!(
+                std::panic::catch_unwind(|| excited_history_witness(&response, &shape)).is_err()
+            );
+        }
     }
 }
