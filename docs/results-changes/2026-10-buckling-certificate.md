@@ -2,7 +2,7 @@
 
 ## Buckling factors outside their enclosure are refused
 
-Issue #741; PR **#817**; results version **5**.
+Issue #741; PR **#817**; results version **6**.
 
 The minimized `json_dynamics` input has three 3D frame members and 15 free DOFs.
 The raw factor is **4691.397553909858**. Before this change it was certified with

@@ -48,6 +48,20 @@ export function newRegistryEntries(baseRegistry, headRegistry) {
  */
 export function decide({ snapshots, baseRegistry, headRegistry, fragments }) {
   const changed = [];
+  const entries = newRegistryEntries(baseRegistry, headRegistry);
+  const releasedVersion = baseRegistry?.currentResultsVersion ?? 0;
+  const invalid = entries.filter((entry) => entry.resultsVersion <= releasedVersion);
+  const lost = (baseRegistry?.changes ?? []).filter((entry) =>
+    !(headRegistry?.changes ?? []).some((candidate) => candidate.id === entry.id && candidate.resultsVersion === entry.resultsVersion));
+  if (invalid.length || lost.length || (headRegistry?.currentResultsVersion ?? 0) < releasedVersion) {
+    return {
+      ok: false, changed,
+      report: `FAIL: results versions through ${releasedVersion} are already released. `
+        + `New entries must use a later version; preserve released entries and their versions. `
+        + `Colliding entries: ${invalid.map((entry) => entry.id).join(', ') || 'none'}. `
+        + `Missing or renumbered entries: ${lost.map((entry) => entry.id).join(', ') || 'none'}.`,
+    };
+  }
   for (const s of snapshots) {
     if (s.base === null) continue; // a new case: coverage, not a change
     if (s.head === null) { changed.push({ file: s.file, report: `✗ ${s.file}: snapshot deleted` }); continue; }
@@ -57,7 +71,6 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments }) {
   if (changed.length === 0) {
     return { ok: true, changed, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
   }
-  const entries = newRegistryEntries(baseRegistry, headRegistry);
   const breaking = fragments.filter((f) => isBreakingResultsFragment(f.text));
   const missing = [];
   if (entries.length === 0) missing.push(`no new entry in ${REGISTRY}`);

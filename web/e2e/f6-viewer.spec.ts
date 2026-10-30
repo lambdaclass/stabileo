@@ -49,7 +49,7 @@ function focused(page: Page): Promise<string | null> {
 
 async function waitForScene(page: Page): Promise<void> {
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
-  await expect.poll(() => builds(page), { timeout: 120_000 }).toBeGreaterThan(0);
+  await expect.poll(() => builds(page), { timeout: 120_000 }).toBeGreaterThan(0); // slow-ok: Shared helper waits for live detailing and 3-D scene construction; smoke still has a 45 s total budget.
 }
 
 // ─── 1. The stage that details the steel can show it ─────────────

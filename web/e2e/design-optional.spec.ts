@@ -12,7 +12,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test('@smoke PRO starts without the Design stage, and offers it once turned on in its settings', async ({ page }) => {
   await page.goto('/app/pro?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect(page.getByTestId('pr-stage-model')).toBeVisible();
   await expect(page.getByTestId('pr-stage-design')).toHaveCount(0);
 
@@ -24,7 +24,7 @@ test('@smoke PRO starts without the Design stage, and offers it once turned on i
 
   // Remembered per browser.
   await page.reload();
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect(page.getByTestId('pr-stage-design')).toBeVisible();
   await page.getByTestId('pr-stage-design').click();
   await expect(page.getByTestId('design-desk')).toBeVisible();

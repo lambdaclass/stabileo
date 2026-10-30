@@ -1,7 +1,8 @@
+import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
-import { RESULT_CHANGES, RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
+import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
 import { stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
@@ -119,9 +120,9 @@ describe('which registered changes concern a model', () => {
     const change = 'buckling-certificate-rejects-outside-factor';
     for (const analysisMode of ['2d', '3d', 'pro']) {
       const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
-      expect(ids(frame, { resultsVersion: 4, analyses: ['buckling'] } as SolveStamp)).toContain(change);
-      expect(ids(frame, { resultsVersion: 4, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
-      expect(ids(frame, { resultsVersion: 5, analyses: ['buckling'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame, { resultsVersion: 5, analyses: ['buckling'] } as SolveStamp)).toContain(change);
+      expect(ids(frame, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame, { resultsVersion: 6, analyses: ['buckling'] } as SolveStamp)).not.toContain(change);
       expect(ids(frame)).toContain(change);
     }
     expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);

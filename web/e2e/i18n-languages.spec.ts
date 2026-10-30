@@ -66,9 +66,9 @@ async function bootDetecting(page: Page) {
     } catch { /* private mode */ }
   });
   await page.goto(PRO_URL);
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
   await page.evaluate(() => window.__stabileoActions.openDesignTab());
 }
@@ -150,7 +150,7 @@ test.describe('@smoke the language a browser gets', () => {
         } catch { /* private mode */ }
       });
       await page.goto(PRO_URL);
-      await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+      await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
       const value = await pickerValue(page);
       expect(OFFERED_LOCALES, `the picker showed "${value}"`).toContain(value);
     });
@@ -216,14 +216,14 @@ test.describe('changing language keeps the work', () => {
       } catch { /* private mode */ }
     });
     await page.goto(PRO_URL);
-    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
 
     await setAppLanguage(page, 'pt');
     await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);
 
     await page.reload();
-    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
     expect(await pickerValue(page)).toBe('pt');
     await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);

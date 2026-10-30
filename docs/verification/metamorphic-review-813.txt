@@ -1,0 +1,106 @@
+PR #813 verification — 2026-10-30
+
+Source identity
+  PR base: 417d112f949300766c40aea8f862f97135c2e6f9
+  Reviewed head: 34f3789ad65b231be149fc8bc8c2875ba8d4304c
+  Tested changes to that head: active.rs and generated.rs, identified below.
+  engine/tests/metamorphic/active.rs SHA-256:
+    d20b4b8127722699bd6d9557aafad26389604226da61099bbc8169ee1a8a127d
+  engine/tests/metamorphic/generated.rs SHA-256:
+    73b3a5b2986d8e7d75c01107f86843df0cc1c0092ab7f675ad0fb0fd16dc7379
+
+Reproduction
+  CARGO_BUILD_JOBS=2; release profile; locked dependencies.
+  METAMORPHIC_SEED=20261018; METAMORPHIC_ONLY unset unless specified below.
+  Required target: make test.engine.metamorphic
+  Nightly selection, within the make shell environment, from engine/:
+    cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture --test-threads 2
+  Fixture regression selection:
+    cargo test --locked --release --test metamorphic active -- --nocapture
+  Local required-target runner: cargo test --locked --profile release --test metamorphic
+  (cargo-nextest was unavailable; this executes the same test binary and
+  default non-ignored selection, without nextest's process isolation.)
+
+  Obtain the base with git archive at the revision above, without changing
+  the working tree. Run the same nightly command and seed in that source tree.
+  When sharing a Cargo target directory between source trees, touch
+  engine/tests/metamorphic/main.rs before switching back to force recompilation;
+  otherwise Cargo can reuse the other tree's test binary. The head selection
+  must report 3 nightly tests; the base has only 2, with no generated sweep.
+
+Results
+  Targeted active fixtures: 5 passed, 0 failed (0.04 s).
+  Required metamorphic target: 34 passed, 12 ignored, 0 failed (44.82 s).
+  Complete head nightly selection: 1 passed, 2 failed (394.86 s).
+    Generated: 4096 seeds in each dimension, 8192 models, passed (350.30 s).
+    Corpus 2D: 208 violations, failed.
+    Corpus 3D: 117 violations, failed.
+  Complete base nightly selection: 0 passed, 2 failed (411.97 s).
+    Corpus 2D: 205 violations, failed.
+    Corpus 3D: 118 violations, failed.
+  Timings exclude compilation and are observations, not performance benchmarks.
+
+Comparison and triage
+  See metamorphic-corpus-813.txt for per-cell counts and every case identity
+  appearing in only one of the two complete runs. Identity means dimension,
+  analysis, invariant and case; it does not require identical floating values.
+  There are 321 shared failing identities, 4 head-only and 2 base-only.
+
+  The three head-only fiber-nonlinear relabel cases are nondeterministic base
+  failures, not established regressions:
+    differential/frame2d-5
+    fuzz_rich_2d/20261045
+    fuzz_rich_2d/20261118
+  All three reproduced on the unmodified base in two targeted reruns with
+  METAMORPHIC_ONLY='fiber nonlinear', seed 20261018 and the nightly filter.
+  The first rerun reproduced frame2d-5 and 20261118; the second reproduced
+  20261045. Failure values for frame2d-5 and 20261045 matched the head;
+  20261118 exchanged the two unequal displacement values. Track fiber relabel
+  nondeterminism separately; a passing rerun is not evidence of resolution.
+
+  The fourth head-only identity is newly exposed by this PR's deterministic
+  reversal selection:
+    [P-Delta x reversal]
+    feature_matrix/3d-solid-shell-strip-cantilever------0-equiv
+    original solved but transformed model failed: did not converge
+  Controlled reproduction: on the base, change only checks3.rs reversal member
+  selection to collect member IDs, sort_unstable(), then consume rng.f64() in
+  that order. Run metamorphic_nightly_3d with METAMORPHIC_ONLY='P-Delta' and the
+  same seed. This reproduces the identical reversal convergence failure.
+  The unmodified base also fails rotation on this case. Track the reversal
+  convergence defect as newly exposed coverage; retain the failing comparison.
+
+  The two base-only identities are fiber relabel on differential/pdelta3d-0
+  and plastic-collapse reversal on feature_matrix/3d-curved-beam-arch-with.
+  Changed random member selection and nonlinear nondeterminism mean their
+  absence in one head run does not establish a fix. Retain their coverage.
+
+  Shared failures include sparse-path energy (fuzz_rich_2d/20261134),
+  time-history transformed singularity (fuzz_rich_2d/20261051), sparse-path
+  relabel response shape (fuzz_rich_3d/20261028), and warping modal
+  orthogonality. Existing adverse-model issue families #758, #759, #760 and
+  #762 remain open; this comparison does not claim every corpus failure is
+  covered by those issues. The per-cell inventory preserves the remaining
+  failures for investigation without reclassifying them as passing/refused.
+
+Scope correction
+  Changes across the PR are NOT confined to strict mode. Sorted reversal
+  selection, influence-line reversal mapping, transformed-failure refusal
+  classification, material-nonlinear warning enforcement, and inclusion of
+  time-history step zero also affect non-strict corpus execution.
+  Only the latest reviewed commit's validator dispatch changes were strict-only.
+  No production solver files differ between the PR base and reviewed head.
+  No tolerance, test exclusion, input acceptance rule or nightly job was
+  relaxed to make this comparison pass. Both corpus sweeps remain failing;
+  the complete nightly selection must not be advertised as green.
+
+Oracle scope
+  Active foundation fixtures check u2=-0.3*L/(EA), u3=-0.5*L/(EA): the
+  distributed transverse bed cannot resist axial load in these straight bars.
+  This complements the existing transverse-displacement change check and
+  rejects a correctly shaped, zeroed active response in both dimensions.
+  Loaded cable fixtures require positive member tension and translational
+  support-force equilibrium with the applied 100-unit load. Shaped zero
+  responses and responses with only reactions zeroed are rejected.
+  Absolute adapter references cover modal/certified-modal, harmonic and
+  influence-line values; the matrix is not a universal absolute-value oracle.

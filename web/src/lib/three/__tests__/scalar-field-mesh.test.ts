@@ -111,3 +111,28 @@ it('maps the Q4 centre scalar before colouring the four triangles', () => {
   expect(Array.from(geometry.index!.array)).toEqual([0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4]);
   m.dispose();
 });
+
+for (const cellSize of [2, 3, 4] as const) {
+  it(`switches ${cellSize}-node cells between neutral geometry and scalar colours without losing displacement`, () => {
+    const xy = [0, 0, 1, 0, 1, 1, 0, 1];
+    const m = createScalarFieldMesh(xy, [0, 1, 2, 3].slice(0, cellSize), cellSize);
+    const mesh = m.group.children[0] as THREE.Mesh;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    m.setField([0, 1, 0, 1], { min: 0, max: 1 });
+    m.setUncoloured();
+    expect(material.vertexColors).toBe(false);
+    expect(material.color.getHex()).toBe(0x8fa3b3);
+    m.setEdgesVisible(false);
+    expect(mesh.visible).toBe(true);
+    for (const dy of [0, 0.1, 0.3, 0]) {
+      m.setDisplacement([0, dy, 0, dy, 0, dy, 0, dy], 2);
+      const position = mesh.geometry.getAttribute(cellSize === 2 ? 'instanceStart' : 'position');
+      expect(position.getY(0)).toBeCloseTo(2 * dy);
+      expect(mesh.geometry.boundingBox!.min.y).toBeCloseTo(2 * dy);
+    }
+    m.setField([0, 1, 0, 1], { min: 0, max: 1 });
+    expect(material.vertexColors).toBe(true);
+    expect(material.color.getHex()).toBe(0xffffff);
+    m.dispose();
+  });
+}

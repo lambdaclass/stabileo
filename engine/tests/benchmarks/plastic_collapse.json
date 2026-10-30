@@ -1,0 +1,259 @@
+{
+  "name": "Fixed-base portal, proportional H=1 kN and V=2 kN",
+  "span": 4,
+  "height": 3,
+  "mp": 100,
+  "horizontal": 1,
+  "vertical": 2,
+  "reference": {
+    "beam": 100,
+    "sway": 133.33333333333334,
+    "combined": 85.71428571428571
+  },
+  "tolerance": 1e-06,
+  "input": {
+    "materials": {
+      "1": {
+        "fy": 250.0
+      }
+    },
+    "maxHinges": 60,
+    "mpOverrides": {
+      "1": [
+        100,
+        100
+      ]
+    },
+    "sections": {
+      "1": {
+        "a": 0.1,
+        "b": null,
+        "d": null,
+        "h": null,
+        "iy": 0.0001,
+        "iz": 0.0001,
+        "materialId": 1
+      }
+    },
+    "solver": {
+      "connectors": {},
+      "constraints": [],
+      "curvedBeams": [],
+      "curvedShells": {},
+      "elements": {
+        "1": {
+          "id": 1,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "2": {
+          "id": 2,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 5,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "3": {
+          "id": 3,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 4,
+          "nodeJ": 3,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "4": {
+          "id": 4,
+          "localYx": null,
+          "localYy": null,
+          "localYz": null,
+          "materialId": 1,
+          "nodeI": 5,
+          "nodeJ": 3,
+          "releaseMyEnd": false,
+          "releaseMyStart": false,
+          "releaseMzEnd": false,
+          "releaseMzStart": false,
+          "releaseTEnd": false,
+          "releaseTStart": false,
+          "rollAngle": null,
+          "sectionId": 1,
+          "type": "frame"
+        }
+      },
+      "leftHand": null,
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 1,
+            "fy": 0,
+            "fz": 0,
+            "mx": 0,
+            "my": 0,
+            "mz": 0
+          }
+        },
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 5,
+            "fx": 0,
+            "fy": 0,
+            "fz": -2,
+            "mx": 0,
+            "my": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "materials": {
+        "1": {
+          "e": 200000.0,
+          "id": 1,
+          "nu": 0.3
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "3": {
+          "id": 3,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "4": {
+          "id": 4,
+          "x": 4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "5": {
+          "id": 5,
+          "x": 2,
+          "y": 0,
+          "z": 3
+        }
+      },
+      "plates": {},
+      "quad9s": {},
+      "quads": {},
+      "sections": {
+        "1": {
+          "a": 0.1,
+          "asY": null,
+          "asZ": null,
+          "cw": null,
+          "id": 1,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 1e-05,
+          "name": null
+        }
+      },
+      "solidShells": {},
+      "solverOptions": null,
+      "supports": {
+        "1": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 1,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "2": {
+          "drx": null,
+          "dry": null,
+          "drz": null,
+          "dx": null,
+          "dy": null,
+          "dz": null,
+          "isInclined": null,
+          "krx": null,
+          "kry": null,
+          "krz": null,
+          "kw": null,
+          "kx": null,
+          "ky": null,
+          "kz": null,
+          "nodeId": 4,
+          "normalX": null,
+          "normalY": null,
+          "normalZ": null,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rw": null,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        }
+      }
+    }
+  }
+}

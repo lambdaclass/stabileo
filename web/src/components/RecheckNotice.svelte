@@ -1,19 +1,21 @@
 <script lang="ts">
-  /**
-   * The re-check notice and the stale banner (`lib/store/recheck.svelte.ts`).
-   *
-   * The notice blocks the app until the engineer acknowledges it: no close button, Escape does
-   * nothing, a click outside does nothing. It lists only the registered changes that concern
-   * this model, each with its explanation in the reader's language and a link to the write-up.
-   *
-   * Once acknowledged, the results stay STALE until the model is solved again in this build,
-   * and a banner says so with the same re-run action and a way back to the list.
-   */
+  import { saveWorkspaceToLocalStorage, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
-  import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
+  import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
+
+  const details = $derived(!recheckStore.pending);
+  const loadFailed = $derived(recheckStore.loadFailed);
+  let recoveryFailed = $state(false);
+
+  function saveAndReload() {
+    recoveryFailed = !saveWorkspaceToLocalStorage();
+    if (!recoveryFailed) window.location.reload();
+  }
+
+  function loadDetails() { return recheckStore.retry(); }
 
   let readIt = $state(false);
   let reviewing = $state(false);
@@ -30,11 +32,14 @@
     readIt = false;
   });
 
-  $effect(() => {
-    if (!open || !dialog) return;
-    const restore = captureFocus(dialog);
-    return restore;
-  });
+  // A safety notice belongs in the browser's top layer, above every app z-index.
+  // showModal also makes the desk and other background dialogs inert and restores
+  // focus on close. Do not use the `open` attribute: it creates a non-modal dialog.
+  function showNotice(node: HTMLDialogElement) {
+    node.showModal();
+    dialog?.focus();
+    return { destroy: () => node.close() };
+  }
 
   function onKey(e: KeyboardEvent) {
     // Escape is swallowed: the notice is dismissed by acknowledging it, not by a reflex.
@@ -57,17 +62,22 @@
 </script>
 
 {#if open && a}
-  <div class="rc-overlay" data-testid="recheck-overlay">
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <dialog
+    class="rc-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="rc-title"
+    aria-describedby="rc-intro"
+    data-testid="recheck-overlay"
+    use:showNotice
+    oncancel={(e) => e.preventDefault()}
+    onkeydown={onKey}
+  >
     <div
       class="rc"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="rc-title"
-      aria-describedby="rc-intro"
+      class:rc-recovery={loadFailed}
       tabindex="-1"
       bind:this={dialog}
-      onkeydown={onKey}
       data-testid="recheck-notice"
     >
       <h3 class="rc-title" id="rc-title">{t('recheck.title')}</h3>
@@ -76,6 +86,16 @@
           ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
           : t('recheck.introUnknown')}
       </p>
+      {#if !details}
+        <p role="status">{t(loadFailed ? 'recheck.loadFailed' : 'recheck.loading')}</p>
+        {#if loadFailed}
+          <button class="rc-btn" onclick={loadDetails}>{t('recheck.retry')}</button>
+          <button class="rc-btn" onclick={saveAndReload} data-testid="recheck-reload">{t('recheck.saveAndReload')}</button>
+          <button class="rc-btn" onclick={saveSession} data-testid="recheck-backup">{t('recheck.downloadBackup')}</button>
+          <p class="rc-intro">{t('recheck.backupHelp')}</p>
+          {#if recoveryFailed}<p role="alert">{t('recheck.recoveryFailed')}</p>{/if}
+        {/if}
+      {/if}
       <ul class="rc-list" data-testid="recheck-changes">
         {#each a.changes as c (c.id)}
           <li class="rc-item" data-change-id={c.id}>
@@ -88,23 +108,25 @@
           </li>
         {/each}
       </ul>
-      <p class="rc-stale">{t('recheck.staleWarning')}</p>
-      {#if recheckStore.noticeOpen}
-        <label class="rc-ack">
-          <input type="checkbox" bind:checked={readIt} data-testid="recheck-ack" />
-          {t('recheck.ack')}
-        </label>
-      {/if}
-      <div class="rc-actions">
+      <footer class="rc-footer">
+        <p class="rc-stale">{t('recheck.staleWarning')}</p>
         {#if recheckStore.noticeOpen}
-          <button class="rc-btn" disabled={!readIt} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
-        {:else}
-          <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
+          <label class="rc-ack">
+            <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
+            {t('recheck.ack')}
+          </label>
         {/if}
-        <button class="rc-btn rc-primary" disabled={(recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
-      </div>
+        <div class="rc-actions">
+          {#if recheckStore.noticeOpen}
+            <button class="rc-btn" disabled={!details || !readIt} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
+          {:else}
+            <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
+          {/if}
+          <button class="rc-btn rc-primary" disabled={!details || (recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+        </div>
+      </footer>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 {#if !open && recheckStore.stale && a}
@@ -119,11 +141,21 @@
   .rc-overlay {
     position: fixed;
     inset: 0;
-    background: color-mix(in srgb, var(--st-bg) 78%, transparent);
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 260;
+  }
+  .rc-overlay::backdrop {
+    background: color-mix(in srgb, var(--st-bg) 78%, transparent);
   }
   .rc {
     box-sizing: border-box;
@@ -132,8 +164,9 @@
     width: min(640px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
     max-height: calc(100dvh - 48px);
+    overflow: hidden;
     overflow-wrap: anywhere;
-    overflow-y: auto;
+    font-size: 0.75rem;
     padding: 18px;
     background: var(--st-surface);
     border: 1px solid var(--st-hair-strong);
@@ -144,8 +177,11 @@
   /* Keep acknowledgement and actions visible while a long change list scrolls. */
   .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
+  /* Recovery can exceed short viewports: scroll all content, including the footer. */
+  .rc-recovery { overflow-y: auto; overscroll-behavior: contain; }
+  .rc-recovery > :global(*) { flex-shrink: 0; }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
-  .rc-list { min-height: 0; overflow-y: auto; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rc-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .rc-item { flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
   .rc-item-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .rc-area { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }
@@ -153,6 +189,8 @@
   .rc-item-text { margin: 4px 0; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
   .rc-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-size: 0.75rem; color: var(--st-accent, #4a90d9); }
   .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
+  .rc-footer { flex-shrink: 0; }
+  .rc-ack input { flex-shrink: 0; }
   .rc-ack { min-height: 44px; cursor: pointer; display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .rc-btn, .rc-banner-btn {
@@ -161,7 +199,7 @@
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: 0.75rem;
     border-radius: var(--st-radius);
     border: 1px solid var(--st-hair-strong);
@@ -195,4 +233,11 @@
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
+  @media (max-width: 600px) {
+    .rc { padding: 12px; max-height: calc(100dvh - 24px); }
+    .rc-actions .rc-btn { flex: 1 1 100%; }
+    .rc-banner { width: calc(100vw - 24px); }
+    .rc-banner > span { flex-basis: 100%; }
+    .rc-banner-btn { flex: 1; }
+  }
 </style>

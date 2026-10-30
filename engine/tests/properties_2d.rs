@@ -418,6 +418,7 @@ fn with_loads(m: &Model2, loads: Vec<SolverLoad>) -> SolverInput {
 // ======================================================================
 
 fn solve(input: &SolverInput) -> Result<AnalysisResults, TestCaseError> {
+    nightly_input(input);
     linear::solve_2d(input).map_err(|e| TestCaseError::fail(format!("solve_2d failed: {e}")))
 }
 
@@ -652,9 +653,12 @@ proptest! {
     /// moment about the origin) for nodal, distributed and point member loads.
     #[test]
     fn prop_global_equilibrium(m in model2(), raws in raw_loads2()) {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
-        let res = solve(&inp)?;
-        check_equilibrium(&inp, &res)?;
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
+            let res = solve(&inp)?;
+            check_equilibrium(&inp, &res)?;
+            Ok(())
+        })?;
     }
 
     /// (2) Linearity / superposition: solve(aP1 + bP2) = a·solve(P1) + b·solve(P2)
@@ -662,16 +666,19 @@ proptest! {
     #[test]
     fn prop_superposition(m in model2(), r1 in raw_loads2(), r2 in raw_loads2(),
                           a in -3.0..3.0f64, b in -3.0..3.0f64) {
-        let l1 = resolve2(&m, &r1, LoadMode::Any);
-        let l2 = resolve2(&m, &r2, LoadMode::Any);
-        let mut l12 = scale_loads(&l1, a);
-        l12.extend(scale_loads(&l2, b));
-        let ids = ids(&m.input);
-        let f1 = flat(&solve(&with_loads(&m, l1))?, &ids)?;
-        let f2 = flat(&solve(&with_loads(&m, l2))?, &ids)?;
-        let f12 = flat(&solve(&with_loads(&m, l12))?, &ids)?;
-        check(compare("superposition", &f12, &Flat::lin_comb(a, &f1, b, &f2),
-                      &Flat::abs_comb(a, &f1, b, &f2), m.lchar, REL))?;
+        nightly_property(&m.input, || {
+            let l1 = resolve2(&m, &r1, LoadMode::Any);
+            let l2 = resolve2(&m, &r2, LoadMode::Any);
+            let mut l12 = scale_loads(&l1, a);
+            l12.extend(scale_loads(&l2, b));
+            let ids = ids(&m.input);
+            let f1 = flat(&solve(&with_loads(&m, l1))?, &ids)?;
+            let f2 = flat(&solve(&with_loads(&m, l2))?, &ids)?;
+            let f12 = flat(&solve(&with_loads(&m, l12))?, &ids)?;
+            check(compare("superposition", &f12, &Flat::lin_comb(a, &f1, b, &f2),
+                          &Flat::abs_comb(a, &f1, b, &f2), m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (3) Maxwell–Betti reciprocity: δ_ij = δ_ji for any two free DOFs (mixed
@@ -679,19 +686,22 @@ proptest! {
     /// δ_ii > 0 and δ_ij² ≤ δ_ii·δ_jj (Cauchy–Schwarz).
     #[test]
     fn prop_maxwell_betti(m in model2(), i in any::<Index>(), j in any::<Index>()) {
-        let dofs = free_dofs(&m);
-        prop_assume!(!dofs.is_empty());
-        let (di, dj) = (dofs[i.index(dofs.len())], dofs[j.index(dofs.len())]);
-        let ri = solve(&with_loads(&m, vec![unit_load(di)]))?;
-        let rj = solve(&with_loads(&m, vec![unit_load(dj)]))?;
-        let (dii, dji) = (dof_value(&ri, di), dof_value(&ri, dj));
-        let (djj, dij) = (dof_value(&rj, dj), dof_value(&rj, di));
-        prop_assert!(dii > 0.0 && djj > 0.0, "non-positive diagonal flexibility δii={dii:e} δjj={djj:e}");
-        let s = (dii * djj).sqrt();
-        // Flexibility entries are bounded by sqrt(δii δjj); 1e-6 of it is far
-        // above solve round-off (~cond·eps relative to the same scale).
-        prop_assert!((dij - dji).abs() <= 1e-6 * s, "reciprocity: δij={dij:e} δji={dji:e} scale {s:e}");
-        prop_assert!(dij.abs() <= s * (1.0 + 1e-9), "Cauchy–Schwarz: |δij|={:e} > sqrt(δii δjj)={s:e}", dij.abs());
+        nightly_property(&m.input, || {
+            let dofs = free_dofs(&m);
+            prop_assume!(!dofs.is_empty());
+            let (di, dj) = (dofs[i.index(dofs.len())], dofs[j.index(dofs.len())]);
+            let ri = solve(&with_loads(&m, vec![unit_load(di)]))?;
+            let rj = solve(&with_loads(&m, vec![unit_load(dj)]))?;
+            let (dii, dji) = (dof_value(&ri, di), dof_value(&ri, dj));
+            let (djj, dij) = (dof_value(&rj, dj), dof_value(&rj, di));
+            prop_assert!(dii > 0.0 && djj > 0.0, "non-positive diagonal flexibility δii={dii:e} δjj={djj:e}");
+            let s = (dii * djj).sqrt();
+            // Flexibility entries are bounded by sqrt(δii δjj); 1e-6 of it is far
+            // above solve round-off (~cond·eps relative to the same scale).
+            prop_assert!((dij - dji).abs() <= 1e-6 * s, "reciprocity: δij={dij:e} δji={dji:e} scale {s:e}");
+            prop_assert!(dij.abs() <= s * (1.0 + 1e-9), "Cauchy–Schwarz: |δij|={:e} > sqrt(δii δjj)={s:e}", dij.abs());
+            Ok(())
+        })?;
     }
 
     /// (4) Frame invariance: rigidly rotating (any angle) and translating the
@@ -700,16 +710,19 @@ proptest! {
     #[test]
     fn prop_frame_invariance(m in model2(), raws in raw_loads2(),
                              th in 0.0..std::f64::consts::TAU, tx in -50.0..50.0f64, tz in -50.0..50.0f64) {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
-        let rot = rotate_model(&inp, th, tx, tz);
-        let ids = ids(&inp);
-        let base = solve(&inp)?;
-        let (s, c) = th.sin_cos();
-        let expected = flat2(&base, &ids.nodes, &ids.elems, &ids.sups, &|n| n, &|e| e, (c, s))?;
-        let got = flat(&solve(&rot)?, &ids)?;
-        // Rotated coordinates differ from exact by round-off (~1e-16·|x+t|),
-        // a perturbation of the problem amplified by cond(K) — still ≪ REL.
-        check(compare("frame invariance", &got, &expected, &expected, m.lchar, REL))?;
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
+            let rot = rotate_model(&inp, th, tx, tz);
+            let ids = ids(&inp);
+            let base = solve(&inp)?;
+            let (s, c) = th.sin_cos();
+            let expected = flat2(&base, &ids.nodes, &ids.elems, &ids.sups, &|n| n, &|e| e, (c, s))?;
+            let got = flat(&solve(&rot)?, &ids)?;
+            // Rotated coordinates differ from exact by round-off (~1e-16·|x+t|),
+            // a perturbation of the problem amplified by cond(K) — still ≪ REL.
+            check(compare("frame invariance", &got, &expected, &expected, m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (5) Energy: under nodal loads the external work W = fᵀu is ≥ 0 and equals
@@ -717,57 +730,66 @@ proptest! {
     /// displacements in element local axes (= 2 × total strain energy).
     #[test]
     fn prop_energy(m in model2(), raws in raw_loads2()) {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::NodalOnly));
-        let res = solve(&inp)?;
-        let d: HashMap<usize, &Displacement> = res.displacements.iter().map(|d| (d.node_id, d)).collect();
-        let (mut w, mut wabs) = (0.0, 0.0);
-        for l in &inp.loads {
-            if let SolverLoad::Nodal(nl) = l {
-                let x = d[&nl.node_id];
-                for t in [nl.fx * x.ux, nl.fz * x.uz, nl.my * x.ry] { w += t; wabs += t.abs(); }
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::NodalOnly));
+            let res = solve(&inp)?;
+            let d: HashMap<usize, &Displacement> = res.displacements.iter().map(|d| (d.node_id, d)).collect();
+            let (mut w, mut wabs) = (0.0, 0.0);
+            for l in &inp.loads {
+                if let SolverLoad::Nodal(nl) = l {
+                    let x = d[&nl.node_id];
+                    for t in [nl.fx * x.ux, nl.fz * x.uz, nl.my * x.ry] { w += t; wabs += t.abs(); }
+                }
             }
-        }
-        let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
-        let (mut u2, mut uabs) = (0.0, 0.0);
-        for e in inp.elements.values() {
-            let (_, _, c, s) = elem_geom(&inp, e);
-            let (a, b) = (d[&e.node_i], d[&e.node_j]);
-            let ul = [c * a.ux + s * a.uz, -s * a.ux + c * a.uz, a.ry, c * b.ux + s * b.uz, -s * b.ux + c * b.uz, b.ry];
-            let f = ef[&e.id];
-            let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
-            for k in 0..6 { u2 += fl[k] * ul[k]; uabs += (fl[k] * ul[k]).abs(); }
-        }
-        // fᵀu = uᵀKu ≥ 0; tolerances relative to the summed term magnitudes.
-        prop_assert!(w >= -1e-9 * wabs, "negative external work {w:e}");
-        prop_assert!((w - u2).abs() <= 1e-6 * (wabs + uabs) + 1e-15,
-                     "external work {w:e} != Σ element f·u {u2:e}");
+            let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
+            let (mut u2, mut uabs) = (0.0, 0.0);
+            for e in inp.elements.values() {
+                let (_, _, c, s) = elem_geom(&inp, e);
+                let (a, b) = (d[&e.node_i], d[&e.node_j]);
+                let ul = [c * a.ux + s * a.uz, -s * a.ux + c * a.uz, a.ry, c * b.ux + s * b.uz, -s * b.ux + c * b.uz, b.ry];
+                let f = ef[&e.id];
+                let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
+                for k in 0..6 { u2 += fl[k] * ul[k]; uabs += (fl[k] * ul[k]).abs(); }
+            }
+            // fᵀu = uᵀKu ≥ 0; tolerances relative to the summed term magnitudes.
+            prop_assert!(w >= -1e-9 * wabs, "negative external work {w:e}");
+            prop_assert!((w - u2).abs() <= 1e-6 * (wabs + uabs) + 1e-15,
+                         "external work {w:e} != Σ element f·u {u2:e}");
+            Ok(())
+        })?;
     }
 
     /// (6a) Load scaling: P → kP gives u → k·u, reactions and member forces → k·(…).
     #[test]
     fn prop_load_scaling(m in model2(), raws in raw_loads2(), lk in -3.0..3.0f64) {
-        let k = 10f64.powf(lk);
-        let loads = resolve2(&m, &raws, LoadMode::Any);
-        let ids = ids(&m.input);
-        let f1 = flat(&solve(&with_loads(&m, loads.clone()))?, &ids)?;
-        let fk = flat(&solve(&with_loads(&m, scale_loads(&loads, k)))?, &ids)?;
-        let exp = f1.scaled(k, k, k, k);
-        check(compare("load scaling", &fk, &exp, &exp, m.lchar, REL))?;
+        nightly_property(&m.input, || {
+            let k = 10f64.powf(lk);
+            let loads = resolve2(&m, &raws, LoadMode::Any);
+            let ids = ids(&m.input);
+            let f1 = flat(&solve(&with_loads(&m, loads.clone()))?, &ids)?;
+            let fk = flat(&solve(&with_loads(&m, scale_loads(&loads, k)))?, &ids)?;
+            let exp = f1.scaled(k, k, k, k);
+            check(compare("load scaling", &fk, &exp, &exp, m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (6b) Stiffness scaling: E → kE gives u → u/k with reactions and member
     /// forces unchanged (force distribution depends only on stiffness ratios).
     #[test]
     fn prop_modulus_scaling(m in model2(), raws in raw_loads2(), lk in -2.0..2.0f64) {
-        let k = 10f64.powf(lk);
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
-        let mut sc = inp.clone();
-        for mat in sc.materials.values_mut() { mat.e *= k; }
-        let ids = ids(&inp);
-        let f1 = flat(&solve(&inp)?, &ids)?;
-        let fk = flat(&solve(&sc)?, &ids)?;
-        let exp = f1.scaled(1.0 / k, 1.0 / k, 1.0, 1.0);
-        check(compare("E scaling", &fk, &exp, &exp, m.lchar, REL))?;
+        nightly_property(&m.input, || {
+            let k = 10f64.powf(lk);
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
+            let mut sc = inp.clone();
+            for mat in sc.materials.values_mut() { mat.e *= k; }
+            let ids = ids(&inp);
+            let f1 = flat(&solve(&inp)?, &ids)?;
+            let fk = flat(&solve(&sc)?, &ids)?;
+            let exp = f1.scaled(1.0 / k, 1.0 / k, 1.0, 1.0);
+            check(compare("E scaling", &fk, &exp, &exp, m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (6c) Geometric similitude: lengths ×s, A ×s², I ×s⁴, forces ×s²,
@@ -775,30 +797,33 @@ proptest! {
     /// rotations unchanged, forces ×s², moments ×s³.
     #[test]
     fn prop_similitude(m in model2(), raws in raw_loads2(), ls in -1.0..1.0f64) {
-        let s = 10f64.powf(ls);
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
-        let mut sc = inp.clone();
-        for n in sc.nodes.values_mut() { n.x *= s; n.z *= s; }
-        for sec in sc.sections.values_mut() { sec.a *= s * s; sec.iz *= s.powi(4); }
-        for l in sc.loads.iter_mut() {
-            match l {
-                SolverLoad::Nodal(n) => { n.fx *= s * s; n.fz *= s * s; n.my *= s.powi(3); }
-                SolverLoad::Distributed(d) => {
-                    d.q_i *= s; d.q_j *= s;
-                    d.a = d.a.map(|v| v * s); d.b = d.b.map(|v| v * s);
+        nightly_property(&m.input, || {
+            let s = 10f64.powf(ls);
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
+            let mut sc = inp.clone();
+            for n in sc.nodes.values_mut() { n.x *= s; n.z *= s; }
+            for sec in sc.sections.values_mut() { sec.a *= s * s; sec.iz *= s.powi(4); }
+            for l in sc.loads.iter_mut() {
+                match l {
+                    SolverLoad::Nodal(n) => { n.fx *= s * s; n.fz *= s * s; n.my *= s.powi(3); }
+                    SolverLoad::Distributed(d) => {
+                        d.q_i *= s; d.q_j *= s;
+                        d.a = d.a.map(|v| v * s); d.b = d.b.map(|v| v * s);
+                    }
+                    SolverLoad::PointOnElement(p) => {
+                        p.a *= s; p.p *= s * s;
+                        p.px = p.px.map(|v| v * s * s); p.my = p.my.map(|v| v * s.powi(3));
+                    }
+                    _ => {}
                 }
-                SolverLoad::PointOnElement(p) => {
-                    p.a *= s; p.p *= s * s;
-                    p.px = p.px.map(|v| v * s * s); p.my = p.my.map(|v| v * s.powi(3));
-                }
-                _ => {}
             }
-        }
-        let ids = ids(&inp);
-        let f1 = flat(&solve(&inp)?, &ids)?;
-        let fs = flat(&solve(&sc)?, &ids)?;
-        let exp = f1.scaled(s, 1.0, s * s, s.powi(3));
-        check(compare("similitude", &fs, &exp, &exp, m.lchar * s, REL))?;
+            let ids = ids(&inp);
+            let f1 = flat(&solve(&inp)?, &ids)?;
+            let fs = flat(&solve(&sc)?, &ids)?;
+            let exp = f1.scaled(s, 1.0, s * s, s.powi(3));
+            check(compare("similitude", &fs, &exp, &exp, m.lchar * s, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (7) Node/element/support id relabelling (non-contiguous ids, shuffled
@@ -813,30 +838,33 @@ proptest! {
         }),
         raws in raw_loads2())
     {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
-        let nmap = |n: usize| np[n - 1] * 3 + 1 + off; // ids 1..=n → shuffled, gapped
-        let emap = |e: usize| ep[e - 1] * 2 + 7 + off;
-        let mut p = inp.clone();
-        p.nodes = inp.nodes.values().map(|n| { let id = nmap(n.id); (id.to_string(), SolverNode { id, ..n.clone() }) }).collect();
-        p.elements = inp.elements.values().map(|e| {
-            let id = emap(e.id);
-            (id.to_string(), SolverElement { id, node_i: nmap(e.node_i), node_j: nmap(e.node_j), ..e.clone() })
-        }).collect();
-        let ns = inp.supports.len();
-        p.supports = inp.supports.values().map(|s| {
-            let id = ns + 1 - s.id + 40; // reverse support id order
-            (id.to_string(), SolverSupport { id, node_id: nmap(s.node_id), ..s.clone() })
-        }).collect();
-        p.loads = inp.loads.iter().rev().map(|l| match l {
-            SolverLoad::Nodal(n) => SolverLoad::Nodal(SolverNodalLoad { node_id: nmap(n.node_id), ..n.clone() }),
-            SolverLoad::Distributed(d) => SolverLoad::Distributed(SolverDistributedLoad { element_id: emap(d.element_id), ..d.clone() }),
-            SolverLoad::PointOnElement(q) => SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: emap(q.element_id), ..q.clone() }),
-            o => o.clone(),
-        }).collect();
-        let ids = ids(&inp);
-        let base = flat(&solve(&inp)?, &ids)?;
-        let got = flat2(&solve(&p)?, &ids.nodes, &ids.elems, &ids.sups, &nmap, &emap, (1.0, 0.0))?;
-        check(compare("relabel", &got, &base, &base, m.lchar, REL))?;
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::Any));
+            let nmap = |n: usize| np[n - 1] * 3 + 1 + off; // ids 1..=n → shuffled, gapped
+            let emap = |e: usize| ep[e - 1] * 2 + 7 + off;
+            let mut p = inp.clone();
+            p.nodes = inp.nodes.values().map(|n| { let id = nmap(n.id); (id.to_string(), SolverNode { id, ..n.clone() }) }).collect();
+            p.elements = inp.elements.values().map(|e| {
+                let id = emap(e.id);
+                (id.to_string(), SolverElement { id, node_i: nmap(e.node_i), node_j: nmap(e.node_j), ..e.clone() })
+            }).collect();
+            let ns = inp.supports.len();
+            p.supports = inp.supports.values().map(|s| {
+                let id = ns + 1 - s.id + 40; // reverse support id order
+                (id.to_string(), SolverSupport { id, node_id: nmap(s.node_id), ..s.clone() })
+            }).collect();
+            p.loads = inp.loads.iter().rev().map(|l| match l {
+                SolverLoad::Nodal(n) => SolverLoad::Nodal(SolverNodalLoad { node_id: nmap(n.node_id), ..n.clone() }),
+                SolverLoad::Distributed(d) => SolverLoad::Distributed(SolverDistributedLoad { element_id: emap(d.element_id), ..d.clone() }),
+                SolverLoad::PointOnElement(q) => SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: emap(q.element_id), ..q.clone() }),
+                o => o.clone(),
+            }).collect();
+            let ids = ids(&inp);
+            let base = flat(&solve(&inp)?, &ids)?;
+            let got = flat2(&solve(&p)?, &ids.nodes, &ids.elems, &ids.sups, &nmap, &emap, (1.0, 0.0))?;
+            check(compare("relabel", &got, &base, &base, m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (8) Element orientation: reversing node_i/node_j of members (with their
@@ -852,43 +880,46 @@ proptest! {
         }),
         raws in raw_loads2())
     {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::FrameMembers));
-        let flipped = |id: usize| flip[id - 1];
-        let mut p = inp.clone();
-        for e in p.elements.values_mut() {
-            if flipped(e.id) {
-                std::mem::swap(&mut e.node_i, &mut e.node_j);
-                std::mem::swap(&mut e.hinge_start, &mut e.hinge_end);
-            }
-        }
-        for l in p.loads.iter_mut() {
-            match l {
-                SolverLoad::Distributed(d) if flipped(d.element_id) => {
-                    let len = elem_len(&inp, d.element_id);
-                    let (qi, qj) = (d.q_i, d.q_j);
-                    d.q_i = -qj; d.q_j = -qi;
-                    if let (Some(a), Some(b)) = (d.a, d.b) { d.a = Some(len - b); d.b = Some(len - a); }
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::FrameMembers));
+            let flipped = |id: usize| flip[id - 1];
+            let mut p = inp.clone();
+            for e in p.elements.values_mut() {
+                if flipped(e.id) {
+                    std::mem::swap(&mut e.node_i, &mut e.node_j);
+                    std::mem::swap(&mut e.hinge_start, &mut e.hinge_end);
                 }
-                SolverLoad::PointOnElement(q) if flipped(q.element_id) => {
-                    let len = elem_len(&inp, q.element_id);
-                    q.a = len - q.a; q.p = -q.p; q.px = q.px.map(|v| -v);
+            }
+            for l in p.loads.iter_mut() {
+                match l {
+                    SolverLoad::Distributed(d) if flipped(d.element_id) => {
+                        let len = elem_len(&inp, d.element_id);
+                        let (qi, qj) = (d.q_i, d.q_j);
+                        d.q_i = -qj; d.q_j = -qi;
+                        if let (Some(a), Some(b)) = (d.a, d.b) { d.a = Some(len - b); d.b = Some(len - a); }
+                    }
+                    SolverLoad::PointOnElement(q) if flipped(q.element_id) => {
+                        let len = elem_len(&inp, q.element_id);
+                        q.a = len - q.a; q.p = -q.p; q.px = q.px.map(|v| -v);
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
-        }
-        let ids = ids(&inp);
-        let mut base = solve(&inp)?;
-        for f in base.element_forces.iter_mut() {
-            if flipped(f.element_id) {
-                let o = f.clone();
-                f.n_start = o.n_end; f.n_end = o.n_start;
-                f.v_start = o.v_end; f.v_end = o.v_start;
-                f.m_start = -o.m_end; f.m_end = -o.m_start;
+            let ids = ids(&inp);
+            let mut base = solve(&inp)?;
+            for f in base.element_forces.iter_mut() {
+                if flipped(f.element_id) {
+                    let o = f.clone();
+                    f.n_start = o.n_end; f.n_end = o.n_start;
+                    f.v_start = o.v_end; f.v_end = o.v_start;
+                    f.m_start = -o.m_end; f.m_end = -o.m_start;
+                }
             }
-        }
-        let exp = flat(&base, &ids)?;
-        let got = flat(&solve(&p)?, &ids)?;
-        check(compare("element reversal", &got, &exp, &exp, m.lchar, REL))?;
+            let exp = flat(&base, &ids)?;
+            let got = flat(&solve(&p)?, &ids)?;
+            check(compare("element reversal", &got, &exp, &exp, m.lchar, REL))?;
+            Ok(())
+        })?;
     }
 
     /// (9) Internal-force consistency:
@@ -898,85 +929,88 @@ proptest! {
     ///      node balance the applied nodal load plus the support reaction.
     #[test]
     fn prop_internal_force_consistency(m in model2(), raws in raw_loads2()) {
-        let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::FrameMembers));
-        let res = solve(&inp)?;
-        let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
-        // Member load resultants in local axes: (Wx, Wy, M about I).
-        let mut wl: HashMap<usize, [f64; 3]> = HashMap::new();
-        for l in &inp.loads {
-            match l {
-                SolverLoad::Distributed(dl) => {
-                    let len = elem_len(&inp, dl.element_id);
-                    let (a, b) = (dl.a.unwrap_or(0.0), dl.b.unwrap_or(len));
-                    let span = b - a;
-                    let w = wl.entry(dl.element_id).or_default();
-                    for (q, xc) in [(dl.q_i * span, a + span / 2.0), ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0)] {
-                        w[1] += q; w[2] += q * xc;
+        nightly_property(&m.input, || {
+            let inp = with_loads(&m, resolve2(&m, &raws, LoadMode::FrameMembers));
+            let res = solve(&inp)?;
+            let ef: HashMap<usize, &ElementForces> = res.element_forces.iter().map(|f| (f.element_id, f)).collect();
+            // Member load resultants in local axes: (Wx, Wy, M about I).
+            let mut wl: HashMap<usize, [f64; 3]> = HashMap::new();
+            for l in &inp.loads {
+                match l {
+                    SolverLoad::Distributed(dl) => {
+                        let len = elem_len(&inp, dl.element_id);
+                        let (a, b) = (dl.a.unwrap_or(0.0), dl.b.unwrap_or(len));
+                        let span = b - a;
+                        let w = wl.entry(dl.element_id).or_default();
+                        for (q, xc) in [(dl.q_i * span, a + span / 2.0), ((dl.q_j - dl.q_i) * span / 2.0, a + 2.0 * span / 3.0)] {
+                            w[1] += q; w[2] += q * xc;
+                        }
                     }
+                    SolverLoad::PointOnElement(pl) => {
+                        let w = wl.entry(pl.element_id).or_default();
+                        w[0] += pl.px.unwrap_or(0.0); w[1] += pl.p; w[2] += pl.p * pl.a + pl.my.unwrap_or(0.0);
+                    }
+                    _ => {}
                 }
-                SolverLoad::PointOnElement(pl) => {
-                    let w = wl.entry(pl.element_id).or_default();
-                    w[0] += pl.px.unwrap_or(0.0); w[1] += pl.p; w[2] += pl.p * pl.a + pl.my.unwrap_or(0.0);
+            }
+            let mut node_sum: HashMap<usize, [f64; 3]> = HashMap::new();
+            let mut node_abs: HashMap<usize, f64> = HashMap::new();
+            // Global force scale (largest member end force / member load), used as an
+            // absolute floor so near-zero members are not compared on pure noise.
+            let mut fscale: f64 = 1e-9;
+            for e in inp.elements.values() {
+                let f = ef[&e.id];
+                let len = elem_len(&inp, e.id);
+                let w = wl.get(&e.id).copied().unwrap_or_default();
+                for v in local_end_forces(f).iter().map(|x| x.abs()).chain([w[0].abs(), w[1].abs(), w[2].abs() / len]) {
+                    fscale = fscale.max(v);
                 }
-                _ => {}
             }
-        }
-        let mut node_sum: HashMap<usize, [f64; 3]> = HashMap::new();
-        let mut node_abs: HashMap<usize, f64> = HashMap::new();
-        // Global force scale (largest member end force / member load), used as an
-        // absolute floor so near-zero members are not compared on pure noise.
-        let mut fscale: f64 = 1e-9;
-        for e in inp.elements.values() {
-            let f = ef[&e.id];
-            let len = elem_len(&inp, e.id);
-            let w = wl.get(&e.id).copied().unwrap_or_default();
-            for v in local_end_forces(f).iter().map(|x| x.abs()).chain([w[0].abs(), w[1].abs(), w[2].abs() / len]) {
-                fscale = fscale.max(v);
+            for e in inp.elements.values() {
+                let (_, len, c, s) = elem_geom(&inp, e);
+                let f = ef[&e.id];
+                let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
+                let w = wl.get(&e.id).copied().unwrap_or_default();
+                let sc = fl.iter().fold(0.0f64, |a, b| a.max(b.abs())).max(w[0].abs()).max(w[1].abs()).max(w[2].abs() / len);
+                // (a) member equilibrium; tolerance relative to the member's own force
+                // scale, floored by 1e-9 of the model's largest member force.
+                let t = 1e-7 * sc + 1e-9 * fscale;
+                prop_assert!((fl[0] + fl[3] + w[0]).abs() <= t, "elem {} ΣFx={:e}", e.id, fl[0] + fl[3] + w[0]);
+                prop_assert!((fl[1] + fl[4] + w[1]).abs() <= t, "elem {} ΣFy={:e}", e.id, fl[1] + fl[4] + w[1]);
+                if e.elem_type == "frame" {
+                    let mi = fl[2] + fl[5] + len * fl[4] + w[2];
+                    prop_assert!(mi.abs() <= t * len, "elem {} ΣM_I={mi:e}", e.id);
+                }
+                // (b) accumulate forces exerted BY the nodes ON the member (global)
+                for (nid, o) in [(e.node_i, 0usize), (e.node_j, 3usize)] {
+                    let g = [c * fl[o] - s * fl[o + 1], s * fl[o] + c * fl[o + 1], fl[o + 2]];
+                    let acc = node_sum.entry(nid).or_default();
+                    for k in 0..3 { acc[k] += g[k]; }
+                    *node_abs.entry(nid).or_default() += g[0].abs() + g[1].abs() + g[2].abs() / len;
+                }
             }
-        }
-        for e in inp.elements.values() {
-            let (_, len, c, s) = elem_geom(&inp, e);
-            let f = ef[&e.id];
-            let fl = if e.elem_type == "truss" { [-f.n_start, 0.0, 0.0, f.n_end, 0.0, 0.0] } else { local_end_forces(f) };
-            let w = wl.get(&e.id).copied().unwrap_or_default();
-            let sc = fl.iter().fold(0.0f64, |a, b| a.max(b.abs())).max(w[0].abs()).max(w[1].abs()).max(w[2].abs() / len);
-            // (a) member equilibrium; tolerance relative to the member's own force
-            // scale, floored by 1e-9 of the model's largest member force.
-            let t = 1e-7 * sc + 1e-9 * fscale;
-            prop_assert!((fl[0] + fl[3] + w[0]).abs() <= t, "elem {} ΣFx={:e}", e.id, fl[0] + fl[3] + w[0]);
-            prop_assert!((fl[1] + fl[4] + w[1]).abs() <= t, "elem {} ΣFy={:e}", e.id, fl[1] + fl[4] + w[1]);
-            if e.elem_type == "frame" {
-                let mi = fl[2] + fl[5] + len * fl[4] + w[2];
-                prop_assert!(mi.abs() <= t * len, "elem {} ΣM_I={mi:e}", e.id);
+            // Σ_members (force on member at node) = applied nodal load + reaction.
+            let mut rhs: HashMap<usize, [f64; 3]> = HashMap::new();
+            for l in &inp.loads {
+                if let SolverLoad::Nodal(nl) = l {
+                    let a = rhs.entry(nl.node_id).or_default();
+                    a[0] += nl.fx; a[1] += nl.fz; a[2] += nl.my;
+                }
             }
-            // (b) accumulate forces exerted BY the nodes ON the member (global)
-            for (nid, o) in [(e.node_i, 0usize), (e.node_j, 3usize)] {
-                let g = [c * fl[o] - s * fl[o + 1], s * fl[o] + c * fl[o + 1], fl[o + 2]];
-                let acc = node_sum.entry(nid).or_default();
-                for k in 0..3 { acc[k] += g[k]; }
-                *node_abs.entry(nid).or_default() += g[0].abs() + g[1].abs() + g[2].abs() / len;
+            for r in &res.reactions {
+                let a = rhs.entry(r.node_id).or_default();
+                a[0] += r.rx; a[1] += r.rz; a[2] += r.my;
             }
-        }
-        // Σ_members (force on member at node) = applied nodal load + reaction.
-        let mut rhs: HashMap<usize, [f64; 3]> = HashMap::new();
-        for l in &inp.loads {
-            if let SolverLoad::Nodal(nl) = l {
-                let a = rhs.entry(nl.node_id).or_default();
-                a[0] += nl.fx; a[1] += nl.fz; a[2] += nl.my;
+            for (nid, sum) in &node_sum {
+                let r = rhs.get(nid).copied().unwrap_or_default();
+                let t = 1e-7 * (node_abs[nid] + r[0].abs() + r[1].abs()) + 1e-9 * fscale;
+                for k in 0..3 {
+                    let tk = if k == 2 { t * m.lchar } else { t };
+                    prop_assert!((sum[k] - r[k]).abs() <= tk,
+                        "node {nid} comp {k}: Σ member end = {:e}, load+reaction = {:e}", sum[k], r[k]);
+                }
             }
-        }
-        for r in &res.reactions {
-            let a = rhs.entry(r.node_id).or_default();
-            a[0] += r.rx; a[1] += r.rz; a[2] += r.my;
-        }
-        for (nid, sum) in &node_sum {
-            let r = rhs.get(nid).copied().unwrap_or_default();
-            let t = 1e-7 * (node_abs[nid] + r[0].abs() + r[1].abs()) + 1e-9 * fscale;
-            for k in 0..3 {
-                let tk = if k == 2 { t * m.lchar } else { t };
-                prop_assert!((sum[k] - r[k]).abs() <= tk,
-                    "node {nid} comp {k}: Σ member end = {:e}, load+reaction = {:e}", sum[k], r[k]);
-            }
-        }
+            Ok(())
+        })?;
     }
 }

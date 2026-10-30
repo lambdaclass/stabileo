@@ -50,7 +50,15 @@ const GOLDEN = fileURLToPath(
 const REPORTED = {
   byteLength: 88101,
   sha256: '795e9de26f2eb8ce8d51f2ac7130336702fc534588f390071e3bd40bc03aa0e7',
-  fixtureSha256: '930646fc38c22d54ef187367d6f31b3dbf05bd7ffc62b21321ef1970c456fc28',
+  /**
+   * The fixture as it is now. This golden was derived from revision 15ce4e15… of it; since
+   * then the beams' dead line load was restated as 22 − ρ·A with self-weight as a case load,
+   * which reproduces the same design (the V2 golden kept its bytes). V1 is frozen and is not
+   * rebuilt from it either way.
+   */
+  // Moved when the fixture gained its solve stamp (`snapshot.solvedWith`), and when the stamp
+  // moved to results versions 2, 3, 4, 5 and 6; the model is unchanged.
+  fixtureSha256: '28b5e539f6c08112e3d5dc2c5c036131328032b7780f4abec63b309d2a3b6d47',
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
