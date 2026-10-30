@@ -32,11 +32,11 @@ export const FORMAT_SIZE: Record<Exclude<TimelapseFormat, 'screen'>, { w: number
 interface Prefs {
   order: BuildOrder; duration: number; camera: TimelapseCamera; loop: boolean; clean: boolean;
   style: TimelapseStyle; format: TimelapseFormat; entry: TimelapseEntry; texts: boolean; highlight: boolean;
-  sound: TimelapseSound;
+  sound: TimelapseSound; envelope: boolean;
 }
 const DEFAULTS: Prefs = {
   order: 'construction', duration: 12, camera: 'orbit', loop: true, clean: false,
-  style: 'night', format: 'screen', entry: 'grow', texts: true, highlight: true, sound: 'off',
+  style: 'night', format: 'screen', entry: 'grow', texts: true, highlight: true, sound: 'off', envelope: false,
 };
 const KEY = 'stabileo-build-timelapse';
 
@@ -64,6 +64,8 @@ function createBuildTimelapse() {
   let texts = $state(p.texts);
   let highlight = $state(p.highlight);
   let sound = $state<TimelapseSound>(p.sound);
+  /** Cladding and glass on the façades once the structure stands (`build-envelope.ts`). */
+  let envelope = $state(p.envelope);
   /** The heading drawn on the video; empty takes the model's name. */
   let title = $state('');
   /** An optional line under the title. */
@@ -80,7 +82,7 @@ function createBuildTimelapse() {
 
   function save() {
     try {
-      const prefs: Prefs = { order, duration, camera, loop, clean: cleanBackground, style, format, entry, texts, highlight, sound };
+      const prefs: Prefs = { order, duration, camera, loop, clean: cleanBackground, style, format, entry, texts, highlight, sound, envelope };
       localStorage.setItem(KEY, JSON.stringify(prefs));
     } catch { /* private window or blocked storage: the options last this session */ }
   }
@@ -99,6 +101,7 @@ function createBuildTimelapse() {
     get texts() { return texts; }, set texts(v: boolean) { texts = v; save(); },
     get highlight() { return highlight; }, set highlight(v: boolean) { highlight = v; save(); },
     get sound() { return sound; }, set sound(v: TimelapseSound) { sound = v; save(); },
+    get envelope() { return envelope; }, set envelope(v: boolean) { envelope = v; save(); },
     get title() { return title; }, set title(v: string) { title = v; },
     get subtitle() { return subtitle; }, set subtitle(v: string) { subtitle = v; },
     get recording() { return recording; }, set recording(v: boolean) { recording = v; },
