@@ -694,7 +694,7 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let lambda_z = (area * fy).dv(ncr_z).sqrt();
     let chi_z = compute_chi(lambda_z, T::lit(m.buckling_curve_z.alpha()));
     let chi_min = chi_y.min(chi_z);
-    let nb_rd = (chi_min * area * fy).dv(gamma_m1);
+    let nb_rd = ((chi_min * area * fy).dv(gamma_m1)).min_keep_nan(nc_rd);
     let nb_y_rd = (chi_y * area * fy).dv(gamma_m1);
     let nb_z_rd = (chi_z * area * fy).dv(gamma_m1);
 
@@ -717,7 +717,7 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
         let lambda_lt = (w_y * fy).dv(mcr).sqrt();
         (compute_chi(lambda_lt, T::lit(m.buckling_curve_lt.alpha())), Some(mcr))
     };
-    let mb_rd = (chi_lt * w_y * fy).dv(gamma_m1);
+    let mb_rd = ((chi_lt * w_y * fy).dv(gamma_m1)).min_keep_nan(mc_y_rd);
 
     // Weak axis flexure (no LTB)
     let mc_z_rd = (w_z * fy).dv(gamma_m0);
@@ -823,6 +823,27 @@ pub fn annex_b_factors<T: Real>(i: &AnnexBInput<T>) -> [T; 4] {
     [kyy, kyz, kzy, kzz]
 }
 
+/// Plastic M-N reduction factors (1 − 0.5·a_y, 1 − a_z or 1 − 0.5·a_f) for
+/// Class 1/2 cross-section check EN 1993-1-1 6.2.9.1(5) eqs. (6.36)–(6.40),
+/// falling back to (1, 1) — the linear sum of 6.2.1(7) eq. (6.2) — when no
+/// I/RHS geometry is supplied.
+pub(crate) fn plastic_section_factors(m: &Ec3MemberData) -> (f64, f64) {
+    match m.geometry {
+        Some(Ec3Geometry::I { b, tf, .. }) if m.a > 0.0 && b > 0.0 && tf > 0.0 && 2.0 * b * tf < m.a => {
+            let a = ((m.a - 2.0 * b * tf) / m.a).clamp(0.0, 0.5);
+            (1.0 - 0.5 * a, 1.0 - a)
+        }
+        Some(Ec3Geometry::Rhs { h, b, t })
+            if m.a > 0.0 && h > 0.0 && b > 0.0 && t > 0.0 && 2.0 * b * t < m.a && 2.0 * h * t < m.a =>
+        {
+            let aw = ((m.a - 2.0 * b * t) / m.a).clamp(0.0, 0.5);
+            let af = ((m.a - 2.0 * h * t) / m.a).clamp(0.0, 0.5);
+            (1.0 - 0.5 * aw, 1.0 - 0.5 * af)
+        }
+        _ => (1.0, 1.0),
+    }
+}
+
 /// Eqs. (6.61), (6.62) and the cross-section check, with the factors, for a
 /// member in compression (`n` = |NEd| > 0).
 ///
@@ -830,12 +851,10 @@ pub fn annex_b_factors<T: Real>(i: &AnnexBInput<T>) -> [T; 4] {
 /// to the moments with the sign that increases them — the side the shift
 /// acts on is not known from |M|, and adding is the conservative one.
 ///
-/// The third value is the cross-section check of Class 3 (6.2.9.2, eq. 6.42
-/// as stresses) and Class 4 (6.2.9.3, eq. 6.44):
-/// NEd/(A·fy/γM0) + (My + ΔMy)/(W,y·fy/γM0) + (Mz + ΔMz)/(W,z·fy/γM0),
-/// with the effective A and W of Class 4. With Cm < 1 (6.61)/(6.62) can fall
-/// below it at the member end. Class 1/2: 0 (not evaluated here; the
-/// plastic interaction of 6.2.9.1 is not a linear sum).
+/// The third value is the cross-section check of Class 1/2 (6.2.9.1 / 6.2.1(7)),
+/// Class 3 (6.2.9.2, eq. 6.42 as stresses) and Class 4 (6.2.9.3, eq. 6.44):
+/// with Cm < 1 or small λ̄, (6.61)/(6.62) can fall below the member-end
+/// cross-section utilization.
 pub(crate) fn ec3_interaction<T: Real>(
     m: &Ec3MemberData,
     caps: &Ec3Capacities<T>,
@@ -872,12 +891,16 @@ pub(crate) fn ec3_interaction<T: Real>(
     let mz_term = branch(zero.lt(mz), || mz.dv(caps.mz_rd_m1), || zero);
     let eq_661 = n.dv(caps.nb_y_rd) + kyy * my_term + kyz * mz_term;
     let eq_662 = n.dv(caps.nb_z_rd) + kzy * my_term + kzz * mz_term;
+    let n_r = n.dv(caps.nc_rd);
+    let my_r = branch(zero.lt(my), || my.dv(caps.mc_y_rd), || zero);
+    let mz_r = branch(zero.lt(mz), || mz.dv(caps.mc_z_rd), || zero);
     let section = if plastic {
-        zero
+        let (ky_sec, kz_sec) = plastic_section_factors(m);
+        (n_r + T::exact(ky_sec) * my_r + T::exact(kz_sec) * mz_r)
+            .max(n_r)
+            .max(my_r + mz_r)
     } else {
-        n.dv(caps.nc_rd)
-            + branch(zero.lt(my), || my.dv(caps.mc_y_rd), || zero)
-            + branch(zero.lt(mz), || mz.dv(caps.mc_z_rd), || zero)
+        n_r + my_r + mz_r
     };
     ([eq_661, eq_662, section], k)
 }
@@ -943,10 +966,10 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
         if n_ed < 0.0 && !(class_props.e_n_y.is_finite() && class_props.e_n_z.is_finite()) {
             ledger.flag("Class 4 eN (6.3.3(4)): give eNY/eNZ or geometry");
         }
-        if my_ed != 0.0 && !class_props.w_y.is_finite() {
+        if (my_ed != 0.0 || (n_ed < 0.0 && class_props.e_n_y > 0.0)) && !class_props.w_y.is_finite() {
             ledger.flag("Class 4 Weff,y (EN 1993-1-5 4.3): give weffY or geometry");
         }
-        if mz_ed != 0.0 && !class_props.w_z.is_finite() {
+        if (mz_ed != 0.0 || (n_ed < 0.0 && class_props.e_n_z > 0.0)) && !class_props.w_z.is_finite() {
             ledger.flag("Class 4 Weff,z (EN 1993-1-5 4.3): give weffZ or geometry");
         }
     }
@@ -982,7 +1005,11 @@ fn check_single_ec3_member(m: &Ec3MemberData, f: &Ec3DesignForces) -> Ec3CheckRe
             let (e, kk) = ec3_interaction(m, &caps, n_ed.abs(), my_ed.abs(), mz_ed.abs());
             eqs = e;
             k = kk;
-            e[0].max(e[1]).max(e[2])
+            if e.iter().any(|x| x.is_nan()) {
+                f64::NAN
+            } else {
+                e[0].max(e[1]).max(e[2])
+            }
         } else {
             f64::NAN // refused below: a Cm outside Table B.3's [0.4, 1]
         }
