@@ -41,6 +41,10 @@
     lineWidth?: number;
     /** The field: one value per node, or per cell with `perCell`. */
     values: ArrayLike<number> | null;
+    /** Default hides missing fields; geometry draws a neutral mesh without a legend. */
+    displayMode?: 'field' | 'geometry';
+    /** Expose actual draw statistics and geometry bounds for rendering regression checks. */
+    renderDiagnostics?: boolean;
     perCell?: boolean;
     range: { min: number; max: number };
     title: string;
@@ -77,6 +81,8 @@
     cellSize = 4,
     lineWidth = 3,
     values,
+    displayMode = 'field',
+    renderDiagnostics = false,
     perCell = false,
     range,
     title,
@@ -121,6 +127,12 @@
     if (!renderer) return;
     controls.update();
     renderer.render(scene, camera);
+    if (renderDiagnostics) {
+      const canvas = renderer.domElement;
+      canvas.dataset.renderedTriangles = String(renderer.info.render.triangles);
+      const box = field ? new THREE.Box3().setFromObject(field.group) : new THREE.Box3();
+      canvas.dataset.geometryBounds = JSON.stringify([box.min.toArray(), box.max.toArray()]);
+    }
     drawAxisGizmoOn(gizmo, camera);
     if (damping > 0) {
       damping -= 1;
@@ -255,8 +267,9 @@
 
   $effect(() => {
     if (!field) return;
-    field.group.visible = values !== null;
-    if (values) field.setField(values, range, { perCell, bands, colourMap });
+    field.group.visible = displayMode === 'geometry' || values !== null;
+    if (displayMode === 'geometry') field.setUncoloured();
+    else if (values) field.setField(values, range, { perCell, bands, colourMap });
     invalidate();
   });
   $effect(() => {
@@ -307,7 +320,7 @@
       <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
-    {#if values && !geometryOnly}
+    {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
     <span class="sfv-mark">{t('scalarViewer.viewer')}</span>

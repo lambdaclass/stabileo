@@ -15,6 +15,9 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod active;
+mod generated;
+mod safety_cases;
 mod ana2;
 mod ana3;
 mod case;

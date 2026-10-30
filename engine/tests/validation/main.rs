@@ -13,3 +13,6 @@ mod three_d;
 mod navier_plate;
 #[path = "../research_benchmarks.rs"]
 mod research_benchmarks;
+
+#[path = "../benchmarks/runner.rs"]
+mod benchmark_protocol;
