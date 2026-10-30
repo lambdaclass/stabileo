@@ -76,14 +76,16 @@
   {#snippet app()}
     <div bind:this={host} class="experiment" data-testid="ferrari-experiment">
       <p class="notice">{s.ferrariDisclaimer}</p>
-      <p data-testid="ferrari-source" aria-live="polite">{sourceLabel}</p>
-      <div class="controls">
-        <button onclick={run} disabled={running}>{s.ferrariRun}</button>
-        <button onclick={stop}>{s.ferrariStop}</button>
-        <button onclick={restart}>{s.ferrariRestart}</button>
+      <div class="run">
+        <p data-testid="ferrari-source" aria-live="polite">{sourceLabel}</p>
+        <div class="controls">
+          <button onclick={run} disabled={running}>{s.ferrariRun}</button>
+          <button onclick={stop}>{s.ferrariStop}</button>
+          <button onclick={restart}>{s.ferrariRestart}</button>
+        </div>
+        {#if failed}<p role="alert">{s.ferrariFailed}</p>{/if}
+        <p data-testid="ferrari-buckling">λ₁ = {format(lambda)}</p>
       </div>
-      {#if failed}<p role="alert">{s.ferrariFailed}</p>{/if}
-      <p data-testid="ferrari-buckling">λ₁ = {format(lambda)}</p>
       <StabileoViewer xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
         displacement={shown.displacement} deformScale={1} showMesh={false} title={s.ferrariViewer}
         height="min(52vh, 24rem)" view={[-0.1, -0.1, 1.1, 1.1]} editorButton={false} oninteract={() => { playback.interact(); playback.follow = false; }} />
@@ -116,9 +118,15 @@
   @media (max-height: 500px) and (min-width: 600px) {
     .ferrari-page :global(.rs-shell) { padding-top: calc(var(--lp-nav-h, 3.6rem) + 0.25rem); }
     .ferrari-page :global(.rs-shell-head) { margin-bottom: 0.25rem; }
-    .ferrari-page :global(.rs-shell-head h1) { font-size: 1.25rem; margin: 0; }
+    .ferrari-page :global(.rs-shell-head h1) { font-size: 1.25rem; margin: 0; max-width: none; }
     .ferrari-page :global(.rs-crumb) { margin: 0; font-size: 12px; }
-    .experiment > p { margin: 0.25rem 0; }
+    .experiment > p, .run p { margin: 0.25rem 0; }
     .experiment > .notice:first-child { display: none; }
+  }
+  @media (max-height: 500px) and (min-width: 600px) and (max-width: 900px) {
+    .experiment { display: grid; grid-template-columns: minmax(0, 1fr) 13rem; column-gap: 0.75rem; }
+    .experiment > :global(*) { grid-column: 1 / -1; }
+    .experiment > :global(.rs-viewer-host) { grid-column: 1; grid-row: 1; }
+    .run { grid-column: 2; grid-row: 1; align-self: start; }
   }
 </style>
