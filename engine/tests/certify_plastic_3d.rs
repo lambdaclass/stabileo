@@ -645,3 +645,26 @@ fn random_space_frames_solver_is_safe() {
     }
     eprintln!("space frames: {inside} inside, {below} below with the biaxial warning");
 }
+
+/// #520: `ex-3d-portal-frame` (8 members, two loaded beams + biaxial nodal load)
+/// and its fuzz mutations previously ran all 60+10 polygon-refinement LP
+/// iterations (bisecting non-hinge and already-converged vertices down to 1e-7
+/// rad), taking 30–37 s and >500 MB per call under libFuzzer/ASan.
+#[test]
+fn fuzz_520_portal_frame_and_grid_slab_certify_promptly() {
+    let solver: SolverInput3D = serde_json::from_str(include_str!("fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let mut sections = HashMap::new();
+    sections.insert(
+        "1".to_string(),
+        PlasticSectionData3D { a: 0.01, iy: 1e-4, iz: 1e-4, material_id: 1, b: Some(0.15), h: Some(0.3), d: None },
+    );
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), PlasticMaterialData { fy: Some(250.0) });
+    let inp = PlasticInput3D { solver, sections, materials, max_hinges: None, mp_overrides: None };
+    let out = certify_plastic_3d(&inp).unwrap();
+    assert_encloses("ex-3d-portal-frame (#520)", &out.certificate, 10.125, 1e-9);
+
+    let slab: SolverInput3D = serde_json::from_str(include_str!("fixtures/ex-3d-grid-slab-input.json")).unwrap();
+    let (c, _) = certify(&plastic(slab, MPY, MPZ));
+    assert_encloses("ex-3d-grid-slab", &c, 2.5, 1e-9);
+}

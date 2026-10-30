@@ -992,11 +992,12 @@ pub(super) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
         for v in tab[ir].iter_mut() {
             *v /= piv;
         }
-        let prow = tab[ir].clone();
-        for (i, r) in tab.iter_mut().enumerate() {
-            if i != ir && r[jc] != 0.0 {
-                let f = r[jc];
-                for (v, pv) in r.iter_mut().zip(&prow) {
+        let (top, rest) = tab.split_at_mut(ir);
+        let (prow, bot) = rest.split_first_mut().unwrap();
+        for r in top.iter_mut().chain(bot.iter_mut()) {
+            let f = r[jc];
+            if f != 0.0 {
+                for (v, pv) in r.iter_mut().zip(prow.iter()) {
                     *v -= f * pv;
                 }
             }
