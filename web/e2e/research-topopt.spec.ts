@@ -5,13 +5,13 @@ test('MBB replay, both filters and live solve @smoke', async ({ page }) => {
   await page.goto('/en/research/optimization/andreassen-2011/');
   await expect(page.getByRole('heading', { name: 'Topology optimization of an MBB beam' })).toBeVisible();
   await expect(page.getByText('Research, not a design tool. Nothing here is an engineering result.', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Compliance: 216\.8137/)).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/Compliance: 216\.8137/)).toBeVisible();
   await expect(page.locator('.rs-viewer-host canvas').first()).toBeVisible();
   await page.getByRole('button', { name: 'Convergence', exact: true }).click();
   await expect(page.getByText('Authors’ reference · Stabileo', { exact: true })).toBeVisible();
   await page.getByLabel('Filter', { exact: true }).selectOption('2');
   await page.getByRole('button', { name: 'Recompute live' }).click();
-  await expect(page.getByText('Cached result', { exact: true })).toBeVisible({ timeout: 120000 });
+  await expect(page.getByText('Cached result', { exact: true })).toBeVisible({ timeout: 120000 }); // slow-ok: The topology-optimization worker completes the density-filter MBB iterations.
   await expect(page.getByText(/Compliance: 233\.7146/)).toBeVisible();
   await page.getByLabel('Horizontal elements', { exact: true }).fill('100000');
   await expect(page.getByRole('button', { name: 'Recompute live' })).toBeDisabled();
@@ -30,9 +30,9 @@ test('reference loading cannot interrupt a live run', async ({ page }) => {
   await requested;
   await expect(page.getByRole('button', { name: 'Recompute live' })).toBeDisabled();
   release();
-  await expect(page.getByRole('button', { name: 'Recompute live' })).toBeEnabled({ timeout: 60000 });
+  await expect(page.getByRole('button', { name: 'Recompute live' })).toBeEnabled();
   await page.getByRole('button', { name: 'Recompute live' }).click();
-  await expect(page.getByText('Cached result', { exact: true })).toBeVisible({ timeout: 120000 });
+  await expect(page.getByText('Cached result', { exact: true })).toBeVisible({ timeout: 120000 }); // slow-ok: The topology-optimization worker completes the sensitivity-filter MBB iterations after reference loading is released.
 });
 
 for (const failure of [false, true]) test(`partial worker run is ${failure ? 'failed' : 'stopped'}, never cached`, async ({ page }) => {
@@ -61,7 +61,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await page.goto(route);
     const canvas = page.locator('.sfv-canvas');
-    await expect(canvas).toBeVisible({ timeout: 60000 });
+    await expect(canvas).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const box = await canvas.boundingBox();
     expect(box!.y).toBeLessThan(viewport.height < 500 ? 390 : 550);
@@ -112,7 +112,7 @@ for (const [locale, title, run] of [
   await page.goto(`/${locale}/research/optimization/andreassen-2011/`);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await expect(page).toHaveTitle(new RegExp(title));
-  await expect(page.getByRole('button', { name: run, exact: true })).toBeEnabled({ timeout: 60000 });
+  await expect(page.getByRole('button', { name: run, exact: true })).toBeEnabled();
   await expect(page.locator('.sfv-canvas')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('stabileo-lang'))).toBe('fr');
 });
