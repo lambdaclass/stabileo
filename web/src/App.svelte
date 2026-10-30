@@ -383,6 +383,7 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import SiteHeader from './components/site/SiteHeader.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
@@ -1402,6 +1403,10 @@
 </script>
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
+
+{#if showLanding || showBlog || showExperiment || showPaper}
+  <SiteHeader path={blogPath} />
+{/if}
 
 {#if showExperiment}
   {#if experiment}

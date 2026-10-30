@@ -1,7 +1,6 @@
 <script lang="ts">
   import './register-i18n';
   import { batchTool as BatchTool, toolViewer as ToolViewer } from './load-detail';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
@@ -66,7 +65,6 @@
 </script>
 
 <div class="landing blog research tools">
-  <SiteHeader current="tools" />
   <main class="sec sec--ink">
     <div class="wrap tools-wrap" class:gallery={!id && !batchId}>
     {#if batchId}
@@ -165,7 +163,6 @@
 
 <style>
   .tools { font-synthesis: none; font-variant-numeric: tabular-nums; }
-  .tools :global(.nav) { background: var(--lp-ink); }
   .tools main.sec { padding: clamp(5rem, 7vw, 6rem) 0 4rem; }
   .tools-wrap { max-width: 96rem; --lp-gut: clamp(1rem, 3vw, 2.5rem); }
   .gallery { max-width: 68rem; }

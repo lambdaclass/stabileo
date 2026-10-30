@@ -14,7 +14,6 @@
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes, inLocale, writtenIn } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import BlogBlocks from './BlogBlocks.svelte';
@@ -177,7 +176,6 @@
 <div class="landing blog">
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
-  <SiteHeader current={standing?.view === 'changelog' ? 'changelog' : standing ? null : 'blog'} />
 
   {#if standing?.view === 'changelog' && standingBody}
     {#await import('./ChangelogView.svelte') then { default: ChangelogView }}

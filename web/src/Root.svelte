@@ -12,6 +12,7 @@
    * application is loaded on the first route that needs it (the landing's "enter the app", a
    * link to /app); from then on App.svelte owns every route, public ones included, as before.
    */
+  import SiteHeader from './components/site/SiteHeader.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import { tick } from 'svelte';
@@ -102,6 +103,10 @@
     };
   });
 </script>
+
+{#if !app && current.kind !== 'app'}
+  <SiteHeader path={current.path} />
+{/if}
 
 {#if app}
   {@const App = app}

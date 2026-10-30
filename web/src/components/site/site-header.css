@@ -1,0 +1,174 @@
+/* ─── NAV ────────────────────────────────────────────────────────────────── */
+
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58px;
+  box-sizing: border-box;
+  font-family: var(--lp-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lp-paper-2);
+  z-index: 10001;
+  background: rgba(12, 22, 32, 0.94);
+  border-bottom: 1px solid rgba(143, 163, 179, 0.14);
+}
+
+.site-header .nav-inner {
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  padding: 0 var(--lp-gut);
+  height: 57px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.site-header .nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--lp-paper-2);
+  flex: none;
+  /* On the blog the brand is a link (PublicLink), and links are underlined: the
+     logo is a mark, not a word in running text. */
+  text-decoration: none;
+}
+
+/*
+   The mark, not a monogram.
+
+   This was a filled accent tile with an "S" in it, so the brand on the
+   landing was not the brand inside the editor one click later. It holds
+   BrandMark now — the same triangle as the favicon and the app header — and
+   carries the accent as `color`, which the SVG picks up via `currentColor`.
+*/
+/* Shared by the public header and footer. */
+.nav-logo {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--lp-accent);
+  flex: none;
+}
+
+.site-header .nav-name {
+  font-family: var(--lp-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.015em;
+}
+
+.site-header .nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.site-header .nav-link {
+  font-size: 13.92px;
+  color: var(--lp-slate-2);
+  padding: 0.45rem 0.35rem;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  line-height: normal;
+  text-decoration: none;
+}
+
+.site-header a:hover, .site-header .current {
+  color: var(--lp-paper-2);
+}
+
+/* The section the page belongs to (the research pages, for instance). */
+.site-header .nav-link.current {
+  box-shadow: inset 0 -2px 0 var(--lp-accent);
+}
+
+.site-header .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: none;
+}
+
+.site-header .nav-gh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--lp-mono);
+  font-size: 0.74rem;
+  color: var(--lp-slate-2);
+  text-decoration: none;
+  border: 1px solid rgba(143, 163, 179, 0.22);
+  border-radius: var(--lp-radius);
+  padding: 0.42rem 0.6rem;
+}
+
+.site-header .nav-gh:hover {
+  border-color: rgba(143, 163, 179, 0.4);
+}
+
+.site-header .nav-toggle {
+  cursor: pointer;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0 7px;
+  background: transparent;
+  border: 1px solid rgba(143, 163, 179, 0.22);
+  border-radius: var(--lp-radius);
+}
+
+.site-header .nav-toggle span {
+  display: block;
+  height: 1.5px;
+  background: var(--lp-slate-2);
+}
+
+@media (max-width: 1140px) {
+  .site-header .nav-links {
+    display: none;
+    max-height: calc(100dvh - 58px);
+    overflow-y: auto;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 0.5rem var(--lp-gut) 1rem;
+    background: var(--lp-ink);
+    border-bottom: 1px solid rgba(143, 163, 179, 0.18);
+  }
+
+  .site-header .nav-links.open { display: flex; }
+
+  .site-header .nav-link {
+    text-align: left;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid rgba(143, 163, 179, 0.1);
+  }
+
+  .site-header .nav-actions { margin-left: auto; }
+  .site-header .nav-toggle { display: flex; }
+}
+
+
+.site-header :is(a, button) { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+.site-header :focus-visible { outline: 2px solid var(--lp-accent); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .site-header .nav-gh, .site-header .nav-actions > .btn-primary { display: none; }
+}
+@media (max-width: 420px) { .site-header .nav-name { display: none; } }

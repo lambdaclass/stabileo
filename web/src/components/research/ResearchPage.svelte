@@ -8,7 +8,6 @@
    */
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
@@ -62,7 +61,6 @@
 </script>
 
 <div class="landing blog research">
-  <SiteHeader current="research" />
   {#if route === '/research'}
     <Gallery />
   {:else if loadedResearchDetails[route]}
@@ -80,9 +78,6 @@
 </div>
 
 <style>
-  .research :global(.nav) {
-    background: var(--lp-ink);
-  }
   .research {
     font-synthesis: none;
     font-variant-numeric: tabular-nums lining-nums;

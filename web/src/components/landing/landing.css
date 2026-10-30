@@ -50,14 +50,14 @@
      close: it is subtracted under a `max()` floor, so being a few pixels off
      on a narrow screen moves the title by those pixels and nothing else.
   */
-  --lp-nav-h: 3.6rem;
+  --lp-nav-h: 58px;
 }
 
 /* ─── SHELL ──────────────────────────────────────────────────────────────── */
 
 .landing {
   position: fixed;
-  inset: 0;
+  inset: var(--lp-nav-h) 0 0;
   z-index: 10000;
   overflow-y: auto;
   overflow-x: hidden;
@@ -245,7 +245,7 @@
 
 /* ─── BUTTONS & LINKS ────────────────────────────────────────────────────── */
 
-.landing .btn {
+:is(.landing, .site-header) .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -263,12 +263,12 @@
   white-space: nowrap;
 }
 
-.landing .btn-primary {
+:is(.landing, .site-header) .btn-primary {
   background: var(--st-accent-fill);
   color: #fff;
 }
 
-.landing .btn-primary:hover {
+:is(.landing, .site-header) .btn-primary:hover {
   background: var(--st-accent-fill-hover);
 }
 
@@ -287,7 +287,7 @@
   font-size: 0.98rem;
 }
 
-.landing .btn-sm {
+:is(.landing, .site-header) .btn-sm {
   padding: 0.6rem 1rem;
   font-size: 0.84rem;
 }
@@ -330,154 +330,6 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   cursor: pointer;
-}
-
-/* ─── NAV ────────────────────────────────────────────────────────────────── */
-
-.landing .nav {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(12, 22, 32, 0.94);
-  border-bottom: 1px solid rgba(143, 163, 179, 0.14);
-}
-
-.landing .nav-inner {
-  max-width: var(--lp-max);
-  margin: 0 auto;
-  padding: 0.7rem var(--lp-gut);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.landing .nav-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  color: var(--lp-paper-2);
-  flex: none;
-  /* On the blog the brand is a link (PublicLink), and links are underlined: the
-     logo is a mark, not a word in running text. */
-  text-decoration: none;
-}
-
-/*
-   The mark, not a monogram.
-
-   This was a filled accent tile with an "S" in it, so the brand on the
-   landing was not the brand inside the editor one click later. It holds
-   BrandMark now — the same triangle as the favicon and the app header — and
-   carries the accent as `color`, which the SVG picks up via `currentColor`.
-*/
-.landing .nav-logo {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  color: var(--lp-accent);
-  flex: none;
-}
-
-.landing .brand-mark {
-  display: block;
-}
-
-.landing .nav-name {
-  font-family: var(--lp-display);
-  font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: -0.015em;
-}
-
-.landing .nav-links {
-  display: flex;
-  align-items: center;
-  gap: 0.1rem;
-  margin-left: auto;
-  min-width: 0;
-}
-
-.landing .nav-links button,
-.landing .nav-links .nav-link {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-family: var(--lp-sans);
-  font-size: 0.87rem;
-  color: var(--lp-slate-2);
-  padding: 0.45rem 0.35rem;
-  border-radius: var(--lp-radius);
-  white-space: nowrap;
-}
-
-/* The same box as the nav buttons beside it: a link inherits the page's line
-   height, which made the sticky nav taller than the hero assumes. */
-.landing .nav-links .nav-link {
-  display: inline-block;
-  line-height: normal;
-  text-decoration: none;
-}
-
-.landing .nav-links button:hover,
-.landing .nav-links .nav-link:hover {
-  color: var(--lp-paper-2);
-}
-
-/* The section the page belongs to (the research pages, for instance). */
-.landing .nav-links .nav-link.current {
-  color: var(--lp-paper-2);
-  box-shadow: inset 0 -2px 0 var(--lp-accent);
-}
-
-.landing .nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex: none;
-}
-
-.landing .nav-gh {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--lp-mono);
-  font-size: 0.74rem;
-  color: var(--lp-slate-2);
-  text-decoration: none;
-  border: 1px solid rgba(143, 163, 179, 0.22);
-  border-radius: var(--lp-radius);
-  padding: 0.42rem 0.6rem;
-}
-
-.landing .nav-gh:hover {
-  color: var(--lp-paper-2);
-  border-color: rgba(143, 163, 179, 0.4);
-}
-
-.landing .nav-toggle {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  width: 34px;
-  height: 34px;
-  padding: 0 7px;
-  background: transparent;
-  border: 1px solid rgba(143, 163, 179, 0.22);
-  border-radius: var(--lp-radius);
-  cursor: pointer;
-}
-
-.landing .nav-toggle span {
-  display: block;
-  height: 1.5px;
-  background: var(--lp-slate-2);
 }
 
 /* ─── HERO ───────────────────────────────────────────────────────────────── */
@@ -1663,35 +1515,6 @@
   .landing .split { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 1140px) {
-  .landing .nav-links {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    margin: 0;
-    padding: 0.5rem var(--lp-gut) 1rem;
-    background: var(--lp-ink);
-    border-bottom: 1px solid rgba(143, 163, 179, 0.18);
-  }
-
-  .landing .nav-links.open { display: flex; }
-
-  .landing .nav-links button,
-  .landing .nav-links .nav-link {
-    text-align: left;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid rgba(143, 163, 179, 0.1);
-  }
-
-  .landing .nav-actions { margin-left: auto; }
-  .landing .nav-toggle { display: flex; }
-}
-
 @media (max-width: 900px) {
   .landing .mode-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); }
   .landing .mode-row .badge { grid-row: 1; }
@@ -1704,8 +1527,6 @@
 }
 
 @media (max-width: 760px) {
-  .landing .nav-gh { display: none; }
-  .landing .nav-actions > .btn-primary { display: none; }
 
   .landing .card-row.cols-2,
   .landing .card-row.cols-3,
@@ -1734,7 +1555,6 @@
 }
 
 @media (max-width: 420px) {
-  .landing .nav-name { display: none; }
   .landing .tf-legend { font-size: 0.6rem; gap: 0.3rem 0.8rem; }
 }
 
