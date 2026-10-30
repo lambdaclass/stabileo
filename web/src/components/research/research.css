@@ -83,6 +83,7 @@
   .landing.research .rs-panel-viewer .rs-viewer-slot { order: -1; }
   .landing.research .rs-compare-line { order: 1; }
   .landing.research .rs-viewer-slot { height: auto; }
+  .landing.research .rs-viewer-host .sfv { min-height: 280px; }
   .landing.research .rs-viewer-slot .sfv {
     flex: none;
     height: max(280px, min(90vw, 60svh)) !important;
@@ -99,7 +100,8 @@
   .landing.research .rs-g-card { grid-template-columns: 28px minmax(0, 1fr); }
   .landing.research .rs-g-status { white-space: normal; }
   .landing.research .rs-g-by,
-  .landing.research .rs-citebox { overflow-wrap: anywhere; }
+  .landing.research .rs-citebox,
+  .landing.research .rs-prose code { overflow-wrap: anywhere; }
   .landing.research .sp-checks { display: block; overflow-x: auto; }
   .landing.research .eq { white-space: normal; }
   .landing.research .rs-param { grid-template-columns: minmax(0, 1fr) 7rem 3rem; }

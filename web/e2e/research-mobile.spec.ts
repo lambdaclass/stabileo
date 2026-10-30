@@ -86,55 +86,59 @@ async function audit(page: Page, state: string) {
 for (const locale of ['en', 'es', 'pt']) {
   test.describe(`@smoke research mobile ${locale}`, () => {
     for (const path of paths) {
-      test(path, async ({ researchPage: page }) => {
-        await page.setViewportSize(viewports[0]);
-        await page.goto(`/${locale}${path}/`);
-        await expect(page.locator('.research h1')).toBeVisible();
-        await page.evaluate(() => document.fonts.ready);
-        for (const viewport of viewports) {
-          await test.step(`${viewport.width}×${viewport.height}`, async () => {
-            await page.setViewportSize(viewport);
-            await page.evaluate(() => window.scrollTo(0, 0));
-            await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-            await expect(page.locator('.research h1')).toBeVisible();
-            const initialTabs: Locator[] = [];
-            if (path !== '/research') {
-              const canvas = page.locator('.rs-shell-app .sfv-canvas canvas');
-              await expect(canvas).toBeVisible({ timeout: 30_000 });
-              await expect.poll(async () => (await canvas.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(280);
-              const top = (await canvas.boundingBox())!.y;
-              if (viewport.width <= 640 || viewport.height <= 440) {
-                expect(top, 'canvas begins within the first 1.5 phone screens, before any scrolling').toBeLessThanOrEqual(viewport.height * 1.5);
-              }
-              await audit(page, 'initial experiment');
-              const camera = page.locator('.rs-shell-app .cam-cube');
-              await camera.click();
-              await audit(page, 'camera menu');
-              await camera.click();
-              const tabs = await page.locator('.rs-shell-app [role="tab"]').all();
-              for (const tab of tabs) {
-                if (await tab.getAttribute('aria-selected') === 'true') initialTabs.push(tab);
-              }
-              for (const tab of tabs) {
-                await tab.click();
-                await expect(tab).toHaveAttribute('aria-selected', 'true');
-                await audit(page, `tab ${await tab.textContent()}`);
-              }
+      for (const viewport of viewports) {
+        test(`${path} ${viewport.width}×${viewport.height}`, async ({ researchPage: page }) => {
+          test.setTimeout(45_000);
+          // Each viewport has its own smoke budget. Adjacent cases reuse the loaded
+          // experiment, but any case can also start cold after a retry or shard split.
+          const pathname = `/${locale}${path}/`;
+          await page.setViewportSize(viewport);
+          if (new URL(page.url(), 'http://localhost').pathname !== pathname) {
+            await page.goto(pathname);
+          }
+          await expect(page.locator('.research h1')).toBeVisible();
+          await page.evaluate(() => document.fonts.ready);
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+          await expect(page.locator('.research h1')).toBeVisible();
+          const initialTabs: Locator[] = [];
+          if (path !== '/research') {
+            const canvas = page.locator('.rs-shell-app .sfv-canvas canvas');
+            await expect(canvas).toBeVisible({ timeout: 30_000 });
+            await expect.poll(async () => (await canvas.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(280);
+            const top = (await canvas.boundingBox())!.y;
+            if (viewport.width <= 640 || viewport.height <= 440) {
+              expect(top, 'canvas begins within the first 1.5 phone screens, before any scrolling').toBeLessThanOrEqual(viewport.height * 1.5);
             }
-            await audit(page, 'whole page, including below the fold');
-            await page.locator('.nav-toggle').click();
-            await audit(page, 'navigation menu');
-            await page.locator('.nav-toggle').click();
-            await page.getByTestId('nav-lang-button').click();
-            await audit(page, 'language menu');
-            await page.getByTestId('nav-lang-button').click();
-            for (const tab of initialTabs) {
+            await audit(page, 'initial experiment');
+            const camera = page.locator('.rs-shell-app .cam-cube');
+            await camera.click();
+            await audit(page, 'camera menu');
+            await page.locator('.rs-shell-app .cam-backdrop').click({ position: { x: 1, y: 1 } });
+            await expect(camera).toHaveAttribute('aria-expanded', 'false');
+            const tabs = await page.locator('.rs-shell-app [role="tab"]').all();
+            for (const tab of tabs) {
+              if (await tab.getAttribute('aria-selected') === 'true') initialTabs.push(tab);
+            }
+            for (const tab of tabs) {
               await tab.click();
               await expect(tab).toHaveAttribute('aria-selected', 'true');
+              await audit(page, `tab ${await tab.textContent()}`);
             }
-          });
-        }
-      });
+          }
+          await audit(page, 'whole page, including below the fold');
+          await page.locator('.nav-toggle').click();
+          await audit(page, 'navigation menu');
+          await page.locator('.nav-toggle').click();
+          await page.getByTestId('nav-lang-button').click();
+          await audit(page, 'language menu');
+          await page.getByTestId('nav-lang-button').click();
+          for (const tab of initialTabs) {
+            await tab.click();
+            await expect(tab).toHaveAttribute('aria-selected', 'true');
+          }
+        });
+      }
     }
   });
 }
