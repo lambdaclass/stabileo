@@ -288,7 +288,6 @@ const zh: Translations = {
   'advanced.mechanism': '机构',
   'advanced.noCollapse': '未破坏',
   'advanced.calculateFirst': '请先计算',
-  'advanced.calculateFirstF5': '请先计算 (Enter)',
   'advanced.emptyModel': '空模型',
   'advanced.runDynamicFirst': '请先执行动力分析（模态分析）',
   'advanced.defineCombosFirst': '请先在"组合"选项卡中定义荷载组合',
@@ -2204,9 +2203,6 @@ const zh: Translations = {
   'dsm.expectedValue': '期望值',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': '影响线',
-  'influence.node': '节点',
-  'influence.elem': '单元',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

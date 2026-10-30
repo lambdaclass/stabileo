@@ -287,7 +287,6 @@ const it: Translations = {
   'advanced.mechanism': 'Meccanismo',
   'advanced.noCollapse': 'Nessun collasso',
   'advanced.calculateFirst': 'Calcola prima',
-  'advanced.calculateFirstF5': 'Calcola prima (Enter)',
   'advanced.emptyModel': 'Modello vuoto',
   'advanced.runDynamicFirst': 'Eseguire prima l\'analisi dinamica (modale)',
   'advanced.defineCombosFirst': 'Definire prima le combinazioni nella scheda Combinazioni',
@@ -2209,9 +2208,6 @@ const it: Translations = {
   'dsm.expectedValue': 'Valore atteso',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': 'LI',
-  'influence.node': 'Nodo',
-  'influence.elem': 'Elem',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

@@ -27,6 +27,8 @@ let builtWithSelfWeight = $state(false);
 let step = $state(0);
 /** A wizard was opened from the catalog: closing it returns there. */
 let returnToCatalog = $state(false);
+/** A document opened from an analysis rather than the catalog: going back closes it, back to that analysis. */
+let fromTool = $state(false);
 
 /** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
 let options = $state<Record<string, Record<string, boolean>>>({});
@@ -99,7 +101,7 @@ export const explainedSteps = {
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
   leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
-  openMethod(id: string): void { methodId = id; view = 'doc'; build(id); },
+  openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void { fromTool = opener === 'tool'; methodId = id; view = 'doc'; build(id); },
   refresh(): void { if (methodId) build(methodId); },
   /** The open method's assumptions, as shown over its document. */
   get options(): Record<string, boolean> { return methodId ? optionsOf(methodId) : {}; },
@@ -121,6 +123,7 @@ export const explainedSteps = {
     build(methodId);
     this.step = keep;
   },
-  back(): void { this.openCatalog(); },
-  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; },
+  back(): void { if (fromTool) this.close(); else this.openCatalog(); },
+  get fromTool() { return fromTool; },
+  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; },
 };
