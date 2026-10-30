@@ -51,7 +51,7 @@ rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 rand = "0.8"
 proptest = "1"
 # CBOR values hold NaN and ±∞, which JSON cannot: the certificate property
