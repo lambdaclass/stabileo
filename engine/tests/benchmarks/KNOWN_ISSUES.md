@@ -33,40 +33,20 @@ claiming a verified transcription. Frame cases are explicitly analytical adaptat
 
 ## MATTIASSON-REFERENCE-AND-ACCURACY
 
-The Mattiasson page remains **proposed**. Its four reference pairs are copied
-unchanged from `BENCHMARK_REFERENCES.md`, which says to verify them against the
-original paper. The Table 1 attribution and numerical transcription are not
-verified. Citation metadata was checked through the catalogue checker; this is
-not a check of published numbers.
+Resolved benchmark-input and reference errors (review round 2, 2026-10-30).
+The live model now uses A=1 m², 100 increments and tolerance 1e-8 for force cases.
+All 21 cases reach full load; four force checks and the one-radian circular-arc
+moment check pass the strict 0.1% signed-component limit. The current numerical
+report and reproduction commands are in
+[`README.md`](../../../research/benchmarks/mattiasson-elastica/README.md) and
+[`RESULTS.json`](../../../research/benchmarks/mattiasson-elastica/RESULTS.json).
 
-Fresh production native results (L = 2, 16 elements, settings in
-`mattiasson_elastica.json`):
+References are independent elliptic integrals, corroborated by Nanakorn & Vu
+(2006), Table 1, p.1245; moment references are circular-arc formulas. No direct
+transcription of Mattiasson's original table is claimed. Historical 1/4 and 3/4
+counts used superseded references or mismatched area/stepping. No production
+numerical change or solver-defect attribution is needed.
 
-| PL²/EI | Reference u/L, v/L | Computed u/L, v/L | Relative errors | Page classification |
-|---:|---|---|---|---|
-| 1 | 0.0566, 0.3015 | 0.0557827218712, 0.302243545400 | 1.443954%, 0.246615% | Pass (provisional) |
-| 2 | 0.1632, 0.4929 | 0.159191217091, 0.495808283573 | 2.456362%, 0.590035% | Fail |
-| 5 | 0.4054, 0.6647 | 0.385315745120, 0.722972888604 | 4.954182%, 8.766795% | Fail |
-| 10 | 0.5584, 0.6854 | Not computed at requested load | — | Fail: nonconvergence, load factor 0.1 |
-
-Native and production WASM agree on all 21 cases, including every nodal
-displacement and rotation for complete solves. Parameters 7.5 and 9.5 also fail
-to converge; the curves show gaps, never a line through a missing result.
-
-For parameter 10 the solver returns a last-converged state at 10% of the requested
-load. The page intentionally does not plot or compare that state at parameter 10.
-The page target is strict relative error below 2% in **both signed components**;
-it is a new exploratory comparison, not an existing native accuracy assertion.
-Every existing native assertion, tolerance and regression floor is unchanged.
-The moment regression (ML/EI = 1) converges with u/L = 0.158392041418 and
-v/L = -0.459772523245 under the page's downward-positive convention. It has no
-paper accuracy reference and does not demonstrate a full circle.
-
-Do not infer a solver defect solely from discrepancies with these unverified
-references. Confirm paper transcription, load convention and extensibility
-assumptions; then ask the solver owner to triage accuracy and convergence.
-The production runtime registry has not been changed and no runtime issue ID is
-claimed. Reproduce via `research/benchmarks/mattiasson-elastica/README.md`.
 ## SHELL-OBSTACLE-COURSE
 
 The production MITC4 page preserves the existing `shell_benchmark.rs` models exactly,
