@@ -7677,7 +7677,7 @@ fn research_cylinder_corrected_convergence() {
 
 // The builders above also supply the pressure/self-weight and other element-family
 // controls. Regenerate the publication inputs with UPDATE_SHELL_OBSTACLE=1 and
-// this test; normal runs enforce exact JSON value equality (including all loads).
+// this test; normal runs enforce JSON value equality (including all loads).
 #[test]
 fn research_shell_fixture_matches_corrected_builders() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -7699,6 +7699,38 @@ fn research_shell_fixture_matches_corrected_builders() {
     if std::env::var_os("UPDATE_SHELL_OBSTACLE").is_some() {
         std::fs::write(path, serde_json::to_string_pretty(&generated).unwrap() + "\n").unwrap();
     } else {
-        assert_eq!(committed, generated, "Regenerate with UPDATE_SHELL_OBSTACLE=1");
+        assert_json_matches(&committed, &generated, "$");
+    }
+}
+
+// Structure, keys and strings must match exactly; numbers to 1e-12 relative,
+// because macOS and Linux libm differ by one ulp in the mesh trigonometry.
+fn assert_json_matches(a: &serde_json::Value, b: &serde_json::Value, at: &str) {
+    use serde_json::Value;
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            assert!(
+                (x - y).abs() <= 1e-12 * x.abs().max(y.abs()),
+                "{at}: committed {x} vs generated {y}. Regenerate with UPDATE_SHELL_OBSTACLE=1"
+            );
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            assert_eq!(x.len(), y.len(), "{at}: length. Regenerate with UPDATE_SHELL_OBSTACLE=1");
+            for (i, (x, y)) in x.iter().zip(y).enumerate() {
+                assert_json_matches(x, y, &format!("{at}[{i}]"));
+            }
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            assert_eq!(
+                x.keys().collect::<Vec<_>>(),
+                y.keys().collect::<Vec<_>>(),
+                "{at}: keys. Regenerate with UPDATE_SHELL_OBSTACLE=1"
+            );
+            for (k, x) in x {
+                assert_json_matches(x, &y[k], &format!("{at}.{k}"));
+            }
+        }
+        _ => assert_eq!(a, b, "{at}. Regenerate with UPDATE_SHELL_OBSTACLE=1"),
     }
 }
