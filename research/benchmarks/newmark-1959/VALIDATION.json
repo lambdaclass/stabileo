@@ -1,0 +1,62 @@
+{
+  "stage": "first-version",
+  "reviews": [],
+  "reference": "Exact SDOF step response and discrete average-acceleration closed form, independently evaluated from native solver histories",
+  "test": "engine/tests/benchmarks/newmark_1959.rs",
+  "checks": [
+    {
+      "metric": "dt/T=0.025: maximum discrete displacement error (m)",
+      "observed": 1.1726730697603216e-15,
+      "tolerance": 1e-10,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.025: measured period relative difference from discrete prediction",
+      "observed": 2.45153894629091e-06,
+      "tolerance": 0.005,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.05: maximum discrete displacement error (m)",
+      "observed": 1.0512424264419451e-15,
+      "tolerance": 1e-10,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.05: measured period relative difference from discrete prediction",
+      "observed": 1.3877934491257626e-05,
+      "tolerance": 0.005,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.1: maximum discrete displacement error (m)",
+      "observed": 1.0408340855860843e-16,
+      "tolerance": 1e-10,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.1: measured period relative difference from discrete prediction",
+      "observed": 3.619414046607261e-05,
+      "tolerance": 0.005,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.2: maximum discrete displacement error (m)",
+      "observed": 3.8163916471489756e-17,
+      "tolerance": 1e-10,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.2: measured period relative difference from discrete prediction",
+      "observed": 0.0006678298479381173,
+      "tolerance": 0.005,
+      "passed": true
+    },
+    {
+      "metric": "dt/T=0.025: maximum continuous displacement error (m)",
+      "observed": 0.00048250043984137715,
+      "tolerance": 0.0005,
+      "passed": true
+    }
+  ]
+}

@@ -217,6 +217,11 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Shellcheck
         run: make test.ci-scripts
+      # Pull requests never run on the self-hosted runners, so the merge queue's browser shell
+      # (.#e2e: Playwright browsers from nix, version-locked to package-lock) is checked here on
+      # a GitHub-hosted runner whenever the tooling it depends on changes.
+      - name: Browser shell (.#e2e) launches Chromium and Firefox
+        run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
   lint-engine:
     name: Lint Engine
@@ -506,7 +511,7 @@ jobs:
   research-wasm:
     name: Research WASM
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
-    timeout-minutes: 30
+    timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
@@ -526,15 +531,24 @@ jobs:
           workspaces: |
             research/fracture/shauer-2025/wasm
             research/metamaterials/grossman-2026/wasm
+            research/form-finding/pastrana-2026/wasm
+            research/optimisation/fairclough-2026
           shared-key: research-wasm
       - name: Install web dependencies (the research viewer bundle is built with Vite)
         run: make web.deps
       - name: Build the research WASM and viewer
-        run: make research.wasm
+        # The runners' sccache cannot spawn the toolchain the research crates build with
+        # ("Permission denied" on stabileo-ci-1, 2026-10-29); build these crates uncached.
+        # The flake sets RUSTC_WRAPPER=sccache inside the shell, so clear it there.
+        run: nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 make research.wasm NIX_RUN=
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The five-node gridshell bundle reproduces Table 1 (Node)
+        run: nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
+      - name: Four-cable browser solver
+        run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm

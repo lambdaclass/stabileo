@@ -110,8 +110,27 @@ full report with runners-up and rejections kept with the scouting notes):
 | 7 | Form-finding of cable nets and shells | Pastrana, Oktay, Bletzinger, Adams & Adriaenssens 2026, CMAME 458, 118783 | sparse solve; the found form opens in the editor as a gridshell and is checked with 3D analysis and buckling | ~5–7 days | `jax_fdm` (MIT) reference |
 | 8 | Gridshell layout under self-weight | Fairclough, Bołbotowski, He, Liew & Gilbert 2026, Computers & Structures 320, 107997 | new conic optimiser (Clarabel.rs, Apache-2.0) | ~7–10 days | Table 1 volumes |
 
-Order: 3 (quick, famous) → 4 (strongest showcase of the production engine; same DTU group) → 5 and
-6 together (shared 2D stability tooling) → 7 → 8. Known engine limits that pushed other papers
+Status and order (updated 2026-10-29):
+
+| Track | Item | Status |
+|---|---|---|
+| Papers | 1 Phase-field fracture (Shauer 2025) | merging, PR #769 |
+| Papers | 2 Spring networks (Grossman & Boudaoud 2026) | final fixes, PR #776 |
+| Papers | 3 Topology optimisation (Andreassen et al. 2011, 88 lines) | implemented, in verification |
+| Engine benchmarks | MacNeal–Harder (1985) | PR #797; found engine issue #798 (MITC4 distorted in-plane) |
+| Engine benchmarks | Riks / Crisfield snap-through (1979/81) | in progress |
+| Engine benchmarks | Shell obstacle course (Belytschko et al. 1985: Scordelis–Lo, pinched cylinder, hemisphere) | in progress |
+| Engine benchmarks | Mattiasson elastica (1981) | in progress |
+| Papers | 4 Koiter post-buckling (Ferrari & Sigmund 2025) | next: flagship for current researchers |
+| Papers | 5 + 6 Snapping arches (Biggins 2026) with the cut strip (Fehér 2026) | after 4 |
+| Engine benchmarks | Plastic collapse, Newmark / Bathe time integration, Navier plate, NAFEMS LE | about a day each, after the format settles |
+| Papers | Ferrari & Sigmund 2020 (3D topology optimisation) | after the 2D page; small grids in the browser |
+| Papers | 7 Form-finding (Pastrana et al. 2026) | later |
+| Papers | 8 Gridshell layout (Fairclough et al. 2026) with Michell / Gilbert & Tyas layout optimisation | last: needs a conic optimiser |
+
+Rule of thumb: classics go through the production engine (engine benchmarks); new papers are
+separate experiments only where the engine can't do them yet. Merge bar: no Codex/Kimi blockers,
+every claim on the page true, the product unaffected, CI green; other findings become issues. Known engine limits that pushed other papers
 down: arc-length is 2D only; no nonlinear shells. Before starting each, re-check: open questions
 (e.g. the Roorda geometry needs the paper's text; the Zenodo archive for #5 not yet inspected; the
 script link for #8 to ask the authors).
@@ -233,3 +252,39 @@ visitor.
 - Engine changes silently shifting research results: §3's replay.
 - Agent capacity and usage limits: one paper at a time per agent; prefer the OVH server.
 - Hosting old builds forever: keep only builds that changed research or the engine.
+
+## 14. Engine benchmarks
+
+Research pages in this track **are the production engine's benchmarks**. They run the WASM
+built into `web/src/lib/wasm` through the existing `web/src/lib/engine` wrappers, the same
+engine used to design buildings. There is no separate research solver.
+
+The engine owns one case file under `engine/tests/benchmarks/`: geometry, connectivity,
+materials, loads, element family, measurement, published reference with table/page provenance,
+and tolerance. Native tests and the research page read that same file. Record adaptations,
+different meshes and historical regression bounds separately from published accuracy targets;
+never loosen an assertion or change `engine/src` to make a page pass. Research code is never
+imported by the product (`research/tools/check_isolation.py` enforces the boundary).
+
+The page runs on load and on **Run again**, with no replay requirement. Its headline and table
+are computed live, including reference, computed value, relative error and pass/fail. Failed
+cases remain visible and count in the denominator, with links to their engine known-issue
+entries. Missing registry entries must be disclosed and referred to the solver owner; do not
+invent an issue or silently classify a regression floor as an accuracy pass. APIs unavailable
+in WASM are labelled **covered in native CI only**, with exact test names. A shared Stabileo
+viewer shows the selected mesh and deformed shape, and **Open in Stabileo** uses the editor's
+existing import/share format. Use ExperimentShell, PaneTabs, VerificationSummary, Cite this,
+SiteHeader, en/es/pt UI and the gallery catalogue's summary-source rules.
+
+Existing engine CI runs the native cases. Hosted runners in the Research workflow compare the
+production WASM results in Node with freshly computed native values and classifications; a
+cached report is not a live browser result. Research bundles remain route-isolated.
+
+Queue:
+1. **MacNeal–Harder (1985)** — `/research/benchmarks/macneal-harder-1985`.
+2. **Riks/Crisfield snap-through** — production `engine/src/solver/arc_length.rs`.
+3. **Zienkiewicz–Zhu** — production error estimation and mesh refinement.
+
+Classics go through the engine. New papers stay separate experiments when the engine cannot
+run them, isolated from the product; this exception does not authorize a replacement production
+solver or relax the product's validation/review process.

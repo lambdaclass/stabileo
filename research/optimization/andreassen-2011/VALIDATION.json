@@ -1,0 +1,111 @@
+{
+  "checks": [
+    {
+      "metric": "absolute error",
+      "name": "ft1: OC volume constraint every iteration",
+      "observed": 0.0002278489296336783,
+      "passed": true,
+      "tolerance": 0.0005
+    },
+    {
+      "metric": "compliance relative",
+      "name": "ft1: compliance relative",
+      "observed": 1.2991768072707849e-11,
+      "passed": true,
+      "tolerance": 1e-6
+    },
+    {
+      "metric": "volume absolute",
+      "name": "ft1: volume absolute",
+      "observed": 2.697342349478049e-12,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "change absolute",
+      "name": "ft1: change absolute",
+      "observed": 1.1539436073348952e-11,
+      "passed": true,
+      "tolerance": 1e-6
+    },
+    {
+      "metric": "final density max absolute",
+      "name": "ft1: final density max absolute",
+      "observed": 3.0416003049538176e-11,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "metric": "exact",
+      "name": "ft1: iteration count",
+      "observed": 0,
+      "passed": true,
+      "tolerance": 0
+    },
+    {
+      "metric": "absolute error",
+      "name": "ft2: OC volume constraint every iteration",
+      "observed": 0.00024434207580614764,
+      "passed": true,
+      "tolerance": 0.0005
+    },
+    {
+      "metric": "compliance relative",
+      "name": "ft2: compliance relative",
+      "observed": 1.628639154775679e-11,
+      "passed": true,
+      "tolerance": 1e-6
+    },
+    {
+      "metric": "volume absolute",
+      "name": "ft2: volume absolute",
+      "observed": 3.500422174340656e-12,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "change absolute",
+      "name": "ft2: change absolute",
+      "observed": 8.664191586404968e-11,
+      "passed": true,
+      "tolerance": 1e-6
+    },
+    {
+      "metric": "final density max absolute",
+      "name": "ft2: final density max absolute",
+      "observed": 5.127798186066457e-11,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "metric": "exact",
+      "name": "ft2: iteration count",
+      "observed": 0,
+      "passed": true,
+      "tolerance": 0
+    },
+    {
+      "metric": "absolute error",
+      "name": "KE symmetry",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-13
+    },
+    {
+      "metric": "absolute error",
+      "name": "constant strain patch and rigid modes",
+      "observed": 2.220446049250313e-16,
+      "passed": true,
+      "tolerance": 1e-13
+    },
+    {
+      "metric": "absolute error",
+      "name": "filter partition of unity",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-13
+    }
+  ],
+  "produced_by": "UPDATE_VALIDATION=1 cargo test --release --locked --test reference",
+  "reference": "reference-results/ (unmodified DTU top88.m, GNU Octave; see MANIFEST.json)"
+}

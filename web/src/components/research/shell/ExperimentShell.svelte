@@ -16,12 +16,14 @@
 
   type Props = {
     paperId: string;
+    citationAuthors?: string;
     name: string;
     lead: string;
     /** Passed / total of the validation checks, when the experiment has them. */
     checks?: { passed: number; total: number } | null;
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
     verification?: { reference: Check; published: Check } | null;
+    referenceLabel?: string | null;
     actions: ExperimentActions;
     /** Where the implementation lives, for Cite this and the source link. */
     sourcePath: string;
@@ -29,29 +31,31 @@
     app: Snippet;
     /** One column with the app first and not sticky (e.g. while an embedded editor is shown). */
     wide?: boolean;
+    compactHeader?: boolean;
   };
-  let { paperId, name, lead, checks = null, verification = null, actions, sourcePath, article, app, wide = false }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false }: Props = $props();
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
-  const authors = paper.crossref.authors.join(', ');
+  const authors = $derived(citationAuthors ?? paper.crossref.authors.join(', '));
 
 </script>
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
-    <header class="rs-shell-head">
+    <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
       <h1 lang={researchLocale()}>{name}</h1>
       <p class="rs-cite">
-        {s.afterAuthors} {authors}, “{paper.crossref.title}”, <em>{paper.crossref.venue}</em> ({paper.crossref.year}),
+        {s.afterAuthors} {authors}, “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
         <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
+        {referenceLabel}
       />
       <p class="rs-lead" lang={researchLocale()}>{lead}</p>
     </header>
@@ -89,6 +93,9 @@
     line-height: 1.1;
     margin: 0.25rem 0 0.75rem;
     color: var(--fg);
+  }
+  @media (max-width: 700px) {
+    .rs-compact .rs-cite { display: none; }
   }
   .rs-crumb,
   .rs-cite {
