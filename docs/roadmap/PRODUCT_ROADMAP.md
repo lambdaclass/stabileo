@@ -61,7 +61,64 @@ ROI order for users:
 6. lightweight collaboration that makes review and sharing easier
 7. workflow polish and breadth after the above are solid
 
-## Priority now: catch wrong results before they ship (2026-10-28)
+## Overall order (2026-10-30)
+
+Status as of about 09:45. Open decisions:
+
+- Put a CDN in front of the site (Cloudflare proxy and HTML edge caching, with purge on deploy).
+- Set the page-size budget for product (non-research) changes; the gate exists at 128 B per route.
+
+1. **Safety first.** Close the ways a wrong result can reach users: containment of every open
+   wrong-result issue (#447), the fixes in "Priority now" below, the metamorphic invariance suite,
+   independent engineer sign-off, and prevention (section "Prevention": results that check
+   themselves, invariance tests everywhere, nightly bug hunting, units in the type system,
+   trustworthy benchmarks). After the 2026-10-30 research and Tools deployment, most capacity returns here. Growth multiplies whatever is there, including wrong results; one
+   public mistake costs more than any number of good pages earn. Security belongs here too: backend
+   security tests and a tested backup restore (#721), staging before production (#724), the policy for
+   outside contributions (#726), supply-chain pinning, and isolation of anything that runs untrusted or
+   old code (research snapshots on their own origin, #777).
+2. **Speed and the first run.** Public pages and the app load fast (Lighthouse performance ≥ 90 on
+   public pages; the app today scores 25, #734) and a new visitor builds and solves a first model in
+   under a minute with a guided start. Cheap, and it multiplies every growth channel below.
+3. **A Python package and API** (`pip install stabileo`, notebook-friendly, the same engine as the app,
+   built on the versioned engine interface #731): models built and solved from scripts and notebooks,
+   results as arrays, the same refusals and known-issue warnings as the app. Researchers, automation and
+   parametric design build on Stabileo; every benchmark, paper and tool becomes scriptable.
+4. **A public verification manual,** generated from the engine benchmarks, the metamorphic suite and the
+   certificates: every case runnable in the browser, failures shown honestly, always current. A trust
+   asset no commercial PDF manual matches, and it ranks for "verification" searches.
+5. **Import from the programs engineers already use** (SAP2000 `.s2k`, ETABS `.e2k`, IFC, DXF) and
+   export reports they can hand in: removes the biggest switching cost.
+6. **Latin American codes:** NBR (Brazil), NSR-10 (Colombia), NTE E.030/E.060 (Peru), NCh (Chile) next to
+   CIRSOC, each with independent sign-off (#450): the obvious choice in a region served poorly and
+   expensively.
+
+7. **The AI assistant stage,** after safety, speed and the growth and SEO work above, so it lands on
+   trustworthy results and an audience that's already there (capabilities, order and safety rules in
+   [AI_ROADMAP.md](AI_ROADMAP.md)): describe a structure or upload a sketch, plan or PDF and get a model;
+   explain results and warnings; check a model for common mistakes; drive Stabileo through the Python
+   API. Every AI suggestion is a model or a change the user sees and the engine solves and verifies;
+   the AI is never the authority on a result, and it shows the same known-issue warnings and refusals.
+   This is when "AI" moves from "coming" to the centre of the positioning.
+
+**Growth channels, alongside:** Stabileo Research, Stabileo Tools and shared models (section "Growth"
+below), with search work, previews, phone and tablet quality and frozen citable versions as multipliers.
+**Supporting:** universities when there's capacity (free classroom accounts, assignments as forkable models, textbook problems as examples); a community (forum or Discord, model of the week, short walkthrough videos, university
+webinars), institutions (professional councils, INTI/CIRSOC, Ergodic Group's network),
+privacy-respecting analytics to see which tools, papers and shares turn into engineers who return, and
+and outreach to engineers and paper authors.
+
+### Speed: measured 2026-10-30
+
+From South America: about 0.8 s to first byte and 1.3–1.7 s to first paint. The site has one
+server in Nuremberg and no CDN. DNS is already on Cloudflare, but is not proxied. Clicking Research
+or Tools leaves a completely white page for 1–2 s: about 670 KB of page code loads only after the click.
+
+Work on `perf/public-nav-instant`: keep the old page until the new one is ready, prefetch on hover
+and idle, split heavy chunks, and reset scroll on navigation. The Cloudflare proxy and HTML edge
+caching decision is pending; expected first byte is about 0.1 s, with purge on deploy.
+
+## Priority now: catch wrong results before they ship (2026-10-30)
 
 Before new features, close the ways a wrong result can still reach users unnoticed. Each gap below
 was exposed in the week of 2026-10-21: a steel verdict change merged with no changelog or re-check
@@ -84,10 +141,95 @@ them.
 | 11 | **Review before merge, enforced:** CODEOWNERS, a second reviewer for result and verdict changes, and a check that every required check still exists | [#725](https://github.com/lambdaclass/stabileo/issues/725), [#470](https://github.com/lambdaclass/stabileo/issues/470), [#355](https://github.com/lambdaclass/stabileo/issues/355) | Release safety |
 | 12 | **Policy for outside contributions:** bounty-style and AI-generated PRs, duplicates, credit, re-implementing low-trust fixes | [#726](https://github.com/lambdaclass/stabileo/issues/726) | Release safety |
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
+| 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
+
+**Status of the safety work (2026-10-30):**
+
+| Item | Issue / PR | State |
+|---|---|---|
+| Contain every open wrong-result issue (warn or refuse; no number changes) | [#447](https://github.com/lambdaclass/stabileo/issues/447) / PR [#807](https://github.com/lambdaclass/stabileo/pull/807) | main merged; resolving CI interactions with live research pages and newer features |
+| Metamorphic invariance suite (units, renumbering, member direction, rigid motion, reciprocity) | PR [#813](https://github.com/lambdaclass/stabileo/pull/813) | in merge queue |
+| Solid-shell stresses in global axes (a vertical plate read 0) | [#757](https://github.com/lambdaclass/stabileo/issues/757) / PR [#814](https://github.com/lambdaclass/stabileo/pull/814) | final review fixes; auto-merge enabled |
+| Buckling factor outside its certified bounds still certified | [#741](https://github.com/lambdaclass/stabileo/issues/741) / PR [#817](https://github.com/lambdaclass/stabileo/pull/817) | fixed (bounds proven sound by exact arithmetic; certification refused); merge to main after PR [#814](https://github.com/lambdaclass/stabileo/pull/814); follow-up [#818](https://github.com/lambdaclass/stabileo/issues/818) |
+| Modal analysis skipped repeated modes of symmetric structures | [#759](https://github.com/lambdaclass/stabileo/issues/759) / PR [#827](https://github.com/lambdaclass/stabileo/pull/827) | real solver bug (a 837 Hz mode missing); Sturm-sequence fix, no model-size limit; merge to main after PR [#814](https://github.com/lambdaclass/stabileo/pull/814) |
+| 2D plastic collapse factor not invariant (up to 4.6×) | [#758](https://github.com/lambdaclass/stabileo/issues/758) | two approaches failed; needs a redesign of mechanism detection; refused until then |
+| MITC4 in-plane bending on distorted meshes (−92%) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | found by the MacNeal–Harder page; contained by refusal |
+| MITC4 Scordelis–Lo roof plateau (−15%), pinched cylinder diverging | [#810](https://github.com/lambdaclass/stabileo/issues/810) / PR [#859](https://github.com/lambdaclass/stabileo/pull/859) | **test-model error, not the engine:** an extra crown support and missing corner symmetry; corrected, the roof matches to 0.0084% and the cylinder converges to −1% at 32×32. PR [#859](https://github.com/lambdaclass/stabileo/pull/859) corrects the live shell obstacle course page; pending merge, auto-merge enabled |
+| Mattiasson elastica: end shortening 2.5–8.8% off at loads 2 and 5, no convergence at load 10 | [#845](https://github.com/lambdaclass/stabileo/issues/845) / PR [#849](https://github.com/lambdaclass/stabileo/pull/849) | **test error, not the engine:** the provisional reference table was wrong; against the exact elliptic-integral solution the engine is within 0.03–0.1% at all four loads (merged) |
+| Shallow toggle: arc-length peak 48.75 vs 95.99, limit point not reached | [#846](https://github.com/lambdaclass/stabileo/issues/846) / PR [#852](https://github.com/lambdaclass/stabileo/pull/852) | **test error, not the engine:** a rigid-jointed frame compared with the pin-jointed truss formula and a 100-step budget; a true truss passes both limit points (path error 8e-11); PR [#852](https://github.com/lambdaclass/stabileo/pull/852) merged |
+| Already fixed on main, closed with evidence | [#442](https://github.com/lambdaclass/stabileo/issues/442), [#443](https://github.com/lambdaclass/stabileo/issues/443), [#444](https://github.com/lambdaclass/stabileo/issues/444), [#445](https://github.com/lambdaclass/stabileo/issues/445) | closed |
+
+The nightly dry run (PR [#861](https://github.com/lambdaclass/stabileo/pull/861)) found two root causes. Rotated or mirrored models are
+refused although the original is accepted: input consistency. Singular/eigen failures appear only
+after unit scaling, mirroring or rotation, consistent with [#762](https://github.com/lambdaclass/stabileo/issues/762). Each gets its own issue.
+
+Reviews: Codex plus Kimi (scripts/review, PR #842); Grok, then an adversarial Codex review, when Kimi
+is unavailable. Research and Tools are reviewed after they go live; engine, safety and app changes
+before main.
 
 Needs people, not only code: item 4's engineer sign-off; real users' project files for item 3's
 corpus; production access for item 7's restore test; testers on real Linux GPUs for the desktop's
 3D viewer.
+
+## Prevention: fewer safety problems (2026-10-30)
+
+What found the wrong results so far: the invariance (metamorphic) tests (#758, #760, #762), fuzzing
+(#741), a mass-orthogonality check (#759) and the research benchmarks. Prevention is doing more of
+what works, all the time, and making every test trustworthy. Started 2026-10-29; progress below.
+
+| # | Item | Why | Workstream |
+|---|---|---|---|
+| 1 | **Every result checks itself before it is shown.** Statics: reactions balance the loads, small residual. Modal: mass-orthogonal modes and per-mode residual. Buckling: factor equals the mode's Rayleigh quotient. Time history: energy balance, reciprocity spot check. Nonlinear: the reported load factor's residual is below tolerance. Plastic collapse: mechanism equilibrium. A failed check warns or refuses (containment) instead of showing a number. | Turns unknown wrong results into visible refusals; would have caught #759, #760, #432, #433 at runtime | slice 1: PR [#865](https://github.com/lambdaclass/stabileo/pull/865), in review |
+| 2 | **Invariance tests on every analysis type and the whole model corpus:** renumbering, member direction, units, rigid motion, mirror symmetry, E scaling, superposition, reciprocity. Fast subset on every PR; exhaustive tier nightly. | Needs no reference values; found three of the worst bugs | suite PR [#813](https://github.com/lambdaclass/stabileo/pull/813) merging; everywhere slice 1: PR [#860](https://github.com/lambdaclass/stabileo/pull/860), in review |
+| 3 | **Nightly bug hunting on our own runners** (stabileo-ci-1's 6 runners, idle at night): random models through the invariance tests, differential runs (OpenSees, Code_Aster), fuzzing at high case counts; each distinct finding opens its own issue with the seed and a minimal model. Trusted events only. | Bugs found by the machine at night, not by users | PR [#861](https://github.com/lambdaclass/stabileo/pull/861), auto-merge enabled |
+| 4 | **Mutation gate on changed engine code:** a PR may not add surviving mutants in the engine code it touches; the backlog (#745–#752, ~1,960 mutants) is cleared in parallel. | Stops test gaps from growing | next |
+| 5 | **Trustworthy benchmarks** (the test-correctness program below) | A wrong test cries wolf or, worse, passes a wrong engine | slice 1: PR [#862](https://github.com/lambdaclass/stabileo/pull/862), merged |
+| 6 | **New analysis types ship as experimental** (labelled, contained) until they have self-checks, invariance tests and two-source benchmarks. | Nothing new reaches users unverified | next |
+| 7 | **Units in the type system (#359)** — crucial: zero-cost unit types in Rust at the engine boundary first (wire format and results unchanged), then inward; branded TypeScript types at the UI → engine boundary; mixing units is a compile error. | Removes a whole class of bugs (#758 and #762 depend on units) | slice 1: PR [#864](https://github.com/lambdaclass/stabileo/pull/864), in review; crucial |
+
+**Test-correctness program (item 5).** Four suspected engine bugs across [#845](https://github.com/lambdaclass/stabileo/issues/845),
+[#846](https://github.com/lambdaclass/stabileo/issues/846), [#810](https://github.com/lambdaclass/stabileo/issues/810) and the earlier investigations were test-model errors.
+Keep the independent-solver triage rule. Every benchmark must therefore:
+
+1. **Be a spec, not a hand-built model:** a data file (geometry, material, supports, symmetry planes,
+   loads, measured quantity, each with source, page and table) turned into a model by one shared,
+   tested generator.
+2. **Have two independent references that agree before it is admitted:** the paper's value and an
+   exact solution, a textbook formula or an independent program (OpenSees, Code_Aster, CalculiX) on
+   the same spec.
+3. **Pass automatic model checks before any comparison:** total applied load equals the analytic value;
+   reactions balance the loads; a symmetric quarter model matches the full model; exactly the expected
+   rigid-body modes.
+4. **Show convergence, not one mesh:** three or more meshes, the error must shrink, and a Richardson
+   estimate of the converged value is compared. A plateau or a growing error flags the model or the
+   reference, not the engine.
+5. **Triage by an independent solver:** Stabileo and OpenSees agree but miss the reference → suspect
+   the reference or model; they disagree → suspect the engine.
+6. **Prove it can fail:** mutants of the engine must make it fail; a benchmark that passes a broken
+   engine (e.g. absolute-value comparisons) tests nothing. Signed quantities always.
+7. **Justify every tolerance** from the convergence study or the reference's precision, written next
+   to it; provisional references are informational only, never pass/fail.
+8. **Reference audit in review:** numbers checked against the source text page by page; a CI lint
+   rejects a benchmark without spec, two references, model checks or convergence study.
+Every investigation keeps a written numbers report (e.g. docs/audits/810-mitc4-curved-shells.md), so a
+real engine bug is never waved off as a test problem either.
+
+Further, to make the tests themselves trustworthy:
+
+9. **Double-entry specs:** two agents build each benchmark spec independently from the paper text,
+   without seeing each other's work, and the specs must match field by field before admission. Modelling
+   slips (an extra support, a missing symmetry, a frame for a truss) rarely survive two independent builds.
+10. **One source of truth per reference,** shared by the engine tests, the research pages and the
+    verification manual; a check fails if any copy differs, so a correction reaches every place at once
+    (on 2026-10-29 the shell obstacle course page still carried the models the engine test had fixed).
+11. **Independent engineer sign-off on the core reference set** (the ~30 classic benchmarks most trust
+    rests on), extending #450 from design checks to analysis benchmarks.
+12. **Skipped tests expire:** every test ignored as a known wrong result names its issue and a review
+    date; past the date it fails CI, so known failures cannot sit unnoticed.
+13. **Allow last-ulp differences:** fixture and JSON comparisons must allow the last-ulp differences
+    between macOS and Linux libm (PR [#859](https://github.com/lambdaclass/stabileo/pull/859)).
+14. **Test refusals as refusals:** when containment withholds a result, the page must say so and its
+    checks must assert that refusal, not fail because a number is absent.
 
 ## Multipliers
 
@@ -271,7 +413,12 @@ Speed for the workflows engineers repeat, and results that come with a guarantee
 
 ### Release safety
 
-Pushes to main deploy straight to users (GitHub Pages), so a merge is a release.
+Pushes to main deploy straight to users, so a merge is a release.
+
+**Faster feedback (2026-10-30):** self-hosted CI runners merged (PR [#854](https://github.com/lambdaclass/stabileo/pull/854)), and the merge
+queue is live. In review: fast PR checks that run what a change touches (PR [#863](https://github.com/lambdaclass/stabileo/pull/863)), build
+WASM once and retry only infrastructure errors (PR [#866](https://github.com/lambdaclass/stabileo/pull/866)), and e2e guards including a 45 s
+smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Browser checks run on the OVH server.
 
 1. **Staging before production:** [#385](https://github.com/lambdaclass/stabileo/issues/385) deploy main to a staging URL first; promote to production on a tagged release after the full suite, the acceptance suite and a smoke check pass.
 2. **Versioned releases with notes:** [#386](https://github.com/lambdaclass/stabileo/issues/386) every release has a version, release notes in English and Spanish, and a prominent "results may change" section listing result-affecting changes and who is affected.
@@ -313,14 +460,337 @@ without a second implementation of anything that computes a result.
 identical to the web on the snapshot corpus (#716); every code check and limit state has one
 authoritative implementation in the ownership map; `.ded` files from every release open (#718).
 
+### Stabileo Research (2026-10-30)
+
+Published computational-mechanics papers turned into experiments anyone can run, change and check,
+at stabileo.com/research, always in Stabileo's own viewer. Plan, rules and the ordered paper queue:
+[research/DESIGN.md](../../research/DESIGN.md) and [research/CLAUDE.md](../../research/CLAUDE.md).
+
+1. **Live in production:** Shauer 2025 fracture (PR [#769](https://github.com/lambdaclass/stabileo/pull/769)), Grossman & Boudaoud 2026
+   (PR [#776](https://github.com/lambdaclass/stabileo/pull/776)), the catalogue (PR [#788](https://github.com/lambdaclass/stabileo/pull/788)), and Ferrari & Sigmund 2025
+   (PR [#836](https://github.com/lambdaclass/stabileo/pull/836), viewer fix [#848](https://github.com/lambdaclass/stabileo/pull/848)) are merged.
+2. **The wave is live:** PR [#857](https://github.com/lambdaclass/stabileo/pull/857) deployed on 2026-10-30. Its 14 papers and benchmarks
+   are listed below. Engine benchmarks run on the production engine, with shared case files and honest
+   results, including refusals under containment.
+3. **Next:** fix the live pages before any new paper. Then gallery organisation, previews,
+   Fehér 2026 and Ferrari & Sigmund 2020 in 3D.
+4. **Platform:** frozen, citable versions under `/@<commit>/`, made only for research releases and
+   stored once per file and served from their own origin, `snapshots.stabileo.com`, which needs DNS
+   records before it can go live (PR [#777](https://github.com/lambdaclass/stabileo/pull/777)); a run-time
+   line and preview images/videos; Research as its own page (no editor loaded); embeds; reproducing
+   preprints as well as published versions where they differ (the phase-field page reproduces the SSRN
+   preprint's iteration counts exactly with the author's code of that date); the
+   paper's own figures overlaid on live runs; parameter sweeps in the browser.
+5. **Gallery organisation** (as the catalogue grows past 40 papers): **Run it** first — only runnable
+   experiments, big cards with a looping preview video, in a hand-set showcase order (newest and most
+   impressive first); then **New research** (2020–2026, newest first) and **Classics** (oldest first, as
+   a timeline of computational mechanics, where the engine-benchmark pages belong); topic chips and a
+   status filter instead of more sections; every card keeps its evidence badge, so importance is never
+   confused with verification.
+6. **Ship first, review after:** papers and Tools go to production as first versions on a minimal
+   floor: CI green, isolation, full web unit suite, and no phone overflow. Claims cover only what the
+   tests check. Each page, catalogue entry and changelog fragment states its stage and review count.
+   Engine and safety changes keep two reviews before main; app changes keep review before main.
+7. **Reviews:** round 1 (Codex + Kimi) is done for 16 items: the 14 wave pages and both Tools batches.
+   At least one reviewer said "not ready" for the rows marked below and for both Tools batches.
+   Round 2 is running: Kimi, then Codex verifying Kimi, then Claude verifying both and producing the
+   final verified list. Fixes land per paper on `research/review-fixes-<id>` branches.
+
+| Paper | Stage | Reviews | Open fixes |
+|---|---|---|---|
+| Andreassen 2011, topology optimisation (88 lines) | first version, live | round 1 done; round 2 in progress | Extensions and licence check |
+| Pastrana 2026 | first version, live | round 1 done; round 2 in progress | Adjoints, optimisation, shells and editor export |
+| Zmyślony, Khan & Biggins 2026, arches | first version, live | round 1 done; round 2 in progress | Intrinsic curvature, continuation and authors’ data |
+| Fairclough 2026 | first version, live | round 1 done; round 2 in progress | Not ready; verify layout method |
+| Mattiasson elastica | first version, live | round 1 done; round 2 in progress | Not ready; tip-moment and frame cases |
+| MacNeal–Harder | first version, live | round 1 done; round 2 in progress | Not ready; table audit, remaining cases; [#798](https://github.com/lambdaclass/stabileo/issues/798) withheld |
+| Shell obstacle course | first version, live | round 1 done; round 2 in progress | Not ready; [#859](https://github.com/lambdaclass/stabileo/pull/859) pending merge |
+| Riks / Crisfield | first version, live | round 1 done; round 2 in progress | Not ready; live-page follow-up after [#852](https://github.com/lambdaclass/stabileo/pull/852) |
+| Newmark 1959 | first version, live | round 1 done; round 2 in progress | Not ready; review fixes |
+| CQC 1981 | first version, live | round 1 done; round 2 in progress | Round 2 findings pending |
+| Plastic collapse | first version, live | round 1 done; round 2 in progress | Round 2 findings pending |
+| Navier plate | first version, live | round 1 done; round 2 in progress | Not ready; review fixes |
+| Lee frame 1968 | first version, live | round 1 done; round 2 in progress | Not ready; review fixes |
+| DaDeppo arch 1975 | first version, live | round 1 done; round 2 in progress | Round 2 findings pending |
+
+The shell obstacle course's [#810](https://github.com/lambdaclass/stabileo/issues/810) was a test-model error: crown pin and corner symmetry.
+PR [#859](https://github.com/lambdaclass/stabileo/pull/859) corrects the live page and is pending merge. Under containment (PR [#807](https://github.com/lambdaclass/stabileo/pull/807)),
+the distorted MacNeal–Harder cases say "withheld by the engine (known issue #798)".
+Permanent phone/tablet e2e checks: [#831](https://github.com/lambdaclass/stabileo/issues/831).
+
+**Still to fix in the paper implementations:** review fixes first, then the missing parts below.
+
+- **Every first version:** act on its Codex + Kimi/Grok review findings; run its browser and phone/tablet
+  checks on the live page; record each review in `research/papers.yaml`.
+- **Topology optimisation (88 lines):** the paper's extensions (other loads and supports, passive
+  elements, multiple load cases, Heaviside filter); clear the licence of `top88.m` (reference only now).
+- **Pastrana 2026:** the paper's main contribution (differentiable form-finding with adjoints and
+  optimisation), shells, the published optimised results; the editor export without cable prestress.
+- **Ferrari & Sigmund 2025:** the Koiter coefficients α and β are not reproduced (questions to the
+  authors); then the optimisation of the post-buckling response.
+- **Snapping arches (Biggins 2026):** intrinsic curvature, continuation from the formed state, the
+  authors' data.
+- **Fairclough 2026:** verify the first version; larger examples and the full layout method.
+- **Mattiasson elastica:** the tip-moment case (full circle) and the frame problems.
+- **Riks / Crisfield:** follow through on the live page after the merged toggle-model fix
+  (PR [#852](https://github.com/lambdaclass/stabileo/pull/852)); more paper examples; move the shared case file under `engine/tests/benchmarks/`.
+- **MacNeal–Harder:** the remaining problems (curved and twisted beams, plates, shells, thick
+  cylinder); verify the numerical table against the paper; the MITC4 failures (#798).
+- **Shell obstacle course:** merge the corrected test models and live page (PR [#859](https://github.com/lambdaclass/stabileo/pull/859)).
+- **Phase-field fracture:** the published figures need the article's supplementary data; record the
+  preprint reproduction on the page.
+- **Spring networks:** the strip-simulation protocol and the three questions to the authors.
+
+Review counts are maintained in `research/papers.yaml` (`reviews:`), which the gallery shows.
+First versions use the minimal floor above. Review findings become small follow-up fixes; every
+claim stays true, isolation holds, editor data stays safe, and CI stays green.
+
+**Exit criteria.** Each experiment's page claims only what its committed validation checks; the
+engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
+have reviewed their page.
+
+#### Open items shown on live research pages (2026-10-30)
+
+Live pages must not show unanswered questions or "pending" placeholders. Each item below is either
+done (the comparison is made and checked by a test) or the page states plainly what was compared
+instead. "Questions for the authors" sections move to the paper's README and to direct email to the
+authors; they come off the pages.
+
+| Page | What the page shows today | What to do |
+|---|---|---|
+| Ferrari & Sigmund 2025 | "Koiter comparison pending" against the author's code and against the paper's figures; a "Questions for the authors" section (§2.1.2 input, mesh, beam formulation, ξ normalisation, α/β/arc-length arrays, coefficient error percentages) | Implement the Koiter comparison (or reproduce α, β from the paper's equations), digitise the published figure, then remove the pending badges and the questions |
+| Pastrana et al. 2026 | "Questions for the authors" (commit and environment, exact Fig. 2 inputs, a cable-net benchmark); published figures "not compared: full text not accessible" | Get the full text; compare Fig. 2; move the questions to the README/email |
+| Fairclough et al. 2026 | "Questions for the authors" (Table 1 inputs, solver tolerances, open-solver configuration, section export) | Confirm Table 1 inputs from the paper and the authors' data; remove the questions |
+| Grossman & Boudaoud 2026 | "Terminable workers and precomputed replay are pending"; large networks can block the page | Move live solves to a terminable worker and add the precomputed replay |
+| MacNeal–Harder 1985 | "Numerical table provenance pending" | Check every reference value against the 1985 tables (page and table locators) |
+| Shell obstacle course | "Proposed: numerical values and exact paper table/page locators have not been checked" | Same: locators for every reference, two sources where possible |
+| Mattiasson 1981 | "The numerical transcription has not been checked against the paper text. Status: proposed." | Check the transcription against the paper (we have independent SciPy references already) |
+| Lee frame 1968 | First limit load 1.83 kN "provisional: a precise numerical locator has not been verified" | Verify the locator or compute the limit precisely; second reference |
+| DaDeppo 1975 | Reference quoted second-hand (Schmidt 2000), original table not inspected | Inspect the original 1975 table |
+| Andreassen et al. 2011 | No published compliance values or digitised figure compared | Compare with the paper's published values/figure |
+| Shauer 2025, Newmark 1959, Riks/Crisfield, plastic collapse | "Not compared: the full text was not accessible to us" | Get the full texts (library access), compare the published numbers, or state the actual reference used |
+| CQC 1981 | Published comparison replaced by a limitations note | Compare with the paper's example values |
+
+### SEO and positioning (2026-10-29)
+
+**Pricing principle (decided 2026-10-29):**
+- the **core program** is free and open source for everyone;
+- some **specialised modules** are paid; **universities get them free**;
+- **Stabileo AI and heavy cloud compute** are paid by everyone, universities included, priced to cover
+  what they cost.
+
+Copy promises exactly this and nothing more (never "free in every case").
+
+**Position:** *Stabileo — free, open-source structural analysis and design in your browser, with
+machine-checked results; AI assistant coming.* Claims stay true: the AI assistant is "in development"
+until it ships, so pages say "coming" and AI content covers what exists (verifiable AI-assisted
+modelling plans, research on AI checks). AI becomes central in the messaging only when it works.
+
+1. **Core searches with real pages** in English, Spanish and Portuguese (then de/fr/tr): "free
+   structural analysis software", "open source structural analysis", "online structural analysis",
+   "structural engineering software free", "FEA in the browser" ("software de cálculo estructural
+   gratis", "análisis estructural online", "cálculo estrutural gratuito"): the landing page with one
+   clear positioning sentence; one page per capability (analyses, design codes, reports, desktop) with a
+   demo and its verification evidence; honest "free alternative to SAP2000 / ETABS / RFEM / Robot"
+   pages that say what Stabileo does and does not do yet.
+2. **Long tail** from Tools, worked problems, research papers and the public verification manual, all
+   cross-linked to the core pages.
+3. **Authority:** GitHub (stars, README), awesome-lists, the launches, links from universities and
+   research groups (paper outreach) and professional councils; encyclopedia mentions only after
+   independent coverage, never self-promotional editing.
+4. **Technical:** prerendered pages with real content; structured data (`SoftwareApplication` with price
+   0 and the licence, `ScholarlyArticle` / `citation_*` on research); hreflang in six languages;
+   sitemaps; canonical links; Open Graph previews; speed (the app's Lighthouse 25 also costs rankings;
+   see "Speed and the first run"); Google Search Console to measure.
+5. **One name:** finish the Dedaliano → Stabileo rename (#735), user-visible text first.
+
+First PR (branch `seo/positioning`, in progress): landing titles and descriptions per language, the
+positioning sentence, `SoftwareApplication` and `Organization` structured data, a sitemap with hreflang
+for every prerendered page, Open Graph cards, honest SAP2000 and ETABS alternative pages, and tests for
+all of it.
+
+### Growth: shared models, tools and research (2026-10-29)
+
+Several tracks exist to grow Stabileo faster, and they share infrastructure: **Stabileo Research**
+(papers you can run), **Stabileo Tools** (free calculators that rank in search) and **shared models**
+below. All three are "a public page in Stabileo's viewer with a path into the editor"; build them on
+the same snapshot, viewer and prerendering pieces (#777 frozen versions, the research shell, the tools
+page). Measure them together: visitors, editor opens, forks, sign-ups, retention.
+
+#### Shared models: GitHub + Figma for structural engineering
+
+Every model can have a URL (`stabileo.com/m/<id>`) where anyone, **without an account**, can inspect
+the structure, explore loads, deformations and diagrams, and **fork** an independent copy. This turns
+Stabileo from a tool used alone into a place where engineering work is shared.
+
+1. **Already half there:** share links encode the whole model (tested by `share-link-fidelity`), the
+   research pages do "view, then Open in Stabileo", and #777 builds immutable snapshots on a separate
+   origin. Release 1 is mostly a short URL, storage and a public viewer page.
+2. **Modes:** public, unlisted (anyone with the link: warn that it is effectively public), private
+   (authorised users). **Private by default;** publishing is an explicit action; author and project
+   metadata stripped unless the author chooses otherwise; revoking deletes the stored copy.
+3. **Immutable revisions,** not live projects: `projects`, `model_revisions` (parent, model hash,
+   engine version), `shares` (access policy, fork allowed, revoked), `forks` (source revision →
+   destination project). PostgreSQL for metadata and permissions, object storage for models and result
+   fields. Links can follow the latest revision or pin one; research and report links pin.
+4. **Safety (not optional):** a snapshot records the engine version it was solved with; the viewer shows
+   that version's known issues and refusals; when a later fix changes the result, the page says so with
+   the new value and the advisory (the result-change registry and safety advisories, applied to shared
+   models). Shared results are never presented as an approval of a real design.
+5. **Releases:** (1) share — snapshot, public read-only route, viewer, permissions; (2) fork — independent
+   project with source attribution, anonymous local experimentation, save after sign-in (registration
+   only after the visitor has experienced value); (3) discovery — public gallery, examples, Open Graph
+   previews, embeddable viewer. No Git-style merging; compare revisions instead.
+6. **Later: public engineering challenges** (e.g. minimum-mass truss under stress and deflection
+   constraints), clearly educational or research benchmarks, with submissions re-run by the server; needs
+   sandboxed server-side compute.
+7. **Prerequisites:** a long-term versioned `.ded` format (#730) and old files always opening (#718);
+   moderation, abuse and rate limits, takedowns, storage costs, and model text treated as untrusted
+   (XSS).
+
+**Metrics:** shares per active engineer; unique visitors per shared model; viewer → fork rate; fork →
+successful solve; new creators who share again; 4-week retention of fork-acquired users; and
+reproducibility (opened snapshots whose recomputed results match the stored ones).
+
+**Sequence:** after the Tools pilot and #777 land (they provide the snapshot and public-page pieces);
+share and fork first, with the safety pieces from day one; discovery next; challenges once server
+compute exists.
+
+#### Worked-problems library (under Education)
+
+Students search by problem type ("moment distribution example", "overhanging beam with point load"),
+every semester. A library of **original** worked problems, each solved step by step by the hand method a
+professor expects and then by Stabileo's engine, the two agreeing, with **Open in Stabileo** to change it.
+Built on the Tools page (a tool with a fixed worked example), so it is one system with two entry points.
+
+- **Where:** under the existing **Education** navbar item (no new item: the navbar is full), at
+  `/<lang>/problems/<slug>/` (Spanish `problemas`), prerendered with structured data, in the sitemap.
+  Tools link to related problems ("see it solved by moment distribution") and problems to their tool
+  ("try your own numbers").
+- **What:** about 40–60 problem types: determinate beams, trusses (joints, sections, zero-force
+  members), frames and three-hinged arches, deflections (double integration, moment-area, conjugate
+  beam, virtual work), indeterminate structures (force method, slope-deflection, moment distribution /
+  Cross, stiffness method), influence lines and moving loads, Euler buckling and P-Δ, section
+  properties.
+- **First 10, Spanish and English:** moment distribution, slope-deflection, influence lines, virtual work
+  deflections, method of sections; then measure and expand.
+- **Sources:** our own problems; problems from openly licensed textbooks only where the licence allows
+  (attribution, non-commercial and no-derivatives terms checked per book); the research classics.
+  **Never** solutions to numbered problems from copyrighted textbooks (publishers own them, and it helps
+  students cheat, which works against professors).
+
+#### Video and GIF export, and short videos
+
+- **Export video / GIF in the viewer** (app, research and tools): mode and buckling shapes, deformed
+  shape under load, time history and moving loads, research replays. MP4 (WebCodecs), WebM
+  (MediaRecorder), GIF; vertical, square and landscape presets; length, speed, caption; a small "Made
+  with Stabileo" mark with a link, on by default (removable in PRO); an honesty overlay with the analysis
+  type, engine version and any known-issue warning. All in the browser, frame-exact, no upload. Every
+  exported video is a way in; with shared models it links to the model itself.
+- **Short videos from recipes** (reusing the preview pipeline): a recipe says which page, which
+  parameter changes and camera moves, and the captions; Playwright drives the real page and ffmpeg
+  composes vertical and square videos with title and end cards. Always a real run on the live engine,
+  silent with captions (no unlicensed music), linking to the page. One a week for LinkedIn and Shorts:
+  first the beam turning into a truss, the crack through the plate, "check a beam in 20 seconds".
+
+#### Fast-growth backlog (ranked)
+
+1. **Launches:** Show HN / Product Hunt / LinkedIn when Research has 4–5 live papers and the Tools pilot is
+   up, then one per new capability (Tools, sharing, the Python package).
+2. **Weekly short videos** (above).
+3. **Embeds wherever engineers ask questions:** a one-line live model for Eng-Tips, Engineering Stack
+   Exchange, Reddit, blogs and course pages (comes with shared models).
+4. **Plugins where engineers already work:** an Excel add-in first (on the Python package and API), then
+   Grasshopper/Rhino.
+5. **AI: sketch, plan or PDF → model:** the viral demo, only after the safety work (a confidently wrong
+   model spreads as fast).
+6. Cheaper multipliers: student competitions (steel bridge, concrete canoe), free "Stabileo basics"
+   certificates with a LinkedIn badge, team invites and referrals ("ask a colleague to review this
+   model"), Latin American engineering communities in Spanish and Portuguese.
+
+### Stabileo Tools: free engineering calculators (2026-10-30)
+
+Engineers search for a calculation ("beam deflection calculator"), not for a platform. Each tool is a
+real calculation on the production engine with a path into the full editor. Eight tools are live:
+the pilot (PR [#838](https://github.com/lambdaclass/stabileo/pull/838)) and batch 2, carried by PR [#857](https://github.com/lambdaclass/stabileo/pull/857) (PR [#847](https://github.com/lambdaclass/stabileo/pull/847) closed).
+Render tests in all locales are merged (PR [#877](https://github.com/lambdaclass/stabileo/pull/877)). Both batches completed round 1 with at
+least one "not ready" verdict and are in round-2 review. They use the same first-version floor and
+post-live review sequence as Research.
+
+1. **One shared tool page,** `/tools/<slug>`, not 100 one-offs. Each has:
+   - a real calculation on the production engine (WASM); where a textbook formula exists, the engine
+     result and the closed-form value side by side, which doubles as verification;
+   - the diagrams in Stabileo's viewer (deformed shape, moment, shear);
+   - explicit assumptions, units and references (Timoshenko, Roark, code clauses) and a worked example
+     with exact numbers that CI checks, so the page can never drift from the engine;
+   - **Open in Stabileo:** the same model in the full editor, the conversion path;
+   - code-dependent tools name the standard and edition (CIRSOC 201-2005, ACI 318-19, ...) and refuse
+     what's out of scope; known-issue warnings and refusals show exactly as in the app.
+2. **Built for search:** prerendered static HTML with real content; structured data (schema.org),
+   canonical links, hreflang and a sitemap; six languages (en, es, pt, de, fr, tr) — Spanish and
+   Portuguese are an opening (few good CIRSOC or NBR calculators exist); fast: a tool loads only what
+   it needs, never the whole editor (the same "own page" architecture as Research); phone and tablet
+   checks.
+3. **Tools an AI can't do reliably come first.** A chatbot answers PL³/48EI instantly, so simple
+   formula calculators are search entry points, not the reason to choose Stabileo. Most of the first 20
+   are "solver-needed" tools, with diagrams in Stabileo's viewer, the engine checked against a hand
+   method where one exists, and Open in Stabileo: continuous beams and frames with any supports and
+   loads (indeterminate: where AI answers go wrong); influence lines and moving-load envelopes; natural
+   frequencies, mode shapes and response spectrum; P-Δ and frame buckling with real end restraints;
+   trusses and frames with many members (paste coordinates, solve); section properties of any shape
+   (draw or import; I, J, warping, shear centre); plates and slabs; code checks with every number tied to
+   its clause (CIRSOC 201/301, ACI, AISC), clearly scoped; load-combination generation and envelopes.
+   The simple ones stay as the entry points.
+4. **The first 20,** where the engine is strongest (verified or certified): beams (simply supported,
+   cantilever, fixed-fixed, propped, continuous 2–4 spans, overhang: deflection, moment, shear,
+   reactions); section properties (I, rectangular, circular, hollow, built-up); column buckling (Euler
+   with effective lengths, P-Δ amplification); 2D truss and portal frame; natural frequency of beams and
+   frames; influence lines and moving loads; concrete beam (CIRSOC 201 / ACI 318) and steel member check
+   (AISC / CIRSOC 301) with their scope stated, steel kept "experimental" until independent review
+   (#389). Later, by demand: plates, slabs, foundations, then other fields (piping, electrical, pressure
+   vessels, fire protection). Not for now: connections and bearing capacity (the engine doesn't do them;
+   a weak tool hurts trust).
+5. **Research gets the same treatment:** Google Scholar `citation_*` tags, DOI and author markup, preview
+   images and video on every paper page; the classic benchmark pages (MacNeal–Harder, Scordelis–Lo) are
+   what engineers search for.
+6. **Sequence:** fix review findings in the 8 live tools, then grow to the first 20; then
+   measure in Google Search Console (impressions, clicks, editor opens per tool) before growing toward
+   100.
+
+**Safety:** these pages will be used for real decisions: every tool states its assumptions, runs only
+analyses we've verified, shows the same known-issue warnings as the app, and labels a simplified check
+as such, never as a full code check.
+
+**Exit criteria.** 20 tools live in six languages, each with a CI-checked worked example and engine vs
+formula agreement; Lighthouse performance ≥ 90 on tool pages; Search Console impressions and editor
+opens measured per tool.
+
 ### Growth and housekeeping (2026-10-28)
 
 1. **Real users and independent validation:** a beta-tester program, the outreach to engineers and
    professors, and an independent structural engineer signing off worked examples. [#733](https://github.com/lambdaclass/stabileo/issues/733)
 2. **Website and app speed:** Lighthouse 52 (landing), 35 (blog), 25 (app) on 2026-10-23; start
    with loading only the active language (about −2 MB). [#734](https://github.com/lambdaclass/stabileo/issues/734)
-3. **Finish the rename** from Dedaliano: the engine package, CHANGELOG's absolute laptop paths,
-   comments and contact links. [#735](https://github.com/lambdaclass/stabileo/issues/735)
+3. **Rename Dedaliano to Stabileo everywhere, in phases, tests first** [#735](https://github.com/lambdaclass/stabileo/issues/735).
+   About 2,700 references in 926 files on 2026-10-29: mostly mechanical (771 engine test files import
+   the crate as `dedaliano_engine`), but some carry users' data (autosave and settings keys in browser
+   storage, the `.ded` project format, share links), where a careless rename loses saved projects.
+   - **Phase 0, tests before anything is renamed:**
+     - an inventory test that lists every remaining `dedaliano` (case-insensitive), with an allowlist
+       that may only shrink;
+     - compatibility tests: `.ded` files from every release open and give the same results (#718),
+       old browser-storage keys and IndexedDB data migrate, old share links still open, old desktop
+       sessions restore;
+     - the results snapshot corpus, determinism and the full test suites as the "nothing changed" guard.
+   - **Phase 1, everything users see:** UI text, site, docs, emails, release notes, package
+     descriptions.
+   - **Phase 2, code identifiers:** the Rust crate (`dedaliano-engine` → `stabileo-engine`, every
+     `use`), the WASM glue (`dedaliano_engine.js` / `_bg.wasm`), npm and research crates, fuzz targets and
+     benches, CI paths. Results must stay bit-identical.
+   - **Phase 3, stored names:** new storage keys and database names with migrations; the readers for the
+     old names stay forever, and `.ded` keeps opening (the extension may remain as the project format).
+   - **Phase 4, keep it done:** a CI check forbids new `dedaliano` outside the compatibility allowlist.
+   Each phase is its own PR, reviewed twice, merged only when the guard tests from phase 0 are green.
 
 ## Daily, Weekly, Monthly Priority Lens
 
