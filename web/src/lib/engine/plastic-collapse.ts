@@ -49,6 +49,7 @@ import { solve } from './wasm-solver';
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { axialSpanToNodal2D, axialEquivalentLoads } from './axial-span-2d';
+import { memberEndRotations } from './plastic/rotations';
 
 export interface PlasticCollapseOptions {
   /** Plastic moment of an original frame member, kN·m. */
@@ -68,9 +69,23 @@ export interface PlasticCollapseHinge extends PlasticHinge {
   x: number;
 }
 
+/** What one event of the step-by-step analysis did, for explaining it. */
+export interface PlasticStepTrace {
+  /** λ before the event and the increment that reaches it. */
+  lambdaBefore: number;
+  dLambda: number;
+  /** Per hinge formed (index into `hinges`): its moment (or axial force) per unit λ in the structure of this step, and what it had before. */
+  events: Array<{ hinge: number; perUnit: number; before: number; limit: number }>;
+}
+
 export interface PlasticCollapseResult extends PlasticResult {
   hinges: PlasticCollapseHinge[];
-  steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[] }>;
+  /**
+   * `rotations[h]`: plastic rotation of hinge h accumulated up to this step, rad, positive when
+   * the member turns the way a sagging moment bends it (right side minus left side along the
+   * member); 0 for an axial yield and for a hinge formed at this step.
+   */
+  steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[]; trace: PlasticStepTrace; rotations: number[] }>;
   /** Degree of static indeterminacy of the structure as given. */
   degree: number;
   /**
@@ -287,6 +302,27 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   let unloaded = false;
   const hinges: PlasticCollapseHinge[] = [];
   const steps: PlasticCollapseResult['steps'] = [];
+  const hingeAt: Array<{ mb: Member; t: number } | null> = [];
+  const rotations: number[] = [];
+  /** The rotation jump at a hinge in the solve of this step, right side minus left side along the member. */
+  const jumpAt = (ref: { mb: Member; t: number }, r: AnalysisResults, efOf: Map<number, ElementForces>): number => {
+    const { mb, t } = ref;
+    if (mb.yielded) return 0;
+    const nodeRot = (id: number) => r.displacements.find((d) => d.nodeId === id)?.ry ?? 0;
+    const ends = (pieceId: number) => { const ef = efOf.get(pieceId); return ef ? memberEndRotations(work, r, ef) : null; };
+    if (t <= 1e-12) {
+      const p = mb.pieces[0], e = work.elements.get(p.id)!, rot = ends(p.id);
+      return rot ? rot.ti - nodeRot(e.nodeI) : 0;
+    }
+    if (t >= 1 - 1e-12) {
+      const p = mb.pieces[mb.pieces.length - 1], e = work.elements.get(p.id)!, rot = ends(p.id);
+      return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
+    }
+    const left = mb.pieces.find((p) => Math.abs(p.t1 - t) < 1e-9);
+    if (!left) return 0;
+    const e = work.elements.get(left.id)!, rot = ends(left.id);
+    return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
+  };
 
   for (let step = 0; step < maxEvents; step++) {
     /*
@@ -357,6 +393,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       break;
     }
 
+    const lambdaBefore = lambda;
+    hingeAt.forEach((ref, h) => { if (ref) rotations[h] += dMin * jumpAt(ref, r, efOf); });
     /* Advance every accumulated quantity by Δλ times this solution. */
     lambda += dMin;
     members.forEach((mb, i) => {
@@ -388,6 +426,15 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
      */
     const events = cand.filter((c) => c.d <= dMin * (1 + EPS_EVENT) + 1e-12);
     const formed: PlasticCollapseHinge[] = [];
+    const traced: PlasticStepTrace['events'] = [];
+    const record = (mb: Member, k: number, axial: boolean, t: number | null) => {
+      const i = members.indexOf(mb);
+      const perUnit = axial ? unitN[i][k] : unit[i][k];
+      const after = axial ? mb.accN[k] : mb.acc[k];
+      traced.push({ hinge: hinges.length + formed.length, perUnit, before: after - dMin * perUnit, limit: axial ? mb.np : mb.mp });
+      hingeAt.push(t === null ? null : { mb, t });
+      rotations.push(0);
+    };
     const byMember = new Map<Member, number[]>();
     let crushed = false;
     for (const ev of events) {
@@ -428,6 +475,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         work.loads = [...work.loads.filter((l) => !onIt(l)), ...alongIt];
         // A truss with no load along it carries one N: it yields as a whole, shown at mid-length.
         const pos = ev.m.truss && ev.m.t.length === 2 ? 0.5 : ev.m.t[ev.k];
+        record(ev.m, ev.k, true, null);
         formed.push({
           elementId: ev.m.id, end: pos < 0.5 ? 'start' : 'end', position: pos, x: pos * ev.m.L, kind: 'axial',
           moment: Math.sign(ev.m.accN[ev.k]) * ev.m.np, loadFactor: lambda, step,
@@ -502,6 +550,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
             mb.pieces.splice(pi, 1, { id: p.id, t0: p.t0, t1: t }, { id: right, t0: t, t1: p.t1 });
           }
         }
+        record(mb, k, false, t);
         formed.push({
           elementId: mb.id, end: t < 0.5 ? 'start' : 'end', position: t, x: t * mb.L, kind: 'bending',
           moment: Math.sign(mb.acc[k]) * mb.mp, loadFactor: lambda, step,
@@ -509,7 +558,10 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       }
     }
     hinges.push(...formed);
-    steps.push({ loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda) });
+    steps.push({
+      loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda),
+      trace: { lambdaBefore, dLambda: dMin, events: traced }, rotations: rotations.slice(),
+    });
     if (crushed) { isMechanism = true; break; }
   }
 
