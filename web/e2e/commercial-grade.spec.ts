@@ -26,9 +26,9 @@ import type { Page } from '@playwright/test';
 
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!(window as never as { __stabileoActions?: unknown }).__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!(window as never as { __stabileoActions?: unknown }).__stabileoActions, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => (window as never as { __stabileo: { solverReady(): boolean } }).__stabileo.solverReady()), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => (window as never as { __stabileo: { solverReady(): boolean } }).__stabileo.solverReady()), { timeout: 45_000 })
     .toBe(true);
 }
 
