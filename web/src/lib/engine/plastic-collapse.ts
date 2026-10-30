@@ -234,6 +234,7 @@ function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number):
 export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const S = opts.samples ?? 200;
   const maxEvents = opts.maxEvents ?? 200;
+  const MAX_CLOSINGS = 10;
   const work = cloneInput(original);
 
   const kin0 = analyzeKinematics(original);
@@ -311,7 +312,9 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
    * would unload, close and stiffen the structure again (under a distributed load the peak drifts,
    * and a second hinge beside the first is such a case). Closes those hinges and says whether any was.
    */
+  let closings = 0;
   const closeUnloading = (): boolean => {
+    if (closings >= MAX_CLOSINGS) return false;
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
     if (!open.length) return false;
     const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
@@ -335,6 +338,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
     const big = Math.max(...theta.map(Math.abs));
     const closing = open.filter((_, k) => theta[k] * sag[k] < -1e-6 * big);
+    if (closing.length) closings++;
     for (const { ref, h } of closing) {
       const { mb, t, run } = ref!;
       if (t <= 1e-12) work.elements.get(mb.pieces[0].id)!.hingeStart = false;

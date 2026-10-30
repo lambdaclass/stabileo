@@ -11,14 +11,14 @@ import type { Mat } from '../../dynamics/course/dense';
 export const K = 'course.dynamics.';
 export const p = (key: string, params?: Record<string, string | number>, detail = false): Block => ({ kind: 'p', text: tx(K + key, params), ...(detail ? { detail } : {}) });
 export const note = (tone: 'info' | 'warn' | 'ok', key: string, params?: Record<string, string | number>): Block => ({ kind: 'note', tone, text: tx(K + key, params) });
-export const t = (key: string, params?: Record<string, string | number>): Txt => tx(K + key, params);
+export const dt = (key: string, params?: Record<string, string | number>): Txt => tx(K + key, params);
 
 /** Largest matrix written out in full; a bigger one is described by its size. */
 export const MAX_SHOWN = 8;
 
 export function matrixBlock(name: string, a: Mat, labels: string[], caption?: Txt, colLabels = labels): Block {
   if (a.length > MAX_SHOWN || (a[0]?.length ?? 0) > MAX_SHOWN) {
-    return { kind: 'note', tone: 'info', text: t('common.tooBig', { name: name.replace(/\\[a-z]+|[{}_\\]/g, ''), r: a.length, c: a[0]?.length ?? 0, max: MAX_SHOWN }) };
+    return { kind: 'note', tone: 'info', text: dt('common.tooBig', { name: name.replace(/\\[a-z]+|[{}_\\]/g, ''), r: a.length, c: a[0]?.length ?? 0, max: MAX_SHOWN }) };
   }
   return { kind: 'matrix', name, rows: a, rowLabels: labels, colLabels, ...(caption ? { caption } : {}) };
 }
@@ -96,7 +96,7 @@ export function engineFrequencies(rows: { label: string; method: number; matrix:
   if (same) return { kind: 'compare', rows, caption };
   return {
     kind: 'table',
-    head: [t('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }, t('mass.col.engine'), { tex: '\\Delta\\ [\\%]' }],
+    head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }, dt('mass.col.engine'), { tex: '\\Delta\\ [\\%]' }],
     rows: rows.map((r, i) => [i + 1, r.method, r.matrix, (100 * (r.method - r.matrix)) / r.matrix]),
     caption,
   };
