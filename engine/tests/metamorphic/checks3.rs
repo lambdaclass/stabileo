@@ -34,8 +34,14 @@ pub struct Ctx<'a> {
     pub rng_seed: u64,
 }
 
-fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
-    guarded(|| (a.run)(c))
+pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
+    guarded(|| {
+        let r = (a.run)(c)?;
+        if crate::generated::strict() {
+            crate::generated::validate_3d(a.name, &r, c)?;
+        }
+        Ok(r)
+    })
 }
 
 fn judge(res: Result<Report, String>, rel: f64) -> Verdict {
@@ -141,7 +147,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
             Ok(b) => b,
             Err(e) => {
                 for inv in invariants.iter().filter(|i| applicable(a, i)) {
-                    ctx.tally.record(a.name, inv, &c.name, Verdict::Refused(e.clone()));
+                    ctx.tally.record(a.name, inv, &c.name, if crate::generated::strict() { Verdict::Fail(format!("generated baseline refused: {e}")) } else { Verdict::Refused(e.clone()) });
                 }
                 continue;
             }
@@ -173,9 +179,12 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     same(a, &c.relabel(&rl, seed), Ok(base.relabel(&rl)), &cond)
                 }
                 "reversal" => {
-                    let flipped: std::collections::HashSet<usize> = c.s.elements.values().map(|e| e.id).filter(|_| rng.f64() < 0.5).collect();
+                    let mut ids: Vec<_> = c.s.elements.values().map(|e| e.id).collect();
+                    ids.sort_unstable();
+                    let mut flipped: std::collections::HashSet<usize> = ids.iter().copied().filter(|_| rng.f64() < 0.5).collect();
+                    if crate::generated::strict() && flipped.is_empty() { flipped.insert(ids[0]); }
                     match dedaliano_engine::metamorphic::reversal::reverse_3d(&c.s, &|id| flipped.contains(&id)) {
-                        Ok(s) => same(a, &Case3 { s, ..c.clone() }, base.reverse(&flipped, true), &cond),
+                        Ok(s) => same(a, &Case3 { s, ..c.clone() }, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, true) }, &cond),
                         Err(e) => Verdict::Unrepresentable(e.to_string()),
                     }
                 }
@@ -263,12 +272,14 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
         let rk = run(a, &c.with_loads(scale_loads_3d(&la, k)))?.without_stress().flat();
         let r0 = match run(a, &c.with_loads(vec![])) {
             Ok(r) => r.without_stress().flat(),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
             Err(_) => Flat::lin_comb(0.0, &ra, 0.0, &ra),
         };
         Ok((ra, rb, rab, rk, r0))
     })();
     let (ra, rb, rab, rk, r0) = match r {
         Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("load subset: {e}")),
         Err(e) => return Verdict::Refused(format!("load subset: {e}")),
     };
     let da = Flat::lin_comb(1.0, &ra, -1.0, &r0);
@@ -319,7 +330,11 @@ fn reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdi
         (Ok(x), Ok(y)) => (x, y),
         (Err(e), _) | (_, Err(e)) => return Verdict::Refused(e),
     };
-    let r0 = run(a, &c0).ok();
+    let r0 = match run(a, &c0) {
+        Ok(r) => Some(r),
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("zero-load solve: {e}")),
+        Err(_) => None,
+    };
     let base_at = |n: usize, tag: &str| r0.as_ref().and_then(|r| r.node_vec(n, tag)).unwrap_or(vec![0.0; 3]);
     let is_t = |tag: &str| tag == "u" || tag.starts_with("H_") || tag.starts_with("u_t");
     let dot = |x: &[f64], y: &[f64; 3]| x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
