@@ -369,6 +369,19 @@ papers:
   - Fig. 2 four-bar topology; explicit demonstration inputs, Eq. (7), pinned jax_fdm and production truss
     checks
   implementation: form-finding/pastrana-2026
+  reviews:
+  - reviewer: kimi
+    round: 2
+    date: '2026-10-30'
+    resolution: Consolidated confirmed findings fixed; evidence, replay, accessibility and responsive regressions strengthened.
+  - reviewer: codex
+    round: 2
+    date: '2026-10-30'
+    resolution: Decoded editor handoff solved with production WASM; explicit comparison scope and locale coverage.
+  - reviewer: claude
+    round: 2
+    date: '2026-10-30'
+    resolution: Consolidated should-fix list addressed; failure regression added, questions moved to README, tolerances justified.
   contacts: []
 - id: fairclough-2026
   doi: 10.1016/j.compstruc.2025.107997

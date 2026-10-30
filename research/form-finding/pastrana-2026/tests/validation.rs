@@ -58,7 +58,22 @@ fn reference_equilibrium_and_production_engine() {
         }
     }
     assert!(checks.iter().all(|c| c["passed"] == true), "{checks:#?}");
-    let evidence = json!({"scope":"Fig. 2 topology and Eq. (7), explicitly chosen inputs; no published numerical dataset or adjoints", "checks":checks});
+    let evidence = json!({"scope":"Fig. 2 topology and Eq. (7), explicitly chosen inputs; no published numerical dataset or adjoints", "checks":checks.clone()});
+    let committed: Value = serde_json::from_str(include_str!("../VALIDATION.json")).unwrap();
+    assert_eq!(committed["scope"], evidence["scope"]);
+    let stored = committed["checks"].as_array().unwrap();
+    assert_eq!(stored.len(), checks.len());
+    for (a, b) in stored.iter().zip(&checks) {
+        for key in ["metric", "tolerance", "passed"] {
+            assert_eq!(a[key], b[key]);
+        }
+        // Allow platform roundoff only: 32 float64 epsilons at the metric's unit scale,
+        // never the acceptance tolerance. The live numerical checks remain mandatory.
+        assert!(
+            (a["observed"].as_f64().unwrap() - b["observed"].as_f64().unwrap()).abs()
+                <= 32. * f64::EPSILON
+        );
+    }
     if std::env::var_os("WRITE_VALIDATION").is_some() {
         std::fs::write(
             concat!(env!("CARGO_MANIFEST_DIR"), "/VALIDATION.json"),
@@ -119,10 +134,22 @@ fn replay_is_generated_by_this_solver() {
     let frames: Vec<form_finding_pastrana_2026::Form> =
         serde_json::from_str(include_str!("../results/stabileo_results.json")).unwrap();
     assert_eq!(frames.len(), 25);
-    for f in frames {
-        let r = four_bar(f.q, f.load).unwrap();
-        assert!((r.nodes[0][2] - f.nodes[0][2]).abs() < 1e-12);
-        assert!((r.forces[0] - f.forces[0]).abs() < 1e-12);
+    for (i, f) in frames.iter().enumerate() {
+        let load = 1. + 3. * i as f64 / 24.;
+        assert_eq!(f.q, 1.);
+        assert_eq!(f.load, load);
+        let r = four_bar(1., load).unwrap();
+        assert_eq!(f.edges, vec![[0, 1], [0, 2], [0, 3], [0, 4]]);
+        assert_eq!(f.nodes.len(), 5);
+        assert_eq!(f.forces.len(), 4);
+        for (a, b) in f.nodes.iter().flatten().zip(r.nodes.iter().flatten()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+        for force in &f.forces {
+            assert!((force - (8. + (load / 4.).powi(2)).sqrt()).abs() < 1e-12);
+        }
+        assert!((f.residual - r.residual).abs() < 1e-12);
+        assert!(f.residual <= 1e-12);
     }
 }
 

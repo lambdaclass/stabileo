@@ -6,7 +6,7 @@
   import { Playback, type Source } from '../shell/playback.svelte';
   import { num } from '../shell/format';
   import Sci from '../shell/Sci.svelte';
-  import { rs } from '../i18n';
+  import { rs, researchLocale } from '../i18n';
   import { projection, editorUrl, type Form } from './form';
   import frames from '../../../../../research/form-finding/pastrana-2026/results/stabileo_results.json';
   import validation from '../../../../../research/form-finding/pastrana-2026/VALIDATION.json';
@@ -21,27 +21,28 @@
   let live = $state<Form | null>(null);
   let busy = $state(false);
   let failed = $state(false);
+  let announcement = $state('');
   let worker: Worker | null = null;
   let host: HTMLDivElement;
   const shown = $derived(live ?? frames[playback.shown]);
   const xy = $derived(projection(shown, elevation));
   const checks = { passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length };
   function stop() {
-    playback.interact();
+    playback.interact(); announcement = '';
     worker?.terminate(); worker = null; busy = false;
   }
   function restart() {
     stop(); q = 1; load = 4; invalidQ = false; invalidLoad = false; live = null; source = 'replay'; failed = false;
-    playback.setCount(frames.length); playback.play();
+    playback.setCount(frames.length); playback.seek(0); playback.play();
   }
   function run() {
-    stop(); failed = false;
+    stop(); failed = false; announcement = '';
     if (invalidQ || invalidLoad) return;
     busy = true;
     worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }) => {
       if (data.error) failed = true;
-      else { live = data.form; source = 'live'; }
+      else { live = data.form; source = 'live'; announcement = `${s.formHeight}: ${num(data.form.nodes[0][2], { dp: 3 })} m; ${s.formForce}: ${num(data.form.forces[0], { dp: 3 })} kN`; }
       worker?.terminate(); worker = null; busy = false;
     };
     worker.onerror = () => { failed = true; stop(); };
@@ -65,30 +66,32 @@
   });
 </script>
 
-<div class="pastrana-page">
-<ExperimentShell compactHeader={true} paperId="pastrana-2026" name={s.formTitle} lead={s.formLead} {checks}
+<div class="pastrana-page" lang={researchLocale()}>
+<ExperimentShell introInArticle={true} compactHeader={true} paperId="pastrana-2026" name={s.formTitle} lead={s.formLead} {checks}
   actions={{ goToStep: (i) => { stop(); live = null; source = 'replay'; playback.seek(i); }, setParams: () => restart(), showTab: () => {} }}
+  referenceLabel={s.formCheckLabel}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.metric.startsWith('jax_fdm') && c.passed).length, total: validation.checks.filter(c => c.metric.startsWith('jax_fdm')).length, href: '#checks' }, published: { kind: 'none', why: s.formComparison } }}
   sourcePath="research/form-finding/pastrana-2026"
 >
   {#snippet article()}
+    <p>{s.researchLanguages}</p>
     <h2>{s.formScopeTitle}</h2><p>{s.formScope}</p>
     <h2>{s.formMethodTitle}</h2><p>{s.formMethod}</p>
     <p class="equation">x* = (Σ qⱼ sⱼ + p) / Σ qⱼ</p>
     <p>{s.formInputs}</p>
-    <h2 id="checks">{s.formEvidenceTitle}</h2><p>{s.formEvidence}</p>
+    <h2 id="checks">{s.formEvidenceTitle}</h2><p>{checks.passed} / {checks.total} {s.checksPass}.</p><p>{s.formEvidence}</p>
     <p>{s.formPositionError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm positions')).map(c => c.observed))} /> m;
       {s.formForceError}: <Sci value={Math.max(...validation.checks.filter(c => c.metric.startsWith('jax_fdm tension')).map(c => c.observed))} /> kN.</p>
     <p>{s.formReference}</p>
     <h2>{s.formEngineTitle}</h2><p>{s.formEngine}</p>
     <h2>{s.formLimitsTitle}</h2><p>{s.formLimits}</p>
     <p><strong>{s.notDesign}.</strong> {s.formDisclaimer}</p>
-    <h2>{s.formQuestionsTitle}</h2><p>{s.formQuestions}</p>
   {/snippet}
   {#snippet app()}
     <div class="form-app" bind:this={host}>
       <p class="source" data-testid="form-source">{source === 'replay' ? s.formReplay : s.formLive}</p>
       <StabileoViewer {xy} cells={shown.edges.flat()} cellSize={2} values={shown.forces} perCell={true}
-        range={{ min: 0, max: Math.max(...shown.forces) }} title={s.formForce} unit="kN"
+        ariaLabel={s.formAlt} range={{ min: 0, max: Math.max(...frames.flatMap(f => f.forces), ...(live?.forces ?? [])) }} title={s.formForce} unit="kN"
         height="clamp(15rem, 36vh, 25rem)" showMesh={false} editorButton={false} oninteract={() => playback.interact()} />
       <p class="projection">{s.formProjectionNote}</p>
       <div class="result" data-testid="form-result">
@@ -97,16 +100,17 @@
         <span>{s.formDensity}: {num(shown.q)} kN/m · {s.formLoad}: {num(shown.load)} kN</span>
       </div>
       <div class="controls" onfocusin={() => playback.interact()} role="group" aria-label={s.formControls}>
-        <label>{s.formDensity} (kN/m)<NumberField bind:value={q} bind:invalid={invalidQ} min={0.5} max={2} label={s.formDensity} /></label>
-        <label>{s.formLoad} (kN)<NumberField bind:value={load} bind:invalid={invalidLoad} min={1} max={8} label={s.formLoad} /></label>
+        <label>{s.formDensity} (kN/m)<NumberField bind:value={q} bind:invalid={invalidQ} min={0.5} max={2} id="form-density" label={`${s.formDensity} (kN/m)`} /><span id="form-density-hint">{s.formDensityHint}</span></label>
+        <label>{s.formLoad} (kN)<NumberField bind:value={load} bind:invalid={invalidLoad} min={1} max={8} id="form-load" label={`${s.formLoad} (kN)`} /><span id="form-load-hint">{s.formLoadHint}</span></label>
         <button onclick={run} disabled={busy || invalidQ || invalidLoad}>{busy ? s.formComputing : s.formRun}</button>
         <button onclick={stop}>{s.formStop}</button>
         <button onclick={restart}>{s.formRestart}</button>
         <button onclick={() => { playback.interact(); elevation = !elevation; }}>{elevation ? s.formOblique : s.formElevation}</button>
       </div>
+      <p class="announcement" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
       {#if failed}<p role="alert">{s.formFailed}</p>{/if}
       <label class="slider">{s.formReplayStep} {num(playback.shown + 1)} / {num(frames.length)}
-        <input type="range" min="0" max={frames.length - 1} value={playback.shown} aria-label={s.formReplayStep}
+        <input type="range" min="0" max={frames.length - 1} value={playback.shown} aria-label={s.formReplayStep} aria-valuetext={`${playback.shown + 1} / ${frames.length}`}
           oninput={(e) => { stop(); live = null; source = 'replay'; playback.seek(Number(e.currentTarget.value)); }} />
       </label>
       <button id="edit" class="editor" onclick={openEditor}>{s.editInStabileo}</button>
@@ -117,6 +121,7 @@
 </div>
 
 <style>
+  .announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .pastrana-page :global(.rs-prose) { overflow-wrap: anywhere; }
   .form-app { --rs-control-h: 44px; border: 1px solid var(--hair); border-radius: 8px; padding: .75rem; background: var(--card); font-size: .875rem; max-height: 100%; overflow: auto; }
   p { margin: .35rem 0 .7rem; }
