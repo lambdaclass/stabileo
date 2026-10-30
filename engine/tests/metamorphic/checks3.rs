@@ -38,7 +38,7 @@ pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
     guarded(|| {
         let r = (a.run)(c)?;
         if crate::generated::strict() {
-            crate::generated::validate_response(a.name, &r, &crate::generated::ResponseShape::of_3d(c))?;
+            crate::generated::validate_3d(a.name, &r, c)?;
         }
         Ok(r)
     })

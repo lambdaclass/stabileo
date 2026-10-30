@@ -697,6 +697,7 @@ fn assert_coverage(t: &Tally, names: &[&str], spatial: bool, count: u64, only: O
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct ResponseShape {
     pub nodes: Vec<usize>,
     pub supports: Vec<usize>,
@@ -705,6 +706,7 @@ pub(crate) struct ResponseShape {
     pub probe: Option<usize>,
     pub frequencies: usize,
     pub spatial: bool,
+    pub reference: crate::response::Resp,
 }
 
 impl ResponseShape {
@@ -717,6 +719,7 @@ impl ResponseShape {
             probe: c.probes.first().copied(),
             frequencies: c.p.freqs.len(),
             spatial: false,
+            reference: Default::default(),
         }
     }
     pub(crate) fn of_3d(c: &Case3) -> Self {
@@ -728,8 +731,159 @@ impl ResponseShape {
             probe: c.probes.first().copied(),
             frequencies: c.p.freqs.len(),
             spatial: true,
+            reference: Default::default(),
         }
     }
+}
+
+fn harmonic_reference(
+    r: crate::response::Resp,
+    probe: Option<usize>,
+    frequencies: &[f64],
+) -> Result<crate::response::Resp, String> {
+    use crate::response::{Dim, Kind, Resp};
+    let u = r
+        .node_vec(probe.ok_or("missing probe")?, "u")
+        .ok_or("missing static displacement")?;
+    let mut reference = Resp::default();
+    for (k, _) in frequencies.iter().enumerate().filter(|(_, f)| **f == 0.0) {
+        let kind = if u.len() == 3 {
+            Kind::V3(Dim::LEN)
+        } else {
+            Kind::V2(Dim::LEN)
+        };
+        reference.push(probe, None, &format!("H_re{k}"), kind.clone(), u.to_vec());
+        reference.push(probe, None, &format!("H_im{k}"), kind, vec![0.0; u.len()]);
+    }
+    Ok(reference)
+}
+
+fn reference_2d(name: &str, c: &Case2) -> Result<crate::response::Resp, String> {
+    use crate::response::{Dim, Kind, Resp};
+    use dedaliano_engine::{
+        postprocess::influence,
+        solver::{linear, modal},
+        types::*,
+    };
+    match name {
+        "modal" | "certified modal" => {
+            Ok(ana2::modal_resp(&modal::solve_modal_2d(&c.s, &c.dens, 6)?))
+        }
+        "harmonic" => harmonic_reference(
+            crate::response::static_2d(&linear::solve_2d(&c.s)?),
+            c.probes.first().copied(),
+            &c.p.freqs,
+        ),
+        "influence line" => {
+            let path = c.path.as_ref().ok_or("missing path")?;
+            let mut s = c.s.clone();
+            for support in s.supports.values_mut() {
+                support.dx = None;
+                support.dz = None;
+                support.dry = None;
+            }
+            let mut reference = Resp::default();
+            for &id in path {
+                let e =
+                    c.s.elements
+                        .get(&id.to_string())
+                        .ok_or("missing path element")?;
+                for (t, node_id) in [(0, e.node_i), (1000, e.node_j)] {
+                    s.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+                        node_id,
+                        fx: 0.0,
+                        fz: -1.0,
+                        my: 0.0,
+                    })];
+                    let result = linear::solve_2d(&s)?;
+                    let value = influence::extract_value("M", None, Some(path[1]), 0.5, &result);
+                    reference.push(
+                        None,
+                        Some(id),
+                        &format!("IL_t{t:04}"),
+                        Kind::Local(Dim::LEN, true),
+                        vec![value],
+                    );
+                }
+            }
+            Ok(reference)
+        }
+        _ => Ok(Resp::default()),
+    }
+}
+
+fn reference_3d(name: &str, c: &Case3) -> Result<crate::response::Resp, String> {
+    use crate::response::{Dim, Kind, Resp};
+    use dedaliano_engine::{
+        postprocess::influence,
+        solver::{linear, modal},
+        types::*,
+    };
+    match name {
+        "modal" | "certified modal" => Ok(ana3::modal_resp_3d(&modal::solve_modal_3d(
+            &c.s, &c.dens, 6,
+        )?)),
+        "harmonic" => harmonic_reference(
+            crate::response::static_3d(&linear::solve_3d(&c.s)?),
+            c.probes.first().copied(),
+            &c.p.freqs,
+        ),
+        "influence line" => {
+            let path = c.path.as_ref().ok_or("missing path")?;
+            let mut s = c.s.clone();
+            for support in s.supports.values_mut() {
+                support.dx = None;
+                support.dy = None;
+                support.dz = None;
+                support.drx = None;
+                support.dry = None;
+                support.drz = None;
+            }
+            let mut reference = Resp::default();
+            for &id in path {
+                let e =
+                    c.s.elements
+                        .get(&id.to_string())
+                        .ok_or("missing path element")?;
+                for (t, node_id) in [(0, e.node_i), (1000, e.node_j)] {
+                    s.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                        node_id,
+                        fx: 0.0,
+                        fy: 0.0,
+                        fz: -1.0,
+                        mx: 0.0,
+                        my: 0.0,
+                        mz: 0.0,
+                        bw: None,
+                    })];
+                    let result = linear::solve_3d(&s)?;
+                    let value =
+                        influence::extract_value_3d("My_diag", None, Some(path[1]), 0.5, &result);
+                    reference.push(
+                        None,
+                        Some(id),
+                        &format!("IL_t{t:04}"),
+                        Kind::Local(Dim::LEN, false),
+                        vec![value],
+                    );
+                }
+            }
+            Ok(reference)
+        }
+        _ => Ok(Resp::default()),
+    }
+}
+
+pub(crate) fn validate_2d(name: &str, r: &crate::response::Resp, c: &Case2) -> Result<(), String> {
+    let mut shape = ResponseShape::of_2d(c);
+    shape.reference = reference_2d(name, c)?;
+    validate_response(name, r, &shape)
+}
+
+pub(crate) fn validate_3d(name: &str, r: &crate::response::Resp, c: &Case3) -> Result<(), String> {
+    let mut shape = ResponseShape::of_3d(c);
+    shape.reference = reference_3d(name, c)?;
+    validate_response(name, r, &shape)
 }
 
 pub(crate) fn validate_response(
@@ -772,21 +926,36 @@ pub(crate) fn validate_response(
             for k in 0..6 {
                 add(None, None, format!("f{k:02}"), 1);
             }
-            for k in 0..5 {
-                let f = |k| {
-                    r.0.iter()
-                        .find(|i| {
-                            i.node.is_none() && i.elem.is_none() && i.tag == format!("f{k:02}")
-                        })
-                        .and_then(|i| i.v.first())
-                        .copied()
-                };
-                if let (Some(a), Some(b)) = (f(k), f(k + 1)) {
-                    if b > a * (1.0 + 1e-3) {
+            // Stiffness scaling also uses this validator for shape-only checks;
+            // full adapter validation supplies an independent modal reference.
+            if shape.reference.0.is_empty() {
+                for k in 0..5 {
+                    let f = |k| {
+                        r.0.iter()
+                            .find(|i| {
+                                i.node.is_none() && i.elem.is_none() && i.tag == format!("f{k:02}")
+                            })
+                            .and_then(|i| i.v.first())
+                            .copied()
+                    };
+                    if let (Some(a), Some(b)) = (f(k), f(k + 1)) {
+                        if b > a * (1.0 + 1e-3) {
+                            add(
+                                None,
+                                None,
+                                format!("meff{k:02}"),
+                                if shape.spatial { 6 } else { 3 },
+                            );
+                        }
+                    }
+                }
+            } else {
+                for item in &shape.reference.0 {
+                    if item.tag.starts_with("meff") {
                         add(
                             None,
                             None,
-                            format!("meff{k:02}"),
+                            item.tag.clone(),
                             if shape.spatial { 6 } else { 3 },
                         );
                     }
@@ -873,16 +1042,6 @@ pub(crate) fn validate_response(
             "{name}: response shape mismatch: expected {expected:?}, got {actual:?}"
         ));
     }
-    if ["modal", "certified modal"].contains(&name) {
-        for item in
-            r.0.iter()
-                .filter(|i| i.tag == "total_mass" || i.tag.starts_with('f'))
-        {
-            if item.v.iter().any(|v| *v <= 0.0) {
-                return Err(format!("{name} {} must be positive", item.tag));
-            }
-        }
-    }
     if name == "spectral" {
         let positive_shear = r.0.iter().any(|i| i.tag == "base_shear" && i.v[0] > 0.0);
         let motion =
@@ -890,6 +1049,58 @@ pub(crate) fn validate_response(
                 .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0));
         if !positive_shear || !motion {
             return Err("spectral: expected positive base shear and nonzero motion".into());
+        }
+    }
+    if matches!(name, "modal" | "certified modal") {
+        let frequencies: Vec<_> =
+            r.0.iter()
+                .filter(|i| i.tag.starts_with('f'))
+                .map(|i| i.v[0])
+                .collect();
+        if r.0
+            .iter()
+            .any(|i| (i.tag == "total_mass" || i.tag.starts_with('f')) && i.v[0] <= 0.0)
+            || frequencies.windows(2).any(|f| f[1] < f[0])
+        {
+            return Err(format!(
+                "{name}: mass/frequency must be positive and modes ordered"
+            ));
+        }
+    }
+    if name == "influence line" && !shape.reference.0.iter().any(|i| i.v[0] != 0.0) {
+        return Err("influence line: no independently nonzero ordinate".into());
+    }
+    let scale = shape
+        .reference
+        .0
+        .iter()
+        .flat_map(|i| &i.v)
+        .fold(0.0_f64, |a, b| a.max(b.abs()));
+    for expected in &shape.reference.0 {
+        let got =
+            r.0.iter()
+                .find(|i| (i.node, i.elem, &i.tag) == (expected.node, expected.elem, &expected.tag))
+                .ok_or_else(|| format!("{name}: missing reference entry {}", expected.tag))?;
+        let local_scale = expected
+            .v
+            .iter()
+            .fold(expected.floor, |a, b| a.max(b.abs()));
+        let scale = if name == "harmonic" || name == "influence line" {
+            scale
+        } else {
+            local_scale
+        };
+        if expected.v.iter().any(|v| !v.is_finite())
+            || got
+                .v
+                .iter()
+                .zip(&expected.v)
+                .any(|(a, b)| (a - b).abs() > 1e-10 * scale)
+        {
+            return Err(format!(
+                "{name}: reference mismatch {}: {:?} != {:?}",
+                expected.tag, got.v, expected.v
+            ));
         }
     }
     Ok(())
@@ -911,6 +1122,16 @@ fn foundation_changed(base: &crate::response::Resp, active: &crate::response::Re
         }
     }
     norm > 0.0 && delta > norm * 0.01
+}
+
+fn foundation_axial_reference(r: &crate::response::Resp, length: f64, ea: f64) -> bool {
+    [(2, -0.3 * length / ea), (3, -0.5 * length / ea)]
+        .into_iter()
+        .all(|(node, expected)| {
+            r.node_vec(node, "u").is_some_and(|u| {
+                u[0].is_finite() && (u[0] - expected).abs() <= 1e-10 * expected.abs()
+            })
+        })
 }
 
 #[test]
@@ -936,6 +1157,14 @@ fn active_foundation_changes_displacements() {
             ((a2.run)(&c2).unwrap(), foundation_2d(&c2).unwrap()),
             ((a3.run)(&c3).unwrap(), foundation_3d(&c3).unwrap()),
         ] {
+            let length = c2.s.nodes["2"].x;
+            let ea = c2.s.materials["1"].e * 1000.0 * c2.s.sections["1"].a;
+            assert!(foundation_axial_reference(&active, length, ea));
+            let mut zeroed = active.clone();
+            for item in &mut zeroed.0 {
+                item.v.fill(0.0);
+            }
+            assert!(!foundation_axial_reference(&zeroed, length, ea));
             assert!(
                 foundation_changed(&base, &active),
                 "foundation ignored: seed={seed}"
@@ -970,6 +1199,15 @@ fn response_shape_rejects_missing_data() {
         ),
     ] {
         for (name, response) in responses {
+            let shape = ResponseShape {
+                reference: if shape.spatial {
+                    reference_3d(name, &c3)
+                } else {
+                    reference_2d(name, &c2)
+                }
+                .unwrap(),
+                ..shape.clone()
+            };
             validate_response(name, &response, &shape).unwrap();
             assert!(validate_response(name, &crate::response::Resp::default(), &shape).is_err());
             for k in 0..response.0.len() {
@@ -1354,5 +1592,157 @@ fn strict_rejects_zero_modal_and_spectral_adapters() {
 fn generated_modal_and_spectral_witnesses() {
     for name in ["modal", "certified modal", "spectral"] {
         sweep(8, Some(name));
+    }
+}
+
+#[test]
+fn absolute_oracles_reject_zeroed_adapters() {
+    let _strict = Strict::enter();
+    for seed in 0..4 {
+        let c2 = Case2::new(
+            "absolute",
+            serde_json::from_value(model(seed, false)).unwrap(),
+        );
+        let c3 = Case3::new(
+            "absolute",
+            serde_json::from_value(model(seed, true)).unwrap(),
+        );
+        for name in ["modal", "certified modal", "harmonic", "influence line"] {
+            let r2 = (ana2::rows()
+                .into_iter()
+                .find(|a| a.name == name)
+                .unwrap()
+                .run)(&c2)
+            .unwrap();
+            let r3 = (ana3::rows()
+                .into_iter()
+                .find(|a| a.name == name)
+                .unwrap()
+                .run)(&c3)
+            .unwrap();
+            for (response, spatial) in [(r2, false), (r3, true)] {
+                let validate = |r: &crate::response::Resp| {
+                    if spatial {
+                        validate_3d(name, r, &c3)
+                    } else {
+                        validate_2d(name, r, &c2)
+                    }
+                };
+                validate(&response).unwrap();
+                let mut zeroed = response.clone();
+                for item in &mut zeroed.0 {
+                    item.v.fill(0.0);
+                }
+                assert!(validate(&zeroed).is_err(), "{name}, spatial={spatial}");
+                if name.contains("modal") {
+                    zeroed.0.retain(|i| !i.tag.starts_with("meff"));
+                    assert!(validate(&zeroed).is_err());
+                    for tag in ["total_mass", "f00"] {
+                        let mut bad = response.clone();
+                        bad.0.iter_mut().find(|i| i.tag == tag).unwrap().v[0] = 0.0;
+                        assert!(validate(&bad).is_err());
+                    }
+                    let mut bad = response.clone();
+                    for item in bad.0.iter_mut().filter(|i| i.tag.starts_with('f')) {
+                        item.v[0] = 1.0;
+                    }
+                    bad.0.retain(|i| !i.tag.starts_with("meff"));
+                    assert!(validate(&bad).is_err());
+                }
+                if name == "harmonic" {
+                    let mut bad = response.clone();
+                    let scale = bad
+                        .0
+                        .iter()
+                        .flat_map(|i| &i.v)
+                        .fold(0.0_f64, |a, b| a.max(b.abs()));
+                    bad.0.iter_mut().find(|i| i.tag == "H_im0").unwrap().v[0] = scale;
+                    assert!(validate(&bad).is_err());
+                    let zero2 = c2.with_loads(vec![]);
+                    let zero3 = c3.with_loads(vec![]);
+                    if spatial {
+                        validate_3d(name, &zeroed, &zero3)
+                    } else {
+                        validate_2d(name, &zeroed, &zero2)
+                    }
+                    .unwrap();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn absolute_oracles_reject_zeroed_adapter_runs() {
+    fn zeroed<const ANALYSIS: usize>(mut r: crate::response::Resp) -> crate::response::Resp {
+        for item in &mut r.0 {
+            item.v.fill(0.0);
+        }
+        if ANALYSIS < 2 {
+            r.0.retain(|i| !i.tag.starts_with("meff"));
+        }
+        r
+    }
+    const NAMES: [&str; 4] = ["modal", "certified modal", "harmonic", "influence line"];
+    fn faulty2<const ANALYSIS: usize>(c: &Case2) -> Result<crate::response::Resp, String> {
+        let a = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == NAMES[ANALYSIS])
+            .unwrap();
+        Ok(zeroed::<ANALYSIS>((a.run)(c)?))
+    }
+    fn faulty3<const ANALYSIS: usize>(c: &Case3) -> Result<crate::response::Resp, String> {
+        let a = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == NAMES[ANALYSIS])
+            .unwrap();
+        Ok(zeroed::<ANALYSIS>((a.run)(c)?))
+    }
+    let _strict = Strict::enter();
+    let c2 = Case2::new("zeroed", serde_json::from_value(model(1, false)).unwrap());
+    let c3 = Case3::new("zeroed", serde_json::from_value(model(1, true)).unwrap());
+    for (index, (run2, run3)) in [faulty2::<0>, faulty2::<1>, faulty2::<2>, faulty2::<3>]
+        .into_iter()
+        .zip([faulty3::<0>, faulty3::<1>, faulty3::<2>, faulty3::<3>])
+        .enumerate()
+    {
+        let mut a2 = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == NAMES[index])
+            .unwrap();
+        let mut a3 = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == NAMES[index])
+            .unwrap();
+        a2.run = run2;
+        a3.run = run3;
+        let t2 = Tally::default();
+        let t3 = Tally::default();
+        checks2::check_case(
+            &checks2::Ctx {
+                tally: &t2,
+                rng_seed: 1,
+            },
+            &c2,
+            &[a2],
+            &["relabel"],
+        );
+        checks3::check_case(
+            &checks3::Ctx {
+                tally: &t3,
+                rng_seed: 1,
+            },
+            &c3,
+            &[a3],
+            &["relabel"],
+        );
+        for tally in [t2, t3] {
+            assert_eq!(
+                tally.symbol(NAMES[index], "relabel"),
+                "✗",
+                "{}",
+                tally.report()
+            );
+        }
     }
 }

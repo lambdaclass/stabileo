@@ -1,0 +1,12 @@
+{
+  "normalizedLimitLoad": 8.97,
+  "quantity": "P R\u00b2 / EI",
+  "dimensionalExample": {
+    "radius": 100,
+    "EI": 1000000,
+    "load": 897
+  },
+  "source": "Robert Schmidt (2000), discussion of Nonlinear Buckling and Postbuckling of Cable-Stiffened Prestressed Domes, Journal of Engineering Mechanics 126(12), p. 1308, quoting Table 1 of DaDeppo & Schmidt (1975).",
+  "url": "https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf",
+  "originalTableDirectlyInspected": false
+}

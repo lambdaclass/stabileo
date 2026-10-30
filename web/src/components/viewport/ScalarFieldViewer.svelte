@@ -41,6 +41,10 @@
     lineWidth?: number;
     /** The field: one value per node, or per cell with `perCell`. */
     values: ArrayLike<number> | null;
+    /** Default hides missing fields; geometry draws a neutral mesh without a legend. */
+    displayMode?: 'field' | 'geometry';
+    /** Expose actual draw statistics and geometry bounds for rendering regression checks. */
+    renderDiagnostics?: boolean;
     perCell?: boolean;
     range: { min: number; max: number };
     title: string;
@@ -68,6 +72,8 @@
     openEditorNote?: string;
     /** Show the status bar's "Open in the editor" button (false when the page offers its own editor). */
     editorButton?: boolean;
+    /** Geometry overlays use colour categories, not a physical scalar field. */
+    geometryOnly?: boolean;
   };
   let {
     xy,
@@ -75,6 +81,8 @@
     cellSize = 4,
     lineWidth = 3,
     values,
+    displayMode = 'field',
+    renderDiagnostics = false,
     perCell = false,
     range,
     title,
@@ -94,6 +102,7 @@
     onOpenEditor = null,
     openEditorNote,
     editorButton = true,
+    geometryOnly = false,
   }: Props = $props();
 
   let container: HTMLDivElement;
@@ -118,6 +127,12 @@
     if (!renderer) return;
     controls.update();
     renderer.render(scene, camera);
+    if (renderDiagnostics) {
+      const canvas = renderer.domElement;
+      canvas.dataset.renderedTriangles = String(renderer.info.render.triangles);
+      const box = field ? new THREE.Box3().setFromObject(field.group) : new THREE.Box3();
+      canvas.dataset.geometryBounds = JSON.stringify([box.min.toArray(), box.max.toArray()]);
+    }
     drawAxisGizmoOn(gizmo, camera);
     if (damping > 0) {
       damping -= 1;
@@ -252,8 +267,9 @@
 
   $effect(() => {
     if (!field) return;
-    field.group.visible = values !== null;
-    if (values) field.setField(values, range, { perCell, bands, colourMap });
+    field.group.visible = displayMode === 'geometry' || values !== null;
+    if (displayMode === 'geometry') field.setUncoloured();
+    else if (values) field.setField(values, range, { perCell, bands, colourMap });
     invalidate();
   });
   $effect(() => {
@@ -304,7 +320,7 @@
       <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
-    {#if values}
+    {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
     <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
@@ -312,7 +328,7 @@
   <div class="status-bar sfv-status">
     <div class="status-item"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>
     <div class="status-item"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
-    <div class="status-item"><span class="status-label">{t('scalarViewer.model')}</span><span class="status-value">{tp(cellSize === 2 ? 'scalarViewer.bars' : 'scalarViewer.elements', { nodes: nodeCount, cells: cellCount })}</span></div>
+    {#if !geometryOnly}<div class="status-item"><span class="status-label">{t('scalarViewer.model')}</span><span class="status-value">{tp(cellSize === 2 ? 'scalarViewer.bars' : 'scalarViewer.elements', { nodes: nodeCount, cells: cellCount })}</span></div>{/if}
     {#each status as s (s.label)}
       <div class="status-item"><span class="status-label">{s.label}:</span><span class="status-value">{s.value}</span></div>
     {/each}

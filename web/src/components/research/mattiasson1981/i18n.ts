@@ -1,0 +1,32 @@
+// Research-local article keys use English fallback, like the shared research dictionary.
+const article = {
+  "title": "Mattiasson (1981): cantilever elastica",
+  "lead": "A cantilever under increasing tip force, traced by Stabileo’s production corotational solver. References use independently checked elliptic-integral values; failures remain visible.",
+  "referenceWhy": "Production engine only; no independently reproduced reference solver.",
+  "publishedWhy": "The numerical transcription has not been checked against the paper text. Status: proposed.",
+  "modelHeading": "Model and load path",
+  "modelDescription": "A fixed-root cantilever has L = 2 m, 16 frame elements, E = 200000 MPa, A = 0.01 m² and I = 10⁻⁴ m⁴. The engine converts E to kN/m². Downward tip force P is parametrized by PL²/EI; u/L = −ux/L is shortening and v/L = −uz/L is downward displacement. The viewer uses actual nodal displacements at scale 1.",
+  "loadPathBeforeAPI": "Twenty independent incremental solves trace force parameters 0.5 through 10. Each uses the production ",
+  "solverAPI": "solveCorotational2D",
+  "loadPathAfterAPI": " wrapper with 50 iterations, residual tolerance 10⁻⁶ and 10 increments. Playback loops through these live results and stops on interaction. It is not an exact reference shape or an interpolated solver path.",
+  "referencesHeading": "References and accuracy",
+  "referencesBeforeLink": "The four reference pairs use the exact elliptic-integral values documented in ",
+  "referencesLink": "BENCHMARK_REFERENCES.md",
+  "referencesAfterLink": " on fix/845-elastica (#849): PL²/EI = 1, 2, 5, 10 gives (u/L, w/L) = (0.056433, 0.301721), (0.160642, 0.493457), (0.387628, 0.713792), (0.554996, 0.810609). The original paper table locator remains unverified.",
+  "momentHeading": "Tip moment",
+  "momentDescription": "The separate moment case uses M = EI/L = 10000 kN·m, matching the native end-moment test exactly. That test checks convergence and significant rotation. It does not establish full-circle rolling or elliptic-integral accuracy; the page makes neither claim. Under our downward-positive convention its upward displacement gives a negative v/L.",
+  "sharedCasesHeading": "One case file and findings",
+  "sharedCasesLink": "The shared engine-owned JSON",
+  "sharedCasesDescription": " supplies the native end-moment test, native comparison runner and live page. Research CI compares fresh native and WASM results, including failures. No research solver is used.",
+  "findingsLink": "Findings ledger and unresolved provenance",
+  "findingsDescription": ": disagreement may involve transcription, model assumptions or solver accuracy. Solver-owner triage and the original numerical table are needed before attributing a defect. No runtime issue identifier is invented.",
+  "nativeAvailability": "The corotational API is available in production WASM. The native-only designation above applies to regression assertions, not to an unavailable solve.",
+  "accuracyBefore": "The exploratory accuracy target is relative error strictly below ",
+  "accuracyAfter": "% for both signed components. This new page target is separate from every existing native assertion, tolerance and regression bound. Intermediate steps have no accuracy reference. Nonconvergence or incomplete loading is a failure, never an accuracy pass.",
+  "hook": "Trace the production corotational load path and inspect provisional reference comparisons, including failures."
+};
+export const strings = {
+  en: { ...article, complete: 'Complete load steps', run: 'Run again', stop: 'Stop', play: 'Play', restart: 'Restart', running: 'Running production engine…', summary: 'Passes against elliptic-integral references', reference: 'Elliptic-integral reference', error: 'Relative error', pass: 'Pass', fail: 'Fail', pending: 'Not computed', native: 'Covered in native CI only', open: 'Open in Stabileo', viewer: 'Model', results: 'Results', select: 'Load step', live: 'Live computation in this browser', cached: 'Playback of this browser’s production-engine run', noReference: 'No accuracy reference', warning: 'Reference numbers have not been checked against the paper. Passing is not published validation.', handoff: 'Editor receives geometry and loads; choose corotational analysis to reproduce this run.', force: 'Tip force', moment: 'Tip moment (1 rad)', interrupted: 'Stopped; unfinished cases remain not computed.' },
+  es: { ...article, complete: 'Pasos de carga completos', run: 'Ejecutar de nuevo', stop: 'Detener', play: 'Reproducir', restart: 'Reiniciar', running: 'Ejecutando el motor de producción…', summary: 'Cumple frente a pares de referencia sin verificar', reference: 'Referencia exacta (transcripción sin verificar)', error: 'Error relativo', pass: 'Cumple', fail: 'No cumple', pending: 'Sin calcular', native: 'Cubierto solo en CI nativo', open: 'Abrir en Stabileo', viewer: 'Modelo', results: 'Resultados', select: 'Paso de carga', live: 'Cálculo en vivo en este navegador', cached: 'Reproducción del cálculo del motor de producción en este navegador', noReference: 'Sin referencia de precisión', warning: 'Los valores no se cotejaron con el artículo. Cumplir no constituye validación publicada.', handoff: 'El editor recibe geometría y cargas; seleccione análisis corrotacional para reproducir el cálculo.', force: 'Fuerza en el extremo', moment: 'Momento en el extremo (1 rad)', interrupted: 'Detenido; los casos pendientes siguen sin calcular.' },
+  pt: { ...article, complete: 'Passos de carga completos', run: 'Executar novamente', stop: 'Parar', play: 'Reproduzir', restart: 'Reiniciar', running: 'Executando o motor de produção…', summary: 'Passa frente a pares de referência não verificados', reference: 'Referência exata (transcrição não verificada)', error: 'Erro relativo', pass: 'Passa', fail: 'Falha', pending: 'Não calculado', native: 'Coberto apenas no CI nativo', open: 'Abrir no Stabileo', viewer: 'Modelo', results: 'Resultados', select: 'Passo de carga', live: 'Cálculo ao vivo neste navegador', cached: 'Reprodução do cálculo do motor de produção neste navegador', noReference: 'Sem referência de precisão', warning: 'Os valores não foram conferidos com o artigo. Passar não constitui validação publicada.', handoff: 'O editor recebe geometria e cargas; selecione análise corrotacional para reproduzir o cálculo.', force: 'Força na extremidade', moment: 'Momento na extremidade (1 rad)', interrupted: 'Parado; os casos pendentes continuam não calculados.' },
+};

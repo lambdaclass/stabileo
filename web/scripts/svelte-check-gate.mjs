@@ -31,6 +31,7 @@ import { spawn } from 'node:child_process';
 
 /** Paths whose `svelte-check` ERRORS fail the build. Extend as areas are cleaned. */
 const GUARDED_PATHS = [
+  'src/components/tools/',
   'src/components/edu/',
   'src/lib/engine/kinematic-2d.ts',
   'src/lib/engine/solve-diagnostics.ts',

@@ -38,7 +38,7 @@ fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     guarded(|| {
         let r = (a.run)(c)?;
         if crate::generated::strict() {
-            crate::generated::validate_response(a.name, &r, &crate::generated::ResponseShape::of_2d(c))?;
+            crate::generated::validate_2d(a.name, &r, c)?;
         }
         Ok(r)
     })

@@ -1,0 +1,371 @@
+{
+  "id": "lee-frame-1968",
+  "input": {
+    "solver": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0.0,
+          "z": 0.0
+        },
+        "2": {
+          "id": 2,
+          "x": 0.0,
+          "z": 0.12
+        },
+        "3": {
+          "id": 3,
+          "x": 0.0,
+          "z": 0.24
+        },
+        "4": {
+          "id": 4,
+          "x": 0.0,
+          "z": 0.36
+        },
+        "5": {
+          "id": 5,
+          "x": 0.0,
+          "z": 0.48
+        },
+        "6": {
+          "id": 6,
+          "x": 0.0,
+          "z": 0.6
+        },
+        "7": {
+          "id": 7,
+          "x": 0.0,
+          "z": 0.72
+        },
+        "8": {
+          "id": 8,
+          "x": 0.0,
+          "z": 0.84
+        },
+        "9": {
+          "id": 9,
+          "x": 0.0,
+          "z": 0.96
+        },
+        "10": {
+          "id": 10,
+          "x": 0.0,
+          "z": 1.08
+        },
+        "11": {
+          "id": 11,
+          "x": 0.0,
+          "z": 1.2
+        },
+        "12": {
+          "id": 12,
+          "x": 0.12,
+          "z": 1.2
+        },
+        "13": {
+          "id": 13,
+          "x": 0.24,
+          "z": 1.2
+        },
+        "14": {
+          "id": 14,
+          "x": 0.36,
+          "z": 1.2
+        },
+        "15": {
+          "id": 15,
+          "x": 0.48,
+          "z": 1.2
+        },
+        "16": {
+          "id": 16,
+          "x": 0.6,
+          "z": 1.2
+        },
+        "17": {
+          "id": 17,
+          "x": 0.72,
+          "z": 1.2
+        },
+        "18": {
+          "id": 18,
+          "x": 0.84,
+          "z": 1.2
+        },
+        "19": {
+          "id": 19,
+          "x": 0.96,
+          "z": 1.2
+        },
+        "20": {
+          "id": 20,
+          "x": 1.08,
+          "z": 1.2
+        },
+        "21": {
+          "id": 21,
+          "x": 1.2,
+          "z": 1.2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 7200,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.0006,
+          "iz": 2e-08
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "2": {
+          "id": 2,
+          "type": "frame",
+          "nodeI": 2,
+          "nodeJ": 3,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "3": {
+          "id": 3,
+          "type": "frame",
+          "nodeI": 3,
+          "nodeJ": 4,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "4": {
+          "id": 4,
+          "type": "frame",
+          "nodeI": 4,
+          "nodeJ": 5,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "5": {
+          "id": 5,
+          "type": "frame",
+          "nodeI": 5,
+          "nodeJ": 6,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "6": {
+          "id": 6,
+          "type": "frame",
+          "nodeI": 6,
+          "nodeJ": 7,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "7": {
+          "id": 7,
+          "type": "frame",
+          "nodeI": 7,
+          "nodeJ": 8,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "8": {
+          "id": 8,
+          "type": "frame",
+          "nodeI": 8,
+          "nodeJ": 9,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "9": {
+          "id": 9,
+          "type": "frame",
+          "nodeI": 9,
+          "nodeJ": 10,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "10": {
+          "id": 10,
+          "type": "frame",
+          "nodeI": 10,
+          "nodeJ": 11,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "11": {
+          "id": 11,
+          "type": "frame",
+          "nodeI": 11,
+          "nodeJ": 12,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "12": {
+          "id": 12,
+          "type": "frame",
+          "nodeI": 12,
+          "nodeJ": 13,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "13": {
+          "id": 13,
+          "type": "frame",
+          "nodeI": 13,
+          "nodeJ": 14,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "14": {
+          "id": 14,
+          "type": "frame",
+          "nodeI": 14,
+          "nodeJ": 15,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "15": {
+          "id": 15,
+          "type": "frame",
+          "nodeI": 15,
+          "nodeJ": 16,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "16": {
+          "id": 16,
+          "type": "frame",
+          "nodeI": 16,
+          "nodeJ": 17,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "17": {
+          "id": 17,
+          "type": "frame",
+          "nodeI": 17,
+          "nodeJ": 18,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "18": {
+          "id": 18,
+          "type": "frame",
+          "nodeI": 18,
+          "nodeJ": 19,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "19": {
+          "id": 19,
+          "type": "frame",
+          "nodeI": 19,
+          "nodeJ": 20,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        },
+        "20": {
+          "id": 20,
+          "type": "frame",
+          "nodeI": 20,
+          "nodeJ": 21,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "pinned"
+        },
+        "21": {
+          "id": 21,
+          "nodeId": 21,
+          "type": "pinned"
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 13,
+            "fx": 0,
+            "fz": -1,
+            "my": 0
+          }
+        }
+      ]
+    },
+    "maxSteps": 90,
+    "maxIter": 40,
+    "tolerance": 1e-08,
+    "initialDs": 0.1,
+    "minDs": 1e-06,
+    "maxDs": 0.2,
+    "targetIter": 5
+  },
+  "loadNode": 13,
+  "reference": {
+    "load": 1.83,
+    "status": "provisional",
+    "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, section 3.3 Figure 10 (pinned curve); exact numerical locator not verified",
+    "tolerance": 0.02
+  },
+  "regression": {
+    "firstLimitLoad": 1.8657781212114986,
+    "absoluteTolerance": 1e-08
+  }
+}

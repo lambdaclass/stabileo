@@ -1,5 +1,7 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  "landing.navTools": "Ferramentas",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
   "scalarViewer.viewOptions": "Opções de vista",
@@ -231,6 +233,7 @@ const pt: Translations = {
   'landing.navEducation': 'Educacional',
   'landing.navPricing': 'Preços',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Artigo',
   'landing.navResearch': 'Pesquisa',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIVRE E ABERTO · CÁLCULO ESTRUTURAL',
@@ -13904,5 +13907,14 @@ const pt: Translations = {
   "proExport.dxfLayoutSeparate": "Um desenho por arquivo",
   "proExport.dxfLayoutLayersNote": "Tudo em um DXF; cada conteúdo na sua camada.",
   "proExport.dxfLayoutSeparateNote": "Um DXF do modelo e um por resultado (com o modelo de base), juntos em um .zip.",
+  "clipboard.spaceInPlane": "A cópia é de um modelo 3D: copie de novo em 2D para colar aqui.",
+  "sel.copyTitle": "Copiar a seleção (Ctrl+C)",
+  "sel.pasteTitle": "Colar a cópia e escolher onde (Ctrl+V)",
+  "results.showDisplacements": "Mostrar deslocamentos",
+  "resultChecks.title": "Verificação dos resultados",
+  "resultChecks.certified": "certificado",
+  "resultChecks.notCertified": "não certificado",
+  "resultChecks.pending": "calculando…",
+  "resultChecks.discretizationHigh": "erro de discretização alto",
 };
 export default pt;

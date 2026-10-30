@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "title": "Riks/Crisfield production arc-length snap-through benchmarks",
+  "units": {
+    "length": "m",
+    "force": "kN",
+    "youngsModulus": "MPa"
+  },
+  "method": {
+    "name": "Crisfield spherical arc-length",
+    "productionEntryPoint": "solve_arc_length",
+    "constraint": "||delta_u||^2 + delta_lambda^2 ||f_ref||^2 = delta_s^2"
+  },
+  "referenceDefinition": {
+    "kind": "closed-form two-bar axial equilibrium with engineering strain",
+    "source": "von Mises two-bar truss equilibrium, using the formulation documented in engine/tests/validation/domains/nonlinear/nonlinear_extended.rs; arc-length method reference: M. A. Crisfield, Non-linear Finite Element Analysis of Solids and Structures, Vol. 1, Ch. 9",
+    "formula": "P(y) = 2 E A (1 - L/L0) y/L",
+    "length": "L = sqrt(halfSpan^2 + y^2)",
+    "initialLength": "L0 = sqrt(halfSpan^2 + rise^2)",
+    "deformedRise": "y = rise - v, where v = -uz at the apex is positive downward",
+    "physicalLoad": "P = loadFactor * referenceLoad, positive downward",
+    "effectiveYoungsModulus": "E = E_MPa * 1000 kN/m^2",
+    "limitCondition": "L^3 = halfSpan^2 * L0 at either stationary point; the upper limit has 0 < y < rise",
+    "frameBending": "The production models use frame elements. This axial reference omits bending, so measured disagreement is reported rather than removed from the comparison."
+  },
+  "wasmParityTolerance": {
+    "absolute": 1e-10,
+    "relative": 1e-9,
+    "criterion": "absolute difference <= absolute + relative * abs(native value); step numbers, convergence flags and iteration counts must match exactly"
+  },
+  "cases": [
+    {
+      "id": "shallow-toggle",
+      "name": "Exact shallow toggle from the production engine validation",
+      "nativeTest": "engine/tests/validation/domains/solver/arc_length.rs::test_arc_length_detects_limit_point",
+      "geometry": {
+        "halfSpan": 2.0,
+        "rise": 0.1,
+        "initialLength": 2.0024984394500787
+      },
+      "apex": {
+        "nodeId": 3,
+        "dof": "uz",
+        "displacement": "-uz",
+        "referenceLoad": 50.0
+      },
+      "reference": {
+        "upperLimit": {
+          "displacement": 0.04228900098628047,
+          "load": 95.98504891452458,
+          "loadFactor": 1.9197009782904916
+        }
+      },
+      "tolerances": {
+        "limitLoadRelative": 0.05,
+        "limitDisplacementRelative": 0.05,
+        "equilibriumPathNormalizedByLimitLoad": 0.05
+      },
+      "input": {
+        "solver": {
+          "nodes": {
+            "1": { "id": 1, "x": 0.0, "z": 0.0 },
+            "2": { "id": 2, "x": 4.0, "z": 0.0 },
+            "3": { "id": 3, "x": 2.0, "z": 0.1 }
+          },
+          "materials": {
+            "1": { "id": 1, "e": 200000.0, "nu": 0.3 }
+          },
+          "sections": {
+            "1": { "id": 1, "a": 0.01, "iz": 0.0001 }
+          },
+          "elements": {
+            "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false },
+            "2": { "id": 2, "type": "frame", "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false }
+          },
+          "supports": {
+            "1": { "id": 1, "nodeId": 1, "type": "pinned" },
+            "2": { "id": 2, "nodeId": 2, "type": "pinned" }
+          },
+          "loads": [
+            { "type": "nodal", "data": { "nodeId": 3, "fx": 0.0, "fz": -50.0, "my": 0.0 } }
+          ],
+          "constraints": [],
+          "connectors": {}
+        },
+        "maxSteps": 100,
+        "maxIter": 30,
+        "tolerance": 0.00001,
+        "initialDs": 0.05,
+        "minDs": 0.00000001,
+        "maxDs": 0.5,
+        "targetIter": 5
+      }
+    },
+    {
+      "id": "von-mises-truss",
+      "name": "Von Mises two-bar geometry from nonlinear_extended.rs",
+      "nativeTest": "engine/tests/validation/domains/nonlinear/nonlinear_extended.rs::validation_nonlin_ext_4_two_bar_truss_instability",
+      "geometry": {
+        "halfSpan": 3.0,
+        "rise": 2.0,
+        "initialLength": 3.605551275463989
+      },
+      "apex": {
+        "nodeId": 2,
+        "dof": "uz",
+        "displacement": "-uz",
+        "referenceLoad": 1000.0
+      },
+      "reference": {
+        "upperLimit": {
+          "displacement": 0.9166559507513323,
+          "load": 15672.742997591187,
+          "loadFactor": 15.672742997591187
+        }
+      },
+      "tolerances": {
+        "limitLoadRelative": 0.05,
+        "limitDisplacementRelative": 0.05,
+        "equilibriumPathNormalizedByLimitLoad": 0.05
+      },
+      "input": {
+        "solver": {
+          "nodes": {
+            "1": { "id": 1, "x": 0.0, "z": 0.0 },
+            "2": { "id": 2, "x": 3.0, "z": 2.0 },
+            "3": { "id": 3, "x": 6.0, "z": 0.0 }
+          },
+          "materials": {
+            "1": { "id": 1, "e": 200000.0, "nu": 0.3 }
+          },
+          "sections": {
+            "1": { "id": 1, "a": 0.001, "iz": 0.00000001 }
+          },
+          "elements": {
+            "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false },
+            "2": { "id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false }
+          },
+          "supports": {
+            "1": { "id": 1, "nodeId": 1, "type": "pinned" },
+            "2": { "id": 2, "nodeId": 3, "type": "pinned" }
+          },
+          "loads": [
+            { "type": "nodal", "data": { "nodeId": 2, "fx": 0.0, "fz": -1000.0, "my": 0.0 } }
+          ],
+          "constraints": [],
+          "connectors": {}
+        },
+        "maxSteps": 700,
+        "maxIter": 30,
+        "tolerance": 0.00000001,
+        "initialDs": 25.0,
+        "minDs": 0.000001,
+        "maxDs": 25.0,
+        "targetIter": 5
+      }
+    }
+  ]
+}

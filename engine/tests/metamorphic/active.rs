@@ -52,6 +52,42 @@ fn taut_cable_invariance() {
     crate::finish("active_cable_3d", &t3);
 }
 
+fn loaded_cable_equilibrium(r: &crate::response::Resp, width: usize, members: usize) -> bool {
+    let tensions: Vec<_> = r.0.iter().filter(|i| i.tag == "N").collect();
+    if tensions.len() != members
+        || tensions.iter().any(|i| {
+            i.v.len() != 2 || i.v.iter().any(|v| !v.is_finite() || *v <= 0.0)
+        })
+    {
+        return false;
+    }
+    let mut sum = vec![0.0; width];
+    for reaction in r.0.iter().filter(|i| i.tag == "R") {
+        if reaction.v.len() != width {
+            return false;
+        }
+        for (sum, value) in sum.iter_mut().zip(&reaction.v) {
+            *sum += value;
+        }
+    }
+    sum[width - 1] -= 100.0;
+    sum.iter().all(|v| v.is_finite() && v.abs() <= 100.0 * 1e-10)
+}
+
+fn assert_loaded_cable(r: &crate::response::Resp, width: usize, members: usize) {
+    assert!(loaded_cable_equilibrium(r, width, members), "{r:?}");
+    let mut zeroed = r.clone();
+    for item in &mut zeroed.0 {
+        item.v.fill(0.0);
+    }
+    assert!(!loaded_cable_equilibrium(&zeroed, width, members));
+    let mut missing_reactions = r.clone();
+    for item in missing_reactions.0.iter_mut().filter(|i| i.tag == "R") {
+        item.v.fill(0.0);
+    }
+    assert!(!loaded_cable_equilibrium(&missing_reactions, width, members));
+}
+
 fn assert_cable_adapters(names: &[&str]) {
     assert_eq!(names, &["cable solver"]);
 }
@@ -174,18 +210,8 @@ fn cable3(seed: u64) -> Case3 {
 }
 
 fn cable_witness(r: &crate::response::Resp, spatial: bool) {
-    let tensions: Vec<_> = r.0.iter().filter(|i| i.tag == "N").collect();
-    assert_eq!(tensions.len(), if spatial { 3 } else { 2 });
-    assert!(tensions.iter().all(|i| i.v.iter().all(|v| *v > 0.0)));
     let width = if spatial { 3 } else { 2 };
-    for k in 0..width {
-        let reaction: f64 = r.0.iter().filter(|i| i.tag == "R").map(|i| i.v[k]).sum();
-        let expected = if k == width - 1 { 100.0 } else { 0.0 };
-        assert!(
-            (reaction - expected).abs() <= 100.0 * 2.5e-10,
-            "cable reaction {k}: {reaction}, expected {expected}"
-        );
-    }
+    assert_loaded_cable(r, width, width);
 }
 
 #[test]

@@ -14,10 +14,10 @@ analysis the engine has and on the whole model corpus.
 
 ```sh
 cd engine
-cargo test --release --test metamorphic                       # PR tier (sampled)
-cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
-METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture
-UPDATE_METAMORPHIC_DOC=1 cargo test --release --test metamorphic metamorphic_pr   # refresh the matrices below
+cargo test --locked --release --test metamorphic                       # PR tier (sampled)
+cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
+METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture
+UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamorphic_pr   # refresh the matrices below
 ```
 
 ## Pieces
@@ -55,7 +55,9 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --release --test metamorphic metamorphic_pr 
   (every analysis reduced to a response whose quantities know how they
   transform), `checks2.rs` / `checks3.rs` (the invariants), `symmetry.rs`,
   `modal_checks.rs`, `corpus.rs`, `regressions.rs` (one minimal test per bug
-  found).
+  found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
+  coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
+  (priority invariances and uniform stiffness scaling).
 
 ## Invariants
 
@@ -275,6 +277,36 @@ rather than reporting these transformations as unrepresentable.
 seed and full input JSON; with `METAMORPHIC_REPORT_DIR` it also writes those
 inputs and both matrices. The generated tests fail on refused baseline solves,
 lost coverage, unrepresentable comparisons or inconclusive tolerances.
+Generated response validation checks absolute references for modal, certified-modal,
+harmonic and influence-line adapters. Influence-line
+endpoints are compared with separate nodal unit-load static solves, including
+an independently nonzero ordinate. Zero-frequency harmonic real displacement
+must match the static probe displacement, and its imaginary part must vanish;
+legitimate zero-load responses remain valid. Modal responses require positive
+mass and positive ordered frequencies. A separate direct modal solve supplies
+expected entries and values, including effective-mass boundaries, for both
+modal adapters; this is an adapter check, not an independent eigensolver.
+These reference comparisons use relative tolerance 1e-10. Regression tests
+zero those four adapters, remove modal effective-mass entries, and corrupt the
+zero-frequency imaginary response.
+
+The active-foundation fixture additionally checks axial displacements against
+bar equilibrium and compatibility: its transverse bed cannot carry axial load.
+The loaded cable fixtures require positive member tension and support forces
+balancing the applied 100-unit load in every translational direction. Both
+fixture checks reject correctly shaped zero-valued responses.
+
+Shape and metamorphic checks alone do not establish physical correctness.
+In particular, primary linear, buckling, time-history, spectral, moving-load
+and plastic-collapse rows do not each have an independent absolute oracle;
+homogeneous invariants alone can accept a consistently zero-valued adapter.
+The spectral rows additionally require positive base shear and nonzero motion,
+and excited time-history fixtures require free-node motion after the initial
+step. These witnesses reject zero responses without constituting independent
+absolute oracles.
+A matrix checkmark denotes the stated relation and coverage, not independent
+validation of every response value or protection against every zero mutation.
+
 The broad legacy corpus retains its conditioning-based tolerances and explicit
 feature limitations; its passing cells are not a promise that every possible
 model is supported.
@@ -362,6 +394,13 @@ The explicit safety reproduction commands are expected to fail while their
 issues remain open. They are deliberately separate from the required run.
 The targeted checks reproduced #758, #759, #760 and #762; the minimal
 co-rotational check reproduced #761.
+
+### Verification evidence
+
+Reproducible base/head comparison and known corpus failures are recorded in
+[the verification evidence](metamorphic-review-813.txt). The broad nightly
+corpus is not green; generated coverage must not be presented as a passing
+result for the complete nightly selection.
 
 Historical run (2026-10-29; not validation of the current PR head): **30 passed, 12 ignored, 0 failed; 36.80 s**
 (test runtime, release build), on commit `d682fc7c65b1696867e5a3a4e45b04d26eead063`
