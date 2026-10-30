@@ -4,7 +4,8 @@ use std::sync::LazyLock;
 
 static DATA: LazyLock<Value> = LazyLock::new(|| serde_json::from_str(include_str!("shell_obstacle_course.json")).unwrap());
 static RESULTS: LazyLock<Vec<Value>> = LazyLock::new(|| {
-    DATA["cases"].as_array().unwrap().iter().map(|c| {
+    DATA["cases"].as_array().unwrap().iter()
+        .chain(DATA["nativeCases"].as_array().unwrap().iter()).map(|c| {
         let input: SolverInput3D = serde_json::from_value(c["input"].clone()).unwrap();
         let result = serde_json::to_value(linear::solve_3d(&input).unwrap()).unwrap();
         let d = result["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == c["measurement"]["node"]).unwrap();

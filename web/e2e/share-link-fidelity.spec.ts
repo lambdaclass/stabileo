@@ -38,7 +38,7 @@ const SHED = '3d-nave-industrial';
 
 const census = (page: Page) => page.evaluate(() => window.__stabileo.modelCensus());
 
-test.describe('@smoke a share link carries the whole model', () => {
+test.describe('@slow a share link carries the whole model', () => {
   test('the 3D shed survives being copied and opened elsewhere', async ({ page, context }) => {
     test.setTimeout(180_000);
 

@@ -6,6 +6,9 @@
    * screens the article comes first and the app follows. Badges come from the catalogue, whose
    * statuses CI derives from evidence files.
    */
+  import { bibliography } from '../catalogue';
+  import { reviewLabel } from '../reviews';
+  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
@@ -36,10 +39,11 @@
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, compactHeader = false, introInArticle = false }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
-  const paper = catalog.papers.find((p) => p.id === paperId)!;
+  const entry = catalog.papers.find((p) => p.id === paperId)!;
+  const paper = { ...entry, crossref: bibliography(entry) };
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = $derived(citationAuthors ?? paper.crossref.authors.join(', '));
@@ -48,7 +52,7 @@
 
 {#snippet introduction()}
       <p class="rs-cite">
-        {s.afterAuthors} {authors}, “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
+        {s.afterAuthors} {#if authors}{authors}, {/if} “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
         <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
       </p>
       <VerificationSummary
@@ -56,6 +60,7 @@
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
+      <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
       <p class="rs-lead" lang={locale ?? researchLocale()}>{lead}</p>
 {/snippet}
 

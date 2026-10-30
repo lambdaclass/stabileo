@@ -319,34 +319,38 @@
 <svelte:window onkeydown={event => { if (event.key === 'Escape' && menuOpen) { event.preventDefault(); closeMenu(); } }} />
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
-  <div class="sfv viewport-container" style:height>
-    <!-- Interactive graphics surface: arrow pan and +/- zoom need focus on the canvas region. -->
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={navigate} aria-label={ariaLabel}></div>
-    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
-    <div class="camera-controls" style="top: 10px">
-      <div class="cam-menu-wrap">
-        <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
-          <Icon name="viewCube" size={17} />
-          <span class="cam-caret" aria-hidden="true"></span>
-        </button>
-        {#if menuOpen}
-          <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
-          <div class="cam-menu">
-            <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
-            <div class="cam-sep"></div>
-            <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>{t('scalarViewer.plan')}</span></button>
-            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>{t('scalarViewer.orbit')}</span></button>
-          </div>
-        {/if}
+  <div class="sfv-stage">
+    <div class="sfv-navigation">
+      <div class="camera-controls">
+        <div class="cam-menu-wrap">
+          <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
+            <Icon name="viewCube" size={17} />
+            <span class="cam-caret" aria-hidden="true"></span>
+          </button>
+          {#if menuOpen}
+            <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
+            <div class="cam-menu">
+              <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph" aria-hidden="true">⤢</span><span>{t('scalarViewer.fit')}</span></button>
+              <div class="cam-sep"></div>
+              <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph" aria-hidden="true">⊤</span><span>{t('scalarViewer.plan')}</span></button>
+              <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph" aria-hidden="true">◇</span><span>{t('scalarViewer.orbit')}</span></button>
+            </div>
+          {/if}
+        </div>
+        <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+        <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
       </div>
-      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
-      <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
-    {#if displayMode === 'field' && values && !geometryOnly}
-      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
-    {/if}
-    <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
+    <div class="sfv viewport-container" style:height>
+      <!-- Interactive graphics surface: arrow pan and +/- zoom need focus on the canvas region. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+      <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={navigate} aria-label={ariaLabel}></div>
+      <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+      {#if displayMode === 'field' && values && !geometryOnly}
+        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
+      {/if}
+      <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
+    </div>
   </div>
   <div class="status-bar sfv-status">
     <div class="status-item"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>
@@ -373,6 +377,20 @@
     border-radius: var(--st-radius-lg, 6px);
     overflow: hidden;
   }
+  .sfv-navigation {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px;
+  }
+  .sfv-navigation .camera-controls { position: relative; inset: auto; flex-direction: row; }
+  .sfv-navigation :global(button) { min-width: 44px; min-height: 44px; }
+  .sfv-stage { display: contents; }
+  @media (orientation: landscape) and (max-height: 500px) {
+    .sfv-stage { display: flex; flex: 1 1 auto; min-height: 0; }
+    .sfv-stage .sfv-navigation { order: 1; align-items: flex-start; }
+    .sfv-navigation .camera-controls { flex-direction: column; }
+    .sfv-stage .sfv { flex: 1 1 0; min-width: 0; }
+  }
   .sfv-toolbar {
     padding: 0.4rem 0.5rem;
     border-bottom: 1px solid var(--st-hair, rgba(143, 163, 179, 0.22));
@@ -392,7 +410,11 @@
   }
   .sfv :global(.shell-legend) {
     bottom: 12px;
+    max-width: calc(100% - 24px);
+    overflow-wrap: anywhere;
+    font-size: 12px;
   }
+  .sfv :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-mode {
     width: 44px;
     height: 44px;

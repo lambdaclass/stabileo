@@ -205,6 +205,7 @@ impl Resp {
                 return Err(format!("no reversal map for {}", it.tag));
             }
             it.v = match (it.tag.as_str(), three_d, v.len()) {
+                ("N" | "V" | "M", _, 1) => v,
                 ("N", _, 2) => vec![v[1], v[0]],
                 ("V", false, 2) => vec![v[1], v[0]],
                 ("M", false, 2) => vec![-v[1], -v[0]],
@@ -214,6 +215,18 @@ impl Resp {
             };
         }
         Ok(o)
+    }
+
+    pub fn reverse_influence(&self, flipped: &std::collections::HashSet<usize>, target: usize) -> Result<Resp, String> {
+        let mut out = self.clone();
+        for item in &mut out.0 {
+            if item.elem.is_some_and(|id| flipped.contains(&id)) {
+                let t: usize = item.tag.strip_prefix("IL_t").ok_or("missing influence coordinate")?.parse().map_err(|_| "invalid influence coordinate")?;
+                item.tag = format!("IL_t{:04}", 1000 - t);
+            }
+            if flipped.contains(&target) { item.v.iter_mut().for_each(|x| *x = -*x); }
+        }
+        Ok(out)
     }
 
     pub fn relabel(&self, rl: &Relabel) -> Resp {

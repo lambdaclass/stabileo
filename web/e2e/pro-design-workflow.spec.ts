@@ -81,8 +81,8 @@ test.describe('@smoke the workflow says where you are', () => {
   });
 });
 
-test.describe('@smoke commands are grouped, and none of them is ambiguous', () => {
-  test('the member list\'s command row is two named groups in pipeline order', async ({ pro: page }) => {
+test.describe('commands are grouped, and none of them is ambiguous', () => {
+  test('@smoke the member list\'s command row is two named groups in pipeline order', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designPlace(page, 'list');
     await expect(page.getByTestId('cmd-group-verify')).toHaveCount(0);
@@ -97,7 +97,7 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await expect(groups.filter({ has: page.getByTestId('active-concrete-code') })).toHaveCount(0);
   });
 
-  test('there is ONE design command, and it states its own scope', async ({ pro: page }) => {
+  test('@smoke there is ONE design command, and it states its own scope', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await designPlace(page, 'list');
@@ -120,7 +120,7 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await page.getByTestId('desk-run-cancel').click();
   });
 
-  test('the auto-detailing preference sits with what it governs, once', async ({ pro: page }) => {
+  test('@smoke the auto-detailing preference sits with what it governs, once', async ({ pro: page }) => {
     /*
      * The command and the preference that governs it travelled as a pair; with interface A the
      * command is the Detail step's action at the top and the preference sits over the detailing
@@ -133,7 +133,7 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await expect(page.getByTestId('detailing-auto')).toHaveCount(1);
   });
 
-  test('every step states its state, and what it waits on, in words', async ({ pro: page }) => {
+  test('@smoke every step states its state, and what it waits on, in words', async ({ pro: page }) => {
     /*
      * The steps say their state as text (a tick or the number, and a word a screen reader reads)
      * and, while unfinished, what they wait on: a state told only in colour would pass nothing.
@@ -148,7 +148,7 @@ test.describe('@smoke commands are grouped, and none of them is ambiguous', () =
     await expect(page.getByTestId('floor-families-disclosure-purpose')).toHaveText(en['design.stagePurpose.floors']);
   });
 
-  test('a step that has run says so', async ({ pro: page }) => {
+  test('@slow a step that has run says so', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await designAll(page);
     await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);

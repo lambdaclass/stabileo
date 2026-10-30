@@ -6,7 +6,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
 }
 
 test.describe('@smoke Basic 3D defaults', () => {

@@ -85,7 +85,7 @@ async function controls(page: Page): Promise<Control[]> {
   }));
 }
 
-test.describe('@smoke the PRO panel reads as one product', () => {
+test.describe('@slow the PRO panel reads as one product', () => {
   test('C1 — no control is left to the browser to paint', async ({ pro: page }) => {
     test.setTimeout(180_000);
     const found = await controls(page);
@@ -178,7 +178,7 @@ test.describe('@smoke the PRO panel reads as one product', () => {
   });
 });
 
-test.describe('the PRO panel is consistent across the three languages', () => {
+test.describe('@slow the PRO panel is consistent across the three languages', () => {
   for (const locale of ['en', 'es', 'pt'] as const) {
     test(`C5 ${locale} — nothing overflows and nothing is left untranslated`, async (
       { pro: page },
