@@ -14,7 +14,7 @@ class CiAggregate(unittest.TestCase):
         dependency_list = re.findall(r'^      - ([\w-]+)$', needs, re.M)
         dependencies = set(dependency_list)
         self.assertEqual(len(dependency_list), len(dependencies))
-        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky'})
+        self.assertEqual(dependencies, jobs - {'ci-ok', 'e2e-flaky', 'rust', 'npm'})
 
     def test_ci_scripts_filter_covers_its_tests_and_inputs(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()

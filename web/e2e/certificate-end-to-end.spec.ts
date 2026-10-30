@@ -4,7 +4,7 @@ import { test, expect } from './fixtures';
 // reach the results panel through the real certify path (worker or main-thread fallback),
 // not only through direct engine calls in the Rust tests: a solved frame shows the
 // end-to-end line under the certificate.
-test.describe('@smoke end-to-end certificate', () => {
+test.describe('@engine @smoke end-to-end certificate', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });

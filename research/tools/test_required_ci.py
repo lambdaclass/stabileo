@@ -31,11 +31,10 @@ for job, tests in {
     'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
-    assert 'if' not in research['jobs'][job]
+    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
-# The route budget measures a change that touches research code, and every push to main.
 import re
 route = research['jobs']['route-size']['steps']
 scope = next(step for step in route if step.get('id') == 'scope')
@@ -52,7 +51,46 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
     assert not pattern.search(path), path
 assert '[ -z "$BASE" ]' in scope['run']
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
-assert measured and all(step.get('if') == "steps.scope.outputs.research == 'true'" for step in measured)
+assert measured and all('if' not in step for step in measured)
+assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
+copy = next(line for line in measured[0]['run'].splitlines() if line.startswith('cp '))
+assert 'web/scripts/product-route-growth-budgets.json' in copy.split()
+assert copy.split()[-1] == 'route-main/web/scripts/'
+assert 'force_routes' not in jobs['research'].get('with', {})
+assert 'FORCE_ROUTES' not in scope['env']
+assert 'github.event.merge_group.base_sha' in scope['env']['BASE']
+assert 'github.event.before' in scope['env']['BASE']
+import tempfile
+for paths, expected in [
+    ('web/src/App.svelte', 'false'),
+    ('web/package-lock.json', 'false'),
+    ('web/src/components/research/ResearchPage.svelte', 'true'),
+    ('web/src/App.svelte\nresearch/papers.json', 'true'),
+    ('research/tools/catalog.py', 'false'),
+]:
+    with tempfile.NamedTemporaryFile() as out:
+        script = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'printf "%s\\n" "$TEST_PATHS"')
+        script = script.replace('/tmp/route-changed-paths', out.name + '.paths')
+        try:
+            subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script], check=True,
+                           env={**scope['env'], 'BASE': 'base', 'TEST_PATHS': paths, 'GITHUB_OUTPUT': out.name})
+            assert pathlib.Path(out.name).read_text().strip() == f'research={expected}'
+        finally:
+            pathlib.Path(out.name + '.paths').unlink(missing_ok=True)
+with tempfile.NamedTemporaryFile() as out:
+    subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', scope['run']], check=True,
+                   env={**scope['env'], 'BASE': '', 'GITHUB_OUTPUT': out.name})
+    assert pathlib.Path(out.name).read_text().strip() == 'research=true'
+    failed_diff = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'false')
+    result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', failed_diff.replace('/tmp/route-changed-paths', out.name)],
+                            env={**scope['env'], 'BASE': 'missing', 'GITHUB_OUTPUT': out.name})
+    assert result.returncode != 0
+triggers = research.get('on', research.get(True))
+assert set(triggers['pull_request']['paths']) == {
+    'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
+for name, job in research['jobs'].items():
+    if name != 'catalog-online':
+        assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
@@ -60,5 +98,5 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert koiter["runs-on"] == "ubuntu-latest" and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
