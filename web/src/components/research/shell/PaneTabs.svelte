@@ -42,6 +42,7 @@
 <style>
   .rs-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
     border-bottom: 1px solid var(--hair);
   }
@@ -52,7 +53,8 @@
     border: 0;
     border-bottom: 2px solid transparent;
     padding: 0.6rem 0.75rem;
-    min-height: 2.25rem;
+    min-height: 44px;
+    min-width: 44px;
     cursor: pointer;
   }
   .rs-tabs button[aria-selected='true'] {

@@ -543,8 +543,8 @@
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   padding: 0 7px;
   background: transparent;
   border: 1px solid rgba(143, 163, 179, 0.22);
@@ -2232,3 +2232,12 @@
 }
 
 .landing .links-panel a:hover .links-langs { color: var(--lp-slate-2); }
+
+/* Shared public navigation, including both expanded menus. */
+.landing .site-header :is(a, button, select) {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+}
+.landing .site-header .nav-gh { font-size: max(12px, 0.75rem); }
+.landing .site-header .nav-link { display: flex; align-items: center; }

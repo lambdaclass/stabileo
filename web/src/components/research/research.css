@@ -47,3 +47,34 @@
     font-size: 1.0625rem;
   }
 }
+
+/* Keep experiment controls usable on touch screens, including inactive tabs. */
+.landing.research :is(button, input, select, summary) {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+}
+.landing.research .rs-tog .box { font-size: 12px; }
+.landing.research .sp-tabbar,
+.landing.research .rs-scrub { flex-wrap: wrap; }
+.landing.research .rs-scrub input { width: 0; }
+.landing.research .sp-controls label {
+  grid-template-columns: minmax(0, 9rem) minmax(44px, 1fr) 3.5rem;
+}
+.landing.research .sp-controls :is(input, select) { max-width: 100%; }
+@media (max-width: 640px) {
+  .landing.research .sp-controls label:not(.chk) {
+    grid-template-columns: minmax(44px, 1fr) 3.5rem;
+  }
+  .landing.research .sp-controls :is(input, select) { grid-column: 1; }
+  .landing.research .sp-controls select { grid-column: 1 / -1; }
+}
+
+.landing.research .rs-shell-app a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+.landing.research :is(sub, sup) { font-size: max(12px, 0.75em); }
+.landing.research tspan { font-size: max(12px, 0.75em); }
