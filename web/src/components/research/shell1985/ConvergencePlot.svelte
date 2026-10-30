@@ -24,7 +24,7 @@
         {#if i > 0 && points[i - 1].ratio !== null}
           <line x1={x(points[i - 1].n)} y1={y(points[i - 1].ratio!)} x2={x(point.n)} y2={y(point.ratio)} stroke="var(--rs-accent, #5ab7da)" stroke-width="2" />
         {/if}
-        <circle cx={x(point.n)} cy={y(point.ratio)} r="4" fill="var(--rs-accent, #5ab7da)"><title>{point.n} × {point.n}: {fmt(point.ratio)}</title></circle>
+        <circle cx={x(point.n)} cy={y(point.ratio)} r="4" fill="var(--rs-accent, #5ab7da)" aria-label={`${point.n} × ${point.n}: ${fmt(point.ratio)}`} />
       {/if}
       <text x={x(point.n)} y="200" text-anchor="middle">{point.n}</text>
     {/each}
