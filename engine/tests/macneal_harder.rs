@@ -15,9 +15,12 @@ fn browser_cases() {
             let result = linear::solve_3d(&serde_json::from_value::<SolverInput3D>(input).unwrap());
             // The shared research cases exercise the production containment gate.
             // Distorted in-plane bending has no publishable numerical result.
-            if matches!(c["id"].as_str().unwrap(), "mitc4-trapezoidal-in" | "mitc4-parallelogram-in") {
-                crate::common::assert_containment(result, "SH-MITC4-DISTORTION");
-                rows.push(json!({"id": c["id"], "refused": true, "knownIssue": "SH-MITC4-DISTORTION", "pass": false}));
+            if let Some(expected) = c.get("expectedRefusal") {
+                let failure = result.as_ref().unwrap_err();
+                assert!(failure.contains(&format!("known issue #{}", expected["issue"])), "{failure}");
+                let failure = failure.clone();
+                crate::common::assert_containment(result, expected["id"].as_str().unwrap());
+                rows.push(json!({"id": c["id"], "refused": true, "knownIssue": expected["id"], "issue": expected["issue"], "value": null, "error": null, "failure": failure, "pass": false}));
                 continue;
             }
             serde_json::to_value(result.unwrap()).unwrap()

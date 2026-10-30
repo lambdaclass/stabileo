@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cases, compare, viewerData } from '../cases';
+import { cases, compare, refusalFor, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
@@ -47,10 +47,28 @@ describe('engine benchmark evidence', () => {
       }
       const input = c.dimension === 2 ? buildSolverInput2D(model, false) : buildSolverInput3D(model, false);
       expect(input).not.toBeNull();
+      const direct = directResults.find(r => r.id === c.id)!;
+      if (c.expectedRefusal) {
+        expect(direct).toMatchObject({ refused: true, issue: 798, knownIssue: 'SH-MITC4-DISTORTION', value: null, error: null, pass: false });
+        expect(() => solve3D(input as Parameters<typeof solve3D>[0])).toThrow(/Results withheld:.*known issue #798, SH-MITC4-DISTORTION/);
+        expect(viewerData(c, direct).displacement).toBeNull();
+        continue;
+      }
       const result = c.dimension === 2 ? solve(input as Parameters<typeof solve>[0]) : solve3D(input as Parameters<typeof solve3D>[0]);
       const measured = compare(c, result.displacements as unknown as Record<string, number>[]);
-      const direct = directResults.find(r => r.id === c.id)!;
       expect(measured.value).toBeCloseTo(direct.value!, 10);
+    }
+  });
+  it('recognizes only the expected containment issue and never counts it as accuracy', () => {
+    const withheld = cases.filter(c => c.expectedRefusal);
+    expect(withheld.map(c => c.id)).toEqual(['mitc4-trapezoidal-in', 'mitc4-parallelogram-in']);
+    for (const c of withheld) {
+      const message = 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)';
+      expect(refusalFor(c, message)).toMatchObject({ refused: true, issue: 798, value: null, error: null, pass: false });
+      for (const failure of ['unavailable', message.replace('#798', '#799'), message.replace('SH-MITC4-DISTORTION', 'OTHER')]) {
+        expect(refusalFor(c, failure).refused).not.toBe(true);
+      }
+      expect(refusalFor(cases[0], message).refused).not.toBe(true);
     }
   });
   it('uses actual mesh connectivity in the shared viewer', () => {

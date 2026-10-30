@@ -1,23 +1,26 @@
 # Benchmark accuracy findings
 
-This test-owned ledger records accuracy failures without changing runtime diagnostics.
+This test-owned ledger records accuracy failures and production containment outcomes.
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
-It currently has no open shell entry. These findings need solver-owner triage before any
-runtime registry entry is added; no runtime issue number is implied here.
+Distorted MITC4 membrane bending is contained by SH-MITC4-DISTORTION, known issue #798.
 
 ## MH-MITC4-DISTORTION
 
 On the MacNeal–Harder straight cantilever (6 × 1, full root clamp), production MITC4 misses
-the page's strict 2% accuracy target for both trapezoidal and parallelogram meshes:
+the page's strict 2% accuracy target for distorted out-of-plane meshes. The two
+distorted in-plane cases are now withheld by the engine (known issue #798):
 
 | Mesh | Load | Reference | Computed | Relative error |
 |---|---|---:|---:|---:|
 | Trapezoidal | Out of plane | 0.4321 | 0.4162053612497649 | 3.678463% |
-| Trapezoidal | In plane | 0.1081 | 0.008443013508022026 | 92.189627% |
+| Trapezoidal | In plane | 0.1081 | Withheld (#798) | — |
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
-| Parallelogram | In plane | 0.1081 | 0.010379694543545988 | 90.398062% |
+| Parallelogram | In plane | 0.1081 | Withheld (#798) | — |
 
-Native and production WASM agree. Reproduce with `shells macneal_harder::browser_cases`
+The 12 live cases comprise eight accuracy passes, two numeric failures, and two
+expected containment refusals. Refusals are not accuracy passes and retain their
+cases, inputs, references and tolerances. Native and production WASM must both
+refuse with #798 and SH-MITC4-DISTORTION. Reproduce with `shells macneal_harder::browser_cases`
 and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references and the
 accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
@@ -94,8 +97,8 @@ Fresh native and production WASM measurements agree (rounded below):
 The roof plateaus below reference; the cylinder moves away from reference under the
 available refinement. Do not describe either as converging to the reference. Their
 boundary conditions warrant solver-owner review before attributing the discrepancies
-to locking. The runtime registry has no open shell entry; these are test-ledger findings,
-not assigned runtime issue numbers. No engine source or numerical behaviour is changed.
+to locking. These obstacle-course accuracy findings have no assigned runtime issue numbers;
+the separate distorted membrane-bending containment is #798. No engine source or numerical behaviour is changed.
 
 The live hemisphere is the NAFEMS LE3-labelled 18°-hole case in
 `benchmark_hemisphere_hole_convergence`: quarter loads ±2, reference 0.185. The solid-shell

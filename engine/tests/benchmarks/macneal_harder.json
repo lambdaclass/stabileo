@@ -1549,6 +1549,7 @@
     },
     {
       "id": "mitc4-trapezoidal-in",
+      "expectedRefusal": { "issue": 798, "id": "SH-MITC4-DISTORTION" },
       "label": "MITC4 \u00b7 trapezoidal \u00b7 in-of-plane",
       "dimension": 3,
       "element": "MITC4",
@@ -2021,6 +2022,7 @@
     },
     {
       "id": "mitc4-parallelogram-in",
+      "expectedRefusal": { "issue": 798, "id": "SH-MITC4-DISTORTION" },
       "label": "MITC4 \u00b7 parallelogram \u00b7 in-of-plane",
       "dimension": 3,
       "element": "MITC4",
