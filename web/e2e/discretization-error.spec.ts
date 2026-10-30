@@ -21,6 +21,9 @@ test('a frame-and-shell model shows its estimated discretization error and runs 
   expect(state.applies).toBe(true);
 
   await page.evaluate(() => window.__stabileoActions.openProTab('results'));
+  // Folded under the results, and open by itself: this estimate is over the threshold.
+  await expect(page.getByTestId('result-checks')).toHaveAttribute('open', '');
+  await expect(page.getByTestId('result-checks-toggle')).toContainText(/high discretization error/i);
   const status = page.getByTestId('discretization-status').first();
   await expect(status).toBeVisible({ timeout: 30_000 });
   const estimate = page.getByTestId('discretization-estimate').first();

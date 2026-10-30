@@ -1,8 +1,8 @@
-.PHONY: research.wasm help install-nix shell setup setup.run git.setup deps backend.run console routes \
+.PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
        test.ci-scripts \
-       test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
+       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
        ai-backend.run ai-backend.build \
@@ -174,6 +174,9 @@ routes:
 	$(NIX_RUN) bash -c "cd backend && mix phx.routes StabileoWeb.Router"
 
 test: test.engine test.backend test.web
+
+test.engine.benchmark-protocol:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2
 
 test.engine:
 	$(NIX_RUN) cargo test -p dedaliano-engine
@@ -369,7 +372,15 @@ web.run: wasm research.wasm
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
+	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
+	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
+	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
+
+# Typesets the paper page's text (web/src/lib/paper) into its PDF with Tectonic.
+paper.pdf: web.deps
+	$(NIX_RUN) nix shell --inputs-from . nixpkgs#tectonic nixpkgs#libwebp --command bash -c "cd web && npx tsx scripts/paper-pdf.ts"
 
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
 web.build: wasm research.wasm

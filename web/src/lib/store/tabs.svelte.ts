@@ -278,7 +278,7 @@ function createTabManager() {
       uiStore.cameraMode3D = state.cameraMode3D;
       uiStore.showGrid3D = state.showGrid3D;
       uiStore.gridSize3D = state.gridSize3D;
-      uiStore.gridExtent3D = state.gridExtent3D ?? 50;
+      uiStore.gridExtent3D = state.gridExtent3D ?? uiStore.gridExtent3D;
       uiStore.snapToGrid3D = state.snapToGrid3D;
       uiStore.showNodeLabels3D = state.showNodeLabels3D;
       uiStore.showElementLabels3D = state.showElementLabels3D;

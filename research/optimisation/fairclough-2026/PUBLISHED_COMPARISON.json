@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "metric": "absolute normalized volume error FL/sigma",
+      "name": "Table 1 five-node volume, first row",
+      "observed": 0.00002645967045999953,
+      "passed": true,
+      "reference": 13.8394,
+      "source": "https://eprints.whiterose.ac.uk/id/eprint/236639/ — accepted manuscript PDF page 29, printed page 28, Table 1; Section 4.3",
+      "tolerance": 0.00005,
+      "volume": 13.83937354032954
+    }
+  ]
+}

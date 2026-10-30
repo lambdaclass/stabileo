@@ -18,6 +18,8 @@
 //!   hemisphere with an 18° hole.
 //! - Exact 3D elasticity for pure bending of a prismatic strip (St Venant).
 
+#[path = "benchmarks/macneal_harder.rs"]
+mod mh;
 use dedaliano_engine::solver::{buckling, linear, modal};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
@@ -378,7 +380,7 @@ fn hemisphere(n: usize) -> f64 {
 
 #[test]
 fn scordelis_lo_roof() {
-    let v: Vec<f64> = [4, 8, 16].iter().map(|&n| scordelis(n) / 0.3024).collect();
+    let v: Vec<f64> = [4, 8, 16].iter().map(|&n| scordelis(n) / mh::reference("scordelis")).collect();
     eprintln!("Scordelis–Lo w/0.3024: {v:.4?}");
     // Before the EAS modes: 0.9433, 0.9726, 0.9886. The reference itself is uncertain by
     // 0.3024 vs 0.3086 (2 %), so 1 % on the 16×16 mesh is what it supports.
@@ -388,7 +390,7 @@ fn scordelis_lo_roof() {
 
 #[test]
 fn pinched_cylinder_with_diaphragms() {
-    let v: Vec<f64> = [8, 16, 32].iter().map(|&n| pinched_cylinder(n) / 1.8248e-5).collect();
+    let v: Vec<f64> = [8, 16, 32].iter().map(|&n| pinched_cylinder(n) / mh::reference("pinchedCylinder")).collect();
     eprintln!("pinched cylinder w/1.8248e-5: {v:.4?}");
     // Before the EAS modes: 0.6729, 0.8249, 0.8731. Converges from below (point load:
     // the reference is the converged value of a singular field, ~1 % uncertain).
@@ -398,7 +400,7 @@ fn pinched_cylinder_with_diaphragms() {
 
 #[test]
 fn hemisphere_with_hole() {
-    let v: Vec<f64> = [8, 16, 32].iter().map(|&n| hemisphere(n) / 0.094).collect();
+    let v: Vec<f64> = [8, 16, 32].iter().map(|&n| hemisphere(n) / mh::reference("hemisphere")).collect();
     eprintln!("hemisphere u/0.094: {v:.4?}");
     // Before the EAS modes: 0.9764, 0.9792, 0.9838. References 0.094 (MacNeal–Harder) and
     // 0.0924 (converged) bracket the answer: 0.983–1.0 of 0.094.
@@ -414,45 +416,14 @@ fn hemisphere_with_hole() {
 /// parallelogram (all interior edges at 45°). Returns the tip displacement along the load,
 /// `out_of_plane` = along the thickness (reference 0.4321), else across the width (0.1081).
 fn mh_cantilever(shape: &str, out_of_plane: bool) -> f64 {
-    let (l, w, t, n) = (6.0, 0.2, 0.1, 6);
-    // Plan x of grid point (i, j): j = 0 at y = 0, j = 1 at y = w.
-    let x = |i: usize, j: usize| -> f64 {
-        let base = l * i as f64 / n as f64;
-        if i == 0 || i == n {
-            return base;
-        }
-        let d = 0.5 * w; // 45° across the width w
-        match shape {
-            "trapezoidal" => base + if i % 2 == 1 { d } else { -d } * if j == 0 { -1.0 } else { 1.0 },
-            "parallelogram" => base + if j == 0 { -d } else { d },
-            _ => base,
-        }
-    };
-    let mut input = empty_input();
-    input.materials.insert("1".into(), SolverMaterial { id: 1, e: 1e7 / 1000.0, nu: 0.3 });
-    let id = |i: usize, j: usize, k: usize| 1 + (i * 2 + j) * 2 + k;
-    for i in 0..=n {
-        for j in 0..2 {
-            for k in 0..2 {
-                let nid = id(i, j, k);
-                input.nodes.insert(nid.to_string(), SolverNode3D { id: nid, x: x(i, j), y: w * j as f64, z: t * k as f64 });
-            }
-        }
-    }
-    for i in 0..n {
-        let nodes = [id(i, 0, 0), id(i + 1, 0, 0), id(i + 1, 1, 0), id(i, 1, 0), id(i, 0, 1), id(i + 1, 0, 1), id(i + 1, 1, 1), id(i, 1, 1)];
-        input.solid_shells.insert((i + 1).to_string(), SolverSolidShellElement { id: i + 1, nodes, material_id: 1 });
-    }
-    for j in 0..2 {
-        for k in 0..2 {
-            input.supports.insert(id(0, j, k).to_string(), support(id(0, j, k), [true; 3]));
-            let f = if out_of_plane { [0.0, 0.0, 0.25] } else { [0.0, 0.25, 0.0] };
-            input.loads.push(nodal(id(n, j, k), f));
-        }
-    }
+    let axis = if out_of_plane { "out" } else { "in" };
+    let id = format!("solid-{shape}-{axis}");
+    let c = mh::DATA["nativeOnly"].as_array().unwrap().iter().find(|c| c["id"] == id).unwrap();
+    let input: SolverInput3D = serde_json::from_value(c["input"].clone()).unwrap();
     let r = linear::solve_3d(&input).expect("solve");
-    let c = if out_of_plane { 2 } else { 1 };
-    (0..2).flat_map(|j| (0..2).map(move |k| (j, k))).map(|(j, k)| disp(&r, id(n, j, k))[c]).sum::<f64>() / 4.0
+    let component = if out_of_plane { 2 } else { 1 };
+    c["measurement"]["nodes"].as_array().unwrap().iter()
+        .map(|id| disp(&r, id.as_u64().unwrap() as usize)[component]).sum::<f64>() / 4.0
 }
 
 /// Before → after the EAS modes (out-of-plane / in-plane):
@@ -468,9 +439,10 @@ fn mh_cantilever(shape: &str, out_of_plane: bool) -> f64 {
 #[test]
 fn macneal_harder_straight_cantilever() {
     // (shape, out-of-plane floor, in-plane floor)
-    for (shape, f_out, f_in) in [("regular", 0.97, 0.97), ("trapezoidal", 0.95, 0.04), ("parallelogram", 0.97, 0.6)] {
-        let out = mh_cantilever(shape, true) / 0.4321;
-        let inp = mh_cantilever(shape, false) / 0.1081;
+    for row in mh::DATA["solidCantilever"]["shapes"].as_array().unwrap() {
+        let (shape, f_out, f_in) = (row[0].as_str().unwrap(), row[1].as_f64().unwrap(), row[2].as_f64().unwrap());
+        let out = mh_cantilever(shape, true) / mh::DATA["solidCantilever"]["references"][0].as_f64().unwrap();
+        let inp = mh_cantilever(shape, false) / mh::DATA["solidCantilever"]["references"][1].as_f64().unwrap();
         eprintln!("MH straight cantilever {shape}: out-of-plane {out:.4}, in-plane {inp:.4}");
         assert!(out > f_out && out < 1.01, "{shape} out-of-plane: {out:.4}");
         assert!(inp > f_in && inp < 1.01, "{shape} in-plane: {inp:.4}");

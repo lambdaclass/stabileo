@@ -65,8 +65,9 @@ class Selection(unittest.TestCase):
                            'GITHUB_OUTPUT': str(output), 'CHANGED_PATH': path}
                     subprocess.run(['sh', '-eu', '-c', script_with_diff], env=env, check=True)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
-        self.assertIn('budget_arg=--product-budget', workflow)
-        self.assertIn('if [ "$RESEARCH_ISOLATION" = true ]; then budget_arg=; fi', workflow)
+        self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
+        self.assertIn('web/scripts/product-route-growth-budgets.json route-main/web/scripts/', workflow)
+        self.assertNotIn('--product-budget', workflow)
 
     def test_unsure_is_full(self):
         for paths in [None, [], {}, [None], ['../docs/x'], ['web/src/App.svelte'],
@@ -90,22 +91,28 @@ class Selection(unittest.TestCase):
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
 
-    def test_label_trigger_and_force_full_wiring(self):
+    def test_applying_run_e2e_label_schedules_full_ci(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        trigger = workflow.split('  pull_request:\n', 1)[1].split('  merge_group:', 1)[0]
-        types = re.search(r'types: \[([^\]]+)\]', trigger).group(1)
-        self.assertEqual({item.strip() for item in types.split(',')},
+        trigger = re.search(r'^  pull_request:\n    types: \[(.*?)\]', workflow, re.MULTILINE)
+        self.assertIsNotNone(trigger)
+        self.assertEqual({value.strip() for value in trigger[1].split(',')},
                          {'opened', 'synchronize', 'reopened', 'labeled'})
         self.assertIn("FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}", workflow)
-        for force, scope in [('true', 'full'), ('false', 'docs')]:
-            with tempfile.TemporaryDirectory() as tmp:
+        event = {'action': 'labeled', 'label': {'name': 'run-e2e'},
+                 'pull_request': {'labels': [{'name': 'run-e2e'}]}}
+        self.assertIn(event['action'], trigger[1])
+        for labels, expected in [([], 'docs'), (event['pull_request']['labels'], 'full')]:
+            with self.subTest(labels=labels), tempfile.TemporaryDirectory() as tmp:
                 output = Path(tmp) / 'outputs'
-                env = {'GITHUB_EVENT_NAME': 'pull_request', 'CHANGED_FILES': '["README.md"]',
+                env = {'GITHUB_EVENT_NAME': 'pull_request', 'CHANGED_FILES': '["docs/a.md"]',
                        'BASE_SHA': 'base', 'HEAD_SHA': 'head', 'GITHUB_OUTPUT': str(output),
-                       'FORCE_FULL': force}
-                with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=['merge-base', 'README.md\0']):
+                       'FORCE_FULL': str(any(label['name'] == 'run-e2e' for label in labels)).lower()}
+                with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=['merge-base', 'docs/a.md\0']):
                     runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
-                self.assertIn('scope=' + scope, output.read_text())
+                result = dict(line.split('=', 1) for line in output.read_text().splitlines())
+                self.assertEqual(result['scope'], expected)
+                if expected == 'full':
+                    self.assert_full(result)
 
     def test_missing_area_tests_fall_back_to_full(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,6 +153,20 @@ class Selection(unittest.TestCase):
         self.assertIn('e2e/basic-pdelta.spec.ts', args)
         self.assertIn('@engine', args[args.index('--grep') + 1])
         self.assertNotIn('--pass-with-no-tests', args)
+
+    def test_typecheck_covers_every_selected_web_scope(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
+        self.assertIn('shard: [1, 2]', unit)
+        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
+        self.assertIn('run: make typecheck.web', build)
+        self.assertEqual(workflow.count('run: make typecheck.web'), 1)
+        for path in ['research/a.rs', 'web/src/components/tools/a.svelte',
+                     'engine/src/lib.rs', 'web/src/App.svelte']:
+            self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
+        self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
+        self.assertEqual(selection.select('merge_group', [])['web'], 'true')
 
     def test_workflow_wiring(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()

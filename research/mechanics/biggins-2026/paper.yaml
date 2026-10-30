@@ -1,0 +1,30 @@
+id: biggins-2026
+catalog_id: zmyslony-2026
+doi: 10.1103/56f8-8gsx
+zenodo_record: 18256271
+license_data: CC-BY-4.0
+scope: centered rectangular preferred curvature; shallow inextensible flat-clamped arch
+sources:
+  - arXiv 2601.06598v2, Eq. (2), p.3
+  - arXiv 2601.06598v2, Eq. (3), p.4
+  - Supplementary Table S1, p.8 (combined PDF p.17)
+inputs:
+  length: {value: 1, unit: m}
+  young_modulus: {value: 1000, unit: MPa}
+  area: {value: 0.1, unit: m2}
+  inertia: {value: 0.000001, unit: m4}
+  width: {default: 0.7, min: 0.3, max: 0.9, unit: dimensionless}
+  shortening: {default: 0.012, min: 0.002, max: 0.02, unit: dimensionless}
+mesh: {elements: 64, type: production Euler-Bernoulli 2D frame}
+solver:
+  basis: dedaliano_engine::solver::buckling::solve_buckling_2d
+  modes: 16
+  equilibrium: modal compression spectrum; bisection of stable and metastable branches
+  threshold: first spectrum minimum in [f0,f1], including endpoint
+  iterations: 100
+tolerances:
+  reference_curve_relative: 0.003
+  refinement_relative: 0.001
+  published_threshold_absolute: 0.02
+  eigenvalue_relative: 0.00001
+excluded: [finite-angle elastica, experimental snap validation, dynamics, offset patterns]

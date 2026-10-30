@@ -146,6 +146,9 @@ export interface ModelSnapshot {
 
 const MAX_HISTORY = 50;
 
+/** A step taken in the plane workspace has no space view to come back to: its model is a plane one. */
+const presentationNow = () => (uiStore.is3DWorkspace ? uiStore.viewportPresentation3D : undefined);
+
 /**
  * What kind of transaction produced a history entry.
  *  - 'structural': a real model mutation — undo/redo goes through the FULL
@@ -219,7 +222,7 @@ function createHistoryStore() {
      * pass it explicitly: worst case is a full restore, never a skipped one.
      */
     pushState(opts?: { notifyMutation?: boolean; kind?: SnapshotKind }): void {
-      const snapshot = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const snapshot = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind: SnapshotKind = opts?.kind ?? 'structural';
       undoStack.push(snapshot);
       undoKinds.push(kind);
@@ -239,7 +242,7 @@ function createHistoryStore() {
 
     undo(): void {
       if (undoStack.length === 0) return;
-      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const current = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind = undoKinds.pop() ?? 'structural';
       const prev = undoStack.pop()!;
       const prevSel = undoSel.pop() ?? null;
@@ -258,12 +261,13 @@ function createHistoryStore() {
         modelStore.restore(prev);
       }
       if (prev.presentation3D) uiStore.viewportPresentation3D = prev.presentation3D;
+      else if (uiStore.is3DWorkspace) uiStore.choosePresentation3D();
       selRestore(prevSel);
     },
 
     redo(): void {
       if (redoStack.length === 0) return;
-      const current = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+      const current = { ...modelStore.snapshot(), presentation3D: presentationNow() };
       const kind = redoKinds.pop() ?? 'structural';
       const next = redoStack.pop()!;
       const nextSel = redoSel.pop() ?? null;
@@ -282,6 +286,7 @@ function createHistoryStore() {
         modelStore.restore(next);
       }
       if (next.presentation3D) uiStore.viewportPresentation3D = next.presentation3D;
+      else if (uiStore.is3DWorkspace) uiStore.choosePresentation3D();
       selRestore(nextSel);
     },
 

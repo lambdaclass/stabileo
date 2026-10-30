@@ -30,6 +30,44 @@ export type ResearchStrings = {
   ferrariViewer: string;
   ferrariDisclaimer: string;
   ferrariPending: string;
+  formPositionError: string;
+  formForceError: string;
+  formTitle: string;
+  formLead: string;
+  formScopeTitle: string;
+  formScope: string;
+  formMethodTitle: string;
+  formMethod: string;
+  formInputs: string;
+  formEvidenceTitle: string;
+  formEvidence: string;
+  formReference: string;
+  formEngineTitle: string;
+  formEngine: string;
+  formLimitsTitle: string;
+  formLimits: string;
+  formDisclaimer: string;
+  formQuestionsTitle: string;
+  formQuestions: string;
+  formReplay: string;
+  formLive: string;
+  formForce: string;
+  formHeight: string;
+  formDensity: string;
+  formLoad: string;
+  formControls: string;
+  formRun: string;
+  formComputing: string;
+  formStop: string;
+  formRestart: string;
+  formOblique: string;
+  formElevation: string;
+  formProjectionNote: string;
+  formReplayStep: string;
+  formFailed: string;
+  formExportNote: string;
+  formEditorLabel: string;
+  formAlt: string;
 
   springsEqualWeight: string;
   springsCompressionLegend: string;
@@ -405,11 +443,13 @@ export type ResearchStrings = {
   suggest: string;
   onlyEnglish: string;
   againstCode: string;
+  againstBenchmark: string;
   againstPaper: string;
   of: string;
   seeChecks: string;
   disclaimer: string;
   notComparedWhy: string;
+  benchmark: Record<'viewer' | 'path' | 'parameters' | 'case' | 'riseSpan' | 'loadDirection' | 'downward' | 'upward' | 'arcLengthStep' | 'recompute' | 'stop' | 'restart' | 'backToReplay' | 'play' | 'pause' | 'step' | 'reference' | 'stabileo' | 'error' | 'result' | 'reset', string>;
 };
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
@@ -442,6 +482,44 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariViewer: "Roorda frame displacement",
     ferrariDisclaimer: "Research, not a design tool.",
     ferrariPending: "Koiter comparison pending",
+    formPositionError: "Maximum reference position error",
+    formForceError: "Maximum reference force error",
+    formTitle: "Four cables, one equilibrium",
+    formLead: "Find the shape of the four-bar system in Fig. 2 using positive force densities. Change the load, recompute in Rust, then open the found geometry as a truss in Stabileo.",
+    formScopeTitle: "What is reproduced",
+    formScope: "This first version implements the forward equilibrium problem in Section 2.1, Fig. 2 and Eq. (7). Our four-cable net has one free joint and four fixed supports. Its topology follows the paper; its dimensions and loads are explicitly chosen here, not transcribed from the figure. The paper develops differentiable inverse design; that contribution is outside this version.",
+    formMethodTitle: "The forward method",
+    formMethod: "Force density is axial tension divided by member length. Positive densities give an anchored network a positive-definite equilibrium matrix. The research crate assembles this matrix and uses the production engine’s sparse Cholesky factorization for the three coordinates. Forces follow from f = qℓ.",
+    formInputs: "Supports are (±2, ±2, 0) m. The baseline downward load is 4 kN and every density is 1 kN/m. Eq. (7) then gives z = −1 m, length = 3 m and tension = 3 kN. These are derived targets for our inputs, not published numerical observations.",
+    formEvidenceTitle: "Evidence and tolerances",
+    formEvidence: "Five input cases compare every coordinate and cable force with unmodified jax_fdm in float64. Absolute tolerances are 1e-12 m for coordinates, 1e-12 kN for reference forces and equilibrium residuals, and 1e-9 kN for production truss forces. The validation file records each observed error. The replay is a load sweep computed by the same Rust solver, not convergence iterations.",
+    formReference: "Reference: jax_fdm, MIT, revision 9a17fd379071fb3511ca914f46e8d1e8c286460e. The manifest records the source archive SHA-256, output hashes and installed environment. This revision has not been confirmed as the publication revision.",
+    formEngineTitle: "What the production engine checks",
+    formEngine: "The editor receives the found geometry, fixed support translations and the same vertical load as a 3D linear elastic truss. With equal member stiffnesses, symmetry makes its axial forces match FDM. Tests also check its vertical displacement against the elastic closed form. This is a separate analysis of initially unstressed bars: cable prestress and geometric stiffness are not transferred.",
+    formLimitsTitle: "Not yet reproduced",
+    formLimits: "No adjoints, gradients, optimization, shells, mixed tension/compression, shape-dependent loading, buckling or timing claims. No published optimized shapes or table values are reproduced. The preview is a labelled projection; the editor contains the full spatial model.",
+    formDisclaimer: "Agreement with another code is not experimental validation or engineering certification.",
+    formQuestionsTitle: "Questions for the authors",
+    formQuestions: "Which commit and environment generated the paper? Are the exact Fig. 2 inputs available? Which small cable-net benchmark and reference coordinates, forces and gradients would you recommend for a subsequent inverse-design reproduction?",
+    formReplay: "Precomputed replay (same solver)",
+    formLive: "Live Rust computation",
+    formForce: "Cable tension",
+    formHeight: "Free-node elevation",
+    formDensity: "Force density",
+    formLoad: "Downward load",
+    formControls: "Form-finding controls",
+    formRun: "Recompute live",
+    formComputing: "Computing…",
+    formStop: "Stop",
+    formRestart: "Restart",
+    formOblique: "Oblique projection",
+    formElevation: "Elevation projection",
+    formProjectionNote: "Projected spatial net · supports at the four outer ends · full geometry in the editor",
+    formReplayStep: "Load-sweep frame",
+    formFailed: "The calculation or editor could not load. The displayed result is unchanged; retry.",
+    formExportNote: "Opens the displayed result as an unstressed elastic truss. No cable prestress is exported. Research, not a design tool.",
+    formEditorLabel: "Research: four-cable geometry, unstressed truss check",
+    formAlt: "Projection of our four-cable equilibrium result",
     springsEqualWeight: "k ∝ 1/ℓ² (as Eq. 9)",
     springsCompressionLegend: "compression positive after division by negative ε · strip compressed left to right, end rows held",
     springsTensionLegend: "tension positive · strip pulled left to right, end rows held",
@@ -814,11 +892,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Suggest a paper to reproduce →',
     onlyEnglish: '',
     againstCode: 'Against the author’s code',
+    againstBenchmark: 'Against closed form and native engine',
     againstPaper: 'Against the paper’s figures',
     of: 'of',
     seeChecks: 'see the checks',
     disclaimer: 'Research, not a design tool. Nothing here is an engineering result.',
     notComparedWhy: 'Not compared: the full text was not accessible to us',
+    benchmark: {
+      viewer: 'Viewer', path: 'Convergence / Path', parameters: 'Parameters', case: 'Case', riseSpan: 'Rise / span',
+      loadDirection: 'Load direction', downward: 'Downward', upward: 'Upward', arcLengthStep: 'Initial arc-length step',
+      recompute: 'Recompute live', stop: 'Stop', restart: 'Restart', backToReplay: 'Back to replay', play: 'Play', pause: 'Pause',
+      step: 'Load step shown', reference: 'Reference', stabileo: 'Stabileo', error: 'Error', result: 'Result', reset: 'Reset parameters',
+    },
   },
   es: {
     ferrariNumbers: "Con 10 elementos por miembro, |λ₁ − {reference}| = {error}, menor que la tolerancia {tolerance}. La máxima discrepancia escalada de las derivadas es {derivative}, menor que {derivativeTolerance}. Estas comprobaciones cubren solo la parte implementada.",
@@ -849,6 +934,44 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariViewer: "Desplazamiento del pórtico de Roorda",
     ferrariDisclaimer: "Investigación, no una herramienta de diseño.",
     ferrariPending: "Comparación de Koiter pendiente",
+    formPositionError: "Error máximo de posición respecto a la referencia",
+    formForceError: "Error máximo de fuerza respecto a la referencia",
+    formTitle: "Cuatro cables, un equilibrio",
+    formLead: "Encuentra la forma del sistema de cuatro barras de la Fig. 2 con densidades de fuerza positivas. Cambia la carga, recalcula en Rust y abre la geometría como cercha en Stabileo.",
+    formScopeTitle: "Qué se reproduce",
+    formScope: "Esta primera versión implementa el equilibrio directo de la sección 2.1, Fig. 2 y Ec. (7). La red tiene un nudo libre y cuatro apoyos fijos. Su topología sigue el artículo; sus dimensiones y cargas se eligen aquí explícitamente, sin extraerlas de la figura. El artículo desarrolla diseño inverso diferenciable; esa contribución queda fuera de esta versión.",
+    formMethodTitle: "El método directo",
+    formMethod: "La densidad de fuerza es la tracción axial dividida por la longitud. Densidades positivas dan una matriz de equilibrio definida positiva a una red anclada. El crate de investigación ensambla la matriz y usa Cholesky disperso del motor de producción para las tres coordenadas. Las fuerzas resultan de f = qℓ.",
+    formInputs: "Los apoyos están en (±2, ±2, 0) m. La carga base hacia abajo es 4 kN y cada densidad es 1 kN/m. La Ec. (7) da z = −1 m, longitud = 3 m y tracción = 3 kN. Son valores derivados para nuestros datos, no observaciones numéricas publicadas.",
+    formEvidenceTitle: "Evidencia y tolerancias",
+    formEvidence: "Cinco casos comparan cada coordenada y fuerza con jax_fdm sin modificar en float64. Las tolerancias absolutas son 1e-12 m para coordenadas, 1e-12 kN para fuerzas de referencia y residuos, y 1e-9 kN para fuerzas de la cercha de producción. El archivo de validación registra cada error observado. La reproducción recorre cargas con el mismo solver Rust; no representa iteraciones de convergencia.",
+    formReference: "Referencia: jax_fdm, MIT, revisión 9a17fd379071fb3511ca914f46e8d1e8c286460e. El manifiesto registra SHA-256 del archivo fuente, hashes de resultados y entorno instalado. No se ha confirmado que esta revisión corresponda a la publicación.",
+    formEngineTitle: "Qué verifica el motor de producción",
+    formEngine: "El editor recibe la geometría, las traslaciones fijas de los apoyos y la misma carga vertical como cercha elástica lineal 3D. Con rigideces iguales, la simetría hace que sus fuerzas axiales coincidan con FDM. Los tests también verifican el desplazamiento vertical con la solución elástica exacta. Es un análisis separado de barras inicialmente sin tensión: no se transfieren pretensión ni rigidez geométrica.",
+    formLimitsTitle: "Aún no reproducido",
+    formLimits: "No incluye adjuntos, gradientes, optimización, cáscaras, tracción/compresión mixta, cargas dependientes de la forma, pandeo ni afirmaciones de velocidad. No se reproducen formas optimizadas ni valores tabulados del artículo. La vista previa es una proyección indicada; el editor contiene el modelo espacial completo.",
+    formDisclaimer: "La concordancia con otro código no es validación experimental ni certificación de ingeniería.",
+    formQuestionsTitle: "Preguntas para los autores",
+    formQuestions: "¿Qué commit y entorno generaron el artículo? ¿Están disponibles los datos exactos de la Fig. 2? ¿Qué red pequeña y coordenadas, fuerzas y gradientes de referencia recomiendan para una posterior reproducción del diseño inverso?",
+    formReplay: "Reproducción precalculada (mismo solver)",
+    formLive: "Cálculo Rust en vivo",
+    formForce: "Tracción del cable",
+    formHeight: "Cota del nudo libre",
+    formDensity: "Densidad de fuerza",
+    formLoad: "Carga hacia abajo",
+    formControls: "Controles de búsqueda de forma",
+    formRun: "Recalcular en vivo",
+    formComputing: "Calculando…",
+    formStop: "Detener",
+    formRestart: "Reiniciar",
+    formOblique: "Proyección oblicua",
+    formElevation: "Proyección de elevación",
+    formProjectionNote: "Red espacial proyectada · apoyos en los cuatro extremos · geometría completa en el editor",
+    formReplayStep: "Paso del barrido de carga",
+    formFailed: "No se pudo cargar el cálculo o editor. El resultado mostrado no cambió; reintenta.",
+    formExportNote: "Abre el resultado mostrado como cercha elástica sin tensión inicial. No exporta pretensión. Investigación, no herramienta de diseño.",
+    formEditorLabel: "Investigación: geometría de cuatro cables, verificación de cercha sin tensión inicial",
+    formAlt: "Proyección de nuestro equilibrio de cuatro cables",
     springsEqualWeight: "k ∝ 1/ℓ² (como Ec. 9)",
     springsCompressionLegend: "compresión positiva al dividir por ε negativo · tira comprimida de izquierda a derecha, filas extremas sujetas",
     springsTensionLegend: "tracción positiva · tira estirada de izquierda a derecha, filas extremas sujetas",
@@ -1221,11 +1344,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Sugerí un artículo para reproducir →',
     onlyEnglish: 'Este artículo está disponible solo en inglés.',
     againstCode: 'Frente al código del autor',
+    againstBenchmark: 'Frente a la forma cerrada y al motor nativo',
     againstPaper: 'Frente a las figuras del artículo',
     of: 'de',
     seeChecks: 'ver los controles',
     disclaimer: 'Investigación, no una herramienta de diseño. Nada de esto es un resultado de ingeniería.',
     notComparedWhy: 'No comparado: no tuvimos acceso al texto completo',
+    benchmark: {
+      viewer: 'Visor', path: 'Convergencia / Trayectoria', parameters: 'Parámetros', case: 'Caso', riseSpan: 'Flecha / luz',
+      loadDirection: 'Dirección de carga', downward: 'Hacia abajo', upward: 'Hacia arriba', arcLengthStep: 'Paso inicial de longitud de arco',
+      recompute: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', backToReplay: 'Volver a la repetición', play: 'Reproducir', pause: 'Pausar',
+      step: 'Paso de carga mostrado', reference: 'Referencia', stabileo: 'Stabileo', error: 'Error', result: 'Resultado', reset: 'Restablecer parámetros',
+    },
   },
   pt: {
     ferrariNumbers: "Com 10 elementos por membro, |λ₁ − {reference}| = {error}, abaixo da tolerância {tolerance}. A maior discrepância escalada das derivadas é {derivative}, abaixo de {derivativeTolerance}. Estas verificações cobrem apenas a parte implementada.",
@@ -1256,6 +1386,44 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariViewer: "Deslocamento do pórtico de Roorda",
     ferrariDisclaimer: "Pesquisa, não uma ferramenta de projeto.",
     ferrariPending: "Comparação de Koiter pendente",
+    formPositionError: "Erro máximo de posição em relação à referência",
+    formForceError: "Erro máximo de força em relação à referência",
+    formTitle: "Quatro cabos, um equilíbrio",
+    formLead: "Encontre a forma do sistema de quatro barras da Fig. 2 com densidades de força positivas. Altere a carga, recalcule em Rust e abra a geometria como treliça no Stabileo.",
+    formScopeTitle: "O que é reproduzido",
+    formScope: "Esta primeira versão implementa o equilíbrio direto da seção 2.1, Fig. 2 e Eq. (7). A rede tem um nó livre e quatro apoios fixos. Sua topologia segue o artigo; dimensões e cargas são escolhidas aqui explicitamente, sem extraí-las da figura. O artigo desenvolve projeto inverso diferenciável; essa contribuição está fora desta versão.",
+    formMethodTitle: "O método direto",
+    formMethod: "A densidade de força é a tração axial dividida pelo comprimento. Densidades positivas dão uma matriz de equilíbrio definida positiva a uma rede ancorada. O crate de pesquisa monta a matriz e usa Cholesky esparso do motor de produção para as três coordenadas. As forças resultam de f = qℓ.",
+    formInputs: "Os apoios estão em (±2, ±2, 0) m. A carga base para baixo é 4 kN e cada densidade é 1 kN/m. A Eq. (7) dá z = −1 m, comprimento = 3 m e tração = 3 kN. São valores derivados para nossos dados, não observações numéricas publicadas.",
+    formEvidenceTitle: "Evidências e tolerâncias",
+    formEvidence: "Cinco casos comparam cada coordenada e força com jax_fdm sem modificações em float64. As tolerâncias absolutas são 1e-12 m para coordenadas, 1e-12 kN para forças de referência e resíduos, e 1e-9 kN para forças da treliça de produção. O arquivo de validação registra cada erro observado. A reprodução percorre cargas com o mesmo solver Rust; não representa iterações de convergência.",
+    formReference: "Referência: jax_fdm, MIT, revisão 9a17fd379071fb3511ca914f46e8d1e8c286460e. O manifesto registra SHA-256 do arquivo fonte, hashes de resultados e ambiente instalado. Não foi confirmado que esta revisão corresponda à publicação.",
+    formEngineTitle: "O que o motor de produção verifica",
+    formEngine: "O editor recebe a geometria, as translações fixas dos apoios e a mesma carga vertical como treliça elástica linear 3D. Com rigidezes iguais, a simetria faz suas forças axiais coincidirem com FDM. Os testes também verificam o deslocamento vertical com a solução elástica exata. É uma análise separada de barras inicialmente sem tensão: pré-tensão e rigidez geométrica não são transferidas.",
+    formLimitsTitle: "Ainda não reproduzido",
+    formLimits: "Não inclui adjuntos, gradientes, otimização, cascas, tração/compressão mista, cargas dependentes da forma, flambagem nem afirmações de velocidade. Não reproduz formas otimizadas nem valores tabelados do artigo. A prévia é uma projeção indicada; o editor contém o modelo espacial completo.",
+    formDisclaimer: "A concordância com outro código não é validação experimental nem certificação de engenharia.",
+    formQuestionsTitle: "Perguntas aos autores",
+    formQuestions: "Qual commit e ambiente geraram o artigo? Os dados exatos da Fig. 2 estão disponíveis? Qual rede pequena e coordenadas, forças e gradientes de referência recomendam para uma futura reprodução do projeto inverso?",
+    formReplay: "Reprodução pré-calculada (mesmo solver)",
+    formLive: "Cálculo Rust ao vivo",
+    formForce: "Tração do cabo",
+    formHeight: "Cota do nó livre",
+    formDensity: "Densidade de força",
+    formLoad: "Carga para baixo",
+    formControls: "Controles de busca de forma",
+    formRun: "Recalcular ao vivo",
+    formComputing: "Calculando…",
+    formStop: "Parar",
+    formRestart: "Reiniciar",
+    formOblique: "Projeção oblíqua",
+    formElevation: "Projeção de elevação",
+    formProjectionNote: "Rede espacial projetada · apoios nas quatro extremidades · geometria completa no editor",
+    formReplayStep: "Passo da varredura de carga",
+    formFailed: "Não foi possível carregar o cálculo ou editor. O resultado exibido não mudou; tente novamente.",
+    formExportNote: "Abre o resultado exibido como treliça elástica sem tensão inicial. Não exporta pré-tensão. Pesquisa, não ferramenta de projeto.",
+    formEditorLabel: "Pesquisa: geometria de quatro cabos, verificação de treliça sem tensão inicial",
+    formAlt: "Projeção do nosso equilíbrio de quatro cabos",
     springsEqualWeight: "k ∝ 1/ℓ² (como Eq. 9)",
     springsCompressionLegend: "compressão positiva após divisão por ε negativo · faixa comprimida da esquerda para a direita, fileiras extremas presas",
     springsTensionLegend: "tração positiva · faixa tracionada da esquerda para a direita, fileiras extremas presas",
@@ -1628,11 +1796,18 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     suggest: 'Sugira um artigo para reproduzir →',
     onlyEnglish: 'Este artigo está disponível apenas em inglês.',
     againstCode: 'Frente ao código do autor',
+    againstBenchmark: 'Frente à forma fechada e ao motor nativo',
     againstPaper: 'Frente às figuras do artigo',
     of: 'de',
     seeChecks: 'ver as verificações',
     disclaimer: 'Pesquisa, não uma ferramenta de projeto. Nada aqui é um resultado de engenharia.',
     notComparedWhy: 'Não comparado: não tivemos acesso ao texto completo',
+    benchmark: {
+      viewer: 'Visualizador', path: 'Convergência / Caminho', parameters: 'Parâmetros', case: 'Caso', riseSpan: 'Flecha / vão',
+      loadDirection: 'Direção da carga', downward: 'Para baixo', upward: 'Para cima', arcLengthStep: 'Passo inicial de comprimento de arco',
+      recompute: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', backToReplay: 'Voltar à reprodução', play: 'Reproduzir', pause: 'Pausar',
+      step: 'Passo de carga mostrado', reference: 'Referência', stabileo: 'Stabileo', error: 'Erro', result: 'Resultado', reset: 'Restaurar parâmetros',
+    },
   },
 };
 

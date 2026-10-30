@@ -61,7 +61,7 @@
 </script>
 
 <div class="ferrari-page">
-<ExperimentShell paperId="ferrari-2025" name={s.ferrariTitle} lead={s.ferrariLead}
+<ExperimentShell introInArticle paperId="ferrari-2025" name={s.ferrariTitle} lead={s.ferrariLead}
   sourcePath="research/stability/ferrari-sigmund-2025"
   verification={{ reference: { kind: 'none', why: s.ferrariPending }, published: { kind: 'none', why: s.ferrariPending } }}
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => host.scrollIntoView({ block: 'nearest' }) }}>
@@ -83,7 +83,7 @@
       </div>
       {#if failed}<p role="alert">{s.ferrariFailed}</p>{/if}
       <p data-testid="ferrari-buckling">λ₁ = {format(lambda)}</p>
-      <StabileoViewer xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} range={{ min: 0, max: 1 }}
+      <StabileoViewer xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
         displacement={shown.displacement} deformScale={1} showMesh={false} title={s.ferrariViewer}
         height="min(52vh, 24rem)" view={[-0.1, -0.1, 1.1, 1.1]} editorButton={false} oninteract={() => playback.interact()} />
       <label>{s.ferrariStep} {format(playback.shown + 1)} / {format(frames.length)}
@@ -104,7 +104,7 @@
   .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   button { min-height: 44px; padding: 0.5rem 0.75rem; font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--hair); border-radius: 4px; cursor: pointer; }
   button:disabled { opacity: 0.6; cursor: wait; }
-  .experiment :global(.sfv *) { font-size: 12px !important; }
+  .experiment :global(.sfv-wrap), .experiment :global(.sfv-wrap *) { font-size: 12px !important; }
   .experiment :global(button) { min-height: 44px; min-width: 44px; font-size: 12px; }
   label { display: block; }
   input { display: block; width: 100%; min-height: 44px; margin: 0; }

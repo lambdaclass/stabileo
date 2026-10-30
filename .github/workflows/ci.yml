@@ -7,7 +7,7 @@
 # 6: production, E2E, admin, Docker source, and route-budget main/candidate.
 # Docker tests both source and site-production paths; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
-# Keep Research WASM at 30 min: recent hosted success 22m26s, compilation 17m17s.
+# Research WASM keeps the 60-minute budget for the expanded research crate set.
 # PR selection (docs/changelog may accompany any single area):
 # docs/**, root *.md, changelog.d/**: repository lint/changelog only.
 # research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
@@ -160,10 +160,14 @@ jobs:
             ci_scripts:
               - '.github/workflows/research.yml'
               - 'scripts/tests/**'
+              - 'scripts/ci/**'
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+              - 'flake.nix'
+              - 'flake.lock'
+              - 'web/package-lock.json'
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
@@ -197,7 +201,7 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,10 +254,15 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command true
       - name: Shellcheck
         run: make test.ci-scripts
+      # Pull requests never run on the self-hosted runners, so the merge queue's browser shell
+      # (.#e2e: Playwright browsers from nix, version-locked to package-lock) is checked here on
+      # a GitHub-hosted runner whenever the tooling it depends on changes.
+      - name: Browser shell (.#e2e) launches Chromium and Firefox
+        run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
   lint-engine:
     name: Lint Engine
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -326,7 +335,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/2)
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -367,7 +376,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -582,7 +591,7 @@ jobs:
   # Vite would substitute a stub solver; the e2e readiness gate fails loudly if that happens.
   wasm:
     name: WASM
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
@@ -627,8 +636,8 @@ jobs:
   # test runs the real simulation.
   research-wasm:
     name: Research WASM
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
-    timeout-minutes: 30
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
@@ -658,7 +667,11 @@ jobs:
           path: |
             web/public/research-wasm/shauer-2025
             web/public/research-wasm/grossman-2026
-          key: research-assets-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**') }}
+            web/public/research-wasm/andreassen-2011
+            web/public/research-wasm/biggins-2026
+            web/public/research-wasm/pastrana-2026
+            web/public/research-wasm/fairclough-2026
+          key: research-assets-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
@@ -666,7 +679,11 @@ jobs:
           workspaces: |
             research/fracture/shauer-2025/wasm
             research/metamaterials/grossman-2026/wasm
+            research/form-finding/pastrana-2026/wasm
+            research/optimisation/fairclough-2026
           shared-key: research-wasm
+      - name: Install viewer dependencies
+        run: .github/scripts/retry-infra.sh make web.deps
       - name: Build research WASM and replay (cache miss)
         if: steps.research-assets.outputs.cache-hit != 'true'
         env:
@@ -675,18 +692,29 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/Cargo.toml
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
-          nix develop --command research/fracture/shauer-2025/wasm/build.sh
-          nix develop --command research/metamaterials/grossman-2026/wasm/build.sh
-      - name: Install viewer dependencies
-        run: .github/scripts/retry-infra.sh make web.deps
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
+          # Clear the flake's sccache wrapper for research toolchains on the host.
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/fracture/shauer-2025/wasm/build.sh
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimization/andreassen-2011/wasm/build.sh
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/mechanics/biggins-2026/build.sh
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/metamaterials/grossman-2026/wasm/build.sh
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/form-finding/pastrana-2026/wasm/build.sh
+          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimisation/fairclough-2026/wasm/build.sh
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
           nix develop --command bash -c 'cd web && npx --no-install vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer --logLevel warn'
           python3 research/tools/publish_assets.py "$PWD" "$PWD/web/public/research-wasm/shauer-2025"
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The five-node gridshell bundle reproduces Table 1 (Node)
+        run: nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
+      - name: Four-cable browser solver
+        run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
@@ -891,13 +919,6 @@ jobs:
           else
             .github/scripts/retry-infra.sh make web.deps
           fi
-      - name: Typecheck against its baseline and svelte-check gate
-        run: |
-          if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make typecheck.web NIX_RUN=
-          else
-            make typecheck.web
-          fi
       # The runner lacks the system libraries Chromium links against; no make target installs them.
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
@@ -905,6 +926,8 @@ jobs:
       - name: Install build-test browser
         if: runner.environment == 'github-hosted'
         run: .github/scripts/retry-infra.sh make e2e.web.setup
+      - name: Typecheck against its baseline and svelte-check gate
+        run: make typecheck.web
       - name: Build and production-build tests
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
@@ -942,7 +965,7 @@ jobs:
   # result-changes.json and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: [changes, wasm]
     if: needs.changes.outputs.results == 'true'
