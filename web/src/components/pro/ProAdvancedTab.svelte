@@ -77,7 +77,7 @@
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean; structuredDiagnostics?: import('../../lib/engine/types').StructuredDiagnostic[] };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -283,7 +283,7 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
       }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
@@ -1046,7 +1046,7 @@
     </div>
 
     <!-- ── 2. Modal ── -->
-    <div class="adv-group">
+    <div class="adv-group modal-group">
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving} data-testid="adv-run-modal">{t('pro.adv.modal')}</button>
         <label class="adv-label">
@@ -1056,6 +1056,7 @@
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
       {#if modalResult}
+        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
@@ -1064,14 +1065,14 @@
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
-          <table class="adv-table">
+          <table class="adv-table modal-table">
             <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} X</th><th>{t('adv.participationAbbr')} Y</th><th>{t('adv.participationAbbr')} Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                  onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}
                   title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
-                  <td class="col-id">{i + 1}</td>
+                  <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
+                    onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}>{i + 1}</button></td>
                   <td class="col-num">{fmtNum(mode.frequency)}</td>
                   <td class="col-num">{fmtNum(mode.period)}</td>
                   {#if modalConstrained}
@@ -1088,7 +1089,6 @@
             </tbody>
           </table>
         </div>
-        <ModalCertificate result={modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
       {/if}
     </div>
 
@@ -2002,6 +2002,16 @@
     gap: 6px;
     padding: 6px 0;
   }
+
+  .modal-group .adv-inline, .modal-group .adv-hint, .modal-group .adv-label,
+  .modal-group .adv-check, .modal-group .adv-num, .modal-group .adv-run-btn { font-size: 12px; }
+  .modal-group .adv-run-btn, .modal-group .adv-num, .modal-group .adv-check { min-height: 44px; min-width: 44px; box-sizing: border-box; }
+  .modal-group .adv-check { display: flex; align-items: center; }
+  .modal-group .adv-row { flex-wrap: wrap; }
+  .mode-select { min-width: 44px; min-height: 44px; font-size: 12px; cursor: pointer; color: inherit; background: transparent; border: 1px solid var(--st-hair); border-radius: 3px; }
+  .adv-table.modal-table th, .adv-table.modal-table td { font-size: 12px; padding: 3px 1px; overflow-wrap: anywhere; }
+  .modal-table { table-layout: fixed; }
+  .modal-table th:first-child { width: 46px; }
 
   .adv-table-scroll {
     max-height: 150px;

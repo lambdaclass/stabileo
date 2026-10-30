@@ -98,7 +98,10 @@ fn linear_2d_is_bit_identical_across_hash_orders() {
 #[test]
 fn linear_3d_is_bit_identical_across_hash_orders() {
     let mut solved = 0;
-    for seed in 0..60 {
+    // Rich inputs deliberately include unsupported settlements, orphan moments,
+    // left-handed axes and mechanisms. Keep every original seed and expand
+    // coverage so the unchanged quota counts actual equilibrated solutions.
+    for seed in 0..120 {
         let (m, _) = fuzz_models::random_3d_model_rich(seed);
         let json = serde_json::to_string(&m).unwrap();
         solved += same_every_time::<SolverInput3D, _>(&json, &format!("3D seed {seed}"), solve_3d);

@@ -39,8 +39,8 @@
 </div>
 
 <style>
-  .rv { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 0.62rem; color: var(--st-text-2); }
-  .rv input { width: 44px; }
+  .rv { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--st-text-2); }
+  .rv input { width: 60px; min-height: 44px; font-size: 12px; box-sizing: border-box; }
   .rv-hint { color: var(--st-text-3); }
-  .rv :global(.pk-btn) { min-height: 22px; padding: 0.1rem 0.5rem; font-size: 0.62rem; }
+  .rv :global(.pk-btn) { min-height: 44px; min-width: 44px; padding: 0.1rem 0.5rem; font-size: 12px; }
 </style>

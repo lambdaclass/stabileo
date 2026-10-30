@@ -17,6 +17,8 @@ pub struct ModalResult {
     pub cumulative_mass_ratio_x: f64,
     pub cumulative_mass_ratio_y: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default)]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -105,6 +107,8 @@ pub fn solve_modal_2d(
     // Large models (constrained or not): triplet sparse assembly + sparse
     // shift-invert Lanczos; the constraint transform reduces K and M as
     // sparse triple products (CᵀKC over triplets), never densifying.
+    let mut k_check_sparse = None;
+    let mut k_check_dense = Vec::new();
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     // M·r on the full free space, taken before the mass is reduced.
     let (m_r_x, m_r_y);
@@ -119,11 +123,13 @@ pub fn solve_modal_2d(
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+            k_check_sparse = Some(k_solve);
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
             let result = lanczos_generalized_eigen_sparse(&k_ff, &m_csc, num_modes, 0.0)
                 .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+            k_check_sparse = Some(k_ff);
             m_csc_opt = Some(m_csc);
             (result, nf, Vec::new())
         }
@@ -155,6 +161,7 @@ pub fn solve_modal_2d(
         };
         let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
             .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        k_check_dense = k_solve;
         (result, ns, m_solve)
     };
 
@@ -172,6 +179,11 @@ pub fn solve_modal_2d(
         None => (m_r_x, m_r_y),
     };
 
+    let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&match &k_check_sparse {
+        Some(k) => k.diagonal(),
+        None => (0..ns).map(|i| k_check_dense[i*ns+i]).collect(),
+    });
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -197,6 +209,11 @@ pub fn solve_modal_2d(
             Some(m_csc) => m_csc.sym_mat_vec(&phi_s),
             None => mat_vec_sub(&m_solve, &phi_s, ns),
         };
+        let k_phi = match &k_check_sparse {
+            Some(k) => k.sym_mat_vec(&phi_s),
+            None => mat_vec_sub(&k_check_dense, &phi_s, ns),
+        };
+        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         // Participation factors in solve space: φ_s · Cᵀ(M·r).
@@ -281,6 +298,7 @@ pub fn solve_modal_2d(
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
+        structured_diagnostics: checks.diagnostics,
     })
 }
 
@@ -306,6 +324,8 @@ pub struct ModalResult3D {
     pub cumulative_mass_ratio_y: f64,
     pub cumulative_mass_ratio_z: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default)]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -400,6 +420,8 @@ pub fn solve_modal_3d(
     };
     let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
 
+    let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&k_solve.diagonal());
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -418,6 +440,7 @@ pub fn solve_modal_3d(
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
         let m_phi = m_solve.sym_mat_vec(&phi_s);
+        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();
@@ -485,5 +508,6 @@ pub fn solve_modal_3d(
         cumulative_mass_ratio_y: cum_mry,
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
+        structured_diagnostics: checks.diagnostics,
     })
 }

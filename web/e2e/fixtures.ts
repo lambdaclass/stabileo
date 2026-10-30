@@ -148,6 +148,7 @@ export interface TestHooks {
 
 /** Actions a spec may drive — the same operations the UI controls perform. */
 export interface TestActions {
+  seedSelfCheckWarning(): void;
   loadExample(name: string): Promise<void>;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;

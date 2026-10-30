@@ -402,6 +402,10 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EquilibriumSummary {
+    /// Individual translational RHS components, retained before resultant cancellation.
+    /// Internal only: normalize after scaling to avoid overflow in an absolute sum.
+    #[serde(skip)]
+    pub applied_force_components: Vec<f64>,
     /// Relative residual: ||K*u - f|| / ||f||  (0 = perfect).
     pub relative_residual: f64,
     /// Whether the residual is within the solver's tolerance.

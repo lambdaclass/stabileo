@@ -101,3 +101,27 @@ fn tied_to_a_settling_support_3d_reports_a_small_residual() {
     let c = codes(&res.structured_diagnostics);
     assert!(!c.contains(&DiagnosticCode::ResidualHigh), "a correct solve reported ResidualHigh: {c:?}");
 }
+
+#[test]
+fn truss_3d_z_ground_mpc_balance() {
+    use dedaliano_engine::{types::*, solver::linear::solve_3d};
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id":1,"x":0.,"y":0.,"z":0.}, "2": {"id":2,"x":0.,"y":0.,"z":2.}, "3": {"id":3,"x":0.,"y":0.,"z":4.}},
+        "materials": {"1": {"id":1,"e":200000.,"nu":0.3}},
+        "sections": {"1": {"id":1,"a":0.01,"iy":0.,"iz":0.,"j":0.}},
+        "elements": {"1": {"id":1,"type":"truss","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}, "2": {"id":2,"type":"truss","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}},
+        "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false}, "3": {"nodeId":3,"rx":true,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false}},
+        "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0.,"fy":0.,"fz":-10.,"mx":0.,"my":0.,"mz":0.}}],
+        "constraints": [{"type":"linearMPC","terms":[{"nodeId":3,"dof":2,"coefficient":1.}]}]
+    })).unwrap();
+    assert_eq!(dedaliano_engine::solver::dof::DofNumbering::build_3d(&input).dofs_per_node, 3);
+    let r = solve_3d(&input).unwrap();
+    // Each bar has EA/L = 1e6 kN/m (E is supplied in MPa).
+    // The central load splits equally between the support and ground MPC.
+    assert!((r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz + 5e-6).abs() < 1e-12);
+    assert!((r.reactions.iter().find(|d| d.node_id == 1).unwrap().fz - 5.0).abs() < 1e-10);
+    assert!((r.constraint_forces.iter().filter(|d| d.node_id == 3 && d.dof == "uz").map(|d| d.force).sum::<f64>() - 5.0).abs() < 1e-10);
+    let balance = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("self_check:static_balance")).unwrap();
+    assert_eq!(balance.severity, Severity::Info);
+    assert!(balance.value.unwrap() < 1e-12);
+}

@@ -115,8 +115,8 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
-  it('an empty model is concerned by nothing', () => {
-    expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
+  it('an empty unstamped model still gets the analysis self-check notice', () => {
+    expect(ids(model({ supports: [], loadCases: [] }))).toEqual(['static-modal-runtime-self-checks']);
   });
 });
 

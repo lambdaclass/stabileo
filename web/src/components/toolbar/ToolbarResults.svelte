@@ -152,6 +152,7 @@
   {/if}
   {#if showResultsPanel || flat}
     {#if resultsStore.results || resultsStore.results3D || resultsStore.influenceLine}
+      <ResultChecks />
       {#if !hideDiagrams}
       <div class="diagram-grid">
         <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => showDiagram('none')} title={t('results.noDiagramTooltip')} use:tooltip={'diag-none'}>{t('results.none')}</button>
@@ -450,7 +451,6 @@
             </div>
           </div>
         {/if}
-        <ResultChecks />
 
     {:else}
       <p class="no-results-msg">{t('results.noResultsMsg')}</p>

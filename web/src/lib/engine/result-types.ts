@@ -5,7 +5,7 @@
 
 import type { AnalysisResults } from './types';
 import type { AnalysisResults3D } from './types-3d';
-import type { SolverDiagnostic } from './types';
+import type { SolverDiagnostic, StructuredDiagnostic } from './types';
 import type { BucklingCertificate } from './wasm-solver';
 
 // ─── Plastic Analysis ──────────────────────────────────────────
@@ -126,6 +126,7 @@ export interface RayleighDamping {
 }
 
 export interface ModalResult {
+  structuredDiagnostics?: StructuredDiagnostic[];
   modes: ModeShape[];
   nDof: number;
   totalMass: number;
@@ -155,6 +156,7 @@ export interface ModeShape3D {
 }
 
 export interface ModalResult3D {
+  structuredDiagnostics?: StructuredDiagnostic[];
   modes: ModeShape3D[];
   nDof: number;
   totalMass: number;

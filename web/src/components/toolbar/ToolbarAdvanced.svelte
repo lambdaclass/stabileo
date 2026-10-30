@@ -954,7 +954,7 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
+    <div class="adv-result-info" data-testid="pdelta-result">
       P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
       {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
       {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
@@ -962,6 +962,7 @@
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
+    <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>
@@ -974,8 +975,7 @@
         f = {mode.frequency.toFixed(2)} Hz |
         T = {mode.period.toFixed(3)} s
       </div>
-      <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
+      <div class="adv-result-info" style="opacity:0.8">
         <!-- The plane solver's second axis is the vertical, Z on screen; a space model has all three. -->
         {#if is3D}
           {@const m3 = mode as { massRatioZ?: number }}
@@ -1001,7 +1001,7 @@
     </div>
     <BucklingCertificate certificate={buR.certificate} />
     {#if buR.elementData.length > 0}
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
+      <div class="adv-result-info" style="opacity:0.8">
         Keff: {buR.elementData.slice(0, 3).map((ed: any) => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{buR.elementData.length > 3 ? '...' : ''}
       </div>
     {/if}
@@ -1329,12 +1329,14 @@
 
   /* Reachable from the result panels mounted inside this section (components/advanced/). */
   :where(.toolbar-section) :global(.small-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.1rem 0.4rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 3px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.7rem;
+    font-size: 12px;
     cursor: pointer;
   }
 
@@ -1350,18 +1352,21 @@
 
   :where(.toolbar-section) :global(.adv-result-row) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
     margin-top: 0.25rem;
   }
 
   :where(.toolbar-section) :global(.adv-result-btn) {
+    min-width: 44px;
+    min-height: 44px;
     padding: 0.2rem 0.5rem;
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     background: var(--st-surface-2);
     color: var(--st-text);
-    font-size: 0.72rem;
+    font-size: 12px;
     cursor: pointer;
     flex-shrink: 0;
   }
@@ -1378,14 +1383,15 @@
   }
 
   :where(.toolbar-section) :global(.adv-result-label) {
-    font-size: 0.72rem;
+    font-size: 12px;
     color: var(--st-value);
     min-width: 2rem;
     text-align: center;
   }
 
   :where(.toolbar-section) :global(.adv-result-info) {
-    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+    font-size: 12px;
     color: var(--st-text-3);
     padding: 0 0 0 0.25rem;
   }
@@ -1398,7 +1404,7 @@
   */
   .flat :global(.adv-result-info) {
     font-family: var(--st-mono);
-    font-size: 0.66rem;
+    font-size: 12px;
     letter-spacing: 0.02em;
     margin-left: 0.6rem;
     padding: 0.1rem 0 0.1rem 0.6rem;
