@@ -14,4 +14,17 @@ declare module 'virtual:app-i18n' {
   export const en: Record<string, string>;
   export const es: Record<string, string>;
   export const pt: Record<string, string>;
+  export const de: Record<string, string>;
+  export const fr: Record<string, string>;
+  export const tr: Record<string, string>;
+}
+
+declare module 'virtual:app-i18n/de' {
+  export const de: Record<string, string>;
+}
+declare module 'virtual:app-i18n/fr' {
+  export const fr: Record<string, string>;
+}
+declare module 'virtual:app-i18n/tr' {
+  export const tr: Record<string, string>;
 }

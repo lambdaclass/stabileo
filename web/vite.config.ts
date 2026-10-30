@@ -32,10 +32,11 @@ function wasmStubPlugin(): Plugin {
  * `contact.*`), in en, es and pt. The landing and the blog load these instead of the whole
  * dictionaries (3 MB of source, most of the public bundle); the application registers the rest
  * when it loads (`lib/i18n/full-dictionaries.ts`). The entries are copied line by line, which
- * `union-merge-safe.test.ts` keeps possible: one entry per line.
+ * `union-merge-safe.test.ts` keeps possible: one entry per line. Locale-specific app modules
+ * keep lazy languages separate while reusing public strings already loaded by the store.
  */
 function publicI18nPlugin(): Plugin {
-  const ids = ['virtual:public-i18n', 'virtual:app-i18n'];
+  const ids = ['virtual:public-i18n', 'virtual:app-i18n', ...['de', 'fr', 'tr'].map(loc => `virtual:app-i18n/${loc}`)];
   return {
     name: 'public-i18n',
     resolveId(s) {
@@ -45,7 +46,8 @@ function publicI18nPlugin(): Plugin {
       if (!ids.some(id => resolved === '\0' + id)) return null;
       const publicOnly = resolved === '\0virtual:public-i18n';
       let out = '';
-      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      const locale = resolved.split('/')[1];
+      for (const loc of locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
         if (!isComplete(loc)) {
           out += `export const ${loc} = {};\n`;
           continue;

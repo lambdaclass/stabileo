@@ -16,7 +16,6 @@
   import ExportSection from '../../export/ExportSection.svelte';
   import { MODEL_SHEET_NAMES } from '../../../lib/export/workbook-model';
   import { RESULT_SHEET_NAMES } from '../../../lib/export/workbook-results';
-  import { downloadProjectCsv, downloadProjectWorkbook } from '../../../lib/store/project-workbook';
   import type { StationSpec } from '../../../lib/engine/station-forces';
   import { ensureProResults, hasShells } from '../../../lib/pro/export-results';
   import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
@@ -125,6 +124,7 @@
           combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
         },
       };
+      const { downloadProjectCsv, downloadProjectWorkbook } = await import('../../../lib/store/project-workbook');
       if (format === 'xlsx') await downloadProjectWorkbook(stations, opts);
       else await downloadProjectCsv(stations, opts);
       tellIfEmpty();
