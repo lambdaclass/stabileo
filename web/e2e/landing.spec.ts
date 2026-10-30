@@ -89,9 +89,9 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('#changelog')).toHaveCount(0);
     await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
 
-    const links = page.locator('.landing nav.nav .nav-links a.nav-link');
-    await expect(links.nth(0)).toHaveAttribute('data-nav', 'blog');
-    const changelog = links.nth(1);
+    const blog = page.locator('nav.site-header .nav-links a[data-nav="blog"]');
+    await expect(blog).toHaveCount(1);
+    const changelog = page.locator('nav.site-header .nav-links a[data-nav="blog"] + a');
     await expect(changelog).toHaveAttribute('data-nav', 'changelog');
     await expect(changelog).toHaveText('Changelog');
     await expect(changelog).toHaveAttribute('href', '/es/changelog/');
@@ -105,12 +105,12 @@ test.describe('@landing landing page', () => {
     // It used to be a button scrolling to the #blog section. Now a real link:
     // crawlable, middle-clickable, in the reader's language.
     await bootLanding(page, { locale: 'es' });
-    const blog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="blog"]');
+    const blog = page.locator('nav.site-header .nav-links a.nav-link[data-nav="blog"]');
     await expect(blog).toHaveText('Blog');
     await expect(blog).toHaveAttribute('href', '/es/blog/');
     // Nav items are written as words, not as the uppercase section eyebrows
     // ("PRECIOS" used to sit between "Educativo" and "Blog").
-    await expect(page.locator('.landing nav.nav .nav-links button', { hasText: 'Precios' })).toHaveText('Precios');
+    await expect(page.locator('nav.site-header .nav-links a[data-nav="pricing"]')).toHaveText('Precios');
     await blog.click();
     await expect(page).toHaveURL(/\/es\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
@@ -143,7 +143,9 @@ test.describe('@landing landing page', () => {
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-section')));
     expect(order).toEqual([...SECTIONS]);
 
-    await expect(page.locator('.landing nav.nav')).toHaveCount(1);
+    // The single public header persists outside the lazy page's scroll container.
+    await expect(page.locator('nav.nav')).toHaveCount(1);
+    await expect(page.locator('nav.site-header')).toBeVisible();
     await expect(page.locator('.landing footer.lp-footer')).toHaveCount(1);
   });
 
@@ -214,7 +216,7 @@ test.describe('@landing landing page', () => {
      */
     const titleTop = () => page.locator('.landing .hero h1').evaluate((el) => el.getBoundingClientRect().top);
     const onOpen = await titleTop();
-    await page.locator('.landing .nav-brand').click();
+    await page.locator('nav.site-header .nav-brand').click();
     await page.waitForTimeout(700); // smooth scroll, if any happens
     expect(Math.abs((await titleTop()) - onOpen)).toBeLessThan(2);
 
@@ -647,6 +649,10 @@ test.describe('@landing landing page', () => {
       await page.waitForTimeout(300);
       await page.locator('.landing .hero-ctas .btn-primary').click();
       await expect(page.locator('.landing')).toHaveCount(0);
+      await expect(page.locator('nav.site-header')).toHaveCount(0);
+      await expect(page.locator('.app-container')).toBeVisible();
+      // The persisted choice still labels the editor's own translated content.
+      await expect(page.locator('.app-language')).toHaveAttribute('lang', 'es');
 
       const h = await readHead(page);
       expect(h.headTitles).toBe(1);

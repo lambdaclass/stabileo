@@ -731,11 +731,6 @@
     return true;
   });
 
-  // Keep <html lang> in sync with selected locale
-  $effect(() => {
-    document.documentElement.lang = t('file.htmlLang');
-  });
-
   function restoreAutosave() {
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
@@ -1445,6 +1440,12 @@
       </div>
 {/snippet}
 
+<!--
+  Public pages own document metadata and restore it on teardown. Scope the
+  editor's language to its UI, including dialogs outside .app-container, so a
+  lazy editor mount cannot overwrite the restored <html lang>.
+-->
+<div class="app-language" lang={t('file.htmlLang')} style="display: contents">
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
@@ -2428,6 +2429,7 @@
 -->
 
 <TourOverlay />
+</div>
 
 <style>
   .import-textarea {
