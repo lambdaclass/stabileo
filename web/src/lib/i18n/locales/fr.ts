@@ -13654,7 +13654,9 @@ const fr: Translations = {
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
   "recheck.saveAndReload": "Enregistrer les projets ouverts et recharger",
-  "recheck.recoveryFailed": "Les projets ouverts n’ont pas pu être enregistrés. La page n’a pas été rechargée. Libérez de l’espace dans le navigateur et réessayez.",
+  "recheck.recoveryFailed": "Les projets n’ont pas pu être enregistrés dans le navigateur. La page n’a pas été rechargée. Téléchargez une sauvegarde de la session pour conserver votre travail.",
+  "recheck.downloadBackup": "Télécharger tous les projets ouverts",
+  "recheck.backupHelp": "Conservez le fichier de session téléchargé, puis rechargez et ouvrez-le pour restaurer tous les projets. L’avis devra toujours être confirmé.",
   "recheck.loading": "Chargement des modifications des résultats…",
   "recheck.detailsUnavailable": "Les détails de la modification sont indisponibles. Réessayez de charger cet avis.",
   "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",

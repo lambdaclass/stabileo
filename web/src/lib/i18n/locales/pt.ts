@@ -13455,7 +13455,9 @@ const pt: Translations = {
   "sheet.ui.thisSheet": "Prancha {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
   "recheck.saveAndReload": "Salvar projetos abertos e recarregar",
-  "recheck.recoveryFailed": "Não foi possível salvar os projetos abertos. A página não foi recarregada. Libere espaço no navegador e tente novamente.",
+  "recheck.recoveryFailed": "Não foi possível salvar os projetos no navegador. A página não foi recarregada. Baixe uma cópia da sessão para preservar seu trabalho.",
+  "recheck.downloadBackup": "Baixar todos os projetos abertos",
+  "recheck.backupHelp": "Guarde o arquivo de sessão baixado, depois recarregue e abra o arquivo para restaurar todos os projetos. O aviso ainda exigirá confirmação.",
   "recheck.loading": "Carregando alterações nos resultados…",
   "recheck.detailsUnavailable": "Os detalhes da alteração estão indisponíveis. Tente carregar o aviso novamente.",
   "recheck.loadFailed": "Não foi possível carregar as alterações nos resultados. Tente novamente antes de confirmá-las.",

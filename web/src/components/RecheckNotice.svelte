@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { saveWorkspaceToLocalStorage } from '../lib/store/file';
+  import { saveWorkspaceToLocalStorage, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
@@ -90,6 +90,8 @@
         {#if loadFailed}
           <button class="rc-btn" onclick={loadDetails}>{t('recheck.retry')}</button>
           <button class="rc-btn" onclick={saveAndReload} data-testid="recheck-reload">{t('recheck.saveAndReload')}</button>
+          <button class="rc-btn" onclick={saveSession} data-testid="recheck-backup">{t('recheck.downloadBackup')}</button>
+          <p class="rc-intro">{t('recheck.backupHelp')}</p>
           {#if recoveryFailed}<p role="alert">{t('recheck.recoveryFailed')}</p>{/if}
         {/if}
       {/if}

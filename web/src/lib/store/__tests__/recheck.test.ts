@@ -154,3 +154,27 @@ describe('lazy assessment', () => {
     expect(store.assessment?.changes.some(c => c.id === 'cirsoc301-tension-needs-connection')).toBe(true);
   });
 });
+
+it('preserves original changes after failed download, automatic solve and save/reload in Basic', async () => {
+  const store = createRecheckStore(() => Promise.reject(new Error('offline')));
+  const old = { ...steelTruss() as object, analysisMode: '2d' };
+  store.openProject(old, '2d');
+  const original = store.captureNotice();
+  expect(original).toBeDefined();
+  await vi.waitFor(() => expect(store.loadFailed).toBe(true));
+  store.noteSolved('linear');
+  store.acknowledge();
+  const saved = JSON.stringify({ ...old, solvedWith: store.capture(), pendingRecheckNotice: store.captureNotice() });
+  const restored = createRecheckStore();
+  restored.openProject(JSON.parse(saved), '2d');
+  expect(restored.noticeOpen).toBe(true);
+  expect(restored.capture()?.resultsVersion).toBe(RESULTS_VERSION);
+  await vi.waitFor(() => expect(restored.pending).toBe(false));
+  expect(restored.assessment?.solvedVersion).toBe(0);
+  expect(restored.assessment?.changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
+  expect(restored.captureNotice()).toEqual(original);
+  expect(restored.noticeOpen).toBe(true);
+  restored.acknowledge();
+  expect(restored.captureNotice()).toBeUndefined();
+  expect(restored.noticeOpen).toBe(false);
+});

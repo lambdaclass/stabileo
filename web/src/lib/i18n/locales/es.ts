@@ -13804,7 +13804,9 @@ const es: Record<string, string> = {
   "sheet.ui.thisSheet": "Lámina {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
   "recheck.saveAndReload": "Guardar proyectos abiertos y recargar",
-  "recheck.recoveryFailed": "No se pudieron guardar los proyectos abiertos. La página no se recargó. Libera espacio en el navegador e inténtalo de nuevo.",
+  "recheck.recoveryFailed": "No se pudieron guardar los proyectos en el navegador. La página no se recargó. Descarga una copia de la sesión para conservar tu trabajo.",
+  "recheck.downloadBackup": "Descargar todos los proyectos abiertos",
+  "recheck.backupHelp": "Conserva el archivo de sesión descargado, luego recarga y ábrelo para restaurar todos los proyectos. El aviso seguirá requiriendo confirmación.",
   "recheck.loading": "Cargando cambios en los resultados…",
   "recheck.detailsUnavailable": "Los detalles del cambio no están disponibles. Reintenta cargar el aviso.",
   "recheck.loadFailed": "No se pudieron cargar los cambios en los resultados. Reintenta antes de confirmarlos.",

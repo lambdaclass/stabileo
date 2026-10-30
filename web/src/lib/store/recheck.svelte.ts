@@ -26,7 +26,13 @@
 import type { RecheckAssessment } from '../provenance/applicability';
 import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../provenance/registry';
-import type { AnalysisKind, FeatureSnapshot } from '../provenance/model-features';
+import { modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
+
+/** Independent of the latest solve: retained until the original notice is read. */
+export interface PendingRecheckNotice {
+  stamp: SolveStamp;
+  features: string[];
+}
 
 export function createRecheckStore(load = () => import('../provenance/applicability')) {
   // The project on screen at start-up is a new one, made in this build.
@@ -36,6 +42,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   let assessedStampId = $state<string | null>(null);
   let acknowledged = $state.raw<ReadonlySet<string>>(new Set());
 
+  let outstanding = $state.raw<PendingRecheckNotice | undefined>(undefined);
   let pending = $state(false);
   let loadFailed = $state(false);
   let generation = 0;
@@ -67,27 +74,37 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
      * A project was opened (file, tab, autosave, link). `snapshot`: what was opened, as stored.
      * A project without a stamp is assessed as solved with version 0.
      */
-    openProject(snapshot: FeatureSnapshot & { solvedWith?: unknown }, analysisMode?: string): void {
+    openProject(snapshot: FeatureSnapshot & { solvedWith?: unknown; pendingRecheckNotice?: PendingRecheckNotice }, analysisMode?: string): void {
       // No stamp: an explicit "unknown" one (version 0), so the project keeps one identity while
       // it travels between tabs and an acknowledgement given in this session holds for it.
       const stored = readStamp(snapshot.solvedWith) ?? unknownStamp();
       stamp = stored;
       const request = ++generation;
-      assessedStampId = stored.id;
-      pending = stored.resultsVersion < RESULTS_VERSION;
+      const savedNotice = snapshot.pendingRecheckNotice;
+      const original = readStamp(savedNotice?.stamp) ?? stored;
+      assessedStampId = original.id;
+      pending = original.resultsVersion < RESULTS_VERSION;
+      // Capture before attempting the lazy import. Solves and edits must not replace
+      // the version or applicability of the notice the engineer has yet to read.
+      outstanding = pending ? {
+        stamp: original,
+        features: Array.isArray(savedNotice?.features) && savedNotice.features.every(f => typeof f === 'string')
+          ? [...savedNotice.features]
+          : [...modelFeatures(snapshot, { analysisMode, analysesRun: original.resultsVersion > 0 ? original.analyses : null })],
+      } : undefined;
       loadFailed = false;
       assessment = {
-        solvedVersion: stored.resultsVersion, currentVersion: RESULTS_VERSION,
+        solvedVersion: original.resultsVersion, currentVersion: RESULTS_VERSION,
         older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [],
       };
-      const captured = pending ? $state.snapshot(snapshot) : snapshot;
+      const features = new Set(outstanding?.features);
       retry = async () => {
         if (request !== generation || !pending) return;
         loadFailed = false;
         try {
           const { assessProject } = await load();
           if (request !== generation) return;
-          assessment = assessProject(captured, stored, analysisMode);
+          assessment = assessProject({}, original, analysisMode, undefined, features);
           pending = false;
           retry = () => Promise.resolve();
         } catch {
@@ -103,6 +120,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       retry = () => Promise.resolve();
       pending = false;
       loadFailed = false;
+      outstanding = undefined;
       stamp = freshStamp();
       assessment = null;
       assessedStampId = null;
@@ -123,7 +141,15 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
 
     /** The engineer read the notice. Results stay marked stale until re-run. */
     acknowledge(): void {
-      if (!pending && assessedStampId) acknowledged = new Set([...acknowledged, assessedStampId]);
+      if (!pending && assessedStampId) {
+        acknowledged = new Set([...acknowledged, assessedStampId]);
+        outstanding = undefined;
+      }
+    },
+
+    captureNotice(): PendingRecheckNotice | undefined {
+      if (!outstanding || acknowledged.has(outstanding.stamp.id)) return undefined;
+      return { stamp: { ...outstanding.stamp, analyses: [...outstanding.stamp.analyses] }, features: [...outstanding.features] };
     },
 
     /** What a snapshot carries: the stamp, or nothing when the project was never solved. */

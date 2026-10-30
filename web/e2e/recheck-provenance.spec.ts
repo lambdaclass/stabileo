@@ -286,3 +286,30 @@ for (const width of [390, 810]) {
     });
   }
 }
+
+
+test('downloads an unread session backup when notice recovery cannot save the workspace', async ({ page }) => {
+  await bootPro(page);
+  await page.route(NOTICE_CHUNK, route => route.abort());
+  expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+  await expect(page.getByTestId('recheck-backup')).toBeVisible();
+  const before = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+  });
+  await page.getByTestId('recheck-reload').click();
+  await expect(page.getByTestId('recheck-notice').getByRole('alert')).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByTestId('recheck-backup').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const session = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  expect(session.type).toBe('session');
+  const active = session.tabs.find((tab: { id: string }) => tab.id === session.activeTabId);
+  expect(active.modelSnapshot).toEqual(before);
+  expect(active.modelSnapshot.pendingRecheckNotice.stamp.resultsVersion).toBe(0);
+  await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+  await expect(page.getByTestId('recheck-notice')).toBeVisible();
+});

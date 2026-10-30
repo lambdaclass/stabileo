@@ -13654,7 +13654,9 @@ const de: Translations = {
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
   "recheck.saveAndReload": "Offene Projekte speichern und neu laden",
-  "recheck.recoveryFailed": "Die offenen Projekte konnten nicht gespeichert werden. Die Seite wurde nicht neu geladen. Geben Sie Browserspeicher frei und versuchen Sie es erneut.",
+  "recheck.recoveryFailed": "Die Projekte konnten nicht im Browser gespeichert werden. Die Seite wurde nicht neu geladen. Laden Sie eine Sitzungssicherung herunter, um Ihre Arbeit zu sichern.",
+  "recheck.downloadBackup": "Alle offenen Projekte herunterladen",
+  "recheck.backupHelp": "Bewahren Sie die heruntergeladene Sitzungsdatei auf. Laden Sie dann die Seite neu und öffnen Sie die Datei, um alle Projekte wiederherzustellen. Der Hinweis muss weiterhin bestätigt werden.",
   "recheck.loading": "Ergebnisänderungen werden geladen…",
   "recheck.detailsUnavailable": "Die Änderungsdetails sind nicht verfügbar. Laden Sie den Hinweis erneut.",
   "recheck.loadFailed": "Die Ergebnisänderungen konnten nicht geladen werden. Versuchen Sie es vor der Bestätigung erneut.",
