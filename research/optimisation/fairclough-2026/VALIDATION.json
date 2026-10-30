@@ -1,80 +1,107 @@
 {
   "checks": [
     {
-      "metric": "absolute error or residual",
+      "metric": "relative volume error",
       "name": "reference volume relative error",
       "observed": 3.4788544267527755e-9,
       "passed": true,
+      "rationale": "1e-6 cross-solver objective budget; normalized by author volume",
       "tolerance": 1e-6
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute normalized volume error FL/sigma",
       "name": "Table 1 printed volume absolute error",
       "observed": 0.00002645967045999953,
       "passed": true,
+      "rationale": "Half a unit of the last printed decimal",
       "tolerance": 0.00005
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute residual",
       "name": "primal residual",
       "observed": 4.483441720339162e-12,
       "passed": true,
+      "rationale": "1e-8 allows residual scaling and roundoff above the 1e-10 solver settings",
       "tolerance": 1e-8
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute residual",
       "name": "dual residual",
       "observed": 3.989184937211262e-12,
       "passed": true,
+      "rationale": "1e-8 allows residual scaling and roundoff above the 1e-10 solver settings",
       "tolerance": 1e-8
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute elevation error L",
       "name": "apex elevation reference error",
       "observed": 1.4361646316629617e-9,
       "passed": true,
+      "rationale": "1e-5 normalized height budget for cross-solver dual recovery",
       "tolerance": 0.00001
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute member count difference",
       "name": "active curved members",
       "observed": 0.0,
       "passed": true,
+      "rationale": "Exactly four active members; no count discrepancy allowed",
       "tolerance": 0.0
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "maximum absolute force error F",
       "name": "force vector reference maximum error",
       "observed": 3.628279878764573e-6,
       "passed": true,
+      "rationale": "1e-4 cross-solver recovery budget for all ten force triples",
       "tolerance": 0.0001
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "absolute residual",
       "name": "independent SOC feasibility",
       "observed": 3.092637257395836e-12,
       "passed": true,
+      "rationale": "1e-8 allows residual scaling and roundoff above the 1e-10 solver settings",
       "tolerance": 1e-8
     },
     {
-      "metric": "absolute error or residual",
-      "name": "reference centreline maximum coordinate error",
-      "observed": 5.39510768282625e-8,
+      "metric": "maximum absolute area error F/sigma",
+      "name": "reference section area maximum error",
+      "observed": 0.000018646566953606225,
       "passed": true,
+      "rationale": "1e-4 cross-solver force/area recovery budget; observed about 1.9e-5 against author pi*r^2",
       "tolerance": 0.0001
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "maximum absolute area error F/sigma",
+      "name": "equal-stress section area formula error",
+      "observed": 1.3322676295501878e-15,
+      "passed": true,
+      "rationale": "1e-12 roundoff budget for independent distance-based evaluation of s/cos(phi)",
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "maximum absolute coordinate error L",
+      "name": "reference centreline maximum coordinate error",
+      "observed": 5.39510768282625e-8,
+      "passed": true,
+      "rationale": "1e-4 cross-solver recovery budget at all 132 samples",
+      "tolerance": 0.0001
+    },
+    {
+      "metric": "relative reaction/load imbalance",
       "name": "engine vertical force balance",
       "observed": 1.377406640434381e-11,
       "passed": true,
+      "rationale": "1e-8 linear-solve roundoff budget; bookkeeping only, not catenary physics",
       "tolerance": 1e-8
     },
     {
-      "metric": "absolute error or residual",
+      "metric": "relative volume error",
       "name": "frame discretized volume relative error",
       "observed": 0.0009660199530914237,
       "passed": true,
+      "rationale": "0.2% chord quadrature budget; verified by 32/64/128 segment refinement",
       "tolerance": 0.002
     }
   ],

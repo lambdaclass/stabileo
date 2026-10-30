@@ -465,7 +465,27 @@
    ],
    "implementation": "optimisation/fairclough-2026",
    "contacts": [],
-   "page": "web/src/components/research/fairclough2026/FaircloughPage.svelte"
+   "page": "web/src/components/research/fairclough2026/FaircloughPage.svelte",
+   "reviews": [
+    {
+     "reviewer": "kimi",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Verified consolidated findings addressed: relaxation citation, area and refinement checks, evidence metrics, source selection, full editor data, six locales, responsive canvas and keyboard accessibility. Engine claim limited to reaction/load bookkeeping. Playwright execution requires maintainer environment."
+    },
+    {
+     "reviewer": "codex",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Verified consolidated findings addressed: relaxation citation, area and refinement checks, evidence metrics, source selection, full editor data, six locales, responsive canvas and keyboard accessibility. Engine claim limited to reaction/load bookkeeping. Playwright execution requires maintainer environment."
+    },
+    {
+     "reviewer": "claude",
+     "round": 2,
+     "date": "2026-10-30",
+     "resolution": "Verified consolidated findings addressed: relaxation citation, area and refinement checks, evidence metrics, source selection, full editor data, six locales, responsive canvas and keyboard accessibility. Engine claim limited to reaction/load bookkeeping. Playwright execution requires maintainer environment."
+    }
+   ]
   },
   {
    "id": "turner-1956",
