@@ -171,6 +171,7 @@ the tests that verify each part, and the open questions found while writing it.
 - [Assembly, supports and constraints](solver/assembly-constraints.md)
 - [Geometric stiffness, mass and dynamics](solver/mass-geometric-dynamics.md)
 - [Nonlinear formulations](solver/nonlinear.md)
+- [A general nonlinear framework (draft)](solver/nonlinear-framework.md)
 
 ## 6. Diagnostics and Trust
 

@@ -13,6 +13,7 @@ pub mod section;
 pub mod certify;
 pub mod sanity;
 pub mod metamorphic;
+pub mod nonlinear;
 pub mod known_issues;
 pub mod reproduce;
 pub mod ordered;
