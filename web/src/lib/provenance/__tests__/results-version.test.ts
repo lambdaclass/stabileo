@@ -1,8 +1,8 @@
+import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { assessProject } from '../applicability';
-import { RESULT_CHANGES } from '../registry';
 import type { FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
@@ -47,7 +47,8 @@ const RELEASED: Record<number, string[]> = {
     'rc-beams-lateral-role-shear-minimum-torsion', 'rc-flanged-beams-designed-about-depth',
     'strip-footings-under-walls-whole-strip',
   ],
-  5: ['modal-repeated-eigenspace-completeness'],
+  5: ['solid-shell-local-stress-axes'],
+  6: ['modal-repeated-eigenspace-completeness'],
 };
 
 describe('results versions', () => {
@@ -59,7 +60,7 @@ describe('results versions', () => {
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
   });
 
-  it('tells a version 4 frame about modal completeness until it is re-solved', () => {
+  it('tells a version 4 or 5 frame about modal completeness until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
@@ -67,7 +68,9 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     expect(assessProject(frame, stamp, 'pro').changes.map((c) => c.id))
       .toEqual(['modal-repeated-eigenspace-completeness']);
-    expect(assessProject(frame, { ...stamp, resultsVersion: 5 }, 'pro').changes).toEqual([]);
+    expect(assessProject(frame, { ...stamp, resultsVersion: 5 }, 'pro').changes.map((c) => c.id))
+      .toEqual(['modal-repeated-eigenspace-completeness']);
+    expect(assessProject(frame, { ...stamp, resultsVersion: 6 }, 'pro').changes).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {

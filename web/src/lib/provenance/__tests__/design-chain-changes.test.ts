@@ -1,3 +1,4 @@
+import { RESULT_CHANGES } from '../full-registry';
 /**
  * Results version 4: the design chain's changes (#460, #461 and #462–#475), told to the projects
  * they concern (`docs/results-changes/2026-10-design-chain.md`).
@@ -8,7 +9,6 @@
 import { describe, it, expect } from 'vitest';
 import { assessProject } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
-import { RESULT_CHANGES } from '../registry';
 import type { SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
@@ -39,7 +39,7 @@ const STEEL_461 = [
 ];
 
 describe('results version 4: the design chain', () => {
-  it('is a released version, and every entry links its write-up', () => {
+  it('keeps version 4 entries linked to their write-up', () => {
     expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(4);
     for (const c of RESULT_CHANGES.changes.filter((x) => x.resultsVersion === 4)) {
       expect(c.changelog.file, c.id).toBe('docs/results-changes/2026-10-design-chain.md');
@@ -56,9 +56,9 @@ describe('results version 4: the design chain', () => {
     expect(seen).not.toContain('dynamic-analyses-refuse-eccentricities');
   });
 
-  it('tells a project solved with version 4 no design-chain changes', () => {
+  it('does not repeat version 4 changes to a project stamped 4', () => {
     const frame = model({ elements: [member(1, 1), member(2, 2)], quads: [quad(1)] as never, footings: [[1, {}]] as never });
-    expect(ids(frame, stamp(4)).filter((id) => V4.includes(id))).toEqual([]);
+    expect(ids(frame, stamp(4)).filter(id => V4.includes(id))).toEqual([]);
   });
 
   it('tells a concrete project about the beam entries, and the flange one only with shells', () => {

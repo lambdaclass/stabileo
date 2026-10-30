@@ -1,5 +1,7 @@
 const en: Record<string, string> = {
   "advanced.finiteSpectrum": "Only {n} finite modes exist. Massless directions have no finite frequency.",
+  "landing.navTools": "Tools",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "View",
   "scalarViewer.viewOptions": "View options",
@@ -234,6 +236,7 @@ const en: Record<string, string> = {
   'landing.navEducation': 'Education',
   'landing.navPricing': 'Pricing',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Paper',
   'landing.navResearch': 'Research',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'FREE AND OPEN · STRUCTURAL ANALYSIS',
@@ -13814,6 +13817,14 @@ const en: Record<string, string> = {
   "sheet.ui.jump": "Go to a kind of drawing",
   "sheet.ui.thisSheet": "Sheet {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Save open projects and reload",
+  "recheck.recoveryFailed": "Open projects could not be saved in browser storage. The page was not reloaded. Download a session backup to keep your work.",
+  "recheck.downloadBackup": "Download all open projects",
+  "recheck.backupHelp": "Keep the downloaded session file, then reload and open it to restore every project. The notice will still require acknowledgement.",
+  "recheck.loading": "Loading result changes…",
+  "recheck.detailsUnavailable": "Change details are unavailable. Retry loading the notice.",
+  "recheck.loadFailed": "Result changes could not be loaded. Retry before acknowledging them.",
+  "recheck.retry": "Retry",
   "recheck.title": "Results have changed since this project was last solved",
   "recheck.intro": "This project was last solved with Stabileo results version {from}; this is version {to}. These changes concern features this model uses:",
   "recheck.introUnknown": "This project does not record which version of Stabileo solved it (it was saved before that was recorded). These changes concern features this model uses:",
@@ -14265,5 +14276,14 @@ const en: Record<string, string> = {
   "proExport.dxfLayoutSeparate": "One drawing per file",
   "proExport.dxfLayoutLayersNote": "Everything in one DXF; each content on its own layer.",
   "proExport.dxfLayoutSeparateNote": "One DXF of the model and one per result (with the model underneath), together in a .zip.",
+  "clipboard.spaceInPlane": "The copy comes from a 3D model: copy it again in 2D to paste it here.",
+  "sel.copyTitle": "Copy the selection (Ctrl+C)",
+  "sel.pasteTitle": "Paste the copy and choose where (Ctrl+V)",
+  "results.showDisplacements": "Show displacements",
+  "resultChecks.title": "Result checks",
+  "resultChecks.certified": "certified",
+  "resultChecks.notCertified": "not certified",
+  "resultChecks.pending": "computing…",
+  "resultChecks.discretizationHigh": "high discretization error",
 };
 export default en;

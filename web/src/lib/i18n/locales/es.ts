@@ -1,5 +1,7 @@
 const es: Record<string, string> = {
   "advanced.finiteSpectrum": "Solo existen {n} modos finitos. Las direcciones sin masa no tienen frecuencia finita.",
+  "landing.navTools": "Herramientas",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
   "scalarViewer.viewOptions": "Opciones de vista",
@@ -234,6 +236,7 @@ const es: Record<string, string> = {
   'landing.navEducation': 'Educativo',
   'landing.navPricing': 'Precios',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Paper',
   'landing.navResearch': 'Investigación',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIBRE Y ABIERTO · CÁLCULO ESTRUCTURAL',
@@ -13803,6 +13806,14 @@ const es: Record<string, string> = {
   "sheet.ui.jump": "Ir a un tipo de plano",
   "sheet.ui.thisSheet": "Lámina {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Guardar proyectos abiertos y recargar",
+  "recheck.recoveryFailed": "No se pudieron guardar los proyectos en el navegador. La página no se recargó. Descarga una copia de la sesión para conservar tu trabajo.",
+  "recheck.downloadBackup": "Descargar todos los proyectos abiertos",
+  "recheck.backupHelp": "Conserva el archivo de sesión descargado, luego recarga y ábrelo para restaurar todos los proyectos. El aviso seguirá requiriendo confirmación.",
+  "recheck.loading": "Cargando cambios en los resultados…",
+  "recheck.detailsUnavailable": "Los detalles del cambio no están disponibles. Reintenta cargar el aviso.",
+  "recheck.loadFailed": "No se pudieron cargar los cambios en los resultados. Reintenta antes de confirmarlos.",
+  "recheck.retry": "Reintentar",
   "recheck.title": "Los resultados cambiaron desde que se resolvió este proyecto",
   "recheck.intro": "Este proyecto se resolvió por última vez con la versión de resultados {from} de Stabileo; esta es la versión {to}. Estos cambios afectan características que usa este modelo:",
   "recheck.introUnknown": "Este proyecto no registra con qué versión de Stabileo se resolvió (se guardó antes de que eso se registrara). Estos cambios afectan características que usa este modelo:",
@@ -14254,5 +14265,14 @@ const es: Record<string, string> = {
   "proExport.dxfLayoutSeparate": "Un plano por dibujo",
   "proExport.dxfLayoutLayersNote": "Todo en un DXF; cada contenido en su capa.",
   "proExport.dxfLayoutSeparateNote": "Un DXF del modelo y uno por cada resultado (con el modelo de base), juntos en un .zip.",
+  "clipboard.spaceInPlane": "Lo copiado es de un modelo 3D: copialo de nuevo en 2D para pegarlo acá.",
+  "sel.copyTitle": "Copiar lo seleccionado (Ctrl+C)",
+  "sel.pasteTitle": "Pegar lo copiado y elegir dónde (Ctrl+V)",
+  "results.showDisplacements": "Mostrar desplazamientos",
+  "resultChecks.title": "Verificación de los resultados",
+  "resultChecks.certified": "certificado",
+  "resultChecks.notCertified": "sin certificar",
+  "resultChecks.pending": "calculando…",
+  "resultChecks.discretizationHigh": "error de discretización alto",
 };
 export default es;

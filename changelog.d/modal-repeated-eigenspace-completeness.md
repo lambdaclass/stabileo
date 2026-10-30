@@ -11,7 +11,7 @@ masses and response combinations can change. The shared buckling path also check
 completeness in its positive stiffness metric.
 Exactly massless DOFs are statically condensed before dense modal fallback, so
 a near-zero mode cannot make the reciprocal cutoff discard higher physical modes.
-Results version 5; issue #759; PR #827. See
+Results version 6; issue #759; PR #827. See
 [the results change](../docs/results-changes/2026-10-modal-completeness.md).
 
 The reported warping-mode orthogonality failures were separately traced to the

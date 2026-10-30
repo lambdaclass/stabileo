@@ -2,6 +2,16 @@ import type { Translations } from '../types';
 
 const tr: Translations = {
   "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
+  "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
+  "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
+  "recheck.downloadBackup": "Tüm açık projeleri indir",
+  "recheck.backupHelp": "İndirilen oturum dosyasını saklayın, ardından sayfayı yeniden yükleyip tüm projeleri geri yüklemek için dosyayı açın. Bildirim yine onay gerektirecektir.",
+  "recheck.loading": "Hesap sonuçlarındaki değişiklikler yükleniyor…",
+  "recheck.detailsUnavailable": "Değişikliğin ayrıntılarına erişilemiyor. Bildirimi yüklemeyi tekrar deneyin.",
+  "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
+  "recheck.retry": "Tekrar dene",
+  "landing.navTools": "Araçlar",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
   'scalarViewer.viewOptions': 'Görünüm seçenekleri',
@@ -235,6 +245,7 @@ const tr: Translations = {
   'landing.navPricing': 'Fiyatlandırma',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Değişiklikler',
+  'landing.navPaper': 'Makale',
   'landing.navResearch': 'Araştırma',
   'landing.ebHero': 'ÜCRETSİZ VE AÇIK · YAPI ANALİZİ',
   'landing.heroH': 'Yapı analizi, bir tarayıcı sekmesinde.',
@@ -14104,6 +14115,15 @@ const tr: Translations = {
   'proExport.dxfLayoutSeparate': 'Dosya başına bir çizim',
   'proExport.dxfLayoutLayersNote': 'Her şey tek bir DXF dosyasında; her içerik kendi katmanında.',
   'proExport.dxfLayoutSeparateNote': 'Modelin bir DXF dosyası ve her sonuç için bir tane (altında modelle birlikte), bir .zip içinde bir arada.',
+  'clipboard.spaceInPlane': 'Kopya bir 3B modelden geliyor: buraya yapıştırmak için 2B\'de yeniden kopyalayın.',
+  'sel.copyTitle': 'Seçimi kopyala (Ctrl+C)',
+  'sel.pasteTitle': 'Kopyayı yapıştır ve yerini seç (Ctrl+V)',
+  'results.showDisplacements': 'Yer değiştirmeleri göster',
+  'resultChecks.title': 'Sonuç kontrolleri',
+  'resultChecks.certified': 'sertifikalı',
+  'resultChecks.notCertified': 'sertifikasız',
+  'resultChecks.pending': 'hesaplanıyor…',
+  'resultChecks.discretizationHigh': 'yüksek ayrıklaştırma hatası',
 };
 
 export default tr;

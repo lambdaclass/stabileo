@@ -1,6 +1,6 @@
 # Preserve repeated modes and certify finite-spectrum exhaustion
 
-Results version: 5 (main was 4). Issue: #759. PR: #827.
+Results version: 6 (main was 5 after #814). Issue: #759. PR: #827.
 
 A single Lanczos starting vector can recover only one direction of an exact
 repeated eigenspace. Early breakdown and small Ritz residuals therefore do not

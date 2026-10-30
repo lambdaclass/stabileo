@@ -2,6 +2,8 @@ import type { Translations } from '../types';
 
 const de: Translations = {
   "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
+  "landing.navTools": "Werkzeuge",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Ansicht',
   'scalarViewer.viewOptions': 'Ansichtsoptionen',
@@ -235,6 +237,7 @@ const de: Translations = {
   'landing.navPricing': 'Preise',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Änderungen',
+  'landing.navPaper': 'Fachartikel',
   'landing.navResearch': 'Forschung',
   'landing.ebHero': 'KOSTENLOS UND OFFEN · TRAGWERKSBERECHNUNG',
   'landing.heroH': 'Tragwerksberechnung in einem Browser-Tab.',
@@ -13653,6 +13656,14 @@ const de: Translations = {
   'sheet.ui.thisSheet': 'Plan {n}:',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Offene Projekte speichern und neu laden",
+  "recheck.recoveryFailed": "Die Projekte konnten nicht im Browser gespeichert werden. Die Seite wurde nicht neu geladen. Laden Sie eine Sitzungssicherung herunter, um Ihre Arbeit zu sichern.",
+  "recheck.downloadBackup": "Alle offenen Projekte herunterladen",
+  "recheck.backupHelp": "Bewahren Sie die heruntergeladene Sitzungsdatei auf. Laden Sie dann die Seite neu und öffnen Sie die Datei, um alle Projekte wiederherzustellen. Der Hinweis muss weiterhin bestätigt werden.",
+  "recheck.loading": "Ergebnisänderungen werden geladen…",
+  "recheck.detailsUnavailable": "Die Änderungsdetails sind nicht verfügbar. Laden Sie den Hinweis erneut.",
+  "recheck.loadFailed": "Die Ergebnisänderungen konnten nicht geladen werden. Versuchen Sie es vor der Bestätigung erneut.",
+  "recheck.retry": "Erneut versuchen",
   'recheck.title': 'Die Ergebnisse haben sich seit der letzten Berechnung dieses Projekts geändert',
   'recheck.intro': 'Dieses Projekt wurde zuletzt mit der Ergebnisversion {from} von Stabileo berechnet; dies ist Version {to}. Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
   'recheck.introUnknown': 'Dieses Projekt speichert nicht, mit welcher Stabileo-Version es berechnet wurde (es wurde gespeichert, bevor dies erfasst wurde). Diese Änderungen betreffen Funktionen, die dieses Modell verwendet:',
@@ -14104,6 +14115,15 @@ const de: Translations = {
   'proExport.dxfLayoutSeparate': 'Eine Zeichnung je Datei',
   'proExport.dxfLayoutLayersNote': 'Alles in einer DXF-Datei; jeder Inhalt auf einem eigenen Layer.',
   'proExport.dxfLayoutSeparateNote': 'Eine DXF-Datei des Modells und eine je Ergebnis (mit dem Modell darunter), zusammen in einer .zip-Datei.',
+  "clipboard.spaceInPlane": "Die Kopie stammt aus einem 3D-Modell: Kopieren Sie sie in 2D erneut, um sie hier einzufügen.",
+  "sel.copyTitle": "Auswahl kopieren (Strg+C)",
+  "sel.pasteTitle": "Kopie einfügen und Ort wählen (Strg+V)",
+  "results.showDisplacements": "Verschiebungen anzeigen",
+  "resultChecks.title": "Ergebnisprüfung",
+  "resultChecks.certified": "zertifiziert",
+  "resultChecks.notCertified": "nicht zertifiziert",
+  "resultChecks.pending": "wird berechnet…",
+  "resultChecks.discretizationHigh": "hoher Diskretisierungsfehler",
 };
 
 export default de;

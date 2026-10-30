@@ -1,0 +1,22 @@
+{
+  "source_url": "https://www.topopt.mek.dtu.dk/-/media/subsites/topopt/apps/dokumenter-og-filer-til-apps/top88.m",
+  "source_sha256": "2ae6c7a9308f9da0a602d372c799cd6e43ad61c2ac034f6b54d34ead1c5477a2",
+  "source_unmodified": true,
+  "capture": "Plot functions replaced by observers; numerical top88.m bytes unchanged",
+  "version": "GNU Octave (aarch64-apple-darwin25.3.0) version 11.1.0",
+  "settings": {
+    "nelx": 60,
+    "nely": 20,
+    "volfrac": 0.5,
+    "penal": 3,
+    "rmin": 2.4,
+    "ft": [
+      1,
+      2
+    ]
+  },
+  "files_sha256": {
+    "ft1.json": "b6aabc8abe552ef9ccf68904610e6bec3081d0c9289a80206131ca9323ab523f",
+    "ft2.json": "67f2ba20b8fac5ff706ddfd46f975a59671f6991fac2771895a8720fafb4090e"
+  }
+}

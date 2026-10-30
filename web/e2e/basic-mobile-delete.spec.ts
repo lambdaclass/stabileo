@@ -9,7 +9,7 @@ import { test, expect } from './fixtures';
 
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 
-test.describe('@smoke deleting on a phone', () => {
+test.describe('@slow deleting on a phone', () => {
   test('select a member, confirm, it is gone — and undo brings it back', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');

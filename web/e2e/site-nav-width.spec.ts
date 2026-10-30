@@ -10,6 +10,7 @@ for (const lang of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       const actions = page.locator('nav.site-header .nav-actions');
       await expect(links).toBeVisible();
       await expect(page.locator('nav.site-header [data-nav="research"]')).toBeVisible();
+      await expect(page.locator('nav.site-header [data-nav="tools"]')).toBeVisible();
       await expect(page.locator('nav.site-header [data-nav="blog"]')).toBeVisible();
       const [l, a] = [await links.boundingBox(), await actions.boundingBox()];
       expect(l && a && l.x + l.width <= a.x).toBe(true);

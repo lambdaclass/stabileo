@@ -1,0 +1,18 @@
+id: andreassen-2011
+doi: 10.1007/s00158-010-0594-7
+reference_code:
+  url: https://www.topopt.mek.dtu.dk/-/media/subsites/topopt/apps/dokumenter-og-filer-til-apps/top88.m
+  sha256: 2ae6c7a9308f9da0a602d372c799cd6e43ad61c2ac034f6b54d34ead1c5477a2
+  terms: Educational use; all rights reserved; not redistributed.
+assumptions: [small strain, plane stress, isotropic elasticity, unit square Q4, single MBB half-beam load]
+units: nondimensional
+experiments:
+  - name: mbb-sensitivity
+    inputs: {nelx: 60, nely: 20, volfrac: 0.5, penal: 3, rmin: 2.4, ft: 1, E0: 1, Emin: 1.0e-9, nu: 0.3}
+    references: [reference-results/ft1.json]
+  - name: mbb-density
+    inputs: {nelx: 60, nely: 20, volfrac: 0.5, penal: 3, rmin: 2.4, ft: 2, E0: 1, Emin: 1.0e-9, nu: 0.3}
+    references: [reference-results/ft2.json]
+environment:
+  linear_solver: dedaliano-engine sparse Cholesky
+  reference: reference-results/MANIFEST.json

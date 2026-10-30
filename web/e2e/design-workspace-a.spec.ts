@@ -119,7 +119,7 @@ test.describe('@smoke one «Size…»', () => {
     // Edit one beam's bars by hand, in its frame editor, and save.
     await openDeskStage(page);
     const rows = page.locator('[data-testid^="desk-row-"]').filter({ has: page.locator('.dot.st-ok') });
-    await expect(rows.first()).toBeVisible({ timeout: 60_000 });
+    await expect(rows.first()).toBeVisible({ timeout: 45_000 });
     for (let i = 0; i < await rows.count(); i++) {
       await rows.nth(i).click();
       if (await page.getByTestId('desk-open-frame').isVisible()) break;
@@ -154,9 +154,9 @@ test.describe('@smoke one 3-D reinforcement view', () => {
     await designAll(page);
     await designPlace(page, 'detailing');
     const gen = page.getByTestId('cmd-generate-detailing');
-    await expect(gen).toBeEnabled({ timeout: 60_000 });
+    await expect(gen).toBeEnabled({ timeout: 45_000 });
     await gen.click();
-    await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 }).toBeGreaterThan(0);
     const name = (await page.getByTestId('desk-rail-3d').innerText()).trim();
     for (const open of [
       async () => { await page.getByTestId('desk-step-detail').click(); await page.getByTestId('desk-rail-3d').click(); },
