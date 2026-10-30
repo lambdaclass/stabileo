@@ -511,11 +511,17 @@ fn harmonic_modal_from_eigen(
         phi_target.push(target.iter().map(|&(i, w)| w * eigen.vectors[i * nk + j]).sum::<f64>());
     }
 
-    // Rayleigh damping
-    let (a0, a1) = if omega_j.len() >= 2 {
-        rayleigh_coefficients(omega_j[0], omega_j[1], damping_ratio)
+    // Anchor damping on the physical spectrum, before frequency filtering or
+    // removal of the possibly incomplete boundary cluster. Otherwise a sweep
+    // retaining one mode anchors at (ω₁, 3ω₁), while the direct fallback uses
+    // (ω₁, ω₂): changing solver paths (even just by rotating a shell with
+    // massless drilling DOFs) would change the physical damping matrix.
+    let anchors: Vec<f64> = eigen.values.iter().copied()
+        .filter(|&lam| lam > 1e-10).take(2).map(f64::sqrt).collect();
+    let (a0, a1) = if anchors.len() >= 2 {
+        rayleigh_coefficients(anchors[0], anchors[1], damping_ratio)
     } else {
-        rayleigh_coefficients(omega_j[0], 3.0 * omega_j[0], damping_ratio)
+        rayleigh_coefficients(anchors[0], 3.0 * anchors[0], damping_ratio)
     };
 
     let mut participation = Vec::with_capacity(p);
@@ -809,4 +815,81 @@ fn get_target_dof_3d(dof_num: &DofNumbering, node_id: usize, dof: &str) -> Resul
     dof_num.map.get(&(node_id, offset))
         .copied()
         .ok_or_else(|| format!("Node {} DOF {} not found in DOF map", node_id, dof))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn damping_anchors_precede_harmonic_mode_filtering() {
+        let n = 6;
+        let mut k = vec![0.0; n*n];
+        let mut m = vec![0.0; n*n];
+        for (i, lam) in [1.0, 4.0, 9.0, 16.0, 25.0, 36.0].into_iter().enumerate() {
+            k[i*n+i] = lam;
+            m[i*n+i] = 1.0;
+        }
+        let f = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        // 16ω_max² is between λ₁ and λ₂: only the first mode is retained.
+        let frequencies = [0.0, 0.05];
+        let (r, damping) = solve_harmonic_modal(&k, &m, &f, n, &frequencies, 0.05, &[(0, 1.0)]).unwrap();
+        assert_eq!(r.modes_used, 1);
+        let expected = rayleigh_coefficients(1.0, 2.0, 0.05);
+        assert!((damping.0 - expected.0).abs() < 1e-14);
+        assert!((damping.1 - expected.1).abs() < 1e-14);
+        let c = rayleigh_damping_matrix(&m, &k, n, expected.0, expected.1);
+        for p in &r.response_points {
+            let (re, im) = solve_complex_system(&k, &m, &c, &f, n, p.omega).unwrap();
+            assert!((p.real - re[0]).abs() < 1e-12);
+            assert!((p.imag - im[0]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn harmonic_rotation_with_cut_inside_degenerate_cluster() {
+        // Three equal point masses linked by isotropic springs, with both
+        // ends spring-supported: K = tridiag(-1, 2, -1) ⊗ I₃, M = I₉.
+        // Each eigenvalue has multiplicity three. The harmonic request of
+        // n/2 = 4 modes cuts through the second cluster (λ = 2).
+        let n = 9;
+        let mut k = vec![0.0; n*n];
+        let mut m = vec![0.0; n*n];
+        for i in 0..n {
+            k[i*n+i] = 2.0;
+            m[i*n+i] = 1.0;
+            if i+3 < n { k[i*n+i+3] = -1.0; k[(i+3)*n+i] = -1.0; }
+        }
+        let eigen = lanczos_generalized_eigen(&k, &m, n, n, 0.0).unwrap();
+        for &lam in &eigen.values[3..6] { assert!((lam - 2.0).abs() < 1e-12); }
+        let iso = crate::metamorphic::transform::Iso3::about_z(0.713);
+        let f = [1.0, -0.7, 0.3, -0.4, 1.2, 0.9, 0.5, -0.2, 1.1];
+        let rotated: Vec<_> = f.chunks_exact(3)
+            .flat_map(|v| iso.apply_vec([v[0], v[1], v[2]])).collect();
+        let ks = CscMatrix::from_dense_symmetric(&k, n);
+        let ms = CscMatrix::from_dense_symmetric(&m, n);
+        for sparse in [false, true] {
+            let solve = |load: &[f64], target| {
+                let (r, _) = if sparse {
+                    solve_harmonic_modal_sparse(&ks, &ms, load, &[0.05, 0.1], 0.05, &[(target, 1.0)])
+                } else {
+                    solve_harmonic_modal(&k, &m, load, n, &[0.05, 0.1], 0.05, &[(target, 1.0)])
+                }.unwrap();
+                assert_eq!(r.modes_used, 3, "the boundary cluster must be omitted in full");
+                r
+            };
+            for node in 0..3 {
+                let base: Vec<_> = (0..3).map(|d| solve(&f, 3*node+d)).collect();
+                let rot: Vec<_> = (0..3).map(|d| solve(&rotated, 3*node+d)).collect();
+                for p in 0..2 {
+                    let re = iso.apply_vec(std::array::from_fn(|d| base[d].response_points[p].real));
+                    let im = iso.apply_vec(std::array::from_fn(|d| base[d].response_points[p].imag));
+                    for d in 0..3 {
+                        assert!((rot[d].response_points[p].real - re[d]).abs() < 1e-11);
+                        assert!((rot[d].response_points[p].imag - im[d]).abs() < 1e-11);
+                    }
+                }
+            }
+        }
+    }
 }
