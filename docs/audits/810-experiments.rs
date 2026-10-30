@@ -46,7 +46,7 @@ fn run(input: &SolverInput3D, target: usize, roof: bool, label: &str) -> f64 {
 fn main() {
     if std::env::args().any(|s|s=="isolate") {isolate();return;}
     if std::env::args().any(|s|s=="elements") {element_experiments(); flat_experiments();return;}
-    let data:serde_json::Value=serde_json::from_str(&std::fs::read_to_string("/private/tmp/810-cases.json").unwrap()).unwrap();
+    let data:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(std::env::var("TRIAGE810_CASES").unwrap()).unwrap()).unwrap();
     for c in data["cases"].as_array().unwrap() {
         let group=c["group"].as_str().unwrap();
         if group!="roof" && group!="cylinder" {continue;}

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Replay #810 without changing engine/src; run from any directory.
 
-Uses the audited baseline builders and research JSON from local Git objects.
+Uses audited baseline builders from Git and the bundled research JSON snapshot.
 The only numerical experiments are in a temporary example; its control is
 checked against the production solver before varying shear/drilling stiffness.
 """
 from pathlib import Path
+import gzip
 import os
 import subprocess
 import sys
@@ -14,7 +15,6 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 os.chdir(ROOT)
 BASE = "d7ad866d8c75415c8a0d322b91de6ac01ba1c3c3"
-CASES = "710b6bad36c2b2d96183d27c6661be9208da945a"
 example = ROOT / "engine/examples/triage810.rs"
 if example.exists():
     raise SystemExit(f"Refusing to overwrite {example}")
@@ -42,17 +42,19 @@ q=q.replace('pub fn mitc4_local_stiffness(','pub fn audit_stiffness(',1).replace
 q=q.replace('let d_s = kappa * g * t;','let d_s = kappa * g * t * shear;').replace(' / 2.0 * 1e-3;',' / 2.0 * 1e-3 * drill;',1)
 generated += ('\n#[allow(dead_code)] mod variant {\n'+q+'}\n')
 
-env = dict(os.environ, CARGO_TARGET_DIR="/private/tmp/claude-501/codex-810-target", CARGO_BUILD_JOBS="2")
-with tempfile.TemporaryDirectory(prefix="triage810-", dir="/private/tmp") as directory:
+env = dict(os.environ)
+env.setdefault("CARGO_BUILD_JOBS", "2")
+env.setdefault("CARGO_TARGET_DIR", str(Path(tempfile.gettempdir()) / "stabileo-810-target"))
+with tempfile.TemporaryDirectory(prefix="triage810-") as directory:
     cases = Path(directory) / "cases.json"
-    cases.write_text(source("engine/tests/benchmarks/shell_obstacle_course.json", CASES))
-    generated = generated.replace("/private/tmp/810-cases.json", str(cases))
+    cases.write_bytes(gzip.decompress((ROOT / "docs/audits/810-obstacle-course.json.gz").read_bytes()))
+    env["TRIAGE810_CASES"] = str(cases)
     example.parent.mkdir(exist_ok=True)
     try:
         example.write_text(generated)
         for mode in (sys.argv[1:] or ["models", "isolate", "elements"]):
             if mode not in ("models", "isolate", "elements"):
                 raise SystemExit("Modes: models isolate elements")
-            subprocess.run(["cargo", "run", "-p", "dedaliano-engine", "--example", "triage810", "--", mode], env=env, check=True)
+            subprocess.run(["make", "audit.810.run", f"MODE={mode}"], env=env, check=True)
     finally:
         example.unlink(missing_ok=True)

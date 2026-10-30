@@ -11,24 +11,29 @@ the existing 2% requirement at 6–16; those checks remain explicitly ignored.
 ## Reproduction and provenance
 
 Audited baseline: `d7ad866d8c75415c8a0d322b91de6ac01ba1c3c3`.
-Run with `CARGO_TARGET_DIR=/private/tmp/claude-501/codex-810-target`
-and `CARGO_BUILD_JOBS=2`:
+Run targeted checks through the repository Nix toolchain (optionally set
+`CARGO_TARGET_DIR`; use `CARGO_BUILD_JOBS=2`):
 
 ```sh
-cargo test -p dedaliano-engine --test validation research_roof_ -- --ignored --nocapture
-cargo test -p dedaliano-engine --test validation research_cylinder_ -- --ignored --nocapture
+make test.engine.targeted TEST=validation FILTER=research_
+make test.engine.targeted TEST=validation FILTER=scordelis_lo
 ```
 
-On the baseline, each command fails all four accuracy checks. The obstacle-course
-case file is **not on this branch**; the inventory identifies research commit
-`710b6bad36c2b2d96183d27c6661be9208da945a`, containing
-`engine/tests/benchmarks/shell_obstacle_course.json`. Replaying its eight roof/cylinder
-inputs through the current production solver reproduces the Rust builder results
-below. No research branch was checked out or merged.
+The original baseline accuracy checks require `--ignored` when replayed there.
 
-Run `python3 docs/audits/810-reproduce.py` to repeat the original models, case-file
-replay, isolated changes and element experiments. It reads the pinned Git objects,
-generates and removes a temporary Cargo example, and never edits engine source.
+On the baseline, the roof and cylinder each fail all four accuracy checks. The historical obstacle-course
+snapshot from research commit `710b6bad36c2b2d96183d27c6661be9208da945a`
+is bundled as `810-obstacle-course.json.gz`; it preserves the original inputs
+for causal replay, not corrected publication results. Its decompressed bytes
+match `engine/tests/benchmarks/shell_obstacle_course.json` at that commit.
+No research branch checkout or unmerged Git object is needed.
+
+Run `make audit.810` to repeat the original models, case-file replay, isolated
+changes and element experiments. The script reads the baseline Git object above
+(which must be present in the clone), generates and removes a temporary Cargo
+example, and never edits engine source. It uses the platform temporary directory,
+respects `CARGO_TARGET_DIR` and `CARGO_BUILD_JOBS`, and invokes Cargo through Make/Nix
+even when launched directly with Python. For example, `make audit.810 MODES=isolate`.
 Optional modes: `models`, `isolate`, `elements`. Its test-only copied stiffness
 changes only drilling/shear multipliers; the custom constrained sparse assembly
 must agree with the production solver within `1e-7` relative before sensitivities
@@ -145,9 +150,43 @@ strict cylinder 32×32 accuracy and monotone 6→16 error checks. The original f
 coarse-cylinder 2% checks remain ignored with an accurate reason; they are not
 silently replaced by weaker bounds.
 
-The research case JSON is absent from this branch. Its owning branch should
-regenerate the eight roof/cylinder inputs from the corrected builders, retaining
-signed measurements and the same 2% gates, and expose the coarse-cylinder failures.
+The pressure, self-weight, MITC9 and curved-shell roof checks now share the
+corrected support construction; the solid-shell check shares its translational
+fixities (its rotations are represented by the two thickness faces). Curved-shell
+and MITC4 use the same geometry and nodal gravity loads. MITC9 uses consistent
+self-weight integration rather than equal tributary loads on quadratic nodes.
+
+The self-weight check replaces only loads on the common MITC4 model at 6² and 16².
+Each planar rectangular facet has chord/arc area ratio `sin(Δθ/2)/(Δθ/2)`;
+uniform gravity gives the same nodal tributary pattern scaled by this ratio.
+Linearity therefore predicts the displacement ratio exactly, checked to `1e-7`
+relative after the area correction. The pressure check uses independent analytic
+facet-normal nodal forces (one quarter of pressure times the facet area vector
+per corner), also checked to `1e-7` relative. Pressure and vertical gravity are
+different physical loads and must not be compared as equivalent load integrations.
+
+### Merge blocker for #857; closure gate for #810
+
+**Keep #810 open. PR #859 must not use “Closes #810”.** The solver/model audit
+alone does not complete the research publication correction. **Do not merge #857**
+until all of the following are included in that PR and verified on its final head:
+
+- Regenerate `engine/tests/benchmarks/shell_obstacle_course.json` from the corrected
+  roof and cylinder builders for 6², 8², 12², and 16², with unioned symmetry
+  constraints, no crown pin, and all tributary loads retained.
+- Regenerate the research page's results from those inputs; remove the claim that
+  the old roof plateau and cylinder over-compliance demonstrate engine failures.
+- Preserve signed measurements, references and the original 2% accuracy gates.
+  Explicitly show the remaining cylinder failures (37.878%, 24.617%, 12.043%,
+  6.775% magnitude errors at 6²–16²), alongside the passing corrected roofs.
+- Verify fixture/builder agreement and page results in #857. Link that evidence
+  before closing #810. The bundled historical replay fixture must stay historical.
+
+The research page and generated publication fixture are absent from this branch;
+this checklist is a merge requirement, not a claim that those external changes
+have been made. Issue/PR metadata must be updated by the maintainer; this task
+is restricted to file edits.
+
 Do not alter loads, drilling penalty, shear coefficient or references to make
 those meshes pass. Any future engine improvement needs a separate derivation and
 convergence study on corrected curved models, a thickness sweep, rigid-body and
@@ -159,3 +198,27 @@ Validation after correction (same target directory and two build jobs):
 - `cargo test -p dedaliano-engine --test shells mitc9_curved_benchmarks_at_16x16 -- --nocapture`: **1 passed**; roof/cylinder/hemisphere ratios 1.0046/1.0068/0.9755.
 - The reproduction script's `isolate` mode was rerun successfully from its checked-in form.
 - `git diff --check` passes; `git diff -- engine/src` is empty.
+
+### PR #859 review-fix verification
+
+Using `CARGO_BUILD_JOBS=2` and
+`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-859rfix-target` through Make/Nix:
+
+- `make test.engine.targeted TEST=validation FILTER=scordelis_lo`: 11 passed.
+  Self-weight displacement ratios are 0.9994359891 at 6² and 0.9999206744 at 16²,
+  matching their chord/arc ratios. Pressure and equivalent nodal uz both equal
+  −0.3513794025 at 6².
+- `make test.engine.targeted TEST=validation FILTER=benchmarks::shell_benchmark::research_`:
+  13 passed, 4 existing coarse-cylinder checks ignored; no accuracy gate relaxed.
+- `make audit.810 MODES=models`: passed, replaying all eight historical roof/cylinder
+  fixture cases, model variants through 32², and MITC9 comparisons; temporary
+  example removed after completion.
+- `python3 docs/audits/test_810_reproduce.py`: 3 passed (target override, platform
+  default, historical fixture checksum; both runs also verify Make dispatch and
+  temporary-example cleanup).
+
+Corrected displacement/reference ratios: MITC4 6² 1.0156; MITC9 2²/4²/6²
+1.1744/1.0070/0.9992; curved shell 6²/8² 0.9610/0.9742; SHB8-ANS 6²/8²
+1.0063/0.9970. The MITC9 6² gate is tightened to 2%; curved-shell 6² and 8²
+are checked within 5%, with decreasing error. These replace permissive checks,
+not the unchanged strict 2% research gates.

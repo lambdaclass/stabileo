@@ -42,7 +42,7 @@
 - **Source**: NAFEMS standard test, MacNeal & Harder (1985)
 - **Problem**: Cylindrical roof shell, gravity loading
 - **Reference**: u_z = 0.3024 at midspan free edge
-- **Status**: MITC4 ANS shear tying: 6×6 mesh: 80%. MITC9: 2×2 mesh: 96%, 6×6 mesh: 85%.
+- **Status**: Corrected quarter-roof models: MITC4 ANS shear tying 6×6: 101.6%; MITC9 with consistent gravity loading 2×2: 117.4%, 4×4: 100.7%, 6×6: 99.9%; curved shell 6×6: 96.1%, 8×8: 97.4%; SHB8-ANS 6×6: 100.6%, 8×8: 99.7%. Percentages are displacement/reference, not accuracy scores. See [#810 audit](../../docs/audits/810-mitc4-curved-shells.md).
 
 ### Hemisphere with 18° Hole (NAFEMS LE3)
 - **Source**: NAFEMS, "The Standard NAFEMS Benchmarks" (TNSB), Rev 3, 1990, Test LE3
