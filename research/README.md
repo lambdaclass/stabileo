@@ -31,7 +31,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
   catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine
   files change; the online checks (Crossref, licences, links) run only as the standalone Research
-  workflow, so an outage elsewhere can't block a merge.
+  workflow on research/catalog PRs, pushes to main and weekly runs. Unrelated PRs do not run the online audit.
 
 ## Reproducibility statuses
 
@@ -51,15 +51,21 @@ The checker verifies the allowed source label; it does not compare the prose to 
 
 ## Product route size baseline
 
-Research CI builds `main` and the candidate in separate directories using the candidate's
-pinned Nix toolchain and the same measurement script. Each installs its own locked dependencies.
-The main build writes a temporary baseline; the candidate compares against it with a 128-byte
-per-route tolerance. No baseline from this PR is accepted or checked in.
+Research CI builds the event's base revision and the candidate in separate directories using the
+candidate's pinned Nix toolchain and the same measurement script. Each installs its own locked
+dependencies. The base build writes a temporary baseline; no candidate baseline is checked in.
 
-The budget measures a change that touches research code or data shipped to the browser: the JSON and
-CSV files under `research/` (outside `research/tools/`), `web/src/components/research/`,
-`web/public/research-*` and `web/vite.research-viewer.config.ts`, plus every push to main. A product change with none of these
-(a landing section, a nav item) grows the routes on purpose and is reviewed as product; it is not measured.
+Changes to shipped research JSON/CSV (outside `research/tools/`),
+`web/src/components/research/`, `web/public/research-*` or
+`web/vite.research-viewer.config.ts` retain the 128-byte per-route isolation tolerance.
+This includes mixed product/research changes and merge-queue candidates. Without a base revision,
+the comparison defaults to enforcing research isolation against main.
+
+Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`: at most
+64 KiB of uncompressed growth per landing route and 256 KiB per app route relative to the base.
+These separate product budgets allow incremental features while bounding dependency growth;
+changes to these limits require review. They do not replace or increase the research tolerance.
+Static research imports fail for both product and research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
 mode. Landing routes count the entry's static closure; app routes also count App's static and

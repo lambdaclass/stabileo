@@ -646,6 +646,9 @@ jobs:
           path: web/src/lib/wasm
       - name: Install dependencies
         run: make web.deps
+      - name: Typecheck against its baseline and svelte-check gate
+        if: matrix.shard == 1
+        run: make typecheck.web
       - name: Unit + integration tests
         env:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
@@ -699,13 +702,6 @@ jobs:
             nix develop .#e2e -c make web.deps NIX_RUN=
           else
             make web.deps
-          fi
-      - name: Typecheck against its baseline and svelte-check gate
-        run: |
-          if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make typecheck.web NIX_RUN=
-          else
-            make typecheck.web
           fi
       # The runner lacks the system libraries Chromium links against; no make target installs them.
       - name: Install Chromium system dependencies
@@ -1044,7 +1040,6 @@ jobs:
     uses: ./.github/workflows/research.yml
     with:
       route_only: ${{ needs.changes.outputs.scope == 'tools' }}
-      force_routes: true
 
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails

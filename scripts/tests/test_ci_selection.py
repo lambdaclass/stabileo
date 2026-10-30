@@ -93,6 +93,18 @@ class Selection(unittest.TestCase):
         self.assertIn('@engine', args[args.index('--grep') + 1])
         self.assertNotIn('--pass-with-no-tests', args)
 
+    def test_typecheck_covers_every_selected_web_scope(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
+        self.assertIn('shard: [1, 2]', unit)
+        self.assertIn('if: matrix.shard == 1\n        run: make typecheck.web', unit)
+        for path in ['research/a.rs', 'web/src/components/tools/a.svelte',
+                     'engine/src/lib.rs', 'web/src/App.svelte']:
+            self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
+        self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
+        self.assertEqual(selection.select('merge_group', [])['web'], 'true')
+
     def test_workflow_wiring(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}', text)
