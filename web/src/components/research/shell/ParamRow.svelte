@@ -8,7 +8,7 @@
   <label for={id}><span class="rs-param-name">{name}</span>{#if symbol} {@render symbol()}{/if}</label>
   <div class="rs-param-field">{@render children()}</div>
   <span class="rs-param-unit">{unit}</span>
-  {#if hint}<p id="{id}-hint" class="rs-param-hint">{invalid ? `Must be ${hint}` : hint}</p>{/if}
+  {#if hint}<p id="{id}-hint" class="rs-param-hint">{hint}</p>{/if}
 </div>
 
 <style>
@@ -20,6 +20,7 @@
     padding: 0.2rem 0;
   }
   label {
+    overflow-wrap: anywhere;
     font: var(--rs-ui) var(--st-sans);
     color: var(--fg);
   }

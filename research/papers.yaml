@@ -49,6 +49,22 @@ papers:
   - single-edge notched tension force-displacement
   - three-point bending force-displacement
   implementation: fracture/shauer-2025
+  reviews:
+  - reviewer: kimi
+    round: 2
+    date: "2026-10-30"
+    findings: "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility."
+    resolution: "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+  - reviewer: codex
+    round: 2
+    date: "2026-10-30"
+    findings: "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility."
+    resolution: "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+  - reviewer: claude
+    round: 2
+    date: "2026-10-30"
+    findings: "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility."
+    resolution: "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
   contacts: []
 - id: wu-2023-jaxsso
   doi: 10.1007/s00158-023-03601-0

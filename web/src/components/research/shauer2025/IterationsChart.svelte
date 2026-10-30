@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { num } from '../shell/format';
   import { rs } from '../i18n';
   /** Staggered iterations per load step, on a log axis (one step can need hundreds). */
   import type { Step } from './protocol';
 
   let { steps, reference = null, height = 160 }: { steps: Step[]; reference?: number[] | null; height?: number } = $props();
   let width = $state(600);
+  let readIndex = $state(0);
   let hover = $state<number | null>(null);
   const M = { l: 84, r: 16, t: 10, b: 40 };
   const TICKS = [1, 10, 100, 1000];
@@ -44,15 +46,18 @@
       {/if}
     {/each}
   </svg>
+  <input type="range" min="0" max={Math.max(0, steps.length - 1)} bind:value={readIndex}
+    aria-label={strings.loadStepShown} oninput={() => hover = readIndex} onfocus={() => hover = readIndex} />
   {#if hover !== null && steps[hover]}
     {@const s = steps[hover]}
-    <div class="readout" style:left="{Math.min(M.l + hover * bw + 10, width - 240)}px">
-      {strings.step} {s.step} · {s.iterations} {strings.iterations}{s.converged ? '' : strings.notConvergedSuffix} {strings.residualSuffix} {s.residual.toExponential(2)}{reference && reference[hover] !== undefined ? ` · ${strings.referenceLower} ${reference[hover]}` : ''}
+    <div aria-live="polite" class="readout" style:left="{Math.min(M.l + hover * bw + 10, width - 240)}px">
+      {strings.step} {s.step} · {s.iterations} {strings.iterations}{s.converged ? '' : strings.notConvergedSuffix} {strings.residualSuffix} {num(s.residual, { sig: 3 })}{reference && reference[hover] !== undefined ? ` · ${strings.referenceLower} ${reference[hover]}` : ''}
     </div>
   {/if}
 </div>
 
 <style>
+  input { width: 100%; height: 44px; }
   .chart {
     position: relative;
   }
@@ -78,7 +83,8 @@
     fill: var(--rs-plot-ref);
   }
   .readout {
-    position: absolute;
+    position: relative;
+    left: 0 !important;
     top: 6px;
     pointer-events: none;
     background: var(--lp-ink, #0c1620);
@@ -87,6 +93,6 @@
     font: var(--rs-micro) var(--st-sans);
     padding: 0.3rem 0.5rem;
     border-radius: 3px;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 </style>

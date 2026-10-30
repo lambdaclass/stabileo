@@ -7,10 +7,10 @@ const compareReference = (f: Frame[], r: Parameters<typeof compare>[1]) => compa
   snapshots: { damage: { 0: [0.1] }, displacement: { 0: [0, 0.001] } },
   material: { e: 30, nu: 0.2, plane: 'stress' }, replay: true,
 });
-const reference = [1, 2, 0.5].map((reaction, step) => ({ reaction, step, iterations: 3, damageMax: 0.1 }));
+const reference = [1, 2, 0.5].map((reaction, step) => ({ reaction, step, pseudotime: 0.1, iterations: 3, damageMax: 0.1 }));
 function frames(): Frame[] {
   return reference.map(r => ({
-    step: { ...r, pseudotime: 0.01, displacement: 0.001, converged: true, residual: 1e-6,
+    step: { ...r, pseudotime: 0.1, displacement: 0.001, converged: true, residual: 1e-6,
       damage_max: 0.1, damage_min: 0, elastic_energy: 1, fracture_energy: 0.1 },
     damage: new Float32Array([0.1]), displacement: new Float32Array([0, 0.001]),
   }));
@@ -36,7 +36,7 @@ describe('reference match evidence', () => {
       const f = frames();
       f[i].step.reaction += i === 0 ? 1e-8 : 2e-5;
       expect(compareReference(f, reference).matches).toBe(false);
-      expect(compareReference(f, reference).failures.join()).toContain('force difference');
+      expect(compareReference(f, reference).failures.join()).toContain('force-');
     }
   });
   it('rejects different iterations, peak, missing frames, non-convergence and non-finite fields', () => {
@@ -65,4 +65,11 @@ it('accepts only finite integer step links and clamps them', () => {
   expect(deepLinkStep('-2', 79)).toBe(0);
   expect(deepLinkStep('999', 79)).toBe(78);
   expect(deepLinkStep('57', 79)).toBe(57);
+});
+
+it.each(['pseudotime', 'displacement'] as const)('rejects finite corrupted %s', key => {
+  for (const index of [0, 2]) {
+    const f = frames(); f[index].step[key] += 0.001;
+    expect(compareReference(f, reference).failures).toContain('load-coordinate-mismatch');
+  }
 });

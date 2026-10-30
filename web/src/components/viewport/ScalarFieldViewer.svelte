@@ -337,6 +337,9 @@
 </div>
 
 <style>
+  .sfv :global(.shell-legend), .sfv :global(.legend-unit-inline) { font-size: 12px; }
+  .sfv .cam-item { min-height: 44px; font-size: 12px; }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -365,13 +368,13 @@
     bottom: 12px;
   }
   .sfv-mode {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: color-mix(in srgb, var(--st-surface) 90%, transparent);
     color: var(--st-text-2);
-    font: 600 11px var(--st-sans);
+    font: 600 12px var(--st-sans);
     cursor: pointer;
   }
   .sfv-mode:hover {
@@ -382,7 +385,7 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    font: 600 10px var(--st-sans);
+    font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--st-text-3);
@@ -408,7 +411,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     color: var(--st-text-2);
-    font: 0.7rem var(--st-sans);
+    font: 0.75rem var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }
