@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
        test.ci-scripts \
        test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
@@ -213,7 +213,11 @@ check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
 
-test.engine.gates: check.engine.acceptance-models
+# nextest does not execute the compile-fail doctests protecting unit boundaries.
+test.engine.units-types:
+	$(NIX_RUN) cargo test -p dedaliano-engine --doc types::units
+
+test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(NEXTEST) -E '$(GATE_SHELL_BENCH)'
 	$(NEXTEST) -E '$(GATE_SHELL_ACCEPTANCE)'
 	$(NEXTEST) -E '$(GATE_CONSTRAINT_BENCH)'

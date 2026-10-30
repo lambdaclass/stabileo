@@ -1,3 +1,5 @@
+import { input2DToWireObject } from '../wasm-solver';
+import type { SolverInput } from '../types';
 import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, materialToWire, sectionToWire } from '../unit-types';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
@@ -27,3 +29,17 @@ const wireSection = sectionToWire({ id: 1, a: 0.01, iz: 0.0001 });
 wireMaterial.e = modulusInternal(material.e);
 // @ts-expect-error the production section adapter retains the inertia brand
 wireSection.iz = wireSection.a;
+
+// Exercise the public boundary as well as its individual adapters.
+declare const input: SolverInput;
+const wire = input2DToWireObject(input);
+wire.materials['1'].e = mpa(200000);
+wire.sections['1'].iz = inertiaM4(0.0001);
+// @ts-expect-error the public wire boundary retains the MPa brand
+wire.materials['1'].e = modulusInternal(material.e);
+// @ts-expect-error raw numbers require an explicit boundary constructor
+wire.materials['1'].e = 200000;
+// @ts-expect-error the public wire boundary retains the inertia brand
+wire.sections['1'].iz = wire.sections['1'].a;
+// @ts-expect-error the public wire boundary retains the area brand
+wire.sections['1'].a = force;
