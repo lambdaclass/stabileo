@@ -29,7 +29,7 @@ export class ArcRunner {
     this.worker.onmessage = (event: MessageEvent<{ type: string; runId: number; frame?: BenchmarkFrame; converged?: boolean; totalIterations?: number; finalLoadFactor?: number; error?: string }>) => {
       if (event.data.runId !== this.runId || !this.current) return;
       if (event.data.type === 'frame' && event.data.frame) {
-        this.current = { ...this.current, frames: [...this.current.frames, event.data.frame] };
+        this.current = { ...this.current, frames: [...this.current.frames, event.data.frame], totalIterations: this.current.totalIterations + event.data.frame.iterations, finalLoadFactor: event.data.frame.loadFactor };
       } else if (event.data.type === 'done') {
         this.current = { ...this.current, converged: !!event.data.converged, totalIterations: event.data.totalIterations ?? 0, finalLoadFactor: event.data.finalLoadFactor ?? 0 };
         this.status = 'done';

@@ -11,11 +11,11 @@
   import ParamRow from '../shell/ParamRow.svelte';
   import NumberField from '../shauer2025/NumberField.svelte';
   import Sci from '../shell/Sci.svelte';
-  import { Playback, SOURCE_LABEL, type Source } from '../shell/playback.svelte';
+  import { Playback, type Source } from '../shell/playback.svelte';
   import { num, qty } from '../shell/format';
   import { rs } from '../i18n';
   import PathChart, { type LimitMarker, type PathSeries } from './PathChart.svelte';
-  import { compareFrameRun, frameReferenceLoadAt, compareRun, comparisonHeadline, DEFAULT_PARAMETERS, inputFor, limitPoint, measuredLimitFrame, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
+  import { compareFrameRun, frameReferenceLoadAt, compareRun, interpolatedLimit, DEFAULT_PARAMETERS, inputFor, limitPoint, measuredLimitFrame, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
   import { nativeReplay } from './replay';
   import { ArcRunner } from './runner.svelte';
   import { editorSnapshot } from './editor';
@@ -46,7 +46,7 @@
   const isFrame = $derived(currentCase.id === 'shallow-toggle');
   const checks = $derived(isFrame ? compareFrameRun(currentCase, shown) : compareRun(currentCase, shown));
   const checkCount = $derived({ passed: checks.filter((check) => check.passed).length, total: checks.length });
-  const headline = $derived(isFrame ? `Frame energy reference: ${checkCount.passed}/${checkCount.total} checks pass` : comparisonHeadline(checks));
+  const headline = $derived(`${isFrame ? copy.frameHeadline : checks[0].reached ? copy.limitHeadline : copy.checkHeadline}: ${checkCount.passed}/${checkCount.total} ${copy.passed}`);
   const referenceLimit = $derived(limitPoint(currentCase.geometry.halfSpan, 2 * currentCase.geometry.halfSpan * shown.parameters.riseSpan, Object.values(currentCase.input.solver.materials)[0].e * 1000 * Object.values(currentCase.input.solver.sections)[0].a, currentCase.apex.referenceLoad));
 
   $effect(() => {
@@ -102,15 +102,15 @@
     return [loX - pad, loY - pad, hiX + pad, hiY + pad];
   });
   const pathSeries = $derived<PathSeries[]>([
-    { name: 'Closed-form reference', color: REFERENCE, reference: true, points: referencePath(currentCase, shown.parameters).map(([v, p]) => [v, isFrame ? frameReferenceLoadAt(currentCase, v, 2 * currentCase.geometry.halfSpan * shown.parameters.riseSpan) : p]) },
-    { name: source === 'replay' ? 'Stabileo native replay' : 'Stabileo live WASM', color: STABILEO, points: frames.map((item) => [item.displacement, item.load]) },
+    { name: copy.reference, color: REFERENCE, reference: true, points: referencePath(currentCase, shown.parameters).map(([v, p]) => [v, isFrame ? frameReferenceLoadAt(currentCase, v, 2 * currentCase.geometry.halfSpan * shown.parameters.riseSpan) : p]) },
+    { name: source === 'replay' ? copy.replay : copy.live, color: STABILEO, points: frames.map((item) => [item.displacement, item.load]) },
   ]);
   const pathMarkers = $derived.by<LimitMarker[]>(() => {
     if (isFrame) return [];
-    const markers = [{ x: referenceLimit.displacement, y: referenceLimit.load, label: 'reference limit' }];
+    const markers = [{ x: referenceLimit.displacement, y: referenceLimit.load, label: copy.referenceLimit }];
     if (checks[0].reached && frames.length) {
-      const peak = measuredLimitFrame(frames)!;
-      markers.push({ x: peak.displacement, y: peak.load, label: 'Stabileo limit' });
+      const peak = interpolatedLimit(frames)!;
+      markers.push({ x: peak.displacement, y: peak.load, label: copy.measuredLimit });
     }
     return markers;
   });
@@ -173,6 +173,10 @@
 
 <ExperimentShell
   paperId="riks-1979"
+  introInArticle
+  citationRelation={copy.citationRelation}
+  contentLocale={publicI18n.locale}
+  verification={{ reference: { kind: 'checks', ...checkCount, href: '#checks' }, published: { kind: 'none', why: copy.scopeText } }}
   name={copy.arcLengthSnapThroughRiksAndCrisfield}
   lead={copy.twoBarEquilibriumPathsWithTheProduction}
   checks={checkCount}
@@ -181,53 +185,25 @@
   sourcePath="research/numerical-methods/riks-crisfield"
 >
   {#snippet article()}
-    <h2>{copy.whatTheMethodDoes}</h2>
-    <p>{copy.loadControlCannotContinuePastAVertical}<sub>{copy.ref}</sub>{copy.sWithAdaptiveS}</p>
-    <p>{copy.theMethodPapersAreERiks}<a href="https://doi.org/10.1016/0020-7683(79)90081-7" rel="noreferrer" target="_blank">{copy.anIncrementalApproachToTheSolutionOf}</a>{copy.andMACrisfield}<a href="https://doi.org/10.1016/0045-7949(81)90108-5" rel="noreferrer" target="_blank">{copy.aFastIncrementalIterativeSolutionProcedureThat}</a>{copy.thisPageBenchmarksTheEngineItDoes}</p>
-
-    <h2>{copy.theSharedCases}</h2>
-    <p>{copy.theShallowToggleIsTheRigidJointed}</p>
-    <p>{copy.forHalfSpan}<var>s</var>{copy.initialRise}<var>h</var>{copy.deformedRise}<var>y</var>{copy.lSYLSHAnd}<sub>{copy.ref}</sub>. <ExperimentLink tab="path">{copy.seeTheModelSpecificReferencePaths}</ExperimentLink>.</p>
-
-    <h2>{copy.howTheReplayAndLiveRunAre}</h2>
-    <ol>
-      <li>{copy.theNativeHarnessCallsTheProduction}<code>{copy.solveArcLength}</code>{copy.forFrameKItRerunsWith}<code>{copy.maxstepsK}</code>{copy.checksThePathPrefixAndStoresThe}</li>
-      <li>{copy.theBrowserWorkerCallsTheSameProduction}</li>
-      <li>{copy.theNodeCheckComparesWasmPathSteps}</li>
-    </ol>
-
-    <h2 id="checks">{copy.comparisonOnTheDisplayedRun}</h2>
-    <p>{headline}{copy.tolerancesComeFromTheSharedCaseFile}</p>
-    <div class="rs-table-scroll" role="region" aria-label={copy.benchmarkChecks}>
-      <table class="rs-checks">
-        <thead><tr><th>{copy.check}</th><th class="num">{copy.observedError}</th><th class="num">{copy.tolerance}</th><th>{copy.result}</th></tr></thead>
-        <tbody>{#each checks as check (check.id)}<tr><td>{check.label}</td><td class="num"><Sci value={check.error} /></td><td class="num"><Sci value={check.tolerance} sig={1} /></td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? '✓ pass' : check.reached ? '✗ fail' : '✗ not reached'}</td></tr>{/each}</tbody>
-      </table>
-    </div>
-    <p>{copy.forTheVonMisesGeometryTheAxial}</p>
-    <p><strong>{copy.shallowToggleCorrection}</strong>{copy.thisRigidJointedFrameHasNoLimit}<a href="https://github.com/lambdaclass/stabileo/pull/852">{copy.referenceDerivationAndIndependentEnergyCheck}</a>.</p>
-
-    <h2>{copy.comparisonWithThePapers}</h2>
-    <p>{copy.notDoneNoPublishedTableFigureOr}</p>
-
-    <h2>{copy.limitations}</h2>
-    <ul>
-      <li>{copy.arcLengthAnalysisIsTwoDimensionalThese}</li>
-      <li>{copy.theVonMisesReferenceIsAxialEngineering}</li>
-      <li>{copy.changingToAnUpwardReferenceLoadExplores}</li>
-      <li>{copy.prefixRerunsMakeEachDisplayedShapeA}</li>
-    </ul>
+    <h2>{copy.method}</h2><p>{copy.methodText}</p>
+    <h2>{copy.models}</h2><p>{copy.modelsText}</p>
+    <p>{copy.formula}</p>
+    <h2 id="checks">{copy.comparison}</h2><p>{headline}</p>
+    <p>{copy.accuracy}</p>
+    <h2>{copy.scope}</h2><p>{copy.scopeText}</p>
+    <p>{copy.isolation}</p>
   {/snippet}
 
   {#snippet app()}
-    <div class="rs-app" lang="en" bind:this={pane} data-source={source} data-steps={frames.length} data-case={currentCase.id} data-status={runner.status} data-playing={playback.playing}>
-      <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{SOURCE_LABEL[source]}</p>
-      <p class="rs-headline" data-testid="benchmark-headline" role="status">{headline}</p>
+    <div class="rs-app" lang={publicI18n.locale} bind:this={pane} data-source={source} data-steps={frames.length} data-case={currentCase.id} data-status={runner.status} data-playing={playback.playing}>
+      <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{copy[source]}</p>
+      <p class="rs-headline" data-testid="benchmark-headline">{headline}</p>
       <PaneTabs oninteract={() => playback.interact()} tabs={[{ id: 'viewer', label: strings.benchmark.viewer }, { id: 'path', label: strings.benchmark.path }, { id: 'parameters', label: strings.benchmark.parameters }]} bind:active={tab} />
 
       <div class="rs-panel rs-viewer-panel" id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()}>
           <StabileoViewer
+            locale={publicI18n.locale}
             xy={model.xy}
             cells={model.cells}
             cellSize={2}
@@ -242,8 +218,8 @@
             showMesh={true}
             {view}
             height="100%"
-            status={frame ? [{ label: 'step', value: `${frame.step}/${frames.length}` }, { label: 'λ', value: num(frame.loadFactor, { sig: 5 }) }, { label: 'v', value: qty(frame.displacement, 'm', { sig: 4 }) }, { label: 'P', value: qty(frame.load, 'kN', { sig: 5 }) }] : []}
-            ariaLabel="Stabileo viewer: two-bar deformed shape along the production arc-length path"
+            status={frame ? [{ label: strings.benchmark.step, value: `${frame.step}/${frames.length}` }, { label: 'λ', value: num(frame.loadFactor, { sig: 5 }) }, { label: 'v', value: qty(frame.displacement, 'm', { sig: 4 }) }, { label: 'P', value: qty(frame.load, 'kN', { sig: 5 }) }] : []}
+            ariaLabel={copy.viewerDescription}
             onOpenEditor={() => void openEditor()}
             openEditorNote={copy.openThisGeometryAndReferenceLoadThrough}
           />
@@ -253,21 +229,21 @@
       <div class="rs-panel" id="rs-panel-path" role="tabpanel" aria-labelledby="rs-tab-path" hidden={tab !== 'path'}>
         <figure>
           <figcaption>{copy.downwardLoadAgainstDownwardApexDisplacementOrange}</figcaption>
-          <PathChart series={pathSeries} limits={pathMarkers} current={frame ? { x: frame.displacement, y: frame.load } : null} xLabel="apex displacement v (m)" yLabel="load P (kN)" height={300} />
+          <PathChart series={pathSeries} limits={pathMarkers} current={frame ? { x: frame.displacement, y: frame.load } : null} xLabel={copy.xLabel} yLabel={copy.yLabel} height={300} />
         </figure>
         <div class="rs-table-scroll" role="region" aria-label={copy.referenceAndStabileoComparisonValues}>
           <table>
             <thead><tr><th>{copy.check}</th><th class="num">{strings.benchmark.reference}</th><th class="num">{strings.benchmark.stabileo}</th><th class="num">{strings.benchmark.error}</th><th>{strings.benchmark.result}</th></tr></thead>
-            <tbody>{#each checks as check (check.id)}<tr><td>{check.label}</td><td class="num">{check.id === 'equilibrium-path' ? '0' : num(check.reference, { sig: 6 })}</td><td class="num">{check.id === 'equilibrium-path' || Number.isNaN(check.observed) ? '—' : num(check.observed, { sig: 6 })}</td><td class="num">{num(check.error * 100, { sig: 3 })}%</td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? 'pass' : check.reached ? 'fail' : 'not reached'}</td></tr>{/each}</tbody>
+            <tbody>{#each checks as check (check.id)}<tr><td>{check.id === 'limit-load' ? copy.limitLoad : check.id === 'limit-displacement' ? copy.limitDisplacement : copy.pathError}</td><td class="num">{check.id === 'equilibrium-path' ? '0' : num(check.reference, { sig: 6 })}</td><td class="num">{Number.isNaN(check.observed) ? '—' : num(check.observed, { sig: 6 })}</td><td class="num">{Number.isFinite(check.error) ? `${num(check.error * 100, { sig: 3 })}%` : copy.notEvaluated}</td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? copy.pass : check.reached ? copy.fail : copy.notEvaluated}</td></tr>{/each}</tbody>
           </table>
         </div>
-        <p class="rs-note">{shown.totalIterations}{copy.totalNewtonIterations}{frames.length}{copy.convergedPathPointsFinalLoadFactor}{num(shown.finalLoadFactor, { sig: 7 })}{copy.solverConvergedFlag}{shown.converged ? 'true' : 'false'}.</p>
+        <p class="rs-note">{live && runner.status !== 'done' ? copy.partial : ''} {shown.totalIterations}{copy.totalNewtonIterations}{frames.length}{copy.convergedPathPointsFinalLoadFactor}{num(shown.finalLoadFactor, { sig: 7 })}{copy.solverConvergedFlag}{shown.converged ? copy.yes : copy.no}.</p>
       </div>
 
       <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={scheduleLive} onchangecapture={scheduleLive}>
         <ParamRow id="p-case" name={strings.benchmark.case}>
           <select id="p-case" value={caseId} onchange={(event) => selectCase((event.currentTarget as HTMLSelectElement).value)}>
-            {#each data.cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+            {#each data.cases as c (c.id)}<option value={c.id}>{c.id === 'shallow-toggle' ? copy.shallowCase : copy.vonMisesCase}</option>{/each}
           </select>
         </ParamRow>
         <ParamRow id="p-rise" name={strings.benchmark.riseSpan} hint="0.005–0.8" invalid={invalid.riseSpan}>
@@ -290,11 +266,8 @@
           {#if live}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>{strings.benchmark.backToReplay}</button>{/if}
           <button class="btn btn-ghost btn-sm" type="button" onclick={reset}>{strings.benchmark.reset}</button>
         </div>
-        <p class="rs-status" aria-live="polite">
-          {#if runner.status === 'running'}{copy.solving}{frames.length}{copy.pathPointsWithProductionWasm}{:else if runner.status === 'stopped'}{copy.stoppedAfter}{frames.length}{copy.pathPoints}{:else if runner.status === 'error'}<span class="fail">{runner.error}</span>
-          {:else if runner.status === 'done'}{copy.liveRunComplete}{frames.length}{copy.pathPoints2}{runner.origin}).
-          {:else}{copy.referenceReplayChangingAValidControlRecomputes}{/if}
-        </p>
+        <p class="rs-status" aria-live="polite">{copy[runner.status]}</p>
+
       </div>
 
       {#if frames.length}
@@ -309,7 +282,7 @@
 </ExperimentShell>
 
 <style>
-  .rs-app { display: flex; flex-direction: column; gap: .6rem; color: var(--fg); min-width: 0; }
+  .rs-app { --rs-control-h: 44px; display: flex; flex-direction: column; gap: .6rem; color: var(--fg); min-width: 0; }
   .rs-panel { min-width: 0; }
   .rs-panel[hidden] { display: none; }
   .rs-mode, .rs-headline, .rs-note, .rs-status { margin: 0; font: var(--rs-ui) var(--st-sans); color: var(--fg-2); }
@@ -322,7 +295,7 @@
   .rs-viewer-slot :global(.rs-viewer-host), .rs-viewer-slot :global(.sfv-wrap) { height: 100%; display: flex; flex-direction: column; }
   .rs-viewer-slot :global(.sfv) { flex: 1; min-height: 0; }
   .rs-scrub { display: flex; align-items: center; gap: .65rem; }
-  .rs-scrub input { flex: 1; accent-color: var(--st-accent); }
+  .rs-scrub input { width: 0; flex: 1; accent-color: var(--st-accent); }
   .rs-stepread { color: var(--fg-2); font: var(--rs-ui) var(--st-sans); white-space: nowrap; }
   .rs-params { display: grid; gap: .45rem; }
   .rs-params :global(select) { width: 100%; min-height: var(--rs-control-h); background: var(--st-surface-3); color: var(--fg); border: 1px solid var(--rs-control-border); border-radius: 3px; }
@@ -334,8 +307,14 @@
   .pass { color: var(--st-ok); } .fail { color: var(--st-danger); }
   figure { margin: 0; } figcaption { color: var(--fg-2); font: var(--rs-small) var(--st-sans); margin-bottom: .35rem; }
   @media (min-width: 70rem) {
-    .rs-app { height: 100%; }
+    .rs-app { --rs-control-h: 44px; height: 100%; }
     .rs-panel { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
     .rs-viewer-slot { flex: 1; height: auto; min-height: 13rem; }
   }
+  .rs-app :global(button), .rs-app :global(select), .rs-app :global(input) { min-height: 44px; min-width: 44px; font-size: max(12px, var(--rs-ui)); }
+  .rs-app :global(select) { max-width: 100%; width: 100%; }
+  .rs-app :global(.rs-tabs button) { min-height: 44px; flex: 1; min-width: 0; padding-inline: .35rem; }
+  .rs-app :global(.rs-param) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rs-app :global(.rs-param-unit) { display: none; }
+  .rs-app :global(td), .rs-app :global(th) { white-space: normal; overflow-wrap: anywhere; }
 </style>

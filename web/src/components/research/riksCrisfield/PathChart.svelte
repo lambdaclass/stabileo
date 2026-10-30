@@ -46,7 +46,7 @@
 </script>
 
 <div class="path-chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="{yLabel} against {xLabel}">
+  <svg {width} {height} role="img" aria-label={`${yLabel}; ${xLabel}; ${series.map(s => s.name).join("; ")}; ${limits.map(p => `${p.label}: ${num(p.x)}, ${num(p.y)}`).join("; ")}; ${current ? `${num(current.x)}, ${num(current.y)}` : ""}`}>
     <text x={M.l - 8} y={13} class="label">{yLabel}</text>
     {#each xt.values as x (x)}
       <line x1={sx(x)} x2={sx(x)} y1={M.t} y2={height - M.b} class="grid" />
@@ -62,9 +62,9 @@
     {#each ordered as item (item.name)}
       <path d={path(item.points)} fill="none" style:stroke={item.color} stroke-width={item.reference ? 7 : 2} stroke-opacity={item.reference ? 0.35 : 1} stroke-linecap="round" stroke-linejoin="round" />
     {/each}
-    {#each limits as limit (limit.label)}
+    {#each limits as limit, i (limit.label)}
       <circle cx={sx(limit.x)} cy={sy(limit.y)} r="5" class="limit" />
-      <text x={sx(limit.x)} y={sy(limit.y) - 10} class="limit-label" text-anchor="middle">{limit.label}</text>
+      <text x={M.l + 8} y={M.t + 18 + i * 22} class="limit-label" text-anchor="start">{limit.label}</text>
     {/each}
     {#if current}
       <circle cx={sx(current.x)} cy={sy(current.y)} r="5" class="current" />

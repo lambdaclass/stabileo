@@ -1,133 +1,92 @@
-> Reference correction (#852): the shallow-toggle input here is a rigid-jointed frame with pinned bases, not a pin-jointed truss. At its default geometry it has no limit point over inversion. The web page now compares its native/live path against the derivative of U = EA(L−L0)²/L0 + 3EIβ²/L0, β = atan(y/a)−atan(h/a), giving P = 2EA(1−L/L0)y/L − 6EI a β/(L0 L²). See `fix/846-shallow-toggle:engine/tests/BENCHMARK_REFERENCES.md`. The native comparison code, committed validation files and table below preserve the original axial-only comparison as historical evidence; their shallow-toggle failures must not be interpreted as engine defects or frame limit-point checks. The axial-only formula describes a pin-jointed truss.
+# Riks/Crisfield method benchmarks
 
-# Riks/Crisfield production arc-length evidence
+These are production-solver method benchmarks against analytical equilibrium and native/WASM
+parity, not reproductions of numerical examples in Riks (1979) or Crisfield (1981). The page
+states this comparison directly; it has no pending paper-comparison badge or author questions.
+The derivations are in [BENCHMARK_REFERENCES.md](../../../engine/tests/BENCHMARK_REFERENCES.md).
 
-This directory shares two complete production `ArcLengthInput` models between the native engine
-validation tests, a native evidence harness, and the browser WASM checker. It contains no second
-solver. Both cases use pinned-base, two-member corotational frame models and the production
-`dedaliano_engine::solver::arc_length::solve_arc_length` implementation.
+## Models and references
 
-## Shared case schema
+Both cases use pinned-base corotational **frame** elements with a rigid apex. The historical
+shallow-toggle input is not the current `test_arc_length_detects_limit_point` truss test.
+Its `reference.upperLimit` is explicitly an axial-truss normalization scale, not a frame limit.
+The von Mises case uses the geometry from `nonlinear_extended.rs`. Bending is small but nonzero;
+the engine test bounds its contribution and the page's axial-reference residual includes it.
+Neither case is represented as a numerical model taken from the method papers.
 
-`reference-results/arc_length_snap_through.json` is browser-consumable JSON with:
+For half-span a, initial rise h, downward displacement v, y=h−v,
+L₀=√(a²+h²), L=√(a²+y²), and E=1000 E_MPa in kN/m²:
 
-- units, the production entry point, and the Crisfield spherical constraint;
-- the closed-form reference definition, source, sign conventions, unit conversion, and limit
-  condition;
-- WASM/native parity tolerances;
-- for each case, geometry, apex node and displacement convention, reference load, exact upper-limit
-  load/displacement/load factor, validation tolerances, and the complete production input.
+- Axial truss: P=2EA(1−L/L₀)y/L. Its upper stationary point satisfies L³=a²L₀.
+- Rigid frame: U=EA(L−L₀)²/L₀+3EIβ²/L₀, β=atan(y/a)−atan(h/a).
+  Its derivative is P_frame=P−6EI a β/(L₀L²). At the default shallow geometry this
+  reference has no limit through inversion. Only its equilibrium residual is checked here.
 
-The shallow-toggle case is exactly the model and control set used by
-`test_arc_length_detects_limit_point`. The von Mises case uses the geometry from
-`nonlinear_extended.rs`, a 1,000 kN downward reference load, and fixed 25 arc-length increments with
-a 700-step budget so that it traces snap-through with adequate limit-point resolution.
+The shared JSON input, native-results.json, VALIDATION.json and MANIFEST.json under
+`reference-results/` are the published data consumed by the browser. No research solver or
+production engine numerical change is involved.
 
-## Closed-form reference
+## Upper-limit sampling and accuracy budgets
 
-For half-span `a`, initial rise `h`, deformed rise `y = h - v`, and downward apex displacement
-`v = -uz`:
+The von Mises replay uses Δs=12.5, maxSteps=1400. In the spherical constraint
+‖Δu‖²+Δλ²‖f_ref‖²=Δs², ‖f_ref‖=1000 kN, so |Δλ|≤0.0125 (12.5 kN per step).
+This bounds the load grid, not the displacement error at a stationary point. A limit requires
+adjacent converged frames with a positive load followed by a lower load. A quadratic through
+that frame and its two neighbors estimates the peak; its vertex must lie inside the bracket
+and the quadratic must be concave. Otherwise the measured reversal point is used. Truncated
+and failed paths do not pass a limit check. Unavailable limits have null evidence values and
+are displayed as “not evaluated”; they are excluded from the worst-error calculation.
 
-```text
-L0 = sqrt(a^2 + h^2)
-L  = sqrt(a^2 + y^2)
-P(y) = 2 E A (1 - L/L0) y/L
-E  = E_MPa * 1000 kN/m^2
-```
+Each tolerance has a separate budget, tightened from the original 5%:
 
-The upper stationary point satisfies `L^3 = a^2 L0`. The physical solver load is
-`P = loadFactor * referenceLoad`, positive downward. The path check evaluates
-`|P_solver - P(y)| / P_upper_limit` at every recorded step. Limit load and limit displacement use
-relative errors; all three tolerances are 0.05. Frame bending is absent from this axial reference,
-so disagreement is measured rather than hidden.
+| Metric | Tolerance | Basis |
+|---|---:|---|
+| von Mises peak load | 0.001 relative | Below the old 25 kN load-grid fraction; interpolation reduces sampling error |
+| von Mises peak displacement | 0.005 relative | Sub-percent interpolation target, independently checked against the exact stationary point |
+| von Mises path residual / axial peak | 0.00005 | Includes the small frame/truss bending difference, bounded in the engine test |
+| shallow frame residual / axial peak scale | 0.00001 | Independent frame-energy derivative; solver tolerance remains unchanged |
 
-## Native evidence
+Current native measurements (the machine-readable report is authoritative):
 
-From the repository root:
+| Case | Steps | Upper limit | Peak load (kN) | Peak displacement (m) | Maximum normalized residual |
+|---|---:|---|---:|---:|---:|
+| shallow-toggle | 100 | not applicable to this reference | — | — | 4.39562048e-6 |
+| von-mises-truss | 1400 | crossed | 15673.05172945 | 0.916750023010 | 2.28177564e-5 |
 
-```sh
-nix develop -c cargo run --release \
-  --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- generate
-nix develop -c cargo run --release \
-  --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
-```
+The von Mises peak load error is 1.96986485e-5 and displacement error 1.02625482e-4.
+The replay crosses only the upper limit; it does not demonstrate the lower limit or full inversion.
+The native and browser tests compare every displayed path coordinate, sign, load factor,
+iteration count, convergence flag, peak and residual against the committed evidence.
 
-`generate` explicitly rewrites `native-results.json`, `VALIDATION.json`, and `MANIFEST.json`.
-`check` only reads them, reruns all native solves, recomputes validation and SHA-256 hashes, and
-compares the results without rewriting files. `check` exits nonzero when the regenerated native
-output, validation or manifest differs from the committed evidence; the separately reported
-`validationPassed` flag remains false while a benchmark is known to fail.
-
-### Reproduction platform and PR #857 evidence refresh
-
-The committed evidence is generated with Rust 1.99.1 on **x86_64 Linux** (the CI
-platform). The exact JSON comparison is platform-specific: it is not a portable
-floating-point parity test. Use that platform for `generate` and `check`; use the
-unchanged tolerances in the WASM parity checker for browser/native agreement.
-
-The previous evidence from `7508e0fe6` reproduces exactly on aarch64 macOS with
-Rust 1.99.1, but fails the exact comparison on x86_64 Linux. Reproduction with the
-same source and locked dependencies on both platforms isolated the cause to
-platform floating-point rounding. There is **no intervening engine numerical
-commit or PR**: `git diff 7508e0fe6 b46891eb5 -- engine/src` is empty. The wave-two
-reference correction (#852) changed only this README within this paper's
-directory; it did not change the native harness, case input or validation schema.
-
-The Linux refresh changes 1,434 numeric leaves in `native-results.json`: 723
-rotations (`ry`), 699 horizontal displacements (`ux`), and 12 control displacements.
-The largest absolute change is 5.551115123125783e-17. Some relative changes are
-larger only in symmetry residuals near zero (for example an apex rotation around
-6.5e-22 changes by 1.34e-23). All load factors, loads, step counts, iterations,
-convergence flags, prefix checks, limit points, and validation verdicts are
-unchanged. `VALIDATION.json` changes only the von Mises maximum normalized path
-error and its repeated check value, from 0.000022874501192424383 to
-0.00002287450119172802 (absolute change 6.963627265967054e-16). `MANIFEST.json`
-updates the two corresponding hashes; the shared input hash is unchanged.
-The regenerated files pass exact checks on both Debian bookworm and Ubuntu 24.04
-x86_64 Linux. No solver code, input, comparison rule or tolerance was changed.
-The historical shallow-toggle axial-reference failure remains visible.
-
-For each case, native output records overall convergence, total iterations, final load factor, all
-step records, final nodal displacements, and a displacement frame for every step. Frame `k` comes
-from an independent production rerun with `maxSteps=k`; all `k` step records must exactly equal the
-corresponding prefix of the full path before the frame is accepted. These prefix checks are recorded
-in the output.
-
-Current committed measurements:
-
-| Case | Steps | Limit reached | Measured limit load | Limit-load error | Limit-displacement error | Max normalized path error |
-|---|---:|---|---:|---:|---:|---:|
-| shallow-toggle | 100 | no | 48.749999866981085 kN | 0.4921084021 | not checked | 0.3842314882 |
-| von-mises-truss | 700 | yes, step 626 | 15649.999940493539 kN | 0.0014511217 | 0.0391861286 | 0.0000228745 |
-
-The unchanged shallow-toggle run ends before the analytical limit. Its limit-load and path checks
-therefore remain failing and `VALIDATION.json` has `allPassed: false`. Its measured peak apex
-displacement is 0.0024736193991736002 m, but no limit-displacement check is emitted because no limit
-was reached. The von Mises case passes all its checks. No solver setting, canonical case 1 input, or
-tolerance was changed to conceal the case 1 failure.
-
-## WASM parity
-
-After building the engine's browser bundle:
+## Reproduce and verify
 
 ```sh
-node research/numerical-methods/riks-crisfield/wasm/check.mjs \
-  <engine-wasm-bundle-dir> \
+CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
+  cargo run --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- generate
+CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
+  cargo run --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
+CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
+  cargo test --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml
+node research/numerical-methods/riks-crisfield/wasm/check.mjs web/src/lib/wasm \
   research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json \
   research/numerical-methods/riks-crisfield/reference-results/native-results.json
 ```
 
-The script initializes `dedaliano_engine.js` with `initSync`, invokes only the production
-`solve_arc_length` export, and prints a JSON report. Step numbers, convergence flags, and iteration
-counts must be identical. Load factors, control displacements, final load factor, and every final
-`ux`/`uz`/`ry` displacement must satisfy
-`abs(wasm-native) <= 1e-10 + 1e-9*abs(native)`. Missing, nonfinite, or out-of-tolerance results make
-the process exit nonzero.
+`generate` writes the evidence and SHA-256 manifest. `check` reruns the production solves and
+compares without rewriting. Across machines, numeric leaves satisfy
+`abs(a-b) <= 1e-12 * max(abs(a), abs(b), 1)`; all other fields match exactly.
+Within each run every step record in every independent maxSteps=k prefix must match exactly.
+The browser rejects missing/nonfinite displacements and mismatches anywhere in the prefix.
+The WASM parity rule remains `abs(wasm-native) <= 1e-10 + 1e-9*abs(native)`; integer counts
+and convergence flags match exactly. No tolerance was loosened.
 
-`MANIFEST.json` records SHA-256 hashes of the shared case, native output, and validation report.
-This is code/reference agreement evidence, not experimental validation or an engineering
-certification.
+## Review record
 
-### Evidence comparison across machines
+Round 2: kimi, codex, claude, 2026-10-30. Confirmed findings addressed in the page, research
+harness, native evidence, component tests and browser specification. Rejected findings remain
+rejected. Playwright specifications require execution in a browser-capable environment.
 
-The committed native results and VALIDATION.json are compared with a fresh run number by number to 1e-12 relative (every other field exactly): CI runners and the machine that generated the evidence can differ in the last bits of a float (observed: at most 5.6e-17 absolute). Inside one run, each recorded step is still reproduced bit for bit before its frame is stored.
+## Open questions
+
+No author questions were present on this page. Published example reproduction is outside the
+claim: the actual references are the analytical equilibria above and production native output.
