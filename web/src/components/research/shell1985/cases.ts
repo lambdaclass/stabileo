@@ -10,7 +10,7 @@ type Input = Omit<WireInput, NumericMapKeys> & {
   [K in NumericMapKeys]: Record<string, NonNullable<WireInput[K][keyof WireInput[K]]>>;
 };
 export type Case = Omit<Example, 'input'> & { input: Input };
-export const cases = data.cases as Case[];
+export const cases = data.cases as unknown as Case[];
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
 export const groups = ['roof', 'cylinder', 'hemisphere'];

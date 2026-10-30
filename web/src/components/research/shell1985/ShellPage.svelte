@@ -59,7 +59,7 @@
     <p>{copy.the}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/shell_obstacle_course.json">{copy.sharedEngineOwnedCaseFile}</a>{copy.isReadByTheNativeTestsAnd}</p>
     <p>{copy.theHeadlineCountsTheFinestSelectedBrowser}</p>
     <h2 id="limitations">{copy.findingsAndProvenance}</h2>
-    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/docs/audits/810-mitc4-curved-shells.md">#810 · test-model correction</a></p>
+    <p><a href="https://github.com/lambdaclass/stabileo/blob/main/docs/audits/810-mitc4-curved-shells.md">{s.modelCorrection}</a></p>
     <p>{copy.the}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course">{copy.findingsLedger}</a>{copy.recordsAccuracyAndModelLimitationsThe}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{copy.productionRegistry}</a>{copy.hasNoOpenShellEntrySolverOwner}</p>
     <p>{copy.referencesAreInheritedFrom}<code>{copy.shellBenchmarkRs}</code>{copy.and}<code>{copy.solidShellLockingRs}</code>{copy.theRoofAndCylinderValuesAlsoAppear}<code>{copy.scordelisLoRs}</code>{copy.containsFlatPlateChecksDespiteItsFilename}</p>
     <h2>{s.native}</h2>
