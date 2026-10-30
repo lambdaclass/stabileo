@@ -10,7 +10,7 @@ type Input = Omit<WireInput, NumericMapKeys> & {
   [K in NumericMapKeys]: Record<string, NonNullable<WireInput[K][keyof WireInput[K]]>>;
 };
 export type Case = Omit<Example, 'input'> & { input: Input };
-export const cases = data.cases as Case[];
+export const cases = data.cases as unknown as Case[];
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
 export const groups = ['roof', 'cylinder', 'hemisphere'];
@@ -25,13 +25,20 @@ export function inputFor(c: Case): SolverInput3D {
   return input as unknown as SolverInput3D;
 }
 
+export function signedReference(c: Case): number {
+  return (c.group === 'hemisphere' ? 1 : -1) * c.reference;
+}
+
+export function responseRatio(c: Case, value: number): number {
+  return value / signedReference(c);
+}
+
 export function compare(c: Case, displacements: Record<string, number>[]): Result {
   // Signed, as in the engine test: the roof and the pinched cylinder deflect downward, the
   // hemisphere outward, so a response in the wrong direction fails instead of passing on magnitude.
   const value = displacements.find(d => d.nodeId === c.measurement.node)?.[c.measurement.component] ?? NaN;
   if (!Number.isFinite(value)) throw new Error(`Missing or non-finite displacement: ${c.id}`);
-  const direction = c.id.startsWith('hemisphere') ? 1 : -1;
-  const error = Math.abs(value / (direction * c.reference) - 1);
+  const error = Math.abs(responseRatio(c, value) - 1);
   return { id: c.id, value, error, pass: error < c.tolerance, displacement: displacements };
 }
 

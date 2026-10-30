@@ -2,6 +2,7 @@ export const strings = {
   "en": {
     "title": "Mattiasson (1981): cantilever elastica",
     "lead": "Production corotational response compared with independent analytical references.",
+    "hook": "Trace the production corotational solver as a cantilever curls, checked against independent elliptic-integral references.",
     "modelHeading": "Model and accuracy",
     "modelDescription": "L = 2 m; 16 elements; E = 200000 MPa; I = 10⁻⁴ m⁴. Fixed root, downward dead tip force P = 5000q kN, q = PL²/EI. Force cases use A = 1 m² to approximate inextensibility; the moment case retains A = 0.01 m². u/L = −ux/L; v/L = −uz/L. Actual displacements, scale 1.",
     "solverDescription": "20 independent force solves, q = 0.5…10: 50 iterations, tolerance 10⁻⁸, 100 increments. Strict component error <0.1%: force mesh errors at 16/32/64 elements are at most 0.0801/0.0384/0.0281%; residual extension contributes at most 0.025%. Intermediate loads are response samples.",
@@ -41,6 +42,7 @@ export const strings = {
   "es": {
     "title": "Mattiasson (1981): elastica de una ménsula",
     "lead": "Respuesta corrotacional del motor comparada con referencias analíticas independientes.",
+    "hook": "Siga al solver corrotacional de producción mientras la ménsula se curva, comparado con integrales elípticas independientes.",
     "modelHeading": "Modelo y precisión",
     "modelDescription": "L = 2 m; 16 elementos; E = 200000 MPa; I = 10⁻⁴ m⁴. Raíz empotrada, fuerza fija hacia abajo P = 5000q kN, q = PL²/EI. Los casos de fuerza usan A = 1 m² para aproximar la inextensibilidad; el momento conserva A = 0.01 m². u/L = −ux/L; v/L = −uz/L. Desplazamientos reales, escala 1.",
     "solverDescription": "20 cálculos independientes, q = 0.5…10: 50 iteraciones, tolerancia 10⁻⁸, 100 incrementos. Error por componente <0.1%: con 16/32/64 elementos, errores máximos de 0.0801/0.0384/0.0281%; extensión residual máxima 0.025%. Las cargas intermedias son muestras de respuesta.",
@@ -80,6 +82,7 @@ export const strings = {
   "pt": {
     "title": "Mattiasson (1981): elastica de uma viga em balanço",
     "lead": "Resposta corrotacional do motor comparada com referências analíticas independentes.",
+    "hook": "Acompanhe o solver corrotacional de produção enquanto a viga em balanço se curva, comparado com integrais elípticas independentes.",
     "modelHeading": "Modelo e precisão",
     "modelDescription": "L = 2 m; 16 elementos; E = 200000 MPa; I = 10⁻⁴ m⁴. Raiz engastada, força fixa para baixo P = 5000q kN, q = PL²/EI. Os casos de força usam A = 1 m² para aproximar a inextensibilidade; o momento mantém A = 0.01 m². u/L = −ux/L; v/L = −uz/L. Deslocamentos reais, escala 1.",
     "solverDescription": "20 cálculos independentes, q = 0.5…10: 50 iterações, tolerância 10⁻⁸, 100 incrementos. Erro por componente <0.1%: com 16/32/64 elementos, erros máximos de 0.0801/0.0384/0.0281%; extensão residual máxima 0.025%. Cargas intermediárias são amostras da resposta.",
@@ -119,6 +122,7 @@ export const strings = {
   "de": {
     "title": "Mattiasson (1981): Kragträger-Elastica",
     "lead": "Korotationale Berechnung im Vergleich mit unabhängigen analytischen Referenzen.",
+    "hook": "Der korotationale Produktionslöser verfolgt, wie sich ein Kragträger krümmt, geprüft an unabhängigen elliptischen Integralen.",
     "modelHeading": "Modell und Genauigkeit",
     "modelDescription": "L = 2 m; 16 Elemente; E = 200000 MPa; I = 10⁻⁴ m⁴. Feste Einspannung, richtungsfeste Endkraft nach unten P = 5000q kN, q = PL²/EI. Kraftfälle: A = 1 m² als Näherung der Undehnbarkeit; Momentenfall: A = 0.01 m². u/L = −ux/L; v/L = −uz/L. Tatsächliche Verschiebungen, Maßstab 1.",
     "solverDescription": "20 unabhängige Kraftberechnungen, q = 0.5…10: 50 Iterationen, Toleranz 10⁻⁸, 100 Lastschritte. Komponentenfehler <0.1%: bei 16/32/64 Elementen höchstens 0.0801/0.0384/0.0281%; Restdehnung höchstens 0.025%. Zwischenlasten zeigen Antwortwerte.",
@@ -158,6 +162,7 @@ export const strings = {
   "fr": {
     "title": "Mattiasson (1981) : élastique d’une poutre en console",
     "lead": "Réponse corotationnelle comparée à des références analytiques indépendantes.",
+    "hook": "Suivez le solveur corotationnel de production pendant que la console s’enroule, vérifié par des intégrales elliptiques indépendantes.",
     "modelHeading": "Modèle et précision",
     "modelDescription": "L = 2 m ; 16 éléments ; E = 200000 MPa ; I = 10⁻⁴ m⁴. Encastrement, force verticale fixe P = 5000q kN, q = PL²/EI. Les forces utilisent A = 1 m² pour approcher l’inextensibilité ; le moment conserve A = 0.01 m². u/L = −ux/L ; v/L = −uz/L. Déplacements réels, échelle 1.",
     "solverDescription": "20 calculs indépendants, q = 0.5…10 : 50 itérations, tolérance 10⁻⁸, 100 incréments. Erreur par composante <0.1% : avec 16/32/64 éléments, au plus 0.0801/0.0384/0.0281% ; extension résiduelle au plus 0.025%. Les charges intermédiaires échantillonnent la réponse.",
@@ -197,6 +202,7 @@ export const strings = {
   "tr": {
     "title": "Mattiasson (1981): konsol elastikası",
     "lead": "Üretim çözücüsünün eşdönel sonuçları bağımsız analitik referanslarla karşılaştırılır.",
+    "hook": "Konsol kıvrılırken üretim eşdönel çözücüsünü izleyin; sonuçlar bağımsız eliptik integrallerle karşılaştırılır.",
     "modelHeading": "Model ve doğruluk",
     "modelDescription": "L = 2 m; 16 eleman; E = 200000 MPa; I = 10⁻⁴ m⁴. Ankastre kök, aşağı yönlü sabit uç kuvveti P = 5000q kN, q = PL²/EI. Kuvvet durumlarında uzamazlık yaklaşımı için A = 1 m²; moment durumunda A = 0.01 m² kullanılır. u/L = −ux/L; v/L = −uz/L. Gerçek yer değiştirmeler, ölçek 1.",
     "solverDescription": "20 bağımsız kuvvet çözümü, q = 0.5…10: 50 yineleme, 10⁻⁸ tolerans, 100 artım. Bileşen hatası <0.1%: 16/32/64 elemanda en fazla 0.0801/0.0384/0.0281%; artık uzama en fazla 0.025%. Ara yükler tepki örnekleridir.",

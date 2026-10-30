@@ -134,6 +134,7 @@ export interface ModelSnapshot {
    * like `exports`, never by undo.
    */
   solvedWith?: import('../provenance/solve-stamp').SolveStamp;
+  pendingRecheckNotice?: import('./recheck.svelte').PendingRecheckNotice;
   /**
    * The joint designs the project carries — the bolts, plate, weld and battens chosen per node.
    *

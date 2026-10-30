@@ -58,7 +58,17 @@
     "three-point bending force-displacement"
    ],
    "implementation": "fracture/shauer-2025",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "wu-2023-jaxsso",
@@ -179,7 +189,17 @@
     "exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement"
    ],
    "implementation": "metamaterials/grossman-2026",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "andreassen-2011",
@@ -233,7 +253,17 @@
     "MBB 60x20 density filter"
    ],
    "implementation": "optimization/andreassen-2011",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "ferrari-2025",
@@ -276,6 +306,14 @@
    "implementation": "stability/ferrari-sigmund-2025",
    "page": "web/src/components/research/ferrari2025/FerrariPage.svelte",
    "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    },
     {
      "reviewer": "codex",
      "sha": "714a79e47",
@@ -328,7 +366,17 @@
    "benchmarks": [],
    "implementation": "mechanics/biggins-2026",
    "page": "web/src/components/research/biggins2026/BigginsPage.svelte",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "feher-2026",
@@ -417,7 +465,17 @@
     "Fig. 2 four-bar topology; explicit demonstration inputs, Eq. (7), pinned jax_fdm and production truss checks"
    ],
    "implementation": "form-finding/pastrana-2026",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "fairclough-2026",
@@ -465,7 +523,17 @@
    ],
    "implementation": "optimisation/fairclough-2026",
    "contacts": [],
-   "page": "web/src/components/research/fairclough2026/FaircloughPage.svelte"
+   "page": "web/src/components/research/fairclough2026/FaircloughPage.svelte",
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "turner-1956",
@@ -942,7 +1010,17 @@
    "reproduced_published_results": false,
    "benchmarks": [],
    "implementation": null,
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "mattiasson-elastica",
@@ -980,7 +1058,16 @@
    ],
    "implementation": "benchmarks/mattiasson-elastica",
    "stage": "first-version",
+   "contacts": [],
    "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    },
     {
      "reviewer": "kimi",
      "round": 2,
@@ -1002,8 +1089,7 @@
      "findings": "Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.",
      "resolution": "Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales."
     }
-   ],
-   "contacts": []
+   ]
   },
   {
    "id": "newmark-1959",
@@ -1034,7 +1120,16 @@
    "relevance": "Exercises Stabileo's Newmark time-history integration for structural response.",
    "status": "proposed",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [],
    "implementation": null,
@@ -1075,7 +1170,16 @@
    "relevance": "A two-coordinate shear-building idealization exercises the production 3D modal and spectrum solvers against a closed-form reference. Not the original paper building.",
    "status": "numerically-validated",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [
     "two close modes",
@@ -1114,14 +1218,30 @@
    "relevance": "One textbook-style portal following Horne sections 2.2 and 2.4, with explicitly chosen dimensions and hand-derived mechanism bounds. Publisher attribution: M. R. Horne; Crossref book record omits authors.",
    "status": "proposed",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [
     "beam, sway and combined mechanism bounds"
    ],
    "implementation": "benchmarks/plastic-collapse",
    "page": "web/src/components/research/plastic-collapse/PlasticPage.svelte",
-   "contacts": []
+   "contacts": [],
+   "bibliography": {
+    "authors": [
+     "M. R. Horne"
+    ],
+    "venue": "Pergamon Press",
+    "source": "https://shop.elsevier.com/books/plastic-theory-of-structures/horne/978-0-08-022737-5"
+   }
   },
   {
    "id": "navier-plate",
@@ -1162,7 +1282,16 @@
    "relevance": "One rectangular plate reuses production shell elements and the shared viewer; low effort, clear numerical comparison and visible mesh refinement.",
    "status": "proposed",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [
     "Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate"
@@ -1202,7 +1331,16 @@
    "relevance": "A small frame exercises the existing nonlinear path-following solver and shared viewer.",
    "status": "proposed",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [
     "Pinned Lee frame, first limit point (provisional reference)"
@@ -1241,7 +1379,16 @@
    "relevance": "One deep arch exercises the production path-following solver and shared viewer.",
    "status": "implementation-in-progress",
    "stage": "first-version",
-   "reviews": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ],
    "reproduced_published_results": false,
    "benchmarks": [
     "215 degree clamped–hinged arch under a crown point load"
@@ -1289,7 +1436,17 @@
     "hemisphere with 18-degree hole (NAFEMS LE3 test convention)"
    ],
    "implementation": "benchmarks/shell-obstacle-course",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "riks-1979",
@@ -1325,7 +1482,17 @@
    "benchmarks": [],
    "implementation": null,
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 1,
+     "reviewers": [
+      "codex",
+      "kimi"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
   },
   {
    "id": "crisfield-1981",

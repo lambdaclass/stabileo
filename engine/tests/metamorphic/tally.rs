@@ -26,6 +26,7 @@ pub struct Cell {
     pub ignored: std::collections::BTreeSet<&'static str>,
     pub refused: usize,
     pub unrep: usize,
+    pub not_applicable: usize,
     pub inconclusive: usize,
     pub fails: Vec<String>,
     pub worst: f64,
@@ -56,9 +57,23 @@ impl Tally {
                 *c.notes.entry(short(&r)).or_default() += 1;
             }
             Verdict::Inconclusive(_) => c.inconclusive += 1,
-            Verdict::NotApplicable => {}
+            Verdict::NotApplicable => c.not_applicable += 1,
             Verdict::Fail(m) => c.fails.push(format!("{case}: {m}")),
         }
+    }
+
+    pub fn replay_results(&self) -> serde_json::Value {
+        let cells = self.cells.lock().unwrap();
+        let failures: Vec<_> = cells.iter().filter(|(_, c)| !c.fails.is_empty())
+            .map(|((analysis, invariant), c)| serde_json::json!({
+                "test": format!("metamorphic/{analysis}/{invariant}"), "details": c.fails
+            })).collect();
+        let verdicts: Vec<_> = cells.iter().map(|((analysis, invariant), c)| serde_json::json!({
+            "analysis": analysis, "invariant": invariant, "pass": c.pass,
+            "fail": c.fails.len(), "refused": c.refused, "inconclusive": c.inconclusive,
+            "unrepresentable": c.unrep, "not_applicable": c.not_applicable
+        })).collect();
+        serde_json::json!({"failures": failures, "verdicts": verdicts})
     }
 
     pub fn failures(&self) -> Vec<String> {
@@ -115,4 +130,26 @@ impl Tally {
 fn short(s: &str) -> String {
     let s = s.lines().next().unwrap_or("");
     s.chars().take(90).collect()
+}
+
+#[test]
+fn replay_results_preserve_every_verdict() {
+    let t = Tally::default();
+    for verdict in [Verdict::Pass(0.1), Verdict::Fail("displacement".into()),
+        Verdict::Refused("singular".into()), Verdict::Inconclusive(1.0),
+        Verdict::Unrepresentable("transform".into()), Verdict::NotApplicable] {
+        t.record("static", "rotation", "model", verdict);
+    }
+    let result = t.replay_results();
+    for key in ["pass", "fail", "refused", "inconclusive", "unrepresentable", "not_applicable"] {
+        assert_eq!(result["verdicts"][0][key], 1);
+    }
+    assert_eq!(result["failures"][0]["test"], "metamorphic/static/rotation");
+    assert_eq!(result["failures"][0]["details"][0], "model: displacement");
+    let refused = Tally::default();
+    refused.record("static", "rotation", "model", Verdict::Refused("singular".into()));
+    let result = refused.replay_results();
+    assert_eq!(result["failures"], serde_json::json!([]));
+    assert_eq!(result["verdicts"][0]["pass"], 0);
+    assert_eq!(result["verdicts"][0]["refused"], 1);
 }

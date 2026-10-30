@@ -222,11 +222,14 @@ def finish(r, tol, dump_dir, model):
     sres, meta = r.pop("sres"), r.pop("meta")
     out, err = os.path.join(job, "result.json"), os.path.join(job, "error.txt")
     if not os.path.exists(out):
-        msg = open(err).read() if os.path.exists(err) else "no result (Code_Aster session died?)"
+        msg = "no result (Code_Aster session died?)"
+        if os.path.exists(err):
+            with open(err) as f:
+                msg = f.read()
         why = [_first_error(msg)]
         if "<FACTOR_11>" in msg:
-            # Singular even with the check off (a null pivot), where stabileo
-            # solved without a warning.
+            if dump_dir:
+                C._dump(dump_dir, r["name"], model)
             return dict(r, status="silent_singular", why=why)
         r.pop("near_singular", None)
         if "<FACTOR_57>" in msg:
