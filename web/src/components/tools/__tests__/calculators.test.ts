@@ -1,3 +1,4 @@
+import { RESEARCH_TOOLS_PATHS } from '../../../../scripts/seo/research-tools';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'fflate';
@@ -43,6 +44,5 @@ it('rejects invalid inputs', () => {
 it('prerender captures the same worked-example formatter and routes', () => {
   const page = readFileSync(new URL('../ToolsPage.svelte', import.meta.url), 'utf8');
   expect(page).toContain('data-value={format(formula(id, example).value)}');
-  const script = readFileSync(new URL('../../../../scripts/prerender.ts', import.meta.url), 'utf8');
-  for (const id of TOOL_IDS) expect(script).toContain(`/tools/${id}`);
+  for (const id of TOOL_IDS) expect(RESEARCH_TOOLS_PATHS).toContain(`/tools/${id}`);
 });

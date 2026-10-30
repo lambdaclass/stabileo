@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';
 import { STANDING_PAGES } from '../lib/blog/pages';
 import { SITE_NAV } from '../components/site/site-nav';
+import { RESEARCH_TOOLS_PATHS } from '../../scripts/seo/research-tools';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
 const routes = [
@@ -38,7 +39,8 @@ describe('merged public routes', () => {
   });
   it('prerenders paper, research, tools and the changelog standing page', () => {
     const prerender = source('../../scripts/prerender.ts');
-    for (const path of ['/paper', '/research', '/tools']) expect(prerender).toContain(`'${path}'`);
+    expect(prerender).toContain("'/paper', ...RESEARCH_TOOLS_PATHS]");
+    for (const path of ['/research', '/tools']) expect(RESEARCH_TOOLS_PATHS).toContain(path);
     expect(prerender).toContain('...pages');
     expect(STANDING_PAGES.some(page => page.path === '/changelog')).toBe(true);
   });

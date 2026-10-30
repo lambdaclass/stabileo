@@ -2,7 +2,7 @@ import { it, expect } from 'vitest';
 import { BATCH_IDS, DEFAULT_BATCH as P, batchModel, continuousReactions, continuousInfluence, frequencies, jointForces, parseTruss, portalSway, simpleInfluence, validateBatch } from '../batch';
 import { calculateBatch } from '../batch-solve';
 import { batchTranslations } from '../batch-i18n';
-import { readFileSync } from 'node:fs';
+import { RESEARCH_TOOLS_PATHS } from '../../../../scripts/seo/research-tools';
 for(const id of BATCH_IDS) it(`${id}: default engine/reference agreement`,async()=>{
  const r=await calculateBatch(id,{...P});
  console.info(id, JSON.stringify({comparisons:r.comparisons,deflection:r.maxDeflection,sagging:r.sagging,hogging:r.hogging}));
@@ -46,7 +46,7 @@ it('covers every key and every tool SEO title and description in six locales',()
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }
- const script=readFileSync(new URL('../../../../scripts/prerender.ts',import.meta.url),'utf8');for(const id of BATCH_IDS) expect(script).toContain(`/tools/${id}`);
+ for(const id of BATCH_IDS) expect(RESEARCH_TOOLS_PATHS).toContain(`/tools/${id}`);
 });
 
 it('distinguishes mechanisms from statically indeterminate stable trusses', async () => {

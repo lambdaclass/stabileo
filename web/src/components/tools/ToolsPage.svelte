@@ -1,11 +1,10 @@
 <script lang="ts">
+  import RelatedLinks from "../research/RelatedLinks.svelte";
   import './register-i18n';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
-  import { publicUrl } from '../../lib/i18n/public-routes';
   import { TOOL_IDS, EXAMPLE, FORMULAS, format, formula, valid, workedExamples, type ToolId, type Parameters } from './calculators';
   import { knownIssueMessage } from '../../lib/engine/known-issues';
   import type { calculate } from './solve';
@@ -33,12 +32,6 @@
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
   const fields = [ ['length', 'length', 'm', 0.1, 100], ['e', 'modulus', 'MPa', 1, 1000000], ['i', 'inertia', 'm⁴', 1e-10, 10] ] as const;
   const ends = [[0.5, 'fixedFixed'], [0.7, 'fixedPinned'], [1, 'pinnedPinned'], [2, 'fixedFree']] as const;
-  $effect(() => {
-    const route = id || batchId ? `/tools/${id || batchId}` : '/tools';
-    applyPageMeta({ title: `${title} — Stabileo Tools`, description: batchId ? t(`tools.${batchId}.subtitle`) : `${title}. ${t('tools.lead')}`, locale: publicI18n.locale, path: route,
-      graph: [{ '@type': 'WebApplication', name: title, url: publicUrl(route, publicI18n.locale), applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' } }] });
-    return () => restorePageMeta();
-  });
   $effect(() => {
     const current = id;
     const values = { ...p };
@@ -161,6 +154,7 @@
     {/if}
     </div>
   </main>
+  <RelatedLinks {path} />
   <LandingFooter />
 </div>
 

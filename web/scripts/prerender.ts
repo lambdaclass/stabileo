@@ -37,6 +37,9 @@
  *   PRERENDER_CONCURRENCY=4 npx tsx scripts/prerender.ts
  * Defaults to min(6, CPU count); set 1 for serial diagnostics.
  */
+import { verifyResearchToolsOutput } from './seo/verify-output';
+import { RESEARCH_TOOLS_PATHS, searchHead } from './seo/research-tools';
+import { EXPERIMENTS } from '../src/components/research/experiments';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -130,7 +133,7 @@ const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
+  if (RESEARCH_TOOLS_PATHS.includes(path) || path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
@@ -247,8 +250,7 @@ async function publicPaths(): Promise<string[]> {
     if (day) POST_LASTMOD.set(pagePath, day);
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...RESEARCH_TOOLS_PATHS];
 }
 
 /**
@@ -287,6 +289,7 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     const el = document.querySelector('.landing');
     if (el) el.scrollTo(0, el.scrollHeight);
   });
+  if (RESEARCH_TOOLS_PATHS.includes(path)) await page.locator('h1').first().waitFor();
   await page.waitForTimeout(600);
   await page.evaluate(() => {
     for (const el of document.querySelectorAll('.reveal:not(.visible)')) el.classList.add('visible');
@@ -363,7 +366,8 @@ async function main() {
       () => newCapturePage(browser), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
-        const { head, body, lang, href } = result;
+        const { body, lang, href } = result;
+        const head = RESEARCH_TOOLS_PATHS.includes(path) ? searchHead(result.head, path, locale) : result.head;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
@@ -426,6 +430,14 @@ async function main() {
       await mkdir(join(DIST, locale, 'blog'), { recursive: true });
       await writeFile(join(DIST, locale, 'blog', 'feed.xml'), feedXml(locale, posts));
     }
+    // Social crawlers generally cannot display SVG. Rasterize the existing gallery assets.
+    const cardPage = await browser.newPage({ viewport: { width: 1200, height: 750 } });
+    try {
+      for (const e of EXPERIMENTS.filter(e => e.thumbnail.endsWith('.svg'))) {
+        await cardPage.goto(`${base}/${e.thumbnail}`, { waitUntil: 'load' });
+        await cardPage.screenshot({ path: join(DIST, e.thumbnail.replace(/\.svg$/, '.png')) });
+      }
+    } finally { await cardPage.close(); }
     for (const post of posts) {
       const slug = post.path.slice('/blog/'.length);
       await renderPostCard(browser, base, post, join(DIST, 'og', 'blog', `${slug}.${post.locale}.png`));
@@ -446,6 +458,7 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    await verifyResearchToolsOutput(DIST);
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
     console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
