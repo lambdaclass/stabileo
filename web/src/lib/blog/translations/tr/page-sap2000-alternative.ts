@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "SAP2000'e ücretsiz ve açık kaynaklı bir alternatif, tarayıcınızda",
   "description": "Stabileo: tarayıcıda ücretsiz, açık kaynaklı yapı analizi. 2B/3B çerçeve, kabuk, P-Delta, modal ve spektral analiz; AISC, ACI, Eurocode ve CIRSOC kontrolleri.",
   "eyebrow": "SAP2000 alternatifi",
-  "lead": "Stabileo, tarayıcınızda kurulum, lisans anahtarı veya hesap gerektirmeden çalışan, ücretsiz ve açık kaynaklı (AGPL-3.0) bir yapı analizi yazılımıdır. Çözücü Rust ile yazılmış ve WebAssembly'ye derlenmiştir; böylece model sizin bilgisayarınızda çözülür. Temel modda 2B ve 3B çerçeveler ile kafes kirişler modellenir, yüklenir, çözülür ve sonuçları okunur; geliştirme aşamasında olan ve herkese açık PRO modu ise döşemeler ve perde duvarlar, DXF ve IFC içe aktarma, yönetmelik yükleri ve çubuk kontrolleri ekler.",
+  "lead": "Stabileo, tarayıcınızda kurulum, lisans anahtarı veya hesap gerektirmeden çalışan, ücretsiz ve açık kaynaklı (AGPL-3.0) bir yapı analizi yazılımıdır. Çözücü Rust ile yazılmış ve WebAssembly'ye derlenmiştir; böylece model sizin bilgisayarınızda çözülür. Temel modda 2B ve 3B çerçeveler ile kafes kirişler modellenir, yüklenir, çözülür ve sonuçları okunur; geliştirme aşamasında olan PRO modu ise döşemeler ve perde duvarlar, DXF ve IFC içe aktarma, yönetmelik yükleri ve çubuk kontrolleri ekler.",
   "blocks": [
     {
       "k": "h",
@@ -44,11 +44,11 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "SAP2000 veya ETABS lisansı için ödeme yapmak yerine Stabileo'yu kullanabilir miyim?",
-      "a": "Çerçevelerin, kafes kirişlerin ve birçok binanın analizi ile AISC 360, ACI 318, Eurocode'lar ve CIRSOC'a göre çubuk kontrolleri için evet, ücretsiz olarak. Tasarım yönetmeliklerinin tam yelpazesi ve uzun bir kullanım geçmişi için ticari programlar hâlâ daha fazlasını sunuyor; Stabileo'nun PRO modu geliştirme aşamasında."
+      "a": "Çerçevelerin, kafes kirişlerin ve birçok binanın analizi ile AISC 360, ACI 318, Eurocode'lar ve CIRSOC'a göre çubuk kontrolleri için evet. Analiz ücretsizdir; uzmanlaşmış tasarım modülleri ücretlidir ve üniversiteler için ücretsizdir. Tasarım yönetmeliklerinin tam yelpazesi ve uzun bir kullanım geçmişi için ticari programlar hâlâ daha fazlasını sunuyor; Stabileo'nun PRO modu geliştirme aşamasında."
     },
     {
       "q": "Stabileo gerçekten ücretsiz mi?",
-      "a": "Analiz (Temel ve PRO) herkes için ücretsizdir. Yönetmeliğe göre tasarım geliştirme aşamasında olduğu sürece ücretsizdir; sonrasında da devlet üniversiteleri ve geliştirilmesine katkıda bulunanlar için ücretsiz kalır. YZ asistanı ücretli olacak. Kod AGPL-3.0 lisanslıdır."
+      "a": "Tarayıcıda yapı analizi sağlayan temel program açık kaynaklıdır ve herkes için ücretsizdir. Bazı uzmanlaşmış modüller ücretlidir; üniversiteler bu modülleri ücretsiz alır. Stabileo AI ve yoğun bulut hesaplamaları, üniversiteler dahil herkes için ücretlidir; fiyatları maliyetlerini karşılayacak şekilde belirlenir."
     },
     {
       "q": "Mac veya Linux'ta çalışır mı?",

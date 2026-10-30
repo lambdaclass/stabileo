@@ -874,8 +874,8 @@ jobs:
       - name: Install Chromium system dependencies
         if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
-      # `@landing` stays out: on CI every landing case after the first wedges in
-      # `browser.newContext`; run `npx playwright test --grep @landing` locally.
+      # Remaining `@landing` cases stay local: the shared browser wedges in newContext.
+      # Pricing/layout runs as @smoke in landing-pricing-*.spec.ts, with a fresh browser per case.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
       - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
         run: |

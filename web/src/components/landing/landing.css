@@ -231,6 +231,9 @@
   margin: 0 0 1.25rem;
   max-width: 18ch;
   text-wrap: balance;
+  /* Compound words such as "Tragwerksberechnung" must not set the hero
+     grid's minimum width, or spill out of a section heading on phones. */
+  overflow-wrap: anywhere;
 }
 
 .landing h1 {
@@ -299,7 +302,7 @@
   gap: 0.75rem;
   margin: 0 0 1.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -419,6 +422,12 @@
   border-bottom: 1px solid rgba(143, 163, 179, 0.14);
 }
 
+.landing .site-header button,
+.landing .site-header a {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .landing .nav-inner {
   max-width: var(--lp-max);
   margin: 0 auto;
@@ -525,7 +534,7 @@
   align-items: center;
   gap: 0.35rem;
   font-family: var(--lp-mono);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: var(--lp-slate-2);
   text-decoration: none;
   border: 1px solid rgba(143, 163, 179, 0.22);
@@ -543,8 +552,10 @@
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0 7px;
   background: transparent;
   border: 1px solid rgba(143, 163, 179, 0.22);
@@ -667,7 +678,7 @@
 
 .landing .hero-meta dt {
   font-family: var(--lp-mono);
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -749,7 +760,7 @@
   gap: 0.4rem 1.15rem;
   margin-top: 1.15rem;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: var(--fg-2);
 }
@@ -1244,7 +1255,7 @@
 .landing .badge {
   display: inline-block;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1699,7 +1710,7 @@
   /* The WhatsApp button floats bottom-right; keep the line clear of it. */
   padding-right: 4.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -1814,7 +1825,7 @@
 
 @media (max-width: 420px) {
   .landing .nav-name { display: none; }
-  .landing .tf-legend { font-size: 0.6rem; gap: 0.3rem 0.8rem; }
+  .landing .tf-legend { gap: 0.3rem 0.8rem; }
 }
 
 /* ─── FOCUS VISIBILITY ───────────────────────────────────────────────────── */
@@ -1972,13 +1983,9 @@
    Added with the shorter deck (September 2026).
    ───────────────────────────────────────────────────────────── */
 
-/* The table scrolls inside its own box. Three columns on a phone is the one
-   place this page can widen the document, and a landing that slides sideways
-   reads as broken. */
+/* Keep both audiences visible on phones, including longer translations. */
 .landing .model-table-wrap {
-  overflow-x: auto;
   margin: 1.6rem 0 1rem;
-  -webkit-overflow-scrolling: touch;
 }
 
 .landing .model-table {
@@ -1986,7 +1993,7 @@
   /* Three short columns stretched across a 1660px section put the prices a
      screen away from the module they belong to. */
   max-width: 56rem;
-  min-width: 30rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
@@ -1994,13 +2001,14 @@
 .landing .model-table th,
 .landing .model-table td {
   text-align: left;
-  padding: 0.7rem 0.9rem;
+  padding: 0.7rem clamp(0.35rem, 1.5vw, 0.9rem);
+  overflow-wrap: anywhere;
   border-bottom: 1px solid rgba(143, 163, 179, 0.18);
 }
 
 .landing .model-table thead th {
   font-family: var(--lp-sans);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--lp-slate-2);
@@ -2009,20 +2017,17 @@
 
 .landing .model-table tbody th {
   font-weight: 600;
-  white-space: nowrap;
 }
 
 .landing .model-table td { color: var(--lp-slate-2); }
 
 .landing .model-table thead th:not(:first-child),
-.landing .model-table thead th:not(:first-child),
 .landing .model-table .price {
   text-align: right;
   font-weight: 600;
-  white-space: nowrap;
 }
 
-.landing .model-table thead th:not(:first-child) { width: 22%; }
+.landing .model-table thead th:not(:first-child) { width: 30%; }
 
 /* Colour carries the same distinction the words do, never on its own. */
 /* Per CELL, not per row. "PRO · Diseño" is paid for firms and free for

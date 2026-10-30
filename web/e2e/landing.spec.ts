@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { bootLanding } from './landing-helpers';
 import { pickLanguage } from './fixtures';
 import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
 import fullDe from '../src/lib/i18n/locales/full/de';
@@ -30,8 +31,9 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  * continuous requestAnimationFrame animation under software GL on a two-core
  * runner. That is a harness problem, and it is not this file's to fix.
  *
- * So it stays local for now. Every case here has been run on every commit that
- * touched the landing, by hand:
+ * Pricing/layout coverage runs in landing-pricing-*.spec.ts with a fresh browser
+ * per case under @smoke. The remaining cases stay local for now and have
+ * historically been run by hand when the landing changes:
  *
  *   npx playwright test --grep @landing
  *
@@ -62,26 +64,6 @@ const SECTIONS = [
   'pricing',
   'blog',
 ] as const;
-
-async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean } = {}) {
-  const { locale = 'en', manual = true } = opts;
-  await page.addInitScript(
-    ({ locale, manual }) => {
-      try {
-        localStorage.clear();
-        if (manual) {
-          localStorage.setItem('stabileo-lang', locale);
-          localStorage.setItem('stabileo-lang-manual', '1');
-        }
-      } catch {
-        /* private mode */
-      }
-    },
-    { locale, manual },
-  );
-  await page.goto('/');
-  await expect(page.locator('.landing')).toBeVisible();
-}
 
 test.describe('@landing landing page', () => {
   test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
@@ -804,28 +786,6 @@ test.describe('@landing landing page', () => {
  * made to universities — costs more than a broken layout.
  */
 test.describe('@landing the model the deck states', () => {
-  test('the table prices every module for both audiences', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
-
-    const rows = await page
-      .locator('section[data-section="pricing"] .model-table tbody tr')
-      .evaluateAll((trs) =>
-        trs.map((tr) => [...tr.querySelectorAll('th,td')].map((c) => c.textContent?.trim() ?? '')),
-      );
-
-    // Five modules, two audiences. Universities are one audience now: public
-    // and private were separate rows and everything is free for both.
-    expect(rows).toEqual([
-      ['Básico', 'Gratis', 'Gratis'],
-      ['PRO · Cálculo', 'Gratis', 'Gratis'],
-      ['PRO · Diseño normativo', 'Gratis durante el desarrollo*', 'Gratis'],
-      // Blank on purpose: a university brings its own model API, and the
-      // paragraph under the table is where that is explained.
-      ['Stabileo IA', 'Pago por token**', ''],
-      ['Educativo', '', 'Gratis'],
-    ]);
-  });
-
   test('the product sections describe the product and price nothing', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
 
@@ -848,56 +808,6 @@ test.describe('@landing the model the deck states', () => {
         expect(prose, `"${word}" belongs in the pricing section, not in ${id}`).not.toContain(word);
       }
     }
-  });
-
-  test('what universities pay is said in one place, and the table agrees', async ({ page }) => {
-    await bootLanding(page, { locale: 'es' });
-
-    /*
-     * The promise used to live in the Education section as well. It is here
-     * only now, so there is one statement to keep true instead of two that
-     * can drift.
-     */
-    const pricing = page.locator('section[data-section="pricing"]');
-    await expect(pricing).toContainText('Para las universidades, el programa es gratuito');
-
-    /*
-     * And the table agrees. Every module is free for universities, and the
-     * AI's cell is blank rather than priced: what a university pays for the
-     * agent depends on the model API it brings, which the paragraph under the
-     * table explains and a number in a cell would contradict.
-     */
-    const unis = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent?.trim() ?? ''));
-    expect(unis).toEqual(['Gratis', 'Gratis', 'Gratis', '', 'Gratis']);
-
-    // And the firms column, where Education is blank for the same kind of
-    // reason: a price there would answer a question the mode does not pose.
-    const firms = await pricing
-      .locator('.model-table tbody tr')
-      .evaluateAll((trs) => trs.map((tr) => tr.querySelectorAll('td')[0]?.textContent?.trim() ?? ''));
-    expect(firms).toEqual([
-      'Gratis',
-      'Gratis',
-      'Gratis durante el desarrollo*',
-      'Pago por token**',
-      '',
-    ]);
-
-    /*
-     * Every marker in the table has a note that starts with it, and no note
-     * carries a marker nothing points at. A translator cannot break this —
-     * the markers are drawn from the component, not the strings — but a row
-     * added without one, or a note deleted, would leave a reader following an
-     * asterisk to nothing.
-     */
-    const inTable = await pricing.locator('.model-table .fn').allInnerTexts();
-    const inNotes = await pricing.locator('.mode-note .fn').allInnerTexts();
-    expect(inTable.sort()).toEqual(inNotes.sort());
-
-    // And the explanation is actually there, since the blank now depends on it.
-    await expect(pricing).toContainText('conectar la API del modelo de lenguaje');
   });
 
   test('the AI section shows the panel, and the panel shows a decision', async ({ page }) => {

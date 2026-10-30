@@ -12,7 +12,7 @@
  *  - web/src/lib/engine/design/adapters/cirsoc201-adapter.ts (CIRSOC 201: 2025 by default, 2005
  *    selectable);
  *  - web/src/lib/i18n/locales/steel/* (steel checks labelled experimental, issue #389);
- *  - landing.pricingFreeNowNote (design free for public universities and contributors).
+ *  - landing.pricingFreeNowNote (paid design modules free for universities).
  * The FAQ is rendered on the page and stated as FAQPage data with the same text.
  */
 import type { Block, Localized } from '../types';
@@ -39,14 +39,14 @@ export type StandingPage = {
 
 export const cirsocPage: StandingPage = {
   path: '/cirsoc',
-  updated: '2026-10-22',
+  updated: '2026-10-30',
   i18n: {
     es: {
-      title: 'Verificación CIRSOC gratis en el navegador: qué está listo y qué falta',
+      title: 'Verificación CIRSOC en el navegador: qué está listo y qué falta',
       description:
-        'Stabileo verifica hormigón (CIRSOC 201) y acero (CIRSOC 301, experimental) y genera cargas CIRSOC 101–104, gratis y en el navegador. Qué está listo y qué no.',
+        'Stabileo verifica hormigón (CIRSOC 201) y acero (CIRSOC 301, experimental) y genera cargas CIRSOC 101–104, en el navegador. Qué está listo y qué no.',
       eyebrow: 'CIRSOC',
-      lead: 'Stabileo es un programa de cálculo estructural de código abierto que verifica elementos de hormigón armado según CIRSOC 201 (edición 2025) y de acero según CIRSOC 301-2018, y genera cargas y combinaciones según CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Parte I) y CIRSOC 104-2005. Usa el mismo modelo y el mismo solver con que calculás la estructura, corre en el navegador y no necesita instalación ni licencia. El diseño normativo está en el módulo PRO, que sigue en desarrollo y es gratis mientras dure.',
+      lead: 'Stabileo es un programa de cálculo estructural de código abierto que verifica elementos de hormigón armado según CIRSOC 201 (edición 2025) y de acero según CIRSOC 301-2018, y genera cargas y combinaciones según CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Parte I) y CIRSOC 104-2005. Usa el mismo modelo y el mismo solver con que calculás la estructura, corre en el navegador y no necesita instalación ni licencia. El diseño normativo está en el módulo PRO, que sigue en desarrollo. Es pago y gratuito para las universidades.',
       blocks: [
         { k: 'h', t: 'Qué está disponible y cuánto está verificado' },
         { k: 'p', t: 'Certificado quiere decir que cada resultado trae una cota del error numérico calculada con aritmética de intervalos; no quiere decir que el modelo sea correcto ni que lo haya revisado un ingeniero. Los ejemplos publicados son los ejemplos de aplicación de INTI-CIRSOC.' },
@@ -92,18 +92,18 @@ export const cirsocPage: StandingPage = {
       ],
       faqTitle: 'Preguntas frecuentes',
       faq: [
-        { q: '¿Qué software verifica el diseño estructural según los reglamentos CIRSOC?', a: 'Stabileo verifica hormigón armado según CIRSOC 201 y acero según CIRSOC 301-2018 (rotulado experimental), y genera cargas y combinaciones según CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 y CIRSOC 104-2005. Es de código abierto, corre en el navegador y es gratis mientras el módulo de diseño esté en desarrollo.' },
-        { q: '¿Stabileo es gratis para verificar según CIRSOC?', a: 'Sí, hoy sí. El análisis (Básico) es gratis. El módulo de diseño normativo está en desarrollo y es gratis mientras dure; después va a seguir siendo gratis para las universidades públicas y para quienes participen del desarrollo.' },
+        { q: '¿Qué software verifica el diseño estructural según los reglamentos CIRSOC?', a: 'Stabileo verifica hormigón armado según CIRSOC 201 y acero según CIRSOC 301-2018 (rotulado experimental), y genera cargas y combinaciones según CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 y CIRSOC 104-2005. Es de código abierto, corre en el navegador y ofrece módulos de diseño pagos, gratuitos para las universidades.' },
+        { q: '¿Stabileo es gratis para verificar según CIRSOC?', a: "El programa principal, para análisis estructural en el navegador, es de código abierto y gratuito para todos. Algunos módulos especializados son pagos; las universidades los reciben gratis. Stabileo IA y el cómputo intensivo en la nube son pagos para todos, incluidas las universidades, a un precio que cubre su costo." },
         { q: '¿Puedo usar Stabileo para un cálculo que voy a firmar?', a: 'La responsabilidad del proyecto es de quien lo firma, con cualquier programa. Stabileo publica qué está verificado y con qué nivel; todavía no tuvo una revisión independiente de un ingeniero matriculado y el acero está rotulado como experimental, así que conviene controlar a mano los elementos que gobiernan.' },
         { q: '¿Qué edición de CIRSOC 201 usa?', a: 'La 2025. La 2005 se puede elegir en los reglamentos del proyecto para proyectos anteriores, pero el diseño de vigas y columnas con esa edición todavía no está disponible. Los chequeos del motor se contrastan con los ejemplos de aplicación INTI-CIRSOC 201-2005.' },
       ],
     },
     en: {
-      title: 'CIRSOC design checks, free in your browser: what ships and what does not',
+      title: 'CIRSOC design checks, in your browser: what ships and what does not',
       description:
-        'Stabileo checks concrete (CIRSOC 201) and steel (CIRSOC 301, experimental) and generates CIRSOC 101–104 loads, free in your browser. What ships and what not.',
+        'Stabileo checks concrete (CIRSOC 201) and steel (CIRSOC 301, experimental) and generates CIRSOC 101–104 loads, in your browser. What ships and what not.',
       eyebrow: 'CIRSOC',
-      lead: 'Stabileo is open-source structural analysis software that checks reinforced-concrete members against CIRSOC 201 (the 2025 edition) and steel members against CIRSOC 301-2018, and generates loads and combinations to CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Part I) and CIRSOC 104-2005, Argentina’s structural codes. It uses the same model and solver you analyse with, runs in the browser and needs no install or licence. Code design lives in the PRO module, which is still in development and free while it is.',
+      lead: 'Stabileo is open-source structural analysis software that checks reinforced-concrete members against CIRSOC 201 (the 2025 edition) and steel members against CIRSOC 301-2018, and generates loads and combinations to CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Part I) and CIRSOC 104-2005, Argentina’s structural codes. It uses the same model and solver you analyse with, runs in the browser and needs no install or licence. Code design lives in the PRO module, which is still in development. It is paid, and free for universities.',
       blocks: [
         { k: 'h', t: 'What is available, and how far it is verified' },
         { k: 'p', t: 'Certified means every result carries a bound on its numerical error computed in interval arithmetic; it does not mean the model is right or that an engineer has reviewed it. The published examples are the INTI-CIRSOC worked examples.' },
@@ -149,18 +149,18 @@ export const cirsocPage: StandingPage = {
       ],
       faqTitle: 'Frequently asked questions',
       faq: [
-        { q: 'What software checks structural design against the CIRSOC codes?', a: 'Stabileo checks reinforced concrete against CIRSOC 201 and steel against CIRSOC 301-2018 (labelled experimental), and generates loads and combinations to CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 and CIRSOC 104-2005. It is open source, runs in the browser and is free while the design module is in development.' },
-        { q: 'Is Stabileo free for CIRSOC checks?', a: 'Yes, today it is. Analysis (Basic) is free. The code design module is in development and free while it is; after that it stays free for public universities and for those who take part in its development.' },
+        { q: 'What software checks structural design against the CIRSOC codes?', a: 'Stabileo checks reinforced concrete against CIRSOC 201 and steel against CIRSOC 301-2018 (labelled experimental), and generates loads and combinations to CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 and CIRSOC 104-2005. It is open source, runs in the browser and offers paid design modules, free for universities.' },
+        { q: 'Is Stabileo free for CIRSOC checks?', a: "The core program, for structural analysis in the browser, is open source and free for everyone. Some specialised modules are paid; universities get those modules free. Stabileo AI and heavy cloud compute are paid by everyone, universities included, priced to cover what they cost." },
         { q: 'Can I use Stabileo for a calculation I will sign?', a: 'The responsibility for a design is the signing engineer’s, with any program. Stabileo publishes what is verified and to what level; it has not yet had an independent review by a licensed engineer and steel is labelled experimental, so check the governing members by hand.' },
         { q: 'Which edition of CIRSOC 201 does it use?', a: 'The 2025 edition. 2005 can be selected in the project’s codes for earlier projects, but beam and column design with that edition is not available yet. The engine checks are compared with the INTI-CIRSOC 201-2005 worked examples.' },
       ],
     },
     pt: {
-      title: 'Verificação CIRSOC grátis no navegador: o que está pronto e o que falta',
+      title: 'Verificação CIRSOC no navegador: o que está pronto e o que falta',
       description:
-        'O Stabileo verifica concreto (CIRSOC 201) e aço (CIRSOC 301, experimental) e gera cargas CIRSOC 101–104, grátis no navegador. O que está pronto e o que não.',
+        'O Stabileo verifica concreto (CIRSOC 201) e aço (CIRSOC 301, experimental) e gera cargas CIRSOC 101–104, no navegador. O que está pronto e o que não.',
       eyebrow: 'CIRSOC',
-      lead: 'O Stabileo é um software de cálculo estrutural de código aberto que verifica elementos de concreto armado segundo a CIRSOC 201 (edição 2025) e de aço segundo a CIRSOC 301-2018, e gera cargas e combinações segundo as CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Parte I) e CIRSOC 104-2005, as normas estruturais argentinas. Usa o mesmo modelo e o mesmo solver com que você calcula a estrutura, roda no navegador e não precisa de instalação nem de licença. O dimensionamento normativo está no módulo PRO, que segue em desenvolvimento e é grátis enquanto durar.',
+      lead: 'O Stabileo é um software de cálculo estrutural de código aberto que verifica elementos de concreto armado segundo a CIRSOC 201 (edição 2025) e de aço segundo a CIRSOC 301-2018, e gera cargas e combinações segundo as CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 (Parte I) e CIRSOC 104-2005, as normas estruturais argentinas. Usa o mesmo modelo e o mesmo solver com que você calcula a estrutura, roda no navegador e não precisa de instalação nem de licença. O dimensionamento normativo está no módulo PRO, que segue em desenvolvimento. É pago e gratuito para as universidades.',
       blocks: [
         { k: 'h', t: 'O que está disponível e quanto está verificado' },
         { k: 'p', t: 'Certificado quer dizer que cada resultado traz uma cota do erro numérico calculada com aritmética de intervalos; não quer dizer que o modelo esteja correto nem que um engenheiro o tenha revisado. Os exemplos publicados são os exemplos de aplicação INTI-CIRSOC.' },
@@ -206,8 +206,8 @@ export const cirsocPage: StandingPage = {
       ],
       faqTitle: 'Perguntas frequentes',
       faq: [
-        { q: 'Que software verifica o dimensionamento estrutural segundo as normas CIRSOC?', a: 'O Stabileo verifica concreto armado segundo a CIRSOC 201 e aço segundo a CIRSOC 301-2018 (rotulado experimental), e gera cargas e combinações segundo as CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 e CIRSOC 104-2005. É de código aberto, roda no navegador e é grátis enquanto o módulo de dimensionamento estiver em desenvolvimento.' },
-        { q: 'O Stabileo é grátis para verificar segundo a CIRSOC?', a: 'Sim, hoje sim. A análise (Básico) é grátis. O módulo de dimensionamento normativo está em desenvolvimento e é grátis enquanto durar; depois continuará grátis para as universidades públicas e para quem participar do desenvolvimento.' },
+        { q: 'Que software verifica o dimensionamento estrutural segundo as normas CIRSOC?', a: 'O Stabileo verifica concreto armado segundo a CIRSOC 201 e aço segundo a CIRSOC 301-2018 (rotulado experimental), e gera cargas e combinações segundo as CIRSOC 101-2025, 102-2025, INPRES-CIRSOC 103-2018 e CIRSOC 104-2005. É de código aberto, roda no navegador e oferece módulos de dimensionamento pagos, gratuitos para as universidades.' },
+        { q: 'O Stabileo é grátis para verificar segundo a CIRSOC?', a: "O programa principal, para análise estrutural no navegador, é de código aberto e gratuito para todos. Alguns módulos especializados são pagos; as universidades recebem esses módulos gratuitamente. O Stabileo IA e a computação intensiva na nuvem são pagos por todos, inclusive pelas universidades, a um preço que cobre seu custo." },
         { q: 'Posso usar o Stabileo num cálculo que vou assinar?', a: 'A responsabilidade do projeto é de quem o assina, com qualquer programa. O Stabileo publica o que está verificado e com que nível; ainda não teve uma revisão independente de um engenheiro habilitado e o aço está rotulado como experimental, então convém conferir à mão os elementos que governam.' },
         { q: 'Que edição da CIRSOC 201 ele usa?', a: 'A 2025. A 2005 pode ser escolhida nas normas do projeto para projetos anteriores, mas o dimensionamento de vigas e pilares com essa edição ainda não está disponível. As verificações do motor são confrontadas com os exemplos de aplicação INTI-CIRSOC 201-2005.' },
       ],
