@@ -74,6 +74,7 @@ export interface FeatureSnapshot {
   loadCases?: Array<{ id: number; type?: string; spectral?: unknown }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
+  solidShells?: Entries<unknown>;
   plates?: Entries<{ offset?: Offset3 }>;
   quads?: Entries<{ curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
@@ -177,7 +178,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
-  if (quads.length || values(s.plates).length) f.add('shells');
+  if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
