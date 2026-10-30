@@ -331,7 +331,9 @@ check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
 check.review-scripts:
-	bash scripts/review/test.sh
+	python3 -B -I scripts/tests/test_review_isolation.py
+	python3 -B -I scripts/tests/test_status.py
+	$(NIX_RUN) bash -c 'PATH="$(dir $(shell command -v python3)):$$PATH" bash scripts/review/test.sh'
 
 test.ci-scripts:
 	python3 -B -I scripts/tests/test_ci_aggregate.py

@@ -63,6 +63,11 @@ case "$mode" in
   indented) printf '  - **should-fix — x**\n  ready after should-fix items  \n';;
   quotes) printf 'CI log: rate limit exceeded (HTTP 429), usage limit and quota noise.\nready after should-fix items\n';  echo 'gh: rate limit exceeded' >&2;;
   legacy) echo 'ready to merge';;
+  readonly)
+    if printf changed >> scripts/status.sh 2>/dev/null; then exit 93; fi
+    if git switch --detach "$TEST_SHA" >/dev/null 2>&1; then exit 94; fi
+    [ "$(git rev-parse HEAD)" = "$TEST_SHA" ]
+    echo ready;;
   ok)
     printf 'Reviewed content at %s\nA test failed in the proposed code.\n%s\n\n' "$(git rev-parse HEAD)" "${TEST_VERDICT:-not ready}"
     if [ -n "${TEST_BARRIER:-}" ]; then
@@ -96,6 +101,7 @@ run_case() {
   grep -Fx "SHA: $TEST_SHA" "$case_out"/run-*/review-123-"${TEST_SHA:0:12}"-codex.md
   assert_clean
 }
+KIMI_MODE=readonly CODEX_MODE=readonly run_case Kimi
 run_case Kimi
 if grep -q '^grok ' "$TEST_LOG"; then exit 1; fi
 KIMI_MODE=quota run_case Grok

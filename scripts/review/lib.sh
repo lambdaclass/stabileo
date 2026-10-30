@@ -5,11 +5,22 @@ review_die() { echo "review: $*" >&2; exit 1; }
 review_cleanup() {
   local rc=$?
   trap - EXIT
-  # Wait before removing the checkout, including when the foreground is interrupted.
-  [ -z "${CODEX_PID:-}" ] || wait "$CODEX_PID" || :
-  [ -z "${SECOND_PID:-}" ] || wait "$SECOND_PID" || :
-  if [ -n "${WORKTREE:-}" ]; then
-    git -C "$REPO" worktree remove --force "$WORKTREE" || rc=1
+  trap '' INT TERM
+  local pid checkout
+  for pid in ${CODEX_PID:-} ${SECOND_PID:-}; do
+    kill -TERM -- "-$pid" 2>/dev/null || :
+  done
+  if [ -n "${CODEX_PID:-}${SECOND_PID:-}" ]; then
+    sleep 1
+    for pid in ${CODEX_PID:-} ${SECOND_PID:-}; do
+      kill -KILL -- "-$pid" 2>/dev/null || :
+      wait "$pid" 2>/dev/null || :
+    done
+  fi
+  if [ -n "${WORK_ROOT:-}" ]; then
+    for checkout in "$WORK_ROOT"/*; do
+      [ ! -d "$checkout" ] || git -C "$REPO" worktree remove --force "$checkout" || rc=1
+    done
   fi
   [ -z "${BASE_REF:-}" ] || git -C "$REPO" update-ref -d "$BASE_REF" || rc=1
   [ -z "${WORK_ROOT:-}" ] || rmdir "$WORK_ROOT" || rc=1
@@ -60,8 +71,11 @@ review_setup() {
   # Neither FETCH_HEAD nor origin/main is shared writable state between runs.
   git fetch -q --no-write-fetch-head --no-tags --refmap= origin "$SHA" "+refs/heads/main:$BASE_REF"
   PROMPT=${PROMPT//origin\/main/$BASE_REF}
-  git worktree add -q --detach "$WORK_ROOT/checkout" "$SHA"
-  WORKTREE=$WORK_ROOT/checkout
+  local reviewer
+  for reviewer in codex kimi grok adversarial; do
+    git worktree add -q --detach "$WORK_ROOT/$reviewer" "$SHA"
+  done
+  GIT_COMMON=$(git rev-parse --path-format=absolute --git-common-dir)
   echo "review: PR #$PR pinned at $SHA"
 }
 
@@ -76,7 +90,8 @@ review_attempt() {
   local name=$1
   shift
   local raw=$PREFIX-$name.raw err=$PREFIX-$name.err rc=0
-  (cd "$WORKTREE" && "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
+  local WORKTREE=$WORK_ROOT/$name
+  (cd "$WORKTREE" && python3 "$REVIEW_SCRIPTS/readonly.py" "$REPO" "$GIT_COMMON" "$WORK_ROOT" -- "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
   printf '%s\n' "$rc" > "$PREFIX-$name.exit"
   [ "$rc" -eq 0 ] || return 1
   # A final verdict line proves the review finished. Quota or availability text
@@ -87,13 +102,16 @@ review_attempt() {
 
 review_publish() {
   local name=$1 label=$2
-  local destination=$PREFIX-$name.md
+  local destination=$PREFIX-$name.md checkout=$WORK_ROOT/$name status
+  [ "$(git -C "$checkout" rev-parse HEAD)" = "$SHA" ] || { echo "review: $name changed HEAD" >&2; return 1; }
+  status=$(git -C "$checkout" status --porcelain) || return 1
+  [ -z "$status" ] || { echo "review: $name modified the checkout" >&2; return 1; }
   { printf 'REVIEWER: %s\nSHA: %s\n\n' "$label" "$SHA"; cat "$PREFIX-$name.raw"; } > "$destination.tmp" || return 1
   mv "$destination.tmp" "$destination"
 }
 
 review_codex() {
-  review_attempt codex codex exec --sandbox read-only --skip-git-repo-check -C "$WORKTREE" "$PROMPT" || return 1
+  review_attempt codex codex exec --sandbox read-only --skip-git-repo-check -C "$WORK_ROOT/codex" "$PROMPT" || return 1
   review_publish codex Codex
 }
 
@@ -107,7 +125,7 @@ review_second() {
     adversarial=$(cat "$REVIEW_SCRIPTS/review-adversarial-prompt.txt")
     adversarial=${adversarial//\{\{PR\}\}/$PR}
     adversarial=${adversarial//origin\/main/$BASE_REF}
-    review_attempt adversarial codex exec --sandbox read-only --skip-git-repo-check -C "$WORKTREE" "$adversarial" || return 1
+    review_attempt adversarial codex exec --sandbox read-only --skip-git-repo-check -C "$WORK_ROOT/adversarial" "$adversarial" || return 1
     name=adversarial; label='adversarial Codex'
   fi
   review_publish "$name" "$label"
@@ -117,6 +135,7 @@ review_run() {
   local mode=$1 rc=0
   shift
   review_setup "$@"
+  set -m
   if [ "$mode" = both ]; then
     review_codex & CODEX_PID=$!
   fi
@@ -127,7 +146,6 @@ review_run() {
   fi
   wait "$SECOND_PID" || rc=1
   SECOND_PID=
-  [ -z "$(git -C "$WORKTREE" status --porcelain)" ] || review_die 'reviewers modified the checkout'
   [ "$rc" -eq 0 ] || review_die "reviewer unavailable; inspect $PREFIX-*.err and *.exit"
   echo "review: results in $PREFIX-*.md (verdicts require human review)"
 }
