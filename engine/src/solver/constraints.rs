@@ -2473,10 +2473,27 @@ fn self_check_constraint_resultant(
             forces[ct.independent_dofs[ct.c.col_idx[p]]] -= ct.c.vals[p] * force;
         }
     }
-    let pairs: Vec<_> = forces.into_iter().enumerate().collect();
-    let global = fcs.constraint_forces(&pairs, dofs);
-    let names: &[&str] = if dofs.dofs_per_node <= 3 { &["ux", "uz"] } else { &["ux", "uy", "uz"] };
-    names.iter().map(|name| global.iter().filter(|f| f.dof == *name).map(|f| f.force).sum()).collect()
+    // Rotate indexed forces in place: each support has a fixed-size frame.
+    // Do not send the dense vector through the sparse-pair lookup routine.
+    for frame in &fcs.inclined {
+        let local: Vec<_> = frame.dofs.iter().map(|&d| forces[d]).collect();
+        for (k, &d) in frame.dofs.iter().enumerate() {
+            forces[d] = local.iter().enumerate().map(|(j, f)| frame.r[j][k] * f).sum();
+        }
+    }
+    let dimensions = if dofs.dofs_per_node <= 3 { 2 } else { 3 };
+    let mut totals = vec![0.0; dimensions];
+    let mut components = vec![usize::MAX; dofs.n_total];
+    for (&(_, component), &d) in &dofs.map {
+        components[d] = component;
+    }
+    // Preserve DOF-slot summation order independently of HashMap iteration.
+    for (d, force) in forces.into_iter().enumerate() {
+        if components[d] < dimensions {
+            totals[components[d]] += force;
+        }
+    }
+    totals
 }
 
 /// ||Cᵀr|| / ||Cᵀf||: the relative residual of the reduced system CᵀKC·u = Cᵀf,
@@ -2724,6 +2741,33 @@ impl FreeConstraintSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn self_check_resultant_large_inclined_constraint_scaling() {
+        // A sparse constraint in successively larger models. The old dense-pair
+        // path scanned billions of entries at the largest size.
+        for nodes in [100, 10_000, 100_000] {
+            let n = nodes * 3;
+            let dofs = DofNumbering {
+                map: (0..nodes).flat_map(|node| (0..3).map(move |d| ((node, d), node * 3 + d))).collect(),
+                n_free: n, n_total: n, dofs_per_node: 3, node_order: (0..nodes).collect(),
+            };
+            let ct = ConstraintTransform {
+                c: SparseTransform::from_rows(n, n - 1, (0..n).map(|i| vec![(if i == n - 3 { 0 } else if i > n - 3 { i - 1 } else { i }, 1.0)]).collect()),
+                n_independent: n - 1, n_total: n,
+                independent_dofs: (0..n).filter(|&i| i != n - 3).collect(),
+                dependent_dofs: [n - 3].into_iter().collect(),
+            };
+            let fcs = FreeConstraintSystem::from_transform(&ct, n).with_inclined(vec![InclinedDofs {
+                node_id: nodes - 1, dofs: vec![n - 3, n - 2],
+                r: vec![vec![0.6, 0.8], vec![-0.8, 0.6]],
+            }]);
+            // Duplicate contributions, a rotated slave, and an unrotated master.
+            let result = self_check_constraint_resultant(&[(n - 3, 6.0), (n - 3, 4.0)], &ct, &fcs, &dofs);
+            assert!((result[0] + 4.0).abs() < 1e-12);
+            assert!((result[1] - 8.0).abs() < 1e-12);
+        }
+    }
 
     /// Pins the sparse triple product: reduce_sparse must equal reduce_dense
     /// (and a naive C^T·K·C) entry by entry. Regression test for a bug where

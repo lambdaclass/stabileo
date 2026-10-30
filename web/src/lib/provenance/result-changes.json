@@ -7,7 +7,7 @@
       "id": "static-modal-runtime-self-checks",
       "resultsVersion": 5,
       "date": "2026-10-29",
-      "prs": [],
+      "prs": [865],
       "area": "analysis",
       "when": {
         "any": [

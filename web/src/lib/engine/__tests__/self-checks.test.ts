@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selfCheckWarnings } from '../self-checks';
+import { selfCheckWarnings, selfCheckGroups } from '../self-checks';
 import { modelFindings } from '../model-findings';
 import type { StructuredDiagnostic } from '../types';
 
@@ -37,4 +37,24 @@ it('keeps modal warnings visible even before a background certificate is availab
   } });
   expect(body).toContain('role="alert"');
   expect(body).toContain('WARN: self-check modal_residual:1');
+});
+
+it('deduplicates an active case alias and preserves labels for distinct affected cases', () => {
+  const first = { structuredDiagnostics: [diagnostic('warning')] };
+  const second = { structuredDiagnostics: [diagnostic('warning')] };
+  expect(selfCheckWarnings([first, second, first])).toHaveLength(2);
+  expect(selfCheckGroups([first, second, first], ['Dead', 'Wind'])).toEqual([
+    { label: 'Dead', warnings: first.structuredDiagnostics },
+    { label: 'Wind', warnings: second.structuredDiagnostics },
+  ]);
+});
+
+it('keeps 100 modal warnings and many cases in closed, bounded details', () => {
+  const results = Array.from({ length: 10 }, () => ({ structuredDiagnostics: Array.from({ length: 100 }, () => diagnostic('warning')) }));
+  const { body } = render(SelfCheckBanner, { props: { results: [...results, results[0]], labels: results.map((_, i) => `Case ${i}`) } });
+  expect(body).toContain(': 1000');
+  expect(body).toContain('<details>');
+  expect(body).not.toMatch(/<details[^>]*open/);
+  expect(body).toContain('Case 9');
+  expect(body.match(/WARN: self-check/g)).toHaveLength(1000);
 });

@@ -452,7 +452,7 @@ export interface StabileoTestHooks {
  */
 export interface StabileoTestActions {
   /** Test-only fault injection: append a runtime warning to already solved results. */
-  seedSelfCheckWarning(): void;
+  seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
   /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
   moveNode(id: number, x: number, y: number, z: number): void;
@@ -882,17 +882,21 @@ export function installE2EHooks(): void {
     }),
   };
   const actions: StabileoTestActions = {
-    seedSelfCheckWarning: () => {
+    seedSelfCheckWarning: (count = 1, cases = 0) => {
       for (const result of [resultsStore.results, resultsStore.results3D, resultsStore.modalResult, resultsStore.modalResult3D]) {
         if (!result) continue;
-        result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), {
-          code: 'residual_high', severity: 'warning', phase: 'self_check:static_balance',
+        result.structuredDiagnostics = [...(result.structuredDiagnostics ?? []), ...Array.from({ length: count }, (_, i) => ({
+          code: 'residual_high' as const, severity: 'warning' as const, phase: `self_check:static_balance:${i}`,
           message: 'WARN: self-check fixture: balance needs review before using these results',
           value: 2e-6, threshold: 1e-6,
-        }];
+        }))];
       }
-      if (resultsStore.results) resultsStore.setResults({ ...resultsStore.results }, true);
-      if (resultsStore.results3D) resultsStore.setResults3D({ ...resultsStore.results3D }, true);
+      if (resultsStore.results) resultsStore.setResults(resultsStore.results, true);
+      if (resultsStore.results3D) resultsStore.setResults3D(resultsStore.results3D, true);
+      for (let i = 0; i < cases; i++) {
+        if (resultsStore.results) resultsStore.perCase.set(i + 1, i === 0 ? resultsStore.results : { ...resultsStore.results });
+        if (resultsStore.results3D) resultsStore.perCase3D.set(i + 1, i === 0 ? resultsStore.results3D : { ...resultsStore.results3D });
+      }
     },
     /** Seed a coordinated assembly — the same shape the pipeline writes. */
     seedDetailing: (assemblies: unknown) => {
