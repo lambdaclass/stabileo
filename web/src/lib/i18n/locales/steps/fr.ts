@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/fr';
 
 const stepsFr: Translations = {
   'steps.dsm.classification': 'Classification statique',
@@ -922,4 +923,4 @@ const stepsFr: Translations = {
   'steps.cuts.dia.M': 'Moment fléchissant M [kN·m], du côté de la fibre tendue.',
 };
 
-export default stepsFr;
+export default { ...stepsFr, ...course };

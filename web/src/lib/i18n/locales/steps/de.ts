@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/de';
 
 const stepsDe: Translations = {
   'steps.dsm.classification': 'Statische Bestimmtheit',
@@ -922,4 +923,4 @@ const stepsDe: Translations = {
   'steps.cuts.dia.M': 'Biegemoment M [kN·m], auf der Seite der gezogenen Faser.',
 };
 
-export default stepsDe;
+export default { ...stepsDe, ...course };

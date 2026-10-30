@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/tr';
 
 const stepsTr: Translations = {
   'steps.dsm.classification': 'Statik sınıflandırma',
@@ -922,4 +923,4 @@ const stepsTr: Translations = {
   'steps.cuts.dia.M': 'Eğilme momenti M [kN·m], çekmedeki lifin tarafında.',
 };
 
-export default stepsTr;
+export default { ...stepsTr, ...course };

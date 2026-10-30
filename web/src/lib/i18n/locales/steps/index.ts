@@ -9,10 +9,11 @@ import * as frames from './frames';
 import * as trusses from './trusses';
 import * as deformation from './deformation';
 import * as cuts from './cuts';
+import { courseEs, courseEn, coursePt } from '../course/index';
 
 const parts = [common, continuous, frames, trusses, deformation, cuts];
 const merge = (k: 'es' | 'en' | 'pt'): Translations => Object.assign({}, ...parts.map((p) => p[k]));
 
-export const stepsEs = merge('es');
-export const stepsEn = merge('en');
-export const stepsPt = merge('pt');
+export const stepsEs = { ...merge('es'), ...courseEs };
+export const stepsEn = { ...merge('en'), ...courseEn };
+export const stepsPt = { ...merge('pt'), ...coursePt };
