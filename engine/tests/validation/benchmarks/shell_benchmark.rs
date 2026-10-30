@@ -5057,10 +5057,12 @@ fn q9_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 #[test]
 fn benchmark_q9_scordelis_lo() {
     let reference = 0.3024;
-    let meshes = [(2, 2), (4, 4), (6, 6)];
+    // Published ratios are 1.1744, 1.0070, and 0.9992. Preserve the
+    // acknowledged coarse-mesh overprediction while bounding every mesh.
+    let meshes = [(2, 2, 1.15, 1.20), (4, 4, 0.99, 1.01), (6, 6, 0.98, 1.02)];
     let mut ratios = Vec::new();
 
-    for &(nx, nt) in &meshes {
+    for &(nx, nt, lower, upper) in &meshes {
         let uz = q9_scordelis_lo_solve(nx, nt);
         let ratio = uz / reference;
         ratios.push((nx, nt, uz, ratio));
@@ -5068,14 +5070,27 @@ fn benchmark_q9_scordelis_lo() {
             "Q9 Scordelis-Lo {}x{}: uz={:.6e}, ratio={:.4}",
             nx, nt, uz, ratio
         );
+        // uz is signed downward displacement; do not mask an upward response
+        // with abs(). Explicit finiteness also rejects infinite displacement.
+        assert!(
+            uz.is_finite() && ratio.is_finite() && uz > 1e-15,
+            "Q9 Scordelis-Lo {}x{}: expected finite downward deflection, got uz={:.6e}, ratio={:.6}",
+            nx, nt, uz, ratio
+        );
+        assert!(
+            ratio > lower && ratio < upper,
+            "Q9 Scordelis-Lo {}x{}: signed ratio={:.6} outside ({:.2}, {:.2})",
+            nx, nt, ratio, lower, upper
+        );
     }
 
-    // All meshes should produce nonzero deflection
-    for &(nx, nt, uz, _) in &ratios {
+    for pair in ratios.windows(2) {
+        let (nx_coarse, nt_coarse, _, r_coarse) = pair[0];
+        let (nx_fine, nt_fine, _, r_fine) = pair[1];
         assert!(
-            uz > 1e-15,
-            "Q9 Scordelis-Lo {}x{}: should deflect, got uz={:.6e}",
-            nx, nt, uz
+            (r_fine - 1.0).abs() < (r_coarse - 1.0).abs(),
+            "Q9 Scordelis-Lo: error must decrease from {}x{} (ratio={:.6}) to {}x{} (ratio={:.6})",
+            nx_coarse, nt_coarse, r_coarse, nx_fine, nt_fine, r_fine
         );
     }
 
