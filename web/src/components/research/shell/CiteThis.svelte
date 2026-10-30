@@ -106,7 +106,7 @@
       <dt>{s.experimentWasm}</dt>
       <dd><code title={input.experimentWasmSha256 ?? ''}>{input.experimentWasmSha256 ? short(input.experimentWasmSha256) : s.notBuilt}</code></dd>
       <dt>{s.version}</dt>
-      <dd>{#if build.version}{build.version.version} ({build.version.date}){build.version.commit ? '' : `, ${s.unreleased}`}{:else}{s.noVersion}{/if}</dd>
+      <dd data-testid="cite-version">{#if build.version}{build.version.version} ({build.version.date}){build.released ? '' : `, ${s.unreleased}`}{:else}{s.noVersion}{/if}</dd>
       <dt>{s.paper}</dt>
       <dd><a href="https://doi.org/{input.paper.doi}" rel="noreferrer" target="_blank">{s.doiPrefix}{input.paper.doi}</a></dd>
     </dl>

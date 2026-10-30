@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onlineServicesAvailable } from '../lib/frozen-services';
+  import FrozenServicesNotice from './FrozenServicesNotice.svelte';
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
@@ -568,6 +570,9 @@
   needed and a docked body must not have. Same convention as `KinematicPanel`
   and `WhatIfPanel`.
 -->
+{#if !onlineServicesAvailable()}
+  <FrozenServicesNotice />
+{:else}
 <svelte:element this={docked ? 'div' : 'aside'} class="ai-drawer" class:ai-docked={docked}>
   {#if !docked}
     <div class="drawer-header">
@@ -838,6 +843,8 @@
     {t('ai.devNote')}
   </p>
 </svelte:element>
+
+{/if}
 
 <style>
   .ai-drawer {

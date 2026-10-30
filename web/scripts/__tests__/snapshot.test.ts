@@ -221,6 +221,7 @@ it.each([
   context.history.pushState(null, '', context.location.href);
   expect(banner?.attrs.get('lang')).toBe(locale);
   expect(nodes.get('[data-latest]').textContent).toBe(latest);
+  expect(nodes.get('[data-services]').textContent).toBeTruthy();
   expect(nodes.get('[data-latest]').href).toBe(`https://staging.stabileo.com/${locale}/research/?view=1#cite`);
   expect(nodes.get('button').attrs.get('aria-label')).toBe(hide);
 });

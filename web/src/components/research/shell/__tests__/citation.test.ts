@@ -72,6 +72,8 @@ function selected(entry: SnapshotEntry | null) {
 it('cites a snapshot completely when its experiment version matches', () => {
   const matching = { ...older, experimentVersions: { 'shauer-2025': { ...current.version } } };
   const { build, text, bibtex } = selected(matching);
+  expect(build.released).toBe(true);
+  expect(build.version?.commit).toBeNull();
   expect(build).toMatchObject({ version: current.version, commit: older.commit,
     engineWasmSha256: 'older-engine', experimentWasmSha256: 'older-experiment', date: older.date });
   for (const output of [text, bibtex]) {
@@ -96,6 +98,7 @@ it.each([
   { ...older, researchWasmSha256: undefined },
 ])('cites the current build without a permanent link if snapshot metadata is unavailable (%#)', (entry) => {
   const { build, text, bibtex } = selected(entry);
+  expect(build.released).toBe(false);
   expect(build).toMatchObject({ ...current, link: null });
   for (const output of [text, bibtex]) {
     expect(output).toContain('version 2');
@@ -111,6 +114,7 @@ it.each([
 
 it('does not cite legacy index entries without version evidence', () => {
   const { build, text } = selected({ ...older, commit: current.commit, short: 'bbbbbbb', url: '/@bbbbbbb/', experimentVersions: undefined });
+  expect(build.released).toBe(false);
   expect(build).toMatchObject({ ...current, link: null });
   expect(text).not.toContain('/@bbbbbbb/');
   expect(text).toContain('No permanent link');
@@ -136,4 +140,12 @@ it.each(['de', 'fr', 'tr'])('preserves citation provenance when rendered in %s',
     }
     expect(rendered).not.toContain('No permanent link for this build');
   }
+});
+
+it('a frozen page is released even when its initial version has no self-referential SHA', () => {
+  const link = pickSnapshot([], page, current.commit, '/@bbbbbbb/', current.version.version);
+  const build = citationBuild(link, input.id, current);
+  expect(build.released).toBe(true);
+  expect(build.version?.commit).toBeNull();
+  expect(build.link?.snapshot.url).toBe('/@bbbbbbb/');
 });

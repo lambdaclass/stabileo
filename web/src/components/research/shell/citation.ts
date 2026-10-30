@@ -149,10 +149,10 @@ export function citationBuild(
     const snapshot = link.snapshot;
     const version = snapshot.experimentVersions?.[id];
     if (version && snapshot.engineWasmSha256 !== undefined && snapshot.researchWasmSha256 !== undefined) {
-      return { link, version, commit: snapshot.commit, engineWasmSha256: snapshot.engineWasmSha256,
+      return { link, version, released: true, commit: snapshot.commit, engineWasmSha256: snapshot.engineWasmSha256,
         experimentWasmSha256: snapshot.researchWasmSha256[id] ?? null, date: snapshot.date };
     }
   }
   const own = link?.current ? link : null;
-  return { ...current, link: own, date: own?.snapshot.date || current.version?.date || new Date().toISOString() };
+  return { ...current, link: own, released: !!own || !!current.version?.commit, date: own?.snapshot.date || current.version?.date || new Date().toISOString() };
 }

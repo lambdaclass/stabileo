@@ -8,15 +8,15 @@ import { test, expect, type Page } from '@playwright/test';
 const P = process.env.SNAPSHOT_PREFIX!; // '/@abc1234/'
 const SHORT = P.slice(2, -1);
 
-/** Every same-origin request path, to check none leaves the snapshot (the backend's /api excepted). */
+/** Every same-origin request path, to check none leaves the snapshot (including unexpected API calls). */
 function watch(page: Page, baseURL: string | undefined) {
   const origin = new URL(baseURL!).origin;
   const outside: string[] = [];
   page.on('request', (r) => {
     const u = new URL(r.url());
     if (u.origin !== origin) return;
-    // The backend and the snapshot index (/@/, which Cite this reads) are the only addresses outside.
-    if (!u.pathname.startsWith(P) && !u.pathname.startsWith('/api/') && u.pathname !== '/@/') outside.push(u.pathname);
+    // Cite this reads the snapshot index outside the build prefix.
+    if (!u.pathname.startsWith(P) && u.pathname !== '/@/') outside.push(u.pathname);
   });
   return outside;
 }
@@ -44,6 +44,7 @@ test('the research page is served under the prefix, with the version banner', as
 
   // Cite this names this snapshot as the permanent link.
   await expect(page.getByTestId('cite-permalink').getByRole('link')).toHaveAttribute('href', new RegExp(`${P}en/research/fracture/shauer-2025/$`));
+  await expect(page.getByTestId('cite-version')).not.toContainText('not yet released');
   await expect(page.getByTestId('cite-text')).toContainText(`${P}en/research/fracture/shauer-2025/`);
   await expect(page.getByTestId('cite-bibtex')).toContainText('@misc{stabileo-shauer-2025-v1,');
   await expect(page.getByTestId('cite-bibtex')).toContainText('doi:10.1016/j.advengsoft.2025.104013');
@@ -254,3 +255,37 @@ for (const width of [390, 810]) {
     });
   }
 }
+
+for (const width of [390, 810]) {
+  test(`frozen online services explain their availability at ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const outside = watch(page, baseURL);
+    const serviceRequests: string[] = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.pathname.startsWith('/api/') || url.hostname === 'challenges.cloudflare.com' || (['fetch', 'xhr'].includes(request.resourceType()) && url.origin !== new URL(baseURL!).origin)) serviceRequests.push(url.href);
+    });
+    await page.goto(`${P}app/basic?example=cantilever-point`);
+    await page.evaluate(() => localStorage.setItem('stabileo-feature-accounts', '1'));
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible();
+    await expect(page.locator('#stabileo-snapshot-banner [data-services]')).toContainText('Accounts, AI and feedback are unavailable');
+    await page.locator('#stabileo-snapshot-banner button').click();
+    await page.getByTestId('ai-open').click();
+    const notice = page.getByTestId('frozen-services-notice').first();
+    await expect(notice).toContainText('Use the latest version');
+    expect(await notice.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(page.locator('.feedback-widget')).toHaveCount(0);
+    await expect(page.getByTestId('account-button')).toHaveCount(0);
+    expect(serviceRequests).toEqual([]);
+    expect(outside).toEqual([]);
+  });
+}
+
+test('deployed snapshot host has no API service', async ({ request }) => {
+  test.skip(!process.env.SNAPSHOT_E2E_URL, 'Requires the deployed Caddy boundary');
+  const response = await request.get('/api/v1/health');
+  expect(response.status()).toBe(404);
+  expect(response.headers()['content-type']).not.toContain('text/html');
+});

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onlineServicesAvailable } from '../lib/frozen-services';
+  import FrozenServicesNotice from './FrozenServicesNotice.svelte';
   import { generateShareURL } from '../lib/utils/url-sharing';
   import { uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
@@ -162,6 +164,9 @@
   }
 </script>
 
+{#if !onlineServicesAvailable()}
+  <FrozenServicesNotice />
+{:else}
 <div class="feedback-widget" data-tour="feedback-widget" class:open={isOpen}>
   {#if isOpen}
     <!-- Invisible backdrop: click outside to close -->
@@ -259,6 +264,8 @@
     {/if}
   </button>
 </div>
+
+{/if}
 
 <style>
   .feedback-widget {

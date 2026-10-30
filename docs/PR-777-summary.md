@@ -4,6 +4,22 @@ Normal deployment no longer builds, packages or installs snapshots. The deploy w
 app playbook match origin/main. Caddy still ships with normal releases. Existing review fixes
 are preserved; no engine changes, commits, pushes or git metadata writes.
 
+## Approval status and production scope
+
+Host approval: **pending**. No approval of the separate snapshot origin, shared asset store,
+or cloud-init changes is recorded here. A maintainer must replace the remote PR description
+with this file before requesting approval, then record the approver, date, reviewed head SHA
+and approval link here before production rollout. This file is the proposed PR body; editing
+it does not update GitHub or constitute host approval.
+
+The production changes include a separate snapshot origin and workflow, shared immutable
+assets (no hard links), live-origin redirects, snapshot Caddy routing/CSP/CORS, DNS/TLS
+requirements, and updated embedded Caddy configuration in **both production and staging
+cloud-init**. The normal deploy installs Caddy but does not build or publish snapshots.
+Cloud-init changes affect newly provisioned hosts; existing hosts receive Caddy through the
+normal app deployment. The old same-origin/deploy.yml/hard-link/no-cloud-init description
+must not be used as the approval scope.
+
 ## New flow
 
 1. Compare parsed papers.yaml experiment versions on main pushes. Also accept research-v* tags
@@ -108,3 +124,26 @@ The remaining review fixes cover catalog introduction, infrastructure CI filters
 asset writes, all historical pinned commits and each indexed experiment version during pruning,
 metric/tolerance replay changes, and prefix-aware current-version comparison.
 PR conflicts, dependency #769 and fresh hosted checks remain maintainer-owned.
+
+## Review corrections in this revision
+
+Frozen builds suppress account initialization even with a local feature override, and replace
+AI/feedback controls with a localized explanation. The version banner explains that online
+services require the latest version. CSP and the no-API snapshot boundary remain unchanged;
+solver inputs and numerical tolerances are unchanged. Deployed-host E2E now asserts API 404s,
+no service requests, and frozen-service notices at 390/810 px. These browser tests were added
+but not run in this revision, per the requested validation scope.
+
+Citation release state follows the selected permanent build, including the first release whose
+versions.json commit is null; it no longer requires a commit to contain its own SHA.
+
+The Codex environment-only verdict contained no code findings. Read-only checkout commands
+and file access succeeded in this revision; this does not substitute for a completed review.
+
+Revision validation: 43 tests passed across the three touched Vitest files using a temporary
+unit configuration with the same Svelte and public-i18n plugins. The normal Vite configuration
+could not start because existing research WASM assets are stale; no artifact identity checks
+were changed. Direct compilation of all five changed/new Svelte components passed.
+TypeScript reports 247 errors against a 247-error baseline, with zero new errors. The normal
+Svelte-check gate is blocked by the same stale research assets. Changelog validation passes.
+No engine tests, full suites, Playwright runs, deployments, or git write commands were run.

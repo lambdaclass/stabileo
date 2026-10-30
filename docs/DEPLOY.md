@@ -153,6 +153,10 @@ connections, frames, forms and objects; scripts are external same-origin files, 
 compilation allowed. Inline styles remain allowed for the app's styling. All responses are
 noindex; successful frozen files are immutable, while the index is no-cache and errors are uncached.
 Storage namespacing remains defence in depth between versions, not a security boundary.
+Frozen builds disable accounts (including local overrides) and replace AI/feedback controls with
+an explanation in all six public languages; online services require the latest live version.
+Before production rollout, record host approval of the actual scope in `PR-777-summary.md`,
+including the separate origin/workflow, shared assets and both cloud-init Caddy changes.
 
 **Which commits.** `.github/workflows/research-snapshot.yml` runs on a push to main only
 when parsed experiment `version` values in `research/papers.yaml` change, on a pushed
@@ -161,7 +165,8 @@ ancestor of main. Missing comparison history fails closed; a valid previous comm
 `papers.yaml` is treated as an empty catalog, so its introduction creates a snapshot. Keep `papers.yaml` versions aligned
 with each experiment's `versions.json`; descriptive edits do not create snapshots.
 Cite this chooses the latest indexed snapshot of the current experiment version. Without one,
-it cites the current build without a permanent link. A frozen page continues to cite itself.
+it cites the current build without a permanent link. A frozen page continues to cite itself. A selected permanent build is released even when its
+initial `versions.json` commit is null; a commit cannot contain its own SHA.
 
 **Build.** `web/scripts/build-snapshot.sh` (`make web.build.snapshot`): the same inputs as
 `make web.build`, with Vite's base `/@<commit>/`, into `web/dist-snapshot/`. In that build only,
