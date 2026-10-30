@@ -37,8 +37,17 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * matrix method includes; everything else is exact up to round-off.
  */
 const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02 };
+/**
+ * Second order compares with the engine's consistent matrix: φ against it cut in 8 (discretization
+ * left), the chord matrix against it by design (no P-δ), rigid members against axial shortening.
+ */
+const SECOND_ORDER_TOL = (id: string, opts: Record<string, boolean>): number | undefined => {
+  if (!id.startsWith('so-')) return undefined;
+  if (opts.chord) return 0.25;
+  return id.endsWith('-phi') || opts.axialRigid ? 0.01 : 1e-5;
+};
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
-  Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
+  SECOND_ORDER_TOL(m.id, opts) ?? (Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5));
 
 interface Found { txts: Txt[]; tex: string[]; numbers: number[]; compare: CompareRow[] }
 
@@ -165,7 +174,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       // at their length): it changes the answer on purpose, by exactly the
       // axial deformation, so with rigid members the answer is exact again.
       const switched = Object.keys(opts).length > 0;
-      if (found.length && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
+      if (found.length && !m.id.startsWith('so-') && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
         const rigid = rigidAxially(ctx);
         const floor = new Map([...unitScales(collect(doc).compare)].map(([u, v]) => [u, 1e-4 * v]));
         found = compareProblems(collect(m.build(rigid)).compare, 1e-4, floor).map((p) => `with rigid members: ${p}`);

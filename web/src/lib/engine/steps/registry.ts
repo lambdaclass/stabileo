@@ -15,9 +15,9 @@ import type { Applicability, StepDoc } from './doc';
 import type { PlaneModel } from './plane-model';
 import type { Reference } from './reference';
 
-export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation';
+export type MethodGroup = 'stiffness' | 'flexibility' | 'continuous' | 'frames' | 'trusses' | 'deformation' | 'secondOrder';
 
-export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation'];
+export const GROUP_ORDER: MethodGroup[] = ['stiffness', 'flexibility', 'continuous', 'frames', 'trusses', 'deformation', 'secondOrder'];
 
 export interface MethodContext {
   input: SolverInput;
