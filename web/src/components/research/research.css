@@ -47,3 +47,118 @@
     font-size: 1.0625rem;
   }
 }
+
+@media (max-width: 1119px) {
+  .landing.research .rs-shell,
+  .landing.research .rs-g {
+    padding-top: 1rem;
+  }
+  .landing.research .rs-shell-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .landing.research .rs-shell-head,
+  .landing.research .rs-shell-grid {
+    display: contents;
+  }
+  .landing.research .rs-shell-app { order: 1; }
+  .landing.research .rs-cite { order: 2; }
+  .landing.research .rs-lead { order: 3; }
+  .landing.research .rs-shell-article { order: 4; margin-top: 1rem; }
+  .landing.research .rs-shell-head h1 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin: 0;
+  }
+  .landing.research .rs-crumb,
+  .landing.research .rs-verify,
+  .landing.research .rs-disclaimer { margin: 0; }
+  .landing.research .rs-verify > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    align-items: center;
+  }
+  .landing.research .rs-verify dd { flex: 1 1 12rem; }
+  .landing.research .rs-panel-viewer .rs-viewer-slot { order: -1; }
+  .landing.research .rs-compare-line { order: 1; }
+  .landing.research .rs-viewer-slot { height: auto; }
+  .landing.research .rs-viewer-host .sfv { min-height: 280px; }
+  .landing.research .rs-viewer-slot .sfv {
+    flex: none;
+    height: max(280px, min(90vw, 60svh)) !important;
+  }
+  .landing.research .sp-viewer .sfv {
+    height: max(280px, min(60vw, 60svh)) !important;
+  }
+  .landing.research .rs-tabs,
+  .landing.research .sp-tabbar { flex-wrap: wrap; }
+  .landing.research .rs-tabs button { flex: 1 1 auto; }
+  .landing.research .rs-scrub { flex-wrap: wrap; }
+  .landing.research .rs-scrub input { width: 8rem; min-width: 0; }
+  .landing.research .rs-g-meta { flex-wrap: wrap; gap: 0.4rem; }
+  .landing.research .rs-g-card { grid-template-columns: 28px minmax(0, 1fr); }
+  .landing.research .rs-g-status { white-space: normal; }
+  .landing.research .rs-g-by,
+  .landing.research .rs-citebox,
+  .landing.research .rs-prose code { overflow-wrap: anywhere; }
+  .landing.research .sp-checks { display: block; overflow-x: auto; }
+  .landing.research .eq { white-space: normal; }
+  .landing.research .rs-param { grid-template-columns: minmax(0, 1fr) 7rem 3rem; }
+  .landing.research .sp-controls label { grid-template-columns: minmax(0, 1fr) minmax(44px, 1fr) 3.5rem; }
+}
+
+@media (any-pointer: coarse), (max-width: 1119px) {
+  .landing.research :is(button, [role='tab'], input, select, summary),
+  .landing.research a:not(p a, li a),
+  .landing.research :is(.rs-g-actions, .rs-g-runbody h3, .footer-social) a {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .landing.research a:not(p a, li a, .nav-gh, .nav-brand, .nav-link, .rs-g-thumb),
+  .landing.research :is(.rs-g-actions, .rs-g-runbody h3, .footer-social) a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .landing.research input[type='range'] {
+    appearance: none;
+    background: transparent;
+  }
+  .landing.research input[type='range']::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--rs-control-border);
+    border-radius: 2px;
+  }
+  .landing.research input[type='range']::-webkit-slider-thumb {
+    box-sizing: border-box;
+    appearance: none;
+    width: 44px;
+    height: 44px;
+    margin-top: -20px;
+    border: 12px solid transparent;
+    border-radius: 50%;
+    background: var(--st-accent);
+    background-clip: content-box;
+  }
+  .landing.research input[type='range']::-moz-range-track {
+    height: 4px;
+    background: var(--rs-control-border);
+  }
+  .landing.research input[type='range']::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    border: 12px solid transparent;
+    border-radius: 50%;
+    background: var(--st-accent);
+    background-clip: content-box;
+  }
+  .landing.research :is(sub, sup, .box, .sfv-mode, .sfv-mark, .sfv-editor,
+    .status-value, .shell-legend, .legend-unit-inline, .cam-item, .footer-legal p,
+    .btn-sm, .nav-gh, tspan) {
+    font-size: 12px;
+  }
+  .landing.research .sfv-status { height: auto; }
+  .landing.research .nav-inner { gap: 0.5rem; padding-block: 0.4rem; }
+}

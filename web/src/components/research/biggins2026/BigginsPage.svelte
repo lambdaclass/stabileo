@@ -61,7 +61,7 @@
   onDestroy(() => { stop(); playback.dispose(); });
 </script>
 
-<ExperimentShell paperId="zmyslony-2026" name={s.title} lead={s.lead}
+<ExperimentShell introInArticle paperId="zmyslony-2026" name={s.title} lead={s.lead}
   sourcePath="research/mechanics/biggins-2026"
   verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'checks', passed: validation.published_checks.filter(c => c.passed).length, total: validation.published_checks.length, href: '#checks' } }}
   actions={{ goToStep: i => playback.seek(i), setParams: params => { if (typeof params.width === 'number' && params.width >= 0.3 && params.width <= 0.9) { width = params.width; compute(); } }, showTab: tab => { showMode = tab === 'mode'; playback.interact(); } }}>
