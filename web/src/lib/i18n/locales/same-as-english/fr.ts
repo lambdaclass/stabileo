@@ -116,6 +116,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'config.unitSImm',
   'contour.max',
   'contour.min',
+  'course.plastic.doc.section',
+  'course.plastic.user.showMoments',
   'data.sections',
   'defl.limits.dirShort.localY',
   'defl.limits.dirShort.localZ',

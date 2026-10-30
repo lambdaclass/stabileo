@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { evaluateUserMechanism, collapseMechanism } from '../mechanism';
 import { plasticCollapse2D } from '../../plastic-collapse';
 import { model, portal, fixedBeam, pOn, uniformMp, MP } from './helpers';
+import { curveSeries, defaultAxis, niceTicks, curveCsv } from '../curve';
 
 // Portal: members 1 (base 1 → top 2), 2 (beam 2 → 3, V at midspan), 3 (top 3 → base 4).
 const SWAY = [{ member: 1, t: 0 }, { member: 1, t: 1 }, { member: 3, t: 0 }, { member: 3, t: 1 }];
@@ -136,6 +137,45 @@ describe('plastic rotation at the hinges', () => {
         expect(Math.abs(ev.before + st.trace.dLambda * ev.perUnit)).toBeCloseTo(ev.limit, 6);
       }
       expect(st.trace.lambdaBefore + st.trace.dLambda).toBeCloseTo(st.loadFactor, 12);
+    }
+  });
+});
+
+describe('the λ–displacement curve', () => {
+  it('starts at the origin, has one point per step, and reads the plastic rotations of a hinge', () => {
+    const r = plasticCollapse2D(model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']], [pOn(1, 2, -10)]), { mp: uniformMp, np: () => Infinity });
+    const ax = defaultAxis(r)!;
+    expect(ax).toEqual({ kind: 'hinge', hinge: 0 });
+    const hinge = curveSeries(r, { kind: 'hinge', hinge: 0 });
+    expect(hinge.map((p) => p.lambda)).toEqual([0, expect.closeTo(11.25, 9), expect.closeTo(14.4642857, 6), expect.closeTo(15, 9)]);
+    expect(hinge[3].x).toBeCloseTo(-5e-3, 12);
+    expect(curveCsv(hinge, 'theta').split('\n')).toHaveLength(5);
+    expect(niceTicks(0, 77)).toEqual([0, 20, 40, 60, 80]);
+  });
+});
+
+describe('placing hinges and drawing their moments', () => {
+  it('a tap snaps to the member end, the load point, or stays where it was', async () => {
+    const { pickHinge } = await import('../pick');
+    const m = portal(1, 1);
+    expect(pickHinge(m, { x: 0.02, z: 0.3 }, 0.2)).toEqual({ member: 1, t: 0 });
+    expect(pickHinge(m, { x: 3.1, z: 4.02 }, 0.2)).toEqual({ member: 2, t: 0.5 });
+    expect(pickHinge(m, { x: 1.734, z: 4 }, 0.2)!.t * 6).toBeCloseTo(1.73, 9);
+    expect(pickHinge(m, { x: 3, z: 2 }, 0.2)).toBeNull();
+  });
+
+  it('the moments of a chosen mechanism reach the canvas as element forces with the same diagram', async () => {
+    const { distributionResults } = await import('../../../canvas/draw-plastic-course');
+    const { momentAt } = await import('../sections');
+    const { computeDiagramValueAt } = await import('../../diagrams');
+    const m = portal(1, 1);
+    const u = evaluateUserMechanism(m, uniformMp, COMBINED);
+    const v = u.verdict;
+    if (v.kind !== 'mechanism' || !v.dist) throw new Error('no mechanism');
+    const res = distributionResults(m, u.lm, v.dist.M, v.mech.lambda);
+    const beam = res.elementForces.find((f) => f.elementId === 2)!;
+    for (const t of [0, 0.25, 0.5, 0.8, 1]) {
+      expect(-computeDiagramValueAt('moment', t, beam)).toBeCloseTo(momentAt(u.lm.sm, 2, t, v.dist.M, v.mech.lambda), 9);
     }
   });
 });

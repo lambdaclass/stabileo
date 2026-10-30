@@ -334,7 +334,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     const norm = Math.hypot(...loadWork) || 1;
     const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
     const big = Math.max(...theta.map(Math.abs));
-    const closing = open.filter((x, k) => theta[k] * sag[k] < -1e-6 * big);
+    const closing = open.filter((_, k) => theta[k] * sag[k] < -1e-6 * big);
     for (const { ref, h } of closing) {
       const { mb, t, run } = ref!;
       if (t <= 1e-12) work.elements.get(mb.pieces[0].id)!.hingeStart = false;

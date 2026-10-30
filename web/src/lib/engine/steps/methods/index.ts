@@ -9,8 +9,9 @@ import { methods as frames } from './frames';
 import { methods as trusses } from './trusses';
 import { methods as deformation } from './deformation';
 import { methods as cuts } from './cuts';
+import { methods as plastic } from './plastic';
 
-registerMethods([...core, ...continuous, ...frames, ...trusses, ...deformation, ...cuts]);
+registerMethods([...core, ...continuous, ...frames, ...trusses, ...deformation, ...cuts, ...plastic]);
 
 export { allMethods, methodsIn, methodById, GROUP_ORDER } from '../registry';
 export type { ExplainedMethod, MethodContext, MethodGroup } from '../registry';

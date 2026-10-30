@@ -36,7 +36,8 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * members at their length, so they differ by the axial deformation the
  * matrix method includes; everything else is exact up to round-off.
  */
-const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02 };
+/** The plastic methods compare with the step-by-step collapse, whose hinge under a distributed load sits on one of 200 sections. */
+const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, plasticKinematic: 1e-3, plasticStatic: 1e-3 };
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
   Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
 
