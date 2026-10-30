@@ -37,7 +37,11 @@
   import { createLabelCollector, type LabelCollector } from '../lib/canvas/label-layout';
   import { computeAxleWorldPositions } from '../lib/engine/moving-loads';
   import { drawInfluenceLine } from '../lib/canvas/draw-influence';
+  import { pickInfluenceTarget } from '../lib/actions/influence-line';
+  import { influenceTool } from '../lib/store/influence-tool.svelte';
   import { drawModeShape, drawPlasticHinges } from '../lib/canvas/draw-modes';
+  import { drawPlasticCourseLayer, tapPlasticHinge } from '../lib/canvas/plastic-course-layer';
+  import { plasticCourse } from '../lib/store/plastic-course.svelte';
   import { computeElementStress } from '../lib/store/results.svelte';
   import { colourScaleSource } from '../lib/store/result-view';
   import { colourRampCss, colourMapUnit } from '../lib/three/colour-ramp';
@@ -78,8 +82,8 @@
   import { askAboutNewMember, askToConnectNode } from '../lib/model/edit/connection-questions';
   import { resolveMemberSnap, MEMBER_SNAP_PX, type MemberSnap, type SnapMember } from '../lib/viewport/member-snap';
   import { toolStretch } from '../lib/model/loads/load-stretch';
-  import type { InfluenceLineResult } from '../lib/store/model.svelte';
   import { resolveNodePlacement2D, type NodePlacement } from '../lib/viewport/node-placement';
+  import { modeDrawGeometry } from '../lib/engine/second-order/mode-geometry';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -279,12 +283,13 @@
     uiStore.despieceInspect;
     invalidate();
   });
-  $effect(() => { resultsStore.influenceLine; invalidate(); });
+  $effect(() => { resultsStore.influenceLine; influenceTool.envelope; invalidate(); });
   $effect(() => { resultsStore.overlayResults; resultsStore.overlayLabel; invalidate(); });
   $effect(() => { resultsStore.movingLoadEnvelope; resultsStore.activeMovingLoadPosition; resultsStore.movingLoadShowEnvelope; invalidate(); });
   $effect(() => { resultsStore.modalResult; resultsStore.activeModeIndex; invalidate(); });
   $effect(() => { resultsStore.bucklingResult; resultsStore.activeBucklingMode; invalidate(); });
   $effect(() => { resultsStore.plasticResult; resultsStore.plasticStep; invalidate(); });
+  $effect(() => { plasticCourse.view; plasticCourse.user; plasticCourse.userShows; plasticCourse.hinges; invalidate(); });
   $effect(() => { resultsStore.stressQuery; invalidate(); });
   $effect(() => { resultsStore.envelope; invalidate(); });
 
@@ -1144,8 +1149,10 @@
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          ...modeDrawGeometry(resultsStore.bucklingResult, {
+            nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
+            elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          }),
         };
         drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
       }
@@ -1380,7 +1387,9 @@
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
         drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
-      } else if (dt === 'plasticHinges' && resultsStore.plasticResult) {
+      } else if (dt === 'plasticHinges' && resultsStore.plasticResult
+        && !drawPlasticCourseLayer({ ctx, worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy) }, makeDrawContext(),
+          { scale: resultsStore.diagramScale, values: valuesNow(), towardLocal: resultsStore.drawPositiveTowardLocalAxes })) {
         /*
          * The step's accumulated moment diagram, on one scale for every step so
          * it visibly grows toward collapse, then the hinges formed so far.
@@ -1882,6 +1891,8 @@
       return;
     }
 
+    if (plasticCourse.picking && e.button === 0) { tapPlasticHinge(world.x, world.y, pickTol(PICK_PX.loose)); return; }
+
     // Pan: middle mouse or pan tool
     if (uiStore.currentTool === 'pan' || e.button === 1) {
       isPanning = true;
@@ -1891,6 +1902,7 @@
     }
 
     if (placementStore.active) return;
+
 
     // Block creation/mutation tools in simplified 2D mode
     if (uiStore.simplified2DMode
@@ -2184,47 +2196,8 @@
         }
       }
     } else if (uiStore.currentTool === 'influenceLine') {
-      // Influence line: click node for Rz/Rx/My, click element for V/M
-      const q = uiStore.ilQuantity;
-      const nearNode = findNearestNode(world.x, world.y, pickTol(PICK_PX.loose));
-      const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
-
-      let target: { q: 'Rz' | 'Rx' | 'My' | 'V' | 'M'; node?: number; elem?: number } | null = null;
-      if ((q === 'Rz' || q === 'Rx' || q === 'My') && nearNode) target = { q, node: nearNode.id };
-      else if ((q === 'V' || q === 'M') && nearElem) target = { q, elem: nearElem.id };
-      // Clicked node but quantity is V/M → Rz; clicked element but quantity is a reaction → M
-      else if (nearNode) target = { q: 'Rz', node: nearNode.id };
-      else if (nearElem) target = { q: 'M', elem: nearElem.id };
-      else uiStore.toast(t('viewport.ilClickHint'), 'info');
-
-      if (target) {
-        uiStore.ilQuantity = target.q;
-        const run = (dir: 'vertical' | 'horizontal') => modelStore.computeInfluenceLine(target!.q, target!.node, target!.elem, 0.5, 20, dir);
-        const flat = (r: InfluenceLineResult) => r.points.every((p) => Math.abs(p.value) < 1e-9);
-        let result = run(uiStore.ilDirection);
-        if (typeof result === 'string') {
-          uiStore.toast(result, 'error');
-        } else if (flat(result)) {
-          /*
-           * Zero wherever the unit load stands: a load down a vertical member (a wall, a column)
-           * puts no shear or moment in it. The other direction is tried before saying there is
-           * no line, and used, said so, when it gives one.
-           */
-          const other = uiStore.ilDirection === 'vertical' ? 'horizontal' : 'vertical';
-          const alt = run(other);
-          if (typeof alt !== 'string' && !flat(alt)) {
-            uiStore.ilDirection = other;
-            resultsStore.setInfluenceLine(alt);
-            uiStore.toast(t(other === 'horizontal' ? 'viewport.ilSwitchedHorizontal' : 'viewport.ilSwitchedVertical').replace('{q}', target.q), 'info');
-          } else {
-            resultsStore.setInfluenceLine(result);
-            uiStore.toast(t('viewport.ilAllZero').replace('{q}', target.q), 'info');
-          }
-        } else {
-          resultsStore.setInfluenceLine(result);
-          uiStore.toast(t('viewport.ilCalculated'), 'success');
-        }
-      }
+      const tol = pickTol(PICK_PX.loose);
+      pickInfluenceTarget(world, findNearestNode(world.x, world.y, tol)?.id, findNearestElement(world.x, world.y, tol)?.id, tol);
     } else if (uiStore.currentTool === 'select') {
       // Despiece inspection: while the free-body view is active, a click inspects
       // the converging actions (node) or both member ends (member) — without

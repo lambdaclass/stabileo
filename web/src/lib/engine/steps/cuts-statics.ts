@@ -21,6 +21,7 @@ import type { Sketch } from './sketch';
 import { sketchOf } from './sketch';
 import type { SolverInput } from '../types';
 import { computeStaticDegree } from '../kinematic-2d';
+import { ghReport } from '../static-degree';
 
 export const UF = '\\mathrm{kN}';
 export const UM = '\\mathrm{kN\\,m}';
@@ -324,9 +325,10 @@ export function classificationStep(S: CutsCtx): { step: Step; sd: ReturnType<typ
   for (const s of pm.supports.values()) r += (s.ux ? 1 : 0) + (s.uz ? 1 : 0) + (s.ry ? 1 : 0);
   const c = [...sd.nodeConditions.values()].reduce((a, b) => a + b, 0);
   const gh = sd.degree;
+  const rep = ghReport(input);
     const blocks: Block[] = [
       { kind: 'p', text: tx('steps.cuts.class.count', { m: nMembers, n: nNodes, r, c }) },
-      { kind: 'calc', formula: 'GH = 3m + r - 3n - c', subst: `GH = 3 \\cdot ${nMembers} + ${r} - 3 \\cdot ${nNodes} - ${c}`, result: `\\boxed{GH = ${gh}}` },
+      { kind: 'calc', formula: rep.formula.tex, subst: rep.subst.tex, result: `\\boxed{GH = ${gh}}` },
     ];
     if (c > 0) {
       blocks.push({ kind: 'p', text: tx('steps.cuts.class.hinges'), detail: true });

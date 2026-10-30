@@ -5,6 +5,7 @@
   import StepBlocks from '../steps/StepBlocks.svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { staticClassificationBlocks, dofSketch } from '../../lib/engine/steps/dsm-extras';
+  import { dsmGicBlocks } from '../../lib/engine/steps/dsm-kinematics';
   import type { Block } from '../../lib/engine/steps/doc';
 
   let { data }: { data: DSMStepData } = $props();
@@ -20,6 +21,7 @@
     return [
       { kind: 'sub', title: { key: 'steps.dsm.classification' }, blocks: staticClassificationBlocks(input) },
       { kind: 'fig', sketch: dofSketch(input, data.dofNumbering.dofs, data.dofNumbering.dofsPerNode), caption: { key: 'steps.dsm.dofFigure' } },
+      ...dsmGicBlocks(input, data),
     ];
   });
 

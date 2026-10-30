@@ -6,6 +6,7 @@
    */
   import MathEquation from '../dsm/MathEquation.svelte';
   import StepSketch from './StepSketch.svelte';
+  import StepPlot from './StepPlot.svelte';
   import StepBlocks from './StepBlocks.svelte';
   import Prose from './Prose.svelte';
   import { tp, t } from '../../lib/i18n';
@@ -90,6 +91,11 @@
   {:else if b.kind === 'fig'}
     <figure class="sb-fig">
       <StepSketch sketch={b.sketch} />
+      {#if b.caption}<figcaption><Prose text={say(b.caption)} /></figcaption>{/if}
+    </figure>
+  {:else if b.kind === 'plot'}
+    <figure class="sb-fig">
+      <StepPlot plot={b.plot} />
       {#if b.caption}<figcaption><Prose text={say(b.caption)} /></figcaption>{/if}
     </figure>
   {:else if b.kind === 'note'}

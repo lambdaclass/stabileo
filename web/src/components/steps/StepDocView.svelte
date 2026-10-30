@@ -9,6 +9,7 @@
   import StepBlocks from './StepBlocks.svelte';
   import StepsHeader from './StepsHeader.svelte';
   import StepFrame from './StepFrame.svelte';
+  import StepParams from './StepParams.svelte';
   import { t, tp } from '../../lib/i18n';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import type { Txt } from '../../lib/engine/steps/doc';
@@ -26,7 +27,7 @@
 </script>
 
 <div class="sd" data-testid="steps-doc">
-  <StepsHeader backLabel={t('steps.view.back')} backTitle={t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
+  <StepsHeader backLabel={explainedSteps.fromTool ? t('adv.back') : t('steps.view.back')} backTitle={explainedSteps.fromTool ? t('adv.backToList') : t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
     name={t('steps.catalog.title')} backTestid="steps-back" />
 
   {#if explainedSteps.error}
@@ -52,6 +53,7 @@
             {/each}
           </div>
         {/if}
+        <StepParams />
         {#if explainedSteps.stale}
           <div class="sd-stale">
             <span>{t('steps.view.stale')}</span>

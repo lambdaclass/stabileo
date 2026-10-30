@@ -291,7 +291,6 @@ const ko: Translations = {
   'advanced.mechanism': '기구',
   'advanced.noCollapse': '붕괴 없음',
   'advanced.calculateFirst': '먼저 계산하세요',
-  'advanced.calculateFirstF5': '먼저 계산하세요 (Enter)',
   'advanced.emptyModel': '빈 모델',
   'advanced.runDynamicFirst': '먼저 동적 해석(모달)을 실행하세요',
   'advanced.defineCombosFirst': '먼저 조합 탭에서 조합을 정의하세요',
@@ -2208,9 +2207,6 @@ const ko: Translations = {
   'dsm.expectedValue': '기대값',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': '영향선',
-  'influence.node': '절점',
-  'influence.elem': '요소',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

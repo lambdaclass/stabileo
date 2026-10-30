@@ -257,7 +257,7 @@
             <div class="kp-badge" class:kp-ok={report.classification === 'hyperstatic'}
               class:kp-warn={report.classification === 'isostatic'}
               class:kp-danger={report.classification === 'hypostatic'}>
-              g = {report.degree}
+              {report.formula.startsWith('GH') ? 'GH' : 'g'} = {report.degree}
             </div>
             <div class="kp-explanation">{report.classificationText}</div>
           </div>

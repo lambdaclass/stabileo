@@ -14,6 +14,7 @@ import type { PlaneModel, PMember, PMemberLoad } from './plane-model';
 import { hasSpecialSupports, hasThermal, loadsOn, nodalLoadAt, orientation } from './plane-model';
 import { fixedEnd, fixedEndBlocks, type FixedEnd } from './fem';
 import { sketchOf, type Sketch } from './sketch';
+import { gicSummaryBlocks } from './gic';
 import { countIndeterminacy } from '../force-method/primary';
 import { endKey as key, frameKinematics, modeWork, rref, solveDense, type EndKind, type EndSide, type FrameKin } from './sway-modes';
 
@@ -195,7 +196,7 @@ export function introBlocks(ctx: MethodContext, fk: FrameKin, md: Map<number, Me
   ];
 }
 
-export function kinematicsStep(fk: FrameKin, md: Map<number, MemberData>, F: Map<number, { x: number; z: number }>): Step {
+export function kinematicsStep(fk: FrameKin, md: Map<number, MemberData>, F: Map<number, { x: number; z: number }>, gh: number | null = null): Step {
   const b: Block[] = [];
   const names = (ns: number[]) => list(ns.map((n) => nodeName(fk, n)));
   b.push({ kind: 'p', text: tx('steps.frames.kin.joints', { nodes: names(fk.joints) }) });
@@ -211,6 +212,7 @@ export function kinematicsStep(fk: FrameKin, md: Map<number, MemberData>, F: Map
   });
   b.push({ kind: 'p', text: tx('steps.frames.kin.countNote', { n: fk.nodes.length, s: fk.nSupportCons, b: fk.nMemberCons, r: fk.rank }), detail: true });
   b.push({ kind: 'fig', sketch: unknownsSketch(fk), caption: tx('steps.frames.kin.figCaption') });
+  b.push(...gicSummaryBlocks(fk.joints.length, nm, gh));
   if (nm === 0) {
     b.push({ kind: 'note', tone: 'info', text: tx('steps.frames.kin.noSway') });
     return { title: tx('steps.frames.kin.title'), blocks: b };
@@ -430,10 +432,13 @@ export function shearStep(fk: FrameKin, md: Map<number, MemberData>, M: Map<stri
  * flexibility L/EA, the least complementary energy among the equilibrium
  * solutions, and the document says so.
  */
-export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: Map<string, number>, V: Map<string, number>, sol: Solution): { blocks: Block[]; selfStress: boolean } {
+/** What the caller already knows: the axial forces of members that stretch (EA/L) and the forces springs exert on their nodes. */
+export interface Known { N?: Map<number, number>; springs?: Map<number, { x: number; z: number; m: number }> }
+
+export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: Map<string, number>, V: Map<string, number>, sol: Solution, known: Known = {}): { blocks: Block[]; selfStress: boolean } {
   const pm = fk.pm;
   type U = { kind: 'N'; id: number } | { kind: 'Rx' | 'Rz'; node: number };
-  const unknowns: U[] = pm.memberOrder.map((id) => ({ kind: 'N', id }));
+  const unknowns: U[] = pm.memberOrder.filter((id) => !known.N?.has(id)).map((id) => ({ kind: 'N', id }));
   const supported = fk.nodes.filter((n) => pm.supports.has(n));
   for (const n of supported) {
     const s = pm.supports.get(n)!;
@@ -455,19 +460,22 @@ export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: 
     for (const d of md.values()) {
       const nx = -d.m.s, nz = d.m.c;
       const k = unknowns.findIndex((u) => u.kind === 'N' && u.id === d.m.id);
+      const Nk = known.N?.get(d.m.id);
       if (d.m.i === n) {
-        rowX[k] += d.m.c; rowZ[k] += d.m.s;
+        if (Nk !== undefined) { push('x', Nk * d.m.c); push('z', Nk * d.m.s); } else { rowX[k] += d.m.c; rowZ[k] += d.m.s; }
         const v = V.get(key(d.m.id, 'i'))!;
         push('x', -v * nx); push('z', -v * nz);
       }
       if (d.m.j === n) {
-        rowX[k] -= d.m.c; rowZ[k] -= d.m.s;
+        if (Nk !== undefined) { push('x', -Nk * d.m.c); push('z', -Nk * d.m.s); } else { rowX[k] -= d.m.c; rowZ[k] -= d.m.s; }
         const v = V.get(key(d.m.id, 'j'))!;
         push('x', -v * nx + d.px * d.m.c); push('z', -v * nz + d.px * d.m.s);
       }
     }
     const P = nodalLoadAt(pm, n);
     push('x', P.fx); push('z', P.fz);
+    const sp = known.springs?.get(n);
+    if (sp) { push('x', sp.x); push('z', sp.z); }
     unknowns.forEach((u, k) => {
       if (u.kind === 'Rx' && u.node === n) rowX[k] = 1;
       if (u.kind === 'Rz' && u.node === n) rowZ[k] = 1;
@@ -505,6 +513,7 @@ export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: 
   unknowns.forEach((u, k) => {
     if (u.kind === 'N') sol.N.set(u.id, x[k]);
   });
+  for (const [id, N] of known.N ?? []) sol.N.set(id, N);
   for (const n of supported) {
     const s = pm.supports.get(n)!;
     const rx = unknowns.findIndex((u) => u.kind === 'Rx' && u.node === n);
@@ -512,7 +521,8 @@ export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: 
     let my = 0;
     if (s.ry) for (const e of allEnds(fk)) if (e.node === n) my += M.get(key(e.id, e.e))!;
     if (s.ry) my -= fk.couple.get(n) ?? 0;
-    sol.R.set(n, { rx: rx >= 0 ? x[rx] : 0, rz: rz >= 0 ? x[rz] : 0, my });
+    const sp = known.springs?.get(n);
+    sol.R.set(n, { rx: (rx >= 0 ? x[rx] : 0) + (sp?.x ?? 0), rz: (rz >= 0 ? x[rz] : 0) + (sp?.z ?? 0), my: my + (sp?.m ?? 0) });
   }
   const nVals = pm.memberOrder.map((id) => `N_{${md.get(id)!.ni}${md.get(id)!.nj}} = ${num(sol.N.get(id)!)}`);
   const blocks: Block[] = [...shown, {
@@ -523,8 +533,8 @@ export function axialAndReactions(fk: FrameKin, md: Map<number, MemberData>, M: 
   return { blocks, selfStress: free.length > 0 };
 }
 
-export function axialStep(fk: FrameKin, md: Map<number, MemberData>, sol: Solution): Step {
-  const r = axialAndReactions(fk, md, sol.M, sol.V, sol);
+export function axialStep(fk: FrameKin, md: Map<number, MemberData>, sol: Solution, known: Known = {}): Step {
+  const r = axialAndReactions(fk, md, sol.M, sol.V, sol, known);
   const rows: Cell[][] = fk.pm.memberOrder.map((id) => {
     const N = sol.N.get(id)!;
     const big = Math.max(...[...sol.N.values()].map(Math.abs), 1e-9);
@@ -565,11 +575,12 @@ export function reactionsStep(fk: FrameKin, md: Map<number, MemberData>, sol: So
     if (!s) continue;
     const r = sol.R.get(n)!;
     const nn = nodeName(fk, n);
-    rows.push([nn, s.ux ? { tex: num(r.rx) } : '—', s.uz ? { tex: num(r.rz) } : '—', s.ry ? { tex: num(r.my) } : '—']);
+    const { hx, hz, hr } = holds(s);
+    rows.push([nn, hx ? { tex: num(r.rx) } : '—', hz ? { tex: num(r.rz) } : '—', hr ? { tex: num(r.my) } : '—']);
     const p = pm.nodes.get(n)!;
-    if (s.ux && Math.abs(r.rx) > 1e-9) sk.forces.push({ x: p.x, z: p.z, fx: r.rx, fz: 0, label: `${nn}x = ${numText(r.rx)} kN`, color: 'reaction' });
-    if (s.uz && Math.abs(r.rz) > 1e-9) sk.forces.push({ x: p.x, z: p.z, fx: 0, fz: r.rz, label: `${nn}z = ${numText(r.rz)} kN`, color: 'reaction' });
-    if (s.ry && Math.abs(r.my) > 1e-9) sk.couples.push({ x: p.x, z: p.z, m: r.my, label: `M${nn} = ${numText(r.my)} kN·m`, color: 'reaction' });
+    if (hx && Math.abs(r.rx) > 1e-9) sk.forces.push({ x: p.x, z: p.z, fx: r.rx, fz: 0, label: `${nn}x = ${numText(r.rx)} kN`, color: 'reaction' });
+    if (hz && Math.abs(r.rz) > 1e-9) sk.forces.push({ x: p.x, z: p.z, fx: 0, fz: r.rz, label: `${nn}z = ${numText(r.rz)} kN`, color: 'reaction' });
+    if (hr && Math.abs(r.my) > 1e-9) sk.couples.push({ x: p.x, z: p.z, m: r.my, label: `M${nn} = ${numText(r.my)} kN·m`, color: 'reaction' });
   }
   b.push({ kind: 'table', head: [tx('steps.common.support'), { tex: 'R_x\\ [\\mathrm{kN}]' }, { tex: 'R_z\\ [\\mathrm{kN}]' }, { tex: 'M\\ [\\mathrm{kN\\,m}]' }], rows, caption: tx('steps.frames.react.caption') });
   b.push({ kind: 'fig', sketch: sk, caption: tx('steps.frames.react.figCaption') });
@@ -618,9 +629,10 @@ export function compareStep(fk: FrameKin, md: Map<number, MemberData>, sol: Solu
     const r = ref.reactions.get(n), mine = sol.R.get(n);
     if (!s || !r || !mine) continue;
     const nn = nodeName(fk, n);
-    if (s.ux) rows.push({ label: `${nn}_x`, method: mine.rx, matrix: r.rx, unit: 'kN' });
-    if (s.uz) rows.push({ label: `${nn}_z`, method: mine.rz, matrix: r.rz, unit: 'kN' });
-    if (s.ry) rows.push({ label: `M_{${nn}}`, method: mine.my, matrix: r.my, unit: 'kN·m' });
+    const { hx, hz, hr } = holds(s);
+    if (hx) rows.push({ label: `${nn}_x`, method: mine.rx, matrix: r.rx, unit: 'kN' });
+    if (hz) rows.push({ label: `${nn}_z`, method: mine.rz, matrix: r.rz, unit: 'kN' });
+    if (hr) rows.push({ label: `M_{${nn}}`, method: mine.my, matrix: r.my, unit: 'kN·m' });
   }
   rows.push(...extra);
   return {
@@ -664,11 +676,15 @@ export function diagramStep(fk: FrameKin, md: Map<number, MemberData>, sol: Solu
   };
 }
 
-/** Everything after the end moments, identical for the three methods. */
-export function closingSteps(ctx: MethodContext, fk: FrameKin, md: Map<number, MemberData>, M: Map<string, number>, extra: CompareRow[]): Step[] {
+/** A support's reaction components: what it holds rigidly and what its springs resist. */
+const holds = (s: { ux: boolean; uz: boolean; ry: boolean; kx?: number; kz?: number; kr?: number }) =>
+  ({ hx: s.ux || (s.kx ?? 0) > 0, hz: s.uz || (s.kz ?? 0) > 0, hr: s.ry || (s.kr ?? 0) > 0 });
+
+/** Everything after the end moments, identical for the frame methods. */
+export function closingSteps(ctx: MethodContext, fk: FrameKin, md: Map<number, MemberData>, M: Map<string, number>, extra: CompareRow[], known: Known = {}): Step[] {
   const sol: Solution = { M, V: new Map(), N: new Map(), R: new Map() };
   const shear = shearStep(fk, md, M, sol.V);
-  const axial = axialStep(fk, md, sol);
+  const axial = axialStep(fk, md, sol, known);
   const react = reactionsStep(fk, md, sol);
   return [shear, axial, react, compareStep(fk, md, sol, ctx, extra), diagramStep(fk, md, sol)];
 }

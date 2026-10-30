@@ -305,11 +305,13 @@ describe('virtual work', () => {
     expectWords(doc);
   });
 
-  it('refuses thermal loads', async () => {
+  it('takes thermal loads, which Castigliano still refuses', async () => {
     await modelStore.loadExample('portal-frame');
     const e = [...modelStore.buildSolverInput(false)!.elements.keys()][0];
     modelStore.addThermalLoad(e, 20, 0);
-    const r = method('virtualWork').applies(ctxOf());
+    expect(method('virtualWork').applies(ctxOf()).ok).toBe(true);
+    expectAgreement(build('virtualWork'), 1e-9);
+    const r = method('castigliano').applies(ctxOf());
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason.key).toBe('steps.req.thermal');
   });

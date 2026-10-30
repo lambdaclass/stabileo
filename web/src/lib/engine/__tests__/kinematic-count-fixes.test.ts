@@ -46,9 +46,9 @@ const solves3D = () => {
   return !!r && typeof r === 'object';
 };
 
-/** The report's substitution, evaluated: "g = 3×2 + 3 − 3×3 − 1 = −1" → [left side value, printed result]. */
+/** The report's substitution, evaluated: "GH = 3×2 + 3 − 3×3 − 1 = −1" → [left side value, printed result]. */
 function evalSubstitution(rep: KinematicReport): [number, number] {
-  const m = /^g = (.*) = (−?-?\d+)$/.exec(rep.substitution);
+  const m = /^(?:GH|g) = (.*) = (−?-?\d+)$/.exec(rep.substitution);
   expect(m, rep.substitution).not.toBeNull();
   const expr = m![1].replaceAll('×', '*').replaceAll('−', '-');
   expect(expr).toMatch(/^[\d\s+*-]+$/);
@@ -167,8 +167,8 @@ describe('2D degree of static indeterminacy', () => {
     const rep = generateKinematicReport(input2D(), [])!;
     expect(rep.nFrameNodes).toBe(3);
     expect(rep.nTrussNodes).toBe(1);
-    expect(rep.formula).toBe('g = 3·m_p + m_r + r − 3·n_p − 2·n_r');
-    expect(rep.substitution).toBe('g = 3×2 + 3 + 3 − 3×3 − 2×1 = 1');
+    expect(rep.formula).toBe('GH = 3·m + m_b + r − 3·n − 2·n_b − c');
+    expect(rep.substitution).toBe('GH = 3×2 + 3 + 3 − 3×3 − 2×1 − 0 = 1');
   });
 
   it('a hinge at a fixed support is listed as a condition, not as a free end', () => {
@@ -177,7 +177,7 @@ describe('2D degree of static indeterminacy', () => {
     expect(rep.hingeDetails).toHaveLength(1);
     expect(rep.hingeDetails[0].ci).toBe(1);
     expect(rep.totalC).toBe(1);
-    expect(rep.substitution).toBe('g = 3×1 + 3 − 3×2 − 1 = -1');
+    expect(rep.substitution).toBe('GH = 3×1 + 3 − 3×2 − 1 = -1');
   });
 
   it('a fixed support where only truss bars arrive counts two reactions', () => {

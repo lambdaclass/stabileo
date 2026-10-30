@@ -1,5 +1,5 @@
 /**
- * The quantities an influence line can be drawn for, in two groups.
+ * The quantities an influence line can be drawn for, in three groups.
  *
  * This list used to be written out as buttons in two places — the desktop
  * options bar and the floating toolbar — and this very arrangement had to be
@@ -20,6 +20,15 @@ export const IL_QUANTITY_GROUPS = [
     quantities: [
       { id: 'M', labelKey: 'float.mMoment' },
       { id: 'V', labelKey: 'float.vShear' },
+      { id: 'N', labelKey: 'course.influence.q.N' },
+    ],
+  },
+  {
+    labelKey: 'course.influence.group.displacements',
+    quantities: [
+      { id: 'uz', labelKey: 'course.influence.q.uz' },
+      { id: 'ux', labelKey: 'course.influence.q.ux' },
+      { id: 'ry', labelKey: 'course.influence.q.ry' },
     ],
   },
 ] as const;

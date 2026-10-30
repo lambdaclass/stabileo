@@ -1,4 +1,5 @@
 import type { Translations } from '../../types';
+import course from '../course/de';
 
 const stepsDe: Translations = {
   'steps.dsm.classification': 'Statische Bestimmtheit',
@@ -748,9 +749,9 @@ const stepsDe: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Virtuelle Arbeit (Einheitslast)',
-  'steps.m.virtualWork.help': 'Ermittelt eine Verschiebung, indem eine Einheitslast im gesuchten Punkt und in der gesuchten Richtung aufgebracht wird. Die Verschiebung ist die Summe über die Stäbe von ∫M·m/EI dx plus N·n·L/EA, mit M und N aus den wirklichen Lasten und m und n aus der Einheitslast.',
-  'steps.m.virtualWork.requires': 'ein ebenes Stabtragwerk (Balken, Rahmen oder Fachwerk), statisch bestimmt oder unbestimmt, ohne Temperaturlasten oder besondere Auflager.',
-  'steps.m.virtualWork.what': 'Die Verschiebung eines Knotens in einer Richtung wird mit dem Prinzip der virtuellen Arbeit ermittelt: Die Arbeit einer virtuellen Einheitslast auf der gesuchten Verschiebung ist gleich der inneren Arbeit ihrer virtuellen Schnittgrößen auf den wirklichen Verformungen.',
+  'steps.m.virtualWork.help': 'Ermittelt eine Verschiebung, eine Verdrehung oder eine Relativverschiebung bzw. -verdrehung zwischen zwei Knoten, indem die virtuelle Last aufgebracht wird, die an dieser Größe Arbeit leistet: eine Einheitskraft, ein Einheitsmoment oder ein Paar entgegengesetzter Lasten. Das Ergebnis ist die Summe über die Stäbe von ∫M·m/EI dx plus N·n·L/EA, dazu Federn, Stützensenkungen und Temperatur, sofern vorhanden.',
+  'steps.m.virtualWork.requires': 'ein ebenes Stabtragwerk (Balken, Rahmen oder Fachwerk), statisch bestimmt oder unbestimmt; Federn, Stützensenkungen und Temperaturlasten sind möglich, schräge Auflager nicht.',
+  'steps.m.virtualWork.what': 'Die gewählte Größe wird mit dem Prinzip der virtuellen Arbeit ermittelt: Die Arbeit einer virtuellen Einheitslast (einer Kraft, eines Moments oder eines Paars entgegengesetzter Lasten) auf der gesuchten Verschiebung ist gleich der inneren Arbeit ihrer virtuellen Schnittgrößen an den wirklichen Verformungen.',
   'steps.m.virtualWork.s1': 'Punkt, Richtung und Prinzip',
   'steps.m.virtualWork.principle': 'Prinzip der virtuellen Arbeit mit einer Einheitslast.',
   'steps.m.virtualWork.principleWhy': 'Die Einheitslast und ihre Schnittgrößen m und n bilden ein System im Gleichgewicht; die Krümmungen M/EI und die Dehnungen N/EA sind die wirklichen, mit den Auflagern verträglichen. Die Gleichsetzung von äußerer und innerer Arbeit liefert die Verschiebung.',
@@ -765,7 +766,7 @@ const stepsDe: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Sätze von Castigliano',
-  'steps.m.castigliano.help': 'Arbeitet mit der Formänderungsenergie U. In einem statisch unbestimmten Tragwerk liefert der zweite Satz (∂U/∂Xⱼ = 0) die Überzähligen; in einem statisch bestimmten liefert der erste Satz (δ = ∂U/∂P) die Verschiebung eines Punktes, mit einer Hilfslast Q, falls dort keine Last angreift.',
+  'steps.m.castigliano.help': 'Arbeitet mit der Formänderungsenergie U. In einem statisch unbestimmten Tragwerk liefert der zweite Satz (∂U/∂Xⱼ = 0) die Überzähligen; in einem statisch bestimmten liefert der erste (δ = ∂U/∂P) die Verschiebung eines Punktes oder, mit einem fiktiven Moment, seine Verdrehung, mit einer fiktiven Last Q, wenn dort keine wirkt.',
   'steps.m.castigliano.requires': 'ein ebener Balken oder Rahmen aus biegebeanspruchten Stäben, ohne Fachwerkstäbe, Temperaturlasten oder besondere Auflager, mit mäßigem Grad der statischen Unbestimmtheit.',
   'steps.m.castigliano.whatSecond': 'Das statisch unbestimmte Tragwerk wird mit dem zweiten Satz von Castigliano gelöst: Die Überzähligen nehmen die Werte an, für die die Formänderungsenergie stationär ist, weil die Verschiebung in Richtung jeder von ihnen null ist.',
   'steps.m.castigliano.whatFirst': 'Die Verschiebung eines Knotens wird mit dem ersten Satz von Castigliano ermittelt: Die Ableitung der Formänderungsenergie nach einer Last ist die Verschiebung ihres Angriffspunktes in ihrer Richtung.',
@@ -922,4 +923,4 @@ const stepsDe: Translations = {
   'steps.cuts.dia.M': 'Biegemoment M [kN·m], auf der Seite der gezogenen Faser.',
 };
 
-export default stepsDe;
+export default { ...stepsDe, ...course };

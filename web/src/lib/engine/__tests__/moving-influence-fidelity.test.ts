@@ -209,7 +209,7 @@ describe('truss bars carry the load through their nodes (D18)', () => {
       for (const p of il.points) {
         const st = staticWith(forceAt(p.elementId, p.x, p.y, 1));
         const want = q === 'M'
-          ? computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 1)!)
+          ? -computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 1)!)
           : st.reactions.find((r) => r.nodeId === 3)!.rz;
         expect(p.value).toBeCloseTo(want, 8);
       }
@@ -245,7 +245,7 @@ describe('influence line: the static solve\'s structure, a unit load and nothing
       for (const p of il.points.filter((_, i) => i % 3 === 0)) {
         const st = staticWith(forceAt(p.elementId, p.x, p.y, 1));
         const want = q === 'M' || q === 'V'
-          ? computeDiagramValueAt(q === 'M' ? 'moment' : 'shear', 0.5, st.elementForces.find((f) => f.elementId === elem)!)
+          ? (q === 'M' ? -1 : 1) * computeDiagramValueAt(q === 'M' ? 'moment' : 'shear', 0.5, st.elementForces.find((f) => f.elementId === elem)!)
           : q === 'Rx' ? st.reactions.find((r) => r.nodeId === node)!.rx : st.reactions.find((r) => r.nodeId === node)!.rz;
         expect(p.value).toBeCloseTo(want, 8);
         if (q === 'Rx') rxPeak = Math.max(rxPeak, Math.abs(p.value));

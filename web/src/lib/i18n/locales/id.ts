@@ -291,7 +291,6 @@ const id: Translations = {
   'advanced.mechanism': 'Mekanisme',
   'advanced.noCollapse': 'Tanpa keruntuhan',
   'advanced.calculateFirst': 'Hitung terlebih dahulu',
-  'advanced.calculateFirstF5': 'Hitung terlebih dahulu (Enter)',
   'advanced.emptyModel': 'Model kosong',
   'advanced.runDynamicFirst': 'Jalankan analisis dinamik (modal) terlebih dahulu',
   'advanced.defineCombosFirst': 'Definisikan kombinasi terlebih dahulu di tab Kombinasi',
@@ -2208,9 +2207,6 @@ const id: Translations = {
   'dsm.expectedValue': 'Nilai yang diharapkan',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': 'GP',
-  'influence.node': 'Titik simpul',
-  'influence.elem': 'Elem',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

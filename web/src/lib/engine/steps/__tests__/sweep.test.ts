@@ -34,11 +34,24 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * How closely each method must agree with the matrix solve, relative to the
  * largest value compared in the same unit. The classical frame methods keep
  * members at their length, so they differ by the axial deformation the
- * matrix method includes; everything else is exact up to round-off.
+ * matrix method includes. The one-degree-of-freedom response is checked
+ * against the engine's step-by-step time integration, which carries its own
+ * time-step error. The plastic methods compare with the step-by-step collapse,
+ * whose hinge under a distributed load sits on one of 200 sections.
+ * Everything else is exact up to round-off.
  */
-const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02 };
+const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, displacement: 0.02, sdof: 0.005, plasticKinematic: 1e-3, plasticStatic: 1e-3 };
+/**
+ * Second order compares with the engine's consistent matrix: φ against it cut in 8 (discretization
+ * left), the chord matrix against it by design (no P-δ), rigid members against axial shortening.
+ */
+const SECOND_ORDER_TOL = (id: string, opts: Record<string, boolean>): number | undefined => {
+  if (!id.startsWith('so-')) return undefined;
+  if (opts.chord) return 0.25;
+  return id.endsWith('-phi') || opts.axialRigid ? 0.01 : 1e-5;
+};
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
-  Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
+  SECOND_ORDER_TOL(m.id, opts) ?? (Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5));
 
 interface Found { txts: Txt[]; tex: string[]; numbers: number[]; compare: CompareRow[] }
 
@@ -126,7 +139,7 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
 }
 
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
-const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection']);
+const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection', 'displacement']);
 
 function rigidAxially(ctx: MethodContext): MethodContext {
   const input = { ...ctx.input, sections: new Map([...ctx.input.sections].map(([id, sec]) => [id, { ...sec, a: sec.a * 1e5 }])) };
@@ -136,7 +149,7 @@ function rigidAxially(ctx: MethodContext): MethodContext {
 function context(opts: Record<string, boolean> = {}, selection = { members: [] as number[], nodes: [] as number[] }): MethodContext | null {
   const input = modelStore.buildSolverInput(false);
   if (!input || input.elements.size === 0) return null;
-  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts };
+  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts, model: modelStore.model };
 }
 
 /** Run every applicable method (and each switchable assumption both ways) on the model now loaded. */
@@ -155,6 +168,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
     for (const o of m.options ?? []) variants.push({ [o.id]: !o.default });
     for (const opts of variants) {
       const ctx = { ...base, options: opts };
+      if (!m.applies(ctx).ok) continue;
       let doc: StepDoc;
       try { doc = m.build(ctx); } catch (e) { failures.push(`${label} ${m.id} ${JSON.stringify(opts)}: build threw ${String((e as Error)?.stack ?? e).slice(0, 300)}`); continue; }
       let found = problems(m, doc, opts);
@@ -165,7 +179,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       // at their length): it changes the answer on purpose, by exactly the
       // axial deformation, so with rigid members the answer is exact again.
       const switched = Object.keys(opts).length > 0;
-      if (found.length && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
+      if (found.length && !m.id.startsWith('so-') && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
         const rigid = rigidAxially(ctx);
         const floor = new Map([...unitScales(collect(doc).compare)].map(([u, v]) => [u, 1e-4 * v]));
         found = compareProblems(collect(m.build(rigid)).compare, 1e-4, floor).map((p) => `with rigid members: ${p}`);

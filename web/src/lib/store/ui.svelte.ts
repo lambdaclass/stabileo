@@ -47,7 +47,7 @@ import { is3DWorkspace } from '../utils/workspace';
 export function isAnalysisMode(v: unknown): v is AnalysisMode {
   return (ANALYSIS_MODES as readonly unknown[]).includes(v);
 }
-export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
+export type ILQuantity = import('./model.svelte').InfluenceQuantity;
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
  * Which creator a viewport node-pick is filling. Named rather than written inline at each use
