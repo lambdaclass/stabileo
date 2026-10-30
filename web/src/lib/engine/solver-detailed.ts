@@ -11,6 +11,7 @@ import { t } from '../i18n';
 import { solveAllowingNullModes } from './dense-solve';
 import { loadAlpha, loadDepth } from './thermal-alpha';
 import { axialEquivalentLoads } from './axial-span-2d';
+import { applyAxialRigidity, type RigidReduction, type RigidStatus } from './dsm-axial-rigid';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -121,6 +122,10 @@ export interface DSMStepData {
   nullModes: string[];
 
   // Labels for display
+  /** Frame members held at their length (the "axially rigid members" option): the reduction and the axial forces from equilibrium. */
+  rigid?: RigidReduction;
+  rigidStatus?: RigidStatus;
+
   dofLabels: string[]; // nTotal labels: "u₁", "w₁", "θ₁", ...
   freeDofLabels: string[];
   restrDofLabels: string[];
@@ -380,7 +385,14 @@ function dofLabel(nodeId: number, localDof: number, dofsPerNode: number): string
 
 // ─── Main detailed solver ───────────────────────────────────────
 
-export function solveDetailed(input: SolverInput): DSMStepData {
+export function solveDetailed(input: SolverInput, opts: { axialRigid?: boolean } = {}): DSMStepData {
+  const out = solveDetailedFlexible(input);
+  if (!opts.axialRigid) return out;
+  const r = applyAxialRigidity(input, out);
+  return { ...r.data, rigidStatus: r.status };
+}
+
+function solveDetailedFlexible(input: SolverInput): DSMStepData {
   // ─── Step 1: DOF Numbering ────────────────────────────────────
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
   const dofsPerNode = hasFrames ? 3 : 2;
