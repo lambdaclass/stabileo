@@ -65,7 +65,7 @@
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
-  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
@@ -426,7 +426,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model);
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
@@ -552,7 +552,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model);
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
