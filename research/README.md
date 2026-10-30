@@ -15,8 +15,18 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 |------|------|
 | `papers.yaml` | Curated catalog. Bibliographic fields are checked against Crossref by `tools/catalog.py` |
 | `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
+| `optimization/andreassen-2011/` | MBB topology optimization, unmodified Octave reference capture and Rust SIMP/OC implementation |
 | `metamaterials/grossman-2026/` | Spring networks after Grossman & Boudaoud (2026): moduli, auxetic foam, honeycomb, against the paper's published values |
 | `stability/ferrari-sigmund-2025/` | Roorda-frame buckling and energy derivatives; Koiter reproduction in progress |
+| `form-finding/pastrana-2026/` | Four-cable forward FDM, pinned jax_fdm comparison and production truss check |
+| `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
+| `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
+| `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
+| `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
+| `benchmarks/cqc-1981/` | First version, 0 reviews: close building modes, production modal + spectrum solvers versus closed form |
+| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT/MITC4 vs Navier series; published `results/stabileo_results.json` |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (0 reviews) |
+| `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
 
@@ -27,7 +37,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 - A research crate may depend on `engine/` through a path dependency. The engine and the web
   application never import research code. The web allowlist is `research/papers.json`,
   `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
-  `reference-results/`, plus `results/stabileo_results.json`; the engine has no exceptions. `tools/check_isolation.sh` enforces this.
+  `reference-results/`, plus `results/stabileo_results.json`; engine tests may read reference JSON case files; production engine code has no exception. `tools/check_isolation.sh` enforces this.
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
   catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine
   files change; the online checks (Crossref, licences, links) run only as the standalone Research
@@ -90,3 +100,25 @@ For local comparisons, run `nix develop .. -c node scripts/check-research-route-
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.
 `node --test web/scripts/research-route-budget.test.mjs` checks unchanged routes, the noise
 allowance, missing measurements and negative cases for real landing/app growth.
+
+The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
+engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
+adapter and production WASM page. It publishes no research solver or imported
+research results. Reference transcriptions remain unverified and status proposed.
+## Newmark (1959), first version
+
+`benchmarks/newmark-1959/` documents one exact SDOF step-response benchmark using
+production Newmark average acceleration. Shared input and native tests live under
+`engine/tests/benchmarks/newmark_1959.*`; published native replay data is
+`benchmarks/newmark-1959/results/stabileo_results.json`. The page uses the existing
+production WASM wrapper and shared Stabileo viewer. Stage: first-version; 0 reviews.
+## First-version engine benchmarks
+
+`benchmarks/plastic-collapse/` documents one Horne-style portal using the production
+3D plastic-collapse solver. Its shared case lives in
+`engine/tests/benchmarks/plastic_collapse.json` (test data only); its published
+`results/stabileo_results.json` is allowed web replay data. Stage: first-version,
+0 reviews. The page reports hand mechanism bounds separately from the solver result.
+## First-version engine benchmark
+
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 0 reviews. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.

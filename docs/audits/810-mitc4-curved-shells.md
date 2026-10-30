@@ -165,27 +165,26 @@ facet-normal nodal forces (one quarter of pressure times the facet area vector
 per corner), also checked to `1e-7` relative. Pressure and vertical gravity are
 different physical loads and must not be compared as equivalent load integrations.
 
-### Merge blocker for #857; closure gate for #810
+### Shared publication fixture and merge verification
 
-**Keep #810 open. PR #859 must not use “Closes #810”.** The solver/model audit
-alone does not complete the research publication correction. **Do not merge #857**
-until all of the following are included in that PR and verified on its final head:
+PR #859 now incorporates main's shared-file architecture. The corrected builders
+remain as the fixture generator and as controls for pressure/self-weight and other
+shell families. The MITC4 roof, cylinder and hole-hemisphere benchmark solves all
+use `obstacle::solve`. A generator-agreement test enforces exact JSON values for
+every roof/cylinder input, including the native-only 32×32 cylinder. The historical
+`810-obstacle-course.json.gz` replay fixture remains unchanged.
 
-- Regenerate `engine/tests/benchmarks/shell_obstacle_course.json` from the corrected
-  roof and cylinder builders for 6², 8², 12², and 16², with unioned symmetry
-  constraints, no crown pin, and all tributary loads retained.
-- Regenerate the research page's results from those inputs; remove the claim that
-  the old roof plateau and cylinder over-compliance demonstrate engine failures.
-- Preserve signed measurements, references and the original 2% accuracy gates.
-  Explicitly show the remaining cylinder failures (37.878%, 24.617%, 12.043%,
-  6.775% magnitude errors at 6²–16²), alongside the passing corrected roofs.
-- Verify fixture/builder agreement and page results in #857. Link that evidence
-  before closing #810. The bundled historical replay fixture must stay historical.
+The live research page keeps its 16×16 cap: all four corrected roofs pass, while
+cylinder 6–16 remains outside the unchanged 2% gate and visibly converges. Native
+32×32 passes. Signed measurements and wrong-direction rejection remain intact;
+plot ratios and displayed references use the same signed convention. The page's
+finest-mesh headline is 2/3. The old plateau/over-compliance are described as
+**test-model errors**, not engine failures.
 
-The research page and generated publication fixture are absent from this branch;
-this checklist is a merge requirement, not a claim that those external changes
-have been made. Issue/PR metadata must be updated by the maintainer; this task
-is restricted to file edits.
+Fresh native rows and publication replay verification are recorded in
+[the research README](../../research/benchmarks/shell-obstacle-course/README.md)
+and its `EVIDENCE.json`. These replace the earlier external-publication merge
+blocker; issue/PR metadata and the merge commit remain the maintainer's responsibility.
 
 Do not alter loads, drilling penalty, shear coefficient or references to make
 those meshes pass. Any future engine improvement needs a separate derivation and

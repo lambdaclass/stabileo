@@ -2,6 +2,8 @@
  * The dictionary entries the public pages read before the application loads: vite.config.ts
  * builds `virtual:public-i18n` from these, and `public-keys.test.ts` holds the pages to them.
  *
+ * Tools and its shared viewer register their own strings behind the tools route boundary.
+ *
  * `tabBar.`: the model and tab stores name the first project when their module is evaluated
  * (`t('tabBar.newStructure')`), and in the production build that happens before the full
  * dictionaries are registered. `full-dictionaries.ts` is App.svelte's first import, but Rollup

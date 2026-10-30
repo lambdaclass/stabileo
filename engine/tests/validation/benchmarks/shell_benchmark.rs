@@ -23,6 +23,10 @@
 ///   - Timoshenko, S.P. & Woinowsky-Krieger, S., "Theory of Plates and Shells", 1959
 ///   - Bathe, K.J. & Dvorkin, E.N., "A formulation of general shell elements", 1986
 
+#[path = "../../benchmarks/macneal_harder.rs"]
+mod mh;
+#[path = "../../benchmarks/shell_obstacle_course.rs"]
+mod obstacle;
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::solver::buckling;
 use dedaliano_engine::solver::modal;
@@ -178,9 +182,7 @@ fn scordelis_lo_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
 }
 
 fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
-    let (input, target) = scordelis_lo_model(nx, ntheta);
-    let res = linear::solve_3d(&input).expect("scordelis_lo solve failed");
-    scordelis_lo_displacement(&res.displacements, target)
+    obstacle::solve("roof", nx, ntheta)
 }
 
 // ================================================================
@@ -194,7 +196,8 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_scordelis_lo_roof_mitc4() {
-    let reference = -0.3024;
+    // The shared case file stores magnitudes; the response is downward (signed, as on main).
+    let reference = -mh::reference("scordelis");
 
     let uz_6 = scordelis_lo_solve(6, 6);
     assert!(
@@ -224,7 +227,7 @@ fn benchmark_scordelis_lo_convergence() {
 
     for &n in &meshes {
         let uz = scordelis_lo_solve(n, n);
-        let ratio = uz / -0.3024;
+        let ratio = uz / -mh::reference("scordelis");
         ratios.push((n, ratio));
     }
 
@@ -702,7 +705,7 @@ fn pinched_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_pinched_hemisphere_4x4() {
-    let reference = 0.0924;
+    let reference = mh::reference("hemisphereConverged");
     let ux = pinched_hemisphere_solve(4, 4);
 
     assert!(
@@ -725,7 +728,7 @@ fn benchmark_pinched_hemisphere_4x4() {
 
 #[test]
 fn benchmark_pinched_hemisphere_8x8() {
-    let reference = 0.0924;
+    let reference = mh::reference("hemisphereConverged");
     let ux = pinched_hemisphere_solve(8, 8);
 
     assert!(
@@ -3041,14 +3044,12 @@ fn pinched_cylinder_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
 }
 
 fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
-    let (input, target) = pinched_cylinder_model(nx, ntheta);
-    let res = linear::solve_3d(&input).expect("pinched_cylinder solve failed");
-    pinched_cylinder_displacement(&res.displacements, target)
+    obstacle::solve("cylinder", nx, ntheta)
 }
 
 #[test]
 fn benchmark_pinched_cylinder_6x6() {
-    let reference = -1.8248e-5;
+    let reference = -mh::reference("pinchedCylinder");
     let uy = pinched_cylinder_solve(6, 6);
 
     assert!(uy < -1e-20, "Pinched cylinder 6x6: should deflect, got uy={:.6e}", uy);
@@ -3065,7 +3066,7 @@ fn benchmark_pinched_cylinder_6x6() {
 
 #[test]
 fn benchmark_pinched_cylinder_8x8() {
-    let reference = -1.8248e-5;
+    let reference = -mh::reference("pinchedCylinder");
     let uy = pinched_cylinder_solve(8, 8);
 
     assert!(uy < -1e-20, "Pinched cylinder 8x8: should deflect, got uy={:.6e}", uy);
@@ -3959,118 +3960,7 @@ fn benchmark_twisted_beam_load_b() {
 // Reference: ux = 0.185 at point A (NAFEMS TNSB Rev 3, 1990).
 
 fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
-    let r = 10.0;
-    let t_shell = 0.04;
-    let e_mpa = 68250.0;
-    let nu = 0.3;
-    let f_load = 2.0;
-
-    let pi = std::f64::consts::PI;
-    let phi_min = 0.0_f64; // equator
-    let phi_max = 72.0 * pi / 180.0; // 72° = 90° - 18° hole
-
-    let mut nodes = HashMap::new();
-    let mut node_grid = vec![vec![0usize; n_theta + 1]; n_phi + 1];
-    let mut nid = 1;
-
-    // phi=0 → equator, phi=phi_max → hole edge
-    for i in 0..=n_phi {
-        for j in 0..=n_theta {
-            let phi = phi_min + (i as f64 / n_phi as f64) * (phi_max - phi_min);
-            let theta = (j as f64 / n_theta as f64) * pi / 2.0;
-            let x = r * phi.cos() * theta.cos();
-            let y = r * phi.cos() * theta.sin();
-            let z = r * phi.sin();
-            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
-            node_grid[i][j] = nid;
-            nid += 1;
-        }
-    }
-
-    let mut quads = HashMap::new();
-    let mut qid = 1;
-    for i in 0..n_phi {
-        for j in 0..n_theta {
-            quads.insert(qid.to_string(), SolverQuadElement {
-                id: qid,
-                nodes: [
-                    node_grid[i][j],
-                    node_grid[i+1][j],
-                    node_grid[i+1][j+1],
-                    node_grid[i][j+1],
-                ],
-                material_id: 1,
-                thickness: t_shell,
-            });
-            qid += 1;
-        }
-    }
-
-    let mut mats = HashMap::new();
-    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
-
-    let mut supports = HashMap::new();
-    let mut sid = 1;
-
-    // Symmetry: theta=0 plane (XZ) → restrain uy, rrx, rrz
-    for i in 0..=n_phi {
-        let nid_s = node_grid[i][0];
-        supports.insert(sid.to_string(), sup3d(nid_s, false, true, false, true, false, true));
-        sid += 1;
-    }
-
-    // Symmetry: theta=π/2 plane (YZ) → restrain ux, rry, rrz
-    for i in 0..=n_phi {
-        let nid_s = node_grid[i][n_theta];
-        if !supports.values().any(|s| s.node_id == nid_s) {
-            supports.insert(sid.to_string(), sup3d(nid_s, true, false, false, false, true, true));
-            sid += 1;
-        }
-    }
-
-    // Pin uz at one hole-edge node (rigid body in z)
-    let hole_edge_node = node_grid[n_phi][0];
-    if let Some(s) = supports.values_mut().find(|s| s.node_id == hole_edge_node) {
-        s.rz = true;
-    }
-
-    // Point loads at equator
-    let eq_x = node_grid[0][0]; // point A on x-axis
-    let eq_y = node_grid[0][n_theta]; // point C on y-axis
-
-    let mut loads = Vec::new();
-    // F=2 outward radial at A (x-direction)
-    loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-        node_id: eq_x,
-        fx: f_load, fy: 0.0, fz: 0.0,
-        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-    }));
-    // F=2 inward at C (negative y-direction)
-    loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-        node_id: eq_y,
-        fx: 0.0, fy: -f_load, fz: 0.0,
-        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-    }));
-
-    let input = SolverInput3D {
-        solver_options: None, masses: Default::default(),
-        nodes,
-        materials: mats,
-        sections: HashMap::new(),
-        elements: HashMap::new(),
-        supports,
-        loads,
-        constraints: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
-        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
-        curved_beams: vec![],
-        connectors: HashMap::new(),
-    };
-
-    let res = linear::solve_3d(&input).expect("Hemisphere hole solve failed");
-
-    hemisphere_hole_displacement(&res.displacements, eq_x)
+    obstacle::solve("hemisphere", n_phi, n_theta)
 }
 
 #[test]
@@ -4595,7 +4485,7 @@ fn pinched_hemisphere_rt_solve(n: usize, rt_ratio: f64) -> f64 {
 /// More precisely, for F=1: u = 0.0924 at R=10, t=0.04 (R/t=250).
 /// For different t with same R: u_new / u_ref = (t_ref / t_new)² = (R/t_new)² / (R/t_ref)².
 fn pinched_hemisphere_reference(rt_ratio: f64) -> f64 {
-    let u_ref = 0.0924;
+    let u_ref = mh::reference("hemisphereConverged");
     let rt_ref = 250.0;
     u_ref * (rt_ratio / rt_ref).powi(2)
 }
@@ -5056,7 +4946,7 @@ fn q9_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_q9_scordelis_lo() {
-    let reference = 0.3024;
+    let reference = mh::reference("scordelis");
     // Published ratios are 1.1744, 1.0070, and 0.9992. Preserve the
     // acknowledged coarse-mesh overprediction while bounding every mesh.
     let meshes = [(2, 2, 1.15, 1.20), (4, 4, 0.99, 1.01), (6, 6, 0.98, 1.02)];
@@ -6131,7 +6021,7 @@ fn benchmark_ss_scordelis_lo() {
     let half_l = 25.0;
     let theta_deg = 40.0;
     let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
-    let ref_val = 0.3024; // Analytical midspan free-edge uz
+    let ref_val = mh::reference("scordelis"); // Analytical midspan free-edge uz
 
     let meshes = [6, 8];
     for &n in &meshes {
@@ -6222,7 +6112,7 @@ fn benchmark_ss_pinched_hemisphere() {
     let nu = 0.3;
     let t = 0.04;
     let r = 10.0;
-    let ref_val = 0.0924; // Analytical radial displacement under unit loads
+    let ref_val = mh::reference("hemisphereConverged"); // Analytical radial displacement under unit loads
 
     let meshes = [8, 16];
     for &n in &meshes {
@@ -6448,7 +6338,7 @@ fn benchmark_ss_spherical_cap() {
     let r = 10.0;
     let r_over_t = 100.0;
     let t = r / r_over_t;
-    let ref_val = 0.0924; // hemisphere reference
+    let ref_val = mh::reference("hemisphereConverged"); // hemisphere reference
 
     let n = 8;
     let pi = std::f64::consts::PI;
@@ -6577,7 +6467,7 @@ fn benchmark_shell_family_frontier_gates() {
     // --- Hemisphere: SHB8-ANS 8×8 ---
     let ss_hemi = {
         let r = 10.0; let t = 0.04; let e_mpa = 68250.0; let nu = 0.3;
-        let ref_val = 0.0924;
+        let ref_val = mh::reference("hemisphereConverged");
         let pi = std::f64::consts::PI;
         let n = 8;
 
@@ -6878,7 +6768,7 @@ fn curved_shell_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_scordelis_lo() {
-    let ref_uz = 0.3024;
+    let ref_uz = mh::reference("scordelis");
 
     let uz_6 = curved_shell_scordelis_lo_solve(6, 6);
     let ratio_6 = uz_6 / ref_uz;
@@ -7114,7 +7004,7 @@ fn curved_shell_hemisphere_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_8x8() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     for &(np, nt) in &[(2, 2), (4, 4), (8, 8)] {
         let ux = curved_shell_hemisphere_solve(np, nt);
         let ratio = ux / ref_disp;
@@ -7213,10 +7103,10 @@ fn benchmark_curved_vs_mitc4_hemisphere_8x8() {
     let res = linear::solve_3d(&input).expect("MITC4 hemisphere solve");
     let d = res.displacements.iter().find(|d| d.node_id == eq_x).unwrap();
     let ux_mitc4 = d.ux.abs();
-    let ratio_mitc4 = ux_mitc4 / 0.0924;
+    let ratio_mitc4 = ux_mitc4 / mh::reference("hemisphereConverged");
 
     let ux_curved = curved_shell_hemisphere_solve(8, 8);
-    let ratio_curved = ux_curved / 0.0924;
+    let ratio_curved = ux_curved / mh::reference("hemisphereConverged");
 
     println!("MITC4 hemisphere 8×8: ux={ux_mitc4:.6e}, ratio={ratio_mitc4:.4}");
     println!("Curved hemisphere 8×8: ux={ux_curved:.6e}, ratio={ratio_curved:.4}");
@@ -7347,7 +7237,7 @@ fn curved_shell_hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_hole() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     let uz_8 = curved_shell_hemisphere_hole_solve(8, 8);
     let ratio_8 = uz_8 / ref_disp;
     println!("Curved shell hemisphere-hole 8×8: uz={uz_8:.6e}, ref={ref_disp:.6e}, ratio={ratio_8:.4}");
@@ -7359,7 +7249,7 @@ fn benchmark_curved_shell_hemisphere_hole() {
 
 #[test]
 fn benchmark_curved_shell_hemisphere_16x16() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
     let uz = curved_shell_hemisphere_solve(16, 16);
     let ratio = uz / ref_disp;
     println!("Curved shell hemisphere 16×16: uz={uz:.6e}, ref={ref_disp:.6e}, ratio={ratio:.4}");
@@ -7632,7 +7522,7 @@ fn benchmark_curved_shell_raasch_hook() {
 /// Cross-family comparison: curved shell vs MITC4 vs SHB8-ANS on hemisphere
 #[test]
 fn benchmark_curved_shell_cross_family_comparison() {
-    let ref_disp = 0.0924;
+    let ref_disp = mh::reference("hemisphereConverged");
 
     // Curved shell
     let cs_8 = curved_shell_hemisphere_solve(8, 8);
@@ -7782,5 +7672,33 @@ fn research_cylinder_corrected_convergence() {
         assert!(ratio > 0.0 && error < previous_error,
             "corrected cylinder {n}×{n}: ratio={ratio}, previous error={previous_error}");
         previous_error = error;
+    }
+}
+
+// The builders above also supply the pressure/self-weight and other element-family
+// controls. Regenerate the publication inputs with UPDATE_SHELL_OBSTACLE=1 and
+// this test; normal runs enforce exact JSON value equality (including all loads).
+#[test]
+fn research_shell_fixture_matches_corrected_builders() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/benchmarks/shell_obstacle_course.json");
+    let committed: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let mut generated = committed.clone();
+    for key in ["cases", "nativeCases"] {
+        for case in generated[key].as_array_mut().unwrap() {
+            let n = case["mesh"].as_u64().unwrap() as usize;
+            let (input, target) = match case["group"].as_str().unwrap() {
+                "roof" => scordelis_lo_model(n, n),
+                "cylinder" => pinched_cylinder_model(n, n),
+                _ => continue, // Keep the established hemisphere cases unchanged.
+            };
+            case["input"] = serde_json::to_value(input).unwrap();
+            case["measurement"]["node"] = serde_json::json!(target);
+        }
+    }
+    if std::env::var_os("UPDATE_SHELL_OBSTACLE").is_some() {
+        std::fs::write(path, serde_json::to_string_pretty(&generated).unwrap() + "\n").unwrap();
+    } else {
+        assert_eq!(committed, generated, "Regenerate with UPDATE_SHELL_OBSTACLE=1");
     }
 }

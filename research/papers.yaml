@@ -1,8 +1,3 @@
-# Stabileo Research catalog. Schema and rules: research/CONTRIBUTING.md.
-# `crossref` blocks are copied from api.crossref.org and checked by `research/tools/catalog.py check`
-# in CI; never edit them by hand. `summary` is our own wording of `summary_source` (crossref-abstract, publisher-abstract,
-# repository-readme, or full-text); with no such source it stays empty.
-# `status` must be backed by files in the implementation directory (see research/README.md).
 papers:
 - id: shauer-2025
   doi: 10.1016/j.advengsoft.2025.104013
@@ -20,9 +15,12 @@ papers:
   - brittle fracture
   - staggered scheme
   - educational code
-  summary: ''
-  summary_source: null
-  summary_note: No permitted summary source recorded; reference code alone is insufficient.
+  summary: An educational single-file Python implementation of two-dimensional phase-field fracture with
+    linear quadrilateral elements. It provides sparse and dense examples of a bar in tension and a single-edge
+    notched plate, plus a sparse three-point bending example, with VTK output and stress or reaction-force
+    plots for comparison.
+  summary_source: repository-readme
+  summary_note: Code facts only; README at https://github.com/nathanshauer/phasefield-jr-py/blob/61037c6ce7833a4f92a3ec098a9d60fd477eff2b/README.md
   code:
   - url: https://github.com/nathanshauer/phasefield-jr-py
     commit: 61037c6ce7833a4f92a3ec098a9d60fd477eff2b
@@ -131,10 +129,11 @@ papers:
   - homogenization
   - nonaffine displacements
   - continuum limit
-  summary: Derives the elastic continuum of an arbitrary network of Hookean springs from its geometry and
-    topology alone, with the nonaffine deformation of every triangle obtained from a linear system, and compares
-    the resulting Poisson's ratios and Young's moduli with simulations of stretched strips of ordered triangular
-    lattices, a honeycomb that turns re-entrant, and a foam-like disordered lattice that becomes auxetic.
+  summary: Derives the elastic continuum of an arbitrary network of Hookean springs from its geometry
+    and topology alone, with the nonaffine deformation of every triangle obtained from a linear system,
+    and compares the resulting Poisson's ratios and Young's moduli with simulations of stretched strips
+    of ordered triangular lattices, a honeycomb that turns re-entrant, and a foam-like disordered lattice
+    that becomes auxetic.
   summary_source: full-text
   code: []
   data: []
@@ -168,29 +167,37 @@ papers:
     venue: Structural and Multidisciplinary Optimization
   area: optimization
   keywords:
-  - topology optimization
   - SIMP
-  - MBB beam
-  - educational code
-  summary: ''
-  summary_source: null
+  - topology optimization
+  - MBB
+  - density filter
+  - optimality criteria
+  summary: An educational successor to the 99-line topology optimization code adds density filtering and
+    improves computational efficiency through preallocation and vectorization.
+  summary_source: publisher-abstract
+  summary_note: DTU authors' page abstract; 2010 online publication, 2011 volume 43 pages 1–16.
   code: []
+  reference_source:
+    url: https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab
+    terms: Educational use; all rights reserved; no redistributed source.
+    provenance: optimization/andreassen-2011/reference/README.md
   data: []
   methods:
   - SIMP
-  - Q4 elements
-  - density and sensitivity filters
+  - Q4 plane stress
+  - sensitivity filter
+  - density filter
   - optimality criteria
-  dependencies: []
+  dependencies:
+  - GNU Octave
   complexity: low
-  relevance: Reference results for the queued topology-optimization experiment (MBB beam), research/DESIGN.md
-    section 6 item 3. Crossref dates it 2010 (online); the print issue is volume 43, 2011. No abstract
-    in Crossref and the publisher page was not readable, so no summary; the code is distributed outside
-    GitHub and its licence has not been checked.
-  status: proposed
+  relevance: Small reusable topology optimizer using the production sparse solver and scalar viewer.
+  status: numerically-validated
   reproduced_published_results: false
-  benchmarks: []
-  implementation: null
+  benchmarks:
+  - MBB 60x20 sensitivity filter
+  - MBB 60x20 density filter
+  implementation: optimization/andreassen-2011
   contacts: []
 - id: ferrari-2025
   doi: 10.1002/nme.70082
@@ -222,9 +229,9 @@ papers:
   - arc-length path following
   dependencies: []
   complexity: medium
-  relevance: Production buckling reproduces the simple Roorda frame load factor; element energy
-    derivatives are checked through order four. Koiter coefficients and near-bifurcation path
-    agreement remain unresolved. No public author code was run.
+  relevance: Production buckling reproduces the simple Roorda frame load factor; element energy derivatives
+    are checked through order four. Koiter coefficients and near-bifurcation path agreement remain unresolved.
+    No public author code was run.
   status: implementation-in-progress
   reproduced_published_results: false
   benchmarks:
@@ -266,12 +273,14 @@ papers:
   dependencies: []
   complexity: low
   relevance: Queue item 5. The theory's basis is the Euler buckling modes the production engine already
-    computes; passive arches run on the 2D corotational and arc-length solvers. Zenodo record (data and
-    software, CC-BY-4.0 per the record) not yet inspected file by file.
-  status: proposed
-  reproduced_published_results: false
+    computes. Centered-pattern shallow-arch thresholds are checked against Zenodo software outputs. Production
+    arc-length rejects thermal loading and prescribed displacements; the curvature-driven equilibrium
+    path uses a research modal layer. Experimental snap dynamics are not reproduced.
+  status: interactive
+  reproduced_published_results: true
   benchmarks: []
-  implementation: null
+  implementation: mechanics/biggins-2026
+  page: web/src/components/research/biggins2026/BigginsPage.svelte
   contacts: []
 - id: feher-2026
   doi: 10.1016/j.euromechsol.2026.106217
@@ -344,13 +353,15 @@ papers:
   - JAX
   - COMPAS
   complexity: medium
-  relevance: Queue item 7. Form-finding is one sparse solve with the engine's Cholesky; the found form opens
-    in the editor as a gridshell and is checked with the production 3D analysis and buckling. MIT reference
-    code with ready examples.
-  status: proposed
+  relevance: Forward form-finding uses the engine sparse Cholesky API. The four-cable form opens as a
+    3D truss and is checked with the production linear solver. No buckling, prestress transfer or inverse
+    optimization is claimed.
+  status: numerically-validated
   reproduced_published_results: false
-  benchmarks: []
-  implementation: null
+  benchmarks:
+  - Fig. 2 four-bar topology; explicit demonstration inputs, Eq. (7), pinned jax_fdm and production truss
+    checks
+  implementation: form-finding/pastrana-2026
   contacts: []
 - id: fairclough-2026
   doi: 10.1016/j.compstruc.2025.107997
@@ -371,24 +382,30 @@ papers:
   - layout optimization
   - self-weight
   - second-order cone programming
-  summary: ''
-  summary_source: null
+  summary: The paper incorporates design-dependent self-weight into gridshell topology and geometry optimization
+    using equal-stress catenaries and conic constraints. The first reproduction covers only the five-node
+    square in Table 1 at normalized unit weight 1.65.
+  summary_source: full-text
   code: []
-  data: []
+  data:
+  - url: https://doi.org/10.15131/shef.data.29046755.v1
+    license: GPL-3.0-or-later
+    note: vaultopt.py file 54492344; version and SHA-256 pinned in reference-results/MANIFEST.json; external
+      execution only
   methods:
   - second-order cone programming
   - ground structure
   dependencies: []
   complexity: medium
-  relevance: Queue item 8. Needs a conic optimiser (candidate Clarabel.rs, Apache-2.0); the optimised gridshell
-    is checked with the production 3D truss analysis under self-weight. No abstract in Crossref and the
-    publisher page was not readable, so no summary; the authors' example scripts are cited without a link
-    we could find.
-  status: proposed
-  reproduced_published_results: false
-  benchmarks: []
-  implementation: null
+  relevance: One fixed five-node square, independently assembled in Rust with Clarabel; a discretized
+    frame surrogate is checked by the production engine.
+  status: numerically-validated
+  reproduced_published_results: true
+  benchmarks:
+  - 'Table 1, five nodes, rho_g L/sigma = 1.65: V sigma/(FL) = 13.8394'
+  implementation: optimisation/fairclough-2026
   contacts: []
+  page: web/src/components/research/fairclough2026/FaircloughPage.svelte
 - id: turner-1956
   doi: 10.2514/8.3664
   crossref:
@@ -414,8 +431,8 @@ papers:
   - triangular plane-stress elements
   dependencies: []
   complexity: low
-  relevance: The founding paper of the direct stiffness method that Stabileo's engine implements; its truss and
-    plate examples run on Stabileo as it is.
+  relevance: The founding paper of the direct stiffness method that Stabileo's engine implements; its
+    truss and plate examples run on Stabileo as it is.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -443,8 +460,8 @@ papers:
   - statics of pin-jointed frames
   dependencies: []
   complexity: low
-  relevance: Maxwell's rule for when a pin-jointed frame is stiff; Stabileo's truss solver and its mechanism detection
-    can show the rule and its exceptions live. Crossref has no abstract, so no summary.
+  relevance: Maxwell's rule for when a pin-jointed frame is stiff; Stabileo's truss solver and its mechanism
+    detection can show the rule and its exceptions live. Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -453,8 +470,8 @@ papers:
 - id: calladine-1978
   doi: 10.1016/0020-7683(78)90052-5
   crossref:
-    title: Buckminster Fuller's “Tensegrity” structures and Clerk Maxwell's rules for the construction of stiff
-      frames
+    title: Buckminster Fuller's “Tensegrity” structures and Clerk Maxwell's rules for the construction
+      of stiff frames
     authors:
     - C.R. Calladine
     year: 1978
@@ -474,8 +491,9 @@ papers:
   - self-stress and mechanism counting
   dependencies: []
   complexity: low
-  relevance: Extends Maxwell's rule with states of self-stress and mechanisms; checkable with Stabileo's truss solver
-    (prestressed tensegrity, rank of the equilibrium matrix). Crossref has no abstract, so no summary.
+  relevance: Extends Maxwell's rule with states of self-stress and mechanisms; checkable with Stabileo's
+    truss solver (prestressed tensegrity, rank of the equilibrium matrix). Crossref has no abstract, so
+    no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -503,8 +521,8 @@ papers:
   - sparse linear solve
   dependencies: []
   complexity: low
-  relevance: The force density method behind queued pastrana-2026; one sparse solve with the engine's Cholesky,
-    and the found form opens in the editor. Crossref has no abstract, so no summary.
+  relevance: The force density method behind queued pastrana-2026; one sparse solve with the engine's
+    Cholesky, and the found form opens in the editor. Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -533,8 +551,8 @@ papers:
   - lines of thrust
   dependencies: []
   complexity: low
-  relevance: The plastic theory of masonry used to assess arches and vaults; relevant to engineers working on existing
-    buildings and to the form-finding queue. Crossref has no abstract, so no summary.
+  relevance: The plastic theory of masonry used to assess arches and vaults; relevant to engineers working
+    on existing buildings and to the form-finding queue. Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -561,8 +579,8 @@ papers:
   - optimal truss layout theory
   dependencies: []
   complexity: low
-  relevance: Analytical optimal trusses used as benchmarks for layout optimization; a Michell layout can be built
-    and checked on Stabileo's truss solver. Crossref has no abstract, so no summary.
+  relevance: Analytical optimal trusses used as benchmarks for layout optimization; a Michell layout can
+    be built and checked on Stabileo's truss solver. Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -583,10 +601,10 @@ papers:
   - ground structure
   - member adding
   - linear programming
-  summary: Ground-structure layout optimization of trusses is limited by the number of potential members. The paper
-    presents an iterative member-adding method, built on linear-programming column generation, that starts from
-    a sparsely connected ground structure and adds members as needed until the provably optimal layout is reached,
-    handling problems with very large numbers of potential members.
+  summary: Ground-structure layout optimization of trusses is limited by the number of potential members.
+    The paper presents an iterative member-adding method, built on linear-programming column generation,
+    that starts from a sparsely connected ground structure and adds members as needed until the provably
+    optimal layout is reached, handling problems with very large numbers of potential members.
   summary_source: crossref-abstract
   code: []
   data: []
@@ -596,8 +614,8 @@ papers:
   - ground structure
   dependencies: []
   complexity: medium
-  relevance: Truss layout optimization whose optimal layouts can be analysed and checked on Stabileo's truss solver;
-    useful to engineers for early-stage layouts.
+  relevance: Truss layout optimization whose optimal layouts can be analysed and checked on Stabileo's
+    truss solver; useful to engineers for early-stage layouts.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -626,8 +644,8 @@ papers:
   - optimality criteria
   dependencies: []
   complexity: medium
-  relevance: The founding paper of continuum topology optimization, background to the queued SIMP / MBB experiment
-    (andreassen-2011). Crossref has no abstract, so no summary.
+  relevance: The founding paper of continuum topology optimization, background to the queued SIMP / MBB
+    experiment (andreassen-2011). Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -659,9 +677,9 @@ papers:
   - microlattices
   - stretch-dominated lattices
   - stiffness scaling
-  summary: Octet-truss microlattices made by projection microstereolithography from polymers, metals and ceramics.
-    Because their struts carry load axially instead of bending, the materials are very stiff and strong for their
-    low density.
+  summary: Octet-truss microlattices made by projection microstereolithography from polymers, metals and
+    ceramics. Because their struts carry load axially instead of bending, the materials are very stiff
+    and strong for their low density.
   summary_source: crossref-abstract
   code: []
   data: []
@@ -670,8 +688,8 @@ papers:
   - lattice mechanics
   dependencies: []
   complexity: low
-  relevance: Stretch- versus bending-dominated lattices are a direct truss and frame comparison on Stabileo's solvers
-    (stiffness against relative density).
+  relevance: Stretch- versus bending-dominated lattices are a direct truss and frame comparison on Stabileo's
+    solvers (stiffness against relative density).
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -702,9 +720,9 @@ papers:
   - zero modes
   dependencies: []
   complexity: medium
-  relevance: Isostatic (Maxwell) lattices with boundary floppy modes; a truss-network experiment on Stabileo's solver,
-    following the Grossman spring-network work. Crossref dates it 2013 (online); the print issue is 2014. Crossref
-    has no abstract, so no summary.
+  relevance: Isostatic (Maxwell) lattices with boundary floppy modes; a truss-network experiment on Stabileo's
+    solver, following the Grossman spring-network work. Crossref dates it 2013 (online); the print issue
+    is 2014. Crossref has no abstract, so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -737,8 +755,9 @@ papers:
   - modal dynamics
   dependencies: []
   complexity: low
-  relevance: Pedestrian-induced lateral vibration of a footbridge; the bridge's lateral modes come from Stabileo's
-    modal analysis, relevant to engineers designing footbridges. Crossref has no abstract, so no summary.
+  relevance: Pedestrian-induced lateral vibration of a footbridge; the bridge's lateral modes come from
+    Stabileo's modal analysis, relevant to engineers designing footbridges. Crossref has no abstract,
+    so no summary.
   status: proposed
   reproduced_published_results: false
   benchmarks: []
@@ -769,8 +788,794 @@ papers:
   - parallel multigrid
   dependencies: []
   complexity: high
-  relevance: Landmark large-scale topology optimization; context for the topology-optimization queue rather than
-    something to run in a browser. Crossref has no abstract, so no summary.
+  relevance: Landmark large-scale topology optimization; context for the topology-optimization queue rather
+    than something to run in a browser. Crossref has no abstract, so no summary.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: macneal-harder-1985
+  doi: 10.1016/0168-874x(85)90003-4
+  crossref:
+    title: A proposed standard set of problems to test finite element accuracy
+    authors:
+    - Richard H. Macneal
+    - Robert L. Harder
+    year: 1985
+    venue: Finite Elements in Analysis and Design
+  area: shells
+  keywords: &id001
+  - finite element benchmarks
+  - patch tests
+  - mesh distortion
+  summary: Proposes patch tests and beam, plate and shell problems for assessing finite element accuracy.
+    Applications to quadrilateral plate and solid brick elements illustrate sensitivity to important accuracy
+    parameters.
+  summary_source: publisher-abstract
+  summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/0168874X85900034'
+  code: []
+  data: []
+  methods: *id001
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's beam, plate and shell elements on standard accuracy and mesh-distortion
+    tests; use the supported structural subset.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: mattiasson-elastica
+  doi: 10.1002/nme.1620170113
+  crossref:
+    title: Numerical results from large deflection beam and frame problems analysed by means of elliptic
+      integrals
+    authors:
+    - Kjell Mattiasson
+    year: 1981
+    venue: International Journal for Numerical Methods in Engineering
+  area: numerical-methods
+  keywords:
+  - engine benchmarks
+  - elastica
+  - corotational
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - large displacement beams
+  - elliptic integrals
+  dependencies: []
+  complexity: low
+  relevance: Production corotational solver compared with unverified reference transcriptions; original
+    numerical table remains to be checked.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks:
+  - cantilever tip load
+  - cantilever tip moment
+  implementation: benchmarks/mattiasson-elastica
+  contacts: []
+- id: newmark-1959
+  doi: 10.1061/jmcea3.0000098
+  crossref:
+    title: A Method of Computation for Structural Dynamics
+    authors:
+    - Nathan M. Newmark
+    year: 1959
+    venue: Journal of the Engineering Mechanics Division
+  area: seismic
+  keywords: &id002
+  - Newmark integration
+  - structural dynamics
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id002
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's Newmark time-history integration for structural response.
+  status: proposed
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  page: web/src/components/research/newmark1959/NewmarkPage.svelte
+  contacts: []
+- id: cqc-1981
+  doi: 10.1002/eqe.4290090207
+  crossref:
+    title: A replacement for the srss method in seismic analysis
+    authors:
+    - E. L. Wilson
+    - A. Der Kiureghian
+    - E. P. Bayo
+    year: 1981
+    venue: Earthquake Engineering & Structural Dynamics
+  area: seismic
+  keywords:
+  - CQC
+  - SRSS
+  - closely spaced modes
+  - response spectrum
+  summary: Proposes complete quadratic combination to reduce modal-combination errors in response-spectrum
+    analysis; the method approaches SRSS for well-separated natural frequencies.
+  summary_source: publisher-abstract
+  code: []
+  data: []
+  methods:
+  - modal analysis
+  - response spectrum
+  - complete quadratic combination
+  dependencies: []
+  complexity: low
+  relevance: A two-coordinate shear-building idealization exercises the production 3D modal and spectrum
+    solvers against a closed-form reference. Not the original paper building.
+  status: numerically-validated
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks:
+  - two close modes
+  - SRSS and CQC base shear
+  - roof displacement
+  implementation: benchmarks/cqc-1981
+  page: web/src/components/research/cqc1981/CqcPage.svelte
+  contacts: []
+- id: horne-1979
+  doi: 10.1016/c2013-0-05820-3
+  crossref:
+    title: Plastic Theory of Structures
+    authors: []
+    year: 1979
+    venue: ''
+  area: numerical-methods
+  keywords:
+  - plastic collapse
+  - portal frame
+  - combined mechanisms
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - virtual work
+  - production 3D plastic collapse
+  dependencies: []
+  complexity: low
+  relevance: 'One textbook-style portal following Horne sections 2.2 and 2.4, with explicitly chosen dimensions
+    and hand-derived mechanism bounds. Publisher attribution: M. R. Horne; Crossref book record omits
+    authors.'
+  status: proposed
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks:
+  - beam, sway and combined mechanism bounds
+  implementation: benchmarks/plastic-collapse
+  page: web/src/components/research/plastic-collapse/PlasticPage.svelte
+  contacts: []
+- id: navier-plate
+  doi: 10.1201/9780203908723-3
+  crossref:
+    title: Rectangular Plates
+    authors:
+    - Eduard Ventsel
+    - Theodor Krauthammer
+    year: 2001
+    venue: Thin Plates and Shells
+  area: shells
+  keywords:
+  - Navier
+  - simply-supported
+  - plate
+  - Fourier-series
+  - mesh-refinement
+  summary: ''
+  summary_source: null
+  summary_note: Historical benchmark label Navier (1823) is not a verified publication date; this DOI
+    identifies the modern reference chapter.
+  code: []
+  data:
+  - https://civil-terje.sites.olt.ubc.ca/files/2019/06/Naviers-Plate-Solution-for-Uniform-Load.pdf
+  methods:
+  - DKT
+  - MITC4
+  - double Fourier series
+  dependencies:
+  - Stabileo production WASM engine
+  complexity: low
+  relevance: One rectangular plate reuses production shell elements and the shared viewer; low effort,
+    clear numerical comparison and visible mesh refinement.
+  status: proposed
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks:
+  - Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate
+  implementation: benchmarks/navier-plate
+  page: web/src/components/research/navier1823/NavierPage.svelte
+  contacts: []
+- id: lee-frame-1968
+  doi: 10.1061/JMCEA3.0000966
+  crossref:
+    title: Large Deflections and Stability of Elastic Frame
+    authors:
+    - Seng-Lip Lee
+    - Francisco S. Manuel
+    - Edwin C. Rossow
+    year: 1968
+    venue: Journal of the Engineering Mechanics Division
+  area: numerical-methods
+  keywords:
+  - Lee frame
+  - arc-length
+  - snap-through
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - Production corotational arc-length solver
+  dependencies: []
+  complexity: low
+  relevance: A small frame exercises the existing nonlinear path-following solver and shared viewer.
+  status: proposed
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks:
+  - Pinned Lee frame, first limit point (provisional reference)
+  implementation: benchmarks/lee-frame-1968
+  contacts: []
+- id: dadeppo-arch-1975
+  doi: 10.1115/1.3423734
+  crossref:
+    title: Instability of Clamped-Hinged Circular Arches Subjected to a Point Load
+    authors:
+    - D. A. DaDeppo
+    - R. Schmidt
+    year: 1975
+    venue: Journal of Applied Mechanics
+  area: numerical-methods
+  keywords:
+  - arch
+  - limit load
+  - arc length
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - production corotational frames
+  - Crisfield arc length
+  dependencies: []
+  complexity: low
+  relevance: One deep arch exercises the production path-following solver and shared viewer.
+  status: implementation-in-progress
+  stage: first-version
+  reviews: []
+  reproduced_published_results: false
+  benchmarks:
+  - 215 degree clamped–hinged arch under a crown point load
+  implementation: benchmarks/dadeppo-arch-1975
+  contacts: []
+- id: shell-obstacle-course
+  doi: 10.1016/0045-7825(85)90035-0
+  crossref:
+    title: Stress projection for membrane and shear locking in shell finite elements
+    authors:
+    - Ted Belytschko
+    - Henryk Stolarski
+    - Wing Kam Liu
+    - Nicholas Carpenter
+    - Jame S.J. Ong
+    year: 1985
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: shells
+  keywords:
+  - engine benchmarks
+  - shell obstacle course
+  - locking
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods:
+  - finite elements
+  - mesh refinement
+  dependencies: []
+  complexity: low
+  relevance: Production MITC4 shell benchmarks from existing engine tests; numerical provenance pending
+    full-text verification.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks:
+  - Scordelis–Lo roof
+  - pinched cylinder with rigid diaphragms
+  - hemisphere with 18-degree hole (NAFEMS LE3 test convention)
+  implementation: benchmarks/shell-obstacle-course
+  contacts: []
+- id: riks-1979
+  doi: 10.1016/0020-7683(79)90081-7
+  crossref:
+    title: An incremental approach to the solution of snapping and buckling problems
+    authors:
+    - E. Riks
+    year: 1979
+    venue: International Journal of Solids and Structures
+  area: numerical-methods
+  keywords: &id003
+  - path following
+  - buckling
+  - snap-through
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id003
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's 2D frame arc-length solver through limit points and snap-through.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+  contacts: []
+- id: crisfield-1981
+  doi: 10.1016/0045-7949(81)90108-5
+  crossref:
+    title: A fast incremental/iterative solution procedure that handles “snap-through”
+    authors:
+    - M.A. Crisfield
+    year: 1981
+    venue: Computers & Structures
+  area: numerical-methods
+  keywords: &id004
+  - arc-length
+  - snap-through
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id004
+  dependencies: []
+  complexity: low
+  relevance: Method behind Stabileo's Crisfield arc-length solver for 2D frame snap-through and snap-back.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+  contacts: []
+- id: hrennikoff-1941
+  doi: 10.1115/1.4009129
+  crossref:
+    title: Solution of Problems of Elasticity by the Framework Method
+    authors:
+    - A. Hrennikoff
+    year: 1941
+    venue: Journal of Applied Mechanics
+  area: numerical-methods
+  keywords: &id005
+  - framework method
+  - elasticity
+  summary: Approximates an elastic continuum by a patterned framework of bars with suitable elastic properties.
+    The approach covers several stress and bending problems and is illustrated with examples.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id005
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's linear frame and truss solvers with bar-framework approximations to
+    elastic structures.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: courant-1943
+  doi: 10.1090/s0002-9904-1943-07818-4
+  crossref:
+    title: Variational methods for the solution of problems of equilibrium and vibrations
+    authors:
+    - R. Courant
+    year: 1943
+    venue: Bulletin of the American Mathematical Society
+  area: numerical-methods
+  keywords: &id006
+  - variational methods
+  - equilibrium
+  - vibration
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id006
+  dependencies: []
+  complexity: low
+  relevance: Provides variational energy checks for Stabileo's linear stiffness and modal eigenvalue calculations.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: wilson-1981
+  doi: 10.1002/eqe.4290090207
+  crossref:
+    title: A replacement for the srss method in seismic analysis
+    authors:
+    - E. L. Wilson
+    - A. Der Kiureghian
+    - E. P. Bayo
+    year: 1981
+    venue: Earthquake Engineering & Structural Dynamics
+  area: seismic
+  keywords: &id007
+  - CQC
+  - response spectrum
+  - modal combination
+  summary: Introduces complete quadratic combination for seismic modal maxima. In the examples studied
+    it reduces modal-combination errors, and it approaches SRSS when natural frequencies are well separated.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id007
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's CQC response-spectrum combination, including closely spaced modes and
+    comparison with SRSS.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bathe-dvorkin-1986
+  doi: 10.1002/nme.1620220312
+  crossref:
+    title: A formulation of general shell elements—the use of mixed interpolation of tensorial components
+    authors:
+    - Klaus‐Jürgen Bathe
+    - Eduardo N. Dvorkin
+    year: 1986
+    venue: International Journal for Numerical Methods in Engineering
+  area: shells
+  keywords: &id008
+  - MITC
+  - mixed interpolation
+  - shell elements
+  summary: Discusses practical requirements for general shell elements, explains a four-node mixed-interpolation
+    formulation and introduces an eight-node element using the same approach.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id008
+  dependencies: []
+  complexity: low
+  relevance: Exercises the mixed-interpolation basis of Stabileo's MITC shells, restricted to supported
+    linear shell analysis.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: timoshenko-1921
+  doi: 10.1080/14786442108636264
+  crossref:
+    title: LXVI. <i>On the correction for shear of the differential equation for transverse vibrations
+      of prismatic bars</i>
+    authors:
+    - S.P. Timoshenko
+    year: 1921
+    venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+  area: numerical-methods
+  keywords: &id009
+  - shear deformation
+  - beam vibration
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id009
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's shear-deformable Timoshenko frame elements and their modal response.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: belytschko-1985
+  doi: 10.1016/0045-7825(85)90035-0
+  crossref:
+    title: Stress projection for membrane and shear locking in shell finite elements
+    authors:
+    - Ted Belytschko
+    - Henryk Stolarski
+    - Wing Kam Liu
+    - Nicholas Carpenter
+    - Jame S.J. Ong
+    year: 1985
+    venue: Computer Methods in Applied Mechanics and Engineering
+  area: shells
+  keywords: &id010
+  - stress projection
+  - membrane locking
+  - shear locking
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id010
+  dependencies: []
+  complexity: medium
+  relevance: Would add a stress-projection option to reduce membrane and shear locking in Stabileo's shell
+    elements.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: zienkiewicz-zhu-1987
+  doi: 10.1002/nme.1620240206
+  crossref:
+    title: A simple error estimator and adaptive procedure for practical engineerng analysis
+    authors:
+    - O. C. Zienkiewicz
+    - J. Z. Zhu
+    year: 1987
+    venue: International Journal for Numerical Methods in Engineering
+  area: numerical-methods
+  keywords: &id011
+  - error estimation
+  - adaptive refinement
+  summary: Presents an inexpensive estimator of global energy-norm and local finite element errors. The
+    estimates guide adaptive refinement or mesh redesign to reach a chosen accuracy.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id011
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's existing recovery-based energy-norm error estimator and shell mesh-refinement
+    workflow.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: sigmund-2001
+  doi: 10.1007/s001580050176
+  crossref:
+    title: A 99 line topology optimization code written in Matlab
+    authors:
+    - O. Sigmund
+    year: 2001
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords: &id012
+  - topology optimization
+  - compliance
+  - educational code
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id012
+  dependencies: []
+  complexity: medium
+  relevance: Would add reusable compliance topology optimization for structural layouts, sharing the queued
+    andreassen-2011 experiment.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: rozvany-2008
+  doi: 10.1007/s00158-007-0217-0
+  crossref:
+    title: A critical review of established methods of structural topology optimization
+    authors:
+    - G. I. N. Rozvany
+    year: 2008
+    venue: Structural and Multidisciplinary Optimization
+  area: optimization
+  keywords: &id013
+  - topology optimization
+  - method comparison
+  summary: ''
+  summary_source: null
+  code: []
+  data: []
+  methods: *id013
+  dependencies: []
+  complexity: medium
+  relevance: Guides method selection and comparison for Stabileo's queued structural topology-optimization
+    capability. Crossref dates this review 2008 (online); the print issue is 2009.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bathe-dvorkin-1985
+  doi: 10.1002/nme.1620210213
+  crossref:
+    title: A four‐node plate bending element based on Mindlin/Reissner plate theory and a mixed interpolation
+    authors:
+    - Klaus‐Jürgen Bathe
+    - Eduardo N. Dvorkin
+    year: 1985
+    venue: International Journal for Numerical Methods in Engineering
+  area: shells
+  keywords: &id014
+  - MITC4
+  - plate bending
+  - mixed interpolation
+  summary: Derives a four-node linear elastic plate bending element as a special case of a general shell
+    formulation and uses example solutions to assess its predictions.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id014
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's MITC4 plate bending formulation across thin and thick plates.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: batoz-1980
+  doi: 10.1002/nme.1620151205
+  crossref:
+    title: A study of three‐node triangular plate bending elements
+    authors:
+    - Jean‐Louis Batoz
+    - Klaus‐JÜRgen Bathe
+    - Lee‐Wing Ho
+    year: 1980
+    venue: International Journal for Numerical Methods in Engineering
+  area: shells
+  keywords: &id015
+  - DKT
+  - triangular plates
+  - plate bending
+  summary: Compares three-node triangular plate bending elements with nine displacement degrees of freedom.
+    Theoretical and numerical assessments favour the discrete Kirchhoff and hybrid-stress formulations
+    among the alternatives examined.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id015
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's DKT triangular plate bending elements against formulation examples.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bucalem-1993
+  doi: 10.1002/nme.1620362109
+  crossref:
+    title: Higher‐order MITC general shell elements
+    authors:
+    - Miguel Luiz Bucalem
+    - Klaus‐Jüen Bathe
+    year: 1993
+    venue: International Journal for Numerical Methods in Engineering
+  area: shells
+  keywords: &id016
+  - MITC9
+  - higher-order shells
+  - mixed interpolation
+  summary: Presents nine-node and sixteen-node MITC shell elements that tie interpolated covariant membrane
+    and shear strains to the displacement field. Numerical tests assess their predictive performance.
+  summary_source: crossref-abstract
+  code: []
+  data: []
+  methods: *id016
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's MITC9 shell elements on the linear subset of the paper's formulation
+    and tests.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: chapelle-1998
+  doi: 10.1016/s0045-7949(97)00078-3
+  crossref:
+    title: Fundamental considerations for the finite element analysis of shell structures
+    authors:
+    - D. Chapelle†
+    - K.J. Bathe
+    year: 1998
+    venue: Computers & Structures
+  area: shells
+  keywords: &id017
+  - shell benchmarks
+  - membrane dominance
+  - bending dominance
+  summary: Explains how geometry and boundary conditions determine whether a thin shell is dominated by
+    membrane action or bending. Proposes test cases for evaluating convergence and its dependence on shell
+    thickness.
+  summary_source: publisher-abstract
+  summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/S0045794997000783'
+  code: []
+  data: []
+  methods: *id017
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's shell mesh convergence across thicknesses, geometries and boundary conditions.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: zupan-2004
+  doi: 10.1016/j.finel.2003.10.001
+  crossref:
+    title: 'On “A proposed standard set of problems to test finite element accuracy”: the twisted beam'
+    authors:
+    - D. Zupan
+    - M. Saje
+    year: 2004
+    venue: Finite Elements in Analysis and Design
+  area: shells
+  keywords: &id018
+  - twisted beam
+  - benchmark geometry
+  summary: Compares three interpretations of an initially twisted beam with different twist distributions
+    and cross-sections. The numerical results identify the MacNeal-Harder reference as a linearly twisted
+    beam with curved edges.
+  summary_source: publisher-abstract
+  summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/S0168874X03002130'
+  code: []
+  data: []
+  methods: *id018
+  dependencies: []
+  complexity: low
+  relevance: Clarifies the twisted-beam geometry used to check Stabileo's shell tip deflections against
+    MacNeal-Harder references.
+  status: proposed
+  reproduced_published_results: false
+  benchmarks: []
+  implementation: null
+  contacts: []
+- id: bathe-2000
+  doi: 10.1016/s0045-7949(99)00214-x
+  crossref:
+    title: An evaluation of the MITC shell elements
+    authors:
+    - Klaus-Jürgen Bathe
+    - Alexander Iosilevich
+    - Dominique Chapelle
+    year: 2000
+    venue: Computers & Structures
+  area: shells
+  keywords: &id019
+  - MITC
+  - shell benchmarks
+  - convergence
+  summary: Evaluates MITC shell elements on selected test problems using fundamental shell-analysis criteria.
+    The reported results support their use for general engineering applications.
+  summary_source: full-text
+  summary_note: 'Abstract in author-hosted full text: https://web.mit.edu/kjb/www/Principal_Publications/An_Evaluation_of_the_MITC_Shell_Elements.pdf'
+  code: []
+  data: []
+  methods: *id019
+  dependencies: []
+  complexity: low
+  relevance: Exercises Stabileo's MITC4 and MITC9 shells against published shell test results and mesh-convergence
+    comparisons.
   status: proposed
   reproduced_published_results: false
   benchmarks: []

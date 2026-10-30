@@ -77,7 +77,7 @@
 {#snippet exampleList(items: { id: string; nameKey: string; descKey: string }[], to3D: boolean)}
   <div class="examples-list">
     {#each items as ex}
-      <button class="example-item" onclick={async () => {
+      <button class="example-item" data-testid={`example-${ex.id}`} onclick={async () => {
         /*
          * The example decides the mode, in BOTH directions.
          *
@@ -89,6 +89,8 @@
         const want = to3D ? '3d' : '2d';
         if (uiStore.analysisMode !== want) uiStore.analysisMode = want;
         await modelStore.loadExample(ex.id);
+        // As in PRO: an example arrives without node IDs, unreadable on its larger models.
+        if (to3D) uiStore.showNodeLabels3D = false;
         resultsStore.clear();
         resultsStore.forgetView();
         resultsStore.clear3D();

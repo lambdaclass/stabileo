@@ -1,0 +1,185 @@
+{
+  "checks": [
+    {
+      "metric": "jax_fdm positions (m); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm tension (kN); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "free-node equilibrium (kN); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "Eq. (7) coordinate (m); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "production truss axial force (kN); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "production truss displacement (m); q=1, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm positions (m); q=0.5, P=4",
+      "observed": 2.220446049250313e-16,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm tension (kN); q=0.5, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "free-node equilibrium (kN); q=0.5, P=4",
+      "observed": 1.1102230246251565e-16,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "Eq. (7) coordinate (m); q=0.5, P=4",
+      "observed": 2.220446049250313e-16,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "production truss axial force (kN); q=0.5, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "production truss displacement (m); q=0.5, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm positions (m); q=2, P=4",
+      "observed": 5.551115123125783e-17,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm tension (kN); q=2, P=4",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "free-node equilibrium (kN); q=2, P=4",
+      "observed": 1.1102230246251565e-16,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "Eq. (7) coordinate (m); q=2, P=4",
+      "observed": 5.551115123125783e-17,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "production truss axial force (kN); q=2, P=4",
+      "observed": 8.881784197001252e-16,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "production truss displacement (m); q=2, P=4",
+      "observed": 5.421010862427522e-20,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm positions (m); q=1, P=1",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm tension (kN); q=1, P=1",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "free-node equilibrium (kN); q=1, P=1",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "Eq. (7) coordinate (m); q=1, P=1",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "production truss axial force (kN); q=1, P=1",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "production truss displacement (m); q=1, P=1",
+      "observed": 1.0842021724855044e-19,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm positions (m); q=1, P=8",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "jax_fdm tension (kN); q=1, P=8",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "free-node equilibrium (kN); q=1, P=8",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "Eq. (7) coordinate (m); q=1, P=8",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    },
+    {
+      "metric": "production truss axial force (kN); q=1, P=8",
+      "observed": 8.881784197001252e-16,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "production truss displacement (m); q=1, P=8",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 1e-12
+    }
+  ],
+  "scope": "Fig. 2 topology and Eq. (7), explicitly chosen inputs; no published numerical dataset or adjoints"
+}

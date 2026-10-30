@@ -104,6 +104,8 @@ jobs:
           /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_pastrana_catalog.py
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_fairclough_catalog.py
       - name: Checker rejects bad entries
         run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
       - name: Every entry, evidence file and summary source is well formed
@@ -159,6 +161,58 @@ jobs:
           assert not extra, extra
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
+
+  topopt:
+    name: Topology optimization (Andreassen 2011)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/Cargo.toml
+      - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
+      - run: nix develop -c node --test research/optimization/andreassen-2011/wasm/check.test.mjs
+      - run: nix develop -c research/optimization/andreassen-2011/wasm/build.sh
+      - run: nix develop -c make wasm
+      - run: nix develop -c sh -c 'cd web && npm ci && npx vitest run src/components/research/andreassen2011/model.test.ts'
+  engine-benchmarks:
+    name: Production engine benchmarks (native and WASM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
+      - run: nix develop -c sh -c 'cd web && npm ci'
+      - run: make wasm
+      - name: Compute native results from the engine-owned cases
+        run: MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
+      - name: Compare the page runner through the production WASM wrapper
+        run: nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
+      - name: Test measurement and editor handoff
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
+      - name: Mattiasson native regression assertions
+        run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
+      - name: Mattiasson fresh production native results
+        run: nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- /tmp/mattiasson-native.json
+      - name: Mattiasson production WASM parity and measurements
+        run: |
+          nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs /tmp/mattiasson-native.json
+          nix develop -c sh -c 'cd web && npx vitest run src/components/research/mattiasson1981/__tests__/cases.test.ts'
+
+      - name: Compute shell obstacle course native results without changing regression bounds
+        run: |
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_scordelis_lo
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_pinched_cylinder
+          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_hemisphere_hole_convergence
+      - name: Compare shell obstacle course native and production WASM results
+        run: nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs /tmp/shell-native
+      - name: Test shell measurement, projection and editor handoff
+        run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'
 
   springs:
     name: Spring networks (Grossman 2026) validation
@@ -222,3 +276,51 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Buckling, energy derivatives and every replay frame
         run: cargo test --release --locked -- --nocapture
+  form-finding:
+    name: Four-cable FDM (Pastrana 2026) validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain || rustup toolchain install
+      - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/Cargo.toml
+      - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
+  arches:
+    name: Curvature-patterned arches validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain || rustup toolchain install
+      - run: cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
+      - run: cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
+  fairclough:
+    name: Five-node gridshell (Fairclough 2026) validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
+  riks-crisfield:
+    name: Arc-length (Riks–Crisfield) native and WASM validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - name: Native production results reproduce the committed evidence, including known failures
+        run: nix develop . -c cargo run --release --locked --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
+      - name: Build the production browser engine
+        run: nix develop . -c make wasm
+      - name: Browser WASM matches native path steps and displacements
+        run: nix develop . -c node research/numerical-methods/riks-crisfield/wasm/check.mjs web/src/lib/wasm research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json research/numerical-methods/riks-crisfield/reference-results/native-results.json
