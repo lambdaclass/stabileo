@@ -328,7 +328,8 @@ fn ferrari_roorda_closed_form() {
 // von Mises two-bar truss equilibrium, using the formulation documented in
 // engine/tests/validation/domains/nonlinear/nonlinear_extended.rs; arc-length
 // method reference: M. A. Crisfield, Non-linear Finite Element Analysis of
-// Solids and Structures, Vol. 1, Ch. 9 (exact page citation).
+// Solids and Structures, Vol. 1, Ch. 9 (Wiley, 1991), cited as a general arc-length reference; the exact
+// values below come from the closed-form truss equilibrium, not from the book.
 // P(y)=2EA(1-L/L0)y/L, L²=a²+y². The page uses frame elements; the
 // analytical reference omits bending. Rerun prefixes to recover apex uz,
 // because control_displacement is a different DOF.
@@ -379,7 +380,7 @@ fn riks_check(
     p: f64,
     limit_p: f64,
     limit_v: f64,
-) {
+) -> Vec<(f64, f64)> {
     let full = solve_arc_length(&input).unwrap();
     assert!(full.converged);
     assert_eq!(full.steps.len(), input.max_steps);
@@ -408,6 +409,14 @@ fn riks_check(
         max_error = max_error.max(checked_path_residual(v, load, exact, limit_p));
         samples.push((load, v));
     }
+    eprintln!(
+        "final sample={:?}, min dv={}",
+        samples.last(),
+        samples
+            .windows(2)
+            .map(|w| w[1].1 - w[0].1)
+            .fold(f64::INFINITY, f64::min)
+    );
     let peak = samples
         .windows(2)
         .position(|w| w[0].0 > 0. && w[1].0 < w[0].0);
@@ -431,13 +440,24 @@ fn riks_check(
     relative(samples[i].0, limit_p, 0.05);
     assert!(peak.is_some(), "upper limit point must be reached");
     relative(samples[i].1, limit_v, 0.05);
+    samples
+}
+
+fn shallow_toggle() -> ArcLengthInput {
+    let input: ArcLengthInput = serde_json::from_value(json!({"solver": {"nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}, "3": {"id": 3, "x": 2.0, "z": 0.1}}, "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}}, "sections": {"1": {"id": 1, "a": 0.01, "iz": 0.0001}}, "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}, "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}}, "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "pinned"}}, "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fz": -50.0, "my": 0.0}}], "constraints": [], "connectors": {}}, "maxSteps": 100, "maxIter": 30, "tolerance": 1e-05, "initialDs": 0.05, "minDs": 1e-08, "maxDs": 0.5, "targetIter": 5})).unwrap();
+    input
 }
 
 #[test]
-#[ignore = "new finding: axial-reference path error 38.423%; limit not reached"]
 fn riks_shallow_toggle() {
-    let input: ArcLengthInput = serde_json::from_value(json!({"solver": {"nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}, "3": {"id": 3, "x": 2.0, "z": 0.1}}, "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}}, "sections": {"1": {"id": 1, "a": 0.01, "iz": 0.0001}}, "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}, "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}}, "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "pinned"}}, "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 0.0, "fz": -50.0, "my": 0.0}}], "constraints": [], "connectors": {}}, "maxSteps": 100, "maxIter": 30, "tolerance": 1e-05, "initialDs": 0.05, "minDs": 1e-08, "maxDs": 0.5, "targetIter": 5})).unwrap();
-    riks_check(
+    let mut input = shallow_toggle();
+    for element in input.solver.elements.values_mut() {
+        element.elem_type = "truss".into();
+    }
+    input.max_steps = 2000;
+    input.max_ds = 0.25;
+    input.tolerance = 1e-10;
+    let samples = riks_check(
         input,
         3,
         2.0,
@@ -446,6 +466,78 @@ fn riks_shallow_toggle() {
         95.98504891452458,
         0.04228900098628047,
     );
+    assert!(
+        samples.windows(2).all(|w| w[1].1 > w[0].1),
+        "path must never turn back"
+    );
+    assert!(
+        samples.last().unwrap().1 > 0.2,
+        "must pass both limits and the unloaded inverted state"
+    );
+    for &(load, v) in &samples {
+        let y = 0.1 - v;
+        let l = 2.0_f64.hypot(y);
+        let exact = 4e6 * (1. - l / 2.0_f64.hypot(0.1)) * y / l;
+        assert!(
+            (load - exact).abs() / 95.98504891452458 < 1e-8,
+            "v={v}, load={load}, exact={exact}"
+        );
+    }
+    let i = samples.windows(2).position(|w| w[1].0 < w[0].0).unwrap();
+    let (p0, v0) = samples[i - 1];
+    let (p1, v1) = samples[i];
+    let (p2, v2) = samples[i + 1];
+    let s0 = (p1 - p0) / (v1 - v0);
+    let s1 = (p2 - p1) / (v2 - v1);
+    let curvature = (s1 - s0) / (v2 - v0);
+    let v_peak = (v0 + v1 - s0 / curvature) / 2.;
+    let p_peak = p0 + s0 * (v_peak - v0) + curvature * (v_peak - v0) * (v_peak - v1);
+    eprintln!(
+        "interpolated peak=({p_peak}, {v_peak}), samples={:?}",
+        &samples[i - 1..=i + 1]
+    );
+    relative(p_peak, 95.98504891452458, 0.001);
+    relative(v_peak, 0.04228900098628047, 0.001);
+}
+
+#[test]
+fn riks_shallow_frame_energy_reference() {
+    let mut input = shallow_toggle();
+    input.tolerance = 1e-10;
+    input.initial_ds = 25.;
+    input.max_ds = 25.;
+    let mut max_error = 0.0_f64;
+    let mut last_v = 0.;
+    for k in 1..=160 {
+        input.max_steps = k;
+        let result = solve_arc_length(&input).unwrap();
+        assert!(result.converged);
+        assert_eq!(result.steps.len(), k);
+        let v = -result
+            .results
+            .displacements
+            .iter()
+            .find(|d| d.node_id == 3)
+            .unwrap()
+            .uz;
+        let a = 2.0_f64;
+        let h = 0.1_f64;
+        let l0 = a.hypot(h);
+        let y = h - v;
+        let l = a.hypot(y);
+        let beta = (y / a).atan() - (h / a).atan();
+        let axial = 2. * 2e6 * (1. - l / l0) * y / l;
+        let bending = -6. * 2e4 / l0 * beta * a / l.powi(2);
+        let exact = axial + bending;
+        let load = result.final_load_factor * 50.;
+        relative(load, exact, 1e-8);
+        max_error = max_error.max((load / exact - 1.).abs());
+        assert!(v > last_v);
+        last_v = v;
+    }
+    eprintln!("frame energy reference: max relative error={max_error}, final v={last_v}");
+    assert!(max_error < 1e-8);
+    assert!(last_v > 0.2);
 }
 
 #[test]

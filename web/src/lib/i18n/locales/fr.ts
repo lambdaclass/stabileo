@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "landing.navTools": "Outils",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
   'scalarViewer.viewOptions': 'Options d’affichage',

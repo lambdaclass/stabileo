@@ -16,6 +16,8 @@
        fmt check clean
 
 NIX_RUN = nix develop --command
+# The e2e shell supplies immutable browser builds; Ubuntu keeps its existing installer.
+PLAYWRIGHT_INSTALL = $(if $(filter 1,$(PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD)),true,npx playwright install)
 
 # Multi-instance support: INST=0 (default), INST=1, ... Each instance gets its own
 # ports and databases, so several checkouts/worktrees can run side by side:
@@ -242,7 +244,7 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && npx playwright install chromium && npm run build && npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx vitest run --project build"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -262,7 +264,7 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
-	$(NIX_RUN) bash -c "cd web && npx playwright install chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
@@ -364,7 +366,11 @@ web.run: wasm research.wasm
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
+	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
+	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
+	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
 
 # Typesets the paper page's text (web/src/lib/paper) into its PDF with Tectonic.
 paper.pdf: web.deps

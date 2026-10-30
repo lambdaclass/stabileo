@@ -1,4 +1,6 @@
 const en: Record<string, string> = {
+  "landing.navTools": "Tools",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "View",
   "scalarViewer.viewOptions": "View options",

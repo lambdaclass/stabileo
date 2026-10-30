@@ -24,13 +24,24 @@ env:
 # Every job installs the toolchain from flake.nix and runs a make target, so a
 # job that passes here passes on a developer's machine with the same command.
 #
-# Self-hosted runners (Stabileo's own server stabileo-ci-1, dotfiles servers/runners-stabileo.sh,
-# label `stabileo`): lint, the suite, the metamorphic tests and the WASM build run there when the
-# repository variable STABILEO_SELF_HOSTED is 'true', and only for trusted events (the merge queue,
-# pushes to main), never for pull_request: the repo is public. Their build output and the host's
-# /nix/store stay warm between jobs, so they skip rust-cache, magic-nix-cache (its import needs a
-# trusted Nix user, which the runner users are not) and free-disk (GitHub's image only). Unset or
-# 'false', every job runs on GitHub's runners as before: the variable is the switch, both ways.
+# Self-hosted runners (six on Stabileo's stabileo-ci-1, an AX102 running Arch Linux;
+# dotfiles servers/runners-stabileo.sh, labels `self-hosted`, `stabileo`): Lint Repo,
+# Lint Engine, both Engine Suite shards, Engine Metamorphic, WASM, Research WASM and Results Snapshot
+# run there when STABILEO_SELF_HOSTED is 'true', only for merge_group and pushes to main.
+# Every pull_request, including fork PRs, stays on GitHub; forks cannot trigger merge_group.
+# Each runner keeps its own CARGO_TARGET_DIR; checkout explicitly cleans each job's workspace.
+# Nix is already installed on the host. Tools come from the flake; self-hosted jobs skip the
+# installer, rust-cache, magic-nix-cache (runner users are not trusted Nix users) and free-disk.
+# Engine Gates and both Web Unit shards stay on GitHub: their timing budgets have failed
+# beside other busy jobs on the shared host. Research validation and route budgets stay there too.
+# Web Build, E2E Site, all ten E2E shards and e2e-flaky use the same trusted
+# event/variable gate below. Their Linux e2e shell supplies pinned Rust and Playwright
+# browsers, libraries and fallback fonts; no browser downloads, apt or sudo on the Arch host.
+# Chromium and Firefox passed the Linux host preflight; Nix WebKit did not start.
+# Determinism stays on GitHub to check Chromium, Firefox and WebKit.
+# Run scripts/ci/check-playwright-nix.sh on the host before enabling the variable.
+# Docker build smoke stays on GitHub because Docker is not guaranteed on stabileo-ci-1.
+# Other jobs remain on GitHub. Unset or 'false', the variable sends every job to GitHub.
 jobs:
   changes:
     name: Detect Changes
@@ -60,6 +71,7 @@ jobs:
               - 'rust-toolchain.toml'
               - '.nvmrc'
               - 'scripts/wasm-cached.sh'
+              - 'scripts/ci/check-playwright-nix.sh'
               - 'Makefile'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
@@ -130,25 +142,27 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Toolchain pins agree
-        run: make check-pins
+        run: nix develop --command make check-pins NIX_RUN=
       - name: Changelog fragments are well formed
-        run: make check.changelog
+        run: nix develop --command make check.changelog NIX_RUN=
       # The engine's test files are modules of a few listed binaries (autotests = false): a file
       # in no binary would never run, one in two would run twice.
       - name: Every engine test file is in exactly one test binary
-        run: make check.test-targets
+        run: nix develop --command make check.test-targets NIX_RUN=
 
   test-ci-scripts:
     name: Test CI Scripts
@@ -166,6 +180,11 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Shellcheck
         run: make test.ci-scripts
+      # Pull requests never run on the self-hosted runners, so the merge queue's browser shell
+      # (.#e2e: Playwright browsers from nix, version-locked to package-lock) is checked here on
+      # a GitHub-hosted runner whenever the tooling it depends on changes.
+      - name: Browser shell (.#e2e) launches Chromium and Firefox
+        run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
   lint-engine:
     name: Lint Engine
@@ -176,10 +195,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - if: runner.environment == 'github-hosted'
@@ -230,10 +251,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - if: runner.environment == 'github-hosted'
@@ -255,10 +278,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - if: runner.environment == 'github-hosted'
@@ -420,10 +445,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - if: runner.environment == 'github-hosted'
@@ -446,31 +473,45 @@ jobs:
   # test runs the real simulation.
   research-wasm:
     name: Research WASM
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
+    timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
-      - uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: |
             research/fracture/shauer-2025/wasm
             research/metamaterials/grossman-2026/wasm
+            research/form-finding/pastrana-2026/wasm
+            research/optimisation/fairclough-2026
           shared-key: research-wasm
       - name: Install web dependencies (the research viewer bundle is built with Vite)
         run: make web.deps
       - name: Build the research WASM and viewer
-        run: make research.wasm
+        # The runners' sccache cannot spawn the toolchain the research crates build with
+        # ("Permission denied" on stabileo-ci-1, 2026-10-29); build these crates uncached.
+        # The flake sets RUSTC_WRAPPER=sccache inside the shell, so clear it there.
+        run: nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 make research.wasm NIX_RUN=
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The five-node gridshell bundle reproduces Table 1 (Node)
+        run: nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
+      - name: Four-cable browser solver
+        run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm
@@ -483,24 +524,27 @@ jobs:
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
   site-e2e:
     name: E2E Site
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -516,14 +560,26 @@ jobs:
           name: research-wasm
           path: web/public/research-wasm
       - name: Install dependencies
-        run: make web.deps
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make web.deps NIX_RUN=
+          else
+            make web.deps
+          fi
       # The build prerenders the public pages in a browser (web/scripts/prerender.ts).
       - name: Install Chromium
+        if: runner.environment == 'github-hosted'
         run: make e2e.web.setup
       - name: Install Chromium system dependencies
+        if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Build the E2E site
-        run: make e2e.web.build
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make e2e.web.build NIX_RUN=
+          else
+            make e2e.web.build
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: site-e2e
@@ -573,23 +629,26 @@ jobs:
 
   web-build:
     name: Web Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -611,14 +670,30 @@ jobs:
           test -s web/public/research-wasm/shauer-2025/replay.srpl
           test -s web/public/research-wasm/viewer/viewer.js
       - name: Install dependencies
-        run: make web.deps
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make web.deps NIX_RUN=
+          else
+            make web.deps
+          fi
       - name: Typecheck against its baseline and svelte-check gate
-        run: make typecheck.web
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make typecheck.web NIX_RUN=
+          else
+            make typecheck.web
+          fi
       # The runner lacks the system libraries Chromium links against; no make target installs them.
       - name: Install Chromium system dependencies
+        if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Build and production-build tests
-        run: make test.web.build
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make test.web.build NIX_RUN=
+          else
+            make test.web.build
+          fi
       - name: Built site includes the research runtime
         run: |
           test -s web/dist/research-wasm/shauer-2025/phasefield.js
@@ -626,7 +701,12 @@ jobs:
           test -s web/dist/research-wasm/shauer-2025/replay.srpl
           test -s web/dist/research-wasm/viewer/viewer.js
       - name: Admin site build
-        run: make admin.build
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make admin.build NIX_RUN=
+          else
+            make admin.build
+          fi
 
   # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus
   # solved through the app's path must give the committed snapshots (web/results-snapshots/),
@@ -634,19 +714,21 @@ jobs:
   # result-changes.json and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: [changes, wasm]
     if: needs.changes.outputs.web == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
           # The merge commit and its first parent, the base the pull request is compared with.
           fetch-depth: 2
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -681,8 +763,10 @@ jobs:
   # Firefox and WebKit, each compared bit for bit with the same run in Node.
   determinism:
     name: Determinism
+    # Stays on GitHub's runners: nix-provided WebKit does not start on Linux hosts (checked
+    # with scripts/ci/check-playwright-nix.sh on 2026-10-29); Chromium and Firefox do.
     runs-on: ubuntu-latest
-    # The browser system libraries come from apt on every run (only the browser binaries are
+    # On GitHub, browser system libraries come from apt (only browser binaries are
     # cached); a slow mirror day took the whole 40 minutes once. Headroom for that.
     timeout-minutes: 75
     needs: [changes, wasm]
@@ -690,12 +774,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
-      - if: runner.environment == 'github-hosted'
-        uses: ./.github/actions/free-disk
+      - uses: ./.github/actions/free-disk
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
@@ -736,7 +819,7 @@ jobs:
   # and up to 55 in the queue, so the queue's critical path was one shard.
   e2e:
     name: E2E (${{ matrix.shard }}/10)
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true'
     env:
@@ -748,17 +831,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -769,7 +855,12 @@ jobs:
           name: wasm
           path: web/src/lib/wasm
       - name: Install dependencies
-        run: make web.deps
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make web.deps NIX_RUN=
+          else
+            make web.deps
+          fi
       # The VITE_E2E=1 site, built once by `site-e2e`; Playwright serves it (E2E_PREBUILT) and
       # refuses a dist without that job's marker.
       - name: E2E site (from the site-e2e job)
@@ -778,14 +869,21 @@ jobs:
           name: site-e2e
           path: web/dist
       - name: Install Chromium
+        if: runner.environment == 'github-hosted'
         run: make e2e.web.setup
       - name: Install Chromium system dependencies
+        if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       # `@landing` stays out: on CI every landing case after the first wedges in
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
       - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
-        run: make e2e.web.smoke SHARD=${{ matrix.shard }}/10
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/10 NIX_RUN=
+          else
+            make e2e.web.smoke SHARD=${{ matrix.shard }}/10
+          fi
       # Heavier suite (408-member model): in the merge queue, so it runs on exactly what lands on
       # main, before it lands; on a PR only with the `run-e2e` label. On one shard it took 1.5 to
       # 2.3 hours. `--shard=N/5` split it by test count and left the Basic advanced sweep, 54 of
@@ -793,14 +891,24 @@ jobs:
       # now, like the smoke suite, from its own table.
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
         if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
-        run: make e2e.web.slow SHARD=${{ matrix.shard }}/10
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN=
+          else
+            make e2e.web.slow SHARD=${{ matrix.shard }}/10
+          fi
       # Non-blocking until the Linux baselines under web/e2e/__screenshots__/linux/
       # prove stable. Never pass --update-snapshots by default: it would overwrite
       # the baselines and leave the gate inert. UPDATE_SNAPSHOTS=1 refreshes them once.
       - name: E2E visual baselines (non-blocking comparison)
         if: matrix.shard == 1 && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
         continue-on-error: true
-        run: make e2e.web.visual UPDATE_SNAPSHOTS=${{ vars.UPDATE_SNAPSHOTS == '1' && '1' || '' }}
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make e2e.web.visual UPDATE_SNAPSHOTS=${{ vars.UPDATE_SNAPSHOTS == '1' && '1' || '' }} NIX_RUN=
+          else
+            make e2e.web.visual UPDATE_SNAPSHOTS=${{ vars.UPDATE_SNAPSHOTS == '1' && '1' || '' }}
+          fi
       - name: Upload Linux screenshot baselines / diffs
         if: always() && matrix.shard == 1
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -830,24 +938,27 @@ jobs:
   e2e-flaky:
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     env:
       E2E_PREBUILT: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          clean: true
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: ./.github/actions/free-disk
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -857,19 +968,31 @@ jobs:
           name: wasm
           path: web/src/lib/wasm
       - name: Install dependencies
-        run: make web.deps
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make web.deps NIX_RUN=
+          else
+            make web.deps
+          fi
       - name: E2E site (from the site-e2e job)
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: site-e2e
           path: web/dist
       - name: Install Chromium
+        if: runner.environment == 'github-hosted'
         run: make e2e.web.setup
       - name: Install Chromium system dependencies
+        if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       # --pass-with-no-tests: an empty quarantine is the goal, not an error.
       - name: E2E quarantined (@flaky) tests, two retries
-        run: make e2e.web.flaky
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make e2e.web.flaky NIX_RUN=
+          else
+            make e2e.web.flaky
+          fi
 
       - name: Upload Playwright artifacts
         if: always()

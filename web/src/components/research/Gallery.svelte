@@ -1,14 +1,30 @@
 <script lang="ts">
+  import { articleStrings as shellStrings } from './shell1985/article';
+  import { archStrings } from './biggins2026/strings';
   /**
    * /research: the experiments that run here first, then what is being built, then the
    * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
    */
+  import { topoptStrings } from './andreassen2011/i18n';
+  import { fs } from './fairclough2026/i18n';
+  import { strings as newmarkStrings } from './newmark1959/i18n';
+  import { cqcStrings } from './cqc1981/strings';
+  import { ps } from './plastic-collapse/i18n';
+  import { navierStrings } from './navier1823/strings';
+  import { researchLocale } from './i18n';
+  const navier = $derived(navierStrings(researchLocale()));
+  import { strings as leeStrings } from './lee1968/i18n';
+  import { strings as dadeppoStrings } from './dadeppo1975/i18n';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
   import { isHttpUrl } from './urls';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
+  import { strings as mattiassonStrings } from './mattiasson1981/i18n';
+  import { strings as macnealStrings } from './macneal1985/i18n';
+  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import type { Experiment } from './experiments';
 
   type Paper = (typeof catalog.papers)[number];
   const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
@@ -27,6 +43,25 @@
   const authors = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
   const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
+  const firstVersion = $derived(({ en: 'First version', es: 'Primera versión', pt: 'Primeira versão', de: 'Erste Version', fr: 'Première version', tr: 'İlk sürüm' } as Record<string, string>)[publicI18n.locale] ?? 'First version');
+  const topopt = $derived(topoptStrings(publicI18n.locale));
+  const arches = $derived(archStrings());
+  const f = $derived(fs());
+  function experimentText(e: Experiment) {
+    if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
+      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
+      return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
+    }
+    if (e.paperId === 'shell-obstacle-course') return { title: shellStrings(publicI18n.locale).shellObstacleCourseBelytschkoEtAl, hook: e.hook };
+    if (e.paperId === 'riks-1979') return { title: e.name, hook: e.hook };
+    if (e.paperId === 'ferrari-2025') return { title: s.ferrariTitle, hook: s.ferrariLead };
+    return e.paperId === 'grossman-2026' ? { title: s.springsTitle, hook: s.springsHook } : { title: s.shauerTitle, hook: s.shauerHook };
+  }
+  const nm = $derived(newmarkStrings());
+  const cqc = $derived(cqcStrings());
+  const plastic = $derived(ps());
+  const lee = $derived(leeStrings[researchLocale() as keyof typeof leeStrings] ?? leeStrings.en);
+  const arch = $derived(dadeppoStrings[researchLocale() as keyof typeof dadeppoStrings] ?? dadeppoStrings.en);
 </script>
 
 <section class="sec sec--ink rs-g">
@@ -43,17 +78,17 @@
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
-          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}>
-            {#if !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={s[e.paperId === "grossman-2026" ? "springsAlt" : "damageAlt"]} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}>
+            {#if e.thumbnail && !thumbFailed[e.paperId]}
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}
           </PublicLink>
           <div class="rs-g-runbody">
-            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
-            <h3><PublicLink to={e.path}>{e.paperId === "grossman-2026" ? s.springsTitle : s.shauerTitle}</PublicLink></h3>
-            <p class="rs-g-hook">{e.paperId === "grossman-2026" ? s.springsHook : s.shauerHook}</p>
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion}</span></div>
+            <h3><PublicLink to={e.path}>{e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}</PublicLink></h3>
+            <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.stage : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.stage : e.paperId === "cqc-1981" ? cqc.stage : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
             <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
@@ -95,7 +130,7 @@
         <li class="rs-g-card">
           <FieldIcon field={p.area} size={28} />
           <div>
-            <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{p.id === "newmark-1959" ? nm.stage : statusName(p.status)}</span></div>
             <h3>{p.crossref.title}</h3>
             <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
@@ -119,6 +154,11 @@
 </section>
 
 <style>
+  .rs-g :global(a:link), .rs-g :global(a:visited) { color: var(--fg); }
+  .rs-g :global(a:hover) { color: var(--lp-accent); }
+  .rs-g :global(a.btn-primary:link), .rs-g :global(a.btn-primary:visited) { color: var(--lp-paper-2); }
+  .rs-g-first { color: var(--lp-paper); border-color: var(--lp-slate-2); }
+
   .rs-g {
     padding-top: clamp(4.5rem, 8vw, 6rem);
     padding-bottom: 4rem;

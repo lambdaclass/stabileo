@@ -9,6 +9,7 @@ const tr: Translations = {
   "recheck.detailsUnavailable": "Değişikliğin ayrıntılarına erişilemiyor. Bildirimi yüklemeyi tekrar deneyin.",
   "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
   "recheck.retry": "Tekrar dene",
+  "landing.navTools": "Araçlar",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
