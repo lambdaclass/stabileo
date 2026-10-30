@@ -147,7 +147,7 @@
   const proLink = $derived.by(() => {
     void modelStore.modelVersion;
     if (!hasModel) return null;
-    return codeShareUrl(modelStore.snapshot(), `${location.origin}${location.pathname}`);
+    return codeShareUrl(modelStore.snapshot(), `${globalThis.location.origin}${globalThis.location.pathname}`);
   });
   const linkTooLong = $derived(!!proLink && proLink.length > MAX_URL_SAFE);
 

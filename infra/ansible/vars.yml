@@ -4,6 +4,8 @@ releases_dir: "{{ app_root }}/releases"
 gcroots_dir: "{{ app_root }}/gcroots"
 incoming_dir: "{{ app_root }}/incoming"
 caddy_dir: "{{ app_root }}/caddy"
+snapshots_dir: "{{ app_root }}/snapshots"
+snapshot_min_free_mb: 2048
 max_releases: 3
 service_name: stabileo-backend
 backend_port: "{{ lookup('env', 'PORT') | default('4100', true) }}"

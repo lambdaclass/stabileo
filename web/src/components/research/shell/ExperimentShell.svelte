@@ -12,7 +12,7 @@
   import { fieldName, rs, researchLocale } from '../i18n';
   import { provideExperiment, type ExperimentActions, type Check } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
-  import { BUILD_COMMIT } from '../../../lib/build-info';
+  import CiteThis from './CiteThis.svelte';
 
   type Props = {
     paperId: string;
@@ -34,7 +34,6 @@
   provideExperiment(actions);
 
   const paper = catalog.papers.find((p) => p.id === paperId)!;
-  const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = paper.crossref.authors.join(', ');
 
@@ -58,10 +57,7 @@
     <div class="rs-shell-grid" class:rs-wide={wide}>
       <article class="rs-shell-article rs-prose" lang={researchLocale()}>
         {@render article()}
-        <h2 id="cite">{s.citeThis}</h2>
-        <p class="rs-citebox">
-          {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
-        </p>
+        <CiteThis {paperId} {name} path="/research/{paper.area}/{paperId}" {sourcePath} />
       </article>
       <aside class="rs-shell-app" aria-label={s.theExperiment}>
         {@render app()}
@@ -96,8 +92,7 @@
     font-size: 0.95rem;
   }
   .rs-crumb :global(a),
-  .rs-cite a,
-  .rs-citebox a {
+  .rs-cite a {
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -156,12 +151,5 @@
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
-  }
-  .rs-citebox {
-    font: var(--rs-small)/1.6 var(--st-sans);
-    color: var(--fg-2);
-    border: 1px solid var(--hair);
-    border-radius: 4px;
-    padding: 0.75rem 1rem;
   }
 </style>

@@ -3,7 +3,7 @@ import pathlib
 import re
 import sys
 
-DATA = re.compile(r"research/(?:papers\.json|[^/]+/[^/]+/(?:VALIDATION\.json|results/stabileo_results\.json|reference-results/[^/]+\.(?:csv|json)))$")
+DATA = re.compile(r"research/(?:papers\.json|[^/]+/[^/]+/(?:VALIDATION\.json|versions\.json|results/stabileo_results\.json|reference-results/[^/]+\.(?:csv|json)))$")
 QUOTED = re.compile(r'''["'`]([^"'`\n]+)["'`]''')
 
 
@@ -14,7 +14,8 @@ def check(root):
         for path in (root / tree).rglob("*"):
             if not path.is_file() or path.suffix not in {".rs", ".toml", ".ts", ".js", ".svelte", ".css"} or "target" in path.parts:
                 continue
-            for line, text in enumerate(path.read_text().splitlines(), 1):
+            source = re.sub(r'''(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|(/\*.*?\*/|//[^\n]*)''', lambda m: '\n' * m[0].count('\n') if m[1] else m[0], path.read_text(), flags=re.S)
+            for line, text in enumerate(source.splitlines(), 1):
                 for raw in QUOTED.findall(text):
                     if re.fullmatch(r'\s*sourcePath="research/[^/]+/[^/]+"\s*', text):
                         continue

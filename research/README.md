@@ -26,7 +26,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
   members of the engine's or the backend's workspaces and have their own lockfiles.
 - A research crate may depend on `engine/` through a path dependency. The engine and the web
   application never import research code. The web allowlist is `research/papers.json`,
-  `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
+  `research/<field>/<paper>/VALIDATION.json`, `research/<field>/<paper>/versions.json`, and CSV/JSON files in that paper’s
   `reference-results/`, plus `results/stabileo_results.json`; the engine has no exceptions. `tools/check_isolation.sh` enforces this.
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
   catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine

@@ -76,16 +76,29 @@ process: validation, the results snapshot gate, review by solver owners, a chang
 
 ## 5. Versions and citations
 
-- **Permanent links by commit.** Every site build is also kept immutably under its commit, e.g.
-  `stabileo.com/@9aad844/research/fracture/shauer-2025`: that exact app, engine and experiment,
-  forever. The plain URL is always the latest. Only builds where research or the engine changed
-  need keeping (≈20 MB each; object storage).
-- **Cite this** gives the permanent link, commit, engine hash and the paper's DOI. Later: a Zenodo
-  DOI per experiment version for formal citation.
-- When a fix changes a research result, the experiment's page says what changed and why; the old
+**Rule: every experiment has frozen versions and Cite this before it is published.** No research
+page goes to production without a permanent link that serves it and a Cite this block on it.
+
+- **Permanent links by commit.** Every commit on `main` that changes `research/`, the engine or the
+  viewer is also built under its commit and kept immutably, e.g.
+  `stabileo.com/@9aad844/en/research/fracture/shauer-2025/`: that exact app, engine and
+  experiment, forever (the whole site is there, not only the page). The plain URL is always the
+  latest. The host lists the kept builds at `/@/` (JSON). How: `docs/DEPLOY.md` "Snapshots".
+- **Cite this** (the shell's `CiteThis` component, `web/src/components/research/shell/`) gives the
+  permanent link (this build's own when it has one, else the newest one holding the page), the
+  commit, the engine's and the experiment's WASM SHA-256, our experiment version and the paper's
+  DOI, as plain text and BibTeX. Later: a Zenodo DOI per experiment version for formal citation.
+- **Experiment versions** live in `research/<field>/<id>/versions.json`. A version is released when
+  its `commit` names the commit on `main` whose snapshot holds it; that snapshot is never pruned.
+  When a fix changes a research result, add a version saying what changed and why; the old
   permanent link keeps the old result.
-- Prerequisite: reproducible WASM builds (#771). Hosting the `/@<commit>/` path needs the
-  production host's owner (deploy infrastructure, #652).
+- **Version banner.** A page served under `/@<commit>/` says which version it is (date and commit),
+  links to the latest page and to the GitHub compare view.
+- **Retention.** Every snapshot is kept by default; pruning is manual, dry-run first, and never
+  deletes a snapshot named by any released version in any commit of `main`
+  (`research/tools/snapshots.py`).
+- Prerequisite: reproducible WASM builds (#771). The `/@<commit>/` routes run on our own hosts
+  (deploy infrastructure, #652); production waits for the host owner's approval.
 
 ## 6. Choosing papers
 

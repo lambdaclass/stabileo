@@ -6,6 +6,7 @@ node_modules
 # Build output
 web/dist/
 web/dist-admin/
+web/dist-snapshot/
 
 # IDE / OS
 .DS_Store
@@ -86,3 +87,4 @@ __pycache__/
 .hex/
 .stabileo-inst
 .env.prod
+web/snapshot-e2e/.artifacts/

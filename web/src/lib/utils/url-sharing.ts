@@ -775,11 +775,11 @@ export function generateShareURL(): { url: string; length: number } | null {
   // A model the compact format would change (every PRO addition: behaviours, sections' own
   // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
   // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
-  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
+  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${globalThis.location.origin}${globalThis.location.pathname}`);
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#data=${compressed}`;
+  const url = `${globalThis.location.origin}${globalThis.location.pathname}#data=${compressed}`;
   // The whole link, as PRO's is measured: the ceiling is about what a reader pastes.
   return { url, length: url.length };
 }
@@ -842,7 +842,7 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#embed=${compressed}`;
+  const url = `${globalThis.location.origin}${globalThis.location.pathname}#embed=${compressed}`;
   return { url, length: compressed.length };
 }
 

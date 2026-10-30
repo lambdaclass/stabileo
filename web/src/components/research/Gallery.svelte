@@ -8,6 +8,7 @@
   import { isHttpUrl } from './urls';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
+  import LatestPermalink from './shell/LatestPermalink.svelte';
   import { rs, fieldName, statusName } from './i18n';
 
   type Paper = (typeof catalog.papers)[number];
@@ -61,6 +62,7 @@
               {#if isHttpUrl(e.code)}<a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>{/if}
               {#if e.editor}<PublicLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</PublicLink>{/if}
             </div>
+            <LatestPermalink path={e.path} />
           </div>
         </li>
       {/each}

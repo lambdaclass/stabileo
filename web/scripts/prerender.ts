@@ -59,6 +59,13 @@ const DIST = process.env.PRERENDER_OUT
   ? resolve(process.env.PRERENDER_OUT)
   : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
+/**
+ * A snapshot build (`BASE_PATH=/@<commit>/`, scripts/snapshot.ts) is served under its prefix: the
+ * capture visits the pages there, and the files land at the same paths inside `dist/`. Empty for the
+ * normal build. A snapshot carries no sitemap, robots.txt, feeds or social cards: those belong to
+ * the latest site, which the snapshot's canonical links name.
+ */
+const PREFIX = (process.env.BASE_PATH ?? '/').replace(/\/$/, '');
 const LOCALES = PUBLIC_LOCALES;
 /**
  * The language a browser we do not speak is sent to, and the one the root
@@ -93,7 +100,8 @@ function serveDist(port: number) {
   return new Promise<{ server: import('node:http').Server; port: number }>((resolve) => {
     const server = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
-      let file = join(DIST, decodeURIComponent(url.pathname));
+      const path = PREFIX && url.pathname.startsWith(`${PREFIX}/`) ? url.pathname.slice(PREFIX.length) : url.pathname;
+      let file = join(DIST, decodeURIComponent(path));
       if (!extname(file) || !existsSync(file)) file = join(DIST, 'index.html');
       try {
         const body = await readFile(file);
@@ -254,7 +262,7 @@ async function publicPaths(): Promise<string[]> {
  * Built by `scripts/root-handoff.ts`, which is where the reasoning and the
  * tests for it live. The LIST comes from `LOCALES` above, which is the application's own.
  */
-const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
+const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE, PREFIX);
 
 async function capture(browser: Browser, base: string, locale: Locale, path: string) {
   const page = await browser.newPage();
@@ -271,7 +279,7 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
-  await page.goto(base + href, { waitUntil: 'networkidle' });
+  await page.goto(base + PREFIX + href, { waitUntil: 'networkidle' });
   // The landing reveals sections on scroll; a capture of the top of the page
   // would ship most of the copy inside elements that are still transparent.
   await page.evaluate(() => {
@@ -315,7 +323,7 @@ function page(head: string, body: string, lang: string, extraScript = '') {
 <html lang="${lang}">
 <head>
 ${head.trim()}
-${extraScript ? `<script>${extraScript}</script>` : ''}
+${extraScript ? (PREFIX ? `<script src="${PREFIX}/snapshot-redirect.js"></script>` : `<script>${extraScript}</script>`) : ''}
 </head>
 <body>
 <div id="prerender">${body}</div>
@@ -371,8 +379,20 @@ async function main() {
     // The root: the default language's content — the x-default — plus the
     // handoff script that sends everyone else on.
     const { head, body, lang } = await capture(browser, base, DEFAULT_LOCALE, '/');
+    if (PREFIX) await writeFile(join(DIST, 'snapshot-redirect.js'), ROOT_REDIRECT);
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
+
+    if (PREFIX) {
+      // The research pages this snapshot holds, for the host's index (/@/): a permanent link to an
+      // experiment names the newest snapshot that has its page.
+      const meta = join(DIST, 'SNAPSHOT.json');
+      const snapshot = JSON.parse(await readFile(meta, 'utf8'));
+      snapshot.research = paths.filter((p) => p.startsWith('/research/'));
+      await writeFile(meta, JSON.stringify(snapshot, null, 2) + '\n');
+      console.log(`✅ prerendered ${written.length} pages under ${PREFIX}/`);
+      return;
+    }
 
     await writeFile(
       join(DIST, 'sitemap.xml'),

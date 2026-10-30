@@ -4,6 +4,8 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { snapshotFor, snapshotPlugin } from './scripts/snapshot';
+import { researchBuildPlugin } from './scripts/research-build';
 import { isComplete } from './src/lib/i18n/offered';
 
 /**
@@ -67,7 +69,7 @@ function publicI18nPlugin(): Plugin {
 // collected here, a mutation run in progress made every engine test fail.
 // determinism/ is a Playwright suite of its own (determinism/playwright.config.ts).
 // scripts/*.test.mjs are node:test suites (the Research workflow runs them with node --test).
-const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
+const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs', 'snapshot-e2e/**'];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -195,6 +197,8 @@ function appVersion(): string {
   return JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version;
 }
 
+/** `BASE_PATH=/@<commit>/`: the site kept under its commit (`scripts/snapshot.ts`); null otherwise. */
+const SNAPSHOT = ADMIN ? null : snapshotFor(process.env.BASE_PATH, __dirname);
 const researchManifest = resolve(__dirname, 'public/research-wasm/build.json');
 const researchBuildId = existsSync(researchManifest) ? JSON.parse(readFileSync(researchManifest, 'utf8')).build_id : 'unavailable';
 if (researchBuildId !== 'unavailable') {
@@ -203,7 +207,14 @@ if (researchBuildId !== 'unavailable') {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [
+    wasmStubPlugin(),
+    publicI18nPlugin(),
+    svelte(),
+    ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
+    ...snapshotPlugin(SNAPSHOT, __dirname),
+    researchBuildPlugin(__dirname),
+  ],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),

@@ -59,6 +59,32 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
     assert run.returncode == expected, (result, run.stdout)
 print('ok required research CI propagates failures and accepts skipped jobs')
 
+import fnmatch
+
+paths = ['infra/caddy/Caddyfile', 'infra/ansible/deploy-snapshot.yml',
+         'infra/ansible/scripts/snapshot_store.py', '.github/workflows/research-snapshot.yml',
+         'research/tools/snapshot_trigger.py', 'web/scripts/snapshot.ts']
+for path in paths:
+    for gate in ['web', 'research']:
+        assert any(fnmatch.fnmatch(path, pattern) for pattern in filters[gate] if isinstance(pattern, str)), (path, gate)
+    for event in ['push', 'pull_request']:
+        assert any(fnmatch.fnmatch(path, pattern) for pattern in research.get('on', research.get(True))[event]['paths']), (path, event)
+snapshot = yaml.safe_load((root / '.github/workflows/research-snapshot.yml').read_text())
+group = snapshot['jobs']['snapshot']['concurrency']['group']
+assert 'github.run_id' in group and 'github.run_attempt' in group and group.startswith('snapshot-')
+assert snapshot['jobs']['snapshot']['concurrency']['cancel-in-progress'] is False
+playbook = yaml.safe_load((root / 'infra/ansible/deploy-snapshot.yml').read_text())
+install = playbook[0]['tasks'][2]['block'][-1]['script']
+assert install['executable'].startswith('flock ') and '.publish.lock' in install['executable']
+print('snapshot infrastructure paths trigger tests; workflow runs cannot replace pending snapshots')
 koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
+
+for config in [research, snapshot]:
+    for job in config['jobs'].values():
+        for step in job.get('steps', []):
+            for line in step.get('run', '').splitlines():
+                if 'pip install' in line:
+                    assert '--require-hashes -r research/tools/requirements.txt' in line, line
+print('research workflow Python dependencies retain hash verification')

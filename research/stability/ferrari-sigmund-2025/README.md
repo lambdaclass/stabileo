@@ -107,6 +107,10 @@ own workspace with a lockfile and depends on the engine as a library. No engine 
 is modified. Run `cargo test --locked -- --nocapture` from this directory.
 The page has unit tests and a Playwright spec; Chromium execution belongs to the maintainer.
 
+The reference evidence test in `tests/validation.rs` checks the committed observations and
+writes all six computed checks to `target/VALIDATION.json` for the research replay checker.
+The buckling and derivative checks run together so the evidence has a single writer.
+
 ## Questions for Ferrari and Sigmund
 
 Draft only; no messages sent.

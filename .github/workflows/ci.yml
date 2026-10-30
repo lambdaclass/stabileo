@@ -98,6 +98,9 @@ jobs:
               - 'web/**'
               # The /research pages import the catalog and reference results and ship its WASM.
               - 'research/**'
+              - 'infra/caddy/**'
+              - 'infra/ansible/**'
+              - '.github/workflows/research-snapshot.yml'
               - 'engine/**'
               # The engine's dependencies (wasm-bindgen, serde) are locked here.
               - 'Cargo.toml'
@@ -105,6 +108,9 @@ jobs:
             research:
               - *tooling
               - 'research/**'
+              - 'infra/caddy/**'
+              - 'infra/ansible/**'
+              - '.github/workflows/research-snapshot.yml'
               - 'web/**'
               - 'engine/**'
               - 'Cargo.toml'
@@ -582,6 +588,59 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+  site-snapshot:
+    name: Snapshot Site
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [changes, wasm, research-wasm]
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/free-disk
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+      - name: WASM engine (from the wasm job)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: wasm
+          path: web/src/lib/wasm
+      - name: Research WASM (from the research-wasm job)
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: research-wasm
+          path: web/public/research-wasm
+      - name: Install dependencies
+        run: make web.deps
+      - name: Install Chromium
+        run: |
+          make e2e.web.setup
+          nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+      - name: Snapshot hosting and store regression tests
+        run: |
+          python3 -I infra/ansible/scripts/test_snapshot_store.py
+          python3 -I infra/ansible/scripts/test_snapshot_dns.py
+          nix shell nixpkgs#caddy -c python3 -I infra/caddy/test_snapshots.py
+      - name: Build the site under /@<commit>/
+        run: nix develop --command web/scripts/build-snapshot.sh
+      - name: The research page and the application work under the prefix
+        run: make e2e.web.snapshot
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-e2e-artifacts
+          path: web/snapshot-e2e/.artifacts
+          retention-days: 7
+
   # The unit pass needs the WASM engine and nothing else, so it shards two ways;
   # the production-build tests need Chromium and the built app, so they stay
   # with the build.
@@ -1031,6 +1090,7 @@ jobs:
       - research-wasm
       - research
       - site-e2e
+      - site-snapshot
       - web-unit
       - web-build
       - results-snapshot
