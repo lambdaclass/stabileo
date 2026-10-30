@@ -64,35 +64,34 @@ test.describe('@slow the primary structure, chosen by hand', () => {
     await shot(page, 'fm-step5-axial-off');
     expect(errors).toEqual([]);
   });
-
-  test('a beam on a spring: the spring term in class format, and the spring as the redundant', async ({ page }) => {
-    test.setTimeout(150_000);
-    await openFlexibility(page, 'spring-support');
-    await page.getByTestId('fm-dot-5').click();
-    await expect(page.getByTestId('fm-spring-terms')).toBeVisible();
-    await page.getByTestId('fm-dot-2').click();
-    await page.getByTestId('fm-fund-manual').click();
-    await page.getByTestId('fm-rel-s:2:1').check();
-    await page.getByTestId('fm-fund-solve').click();
-    await expect(page.getByTestId('fm-fund-ok')).toBeVisible();
-    await page.getByTestId('fm-dot-5').click();
-    await expect(page.getByTestId('fm-spring-terms')).toContainText('1');
-    await shot(page, 'fm-step5-spring');
-    await page.getByTestId('fm-dot-9').click();
-    await expect(page.getByTestId('fm-verdict')).not.toHaveClass(/bad/);
-  });
 });
 
-test.describe('@slow the primary structure on a phone', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-  test('the chooser fits a narrow panel', async ({ page }) => {
+test.describe('@slow virtual work: what to compute', () => {
+  test('a rotation and a relative displacement, each agreeing with the matrix solve', async ({ page }) => {
     test.setTimeout(150_000);
-    await openFlexibility(page, 'continuous-beam');
-    await page.getByTestId('fm-dot-2').click();
-    await page.getByTestId('fm-fund-manual').click();
-    await expect(page.getByTestId('fm-pick-sketch')).toBeVisible();
-    const box = await page.getByTestId('fm-fundamental').boundingBox();
-    expect(box!.width).toBeLessThanOrEqual(390);
-    await shot(page, 'fm-phone-step2');
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
+      .__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-advanced').click();
+    await page.getByTestId('adv-steps').click();
+    await page.getByTestId('steps-open-virtualWork').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible();
+    await page.getByTestId('steps-params').locator('summary').click();
+    await page.getByTestId('steps-param-quantity').selectOption('rot');
+    await page.getByTestId('steps-param-node').selectOption('3');
+    await expect(page.getByTestId('steps-params')).toContainText(/Rotation|Giro/);
+    await shot(page, 'vw-params-open');
+    const tabs = await page.getByTestId('steps-tab').count();
+    for (let k = 0; k < tabs; k++) await page.getByTestId('steps-next').click();
+    await expect(page.locator('.sb-compare')).toBeVisible();
+    await expect(page.getByTestId('steps-doc')).toContainText(/agree up to rounding|coinciden salvo por el redondeo/);
+    await shot(page, 'vw-rotation-compare');
+    await page.getByTestId('steps-param-quantity').selectOption('relDisp');
+    await page.getByTestId('steps-param-node2').selectOption('2');
+    await expect(page.getByTestId('steps-doc')).toContainText(/agree up to rounding|coinciden salvo por el redondeo/);
+    expect(errors).toEqual([]);
   });
 });

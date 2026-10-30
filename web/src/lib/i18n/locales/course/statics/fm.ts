@@ -1,6 +1,7 @@
 import type { Translations } from '../../../types';
 
 export const esFm: Translations = {
+  'course.statics.fm.fund.section': 'Para cortar una barra en un punto intermedio, dividila antes (clic derecho sobre la barra, Dividir en) y cortá en el nodo nuevo.',
   'course.statics.fm.axial.label': 'Incluir deformación axil',
   'course.statics.fm.axial.help': 'Suma a cada coeficiente el término ∫ nᵢ·nⱼ/EA dx de las barras de pórtico. En vigas y pórticos comunes aporta poco y la solución de clase lo desprecia. Importa en tensores, arcos (trabajan casi solo a compresión), columnas con axil grande y estructuras arriostradas. Las bielas lo conservan siempre: es la única forma en que se deforman. Si lo apagás, el paso 9 compara igual con el método de rigidez, que sí lo incluye, y muestra la diferencia.',
   'course.statics.fm.fund.summaryAuto': 'Fundamental: elegida automáticamente',
@@ -41,6 +42,7 @@ export const esFm: Translations = {
 };
 
 export const enFm: Translations = {
+  'course.statics.fm.fund.section': 'To cut a member at an intermediate point, divide it first (right-click the member, Subdivide into) and cut at the new node.',
   'course.statics.fm.axial.label': 'Include axial deformation',
   'course.statics.fm.axial.help': 'Adds the term ∫ nᵢ·nⱼ/EA dx of the frame members to each coefficient. In ordinary beams and frames it contributes little, and the classroom solution leaves it out. It matters in ties, arches (they work almost entirely in compression), columns with a large axial force and braced structures. Two-force members always keep it: it is the only way they deform. If you turn it off, Step 9 still compares with the stiffness method, which includes it, and shows the difference.',
   'course.statics.fm.fund.summaryAuto': 'Primary structure: chosen automatically',
@@ -81,6 +83,7 @@ export const enFm: Translations = {
 };
 
 export const ptFm: Translations = {
+  'course.statics.fm.fund.section': 'Para cortar uma barra num ponto intermediário, divida-a antes (clique direito na barra, Subdividir em) e corte no nó novo.',
   'course.statics.fm.axial.label': 'Incluir deformação axial',
   'course.statics.fm.axial.help': 'Soma a cada coeficiente o termo ∫ nᵢ·nⱼ/EA dx das barras de pórtico. Em vigas e pórticos comuns contribui pouco e a solução de aula o despreza. Importa em tirantes, arcos (trabalham quase só à compressão), pilares com esforço normal grande e estruturas contraventadas. As bielas o conservam sempre: é a única forma como se deformam. Se você desligar, o passo 9 compara igual com o método da rigidez, que o inclui, e mostra a diferença.',
   'course.statics.fm.fund.summaryAuto': 'Fundamental: escolhida automaticamente',

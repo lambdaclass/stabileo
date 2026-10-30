@@ -69,6 +69,7 @@
             {#if xOf(o)}<strong class="ff-x">{xOf(o)}</strong>{/if}
           </label>
         {/each}
+        {#if grp.g === 'member'}<p class="ff-hint">{t('course.statics.fm.fund.section')}</p>{/if}
       </details>
     {/each}
     {#if fmChoice.error}
@@ -101,6 +102,7 @@
   .ff-item { display: flex; align-items: flex-start; gap: 6px; font-size: 0.68rem; line-height: 1.35; color: var(--st-text); padding: 2px 0 2px 4px; cursor: pointer; }
   .ff-item input { margin-top: 1px; flex: none; }
   .ff-item span { flex: 1; min-width: 0; }
+  .ff-hint { font-size: 0.64rem; line-height: 1.4; color: var(--st-text-3); margin: 2px 0 2px 4px; }
   .ff-x { color: #e5484d; font-size: 0.66rem; white-space: nowrap; }
   .ff-err { font-size: 0.7rem; line-height: 1.45; color: var(--st-danger); border-left: 2px solid var(--st-danger); padding-left: 6px; margin: 6px 0; }
   .ff-ok { font-size: 0.7rem; line-height: 1.45; color: var(--st-ok); margin: 6px 0; }

@@ -150,3 +150,20 @@ describe('Castigliano: a rotation by a fictitious couple, a relative quantity by
     agrees(build('castigliano', { quantity: 'relRot', node: String(ids[0]), node2: String(ids[ids.length - 1]) }), 'rad');
   });
 });
+
+describe('Castigliano\'s second theorem on the force method\'s chosen primary structure', () => {
+  it('a continuous beam released at a hinge over the middle support agrees with the matrix solve', async () => {
+    await modelStore.loadExample('continuous-beam');
+    const m = methods.find((x) => x.id === 'castigliano')!;
+    const input = modelStore.buildSolverInput(false)!;
+    const ctx: MethodContext = { input, pm: planeModel(input), ref: solveReference(input), selection: { nodes: [], members: [] }, fundamental: ['h:1:J', 'h:2:J'] };
+    expect(m.applies(ctx).ok).toBe(true);
+    const doc = m.build!(ctx);
+    expect(doc.noParams).toBe(true);
+    const notes = doc.steps.flatMap((s) => s.blocks).filter((b) => b.kind === 'note').map((b) => (b as { text: { key: string } }).text.key);
+    expect(notes).toContain('course.statics.castiglianoChosen');
+    const rows = rowsOf(doc);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(Math.abs(r.method - r.matrix), r.label).toBeLessThan(1e-6 * Math.max(1, Math.abs(r.matrix)));
+  });
+});
