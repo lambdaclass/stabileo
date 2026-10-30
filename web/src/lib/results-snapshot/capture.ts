@@ -111,16 +111,75 @@ function analysis(prefix: string, r: unknown, out: Values): void {
   out[`${prefix}.diagnosticCodes`] = [codes(solverDiagnostics), codes(structuredDiagnostics), codes(diagnostics)].filter(Boolean).join(' | ');
 }
 
+/**
+ * The combinations' envelope as the app publishes it (`resultsStore.envelope3D` / `envelope`): each
+ * diagram's maximum and minimum at every station of every member, its peak, the max-abs results,
+ * and the combination that governs each member's every component (`governing3D` / `governing2D`).
+ */
+function captureEnvelope(env: unknown, governing: Map<number, unknown>, perCombo: Map<number, { elementForces: unknown[] }>, out: Values): void {
+  if (!env || typeof env !== 'object') return;
+  const { maxAbsResults, maxAbsResults3D, ...diagrams } = env as Record<string, unknown>;
+  for (const [kind, d] of Object.entries(diagrams)) {
+    const { elements, ...rest } = (d ?? {}) as { elements?: Array<{ elementId: number; posValues: number[]; negValues: number[] }> };
+    flatten(rest, `envelope.${kind}`, out, ENVELOPE_SKIP);
+    for (const e of elements ?? []) flatten({ posValues: e.posValues, negValues: e.negValues }, `envelope.${kind}[e${e.elementId}]`, out);
+  }
+  analysis('envelope.maxAbs', maxAbsResults3D ?? maxAbsResults, out);
+  for (const [id, g] of [...governing].sort(([a], [b]) => a - b)) {
+    for (const [component, ref] of Object.entries((g ?? {}) as Record<string, { comboId: number; value: number } | undefined>)) {
+      if (!ref) continue;
+      const p = `envelope.governing[e${id}].${component}`;
+      flatten(ref.value, `${p}.value`, out);
+      // Which combination governs, or every one that ties with it: on a tie (a lateral moment
+      // the dead and live loads do not touch, so 1.2D + L + E and 0.9D + E give it exactly) the
+      // app names whichever it met first, and that depends on the order the session built the
+      // combinations in, not on the model.
+      const tied = governingTies(perCombo, id, component, ref.value);
+      out[`${p}.combos`] = (tied.length > 0 ? tied : [ref.comboId]).join(',');
+    }
+  }
+}
+
+/** The member-end magnitude each governing component is the maximum of (`governing-case.ts`). */
+const GOVERNING_METRIC: Record<string, (f: Record<string, number>) => number> = {
+  momentZ: (f) => Math.max(Math.abs(f.mzStart), Math.abs(f.mzEnd)),
+  shearY: (f) => Math.max(Math.abs(f.vyStart), Math.abs(f.vyEnd)),
+  momentY: (f) => Math.max(Math.abs(f.myStart), Math.abs(f.myEnd)),
+  shearZ: (f) => Math.max(Math.abs(f.vzStart), Math.abs(f.vzEnd)),
+  torsion: (f) => Math.max(Math.abs(f.mxStart), Math.abs(f.mxEnd)),
+  axial: (f) => Math.max(Math.abs(f.nStart), Math.abs(f.nEnd)),
+  // 2D
+  moment: (f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd)),
+  shear: (f) => Math.max(Math.abs(f.vStart), Math.abs(f.vEnd)),
+};
+
+/** Every combination whose value for this member and component equals the governing one, sorted. */
+function governingTies(perCombo: Map<number, { elementForces: unknown[] }>, elementId: number, component: string, value: number): number[] {
+  const metric = GOVERNING_METRIC[component];
+  if (!metric) return [];
+  const out: number[] = [];
+  for (const [comboId, r] of perCombo) {
+    const f = (r.elementForces as Array<Record<string, number>>).find((x) => x.elementId === elementId);
+    if (f && Math.abs(metric(f) - value) <= 1e-9 * Math.max(Math.abs(value), 1e-12)) out.push(comboId);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** The station positions are each member's geometry, not a result. */
+const ENVELOPE_SKIP = new Set(['tPositions', 'kind']);
+
 function captureResults(out: Values): void {
   if (uiStore.is3DWorkspace) {
     analysis('base', resultsStore.singleResults3D ?? resultsStore.results3D, out);
     for (const [id, r] of resultsStore.perCase3D) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo3D) analysis(`combo[${id}]`, r, out);
     if (resultsStore.unstableCombinations3D.length) out['unstableCombinations'] = resultsStore.unstableCombinations3D.join(',');
+    captureEnvelope(resultsStore.envelope3D, resultsStore.governing3D as Map<number, unknown>, resultsStore.perCombo3D as never, out);
   } else {
     analysis('base', resultsStore.singleResults ?? resultsStore.results, out);
     for (const [id, r] of resultsStore.perCase) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo) analysis(`combo[${id}]`, r, out);
+    captureEnvelope(resultsStore.envelope, resultsStore.governing2D as Map<number, unknown>, resultsStore.perCombo as never, out);
   }
 }
 

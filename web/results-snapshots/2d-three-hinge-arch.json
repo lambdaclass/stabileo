@@ -1,7 +1,7 @@
 {
   "case": "2d-three-hinge-arch",
   "covers": "2D three-hinged arch",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "warning:high_diagonal_ratio warning:instability_risk",

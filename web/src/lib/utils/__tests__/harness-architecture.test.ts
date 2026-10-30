@@ -26,6 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CORPUS } from '../../results-snapshot/corpus';
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const CONFIG = readFileSync(resolve(WEB_ROOT, 'vite.config.ts'), 'utf8');
@@ -137,18 +138,23 @@ describe('Vitest harness architecture', () => {
     expect(results).not.toBeNull();
     expect(results![1]).toMatch(/include: RESULTS_SNAPSHOT_TESTS/);
     expect(RESULTS_SNAPSHOT_TESTS).toEqual(['src/lib/results-snapshot/__tests__/**']);
-    expect(files.filter(inResultsPass).length).toBeGreaterThan(0);
+    // Exactly one entry point per corpus group, beside the coverage and negative tests: a group
+    // whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
+    const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
+    expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
+      'coverage.test.ts', 'negative.test.ts', ...groups.map((g) => `snapshot-${g}.test.ts`),
+    ].sort());
   });
 
   it('the project-scale timing budgets run outside the parallel unit pool', () => {
     expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
   });
 
-  it('`npm test` runs BOTH passes and propagates either failure', () => {
+  it('`npm test` runs ALL THREE passes and propagates any failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);
     expect(projects).toEqual(['unit', 'build', 'results']);
-    // Both passes run before the verdict, so one broken pass cannot hide the other.
+    // Every pass runs before the verdict, so one broken pass cannot hide another.
     expect(RUNNER).toMatch(/process\.exit\(1\)/);
     expect(RUNNER).toMatch(/results\.filter\(\(r\) => r\.code !== 0\)/);
   });
