@@ -40,6 +40,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   let assessment = $state.raw<RecheckAssessment | null>(null);
   /** The stamp the assessment was made against: a solve replaces `stamp` and ends staleness. */
   let assessedStampId = $state<string | null>(null);
+  let currentAssessmentStampId = $state<string | null>(null);
   let acknowledged = $state.raw<ReadonlySet<string>>(new Set());
 
   let outstanding = $state.raw<PendingRecheckNotice | undefined>(undefined);
@@ -51,7 +52,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   // Ended by the static solve: a modal run alone leaves the results the older version's.
   const stale = (): boolean =>
     !!assessment && (pending || assessment.changes.length > 0)
-    && (stamp === null || stamp.id === assessedStampId || !stamp.analyses.includes('linear'));
+    && (stamp === null || stamp.id === assessedStampId || stamp.id === currentAssessmentStampId || !stamp.analyses.includes('linear'));
 
   return {
     get pending() { return pending; },
@@ -83,7 +84,9 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       const savedNotice = snapshot.pendingRecheckNotice;
       const original = readStamp(savedNotice?.stamp) ?? stored;
       assessedStampId = original.id;
-      pending = original.resultsVersion < RESULTS_VERSION;
+      currentAssessmentStampId = null;
+      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION;
+      const currentFeatures = modelFeatures(snapshot, { analysisMode, analysesRun: stored.resultsVersion > 0 ? stored.analyses : null });
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
       outstanding = pending ? {
@@ -104,7 +107,21 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
         try {
           const { assessProject } = await load();
           if (request !== generation) return;
-          assessment = assessProject({}, original, analysisMode, undefined, features);
+          const preserved = assessProject({}, original, analysisMode, undefined, features);
+          const current = assessProject({}, stored, analysisMode, undefined, currentFeatures);
+          currentAssessmentStampId = current.changes.length ? stored.id : null;
+          assessment = {
+            ...preserved,
+            newer: current.newer,
+            changes: [...new Map([...preserved.changes, ...current.changes].map(c => [c.id, c])).values()]
+              .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
+          };
+          // An empty assessment has no notice to preserve. Never let its frozen
+          // features suppress changes applicable to a later edited snapshot.
+          if (!assessment.changes.length) outstanding = undefined;
+          else if (outstanding && current.changes.length) {
+            outstanding = { ...outstanding, features: [...new Set([...features, ...currentFeatures])] };
+          }
           pending = false;
           retry = () => Promise.resolve();
         } catch {
@@ -124,6 +141,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       stamp = freshStamp();
       assessment = null;
       assessedStampId = null;
+      currentAssessmentStampId = null;
     },
 
     /** An analysis of `kind` just published results in this build. */

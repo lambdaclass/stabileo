@@ -178,3 +178,52 @@ it('preserves original changes after failed download, automatic solve and save/r
   expect(restored.captureNotice()).toBeUndefined();
   expect(restored.noticeOpen).toBe(false);
 });
+
+
+describe('edited projects with older provenance', () => {
+  const frame = () => ({
+    analysisMode: 'pro',
+    materials: [[1, STEEL]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+  }) as import('../../provenance/model-features').FeatureSnapshot;
+  const oldStamp = () => ({ ...createRecheckStore().capture()!, resultsVersion: 4, analyses: ['linear' as const] });
+
+  it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
+    const store = createRecheckStore();
+    const snapshot = frame();
+    store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.changes).toEqual([]);
+    expect(store.noticeOpen).toBe(false);
+    expect(store.captureNotice()).toBeUndefined();
+
+    snapshot.solidShells = [[1, {}]];
+    const saved = JSON.stringify({ ...snapshot, solvedWith: store.capture(), pendingRecheckNotice: store.captureNotice() });
+    const restored = createRecheckStore();
+    restored.openProject(JSON.parse(saved), 'pro');
+    await vi.waitFor(() => expect(restored.pending).toBe(false));
+    expect(restored.assessment?.changes.map(c => c.id)).toContain('solid-shell-local-stress-axes');
+    expect(restored.noticeOpen).toBe(true);
+    expect(restored.stale).toBe(true);
+  });
+
+  it.each([false, true])('assesses new shells independently of a saved notice (unread changes: %s)', async unread => {
+    const original = { ...oldStamp(), resultsVersion: unread ? 0 : 4 };
+    const store = createRecheckStore();
+    store.openProject({
+      ...frame(), solidShells: [[1, {}]], solvedWith: oldStamp(),
+      pendingRecheckNotice: { stamp: original, features: unread ? ['steelCirsoc301', 'steelTensionWithoutConnection'] : ['frameMembers'] },
+    }, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    const ids = store.assessment!.changes.map(c => c.id);
+    expect(ids).toContain('solid-shell-local-stress-axes');
+    if (unread) expect(ids).toContain('cirsoc301-tension-needs-connection');
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(store.noticeOpen).toBe(true);
+    expect(store.stale).toBe(true);
+    expect(store.captureNotice()?.features).toContain('shells');
+    store.noteSolved('linear');
+    expect(store.stale).toBe(false);
+    expect(store.noticeOpen).toBe(true);
+  });
+});
