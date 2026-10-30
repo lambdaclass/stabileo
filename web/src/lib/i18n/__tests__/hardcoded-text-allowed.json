@@ -39,6 +39,6 @@
   "components/tables/LoadsTable.svelte": 6,
   "components/tables/ResultsTable.svelte": 10,
   "components/tables/SupportsTable.svelte": 3,
-  "components/toolbar/ToolbarAdvanced.svelte": 3,
+  "components/toolbar/ToolbarAdvanced.svelte": 2,
   "components/toolbar/ToolbarAiReview.svelte": 1
 }

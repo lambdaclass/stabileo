@@ -80,6 +80,7 @@
   import { toolStretch } from '../lib/model/loads/load-stretch';
   import type { InfluenceLineResult } from '../lib/store/model.svelte';
   import { resolveNodePlacement2D, type NodePlacement } from '../lib/viewport/node-placement';
+  import { modeDrawGeometry } from '../lib/engine/second-order/mode-geometry';
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -1144,8 +1145,10 @@
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          ...modeDrawGeometry(resultsStore.bucklingResult, {
+            nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
+            elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          }),
         };
         drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
       }
