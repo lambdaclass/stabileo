@@ -29,7 +29,7 @@ def main(command):
         # Preserve authentication/settings without granting write access to shared
         # config. Dereference links so config writes cannot escape the sandbox.
         original_home = Path.home()
-        for name in ('.kimi', '.grok'):
+        for name in ('.kimi', '.kimi-code', '.grok'):
             source = original_home / name
             if source.is_dir():
                 shutil.copytree(source, home / name)
