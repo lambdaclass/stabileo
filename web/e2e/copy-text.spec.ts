@@ -9,7 +9,7 @@ test.describe('@smoke copying text', () => {
   test('selected text reaches the clipboard with the keyboard', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     await page.evaluate(() => navigator.clipboard.writeText('nothing'));
     const picked = await page.evaluate(() => {

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { citation } from './catalogue';
+  import { reviewLabel } from './reviews';
   import { articleStrings as shellStrings } from './shell1985/article';
   import { archStrings } from './biggins2026/strings';
   /**
@@ -40,7 +42,6 @@
   const shown = $derived(catalogue.filter((p) => (!field || p.area === field) && (!status || p.status === status)));
   let thumbFailed = $state<Record<string, boolean>>({});
 
-  const authors = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} et al.` : list.join(', '));
   const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
   const firstVersion = $derived(({ en: 'First version', es: 'Primera versión', pt: 'Primeira versão', de: 'Erste Version', fr: 'Première version', tr: 'İlk sürüm' } as Record<string, string>)[publicI18n.locale] ?? 'First version');
@@ -86,10 +87,10 @@
             {/if}
           </PublicLink>
           <div class="rs-g-runbody">
-            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion} · {reviewLabel(p.id, publicI18n.locale)}</span></div>
             <h3><PublicLink to={e.path}>{e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}</PublicLink></h3>
-            <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.stage : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.stage : e.paperId === "cqc-1981" ? cqc.stage : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
-            <p class="rs-g-by">{p.crossref.title}. {authors(p.crossref.authors)}, <em>{p.crossref.venue}</em>, {p.crossref.year}.</p>
+            <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
+            <p class="rs-g-by">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
@@ -132,7 +133,7 @@
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{p.id === "newmark-1959" ? nm.stage : statusName(p.status)}</span></div>
             <h3>{p.crossref.title}</h3>
-            <p class="rs-g-by">{authors(p.crossref.authors)} · <em>{p.crossref.venue}</em> · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
+            <p class="rs-g-by">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
               <p class="rs-g-sum">{p.summary}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
@@ -223,7 +224,7 @@
   .rs-g-runcard img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
   }
   .rs-g-thumb-icon {
@@ -232,11 +233,15 @@
     height: 100%;
   }
   .rs-g-runbody {
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 1.25rem 1.25rem 1.25rem 0.25rem;
     color: var(--fg);
   }
   @media (max-width: 52rem) {
     .rs-g-runbody {
+    min-width: 0;
+    overflow-wrap: anywhere;
       padding: 0 1.25rem 1.25rem;
     }
   }
@@ -274,7 +279,8 @@
   }
   .rs-g-meta {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 1rem;
     font: 500 var(--rs-micro) var(--lp-mono);
     letter-spacing: 0.08em;
@@ -285,7 +291,9 @@
     border: 1px solid var(--hair);
     border-radius: 3px;
     padding: 0 0.4rem;
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
   .rs-g-numerically-validated,
   .rs-g-interactive,
@@ -337,6 +345,7 @@
     min-width: 4rem;
   }
   .rs-g-filters button {
+    min-height: 44px;
     font: 13px var(--lp-sans);
     border: 1px solid var(--hair);
     background: transparent;
@@ -355,7 +364,7 @@
   }
   .rs-g-card {
     display: grid;
-    grid-template-columns: 28px 1fr;
+    grid-template-columns: 28px minmax(0, 1fr);
     gap: 0.75rem;
     border-bottom: 1px solid var(--card-hair);
     padding: 0.6rem 0.25rem;

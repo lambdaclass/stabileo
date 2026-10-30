@@ -34,9 +34,9 @@ async function openBasic(page: Page) {
     } catch { /* private mode */ }
   });
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 }
 
@@ -74,7 +74,7 @@ test.describe('@smoke loads taken from the model', () => {
       await openBasic(page);
       await loadModel(page, 'two-story-frame');
       await page.getByTestId('rb-cmd-solve').click();
-      await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 60_000 });
+      await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 45_000 });
 
       await openCalculator(page);
       await page.getByTestId('flex-case').selectOption('FCR');
@@ -148,7 +148,7 @@ test.describe('@smoke loads taken from the model', () => {
     await openBasic(page);
     await loadModel(page, 'two-story-frame');
     await page.getByTestId('rb-cmd-solve').click();
-    await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 60_000 });
+    await expect(page.getByTestId('rb-cmd-stress')).toBeEnabled({ timeout: 45_000 });
 
     await openCalculator(page);
     await page.getByTestId('flex-pick-loads').click();
