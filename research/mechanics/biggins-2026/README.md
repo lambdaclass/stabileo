@@ -14,7 +14,7 @@ active material calibration, passive boundary-driven paths, and dynamics are exc
 
 The engine is an unchanged library dependency. `solve_buckling_2d` supplies 16 Euler
 modes of a flat-clamped beam with 64 frame elements. Unit length and EI=1; a uniform
-thermal prestress supplies N=-1, so load factors equal the dimensionless forces f.
+thermal prestress supplies compressive N=1, so load factors equal the dimensionless forces f.
 MPa-to-kN conversion is accounted for in E=1000 MPa, A=0.1 and I=1e-6.
 
 Mode slopes are normalized to half their squared integral = 1 using exact cubic
@@ -59,22 +59,72 @@ only for the one 70% threshold, not an entire published figure or laboratory dat
 
 ## Reproduce
 
-From the repository root inside `nix develop`:
+From the repository root:
 
-```
-CARGO_TARGET_DIR=/private/tmp/claude-501/codex-arches-target cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
-CARGO_TARGET_DIR=/private/tmp/claude-501/codex-arches-target cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
+```sh
+make test.research.biggins
+make evidence.research.biggins
+make wasm.research.biggins
 ```
 
-`validate --write` regenerates evidence only after checks pass. `replay` prints the
-same solver's default run; the tests compare every saved nodal height. `build.sh`
+`validate --write` regenerates `VALIDATION.json` and
+`reference-results/published_comparison.json` only after checks pass. The latter
+records the published 70% threshold comparison and is read by the web evidence test.
+`replay` prints the same solver's default run, saved by the evidence target in
+`reference-results/replay.json`; the tests compare every saved nodal height. `build.sh`
 creates the separate research WASM with the production buckling dependency, retaining
 only the research export. It is invoked by `make research.wasm` after the shared viewer.
 Offline Research CI runs these checks; online catalogue verification is separate.
 
-Open questions: inspect experimental snap traces from the large archive; assess offset
-patterns and fully nonlinear paths when a suitable engine API exists. These are outside
-this centered shallow-arch reproduction. The requested engine-benchmarks remote-tracking
-branch was absent in this checkout; its implementation could not be read with git show.
+## Open questions
 
-The gallery thumbnail plots three equilibria from replay.json (steps 0, 47 and 60); it is not a paper figure or a browser screenshot. Chromium launch is unavailable in the agent sandbox; the maintainer should run web/e2e/research-arches.spec.ts and may regenerate the thumbnail through scripts/research-thumbs.mjs.
+Inspect experimental snap traces from the large archive; assess offset patterns and
+fully nonlinear paths when a suitable engine API exists. These are outside this
+centered shallow-arch reproduction.
+
+## Review round 2 — 2026-10-30
+
+Reviewers: Kimi, Codex, Claude. All confirmed should-fix items are covered by the
+critical-pair, invariant, evidence, display-state, localization and responsive tests.
+The live page compares the single published 70% threshold and 31 regenerated Zenodo
+software outputs; no experimental or full-figure comparison is claimed. There is no
+Biggins entry in the roadmap's “Open items shown on live research pages” table and no
+unanswered-question section on the page.
+
+The replay has 62 states: steps 48 and 49 are the upward and downward equilibria at
+exactly the same critical α. Each state includes nodal slopes for independent
+three-point Gauss integration of ½∫w′² = ε. Tests also check clamped slopes and heights,
+the spectral constraint residual, analytical initial height, critical force, and all
+four parameter-domain corners. The engine benchmark checks all 31 thresholds against
+the same published replay; production numerics are unchanged.
+
+## Tolerance budget
+
+- Published threshold: absolute tolerance **0.005**, half the last printed digit of
+  21.52. No additional discretization allowance is added; the observed error is
+  0.0026961 and fits within the rounding budget.
+- Zenodo software: relative tolerance **0.003**. The default optimizer and rectangular
+  quadrature have a measured maximum discrepancy of 0.0018207; the independent
+  mesh/mode sensitivity is below 0.0004000. Their sum is below 0.003. This is a
+  reference-software regression budget, not an experimental uncertainty estimate.
+- Mesh/mode refinement: relative tolerance **0.001**, one third of the software
+  comparison budget, limiting discretization to 0.1%; the measured maximum over all
+  31 widths is 0.00039996 for 64/16 versus 96/24 elements/modes.
+- Euler loads: relative tolerance **1e-5**, a separate analytical accuracy target
+  100 times tighter than the refinement budget. The 64-element errors are
+  1.29e-7 and 5.40e-7; analytic references are 4π² and 80.7629142257.
+- The authors’ software gives 21.5141 at 70%, outside the rounding interval of the
+  published 21.52. The overlay is explicitly labeled as software output and the
+  page explains its optimizer/quadrature irregularities.
+
+The gallery thumbnail is generated from our replay, not a paper figure.
+Responsive Playwright coverage spans 360, 390, 844×390 and 810 pixels in six locales;
+it requires an environment where Playwright can run.
+
+Verification on 2026-10-30: 195 Vitest tests across 42 research/i18n files passed;
+4 native research tests, both complete evidence-file comparisons, the engine arch
+benchmark, and research WASM replay parity passed. Typecheck reports 247 existing
+errors and no new errors. Svelte diagnostics contain no errors in the changed
+components. Offline catalogue validation: 48 papers, zero problems. Playwright was
+not run in this environment; the responsive and worker-outcome cases are authored
+for execution in browser CI.

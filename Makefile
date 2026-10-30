@@ -578,3 +578,17 @@ check:
 clean:
 	$(NIX_RUN) cargo clean
 	rm -rf web/dist web/node_modules/.vite backend/_build backend/deps .mix .hex
+
+.PHONY: test.research.biggins evidence.research.biggins wasm.research.biggins
+test.research.biggins:
+	$(NIX_RUN) cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation research_benchmarks::arches::
+
+evidence.research.biggins:
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin replay > research/mechanics/biggins-2026/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("research/mechanics/biggins-2026/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]["replay.json"]=hashlib.sha256(p.with_name("replay.json").read_bytes()).hexdigest(); p.write_text(json.dumps(d,indent=2)+"\n")'
+
+wasm.research.biggins:
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
