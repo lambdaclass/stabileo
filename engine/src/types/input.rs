@@ -224,10 +224,10 @@ pub struct SolverOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverInput {
+pub struct SolverInput<M = SolverMaterial, S = SolverSection> {
     pub nodes: HashMap<String, SolverNode>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection>,
+    pub materials: HashMap<String, M>,
+    pub sections: HashMap<String, S>,
     pub elements: HashMap<String, SolverElement>,
     pub supports: HashMap<String, SolverSupport>,
     pub loads: Vec<SolverLoad>,

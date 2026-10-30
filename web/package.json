@@ -27,6 +27,7 @@
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
     "typecheck": "node scripts/typecheck.mjs",
     "typecheck:baseline": "node scripts/typecheck.mjs --write",
+    "test:units:types": "tsc -p tsconfig.units.json",
     "test:unit": "vitest run --project unit",
     "test:build": "vitest run --project build",
     "test:results": "vitest run --project results",
