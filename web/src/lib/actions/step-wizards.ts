@@ -14,6 +14,7 @@ import { solveDetailed } from '../engine/solver-detailed';
 import { solveDetailed3D } from '../engine/solver-detailed-3d';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
 import { solveForceMethod3D } from '../engine/force-method/solve-3d';
+import { fmChoice } from '../store/fm-choice.svelte';
 
 function blocked(): boolean {
   if (modelStore.hasSlidingJoints()) { uiStore.toast(t('advanced.slidingUnsupported'), 'error'); return true; }
@@ -75,6 +76,15 @@ export function openStiffnessWizard(): boolean {
   }
 }
 
+/** The reader's fundamental and axial choice, while the model is the one they were made on. */
+function solvePlaneWithChoice(input: Parameters<typeof solveForceMethod>[0]) {
+  const opts = fmChoice.optionsFor(modelStore.modelVersion);
+  try { return solveForceMethod(input, opts); } catch {
+    fmChoice.reset(modelStore.modelVersion);
+    return solveForceMethod(input, { axial: opts.axial });
+  }
+}
+
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
 export function openFlexibilityWizard(): boolean {
   if (blocked()) return false;
@@ -83,7 +93,7 @@ export function openFlexibilityWizard(): boolean {
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
   try {
-    const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
+    const result = threeD ? solveForceMethod3D(input as never) : solvePlaneWithChoice(input as never);
     dsmStepsStore.close();
     explainedSteps.leaveForWizard();
     fmStepsStore.setResult(result);

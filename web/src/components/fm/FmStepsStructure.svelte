@@ -14,6 +14,10 @@
   import FmSketch from './FmSketch.svelte';
   import FmDiagramPicker from './FmDiagramPicker.svelte';
   import { redundantText, xName, num, componentName, sub } from './fm-text';
+  import FmFundamentalPicker from './FmFundamentalPicker.svelte';
+  import { fmChoice } from '../../lib/store/fm-choice.svelte';
+  import StepBlocks from '../steps/StepBlocks.svelte';
+  import { ghBlocks } from '../../lib/engine/steps/gh-blocks';
 
   let { r, step }: { r: ForceMethodResult; step: number } = $props();
 
@@ -61,29 +65,38 @@
 {/snippet}
 
 {#if step === 1}
-  <p class="fm-exp">{@html t('fm.s1.explanation')}</p>
-  <table class="fm-table fm-count" data-testid="fm-count">
-    <tbody>
-      <tr><th>{t('fm.s1.reactions')}</th><td>{c.reactions}</td></tr>
-      {#if c.springs > 0}<tr><th>{t('fm.s1.springs')}</th><td>{c.springs}</td></tr>{/if}
-      <tr><th>{t('fm.s1.bars')}</th><td>{c.barUnknowns}</td></tr>
-      <tr class="fm-sum"><th>Σ</th><td>{unknowns}</td></tr>
-      <tr><th>{t('fm.s1.equations')}</th><td>{c.equations}</td></tr>
-    </tbody>
-  </table>
-  <p class="fm-note">{t(is3D ? 'fm.s1.barsNote3d' : 'fm.s1.barsNote')}</p>
-  <p class="fm-note">{t(is3D ? 'fm.s1.equationsNote3d' : 'fm.s1.equationsNote')}</p>
-  <p class="fm-result" data-testid="fm-gh">GH = {unknowns} − {c.equations} = <strong>{c.gh}</strong></p>
-  <FmSketch geometry={r.original} />
-  <p class="fm-exp">{r.isostatic ? t('fm.s1.iso') : t('fm.s1.hyper').replaceAll('{gh}', String(c.gh))}</p>
+  {#if r.gh && !is3D}
+    <div data-testid="fm-gh-doc"><StepBlocks blocks={ghBlocks(r.gh, 'fm')} narrow /></div>
+    <p class="fm-result" data-testid="fm-gh">GH = <strong>{c.gh}</strong></p>
+    <FmSketch geometry={r.original} />
+  {:else}
+    <p class="fm-exp">{@html t('fm.s1.explanation')}</p>
+    <table class="fm-table fm-count" data-testid="fm-count">
+      <tbody>
+        <tr><th>{t('fm.s1.reactions')}</th><td>{c.reactions}</td></tr>
+        {#if c.springs > 0}<tr><th>{t('fm.s1.springs')}</th><td>{c.springs}</td></tr>{/if}
+        <tr><th>{t('fm.s1.bars')}</th><td>{c.barUnknowns}</td></tr>
+        <tr class="fm-sum"><th>Σ</th><td>{unknowns}</td></tr>
+        <tr><th>{t('fm.s1.equations')}</th><td>{c.equations}</td></tr>
+      </tbody>
+    </table>
+    <p class="fm-note">{t(is3D ? 'fm.s1.barsNote3d' : 'fm.s1.barsNote')}</p>
+    <p class="fm-note">{t(is3D ? 'fm.s1.equationsNote3d' : 'fm.s1.equationsNote')}</p>
+    <p class="fm-result" data-testid="fm-gh">GH = {unknowns} − {c.equations} = <strong>{c.gh}</strong></p>
+    <FmSketch geometry={r.original} />
+    <p class="fm-exp">{r.isostatic ? t('fm.s1.iso') : t('fm.s1.hyper').replaceAll('{gh}', String(c.gh))}</p>
+  {/if}
 {:else if step === 2}
   <p class="fm-exp">{@html t('fm.s2.explanation')}</p>
+  {#if !r.isostatic && !is3D}<FmFundamentalPicker {r} />{/if}
   {#if r.isostatic}
     <p class="fm-exp fm-iso" data-testid="fm-iso-note">{t('fm.iso.s2')}</p>
     <FmSketch geometry={r.original} testId="fm-primary" />
   {:else}
-    <h5 class="fm-h">{t('fm.s2.original')}</h5>
-    <FmSketch geometry={r.original} />
+    {#if is3D || fmChoice.mode !== 'manual'}
+      <h5 class="fm-h">{t('fm.s2.original')}</h5>
+      <FmSketch geometry={r.original} />
+    {/if}
     <h5 class="fm-h">{t('fm.s2.primary')}</h5>
     <FmSketch geometry={r.primary} redundants={r.redundants} testId="fm-primary" />
     <h5 class="fm-h">{t('fm.s2.list')}</h5>
@@ -95,7 +108,7 @@
         </li>
       {/each}
     </ol>
-    <p class="fm-note">{t('fm.s2.why')}</p>
+    <p class="fm-note">{t(r.choice === 'manual' ? 'course.statics.fm.fund.why' : 'fm.s2.why')}</p>
   {/if}
 {:else if step === 3}
   <p class="fm-exp">{t('fm.s3.explanation')}</p>
