@@ -54,3 +54,25 @@ it('preserves topology article numbers and translates every research string', ()
   }
   expect(topoptStrings('de')).toBe(english);
 });
+
+it('formats numbers in all six public locales', async () => {
+  const { researchLocale } = await import('../i18n');
+  const original = publicI18n.locale;
+  try {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      setLocale(locale);
+      expect(researchLocale()).toBe(locale);
+      expect(new Intl.NumberFormat(researchLocale()).format(2.4313)).toBe(new Intl.NumberFormat(locale).format(2.4313));
+    }
+  } finally { setLocale(original); }
+});
+
+it('prerenders research only in its three translated locales', async () => {
+  const { supportsResearchRoute } = await import('../locales');
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const path of ['/research', '/research/stability/ferrari-sigmund-2025']) {
+      expect(supportsResearchRoute(path, locale)).toBe(['en', 'es', 'pt'].includes(locale));
+    }
+    expect(supportsResearchRoute('/tools', locale)).toBe(true);
+  }
+});

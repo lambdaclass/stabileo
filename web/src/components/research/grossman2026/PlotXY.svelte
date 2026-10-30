@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { researchLocale } from '../i18n';
   import { axis } from './plot-axis';
   /**
    * A small SVG chart: lines, bands, points with optional vertical error bars, a highlighted
@@ -48,7 +49,7 @@
   const Y = $derived(yDomain ? axis(yDomain[0], yDomain[1], true) : axis(Math.min(...ys), Math.max(...ys), false));
   const sx = (x: number) => M.l + ((x - X.domain[0]) / (X.domain[1] - X.domain[0])) * (width - M.l - M.r);
   const sy = (y: number) => M.t + (1 - (y - Y.domain[0]) / (Y.domain[1] - Y.domain[0])) * (height - M.t - M.b);
-  const fmt = (v: number, d: number) => (Math.abs(v) < 1e-12 ? '0' : v.toFixed(d).replace('-', '−'));
+  const fmt = (v: number, d: number) => (Math.abs(v) < 1e-12 ? '0' : new Intl.NumberFormat(researchLocale(), { minimumFractionDigits: d, maximumFractionDigits: d }).format(v).replace('-', '−'));
   const path = (pts: { x: number; y: number }[]) =>
     pts
       .filter((p) => Number.isFinite(p.y))

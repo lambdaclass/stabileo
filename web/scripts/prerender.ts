@@ -1,3 +1,4 @@
+import { supportsResearchRoute } from '../src/components/research/locales';
 /**
  * Write real HTML for every public route, so the site can be indexed.
  *
@@ -356,7 +357,7 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    const routes = LOCALES.flatMap(locale => paths.map(path => ({
+    const routes = LOCALES.flatMap(locale => paths.filter(path => supportsResearchRoute(path, locale)).map(path => ({
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,

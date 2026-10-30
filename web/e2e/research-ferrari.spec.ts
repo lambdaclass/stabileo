@@ -29,7 +29,7 @@ test.describe('Ferrari research', () => {
     await expectFrame(page, replay.frames.at(-1)!.displacement);
     await slider.press('Home');
     await expectFrame(page, replay.frames[0].displacement);
-    await expect(page.getByText('Koiter comparison pending', { exact: true }).last()).toBeVisible();
+    await expect(page.getByTestId('ferrari-reference')).toContainText('2.4313');
     await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
     await expect(page.getByTestId('ferrari-source')).toContainText('Cached result', { timeout: 90_000 });
     await expect(page.getByTestId('ferrari-buckling')).toContainText('2.431356');
@@ -41,7 +41,37 @@ test.describe('Ferrari research', () => {
     await page.getByRole('button', { name: 'Restart replay', exact: true }).click();
     await expect(page.getByTestId('ferrari-source')).toContainText('Precomputed replay');
   });
-  for (const [width, height] of [[360, 800], [390, 844], [810, 1080]]) {
+  test('@smoke preserves slider selection while live frames arrive', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/en/research/stability/ferrari-sigmund-2025/');
+    await expectFrame(page, replay.frames.at(-1)!.displacement);
+    // A controlled worker keeps this race deterministic, independent of solver speed.
+    await page.evaluate(() => {
+      const RealWorker = window.Worker;
+      window.Worker = class extends RealWorker {
+        constructor(url: string | URL, options?: WorkerOptions) {
+          super(url, options);
+          this.terminate();
+          (window as unknown as { sendFerrari: (data: unknown) => void }).sendFerrari =
+            data => this.dispatchEvent(new MessageEvent('message', { data }));
+        }
+        postMessage() {}
+      };
+    });
+    await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
+    const send = (data: unknown) => page.evaluate(data =>
+      (window as unknown as { sendFerrari: (data: unknown) => void }).sendFerrari(data), data);
+    await send({ kind: 'buckling', lambda: replay.lambda });
+    await send({ kind: 'frame', frame: replay.frames[1] });
+    await expect(page.getByRole('slider')).toHaveValue('1');
+    await page.getByRole('slider').press('Home');
+    await send({ kind: 'frame', frame: replay.frames[2] });
+    await expect(page.getByRole('slider')).toHaveAttribute('max', '2');
+    await expect(page.getByRole('slider')).toHaveValue('0');
+    await expectFrame(page, replay.frames[0].displacement);
+    await send({ kind: 'done' });
+  });
+  for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {
     for (const locale of ['en', 'es', 'pt']) {
       test(`@smoke ${locale} layout ${width}x${height}`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height });

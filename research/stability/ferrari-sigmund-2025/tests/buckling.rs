@@ -72,3 +72,49 @@ fn scaled_linear_solution_is_not_accepted_as_a_nonlinear_critical_state() {
         "this shortcut must not silently become a validated Koiter calculation"
     );
 }
+
+#[test]
+fn ferrari_model_matches_published_parameters() {
+    let paper: serde_json::Value =
+        serde_json::from_str(include_str!("../reference-results/paper_values.json")).unwrap();
+    let p = &paper["parameters"];
+    for n in [2, 4, 10, 20, 40] {
+        let e = p["eccentricity_m"].as_f64().unwrap();
+        let m = serde_json::to_value(roorda(n, e)).unwrap();
+        let length = p["length_m"].as_f64().unwrap();
+        assert_eq!(m["nodes"].as_object().unwrap().len(), 2 * n + 1);
+        assert_eq!(m["elements"].as_object().unwrap().len(), 2 * n);
+        for i in 0..=2 * n {
+            let node = &m["nodes"][(i + 1).to_string()];
+            let (x, z) = if i <= n {
+                (0., length * i as f64 / n as f64)
+            } else {
+                (length * (i - n) as f64 / n as f64, length)
+            };
+            assert_eq!(node["x"], x);
+            assert_eq!(node["z"], z);
+        }
+        assert_eq!(m["materials"]["1"]["e"].as_f64(), p["young_MPa"].as_f64());
+        assert_eq!(m["sections"]["1"]["a"], p["area_m2"]);
+        assert_eq!(m["sections"]["1"]["iz"], p["inertia_m4"]);
+        assert_eq!(m["supports"].as_object().unwrap().len(), 2);
+        for (id, node) in [(1, 1), (2, 2 * n + 1)] {
+            assert_eq!(m["supports"][id.to_string()]["nodeId"], node);
+            assert_eq!(m["supports"][id.to_string()]["type"], "pinned");
+        }
+        for i in 1..=2 * n {
+            let el = &m["elements"][i.to_string()];
+            assert_eq!(el["nodeI"], i);
+            assert_eq!(el["nodeJ"], i + 1);
+            assert_eq!(el["hingeStart"], false);
+            assert_eq!(el["hingeEnd"], false);
+        }
+        let force = p["corner_force_N"].as_f64().unwrap() / 1000.;
+        assert_eq!(m["loads"].as_array().unwrap().len(), 1);
+        let load = &m["loads"][0]["data"];
+        assert_eq!(load["nodeId"], n + 1);
+        assert_eq!(load["fx"], 0.);
+        assert_eq!(load["fz"], force);
+        assert_eq!(load["my"], -force * e);
+    }
+}
