@@ -549,6 +549,28 @@ claim stays true, isolation holds, editor data stays safe, and CI stays green.
 engine-benchmark pages run in required CI and match the native tests; at least one paper's authors
 have reviewed their page.
 
+#### Open items shown on live research pages (2026-10-30)
+
+Live pages must not show unanswered questions or "pending" placeholders. Each item below is either
+done (the comparison is made and checked by a test) or the page states plainly what was compared
+instead. "Questions for the authors" sections move to the paper's README and to direct email to the
+authors; they come off the pages.
+
+| Page | What the page shows today | What to do |
+|---|---|---|
+| Ferrari & Sigmund 2025 | "Koiter comparison pending" against the author's code and against the paper's figures; a "Questions for the authors" section (§2.1.2 input, mesh, beam formulation, ξ normalisation, α/β/arc-length arrays, coefficient error percentages) | Implement the Koiter comparison (or reproduce α, β from the paper's equations), digitise the published figure, then remove the pending badges and the questions |
+| Pastrana et al. 2026 | "Questions for the authors" (commit and environment, exact Fig. 2 inputs, a cable-net benchmark); published figures "not compared: full text not accessible" | Get the full text; compare Fig. 2; move the questions to the README/email |
+| Fairclough et al. 2026 | "Questions for the authors" (Table 1 inputs, solver tolerances, open-solver configuration, section export) | Confirm Table 1 inputs from the paper and the authors' data; remove the questions |
+| Grossman & Boudaoud 2026 | "Terminable workers and precomputed replay are pending"; large networks can block the page | Move live solves to a terminable worker and add the precomputed replay |
+| MacNeal–Harder 1985 | "Numerical table provenance pending" | Check every reference value against the 1985 tables (page and table locators) |
+| Shell obstacle course | "Proposed: numerical values and exact paper table/page locators have not been checked" | Same: locators for every reference, two sources where possible |
+| Mattiasson 1981 | "The numerical transcription has not been checked against the paper text. Status: proposed." | Check the transcription against the paper (we have independent SciPy references already) |
+| Lee frame 1968 | First limit load 1.83 kN "provisional: a precise numerical locator has not been verified" | Verify the locator or compute the limit precisely; second reference |
+| DaDeppo 1975 | Reference quoted second-hand (Schmidt 2000), original table not inspected | Inspect the original 1975 table |
+| Andreassen et al. 2011 | No published compliance values or digitised figure compared | Compare with the paper's published values/figure |
+| Shauer 2025, Newmark 1959, Riks/Crisfield, plastic collapse | "Not compared: the full text was not accessible to us" | Get the full texts (library access), compare the published numbers, or state the actual reference used |
+| CQC 1981 | Published comparison replaced by a limitations note | Compare with the paper's example values |
+
 ### SEO and positioning (2026-10-29)
 
 **Pricing principle (decided 2026-10-29):**
