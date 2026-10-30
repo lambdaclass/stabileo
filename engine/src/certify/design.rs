@@ -26,7 +26,9 @@ use super::interval::Interval;
 use super::real::{branch, Real, Tri};
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
-use crate::postprocess::ec2_check::{ec2_flexure, ec2_shear, Ec2DesignForces, Ec2Flexure, Ec2MemberData, Ec2Shear};
+use crate::postprocess::ec2_check::{
+    ec2_flexure, ec2_flexure_valid, ec2_shear, Ec2DesignForces, Ec2Flexure, Ec2MemberData, Ec2Shear,
+};
 use crate::postprocess::ec3_check::{
     ec3_capacities, ec3_cm_inputs_valid, ec3_interaction, Ec3Capacities, Ec3DesignForces, Ec3MemberData,
 };
@@ -484,13 +486,18 @@ pub struct CertifiedEc2CheckInput {
 const EC2_CHECK_NAMES: [&str; 2] = ["Flexure 6.1", "Shear 6.2"];
 
 /// Interval enclosures of the EC2 flexure and shear ratios for one demand box.
-/// Mirrors `ec2_check::check_single_ec2_member`; the shear resistance depends
-/// on NEd (6.2.2(1) axial term) and is evaluated over the whole NEd interval.
+/// Mirrors `ec2_check::check_single_ec2_member`; the neutral axis is the
+/// certified unique root of the strain-compatibility residual, and the shear
+/// resistance depends on NEd (6.2.2(1) axial term) evaluated over the whole
+/// NEd interval.
 pub fn ec2_ratio_enclosures(
     m: &Ec2MemberData,
     f: &Ec2DesignForces,
     b: &DemandBound,
 ) -> Result<[Interval; 2], String> {
+    if !ec2_flexure_valid(m) {
+        return Err(format!("{}: section data outside the certified domain: {m:?}", EC2_CHECK_NAMES[0]));
+    }
     let mm = around(f.m_ed.unwrap_or(0.0), b.my, "MEd")?.abs();
     let v = around(f.v_ed.unwrap_or(0.0), b.vy, "VEd")?.abs();
     let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
@@ -1681,6 +1688,63 @@ mod tests {
             demands: vec![BoundedEc2Demand { forces: Ec2DesignForces { m_ed: Some(0.0), ..f }, bound: ZERO_BOUND }],
         });
         assert!(!res[0].certified, "{res:?}"); // MRd = 0: the f64 check flags it even at M = 0
+    }
+
+    #[test]
+    fn ec2_certifies_strain_compatibility_failure() {
+        // Over-reinforced beam: MRd = 203.28 kN·m by strain compatibility
+        // (238.66 kN·m if tension steel were assumed to yield). At MEd = 225 kN·m
+        // the member must be certified as failing, not certified_ok.
+        let m_over = Ec2MemberData {
+            element_id: 1,
+            fck: 25e6,
+            fyk: 500e6,
+            b: 0.25,
+            h: 0.40,
+            d: 0.35,
+            as_tension: 2.5e-3,
+            as_compression: None,
+            d_prime: None,
+            es: None,
+            gamma_c: None,
+            gamma_s: None,
+            alpha_cc: None,
+            asw: None,
+            s_stirrup: None,
+            theta_shear: None,
+            bw: None,
+            z: None,
+        };
+        // Doubly reinforced with x < d': MRd = 81.80 kN·m by strain compatibility
+        // (90.74 kN·m from the non-iterated singly-reinforced trial). At MEd = 86 kN·m
+        // the member must be certified as failing.
+        let m_doubly = Ec2MemberData {
+            element_id: 2,
+            fck: 40e6,
+            fyk: 500e6,
+            b: 0.40,
+            h: 0.35,
+            d: 0.26,
+            as_tension: 0.65e-3,
+            as_compression: Some(0.65e-3),
+            d_prime: Some(0.09),
+            ..m_over.clone()
+        };
+        let res = certify_ec2_members(&CertifiedEc2CheckInput {
+            members: vec![m_over, m_doubly],
+            demands: vec![
+                BoundedEc2Demand {
+                    forces: Ec2DesignForces { element_id: 1, m_ed: Some(225_000.0), v_ed: None, n_ed: None },
+                    bound: ZERO_BOUND,
+                },
+                BoundedEc2Demand {
+                    forces: Ec2DesignForces { element_id: 2, m_ed: Some(86_000.0), v_ed: None, n_ed: None },
+                    bound: ZERO_BOUND,
+                },
+            ],
+        });
+        assert!(res[0].certified && res[0].certified_fail && !res[0].certified_ok, "{:?}", res[0]);
+        assert!(res[1].certified && res[1].certified_fail && !res[1].certified_ok, "{:?}", res[1]);
     }
 
     // ───────────── CIRSOC 201 ─────────────

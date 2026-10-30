@@ -400,3 +400,123 @@ fn ec2_multiple_members() {
     assert!(results[0].m_rd > 0.0);
     assert!(results[1].m_rd > 0.0);
 }
+
+// ==================== Regression tests (strain compatibility) ====================
+
+fn ec2_beam(fck: f64, fyk: f64, b: f64, d: f64, as_t: f64) -> Ec2MemberData {
+    Ec2MemberData {
+        element_id: 1,
+        fck,
+        fyk,
+        b,
+        h: d + 0.05,
+        d,
+        as_tension: as_t,
+        as_compression: None,
+        d_prime: None,
+        es: None,
+        gamma_c: None,
+        gamma_s: None,
+        alpha_cc: None,
+        asw: None,
+        s_stirrup: None,
+        theta_shear: None,
+        bw: None,
+        z: None,
+    }
+}
+
+fn ec2_run(m: Ec2MemberData, m_ed: f64) -> Ec2CheckResult {
+    check_ec2_members(&Ec2CheckInput {
+        members: vec![m],
+        forces: vec![Ec2DesignForces {
+            element_id: 1,
+            m_ed: Some(m_ed),
+            v_ed: None,
+            n_ed: None,
+        }],
+    })
+    .remove(0)
+}
+
+/// Over-reinforced beam: εst < εyd, so the tension steel does not yield.
+/// Strain compatibility (EC2 6.1 / 3.1.7): x = 0.2401492 m, fst = 320.23 MPa,
+/// z = 0.2539403 m, MRd = 203 278.57 N·m. Assuming fst = fyd gave
+/// x = 0.326087 m and MRd = 238 658.2 N·m (+17.4%), passing MEd = 225 kN·m.
+#[test]
+fn ec2_over_reinforced_uses_steel_strain() {
+    let r = ec2_run(ec2_beam(25e6, 500e6, 0.25, 0.35, 2.5e-3), 225_000.0);
+    let expected_x = 0.240_149_231_6;
+    let expected_m_rd = 203_278.565_6;
+    assert!(
+        (r.x_na - expected_x).abs() / expected_x < 1e-6,
+        "x_na {} vs {expected_x}",
+        r.x_na
+    );
+    assert!(
+        (r.m_rd - expected_m_rd).abs() / expected_m_rd < 1e-6,
+        "m_rd {} vs {expected_m_rd}",
+        r.m_rd
+    );
+    assert!(r.flexure_ratio > 1.0 && !r.pass, "{r:?}");
+}
+
+/// Doubly reinforced, x < d' (the "compression" bars are in tension).
+/// Taking εsc from the singly-reinforced neutral axis without clamping at -fyd
+/// gave fsc = -1202.3 MPa (2.8× yield) and MRd = 90 735.6 N·m instead of
+/// 81 801.43 N·m (+10.9%), while reporting the singly-reinforced x_na.
+#[test]
+fn ec2_doubly_reinforced_shallow_na_uses_strain_compatibility() {
+    let mut m = ec2_beam(40e6, 500e6, 0.40, 0.26, 0.65e-3);
+    m.as_compression = Some(0.65e-3);
+    m.d_prime = Some(0.09);
+    let r = ec2_run(m, 86_000.0);
+    let expected_x = 0.059_905_085_3;
+    let expected_m_rd = 81_801.430_1;
+    assert!(
+        (r.x_na - expected_x).abs() / expected_x < 1e-6,
+        "x_na {} vs {expected_x}",
+        r.x_na
+    );
+    assert!(
+        (r.z - (0.26 - 0.4 * r.x_na)).abs() < 1e-12,
+        "z {} inconsistent with x_na {}",
+        r.z,
+        r.x_na
+    );
+    assert!(
+        (r.m_rd - expected_m_rd).abs() / expected_m_rd < 1e-6,
+        "m_rd {} vs {expected_m_rd}",
+        r.m_rd
+    );
+    assert!(r.flexure_ratio > 1.0 && !r.pass, "{r:?}");
+}
+
+/// Doubly reinforced with As' > As: the non-iterated singly-reinforced trial
+/// yielded the compression steel and recomputed a negative neutral axis depth
+/// x = -0.0453 m (z = 0.468 m > d = 0.45 m) while returning the singly-reinforced x_na.
+#[test]
+fn ec2_doubly_reinforced_heavy_compression_steel_iterates_na() {
+    let mut m = ec2_beam(30e6, 500e6, 0.30, 0.45, 1.5e-3);
+    m.as_compression = Some(2.0e-3);
+    m.d_prime = Some(0.05);
+    let r = ec2_run(m, 250_000.0);
+    let expected_x = 0.065_807_808_0;
+    let expected_m_rd = 268_348.557_4;
+    assert!(
+        (r.x_na - expected_x).abs() / expected_x < 1e-6,
+        "x_na {} vs {expected_x}",
+        r.x_na
+    );
+    assert!(
+        r.z < 0.45 && (r.z - (0.45 - 0.4 * r.x_na)).abs() < 1e-12,
+        "z {} vs x_na {}",
+        r.z,
+        r.x_na
+    );
+    assert!(
+        (r.m_rd - expected_m_rd).abs() / expected_m_rd < 1e-6,
+        "m_rd {} vs {expected_m_rd}",
+        r.m_rd
+    );
+}
