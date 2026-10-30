@@ -233,6 +233,7 @@ const es: Record<string, string> = {
   'landing.navEducation': 'Educativo',
   'landing.navPricing': 'Precios',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Paper',
   'landing.navResearch': 'Investigación',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIBRE Y ABIERTO · CÁLCULO ESTRUCTURAL',
@@ -14259,5 +14260,14 @@ const es: Record<string, string> = {
   "proExport.dxfLayoutSeparate": "Un plano por dibujo",
   "proExport.dxfLayoutLayersNote": "Todo en un DXF; cada contenido en su capa.",
   "proExport.dxfLayoutSeparateNote": "Un DXF del modelo y uno por cada resultado (con el modelo de base), juntos en un .zip.",
+  "clipboard.spaceInPlane": "Lo copiado es de un modelo 3D: copialo de nuevo en 2D para pegarlo acá.",
+  "sel.copyTitle": "Copiar lo seleccionado (Ctrl+C)",
+  "sel.pasteTitle": "Pegar lo copiado y elegir dónde (Ctrl+V)",
+  "results.showDisplacements": "Mostrar desplazamientos",
+  "resultChecks.title": "Verificación de los resultados",
+  "resultChecks.certified": "certificado",
+  "resultChecks.notCertified": "sin certificar",
+  "resultChecks.pending": "calculando…",
+  "resultChecks.discretizationHigh": "error de discretización alto",
 };
 export default es;

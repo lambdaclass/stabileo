@@ -22,6 +22,9 @@ test.describe('@smoke end-to-end certificate', () => {
       await page.evaluate(() => window.__stabileoActions.solve());
       // The results panel (where the certificate is shown) opens with a diagram.
       await page.getByTestId('rb-cmd-deformed').first().click();
+      // Folded under the results table, closed while nothing warns.
+      await expect(page.getByTestId('result-checks-toggle')).toContainText('certified', { timeout: 60_000 });
+      await page.getByTestId('result-checks-toggle').click();
       await expect(page.getByTestId('certificate-status')).toContainText('Certified', { timeout: 60_000 });
       const line = page.getByTestId('certificate-e2e');
       await expect(line).toBeVisible({ timeout: 60_000 });

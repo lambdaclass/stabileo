@@ -245,7 +245,7 @@ async function publicPaths(): Promise<string[]> {
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
   const research = ['/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), ...research];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research];
 }
 
 /**

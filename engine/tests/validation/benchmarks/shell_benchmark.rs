@@ -46,8 +46,24 @@ fn sup3d(node_id: usize, rx: bool, ry: bool, rz: bool, rrx: bool, rry: bool, rrz
     }
 }
 
+// Preserve global displacement signs so accuracy checks also enforce load direction.
+fn scordelis_lo_displacement(displacements: &[Displacement3D], node_id: usize) -> f64 {
+    displacements.iter().find(|d| d.node_id == node_id)
+        .expect("Free edge node displacement not found").uz
+}
+
+fn pinched_cylinder_displacement(displacements: &[Displacement3D], node_id: usize) -> f64 {
+    displacements.iter().find(|d| d.node_id == node_id)
+        .expect("Load node displacement not found").uy
+}
+
+fn hemisphere_hole_displacement(displacements: &[Displacement3D], node_id: usize) -> f64 {
+    displacements.iter().find(|d| d.node_id == node_id)
+        .expect("Equator node displacement not found").ux
+}
+
 /// Build a Scordelis-Lo barrel vault quarter model and return the midspan
-/// free-edge vertical displacement (absolute value).
+/// free-edge signed vertical displacement (negative under gravity).
 fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
     let e = 4.32e8 / 1000.0;
     let nu = 0.0;
@@ -176,11 +192,7 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
     let res = linear::solve_3d(&input).expect("Scordelis-Lo solve failed");
 
     let free_edge_nid = node_grid[0][ntheta];
-    let d_free = res.displacements.iter()
-        .find(|d| d.node_id == free_edge_nid)
-        .expect("Free edge node displacement not found");
-
-    d_free.uz.abs()
+    scordelis_lo_displacement(&res.displacements, free_edge_nid)
 }
 
 // ================================================================
@@ -195,11 +207,11 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 
 #[test]
 fn benchmark_scordelis_lo_roof_mitc4() {
-    let reference = 0.3024;
+    let reference = -0.3024;
 
     let uz_6 = scordelis_lo_solve(6, 6);
     assert!(
-        uz_6 > 1e-4,
+        uz_6 < -1e-4,
         "Scordelis-Lo 6x6: should produce meaningful deflection, got uz={:.6e}", uz_6
     );
 
@@ -225,7 +237,7 @@ fn benchmark_scordelis_lo_convergence() {
 
     for &n in &meshes {
         let uz = scordelis_lo_solve(n, n);
-        let ratio = uz / 0.3024;
+        let ratio = uz / -0.3024;
         ratios.push((n, ratio));
     }
 
@@ -3172,18 +3184,15 @@ fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
 
     let res = linear::solve_3d(&input).expect("Pinched cylinder solve failed");
 
-    // Return radial displacement at load point
-    let d = res.displacements.iter().find(|d| d.node_id == load_node)
-        .expect("Load node displacement not found");
-    d.uy.abs()
+    pinched_cylinder_displacement(&res.displacements, load_node)
 }
 
 #[test]
 fn benchmark_pinched_cylinder_6x6() {
-    let reference = 1.8248e-5;
+    let reference = -1.8248e-5;
     let uy = pinched_cylinder_solve(6, 6);
 
-    assert!(uy > 1e-20, "Pinched cylinder 6x6: should deflect, got uy={:.6e}", uy);
+    assert!(uy < -1e-20, "Pinched cylinder 6x6: should deflect, got uy={:.6e}", uy);
 
     let ratio = uy / reference;
     eprintln!("Pinched cylinder 6x6: uy={:.6e}, ref={:.6e}, ratio={:.4}", uy, reference, ratio);
@@ -3197,10 +3206,10 @@ fn benchmark_pinched_cylinder_6x6() {
 
 #[test]
 fn benchmark_pinched_cylinder_8x8() {
-    let reference = 1.8248e-5;
+    let reference = -1.8248e-5;
     let uy = pinched_cylinder_solve(8, 8);
 
-    assert!(uy > 1e-20, "Pinched cylinder 8x8: should deflect, got uy={:.6e}", uy);
+    assert!(uy < -1e-20, "Pinched cylinder 8x8: should deflect, got uy={:.6e}", uy);
 
     let ratio = uy / reference;
     eprintln!("Pinched cylinder 8x8: uy={:.6e}, ref={:.6e}, ratio={:.4}", uy, reference, ratio);
@@ -3320,21 +3329,21 @@ fn benchmark_shell_self_weight_scordelis_lo() {
     let free_nid = node_grid[0][ntheta];
     let d = res.displacements.iter().find(|d| d.node_id == free_nid)
         .expect("Free edge displacement not found");
-    let uz_sw = d.uz.abs();
+    let uz_sw = d.uz;
 
     // Compare to existing nodal-load result
     let uz_nodal = scordelis_lo_solve(6, 6);
 
     eprintln!(
         "Self-weight Scordelis-Lo: uz_sw={:.6e}, uz_nodal={:.6e}, ratio={:.4}",
-        uz_sw, uz_nodal, uz_sw / uz_nodal.max(1e-20)
+        uz_sw, uz_nodal, uz_sw / uz_nodal.min(-1e-20)
     );
 
     // Self-weight applies gravity globally (-z), while nodal loads are also -z.
     // For a curved shell, the self-weight integration distributes forces more
     // accurately than tributary area. Results should be in the same ballpark.
-    assert!(uz_sw > 1e-6, "Self-weight should produce deflection");
-    let ratio = uz_sw / uz_nodal.max(1e-20);
+    assert!(uz_sw < -1e-6, "Self-weight should produce deflection");
+    let ratio = uz_sw / uz_nodal.min(-1e-20);
     assert!(
         ratio > 0.1 && ratio < 10.0,
         "Self-weight/nodal ratio {:.3} outside [0.1, 10.0]", ratio
@@ -4302,11 +4311,7 @@ fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
 
     let res = linear::solve_3d(&input).expect("Hemisphere hole solve failed");
 
-    let d_eq = res.displacements.iter()
-        .find(|d| d.node_id == eq_x)
-        .expect("Equator node displacement not found");
-
-    d_eq.ux.abs()
+    hemisphere_hole_displacement(&res.displacements, eq_x)
 }
 
 #[test]
@@ -8077,4 +8082,96 @@ fn benchmark_curved_shell_cross_family_comparison() {
     println!("  MITC4 (flat):    disp={mitc4_8:.6e}, ratio={mitc4_ratio:.4}");
     println!("  Curved shell:    disp={cs_8:.6e}, ratio={cs_ratio:.4}");
     println!("  Improvement:     {:.1}×", cs_ratio / mitc4_ratio.max(1e-10));
+}
+
+// Research /benchmarks/shell-obstacle-course (#809): strict page tolerance, not
+// the older capability floors above. MacNeal & Harder (1985); NAFEMS TNSB Rev 3
+// (1990), LE3 for the hemisphere with 18° hole. Page source: this file's
+// benchmark_scordelis_lo_convergence, benchmark_pinched_cylinder_8x8, and
+// benchmark_hemisphere_hole_convergence; numerical paper table/page unverified.
+fn research_shell_accuracy(value: f64, reference: f64) {
+    let error = (value/reference-1.).abs();
+    assert!(value.is_finite() && error < 0.02,
+        "value={value:.15}, reference={reference:.15}, relative error={error}");
+}
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_roof_6() { research_shell_accuracy(scordelis_lo_solve(6, 6), -0.3024); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_roof_8() { research_shell_accuracy(scordelis_lo_solve(8, 8), -0.3024); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_roof_12() { research_shell_accuracy(scordelis_lo_solve(12, 12), -0.3024); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_roof_16() { research_shell_accuracy(scordelis_lo_solve(16, 16), -0.3024); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_cylinder_6() { research_shell_accuracy(pinched_cylinder_solve(6, 6), -1.8248e-05); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_cylinder_8() { research_shell_accuracy(pinched_cylinder_solve(8, 8), -1.8248e-05); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_cylinder_12() { research_shell_accuracy(pinched_cylinder_solve(12, 12), -1.8248e-05); }
+
+#[test]
+#[ignore = "known wrong result: #810"]
+fn research_cylinder_16() { research_shell_accuracy(pinched_cylinder_solve(16, 16), -1.8248e-05); }
+
+#[test]
+fn research_hemisphere_4() { research_shell_accuracy(hemisphere_hole_solve(4, 4), 0.185); }
+
+#[test]
+fn research_hemisphere_8() { research_shell_accuracy(hemisphere_hole_solve(8, 8), 0.185); }
+
+#[test]
+fn research_hemisphere_16() { research_shell_accuracy(hemisphere_hole_solve(16, 16), 0.185); }
+
+// Exercise the same extraction/check path as the solves, with exact reference
+// magnitudes so only a reversed direction can cause the negative case to fail.
+fn check_shell_response_sign(extract: fn(&[Displacement3D], usize) -> f64,
+    response: [f64; 3], reference: f64)
+{
+    let mut displacements = vec![
+        Displacement3D {
+            node_id: 99, ux: 42.0, uy: 42.0, uz: 42.0,
+            rx: 0.0, ry: 0.0, rz: 0.0, warping: None,
+        },
+        Displacement3D {
+            node_id: 7, ux: response[0], uy: response[1], uz: response[2],
+            rx: 0.0, ry: 0.0, rz: 0.0, warping: None,
+        },
+    ];
+    research_shell_accuracy(extract(&displacements, 7), reference);
+
+    displacements[1].ux *= -1.0;
+    displacements[1].uy *= -1.0;
+    displacements[1].uz *= -1.0;
+    assert!(std::panic::catch_unwind(|| {
+        research_shell_accuracy(extract(&displacements, 7), reference);
+    }).is_err(), "Reversed displacement must fail the accuracy check");
+}
+
+#[test]
+fn research_roof_rejects_reversed_response() {
+    check_shell_response_sign(scordelis_lo_displacement, [0.0, 0.0, -0.3024], -0.3024);
+}
+
+#[test]
+fn research_cylinder_rejects_reversed_response() {
+    check_shell_response_sign(pinched_cylinder_displacement, [0.0, -1.8248e-5, 0.0], -1.8248e-5);
+}
+
+#[test]
+fn research_hemisphere_rejects_reversed_response() {
+    check_shell_response_sign(hemisphere_hole_displacement, [0.185, 0.0, 0.0], 0.185);
 }

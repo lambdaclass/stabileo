@@ -31,7 +31,7 @@ try {
       if (id === '\0route-size-engine') return 'export function initSync() {} export function solve_3d() { return "{}"; }';
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/'))) {
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
         }
       }

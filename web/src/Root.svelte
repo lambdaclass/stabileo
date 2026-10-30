@@ -44,6 +44,14 @@
     }
   });
 
+  /** The paper, with KaTeX, is its own chunk too. */
+  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'paper' && !paper) {
+      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
+    }
+  });
+
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
     loading ??= ensureLocale(i18n.locale).then(() => import('./App.svelte')).then(async (m) => {
@@ -103,6 +111,11 @@
   {#if research}
     {@const Research = research}
     <Research path={current.path} />
+  {/if}
+{:else if current.kind === 'paper'}
+  {#if paper}
+    {@const Paper = paper}
+    <Paper />
   {/if}
 {:else if current.kind === 'landing'}
   <LandingPage />

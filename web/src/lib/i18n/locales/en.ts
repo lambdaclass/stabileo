@@ -233,6 +233,7 @@ const en: Record<string, string> = {
   'landing.navEducation': 'Education',
   'landing.navPricing': 'Pricing',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Paper',
   'landing.navResearch': 'Research',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'FREE AND OPEN · STRUCTURAL ANALYSIS',
@@ -14270,5 +14271,14 @@ const en: Record<string, string> = {
   "proExport.dxfLayoutSeparate": "One drawing per file",
   "proExport.dxfLayoutLayersNote": "Everything in one DXF; each content on its own layer.",
   "proExport.dxfLayoutSeparateNote": "One DXF of the model and one per result (with the model underneath), together in a .zip.",
+  "clipboard.spaceInPlane": "The copy comes from a 3D model: copy it again in 2D to paste it here.",
+  "sel.copyTitle": "Copy the selection (Ctrl+C)",
+  "sel.pasteTitle": "Paste the copy and choose where (Ctrl+V)",
+  "results.showDisplacements": "Show displacements",
+  "resultChecks.title": "Result checks",
+  "resultChecks.certified": "certified",
+  "resultChecks.notCertified": "not certified",
+  "resultChecks.pending": "computing…",
+  "resultChecks.discretizationHigh": "high discretization error",
 };
 export default en;

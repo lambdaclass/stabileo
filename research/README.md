@@ -68,6 +68,23 @@ fail. HTML, bundled JS/CSS, manifest assets and statically referenced public fil
 Runtime-generated asset URLs and the engine binary are outside this gate; a fixed engine stub
 makes the measurements independent of locally built WASM.
 
+The catalogue (`research/papers.json`), experiment registry (including thumbnail metadata),
+gallery strings and research translations (`components/research/i18n.ts`) are imported only
+below `ResearchPage.svelte`. Root and App dynamically import `components/research/load-page.ts`,
+which in turn dynamically imports ResearchPage. Keep both boundaries: a direct dynamic import
+of ResearchPage puts Vite's transitive preload filename list into Root/App, so adding a paper
+can grow product bytes even without a static import of the paper's data. The loader has no
+static dependencies; its preload list lives on the research side of the boundary. Shared
+navigation labels (`landing.navResearch`, `blog.tag.research`) remain public and do not grow
+with the catalogue. Prerendering still opens every research URL and waits for its rendered page.
+
+The route-size gate also checks Rollup's module membership: any chunk containing a research
+component, registry, translation module or research JSON is forbidden in the landing's static
+closure and App's product dependency closure. Thus adding an experiment entry cannot add a
+static product import unnoticed, even if the entry is smaller than the byte tolerance. The
+byte comparison additionally catches generated preload metadata growth. Do not move per-paper
+strings into public locale dictionaries or add static imports to the lazy loader.
+
 For local comparisons, run `nix develop .. -c node scripts/check-research-route-size.mjs
 --baseline /tmp/route-main.json --update` from the main build's `web/`, then the same command
 without `--update` from the candidate's `web/`, using the same Nix toolchain for both.

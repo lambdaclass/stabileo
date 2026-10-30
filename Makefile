@@ -1,4 +1,4 @@
-.PHONY: research.wasm help install-nix shell setup setup.run git.setup deps backend.run console routes \
+.PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
        test.ci-scripts \
@@ -365,6 +365,10 @@ web.run: wasm research.wasm
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
+
+# Typesets the paper page's text (web/src/lib/paper) into its PDF with Tectonic.
+paper.pdf: web.deps
+	$(NIX_RUN) nix shell --inputs-from . nixpkgs#tectonic nixpkgs#libwebp --command bash -c "cd web && npx tsx scripts/paper-pdf.ts"
 
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
 web.build: wasm research.wasm

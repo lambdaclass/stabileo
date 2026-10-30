@@ -234,6 +234,7 @@ const de: Translations = {
   'landing.navPricing': 'Preise',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Änderungen',
+  'landing.navPaper': 'Fachartikel',
   'landing.navResearch': 'Forschung',
   'landing.ebHero': 'KOSTENLOS UND OFFEN · TRAGWERKSBERECHNUNG',
   'landing.heroH': 'Tragwerksberechnung in einem Browser-Tab.',
@@ -14109,6 +14110,15 @@ const de: Translations = {
   'proExport.dxfLayoutSeparate': 'Eine Zeichnung je Datei',
   'proExport.dxfLayoutLayersNote': 'Alles in einer DXF-Datei; jeder Inhalt auf einem eigenen Layer.',
   'proExport.dxfLayoutSeparateNote': 'Eine DXF-Datei des Modells und eine je Ergebnis (mit dem Modell darunter), zusammen in einer .zip-Datei.',
+  "clipboard.spaceInPlane": "Die Kopie stammt aus einem 3D-Modell: Kopieren Sie sie in 2D erneut, um sie hier einzufügen.",
+  "sel.copyTitle": "Auswahl kopieren (Strg+C)",
+  "sel.pasteTitle": "Kopie einfügen und Ort wählen (Strg+V)",
+  "results.showDisplacements": "Verschiebungen anzeigen",
+  "resultChecks.title": "Ergebnisprüfung",
+  "resultChecks.certified": "zertifiziert",
+  "resultChecks.notCertified": "nicht zertifiziert",
+  "resultChecks.pending": "wird berechnet…",
+  "resultChecks.discretizationHigh": "hoher Diskretisierungsfehler",
 };
 
 export default de;
