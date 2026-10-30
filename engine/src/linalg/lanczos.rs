@@ -471,23 +471,11 @@ pub fn lanczos_eigen(
 
 }
 
-/// Dense `A·x = λ·B·x` for a stiffness `A` and a mass `B` that may be only
-/// semidefinite: every eigenpair of finite λ, ascending, B-normalized
-/// (`xᵀBx = 1`), with the vectors n×n row-major (columns past `values.len()`
-/// are zero).
-///
-/// `solve_generalized_eigen` factors B, which fails as soon as a DOF carries
-/// no mass: the rotation of a node reached only by trusses, or one where every
-/// frame is hinged (hinged frames get a lumped mass with no rotary inertia).
-/// Such a DOF has an infinite eigenvalue. This is the problem the sparse
-/// shift-invert path already solves, by factoring A instead of B: here too,
-/// when B is not positive definite, solve `B·x = μ·A·x` (Cholesky of A) and
-/// take λ = 1/μ for the μ that are not zero to working precision. The finite
-/// eigenpairs are those of the massless DOFs condensed out statically
-/// (`K_mm − K_ms·K_ss⁻¹·K_sm` against `M_mm`), exactly, with the massless
-/// components of each vector included, `x_s = −K_ss⁻¹·K_sm·x_m`; nothing is
-/// added to the model (an artificial mass would invent modes at a frequency
-/// set by its arbitrary size).
+/// Finite spectrum with massless coordinates statically condensed. Singular
+/// mass is reduced by congruence, without a reciprocal eigenvalue cutoff.
+/// Returns ascending finite eigenvalues and B-normalized vectors in n×n
+/// row-major storage (unused columns are zero). Massless coordinates are
+/// recovered through K_ss x_s = −K_sm x_m; no artificial mass is added.
 pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usize) -> Option<EigenResult> {
     let massive: Vec<_> = (0..n).filter(|&i| (0..n).any(|j| b[i*n+j] != 0.0)).collect();
     let massless: Vec<_> = (0..n).filter(|i| !massive.contains(i)).collect();
@@ -508,35 +496,94 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
             ac[i*nm+j] = a[ri*n+rj] + massless.iter().enumerate().map(|(s,&rs)| a[ri*n+rs]*recovery[s*nm+j]).sum::<f64>();
             bc[i*nm+j] = b[ri*n+rj];
         }}
-        let r = solve_generalized_eigen(&ac,&bc,nm,200)?;
+        let r = dense_generalized_eigen_semidefinite(&ac,&bc,nm)?;
         let mut vectors = vec![0.0;n*n];
-        for col in 0..nm {
+        for col in 0..r.values.len() {
             for (i,&ri) in massive.iter().enumerate() { vectors[ri*n+col] = r.vectors[i*nm+col]; }
             for (i,&ri) in massless.iter().enumerate() { vectors[ri*n+col] = (0..nm).map(|j| recovery[i*nm+j]*r.vectors[j*nm+col]).sum(); }
         }
         return Some(EigenResult { values: r.values, vectors });
     }
-    if let Some(r) = solve_generalized_eigen(a, b, n, 200) { return Some(r); }
-    let recip = solve_generalized_eigen(b, a, n, 200)?;
-    let mu_max = recip.values.iter().cloned().fold(0.0f64, f64::max);
-    if !(mu_max > 0.0) {
-        return None;
+    let mut l = b.to_vec();
+    if cholesky_decompose(&mut l, n) {
+        let mut transform = vec![0.0; n*n];
+        for col in 0..n {
+            let mut e = vec![0.0; n]; e[col] = 1.0;
+            let x = back_solve(&l, &e, n);
+            for row in 0..n { transform[row*n+col] = x[row]; }
+        }
+        let c = dense_congruence(a, &transform, n);
+        // The infinity norm of the whitened finite pencil bounds ALL its
+        // eigenvalues, independently of the computed/retained spectrum.
+        let bound = (0..n).map(|i| c[i*n..(i+1)*n].iter().map(|x| x.abs()).sum::<f64>())
+            .fold(0.0f64, f64::max);
+        if !bound.is_finite() { return None; }
+        let ids: Vec<_> = (0..n).collect();
+        let identity = CscMatrix::from_triplets(n, &ids, &ids, &vec![1.0;n]);
+        let (count, _) = sturm_count_above(&CscMatrix::from_dense_symmetric(&c,n),
+            &identity, bound.max(1.0) * 2.0)?;
+        if count != n { return None; }
+        let r = jacobi_eigen(&c, n, 200);
+        let mut vectors = vec![0.0; n*n];
+        for i in 0..n { for j in 0..n {
+            vectors[i*n+j] = (0..n).map(|h| transform[i*n+h]*r.vectors[h*n+j]).sum();
+        }}
+        return Some(EigenResult { values: r.values, vectors });
     }
-    // μ = 1/λ, ascending; keep the nonzero ones from the top (lowest λ first).
-    let mut kept: Vec<(f64, usize)> = recip.values.iter().enumerate()
-        .filter(|&(_, &mu)| mu > mu_max * 1e-12)
-        .map(|(j, &mu)| (1.0 / mu, j))
-        .collect();
-    kept.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
-    let mut vectors = vec![0.0; n * n];
-    for (col, &(lam, j)) in kept.iter().enumerate() {
-        // xᵀAx = 1, so xᵀBx = μ: rescale to xᵀBx = 1.
-        let s = lam.sqrt();
-        for row in 0..n {
-            vectors[row * n + col] = recip.vectors[row * n + j] * s;
+    // Symmetric elimination constructs T with TᵀBT diagonal. A small positive
+    // pivot remains massive; only exactly zero residual rows are massless.
+    let mut mass = b.to_vec();
+    let mut transform = vec![0.0; n*n];
+    for i in 0..n { transform[i*n+i] = 1.0; }
+    for h in 0..n {
+        let p = (h..n).max_by(|&i,&j| mass[i*n+i].total_cmp(&mass[j*n+j]))?;
+        for i in 0..n { mass.swap(i*n+h,i*n+p); transform.swap(i*n+h,i*n+p); }
+        for j in 0..n { mass.swap(h*n+j,p*n+j); }
+        let pivot = mass[h*n+h];
+        if pivot == 0.0 {
+            if (h..n).any(|i| (h..n).any(|j| mass[i*n+j] != 0.0)) { return None; }
+            break;
+        }
+        if !pivot.is_finite() || pivot < 0.0 { return None; }
+        for j in h+1..n {
+            let factor = mass[h*n+j] / pivot;
+            for i in 0..n { transform[i*n+j] -= factor * transform[i*n+h]; }
+        }
+        for i in h+1..n { for j in i..n {
+            let value = mass[i*n+j] - mass[i*n+h] * (mass[h*n+j] / pivot);
+            mass[i*n+j] = value; mass[j*n+i] = value;
+        }}
+        for i in h+1..n { mass[i*n+h] = 0.0; mass[h*n+i] = 0.0; }
+    }
+    // Equilibrate positive masses before the unchanged Cholesky checks.
+    for j in 0..n {
+        if mass[j*n+j] > 0.0 {
+            let scale = mass[j*n+j].sqrt();
+            for i in 0..n { transform[i*n+j] /= scale; }
+            mass[j*n+j] = 1.0;
         }
     }
-    Some(EigenResult { values: kept.iter().map(|p| p.0).collect(), vectors })
+    let stiffness = dense_congruence(a, &transform, n);
+    let r = dense_generalized_eigen_semidefinite(&stiffness, &mass, n)?;
+    let mut vectors = vec![0.0; n*n];
+    for i in 0..n { for j in 0..r.values.len() {
+        vectors[i*n+j] = (0..n).map(|h| transform[i*n+h]*r.vectors[h*n+j]).sum();
+    }}
+    Some(EigenResult { values: r.values, vectors })
+}
+
+// Tᵀ A T in O(n³), preserving symmetry.
+fn dense_congruence(a: &[f64], t: &[f64], n: usize) -> Vec<f64> {
+    let mut at = vec![0.0; n*n];
+    let mut result = vec![0.0; n*n];
+    for i in 0..n { for j in 0..n {
+        at[i*n+j] = (0..n).map(|h| a[i*n+h]*t[h*n+j]).sum();
+    }}
+    for i in 0..n { for j in 0..=i {
+        let value = (0..n).map(|h| t[h*n+i]*at[h*n+j]).sum();
+        result[i*n+j] = value; result[j*n+i] = value;
+    }}
+    result
 }
 
 /// Discard only massless (+infinity) directions, after an independent Sturm
@@ -547,13 +594,6 @@ fn dense_modal_spectrum(a: &[f64], b: &[f64], n: usize, k: usize) -> Option<Eige
     let finite: Vec<_> = full.values.iter().enumerate()
         .filter(|(_, value)| **value != f64::INFINITY).collect();
     if finite.iter().any(|(_, value)| !value.is_finite()) { return None; }
-    if finite.len() < n {
-        let boundary = *finite.last()?.1;
-        let (count, _) = sturm_count_above(
-            &CscMatrix::from_dense_symmetric(a, n),
-            &CscMatrix::from_dense_symmetric(b, n), boundary)?;
-        if count != finite.len() { return None; }
-    }
     let nk = k.min(finite.len());
     let mut vectors = vec![0.0; n * nk];
     for (col, &(source, _)) in finite.iter().take(nk).enumerate() {
@@ -1423,6 +1463,27 @@ pub fn eigen_failure_message(n: usize) -> String {
 #[cfg(test)]
 mod completeness_tests {
     use super::*;
+    #[test]
+    fn dense_singular_mass_recovers_high_finite_mode() {
+        let a = [1.0,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0];
+        let b = [1.0,1.0,0.0, 1.0,1.0,0.0, 0.0,0.0,1e-14];
+        let ac = CscMatrix::from_dense_symmetric(&a,3);
+        let bc = CscMatrix::from_dense_symmetric(&b,3);
+        for r in [lanczos_generalized_eigen(&a,&b,3,3,0.0).unwrap(),
+                  lanczos_generalized_eigen_sparse(&ac,&bc,3,0.0).unwrap()] {
+            assert_eq!(r.values.len(),2);
+            for (col, expected) in [0.5,1e14].iter().enumerate() {
+                assert!((r.values[col]/expected-1.0).abs() < 1e-12);
+                let v: Vec<_> = (0..3).map(|i| r.vectors[i*2+col]).collect();
+                let mv = bc.sym_mat_vec(&v);
+                assert!((dot(&v,&mv)-1.0).abs() < 1e-12);
+                for i in 0..3 {
+                    assert!((v[i]-r.values[col]*mv[i]).abs() <= 1e-12*v[i].abs().max(1.0));
+                }
+            }
+        }
+    }
+
     #[test]
     fn dense_non_diagonal_singular_mass_returns_complete_finite_spectrum() {
         // Each rank-one block has a null direction that is not a zero row.

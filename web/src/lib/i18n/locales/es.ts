@@ -1,4 +1,5 @@
 const es: Record<string, string> = {
+  "advanced.finiteSpectrum": "Solo existen {n} modos finitos. Las direcciones sin masa no tienen frecuencia finita.",
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
   "scalarViewer.viewOptions": "Opciones de vista",

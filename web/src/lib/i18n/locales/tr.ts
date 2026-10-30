@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
   'scalarViewer.viewOptions': 'Görünüm seçenekleri',

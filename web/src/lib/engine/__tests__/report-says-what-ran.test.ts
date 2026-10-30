@@ -49,6 +49,16 @@ function data(over: Partial<ReportData> = {}): ReportData {
 }
 
 describe('advanced analyses, and which of them the report claims', () => {
+  it('explains an exhausted finite modal spectrum in the report', () => {
+    const html = generateReportHtml(data({
+      advancedResults: { modal: { modes: [{ frequency: 2.5, period: 0.4 }],
+        finiteSpectrumDiagnostic: 'Requested 3; all 1 finite modes certified.' } },
+      config: cfg(),
+    }));
+    expect(html).toContain('Only 1 finite modes exist. Massless directions have no finite frequency.');
+    expect(html).not.toContain('Requested 3;');
+  });
+
   it.each([Infinity, null])('keeps a converged unstable P-Delta result explicit (B2=%s)', (b2Factor) => {
     const html = generateReportHtml(data({
       advancedResults: { pdelta: { converged: true, iterations: 3, isStable: false, b2Factor: b2Factor as number } },
