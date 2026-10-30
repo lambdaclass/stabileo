@@ -101,7 +101,9 @@ run_case() {
   grep -Fx "SHA: $TEST_SHA" "$case_out"/run-*/review-123-"${TEST_SHA:0:12}"-codex.md
   assert_clean
 }
-KIMI_MODE=readonly CODEX_MODE=readonly run_case Kimi
+# Codex enforces read-only with its own sandbox (asserted above: --sandbox read-only); macOS
+# cannot nest sandbox-exec, so only the other reviewers run under the read-only wrapper.
+KIMI_MODE=readonly run_case Kimi
 run_case Kimi
 if grep -q '^grok ' "$TEST_LOG"; then exit 1; fi
 KIMI_MODE=quota run_case Grok

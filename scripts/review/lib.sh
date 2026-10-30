@@ -91,7 +91,13 @@ review_attempt() {
   shift
   local raw=$PREFIX-$name.raw err=$PREFIX-$name.err rc=0
   local WORKTREE=$WORK_ROOT/$name
-  (cd "$WORKTREE" && python3 "$REVIEW_SCRIPTS/readonly.py" "$REPO" "$GIT_COMMON" "$WORK_ROOT" -- "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
+  # Codex runs its own read-only sandbox (sandbox-exec); macOS forbids nesting another
+  # sandbox-exec around it, so only the other reviewers get the read-only wrapper.
+  if [ "$1" = codex ]; then
+    (cd "$WORKTREE" && "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
+  else
+    (cd "$WORKTREE" && python3 "$REVIEW_SCRIPTS/readonly.py" "$REPO" "$GIT_COMMON" "$WORK_ROOT" -- "$@" < /dev/null) > "$raw" 2> "$err" || rc=$?
+  fi
   printf '%s\n' "$rc" > "$PREFIX-$name.exit"
   [ "$rc" -eq 0 ] || return 1
   # A final verdict line proves the review finished. Quota or availability text
