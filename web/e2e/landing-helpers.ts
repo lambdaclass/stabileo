@@ -19,4 +19,3 @@ export async function bootLanding(page: Page, opts: { locale?: string; manual?: 
   await page.goto('/');
   await expect(page.locator('.landing')).toBeVisible();
 }
-

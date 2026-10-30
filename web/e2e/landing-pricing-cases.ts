@@ -1,5 +1,5 @@
-import { test as base, expect } from '@playwright/test';
-import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { test as base, expect, type Page } from '@playwright/test';
+import { type Locale } from '../src/lib/i18n/offered';
 import { bootLanding } from './landing-helpers';
 
 // Landing animations have wedged the shared CI browser on subsequent contexts.
@@ -147,12 +147,33 @@ const PRICING = {
   }
 } satisfies Record<Locale, { modules: string[]; audiences: string[]; free: string; paid: string; atCost: string; intro: string; notes: string[] }>;
 
-test.describe('@smoke landing pricing and responsive layout', () => {
-  for (const locale of PUBLIC_LOCALES) {
+async function expectResponsiveNavigation(page: Page, width: number) {
+  const header = page.locator('.site-header');
+  const toggle = header.locator('.nav-toggle');
+  await expect(toggle).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(header.locator('.nav-links')).toBeVisible();
+  for (const control of await header.locator('button:visible, a:visible').all()) {
+    const rect = await control.boundingBox();
+    expect(rect).not.toBeNull();
+    expect(rect!.width).toBeGreaterThanOrEqual(44);
+    expect(rect!.height).toBeGreaterThanOrEqual(44);
+    expect(rect!.x).toBeGreaterThanOrEqual(0);
+    expect(rect!.x + rect!.width).toBeLessThanOrEqual(width);
+  }
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+}
+
+export function landingPricingTests(locale: Locale) {
+  test.describe('@smoke landing pricing and responsive layout', () => {
     for (const width of [360, 390, 810]) {
       test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await bootLanding(page, { locale });
+        await expectResponsiveNavigation(page, width);
         const copy = PRICING[locale];
         const pricing = page.locator('section[data-section="pricing"]');
         await pricing.scrollIntoViewIfNeeded();
@@ -200,7 +221,7 @@ test.describe('@smoke landing pricing and responsive layout', () => {
         expect(layout.cellsFit).toBe(true);
         for (const size of layout.textSizes) expect(size).toBeGreaterThanOrEqual(12);
 
-        const badges = page.locator('.landing .badge-dev');
+        const badges = page.locator('.landing .badge-dev, .landing .eyebrow, .landing .tf-key');
         expect(await badges.count()).toBeGreaterThan(0);
         for (const badge of await badges.all()) {
           await expect(badge).toBeVisible();
@@ -219,8 +240,10 @@ test.describe('@smoke landing pricing and responsive layout', () => {
         }));
         expect(overflow.document).toBeLessThanOrEqual(overflow.viewport + 1);
         expect(overflow.landing).toBeLessThanOrEqual(overflow.viewport + 1);
+        await page.goto(`/${locale}/sap2000-alternative`);
+        await expectResponsiveNavigation(page, width);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
       });
     }
-  }
-
-});
+  });
+}

@@ -31,7 +31,7 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  * continuous requestAnimationFrame animation under software GL on a two-core
  * runner. That is a harness problem, and it is not this file's to fix.
  *
- * Pricing/layout coverage runs in landing-pricing.spec.ts with a fresh browser
+ * Pricing/layout coverage runs in landing-pricing-*.spec.ts with a fresh browser
  * per case under @smoke. The remaining cases stay local for now and have
  * historically been run by hand when the landing changes:
  *

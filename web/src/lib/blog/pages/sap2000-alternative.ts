@@ -15,7 +15,7 @@ import type { StandingPage } from './cirsoc';
 
 export const sap2000AlternativePage: StandingPage = {
   path: '/sap2000-alternative',
-  updated: '2026-10-22',
+  updated: '2026-10-30',
   i18n: {
     es: {
       title: 'Una alternativa gratis y de código abierto a SAP2000, en el navegador',

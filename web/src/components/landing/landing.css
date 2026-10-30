@@ -302,7 +302,7 @@
   gap: 0.75rem;
   margin: 0 0 1.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -422,6 +422,12 @@
   border-bottom: 1px solid rgba(143, 163, 179, 0.14);
 }
 
+.landing .site-header button,
+.landing .site-header a {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .landing .nav-inner {
   max-width: var(--lp-max);
   margin: 0 auto;
@@ -528,7 +534,7 @@
   align-items: center;
   gap: 0.35rem;
   font-family: var(--lp-mono);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: var(--lp-slate-2);
   text-decoration: none;
   border: 1px solid rgba(143, 163, 179, 0.22);
@@ -546,8 +552,10 @@
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0 7px;
   background: transparent;
   border: 1px solid rgba(143, 163, 179, 0.22);
@@ -752,7 +760,7 @@
   gap: 0.4rem 1.15rem;
   margin-top: 1.15rem;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: var(--fg-2);
 }
@@ -1817,7 +1825,7 @@
 
 @media (max-width: 420px) {
   .landing .nav-name { display: none; }
-  .landing .tf-legend { font-size: 0.6rem; gap: 0.3rem 0.8rem; }
+  .landing .tf-legend { gap: 0.3rem 0.8rem; }
 }
 
 /* ─── FOCUS VISIBILITY ───────────────────────────────────────────────────── */

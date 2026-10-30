@@ -38,7 +38,7 @@ export type StandingPage = {
 
 export const cirsocPage: StandingPage = {
   path: '/cirsoc',
-  updated: '2026-10-22',
+  updated: '2026-10-30',
   i18n: {
     es: {
       title: 'Verificación CIRSOC en el navegador: qué está listo y qué falta',
