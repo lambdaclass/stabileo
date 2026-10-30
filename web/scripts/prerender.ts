@@ -259,20 +259,73 @@ async function publicPaths(): Promise<string[]> {
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
-async function newCapturePage(browser: Browser) {
+/**
+ * Repository star count fetched once per build, so parallel prerender workers
+ * do not exhaust the unauthenticated GitHub rate limit (60 req/hr) and disagree
+ * across pages. `STABILEO_BUILD_STARS` overrides the network call when provided.
+ */
+export async function fetchBuildStars(): Promise<number | null> {
+  const envVal = process.env.STABILEO_BUILD_STARS;
+  if (envVal !== undefined && envVal !== '') {
+    const parsed = parseInt(envVal, 10);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+  try {
+    const headers: Record<string, string> = {
+      'User-Agent': 'stabileo-prerender',
+      'Accept': 'application/vnd.github.v3+json',
+    };
+    if (token) headers['Authorization'] = `token ${token}`;
+    const res = await fetch('https://api.github.com/repos/lambdaclass/stabileo', {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      console.warn(`prerender: GitHub star fetch returned HTTP ${res.status}, falling back to null`);
+      return null;
+    }
+    const data = (await res.json()) as { stargazers_count?: unknown };
+    return typeof data?.stargazers_count === 'number' ? data.stargazers_count : null;
+  } catch (e) {
+    console.warn(`prerender: could not fetch GitHub star count: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+}
+
+export async function newCapturePage(browser: Browser, buildStars: number | null) {
   const page = await browser.newPage();
+  // Intercept runtime GitHub API star requests to avoid external network calls and rate limiting.
+  await page.route('https://api.github.com/repos/lambdaclass/stabileo', async (route) => {
+    if (buildStars !== null) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ stargazers_count: buildStars }),
+      });
+    } else {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'rate limit' }),
+      });
+    }
+  });
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
-  await page.addInitScript(() => {
+  await page.addInitScript((stars) => {
     try {
       localStorage.clear();
       sessionStorage.clear();
       localStorage.setItem('stabileo-lang', location.pathname.split('/')[1]);
       localStorage.setItem('stabileo-lang-manual', '1');
+      if (stars !== null) {
+        localStorage.setItem('stabileo-gh-stars', JSON.stringify({ stars, ts: Date.now() }));
+      }
     } catch {
       /* private mode */
     }
-  });
+  }, buildStars);
   return page;
 }
 
@@ -347,6 +400,7 @@ async function main() {
    * way for a build to break and has nothing to do with the build.
    */
   const concurrency = prerenderConcurrency();
+  const buildStars = await fetchBuildStars();
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
@@ -360,7 +414,7 @@ async function main() {
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, buildStars), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
@@ -391,7 +445,7 @@ async function main() {
     // handoff script that sends everyone else on.
     const [{ head, body, lang }] = await routePool(
       [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
-      () => newCapturePage(browser), p => p.close(),
+      () => newCapturePage(browser, buildStars), p => p.close(),
       (p) => capture(p, base, DEFAULT_LOCALE, '/'),
     );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));

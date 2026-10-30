@@ -1,10 +1,43 @@
+<script module lang="ts">
+  import type { Series } from './protocol';
+
+  /**
+   * Deterministic clipPath ID derived from chart content or an explicit ID.
+   * Eliminates random clipPath IDs (Issue #875) so serial and parallel prerenders
+   * produce byte-identical markup.
+   */
+  export function chartClipId(
+    xLabel: string,
+    yLabel: string,
+    series: Series[],
+    rules: { y: number; text: string }[] = [],
+    height = 260,
+    log = false,
+    id?: string,
+  ): string {
+    if (id) return `clip-${id}`;
+    let h = 0x811c9dc5;
+    const sDesc = series.map((s) => {
+      const len = s.points.length;
+      const first = len > 0 ? `${s.points[0][0]},${s.points[0][1]}` : '';
+      const mid = len > 2 ? `${s.points[Math.floor(len / 2)][0]},${s.points[Math.floor(len / 2)][1]}` : '';
+      const last = len > 1 ? `${s.points[len - 1][0]},${s.points[len - 1][1]}` : '';
+      return `${s.name},${s.color ?? ''},${s.dashed ?? false},${len},${first},${mid},${last}`;
+    }).join(';');
+    const str = `${xLabel}:${yLabel}:${height}:${log}:${sDesc}:${rules.map((r) => `${r.y},${r.text}`).join(';')}`;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+    }
+    return `clip-${h.toString(36)}`;
+  }
+</script>
+
 <script lang="ts">
   /**
    * Lines on one shared y axis. Reference series are drawn first as a wide translucent underlay and
    * ours on top as a thin line, so agreement reads as a line inside a halo. Series are labelled on
    * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
    */
-  import type { Series } from './protocol';
   import { num, tickDecimals } from '../shell/format';
 
   type Label = { x: number; y: number; text: string; anchor?: 'start' | 'middle' | 'end'; dy?: number };
@@ -18,6 +51,7 @@
     labels = [],
     log = false,
     rules = [],
+    id = undefined,
   }: {
     series: Series[];
     xLabel: string;
@@ -31,6 +65,8 @@
     log?: boolean;
     /** Horizontal reference rules (tolerances), drawn dashed with their label. */
     rules?: { y: number; text: string }[];
+    /** Optional explicit clipPath ID. If omitted, derived deterministically from chart content. */
+    id?: string;
   } = $props();
 
   let width = $state(600);
@@ -65,7 +101,7 @@
   const sx = (x: number) => M.l + ((x - x0) / (x1 - x0 || 1)) * (width - M.l - M.r);
   const sy = (y: number) => M.t + (1 - (ty(y) - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
   const syRaw = (v: number) => M.t + (1 - (v - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
-  const clipId = `clip-${Math.random().toString(36).slice(2)}`;
+  const clipId = $derived(chartClipId(xLabel, yLabel, series, rules, height, log, id));
 
   function path(points: [number, number][]) {
     return points

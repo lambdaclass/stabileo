@@ -39,6 +39,7 @@
     "bench:collision-worker": "node scripts/bench-collision-worker.mjs",
     "build:only": "vite build",
     "prerender": "npx tsx scripts/prerender.ts",
+    "check:prerender": "node scripts/check-prerender-reproducible.mjs",
     "test:mutation": "stryker run"
   },
   "devDependencies": {
