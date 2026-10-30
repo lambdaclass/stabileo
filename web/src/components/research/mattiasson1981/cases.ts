@@ -15,7 +15,7 @@ export function inputFor(c: Case): SolverInput {
 }
 export const withinTolerance = (error: number) => Number.isFinite(error) && error < tolerance;
 export function compare(c: Case, output: Output): Result {
-  if (!output.converged || !(Math.abs(output.loadFactor - 1) < 1e-6)) throw new Error('incomplete');
+  if (!output.converged || output.loadFactor !== 1) throw new Error('incomplete');
   const displacement = output.results.displacements;
   for (const node of Object.values(c.input.nodes)) {
     const d = displacement.find(d => d.nodeId === node.id);

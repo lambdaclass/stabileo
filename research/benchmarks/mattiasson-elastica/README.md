@@ -50,14 +50,13 @@ compares every nodal displacement and rotation with fresh native output.
 
 ## Reproduction
 
-From the repository root (Cargo runs use
-`CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-mattiasson-target CARGO_BUILD_JOBS=4`):
+From the repository root:
 
 ```sh
 cargo test --locked --release --manifest-path engine/Cargo.toml --test validation mattiasson
 cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
-cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- /private/tmp/mattiasson-native.json
-node research/benchmarks/mattiasson-elastica/wasm/check.mjs /private/tmp/mattiasson-native.json
+cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "${TMPDIR:-/tmp}/mattiasson-native.json"
+node research/benchmarks/mattiasson-elastica/wasm/check.mjs "${TMPDIR:-/tmp}/mattiasson-native.json"
 python3 -I research/tools/catalog.py check --offline
 python -m unittest discover -s engine/tests/research_references -p test_elastica.py
 ```

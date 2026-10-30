@@ -26,7 +26,8 @@ describe('Mattiasson evidence', () => {
     expect(compare(c, wrong).pass).toBe(false);
     const wrongZ = output(); wrongZ.results.displacements.at(-1)!.uz *= -1;
     expect(compare(c, wrongZ).pass).toBe(false);
-    expect(compare(c, { ...output(), loadFactor: 1 - 1e-7 }).pass).toBe(true);
+    // The engine's final load factor is n/n, exactly 1: anything else is an incomplete load path.
+    expect(() => compare(c, { ...output(), loadFactor: 1 - 1e-7 })).toThrow('incomplete');
     const missing = output(); missing.results.displacements.pop();
     expect(() => compare(c, missing)).toThrow();
     const nonfinite = output(); nonfinite.results.displacements[0].uz = NaN;
