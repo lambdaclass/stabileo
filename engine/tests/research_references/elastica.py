@@ -5,12 +5,12 @@ Run in a scratch venv with mpmath==1.4.1, numpy==2.5.4, scipy==1.18.1 installed:
     python engine/tests/research_references/elastica.py
 See ../BENCHMARK_REFERENCES.md for the derivation and source attribution.
 """
-import mpmath as mp
 import numpy as np
 from scipy.integrate import solve_bvp
 
 
 def inextensible(q, digits):
+    import mpmath as mp
     with mp.workdps(digits):
         def integrals(alpha):
             m = (1 + mp.sin(alpha)) / 2
@@ -51,6 +51,7 @@ def extensible(q, area, tolerance):
 
 
 if __name__ == "__main__":
+    import mpmath as mp
     for q in [1, 2, 5, 10]:
         exact = inextensible(q, 60)
         higher_precision = inextensible(q, 80)
@@ -62,4 +63,6 @@ if __name__ == "__main__":
         for area in [.01, 1.]:
             value = extensible(q, area, 1e-11)
             assert np.max(np.abs(value - extensible(q, area, 1e-10))) < 1e-11
+            if area == 1.:
+                assert np.max(np.abs(value / np.array(exact, dtype=float) - 1)) < 0.00025
             print(q, f"A={area}:", *(f"{v:.15f}" for v in value))
