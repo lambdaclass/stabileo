@@ -264,6 +264,8 @@ async function newCapturePage(browser: Browser) {
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
+    // Capture only the visited route's dependencies, never idle/hover prefetches.
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
     try {
       localStorage.clear();
       sessionStorage.clear();

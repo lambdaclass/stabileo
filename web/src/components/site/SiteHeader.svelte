@@ -34,13 +34,7 @@
       scrollToId(id);
       return;
     }
-    goPublic('/');
-    let tries = 0;
-    const wait = () => {
-      if (document.getElementById(id) || tries++ > 40) scrollToId(id);
-      else setTimeout(wait, 50);
-    };
-    setTimeout(wait, 50);
+    goPublic(`/#${encodeURIComponent(id)}`);
   }
 </script>
 

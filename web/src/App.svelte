@@ -383,8 +383,9 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import PublicPending from './components/site/PublicPending.svelte';
+  import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
@@ -404,23 +405,6 @@
   const isDemoRoute = isDemoPath;
 
   /**
-   * The public routes, read through their language prefix.
-   *
-   * `/es/blog/x` and `/blog/x` are the same route; the first names its
-   * language and the second is an old link that still has to work. Everything
-   * below asks these rather than matching `location.pathname` directly,
-   * because a prefix would otherwise turn every public page into an app route.
-   */
-  function publicRoute(pathname: string) {
-    return parsePublicPath(pathname);
-  }
-
-  /** `/blog`, `/blog/<slug>` and the standing pages (/cirsoc, /reliability, …), under any prefix. */
-  function isBlogRoute(pathname: string) {
-    return routeKind({ pathname, search: '', hash: '' }).kind === 'blog';
-  }
-
-  /**
    * The URL says which language the page is in, so on arrival the URL wins.
    *
    * Without this, opening a shared `/pt/blog/x` in a browser whose stored
@@ -429,7 +413,7 @@
    */
   function adoptLocaleFromPath() {
     if (typeof window === 'undefined') return;
-    const { locale } = publicRoute(location.pathname);
+    const { locale } = parsePublicPath(location.pathname);
     if (locale && locale !== publicI18n.locale) setLocale(locale);
   }
   adoptLocaleFromPath();
@@ -575,34 +559,22 @@
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
-  /**
-   * The landing, unless the address is the application's or the blog's. The fragment is not read:
-   * a shared model at the root (`/#data=…`) shows the landing while it is restored behind it.
-   */
-  function shouldShowLanding() {
-    return routeKind({ pathname: location.pathname, search: location.search, hash: '' }).kind === 'landing';
-  }
-
-  let showLanding = $state(shouldShowLanding());
-  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
-  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
+  const initialPublicRoute = routeKind();
+  let showLanding = $state(initialPublicRoute.kind === 'landing');
+  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
+  let experiment = $state<import('svelte').Component<{ path: string }> | null>(null);
+  let showPaper = $state(initialPublicRoute.kind === 'paper');
+  let paper = $state<import('svelte').Component<{ path: string }> | null>(null);
+  let publicRevision = 0;
   $effect(() => {
-    if (showExperiment && !experiment) {
-      void import('./components/research/load-experiment')
-        .then((m) => m.loadExperimentPage())
-        .then((page) => (experiment = page));
-    }
+    if (showLanding || showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  let showPaper = $state(routeKind().kind === 'paper');
-  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
-  $effect(() => {
-    if (showPaper && !paper) {
-      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
-    }
-  });
-  let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  $effect(manualPublicScrollRestoration);
+  $effect(() => { if (routeKind().kind !== 'app') void syncRouteState(); });
+  let blog = $state<import('svelte').Component<{ path: string }> | null>(null);
+  let showBlog = $state(initialPublicRoute.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
-  let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
+  let blogPath = $state(initialPublicRoute.path);
 
   /**
    * Move between the public pages without reloading the document.
@@ -619,6 +591,7 @@
   }
 
   function enterApp() {
+    publicRevision++;
     if (!isAppRoute(location.pathname)) {
       history.pushState(null, '', modeToPath(currentAppMode));
     }
@@ -628,13 +601,26 @@
     showPaper = false;
   }
 
-  function syncRouteState() {
-    showExperiment = ['research', 'tools'].includes(routeKind().kind);
-    showPaper = routeKind().kind === 'paper';
+  async function syncRouteState() {
+    const token = ++publicRevision;
+    const next = routeKind();
+    const hash = location.hash;
+    try {
+      const page = await loadPublicPage(location.href);
+      if (token !== publicRevision) return;
+      if (next.kind === 'research' || next.kind === 'tools') experiment = page;
+      if (next.kind === 'paper') paper = page;
+      if (next.kind === 'blog') blog = page;
+    } catch (error) {
+      console.error('Public navigation failed', error);
+      return;
+    }
+    showExperiment = next.kind === 'research' || next.kind === 'tools';
+    showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
-    showBlog = isBlogRoute(location.pathname);
-    blogPath = publicRoute(location.pathname).path;
-    showLanding = shouldShowLanding();
+    showBlog = next.kind === 'blog';
+    blogPath = next.path;
+    showLanding = next.kind === 'landing';
     if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
@@ -646,6 +632,8 @@
         uiStore.analysisMode = '2d';
       }
     }
+    await tick();
+    if (token === publicRevision && next.kind !== 'app') resetPublicScroll(hash);
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
@@ -1419,14 +1407,17 @@
   {#if experiment}
     {@const Experiment = experiment}
     <Experiment path={blogPath} />
-  {/if}
+  {:else}<PublicPending kind="research" />{/if}
 {:else if showPaper}
   {#if paper}
     {@const Paper = paper}
-    <Paper />
-  {/if}
+    <Paper path={blogPath} />
+  {:else}<PublicPending kind="paper" />{/if}
 {:else if showBlog}
-  <BlogPage path={blogPath} />
+  {#if blog}
+    {@const Blog = blog}
+    <Blog path={blogPath} />
+  {:else}<PublicPending kind="blog" />{/if}
 {:else if showLanding}
   <LandingPage />
 {/if}

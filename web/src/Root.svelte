@@ -12,9 +12,10 @@
    * application is loaded on the first route that needs it (the landing's "enter the app", a
    * link to /app); from then on App.svelte owns every route, public ones included, as before.
    */
+  import PublicPending from './components/site/PublicPending.svelte';
+  import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import { tick } from 'svelte';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
@@ -31,25 +32,10 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
-  /** Each feature keeps its dependency graph behind a two-stage lazy boundary. */
-  let pages = $state<Partial<Record<'research' | 'tools', import('svelte').Component<{ path: string }>>>>({});
-  $effect(() => {
-    const kind = current.kind;
-    if ((kind === 'research' || kind === 'tools') && !pages[kind]) {
-      const loading = kind === 'research'
-        ? import('./components/research/load-page').then(m => m.loadResearchPage())
-        : import('./components/tools/load-page').then(m => m.loadToolsPage());
-      void loading.then(page => { pages[kind] = page; });
-    }
-  });
-
-  /** The paper, with KaTeX, is its own chunk too. */
-  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
-  $effect(() => {
-    if (current.kind === 'paper' && !paper) {
-      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
-    }
-  });
+  let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog', import('svelte').Component<{ path: string }>>>>({});
+  let revision = 0;
+  $effect(() => idlePrefetchPublicPages());
+  $effect(manualPublicScrollRestoration);
 
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
@@ -63,12 +49,25 @@
     return loading;
   }
 
-  function sync() {
-    adoptLocaleFromPath();
-    current = routeKind();
-    if (current.kind === 'app') void loadApp();
+  async function sync() {
+    const token = ++revision;
+    const next = routeKind();
+    const hash = location.hash;
+    try {
+      if (next.kind === 'app') { await loadApp(); return; }
+      const page = await loadPublicPage(location.href);
+      if (token !== revision) return;
+      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog')) pages[next.kind] = page;
+      adoptLocaleFromPath();
+      current = next;
+      await tick();
+      if (token === revision) resetPublicScroll(hash);
+    } catch (error) {
+      // Keep the rendered page usable after a failed chunk request.
+      console.error('Public navigation failed', error);
+    }
   }
-  if (routeKind().kind === 'app') void loadApp();
+  $effect(() => { void sync(); });
 
   // Until the application is up, the public pages' own navigation comes through here
   // (`landing-utils.ts`); App.svelte listens for the same events once it is mounted.
@@ -107,16 +106,9 @@
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'blog'}
-  <BlogPage path={current.path} />
-{:else if current.kind === 'research' || current.kind === 'tools'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'paper' || current.kind === 'blog'}
   {@const Page = pages[current.kind]}
-  {#if Page}<Page path={current.path} />{/if}
-{:else if current.kind === 'paper'}
-  {#if paper}
-    {@const Paper = paper}
-    <Paper />
-  {/if}
+  {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} />{/if}
 {:else if current.kind === 'landing'}
   <LandingPage />
 {/if}

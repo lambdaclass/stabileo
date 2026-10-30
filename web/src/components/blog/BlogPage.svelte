@@ -63,7 +63,6 @@
   const older = $derived(position >= 0 && position < POSTS_NEWEST_FIRST.length - 1 ? POSTS_NEWEST_FIRST[position + 1] : undefined);
   const body = $derived(post ? inLocale(post.i18n, publicI18n.locale) : undefined);
 
-  let pageEl: HTMLDivElement | undefined = $state();
 
   $effect(() => {
     if (standing && standingBody) {
@@ -173,15 +172,9 @@
     return restorePageMeta;
   });
 
-  // A new post starts at its own beginning, not at the scroll position the
-  // index was left at — the shell is one long scroller that never unmounts.
-  $effect(() => {
-    void path;
-    pageEl?.scrollTo({ top: 0 });
-  });
 </script>
 
-<div class="landing blog" bind:this={pageEl}>
+<div class="landing blog">
   <!-- `slug`, not `post`: an unknown slug is still inside a post's address,
        and that reader needs the way back to the index more than anyone. -->
   <SiteHeader current={standing?.view === 'changelog' ? 'changelog' : standing ? null : 'blog'} />
