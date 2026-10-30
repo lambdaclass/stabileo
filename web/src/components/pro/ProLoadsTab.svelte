@@ -10,7 +10,7 @@
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
   import { runEngineAction } from '../../lib/store/engine-action';
-  import { t } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
@@ -154,7 +154,7 @@
   <!-- Add a load: the card the "Add load" button opens. -->
   {#if drawState.writing === 'load'}
   <div class="pro-addload-section">
-  <WriteCard title={`${t('pro.add')} ${t('pro.oneLoad')}`} testid="write-load-card">
+  <WriteCard title={capitalized(tp('pro.addWhat', { what: t('pro.oneLoad') }))} testid="write-load-card">
   <ProWriteLoadCard />
   </WriteCard>
   </div>

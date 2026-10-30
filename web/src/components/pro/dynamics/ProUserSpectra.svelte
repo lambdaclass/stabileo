@@ -80,7 +80,7 @@
             <option value="linear">{t('userSpectrum.linear')}</option><option value="log">{t('userSpectrum.log')}</option>
           </select>
         </div>
-        <textarea rows="6" bind:value={text} placeholder="T (s); valor" data-testid="us-table"></textarea>
+        <textarea rows="6" bind:value={text} placeholder={t('spectra.userTablePlaceholder')} data-testid="us-table"></textarea>
         <div class="us-row">
           <button class="pk-btn" onclick={() => apply(s.id)} data-testid="us-apply">{t('userSpectrum.apply')}</button>
           {#if error}<span class="us-err" role="alert">{error}</span>{/if}

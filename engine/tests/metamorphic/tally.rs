@@ -7,6 +7,7 @@ use std::sync::Mutex;
 pub enum Verdict {
     /// Held; worst |diff|/tol seen.
     Pass(f64),
+    Ignored(&'static str),
     /// The analysis refused or failed on this model (not a metamorphic finding).
     Refused(String),
     /// The transform cannot be expressed for this model.
@@ -22,6 +23,7 @@ pub enum Verdict {
 #[derive(Debug, Default, Clone)]
 pub struct Cell {
     pub pass: usize,
+    pub ignored: std::collections::BTreeSet<&'static str>,
     pub refused: usize,
     pub unrep: usize,
     pub inconclusive: usize,
@@ -40,6 +42,7 @@ impl Tally {
         let mut g = self.cells.lock().unwrap();
         let c = g.entry((ana.to_string(), inv.to_string())).or_default();
         match v {
+            Verdict::Ignored(issue) => { c.ignored.insert(issue); }
             Verdict::Pass(w) => {
                 c.pass += 1;
                 c.worst = c.worst.max(w);
@@ -87,6 +90,7 @@ impl Tally {
         let g = self.cells.lock().unwrap();
         match g.get(&(ana.to_string(), inv.to_string())) {
             Some(c) if !c.fails.is_empty() => "✗",
+            Some(c) if !c.ignored.is_empty() => c.ignored.iter().next().copied().unwrap(),
             Some(c) if c.pass > 0 => "✓",
             Some(c) if c.inconclusive > 0 => "~",
             Some(c) if c.refused > 0 => "R",

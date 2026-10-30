@@ -264,7 +264,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   const sigVer = modelStore.modelVersion;
   const sigHand = uiStore.axisConvention3D === 'leftHand';
   // The labels' text depends on the unit system too: a change rebuilds them.
-  const sigLabels = staticDeformed && resultsStore.showDiagramValues ? uiStore.unitSystem : false;
+  const sigLabels = staticDeformed && resultsStore.showDeformedValues ? uiStore.unitSystem : false;
   const prev = ctx.deformedGroup?.userData;
   if (ctx.deformedGroup && prev?.sigDt === sigDt && prev?.sigDisp === sigDisp
       && prev?.sigForces === sigForces && prev?.sigVer === sigVer && prev?.sigHand === sigHand

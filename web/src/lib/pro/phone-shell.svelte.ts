@@ -30,7 +30,7 @@
  * living away from the command it gates.
  */
 
-import { modelStore, resultsStore, uiStore, tabManager } from '../store';
+import { resultsStore, uiStore, tabManager } from '../store';
 import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../store/rebar-open';
 import { buildProStages, PRO_TAB_STAGE, type ProCmd } from './stages';
 
@@ -61,7 +61,7 @@ export function createPhoneShell(deps: PhoneShellDeps) {
   const stages = $derived(buildProStages({
     solved: resultsStore.results3D != null || resultsStore.results != null,
     canSolve: deps.hasModel() && !deps.solving(),
-    canReport: modelStore.nodes.size > 0,
+    canReport: true,
     onSolve: deps.onSolve,
     onReport: deps.onReport,
     /*

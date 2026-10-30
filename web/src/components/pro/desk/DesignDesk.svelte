@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * The Design stage: one workspace and one «Size…» for the whole structure. The bar at the top
    * (the four steps of design, their state and the actions of the step in hand), the rail on the
@@ -194,7 +196,8 @@
     window.addEventListener('keydown', note, true);
     return () => window.removeEventListener('keydown', note, true);
   });
-  function onKey(e: KeyboardEvent) { if (deskUi.open && e.key === 'Escape' && !surfaceAtKeydown && !e.defaultPrevented) leaveDesign(); }
+  function onKey(e: KeyboardEvent) {
+    if (!editorActive()) return; if (deskUi.open && e.key === 'Escape' && !surfaceAtKeydown && !e.defaultPrevented) leaveDesign(); }
 </script>
 
 <svelte:window onkeydown={onKey} />

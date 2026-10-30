@@ -11,15 +11,15 @@
   import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
-  import { exportWorkbook, exportResultsCsv } from '../../lib/export/results-export';
+  import ResultsExportDialog from '../export/ResultsExportDialog.svelte';
   import type { ViewFormat } from '../../lib/export/view-export';
   import ExcelImportReport from '../ExcelImportReport.svelte';
 
   let fileInput: HTMLInputElement;
   let showCalcReport = $state(false);
-  let viewExport = $state<ViewFormat | null>(null);
+  let viewExport = $state<ViewFormat>('svg');
   let viewExportOpen = $state(false);
-  function openViewExport(f: ViewFormat) { viewExport = f; viewExportOpen = true; }
+  let resultsOpen = $state(false);
 
   /*
    * ── Which "?" is open ───────────────────────────────────────────
@@ -332,18 +332,6 @@
       -->
       <span class="file-sub-header file-sub-first">{t('project.importLabel')}</span>
 
-      <!--
-        Same shape as the export groups: a labelled, railed row, so the two
-        halves of the section read as siblings rather than as one list of
-        buttons and one grouped set.
-
-        The two buttons are deliberately NOT twins. One takes a file from the
-        reader and one gives a file to them, and they were the same width and
-        weight — which reads as a choice between two ways of importing. The
-        template is the narrower, quieter one, and its label says what it is
-        FOR rather than what it does: the format the file beside it has to be
-        written in.
-      -->
       <div class="file-sub-group">
         <span class="file-group-label">
           {t('xls.ui.groupLabel')}
@@ -367,85 +355,24 @@
       </div>
       {@render helpPanel('import', 'project.importLabel', 'project.importHelp')}
 
-      <!--
-        ── Grouped by what comes out, not by file extension ──────────
-        Three different things wear the word "export" here: numbers you can
-        keep working with, a document you hand in, and a picture of the
-        screen. Grouping them that way is the whole change — the buttons are
-        the same, but a reader can now find the one they meant.
-      -->
       <span class="file-sub-header">{t('project.export')}</span>
 
       <div class="file-sub-group">
-        <span class="file-group-label">
-          {t('project.exportResults')}
-          <button
-            class="proj-help-btn"
-            onclick={(e) => toggleHelp('exp-results', e)}
-            class:active={helpKey === 'exp-results'}
-            aria-label={t('project.exportResults')}
-            data-testid="help-exp-results"
-          >?</button>
-        </span>
-        <div class="file-grid">
-          <!-- Both solve first when there are no results (`lib/export/results-export.ts`). -->
-          <button class="file-btn" onclick={exportWorkbook} title={t('project.exportExcelTooltip')} data-testid="export-excel">
-            Excel
+        <div class="file-grid file-io file-io-stack">
+          <button class="file-btn" onclick={() => (resultsOpen = true)} title={t('project.exportResultsHelp')} data-testid="export-results">
+            {t('export.resultsBtn')}
           </button>
-          <button class="file-btn" onclick={exportResultsCsv} title={t('project.exportCsvTooltip')} data-testid="export-csv">
-            CSV
+          <button class="file-btn" onclick={() => (showCalcReport = true)} title={t('project.exportReportHelp')} data-testid="export-report">
+            {t('export.reportBtn')}
+          </button>
+          <button class="file-btn" onclick={() => (viewExportOpen = true)} title={t('project.exportViewHelp')} data-testid="export-drawings">
+            {t('export.drawingsBtn')}
           </button>
         </div>
+        <button class="reproduce-link" onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))} title={t('provenance.reproduce.intro')} data-testid="open-reproduce">
+          {t('provenance.reproduce.link')}
+        </button>
       </div>
-      {@render helpPanel('exp-results', 'project.exportResults', 'project.exportResultsHelp')}
-
-      <div class="file-sub-group">
-        <span class="file-group-label">
-          {t('project.exportReport')}
-          <button
-            class="proj-help-btn"
-            onclick={(e) => toggleHelp('exp-report', e)}
-            class:active={helpKey === 'exp-report'}
-            aria-label={t('project.exportReport')}
-            data-testid="help-exp-report"
-          >?</button>
-        </span>
-        <div class="file-grid">
-          <button class="file-btn" onclick={() => showCalcReport = true} title={t('project.exportPdfTooltip')}>
-            PDF
-          </button>
-          <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))} title={t('provenance.reproduce.intro')} data-testid="open-reproduce">
-            {t('provenance.reproduce.menu')}
-          </button>
-        </div>
-      </div>
-      {@render helpPanel('exp-report', 'project.exportReport', 'project.exportReportHelp')}
-
-      <div class="file-sub-group">
-        <span class="file-group-label">
-          {t('project.exportView')}
-          <button
-            class="proj-help-btn"
-            onclick={(e) => toggleHelp('exp-view', e)}
-            class:active={helpKey === 'exp-view'}
-            aria-label={t('project.exportView')}
-            data-testid="help-exp-view"
-          >?</button>
-        </span>
-        <div class="file-grid">
-          <!--
-            No DXF: a drawing for CAD is PRO's. SVG and PNG open the figure dialog, where the
-            reader picks what goes in (the model, its diagrams, the equilibrated free body).
-          -->
-          <button class="file-btn" onclick={() => openViewExport('svg')} title={t('project.exportSvgTooltip')} data-testid="export-svg">
-            SVG
-          </button>
-          <button class="file-btn" onclick={() => openViewExport('png')} title={t('project.exportPngTooltip')} data-testid="export-png">
-            PNG
-          </button>
-        </div>
-      </div>
-      {@render helpPanel('exp-view', 'project.exportView', 'project.exportViewHelp')}
 
 
       {#if xlsReport}
@@ -480,7 +407,8 @@
 />
 
 <CalcReportDialog bind:open={showCalcReport} />
-{#if viewExport}<ExportViewDialog bind:open={viewExportOpen} format={viewExport} />{/if}
+<ExportViewDialog bind:open={viewExportOpen} bind:format={viewExport} />
+<ResultsExportDialog bind:open={resultsOpen} />
 
 <style>
   /* ─── The Excel import report ────────────────────────────────────
@@ -490,6 +418,10 @@
      box would overstate every one of them.
      ─────────────────────────────────────────────────────────────── */
   /* The importer takes the space; the template asks for less of it. */
+
+
+
+
   .xls-row {
     display: flex;
     gap: 0.3rem;
@@ -597,11 +529,28 @@
      three and a row of six produce the same button. The floor is wide enough
      for "Guardar sesión" at the panel's minimum width without wrapping.
   */
+  .reproduce-link {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 0.68rem;
+    color: var(--st-text-3);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .reproduce-link:hover { color: var(--st-text-2); }
+
   .file-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
     gap: 0.3rem;
   }
+  .file-io { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .file-io-stack { grid-template-columns: minmax(0, 1fr); }
+  .file-io > .file-btn { display: block; height: 32px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /*
      A command, on the shell's own button language: hairline border, no fill

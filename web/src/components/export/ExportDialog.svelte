@@ -4,6 +4,8 @@
    * actions. Escape and a click outside close it.
    */
   import type { Snippet } from 'svelte';
+  import { t } from '../../lib/i18n';
+  import { modelIsEmpty } from '../../lib/export/empty-model';
 
   let { open = $bindable(false), title, testid, width = 460, children, actions }: {
     open: boolean;
@@ -28,6 +30,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
     <div class="xd" role="dialog" aria-modal="true" aria-label={title} data-testid={testid} style:width={`min(${width}px, 100%)`} onclick={(e) => e.stopPropagation()}>
       <h3>{title}</h3>
+      {#if modelIsEmpty()}<p class="xd-empty" data-testid="export-empty-note">{t('export.emptyModelNote')}</p>{/if}
       <div class="xd-body">{@render children()}</div>
       <div class="xd-actions">{@render actions()}</div>
     </div>
@@ -59,6 +62,15 @@
     color: var(--st-text);
   }
   h3 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+  .xd-empty {
+    margin: 0;
+    padding: 6px 10px;
+    border: 1px solid var(--st-warn);
+    background: var(--st-warn-bg);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font-size: 0.76rem;
+  }
   .xd-body { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
   .xd-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .xd-actions :global(button) {

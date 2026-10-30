@@ -1,0 +1,280 @@
+{
+  "status": "proposed",
+  "source": "Fresh native production solver; WASM parity checked for all 21 cases. Not loaded by the page.",
+  "referenceStatus": "Unverified transcription",
+  "cases": [
+    {
+      "id": "force-0.5",
+      "parameter": 0.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.015715646468899815,
+      "v": 0.16222496822304475,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-1",
+      "parameter": 1.0,
+      "reference": [
+        0.0566,
+        0.3015
+      ],
+      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "u": 0.055782721871214726,
+      "v": 0.3022435453997318,
+      "errors": [
+        0.014439542911400562,
+        0.0024661538962912617
+      ],
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": true
+    },
+    {
+      "id": "force-1.5",
+      "parameter": 1.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.10684258557533252,
+      "v": 0.4123088693196557,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-2",
+      "parameter": 2.0,
+      "reference": [
+        0.1632,
+        0.4929
+      ],
+      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "u": 0.15919121709099388,
+      "v": 0.4958082835729163,
+      "errors": [
+        0.024563620765968974,
+        0.005900352146310167
+      ],
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": false
+    },
+    {
+      "id": "force-2.5",
+      "parameter": 2.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.20825239133019943,
+      "v": 0.5591229779593055,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-3",
+      "parameter": 3.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.25252848537532224,
+      "v": 0.6078613634692592,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-3.5",
+      "parameter": 3.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.2919082237883658,
+      "v": 0.6461499030100346,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-4",
+      "parameter": 4.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.3267999075283975,
+      "v": 0.6768692174338236,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-4.5",
+      "parameter": 4.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.3577543107276041,
+      "v": 0.7020129801443267,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-5",
+      "parameter": 5.0,
+      "reference": [
+        0.4054,
+        0.6647
+      ],
+      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "u": 0.3853157451204092,
+      "v": 0.7229728886037822,
+      "errors": [
+        0.04954182259395846,
+        0.08766795336810924
+      ],
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": false
+    },
+    {
+      "id": "force-5.5",
+      "parameter": 5.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.4099707522560257,
+      "v": 0.7407353119851402,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-6",
+      "parameter": 6.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.4321365377123959,
+      "v": 0.7560115733376837,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-6.5",
+      "parameter": 6.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.4521645063830936,
+      "v": 0.7693237058125205,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-7",
+      "parameter": 7.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.47034867488739485,
+      "v": 0.7810613384582051,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-7.5",
+      "parameter": 7.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": null,
+      "v": null,
+      "errors": null,
+      "converged": false,
+      "loadFactor": 0.0,
+      "pass": false
+    },
+    {
+      "id": "force-8",
+      "parameter": 8.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.502128385327475,
+      "v": 0.8009265111425053,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-8.5",
+      "parameter": 8.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.5161026941278584,
+      "v": 0.8094586092787588,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-9",
+      "parameter": 9.0,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": 0.529003676162876,
+      "v": 0.8172561022897544,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    },
+    {
+      "id": "force-9.5",
+      "parameter": 9.5,
+      "reference": null,
+      "source": "Intermediate load step; no reference comparison.",
+      "u": null,
+      "v": null,
+      "errors": null,
+      "converged": false,
+      "loadFactor": 0.1,
+      "pass": false
+    },
+    {
+      "id": "force-10",
+      "parameter": 10.0,
+      "reference": [
+        0.5584,
+        0.6854
+      ],
+      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "u": null,
+      "v": null,
+      "errors": null,
+      "converged": false,
+      "loadFactor": 0.1,
+      "pass": false
+    },
+    {
+      "id": "moment-1",
+      "parameter": 1,
+      "reference": null,
+      "source": "corotational_benchmarks_extended.rs::validation_corotational_cantilever_end_moment; convergence/rotation regression only, not a full-circle accuracy test.",
+      "u": 0.15839204141831778,
+      "v": -0.4597725232452991,
+      "errors": null,
+      "converged": true,
+      "loadFactor": 1.0,
+      "pass": null
+    }
+  ]
+}

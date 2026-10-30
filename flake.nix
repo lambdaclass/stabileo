@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # Playwright 1.60.0: update together with web/package-lock.json.
+    nixpkgs-playwright.url = "github:NixOS/nixpkgs/33f539df43ae63a09cb69baec738fb43f073e5b4";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -10,11 +12,15 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-playwright, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
+
+        browserPkgs = import nixpkgs-playwright { inherit system; };
+        playwright = browserPkgs.playwright-driver;
+        playwrightVersion = (builtins.fromJSON (builtins.readFile ./web/package-lock.json)).packages."node_modules/@playwright/test".version;
 
         erlang = pkgs.beam.interpreters.erlang_27;
         elixir = pkgs.beam.packages.erlang_27.elixir_1_18;
@@ -88,6 +94,24 @@
 
           RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
         };
+
+        # Linux browser CI; npm supplies the driver, Nix supplies its exact browser builds.
+        devShells.e2e = assert pkgs.lib.assertMsg (playwright.version == playwrightVersion)
+          "Playwright npm/Nix versions differ: update nixpkgs-playwright with package-lock.json";
+          pkgs.mkShell {
+            # Web Build checks third-party notices via cargo metadata; use the repository pin.
+            packages = [ rustToolchain pkgs.nodejs_22 pkgs.git pkgs.gnumake pkgs.bash pkgs.python3 ];
+            shellHook = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+              export PLAYWRIGHT_BROWSERS_PATH="${playwright.browsers}"
+              export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+              export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1
+              # Match nixpkgs' Ubuntu 24.04 archives, including WebKit's revision.
+              export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="${if pkgs.stdenv.hostPlatform.isAarch64 then "ubuntu24.04-arm64" else "ubuntu24.04-x64"}"
+              # App fonts are bundled in web/public/fonts (tokens.css); provide system fallbacks.
+              export FONTCONFIG_FILE="${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts pkgs.liberation_ttf pkgs.noto-fonts-color-emoji ]; }}"
+              export XDG_DATA_DIRS="${pkgs.shared-mime-info}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+            '';
+          };
 
         # Verification tooling: Lean (elan reads verify/lean-toolchain), Kani, SAT solvers.
         # Kani is not in nixpkgs: scripts/kani-setup.sh installs it into ./.tools, and it

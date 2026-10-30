@@ -37,6 +37,8 @@
     class?: string;
     title?: string;
     'aria-label'?: string;
+    'aria-current'?: 'page' | undefined;
+    'data-nav'?: string;
     children: Snippet;
   };
   let { to, class: cls = '', children, ...rest }: Props = $props();
