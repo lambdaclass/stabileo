@@ -204,8 +204,13 @@ export function hook<T>(page: Page, fn: (h: TestHooks) => T): Promise<T> {
  * and the two would drift the first time one of them learned something the other did not.
  */
 export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
-  await page.addInitScript((loc) => {
+  // Init scripts also run on reload: clear only for this boot, or recovery's saved
+  // workspace is deleted before the app can restore it.
+  const bootKey = `stabileo-e2e-boot-${Date.now()}-${Math.random()}`;
+  await page.addInitScript(({ loc, bootKey }) => {
     try {
+      if (sessionStorage.getItem(bootKey)) return;
+      sessionStorage.setItem(bootKey, '1');
       localStorage.clear();
       // Force a stable locale: the RC surface is localised, so assertions on
       // English text would otherwise depend on the browser's language.
@@ -216,7 +221,7 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
       // the default.
       localStorage.setItem('stabileo-design-in-pro', '1');
     } catch { /* private mode */ }
-  }, appLocale);
+  }, { loc: appLocale, bootKey });
 
   await page.goto(PRO_URL);
   // Hooks exist ⇒ the app booted with ?e2e=1.

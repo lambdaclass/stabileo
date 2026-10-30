@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-30",
+  "scope": "PR #859 in-progress merge of origin/main; corrected test models, no engine source changes; no commit created",
+  "fixture": "engine/tests/benchmarks/shell_obstacle_course.json",
+  "fixtureSha256": "918c5dc2c5990970ad0a54488d31710f3eb32f8fdfd7b3ada2980e5c0eac0e45",
+  "generator": "engine/tests/validation/benchmarks/shell_benchmark.rs::research_shell_fixture_matches_corrected_builders",
+  "nativeResults": "results/<case-id>.json",
+  "wasmResults": "results/wasm-results.json",
+  "environment": {
+    "CARGO_TARGET_DIR": "/private/tmp/claude-501/codex-859m-target",
+    "CARGO_BUILD_JOBS": 4,
+    "rust": "1.99.1",
+    "node": "22.22.1"
+  },
+  "checks": [
+    {
+      "command": "cargo test --manifest-path engine/Cargo.toml --test validation shell_benchmark",
+      "passed": 84,
+      "failed": 0,
+      "ignored": 4,
+      "note": "Includes exact fixture/builder equality. Only coarse cylinder 6/8/12/16 accuracy checks ignored."
+    },
+    {
+      "command": "cargo test --manifest-path engine/Cargo.toml --test validation research",
+      "passed": 33,
+      "failed": 0,
+      "ignored": 9
+    },
+    {
+      "command": "vitest run src/components/research/shell1985/__tests__/cases.test.ts",
+      "passed": 5,
+      "failed": 0
+    },
+    {
+      "command": "node research/benchmarks/shell-obstacle-course/wasm/check.mjs /private/tmp/859-shell-native",
+      "matchedCases": 11,
+      "maxRelativeValueDifference": 0.0,
+      "finestSelectedPassing": 2,
+      "finestSelectedTotal": 3,
+      "note": "Fresh production WASM build; native-only cylinder-32 excluded from browser replay."
+    },
+    {
+      "check": "Hemisphere fixture cases equal incoming main JSON values",
+      "passed": true
+    },
+    {
+      "check": "git diff --check and conflict-marker scan",
+      "passed": true
+    }
+  ],
+  "accuracy": {
+    "relativeTolerance": 0.02,
+    "comparison": "abs(value / signedReference - 1) < tolerance",
+    "roof16": {
+      "error": 8.445507253296292e-05,
+      "id": "roof-16",
+      "pass": true,
+      "reference": 0.3024,
+      "value": -0.30242553921393395
+    },
+    "cylinder16": {
+      "error": 0.06775444976525336,
+      "id": "cylinder-16",
+      "pass": false,
+      "reference": 1.8248e-05,
+      "value": -1.7011616800683655e-05
+    },
+    "cylinder32": {
+      "error": 0.010063143404593133,
+      "id": "cylinder-32",
+      "pass": true,
+      "reference": 1.8248e-05,
+      "value": -1.8064367759152983e-05
+    }
+  },
+  "limitations": [
+    "Chromium e2e not run; spec updated for corrected values and cylinder issue link.",
+    "Original numerical paper table/page provenance remains unverified."
+  ]
+}

@@ -332,6 +332,7 @@
 <ExperimentShell
   introInArticle
   compactHeader
+  lang={locale}
   paperId="grossman-2026"
   name={s.springsTitle}
   lead={s.springsLead}

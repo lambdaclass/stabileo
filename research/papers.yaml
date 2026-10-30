@@ -50,6 +50,10 @@ papers:
   - three-point bending force-displacement
   implementation: fracture/shauer-2025
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: wu-2023-jaxsso
   doi: 10.1007/s00158-023-03601-0
   crossref:
@@ -153,6 +157,13 @@ papers:
   - exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement
   implementation: metamaterials/grossman-2026
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
 - id: andreassen-2011
   doi: 10.1007/s00158-010-0594-7
   crossref:
@@ -199,6 +210,10 @@ papers:
   - MBB 60x20 density filter
   implementation: optimization/andreassen-2011
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: ferrari-2025
   doi: 10.1002/nme.70082
   crossref:
@@ -239,6 +254,9 @@ papers:
   implementation: stability/ferrari-sigmund-2025
   page: web/src/components/research/ferrari2025/FerrariPage.svelte
   reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   - reviewer: codex
     sha: 714a79e47
     findings: Frame hidden by a null scalar field; viewer status text below 12px; responsive
@@ -289,6 +307,10 @@ papers:
   implementation: mechanics/biggins-2026
   page: web/src/components/research/biggins2026/BigginsPage.svelte
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: feher-2026
   doi: 10.1016/j.euromechsol.2026.106217
   crossref:
@@ -370,6 +392,10 @@ papers:
     checks
   implementation: form-finding/pastrana-2026
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: fairclough-2026
   doi: 10.1016/j.compstruc.2025.107997
   crossref:
@@ -413,6 +439,10 @@ papers:
   implementation: optimisation/fairclough-2026
   contacts: []
   page: web/src/components/research/fairclough2026/FaircloughPage.svelte
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: turner-1956
   doi: 10.2514/8.3664
   crossref:
@@ -833,6 +863,10 @@ papers:
   benchmarks: []
   implementation: null
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: mattiasson-elastica
   doi: 10.1002/nme.1620170113
   crossref:
@@ -865,6 +899,10 @@ papers:
   - cantilever tip moment
   implementation: benchmarks/mattiasson-elastica
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: newmark-1959
   doi: 10.1061/jmcea3.0000098
   crossref:
@@ -887,7 +925,10 @@ papers:
   relevance: Exercises Stabileo's Newmark time-history integration for structural response.
   status: proposed
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks: []
   implementation: null
@@ -924,7 +965,10 @@ papers:
     solvers against a closed-form reference. Not the original paper building.
   status: numerically-validated
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - two close modes
@@ -959,13 +1003,20 @@ papers:
     authors.'
   status: proposed
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - beam, sway and combined mechanism bounds
   implementation: benchmarks/plastic-collapse
   page: web/src/components/research/plastic-collapse/PlasticPage.svelte
   contacts: []
+  bibliography:
+    authors: [M. R. Horne]
+    venue: Pergamon Press
+    source: https://shop.elsevier.com/books/plastic-theory-of-structures/horne/978-0-08-022737-5
 - id: navier-plate
   doi: 10.1201/9780203908723-3
   crossref:
@@ -1000,7 +1051,10 @@ papers:
     clear numerical comparison and visible mesh refinement.
   status: proposed
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate
@@ -1033,7 +1087,10 @@ papers:
   relevance: A small frame exercises the existing nonlinear path-following solver and shared viewer.
   status: proposed
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - Pinned Lee frame, first limit point (provisional reference)
@@ -1065,7 +1122,10 @@ papers:
   relevance: One deep arch exercises the production path-following solver and shared viewer.
   status: implementation-in-progress
   stage: first-version
-  reviews: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - 215 degree clamped–hinged arch under a crown point load
@@ -1107,6 +1167,10 @@ papers:
   - hemisphere with 18-degree hole (NAFEMS LE3 test convention)
   implementation: benchmarks/shell-obstacle-course
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: riks-1979
   doi: 10.1016/0020-7683(79)90081-7
   crossref:
@@ -1134,6 +1198,10 @@ papers:
   implementation: null
   page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
   contacts: []
+  reviews:
+  - round: 1
+    reviewers: [codex, kimi]
+    date: "2026-10-30"
 - id: crisfield-1981
   doi: 10.1016/0045-7949(81)90108-5
   crossref:

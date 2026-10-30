@@ -106,7 +106,7 @@ test.describe('@smoke research springs review regressions', () => {
     await page.getByRole('button', { name: 'Pause sweep' }).scrollIntoViewIfNeeded();
     await page.clock.runFor(6000);
     await expect(page.getByRole('button', { name: 'Pause sweep' })).toHaveCount(0);
-    await expect(page.getByText('Live sweep of η in your browser (our solver)')).toHaveCount(0);
+    await expect(page.locator('.sp-source[aria-live="polite"]')).not.toContainText('Precomputed replay (same solver)');
     await expect(page.locator('input[aria-label="Disorder eta"]')).toHaveValue('0.5');
   });
 
@@ -175,9 +175,11 @@ for (const viewport of [{width:360,height:780},{width:390,height:844},{width:844
         [...el.childNodes].some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) && Number.parseFloat(getComputedStyle(el).fontSize) < 12
       ).map(el => el.outerHTML));
       expect(smallText).toEqual([]);
+      await page.screenshot({ path: test.info().outputPath(`springs-${viewport.width}x${viewport.height}-${tab}.png`) });
     }
     await page.locator('#checks').scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`springs-${viewport.width}x${viewport.height}-checks.png`) });
   });
 }
 
@@ -194,7 +196,8 @@ test('@smoke spring replay performs no worker solves; keyboard camera and restar
   });
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/en/research/metamaterials/grossman-2026/');
-  await expect(page.getByText('Precomputed replay (same solver)', {exact:true})).toBeVisible();
+  await expect(page.locator('.sp-source[aria-live="polite"]')).toContainText('Precomputed replay (same solver)');
+  await expect(page.getByRole('button', { name: 'Pause sweep' })).toBeVisible();
   await page.waitForTimeout(700);
   expect(await page.evaluate(() => (window as unknown as {__springWorkers:number}).__springWorkers)).toBe(0);
   const camera = page.locator('.sfv-canvas');
