@@ -26,7 +26,7 @@
 </script>
 
 <div class="sd" data-testid="steps-doc">
-  <StepsHeader backLabel={t('steps.view.back')} backTitle={t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
+  <StepsHeader backLabel={explainedSteps.fromTool ? t('adv.back') : t('steps.view.back')} backTitle={explainedSteps.fromTool ? t('adv.backToList') : t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
     name={t('steps.catalog.title')} backTestid="steps-back" />
 
   {#if explainedSteps.error}
