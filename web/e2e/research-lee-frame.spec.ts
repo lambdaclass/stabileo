@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 for (const width of [360, 390, 810]) {
   test(`@smoke Lee frame replay and live peak at ${width}px`, async ({ page }, testInfo) => {
-    test.setTimeout(120_000);
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/benchmarks/lee-frame-1968/');
@@ -12,7 +11,7 @@ for (const width of [360, 390, 810]) {
     await page.screenshot({ path: testInfo.outputPath('lee-frame.png'), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
-    await expect(page.getByTestId('lee-source')).toContainText('Cached result · 90/90', { timeout: 100_000 });
+    await expect(page.getByTestId('lee-source')).toContainText('Cached result · 90/90', { timeout: 100_000 }); // slow-ok: The WASM worker recomputes the nonlinear Lee frame path through all 90 steps.
     await expect(page.getByTestId('lee-limit')).toHaveText('1.8658');
     await page.getByRole('button', { name: 'Restart replay', exact: true }).click();
     await expect(page.getByTestId('lee-source')).toContainText('Precomputed replay');

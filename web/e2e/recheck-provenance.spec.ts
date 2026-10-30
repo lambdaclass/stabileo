@@ -69,7 +69,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     expect((await page.evaluate(() => window.__stabileo.resultProvenance()) as { stale: boolean }).stale).toBe(true);
 
     await page.getByTestId('recheck-banner-rerun').click();
-    await expect(page.getByTestId('recheck-stale-banner')).toBeHidden({ timeout: 60_000 });
+    await expect(page.getByTestId('recheck-stale-banner')).toBeHidden({ timeout: 45_000 });
     const r = await recheck(page);
     expect(r.stale).toBe(false);
     expect(r.stampVersion).toBeGreaterThan(0);
@@ -85,7 +85,7 @@ test.describe('@smoke re-check prompt for old projects', () => {
     await page.getByTestId('recheck-ack').check();
     await page.getByTestId('recheck-rerun').click();
     await expect(notice).toBeHidden();
-    await expect.poll(async () => (await recheck(page)).stale, { timeout: 60_000 }).toBe(false);
+    await expect.poll(async () => (await recheck(page)).stale, { timeout: 45_000 }).toBe(false);
   });
 
   test('a project stamped with this version opens silently', async ({ pro: page }) => {
@@ -124,11 +124,11 @@ test.describe('@smoke reproducible results', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('stabileo-reproduce')));
     await page.getByTestId('reproduce-input').fill(record);
     await page.getByTestId('reproduce-run').click();
-    await expect(page.getByTestId('reproduce-verdict')).toHaveAttribute('data-reproduced', 'true', { timeout: 60_000 });
+    await expect(page.getByTestId('reproduce-verdict')).toHaveAttribute('data-reproduced', 'true', { timeout: 45_000 });
   });
 });
 
-test.describe('@smoke provenance on a PRO model with combinations (the common path)', () => {
+test.describe('@slow provenance on a PRO model with combinations (the common path)', () => {
   test('engine hashes, the solver input, a combination report reproduced', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
