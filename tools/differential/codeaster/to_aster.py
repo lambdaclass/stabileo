@@ -884,13 +884,17 @@ def _constraint_rows(d, pts):
             rows.append([(tm["nodeId"], tm["dof"], tm["coefficient"]) for tm in x["terms"]])
         elif t == "diaphragm":
             plane = x.get("plane", "XY")
-            d0, d1, dr, i0, i1 = {"XZ": (0, 2, 4, 0, 2), "YZ": (1, 2, 3, 1, 2)}.get(plane, (0, 1, 5, 0, 1))
+            d0, d1, dr, i0, i1, s0, s1 = {
+                "XZ": (0, 2, 4, 0, 2, -1.0, 1.0),
+                "YZ": (1, 2, 3, 1, 2, 1.0, -1.0),
+            }.get(plane, (0, 1, 5, 0, 1, 1.0, -1.0))
             ms = x["masterNode"]
             for sl in x["slaveNodes"]:
                 o0 = pts[sl][i0] - pts[ms][i0]
                 o1 = pts[sl][i1] - pts[ms][i1]
-                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, o1)] if abs(t_[2]) > 1e-15])
-                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -o0)] if abs(t_[2]) > 1e-15])
+                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, s0 * o1)] if abs(t_[2]) > 1e-15])
+                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, s1 * o0)] if abs(t_[2]) > 1e-15])
+                rows.append([(sl, dr, 1.0), (ms, dr, -1.0)])
         else:
             raise Unsupported(f"constraint {t}")
     return rows

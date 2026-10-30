@@ -939,7 +939,8 @@ def opensees_3d(d, mode="static", spec=None):
     for nid, dof, v in settlements:
         ops.sp(nid, dof + 1, v)
 
-    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {})
+    ctx = dict(ops=ops, dim=3, ndf=ndf, nodes=nodes, fixed=fixed, art_rot=art_rot, spec=spec or {},
+               elems=elems, secs=secs, geo=geo, pieces=pieces)
     if mode != "static":
         ctx["collect"] = lambda: _collect_3d(ops, nodes, ndf, flags, art_rot, spring_elems,
                                             hinge_slaves, elems, truss_axial, pieces)
@@ -1159,6 +1160,36 @@ def _gen_eig_spd(a, b):
     return mu, np.linalg.solve(l.T, y)
 
 
+def _wagner_terms_3d(ctx):
+    """[(eid, ni, nj, ex, r0_sq / L)] for 3D frames whose torsion is not released.
+    OpenSees' ElasticTimoshenkoBeam3d -geomNonlinear has the two bending blocks
+    of Kg only; the engine's frame_kg_local_3d also carries the Wagner torsional
+    term P * r0^2 / L on (theta_xI, theta_xJ), where r0^2 = (Iy + Iz) / A + y0^2 + z0^2."""
+    if ctx["dim"] != 3 or ctx["ndf"] < 6:
+        return []
+    out = []
+    for e in ctx.get("elems") or []:
+        if e["type"] != "frame" or e.get("releaseTStart") or e.get("releaseTEnd"):
+            continue
+        sec = ctx["secs"][e["sectionId"]]
+        r0_sq = (sec["iy"] + sec["iz"]) / sec["a"] + (sec.get("y0") or 0.0) ** 2 + (sec.get("z0") or 0.0) ** 2
+        L, ex, _, _ = ctx["geo"][e["id"]]
+        out.append((e["id"], e["nodeI"], e["nodeJ"], ex, r0_sq / L))
+    return out
+
+
+def _add_wagner_kg_3d(kg, eq, wagner, p_of_eid):
+    for eid, ni, nj, ex, c in wagner:
+        w = p_of_eid(eid) * c
+        dofs = eq[ni][3:6] + eq[nj][3:6]
+        v = [ex[0], ex[1], ex[2], -ex[0], -ex[1], -ex[2]]
+        for a in range(6):
+            if dofs[a] >= 0:
+                for b in range(6):
+                    if dofs[b] >= 0:
+                        kg[dofs[a], dofs[b]] += w * v[a] * v[b]
+
+
 def analysis_buckling(ctx):
     np = _np()
     ops = ctx["ops"]
@@ -1169,6 +1200,10 @@ def analysis_buckling(ctx):
     ops.reactions()
     kg = _tangent(ops) - k
     linear = dict(dim=ctx["dim"], art_rot=sorted(ctx["art_rot"]), **ctx["collect"]())
+    _add_wagner_kg_3d(
+        kg, eq, _wagner_terms_3d(ctx),
+        lambda eid: 0.5 * (linear["forces"][eid]["nStart"] + linear["forces"][eid]["nEnd"]),
+    )
     # K phi = lambda (-Kg) phi  <=>  (-Kg) phi = mu K phi, lambda = 1/mu.
     mu, vec = _gen_eig_spd(-kg, k)
     top = max(abs(mu).max(), 1e-300)
@@ -1204,7 +1239,7 @@ def analysis_modal(ctx):
 
 def analysis_pdelta(ctx):
     ops = ctx["ops"]
-    _stiffness(ctx)
+    _, eq = _stiffness(ctx)
     ops.wipeAnalysis()
     ops.constraints("Transformation")
     ops.numberer("RCM")
@@ -1215,9 +1250,46 @@ def analysis_pdelta(ctx):
     ops.analysis("Static")
     if ops.analyze(1) != 0:
         raise RuntimeError("OpenSees P-Delta did not converge")
+    wagner = _wagner_terms_3d(ctx)
+    tau_by_eid = {}
+    w_by_eid = {}
+    if wagner:
+        ops.integrator("LoadControl", 0.0)
+        for _ in range(15):
+            u_prev = {nid: list(ops.nodeDisp(nid))[:6] for nid in ctx["nodes"]}
+            ops.remove("loadPattern", 102)
+            ops.pattern("Plain", 102, 1)
+            mom = {}
+            for eid, ni, nj, ex, c in wagner:
+                pcs = ctx["pieces"][eid]
+                f0 = ops.eleResponse(pcs[0], "localForce")[0]
+                f6 = ops.eleResponse(pcs[-1], "localForce")[6]
+                w = 0.5 * (f6 - f0) * c
+                dtheta = sum((u_prev[ni][3 + k] - u_prev[nj][3 + k]) * ex[k] for k in range(3))
+                tau = w * dtheta
+                tau_by_eid[eid] = tau
+                w_by_eid[eid] = w
+                mi = mom.setdefault(ni, [0.0, 0.0, 0.0])
+                mj = mom.setdefault(nj, [0.0, 0.0, 0.0])
+                for k in range(3):
+                    mi[k] -= tau * ex[k]
+                    mj[k] += tau * ex[k]
+            for nid, m in sorted(mom.items()):
+                ops.load(nid, 0.0, 0.0, 0.0, m[0], m[1], m[2])
+            if ops.analyze(1) != 0:
+                raise RuntimeError("OpenSees P-Delta Wagner iteration did not converge")
+            max_u = max((abs(v) for u in u_prev.values() for v in u), default=0.0)
+            diff = max((abs(ops.nodeDisp(nid)[k] - u_prev[nid][k]) for nid in ctx["nodes"] for k in range(6)), default=0.0)
+            if diff <= 1e-13 * max(1.0, max_u):
+                break
     ops.reactions()
     kt = _tangent(ops)
+    if wagner:
+        _add_wagner_kg_3d(kt, eq, wagner, lambda eid: w_by_eid.get(eid, 0.0))
     r = ctx["collect"]()
+    for eid, tau in tau_by_eid.items():
+        r["forces"][eid]["mxStart"] += tau
+        r["forces"][eid]["mxEnd"] += tau
     return dict(dim=ctx["dim"], kappa=_kappa(kt), art_rot=sorted(ctx["art_rot"]), **r)
 
 
