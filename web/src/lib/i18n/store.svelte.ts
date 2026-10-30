@@ -18,9 +18,9 @@ const dicts: Record<string, Translations> = Object.fromEntries(
 );
 
 const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
-  de: () => import('./locales/full/de'),
-  fr: () => import('./locales/full/fr'),
-  tr: () => import('./locales/full/tr'),
+  de: () => import('./locales/browser/de'),
+  fr: () => import('./locales/browser/fr'),
+  tr: () => import('./locales/browser/tr'),
 };
 const pendingLoads = new Map<string, Promise<void>>();
 

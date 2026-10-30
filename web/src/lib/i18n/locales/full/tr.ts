@@ -1,9 +1,8 @@
-// Reuse the public dictionary instead of emitting its strings again in this lazy chunk.
-import { tr as publicEntries } from 'virtual:public-i18n';
+// Node-compatible dictionary for scripts and Playwright test discovery.
 import type { Translations } from '../../types';
-import { tr as main } from 'virtual:app-i18n/tr';
+import main from '../tr';
 import steel from '../steel/tr';
 import steps from '../steps/tr';
 
-const full: Translations = { ...publicEntries, ...main, ...steel, ...steps };
+const full: Translations = { ...main, ...steel, ...steps };
 export default full;
