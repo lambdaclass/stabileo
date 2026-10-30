@@ -118,13 +118,14 @@ the same published replay; production numerics are unchanged.
   page explains its optimizer/quadrature irregularities.
 
 The gallery thumbnail is generated from our replay, not a paper figure.
-Responsive Playwright coverage spans 360, 390, 844×390 and 810 pixels in six locales;
-it requires an environment where Playwright can run.
+Responsive Playwright coverage (`web/e2e/research-arches.spec.ts`, all `@smoke`) spans 360,
+390, 844×390 and 810 pixels in six locales: no horizontal overflow, 44 px targets, 12 px
+text, the viewer's position, the chart readout at the right edge, the data table, and
+mode view followed by the jump link. Two more cases check that Stop and a failed worker
+keep the computed parameters.
 
-Verification on 2026-10-30: 195 Vitest tests across 42 research/i18n files passed;
-4 native research tests, both complete evidence-file comparisons, the engine arch
-benchmark, and research WASM replay parity passed. Typecheck reports 247 existing
-errors and no new errors. Svelte diagnostics contain no errors in the changed
-components. Offline catalogue validation: 48 papers, zero problems. Playwright was
-not run in this environment; the responsive and worker-outcome cases are authored
-for execution in browser CI.
+Verification on 2026-10-30: 243 Vitest tests across 44 research, i18n and e2e-policy files
+passed; 4 native research tests, both complete evidence-file comparisons, the engine arch
+benchmark and research WASM replay parity passed; typecheck reports the 247 baseline
+errors and no new ones; offline catalogue validation reports 48 papers and zero problems;
+the research isolation check passes; all 28 Playwright smoke cases of the arches spec pass.

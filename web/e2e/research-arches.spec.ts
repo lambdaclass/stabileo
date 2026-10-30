@@ -30,7 +30,7 @@ test('@smoke research arches width recomputation and stop', async ({ page }) => 
 
 for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
   for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
-    test(`arches accessibility ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    test(`@smoke arches accessibility ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(`/${locale}/research/mechanics/biggins-2026/`);
@@ -77,7 +77,7 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
 }
 
 for (const outcome of ['stop', 'failure']) {
-  test(`arches keeps computed parameters after ${outcome}`, async ({ page }) => {
+  test(`@smoke arches keeps computed parameters after ${outcome}`, async ({ page }) => {
     await page.addInitScript(({ outcome }) => {
       class ControlledWorker {
         onmessage: ((event: { data: unknown }) => void) | null = null;

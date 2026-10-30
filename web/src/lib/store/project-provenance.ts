@@ -51,7 +51,7 @@ function forgetSessionProjectState(): void {
 }
 
 /** The provenance fields of a snapshot, taken from the live session. */
-export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith'> {
+export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'> {
   return {
     // Copied out of reactive state. A snapshot that aliased the store's array would let a
     // later export mutate an undo entry — the same hazard `restore()` documents for footings.
@@ -65,6 +65,7 @@ export function captureProjectProvenance(): Pick<ModelSnapshot, 'exports' | 'man
     // Which build last solved it: adopted on open by `onProjectOpened` (file.ts), which also
     // decides whether to show the re-check notice.
     solvedWith: recheckStore.capture(),
+    pendingRecheckNotice: recheckStore.captureNotice(),
   };
 }
 

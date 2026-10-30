@@ -40,7 +40,7 @@ const es: Strings = {
   coordinates: "Empotrado en ambos extremos. Las coordenadas son x/L y w/L; α es la curvatura preferida multiplicada por la luz L.",
   referenceCaveat: "El optimizador y la cuadratura rectangular de los autores producen pequeñas irregularidades; al 70% dan {software}, mientras que el artículo indica {published}.",
 
-  title: 'Arcos que saltan al cambiar el patrón de curvatura',
+  title: 'Arcos que saltan por patrones de curvatura',
   lead: 'Cambiá el ancho de un segmento curvo y el umbral en que un arco poco profundo cambia de lado.',
   model: 'Del pandeo de Euler al salto de equilibrio',
   theory: 'Un arco empotrado almacena el acortamiento en su forma. El patrón de curvatura preferida se acopla a sus modos de pandeo. Las ecuaciones (2) y (3), arXiv v2 páginas 3–4, describen el equilibrio de ángulo pequeño y el espectro de compresión. Este experimento usa un patrón rectangular centrado.',

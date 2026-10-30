@@ -148,3 +148,39 @@ pub fn matmul(a: &M3, b: &M3) -> M3 {
 pub fn matvec(r: &M3, v: &V3) -> V3 {
     [dot(&r[0], v), dot(&r[1], v), dot(&r[2], v)]
 }
+
+thread_local! {
+    static NIGHTLY_INPUTS: std::cell::RefCell<Vec<serde_json::Value>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Record the actual solver inputs, including transformed/combined load cases.
+pub fn nightly_input<T: serde::Serialize>(input: &T) {
+    if std::env::var_os("NIGHTLY_FINDINGS_DIR").is_some() {
+        NIGHTLY_INPUTS.with(|v| v.borrow_mut().push(serde_json::to_value(input).unwrap()));
+    }
+}
+
+/// Each failing shrink overwrites this property's previous candidate. The last
+/// failing candidate is retained even if the enclosing job reaches its budget.
+pub fn nightly_property<T: serde::Serialize>(base: &T, body: impl FnOnce() -> Result<(), proptest::test_runner::TestCaseError>) -> Result<(), proptest::test_runner::TestCaseError> {
+    NIGHTLY_INPUTS.with(|v| v.borrow_mut().clear());
+    let result = body();
+    if let (Ok(dir), Err(proptest::test_runner::TestCaseError::Fail(reason))) = (std::env::var("NIGHTLY_FINDINGS_DIR"), &result) {
+        let thread = std::thread::current();
+        let test = thread.name().unwrap_or("property");
+        let seed = std::env::var("PROPTEST_RNG_SEED").unwrap_or_default();
+        let cases = std::env::var("PROPTEST_CASES").unwrap_or_default();
+        let model = NIGHTLY_INPUTS.with(|v| serde_json::json!({"base": base, "solver_inputs": *v.borrow()}));
+        let finding = serde_json::json!({
+            "test": test, "seed": seed, "model": model, "details": reason.to_string(),
+            "reduction": "last failing proptest shrink candidate; may be budget-limited (see property log)",
+            "command": format!("PROPTEST_RNG_SEED={seed} PROPTEST_CASES={cases} cargo test --release --test certificates {test} -- --exact --nocapture")
+        });
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = std::path::Path::new(&dir).join(format!("{}.finding.json", test.replace("::", "-")));
+        let temporary = path.with_extension("tmp");
+        std::fs::write(&temporary, serde_json::to_vec_pretty(&finding).unwrap()).unwrap();
+        std::fs::rename(temporary, path).unwrap();
+    }
+    result
+}
