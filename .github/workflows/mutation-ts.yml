@@ -17,10 +17,39 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The critical set no longer fits one runner: 3765 mutants took 5 h 31 min on 2026-10-26, and
+  # with 4434 mutants (and a 1243-test dry run, 5 min 48 s) the 2026-10-27 and -28 runs were
+  # cancelled at the 345 min timeout with 3455 tested. Shards split by file run in parallel;
+  # together they cover every file of web/stryker.config.json. Measured on this split's first
+  # version (run 40721067826): gate-verify 65 min, cirsoc301-serviceability 140 min, while
+  # "detailing" and "design" (three files each) passed 4 h, so those two are split further. A file added there
+  # must be added to a shard below (the check step fails otherwise).
   stryker:
+    name: stryker (${{ matrix.shard }})
     runs-on: ubuntu-latest
-    # The first full run reached 3300 of 3322 mutants at 300 min (concurrency 3).
     timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: cirsoc301-serviceability
+            mutate: >-
+              src/lib/engine/codes/argentina/cirsoc301.ts,src/lib/engine/codes/argentina/serviceability.ts,src/lib/engine/codes/argentina/cirsoc201-basis.ts,src/lib/engine/codes/argentina/cirsoc201-beam-kernel.ts,src/lib/codes/cirsoc201/spacing.ts
+          - shard: foundation-check
+            mutate: >-
+              src/lib/engine/detailing/foundation-check.ts
+          - shard: punching-anchorage
+            mutate: >-
+              src/lib/engine/detailing/punching-shear.ts,src/lib/codes/cirsoc201/anchorage.ts
+          - shard: candidate-search
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: design-results
+            mutate: >-
+              src/lib/engine/design-check-results.ts,src/lib/codes/cirsoc201/transverse-spacing.ts
+          - shard: gate-verify
+            mutate: >-
+              src/lib/engine/auto-verify.ts,src/lib/engine/codes/argentina/cirsoc201-engine-gate.ts,src/lib/engine/design/outcome.ts
     steps:
       - uses: actions/checkout@v7
 
@@ -56,14 +85,26 @@ jobs:
         working-directory: web
         run: npm ci
 
+      - name: The shards cover the configured files
+        working-directory: web
+        run: |
+          node -e '
+            const cfg = require("./stryker.config.json").mutate;
+            const wf = require("fs").readFileSync("../.github/workflows/mutation-ts.yml", "utf8");
+            const missing = cfg.filter((f) => !wf.includes(f));
+            if (missing.length) { console.error("::error::not in any mutation-ts.yml shard: " + missing.join(", ")); process.exit(1); }
+          '
+
       - name: Stryker
         working-directory: web
-        run: npm run test:mutation
+        env:
+          MUTATE: ${{ matrix.mutate }}
+        run: npx stryker run --mutate "$MUTATE"
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: stryker-report
+          name: stryker-report-${{ matrix.shard }}
           path: web/reports/mutation/
           retention-days: 30

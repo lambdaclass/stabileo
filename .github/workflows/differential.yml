@@ -1,4 +1,7 @@
 name: Differential
+# The forced-failure test run is named so that verification-alert.yml files it
+# under its own issue.
+run-name: ${{ inputs.force_failure && '[forced failure] Differential' || 'Differential' }}
 
 # Differential testing against independent frame programs (tools/differential/):
 # catches element-formulation, fixed-end-force, convention, assembly and
@@ -6,7 +9,7 @@ name: Differential
 # the assembled system, right or wrong). Nightly and on demand; the random
 # seed moves daily and is printed, so a failure reproduces locally with
 # `tools/differential/ci.sh PROGRAM SEED`. A failed scheduled run opens or
-# updates a `verification-failure` issue (verification-alert.yml).
+# updates the `ci-failure` issue for this workflow (verification-alert.yml).
 
 on:
   schedule:
@@ -16,12 +19,26 @@ on:
       seed:
         description: "seed-start (default: day-based)"
         required: false
+      force_failure:
+        description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  forced-failure:
+    if: inputs.force_failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: |
+          echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Differential [forced failure]'"
+          exit 1
+
   differential:
+    if: ${{ !inputs.force_failure }}
     strategy:
       fail-fast: false
       matrix:
@@ -29,12 +46,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: 1.99.1
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v7
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Fortran and CMake (Mystran)
@@ -42,11 +61,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gfortran cmake
       # CalculiX is built by nix (calculix/setup.sh) with 17-digit output:
       # distribution builds print 7 digits, a ~5e-7 floor at the tolerance.
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
         if: matrix.program == 'calculix'
       - name: Compare
         run: tools/differential/ci.sh ${{ matrix.program }} ${{ github.event.inputs.seed }}
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: differential-${{ matrix.program }}

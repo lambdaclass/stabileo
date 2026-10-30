@@ -294,7 +294,8 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let e = c.s.elements.values().find(|e| e.section_id == x.id).map_or(200_000.0, |e| c.s.materials[&e.material_id.to_string()].e);
+                        // Smallest modulus of the members sharing the section (see ana2::mat_e).
+                        let e = c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| c.s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0);
                         (x.id.to_string(), rect_fibers(b, h, 12, 12, e))
                     })
                     .collect();

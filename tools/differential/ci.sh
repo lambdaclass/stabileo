@@ -23,7 +23,8 @@ pip="$here/.venv/bin/pip"
 "$pip" install -q numpy scipy
 
 case "$program" in
-  frame3dd) [ -x "$here/.tools/frame3dd/frame3dd-norot" ] || "$here/frame3dd/build.sh" ;;
+  frame3dd) [ "$(cat "$here/.tools/frame3dd/patch-level" 2>/dev/null)" = \
+              "$(sed -n 's/^PATCH_LEVEL=//p' "$here/frame3dd/build.sh")" ] || "$here/frame3dd/build.sh" ;;
   pynite) "$pip" install -q "PyNiteFEA==3.2.0" ;;
   mystran) [ -x "$here/.tools/mystran/mystran" ] || "$here/mystran/build.sh" ;;
   kratos) "$pip" install -q "KratosMultiphysics==10.4.4" "KratosStructuralMechanicsApplication==10.4.4" \

@@ -409,7 +409,8 @@ fn spectral_cqc_base_shear_independent_of_mode_basis() {
 #[ignore]
 fn probe_units_3d() {
     use dedaliano_engine::metamorphic::units::{scale_3d, Units};
-    let f = std::env::var("PFILE").unwrap();
+    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
+    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
     let s: SolverInput3D = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
     let base = linear::solve_3d(&s).unwrap();
     let pick = |r: &AnalysisResults3D| r.displacements.iter().map(|d| (d.node_id, d.ux, d.uz, d.ry)).collect::<Vec<_>>();
@@ -457,7 +458,8 @@ fn shell_rotary_inertia_follows_the_shell() {
 #[test]
 #[ignore]
 fn probe_plastic_file() {
-    let f = std::env::var("PFILE").unwrap();
+    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
+    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
     let s: SolverInput = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
     match plastic_2d(&s) {
         Ok(r) => { println!("factor {} mech {} warn {:?}", r.collapse_factor, r.is_mechanism, r.warnings); for h in &r.hinges { println!("  {h:?}"); } }
@@ -483,8 +485,17 @@ fn plastic_3d_input(c: &crate::case::Case3) -> PlasticInput3D {
     PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
 }
 
+/// A model of the exported differential corpus, or its pinned copy: a
+/// regression below pins numbers of one particular model, and the corpus is
+/// regenerated whenever the generators change (frame3d-2 lost its
+/// unrestrained-DOF settlements, and a support with them, in October 2026).
 fn corpus_3d(name: &str) -> crate::case::Case3 {
-    let f = format!("{}/tests/metamorphic_corpus/differential/{name}.json", env!("CARGO_MANIFEST_DIR"));
+    let pinned = format!("{}/tests/metamorphic/pinned/{name}.json", env!("CARGO_MANIFEST_DIR"));
+    let f = if std::path::Path::new(&pinned).exists() {
+        pinned
+    } else {
+        format!("{}/tests/metamorphic_corpus/differential/{name}.json", env!("CARGO_MANIFEST_DIR"))
+    };
     crate::case::Case3::new(name, serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap())
 }
 

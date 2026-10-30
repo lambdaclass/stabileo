@@ -365,7 +365,12 @@ impl Relabel {
             p.element_id = get(&self.plate, p.element_id);
         }
         for q in o.quad_stresses.iter_mut() {
-            q.element_id = get(&self.quad, q.element_id);
+            let id = q.element_id;
+            q.element_id = [&self.quad, &self.quad9, &self.solid_shell, &self.curved_shell]
+                .iter()
+                .find_map(|t| t.get(&id))
+                .copied()
+                .unwrap_or(id);
         }
         o
     }

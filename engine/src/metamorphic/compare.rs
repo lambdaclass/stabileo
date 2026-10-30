@@ -281,19 +281,29 @@ pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: 
     let f = scale_src.f.maxabs().max(force_floor);
     let m = scale_src.m.maxabs().max(force_floor * lchar);
     let l = lchar.max(f64::MIN_POSITIVE);
-    let fams: [(&str, &Family, &Family, f64); 6] = [
-        ("translation", &diff.t, &scale_src.t, t.max(r * l)),
-        ("rotation", &diff.r, &scale_src.r, r.max(t / l)),
-        ("force", &diff.f, &scale_src.f, f.max(m / l)),
-        ("moment", &diff.m, &scale_src.m, m.max(f * l)),
-        ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs()),
-        ("scalar", &diff.x, &scale_src.x, 0.0),
+    // A family that is exactly zero in `expected` (a node whose only load
+    // goes straight into its support, a plate bent without membrane
+    // stress) is still computed in floating point after a rotation or a
+    // mirror: its round-off has no scale of its own. Translations and
+    // rotations are then floored by the coordinate round-off of a model of
+    // size L (64·ε·L, 64·ε rad), shell stresses by the stress the forces
+    // would carry over the model size (F/L², far below any real shell
+    // stress, which acts over a thickness ≪ L). Nothing above these floors
+    // is hidden: any real displacement or stress is many orders larger.
+    let (t_abs, r_abs) = (64.0 * f64::EPSILON * l, 64.0 * f64::EPSILON);
+    let fams: [(&str, &Family, &Family, f64, f64); 6] = [
+        ("translation", &diff.t, &scale_src.t, t.max(r * l), t_abs),
+        ("rotation", &diff.r, &scale_src.r, r.max(t / l), r_abs),
+        ("force", &diff.f, &scale_src.f, f.max(m / l), 0.0),
+        ("moment", &diff.m, &scale_src.m, m.max(f * l), 0.0),
+        ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs().max(f.max(m / l) / (l * l)), 0.0),
+        ("scalar", &diff.x, &scale_src.x, 0.0, 0.0),
     ];
     let mut rep = Report { worst: 0.0, where_: String::new() };
-    for (name, d, src, s) in fams {
+    for (name, d, src, s, abs_floor) in fams {
         for k in 0..d.vals.len() {
             let scale = if name == "scalar" { src.scales.get(k).copied().unwrap_or(src.vals[k].abs()) } else { s };
-            let tol = rel * scale + f64::MIN_POSITIVE;
+            let tol = rel * scale + abs_floor + f64::MIN_POSITIVE;
             let ratio = d.vals[k].abs() / tol;
             if !d.vals[k].is_finite() || !(ratio <= 1.0) {
                 return Err(format!(
