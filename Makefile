@@ -1,7 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
-       test.ci-scripts \
+       test.ci-scripts test.nightly-scripts \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -335,7 +335,11 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
-test.ci-scripts:
+test.nightly-scripts:
+	python3 -B -I scripts/tests/test_nightly.py
+	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
+
+test.ci-scripts: test.nightly-scripts
 	python3 -B -I -m unittest discover -s scripts/tests -p test_check_containment.py -v
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'

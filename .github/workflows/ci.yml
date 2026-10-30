@@ -121,6 +121,8 @@ jobs:
               - 'Cargo.lock'
             ci_scripts:
               - 'scripts/check-containment.py'
+              - 'scripts/nightly-*.py'
+              - '.github/workflows/nightly.yml'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'

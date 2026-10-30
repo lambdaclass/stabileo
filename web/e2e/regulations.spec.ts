@@ -301,7 +301,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await page.getByTestId('al-preview-btn').click();
     const planned = Number(await page.getByTestId('al-after-dist').innerText());
     await page.getByTestId('al-apply').click();
-    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     await expect(page.getByTestId('al-preview')).toBeHidden();
     expect(planned).toBeGreaterThan(0);
   });

@@ -236,9 +236,9 @@ async function boot(page: Page) {
     } catch { /* private mode */ }
   });
   await page.goto(PRO_URL);
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 }
 
@@ -269,10 +269,10 @@ async function calculate(page: Page) {
   const mark = (await toastsSeen(page)).length;
   await page.evaluate(async () => { await window.__stabileoActions.solve(); });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 120_000 })
+    .poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(before);
   await expect
-    .poll(async () => (await toastsSeen(page)).slice(mark).join(' | '), { timeout: 120_000 })
+    .poll(async () => (await toastsSeen(page)).slice(mark).join(' | '), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toContain('Análisis 3D exitoso');
 }
 
@@ -325,13 +325,13 @@ async function openViewer(page: Page, step: string) {
   if (await docs.count() > 0 && await docs.getAttribute('open') === null) {
   }
   await page.getByTestId('doc-3d').click();
-  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 }); // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 })
+    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(before.builds);
   // A scene that built but drew nothing is an empty viewport, and it looks like a working one.
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.canvasInkRatio()), { timeout: 120_000 })
+    .poll(() => page.evaluate(() => window.__stabileo.canvasInkRatio()), { timeout: 120_000 }) // slow-ok: Helper for the @slow restore/design/rebar journey; the smoke toast-recorder test does not call it.
     .toBeGreaterThan(0);
 
   const after = await counters(page);

@@ -15,8 +15,8 @@ async function expectFrame(page: Page, displacement: number[]) {
   }).toBeLessThan(1e-5);
 }
 
-test.describe('@smoke Ferrari research', () => {
-  test('replays production results, recomputes and can stop and restart', async ({ page }) => {
+test.describe('Ferrari research', () => {
+  test('@slow replays production results, recomputes and can stop and restart', async ({ page }) => {
     test.setTimeout(120_000);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/stability/ferrari-sigmund-2025/');
@@ -43,7 +43,7 @@ test.describe('@smoke Ferrari research', () => {
   });
   for (const [width, height] of [[360, 800], [390, 844], [810, 1080]]) {
     for (const locale of ['en', 'es', 'pt']) {
-      test(`${locale} layout ${width}x${height}`, async ({ page }, testInfo) => {
+      test(`@smoke ${locale} layout ${width}x${height}`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height });
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(`/${locale}/research/stability/ferrari-sigmund-2025/`);

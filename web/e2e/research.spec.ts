@@ -69,7 +69,7 @@ test.describe('@smoke research', () => {
     await page.locator('#p-mesh').selectOption('coarse');
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await expect(app).toHaveAttribute('data-source', 'live');
-    await expect.poll(async () => Number(await app.getAttribute('data-steps')), { timeout: 60_000 }).toBeGreaterThanOrEqual(5);
+    await expect.poll(async () => Number(await app.getAttribute('data-steps')), { timeout: 45_000 }).toBeGreaterThanOrEqual(5);
     await page.locator('#rs-tab-force').click();
     const curve = page.locator('#rs-panel-force svg path[stroke-width="1.75"]').first();
     await expect(curve).toBeVisible();
