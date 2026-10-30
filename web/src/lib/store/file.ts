@@ -338,7 +338,18 @@ export function adoptStoredProject(snapshot: ModelSnapshot, name: string): void 
  */
 export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: string | undefined): void {
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
-  if (snap) recheckStore.openProject(snap as never, analysisMode);
+  if (snap) {
+    // Assess the model that restore actually installed (including legacy defaults,
+    // such as Wind/Earthquake load cases), which is also what the next save writes.
+    // Otherwise reloading that save adds applicability to the unread notice and
+    // changes the snapshot. Provenance still belongs to the opened project, not
+    // the previous project's session state captured by modelStore.snapshot().
+    recheckStore.openProject({
+      ...modelStore.snapshot(),
+      solvedWith: snap.solvedWith,
+      pendingRecheckNotice: snap.pendingRecheckNotice,
+    } as never, analysisMode);
+  }
   // Design kept in the project while it is off in PRO's settings: offered, not switched on.
   noteDesignHeldIfOff(analysisMode);
 }

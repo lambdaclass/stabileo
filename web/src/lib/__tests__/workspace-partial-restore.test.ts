@@ -263,6 +263,9 @@ it('reopens the notice with every change id when a stale project is restored aft
   const ids = recheckStore.assessment!.changes.map(c => c.id);
   expect(ids).toContain('cirsoc301-tension-needs-connection');
   const before = modelStore.snapshot();
+  // Legacy restore supplies Wind/Earthquake cases; their applicability must
+  // already be captured before saving, rather than first appearing on reload.
+  expect(before.pendingRecheckNotice?.features).toEqual(expect.arrayContaining(['seismic', 'wind']));
   expect(saveWorkspaceToLocalStorage()).toBe(true);
 
   // Reload starts with a fresh project, then App restores the saved workspace.
@@ -276,6 +279,7 @@ it('reopens the notice with every change id when a stale project is restored aft
   expect(recheckStore.noticeOpen).toBe(true);
   await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   const restoredIds = recheckStore.assessment!.changes.map(c => c.id);
+  expect(modelStore.snapshot()).toEqual(before);
   expect(restoredIds).toEqual(expect.arrayContaining(ids));
   const html = render(RecheckNotice).body;
   expect(html).toContain('data-testid="recheck-notice"');
