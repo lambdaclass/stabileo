@@ -38,6 +38,9 @@ export interface KinModel {
   points: Array<{ x: number; z: number }>;
   /** Point index of each node. */
   nodePoint: Map<number, number>;
+  /** Rotation unknown of each piece of each frame member, in order along it. */
+  piece: Map<number, number[]>;
+  geo: Map<number, { a: { x: number; z: number }; b: { x: number; z: number }; L: number; c: number; s: number }>;
 }
 
 const key = (m: number, t: number) => `${m}:${t.toFixed(9)}`;
@@ -144,7 +147,16 @@ export function buildKinematics(input: SolverInput, sections: KinSection[], remo
     return r;
   });
 
-  const work = row();
+  const km: KinModel = { n, rows, rotation, work: [], joint, stations, points, nodePoint, piece: pieceRot, geo };
+  km.work = workRow(input, km, input.loads);
+  return km;
+
+}
+
+/** External work of `loads` as a row over the unknowns of `km`. */
+export function workRow(input: SolverInput, km: KinModel, loads: readonly SolverLoad[]): number[] {
+  const work = new Array(km.n).fill(0);
+  const { stations, nodePoint, joint, piece: pieceRot, geo } = km;
   const pieceAt = (m: number, t: number) => {
     const st = stations.get(m)!;
     let k = 0;
@@ -171,7 +183,7 @@ export function buildKinematics(input: SolverInput, sections: KinSection[], remo
   };
   const GAUSS = [-Math.sqrt(3 / 5), 0, Math.sqrt(3 / 5)];
   const WGT = [5 / 9, 8 / 9, 5 / 9];
-  for (const l of input.loads as SolverLoad[]) {
+  for (const l of loads) {
     if (l.type === 'nodal') {
       const p = nodePoint.get(l.data.nodeId);
       if (p === undefined) continue;
@@ -204,7 +216,7 @@ export function buildKinematics(input: SolverInput, sections: KinSection[], remo
     }
   }
 
-  return { n, rows, rotation, work, joint, stations, points, nodePoint };
+  return work;
 }
 
 export const dot = (a: number[], b: number[]) => a.reduce((s, v, k) => s + v * b[k], 0);
