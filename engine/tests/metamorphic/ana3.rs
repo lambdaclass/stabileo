@@ -402,7 +402,9 @@ pub fn rows() -> Vec<Ana3> {
                 // symmetric (rich3d-5/sym, built from two copies joined at
                 // one node, has such a pair at modes 6 and 7).
                 let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
-                let mut n = md.modes.len().min(6);
+                // Strict cantilevers need the higher axial modes as well:
+                // the first six can have zero X participation.
+                let mut n = if crate::generated::strict() { md.modes.len() } else { md.modes.len().min(6) };
                 while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
                     n += 1;
                 }

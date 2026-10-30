@@ -145,16 +145,18 @@ fn stiffness(
     }
 }
 
-fn check2(c: &Case2, geometry: bool) {
+fn check2(c: &Case2, geometry: bool, only: Option<&str>) {
     let analyses: Vec<_> = ana2::rows()
         .into_iter()
-        .filter(|a| PRIORITY.contains(&a.name))
+        .filter(|a| selected(a.name, only))
         .collect();
     let mut names: Vec<_> = analyses.iter().map(|a| a.name).collect();
     names.sort_unstable();
     let mut wanted = PRIORITY.to_vec();
     wanted.sort_unstable();
-    assert_eq!(names, wanted, "missing or duplicate priority adapter");
+    if only.is_none() {
+        assert_eq!(names, wanted, "missing or duplicate priority adapter");
+    }
     for a in analyses {
         if geometry {
             let t = Tally::default();
@@ -190,16 +192,18 @@ fn check2(c: &Case2, geometry: bool) {
     }
 }
 
-fn check3(c: &Case3) {
+fn check3(c: &Case3, only: Option<&str>) {
     let analyses: Vec<_> = ana3::rows()
         .into_iter()
-        .filter(|a| PRIORITY.contains(&a.name))
+        .filter(|a| selected(a.name, only))
         .collect();
     let mut names: Vec<_> = analyses.iter().map(|a| a.name).collect();
     names.sort_unstable();
     let mut wanted = PRIORITY.to_vec();
     wanted.sort_unstable();
-    assert_eq!(names, wanted, "missing or duplicate priority adapter");
+    if only.is_none() {
+        assert_eq!(names, wanted, "missing or duplicate priority adapter");
+    }
     for a in analyses {
         let t = Tally::default();
         let inv = invariants(a.name, true);
@@ -233,7 +237,13 @@ fn check3(c: &Case3) {
     }
 }
 
+fn selected(name: &str, only: Option<&str>) -> bool {
+    PRIORITY.contains(&name) && only.map_or(true, |wanted| name == wanted)
+}
+
 fn sweep(count: u64) {
+    let only = crate::only();
+    let only = only.as_deref();
     let _strict = generated::Strict::enter();
     for k in 0..count {
         let seed = crate::seed().wrapping_add(k);
@@ -243,11 +253,15 @@ fn sweep(count: u64) {
                 serde_json::from_value(generated::model(seed, false)).unwrap(),
             ),
             true,
+            only,
         );
-        check3(&Case3::new(
-            format!("stiffness/{seed}/3d"),
-            serde_json::from_value(generated::model(seed, true)).unwrap(),
-        ));
+        check3(
+            &Case3::new(
+                format!("stiffness/{seed}/3d"),
+                serde_json::from_value(generated::model(seed, true)).unwrap(),
+            ),
+            only,
+        );
     }
     // Existing symmetric portal corpus: redundant load paths, distributed load,
     // and simultaneous plastic hinges complement the generated cantilevers.
@@ -255,12 +269,19 @@ fn sweep(count: u64) {
         "../fixtures/ex-frame-cirsoc-dl-case2-input.json"
     ))
     .unwrap();
-    check2(&Case2::new("corpus/cirsoc-portal", s), false);
+    check2(&Case2::new("corpus/cirsoc-portal", s), false, only);
     let geometric_per_seed: usize = PRIORITY
         .iter()
+        .filter(|name| selected(name, only))
         .map(|name| invariants(name, false).len() + invariants(name, true).len())
         .sum();
-    let comparisons = count * (geometric_per_seed as u64 + 16) + 8;
+    let stiffness_per_dimension = ["linear", "modal", "buckling", "plastic collapse"]
+        .iter()
+        .filter(|name| selected(name, only))
+        .count() as u64
+        * 2;
+    let comparisons =
+        count * (geometric_per_seed as u64 + 2 * stiffness_per_dimension) + stiffness_per_dimension;
     println!("priority stiffness: {count} seeds × 2 dimensions + 1 corpus portal; {comparisons} comparisons");
 }
 
@@ -363,6 +384,94 @@ fn stiffness_rejects_nonpositive_factors() {
                     );
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn priority_selection_honors_only() {
+    for only in PRIORITY.iter().copied().chain(["spectral"]) {
+        let names: Vec<_> = PRIORITY
+            .iter()
+            .copied()
+            .filter(|name| selected(name, Some(only)))
+            .collect();
+        assert_eq!(
+            names,
+            if only == "spectral" {
+                vec![]
+            } else {
+                vec![only]
+            }
+        );
+    }
+    assert!(PRIORITY.iter().all(|name| selected(name, None)));
+}
+
+#[test]
+fn stiffness_preserves_mass_floors_and_rejects_mass_scaling() {
+    let _strict = generated::Strict::enter();
+    let c2 = Case2::new(
+        "mass mutation",
+        serde_json::from_value(generated::model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new(
+        "mass mutation",
+        serde_json::from_value(generated::model(1, true)).unwrap(),
+    );
+    let a2 = ana2::rows()
+        .into_iter()
+        .find(|a| a.name == "modal")
+        .unwrap();
+    let a3 = ana3::rows()
+        .into_iter()
+        .find(|a| a.name == "modal")
+        .unwrap();
+    for (base, shape, cond, tol) in [
+        (
+            (a2.run)(&c2).unwrap(),
+            ResponseShape::of_2d(&c2),
+            conditioning::of_2d(&c2.s).unwrap(),
+            a2.iter_tol,
+        ),
+        (
+            (a3.run)(&c3).unwrap(),
+            ResponseShape::of_3d(&c3),
+            conditioning::of_3d(&c3.s).unwrap(),
+            a3.iter_tol,
+        ),
+    ] {
+        for factor in [0.25, 4.0] {
+            let scaled = expected("modal", &base, factor);
+            let mut tensors = 0;
+            for (a, b) in base.0.iter().zip(&scaled.0) {
+                if a.tag == "total_mass" || a.tag.starts_with("meff") {
+                    assert_eq!(a.v, b.v);
+                    assert_eq!(a.floor, b.floor);
+                    if a.tag.starts_with("meff") {
+                        tensors += 1;
+                        assert!(a.floor > 0.0);
+                    }
+                }
+            }
+            assert!(tensors > 0);
+            let result = std::panic::catch_unwind(|| {
+                stiffness("modal", tol, "mass mutation", &shape, |scale| {
+                    let mut got = expected("modal", &base, scale);
+                    if scale == factor {
+                        for i in got.0.iter_mut().filter(|i| i.tag.starts_with("meff")) {
+                            for v in &mut i.v {
+                                *v *= scale;
+                            }
+                        }
+                    }
+                    (got, cond.clone(), 0.0)
+                })
+            });
+            assert!(
+                result.is_err(),
+                "accepted effective-mass scaling at E×{factor}"
+            );
         }
     }
 }

@@ -320,11 +320,11 @@ The initial co-rotational finding is already tracked by
 
 | Reproduction | Disposition |
 |---|---|
-| Plastic rigid-link and selected rich-fuzz cases | `#[ignore = "safety #758"]` |
-| Warping cantilever modal orthogonality | `#[ignore = "safety #759"]` |
-| Rich 2D seed 20843 time-history reciprocity | `#[ignore = "safety #760"]` |
-| Generated co-rotational rotations/reflections and one-member reproducer | `#[ignore = "safety #761"]` |
-| Rich 2D seed 20800 near-mechanism units/orientation | `#[ignore = "safety #762"]` |
+| Plastic rigid-link and selected rich-fuzz cases | `#[ignore = "known wrong result: #758"]` |
+| Warping cantilever modal orthogonality | `#[ignore = "known wrong result: #759"]` |
+| Rich 2D seed 20843 time-history reciprocity | `#[ignore = "known wrong result: #760"]` |
+| Generated co-rotational rotations/reflections and one-member reproducer | `#[ignore = "known wrong result: #761"]` |
+| Rich 2D seed 20800 near-mechanism units/orientation | `#[ignore = "known wrong result: #762"]` |
 | Material nonlinear, every successful transformed solve | Require `KnownIssue`, phase `NL-5`, issue value 428 |
 
 The #761 reduction has two nodes, one fixed-end frame member, length

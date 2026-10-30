@@ -66,6 +66,38 @@ impl Drop for Strict {
     }
 }
 
+fn report_seed(seed: u64) {
+    eprintln!(
+        "Reproducer seed={seed}\n2D={}\n3D={}",
+        model(seed, false),
+        model(seed, true)
+    );
+    if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
+        std::fs::create_dir_all(&dir).unwrap();
+        for (dim, spatial) in [("2d", false), ("3d", true)] {
+            std::fs::write(
+                format!("{dir}/seed-{seed}-{dim}.json"),
+                serde_json::to_string_pretty(&model(seed, spatial)).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+}
+
+fn history_witness(
+    seed: u64,
+    solve: impl FnOnce() -> Result<crate::response::Resp, String>,
+    shape: &ResponseShape,
+) {
+    if let Err(e) = checks2::guarded(|| {
+        excited_history_witness(&solve()?, shape);
+        Ok(())
+    }) {
+        report_seed(seed);
+        panic!("time-history witness: {e}");
+    }
+}
+
 fn sweep(count: u64, only: Option<&str>) {
     let _strict = Strict::enter();
     let inv3: Vec<_> = crate::INV_3D
@@ -129,7 +161,7 @@ fn sweep(count: u64, only: Option<&str>) {
         );
         for a in &a2 {
             if a.name == "time history" {
-                excited_history_witness(&(a.run)(&c2).unwrap(), &ResponseShape::of_2d(&c2));
+                history_witness(seed, || (a.run)(&c2), &ResponseShape::of_2d(&c2));
             }
             let invs: Vec<_> = crate::INV_2D
                 .iter()
@@ -166,7 +198,7 @@ fn sweep(count: u64, only: Option<&str>) {
         }
         for a in &a3 {
             if a.name.starts_with("time history") {
-                excited_history_witness(&(a.run)(&c3).unwrap(), &ResponseShape::of_3d(&c3));
+                history_witness(seed, || (a.run)(&c3), &ResponseShape::of_3d(&c3));
             }
             let invs: Vec<_> = crate::INV_3D
                 .iter()
@@ -200,21 +232,7 @@ fn sweep(count: u64, only: Option<&str>) {
             t3.record(a.name, "reflection", &c3.name, reflection_3d(a, &c3));
         }
         if t2.failures().len() + t3.failures().len() > before {
-            if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
-                std::fs::create_dir_all(&dir).unwrap();
-                for (dim, spatial) in [("2d", false), ("3d", true)] {
-                    std::fs::write(
-                        format!("{dir}/seed-{seed}-{dim}.json"),
-                        serde_json::to_string_pretty(&model(seed, spatial)).unwrap(),
-                    )
-                    .unwrap();
-                }
-            }
-            eprintln!(
-                "Reproducer seed={seed}\n2D={}\n3D={}",
-                model(seed, false),
-                model(seed, true)
-            );
+            report_seed(seed);
         }
     }
     println!(
@@ -855,6 +873,25 @@ pub(crate) fn validate_response(
             "{name}: response shape mismatch: expected {expected:?}, got {actual:?}"
         ));
     }
+    if ["modal", "certified modal"].contains(&name) {
+        for item in
+            r.0.iter()
+                .filter(|i| i.tag == "total_mass" || i.tag.starts_with('f'))
+        {
+            if item.v.iter().any(|v| *v <= 0.0) {
+                return Err(format!("{name} {} must be positive", item.tag));
+            }
+        }
+    }
+    if name == "spectral" {
+        let positive_shear = r.0.iter().any(|i| i.tag == "base_shear" && i.v[0] > 0.0);
+        let motion =
+            r.0.iter()
+                .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0));
+        if !positive_shear || !motion {
+            return Err("spectral: expected positive base shear and nonzero motion".into());
+        }
+    }
     Ok(())
 }
 
@@ -1216,5 +1253,106 @@ fn excited_history_rejects_zero_responses() {
                 std::panic::catch_unwind(|| excited_history_witness(&response, &shape)).is_err()
             );
         }
+    }
+}
+
+#[test]
+fn strict_rejects_zero_modal_and_spectral_adapters() {
+    fn name(index: usize) -> &'static str {
+        ["modal", "certified modal", "spectral"][index]
+    }
+    fn zero(mut r: crate::response::Resp) -> crate::response::Resp {
+        // Zero frequencies have no separated-mode boundaries: omit the tensors
+        // exactly as a correctly shaped all-zero modal adapter would.
+        r.0.retain(|i| !i.tag.starts_with("meff"));
+        for i in &mut r.0 {
+            i.v.fill(0.0);
+        }
+        r
+    }
+    fn faulty2<const N: usize>(c: &Case2) -> Result<crate::response::Resp, String> {
+        let a = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == name(N))
+            .unwrap();
+        (a.run)(c).map(zero)
+    }
+    fn faulty3<const N: usize>(c: &Case3) -> Result<crate::response::Resp, String> {
+        let a = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == name(N))
+            .unwrap();
+        (a.run)(c).map(zero)
+    }
+    let _strict = Strict::enter();
+    let c2 = Case2::new(
+        "zero mutation",
+        serde_json::from_value(model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new(
+        "zero mutation",
+        serde_json::from_value(model(1, true)).unwrap(),
+    );
+    for (n, (run2, run3)) in [
+        (
+            faulty2::<0> as fn(&Case2) -> _,
+            faulty3::<0> as fn(&Case3) -> _,
+        ),
+        (faulty2::<1>, faulty3::<1>),
+        (faulty2::<2>, faulty3::<2>),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut a2 = ana2::rows()
+            .into_iter()
+            .find(|a| a.name == name(n))
+            .unwrap();
+        let mut a3 = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == name(n))
+            .unwrap();
+        for faulty in [false, true] {
+            if faulty {
+                a2.run = run2;
+                a3.run = run3;
+            }
+            let t2 = Tally::default();
+            let t3 = Tally::default();
+            checks2::check_case(
+                &checks2::Ctx {
+                    tally: &t2,
+                    rng_seed: 1,
+                },
+                &c2,
+                std::slice::from_ref(&a2),
+                &["relabel"],
+            );
+            checks3::check_case(
+                &checks3::Ctx {
+                    tally: &t3,
+                    rng_seed: 1,
+                },
+                &c3,
+                std::slice::from_ref(&a3),
+                &["relabel"],
+            );
+            for t in [&t2, &t3] {
+                assert_eq!(
+                    t.symbol(name(n), "relabel"),
+                    if faulty { "✗" } else { "✓" },
+                    "{} {:?}",
+                    t.report(),
+                    t.failures()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn generated_modal_and_spectral_witnesses() {
+    for name in ["modal", "certified modal", "spectral"] {
+        sweep(8, Some(name));
     }
 }
