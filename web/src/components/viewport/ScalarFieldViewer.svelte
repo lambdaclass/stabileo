@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t, tp } from '../../lib/i18n';
+  import { t as appT } from '../../lib/i18n';
+  import { tAt } from '../../lib/i18n/store.svelte';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -31,6 +32,7 @@
   import ContourLegend from './ContourLegend.svelte';
 
   type Props = {
+    locale?: string;
     /** Node coordinates [x0, y0, x1, y1, ...]. */
     xy: ArrayLike<number>;
     /** Cell connectivity, `cellSize` nodes per cell (counter-clockwise). */
@@ -76,6 +78,7 @@
     geometryOnly?: boolean;
   };
   let {
+    locale,
     xy,
     cells,
     cellSize = 4,
@@ -105,6 +108,23 @@
     geometryOnly = false,
   }: Props = $props();
 
+  const t = (key: string) => locale ? tAt(key, locale) : appT(key);
+  const tp = (key: string, params: Record<string, string | number>) => t(key).replace(/\{(\w+)\}/g, (match, key) => String(params[key] ?? match));
+  let menuTrigger: HTMLButtonElement;
+  function closeMenu() { menuOpen = false; menuTrigger?.focus(); }
+  function navigate(event: KeyboardEvent) {
+    if (!camera || !controls) return;
+    const delta = new THREE.Vector3();
+    const step = camera.position.distanceTo(controls.target) * .05;
+    if (event.key === 'ArrowLeft') delta.x = -step;
+    else if (event.key === 'ArrowRight') delta.x = step;
+    else if (event.key === 'ArrowUp') delta.y = step;
+    else if (event.key === 'ArrowDown') delta.y = -step;
+    else if (['+', '=', '-', '−'].includes(event.key)) {
+      camera.position.sub(controls.target).multiplyScalar(event.key === '+' || event.key === '=' ? .9 : 1 / .9).add(controls.target);
+    } else return;
+    event.preventDefault(); camera.position.add(delta); controls.target.add(delta); updateZoom(); invalidate();
+  }
   let container: HTMLDivElement;
   let gizmo: HTMLCanvasElement;
   let renderer: THREE.WebGLRenderer | null = null;
@@ -190,7 +210,7 @@
 
   function setProjection(m: 'plan' | 'orbit') {
     projection = m;
-    menuOpen = false;
+    closeMenu();
     fit();
   }
 
@@ -296,21 +316,24 @@
   const cellCount = $derived(cells.length / cellSize);
 </script>
 
+<svelte:window onkeydown={event => { if (event.key === 'Escape' && menuOpen) { event.preventDefault(); closeMenu(); } }} />
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
+    <!-- Interactive graphics surface: arrow pan and +/- zoom need focus on the canvas region. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={navigate} aria-label={ariaLabel}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     <div class="camera-controls" style="top: 10px">
       <div class="cam-menu-wrap">
-        <button class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
+        <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
           <Icon name="viewCube" size={17} />
           <span class="cam-caret" aria-hidden="true"></span>
         </button>
         {#if menuOpen}
-          <button class="cam-backdrop" onclick={() => (menuOpen = false)} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
+          <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
           <div class="cam-menu">
-            <button class="cam-item" onclick={() => { menuOpen = false; fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
+            <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
             <div class="cam-sep"></div>
             <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>{t('scalarViewer.plan')}</span></button>
             <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>{t('scalarViewer.orbit')}</span></button>
@@ -337,6 +360,12 @@
 </div>
 
 <style>
+  .sfv-wrap :global(.cam-btn) { width: 44px; height: 44px; }
+  .sfv-wrap :global(.cam-glyph) { font-size: 12px; }
+  .sfv-wrap :global(.cam-item) { min-height: 44px; font-size: 12px; }
+  .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
+  .sfv-editor { min-height: 44px; }
+
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -365,13 +394,13 @@
     bottom: 12px;
   }
   .sfv-mode {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: color-mix(in srgb, var(--st-surface) 90%, transparent);
     color: var(--st-text-2);
-    font: 600 11px var(--st-sans);
+    font: 600 12px var(--st-sans);
     cursor: pointer;
   }
   .sfv-mode:hover {
@@ -382,7 +411,7 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    font: 600 10px var(--st-sans);
+    font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--st-text-3);
@@ -394,7 +423,7 @@
   }
   .sfv-status :global(.status-label) {
     color: var(--st-text-2);
-    font-size: 0.75rem;
+    font-size: max(12px, 0.75rem);
   }
   .sfv-status {
     flex-wrap: wrap;
@@ -408,7 +437,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     color: var(--st-text-2);
-    font: 0.7rem var(--st-sans);
+    font: 12px var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }
