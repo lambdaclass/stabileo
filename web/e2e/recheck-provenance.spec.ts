@@ -288,6 +288,61 @@ for (const width of [390, 810]) {
 }
 
 
+for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }]) {
+  for (const locale of ['es', 'pt']) {
+    test(`@smoke scrolls recovery after download and storage failure at ${viewport.width}x${viewport.height} ${locale}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await bootPro(page, locale);
+      await page.route(NOTICE_CHUNK, route => route.abort());
+      expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+      const notice = page.getByTestId('recheck-notice');
+      await expect(page.getByTestId('recheck-reload')).toBeVisible();
+      await page.evaluate(() => {
+        Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+      });
+      await page.getByTestId('recheck-reload').click();
+      await expect(notice.getByRole('alert')).toBeVisible();
+      // Hidden overflow can be scrolled programmatically, but not by touch/wheel.
+      expect(await notice.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
+      expect(await notice.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+      await notice.hover();
+      await page.mouse.wheel(0, 2000);
+      await expect.poll(() => notice.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+
+      const buttons = notice.getByRole('button');
+      expect(await buttons.count()).toBe(5); // Three recovery actions and two footer actions.
+      for (const button of await buttons.all()) {
+        await button.scrollIntoViewIfNeeded();
+        await expect(button).toBeVisible();
+        await expect(button).toBeInViewport({ ratio: 1 });
+        const bounds = (await button.boundingBox())!;
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+        expect(bounds.width).toBeGreaterThanOrEqual(44);
+        // Also detect clipping by the dialog itself, which viewport checks alone miss.
+        expect(await button.evaluate(el => {
+          const r = el.getBoundingClientRect();
+          const container = el.closest('.rc')!;
+          const c = container.getBoundingClientRect();
+          return r.top >= c.top && r.bottom <= c.bottom
+            && el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+        })).toBe(true);
+      }
+      for (const content of [notice.locator('.rc-intro').last(), notice.getByRole('alert'), notice.locator('footer')]) {
+        await content.scrollIntoViewIfNeeded();
+        await expect(content).toBeInViewport({ ratio: 1 });
+        expect(await content.evaluate(el => {
+          const r = el.getBoundingClientRect();
+          const c = el.closest('.rc')!.getBoundingClientRect();
+          return r.top >= c.top && r.bottom <= c.bottom;
+        })).toBe(true);
+      }
+      expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await expect(page.getByTestId('recheck-ack')).toBeDisabled();
+    });
+  }
+}
+
 for (const width of [390, 810]) {
   test(`@smoke downloads an unread session backup after storage failure at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });

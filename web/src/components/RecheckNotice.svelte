@@ -75,6 +75,7 @@
   >
     <div
       class="rc"
+      class:rc-recovery={loadFailed}
       tabindex="-1"
       bind:this={dialog}
       data-testid="recheck-notice"
@@ -173,6 +174,9 @@
     outline: none;
   }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
+  /* Recovery can exceed short viewports: scroll all content, including the footer. */
+  .rc-recovery { overflow-y: auto; overscroll-behavior: contain; }
+  .rc-recovery > :global(*) { flex-shrink: 0; }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
   .rc-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .rc-item { padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }

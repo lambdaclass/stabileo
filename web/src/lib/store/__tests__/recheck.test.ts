@@ -100,6 +100,30 @@ describe('what ends the stale state', () => {
 });
 
 describe('lazy assessment', () => {
+  it('uses the latest solve for the newer-build warning despite an old unread notice', async () => {
+    const store = createRecheckStore();
+    const stamp = store.capture()!;
+    store.openProject({
+      ...steelTruss() as object,
+      solvedWith: { ...stamp, id: 'newer-solve', resultsVersion: RESULTS_VERSION + 1, analyses: ['linear'] },
+      pendingRecheckNotice: {
+        stamp: { ...stamp, id: 'old-unread-notice', resultsVersion: 0 },
+        features: ['steelCirsoc301', 'steelTensionWithoutConnection'],
+      },
+    }, 'pro');
+    expect(store.pending).toBe(true);
+    expect(store.solvedWithNewer).toBe(true);
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.newer).toBe(true);
+    expect(store.noticeOpen).toBe(true);
+    expect(store.solvedWithNewer).toBe(true);
+    store.acknowledge();
+    expect(store.noticeOpen).toBe(false);
+    expect(store.solvedWithNewer).toBe(true);
+    store.noteSolved('linear');
+    expect(store.solvedWithNewer).toBe(false);
+  });
+
   it('does not load history for current or newer projects', () => {
     const load = vi.fn(() => import('../../provenance/applicability'));
     const store = createRecheckStore(load);

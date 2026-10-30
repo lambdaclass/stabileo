@@ -69,7 +69,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       return !!assessment && (pending || assessment.changes.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
     },
     /** Opened in an older build than the one that solved it. */
-    get solvedWithNewer() { return !!assessment?.newer && (stamp === null || stamp.id === assessedStampId); },
+    get solvedWithNewer() { return !!stamp && stamp.resultsVersion > RESULTS_VERSION; },
 
     /**
      * A project was opened (file, tab, autosave, link). `snapshot`: what was opened, as stored.
