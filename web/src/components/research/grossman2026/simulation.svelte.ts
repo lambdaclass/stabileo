@@ -1,31 +1,49 @@
-import { solvePeriodic, solveStrip, type loadSprings, type NetworkSpec } from './springs';
-import type { StripLabel } from './open-in-stabileo';
-
-export type Inputs = {
-  network: NetworkSpec;
-  label: StripLabel;
-  theta: number;
-  cells: number;
-  phi: number;
-  psi: number;
-};
-
-function solveAll(glue: Awaited<ReturnType<typeof loadSprings>>, input: Inputs) {
-  const { network, label, theta, cells } = input;
-  const strip = solveStrip(glue, { network, width: 13, height: 52, theta, clamp_band: 0.5, strain: label.strain });
-  const cell = solvePeriodic(glue, { network, n1: cells, n2: cells, strain: [0, 0, 0] });
-  const ordered = label.family === 'ordered' && network.keep === 1 && network.prestress === 0 ? {
-    hook: solvePeriodic(glue, { network: { ...network, spring_law: 'hookean' }, n1: 4, n2: 4, strain: [0, 0, 0] }),
-    eq: solvePeriodic(glue, { network: { ...network, spring_law: 'equal_weight' }, n1: 4, n2: 4, strain: [0, 0, 0] }),
-  } : null;
-  return { input, strip, cell, ordered };
-}
+import { solveAll, type Inputs } from './solve-all';
+import type { loadSprings } from './springs';
+export type { Inputs } from './solve-all';
 
 export class Simulation {
   result = $state.raw<ReturnType<typeof solveAll> | null>(null);
   error = $state<string | null>(null);
   ms = $state(0);
 
+  busy = $state(false);
+  source = $state<'live' | 'replay'>('live');
+  private worker: Worker | null = null;
+  stop() {
+    this.worker?.terminate();
+    this.worker = null;
+    this.busy = false;
+  }
+  replay(result: ReturnType<typeof solveAll>) {
+    this.stop();
+    this.result = result;
+    this.error = null;
+    this.source = 'replay';
+  }
+  runLive(input: Inputs) {
+    this.stop();
+    this.busy = true;
+    this.error = null;
+    const start = performance.now();
+    const worker = new Worker(new URL('./solver.worker.ts', import.meta.url), { type: 'module' });
+    this.worker = worker;
+    worker.onmessage = ({ data }) => {
+      if (this.worker !== worker) return;
+      this.result = data.result ?? null;
+      this.error = data.error ?? null;
+      this.ms = performance.now() - start;
+      this.source = 'live';
+      this.stop();
+    };
+    worker.onerror = (event) => {
+      if (this.worker !== worker) return;
+      this.result = null;
+      this.error = event.message;
+      this.stop();
+    };
+    worker.postMessage(structuredClone(input));
+  }
   run(glue: Awaited<ReturnType<typeof loadSprings>>, input: Inputs) {
     const start = performance.now();
     try {

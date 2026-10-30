@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keyboardInstructions } from '../../lib/i18n/scalar-viewer';
   import { t, tp } from '../../lib/i18n';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
@@ -292,6 +293,27 @@
     fit();
   });
 
+  function keyboardCamera(event: KeyboardEvent) {
+    if (!camera || !controls) return;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Home') { fit(); return; }
+    const offset = camera.position.clone().sub(controls.target);
+    if (['+', '=', '-'].includes(event.key)) {
+      camera.position.copy(controls.target).add(offset.multiplyScalar(event.key === '-' ? 1.15 : 1 / 1.15));
+    } else if (event.shiftKey) {
+      const axis = new THREE.Vector3(event.key === 'ArrowUp' || event.key === 'ArrowDown' ? 1 : 0, 0, event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? 1 : 0);
+      offset.applyAxisAngle(axis, event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? 0.1 : -0.1);
+      camera.position.copy(controls.target).add(offset);
+    } else {
+      const amount = offset.length() * 0.04;
+      const move = new THREE.Vector3(event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : 0, event.key === 'ArrowDown' ? -amount : event.key === 'ArrowUp' ? amount : 0, 0);
+      controls.target.add(move);
+      camera.position.add(move);
+    }
+    invalidate();
+  }
+
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -299,7 +321,7 @@
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={keyboardCamera} aria-label={`${ariaLabel}. ${keyboardInstructions()}`}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     <div class="camera-controls" style="top: 10px">
       <div class="cam-menu-wrap">
@@ -317,7 +339,7 @@
           </div>
         {/if}
       </div>
-      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')} aria-label={t(projection === 'plan' ? 'scalarViewer.orbit' : 'scalarViewer.plan')}>{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
     {#if displayMode === 'field' && values && !geometryOnly}
@@ -337,6 +359,7 @@
 </div>
 
 <style>
+  .sfv button { min-width: 44px; min-height: 44px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -365,13 +388,13 @@
     bottom: 12px;
   }
   .sfv-mode {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: color-mix(in srgb, var(--st-surface) 90%, transparent);
     color: var(--st-text-2);
-    font: 600 11px var(--st-sans);
+    font: 600 12px var(--st-sans);
     cursor: pointer;
   }
   .sfv-mode:hover {
@@ -382,7 +405,7 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    font: 600 10px var(--st-sans);
+    font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--st-text-3);
@@ -396,6 +419,7 @@
     color: var(--st-text-2);
     font-size: 0.75rem;
   }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-status {
     flex-wrap: wrap;
     row-gap: 0.2rem;
@@ -408,7 +432,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     color: var(--st-text-2);
-    font: 0.7rem var(--st-sans);
+    font: 0.75rem var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }

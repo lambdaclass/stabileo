@@ -179,7 +179,30 @@
     "exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement"
    ],
    "implementation": "metamaterials/grossman-2026",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 2,
+     "reviewer": "kimi",
+     "date": "2026-10-30",
+     "findings": "Verified consolidated findings: research model, evidence, worker/replay, accessibility, responsive layout and localization.",
+     "resolution": "Corrected unperturbed clamp selection; directional ensembles; recorded direct strip discrepancies; strengthened native/WASM/browser regressions; updated evidence and localized page. Browser CI remains required."
+    },
+    {
+     "round": 2,
+     "reviewer": "codex",
+     "date": "2026-10-30",
+     "findings": "Verified consolidated findings: research model, evidence, worker/replay, accessibility, responsive layout and localization.",
+     "resolution": "Corrected unperturbed clamp selection; directional ensembles; recorded direct strip discrepancies; strengthened native/WASM/browser regressions; updated evidence and localized page. Browser CI remains required."
+    },
+    {
+     "round": 2,
+     "reviewer": "claude",
+     "date": "2026-10-30",
+     "findings": "Verified consolidated findings: research model, evidence, worker/replay, accessibility, responsive layout and localization.",
+     "resolution": "Corrected unperturbed clamp selection; directional ensembles; recorded direct strip discrepancies; strengthened native/WASM/browser regressions; updated evidence and localized page. Browser CI remains required."
+    }
+   ]
   },
   {
    "id": "andreassen-2011",

@@ -19,7 +19,6 @@ export default defineConfig({
       load(id) {
         if (id !== '\0scalar-viewer-i18n') return null;
         return ['en', 'es', 'pt', 'de', 'fr', 'tr'].map((locale) => {
-          if (['de', 'fr', 'tr'].includes(locale)) return `export const ${locale} = {};`;
           const file = resolve(__dirname, `src/lib/i18n/locales/${locale}.ts`);
           this.addWatchFile(file);
           const entries = readFileSync(file, 'utf8').split('\n')

@@ -28,6 +28,19 @@ const strip = JSON.parse(glue.springs_strip(JSON.stringify({ network: net({ kind
 results.stripMs = Date.now() - t0;
 results.stripPoisson = strip.poisson;
 check('strip is finite', Number.isFinite(strip.poisson) ? 0 : 1, 0);
+const replay = JSON.parse(readFileSync(new URL('../reference-results/replay.json', import.meta.url), 'utf8'));
+for (const frame of [replay[0], replay[15], replay[25]]) {
+  const actual = JSON.parse(glue.springs_strip(JSON.stringify({ network: frame.input.network, width: 13, height: 52, theta: 0, clamp_band: 0.5, strain: 0.01 })));
+  const eta = frame.input.network.eta;
+  check(`strip nu eta=${eta}`, Math.abs(actual.poisson - frame.strip.poisson), 1e-8);
+  for (const field of ['displacement', 'force', 'prescribed']) {
+    const expected = frame.strip[field].flat();
+    const values = actual[field].flat();
+    check(`${field} length eta=${eta}`, Math.abs(values.length - expected.length), 0);
+    check(`${field} native parity eta=${eta}`, Math.max(...values.map((v, i) => Math.abs(v - expected[i]))), 1e-8);
+  }
+}
+check('perfect strip rounded nu 0.3713', Math.abs(replay[0].strip.poisson - 0.3713), 0.00005);
 let bad = false;
 try {
   glue.springs_periodic(JSON.stringify({ network: net({ kind: 'triangular', phi: 1, psi: 1 }, { eta: 0.9 }), n1: 4, n2: 4 }));
