@@ -1,4 +1,6 @@
 const en: Record<string, string> = {
+  "landing.navTools": "Tools",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "View",
   "scalarViewer.viewOptions": "View options",
@@ -233,7 +235,9 @@ const en: Record<string, string> = {
   'landing.navEducation': 'Education',
   'landing.navPricing': 'Pricing',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Paper',
   'landing.navResearch': 'Research',
+  'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'FREE AND OPEN · STRUCTURAL ANALYSIS',
   'landing.heroH': 'Structural analysis, in a browser tab.',
   'landing.heroP': 'An open structural-analysis platform. The solver runs on your own machine: nothing to install, no licences.',
@@ -291,6 +295,15 @@ const en: Record<string, string> = {
   'landing.footRepo': 'GitHub',
   'landing.footDocs': 'Documentation',
   'landing.footBlog': 'Blog',
+  'changelog.filterLabel': 'Filter by area',
+  'changelog.filterAll': 'All',
+  'changelog.monthsLabel': 'By month',
+  'changelog.changes': '{n} changes',
+  'changelog.changesOne': '1 change',
+  'changelog.everyFriday': 'Updated every Friday',
+  'changelog.since': 'since {month}',
+  'changelog.wholeMonth': 'month',
+  'landing.footChangelog': 'Changelog',
   'landing.footReliability': 'Reliability',
   'landing.footSap2000': 'SAP2000 alternative',
   'landing.footRights': 'Free software under AGPL-3.0.',
@@ -14254,5 +14267,14 @@ const en: Record<string, string> = {
   "proExport.dxfLayoutSeparate": "One drawing per file",
   "proExport.dxfLayoutLayersNote": "Everything in one DXF; each content on its own layer.",
   "proExport.dxfLayoutSeparateNote": "One DXF of the model and one per result (with the model underneath), together in a .zip.",
+  "clipboard.spaceInPlane": "The copy comes from a 3D model: copy it again in 2D to paste it here.",
+  "sel.copyTitle": "Copy the selection (Ctrl+C)",
+  "sel.pasteTitle": "Paste the copy and choose where (Ctrl+V)",
+  "results.showDisplacements": "Show displacements",
+  "resultChecks.title": "Result checks",
+  "resultChecks.certified": "certified",
+  "resultChecks.notCertified": "not certified",
+  "resultChecks.pending": "computing…",
+  "resultChecks.discretizationHigh": "high discretization error",
 };
 export default en;

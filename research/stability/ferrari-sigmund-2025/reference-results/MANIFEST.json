@@ -1,0 +1,9 @@
+{
+  "source": "https://backend.orbit.dtu.dk/ws/portalfiles/portal/407823134/Numerical_Meth_Engineering_-_2025_-_Ferrari_-_Optimization_of_the_Initial_Post_Buckling_Response_of_Trusses_and_Frames_by.pdf",
+  "pdf_sha256": "2b4ac1818dfdb71dfc934ffc9895816012d20777b8969fbb9a342e2773fe553c",
+  "license": "CC BY 4.0",
+  "method": "Manual transcription from downloaded publisher PDF; printed pages 3-5 visually inspected. No author code run.",
+  "files_sha256": {
+    "paper_values.json": "020ce7330fbe137022e638655193e83db0199670619b4db8233df18ba8f0a442"
+  }
+}

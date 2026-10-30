@@ -3,6 +3,7 @@ import { pickLanguage } from './fixtures';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { CHANGELOG } from '../src/lib/changelog';
 
 /**
  * The blog at /blog.
@@ -41,6 +42,52 @@ async function boot(page: Page, path: string, locale = 'en') {
 }
 
 test.describe('@smoke blog', () => {
+  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'es')) {
+    test(`the changelog page in ${locale}: every entry in its language, no raw key, and an alternate per published language`, async ({ page }) => {
+      await boot(page, `/${locale}/changelog/`, locale);
+      const weeks = page.getByTestId('changelog-entry');
+      await expect(weeks).toHaveCount(CHANGELOG.length);
+      await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n[locale].title);
+      await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
+      expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
+      const alts = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((els) => els.map((e) => e.getAttribute('hreflang')).sort());
+      expect(alts).toEqual([...PUBLIC_LOCALES, 'x-default'].sort());
+    });
+  }
+
+  test('the changelog page lists every entry since February by month, and filters by area', async ({ page }) => {
+    await boot(page, '/es/changelog/', 'es');
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Historial de cambios de Stabileo');
+    await expect(page.locator('nav .nav-links a[data-nav="changelog"]')).toHaveAttribute('aria-current', 'page');
+    const weeks = page.getByTestId('changelog-entry');
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+    await expect(weeks.first()).toHaveAttribute('data-date', CHANGELOG[0].date);
+    await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n.es.title);
+    await expect(weeks.first().getByRole('heading', { level: 4 }).first()).toHaveText('Motor');
+    await expect(weeks.first().locator('li').first()).toHaveText(CHANGELOG[0].i18n.es.items[0]);
+    await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
+    const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const first = weeks.last();
+    await expect(first).toHaveAttribute('data-date', '2026-02-01');
+    await expect(first.locator('time')).toHaveText(/feb\s*mes/);
+
+    const shots = page.locator('.cl-shot img');
+    await expect(shots).toHaveCount(CHANGELOG.filter((e) => e.shot).length);
+    await expect(shots.first()).toHaveAttribute('src', '/screenshots/changelog-basic-report-1600.webp');
+    await shots.first().scrollIntoViewIfNeeded();
+    await expect.poll(() => shots.first().evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
+    const edu = CHANGELOG.filter((e) => e.areas.includes('edu'));
+    await page.getByRole('button', { name: /^Educativo/ }).click();
+    await expect(weeks).toHaveCount(edu.length);
+    await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    await page.getByRole('button', { name: 'Todo' }).click();
+    await expect(weeks).toHaveCount(CHANGELOG.length);
+  });
+
   test('renders the index at /blog', async ({ page }) => {
     await boot(page, '/blog');
 

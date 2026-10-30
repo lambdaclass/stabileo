@@ -252,7 +252,7 @@
       <div class="sub-content" data-tour="cfg-model">
         <label class="checkbox-item">
           <HelpTip text={t('config.tip.nodeIds')}>
-          <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
+          <input type="checkbox" data-testid="cfg-node-ids" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
             onchange={(e) => { if (is3Dm) uiStore.showNodeLabels3D = e.currentTarget.checked; else uiStore.showNodeLabels = e.currentTarget.checked; }} />
           <span>{t('config.nodeIds')}</span>
           </HelpTip>

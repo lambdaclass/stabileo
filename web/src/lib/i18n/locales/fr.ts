@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "landing.navTools": "Outils",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
   'scalarViewer.viewOptions': 'Options d’affichage',
@@ -233,6 +235,8 @@ const fr: Translations = {
   'landing.navEducation': 'Enseignement',
   'landing.navPricing': 'Tarifs',
   'landing.navBlog': 'Blog',
+  'landing.navChangelog': 'Nouveautés',
+  'landing.navPaper': 'Article',
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
   'landing.heroH': 'Le calcul de structures, dans un onglet du navigateur.',
@@ -291,6 +295,15 @@ const fr: Translations = {
   'landing.footRepo': 'GitHub',
   'landing.footDocs': 'Documentation',
   'landing.footBlog': 'Blog',
+  'changelog.filterLabel': 'Filtrer par domaine',
+  'changelog.filterAll': 'Tout',
+  'changelog.monthsLabel': 'Par mois',
+  'changelog.changes': '{n} modifications',
+  'changelog.changesOne': '1 modification',
+  'changelog.everyFriday': 'Mis à jour chaque vendredi',
+  'changelog.since': 'depuis {month}',
+  'changelog.wholeMonth': 'mois',
+  'landing.footChangelog': 'Nouveautés',
   'landing.footReliability': 'Fiabilité',
   'landing.footSap2000': 'Alternative à SAP2000',
   'landing.footRights': 'Logiciel libre sous AGPL-3.0.',
@@ -14093,6 +14106,15 @@ const fr: Translations = {
   'proExport.dxfLayoutSeparate': 'Un dessin par fichier',
   'proExport.dxfLayoutLayersNote': 'Tout dans un seul DXF ; chaque contenu sur son propre calque.',
   'proExport.dxfLayoutSeparateNote': 'Un DXF du modèle et un par résultat (avec le modèle en dessous), réunis dans un .zip.',
+  'clipboard.spaceInPlane': 'La copie provient d\'un modèle 3D : copiez-la à nouveau en 2D pour la coller ici.',
+  'sel.copyTitle': 'Copier la sélection (Ctrl+C)',
+  'sel.pasteTitle': 'Coller la copie et choisir l\'emplacement (Ctrl+V)',
+  'results.showDisplacements': 'Afficher les déplacements',
+  'resultChecks.title': 'Contrôle des résultats',
+  'resultChecks.certified': 'certifié',
+  'resultChecks.notCertified': 'non certifié',
+  'resultChecks.pending': 'calcul en cours…',
+  'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',
 };
 
 export default fr;

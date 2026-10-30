@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "landing.navTools": "Araçlar",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
   'scalarViewer.viewOptions': 'Görünüm seçenekleri',
@@ -233,6 +235,8 @@ const tr: Translations = {
   'landing.navEducation': 'Eğitim',
   'landing.navPricing': 'Fiyatlandırma',
   'landing.navBlog': 'Blog',
+  'landing.navChangelog': 'Değişiklikler',
+  'landing.navPaper': 'Makale',
   'landing.navResearch': 'Araştırma',
   'landing.ebHero': 'ÜCRETSİZ VE AÇIK · YAPI ANALİZİ',
   'landing.heroH': 'Yapı analizi, bir tarayıcı sekmesinde.',
@@ -291,6 +295,15 @@ const tr: Translations = {
   'landing.footRepo': 'GitHub',
   'landing.footDocs': 'Belgeler',
   'landing.footBlog': 'Blog',
+  'changelog.filterLabel': 'Alana göre filtrele',
+  'changelog.filterAll': 'Tümü',
+  'changelog.monthsLabel': 'Aylara göre',
+  'changelog.changes': '{n} değişiklik',
+  'changelog.changesOne': '1 değişiklik',
+  'changelog.everyFriday': 'Her cuma güncellenir',
+  'changelog.since': '{month} tarihinden beri',
+  'changelog.wholeMonth': 'ay',
+  'landing.footChangelog': 'Değişiklikler',
   'landing.footReliability': 'Güvenilirlik',
   'landing.footSap2000': 'SAP2000 alternatifi',
   'landing.footRights': 'AGPL-3.0 lisanslı özgür yazılım.',
@@ -14093,6 +14106,15 @@ const tr: Translations = {
   'proExport.dxfLayoutSeparate': 'Dosya başına bir çizim',
   'proExport.dxfLayoutLayersNote': 'Her şey tek bir DXF dosyasında; her içerik kendi katmanında.',
   'proExport.dxfLayoutSeparateNote': 'Modelin bir DXF dosyası ve her sonuç için bir tane (altında modelle birlikte), bir .zip içinde bir arada.',
+  'clipboard.spaceInPlane': 'Kopya bir 3B modelden geliyor: buraya yapıştırmak için 2B\'de yeniden kopyalayın.',
+  'sel.copyTitle': 'Seçimi kopyala (Ctrl+C)',
+  'sel.pasteTitle': 'Kopyayı yapıştır ve yerini seç (Ctrl+V)',
+  'results.showDisplacements': 'Yer değiştirmeleri göster',
+  'resultChecks.title': 'Sonuç kontrolleri',
+  'resultChecks.certified': 'sertifikalı',
+  'resultChecks.notCertified': 'sertifikasız',
+  'resultChecks.pending': 'hesaplanıyor…',
+  'resultChecks.discretizationHigh': 'yüksek ayrıklaştırma hatası',
 };
 
 export default tr;

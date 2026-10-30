@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { pickLanguage } from './fixtures';
+import { EXPERIMENTS } from '../src/components/research/experiments';
+import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 
 /**
@@ -10,23 +12,44 @@ import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2
  *   npx playwright test --grep "@smoke research"
  */
 test.describe('@smoke research', () => {
-  test('the gallery shows the runnable experiment first, then the list, and links to the experiment', async ({ page }) => {
+  test('the gallery shows every runnable experiment before the catalogue and links to each experiment', async ({ page }) => {
     await page.goto('/en/research/');
     await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
-    expect(await page.locator('.rs-g-card').count()).toBeGreaterThanOrEqual(5);
+    const catalogue = catalog.papers.filter((paper) => !EXPERIMENTS.some((experiment) => experiment.paperId === paper.id));
+    await expect(page.locator('.rs-g-card')).toHaveCount(catalogue.length);
     await expect(page.getByText('Research, not a design tool').first()).toBeVisible();
-    // Every runnable experiment shows its build-time thumbnail, never the field icon.
-    const cards = page.locator('.rs-g-runcard');
-    expect(await cards.count()).toBeGreaterThanOrEqual(1);
-    for (const card of await cards.all()) {
+    const cards = page.locator('.rs-g-run .rs-g-runcard');
+    expect(EXPERIMENTS.length).toBeGreaterThan(0);
+    await expect(cards).toHaveCount(EXPERIMENTS.length);
+    expect(await page.locator('.rs-g-run').evaluate((run) => {
+      const list = document.querySelector('.rs-g-list')!;
+      return Boolean(run.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING)
+        && run.getBoundingClientRect().bottom <= list.getBoundingClientRect().top;
+    })).toBe(true);
+
+    for (const experiment of EXPERIMENTS) {
+      expect(catalog.papers.some((paper) => paper.id === experiment.paperId)).toBe(true);
+      const path = `/en${experiment.path}/`;
+      const card = cards.filter({ has: page.locator(`h3 a[href="${path}"]`) });
+      await expect(card).toHaveCount(1);
+      const heading = card.getByRole('heading');
+      await expect(heading).toBeVisible();
+      const title = (await heading.innerText()).trim();
+      expect(title.length).toBeGreaterThan(0);
+      await expect(card.getByText('First version', { exact: true })).toBeVisible();
+      // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
+      await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);
       const img = card.locator('img');
       await img.scrollIntoViewIfNeeded();
       await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+      const link = card.getByRole('link', { name: 'Read & run', exact: true });
+      await expect(link).toHaveAttribute('href', path);
+      await link.click();
+      await expect(page).toHaveURL(new URL(path, page.url()).href);
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await page.goto('/en/research/');
     }
-    await page.getByRole('link', { name: 'Read & run' }).first().click();
-    await expect(page).toHaveURL(/\/en\/research\/fracture\/shauer-2025\/$/);
-    await expect(page.getByRole('heading', { name: 'Phase-field fracture of a notched plate' })).toBeVisible();
   });
 
   test('the phase-field experiment replays, then runs load steps live and plots the force', async ({ page }) => {
@@ -375,3 +398,13 @@ for (const interaction of ['viewer', 'wheel', 'camera', 'tab', 'keyboard tab', '
     await expect.poll(() => slider.inputValue()).not.toBe(step);
   });
 }
+
+test('@smoke public-page entry installs editor hooks after its lazy mount', async ({ page }) => {
+  await page.goto('/en/research/?e2e=1');
+  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  const origin = await page.evaluate(() => performance.timeOrigin);
+  await page.locator('.nav-actions > button.btn-primary').click();
+  await expect.poll(() => page.evaluate(() => !!window.__stabileo)).toBe(true);
+  await expect(page.locator('canvas').first()).toBeVisible();
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin);
+});

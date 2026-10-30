@@ -4,7 +4,6 @@ import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
-import type { Element3DMetadata } from '../model/element-3d-metadata';
 
 /**
  * `moveNodes` is a pointer mode, not a builder.
@@ -79,22 +78,6 @@ export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ'
 // 3D-specific types
 export type NodalLoadDir3D = 'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz';
 export type SupportTool3D = 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d' | 'custom3d';
-
-export interface ClipboardData {
-  nodes: Array<{ origId: number; x: number; y: number; z?: number }>;
-  elements: Array<{
-    /** The member copied, so a paste over an unchanged model can copy it whole. */
-    origId?: number;
-    origNodeI: number;
-    origNodeJ: number;
-    type: 'frame' | 'truss';
-    materialId: number;
-    sectionId: number;
-    releaseI?: { my: boolean; mz: boolean; t: boolean };
-    releaseJ?: { my: boolean; mz: boolean; t: boolean };
-  } & Element3DMetadata>;
-  supports: Array<{ origNodeId: number; type: SupportType }>;
-}
 
 // Migrate old storage keys
 function hasLocalStorage(): boolean {
@@ -400,7 +383,6 @@ function createUIStore() {
   let duplicateDistance = $state<number>(3);
 
   // Clipboard
-  let clipboard = $state<ClipboardData | null>(null);
 
   // Self-weight — per-mode so switching modes doesn't affect each other
   let selfWeightBasico = $state(false);
@@ -661,7 +643,7 @@ function createUIStore() {
   let showGrid3D_basic = $state<boolean>(true);
   let snapToGrid3D_basic = $state<boolean>(true);
   let gridSize3D_basic = $state<number>(1);
-  let gridExtent3D_basic = $state<number>(50);
+  let gridExtent3D_basic = $state<number>(100);
   let showNodeLabels3D_basic = $state<boolean>(true);
   let showElementLabels3D_basic = $state<boolean>(false);
   let showShellLabels3D_basic = $state<boolean>(false);
@@ -1102,8 +1084,6 @@ function createUIStore() {
     get clippingPosition() { return clippingPosition; },
     set clippingPosition(v: number) { clippingPosition = v; },
 
-    get clipboard() { return clipboard; },
-    set clipboard(v: ClipboardData | null) { clipboard = v; },
 
     get includeSelfWeight() {
       if (analysisMode === 'pro') return selfWeightPro;
@@ -1317,13 +1297,14 @@ function createUIStore() {
       // its modes: keep the current one instead.
       if (!isAnalysisMode(v)) return;
       analysisMode = v;
-      // When switching into a 3D-capable mode with a flat 2D model already loaded,
-      // keep the model upright in the XZ plane instead of dropping it flat on XY.
-      if (is3DWorkspace(v) && _isModelFlat2D?.() === true) {
-        viewportPresentation3D = 'upright2dIn3d';
-      } else {
-        viewportPresentation3D = 'native3d';
-      }
+      this.choosePresentation3D();
+    },
+    /**
+     * A flat 2D model in a space workspace stands upright in the XZ plane instead of lying on XY;
+     * anything else is shown as stored. For a mode switch, and for an undo to a step taken in 2D.
+     */
+    choosePresentation3D() {
+      viewportPresentation3D = is3DWorkspace(analysisMode) && _isModelFlat2D?.() === true ? 'upright2dIn3d' : 'native3d';
     },
     _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
     get drawPlane2D() { return drawPlane2D; },
@@ -1629,7 +1610,6 @@ function createUIStore() {
       toasts = [];
       showHelp = false;
       currentTool = 'pan';
-      clipboard = null;
       pendingSolveFromURL = null;
       // Clear selection
       selectedNodes = new Set();

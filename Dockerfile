@@ -63,6 +63,8 @@ RUN npx playwright install --with-deps chromium
 
 COPY web/ .
 COPY research/ /app/research/
+# Engine benchmark pages read their shared case files (the same JSON the engine tests use).
+COPY engine/tests/benchmarks/ /app/engine/tests/benchmarks/
 COPY --from=wasm-builder /app/web-wasm src/lib/wasm/
 COPY --from=wasm-builder /app/web/public/research-wasm public/research-wasm/
 RUN node ../research/fracture/shauer-2025/wasm/check.mjs public/research-wasm/shauer-2025 ../research/fracture/shauer-2025/reference-results/ex2_steps.csv \
