@@ -32,12 +32,13 @@ pub(super) fn residual_from_difference(r: &[f64], f: &[f64]) -> Result<Structure
 fn statics(eq: &EquilibriumSummary, reactions: impl Iterator<Item = Vec<f64>>, dimensions: usize, relative_residual: f64) -> Result<Vec<StructuredDiagnostic>, String> {
     let reactions: Vec<_> = reactions.collect();
     let applied = &eq.applied_force_sum[..dimensions];
-    if applied.iter().chain(reactions.iter().flatten()).any(|v| !v.is_finite()) {
+    let components = &eq.applied_force_components;
+    if applied.iter().chain(components).chain(reactions.iter().flatten()).any(|v| !v.is_finite()) {
         return Err("REFUSE: self-check static_balance: non-finite force".into());
     }
-    let peak = applied.iter().chain(reactions.iter().flatten()).fold(1.0_f64, |a,b| a.max(b.abs()));
+    let peak = applied.iter().chain(components).chain(reactions.iter().flatten()).fold(1.0_f64, |a,b| a.max(b.abs()));
     let mut balance: Vec<_> = applied.iter().map(|v| v/peak).collect();
-    let mut scale: f64 = balance.iter().map(|v| v.abs()).sum();
+    let mut scale: f64 = components.iter().map(|v| (v/peak).abs()).sum();
     for reaction in reactions {
         for (sum, force) in balance.iter_mut().zip(reaction) {
             *sum += force/peak;
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn self_checks_corrupted_static_residual_and_reaction() {
         let mut eq = EquilibriumSummary { relative_residual: 0.0, residual_ok: true,
-            applied_force_sum: vec![0.0,-10.0], reaction_force_sum: vec![0.0,10.0],
+            applied_force_components: vec![0.0,-10.0], applied_force_sum: vec![0.0,-10.0], reaction_force_sum: vec![0.0,10.0],
             max_imbalance: 0.0, equilibrium_ok: true };
         statics(&eq, vec![vec![0.0,10.0]].into_iter(), 2, eq.relative_residual).unwrap();
         assert!(statics(&eq, vec![vec![0.0,9.0]].into_iter(), 2, eq.relative_residual).unwrap_err().contains("static_balance"));
@@ -216,7 +217,7 @@ mod tests {
     fn self_checks_finite_extreme_scale_and_nonfinite_gram() {
         assert_eq!(residual_from_difference(&[1e293, -1e293], &[1e308, 1e308]).unwrap().severity, Severity::Info);
         let eq = EquilibriumSummary { relative_residual: 0.0, residual_ok: true,
-            applied_force_sum: vec![1e308,1e308], reaction_force_sum: vec![], max_imbalance: 0.0, equilibrium_ok: true };
+            applied_force_components: vec![1e308,1e308], applied_force_sum: vec![1e308,1e308], reaction_force_sum: vec![], max_imbalance: 0.0, equilibrium_ok: true };
         assert!(statics(&eq, vec![vec![-1e308,-1e308]].into_iter(), 2, 0.0).unwrap().iter().all(|d| d.severity == Severity::Info));
         let mut checks = ModalChecks::default();
         checks.check(&[1.0,0.0], 1.0, &[1e308,0.0], &[1e308,0.0]).unwrap();

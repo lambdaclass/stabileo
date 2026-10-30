@@ -980,7 +980,12 @@ impl PreparedStatic2D<'_> {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set.
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
-        r.structured_diagnostics.push(self.check_returned_displacements(loads, &r)?);
+        let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
+            if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
+                format!("{error}; excessive displacement indicates a likely mechanism or instability")
+            } else { error }
+        })?;
+        r.structured_diagnostics.push(residual);
         super::self_checks::static_2d(&mut r, &[])?;
         Ok(r)
     }
@@ -2562,7 +2567,12 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
-        r.structured_diagnostics.push(self.check_returned_displacements(loads, &r)?);
+        let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
+            if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
+                format!("{error}; excessive displacement indicates a likely mechanism or instability")
+            } else { error }
+        })?;
+        r.structured_diagnostics.push(residual);
         super::self_checks::static_3d(&mut r, &[])?;
         Ok(r)
     }
@@ -6345,6 +6355,17 @@ pub(super) fn compute_equilibrium_summary_3d(
         }
     }
 
+    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
+        .filter(|((node, local), _)| *local < 3 && !inclined_node_app.contains_key(node))
+        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
+    for it in inclined_transforms {
+        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
+            for axis in 0..3 {
+                applied_force_components.push((0..3).map(|j| it.r[j][axis] * rotated[j]).sum());
+            }
+        }
+    }
+
     // Translational equilibrium (fx, fy, fz): applied + reactions ≈ 0
     let force_imbalance: Vec<f64> = (0..3).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
@@ -6352,6 +6373,7 @@ pub(super) fn compute_equilibrium_summary_3d(
     let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
+        applied_force_components,
         relative_residual: rel_residual,
         residual_ok: rel_residual < 1e-6,
         applied_force_sum: applied.to_vec(),
@@ -6446,6 +6468,17 @@ pub(super) fn compute_equilibrium_summary_2d(
         }
     }
 
+    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
+        .filter(|((node, local), _)| *local < 2 && !inclined_node_app.contains_key(node))
+        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
+    for it in inclined_transforms {
+        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
+            for axis in 0..2 {
+                applied_force_components.push((0..2).map(|j| it.r[j][axis] * rotated[j]).sum());
+            }
+        }
+    }
+
     // Translational equilibrium (fx, fy)
     let force_imbalance: Vec<f64> = (0..2).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
@@ -6453,6 +6486,7 @@ pub(super) fn compute_equilibrium_summary_2d(
     let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
+        applied_force_components,
         relative_residual: rel_residual,
         residual_ok: rel_residual < 1e-6,
         applied_force_sum: applied.to_vec(),

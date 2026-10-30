@@ -12,5 +12,5 @@
 {/if}
 
 <style>
-  .self-check-warning { margin: 6px 0; padding: 8px; border: 2px solid var(--st-warn); border-radius: 4px; color: var(--st-text); font-size: 0.75rem; }
+  .self-check-warning { margin: 6px 0; padding: 8px; border: 2px solid var(--st-warn); border-radius: 4px; color: var(--st-text); font-size: 12px; overflow-wrap: anywhere; min-width: 0; }
 </style>

@@ -58,8 +58,11 @@ an error before publication. Non-finite metrics always refuse.
   independent DOFs, rotated to global axes. This includes an MPC that acts as
   a ground support without double-counting forces transferred to a fixed
   master. Its denominator is the sum of absolute
-  applied resultant components and individual reaction components, floored at
-  1 in engine force units; thresholds `1e-6` / `1e-3`. This avoids treating a
+  individual applied nodal force components (before resultant cancellation) and
+  individual reaction components, floored at
+  1 in engine force units. Components are scaled before summing absolute values
+  to avoid overflow; inclined components are first rotated to global axes.
+  Thresholds remain `1e-6` / `1e-3`. This avoids treating a
   spring reaction omitted by the old summary as a failed solve. It is a force
   check, not yet a moment check or a separate load-assembly implementation.
 * Modal residual: `||K phi - lambda M phi||2 / (||K phi||2 + |lambda| ||M phi||2)`.
@@ -135,14 +138,17 @@ finite solution.
 * Snapshot registration gate against `main`, changelog validation, test inventory
   and `git diff --check` pass.
 
-Reproduce with `CARGO_BUILD_JOBS=2` and
-`CARGO_TARGET_DIR=/private/tmp/claude-501/codex-self-checks-target`:
+Reproduce inside the development shell, using a temporary build directory:
 
 ```sh
+make shell
+export CARGO_BUILD_JOBS=2
+export CARGO_TARGET_DIR="$(mktemp -d)"
 cargo test -p dedaliano-engine --lib --test solver --no-default-features --offline -- \
   --test-threads=2 self_checks constrained_residual sparse_solver_paths \
   constraints_inclined_supports::linear_static inclined_support_analyses::modal \
   modal_constrained_participation
+cd web
 npx vitest run --project unit --maxWorkers 1 \
   src/lib/engine/__tests__/self-checks.test.ts \
   src/lib/provenance/__tests__/registry.test.ts \

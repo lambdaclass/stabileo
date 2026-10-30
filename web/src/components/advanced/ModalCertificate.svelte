@@ -60,7 +60,7 @@
 {/if}
 
 <style>
-  .cert-modes { font-size: 0.62rem; color: var(--st-text-3); margin: 0 0 4px; }
-  .cert-modes summary { cursor: pointer; }
+  .cert-modes { font-size: 12px; color: var(--st-text-3); margin: 0 0 4px; }
+  .cert-modes summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
   .cert-modes ul { margin: 2px 0 0 14px; padding: 0; columns: 2; font-variant-numeric: tabular-nums; }
 </style>

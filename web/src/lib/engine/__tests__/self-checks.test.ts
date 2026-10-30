@@ -28,3 +28,13 @@ it('renders a persistent alert with the engine explanation and hides passing che
   const clean = render(SelfCheckBanner, { props: { results: [{ structuredDiagnostics: [diagnostic('info')] }] } });
   expect(clean.body).not.toContain('role="alert"');
 });
+
+import ModalCertificate from '../../../components/advanced/ModalCertificate.svelte';
+
+it('keeps modal warnings visible even before a background certificate is available', () => {
+  const { body } = render(ModalCertificate, { props: {
+    result: { modes: [{ frequency: 2 }], structuredDiagnostics: [diagnostic('warning')] }, mode: 0,
+  } });
+  expect(body).toContain('role="alert"');
+  expect(body).toContain('WARN: self-check modal_residual:1');
+});
