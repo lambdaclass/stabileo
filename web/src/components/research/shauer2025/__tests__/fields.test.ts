@@ -8,7 +8,7 @@ const material = { e: 30, nu: 0.2, plane: 'stress' };
 const damage = [0.1, 0.1, 0.1, 0.1];
 const displacement = [0, 0, 0.001, 0, 0.001, 0.002, 0, 0.002];
 const snapshots = { damage: { 56: damage }, displacement: { 56: displacement } };
-const frame = () => ({ step: { step: 56 }, damage: Float32Array.from(damage), displacement: Float32Array.from(displacement), syy: new Float32Array([0.0556875]) });
+const frame = () => ({ step: { step: 56, damage_max: 0.1 }, damage: Float32Array.from(damage), displacement: Float32Array.from(displacement), syy: new Float32Array([0.0556875]) });
 it('worker sends the independently calculated yy stress, not xx or xy', () => {
   const stress = expectedStress(nodes, elements, damage, displacement, material);
   expect(stress[0]).toBeCloseTo(0.0354375, 12);
@@ -16,7 +16,7 @@ it('worker sends the independently calculated yy stress, not xx or xy', () => {
   expect(stress[2]).toBe(0);
   const fields = displayedFields({ damage: () => Float64Array.from(damage), displacement: () => Float64Array.from(displacement), elementStress: () => Float64Array.from(stress) });
   expect(fields.syy[0]).toBeCloseTo(0.0556875, 8);
-  expect(checkFields({ ...fields, step: { step: 56 } }, nodes, elements, snapshots, material)).toEqual([]);
+  expect(checkFields({ ...fields, step: { step: 56, damage_max: 0.1 } }, nodes, elements, snapshots, material)).toEqual([]);
 });
 it('rejects zeroed, perturbed and wrong-length finite fields', () => {
   expect(checkFields(frame(), nodes, elements, snapshots, material)).toEqual([]);

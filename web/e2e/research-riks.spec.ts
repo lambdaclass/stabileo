@@ -5,11 +5,12 @@ const route = '/en/research/benchmarks/riks-crisfield/';
 test.describe('@smoke research riks-crisfield', () => {
   test('the native replay traces the passing case and shows the shallow case as failing', async ({ page }) => {
     await page.goto(route);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('first version');
     const app = page.locator('.rs-app');
     await expect(app).toHaveAttribute('data-case', 'von-mises-truss');
     await expect(app).toHaveAttribute('data-source', 'replay');
     await expect(app).toHaveAttribute('data-steps', '700');
-    await expect(page.getByTestId('benchmark-headline')).toHaveText('Stabileo traces the snap-through: 3/3 checks within 5%');
+    await expect(page.getByTestId('benchmark-headline')).toContainText('Snap-through demonstrated: 3/3');
     await expect(page.locator('.sfv canvas').first()).toBeVisible();
 
     await page.locator('#rs-tab-path').click();
@@ -21,10 +22,10 @@ test.describe('@smoke research riks-crisfield', () => {
     await page.locator('#p-case').selectOption('shallow-toggle');
     await expect(app).toHaveAttribute('data-case', 'shallow-toggle');
     await expect(app).toHaveAttribute('data-steps', '100');
-    await expect(page.getByTestId('benchmark-headline')).toContainText('0/3 pass');
+    await expect(page.getByTestId('benchmark-headline')).toContainText('Snap-through checks: 0/3');
     await page.locator('#rs-tab-path').click();
     await expect(page.locator('#rs-panel-path td.fail')).toHaveCount(3);
-    await expect(page.getByText('not reached', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('reference displacement not reached', { exact: true }).first()).toBeVisible();
   });
 
   test('controls recompute through the production WASM wrapper', async ({ page }) => {
@@ -38,7 +39,7 @@ test.describe('@smoke research riks-crisfield', () => {
     await expect(page.locator('.rs-status')).toContainText('Live run complete');
     await page.locator('#rs-tab-path').click();
     await expect(page.locator('#rs-panel-path svg path')).toHaveCount(2);
-    await expect(page.locator('#rs-panel-path')).toContainText('total Newton iterations');
+    await expect(page.locator('#rs-panel-path')).toContainText('Total Newton iterations');
   });
 
   test('Open in Stabileo restores the shared model in the editor', async ({ page }) => {

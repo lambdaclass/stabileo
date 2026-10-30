@@ -46,7 +46,7 @@
 </script>
 
 <div class="path-chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="{yLabel} against {xLabel}">
+  <svg {width} {height} role="img" aria-label={`${yLabel} / ${xLabel}`}>
     <text x={M.l - 8} y={13} class="label">{yLabel}</text>
     {#each xt.values as x (x)}
       <line x1={sx(x)} x2={sx(x)} y1={M.t} y2={height - M.b} class="grid" />

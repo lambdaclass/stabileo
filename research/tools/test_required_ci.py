@@ -22,6 +22,19 @@ assert workflow['name'] == 'CI'
 for name, job in research['jobs'].items():
     online = any('--online' in step.get('run', '') or '--links' in step.get('run', '') for step in job['steps'])
     assert not online or job.get('if') == "github.workflow == 'Research'", name
+    # A catalogue check without --offline contacts Crossref, so it counts as online too.
+    for step in job['steps']:
+        run = step.get('run', '')
+        if 'catalog.py check' in run and job.get('if') != "github.workflow == 'Research'":
+            assert '--offline' in run, (name, run)
+for job, tests in {
+    'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
+    'catalog': ['test_grossman_catalog.py'],
+}.items():
+    assert 'if' not in research['jobs'][job]
+    commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
+    for test in tests:
+        assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)

@@ -42,16 +42,19 @@ export function expectedStress(nodes, elements, damage, displacement, material) 
 
 export function checkFields(frame, nodes, elements, snapshots, material, replay = false) {
   const failures = [];
+  for (const key of ['step', 'damage_max']) {
+    if (!Number.isFinite(frame.step?.[key])) failures.push(`missing or non-finite ${key}`);
+  }
   const n = nodes.length / 2, ne = elements.length / 4;
-  if (frame.damage.length !== n || frame.displacement.length !== 2 * n || (!replay && frame.syy?.length !== ne)
+  if (frame.damage?.length !== n || frame.displacement?.length !== 2 * n || (!replay && frame.syy?.length !== ne)
     || (frame.syy && frame.syy.length !== ne)) return ['field length mismatch'];
   if (![frame.damage, frame.displacement, ...(frame.syy ? [frame.syy] : [])].every(a => Array.from(a).every(Number.isFinite))) return ['non-finite fields'];
-  if (typeof frame.step.damage_max === 'number') {
+  if (Number.isFinite(frame.step?.damage_max)) {
     const maximum = Math.max(...frame.damage);
     const expected = replay ? Math.max(0, Math.min(1.05, frame.step.damage_max)) : frame.step.damage_max;
     if (Math.abs(maximum - expected) > (replay ? 1.05 / 510 + 6e-8 : 6e-8)) failures.push('maximum damage inconsistent with nodal field');
   }
-  const k = frame.step.step;
+  const k = frame.step?.step;
   const d = snapshots.damage[k];
   if (d) {
     const expected = replay ? d.map(v => Math.max(0, Math.min(1.05, v))) : d;

@@ -9,7 +9,7 @@
   import { snapshots } from './reference-fields';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
-  import { rs } from '../i18n';
+  import { rs, researchLocale } from '../i18n';
   import { solverStepCount } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
@@ -19,7 +19,7 @@
   import type { PlateConfig, Series, Step } from './protocol';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
-  import { Playback, SOURCE_LABEL, type Source } from '../shell/playback.svelte';
+  import { Playback, type Source } from '../shell/playback.svelte';
   import { fetchReplay } from '../shell/replay';
   import { num, qty } from '../shell/format';
   import Sci from '../shell/Sci.svelte';
@@ -49,9 +49,9 @@
   const refPeak = reference.reduce((a, r) => (r.reaction > a.reaction ? r : a), reference[0]);
 
   const MESHES = {
-    coarse: { label: 'Coarse: h = 0.0025 mm', mesh: { nx: 40, ny: 40, nx_fine: 16, ny_fine: 8, h_fine: 0.0025 } },
-    medium: { label: 'Medium: h = 0.00167 mm', mesh: { nx: 50, ny: 60, nx_fine: 24, ny_fine: 12, h_fine: 1 / 600 } },
-    reference: { label: 'Reference: 5 600 elements, h = 0.00125 mm', mesh: { nx: 70, ny: 80, nx_fine: 32, ny_fine: 16, h_fine: 0.00125 } },
+    coarse: { label: 'coarseMesh', mesh: { nx: 40, ny: 40, nx_fine: 16, ny_fine: 8, h_fine: 0.0025 } },
+    medium: { label: 'mediumMesh', mesh: { nx: 50, ny: 60, nx_fine: 24, ny_fine: 12, h_fine: 1 / 600 } },
+    reference: { label: 'referenceMesh', mesh: { nx: 70, ny: 80, nx_fine: 32, ny_fine: 16, h_fine: 0.00125 } },
   } as const;
   type MeshKey = keyof typeof MESHES;
 
@@ -166,12 +166,12 @@
   let deform = $state(10);
   let showMesh = $state(MESH_BY_DEFAULT && (typeof window === 'undefined' || window.innerWidth >= 640));
   let hideBroken = $state(true);
-  const TABS = [
-    { id: 'viewer', label: 'Viewer' },
-    { id: 'force', label: 'Force' },
-    { id: 'convergence', label: 'Convergence' },
-    { id: 'parameters', label: 'Parameters' },
-  ];
+  const TABS = $derived([
+    { id: 'viewer', label: strings.viewer },
+    { id: 'force', label: strings.force },
+    { id: 'convergence', label: strings.convergence },
+    { id: 'parameters', label: strings.parameters },
+  ]);
   let tab = $state('viewer');
   let flashTab = $state<string | null>(null);
   let forceH = $state(400);
@@ -271,34 +271,34 @@
 
   const forceSeries = $derived.by<Series[]>(() => {
     const out: Series[] = [];
-    if (frames.length) out.push({ name: source === 'replay' ? 'Stabileo (Rust, precomputed replay)' : 'Stabileo (Rust, in this browser)', color: STABILEO, points: frames.map((f) => [f.step.displacement, f.step.reaction]) });
-    if (showsReference) out.push({ name: 'Reference code (Python, committed outputs)', color: REFERENCE, dashed: true, points: reference.map((r) => [r.pseudotime * REF_TOP_DISPLACEMENT, r.reaction]) });
+    if (frames.length) out.push({ name: source === 'replay' ? strings.precomputedSeries : strings.browserSeries, color: STABILEO, points: frames.map((f) => [f.step.displacement, f.step.reaction]) });
+    if (showsReference) out.push({ name: strings.referenceSeries, color: REFERENCE, dashed: true, points: reference.map((r) => [r.pseudotime * REF_TOP_DISPLACEMENT, r.reaction]) });
     return out;
   });
   const peakFrame = $derived(frames.length ? frames.reduce((a, f) => (f.step.reaction > a.step.reaction ? f : a), frames[0]) : null);
   const forceLabels = $derived(
     peakFrame
-      ? [{ x: peakFrame.step.displacement, y: peakFrame.step.reaction, anchor: 'end' as const, text: showsReference ? `Stabileo (blue), reference (orange halo): peak ${peakFrame.step.reaction.toFixed(4)} kN` : `Stabileo: peak ${peakFrame.step.reaction.toFixed(4)} kN` }]
+      ? [{ x: peakFrame.step.displacement, y: peakFrame.step.reaction, anchor: 'end' as const, text: showsReference ? `${strings.peakReferenceLabel} ${peakFrame.step.reaction.toFixed(4)} kN` : `${strings.peakLabel} ${peakFrame.step.reaction.toFixed(4)} kN` }]
       : [],
   );
   const residualSeries = $derived.by<Series[]>(() => {
     if (!showsReference || !frames.length) return [];
-    return [{ name: 'difference from the reference', color: STABILEO, points: frames.map((f, i) => [f.step.displacement, Math.max(1e-16, Math.abs(f.step.reaction - (reference[i]?.reaction ?? f.step.reaction)))]) }];
+    return [{ name: strings.referenceDifference, color: STABILEO, points: frames.map((f, i) => [f.step.displacement, Math.max(1e-16, Math.abs(f.step.reaction - (reference[i]?.reaction ?? f.step.reaction)))]) }];
   });
   const energyLabels = $derived.by(() => {
     if (!frames.length) return [];
     const last = frames[frames.length - 1].step;
     const peak = frames.reduce((a, f) => (f.step.elastic_energy > a.step.elastic_energy ? f : a), frames[0]).step;
     return [
-      { x: peak.displacement, y: peak.elastic_energy, anchor: 'end' as const, text: 'elastic' },
-      { x: last.displacement, y: last.fracture_energy, anchor: 'end' as const, text: 'fracture Gc·Γ' },
+      { x: peak.displacement, y: peak.elastic_energy, anchor: 'end' as const, text: strings.elasticLabel },
+      { x: last.displacement, y: last.fracture_energy, anchor: 'end' as const, text: strings.fractureLabel },
     ];
   });
   const energySeries = $derived.by<Series[]>(() =>
     frames.length
       ? [
-          { name: 'Elastic energy', color: STABILEO, points: frames.map((f) => [f.step.displacement, f.step.elastic_energy]) },
-          { name: 'Fracture energy Gc·Γ', color: REFERENCE, points: frames.map((f) => [f.step.displacement, f.step.fracture_energy]) },
+          { name: strings.elasticEnergy, color: STABILEO, points: frames.map((f) => [f.step.displacement, f.step.elastic_energy]) },
+          { name: strings.fractureEnergy, color: REFERENCE, points: frames.map((f) => [f.step.displacement, f.step.fracture_energy]) },
         ]
       : [],
   );
@@ -310,7 +310,7 @@
   const statusItems = $derived(
     frame
       ? [
-          { label: 'step', value: `${frame.step.step} of ${Math.max(expectedSteps, frames.length) - 1}` },
+          { label: strings.step, value: `${frame.step.step} ${strings.of} ${Math.max(expectedSteps, frames.length) - 1}` },
           { label: 'u', value: qty(frame.step.displacement, 'mm', { dp: 5 }) },
           { label: 'F', value: qty(frame.step.reaction, 'kN', { sig: 4 }) },
           { label: 'max d', value: num(frame.step.damage_max, { dp: 4 }) },
@@ -322,76 +322,65 @@
 
 <ExperimentShell
   paperId="shauer-2025"
-  name="Phase-field fracture of a notched plate"
-  lead="A square plate with a notch from its left edge to the centre is pulled apart at the top. The AT2 phase-field model represents the crack as a damage field d between 0 (intact) and 1 (broken), smeared over a length ℓ. The experiment pane runs the Stabileo Rust implementation in Stabileo’s viewer; the orange curve is what the author’s Python code computed."
+  name={strings.shauerTitle}
+  lead={strings.shauerLead}
   {checks}
   {actions}
   sourcePath="research/fracture/shauer-2025"
 >
   {#snippet article()}
-    <h2>What the paper shows</h2>
+    <h2>{strings.paperShows}</h2>
     <p>
-      The article presents a self-contained Python finite element code, under 500 lines, for brittle fracture with the phase-field method,
-      and uses it on three examples: a bar in tension compared with the one-dimensional AT2 solution, a single-edge notched plate in
-      tension (this page), and a three-point bending test. We read the code in full (the article’s text was not accessible to us) and
-      everything below about the method comes from it.
+      {strings.paperOverview}
     </p>
     <p>
-      In the replay the damage grows smoothly ahead of the notch while <ExperimentLink tab="force">the force</ExperimentLink> rises linearly to
-      <ExperimentLink step={56}>the peak load (step 56)</ExperimentLink>; at the next increment
-      <ExperimentLink step={57}>the crack runs through the plate in a single step (step 57)</ExperimentLink>, after <ExperimentLink tab="convergence">308 alternating
-      iterations</ExperimentLink>, and the force drops to almost zero. <ExperimentLink step={78}>The final state</ExperimentLink> shows the open crack on
-      the deformed plate.
+      {strings.replayGrowth} <ExperimentLink tab="force">{strings.theForce}</ExperimentLink> {strings.risesTo}
+      <ExperimentLink step={56}>{strings.peakStepLink}</ExperimentLink>{strings.nextIncrement}
+      <ExperimentLink step={57}>{strings.crackStepLink}</ExperimentLink>{strings.afterComma} <ExperimentLink tab="convergence">{strings.alternating308}</ExperimentLink>{strings.forceDrops} <ExperimentLink step={78}>{strings.finalState}</ExperimentLink> {strings.openCrack}
     </p>
 
-    <h2>The model</h2>
-    <p>Displacement <b>u</b> and damage d are both bilinear on quadrilaterals, integrated with 2×2 Gauss points; plane strain, small strain, quasi-static loading.</p>
+    <h2>{strings.modelHeading}</h2>
+    <p>{strings.displacement} <b>u</b> {strings.bilinearModel}</p>
     <ul>
-      <li><b>Elasticity</b> at fixed d: div(g(d) <b>C</b> : <b>ε</b>(<b>u</b>)) = 0 with g(d) = (1 − d)², applied to the whole stress.</li>
-      <li><b>Damage (AT2)</b> at fixed <b>u</b>: (G<sub>c</sub>/ℓ + 2H) d − G<sub>c</sub> ℓ Δd = 2H.</li>
-      <li><b>Driving energy</b>: H = ψ<sup>+</sup> = ½ Σ σ<sub>i</sub> ε<sub>i</sub> over the positive principal strains, with σ<sub>i</sub> the undamaged principal stresses: elasticity is degraded fully while damage is driven by tension only, a “hybrid” formulation.</li>
-      <li><b>Alternating solution</b> per load step: solve <b>u</b> with the current d, then d with the new <b>u</b>, until the elasticity residual ‖K(d)u − f‖ falls below 10<sup>−5</sup>.</li>
-      <li><b>Irreversibility</b>: none in the reference code; damage is recomputed from the current energy and is not bounded by 1. <ExperimentLink params={{ history: true, run: true }}>Turn on the history field</ExperimentLink> to keep it on unloading (not in the reference).</li>
+      <li><b>{strings.elasticity}</b> {strings.fixedDamage} <b>C</b> : <b>ε</b>(<b>u</b>{strings.wholeStress}</li>
+      <li><b>{strings.damageAT2}</b> {strings.atFixed} <b>u</b>: (G<sub>c</sub>/ℓ + 2H) d − G<sub>c</sub> ℓ Δd = 2H.</li>
+      <li><b>{strings.drivingEnergy}</b>: H = ψ<sup>+</sup> = ½ Σ σ<sub>i</sub> ε<sub>i</sub> {strings.positiveStrains}<sub>i</sub> {strings.hybridModel}</li>
+      <li><b>{strings.alternatingSolution}</b> {strings.solvePerStep} <b>u</b> {strings.currentDamage} <b>u</b>{strings.residualThreshold}<sup>−5</sup>.</li>
+      <li><b>{strings.irreversibility}</b>{strings.noIrreversibility} <ExperimentLink params={{ history: true, run: true }}>{strings.enableHistory}</ExperimentLink> {strings.keepOnUnloading}</li>
     </ul>
     <p>
-      Units are kN and mm. The homogeneous AT2 peak stress σ<sub>c</sub> = √(27 E G<sub>c</sub> / 256 ℓ) ≈ 2.82 kN/mm² here, so ℓ behaves as a
-      strength as much as a regularisation length: <ExperimentLink params={{ l0: 0.015, run: true }}>try ℓ = 0.015 mm</ExperimentLink> and the
-      peak load falls. The mesh matters too: the crack band needs elements a few times smaller than ℓ;
-      <ExperimentLink params={{ mesh: 'coarse', run: true }}>try the coarse mesh</ExperimentLink>.
+      {strings.unitsAndPeak}<sub>c</sub> = √(27 E G<sub>c</sub> {strings.lengthStrength} <ExperimentLink params={{ l0: 0.015, run: true }}>{strings.tryLength}</ExperimentLink> {strings.meshMatters}
+      <ExperimentLink params={{ mesh: 'coarse', run: true }}>{strings.tryCoarse}</ExperimentLink>.
     </p>
 
-    <h2>How we reproduced it</h2>
+    <h2>{strings.reproductionHeading}</h2>
     <ol>
-      <li>The author’s code (commit 61037c6, MIT licence) was run unmodified for its three examples in Python 3.12.15 with numpy 2.1.3 and scipy 1.14.1; every step’s force, iteration count, residual and damage range, and nodal fields at chosen steps, were saved with a manifest of versions and checksums.</li>
-      <li>The Rust implementation regenerates the same meshes (bit-identical), applies the same boundary conditions, loop and stopping rule, and solves with the Stabileo engine’s sparse Cholesky factorisation.</li>
-      <li>{validation.checks.length} named checks compare the two, each with a stated tolerance, in continuous integration. The browser bundle and the replay on this page are checked separately against the native build.</li>
+      <li>{strings.referenceProcedure}</li>
+      <li>{strings.rustProcedure}</li>
+      <li>{validation.checks.length} {strings.checksProcedure}</li>
     </ol>
 
-    <h2 id="checks">Comparison with the reference</h2>
-    <div class="rs-table-scroll" role="region" aria-label="Validation checks" tabindex="0">
+    <h2 id="checks">{strings.referenceComparison}</h2>
+    <div class="rs-table-scroll" role="region" aria-label={strings.validationChecks} tabindex="0">
     <table class="rs-checks">
-      <caption>{validation.checks.length} validation checks run in CI, each with its tolerance</caption>
-      <thead><tr><th scope="col">Check</th><th scope="col" class="num">Observed</th><th scope="col" class="num">Tolerance</th><th scope="col">Result</th></tr></thead>
+      <caption>{validation.checks.length} {strings.checksCaption}</caption>
+      <thead><tr><th scope="col">{strings.check}</th><th scope="col" class="num">{strings.observed}</th><th scope="col" class="num">{strings.tolerance}</th><th scope="col">{strings.result}</th></tr></thead>
       <tbody>
         {#each validation.checks as c (c.name)}
-          <tr><td>{c.name}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? 'equal' : 'differs'}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? '✓ pass' : '✗ fail'}</td></tr>
+          <tr><td>{c.name}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? strings.equal : strings.differs}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? strings.pass : strings.fail}</td></tr>
         {/each}
       </tbody>
     </table>
     </div>
     <p>
-      One finding: the plate is symmetric about the notch plane, and the crack runs along the row of elements just above it in one code and
-      just below it in the other. Which row is chosen is decided by floating-point round-off; against the mirror image the final damage
-      fields differ by 3.085970368132962 × 10<sup>−10</sup>.
-      The thresholds in the table are comparison tolerances, not mathematical error bounds.
-      Displacement fields are compared at example 1 step 50, example 2 step 56, and example 3 step 56.
+      {strings.symmetryFinding}<sup>−10</sup>{strings.toleranceMeaning}
     </p>
 
     {#if frames.length}
       <details class="rs-table">
-        <summary>Step table ({frames.length} steps)</summary>
+        <summary>{strings.stepTable}{frames.length} {strings.stepsParen}</summary>
         <table>
-          <thead><tr><th>step</th><th>u, mm</th><th>F, kN</th><th>iterations</th><th>residual</th><th>max d</th>{#if showsReference}<th>reference F, kN</th>{/if}</tr></thead>
+          <thead><tr><th>{strings.step}</th><th>u, mm</th><th>F, kN</th><th>{strings.iterations}</th><th>{strings.residual}</th><th>max d</th>{#if showsReference}<th>{strings.referenceForce}</th>{/if}</tr></thead>
           <tbody>
             {#each frames as f, i (i)}
               <tr><td class="num">{f.step.step}</td><td class="num">{num(f.step.displacement, { dp: 5 })}</td><td class="num">{num(f.step.reaction, { sig: 7 })}</td><td class="num">{f.step.iterations}</td><td class="num"><Sci value={f.step.residual} /></td><td class="num">{num(f.step.damage_max, { dp: 4 })}</td>{#if showsReference}<td class="num">{num(reference[i]?.reaction ?? NaN, { sig: 7 })}</td>{/if}</tr>
@@ -401,38 +390,38 @@
       </details>
     {/if}
 
-    <h2>Comparison with the paper</h2>
-    <p>Not done: the article’s full text was not accessible to us, so no number printed in it has been compared. Figures here come from our own runs.</p>
+    <h2>{strings.paperComparison}</h2>
+    <p>{strings.paperNotCompared}</p>
 
-    <h2>Limitations</h2>
+    <h2>{strings.limitations}</h2>
     <ul>
-      <li>Agreement with a reference code is not validation against experiments, and none of this is an engineering certification.</li>
-      <li>The reference mesh refines only a 0.04 × 0.04 mm box around the notch tip; beyond it the crack crosses elements wider than 3ℓ.</li>
-      <li>No bound constraints: damage can exceed 1 slightly (the reference reaches 1.0096 here and 1.0021897551918642 in example 1) and undershoot 0. The recorded Python reference outputs have minimum nodal damage 3.076336950017797e-08 (example 1), -0.0031224948220514573 (example 2), and -0.06024191772700118 (example 3). This also occurs in the reference code’s unconstrained AT2 discretization. Negative damage is unphysical: (1-d)² at the example 3 minimum is about 1.124, above intact stiffness. Assembly uses interpolated damage at quadrature points, so this is not a 12.4% assembled-stiffness error. The solver does not clamp damage; the replay’s quantized nodal field and colour scale clamp it for display.</li>
-      <li>The alternating scheme is not accelerated; at unstable crack growth it can take hundreds of iterations in one step.</li>
-      <li>Browser runs are limited in mesh size and parameter range.</li>
+      <li>{strings.noCertification}</li>
+      <li>{strings.meshLimitation}</li>
+      <li>{strings.damageLimitation}</li>
+      <li>{strings.iterationLimitation}</li>
+      <li>{strings.browserLimitation}</li>
     </ul>
 
-    <h2>Code and references</h2>
+    <h2>{strings.codeReferences}</h2>
     <ul>
-      <li>Implementation, tests and reference outputs: <a href="https://github.com/lambdaclass/stabileo/tree/main/research/fracture/shauer-2025" rel="noreferrer" target="_blank">research/fracture/shauer-2025</a> (mesh generators and loop adapted from the MIT reference, credited in the source).</li>
-      <li>Reference code: <a href="https://github.com/nathanshauer/phasefield-jr-py" rel="noreferrer" target="_blank">github.com/nathanshauer/phasefield-jr-py</a>, MIT, © 2025 Nathan Shauer.</li>
+      <li>{strings.implementationOutputs} <a href="https://github.com/lambdaclass/stabileo/tree/main/research/fracture/shauer-2025" rel="noreferrer" target="_blank">{"shauer-2025"}</a> {strings.adaptationCredit}</li>
+      <li>{strings.referenceCode} <a href="https://github.com/nathanshauer/phasefield-jr-py" rel="noreferrer" target="_blank">{"github.com/nathanshauer/phasefield-jr-py"}</a>{", MIT, © 2025 Nathan Shauer."}</li>
     </ul>
   {/snippet}
 
   {#snippet app()}
-    <div class="rs-app" lang="en" bind:this={pane} data-steps={frames.length} data-source={source}>
-      <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{SOURCE_LABEL[source]}</p>
+    <div class="rs-app" lang={researchLocale()} bind:this={pane} data-steps={frames.length} data-source={source}>
+      <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{source === 'replay' ? strings.replaySource : source === 'live' ? strings.liveSource : strings.cachedSource}</p>
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
           <span class="ok" aria-hidden="true">✓</span>
-          {source === 'replay' ? 'This replay' : 'This run'} agrees with reference forces, iterations, pre-peak maximum damage, damage at steps 56/57/78 and displacement at step 56 (replay fields quantized; stress has no reference snapshot): peak {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} at step {comparison.peak.step.step}, identical iterations at {comparison.sameIterations} of {reference.length} steps.
-          <button type="button" class="rs-textbtn" onclick={() => { playback.interact(); tab = 'convergence'; }}>Details</button>
+          {source === 'replay' ? strings.thisReplay : strings.thisRun} {strings.comparisonMatches} {qty(comparison.peak.step.reaction, 'kN', { dp: 6 })} {strings.atStep} {comparison.peak.step.step}{strings.identicalIterationsAt} {comparison.sameIterations} {strings.of} {reference.length} {strings.stepsPeriod}
+          <button type="button" class="rs-textbtn" onclick={() => { playback.interact(); tab = 'convergence'; }}>{strings.details}</button>
         </p>
       {:else if !run && replay && !replayVerified}
-        <p class="rs-compare-line" role="status">Replay build or configuration mismatch: reference comparison disabled.</p>
+        <p class="rs-compare-line" role="status">{strings.replayMismatch}</p>
       {:else if comparison || run?.status === 'unconverged'}
-        <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? 'Non-converged run' : 'Reference mismatch'}: {comparison?.failures.join('; ') || run?.error}</p>
+        <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? strings.nonConverged : strings.referenceMismatch}: {comparison?.failures.join('; ') || run?.error}</p>
       {/if}
       <PaneTabs oninteract={() => playback.interact()} tabs={TABS} bind:active={tab} flash={flashTab} />
 
@@ -440,23 +429,23 @@
         {#if nodes && elements}
           <div class="rs-ribbon" onclickcapture={() => playback.interact()}>
             <Segmented
-              label="Show"
+              label={strings.show}
               bind:value={field}
               options={[
-                { id: 'damage', label: 'Damage d' },
-                { id: 'disp', label: 'Displacement' },
-                { id: 'syy', label: 'σyy', disabled: !frame?.syy, title: frame?.syy ? '' : 'Stress is available after a run in this browser' },
+                { id: 'damage', label: strings.damageField },
+                { id: 'disp', label: strings.displacement },
+                { id: 'syy', label: 'σyy', disabled: !frame?.syy, title: frame?.syy ? '' : strings.stressAvailable },
               ]}
             />
             <Toggles
-              label="Display"
+              label={strings.display}
               items={[
-                { label: `Deformed ×${deform}`, on: deformed, toggle: () => (deformed = !deformed) },
-                { label: 'Mesh', on: showMesh, toggle: () => (showMesh = !showMesh) },
-                { label: 'Hide broken', on: hideBroken, toggle: () => (hideBroken = !hideBroken), title: 'Hide elements with two or more corners at d > 0.95 (the open crack)' },
+                { label: `${strings.deformed} ×${deform}`, on: deformed, toggle: () => (deformed = !deformed) },
+                { label: strings.mesh, on: showMesh, toggle: () => (showMesh = !showMesh) },
+                { label: strings.hideBroken, on: hideBroken, toggle: () => (hideBroken = !hideBroken), title: strings.hideBrokenHint },
               ]}
             />
-            <Segmented label="View" bind:value={view} options={[{ id: 'plate', label: 'Plate' }, { id: 'band', label: 'Crack band' }, { id: 'tip', label: 'Notch tip' }]} />
+            <Segmented label={strings.view} bind:value={view} options={[{ id: 'plate', label: strings.plate }, { id: 'band', label: strings.crackBand }, { id: 'tip', label: strings.notchTip }]} />
           </div>
           <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onclickcapture={() => playback.interact()}>
             <StabileoViewer
@@ -466,9 +455,9 @@
               perCell={field === 'syy'}
             colourMap={field === 'syy' ? 'diverging' : 'sequential'}
               range={fieldRange}
-              title={field === 'damage' ? 'Damage d' : field === 'disp' ? '|u|' : 'σyy (degraded)'}
+              title={field === 'damage' ? strings.damageField : field === 'disp' ? '|u|' : strings.degradedStress}
               unit={field === 'damage' ? '' : field === 'disp' ? 'mm' : 'kN/mm²'}
-              legendFooter={field === 'damage' ? 'colours clamped to [0, 1]' : field === 'disp' ? 'mm' : 'kN/mm², element centres'}
+              legendFooter={field === 'damage' ? strings.clampedColours : field === 'disp' ? 'mm' : strings.elementCentres}
               displacement={deformed ? (frame?.displacement ?? null) : null}
               deformScale={deform}
               {showMesh}
@@ -476,7 +465,7 @@
               view={VIEWS[view]}
               height="100%"
               status={statusItems}
-              ariaLabel="Stabileo viewer: {field} on the {deformed ? 'deformed' : 'undeformed'} mesh"
+              ariaLabel={strings.viewerMeshLabel.replace('{field}', field === 'damage' ? strings.damageField : field === 'disp' ? strings.displacement : 'σyy').replace('{shape}', deformed ? strings.deformed : strings.undeformed)}
             />
           </div>
         {:else}
@@ -486,96 +475,96 @@
 
       <div class="rs-panel" id="rs-panel-force" role="tabpanel" aria-labelledby="rs-tab-force" hidden={tab !== 'force'} bind:clientHeight={forceH}>
         <figure>
-          <figcaption>Reaction force against imposed top displacement</figcaption>
-          <LineChart series={forceSeries} xLabel="top displacement u (mm)" yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `step ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
+          <figcaption>{strings.reactionCaption}</figcaption>
+          <LineChart series={forceSeries} xLabel={strings.topDisplacementAxis} yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `${strings.step} ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
           {#if residualSeries.length}
-            <LineChart series={residualSeries} xLabel="top displacement u (mm)" yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: 'force comparison tolerance' }]} marker={frame ? frame.step.displacement : null} height={110} />
+            <LineChart series={residualSeries} xLabel={strings.topDisplacementAxis} yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: strings.forceComparisonTolerance }]} marker={frame ? frame.step.displacement : null} height={110} />
           {/if}
-          {#if !showsReference}<p class="rs-note">The reference curve is shown only for the reference parameters.</p>{/if}
+          {#if !showsReference}<p class="rs-note">{strings.referenceCurveNote}</p>{/if}
         </figure>
       </div>
 
       <div class="rs-panel" id="rs-panel-convergence" role="tabpanel" aria-labelledby="rs-tab-convergence" hidden={tab !== 'convergence'} bind:clientHeight={convH}>
         {#if comparison}
           <div class="rs-compare" id="rs-compare-detail">
-            <h3>{source === 'replay' ? 'This replay' : 'This run'} against the reference code</h3>
+            <h3>{source === 'replay' ? strings.thisReplay : strings.thisRun} {strings.againstReferenceCode}</h3>
             <ul>
-              <li>Peak force {comparison.peak.step.reaction.toFixed(6)} kN at step {comparison.peak.step.step}; reference {refPeak.reaction.toFixed(6)} kN at step {refPeak.step}.</li>
-              <li>Largest relative force difference up to the peak: {comparison.worstPre.toExponential(1)} (test tolerance 1e-9).</li>
-              <li>Largest absolute force difference, fracture included: {comparison.worstAll.toExponential(1)} kN (test tolerance 1e-5).</li>
-              <li>Identical number of staggered iterations at {comparison.sameIterations} of {reference.length} steps.</li>
+              <li>{strings.peakForce} {comparison.peak.step.reaction.toFixed(6)} {strings.knAtStep} {comparison.peak.step.step}{strings.referenceSemicolon} {refPeak.reaction.toFixed(6)} {strings.knAtStep} {refPeak.step}.</li>
+              <li>{strings.relativeForceDifference} {comparison.worstPre.toExponential(1)} {strings.relativeTestTolerance}</li>
+              <li>{strings.absoluteForceDifference} {comparison.worstAll.toExponential(1)} {strings.absoluteTestTolerance}</li>
+              <li>{strings.identicalIterations} {comparison.sameIterations} {strings.of} {reference.length} {strings.stepsPeriod}</li>
             </ul>
           </div>
         {/if}
         {#if frames.length}
           <figure>
-            <figcaption>Staggered iterations per load step{showsReference ? ' (dots where the reference differs; none expected)' : ''}</figcaption>
+            <figcaption>{strings.iterationsCaption}{showsReference ? strings.referenceDots : ''}</figcaption>
             <IterationsChart steps={frames.map((f) => f.step)} reference={showsReference ? reference.map((r) => r.iterations) : null} height={130} />
           </figure>
           <figure>
-            <figcaption>Energies</figcaption>
-            <LineChart series={energySeries} xLabel="top displacement u (mm)" yLabel="energy (kN·mm)" marker={frame ? frame.step.displacement : null} labels={energyLabels} height={Math.max(150, convH - (comparison ? 420 : 260))} />
+            <figcaption>{strings.energies}</figcaption>
+            <LineChart series={energySeries} xLabel={strings.topDisplacementAxis} yLabel={strings.energyAxis} marker={frame ? frame.step.displacement : null} labels={energyLabels} height={Math.max(150, convH - (comparison ? 420 : 260))} />
           </figure>
         {/if}
       </div>
 
       <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={() => playback.interact()}>
         <div class="rs-params-list">
-          <ParamRow id="p-e" name="Young’s modulus" unit="kN/mm²" hint="10–400" invalid={invalid.e || !inRange(e, LIMITS.e)}>{#snippet symbol()}<var>E</var>{/snippet}<NumberField id="p-e" label="Young’s modulus E, kN/mm²" min={LIMITS.e[0]} max={LIMITS.e[1]} bind:value={e} bind:invalid={invalid.e} /></ParamRow>
-          <ParamRow id="p-nu" name="Poisson’s ratio" hint="0–0.45" invalid={invalid.nu || !inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label="Poisson’s ratio ν" min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} bind:invalid={invalid.nu} /></ParamRow>
-          <ParamRow id="p-gc" name="Fracture toughness" unit="kN/mm" hint="0.0001–0.01" invalid={invalid.gc || !inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label="Fracture toughness Gc, kN/mm" min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} bind:invalid={invalid.gc} /></ParamRow>
-          <ParamRow id="p-l0" name="Length scale" unit="mm" hint="0.003–0.03" invalid={invalid.l0 || !inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label="Length scale ℓ, mm" min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} bind:invalid={invalid.l0} /></ParamRow>
-          <ParamRow id="p-u" name="Top displacement at t = 1" unit="mm" hint="0.004–0.02" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label="Top displacement u at t = 1, mm" min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
-          <ParamRow id="p-dt" name="Load step">{#snippet symbol()}Δ<var>t</var>{/snippet}
+          <ParamRow id="p-e" name={strings.youngModulus} unit="kN/mm²" hint="10–400" invalid={invalid.e || !inRange(e, LIMITS.e)}>{#snippet symbol()}<var>E</var>{/snippet}<NumberField id="p-e" label={strings.youngModulusLabel} min={LIMITS.e[0]} max={LIMITS.e[1]} bind:value={e} bind:invalid={invalid.e} /></ParamRow>
+          <ParamRow id="p-nu" name={strings.poissonRatio} hint="0–0.45" invalid={invalid.nu || !inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label={strings.poissonRatioLabel} min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} bind:invalid={invalid.nu} /></ParamRow>
+          <ParamRow id="p-gc" name={strings.fractureToughness} unit="kN/mm" hint="0.0001–0.01" invalid={invalid.gc || !inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label={strings.fractureToughnessLabel} min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} bind:invalid={invalid.gc} /></ParamRow>
+          <ParamRow id="p-l0" name={strings.lengthScale} unit="mm" hint="0.003–0.03" invalid={invalid.l0 || !inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label={strings.lengthScaleLabel} min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} bind:invalid={invalid.l0} /></ParamRow>
+          <ParamRow id="p-u" name={strings.topDisplacement} unit="mm" hint="0.004–0.02" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label={strings.topDisplacementLabel} min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
+          <ParamRow id="p-dt" name={strings.loadStep}>{#snippet symbol()}Δ<var>t</var>{/snippet}
             <select id="p-dt" bind:value={dt}>
-              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({solverStepCount(v, 0.8)} steps)</option>{/each}
+              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({solverStepCount(v, 0.8)} {strings.stepsParen}</option>{/each}
             </select>
           </ParamRow>
-          <ParamRow id="p-mesh" name="Mesh">
+          <ParamRow id="p-mesh" name={strings.mesh}>
             <select id="p-mesh" bind:value={meshKey}>
-              {#each Object.entries(MESHES) as [k, m] (k)}<option value={k}>{m.label}</option>{/each}
+              {#each Object.entries(MESHES) as [k, m] (k)}<option value={k}>{strings[m.label]}</option>{/each}
             </select>
           </ParamRow>
-          <label class="rs-check"><input type="checkbox" bind:checked={history} /> History field (irreversibility; not in the reference)</label>
+          <label class="rs-check"><input type="checkbox" bind:checked={history} /> {strings.historyField}</label>
         </div>
         <p class="rs-derived">
-          Plane strain, loaded to t = 0.8 ({fmt(0.8 * u)} mm). σ<sub>c</sub> = {fmt(sigmaC, 3)} kN/mm². h/ℓ in the refined box = {hOverL.toFixed(2)}{#if hOverL > 0.5}<strong class="warnt"> — under-resolved (h &gt; ℓ/2)</strong>{/if}.
+          {strings.planeStrainLoaded}{fmt(0.8 * u)} mm). σ<sub>c</sub> = {fmt(sigmaC, 3)} {strings.refinedRatio} {hOverL.toFixed(2)}{#if hOverL > 0.5}<strong class="warnt"> {strings.underResolved}</strong>{/if}.
         </p>
         <div class="rs-buttons">
           {#if run?.status === 'running'}
-            <button class="btn btn-ghost btn-sm" type="button" onclick={() => sim.stop()}>Stop</button>
-            <button class="btn btn-ghost btn-sm" type="button" onclick={restart}>Restart</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick={() => sim.stop()}>{strings.stop}</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick={restart}>{strings.restart}</button>
           {:else}
-            <button class="btn btn-primary btn-sm" type="button" disabled={!valid} onclick={() => start(false)}>Run</button>
-            <button class="btn btn-ghost btn-sm" type="button" disabled={!valid} onclick={() => start(true)}>Solve again in this browser</button>
+            <button class="btn btn-primary btn-sm" type="button" disabled={!valid} onclick={() => start(false)}>{strings.run}</button>
+            <button class="btn btn-ghost btn-sm" type="button" disabled={!valid} onclick={() => start(true)}>{strings.solveAgain}</button>
           {/if}
           {#if !isReference}<button class="btn btn-ghost btn-sm" type="button" onclick={reset}>{strings.resetParameters}</button>{/if}
-          {#if run}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>Back to the replay</button>{/if}
+          {#if run}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>{strings.backToReplay}</button>{/if}
         </div>
         <p class="rs-status" aria-live="polite">
           {#if sim.available === false}
-            <span class="warnt">The in-browser solver couldn’t be loaded in this build; the replay above is still our solver’s run.</span>
+            <span class="warnt">{strings.solverUnavailable}</span>
           {:else if run?.status === 'running'}
-            Solving step {frames.length + 1} of {expectedSteps}…
+            {strings.solvingStep} {frames.length + 1} {strings.of} {expectedSteps}…
           {:else if run?.status === 'done'}
-            Done: {frames.length} steps{run.seconds ? ` in ${run.seconds.toFixed(1)} s` : ''}. Completed runs are kept, so earlier parameters replay instantly.
+            {strings.done} {frames.length} {strings.steps}{run.seconds ? ` ${strings.inTime} ${run.seconds.toFixed(1)} s` : ''}{strings.completedRunsKept}
           {:else if run?.status === 'stopped'}
-            Stopped after {frames.length} steps.
+            {strings.stoppedAfter} {frames.length} {strings.stepsPeriod}
           {:else if run?.status === 'error'}
-            <span class="warnt">The solver refused the input: {run.error}</span>
+            <span class="warnt">{strings.solverRefused} {run.error}</span>
           {:else if isReference}
-            Run reuses a result already computed for these parameters, if there is one; Solve again recomputes it here (about 15–30 s).
+            {strings.runReuseNote}
           {:else}
-            Run computes these parameters in your browser.
+            {strings.runBrowserNote}
           {/if}
         </p>
       </div>
 
       {#if frames.length}
         <div class="rs-scrub">
-          <button class="btn btn-ghost btn-sm" type="button" onclick={() => (playback.playing ? playback.pause() : playback.play())}>{playback.playing ? 'Pause' : 'Play'}</button>
-          <input type="range" min="0" max={frames.length - 1} value={playback.shown} oninput={(ev) => playback.seek(Number((ev.currentTarget as HTMLInputElement).value))} aria-label="Load step shown" />
-          <span class="rs-stepread">step {frame?.step.step ?? 0} of {Math.max(expectedSteps, frames.length) - 1}</span>
+          <button class="btn btn-ghost btn-sm" type="button" onclick={() => (playback.playing ? playback.pause() : playback.play())}>{playback.playing ? strings.pause : strings.play}</button>
+          <input type="range" min="0" max={frames.length - 1} value={playback.shown} oninput={(ev) => playback.seek(Number((ev.currentTarget as HTMLInputElement).value))} aria-label={strings.loadStepShown} />
+          <span class="rs-stepread">{strings.step} {frame?.step.step ?? 0} {strings.of} {Math.max(expectedSteps, frames.length) - 1}</span>
         </div>
       {/if}
     </div>

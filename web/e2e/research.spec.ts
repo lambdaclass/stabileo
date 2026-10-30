@@ -227,6 +227,8 @@ test('@smoke destroying the research page aborts its replay fetch and ignores a 
   expect(await page.evaluate(() => (window as unknown as { replayTicks: number }).replayTicks)).toBe(0);
 });
 
+// The step slider's accessible name in each language (research i18n.ts, loadStepShown).
+const LOAD_STEP: Record<string, string> = { en: 'Load step shown', es: 'Paso de carga mostrado', pt: 'Passo de carga exibido' };
 for (const locale of ['es', 'pt', 'en']) {
   test(`@smoke research locale ${locale} preserves replay deep-link state`, async ({ page }) => {
     const query = '?step=56&mesh=0&view=tip&deformed=0';
@@ -234,7 +236,7 @@ for (const locale of ['es', 'pt', 'en']) {
     await expect(page.getByRole('slider', { name: 'Load step shown' })).toHaveValue('56');
     await pickLanguage(page, 'nav-lang', locale);
     await expect(page).toHaveURL(new RegExp(`/${locale}/research/fracture/shauer-2025/\\?step=56&mesh=0&view=tip&deformed=0$`));
-    await expect(page.getByRole('slider', { name: 'Load step shown' })).toHaveValue('56');
+    await expect(page.getByRole('slider', { name: LOAD_STEP[locale] })).toHaveValue('56');
   });
 }
 

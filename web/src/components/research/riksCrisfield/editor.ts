@@ -12,7 +12,7 @@ export function editorSnapshot(c: BenchmarkCase, parameters: RunParameters): Mod
     name: `Research: ${c.name}`,
     analysisMode: '2d',
     nodes: nodes.map((node) => [node.id, { id: node.id, x: node.x, y: node.z }]),
-    materials: materials.map((material) => [material.id, { id: material.id, name: `Research material ${material.id}`, e: material.e * 1000, nu: material.nu, rho: 78.5 }]),
+    materials: materials.map((material) => [material.id, { id: material.id, name: `Research material ${material.id}`, e: material.e, nu: material.nu, rho: 78.5 }]),
     sections: sections.map((section) => [section.id, { id: section.id, name: `Research section ${section.id}`, a: section.a, iz: section.iz }]),
     elements: elements.map((element) => [element.id, {
       id: element.id,

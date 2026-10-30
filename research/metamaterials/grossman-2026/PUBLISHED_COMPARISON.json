@@ -1,0 +1,67 @@
+{
+  "checks": [
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)",
+      "observed": 7.105427357601002e-15,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)",
+      "tolerance": 1e-9
+    },
+    {
+      "category": "paper",
+      "metric": "max |Y difference|",
+      "name": "Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area",
+      "observed": 0.0006025970505327827,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area",
+      "tolerance": 0.01
+    },
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Eq. (23) honeycomb, k_radial = 1e-3 (l = 0.05 ... 0.95)",
+      "observed": 0.0033500744879860767,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Eq. (23) honeycomb, k_radial = 1e-3 (l = 0.05 ... 0.95)",
+      "tolerance": 0.005
+    },
+    {
+      "category": "paper",
+      "metric": "max |nu difference|",
+      "name": "Eq. (23) honeycomb, k_radial = 1e-6 (l = 0.05 ... 0.95)",
+      "observed": 3.3644897416973407e-6,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Eq. (23) honeycomb, k_radial = 1e-6 (l = 0.05 ... 0.95)",
+      "tolerance": 0.00001
+    },
+    {
+      "category": "paper",
+      "metric": "max absolute difference",
+      "name": "Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4",
+      "observed": 0.002695403784438666,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — Fig. 9 at eta = 0: B = sqrt(3)/2, G = sqrt(3)/4",
+      "tolerance": 0.005
+    },
+    {
+      "category": "paper",
+      "metric": "markers outside",
+      "name": "foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation",
+      "observed": 0.0,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation",
+      "tolerance": 0.0
+    },
+    {
+      "category": "paper",
+      "metric": "|eta_0 - 0.46|",
+      "name": "foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)",
+      "observed": 0.013605425095061685,
+      "passed": true,
+      "source": "https://doi.org/10.1103/17sg-gzhl — foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)",
+      "tolerance": 0.02
+    }
+  ]
+}

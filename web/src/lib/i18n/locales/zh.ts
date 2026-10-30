@@ -582,10 +582,7 @@ const zh: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': '导出包含所有工作表的 Excel 报告（模型 + 结果）',
-  'project.exportPdfTooltip': '生成可打印的 PDF 报告',
   'project.exportDxfTooltip': '导出含内力图的 AutoCAD DXF',
-  'project.exportSvgTooltip': '导出 SVG 矢量图',
-  'project.exportPngTooltip': '导出 PNG 截图',
   'project.exportCsvTooltip': '导出 CSV 结果表',
   'project.openDedTooltip': '打开项目文件 (.ded / .json)',
   'project.openDxfTooltip': '从 AutoCAD DXF 文件导入几何',
@@ -2506,7 +2503,6 @@ const zh: Translations = {
   'report.printBtn': '打印 / PDF',
   'report.docTitle': '{name} — 计算报告',
   'report.coverSubtitle': '结构计算报告',
-  'report.coverCode': '按 CIRSOC 201 验算',
   'report.coverFooter': 'Stabileo — 结构分析',
   'report.modelData': '1. 模型数据',
   'report.view3d': '3D 视图',
@@ -2908,7 +2904,6 @@ const zh: Translations = {
   'pro.noSlabs': '模型中无带应力结果的楼板（四边形）。',
   'pro.driftTitle': '层间位移角 — CIRSOC 103 §5.2.8',
   'pro.driftLimit': '限值',
-  'pro.solveFirst': '请先求解结构',
   'pro.noVerifiableElems': '未找到可验算的单元。确保材料具有 f\'c ≤ 80 MPa（混凝土）或 fy > 80 MPa（钢材），且截面属性已定义。',
   'pro.verifyPrompt': '按"验算单元"运行 CIRSOC 201 / 301 验算',
   'pro.wasmNotice': '需要 WASM 重新编译 — {code} 验算将在原生引擎编译后启用。',

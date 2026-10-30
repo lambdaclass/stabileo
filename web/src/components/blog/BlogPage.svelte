@@ -12,7 +12,7 @@
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, postImageUrl, ERGODIC_GROUP, LAMBDA_CLASS } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
-  import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes } from '../../lib/blog';
+  import { POSTS, POSTS_NEWEST_FIRST, findPost, formatPostDate, postReadingMinutes, inLocale, writtenIn } from '../../lib/blog';
   import { enterApp } from '../landing/landing-utils';
   import SiteHeader from '../site/SiteHeader.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -35,7 +35,7 @@
    */
   /** A standing page (not a post) at this path, if any. */
   const standing = $derived(findStandingPage(path));
-  const standingBody = $derived(standing ? standing.i18n[publicI18n.locale] : undefined);
+  const standingBody = $derived(standing ? inLocale(standing.i18n, publicI18n.locale) : undefined);
 
   const slug = $derived.by(() => {
     const m = path.match(/^\/blog\/(.+?)\/?$/);
@@ -61,7 +61,7 @@
   const position = $derived(post ? POSTS_NEWEST_FIRST.findIndex((p) => p.slug === post.slug) : -1);
   const newer = $derived(position > 0 ? POSTS_NEWEST_FIRST[position - 1] : undefined);
   const older = $derived(position >= 0 && position < POSTS_NEWEST_FIRST.length - 1 ? POSTS_NEWEST_FIRST[position + 1] : undefined);
-  const body = $derived(post ? post.i18n[publicI18n.locale] : undefined);
+  const body = $derived(post ? inLocale(post.i18n, publicI18n.locale) : undefined);
 
   let pageEl: HTMLDivElement | undefined = $state();
 
@@ -73,6 +73,7 @@
         description: standingBody.description,
         locale: publicI18n.locale,
         path: standing.path,
+        written: writtenIn(standing.i18n),
         // The page states what it is (a page about the app's CIRSOC checks), the app it is about,
         // and its questions and answers with the same text the reader sees.
         graph: [
@@ -126,6 +127,7 @@
       description: body ? body.excerpt : t('blog.lead'),
       locale: publicI18n.locale,
       path: post ? `/blog/${post.slug}` : '/blog',
+      written: post ? writtenIn(post.i18n) : undefined,
       article:
         post && body
           ? {
@@ -156,7 +158,7 @@
               publisher: { '@id': 'https://stabileo.com/#organization' },
               blogPost: POSTS.map((p) => ({
                 '@type': 'BlogPosting',
-                headline: p.i18n[publicI18n.locale].title,
+                headline: inLocale(p.i18n, publicI18n.locale).title,
                 url: publicUrl(`/blog/${p.slug}`, publicI18n.locale),
                 datePublished: p.date,
                 dateModified: p.updated ?? p.date,
@@ -252,7 +254,7 @@
             <h2 id="post-related-title" class="post-related-title">{t('blog.keepReading')}</h2>
             <ul class="post-related-list">
               {#each related as r (r.slug)}
-                {@const rb = r.i18n[publicI18n.locale]}
+                {@const rb = inLocale(r.i18n, publicI18n.locale)}
                 <li>
                   <article class="post-card post-card--compact" data-slug={r.slug}>
                     <div class="post-card-meta">
@@ -271,13 +273,13 @@
             {#if newer}
               <PublicLink to={`/blog/${newer.slug}`} class="post-pager-link post-pager-newer">
                 <span class="post-pager-dir">← {t('blog.newer')}</span>
-                <span class="post-pager-title">{newer.i18n[publicI18n.locale].title}</span>
+                <span class="post-pager-title">{inLocale(newer.i18n, publicI18n.locale).title}</span>
               </PublicLink>
             {/if}
             {#if older}
               <PublicLink to={`/blog/${older.slug}`} class="post-pager-link post-pager-older">
                 <span class="post-pager-dir">{t('blog.older')} →</span>
-                <span class="post-pager-title">{older.i18n[publicI18n.locale].title}</span>
+                <span class="post-pager-title">{inLocale(older.i18n, publicI18n.locale).title}</span>
               </PublicLink>
             {/if}
           </nav>
@@ -303,7 +305,7 @@
         {:else}
           <ul class="post-cards">
             {#each POSTS_NEWEST_FIRST as p, i (p.slug)}
-              {@const b = p.i18n[publicI18n.locale]}
+              {@const b = inLocale(p.i18n, publicI18n.locale)}
               <li class:featured={i === 0}>
                 <article class="post-card" class:post-card--featured={i === 0} data-slug={p.slug}>
                   {#if i === 0}<p class="post-card-kicker">{t('landing.blogLatestKicker')}</p>{/if}

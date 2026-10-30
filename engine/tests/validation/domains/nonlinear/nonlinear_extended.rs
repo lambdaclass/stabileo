@@ -298,7 +298,7 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
 #[test]
 fn validation_nonlin_ext_4_two_bar_truss_instability() {
     let data: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json"
+        "../../../benchmarks/arc_length_snap_through.json"
     ))
     .unwrap();
     let case = data["cases"]

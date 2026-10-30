@@ -1,0 +1,56 @@
+{
+  "referenceLimitDisplacement": 0.04228900098628047,
+  "referenceLimitLoad": 95.98504891452458,
+  "runs": [
+    {
+      "apexDisplacement": 0.0024736193991736002,
+      "converged": true,
+      "iz": 0.0001,
+      "load": 48.749999866981085,
+      "loadReversal": false,
+      "maxSteps": 100,
+      "name": "canonical",
+      "steps": 100
+    },
+    {
+      "apexDisplacement": 0.010377419713710784,
+      "converged": true,
+      "iz": 0.0001,
+      "load": 198.74999942538605,
+      "loadReversal": false,
+      "maxSteps": 400,
+      "name": "budget-400",
+      "steps": 400
+    },
+    {
+      "apexDisplacement": 0.06128746654524683,
+      "converged": true,
+      "iz": 0.0001,
+      "load": 998.7499959598434,
+      "loadReversal": false,
+      "maxSteps": 2000,
+      "name": "budget-2000",
+      "steps": 2000
+    },
+    {
+      "apexDisplacement": 0.10296978540902069,
+      "converged": true,
+      "iz": 1e-08,
+      "load": -7.2498865333222975,
+      "loadReversal": true,
+      "maxSteps": 400,
+      "name": "axial-like-400",
+      "steps": 400
+    },
+    {
+      "apexDisplacement": 0.2597279147405991,
+      "converged": true,
+      "iz": 1e-08,
+      "load": 615.7501200593383,
+      "loadReversal": true,
+      "maxSteps": 2000,
+      "name": "axial-like-2000",
+      "steps": 2000
+    }
+  ]
+}

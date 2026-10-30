@@ -1,6 +1,6 @@
 {
   "allPassed": false,
-  "caseFile": "arc_length_snap_through.json",
+  "caseFile": "engine/tests/benchmarks/arc_length_snap_through.json",
   "caseSummaries": [
     {
       "caseId": "shallow-toggle",
@@ -57,6 +57,17 @@
       "observed": 0.0,
       "passed": true,
       "tolerance": 0.0
+    },
+    {
+      "caseId": "shallow-toggle",
+      "measured": 0.0024736193991736002,
+      "metric": "relative difference",
+      "name": "apex displacement at the measured upper limit load",
+      "observed": 0.9415067903832465,
+      "passed": false,
+      "reference": 0.04228900098628047,
+      "step": 100,
+      "tolerance": 0.05
     },
     {
       "caseId": "von-mises-truss",

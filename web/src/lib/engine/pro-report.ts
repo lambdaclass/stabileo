@@ -162,7 +162,7 @@ function escHtml(s: string): string {
 /** Render a KaTeX expression to HTML string */
 function km(expr: string, display = false): string {
   try {
-    return katex.renderToString(expr, { displayMode: display, throwOnError: false, output: 'html' });
+    return katex.renderToString(expr, { displayMode: display, throwOnError: false, output: 'htmlAndMathml' });
   } catch {
     return `<code>${escHtml(expr)}</code>`;
   }
@@ -290,7 +290,6 @@ export function generateReportHtml(data: ReportData): string {
   }
   html.push(`<h1>${escHtml(projectName)}</h1>`);
   html.push(`<div class="subtitle">${escHtml(tr('report.coverSubtitle'))}</div>`);
-  html.push(`<div class="subtitle">${escHtml(tr('report.coverCode'))}</div>`);
   if (data.provenance?.status === 'cad-draft-unreviewed') {
     html.push(`<div style="margin:16px auto;max-width:520px;border:2px solid #b8860b;background:#fdf6e3;color:#7a5a00;padding:10px 14px;border-radius:6px;font-size:13px;font-weight:600">${escHtml(tr('report.cadDraftBanner'))}</div>`);
   }

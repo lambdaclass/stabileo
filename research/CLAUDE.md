@@ -64,8 +64,7 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - Each paper is its own crate under `research/<field>/<id>/`, outside the engine's and backend's
   workspaces. Research may depend on stable engine APIs; **the engine and the app never import
   research code** (CI check). The web app may read only `papers.json` and published
-  results data listed in `README.md`. Engine tests may read those same published JSON case files;
-  production engine code may not.
+  results data listed in `README.md`; the engine has no exceptions.
 - Research WASM is a separate bundle loaded only on research pages; the landing, the blog and the
   app must not grow by a byte (per-route size check).
 - The Research workflow is path-filtered and feeds the required CI OK gate; it never

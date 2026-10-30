@@ -71,6 +71,7 @@ export type ComparisonCheck = {
   tolerance: number;
   passed: boolean;
   reached: boolean;
+  referenceReached: boolean;
 };
 
 export const DEFAULT_PARAMETERS = (c: BenchmarkCase): RunParameters => ({
@@ -129,17 +130,21 @@ export function inputFor(c: BenchmarkCase, parameters: RunParameters): ArcInput 
 }
 
 export function measuredLimitFrame(frames: BenchmarkFrame[]): BenchmarkFrame | null {
-  const firstLimit = frames.findIndex((frame, index) => index + 1 < frames.length && frame.load > 0 && frames[index + 1].load < frame.load);
-  return firstLimit >= 0
-    ? frames[firstLimit]
-    : frames.reduce<BenchmarkFrame | null>((best, frame) => !best || frame.load > best.load ? frame : best, null);
+  const firstLimit = frames.findIndex((frame, index) => {
+    const next = frames[index + 1];
+    return next && frame.converged && next.converged && frame.load > 0
+      && next.load < frame.load && next.displacement > frame.displacement;
+  });
+  return firstLimit >= 0 ? frames[firstLimit] : null;
 }
 
 export function compareRun(c: BenchmarkCase, run: BenchmarkRun): ComparisonCheck[] {
   const rise = 2 * c.geometry.halfSpan * run.parameters.riseSpan;
   const limit = limitPoint(c.geometry.halfSpan, rise, axialRigidity(c), c.apex.referenceLoad);
-  const reached = run.frames.some((frame) => frame.displacement >= limit.displacement);
+  const referenceReached = run.frames.some((frame) => frame.converged && frame.displacement >= limit.displacement);
   const peak = measuredLimitFrame(run.frames);
+  const reached = run.parameters.direction === 'downward' && peak !== null
+    && run.frames.some((frame) => frame.converged && frame.displacement > limit.displacement);
   const pathError = run.frames.reduce((worst, frame) => {
     const y = rise - frame.displacement;
     const length = Math.hypot(c.geometry.halfSpan, y);
@@ -149,9 +154,9 @@ export function compareRun(c: BenchmarkCase, run: BenchmarkRun): ComparisonCheck
   const loadError = peak && reached ? Math.abs(peak.load - limit.load) / Math.abs(limit.load) : 1;
   const displacementError = peak && reached ? Math.abs(peak.displacement - limit.displacement) / Math.abs(limit.displacement) : 1;
   return [
-    { id: 'limit-load', label: 'Limit load', reference: limit.load, observed: reached && peak ? peak.load : NaN, error: loadError, tolerance: c.tolerances.limitLoadRelative, passed: reached && loadError <= c.tolerances.limitLoadRelative, reached },
-    { id: 'limit-displacement', label: 'Apex displacement at the limit', reference: limit.displacement, observed: reached && peak ? peak.displacement : NaN, error: displacementError, tolerance: c.tolerances.limitDisplacementRelative, passed: reached && displacementError <= c.tolerances.limitDisplacementRelative, reached },
-    { id: 'equilibrium-path', label: 'Maximum equilibrium-path difference / limit load', reference: 0, observed: pathError, error: pathError, tolerance: c.tolerances.equilibriumPathNormalizedByLimitLoad, passed: run.frames.length > 0 && pathError <= c.tolerances.equilibriumPathNormalizedByLimitLoad, reached: run.frames.length > 0 },
+    { id: 'limit-load', label: 'Limit load', reference: limit.load, observed: reached && peak ? peak.load : NaN, error: loadError, tolerance: c.tolerances.limitLoadRelative, passed: reached && loadError <= c.tolerances.limitLoadRelative, reached, referenceReached },
+    { id: 'limit-displacement', label: 'Apex displacement at the limit', reference: limit.displacement, observed: reached && peak ? peak.displacement : NaN, error: displacementError, tolerance: c.tolerances.limitDisplacementRelative, passed: reached && displacementError <= c.tolerances.limitDisplacementRelative, reached, referenceReached },
+    { id: 'equilibrium-path', label: 'Maximum equilibrium-path difference / limit load', reference: 0, observed: pathError, error: pathError, tolerance: c.tolerances.equilibriumPathNormalizedByLimitLoad, passed: run.frames.length > 0 && pathError <= c.tolerances.equilibriumPathNormalizedByLimitLoad, reached: run.frames.length > 0, referenceReached },
   ];
 }
 

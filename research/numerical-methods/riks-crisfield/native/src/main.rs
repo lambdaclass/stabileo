@@ -225,7 +225,7 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
             "name": "upper limit load",
             "observed": limit_load_error,
             "tolerance": case.tolerances.limit_load_relative,
-            "passed": limit_load_error <= case.tolerances.limit_load_relative,
+            "passed": limit_reached && limit_load_error <= case.tolerances.limit_load_relative,
             "measured": measured_load,
             "reference": case.reference.upper_limit.load,
             "step": native.frames[limit_index].step
@@ -248,19 +248,17 @@ fn validate(case: &Case, native: &NativeCase) -> Result<(Vec<Value>, Value), Str
             "passed": prefix_ok
         }),
     ];
-    if limit_reached {
-        checks.push(json!({
+    checks.push(json!({
             "caseId": case.id,
             "metric": "relative difference",
             "name": "apex displacement at the measured upper limit load",
             "observed": limit_displacement_error,
             "tolerance": case.tolerances.limit_displacement_relative,
-            "passed": limit_displacement_error <= case.tolerances.limit_displacement_relative,
+            "passed": limit_reached && limit_displacement_error <= case.tolerances.limit_displacement_relative,
             "measured": measured_displacement,
             "reference": case.reference.upper_limit.displacement,
             "step": native.frames[limit_index].step
         }));
-    }
     let summary = json!({
         "caseId": case.id,
         "steps": native.steps.len(),
@@ -288,7 +286,7 @@ fn validation(case_file: &CaseFile, native: &NativeResults) -> Result<Value, Str
     let all_passed = checks.iter().all(|c| c["passed"] == Value::Bool(true));
     Ok(json!({
         "schemaVersion": 1,
-        "caseFile": "arc_length_snap_through.json",
+        "caseFile": "engine/tests/benchmarks/arc_length_snap_through.json",
         "checks": checks,
         "caseSummaries": summaries,
         "allPassed": all_passed
@@ -308,7 +306,6 @@ fn write_json(path: &Path, value: &Value) -> Result<(), String> {
 
 fn manifest(reference_dir: &Path) -> Result<Value, String> {
     let names = [
-        "arc_length_snap_through.json",
         "native-results.json",
         "VALIDATION.json",
     ];
@@ -320,7 +317,9 @@ fn manifest(reference_dir: &Path) -> Result<Value, String> {
     }
     Ok(json!({
         "produced_by": "cargo run --release -- generate in research/numerical-methods/riks-crisfield/native",
-        "files_sha256": hashes
+        "files_sha256": hashes,
+        "case_file": "engine/tests/benchmarks/arc_length_snap_through.json",
+        "case_sha256": sha256(&fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../engine/tests/benchmarks/arc_length_snap_through.json")).map_err(|e| e.to_string())?)
     }))
 }
 
@@ -403,11 +402,33 @@ fn reference_dir() -> PathBuf {
         .join("reference-results")
 }
 
+fn diagnose(case: &Case) -> Result<bool, String> {
+    let mut runs = Vec::new();
+    for (name, steps, iz) in [
+        ("canonical", 100, 1e-4),
+        ("budget-400", 400, 1e-4),
+        ("budget-2000", 2000, 1e-4),
+        ("axial-like-400", 400, 1e-8),
+        ("axial-like-2000", 2000, 1e-8),
+    ] {
+        let mut input = case.input.clone();
+        input.max_steps = steps;
+        for section in input.solver.sections.values_mut() { section.iz = iz; }
+        let result = solve_arc_length(&input).map_err(|e| e.to_string())?;
+        let v = -result.results.displacements.iter().find(|d| d.node_id == case.apex.node_id).unwrap().uz;
+        let reversal = result.steps.windows(2).any(|s| s[1].load_factor < s[0].load_factor);
+        runs.push(json!({"name": name, "maxSteps": steps, "iz": iz, "steps": result.steps.len(), "converged": result.converged, "load": result.final_load_factor * case.apex.reference_load, "apexDisplacement": v, "loadReversal": reversal}));
+    }
+    println!("{}", serde_json::to_string_pretty(&json!({"referenceLimitLoad": case.reference.upper_limit.load, "referenceLimitDisplacement": case.reference.upper_limit.displacement, "runs": runs})).unwrap());
+    Ok(true)
+}
+
 fn execute(mode: &str) -> Result<bool, String> {
     let dir = reference_dir();
-    let case_path = dir.join("arc_length_snap_through.json");
+    let case_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../engine/tests/benchmarks/arc_length_snap_through.json");
     let case_file: CaseFile = serde_json::from_value(read_json(&case_path)?)
         .map_err(|e| format!("{}: {e}", case_path.display()))?;
+    if mode == "diagnose" { return diagnose(&case_file.cases[0]); }
     let cases = case_file
         .cases
         .iter()
@@ -415,7 +436,7 @@ fn execute(mode: &str) -> Result<bool, String> {
         .collect::<Result<Vec<_>, _>>()?;
     let native = NativeResults {
         schema_version: 1,
-        case_file: "arc_length_snap_through.json".into(),
+        case_file: "engine/tests/benchmarks/arc_length_snap_through.json".into(),
         solver: "dedaliano_engine::solver::arc_length::solve_arc_length".into(),
         frame_method: "For every recorded step k, rerun production solve_arc_length with maxSteps=k and require exact equality of all k step records before storing that run's displacement frame.".into(),
         cases,

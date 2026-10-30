@@ -224,7 +224,7 @@ fn test_load_factor_monotonic_for_stable_problem() {
 #[test]
 fn test_arc_length_detects_limit_point() {
     let data: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json"
+        "../../../benchmarks/arc_length_snap_through.json"
     ))
     .unwrap();
     let case = data["cases"]

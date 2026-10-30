@@ -1,11 +1,18 @@
+import { nativeReplay } from '../replay';
 import { describe, expect, it } from 'vitest';
-import caseData from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json';
-import { axialRigidity, compareRun, comparisonHeadline, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile } from '../benchmark';
+import caseData from '../../../../../../engine/tests/benchmarks/arc_length_snap_through.json';
+import { axialRigidity, compareRun, comparisonHeadline, DEFAULT_PARAMETERS, inputFor, referenceLoadAt, limitPoint, referencePath, type BenchmarkRun, type CaseFile } from '../benchmark';
 
 const data = caseData as CaseFile;
 const toggle = data.cases.find((c) => c.id === 'shallow-toggle')!;
 
 describe('Riks–Crisfield closed-form benchmark', () => {
+  it('keeps the recorded shallow failure and von Mises continuation distinct', () => {
+    for (const c of data.cases) {
+      const checks = compareRun(c, nativeReplay(c));
+      expect(checks.filter((check) => check.passed)).toHaveLength(c.id === 'shallow-toggle' ? 0 : 3);
+    }
+  });
   it('matches the shared exact limit point', () => {
     const limit = limitPoint(toggle.geometry.halfSpan, toggle.geometry.rise, axialRigidity(toggle), toggle.apex.referenceLoad);
     expect(limit.displacement).toBeCloseTo(toggle.reference.upperLimit.displacement, 12);
@@ -46,6 +53,17 @@ describe('Riks–Crisfield closed-form benchmark', () => {
     };
     run.frames[0].load = 2 * axialRigidity(toggle) * (1 - Math.hypot(toggle.geometry.halfSpan, toggle.geometry.rise - run.frames[0].displacement) / toggle.geometry.initialLength) * ((toggle.geometry.rise - run.frames[0].displacement) / Math.hypot(toggle.geometry.halfSpan, toggle.geometry.rise - run.frames[0].displacement));
     run.frames[0].loadFactor = run.frames[0].load / toggle.apex.referenceLoad;
+    const truncated = compareRun(toggle, run);
+    expect(truncated[0].referenceReached).toBe(true);
+    expect(truncated[0].reached).toBe(false);
+    expect(truncated[0].passed).toBe(false);
+    expect(truncated[1].passed).toBe(false);
+    expect(comparisonHeadline(truncated)).not.toContain('Stabileo traces');
+    const displacement = limit.displacement * 1.1;
+    const load = referenceLoadAt(toggle, displacement);
+    run.frames.push({ step: 3, loadFactor: load / toggle.apex.referenceLoad, displacement, load, iterations: 3, converged: false, displacements: [] });
+    expect(compareRun(toggle, run)[0].passed).toBe(false);
+    run.frames[2].converged = true;
     const checks = compareRun(toggle, run);
     expect(checks.every((check) => check.passed)).toBe(true);
     expect(comparisonHeadline(checks)).toBe('Stabileo traces the snap-through: 3/3 checks within 5%');

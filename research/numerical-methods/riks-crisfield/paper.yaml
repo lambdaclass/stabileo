@@ -12,13 +12,13 @@ assumptions: [2D corotational frame elements, quasi-static equilibrium, pinned b
 units: {force: kN, length: m, youngsModulus: MPa}
 experiments:
   - name: shallow-toggle
-    inputs: reference-results/arc_length_snap_through.json#/cases/0/input
+    inputs: ../../../engine/tests/benchmarks/arc_length_snap_through.json#/cases/0/input
     solver: {method: production solve_arc_length, max_steps: 100, max_iterations: 30, tolerance: 1e-5}
-    references: [reference-results/arc_length_snap_through.json#/cases/0/reference/upperLimit, reference-results/native-results.json]
+    references: [../../../engine/tests/benchmarks/arc_length_snap_through.json#/cases/0/reference/upperLimit, reference-results/native-results.json]
   - name: von-mises-truss
-    inputs: reference-results/arc_length_snap_through.json#/cases/1/input
+    inputs: ../../../engine/tests/benchmarks/arc_length_snap_through.json#/cases/1/input
     solver: {method: production solve_arc_length, max_steps: 700, max_iterations: 30, tolerance: 1e-8}
-    references: [reference-results/arc_length_snap_through.json#/cases/1/reference/upperLimit, reference-results/native-results.json]
+    references: [../../../engine/tests/benchmarks/arc_length_snap_through.json#/cases/1/reference/upperLimit, reference-results/native-results.json]
 environment:
   rust: 1.99.1 (rust-toolchain.toml)
   native: native/Cargo.toml

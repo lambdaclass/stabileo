@@ -1,5 +1,5 @@
 {
-  "caseFile": "arc_length_snap_through.json",
+  "caseFile": "engine/tests/benchmarks/arc_length_snap_through.json",
   "cases": [
     {
       "converged": true,
