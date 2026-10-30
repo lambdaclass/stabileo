@@ -61,25 +61,32 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: main
+          path: route-main
+          persist-credentials: false
       # The budget keeps research from growing the product's routes; a change with no research code shipped to the browser is not measured.
       - name: Measure only a change that touches research code
         id: scope
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
         run: |
-          if [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
+          if [ -z "$BASE" ]; then
+            echo research=true >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE=$(git -C route-main rev-parse HEAD)
+          CHANGED=$(git diff --name-only "$BASE...$CANDIDATE")
+          if printf '%s\n' "$CHANGED" | grep -E "$RESEARCH_PATHS" | grep -vE "$NOT_SHIPPED"; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.scope.outputs.research == 'true'
-        with:
-          ref: main
-          path: route-main
-          persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - name: Build main and the candidate with the same pinned toolchain and measurement script

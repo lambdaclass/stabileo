@@ -1,3 +1,5 @@
+import os
+import tempfile
 import pathlib
 import subprocess
 import yaml
@@ -51,6 +53,50 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
              '.github/workflows/research.yml']:
     assert not pattern.search(path), path
 assert '[ -z "$BASE" ]' in scope['run']
+
+main_checkout = next(step for step in route if step.get('with', {}).get('path') == 'route-main')
+assert route.index(main_checkout) < route.index(scope)
+assert main_checkout['with']['ref'] == 'main'
+assert main_checkout['with']['fetch-depth'] == 0
+assert 'if' not in main_checkout
+assert scope['env']['CANDIDATE'] == '${{ github.event.pull_request.head.sha || github.sha }}'
+
+def check_scope(paths, expected, base='stale-event-base', diff_status=0):
+    with tempfile.TemporaryDirectory() as directory:
+        output = pathlib.Path(directory) / 'output'
+        git_function = r"""
+        git() {
+          if [ "$*" = '-C route-main rev-parse HEAD' ]; then
+            echo current-main
+          elif [ "$*" = 'diff --name-only current-main...pr-head' ]; then
+            printf '%s\n' "$TEST_PATHS"
+            return "$DIFF_STATUS"
+          else
+            echo "Unexpected git command: $*" >&2
+            return 99
+          fi
+        }
+        """
+        run = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', git_function + scope['run']],
+                             env={**os.environ, **scope['env'], 'BASE': base, 'CANDIDATE': 'pr-head',
+                                  'TEST_PATHS': paths, 'DIFF_STATUS': str(diff_status),
+                                  'GITHUB_OUTPUT': str(output)}, capture_output=True, text=True)
+        if diff_status:
+            assert run.returncode != 0, run
+            assert not output.exists(), run
+        else:
+            assert run.returncode == 0, (run.stdout, run.stderr)
+            assert output.read_text() == f'research={expected}\n', output.read_text()
+
+check_scope('web/src/lib/provenance/result-changes.json', 'false')
+check_scope('web/src/components/research/ResearchPage.svelte', 'true')
+check_scope('research/papers.json', 'true')
+check_scope('research/tools/fixture.json', 'false')
+check_scope('', 'false')
+check_scope('', 'true', base='')
+check_scope('', None, diff_status=128)
+check_scope('\n'.join(['web/src/components/research/page.svelte'] * 2000), 'true')
+
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all(step.get('if') == "steps.scope.outputs.research == 'true'" for step in measured)
 script = jobs['ci-ok']['steps'][0]['run']
