@@ -75,7 +75,6 @@ review_setup() {
   for reviewer in codex kimi grok adversarial; do
     git worktree add -q --detach "$WORK_ROOT/$reviewer" "$SHA"
   done
-  GIT_COMMON=$(git rev-parse --path-format=absolute --git-common-dir)
   echo "review: PR #$PR pinned at $SHA"
 }
 

@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SOURCE=$(cd "$(dirname "$0")/../.." && pwd)
+# Fail before creating fixtures if the host cannot enforce reviewer isolation.
+# In particular, macOS rejects sandbox-exec inside an existing sandbox.
+python3 - "$SOURCE/scripts/review/readonly.py" <<'CHECK_SANDBOX'
+import runpy
+import subprocess
+import sys
+import tempfile
+
+sandbox_command = runpy.run_path(sys.argv[1])['sandbox_command']
+with tempfile.TemporaryDirectory(prefix='review-sandbox-check-') as scratch:
+    try:
+        result = subprocess.run(sandbox_command([scratch], ['/usr/bin/true']),
+                                capture_output=True, text=True)
+    except OSError as exc:
+        sys.exit(f'review tests: cannot start read-only sandbox: {exc}')
+    if result.returncode:
+        sys.stderr.write(result.stderr)
+        sys.exit('review tests: read-only sandbox unavailable; run from a host '
+                 'shell that permits sandbox-exec (macOS cannot nest sandboxes) '
+                 'or bwrap (Linux). Isolation tests were not run.')
+CHECK_SANDBOX
 TEMP=$(mktemp -d "${TMPDIR:-/tmp}/review-tests.XXXXXX")
 trap 'rm -rf "$TEMP"' EXIT
 mkdir -p "$TEMP/bin" "$TEMP/repo" "$TEMP/worktrees"
@@ -64,6 +85,13 @@ case "$mode" in
   quotes) printf 'CI log: rate limit exceeded (HTTP 429), usage limit and quota noise.\nready after should-fix items\n';  echo 'gh: rate limit exceeded' >&2;;
   legacy) echo 'ready to merge';;
   readonly)
+    # Real CLIs create config/cache/state and temporary files in private scratch.
+    for directory in "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$TMPDIR" "$TMP" "$TEMP"; do
+      mkdir -p "$directory"
+      printf scratch > "$directory/reviewer-probe"
+      [ "$(cat "$directory/reviewer-probe")" = scratch ]
+    done
+    [ -r scripts/status.sh ]
     if printf changed >> scripts/status.sh 2>/dev/null; then exit 93; fi
     if git switch --detach "$TEST_SHA" >/dev/null 2>&1; then exit 94; fi
     [ "$(git rev-parse HEAD)" = "$TEST_SHA" ]
@@ -97,13 +125,17 @@ run_case() {
   case_out=$(mktemp -d "$TEMP/case.XXXXXX")
   REVIEW_OUT=$case_out bash scripts/review/review-pr.sh 123 '' "${TEST_PIN:-$TEST_SHA}"
   cat "$case_out"/run-*/*.err >> "$TEST_LOG"
-  grep -Fx "REVIEWER: $1" "$case_out"/run-*/*.md
+  grep -Fx "REVIEWER: $1" "$case_out"/run-*/*.md || {
+    cat "$TEST_LOG" >&2
+    return 1
+  }
   grep -Fx "SHA: $TEST_SHA" "$case_out"/run-*/review-123-"${TEST_SHA:0:12}"-codex.md
   assert_clean
 }
 # Codex enforces read-only with its own sandbox (asserted above: --sandbox read-only); macOS
 # cannot nest sandbox-exec, so only the other reviewers run under the read-only wrapper.
-KIMI_MODE=readonly run_case Kimi
+KIMI_MODE='readonly' run_case Kimi
+KIMI_MODE=fail GROK_MODE='readonly' run_case Grok
 run_case Kimi
 if grep -q '^grok ' "$TEST_LOG"; then exit 1; fi
 KIMI_MODE=quota run_case Grok
