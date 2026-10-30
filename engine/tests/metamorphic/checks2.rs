@@ -36,8 +36,8 @@ pub fn rel_for(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
 
 fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     guarded(|| {
-        let r = (a.run)(c)?;
-        if crate::generated::strict() {
+        let r = crate::response::outcome((a.run)(c))?;
+        if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_2d(a.name, &r, c)?;
         }
         Ok(r)

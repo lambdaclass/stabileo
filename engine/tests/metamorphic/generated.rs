@@ -1129,18 +1129,24 @@ fn response_shape_rejects_missing_data() {
             ResponseShape::of_2d(&c2),
             ana2::rows()
                 .into_iter()
-                .map(|a| (a.name, (a.run)(&c2).unwrap()))
+                .map(|a| (a.name, crate::response::outcome((a.run)(&c2)).unwrap()))
                 .collect::<Vec<_>>(),
         ),
         (
             ResponseShape::of_3d(&c3),
             ana3::rows()
                 .into_iter()
-                .map(|a| (a.name, (a.run)(&c3).unwrap()))
+                .map(|a| (a.name, crate::response::outcome((a.run)(&c3)).unwrap()))
                 .collect::<Vec<_>>(),
         ),
     ] {
         for (name, response) in responses {
+            if !response.1.is_empty() {
+                assert_eq!((name, shape.spatial), ("plastic collapse", false));
+                assert!(response.0.is_empty(), "refusal must withhold quantities");
+                assert_eq!(response.1, vec![("PL-2D-INVARIANCE".into(), 758)]);
+                continue;
+            }
             let shape = ResponseShape {
                 reference: if shape.spatial {
                     reference_3d(name, &c3)
@@ -1536,5 +1542,107 @@ fn absolute_oracles_reject_zeroed_adapter_runs() {
                 tally.report()
             );
         }
+    }
+}
+
+#[test]
+fn structured_refusals_require_exact_identity() {
+    use crate::response::{outcome, Resp};
+    use dedaliano_engine::{known_issues, metamorphic::compare::compare};
+    let error =
+        || known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err();
+    let refused = outcome(Err(error())).unwrap();
+    assert_eq!(refused.1, vec![("PL-2D-INVARIANCE".into(), 758)]);
+    let same = outcome(Err(error())).unwrap();
+    assert!(compare(&refused.flat(), &same.flat(), 1.0, 1e-10).is_ok());
+    for different in [
+        Resp::default(),
+        Resp(vec![], vec![("another-id".into(), 758)]),
+        Resp(vec![], vec![("PL-2D-INVARIANCE".into(), 759)]),
+    ] {
+        assert!(compare(&refused.flat(), &different.flat(), 1.0, 1e-10).is_err());
+        assert!(compare(&different.flat(), &refused.flat(), 1.0, 1e-10).is_err());
+    }
+    for invalid in [
+        "ordinary solver failure".to_string(),
+        "{}".to_string(),
+        json!({"structuredDiagnostics": [known_issues::diagnostic("PL-3D-INVARIANCE")]})
+            .to_string(),
+        error().replace("\"phase\":\"PL-2D-INVARIANCE\"", "\"phase\":null"),
+    ] {
+        assert!(outcome(Err(invalid)).is_err());
+    }
+}
+
+#[test]
+fn refusal_changes_under_units_fail_in_both_directions() {
+    fn refusal() -> Result<crate::response::Resp, String> {
+        Err(
+            dedaliano_engine::known_issues::refuse(&[dedaliano_engine::known_issues::diagnostic(
+                "PL-2D-INVARIANCE",
+            )])
+            .unwrap_err(),
+        )
+    }
+    fn faulty2<const BASE_REFUSED: bool>(c: &Case2) -> Result<crate::response::Resp, String> {
+        let base_e = model(1, false)["materials"]["1"]["e"].as_f64().unwrap();
+        if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
+            return refusal();
+        }
+        (ana2::rows()
+            .into_iter()
+            .find(|a| a.name == "linear")
+            .unwrap()
+            .run)(c)
+    }
+    fn faulty3<const BASE_REFUSED: bool>(c: &Case3) -> Result<crate::response::Resp, String> {
+        let base_e = model(1, true)["materials"]["1"]["e"].as_f64().unwrap();
+        if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
+            return refusal();
+        }
+        (ana3::rows()
+            .into_iter()
+            .find(|a| a.name == "linear")
+            .unwrap()
+            .run)(c)
+    }
+    let _strict = Strict::enter();
+    let c2 = Case2::new("refusal", serde_json::from_value(model(1, false)).unwrap());
+    let c3 = Case3::new("refusal", serde_json::from_value(model(1, true)).unwrap());
+    let mut a2 = ana2::rows()
+        .into_iter()
+        .find(|a| a.name == "linear")
+        .unwrap();
+    let mut a3 = ana3::rows()
+        .into_iter()
+        .find(|a| a.name == "linear")
+        .unwrap();
+    for run in [faulty2::<false>, faulty2::<true>] {
+        a2.run = run;
+        let t = Tally::default();
+        checks2::check_case(
+            &checks2::Ctx {
+                tally: &t,
+                rng_seed: 1,
+            },
+            &c2,
+            std::slice::from_ref(&a2),
+            &["units"],
+        );
+        assert_eq!(t.symbol("linear", "units"), "✗", "{}", t.report());
+    }
+    for run in [faulty3::<false>, faulty3::<true>] {
+        a3.run = run;
+        let t = Tally::default();
+        checks3::check_case(
+            &checks3::Ctx {
+                tally: &t,
+                rng_seed: 1,
+            },
+            &c3,
+            std::slice::from_ref(&a3),
+            &["units"],
+        );
+        assert_eq!(t.symbol("linear", "units"), "✗", "{}", t.report());
     }
 }

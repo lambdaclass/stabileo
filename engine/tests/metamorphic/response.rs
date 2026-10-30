@@ -65,7 +65,30 @@ pub struct Item {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Resp(pub Vec<Item>);
+pub struct Resp(pub Vec<Item>, pub Vec<(String, u64)>);
+
+/// Only structured, error-severity known issues are solver refusals. Ordinary
+/// failures (including malformed refusal JSON) remain errors, never passes.
+pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
+    result.or_else(|error| {
+        let value: serde_json::Value = serde_json::from_str(&error).map_err(|_| error.clone())?;
+        let diagnostics = value["structuredDiagnostics"].as_array().ok_or_else(|| error.clone())?;
+        let mut ids = Vec::new();
+        for value in diagnostics {
+            let d: StructuredDiagnostic = serde_json::from_value(value.clone()).map_err(|_| error.clone())?;
+            if d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error {
+                let phase = d.phase.filter(|p| !p.is_empty()).ok_or_else(|| error.clone())?;
+                let issue = d.value.filter(|n| n.is_finite() && *n > 0.0 && n.fract() == 0.0)
+                    .ok_or_else(|| error.clone())?;
+                ids.push((phase, issue as u64));
+            }
+        }
+        if ids.is_empty() { return Err(error); }
+        ids.sort();
+        ids.dedup();
+        Ok(Resp(Vec::new(), ids))
+    })
+}
 
 fn item(node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) -> Item {
     Item { node, elem, tag: tag.into(), kind, v, floor: 0.0 }
@@ -80,7 +103,7 @@ impl Resp {
     }
     /// Without the stress invariants (von Mises is not linear in the loads).
     pub fn without_stress(&self) -> Resp {
-        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect())
+        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect(), self.1.clone())
     }
     pub fn set_floor(&mut self, tag: &str, floor: f64) {
         for it in self.0.iter_mut().filter(|i| i.tag == tag) {
@@ -90,7 +113,7 @@ impl Resp {
     /// Keep only items whose key (node, element, tag) is also in `other`.
     pub fn common(&self, other: &Resp) -> Resp {
         let keys: std::collections::HashSet<(Option<usize>, Option<usize>, String)> = other.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect();
-        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect())
+        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect(), self.1.clone())
     }
     /// Keep only items on the given nodes/elements (drop padding).
     pub fn retain_ids(&mut self, nodes: &std::collections::HashSet<usize>, elems: &std::collections::HashSet<usize>) {
@@ -264,6 +287,12 @@ impl Resp {
         let mut items: Vec<&Item> = self.0.iter().collect();
         items.sort_by(|a, b| (a.node, a.elem, &a.tag).cmp(&(b.node, b.elem, &b.tag)));
         let mut f = Flat::default();
+        // Refusal identities are exact comparison keys, never numerical values
+        // subject to tolerances. Zero stays unchanged under load/unit scaling.
+        // A solved/refused pair or different issue IDs has different keys.
+        for (phase, issue) in &self.1 {
+            f.push_scalar(format!("refusal:{phase}:#{issue}"), 0.0);
+        }
         for it in items {
             let lab = |k: usize| format!("{}{}{}[{k}]", it.tag, it.node.map(|n| format!("@n{n}")).unwrap_or_default(), it.elem.map(|e| format!("@e{e}")).unwrap_or_default());
             let fam = |d: &Dim| -> u8 {
