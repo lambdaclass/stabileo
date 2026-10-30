@@ -14,6 +14,7 @@ import { planeModel } from '../engine/steps/plane-model';
 import { solveReference } from '../engine/steps/reference';
 import type { MethodContext } from '../engine/steps/registry';
 import { methodById } from '../engine/steps/methods';
+import { fmChoice } from './fm-choice.svelte';
 
 type View = 'catalog' | 'doc';
 
@@ -29,6 +30,8 @@ let returnToCatalog = $state(false);
 
 /** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
 let options = $state<Record<string, Record<string, boolean>>>({});
+/** What the reader chose to compute, by method id. */
+let params = $state<Record<string, Record<string, string>>>({});
 
 /** The model as the methods read it, or null when there is nothing to read. */
 export function methodContext(methodId?: string): MethodContext | null {
@@ -40,7 +43,15 @@ export function methodContext(methodId?: string): MethodContext | null {
     ref: solveReference(input),
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
     options: { ...(methodId ? optionsOf(methodId) : {}) },
+    params: { ...(methodId ? paramsOf(methodId) : {}) },
+    fundamental: fmChoice.releasesFor(modelStore.modelVersion),
   };
+}
+
+function paramsOf(id: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const q of methodById(id)?.params ?? []) out[q.id] = params[id]?.[q.id] ?? q.default;
+  return out;
 }
 
 /** A method's assumptions: each as the reader set it, else its default. */
@@ -95,6 +106,16 @@ export const explainedSteps = {
   setOption(id: string, on: boolean): void {
     if (!methodId) return;
     options = { ...options, [methodId]: { ...(options[methodId] ?? {}), [id]: on } };
+    const keep = step;
+    build(methodId);
+    this.step = keep;
+  },
+  /** What the open method computes, as shown over its document. */
+  get params(): Record<string, string> { return methodId ? paramsOf(methodId) : {}; },
+  /** Change what the open method computes; the document is rebuilt on the same step. */
+  setParam(id: string, value: string): void {
+    if (!methodId) return;
+    params = { ...params, [methodId]: { ...(params[methodId] ?? {}), [id]: value } };
     const keep = step;
     build(methodId);
     this.step = keep;

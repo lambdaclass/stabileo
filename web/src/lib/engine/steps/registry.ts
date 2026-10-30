@@ -28,6 +28,26 @@ export interface MethodContext {
   selection: { members: number[]; nodes: number[] };
   /** The method's assumptions as the reader set them (see ExplainedMethod.options); absent ones take their default. */
   options?: Record<string, boolean>;
+  /** What the reader chose to compute (see ExplainedMethod.params); absent ones take their default. */
+  params?: Record<string, string>;
+  /** The releases chosen in the force-method wizard on this same model (`force-method/releases.ts`). */
+  fundamental?: string[];
+}
+
+/**
+ * A choice the reader makes above the document, other than an assumption: a
+ * list (`select`), a node of the model (`node`, empty for the selected or the
+ * automatic one) or a number. `when` shows it only for some values of others.
+ * Words: `<labelKey>` and `<labelKey>.help`; a select's values `<labelKey>.<value>`.
+ */
+export interface MethodParam {
+  id: string;
+  kind: 'select' | 'node' | 'number';
+  labelKey: string;
+  values?: string[];
+  default: string;
+  /** Shown only while every condition holds. */
+  when?: Array<{ id: string; in: string[] }>;
 }
 
 /**
@@ -49,6 +69,8 @@ export interface ExplainedMethod {
   wizard?: 'dsm' | 'fm';
   /** Assumptions the reader can switch; the document is rebuilt when one changes. */
   options?: MethodOption[];
+  /** What to compute, when the method computes one of several things. */
+  params?: MethodParam[];
 }
 
 /** An option's value in a context: as set, else its default. */

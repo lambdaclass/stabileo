@@ -9,6 +9,7 @@
   import StepBlocks from './StepBlocks.svelte';
   import StepsHeader from './StepsHeader.svelte';
   import StepFrame from './StepFrame.svelte';
+  import StepParams from './StepParams.svelte';
   import { t, tp } from '../../lib/i18n';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import type { Txt } from '../../lib/engine/steps/doc';
@@ -52,6 +53,7 @@
             {/each}
           </div>
         {/if}
+        <StepParams />
         {#if explainedSteps.stale}
           <div class="sd-stale">
             <span>{t('steps.view.stale')}</span>

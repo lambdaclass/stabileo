@@ -749,9 +749,9 @@ const stepsFr: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Travaux virtuels (charge unitaire)',
-  'steps.m.virtualWork.help': 'Détermine un déplacement en appliquant une charge unitaire au point et dans la direction recherchés. Le déplacement est la somme sur les barres de ∫M·m/EI dx plus N·n·L/EA, avec M et N dus aux charges réelles et m et n dus à la charge unitaire.',
-  'steps.m.virtualWork.requires': 'une structure plane à barres (poutre, portique ou treillis), isostatique ou hyperstatique, sans charges thermiques ni appuis spéciaux.',
-  'steps.m.virtualWork.what': 'Le déplacement d\'un nœud dans une direction s\'obtient par le principe des travaux virtuels : le travail d\'une charge unitaire virtuelle dans le déplacement recherché est égal au travail intérieur de ses efforts virtuels dans les déformations réelles.',
+  'steps.m.virtualWork.help': 'Détermine un déplacement, une rotation, ou un déplacement ou une rotation relatifs entre deux nœuds, en appliquant la charge virtuelle qui travaille sur cette grandeur : une force unitaire, un couple unitaire ou une paire de charges opposées. Le résultat est la somme sur les barres de ∫M·m/EI dx plus N·n·L/EA, plus les ressorts, les tassements et la température s\'il y en a.',
+  'steps.m.virtualWork.requires': 'une structure plane à barres (poutre, portique ou treillis), isostatique ou hyperstatique ; elle peut avoir des ressorts, des tassements et des charges thermiques, sans appuis inclinés.',
+  'steps.m.virtualWork.what': 'La grandeur choisie s\'obtient par le principe des travaux virtuels : le travail d\'une charge virtuelle unitaire (une force, un couple ou une paire de charges opposées) dans le déplacement recherché est égal au travail interne de ses efforts virtuels dans les déformations réelles.',
   'steps.m.virtualWork.s1': 'Point, direction et principe',
   'steps.m.virtualWork.principle': 'Principe des travaux virtuels avec une charge unitaire.',
   'steps.m.virtualWork.principleWhy': 'La charge unitaire et ses efforts m et n forment un système en équilibre ; les courbures M/EI et les déformations axiales N/EA sont les réelles, compatibles avec les appuis. L\'égalité des travaux extérieur et intérieur donne le déplacement.',
@@ -766,7 +766,7 @@ const stepsFr: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Théorèmes de Castigliano',
-  'steps.m.castigliano.help': 'Travaille avec l\'énergie de déformation U. Dans une structure hyperstatique, le second théorème (∂U/∂Xⱼ = 0) donne les inconnues hyperstatiques ; dans une structure isostatique, le premier théorème (δ = ∂U/∂P) donne le déplacement d\'un point, avec une charge fictive Q si aucune n\'y agit.',
+  'steps.m.castigliano.help': 'Travaille avec l\'énergie de déformation U. Dans une structure hyperstatique, le second théorème (∂U/∂Xⱼ = 0) donne les inconnues hyperstatiques ; dans une structure isostatique, le premier (δ = ∂U/∂P) donne le déplacement d\'un point ou, avec un moment fictif, sa rotation, avec une charge fictive Q si aucune n\'y agit.',
   'steps.m.castigliano.requires': 'une poutre ou un portique plan à barres fléchies, sans barres de treillis, charges thermiques ni appuis spéciaux, de degré d\'hyperstaticité modéré.',
   'steps.m.castigliano.whatSecond': 'La structure hyperstatique est résolue par le second théorème de Castigliano : les inconnues hyperstatiques prennent les valeurs qui rendent l\'énergie de déformation stationnaire, car le déplacement selon chacune d\'elles est nul.',
   'steps.m.castigliano.whatFirst': 'Le déplacement d\'un nœud s\'obtient par le premier théorème de Castigliano : la dérivée de l\'énergie de déformation par rapport à une charge est le déplacement de son point d\'application dans sa direction.',

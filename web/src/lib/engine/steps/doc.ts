@@ -60,6 +60,8 @@ export interface StepDoc {
   /** Before step 1: the model, the assumptions, the units. */
   intro: Block[];
   steps: Step[];
+  /** The method's parameters (what to compute) do not apply to this document. */
+  noParams?: boolean;
 }
 
 /** Why a method cannot run on the model, in words. */
