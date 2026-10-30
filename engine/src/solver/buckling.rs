@@ -118,6 +118,42 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n })
 }
 
+/// Symmetric quadratic form `xᵀ A x` for a lower-triangle `CscMatrix`, using
+/// the same summation order as `certify::buckling::quad_form`.
+fn sym_quad_form(a: &CscMatrix, x: &[f64]) -> f64 {
+    let mut acc = 0.0;
+    for j in 0..a.n {
+        let xj = x[j];
+        for p in a.col_ptr[j]..a.col_ptr[j + 1] {
+            let i = a.row_idx[p];
+            let t = a.values[p] * x[i] * xj;
+            acc += if i == j { t } else { t + t };
+        }
+    }
+    acc
+}
+
+/// Physical-coordinate Rayleigh quotient `φᵀ K φ / φᵀ (−K_G) φ` of a candidate
+/// mode `φ` on `(k_solve, kg_solve)`.
+///
+/// On the dense Jacobi path (`C = L⁻¹ (−K_G) L⁻ᵀ`), a member under large tension
+/// puts large negative entries into `−K_G` that `L⁻¹` smears across coupled DOFs in
+/// Cholesky coordinates; cancelling those in `yᵀ C y` perturbs small positive
+/// eigenvalues `μ` by `O(ε_mach · ‖C‖)`. Back in physical coordinates `φ = L⁻ᵀ y`
+/// the mode is localized on the compressed member, so `φᵀ (−K_G) φ` avoids the
+/// cancellation and agrees with the certificate's Rayleigh upper bound.
+fn refined_load_factor(k_solve: &CscMatrix, kg_solve: &CscMatrix, phi_s: &[f64]) -> Option<f64> {
+    let num = sym_quad_form(k_solve, phi_s);
+    let den = sym_quad_form(kg_solve, phi_s);
+    if num > 0.0 && den > 1e-12 * num {
+        let rq = num / den;
+        if rq.is_finite() && rq > 0.0 {
+            return Some(rq);
+        }
+    }
+    None
+}
+
 /// Solve 2D buckling analysis.
 /// Solves K·φ = λ·(-Kg)·φ where Kg is from linear axial forces.
 pub fn solve_buckling_2d(
@@ -156,22 +192,23 @@ pub fn solve_buckling_2d(
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
-    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
+    let mut mode_pairs: Vec<(f64, Vec<f64>)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
         if mu > 1e-12 {
-            let lambda = 1.0 / mu;
-            mode_pairs.push((lambda, idx));
+            let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
+            if let Some(lambda) = refined_load_factor(k_solve, kg_solve, &phi_s) {
+                mode_pairs.push((lambda, phi_s));
+            }
         }
     }
-    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    mode_pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
 
     let mut modes = Vec::new();
-    for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
-        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
+    for (mut lambda, mut phi_s) in mode_pairs.into_iter().take(num_modes) {
         let phi_f = if let Some(ref cs) = cs {
             cs.expand_solution(&phi_s)
         } else {
-            phi_s
+            phi_s.clone()
         };
 
         let mut u_mode = vec![0.0; n];
@@ -185,6 +222,12 @@ pub fn solve_buckling_2d(
         if max_disp > 1e-20 {
             for v in u_mode.iter_mut() {
                 *v /= max_disp;
+            }
+            for v in phi_s.iter_mut() {
+                *v /= max_disp;
+            }
+            if let Some(rq) = refined_load_factor(k_solve, kg_solve, &phi_s) {
+                lambda = rq;
             }
         }
 
@@ -406,21 +449,23 @@ pub fn solve_buckling_3d(
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
-    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
+    let mut mode_pairs: Vec<(f64, Vec<f64>)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
         if mu > 1e-12 {
-            mode_pairs.push((1.0 / mu, idx));
+            let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
+            if let Some(lambda) = refined_load_factor(k_solve, kg_solve, &phi_s) {
+                mode_pairs.push((lambda, phi_s));
+            }
         }
     }
-    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    mode_pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
 
     let mut modes = Vec::new();
-    for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
-        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
+    for (mut lambda, mut phi_s) in mode_pairs.into_iter().take(num_modes) {
         let phi_f = if let Some(ref cs) = cs {
             cs.expand_solution(&phi_s)
         } else {
-            phi_s
+            phi_s.clone()
         };
 
         // Back to global axes at inclined supports before normalizing (as 2D).
@@ -428,6 +473,10 @@ pub fn solve_buckling_3d(
         let max_disp = u_mode.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         if max_disp > 1e-20 {
             for v in u_mode.iter_mut() { *v /= max_disp; }
+            for v in phi_s.iter_mut() { *v /= max_disp; }
+            if let Some(rq) = refined_load_factor(k_solve, kg_solve, &phi_s) {
+                lambda = rq;
+            }
         }
         let displacements = super::linear::build_displacements_3d(&dof_num, &u_mode);
         modes.push(BucklingMode3D { load_factor: lambda, displacements });
