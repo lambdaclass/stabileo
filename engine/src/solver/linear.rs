@@ -1020,7 +1020,15 @@ impl PreparedStatic2D<'_> {
                 mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
             },
         };
-        super::self_checks::residual(&ku, &f)
+        let diagonal = match &self.path {
+            PreparedPath2D::FullyRestrained { .. } => vec![],
+            PreparedPath2D::Solve(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+            PreparedPath2D::Sparse(p) => p.k_ff.diagonal(),
+            PreparedPath2D::Pcg(p) => p.k_ff.diagonal(),
+            PreparedPath2D::SparseDenseLu(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+        };
+        let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
+        super::self_checks::residual_energy(&residual, &f, &diagonal)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
@@ -2613,10 +2621,18 @@ impl PreparedStatic3D {
                 let ku = p.k_full.sym_mat_vec(&u);
                 let residual: Vec<_> = ku[..nf].iter().zip(&f).map(|(k,f)| k-f).collect();
                 for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
-                return super::self_checks::residual_from_difference(&residual, &f);
+                return super::self_checks::residual_energy(&residual, &f, &p.k_full.diagonal()[..nf]);
             },
         };
-        super::self_checks::residual(&ku, &f)
+        let diagonal = match &self.path {
+            PreparedPath3D::FullyRestrained(_) => vec![],
+            PreparedPath3D::Dense(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
+            PreparedPath3D::Sparse(p) => p.k_ff.diagonal(),
+            PreparedPath3D::Pcg(p) => p.k_ff.diagonal(),
+            PreparedPath3D::SparseDenseLu(p) => p.k_full.diagonal()[..nf].to_vec(),
+        };
+        let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
+        super::self_checks::residual_energy(&residual, &f, &diagonal)
     }
 
     fn solve_loads_by_path(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {

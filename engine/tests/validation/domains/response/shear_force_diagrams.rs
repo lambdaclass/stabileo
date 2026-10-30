@@ -268,7 +268,7 @@ fn validation_sfd_internal_hinge() {
         vec![(1, E, 0.3)],
         vec![(1, A, IZ)],
         elems_data,
-        vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
+        vec![(1, 1, "fixed"), (2, n + 1, "rollerX")],
         loads,
     );
     let results = linear::solve_2d(&input).unwrap();

@@ -1450,6 +1450,7 @@ fn forces_to_global(raw: &[(usize, f64)], inclined: &[InclinedDofs]) -> Vec<(usi
 fn map_dof_forces_to_constraint_forces(
     raw: &[(usize, f64)],
     dof_num: &DofNumbering,
+    dimensions: usize,
 ) -> Vec<ConstraintForce> {
     // Build reverse map: global_dof → (node_id, local_dof)
     let mut reverse: HashMap<usize, (usize, usize)> = HashMap::new();
@@ -1462,7 +1463,7 @@ fn map_dof_forces_to_constraint_forces(
 
     raw.iter().filter_map(|&(gdof, force)| {
         reverse.get(&gdof).map(|&(node_id, local_dof)| {
-            let dof_name = if dof_num.dofs_per_node <= 3 {
+            let dof_name = if dimensions == 2 {
                 dof_names_2d.get(local_dof).unwrap_or(&"?")
             } else {
                 dof_names_3d.get(local_dof).unwrap_or(&"?")
@@ -1625,7 +1626,7 @@ pub fn solve_constrained_2d_dense(
     }
 
     // Extract the free part of C (rows for free DOFs only), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 2).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -1680,7 +1681,7 @@ pub fn solve_constrained_2d_dense(
                 definiteness = Some(super::definiteness::not_positive_definite(
                     "constrained CᵀKC: Cholesky failed; solved by dense LU",
                 ));
-                let mut k_work = k_reduced;
+                let mut k_work = k_reduced.clone();
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
                     .ok_or("Singular stiffness in constrained system")?
@@ -1790,7 +1791,7 @@ pub fn solve_constrained_2d_dense(
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
         (reduced_relative_residual(&fcs, &r_full, &f_reduced),
-         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &(0..n_free_indep).map(|i| k_reduced[i*n_free_indep+i]).collect::<Vec<_>>()))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual, &asm.inclined_transforms_2d);
@@ -1838,7 +1839,7 @@ pub fn solve_constrained_2d_dense(
         equilibrium: Some(equilibrium),
         result_summary: None, solver_run_meta: None,
     };
-    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num);
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 2);
     super::self_checks::static_2d(&mut result, &resultant)?;
     Ok(result)
 }
@@ -1931,7 +1932,7 @@ fn solve_constrained_2d_sparse(
         }
     }
 
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 2).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters.
@@ -1989,7 +1990,7 @@ fn solve_constrained_2d_sparse(
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
         (reduced_relative_residual(&fcs, &r_full, &f_reduced),
-         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &k_reduced.diagonal()))
     };
 
     // A factorization that "succeeds" on a mechanism is not a solve: the zero
@@ -2090,7 +2091,7 @@ fn solve_constrained_2d_sparse(
         result_summary: None,
         solver_run_meta: None,
     };
-    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num);
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num, 2);
     super::self_checks::static_2d(&mut result, &resultant)?;
     Ok(Some(result))
 }
@@ -2227,7 +2228,7 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
     }
 
     // Free part of C (rows 0..nf, free-independent columns), sparse.
-    let fcs = FreeConstraintSystem::from_transform(&ct, nf).with_inclined(inclined);
+    let fcs = FreeConstraintSystem::from_transform(&ct, nf, 3).with_inclined(inclined);
     let n_free_indep = fcs.n_free_indep;
 
     // Particular solution: free slaves of restrained (prescribed) masters must
@@ -2373,7 +2374,7 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
             for (r, ku) in r_full.iter_mut().zip(k_ff_up) { *r -= ku; }
         }
         (reduced_relative_residual(&fcs, &r_full, &f_reduced),
-         super::self_checks::residual_from_difference(&fcs.reduce_vector(&r_full), &f_reduced))
+         super::self_checks::residual_energy(&fcs.reduce_vector(&r_full), &f_reduced, &k_reduced.diagonal()))
     };
 
     let equilibrium = linear::compute_equilibrium_summary_3d(&sasm.f, &reactions_vec, &dof_num, rel_residual, &sasm.inclined_transforms);
@@ -2434,7 +2435,7 @@ fn solve_constrained_3d_inner(input: &ConstrainedInput3D) -> Result<AnalysisResu
         timings: None,
         result_summary: None, solver_run_meta: None,
     };
-    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num);
+    let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 3);
     super::self_checks::static_3d(&mut result, &resultant)?;
     Ok(result)
 }
@@ -2464,7 +2465,7 @@ fn get_node_offset(
 // ==================== Reusable Constraint System ====================
 
 fn self_check_constraint_resultant(
-    raw: &[(usize, f64)], ct: &ConstraintTransform, fcs: &FreeConstraintSystem, dofs: &DofNumbering,
+    raw: &[(usize, f64)], ct: &ConstraintTransform, fcs: &FreeConstraintSystem, dofs: &DofNumbering, dimensions: usize,
 ) -> Vec<f64> {
     let mut forces = vec![0.0; dofs.n_total];
     for &(i, force) in raw {
@@ -2481,7 +2482,6 @@ fn self_check_constraint_resultant(
             forces[d] = local.iter().enumerate().map(|(j, f)| frame.r[j][k] * f).sum();
         }
     }
-    let dimensions = if dofs.dofs_per_node <= 3 { 2 } else { 3 };
     let mut totals = vec![0.0; dimensions];
     let mut components = vec![usize::MAX; dofs.n_total];
     for (&(_, component), &d) in &dofs.map {
@@ -2528,6 +2528,7 @@ pub struct FreeConstraintSystem {
     /// Inclined-support frames the transform was built in (constraint
     /// forces there are rotated back to global components).
     inclined: Vec<InclinedDofs>,
+    dimensions: usize,
 }
 
 impl FreeConstraintSystem {
@@ -2541,7 +2542,7 @@ impl FreeConstraintSystem {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_2d(input, dof_num);
         let ct = build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None, &inclined)?;
-        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free, 2).with_inclined(inclined)))
     }
 
     /// Build a constraint system for 3D.
@@ -2549,7 +2550,7 @@ impl FreeConstraintSystem {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_3d(input, dof_num);
         let ct = build_constraint_transform(&input.constraints, dof_num, None, Some(&input.nodes), &inclined)?;
-        Ok(Some(Self::from_transform(&ct, dof_num.n_free).with_inclined(inclined)))
+        Ok(Some(Self::from_transform(&ct, dof_num.n_free, 3).with_inclined(inclined)))
     }
 
     fn with_inclined(mut self, inclined: Vec<InclinedDofs>) -> Self {
@@ -2561,10 +2562,10 @@ impl FreeConstraintSystem {
     /// forces sit on rotated DOFs, so they are turned back to global
     /// components (`Rᵀ f`; the restrained normal's share is in the reaction).
     pub fn constraint_forces(&self, raw: &[(usize, f64)], dof_num: &DofNumbering) -> Vec<ConstraintForce> {
-        map_dof_forces_to_constraint_forces(&forces_to_global(raw, &self.inclined), dof_num)
+        map_dof_forces_to_constraint_forces(&forces_to_global(raw, &self.inclined), dof_num, self.dimensions)
     }
 
-    fn from_transform(ct: &ConstraintTransform, nf: usize) -> Self {
+    fn from_transform(ct: &ConstraintTransform, nf: usize, dimensions: usize) -> Self {
         // Keep only the free-independent columns, remapped to 0..n_free_indep.
         let mut col_map = vec![usize::MAX; ct.n_independent];
         let mut n_free_indep = 0;
@@ -2600,6 +2601,7 @@ impl FreeConstraintSystem {
             nf,
             dependent,
             inclined: Vec::new(),
+            dimensions,
         }
     }
 
@@ -2758,12 +2760,12 @@ mod tests {
                 independent_dofs: (0..n).filter(|&i| i != n - 3).collect(),
                 dependent_dofs: [n - 3].into_iter().collect(),
             };
-            let fcs = FreeConstraintSystem::from_transform(&ct, n).with_inclined(vec![InclinedDofs {
+            let fcs = FreeConstraintSystem::from_transform(&ct, n, 2).with_inclined(vec![InclinedDofs {
                 node_id: nodes - 1, dofs: vec![n - 3, n - 2],
                 r: vec![vec![0.6, 0.8], vec![-0.8, 0.6]],
             }]);
             // Duplicate contributions, a rotated slave, and an unrotated master.
-            let result = self_check_constraint_resultant(&[(n - 3, 6.0), (n - 3, 4.0)], &ct, &fcs, &dofs);
+            let result = self_check_constraint_resultant(&[(n - 3, 6.0), (n - 3, 4.0)], &ct, &fcs, &dofs, 2);
             assert!((result[0] + 4.0).abs() < 1e-12);
             assert!((result[1] - 8.0).abs() < 1e-12);
         }

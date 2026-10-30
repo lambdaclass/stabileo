@@ -403,6 +403,7 @@
 
 
 <div class="pro-res">
+  <ResultChecks />
   <div class="pro-res-header">
     <!--
       Solve lives in the ribbon, once. It was here too — a filled slab at the
@@ -1062,7 +1063,6 @@
       {/if}
 
     </div>
-    <ResultChecks />
   {:else}
     <div class="pro-empty">
       {#if hasModel}

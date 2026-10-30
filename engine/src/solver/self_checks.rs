@@ -15,18 +15,46 @@ fn diagnostic(phase: &str, value: f64, warn: f64, hard: f64) -> Result<Structure
     ).with_value(value, warn).with_phase(&format!("self_check:{phase}")))
 }
 
-pub(super) fn residual(ku: &[f64], f: &[f64]) -> Result<StructuredDiagnostic, String> {
-    let r: Vec<_> = ku.iter().zip(f).map(|(k,f)| k-f).collect();
-    residual_from_difference(&r, f)
-}
-
 pub(super) fn residual_from_difference(r: &[f64], f: &[f64]) -> Result<StructuredDiagnostic, String> {
     if r.iter().chain(f).any(|v| !v.is_finite()) {
         return Err("REFUSE: self-check static_residual: non-finite equation".into());
     }
-    let scale = r.iter().chain(f).fold(1.0_f64, |a,b| a.max(b.abs()));
+    let scale = r.iter().chain(f).fold(0.0_f64, |a,b| a.max(b.abs()));
+    if scale == 0.0 { return diagnostic("static_residual", 0.0, WARN, REFUSE); }
     let norm = |v: &[f64]| v.iter().fold(0.0_f64, |a, b| a.hypot(*b/scale));
-    diagnostic("static_residual", norm(r)/norm(f).max(1e-30/scale), WARN, REFUSE)
+    diagnostic("static_residual", norm(r)/norm(f), WARN, REFUSE)
+}
+
+/// Diagonal energy scaling: force / sqrt(stiffness) has units sqrt(energy),
+/// including moment/rotation, bimoment/warping and MPC generalized equations.
+/// It is invariant to a change of units for any generalized coordinate.
+pub(super) fn energy_scale(diagonal: &[f64]) -> Vec<f64> {
+    diagonal.iter().map(|d| d.abs().sqrt()).collect()
+}
+
+pub(super) fn residual_energy(r: &[f64], f: &[f64], diagonal: &[f64]) -> Result<StructuredDiagnostic, String> {
+    assert_eq!(r.len(), f.len());
+    assert_eq!(r.len(), diagonal.len());
+    if r.iter().chain(f).chain(diagonal).any(|v| !v.is_finite()) {
+        return Err("REFUSE: self-check static_residual: non-finite equation".into());
+    }
+    let scales = energy_scale(diagonal);
+    let scale = |v: &[f64]| v.iter().zip(&scales).map(|(v, s)| {
+        if *s == 0.0 && *v == 0.0 { 0.0 } else { v / s }
+    }).collect::<Vec<_>>();
+    let (sr, sf) = (scale(r), scale(f));
+    if r.iter().chain(f).zip(sr.iter().chain(&sf)).any(|(v, s)|
+        *v != 0.0 && (*s == 0.0 || !s.is_finite())) && scales.iter().all(|s| *s > 0.0) {
+        // Extreme finite unit scales can overflow/underflow before the norm.
+        // Normalize in log space only in that exceptional case.
+        let logs = |v: &[f64]| v.iter().zip(&scales)
+            .map(|(v,s)| v.abs().ln() - s.ln()).collect::<Vec<_>>();
+        let (lr, lf) = (logs(r), logs(f));
+        let peak = lr.iter().chain(&lf).copied().fold(f64::NEG_INFINITY, f64::max);
+        let normalized = |v: &[f64]| v.iter().map(|v| (v-peak).exp()).collect::<Vec<_>>();
+        return residual_from_difference(&normalized(&lr), &normalized(&lf));
+    }
+    residual_from_difference(&sr, &sf)
 }
 
 fn statics(eq: &EquilibriumSummary, reactions: impl Iterator<Item = Vec<f64>>, dimensions: usize, relative_residual: f64) -> Result<Vec<StructuredDiagnostic>, String> {
@@ -78,6 +106,7 @@ pub(super) fn static_3d(r: &mut AnalysisResults3D, constraint_resultant: &[f64])
 pub(super) struct ModalChecks {
     normalized: Vec<Vec<f64>>,
     pub diagnostics: Vec<StructuredDiagnostic>,
+    pub scales: Vec<f64>,
 }
 
 impl ModalChecks {
@@ -88,7 +117,12 @@ impl ModalChecks {
         if !mass.is_finite() || mass <= 0.0 {
             return Err("REFUSE: self-check modal_mass: non-positive modal mass".into());
         }
-        let lm: Vec<_> = m_phi.iter().map(|m| lambda*m).collect();
+        let scaled = |v: &[f64]| v.iter().enumerate().map(|(i, v)| {
+            let s = self.scales.get(i).copied().unwrap_or(1.0);
+            if s == 0.0 && *v == 0.0 { 0.0 } else { v/s }
+        }).collect::<Vec<_>>();
+        let k_phi = scaled(k_phi);
+        let lm = scaled(&m_phi.iter().map(|m| lambda*m).collect::<Vec<_>>());
         if k_phi.iter().chain(&lm).any(|v| !v.is_finite()) {
             return Err("REFUSE: self-check modal_residual: non-finite equation".into());
         }
@@ -119,6 +153,35 @@ impl ModalChecks {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn self_checks_zero_and_tiny_rhs() {
+        residual_from_difference(&[0.0], &[0.0]).unwrap();
+        assert!(residual_from_difference(&[1e-40], &[0.0]).is_err());
+        assert!(residual_from_difference(&[1e-200], &[1e-200]).is_err());
+        residual_from_difference(&[1e-212], &[1e-200]).unwrap();
+        for stiffness in [1e-300, 1.0, 1e300] {
+            assert!(residual_energy(&[1e-200], &[1e-200], &[stiffness]).is_err());
+            assert!(residual_energy(&[1e-200], &[0.0], &[stiffness]).is_err());
+            residual_energy(&[1e-212], &[1e-200], &[stiffness]).unwrap();
+        }
+    }
+
+    #[test]
+    fn self_checks_energy_scaled_rotational_corruption() {
+        // Huge force terms must not mask a rotational equation error. Changing
+        // rotation units scales its force by c and stiffness by c².
+        for c in [1e-6, 1.0, 1e6] {
+            let diagonal = [1e24, c*c];
+            assert_eq!(residual_energy(&[0.0, 1e-5*c], &[1e12, c], &diagonal).unwrap().severity, Severity::Warning);
+            let mut warned = ModalChecks { scales: energy_scale(&diagonal), ..Default::default() };
+            warned.check(&[1.0, 1.0/c], 1.0, &[1e12, (1.0+1e-5)*c], &[1e12, c]).unwrap();
+            assert_eq!(warned.diagnostics[0].severity, Severity::Warning);
+            assert!(residual_energy(&[0.0, 0.01*c], &[1e12, c], &diagonal).is_err());
+            let mut checks = ModalChecks { scales: energy_scale(&diagonal), ..Default::default() };
+            assert!(checks.check(&[1.0, 1.0/c], 1.0, &[1e12, 1.01*c], &[1e12, c]).unwrap_err().contains("modal_residual"));
+        }
+    }
 
     #[test]
     fn self_checks_corrupted_mode_and_duplicate_mode() {

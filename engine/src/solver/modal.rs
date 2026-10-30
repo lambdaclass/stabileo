@@ -180,6 +180,10 @@ pub fn solve_modal_2d(
     };
 
     let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&match &k_check_sparse {
+        Some(k) => k.diagonal(),
+        None => (0..ns).map(|i| k_check_dense[i*ns+i]).collect(),
+    });
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -417,6 +421,7 @@ pub fn solve_modal_3d(
     let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
 
     let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&k_solve.diagonal());
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;

@@ -120,7 +120,7 @@ export interface ReportData {
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
@@ -692,6 +692,9 @@ export function generateReportHtml(data: ReportData): string {
 
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
+      for (const d of adv.modal.structuredDiagnostics ?? []) {
+        if (d.severity !== 'info') html.push(`<p role="alert">${escHtml(d.message)}</p>`);
+      }
       if (adv.modal.totalMass != null) {
         // The engine reports mass in tonnes (kN·s²/m). The label said kg.
         html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 1)} t</p>`);

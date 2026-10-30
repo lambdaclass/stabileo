@@ -58,3 +58,25 @@ it('keeps 100 modal warnings and many cases in closed, bounded details', () => {
   expect(body).toContain('Case 9');
   expect(body.match(/WARN: self-check/g)).toHaveLength(1000);
 });
+
+import ResultChecks from '../../../components/ResultChecks.svelte';
+import { resultsStore, uiStore } from '../../store';
+import type { ModalResult3D } from '../result-types';
+
+it('keeps a warned mode visible in ResultChecks after switching from Advanced to Results', () => {
+  resultsStore.clear();
+  const previousTab = uiStore.proActiveTab;
+  const previousMode = uiStore.analysisMode;
+  resultsStore.setModalResult3D({ modes: [{ frequency: 2, period: 0.5 }], structuredDiagnostics: [diagnostic('warning')] } as ModalResult3D);
+  // Select the PRO workspace as the application does.
+  uiStore.analysisMode = 'pro';
+  uiStore.proActiveTab = 'advanced';
+  uiStore.proActiveTab = 'results';
+  expect(resultsStore.diagramType).toBe('modeShape');
+  const { body } = render(ResultChecks);
+  expect(body).toContain('WARN: self-check modal_residual:1');
+  expect(body).toContain('role="alert"');
+  resultsStore.clear();
+  uiStore.proActiveTab = previousTab;
+  uiStore.analysisMode = previousMode;
+});

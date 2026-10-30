@@ -28,7 +28,8 @@
   ].filter(Boolean).join(' · '));
 
   const cases = $derived([...(is3D ? resultsStore.perCase3D : resultsStore.perCase)]);
-  const checkResults = $derived([...cases.map(([, result]) => result), is3D ? resultsStore.results3D : resultsStore.results]);
+  const checkResults = $derived([...cases.map(([, result]) => result), is3D ? resultsStore.results3D : resultsStore.results,
+    resultsStore.diagramType === 'modeShape' ? (is3D ? resultsStore.modalResult3D : resultsStore.modalResult) : null]);
   const caseLabels = $derived(cases.map(([id]) => modelStore.loadCases.find((c) => c.id === id)?.name ?? `#${id}`));
 
   let open = $state(false);

@@ -44,16 +44,24 @@ The phases are `self_check:static_residual`, `self_check:static_balance`,
 PASS is Info; WARN is Warning and remains visible with a banner; REFUSE returns
 an error before publication. Non-finite metrics always refuse.
 
-* Static: `||Kff uf - (ff - Kfr ur)||2 / ||ff - Kfr ur||2`, using the original
+Residual equations use diagonal energy scaling: `Dii = sqrt(abs(Kii))`, and
+both sides are divided by `Dii` before taking norms. Force, moment and bimoment
+residuals then all have units of square-root energy. The diagonal is from the
+original matrix (the reduced matrix for MPCs), never its factorization. A
+coordinate-unit change scales its generalized force and `Dii` equally. This
+prevents a change between force and moment units from hiding rotational errors.
+
+* Static: `||D^-1 (Kff uf - (ff - Kfr ur))||2 / ||D^-1 (ff - Kfr ur)||2`, using the original
   retained matrix, not a factor or regularized matrix. Inclined global outputs
   are rotated back before checking. Constraint solvers already evaluate
-  `||C^T(Ku-f)|| / ||C^T f||`, accounting for the affine settlement transform.
+  the same energy-scaled ratio on `C^T(Ku-f)` and `C^T f`, accounting for the affine settlement transform.
+  There is no absolute RHS floor: zero RHS passes only an exactly zero residual.
   Warning at `1e-6`, exactly the existing static acceptance tolerance; hard
-  refusal at `1e-3` (one part per thousand unbalanced force). Conditioning does
+  refusal at `1e-3` (one part per thousand in the scaled equation norm). Conditioning does
   not justify loosening this backward-equilibrium requirement: large forward
   displacement error is separately addressed by conditioning and certificates.
 * Static balance uses assembled applied translational force sums and **returned
-  support reactions**, including springs, plus the net MPC reaction. For each dependent force `g`,
+  support reactions**, including springs, plus the net MPC reaction in the explicit spatial dimension (including Z for three-DOF 3D trusses). For each dependent force `g`,
   that resultant is `g` at the dependent DOF minus its `C^T g` transfer at
   independent DOFs, rotated to global axes. This includes an MPC that acts as
   a ground support without double-counting forces transferred to a fixed
@@ -65,7 +73,7 @@ an error before publication. Non-finite metrics always refuse.
   Thresholds remain `1e-6` / `1e-3`. This avoids treating a
   spring reaction omitted by the old summary as a failed solve. It is a force
   check, not yet a moment check or a separate load-assembly implementation.
-* Modal residual: `||K phi - lambda M phi||2 / (||K phi||2 + |lambda| ||M phi||2)`.
+* Modal residual: `||D^-1 (K phi - lambda M phi)||2 / (||D^-1 K phi||2 + |lambda| ||D^-1 M phi||2)`.
   This scale-invariant backward residual does not divide by a potentially tiny
   eigenvalue alone. Both matrices are in the same independent constrained
   coordinates. Warning at `1e-6`, hard refusal at `1e-3`. Lanczos uses `1e-10`
