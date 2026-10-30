@@ -9,7 +9,8 @@
  *    results; the reproduce dialog confirms a report's provenance.
  */
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
+import { OFFERED_LOCALES } from '../src/lib/i18n/offered';
 
 // Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
 const NOTICE_CHUNK = '**/applicability-*.js';
@@ -289,7 +290,7 @@ for (const width of [390, 810]) {
 
 
 for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }]) {
-  for (const locale of ['es', 'pt']) {
+  for (const locale of OFFERED_LOCALES) {
     test(`@smoke scrolls recovery after download and storage failure at ${viewport.width}x${viewport.height} ${locale}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await bootPro(page, locale);
@@ -304,15 +305,49 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }
       await expect(notice.getByRole('alert')).toBeVisible();
       // Hidden overflow can be scrolled programmatically, but not by touch/wheel.
       expect(await notice.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
-      expect(await notice.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
-      await notice.hover();
-      await page.mouse.wheel(0, 2000);
-      await expect.poll(() => notice.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      await expect(notice).toBeInViewport({ ratio: 1 });
+      const overflow = await notice.evaluate(el => el.scrollHeight - el.clientHeight);
+      // Portrait may fit all recovery content. Landscape must exercise real scrolling.
+      if (viewport.height === 390) expect(overflow).toBeGreaterThan(0);
+      if (overflow > 0) {
+        await notice.hover();
+        await page.mouse.wheel(0, -overflow - 1);
+        await expect.poll(() => notice.evaluate(el => el.scrollTop)).toBe(0);
+        await page.mouse.wheel(0, overflow + 1);
+        // scrollHeight/clientHeight are integers; scrollTop can be fractional.
+        await expect.poll(() => notice.evaluate(el =>
+          Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop))).toBeLessThanOrEqual(1);
+      }
+
+      // Use wheel input inside the notice for each target: scrollIntoViewIfNeeded
+      // could mask clipping by scrolling an overflow:hidden ancestor or the page.
+      async function reachInsideNotice(target: Locator) {
+        const geometry = () => target.evaluate(el => {
+          const r = el.getBoundingClientRect();
+          const container = el.closest<HTMLElement>('.rc')!;
+          const c = container.getBoundingClientRect();
+          const top = c.top + container.clientTop;
+          const bottom = top + container.clientHeight;
+          const left = c.left + container.clientLeft;
+          return {
+            contained: r.top >= top && r.bottom <= bottom
+              && r.left >= left && r.right <= left + container.clientWidth,
+            delta: (r.top + r.bottom - top - bottom) / 2,
+          };
+        });
+        const { contained, delta } = await geometry();
+        if (!contained) {
+          await notice.hover();
+          await page.mouse.wheel(0, delta);
+        }
+        await expect.poll(async () => (await geometry()).contained).toBe(true);
+        await expect(target).toBeInViewport({ ratio: 1 });
+      }
 
       const buttons = notice.getByRole('button');
       expect(await buttons.count()).toBe(5); // Three recovery actions and two footer actions.
       for (const button of await buttons.all()) {
-        await button.scrollIntoViewIfNeeded();
+        await reachInsideNotice(button);
         await expect(button).toBeVisible();
         await expect(button).toBeInViewport({ ratio: 1 });
         const bounds = (await button.boundingBox())!;
@@ -328,7 +363,7 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }
         })).toBe(true);
       }
       for (const content of [notice.locator('.rc-intro').last(), notice.getByRole('alert'), notice.locator('footer')]) {
-        await content.scrollIntoViewIfNeeded();
+        await reachInsideNotice(content);
         await expect(content).toBeInViewport({ ratio: 1 });
         expect(await content.evaluate(el => {
           const r = el.getBoundingClientRect();
