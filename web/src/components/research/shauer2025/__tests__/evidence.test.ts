@@ -7,8 +7,13 @@ import { checkMetadata, checkLabel, metricLabel } from '../validation-labels';
 import validation from '../../../../../../research/fracture/shauer-2025/VALIDATION.json';
 import { num } from '../../shell/format';
 
+const csv: Record<number, URL> = {
+  1: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex1_steps.csv', import.meta.url),
+  2: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv', import.meta.url),
+  3: new URL('../../../../../../research/fracture/shauer-2025/reference-results/ex3_steps.csv', import.meta.url),
+};
 function rows(example: number) {
-  const lines = readFileSync(new URL(`../../../../../../research/fracture/shauer-2025/reference-results/ex${example}_steps.csv`, import.meta.url), 'utf8').trim().split(/\r?\n/);
+  const lines = readFileSync(csv[example], 'utf8').trim().split(/\r?\n/);
   const keys = lines.shift()!.split(',');
   return lines.map(line => Object.fromEntries(line.split(',').map((v, i) => [keys[i], Number(v)])));
 }
