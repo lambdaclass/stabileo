@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/lib/engine/__tests__/unit-types.typecheck.ts"]
+  "include": ["src/vite-env.d.ts", "src/lib/engine/__tests__/unit-types.typecheck.ts"]
 }

@@ -185,22 +185,29 @@ Commands are deliberately scoped; use `CARGO_BUILD_JOBS=2` and
   shear-expression bit identity and 288 frame matrix entries (8 matrices ×36) compared
   bit-for-bit, including signed zeros, with the pre-migration kernel captured at the
   surveyed commit in `engine/tests/fixtures/units-frame-stiffness.json`.
-- `npm run test:units:types`: nine `@ts-expect-error` checks plus valid assignments,
+- `npm run test:units:types`: 13 `@ts-expect-error` checks plus valid assignments,
   using `tsconfig.units.json`; unused directives fail the command.
 - Targeted Vitest: `unit-types.test.ts`, `unit-input.test.ts`, `assert-finite-wire.test.ts`.
 - Rebuilt WASM, then `snapshot-basic.test.ts -t '^2d-'`: affected 2D corpus only, using
   the existing results gate without updating snapshots or tolerances. Gate equality is
   at the repository's existing tolerance; bit identity is asserted by the kernel test.
 
-Native verification on this branch: 5 quantity/solver tests, 5 compile-fail doctests,
+Previously recorded native verification on this branch: 5 quantity/solver tests, 5 compile-fail doctests,
 and 17 `core::linear_2d` tests passed; `cargo check --features parallel` passed.
-The TypeScript compiler accepted the positive cases and all 9 negative checks.
+The review-fix TypeScript rerun accepted the positive cases and all 13 negative checks.
 Existing compiler warnings outside this workstream were left unchanged.
 
-Final rebuilt-WASM verification: 26 targeted web tests passed (6 unit-boundary,
+Previously recorded rebuilt-WASM verification: 26 targeted web tests passed (6 unit-boundary,
 12 existing unit-input, 8 existing finiteness tests); the Basic snapshot filter
 passed 18 checks, skipping 7 unrelated cases. No snapshot file or tolerance was
 changed. Thus 48 targeted runtime tests passed in total, plus 18 snapshot checks,
-5 Rust compile-fail checks and 9 TypeScript negative type checks. The frame golden
+5 Rust compile-fail checks and 13 TypeScript negative type checks. The frame golden
 comparison found zero changed bits across 288 coefficients. The conversion index
 is lexical coverage, not a proof that all legacy conversions have been migrated.
+
+The review-fix rerun uses the existing `src/vite-env.d.ts` declarations in
+`tsconfig.units.json`, which are required by the public solver boundary's imports.
+`npm run test:units:types` passed; `npm run typecheck` reported 247 existing errors
+against a baseline of 247, with zero new errors.
+Runtime, snapshot and bundle measurements were not repeated for this documentation
+and typecheck-configuration correction.
