@@ -63,6 +63,58 @@ includes all seven returned DOFs. That checker correction alone does not change
 solver results. Published shape normalization and the certificate proof contract
 remain unchanged: duplicated or missing vectors cannot establish completeness.
 
+## Locking near a near-mechanism
+
+Each converged Ritz pair (μ, v) of the zero-shift operator A = K⁻¹M is locked
+only if it passes two checks: the operator residual ‖Av − μv‖_M ≤ 1e-8·μ and
+the pencil backward error ‖μKv − Mv‖∞ ≤ 1e-10·(μ‖K‖∞ + ‖M‖∞)‖v‖∞. Before
+both, v is M-orthogonally projected against the already locked, M-normalized
+eigenvectors φⱼ, so ⟨φⱼ, v⟩_M = 0.
+
+A is self-adjoint in the M inner product: ⟨φⱼ, Av⟩_M = φⱼᵀMK⁻¹Mv =
+⟨Aφⱼ, v⟩_M = μⱼ⟨φⱼ, v⟩_M = 0. With μ real, ⟨φⱼ, Av − μv⟩_M = 0 too, so the exact
+residual has no component along any locked eigenvector. Any component the
+computed residual carries there is the rounding of the K⁻¹ solve, which is of
+order ε·μ₁ in the locked direction of the largest μ, not of order ε·μ. The
+operator residual is therefore now computed after projecting Av − μv against the
+locked eigenvectors with the same twice-applied M-orthogonal projection used for
+the Lanczos basis. The projection only removes components the exact residual
+does not have; it cannot hide an error in μ or in v's unlocked components,
+because those lie in the M-orthogonal complement it leaves untouched. A wrong
+eigenvalue μ(1+δ) still leaves a residual of |δ|μ along v itself, which is
+M-orthogonal to the locked vectors; the regression perturbs μ by ±1e-7, 1e-6
+and 1e-3 on a 201-coordinate chain with three locked modes and requires each
+to fail the unchanged 1e-8·μ bound, with the residual equal to |δ|μ to 1%. The
+pencil backward-error check is unchanged and is computed on the unprojected
+equation, so the projection does not weaken it.
+
+The stock 8×8 simply supported MITC4 plate shows why this matters. Its in-plane
+rotation about the pinned corner is held only by drilling stiffness
+(λ₁ ≈ 4.28e-9, μ₁ ≈ 2.3e8). Without the projection, K⁻¹ rounding along that
+direction gave the tenth mode (λ = 92,878.47) an operator residual of 3.3e-8
+against a bound of 1.1e-13, although its pencil backward error was about 4e-16.
+The mode never locked, the Sturm count exceeded the locked count, and the solver
+refused 10 or more modes after all 300 restarts. Harmonic analysis then repeated
+the same algorithm through its dense entry point and fell back to the direct
+solve. With the projection both 10 and 50 modes certify in the first round;
+the new gate checks every mode's pencil backward error (worst 9e-15), mass
+orthonormality (worst 9e-16), the Sturm count below and through the boundary,
+and that the harmonic gate on this plate runs `modal+static`. Its amplitudes
+match the direct solve to 3.4e-6 relative (1.2e-9 of the peak); its time went
+from 59 s to 1 s.
+
+The restart loop also refuses after five consecutive rounds that lock nothing,
+instead of spending the full 300-round budget when no new direction can pass
+both checks. A round that locks nothing leaves the Sturm comparison unchanged,
+so only further locking can certify. In the existing suites the one model that
+reaches five such rounds, a 98-DOF fuzz model asked for four 3D modes in the
+determinism test, was already refused: it stalled from round 36 to the 300-round
+limit before, and is now refused at round 22 with 66 directions locked.
+Replaying every engine test's old eigensolver path with both checks evaluated
+found the projection changing a lock decision only on this plate (the gate and
+the harmonic test) and on that refused fuzz model; every other eigensolve locks
+the same vectors in the same order, so its results are bit-identical.
+
 Review-fix validation uses only targeted tests, with CARGO_BUILD_JOBS=2 and
 CARGO_TARGET_DIR=/private/tmp/claude-501/codex-827fix3-target:
 

@@ -793,7 +793,29 @@ fn positive_spectrum_upper_bound(b: &CscMatrix) -> usize {
         .unwrap_or(rank_bound)
 }
 
+const MAX_STALLED_ROUNDS: usize = 5;
+
+fn operator_residual(op: &dyn MatVecOp, v: &[f64], mu: f64, locked: &[(Vec<f64>, Vec<f64>)]) -> f64 {
+    let n = v.len();
+    let mut av = vec![0.0;n]; op.mul_vec(v,&mut av);
+    for i in 0..n { av[i] -= mu*v[i]; }
+    // Exactly zero along locked eigenvectors; unprojected, K⁻¹ rounding there from a near-mechanism mode exceeds 1e-8·μ.
+    project_locked(&mut av, locked);
+    let mut bav = vec![0.0;n]; op.b_mul(&av,&mut bav);
+    dot(&av,&bav)
+}
+
 fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> Option<EigenResult> {
+    sturm_complete_counted(op, a, b, k, params).0
+}
+
+fn sturm_complete_counted(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> (Option<EigenResult>, usize) {
+    let mut rounds = 0;
+    let result = sturm_complete_rounds(op, a, b, k, params, &mut rounds);
+    (result, rounds)
+}
+
+fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams, rounds: &mut usize) -> Option<EigenResult> {
     let n = a.n;
     if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
     // Infinity norms for a scale-independent backward-error check, including
@@ -814,7 +836,10 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
     let mut locked = Vec::new();
     let mut values = Vec::new();
     let mut seed = 12345u64;
+    let mut stalled = 0;
     for _ in 0..params.max_iter {
+        *rounds += 1;
+        let locked_before = locked.len();
         let r = lanczos_deflated(op, k.min(n-locked.len()), true, params, &locked, seed)?;
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
         let nk = r.values.len();
@@ -828,11 +853,7 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
             if !norm.is_finite() || norm < 1e-8 { continue; }
             for x in &mut v { *x /= norm; }
             for x in &mut bv { *x /= norm; }
-            // Validate the original operator after projection, not just its Ritz estimate.
-            let mut av = vec![0.0;n]; op.mul_vec(&v,&mut av);
-            for i in 0..n { av[i] -= mu*v[i]; }
-            let mut bav = vec![0.0;n]; op.b_mul(&av,&mut bav);
-            let residual2 = dot(&av,&bav);
+            let residual2 = operator_residual(op, &v, mu, &locked);
             if !residual2.is_finite() || residual2.max(0.0).sqrt() > 1e-8*mu.abs() { continue; }
             // Also check the original pencil: a semidefinite mass norm alone
             // cannot detect an erroneous displacement in a massless direction.
@@ -848,6 +869,12 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
             }
             if !scale.is_finite() || residual > 1e-10 * scale { continue; }
             locked.push((v,bv)); values.push(1.0/mu);
+        }
+        if locked.len() == locked_before {
+            stalled += 1;
+            if stalled == MAX_STALLED_ROUNDS { return None; }
+        } else {
+            stalled = 0;
         }
         if values.len() < k { continue; }
         let mut order: Vec<_> = (0..values.len()).collect();
@@ -1596,6 +1623,56 @@ mod completeness_tests {
         assert!(r.values.iter().all(|v| (v-1.0).abs() < 1e-10));
         assert!(eigen_failure_message(n).contains("no incomplete modes"));
     }
+    #[test]
+    fn rounds_that_lock_nothing_refuse_before_the_restart_limit() {
+        let n = 120;
+        let ids: Vec<_> = (0..n).collect();
+        let k = CscMatrix::from_triplets(n,&ids,&ids,&(0..n).map(|i| (i+1) as f64).collect::<Vec<_>>());
+        let m = CscMatrix::from_triplets(n,&ids,&ids,&vec![1.0;n]);
+        let not_k = CscMatrix::from_triplets(n,&ids,&ids,&(0..n).map(|i| 2.0*(i+1) as f64).collect::<Vec<_>>());
+        let op = SparseShiftInvertOp::new(&k,&m).unwrap();
+        let params = LanczosParams::default();
+        let (result, rounds) = sturm_complete_counted(&op,&not_k,&m,4,&params);
+        assert!(result.is_none());
+        assert_eq!(rounds, MAX_STALLED_ROUNDS);
+        assert!(rounds < params.max_iter);
+        let (result, rounds) = sturm_complete_counted(&op,&k,&m,4,&params);
+        let values = result.unwrap().values;
+        assert!(values.iter().zip([1.0,2.0,3.0,4.0]).all(|(v,e)| (v-e).abs() < 1e-12*e));
+        assert!(rounds < MAX_STALLED_ROUNDS);
+    }
+
+    #[test]
+    fn projected_operator_residual_still_rejects_a_wrong_eigenvalue() {
+        let n = 201;
+        let h = std::f64::consts::PI / (n+1) as f64;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i); cols.push(i); vals.push(2.0);
+            if i+1 < n { rows.push(i+1); cols.push(i); vals.push(-1.0); }
+        }
+        let k = CscMatrix::from_triplets(n,&rows,&cols,&vals);
+        let ids: Vec<_> = (0..n).collect();
+        let m = CscMatrix::from_triplets(n,&ids,&ids,&vec![1.0;n]);
+        let op = SparseShiftInvertOp::new(&k,&m).unwrap();
+        let mode = |j: usize| {
+            let v: Vec<f64> = (0..n).map(|i| ((i+1) as f64*j as f64*h).sin()).collect();
+            let norm = dot(&v,&v).sqrt();
+            let v: Vec<f64> = v.into_iter().map(|x| x/norm).collect();
+            (v.clone(), v, 1.0/(2.0-2.0*(j as f64*h).cos()))
+        };
+        let locked: Vec<_> = (1..=3).map(|j| { let (v,bv,_) = mode(j); (v,bv) }).collect();
+        let (v, _, mu) = mode(4);
+        let bound = 1e-8*mu;
+        assert!(operator_residual(&op,&v,mu,&locked).sqrt() < 1e-3*bound);
+        for relative in [1e-7, -1e-7, 1e-6, 1e-3] {
+            let wrong = mu*(1.0+relative);
+            let residual2 = operator_residual(&op,&v,wrong,&locked);
+            assert!(residual2.sqrt() > bound, "relative error {relative} accepted");
+            assert!((residual2.sqrt() - relative.abs()*mu).abs() < 1e-2*relative.abs()*mu);
+        }
+    }
+
     #[test]
     fn massless_condensation_keeps_high_modes_and_recovers_coordinates() {
         let a = [1e-10,0.,0.,0., 0.,1e4,0.,0., 0.,0.,1e4,0., 0.,0.,0.,2.];

@@ -973,6 +973,86 @@ fn sparse_modal_parity() {
     }
 }
 
+fn shifted_negative_inertia(k: &dedaliano_engine::linalg::CscMatrix, m: &dedaliano_engine::linalg::CscMatrix, sigma: f64) -> usize {
+    let n = k.n;
+    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+    for (matrix, scale) in [(k, 1.0), (m, -sigma)] {
+        for j in 0..n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+            rows.push(matrix.row_idx[p]); cols.push(j); vals.push(scale * matrix.values[p]);
+        }}
+    }
+    let shifted = dedaliano_engine::linalg::CscMatrix::from_triplets(n, &rows, &cols, &vals);
+    dedaliano_engine::linalg::sparse_chol::sparse_negative_inertia(&symbolic_cholesky(&shifted), &shifted)
+        .expect("K - sigma M factorization refused")
+}
+
+fn infinity_norm(matrix: &dedaliano_engine::linalg::CscMatrix) -> f64 {
+    let mut sums = vec![0.0; matrix.n];
+    for j in 0..matrix.n { for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+        let i = matrix.row_idx[p];
+        sums[i] += matrix.values[p].abs();
+        if i != j { sums[j] += matrix.values[p].abs(); }
+    }}
+    sums.into_iter().fold(0.0, f64::max)
+}
+
+/// Gate: the 8×8 MITC4 plate's in-plane rotation about the pinned corner is
+/// held only by drilling stiffness (λ₁ ≈ 4e-9), so its inverse is ~2e8 and
+/// K⁻¹ rounding along it must not block locking the higher modes.
+#[test]
+fn near_mechanism_plate_modal_is_complete() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let dof_num = DofNumbering::build_3d(&input);
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    assert!(sasm.inclined_transforms.is_empty());
+    let k = &sasm.k_ff;
+    let m = &dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d_sparse(&input, &dof_num, &densities);
+    let n = k.n;
+    let (k_norm, m_norm) = (infinity_norm(k), infinity_norm(m));
+    for requested in [10, 50] {
+        let modal = modal::solve_modal_3d(&input, &densities, requested)
+            .unwrap_or_else(|e| panic!("{requested} modes refused: {e}"));
+        assert_eq!(modal.modes.len(), requested);
+
+        let r = dedaliano_engine::linalg::lanczos_generalized_eigen_sparse(k, m, requested, 0.0)
+            .expect("eigensolve refused");
+        assert_eq!(r.values.len(), requested);
+        assert!(r.values.windows(2).all(|w| w[0] <= w[1]));
+        assert!(r.values[0] > 0.0 && r.values[0] < 1e-6, "near-mechanism eigenvalue {}", r.values[0]);
+        let vectors: Vec<Vec<f64>> = (0..requested)
+            .map(|c| (0..n).map(|i| r.vectors[i * requested + c]).collect()).collect();
+        let m_vectors: Vec<Vec<f64>> = vectors.iter().map(|v| m.sym_mat_vec(v)).collect();
+        let mut worst_backward = 0.0f64;
+        let mut worst_gram = 0.0f64;
+        for (c, v) in vectors.iter().enumerate() {
+            let lambda = r.values[c];
+            let kv = k.sym_mat_vec(v);
+            let v_norm = v.iter().fold(0.0f64, |a, x| a.max(x.abs()));
+            let residual = (0..n).map(|i| (kv[i] - lambda * m_vectors[c][i]).abs()).fold(0.0, f64::max);
+            let backward = residual / ((k_norm + lambda * m_norm) * v_norm);
+            assert!(backward <= 1e-10, "mode {c} (λ={lambda}) backward error {backward:e}");
+            worst_backward = worst_backward.max(backward);
+            for (d, mw) in m_vectors.iter().enumerate() {
+                let gram: f64 = v.iter().zip(mw).map(|(a, b)| a * b).sum();
+                let error = (gram - if c == d { 1.0 } else { 0.0 }).abs();
+                assert!(error <= 1e-8, "VᵀMV[{c},{d}] = {gram}");
+                worst_gram = worst_gram.max(error);
+            }
+        }
+
+        let boundary = r.values[requested - 1];
+        let below = shifted_negative_inertia(k, m, boundary * (1.0 - 1e-6));
+        let returned_below = r.values.iter().filter(|&&v| v < boundary * (1.0 - 1e-6)).count();
+        assert_eq!(below, returned_below, "{requested} modes: an eigenvalue below the boundary cluster was skipped");
+        let through = shifted_negative_inertia(k, m, boundary * (1.0 + 1e-6));
+        assert!(through >= requested, "{requested} modes: Sturm count {through} through the boundary");
+        println!("{requested} modes: λ₁={:e}, λ_k={boundary}, Sturm below/through = {below}/{through}, worst backward {worst_backward:.1e}, worst |VᵀMV−I| {worst_gram:.1e}",
+            r.values[0]);
+    }
+}
+
 /// Gate: Harmonic modal path matches direct path within tolerance.
 #[test]
 fn harmonic_modal_parity() {
@@ -1019,6 +1099,7 @@ fn harmonic_modal_parity() {
     };
     let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
         .expect("Harmonic modal solve failed");
+    assert_eq!(modal_result.method, "modal+static");
 
     // === Direct path (explicit block LU per frequency) ===
     let ns = nf; // no constraints
@@ -1066,10 +1147,12 @@ fn harmonic_modal_parity() {
     // frequencies where amplitudes are very small — use peak amplitude as scale.
     let scale = direct_peak_amp.max(1e-30);
     let mut max_norm_err = 0.0f64;
+    let mut max_rel_err = 0.0f64;
     for (i, &freq) in frequencies.iter().enumerate() {
         let modal_amp = modal_result.response_points[i].amplitude;
         let direct_amp = direct_amps[i];
         let abs_err = (modal_amp - direct_amp).abs();
+        max_rel_err = max_rel_err.max(abs_err / direct_amp.max(1e-30));
         // Normalized error: absolute difference / peak amplitude
         let norm_err = abs_err / scale;
         if norm_err > max_norm_err {
@@ -1080,7 +1163,7 @@ fn harmonic_modal_parity() {
                 freq, modal_amp, direct_amp, norm_err);
         }
     }
-    println!("Max normalized error (vs peak): {:.2e}", max_norm_err);
+    println!("Max normalized error (vs peak): {:.2e}, max relative error: {:.2e}", max_norm_err, max_rel_err);
 
     // 5% of peak amplitude is a tight enough tolerance for modal superposition
     assert!(
