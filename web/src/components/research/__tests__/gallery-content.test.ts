@@ -25,8 +25,9 @@ it('renders citations without empty separators and descriptive leads for every l
     }
   }
 });
-const SECOND_ROUND = new Set(['macneal-harder-1985']);
-it.each(EXPERIMENTS)('$paperId has authors, publication, year and one completed review round', e => {
+/** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'macneal-harder-1985']);
+it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
   expect(b.authors.length).toBeGreaterThan(0);
