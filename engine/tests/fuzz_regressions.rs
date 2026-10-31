@@ -129,6 +129,7 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
 fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
     let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
     assert_eq!(bytes[0] % 20, 7);
+    assert_eq!(bytes[1], b'R');
     serde_json::from_slice(&bytes[2..]).unwrap()
 }
 
@@ -165,7 +166,7 @@ fn exact_pencil_positive(
 
 #[test]
 fn buckling_741_certificate_contains_reported_and_reference_factors() {
-    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate};
+    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal};
     use dedaliano_engine::solver::buckling::buckling_system_3d;
     let input = buckling_741_input();
     let out = certify_buckling_3d(&input, 3).unwrap();
@@ -184,12 +185,13 @@ fn buckling_741_certificate_contains_reported_and_reference_factors() {
     assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
     if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = out.certificate {
         let upper = lambda_upper.unwrap();
-        assert!(lambda_lower <= hi && lo <= upper, "reference [{lo}, {hi}] outside [{lambda_lower}, {upper}]");
+        assert!(lambda_lower <= hi && lo <= upper, "reference [{lo}, {hi}] does not overlap certificate [{lambda_lower}, {upper}]");
         assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lambda_lower));
         assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, upper));
         assert!(lambda_lower <= lambda_computed && lambda_computed <= upper, "reported {lambda_computed} outside [{lambda_lower}, {upper}]");
-    } else if let BucklingCertificate::Uncertified { reason } = out.certificate {
+    } else if let BucklingCertificate::Uncertified { reason, refusal } = out.certificate {
         assert!(reason.contains("exceeds certified upper bound"), "{reason}");
+        assert!(matches!(refusal, Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, .. }) if lambda_computed == out.results.modes[0].load_factor), "{refusal:?}");
     }
 }
 

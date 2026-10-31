@@ -645,7 +645,7 @@ fn certify_buckling_3d_fixtures() {
         }
         let Ok(out) = certify_buckling_3d(&input, 1) else { continue }; // no compression etc.
         match &out.certificate {
-            BucklingCertificate::Uncertified { reason } => eprintln!("{name}: {reason}"),
+            BucklingCertificate::Uncertified { reason, .. } => eprintln!("{name}: {reason}"),
             c => {
                 let (lo, hi) = assert_buckling_enclosure(&name, c);
                 eprintln!("{name}: λ_cr ∈ [{lo:.6e}, {hi:?}]");

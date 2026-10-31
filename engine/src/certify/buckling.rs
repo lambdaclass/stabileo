@@ -45,14 +45,33 @@ pub enum BucklingCertificate {
         /// The solver's computed critical load factor.
         lambda_computed: f64,
     },
-    Uncertified { reason: String },
+    Uncertified {
+        /// English, for logs; the UI translates `refusal` when present.
+        reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        refusal: Option<BucklingRefusal>,
+    },
 }
 
-super::finite::guarded_enum!(BucklingCertificate);
+/// A refusal the UI can state in the reader's language; its `code` is stable across releases.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "code", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum BucklingRefusal {
+    ComputedAboveUpperBound { lambda_computed: f64, lambda_upper: f64 },
+}
+
+impl super::finite::Guarded for BucklingCertificate {
+    fn claims(&self) -> bool {
+        self.is_certified()
+    }
+    fn downgrade(&mut self, reason: String) {
+        *self = BucklingCertificate::uncertified(reason);
+    }
+}
 
 impl BucklingCertificate {
     fn uncertified(reason: impl Into<String>) -> Self {
-        BucklingCertificate::Uncertified { reason: reason.into() }
+        BucklingCertificate::Uncertified { reason: reason.into(), refusal: None }
     }
 
     pub fn is_certified(&self) -> bool {
@@ -225,9 +244,13 @@ pub fn certify_critical_factor_enclosed(
     let lambda_upper = rayleigh_upper(k, kv, n_mat, nv, phi);
     if let Some(upper) = lambda_upper {
         if lambda_hat > upper {
-            return BucklingCertificate::uncertified(format!(
-                "computed load factor {lambda_hat} exceeds certified upper bound {upper}"
-            ));
+            return BucklingCertificate::Uncertified {
+                reason: format!("computed load factor {lambda_hat} exceeds certified upper bound {upper}"),
+                refusal: Some(BucklingRefusal::ComputedAboveUpperBound {
+                    lambda_computed: lambda_hat,
+                    lambda_upper: upper,
+                }),
+            };
         }
     }
 
@@ -386,7 +409,7 @@ mod tests {
     #[test]
     fn constrained_wrong_factor_and_map_refused() {
         let (k, n, cm) = tied();
-        assert!(!certify_constrained_factor(&k, &n, &cm, 3.0, &[0.0, 1.0, 0.0]).is_certified());
+        assert_refused_above_upper(certify_constrained_factor(&k, &n, &cm, 3.0, &[0.0, 1.0, 0.0]), 3.0);
         let bad = ConstraintMap { c: vec![vec![(0, 1.0)]], c_r: vec![vec![]], p: 1, indep_dof: vec![0] };
         assert!(!certify_constrained_factor(&k, &n, &bad, 2.0, &[0.0, 1.0, 0.0]).is_certified());
     }
@@ -396,9 +419,32 @@ mod tests {
         let k = diag(&[4.0, 6.0, 10.0]);
         let n = diag(&[1.0, 3.0, 1.0]);
         for factor in [3.0, 2.0 + 1e-12] {
-            let c = certify_critical_factor(&k, &n, factor, &[0.0, 1.0, 0.0]);
-            let BucklingCertificate::Uncertified { reason } = c else { panic!("{c:?}") };
-            assert!(reason.contains("exceeds certified upper bound"), "{reason}");
+            assert_refused_above_upper(certify_critical_factor(&k, &n, factor, &[0.0, 1.0, 0.0]), factor);
         }
+    }
+
+    fn assert_refused_above_upper(c: BucklingCertificate, factor: f64) {
+        let BucklingCertificate::Uncertified {
+            reason,
+            refusal: Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }),
+        } = &c
+        else {
+            panic!("{c:?}")
+        };
+        assert!(reason.contains("exceeds certified upper bound"), "{reason}");
+        assert_eq!(*lambda_computed, factor);
+        assert!(*lambda_upper < factor, "{c:?}");
+        let wire = serde_json::to_value(&c).unwrap();
+        assert_eq!(wire["status"], "uncertified");
+        assert_eq!(wire["refusal"]["code"], "computedAboveUpperBound");
+        assert_eq!(wire["refusal"]["lambdaComputed"], factor);
+        assert_eq!(wire["refusal"]["lambdaUpper"], *lambda_upper);
+        assert_eq!(serde_json::from_value::<BucklingCertificate>(wire).unwrap(), c);
+    }
+
+    #[test]
+    fn refusal_without_a_code_serializes_without_one() {
+        let wire = serde_json::to_value(BucklingCertificate::uncertified("dimension mismatch")).unwrap();
+        assert_eq!(wire, serde_json::json!({ "status": "uncertified", "reason": "dimension mismatch" }));
     }
 }

@@ -75,13 +75,19 @@ jobs:
           CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -z "$BASE" ]; then
             echo research=true >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          BASE=$(git -C route-main rev-parse HEAD)
-          CHANGED=$(git diff --name-only "$BASE...$CANDIDATE")
+          if ! git fetch --quiet --no-tags ./route-main HEAD \
+            || ! BASE=$(git rev-parse --verify 'FETCH_HEAD^{commit}') \
+            || ! CHANGED=$(git diff --name-only "$BASE...$CANDIDATE"); then
+            echo "::error::Cannot diff $CANDIDATE against the main checkout; the route-size gate cannot classify this change" >&2
+            exit 1
+          fi
           if printf '%s\n' "$CHANGED" | grep -E "$RESEARCH_PATHS" | grep -vE "$NOT_SHIPPED"; then
             echo research=true >> "$GITHUB_OUTPUT"
           else

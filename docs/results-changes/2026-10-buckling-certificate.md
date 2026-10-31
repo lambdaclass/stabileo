@@ -9,10 +9,11 @@ The raw factor is **4691.397553909858**. Before this change it was certified wit
 lower bound **4644.4835783707595** and upper bound **4688.92209616787**, despite
 exceeding the upper bound by **2.475457741988** (about **0.0528%**).
 After the change the raw factor is unchanged, but the certificate is **uncertified**,
-with the computed factor and upper bound in its refusal reason.
+with the computed factor and upper bound in its refusal reason and in a stable
+refusal code (`computedAboveUpperBound`) that the app states in the reader's language.
 
-An independent dense eigenvalue bisection, using exact rational Schur/LDL pivots on
-the f64 assembled pencil, brackets the true first loss of positive definiteness in
+An independent dense eigenvalue bisection, using exact rational unpivoted symmetric
+elimination (an LDLᵀ positivity test) on the f64 assembled pencil, brackets the true first loss of positive definiteness in
 **[4688.920342922211, 4688.920354843140]**. Exact rational checks also confirm positive
 definiteness at the old lower bound and its loss at the old upper bound. Thus the
 old enclosure is sound for this assembled pencil; it is the reported factor that
@@ -72,12 +73,12 @@ The final exact-arithmetic regression passed separately.
 Release validation passed all 4763 tests. `make wasm` succeeded;
 `make test.web.results` passed all 41 tests with no changed result snapshots, so
 none were regenerated. `make check.results-snapshot-gate` and
-`make check.changelog` passed. The project fixture's results stamp moved from 4 to
-5, with only its two pinned content hashes updated; the model and CAD goldens are
+`make check.changelog` passed. The project fixture's results stamp moved from 5 to
+6, with only its two pinned content hashes updated; the model and CAD goldens are
 unchanged. The TypeScript gate reports the existing 247 baseline errors and no new
 errors; the Svelte gate reports no errors in guarded paths.
 
 The final `npx vitest run --project unit` passed 15742 tests, with 14 skipped
 (1263 files passed, 2 skipped). Its first run exposed an empty-model applicability
-notice and an obsolete assertion that version 4 was current; both were corrected,
+notice and an obsolete assertion that version 5 was current; both were corrected,
 with explicit applicability coverage, before this full passing rerun.

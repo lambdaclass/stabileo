@@ -164,7 +164,9 @@
     width: min(640px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
     max-height: calc(100dvh - 48px);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     overflow-wrap: anywhere;
     font-size: 0.75rem;
     padding: 18px;
@@ -174,14 +176,13 @@
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
     outline: none;
   }
-  /* Keep acknowledgement and actions visible while a long change list scrolls. */
+  /* The change list scrolls first; below its floor the notice itself scrolls, so no control is clipped. */
   .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
-  /* Recovery can exceed short viewports: scroll all content, including the footer. */
-  .rc-recovery { overflow-y: auto; overscroll-behavior: contain; }
   .rc-recovery > :global(*) { flex-shrink: 0; }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
   .rc-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rc-list:has(> li) { min-height: 4rem; }
   .rc-item { flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
   .rc-item-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .rc-area { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }

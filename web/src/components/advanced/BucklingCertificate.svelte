@@ -5,9 +5,15 @@
    */
   import { t } from '../../lib/i18n';
   import type { BucklingCertificate } from '../../lib/engine/wasm-solver';
-  import { formatLambda } from '../../lib/utils/certificate-format';
+  import { formatLambda, formatSeparated } from '../../lib/utils/certificate-format';
 
   let { certificate }: { certificate: BucklingCertificate | undefined } = $props();
+
+  function refusalText(c: Extract<BucklingCertificate, { status: 'uncertified' }>): string {
+    if (c.refusal?.code !== 'computedAboveUpperBound') return c.reason;
+    const [computed, upper] = formatSeparated(c.refusal.lambdaComputed, c.refusal.lambdaUpper);
+    return t('certificate.bucklingRefusal.computedAboveUpperBound').replace('{computed}', computed).replace('{upper}', upper);
+  }
 </script>
 
 {#if certificate}
@@ -17,7 +23,7 @@
         .replace('{lower}', formatLambda(certificate.lambdaLower, 'down'))
         .replace('{upper}', formatLambda(certificate.lambdaUpper, 'up'))}
     {:else}
-      {t('certificate.bucklingNotCertified').replace('{reason}', certificate.reason)}
+      {t('certificate.bucklingNotCertified').replace('{reason}', refusalText(certificate))}
     {/if}
   </div>
 {/if}

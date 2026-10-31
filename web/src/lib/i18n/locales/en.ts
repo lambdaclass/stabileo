@@ -12458,6 +12458,7 @@ const en: Record<string, string> = {
   'discretization.refuse.other': "the engine could not refine or re-solve this model (details in the tooltip)",
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certified)',
   'certificate.bucklingNotCertified': 'λ_cr not certified: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'computed load factor {computed} exceeds certified upper bound {upper}',
   'certificate.bucklingTooltip': 'Rigorous enclosure, proved in Lean: the structure is certified stable for every load factor up to the lower value and certified unstable at the upper one.',
   'float.loadFrameGlobalTip': 'The values are along the global axes (Z is the vertical).',
   'float.loadFrameLocalTip': 'The values are along the member\'s local axes.',
