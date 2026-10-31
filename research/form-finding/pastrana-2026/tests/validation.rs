@@ -142,10 +142,16 @@ fn replay_is_generated_by_this_solver() {
         assert_eq!(f.edges, vec![[0, 1], [0, 2], [0, 3], [0, 4]]);
         assert_eq!(f.nodes.len(), 5);
         assert_eq!(f.forces.len(), 4);
-        for (a, b) in f.nodes.iter().flatten().zip(r.nodes.iter().flatten()) {
-            assert!((a - b).abs() < 1e-12);
+        assert_eq!(r.nodes.len(), f.nodes.len());
+        assert_eq!(r.forces.len(), f.forces.len());
+        for (a, b) in f.nodes.iter().zip(&r.nodes) {
+            assert_eq!(a.len(), b.len());
+            for (x, y) in a.iter().zip(b) {
+                assert!((x - y).abs() < 1e-12);
+            }
         }
-        for force in &f.forces {
+        for (force, fresh) in f.forces.iter().zip(&r.forces) {
+            assert!((force - fresh).abs() < 1e-12);
             assert!((force - (8. + (load / 4.).powi(2)).sqrt()).abs() < 1e-12);
         }
         assert!((f.residual - r.residual).abs() < 1e-12);
