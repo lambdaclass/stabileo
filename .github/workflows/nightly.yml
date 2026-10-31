@@ -134,6 +134,9 @@ jobs:
         run: |
           cargo test --release --test certificates -- --ignored --nocapture certify:: certify_plastic_3d::
           cargo test --release --test solver assembly_paths::assembly_paths_agree_large -- --ignored --nocapture
+      - name: Generated buckling certificate invariant (4096 pairs)
+        working-directory: engine
+        run: cargo test --locked --release --test robustness fuzz_regressions::generated_buckling_certificate_invariant_nightly -- --exact --ignored --nocapture
 
   # Metamorphic tests, exhaustive tier (docs/verification/METAMORPHIC.md):
   # the whole corpus and up to 2,000 random models through every analysis, checking

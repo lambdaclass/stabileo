@@ -12295,6 +12295,7 @@ const de: Translations = {
   'discretization.refuse.other': 'der Rechenkern konnte dieses Modell nicht verfeinern oder neu berechnen (Details im Tooltip)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (zertifiziert)',
   'certificate.bucklingNotCertified': 'λ_cr nicht zertifiziert: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'der berechnete Lastfaktor {computed} überschreitet die zertifizierte obere Schranke {upper}',
   'certificate.bucklingTooltip': 'Strenge Einschließung, in Lean bewiesen: Das Tragwerk ist für jeden Lastfaktor bis zum unteren Wert nachweislich stabil und beim oberen Wert nachweislich instabil.',
   'float.loadFrameGlobalTip': 'Die Werte gelten in Richtung der globalen Achsen (Z ist die Vertikale).',
   'float.loadFrameLocalTip': 'Die Werte gelten in Richtung der lokalen Achsen des Stabs.',

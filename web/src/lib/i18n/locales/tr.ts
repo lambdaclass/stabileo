@@ -12303,6 +12303,7 @@ const tr: Translations = {
   'discretization.refuse.other': 'hesap motoru bu modeli sıklaştıramadı veya yeniden çözemedi (ayrıntılar araç ipucunda)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (sertifikalı)',
   'certificate.bucklingNotCertified': 'λ_cr sertifikalı değil: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'hesaplanan yük katsayısı {computed}, sertifikalı üst sınır {upper} değerini aşıyor',
   'certificate.bucklingTooltip': 'Lean ile kanıtlanmış kesin aralık: yapı, alt değere kadar her yük katsayısı için kesinlikle kararlı, üst değerde ise kesinlikle kararsızdır.',
   'float.loadFrameGlobalTip': 'Değerler global eksenler boyuncadır (Z düşeydir).',
   'float.loadFrameLocalTip': 'Değerler çubuğun yerel eksenleri boyuncadır.',

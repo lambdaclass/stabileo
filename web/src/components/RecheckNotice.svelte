@@ -158,12 +158,15 @@
     background: color-mix(in srgb, var(--st-bg) 78%, transparent);
   }
   .rc {
-    width: min(640px, calc(100vw - 32px));
     box-sizing: border-box;
-    max-height: calc(100dvh - 48px);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     overflow-wrap: anywhere;
     font-size: 0.75rem;
     padding: 18px;
@@ -173,27 +176,30 @@
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
     outline: none;
   }
+  /* The change list scrolls first; below its floor the notice itself scrolls, so no control is clipped. */
+  .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
-  /* Recovery can exceed short viewports: scroll all content, including the footer. */
-  .rc-recovery { overflow-y: auto; overscroll-behavior: contain; }
   .rc-recovery > :global(*) { flex-shrink: 0; }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
   .rc-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .rc-item { padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
+  .rc-list:has(> li) { min-height: 4rem; }
+  .rc-item { flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
   .rc-item-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .rc-area { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--st-text-3); }
   .rc-item-title { font-size: 0.78rem; font-weight: 600; color: var(--st-text); }
   .rc-item-text { margin: 4px 0; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
-  .rc-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 0.75rem; color: var(--st-accent, #4a90d9); }
+  .rc-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-size: 0.75rem; color: var(--st-accent, #4a90d9); }
   .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
   .rc-footer { flex-shrink: 0; }
-  .rc-title, .rc-intro { flex-shrink: 0; }
   .rc-ack input { flex-shrink: 0; }
-  .rc-ack { min-height: 44px; display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
+  .rc-ack { min-height: 44px; cursor: pointer; display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .rc-btn, .rc-banner-btn {
     min-height: 44px;
     min-width: 44px;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
     padding: 8px 12px;
     font-size: 0.75rem;
     border-radius: var(--st-radius);

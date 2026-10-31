@@ -932,7 +932,10 @@ export interface MultiCaseCertificate<F = ForceBound2D | ForceBound3D, S = Stati
  */
 export type BucklingCertificate =
   | { status: 'certified'; lambdaLower: number; lambdaUpper: number | null; lambdaComputed: number }
-  | { status: 'uncertified'; reason: string };
+  | { status: 'uncertified'; reason: string; refusal?: BucklingRefusal };
+
+/** A buckling refusal stated by code, so the app can word it in the reader's language. */
+export type BucklingRefusal = { code: 'computedAboveUpperBound'; lambdaComputed: number; lambdaUpper: number };
 
 /** Whether this WASM build carries the certificate exports. */
 export function hasCertifyExport(): boolean {

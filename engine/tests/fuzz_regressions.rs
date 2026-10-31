@@ -125,3 +125,196 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
     assert_eq!(e.error_of(f64::INFINITY), f64::INFINITY);
     assert!(e.error_of(1.5) <= 0.5 + 1e-15);
 }
+
+fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
+    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
+    assert_eq!(bytes[0], 0x07);
+    assert_eq!(bytes[1], b'R');
+    serde_json::from_slice(&bytes[2..]).unwrap()
+}
+
+fn exact_pencil_positive(
+    k: &dedaliano_engine::linalg::sparse::CscMatrix,
+    n: &dedaliano_engine::linalg::sparse::CscMatrix,
+    lambda: f64,
+) -> bool {
+    use num_rational::BigRational;
+    use num_traits::{Zero, Signed};
+    let mut a = vec![vec![BigRational::zero(); k.n]; k.n];
+    for (m, scale) in [(k, BigRational::from_integer(1.into())), (n, -BigRational::from_float(lambda).unwrap())] {
+        for j in 0..m.n {
+            for p in m.col_ptr[j]..m.col_ptr[j + 1] {
+                let i = m.row_idx[p];
+                let v = BigRational::from_float(m.values[p]).unwrap() * &scale;
+                a[i][j] += &v;
+                if i != j { a[j][i] += v; }
+            }
+        }
+    }
+    for j in 0..k.n {
+        if !a[j][j].is_positive() { return false; }
+        for i in j + 1..k.n {
+            for h in i..k.n {
+                let correction = &a[i][j] * &a[h][j] / &a[j][j];
+                a[h][i] -= correction;
+                a[i][h] = a[h][i].clone();
+            }
+        }
+    }
+    true
+}
+
+#[test]
+fn buckling_741_certificate_contains_reported_and_reference_factors() {
+    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+    use dedaliano_engine::solver::buckling::buckling_system_3d;
+    let input = buckling_741_input();
+    let out = certify_buckling_3d(&input, 3).unwrap();
+    let sys = buckling_system_3d(&input).unwrap();
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
+    let (mut lo, mut hi) = (4600.0, 4800.0);
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lo));
+    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, hi));
+    for _ in 0..24 {
+        let mid = (lo + hi) / 2.0;
+        if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, mid) { lo = mid; } else { hi = mid; }
+    }
+    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {:.12}; certificate: {:?}", out.results.modes[0].load_factor, out.certificate);
+    assert!(lo > 4688.9203 && hi < 4688.9204);
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
+    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
+    let factor = out.results.modes[0].load_factor;
+    refusal_741_holds(&out.certificate, factor, &sys, hi).unwrap();
+    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&out.certificate).unwrap();
+    let doctored = |lambda_computed, lambda_upper| BucklingCertificate::Uncertified {
+        reason: "computed load factor exceeds certified upper bound".into(),
+        refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }),
+    };
+    for wrong in [
+        doctored(factor, lo),
+        doctored(factor, factor * 2.0),
+        doctored(lambda_upper, lambda_upper),
+        doctored(factor.next_up(), lambda_upper),
+        BucklingCertificate::Uncertified { reason: "computed load factor exceeds certified upper bound".into(), refusal: None },
+        BucklingCertificate::Certified { lambda_lower: lo, lambda_upper: Some(lambda_upper), lambda_computed: factor },
+    ] {
+        assert!(refusal_741_holds(&wrong, factor, &sys, hi).is_err(), "{wrong:?}");
+    }
+}
+
+fn refusal_of(
+    certificate: &dedaliano_engine::certify::buckling::BucklingCertificate,
+) -> Option<dedaliano_engine::certify::buckling::BucklingRefusal> {
+    match certificate {
+        dedaliano_engine::certify::buckling::BucklingCertificate::Uncertified { refusal, .. } => *refusal,
+        _ => None,
+    }
+}
+
+fn refusal_741_holds(
+    certificate: &dedaliano_engine::certify::buckling::BucklingCertificate,
+    factor: f64,
+    sys: &dedaliano_engine::solver::buckling::BucklingSystem3D,
+    exact_hi: f64,
+) -> Result<(), String> {
+    use dedaliano_engine::certify::buckling::{BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+    let BucklingCertificate::Uncertified { reason, refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }) } = certificate else {
+        return Err(format!("not a computedAboveUpperBound refusal: {certificate:?}"));
+    };
+    if !reason.contains("exceeds certified upper bound") {
+        return Err(format!("reason: {reason}"));
+    }
+    if *lambda_computed != factor {
+        return Err(format!("refusal cites {lambda_computed}, solver reported {factor}"));
+    }
+    if !(*lambda_computed > *lambda_upper) {
+        return Err(format!("{lambda_computed} does not exceed {lambda_upper}"));
+    }
+    if !(*lambda_upper >= exact_hi && *lambda_upper - exact_hi <= 1e-6 * exact_hi) {
+        return Err(format!("upper bound {lambda_upper} is not a tight bound over the exact bracket top {exact_hi}"));
+    }
+    if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, *lambda_upper) {
+        return Err(format!("K - {lambda_upper} N is positive definite in exact arithmetic"));
+    }
+    Ok(())
+}
+
+fn generated_buckling_enclosures(cases: u64) {
+    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand::rngs::StdRng::seed_from_u64(741);
+    let mut certified = [0; 2];
+    let mut refused = [0; 2];
+    let mut errors = [std::collections::BTreeMap::new(), std::collections::BTreeMap::new()];
+    for seed in 0..cases {
+        let mut input = buckling_741_input();
+        for id in 1..=4 {
+            let node = input.nodes.get_mut(&id.to_string()).unwrap();
+            node.x *= rng.gen_range(0.8..1.2);
+            node.y *= rng.gen_range(0.8..1.2);
+            node.z *= rng.gen_range(0.8..1.2);
+        }
+        input.materials.get_mut("1").unwrap().e *= 10f64.powf(rng.gen_range(-2.0..2.0));
+        let mut value = serde_json::to_value(&input).unwrap();
+        value["loads"][0]["data"]["qYI"] = json!(-10f64.powf(rng.gen_range(0.0..10.0)));
+        let input = serde_json::from_value(value).unwrap();
+        let column = serde_json::from_value(json!({
+            "nodes": { "1": { "id": 1, "x": 0, "z": 0 }, "2": { "id": 2, "x": 0, "z": rng.gen_range(1.0..20.0) } },
+            "elements": { "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
+            "materials": { "1": { "id": 1, "e": 10f64.powf(rng.gen_range(3.0..7.0)), "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": rng.gen_range(0.001..0.1), "iz": 10f64.powf(rng.gen_range(-7.0..-3.0)) } },
+            "supports": { "1": { "id": 1, "nodeId": 1, "type": "fixed" } },
+            "loads": [{ "type": "nodal", "data": { "nodeId": 2, "fx": 0, "fz": -10f64.powf(rng.gen_range(-1.0..5.0)), "my": 0 } }]
+        })).unwrap();
+        let outputs = [
+            certify_buckling_2d(&column, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+            certify_buckling_3d(&input, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+        ];
+        for (dimension, output) in outputs.into_iter().enumerate() {
+            match output {
+                Ok((certificate, factor)) => match certificate {
+                    BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } => {
+                        certified[dimension] += 1;
+                        assert_eq!(lambda_computed, factor);
+                        assert!(lambda_lower <= factor, "seed {seed}: {certificate:?}");
+                        if let Some(upper) = lambda_upper {
+                            assert!(factor <= upper, "seed {seed}: {certificate:?}");
+                        }
+                    }
+                    BucklingCertificate::Uncertified { refusal, .. } => {
+                        refused[dimension] += 1;
+                        if let Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }) = refusal {
+                            assert_eq!(lambda_computed, factor, "seed {seed}");
+                            assert!(lambda_computed > lambda_upper, "seed {seed}: {refusal:?}");
+                        }
+                    }
+                },
+                Err(reason) => *errors[dimension].entry(reason).or_insert(0u64) += 1,
+            }
+        }
+    }
+    for dimension in 0..2 {
+        let reached_checker = certified[dimension] + refused[dimension];
+        let solver_errors: u64 = errors[dimension].values().sum();
+        eprintln!(
+            "{}D: {cases} generated, {reached_checker} reached certification, {} certified, {} refused, {solver_errors} solver errors: {:#?}",
+            dimension + 2, certified[dimension], refused[dimension], errors[dimension]
+        );
+        assert_eq!(reached_checker + solver_errors, cases);
+    }
+    assert_eq!(certified[0], cases, "every generated 2D column must certify");
+    assert!(certified[1] > 0, "no generated 3D certificates");
+    assert!(certified[1] + refused[1] >= cases / 8, "too few 3D cases reached certification");
+    assert!(refused[1] > 0, "no generated 3D refusals");
+}
+
+#[test]
+fn generated_buckling_certificate_invariant() {
+    generated_buckling_enclosures(64);
+}
+
+#[test]
+#[ignore]
+fn generated_buckling_certificate_invariant_nightly() {
+    generated_buckling_enclosures(4096);
+}
