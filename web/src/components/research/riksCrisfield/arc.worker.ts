@@ -2,14 +2,7 @@ import { initSolver, solveArcLength } from '../../../lib/engine/wasm-solver';
 import type { ArcInput, BenchmarkFrame } from './benchmark';
 
 type RunMessage = { type: 'run'; runId: number; input: ArcInput; apexNodeId: number; direction: 'downward' | 'upward'; referenceLoad: number };
-type RawStep = { step: number; loadFactor: number; converged: boolean; iterations: number };
-type RawResult = {
-  steps: RawStep[];
-  finalLoadFactor: number;
-  converged: boolean;
-  totalIterations: number;
-  results: { displacements: { nodeId: number; ux: number; uz: number }[] };
-};
+import { validatePrefix, type RawResult } from './worker-validation';
 
 self.onmessage = async (event: MessageEvent<RunMessage>) => {
   const { runId, input, apexNodeId, direction, referenceLoad } = event.data;
@@ -20,11 +13,7 @@ self.onmessage = async (event: MessageEvent<RunMessage>) => {
     for (let k = 1; k <= full.steps.length; k++) {
       const prefix = solveArcLength({ ...input, maxSteps: k }) as RawResult;
       const expected = full.steps[k - 1];
-      const actual = prefix.steps.at(-1);
-      if (!actual || actual.step !== expected.step || Math.abs(actual.loadFactor - expected.loadFactor) > 1e-9 * Math.max(1, Math.abs(expected.loadFactor))) {
-        throw new Error(`Prefix solve disagrees with the full path at step ${k}`);
-      }
-      const byNode = new Map(prefix.results.displacements.map((d) => [d.nodeId, d]));
+      const byNode = validatePrefix(full, prefix, k, nodeIds);
       const apex = byNode.get(apexNodeId);
       if (!apex) throw new Error(`Missing apex displacement at step ${k}`);
       const displacement = -apex.uz;
@@ -36,8 +25,8 @@ self.onmessage = async (event: MessageEvent<RunMessage>) => {
         iterations: expected.iterations,
         converged: expected.converged,
         displacements: nodeIds.flatMap((id) => {
-          const d = byNode.get(id);
-          return [d?.ux ?? 0, d?.uz ?? 0];
+          const d = byNode.get(id)!;
+          return [d.ux, d.uz];
         }),
       };
       self.postMessage({ type: 'frame', runId, frame, total: full.steps.length });

@@ -1215,6 +1215,9 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
 - id: crisfield-1981
   doi: 10.1016/0045-7949(81)90108-5
   crossref:

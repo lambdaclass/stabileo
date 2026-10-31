@@ -1,3 +1,7 @@
+import native from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/native-results.json';
+import validation from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/VALIDATION.json';
+import { nativeReplay } from '../replay';
+import { measuredLimitFrame, compareFrameRun } from '../benchmark';
 import { describe, expect, it } from 'vitest';
 import caseData from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json';
 import { axialRigidity, compareRun, comparisonHeadline, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile } from '../benchmark';
@@ -31,7 +35,7 @@ describe('Riks–Crisfield closed-form benchmark', () => {
     expect(Math.max(...points.map((p) => p[0]))).toBeGreaterThan(limit.displacement);
   });
 
-  it('passes an actual sampled closed-form path', () => {
+  it('does not claim a limit when a sampled path ends at the peak', () => {
     const limit = toggle.reference.upperLimit;
     const run: BenchmarkRun = {
       caseId: toggle.id,
@@ -47,8 +51,10 @@ describe('Riks–Crisfield closed-form benchmark', () => {
     run.frames[0].load = 2 * axialRigidity(toggle) * (1 - Math.hypot(toggle.geometry.halfSpan, toggle.geometry.rise - run.frames[0].displacement) / toggle.geometry.initialLength) * ((toggle.geometry.rise - run.frames[0].displacement) / Math.hypot(toggle.geometry.halfSpan, toggle.geometry.rise - run.frames[0].displacement));
     run.frames[0].loadFactor = run.frames[0].load / toggle.apex.referenceLoad;
     const checks = compareRun(toggle, run);
-    expect(checks.every((check) => check.passed)).toBe(true);
-    expect(comparisonHeadline(checks)).toBe('Stabileo traces the snap-through: 3/3 checks within 5%');
+    expect(checks[0].passed).toBe(false);
+    expect(checks[1].passed).toBe(false);
+    expect(checks[2].passed).toBe(true);
+    expect(checks[0].error).toBeNaN();
   });
 
   it('uses the first load reversal, not later post-snap hardening, as the limit', () => {
@@ -73,4 +79,51 @@ describe('Riks–Crisfield closed-form benchmark', () => {
     expect(checks[0].observed).toBeNaN();
     expect(comparisonHeadline(checks)).toContain('0/3 pass');
   });
+});
+
+it('requires a converged reversal for truncated and failed paths', () => {
+  const c = data.cases[1];
+  const replay = nativeReplay(c);
+  const peak = measuredLimitFrame(replay.frames)!;
+  const i = replay.frames.indexOf(peak);
+  for (const frames of [replay.frames.slice(0, i + 1), replay.frames.slice(0, i + 2).map((f, j) => j === i + 1 ? { ...f, converged: false } : f)]) {
+    const checks = compareRun(c, { ...replay, frames });
+    expect(checks[0].reached).toBe(false);
+    expect(checks[0].error).toBeNaN();
+    expect(checks[1].error).toBeNaN();
+    expect(comparisonHeadline(checks)).not.toContain('100.0%');
+  }
+  expect(compareRun(c, replay).every(c => c.passed)).toBe(true);
+});
+
+it('checks every displayed metric and replay number against native evidence', () => {
+  for (const c of data.cases) {
+    const run = nativeReplay(c);
+    const source = native.cases.find(n => n.id === c.id)!;
+    const summary = validation.caseSummaries.find(n => n.caseId === c.id)!;
+    expect(run.totalIterations).toBe(source.totalIterations);
+    expect(run.finalLoadFactor).toBe(source.finalLoadFactor);
+    expect(run.converged).toBe(source.converged);
+    expect(run.frames).toHaveLength(summary.steps);
+    for (const [i, f] of run.frames.entries()) {
+      const expected = source.frames[i];
+      expect(f.step).toBe(expected.step);
+      expect(f.iterations).toBe(expected.iterations);
+      expect(f.converged).toBe(expected.converged);
+      expect(f.loadFactor).toBe(expected.loadFactor);
+      expect(f.load).toBe(expected.loadFactor * c.apex.referenceLoad);
+      expect(f.displacement).toBe(-expected.displacements.find(d => d.nodeId === c.apex.nodeId)!.uz);
+      expect(f.displacements).toEqual(expected.displacements.toSorted((a,b) => a.nodeId-b.nodeId).flatMap(d => [d.ux,d.uz]));
+      expect(Math.abs(f.loadFactor - (run.frames[i-1]?.loadFactor ?? 0))).toBeLessThanOrEqual(c.input.maxDs / c.apex.referenceLoad + 1e-10);
+    }
+    const checks = c.id === 'shallow-toggle' ? compareFrameRun(c, run) : compareRun(c, run);
+    expect(checks.at(-1)!.error).toBeCloseTo(summary.maxEquilibriumPathError, 12);
+    expect(checks.every(check => check.passed)).toBe(true);
+    if (c.id !== 'shallow-toggle') {
+      expect(checks[0].observed).toBeCloseTo(summary.measuredLimitLoad!, 8);
+      expect(checks[1].observed).toBeCloseTo(summary.measuredLimitDisplacement!, 12);
+      expect(checks[0].error).toBeCloseTo(summary.limitLoadRelativeError!, 12);
+      expect(checks[1].error).toBeCloseTo(summary.limitDisplacementRelativeError!, 12);
+    }
+  }
 });

@@ -63,9 +63,9 @@
         'Spring networks solved in the browser as trusses: the auxetic transition of a disordered lattice, a re-entrant honeycomb and ordered lattices, compared with the paper’s published values.',
     },
     '/research/benchmarks/riks-crisfield': {
-      title: 'Arc-length snap-through: Riks and Crisfield — Stabileo Research',
+      title: 'Arc-length benchmarks: Riks and Crisfield — Stabileo Research',
       description:
-        'Stabileo’s production arc-length solver traces two-bar snap-through paths in the browser, checked against closed-form equilibrium and native Rust results.',
+        'Stabileo’s production arc-length solver follows two two-bar frames past the upper limit point in the browser, checked against analytical equilibrium and native Rust results.',
     },
   };
 
@@ -136,7 +136,7 @@
   }
   .research :global(sub),
   .research :global(sup) {
-    font-size: 0.75em;
+    font-size: max(12px, 0.75em);
     line-height: 0;
   }
 </style>

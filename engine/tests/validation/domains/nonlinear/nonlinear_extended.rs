@@ -286,7 +286,7 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
 //
 // Source: von Mises (1923), Structural stability textbooks
 // Two symmetric bars with initial inclination angle theta,
-// pinned at supports and at the apex.
+// Pinned bases and a rigid apex; the axial reference omits the small bending contribution.
 // Limit load: maximum of the exact engineering-strain equilibrium path
 //   P(h') = 2*EA*(1 - L'/L0)*(h'/L'),  L' = sqrt(s^2 + h'^2)
 // over the deformed rise h' (found by scanning below).
@@ -340,6 +340,13 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
     let apex = result.results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap();
     assert!(apex.uz < 0.0, "Apex should deflect downward, got uy={:.6e}", apex.uz);
+
+    let y = rise + apex.uz;
+    let length = half_span.hypot(y);
+    let beta = y.atan2(half_span) - rise.atan2(half_span);
+    let iz = case["input"]["solver"]["sections"]["1"]["iz"].as_f64().unwrap();
+    let bending = (6.0 * E_EFF * iz * half_span * beta / (l_bar * length * length)).abs();
+    assert!(bending / p_cr < 5e-5, "Frame bending must remain below the reference residual budget");
 
     // Compare corotational deflection with linear
     let lin_res = linear::solve_2d(&input).unwrap();

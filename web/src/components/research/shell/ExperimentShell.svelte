@@ -3,7 +3,7 @@
    * The page of one runnable paper: a header, then two panes. Left, the article (our words: what
    * the paper shows, the model, how we reproduced it, the comparison, limitations, Cite this).
    * Right, sticky, the app: Stabileo's viewer, the controls, the step player, the plots. On narrow
-   * screens the article comes first and the app follows. Badges come from the catalogue, whose
+   * screens the app comes first and the article follows. Badges come from the catalogue, whose
    * statuses CI derives from evidence files.
    */
   import { bibliography } from '../catalogue';
@@ -19,6 +19,8 @@
 
   type Props = {
     paperId: string;
+    citationRelation?: string;
+    contentLocale?: string;
     citationAuthors?: string;
     name: string;
     lead: string;
@@ -38,7 +40,7 @@
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
+  let { citationRelation, contentLocale, paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -60,23 +62,23 @@
         {referenceLabel}
       />
       <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
-      <p class="rs-lead" lang={researchLocale()}>{lead}</p>
+      <p class="rs-lead" lang={contentLocale ?? researchLocale()}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={researchLocale()}>{name}</h1>
+      <h1 lang={contentLocale ?? researchLocale()}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={researchLocale()}>
+      <article class="rs-shell-article rs-prose" lang={contentLocale ?? researchLocale()}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
-          {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
+          {s.citationTitle}{name}{citationRelation ?? s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
       <aside class="rs-shell-app" aria-label={s.theExperiment}>
@@ -108,6 +110,11 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 30rem) and (orientation: landscape) {
+    .sec.rs-shell { padding-top: 1rem; }
+    .rs-shell-head { margin-bottom: 0.5rem; }
+    .rs-shell-head h1 { font-size: 1.5rem; max-width: none; margin: 0.15rem 0 0.25rem; }
   }
   .rs-crumb,
   .rs-cite {
