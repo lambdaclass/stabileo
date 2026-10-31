@@ -91,7 +91,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'dadeppo-arch-1975', path: '/research/benchmarks/dadeppo-arch-1975',
-    name: 'DaDeppo–Schmidt deep arch', hook: 'First version: the production arc-length solver traces a 215° arch through its limit load.',
+    name: 'DaDeppo–Schmidt deep arch', hook: 'A 215° arch, a crown load and the production arc-length solver, checked against the published limit load and crown state.',
     thumbnail: 'research-thumbs/dadeppo-arch-1975.svg', thumbnailAlt: 'Deformed arch from the production solver', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/dadeppo-arch-1975',
   },

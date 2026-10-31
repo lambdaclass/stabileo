@@ -1,5 +1,7 @@
 stage: first-version
-reviews: []
+reviews:
+- {round: 1, reviewers: [codex, kimi], date: "2026-10-30"}
+- {round: 2, reviewers: [kimi, codex, claude], date: "2026-10-30"}
 case: engine/tests/benchmarks/dadeppo_arch.json
 solver: dedaliano_engine::solver::arc_length::solve_arc_length
 browser_solver: web/src/lib/engine/wasm-solver.ts::solveArcLength
@@ -7,7 +9,10 @@ geometry: {radius_m: 1, opening_degrees: 215, elements: 40, crown_node: 20}
 boundaries: {left: fixed, right: pinned}
 load: {type: dead, direction: downward, crown_reference_kN: 1}
 stiffness: {EA_kN: 1000000, EI_kNm2: 1}
-comparison: {quantity: PR2/EI, reference: 8.97, relative_tolerance: 0.01}
+comparison: {quantity: PR2/EI, reference: 8.97, relative_tolerance: 0.006}
+crown_reference: {u_over_R: 0.6116, v_over_R: 1.1372, rotation: 0.0498}
+crown_relative_tolerance: {u_over_R: 0.0011, v_over_R: 0.0007, rotation: 0.04}
+mesh_study: {elements: [20, 40, 80], gci_safety_factor: 1.25, results: results/convergence.json}
 regression: {peak: 9.0112911888175, absolute_tolerance: 0.000001}
 assumptions: [planar, elastic, finite axial stiffness, no contact, no shear deformation]
 environment: {toolchain: rust-toolchain.toml, dependencies: Cargo.lock, web: web/package-lock.json}
