@@ -1,6 +1,8 @@
 /** Build and compare each route's dependency footprint. Run from web/ with --baseline <file> and optional --update.
  * Landing: entry's static closure. /app/*: that closure plus App's static and lazy product
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
+ * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
+ * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
  */
 import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
@@ -43,26 +45,34 @@ try {
   const manifest = JSON.parse(readFileSync(join(outDir, '.vite/manifest.json'), 'utf8'));
   const appEntry = Object.keys(manifest).find((key) => manifest[key].name === 'App');
   if (!appEntry) throw new Error('missing App entry');
-  function footprint(app) {
+  function footprint(app, feature = null) {
     const files = new Set(['index.html']);
     const seen = new Set();
-    function visit(key, lazy = false) {
+    function visit(key, lazy = false, inFeature = false) {
       const visitKey = `${key}:${lazy}`;
       if (seen.has(visitKey)) return;
       seen.add(visitKey);
       const chunk = manifest[key];
       if (!chunk) throw new Error(`missing manifest entry ${key}`);
-      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
-      if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
+      if (!inFeature && toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
+      if (!inFeature && researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
       files.add(chunk.file);
       for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
-      for (const dep of chunk.imports ?? []) visit(dep, lazy);
+      for (const dep of chunk.imports ?? []) visit(dep, lazy, inFeature);
       if (lazy) for (const dep of chunk.dynamicImports ?? []) {
         // Explicit lazy route boundaries are not product dependencies.
         if (!/components\/research\//.test(dep) && !/components\/tools\//.test(dep)) visit(dep, true);
       }
     }
     visit('index.html');
+    if (feature) {
+      const loader = `src/components/${feature}/load-page.ts`;
+      if (!manifest[loader]) throw new Error(`missing manifest entry ${loader}`);
+      visit(loader, false, true);
+      for (const dep of manifest[loader].dynamicImports ?? []) {
+        if (!/load-detail\.ts$/.test(dep)) visit(dep, false, true);
+      }
+    }
     if (app) {
       visit(appEntry, true);
       const loader = Object.keys(manifest).find(key => manifest[key].name === 'load-app');
@@ -81,7 +91,8 @@ try {
   }
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
-    '/app/basic': app, '/app/education': app, '/app/pro': app };
+    '/app/basic': app, '/app/education': app, '/app/pro': app,
+    '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools') };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (process.argv.includes('--update')) {
     writeFileSync(baselinePath, JSON.stringify({ tolerance_bytes: 128, routes: measured }, null, 2) + '\n');

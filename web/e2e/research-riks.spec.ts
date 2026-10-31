@@ -33,7 +33,7 @@ test.describe('@smoke research riks-crisfield', () => {
     await page.locator('#p-rise').blur();
     const app = page.locator('.rs-app');
     await expect(app).toHaveAttribute('data-source', 'live');
-    await expect(app).toHaveAttribute('data-status', 'done', { timeout: 60_000 });
+    await expect(app).toHaveAttribute('data-status', 'done', { timeout: 60_000 }); // slow-ok: The production WASM wrapper completes the 100-step shallow-toggle continuation.
     await expect(app).toHaveAttribute('data-steps', '100');
     await expect(page.locator('.rs-status')).toContainText('Live run complete');
     await page.locator('#rs-tab-path').click();
@@ -47,7 +47,7 @@ test.describe('@smoke research riks-crisfield', () => {
     await page.getByRole('button', { name: 'Open in the editor', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/basic#code=/);
     await page.goto(page.url().replace('#', '?e2e=1#'));
-    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 10_000 });
     const model = await page.evaluate(() => ({ nodes: window.__stabileo.nodeIds().length, elements: window.__stabileo.elementIds().length }));
     expect(model).toEqual({ nodes: 3, elements: 2 });
   });

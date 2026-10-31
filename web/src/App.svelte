@@ -563,16 +563,14 @@
   const initialPublicRoute = routeKind();
   let showLanding = $state(initialPublicRoute.kind === 'landing');
   let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
-  let experiment = $state<import('svelte').Component<{ path: string }> | null>(null);
   let showPaper = $state(initialPublicRoute.kind === 'paper');
-  let paper = $state<import('svelte').Component<{ path: string }> | null>(null);
+  let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
   $effect(() => {
-    if (showLanding || showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
+    if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
   $effect(manualPublicScrollRestoration);
   $effect(() => { if (routeKind().kind !== 'app') void syncRouteState(); });
-  let blog = $state<import('svelte').Component<{ path: string }> | null>(null);
   let showBlog = $state(initialPublicRoute.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(initialPublicRoute.path);
@@ -609,9 +607,7 @@
     try {
       const page = await loadPublicPage(location.href);
       if (token !== publicRevision) return;
-      if (next.kind === 'research' || next.kind === 'tools') experiment = page;
-      if (next.kind === 'paper') paper = page;
-      if (next.kind === 'blog') blog = page;
+      publicPage = page;
     } catch (error) {
       console.error('Public navigation failed', error);
       return;
@@ -1401,25 +1397,12 @@
 
 {#if showLanding || showBlog || showExperiment || showPaper}
   <SiteHeader path={blogPath} />
-{/if}
-
-{#if showExperiment}
-  {#if experiment}
-    {@const Experiment = experiment}
-    <Experiment path={blogPath} />
-  {:else}<PublicPending kind="research" />{/if}
-{:else if showPaper}
-  {#if paper}
-    {@const Paper = paper}
-    <Paper path={blogPath} />
-  {:else}<PublicPending kind="paper" />{/if}
-{:else if showBlog}
-  {#if blog}
-    {@const Blog = blog}
-    <Blog path={blogPath} />
-  {:else}<PublicPending kind="blog" />{/if}
-{:else if showLanding}
-  <LandingPage />
+  {#if showLanding}
+    <LandingPage />
+  {:else if publicPage}
+    {@const Page = publicPage}
+    <Page path={blogPath} />
+  {:else}<PublicPending kind={routeKind().kind} />{/if}
 {/if}
 
 {#snippet autosavePrompt()}

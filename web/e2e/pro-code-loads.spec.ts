@@ -210,7 +210,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       await page.getByTestId('al-wind-service-v50').fill('40');
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
-      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
       const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
       const wind = names.filter((n) => /^Wind /.test(n) && /case/.test(n));
       expect(wind.length).toBeGreaterThan(0);
@@ -225,7 +225,7 @@ test.describe('@smoke story drift is checked on the seismic cases', () => {
     await openWithSeismic(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
-    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('res-tab-drift').click();
@@ -290,7 +290,7 @@ test.describe('@smoke the project states its own combination rules', () => {
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
-    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     await expect.poll(() => page.evaluate(() => window.__stabileo.modelCensus().combinations)).toBe(typed + 1);
   });
 });
@@ -307,7 +307,7 @@ test.describe('@smoke snow from CIRSOC 104', () => {
     await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
-    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names.some((n) => /^Balanced snow/.test(n))).toBe(true);
   });

@@ -7,8 +7,8 @@ import { test, expect, loadModel, solveModel, openDeskStage, deskTab, leaveDesig
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-test.describe('@smoke design desk', () => {
-  test('design everything, open a member, lock it, redesign around it', async ({ pro: page }) => {
+test.describe('design desk', () => {
+  test('@slow design everything, open a member, lock it, redesign around it', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await openDeskStage(page);
@@ -45,7 +45,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.getByTestId('design-desk')).toHaveCount(0);
   });
 
-  test('the frame editor: a beam line as bars along it, edited, checked and saved', async ({ pro: page }) => {
+  test('@slow the frame editor: a beam line as bars along it, edited, checked and saved', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await openDeskStage(page);
@@ -89,7 +89,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.getByTestId('frame-state')).toHaveText(/Saved|Guardado/);
   });
 
-  test('the column editor: a stack by level, its interaction curves, its breakdown', async ({ pro: page }) => {
+  test('@slow the column editor: a stack by level, its interaction curves, its breakdown', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await openDeskStage(page);
@@ -112,7 +112,7 @@ test.describe('@smoke design desk', () => {
     if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
   });
 
-  test('the wall, slab and joist tabs open on a frame with none, and say so', async ({ pro: page }) => {
+  test('@smoke the wall, slab and joist tabs open on a frame with none, and say so', async ({ pro: page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await loadModel(page, 'rc-design-qa-8');
@@ -134,7 +134,7 @@ test.describe('@smoke design desk', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a steel frame: its members checked by CIRSOC 301 and shown with their utilisation', async ({ pro: page }) => {
+  test('@slow a steel frame: its members checked by CIRSOC 301 and shown with their utilisation', async ({ pro: page }) => {
     await loadModel(page, '3d-nave-industrial');
     await solveModel(page);
     await openDeskStage(page);
@@ -171,7 +171,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.getByTestId('desk-inspector'), 'an incomplete steel section names its notice').toContainText('D122');
   });
 
-  test('a steel I member: rolled or welded is declared on its section, never read off the catalogue', async ({ pro: page }) => {
+  test('@slow a steel I member: rolled or welded is declared on its section, never read off the catalogue', async ({ pro: page }) => {
     await loadModel(page, '3d-nave-industrial');
     await solveModel(page);
     await openDeskStage(page);
@@ -195,7 +195,7 @@ test.describe('@smoke design desk', () => {
     await expect(page.getByTestId('steel-sheet-fabrication')).toHaveCount(0);
   });
 
-  test('a project reopened with its bars is checked again when the desk opens on its analysis', async ({ pro: page }) => {
+  test('@smoke a project reopened with its bars is checked again when the desk opens on its analysis', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await page.evaluate(() => window.__stabileoActions.designAll());
@@ -203,7 +203,7 @@ test.describe('@smoke design desk', () => {
     expect(await page.evaluate((f) => window.__stabileoActions.loadProject(f), file)).toBe(true);
     await solveModel(page);
     await openDeskStage(page);
-    await expect(page.locator('[data-testid^="desk-row-"]').first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-testid^="desk-row-"]').first()).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('desk-filter-ok')).not.toHaveText(/ 0$/);
   });
 });

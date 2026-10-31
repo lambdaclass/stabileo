@@ -17,7 +17,7 @@ async function openMethod(page: Page, id: 'dsm' | 'fm') {
   await page.getByTestId(`steps-open-${id}`).click();
 }
 
-test.describe('@smoke the flexibility-method walkthrough', () => {
+test.describe('@slow the flexibility-method walkthrough', () => {
   test('a portal frame: nine steps, three redundants, and the stiffness method agrees', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
@@ -71,7 +71,7 @@ async function loadExample(page: import('@playwright/test').Page, name: string) 
     .__stabileoActions.loadExample(n), name);
 }
 
-test.describe('@smoke both walkthroughs: back, matrix view, isostatic, 3D', () => {
+test.describe('@slow both walkthroughs: back, matrix view, isostatic, 3D', () => {
   test('an isostatic beam walks all nine steps, and says why each is empty', async ({ page }) => {
     test.setTimeout(120_000);
     await loadExample(page, 'simply-supported');

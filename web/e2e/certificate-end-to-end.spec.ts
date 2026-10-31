@@ -7,7 +7,7 @@ import { test, expect } from './fixtures';
 test.describe('@smoke end-to-end certificate', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
   });
 
   // 2D only: with the 3D examples tried (3d-portal-frame, 3d-cantilever-load) the 3D results
@@ -23,11 +23,11 @@ test.describe('@smoke end-to-end certificate', () => {
       // The results panel (where the certificate is shown) opens with a diagram.
       await page.getByTestId('rb-cmd-deformed').first().click();
       // Folded under the results table, closed while nothing warns.
-      await expect(page.getByTestId('result-checks-toggle')).toContainText('certified', { timeout: 60_000 });
+      await expect(page.getByTestId('result-checks-toggle')).toContainText('certified', { timeout: 45_000 });
       await page.getByTestId('result-checks-toggle').click();
-      await expect(page.getByTestId('certificate-status')).toContainText('Certified', { timeout: 60_000 });
+      await expect(page.getByTestId('certificate-status')).toContainText('Certified', { timeout: 45_000 });
       const line = page.getByTestId('certificate-e2e');
-      await expect(line).toBeVisible({ timeout: 60_000 });
+      await expect(line).toBeVisible({ timeout: 45_000 });
       await expect(line).toContainText('Checked end to end');
       await expect(line).toContainText('independent re-assembly');
       expect(errors).toEqual([]);

@@ -45,7 +45,7 @@ async function openWorkspace(page: Page) {
   await generate.click();
   await expect
     .poll(() => page.evaluate(() => (window.__stabileo as unknown as
-      { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
+      { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 })
     .toBeGreaterThan(0);
 
   const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
@@ -56,7 +56,7 @@ async function openWorkspace(page: Page) {
   await page.getByTestId('doc-3d').click();
   await expect(page.getByTestId('rebar-workspace')).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 })
+    .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 }) // slow-ok: Shared helper waits for live detailing and 3-D scene construction; smoke still has a 45 s total budget.
     .toBeGreaterThan(before);
 }
 

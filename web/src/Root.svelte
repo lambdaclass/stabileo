@@ -35,7 +35,7 @@
 
   let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
-  $effect(() => idlePrefetchPublicPages());
+  $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
   $effect(manualPublicScrollRestoration);
 
   function loadApp() {

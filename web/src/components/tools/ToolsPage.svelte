@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toolReviewLabel } from "./reviews";
   import './register-i18n';
   import { batchTool as BatchTool, toolViewer as ToolViewer } from './load-detail';
   import LandingFooter from '../landing/LandingFooter.svelte';
@@ -73,7 +74,7 @@
       <div class="tool-layout">
         <header class="tool-intro">
           <p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p>
-          <span class="badge">{t('tools.firstVersion')}</span>
+          <span class="badge">{t('tools.firstVersion')} · {toolReviewLabel('tools-batch-1', publicI18n.locale)}</span>
           <h1>{title}</h1>
           <p class="lead">{t(`tools.${id}.subtitle`)}</p>
         </header>
@@ -150,7 +151,7 @@
         {#each [...TOOL_IDS, ...BATCH_IDS] as tool}
           <li class="tool-card">
             <PublicLink to={`/tools/${tool}`} class="preview" aria-label={t(`tools.${tool}`)}><ToolPreview id={tool} /></PublicLink>
-            <div class="card-body"><span class="badge">{t('tools.firstVersion')}</span><h2><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></h2><p>{t(`tools.${tool}.subtitle`)}</p><PublicLink to={`/tools/${tool}`} class="btn btn-primary btn-sm">{t('tools.openTool')} ↗</PublicLink></div>
+            <div class="card-body"><span class="badge">{t('tools.firstVersion')} · {toolReviewLabel(BATCH_IDS.some(id => id === tool) ? 'tools-batch-2' : 'tools-batch-1', publicI18n.locale)}</span><h2><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></h2><p>{t(`tools.${tool}.subtitle`)}</p><PublicLink to={`/tools/${tool}`} class="btn btn-primary btn-sm">{t('tools.openTool')} ↗</PublicLink></div>
           </li>
         {/each}
       </ul>
