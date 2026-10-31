@@ -449,6 +449,7 @@
     color: var(--st-text-3);
     pointer-events: none;
   }
+  .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
   .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
   .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {

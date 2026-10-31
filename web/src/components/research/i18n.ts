@@ -1880,7 +1880,7 @@ export function rs(): ResearchStrings {
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
-  de: { optimization: 'Optimierung' }, fr: { optimization: 'Optimisation' }, tr: { optimization: 'Optimizasyon' },
+  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },

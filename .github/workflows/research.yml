@@ -189,6 +189,8 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
       - run: nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
+      - name: CQC 1981 shared constants match the independent closed form
+        run: python3 research/benchmarks/cqc-1981/reference.py
       - name: Compute native results from the engine-owned cases
         run: MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
       - name: Compare the page runner through the production WASM wrapper

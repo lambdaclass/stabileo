@@ -26,7 +26,7 @@ it('renders citations without empty separators and descriptive leads for every l
   }
 });
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'cqc-1981', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
 const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
