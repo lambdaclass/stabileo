@@ -8,6 +8,8 @@
    */
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { PUBLIC_LOCALES } from '../../lib/i18n/offered';
+  import { supportsResearchRoute } from './locales';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -71,7 +73,7 @@
 
   $effect(() => {
     const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : PAGES[route];
-    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
+    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route, written: PUBLIC_LOCALES.filter((l) => supportsResearchRoute(route, l)) });
     return () => restorePageMeta();
   });
   const s = $derived(rs());
