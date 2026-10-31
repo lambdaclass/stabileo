@@ -3,7 +3,7 @@
 /// Tests the corotational solver against classic large-displacement problems:
 ///   1. Williams toggle frame — snap-through detection
 ///   2. Cantilever large rotation — 45 deg tip rotation under end moment
-///   3. Lee frame — L-shaped frame, large displacement response
+///   3. L-shaped cantilever frame — large displacement response (not Lee's pinned frame)
 ///   4. Fixed-fixed arch — symmetric buckling, snap-through limit load
 ///   5. Shallow arch — rise/span ratio effect on critical load
 ///   6. Elastica comparison — cantilever under end load vs exact elastica
@@ -202,18 +202,14 @@ fn validation_corotational_ext_cantilever_large_rotation() {
 }
 
 // ================================================================
-// 3. Lee Frame — L-Shaped Frame, Large Displacement Response
+// 3. L-Shaped Cantilever Frame, Large Displacement Response
 // ================================================================
 //
-// Source: Lee, Manuel & Rossow (1968), also used in Crisfield
-// L-shaped frame: vertical column + horizontal beam, fixed at base.
-// Point load at free tip. The frame undergoes large displacements.
-//
-// Geometry: Column height H, beam length L, both same section.
-// Load at free tip of horizontal beam (vertical or horizontal).
+// A generic smoke test, not Lee's frame: fixed base, free tip. Lee's pinned frame is
+// engine/tests/benchmarks/lee_frame.json.
 
 #[test]
-fn validation_corotational_ext_lee_frame() {
+fn validation_corotational_ext_l_frame_cantilever() {
     let h_col = 3.0; // column height
     let l_beam = 3.0; // beam length
     let a = 0.01;
@@ -259,7 +255,7 @@ fn validation_corotational_ext_lee_frame() {
     );
 
     let result = corotational::solve_corotational_2d(&input, 80, 1e-5, 15, false).unwrap();
-    assert!(result.converged, "Lee frame should converge");
+    assert!(result.converged, "L-frame cantilever should converge");
 
     let tip = result.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
@@ -269,7 +265,7 @@ fn validation_corotational_ext_lee_frame() {
     // Tip should deflect downward significantly
     assert!(
         tip.uz < 0.0,
-        "Lee frame tip should deflect downward, got uy={:.6e}", tip.uz
+        "L-frame cantilever tip should deflect downward, got uy={:.6e}", tip.uz
     );
 
     // The corner should also show some lateral displacement (sway)
@@ -298,7 +294,7 @@ fn validation_corotational_ext_lee_frame() {
     // Ratio should be in reasonable range (0.5 to 2.0) — exact value depends on load level
     assert!(
         ratio > 0.3 && ratio < 3.0,
-        "Lee frame corot/linear ratio={:.4}, should be reasonable", ratio
+        "L-frame cantilever corot/linear ratio={:.4}, should be reasonable", ratio
     );
 }
 

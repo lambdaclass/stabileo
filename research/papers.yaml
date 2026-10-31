@@ -1104,9 +1104,12 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
-  - Pinned Lee frame, first limit point (provisional reference)
+  - Pinned Lee frame, first sampled peak with mesh and step study, against a by-eye reading of de Souza et al. (2020) Figure 10
   implementation: benchmarks/lee-frame-1968
   contacts: []
 - id: dadeppo-arch-1975
